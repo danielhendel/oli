@@ -1,0 +1,22 @@
+name: Infra CI
+on:
+  push:
+    paths: [ "infra/**", ".github/workflows/infra-ci.yml" ]
+  pull_request:
+    paths: [ "infra/**", ".github/workflows/infra-ci.yml" ]
+
+jobs:
+  tf-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+      - name: Terraform version
+        run: terraform -v
+      - name: Validate
+        working-directory: infra
+        run: |
+          terraform init -backend=false
+          terraform validate
