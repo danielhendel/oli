@@ -22,24 +22,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Authenticate via WIF (access token flow) — NO 'audience' here.
       - id: auth
-        name: Auth with GCP via WIF (ID token for Cloud Run)
+        name: Auth with GCP via WIF (access token)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: ${{ env.SA_EMAIL }}
-          token_format: 'id_token'
-          audience: ${{ env.SERVICE_URL }}
+          create_credentials_file: true
+          export_environment_variables: true
 
-      - name: Run OIDC health probe
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Mint ID token with correct Cloud Run audience and probe /healthz
+      - name: Run OIDC health probe (gcloud -> Cloud Run)
         env:
-          ID_TOKEN: ${{ steps.auth.outputs.id_token }}
           SERVICE_URL: ${{ env.SERVICE_URL }}
+          SA_EMAIL: ${{ env.SA_EMAIL }}
         run: |
           set -euo pipefail
-          echo "Probing ${SERVICE_URL}/healthz with OIDC ID token..."
-          code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${ID_TOKEN}" \
+          echo "Minting ID token for audience: ${SERVICE_URL}"
+          TOKEN="$(gcloud auth print-identity-token \
+            --impersonate-service-account="${SA_EMAIL}" \
+            --audiences="${SERVICE_URL}")"
+
+          echo "Probing ${SERVICE_URL}/healthz ..."
+          code="$(curl -sS --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${TOKEN}" \
             -H "Accept: application/json" \
             "${SERVICE_URL}/healthz")"
           echo "HTTP ${code}"
