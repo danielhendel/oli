@@ -11,31 +11,36 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # required for WIF
+      id-token: write  # required for Workload Identity Federation
     env:
       SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
       SA_EMAIL: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
+
     steps:
       - uses: actions/checkout@v4
 
-      # 1) Auth to GCP via WIF, obtain an ACCESS TOKEN for the SA
+      # 1) WIF: obtain short-lived SA credentials (ADC is set via env)
       - id: auth
-        name: Auth with GCP via WIF (access token)
+        name: Auth with GCP via WIF (access token flow)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: ${{ env.SA_EMAIL }}
           create_credentials_file: true
           export_environment_variables: true
-          # NOTE: default token_format is "access_token" (what we want)
 
-      # 2) Mint an ID token for the Cloud Run audience via IAMCredentials API
+      # 2) Install gcloud (to print access token cleanly)
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # 3) Use ACCESS TOKEN to mint an ID token for Cloud Run audience
       - name: Generate ID token for Cloud Run
         id: mint
         run: |
           set -euo pipefail
-          ACCESS_TOKEN="${{ steps.auth.outputs.access_token }}"
-          # Use IAMCredentials API to generate an ID token with our SERVICE_URL as audience
+          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          if [[ -z "${ACCESS_TOKEN}" ]]; then
+            echo "Failed to obtain access token from gcloud"; exit 1
+          fi
           resp="$(curl -sS -X POST \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/json" \
@@ -46,7 +51,7 @@ jobs:
           echo "::add-mask::$ID_TOKEN"
           echo "id_token=$ID_TOKEN" >> "$GITHUB_OUTPUT"
 
-      # 3) Probe /healthz with the minted ID token
+      # 4) Probe /healthz with the minted ID token
       - name: Run OIDC health probe (direct)
         run: |
           set -euo pipefail
