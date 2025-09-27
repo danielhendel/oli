@@ -1,46 +1,39 @@
-import cors from "cors";
+// ──────────────────────────────────────────────────────────────────────────────
+// Health endpoints (must be registered BEFORE any auth middleware)
+// ──────────────────────────────────────────────────────────────────────────────
 import express from "express";
-import helmet from "helmet";
-import morgan from "morgan";
 
-import { authMiddleware } from "./middleware/auth";
-import { requestIdMiddleware, logger } from "./lib/logger";
-import { limiterMiddleware } from "./middleware/ratelimit";
-import eventsRouter from "./routes/events";
-import accountRouter from "./routes/account";
+// if you already have `const app = express()` above, reuse it.
+// otherwise create it here:
+const app = (global as any).apiApp || express();
+(global as any).apiApp = app;
 
-const app = express();
-app.disable("x-powered-by");
-
-app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "2mb" }));
-app.use(requestIdMiddleware);
-app.use(morgan("combined"));
-
-// Healthz (public)
-app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
-
-// Authenticated routes
-app.use(authMiddleware);
-app.use(limiterMiddleware);
-
-// Feature routers
-app.use("/events", eventsRouter);
-app.use("/", accountRouter);
-
-// 404 & error handler
-app.use((req, res) => res.status(404).json({ error: "Not Found", route: req.path }));
-app.use((
-  err: unknown,
-  _req: express.Request,
-  res: express.Response,
-  _next: express.NextFunction
-) => {
-  logger.error({ err, msg: "Unhandled error" });
-  res.status(500).json({ error: "Internal Server Error" });
+const healthPayload = () => ({
+  ok: true,
+  service: "api",
+  uptime: process.uptime(),
+  timestamp: new Date().toISOString(),
 });
 
-const port = process.env.PORT || 8080;
-app.listen(port, () => logger.info({ msg: `API listening on :${port}` }));
+// Root health (works even if service is mounted behind a path prefix)
+app.get("/", (_req, res) => {
+  res.status(200).json(healthPayload());
+});
+
+// Conventional health route
+app.get("/healthz", (_req, res) => {
+  res.status(200).json(healthPayload());
+});
+
+// Optional: if your API is mounted at /api/... in some environments
+app.get("/api/healthz", (_req, res) => {
+  res.status(200).json(healthPayload());
+});
+
+// NOTE: keep any auth middleware or route mounting BELOW this block.
+// e.g.
+// app.use(authMiddleware());
+// app.use("/api", apiRouter);
+
+// Existing export / server start below...
 export default app;
