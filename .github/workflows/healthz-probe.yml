@@ -1,0 +1,31 @@
+name: Healthz Probe (OIDC)
+on:
+  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["Cloud Run Deploy"]
+    types: [completed]
+
+jobs:
+  probe:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # REQUIRED for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth with GCP via Workload Identity Federation (keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run OIDC health probe
+        env:
+          SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
+        run: |
+          chmod +x scripts/probe-healthz.sh
+          ./scripts/probe-healthz.sh
