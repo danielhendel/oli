@@ -11,30 +11,48 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # REQUIRED for WIF and minting an id_token
+      id-token: write   # required for WIF
     env:
       SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
+      SA_EMAIL: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
     steps:
       - uses: actions/checkout@v4
 
-      # Auth and directly mint an ID token for the Cloud Run audience
+      # 1) Auth to GCP via WIF, obtain an ACCESS TOKEN for the SA
       - id: auth
-        name: Auth with GCP via WIF (mint ID token)
+        name: Auth with GCP via WIF (access token)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
-          token_format: id_token
-          audience: ${{ env.SERVICE_URL }}
-          id_token_include_email: false
+          service_account: ${{ env.SA_EMAIL }}
+          create_credentials_file: true
+          export_environment_variables: true
+          # NOTE: default token_format is "access_token" (what we want)
 
-      # Probe without using gcloud at all
+      # 2) Mint an ID token for the Cloud Run audience via IAMCredentials API
+      - name: Generate ID token for Cloud Run
+        id: mint
+        run: |
+          set -euo pipefail
+          ACCESS_TOKEN="${{ steps.auth.outputs.access_token }}"
+          # Use IAMCredentials API to generate an ID token with our SERVICE_URL as audience
+          resp="$(curl -sS -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${SA_EMAIL}:generateIdToken" \
+            -d "{\"audience\":\"${SERVICE_URL}\",\"includeEmail\":false}")"
+          echo "$resp" | jq -e -r .token > /dev/null
+          ID_TOKEN="$(echo "$resp" | jq -r .token)"
+          echo "::add-mask::$ID_TOKEN"
+          echo "id_token=$ID_TOKEN" >> "$GITHUB_OUTPUT"
+
+      # 3) Probe /healthz with the minted ID token
       - name: Run OIDC health probe (direct)
         run: |
           set -euo pipefail
           echo "Probing ${SERVICE_URL}/healthz with minted ID token..."
           code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${{ steps.auth.outputs.id_token }}" \
+            -H "Authorization: Bearer ${{ steps.mint.outputs.id_token }}" \
             -H "Accept: application/json" \
             "${SERVICE_URL}/healthz")"
           echo "HTTP ${code}"
