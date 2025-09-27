@@ -20,14 +20,15 @@ jobs:
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
 
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Run OIDC health probe
         env:
           SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
-          # 👇 Force gcloud to mint the ID token by impersonating the invoker SA
-          IMPERSONATE_SA: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
+          # NOTE: no IMPERSONATE_SA here — CI already runs as the SA
         run: |
           chmod +x scripts/probe-healthz.sh
           ./scripts/probe-healthz.sh
