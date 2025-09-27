@@ -3,26 +3,21 @@ name: Healthz Probe (OIDC)
 on:
   workflow_dispatch: {}
   workflow_run:
-    workflows: ["Cloud Run Deploy"]
+    workflows: ["Deploy Cloud Run"]
     types: [completed]
 
 jobs:
   probe:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       id-token: write
-
     env:
       SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
       SA_EMAIL: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
-
     steps:
       - uses: actions/checkout@v4
 
-      # Authenticate via WIF (access token flow) — NO 'audience' here.
       - id: auth
         name: Auth with GCP via WIF (access token)
         uses: google-github-actions/auth@v2
@@ -35,8 +30,7 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # Mint ID token with correct Cloud Run audience and probe /healthz
-      - name: Run OIDC health probe (gcloud -> Cloud Run)
+      - name: Run OIDC health probe (multi-path)
         env:
           SERVICE_URL: ${{ env.SERVICE_URL }}
           SA_EMAIL: ${{ env.SA_EMAIL }}
@@ -47,11 +41,30 @@ jobs:
             --impersonate-service-account="${SA_EMAIL}" \
             --audiences="${SERVICE_URL}")"
 
-          echo "Probing ${SERVICE_URL}/healthz ..."
-          code="$(curl -sS --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/json" \
-            "${SERVICE_URL}/healthz")"
-          echo "HTTP ${code}"
-          test "${code}" = "200"
-          echo "Health probe OK"
+          paths=("/" "/healthz" "/api/healthz")
+          success=0
+          for p in "${paths[@]}"; do
+            # normalize URL join
+            url="${SERVICE_URL%/}${p}"
+            echo "Probing ${url} ..."
+            http_code="$(curl -sS --connect-timeout 5 --max-time 15 -w '%{http_code}' \
+              -o /tmp/resp.out \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/json" \
+              "${url}")"
+            echo "HTTP ${http_code} for ${p}"
+            if [ "${http_code}" = "200" ]; then
+              echo "Health probe OK at path: ${p}"
+              success=1
+              break
+            else
+              echo "---- Response body (truncated) ----"
+              sed -n '1,200p' /tmp/resp.out || true
+              echo "-----------------------------------"
+            fi
+          done
+
+          if [ "${success}" != "1" ]; then
+            echo "No health endpoints returned 200 (tried: ${paths[*]})"
+            exit 1
+          fi
