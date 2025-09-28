@@ -22,19 +22,27 @@ jobs:
         run: npm ci
         working-directory: services/api
 
-      # Typecheck API
+      # Typecheck (required)
       - name: Typecheck
         run: npm run typecheck
         working-directory: services/api
 
-      # Lint API (skip if you don't have eslint configured here)
-      - name: Lint
-        if: hashFiles('services/api/.eslintrc*', 'services/api/eslint.config.*') != ''
-        run: npm run lint
+      # Lint (only if script exists)
+      - name: Lint (if present)
+        run: |
+          if npm run | grep -E -q '^[[:space:]]+lint[[:space:]]'; then
+            npm run lint
+          else
+            echo "No lint script; skipping"
+          fi
         working-directory: services/api
 
-      # Tests (skip if no tests yet)
-      - name: Test
-        if: hashFiles('services/api/**/?(*.)+(spec|test).[jt]s?(x)') != ''
-        run: npm test -- --ci
+      # Tests (only if script exists)
+      - name: Test (if present)
+        run: |
+          if npm run | grep -E -q '^[[:space:]]+test[[:space:]]'; then
+            npm test -- --ci
+          else
+            echo "No test script; skipping"
+          fi
         working-directory: services/api
