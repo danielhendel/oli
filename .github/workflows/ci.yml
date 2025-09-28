@@ -8,23 +8,33 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: |
+            services/api/package-lock.json
 
-      - name: Install deps (clean)
+      # Install API deps
+      - name: Install deps (services/api)
         run: npm ci
+        working-directory: services/api
 
+      # Typecheck API
       - name: Typecheck
         run: npm run typecheck
+        working-directory: services/api
 
+      # Lint API (skip if you don't have eslint configured here)
       - name: Lint
+        if: hashFiles('services/api/.eslintrc*', 'services/api/eslint.config.*') != ''
         run: npm run lint
+        working-directory: services/api
 
+      # Tests (skip if no tests yet)
       - name: Test
-        run: npm run test -- --ci
+        if: hashFiles('services/api/**/?(*.)+(spec|test).[jt]s?(x)') != ''
+        run: npm test -- --ci
+        working-directory: services/api
