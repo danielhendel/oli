@@ -1,0 +1,148 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "540.0.0",
+      "run.googleapis.com/ingress": "all",
+      "run.googleapis.com/ingress-status": "all",
+      "run.googleapis.com/operation-id": "e46574e0-b251-4740-9f75-45fe35ba3296",
+      "run.googleapis.com/urls": "[\"https://healthos-api-391788417686.us-central1.run.app\",\"https://healthos-api-zervimbdzq-uc.a.run.app\"]",
+      "serving.knative.dev/creator": "dhendel4@gmail.com",
+      "serving.knative.dev/lastModifier": "dhendel4@gmail.com"
+    },
+    "creationTimestamp": "2025-09-24T15:06:19.496214Z",
+    "generation": 20,
+    "labels": {
+      "app": "healthos",
+      "cloud.googleapis.com/location": "us-central1",
+      "env": "dev"
+    },
+    "name": "healthos-api",
+    "namespace": "391788417686",
+    "resourceVersion": "AAY/4xzo7BU",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/391788417686/services/healthos-api",
+    "uid": "8b392b5e-72cf-4c2f-bc91-a30f42416048"
+  },
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "autoscaling.knative.dev/maxScale": "10",
+          "autoscaling.knative.dev/minScale": "1",
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "540.0.0",
+          "run.googleapis.com/cpu-throttling": "true",
+          "run.googleapis.com/sessionAffinity": "false"
+        },
+        "labels": {
+          "client.knative.dev/nonce": "fterowzqss",
+          "run.googleapis.com/startupProbeType": "Default"
+        }
+      },
+      "spec": {
+        "containerConcurrency": 80,
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "GOOGLE_CLOUD_PROJECT",
+                "value": "oli-backend"
+              },
+              {
+                "name": "REGION",
+                "value": "us-central1"
+              },
+              {
+                "name": "EXPORTS_BUCKET",
+                "value": "oli-backend-dev-data-exports"
+              },
+              {
+                "name": "TOPIC_EVENTS_RAW",
+                "value": "events.raw.v1"
+              },
+              {
+                "name": "TOPIC_EXPORTS",
+                "value": "exports.requests.v1"
+              },
+              {
+                "name": "TOPIC_DELETE",
+                "value": "account.delete.v1"
+              },
+              {
+                "name": "NODE_ENV",
+                "value": "dev"
+              },
+              {
+                "name": "HEALTHZ_DEPLOY",
+                "value": "1759063250"
+              }
+            ],
+            "image": "us-central1-docker.pkg.dev/oli-backend/healthos/healthos-api@sha256:8edfe66192577880e6cd3be6c7633e4f4b3ce2de6cf4bea3031a3959b64070e6",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http1"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "1000m",
+                "memory": "512Mi"
+              }
+            },
+            "startupProbe": {
+              "failureThreshold": 1,
+              "periodSeconds": 240,
+              "tcpSocket": {
+                "port": 8080
+              },
+              "timeoutSeconds": 240
+            }
+          }
+        ],
+        "serviceAccountName": "healthos-api@oli-backend.iam.gserviceaccount.com",
+        "timeoutSeconds": 300
+      }
+    },
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "healthos-api-00013-xb7"
+      }
+    ]
+  },
+  "status": {
+    "address": {
+      "url": "https://healthos-api-zervimbdzq-uc.a.run.app"
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2025-09-28T21:22:13.665041Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2025-09-28T21:22:14.524700Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2025-09-28T13:38:13.983257Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "healthos-api-00015-zt7",
+    "latestReadyRevisionName": "healthos-api-00013-xb7",
+    "observedGeneration": 20,
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "healthos-api-00013-xb7"
+      }
+    ],
+    "url": "https://healthos-api-zervimbdzq-uc.a.run.app"
+  }
+}
