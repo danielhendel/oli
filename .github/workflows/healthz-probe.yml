@@ -41,7 +41,7 @@ jobs:
             --impersonate-service-account="${SA_EMAIL}" \
             --audiences="${SERVICE_URL}")"
 
-          paths=("/" "/healthz" "/api/healthz")
+          paths=("/" "/api/healthz")
           success=0
           for p in "${paths[@]}"; do
             # normalize URL join
