@@ -1,7 +1,11 @@
-name: Healthz Probe (OIDC)
+name: Health Probes
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * *" # daily at 09:00 UTC
   workflow_run:
     workflows: ["Deploy Cloud Run"]
     types: [completed]
@@ -9,17 +13,49 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       id-token: write
     env:
       SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
       SA_EMAIL: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
+
     steps:
       - uses: actions/checkout@v4
 
+      # 1) Public probe first (no auth)
+      - name: Public probe (no auth)
+        id: public
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          which jq >/dev/null 2>&1 || (echo "jq missing" && exit 1)
+
+          ok=1
+          for p in "/" "/api/healthz"; do
+            url="${SERVICE_URL%/}${p}"
+            echo "Probing (public) ${url} ..."
+            code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -H "Accept: application/json" "$url")
+            echo "HTTP ${code}"
+            cat /tmp/resp.json || true
+            if [ "$code" != "200" ]; then ok=0; break; fi
+            jq -e '.ok == true and .service == "api"' /tmp/resp.json >/dev/null || ok=0
+            [ $ok -eq 1 ] || break
+          done
+
+          if [ $ok -eq 1 ]; then
+            echo "public_ok=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            echo "public_ok=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      # 2) Fallback to OIDC if public probe failed
       - id: auth
-        name: Auth with GCP via WIF (access token)
+        name: Auth with GCP via WIF (fallback)
+        if: steps.public.outcome == 'failure'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
@@ -27,44 +63,30 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Run OIDC health probe (multi-path)
-        env:
-          SERVICE_URL: ${{ env.SERVICE_URL }}
-          SA_EMAIL: ${{ env.SA_EMAIL }}
+      - name: OIDC probe (fallback)
+        if: steps.public.outcome == 'failure'
         run: |
           set -euo pipefail
+          which jq >/dev/null 2>&1 || (echo "jq missing" && exit 1)
+
           echo "Minting ID token for audience: ${SERVICE_URL}"
           TOKEN="$(gcloud auth print-identity-token \
             --impersonate-service-account="${SA_EMAIL}" \
             --audiences="${SERVICE_URL}")"
 
-          paths=("/" "/api/healthz")
-          success=0
-          for p in "${paths[@]}"; do
-            # normalize URL join
+          ok=1
+          for p in "/" "/api/healthz"; do
             url="${SERVICE_URL%/}${p}"
-            echo "Probing ${url} ..."
-            http_code="$(curl -sS --connect-timeout 5 --max-time 15 -w '%{http_code}' \
-              -o /tmp/resp.out \
+            echo "Probing (OIDC) ${url} ..."
+            code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
               -H "Authorization: Bearer ${TOKEN}" \
               -H "Accept: application/json" \
-              "${url}")"
-            echo "HTTP ${http_code} for ${p}"
-            if [ "${http_code}" = "200" ]; then
-              echo "Health probe OK at path: ${p}"
-              success=1
-              break
-            else
-              echo "---- Response body (truncated) ----"
-              sed -n '1,200p' /tmp/resp.out || true
-              echo "-----------------------------------"
-            fi
+              "$url")
+            echo "HTTP ${code}"
+            cat /tmp/resp.json || true
+            if [ "$code" != "200" ]; then ok=0; break; fi
+            jq -e '.ok == true and .service == "api"' /tmp/resp.json >/dev/null || ok=0
+            [ $ok -eq 1 ] || break
           done
 
-          if [ "${success}" != "1" ]; then
-            echo "No health endpoints returned 200 (tried: ${paths[*]})"
-            exit 1
-          fi
+          [ $ok -eq 1 ]
