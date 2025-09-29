@@ -33,7 +33,7 @@ jobs:
           which jq >/dev/null 2>&1 || (echo "jq missing" && exit 1)
 
           ok=1
-          for p in "/" "/api/healthz"; do
+          for p in "/" "/api/healthz" "/api/firebase/healthz"; do
             url="${SERVICE_URL%/}${p}"
             echo "Probing (public) ${url} ..."
             code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -H "Accept: application/json" "$url")
@@ -75,7 +75,7 @@ jobs:
             --audiences="${SERVICE_URL}")"
 
           ok=1
-          for p in "/" "/api/healthz"; do
+          for p in "/" "/api/healthz" "/api/firebase/healthz"; do
             url="${SERVICE_URL%/}${p}"
             echo "Probing (OIDC) ${url} ..."
             code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
