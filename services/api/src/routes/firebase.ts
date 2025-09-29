@@ -4,11 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const router = Router();
 
-/**
- * GET /api/firebase/healthz
- * - Upserts a single doc at _meta/healthz with a server timestamp
- * - Reads it back and returns minimal status
- */
 router.get('/healthz', async (_req, res) => {
   try {
     const docRef = db.collection('_meta').doc('healthz');
@@ -20,8 +15,6 @@ router.get('/healthz', async (_req, res) => {
 
     const snap = await docRef.get();
     const data = snap.data() || {};
-
-    // Convert Firestore Timestamp to ISO string if present
     const lastCheckedIso =
       data.lastCheckedAt?.toDate?.()?.toISOString?.() ?? null;
 
@@ -34,7 +27,6 @@ router.get('/healthz', async (_req, res) => {
       },
     });
   } catch (err: any) {
-    // Avoid leaking internals
     console.error('firebase healthz error', err);
     res.status(500).json({
       ok: false,

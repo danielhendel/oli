@@ -14,7 +14,7 @@ const healthPayload = () => ({
   timestamp: new Date().toISOString(),
 });
 
-// Root health (works even if service is mounted behind a path prefix)
+// Root health
 app.get("/", (_req: Request, res: Response) => {
   res.status(200).json(healthPayload());
 });
@@ -24,17 +24,15 @@ app.get("/healthz", (_req: Request, res: Response) => {
   res.status(200).json(healthPayload());
 });
 
-// Optional: if your API is mounted at /api/... in some environments
+// Optional /api/healthz
 app.get("/api/healthz", (_req: Request, res: Response) => {
   res.status(200).json(healthPayload());
 });
 
-// ─────────────────────────────────────────────────────────────
-// Firebase Admin (Firestore) health route
-// ─────────────────────────────────────────────────────────────
+// Firebase health
 app.use("/api/firebase", firebaseRouter);
 
-// If running as a standalone server (not just imported)
+// If running as standalone server
 if (require.main === module) {
   const port = Number(process.env.PORT) || 8080;
   app.listen(port, () => {
