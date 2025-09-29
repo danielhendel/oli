@@ -15,7 +15,6 @@ router.get('/healthz', async (_req, res) => {
 
     const snap = await docRef.get();
     const data = snap.data() || {};
-
     const lastCheckedIso =
       data.lastCheckedAt?.toDate?.()?.toISOString?.() ?? null;
 
