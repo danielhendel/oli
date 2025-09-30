@@ -1,0 +1,1 @@
+- ✅ Phase 2 complete: /api/firebase/healthz probe running in prod and wired into CI
