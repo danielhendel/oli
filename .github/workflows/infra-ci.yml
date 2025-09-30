@@ -1,22 +1,63 @@
 name: Infra CI
+
 on:
   push:
-    paths: [ "infra/**", ".github/workflows/infra-ci.yml" ]
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-ci.yml'
+    tags-ignore:
+      - 'v*'
   pull_request:
-    paths: [ "infra/**", ".github/workflows/infra-ci.yml" ]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-ci.yml'
 
 jobs:
   tf-validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TF_IN_AUTOMATION: true
+
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.7.5"
-      - name: Terraform version
-        run: terraform -v
-      - name: Validate
-        working-directory: infra
+
+      # Skip cleanly when there is no Terraform in infra/
+      - name: Detect Terraform files
+        id: detect
         run: |
-          terraform init -backend=false
-          terraform validate
+          if [ -d infra ] && ls infra/**/*.tf >/dev/null 2>&1; then
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Short-circuit when no Terraform is present
+        if: steps.detect.outputs.has_tf == 'false'
+        run: |
+          echo "No Terraform files found under infra/. Skipping."
+          exit 0
+
+      - name: Setup Terraform
+        if: steps.detect.outputs.has_tf == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.5'
+
+      - name: Terraform fmt (check)
+        if: steps.detect.outputs.has_tf == 'true'
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        if: steps.detect.outputs.has_tf == 'true'
+        working-directory: infra
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        if: steps.detect.outputs.has_tf == 'true'
+        working-directory: infra
+        run: terraform validate -no-color
