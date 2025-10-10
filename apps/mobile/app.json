@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "olimobile",
+    "slug": "oli-mobile",
+    "scheme": "oli",
+    "userInterfaceStyle": "automatic",
+
+    "newArchEnabled": true,
+
+    "ios": {
+      "bundleIdentifier": "com.olifitness.olimobile",
+      "usesAppleSignIn": true,
+      "deploymentTarget": "15.1",
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": { "package": "com.olifitness.olimobile" },
+    "plugins": [
+      ["expo-router", { "origin": "expo" }],
+      "expo-apple-authentication",
+      "expo-web-browser",
+      ["expo-build-properties", {
+        "ios": {
+          "deploymentTarget": "15.1",
+          "cocoapodsVersion": "1.15.2"
+        }
+      }]
+    ],
+    "assetBundlePatterns": ["**/*"],
+    "extra": {
+      "router": { "origin": "expo" },
+      "eas": { "projectId": "dd9ba89c-b478-4349-9672-18f7b02e2105" }
+    }
+  }
+}
