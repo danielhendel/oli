@@ -4,9 +4,9 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      'expo-router/babel',                           // 👉 needed for Expo Router
+      // ❌ remove 'expo-router/babel' (deprecated in SDK 50+)
       ['module-resolver', { root: ['.'], alias: { '@': '.' } }],
-      'react-native-reanimated/plugin',              // 👉 must be last
+      'react-native-reanimated/plugin', // must be last
     ],
   };
 };

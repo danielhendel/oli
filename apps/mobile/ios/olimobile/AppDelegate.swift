@@ -8,8 +8,6 @@ class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
   ) -> Bool {
-    // Optional: customize global UI (e.g., tint)
-    // self.window?.tintColor = UIColor.systemBlue
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }

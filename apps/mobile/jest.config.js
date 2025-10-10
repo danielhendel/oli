@@ -3,8 +3,11 @@
 
 module.exports = {
   preset: 'jest-expo',
-  testEnvironment: 'node',
-  setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect'],
+  testEnvironment: 'jsdom', // allows DOM-like APIs for RN testing & auth mocks
+  setupFilesAfterEnv: [
+    '@testing-library/jest-native/extend-expect',
+    '<rootDir>/jest-setup.ts', // <-- loads our Apple/Constants mocks
+  ],
   transformIgnorePatterns: [
     'node_modules/(?!(jest-)?react-native|@react-native|react-native' +
       '|@react-navigation/.*' +
