@@ -1,5 +1,10 @@
 .env*
 !.env.development.example
 
-ios/
 
+
+# iOS
+apps/mobile/ios/Pods/
+apps/mobile/ios/**/build/
+*.xcworkspace
+DerivedData/

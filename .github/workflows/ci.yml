@@ -1,10 +1,17 @@
 name: CI
+
 on:
   pull_request:
   push:
     branches: [main]
 
+# Prevent overlapping runs on the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # --- Backend/API checks (existing) ---
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -48,7 +55,7 @@ jobs:
           fi
         working-directory: services/api
 
-      # --- NEW: Prod Firebase health probe (only on pushes to main) ---
+      # --- Prod Firebase health probe (only on pushes to main) ---
       - name: Install jq
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -74,24 +81,68 @@ jobs:
           done
           echo "❌ Prod Firebase health probe failed."
           exit 1
-      - name: Probe Firebase health (prod)
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+  # --- Mobile checks (runs only when apps/mobile/** changes) ---
+  mobile-check:
+    name: Mobile - typecheck/lint/test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            mobile:
+              - 'apps/mobile/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup Node
+        if: steps.changes.outputs.mobile == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install deps (mobile)
+        if: steps.changes.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm ci
+
+      # ⛑️ Prestart env guard — fail fast on invalid/missing env or bad Expo URL vars
+      - name: Validate env (mobile prestart guard)
+        if: steps.changes.outputs.mobile == 'true'
+        working-directory: apps/mobile
         env:
-          CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Probing $CLOUD_RUN_URL/api/firebase/healthz"
-          for i in {1..10}; do
-            RESP="$(curl -fsS "$CLOUD_RUN_URL/api/firebase/healthz" || true)"
-            echo "::group::Probe attempt $i"
-            echo "$RESP"
-            echo "::endgroup::"
-            if echo "$RESP" | jq -e '.ok == true and (.firestore.exists == true)'; then
-              echo "✅ Prod Firebase health probe passed."
-              exit 0
-            fi
-            sleep 6
-          done
-          echo "❌ Prod Firebase health probe failed."
-          exit 1
+          # Provide minimal sane values for public vars so schema passes in CI.
+          # These should mirror your .env.development.example; secrets not required here.
+          EXPO_PUBLIC_FIREBASE_API_KEY: test
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: oli-staging.firebaseapp.com
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: oli-staging-fdbba
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: oli-staging.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: test
+          EXPO_PUBLIC_FIREBASE_APP_ID: test
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: test.apps.googleusercontent.com
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: test.apps.googleusercontent.com
+          # Intentionally NOT setting any EXPO_*_URL so the guard can unset/validate them.
+        run: node ./scripts/prestart.cjs
+
+      - name: Typecheck (mobile)
+        if: steps.changes.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm run typecheck
+
+      - name: Lint (mobile)
+        if: steps.changes.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm run lint
+
+      - name: Test (mobile)
+        if: steps.changes.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm test -- --ci
