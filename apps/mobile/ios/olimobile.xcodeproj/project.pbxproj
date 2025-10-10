@@ -7,29 +7,29 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0D7CAD7836AFB7B3EC7F8FBD /* libPods-olimobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB4A63F234CA0FC3CE585ABD /* libPods-olimobile.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		2B73BA35B1F5F17F56F6EBBD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7DD9E94F4D3FACC8CAF90984 /* PrivacyInfo.xcprivacy */; };
+		2B5D94A3453870213D67016F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F6514605AF48EA8F00A7941A /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		5C4A244295273B61310E5CC8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A1158D9E8B82D38287E984 /* ExpoModulesProvider.swift */; };
+		7AE21B283E8A2F5891E12643 /* libPods-olimobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F0B07A37798EFA706C765F4F /* libPods-olimobile.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E3FB4042B5BA3370ADC32EC8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B432DFC92284BAA7A2E736BD /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0E17BB63A7797E4E878C64AB /* Pods-olimobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-olimobile.release.xcconfig"; path = "Target Support Files/Pods-olimobile/Pods-olimobile.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* olimobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = olimobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = olimobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = olimobile/Info.plist; sourceTree = "<group>"; };
-		2C6E189A4AC63D37063CF97D /* Pods-olimobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-olimobile.debug.xcconfig"; path = "Target Support Files/Pods-olimobile/Pods-olimobile.debug.xcconfig"; sourceTree = "<group>"; };
-		7DD9E94F4D3FACC8CAF90984 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = olimobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7900D14C5C121D1297879637 /* Pods-olimobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-olimobile.debug.xcconfig"; path = "Target Support Files/Pods-olimobile/Pods-olimobile.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = olimobile/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B432DFC92284BAA7A2E736BD /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-olimobile/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C4A1158D9E8B82D38287E984 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-olimobile/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		EB4A63F234CA0FC3CE585ABD /* libPods-olimobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-olimobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E80A5A50A4B239D07C215451 /* Pods-olimobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-olimobile.release.xcconfig"; path = "Target Support Files/Pods-olimobile/Pods-olimobile.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F0B07A37798EFA706C765F4F /* libPods-olimobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-olimobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = olimobile/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* olimobile-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "olimobile-Bridging-Header.h"; path = "olimobile/olimobile-Bridging-Header.h"; sourceTree = "<group>"; };
+		F6514605AF48EA8F00A7941A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = olimobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,19 +37,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0D7CAD7836AFB7B3EC7F8FBD /* libPods-olimobile.a in Frameworks */,
+				7AE21B283E8A2F5891E12643 /* libPods-olimobile.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0CAC4AE3453FF0FAFD24FBED /* ExpoModulesProviders */ = {
+		0D5C01C95DB5B22F3A063416 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				C1954E27176679CFF7B31214 /* olimobile */,
+				7900D14C5C121D1297879637 /* Pods-olimobile.debug.xcconfig */,
+				E80A5A50A4B239D07C215451 /* Pods-olimobile.release.xcconfig */,
 			);
-			name = ExpoModulesProviders;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		13B07FAE1A68108700A75B9A /* olimobile */ = {
@@ -61,7 +63,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				7DD9E94F4D3FACC8CAF90984 /* PrivacyInfo.xcprivacy */,
+				F6514605AF48EA8F00A7941A /* PrivacyInfo.xcprivacy */,
 			);
 			name = olimobile;
 			sourceTree = "<group>";
@@ -70,9 +72,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				EB4A63F234CA0FC3CE585ABD /* libPods-olimobile.a */,
+				F0B07A37798EFA706C765F4F /* libPods-olimobile.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5ECBC00226020AF7D661EE42 /* olimobile */ = {
+			isa = PBXGroup;
+			children = (
+				B432DFC92284BAA7A2E736BD /* ExpoModulesProvider.swift */,
+			);
+			name = olimobile;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -89,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				9667468EE3330338541F6B85 /* Pods */,
-				0CAC4AE3453FF0FAFD24FBED /* ExpoModulesProviders */,
+				0D5C01C95DB5B22F3A063416 /* Pods */,
+				9A32B34689BF948B3A2DD14D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,14 +115,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		9667468EE3330338541F6B85 /* Pods */ = {
+		9A32B34689BF948B3A2DD14D /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				2C6E189A4AC63D37063CF97D /* Pods-olimobile.debug.xcconfig */,
-				0E17BB63A7797E4E878C64AB /* Pods-olimobile.release.xcconfig */,
+				5ECBC00226020AF7D661EE42 /* olimobile */,
 			);
-			name = Pods;
-			path = Pods;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -124,14 +132,6 @@
 			path = olimobile/Supporting;
 			sourceTree = "<group>";
 		};
-		C1954E27176679CFF7B31214 /* olimobile */ = {
-			isa = PBXGroup;
-			children = (
-				C4A1158D9E8B82D38287E984 /* ExpoModulesProvider.swift */,
-			);
-			name = olimobile;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "olimobile" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				FF0736A8BF82B9E8F48FBC24 /* [Expo] Configure project */,
+				83BEE6C44BAA27D5BFB2AC0D /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				F1F31518DC708FBF8CFF87E1 /* [CP] Embed Pods Frameworks */,
+				D817AD985EACE012C1713685 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				2B73BA35B1F5F17F56F6EBBD /* PrivacyInfo.xcprivacy in Resources */,
+				2B5D94A3453870213D67016F /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,29 +276,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-olimobile/Pods-olimobile-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		F1F31518DC708FBF8CFF87E1 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-olimobile/Pods-olimobile-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-olimobile/Pods-olimobile-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		FF0736A8BF82B9E8F48FBC24 /* [Expo] Configure project */ = {
+		83BEE6C44BAA27D5BFB2AC0D /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -322,6 +300,28 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-olimobile/expo-configure-project.sh\"\n";
 		};
+		D817AD985EACE012C1713685 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-olimobile/Pods-olimobile-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-olimobile/Pods-olimobile-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -330,7 +330,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				5C4A244295273B61310E5CC8 /* ExpoModulesProvider.swift in Sources */,
+				E3FB4042B5BA3370ADC32EC8 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -339,7 +339,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2C6E189A4AC63D37063CF97D /* Pods-olimobile.debug.xcconfig */;
+			baseConfigurationReference = 7900D14C5C121D1297879637 /* Pods-olimobile.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -364,18 +364,18 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.olifitness.olimobile;
-				PRODUCT_NAME = "olimobile";
+				PRODUCT_NAME = olimobile;
 				SWIFT_OBJC_BRIDGING_HEADER = "olimobile/olimobile-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0E17BB63A7797E4E878C64AB /* Pods-olimobile.release.xcconfig */;
+			baseConfigurationReference = E80A5A50A4B239D07C215451 /* Pods-olimobile.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -395,10 +395,10 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.olifitness.olimobile;
-				PRODUCT_NAME = "olimobile";
+				PRODUCT_NAME = olimobile;
 				SWIFT_OBJC_BRIDGING_HEADER = "olimobile/olimobile-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
