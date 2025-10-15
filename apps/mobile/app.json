@@ -1,10 +1,12 @@
 {
   "expo": {
+    "owner": "olifitness",
     "name": "olimobile",
     "slug": "oli-mobile",
     "scheme": "oli",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "bundleIdentifier": "com.olifitness.olimobile",
       "usesAppleSignIn": true,
@@ -12,28 +14,65 @@
         "com.apple.developer.applesignin": ["Default"]
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          { "CFBundleURLSchemes": ["oli"] },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.391788417686-bkkbgouneck7nm7td9rsdfvt0ej6e3tg"
+            ]
+          }
+        ],
+        "NSCameraUsageDescription": "Used to scan barcodes, capture workout photos, or upload profile images.",
+        "NSPhotoLibraryUsageDescription": "Allows you to upload or select images for workouts, nutrition, and profile customization."
       }
     },
-    "android": { "package": "com.olifitness.olimobile" },
+
+    "android": {
+      "package": "com.olifitness.olimobile",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "oli" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.391788417686-bkkbgouneck7nm7td9rsdfvt0ej6e3tg"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+
     "plugins": [
       ["expo-router", { "origin": "expo" }],
       "expo-apple-authentication",
       "expo-web-browser",
+      "expo-dev-client",
       [
         "expo-build-properties",
         {
-          "ios": {
-            "deploymentTarget": "15.1",
-            "cocoapodsVersion": "1.15.2"
-          }
+          "ios": { "deploymentTarget": "15.1", "cocoapodsVersion": "1.15.2" },
+          "android": { "compileSdkVersion": 34, "targetSdkVersion": 34 }
         }
       ]
     ],
+
     "assetBundlePatterns": ["**/*"],
+
     "extra": {
       "router": { "origin": "expo" },
-      "eas": { "projectId": "dd9ba89c-b478-4349-9672-18f7b02e2105" }
+      "eas": { "projectId": "dd9ba89c-b478-4349-9672-18f7b02e2105" },
+      "deepLinkPrefixes": ["oli://", "https://olifitness.app.link"]
     }
   }
 }

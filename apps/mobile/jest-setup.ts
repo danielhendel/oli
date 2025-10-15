@@ -5,10 +5,16 @@ export {};
 
 /**
  * Jest setup for Expo SDK 54 + RN
+ * - Polyfills global fetch for Firebase rules tests
  * - Mocks Apple Sign-In so tests can run in Node
  * - Pretends we're on a native/dev-client build (not Expo Go)
  * - Provides a virtual `expo-device` so "real device" guards pass
  */
+
+/* ---------------------------------- */
+/* Global fetch polyfill (Node/JSDOM) */
+/* ---------------------------------- */
+import 'cross-fetch/polyfill';
 
 /* ---------------------------------- */
 /* Firebase RN persistence (your mock) */
@@ -93,6 +99,11 @@ jest.mock(
 );
 
 /* ---------------------------------- */
+/* Optional: silence unmocked Expo noise */
+/* ---------------------------------- */
+// jest.mock('expo-modules-core', () => ({}), { virtual: true });
+
+/* ---------------------------------- */
 /* (Optional) If you have custom env   */
 /* helpers that gate native vs. web,   */
 /* uncomment and adjust paths/names:   */
@@ -116,7 +127,7 @@ jest.mock('@/lib/auth/oauth/apple', () => ({
   signInWithApple: jest.fn(async () => {
     const { getAuth, OAuthProvider, signInWithCredential } = require('firebase/auth');
 
-    // Instantiate provider (test asserts 'apple.com' was used). No unused var.
+    // Instantiate provider (test asserts 'apple.com' was used)
     new OAuthProvider('apple.com');
 
     // Build the credential exactly as your test expects (idToken + rawNonce)
