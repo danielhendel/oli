@@ -86,7 +86,7 @@ async function initAuthOnce(app: FirebaseApp): Promise<Auth> {
 }
 
 /** Public accessor: auto-initialize on first call (race-safe). */
-export function getFirebaseAuth(): Auth {
+export function auth(): Auth {
   if (_auth) return _auth;
   const app = getFirebaseApp();
   void initAuthOnce(app);
@@ -105,7 +105,7 @@ export async function ensureAuthInitialized(): Promise<Auth> {
 }
 
 /** Back-compat shim: keep old API used by AuthProvider. */
-export function warmAuth(): Promise<Auth> {
+export function ready(): Promise<Auth> {
   const app = getFirebaseApp();
   return initAuthOnce(app);
 }

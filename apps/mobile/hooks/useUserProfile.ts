@@ -10,7 +10,7 @@ import type { ProfileGeneral } from '@/types/profiles';
  * Aligns with your DAL signatures (db: Firestore, uid: string, data: ProfileGeneral|partial)
  */
 export function useUserProfile() {
-  const uid = getFirebaseAuth().currentUser?.uid ?? null;
+  const uid = auth().currentUser?.uid ?? null;
   const [profile, setProfile] = useState<ProfileGeneral | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -26,7 +26,7 @@ export async function signInEmailPassword(email: string, password: string): Prom
 }
 
 export async function signOutUser(): Promise<void> {
-  const auth = getFirebaseAuth();
+  const auth = auth();
   await fbSignOut(auth);
 }
 

@@ -72,7 +72,7 @@ export function getFirebaseApp(): FirebaseApp {
 }
 
 /** Warm and register Firebase Auth (idempotent across fast refresh) */
-export function warmAuth(): Promise<Auth> {
+export function ready(): Promise<Auth> {
   if (_auth) return Promise.resolve(_auth);
   if (_authInitPromise) return _authInitPromise;
 
@@ -99,11 +99,11 @@ export function warmAuth(): Promise<Auth> {
 }
 
 export async function ensureAuthInitialized(): Promise<Auth> {
-  return warmAuth();
+  return ready();
 }
 
 /** Synchronous accessor after ensureAuthInitialized() */
-export function getFirebaseAuth(): Auth {
+export function auth(): Auth {
   if (_auth) return _auth;
   if (Platform.OS !== 'web') {
     throw new Error('[firebaseClient] Auth not initialized. Call ensureAuthInitialized() first.');
