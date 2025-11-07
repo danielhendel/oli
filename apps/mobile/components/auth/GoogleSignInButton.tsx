@@ -4,15 +4,17 @@ import { Alert, TouchableOpacity, Text, View, ActivityIndicator } from 'react-na
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
-import { GoogleAuthProvider, signInWithCredential, getAuth } from 'firebase/auth';
-import { mapFirebaseAuthError } from '../../lib/errors/mapFirebaseAuthError';
-import { logEvent } from '../../lib/analytics/telemetry';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { getFirebaseAuth, ensureAuthInitialized } from '@/lib/firebaseClient';
+import { mapFirebaseAuthError } from '@/lib/errors/mapFirebaseAuthError';
+import { logEvent } from '@/lib/analytics/telemetry';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
 
+  // IMPORTANT: keep scheme matching your app.config.ts
   const redirectUri = makeRedirectUri({ scheme: 'oli' });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -24,37 +26,45 @@ export function GoogleSignInButton() {
     selectAccount: true,
   });
 
+  // Ensure auth is warmed (native) before we call signInWithCredential
+  useEffect(() => {
+    void ensureAuthInitialized();
+  }, []);
+
   useEffect(() => {
     const run = async () => {
-      if (response?.type === 'success') {
-        try {
-          setLoading(true);
-          const idToken = (response.params as Record<string, unknown>)?.['id_token'] as
-            | string
-            | undefined;
+      if (response?.type !== 'success') return;
 
-          if (!idToken) {
-            const err = new Error('missing-id-token');
-            (err as { code?: string }).code = 'google/missing-id-token';
-            throw err;
-          }
+      try {
+        setLoading(true);
 
-          const credential = GoogleAuthProvider.credential(idToken);
-          const auth = getAuth();
-          await signInWithCredential(auth, credential);
-          logEvent('sign_in', { provider: 'google', status: 'success' });
-        } catch (e: unknown) {
-          logEvent('sign_in', {
-            provider: 'google',
-            status: 'error',
-            code: (e as { code?: string })?.code ?? 'unknown',
-          });
-          Alert.alert('Google Sign In', mapFirebaseAuthError(e));
-        } finally {
-          setLoading(false);
+        const idToken = (response.params as Record<string, unknown>)?.['id_token'] as
+          | string
+          | undefined;
+
+        if (!idToken) {
+          const err = new Error('missing-id-token');
+          (err as { code?: string }).code = 'google/missing-id-token';
+          throw err;
         }
+
+        const credential = GoogleAuthProvider.credential(idToken);
+        const auth = getFirebaseAuth();
+        await signInWithCredential(auth, credential);
+
+        logEvent('sign_in', { provider: 'google', status: 'success' });
+      } catch (e: unknown) {
+        logEvent('sign_in', {
+          provider: 'google',
+          status: 'error',
+          code: (e as { code?: string })?.code ?? 'unknown',
+        });
+        Alert.alert('Google Sign In', mapFirebaseAuthError(e));
+      } finally {
+        setLoading(false);
       }
     };
+
     void run();
   }, [response]);
 

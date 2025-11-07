@@ -24,9 +24,27 @@ module.exports = {
     react: { version: 'detect' },
   },
 
-  rules: {},
+  // ⛔ Block Firestore imports in UI code. Use the typed DAL in lib/db/*.
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        name: 'firebase/firestore',
+        message:
+          'Do not import Firestore directly in screens/components/hooks. Use typed DAL in lib/db/*.',
+      },
+    ],
+  },
 
   overrides: [
+    // ✅ Allow Firestore imports inside the DAL only
+    {
+      files: ['lib/db/**/*.ts', 'lib/db/**/*.tsx'],
+      rules: {
+        'no-restricted-imports': 'off',
+      },
+    },
+
     // ✅ Treat our Node startup scripts explicitly as Node (so process/console are defined)
     {
       files: ['scripts/expo-start.cjs', 'scripts/prestart.cjs'],

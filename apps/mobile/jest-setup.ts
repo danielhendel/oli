@@ -1,3 +1,9 @@
+// apps/mobile/jest-setup.ts
+
+// Polyfill fetch for Node/Jest
+import 'cross-fetch/polyfill';
+import type React from 'react';
+
 /* eslint-env jest */
 /* global jest */
 
@@ -8,10 +14,12 @@ export {};
  * - Mocks Apple Sign-In so tests can run in Node
  * - Pretends we're on a native/dev-client build (not Expo Go)
  * - Provides a virtual `expo-device` so "real device" guards pass
+ * - Mocks centralized Firebase client to avoid real initialization
+ * - Mocks expo-router (Stack/Slot/useRouter) for routing tests
  */
 
 /* ---------------------------------- */
-/* Firebase RN persistence (your mock) */
+/* Firebase RN persistence (virtual)   */
 /* ---------------------------------- */
 jest.mock(
   'firebase/auth/react-native',
@@ -35,7 +43,7 @@ jest.mock('firebase/auth', () => {
       this.providerId = providerId;
     }),
     {
-      // Return EXACT shape the test expects, including a base64url-like rawNonce
+      // Return EXACT shape tests expect, including a base64url-like rawNonce
       credential: jest.fn((_args?: { idToken: string; rawNonce?: string }) => ({
         _type: 'apple-credential',
         idToken: 'apple-id-token.jwt',
@@ -49,6 +57,23 @@ jest.mock('firebase/auth', () => {
     getAuth,
     OAuthProvider,
     signInWithCredential,
+  };
+});
+
+/* ---------------------------------- */
+/* Mock centralized Firebase client    */
+/* - Prevent real env/initializeApp    */
+/* - Make getFirebaseAuth() a jest.fn  */
+/*   so tests can assert call counts   */
+/* ---------------------------------- */
+jest.mock('@/lib/firebaseClient', () => {
+  const mockAuth = { __mockAuth__: true };
+  return {
+    __esModule: true,
+    getFirebaseAuth: jest.fn(() => mockAuth),
+    ensureAuthInitialized: jest.fn().mockResolvedValue(mockAuth),
+    getFirestoreDb: jest.fn(() => ({})), // if something imports DB in tests
+    __resetFirebaseClientForTests__: jest.fn(),
   };
 });
 
@@ -93,47 +118,60 @@ jest.mock(
 );
 
 /* ---------------------------------- */
-/* (Optional) If you have custom env   */
-/* helpers that gate native vs. web,   */
-/* uncomment and adjust paths/names:   */
+/* expo-router mock (Stack/Slot/router)*/
+/* - Expose __mockReplace/__mockPush   */
+/*   so tests can assert navigations    */
 /* ---------------------------------- */
-// jest.mock('@/lib/env', () => ({
-//   __esModule: true,
-//   isDevClient: () => true,
-//   isExpoGo: () => false,
-//   isNativeApp: () => true,
-// }));
+jest.mock('expo-router', () => {
+  const React = require('react');
+  const mockReplace = jest.fn();
+  const mockPush = jest.fn();
+
+  const Stack = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
+
+  const Slot = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
+
+  return {
+    __esModule: true,
+    Stack,
+    Slot,
+    useRouter: () => ({ replace: mockReplace, push: mockPush }),
+    __mockReplace: mockReplace,
+    __mockPush: mockPush,
+  };
+});
 
 /* ---------------------------------- */
-/* Targeted mock: oauth/apple module   */
-/* - Drive the exact behavior your     */
-/*   test asserts (provider call +     */
-/*   signInWithCredential with the     */
-/*   expected credential shape)        */
+/* Providers used by RootLayout        */
+/* - Pass-through wrappers supporting  */
+/*   both default and named imports    */
 /* ---------------------------------- */
-jest.mock('@/lib/auth/oauth/apple', () => ({
-  __esModule: true,
-  signInWithApple: jest.fn(async () => {
-    const { getAuth, OAuthProvider, signInWithCredential } = require('firebase/auth');
+jest.mock('@/theme', () => {
+  const ThemeProvider = ({ children }: { children?: React.ReactNode }) => children ?? null;
+  return {
+    __esModule: true,
+    default: ThemeProvider,
+    ThemeProvider,
+  };
+});
 
-    // Instantiate provider (test asserts 'apple.com' was used). No unused var.
-    new OAuthProvider('apple.com');
+jest.mock('@/providers/AuthProvider', () => {
+  const React = require('react');
+  const Ctx = React.createContext({ user: null, initializing: false });
+  const useAuth = () => React.useContext(Ctx);
+  const AuthProvider = ({ children }: { children?: React.ReactNode }) => children ?? null;
+  return {
+    __esModule: true,
+    default: AuthProvider,
+    AuthProvider,
+    useAuth,
+  };
+});
 
-    // Build the credential exactly as your test expects (idToken + rawNonce)
-    const credential =
-      (OAuthProvider.credential &&
-        OAuthProvider.credential({
-          idToken: 'apple-id-token.jwt',
-          rawNonce: 'dGVzdF9ub25jZV9iYXNlNjR1cmwzMjg0NTY3ODkw',
-        })) || {
-        _type: 'apple-credential',
-        idToken: 'apple-id-token.jwt',
-        rawNonce: 'dGVzdF9ub25jZV9iYXNlNjR1cmwzMjg0NTY3ODkw',
-      };
-
-    await signInWithCredential(getAuth(), credential);
-
-    // your test expects resolves.toBeUndefined()
-    return undefined;
-  }),
-}));
+/* ---------------------------------- */
+/* Note: We intentionally DO NOT mock  */
+/* '@/lib/auth/oauth/apple' here so    */
+/* the real implementation is tested.  */
+/* ---------------------------------- */

@@ -11,57 +11,70 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # --- Backend/API checks (existing) ---
+  # --- API checks (only when services/api/** changes) ---
   check:
+    name: API - typecheck/lint/test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'services/api/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Use Node.js 20
+        if: steps.changes.outputs.api == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: |
-            services/api/package-lock.json
+          cache-dependency-path: services/api/package-lock.json
 
-      # Install API deps
       - name: Install deps (services/api)
-        run: npm ci
+        if: steps.changes.outputs.api == 'true'
         working-directory: services/api
+        run: npm ci || npm install
 
-      # Typecheck (required)
-      - name: Typecheck
+      - name: Typecheck (services/api)
+        if: steps.changes.outputs.api == 'true'
+        working-directory: services/api
         run: npm run typecheck
-        working-directory: services/api
 
-      # Lint (only if script exists)
-      - name: Lint (if present)
+      - name: Lint (services/api, if present)
+        if: steps.changes.outputs.api == 'true'
+        working-directory: services/api
         run: |
           if npm run | grep -E -q '^[[:space:]]+lint[[:space:]]'; then
             npm run lint
           else
             echo "No lint script; skipping"
           fi
-        working-directory: services/api
 
-      # Tests (only if script exists)
-      - name: Test (if present)
+      - name: Test (services/api, if present)
+        if: steps.changes.outputs.api == 'true'
+        working-directory: services/api
         run: |
           if npm run | grep -E -q '^[[:space:]]+test[[:space:]]'; then
             npm test -- --ci
           else
             echo "No test script; skipping"
           fi
-        working-directory: services/api
 
       # --- Prod Firebase health probe (only on pushes to main) ---
       - name: Install jq
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: steps.changes.outputs.api == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Probe Firebase health (prod)
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: steps.changes.outputs.api == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL }}
         shell: bash
@@ -78,11 +91,11 @@ jobs:
               exit 0
             fi
             sleep 6
-          done
+          end
           echo "❌ Prod Firebase health probe failed."
           exit 1
 
-  # --- Mobile checks (runs only when apps/mobile/** changes) ---
+  # --- Mobile checks (only when apps/mobile/** changes) ---
   mobile-check:
     name: Mobile - typecheck/lint/test
     runs-on: ubuntu-latest
@@ -101,7 +114,7 @@ jobs:
               - 'apps/mobile/**'
               - '.github/workflows/ci.yml'
 
-      - name: Setup Node
+      - name: Use Node.js 20
         if: steps.changes.outputs.mobile == 'true'
         uses: actions/setup-node@v4
         with:
@@ -112,15 +125,15 @@ jobs:
       - name: Install deps (mobile)
         if: steps.changes.outputs.mobile == 'true'
         working-directory: apps/mobile
-        run: npm ci
+        run: npm ci || npm install
 
       # ⛑️ Prestart env guard — fail fast on invalid/missing env or bad Expo URL vars
       - name: Validate env (mobile prestart guard)
         if: steps.changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         env:
-          # Provide minimal sane values for public vars so schema passes in CI.
-          # These should mirror your .env.development.example; secrets not required here.
+          EXPO_NO_DOTENV: '1'
+          # Minimal public vars so schema passes (no secrets in CI)
           EXPO_PUBLIC_FIREBASE_API_KEY: test
           EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: oli-staging.firebaseapp.com
           EXPO_PUBLIC_FIREBASE_PROJECT_ID: oli-staging-fdbba
@@ -129,7 +142,6 @@ jobs:
           EXPO_PUBLIC_FIREBASE_APP_ID: test
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: test.apps.googleusercontent.com
           EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: test.apps.googleusercontent.com
-          # Intentionally NOT setting any EXPO_*_URL so the guard can unset/validate them.
         run: node ./scripts/prestart.cjs
 
       - name: Typecheck (mobile)

@@ -1,176 +1,80 @@
 // apps/mobile/app/auth/sign-in.tsx
-import React, { useCallback, useState } from 'react';
-import {
-  Alert,
-  Keyboard,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-  View,
-} from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import { FormTextInput } from '@/components/FormTextInput';
-import { ScreenContainer } from '@/components/ScreenContainer';
-import { ThemedText, ThemedView } from '@/components/Themed';
-import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
-import { signInEmailPassword, signInWithGoogle } from '@/lib/auth/actions';
+/**
+ * Purpose: Email/Password + Apple sign-in wired to typed actions.
+ * Errors: Maps Firebase & provider errors to friendly strings.
+ */
+import React, { useState } from 'react';
+import { View, Text, TextInput, Pressable, Alert } from 'react-native';
+import { signInEmailPassword } from '@/lib/auth/actions';
 import { mapFirebaseAuthError } from '@/lib/errors/mapFirebaseAuthError';
+import { signInWithApple } from '@/lib/auth/oauth/apple'; // native flow
 
 export default function SignIn() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
-  const [ssoBusy, setSsoBusy] = useState<'google' | 'apple' | null>(null);
 
-  const canSubmit = email.trim().length > 3 && password.length >= 6;
-
-  const onSubmit = useCallback(async () => {
-    if (busy || !canSubmit) return;
+  async function tryEmail() {
     try {
       setBusy(true);
-      Keyboard.dismiss();
-      await signInEmailPassword(email.trim(), password);
-      router.replace('/');
+      await signInEmailPassword(email, pw);
     } catch (e) {
-      Alert.alert('Sign In Error', mapFirebaseAuthError(e));
+      Alert.alert('Sign in failed', mapFirebaseAuthError(e));
     } finally {
       setBusy(false);
     }
-  }, [busy, canSubmit, email, password, router]);
+  }
 
-  const onGoogle = useCallback(async () => {
-    if (busy || ssoBusy) return;
+  async function tryApple() {
     try {
-      setSsoBusy('google');
-      Keyboard.dismiss();
-      await signInWithGoogle();
-      router.replace('/');
+      setBusy(true);
+      await signInWithApple();
     } catch (e) {
-      Alert.alert('Google Sign In', mapFirebaseAuthError(e));
+      Alert.alert('Apple Sign-In', mapFirebaseAuthError(e));
     } finally {
-      setSsoBusy(null);
+      setBusy(false);
     }
-  }, [busy, ssoBusy, router]);
+  }
 
   return (
-    <ScreenContainer>
-      <ThemedView style={styles.card}>
-        <ThemedText type="title" accessibilityRole="header">
-          Sign In
-        </ThemedText>
+    <View style={{ flex:1, padding:24, justifyContent:'center', gap:12 }}>
+      <Text style={{ fontSize:32, fontWeight:'700', marginBottom:12 }}>Oli</Text>
 
-        <FormTextInput
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          textContentType="username"
-          accessibilityLabel="Email"
-          returnKeyType="next"
-          testID="emailInput"
-        />
+      <TextInput
+        accessibilityLabel="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        placeholder="you@example.com"
+        value={email}
+        onChangeText={setEmail}
+        style={{ borderWidth:1, borderColor:'#e6e6e6', padding:12, borderRadius:10 }}
+      />
+      <TextInput
+        accessibilityLabel="Password"
+        secureTextEntry
+        placeholder="••••••••"
+        value={pw}
+        onChangeText={setPw}
+        style={{ borderWidth:1, borderColor:'#e6e6e6', padding:12, borderRadius:10 }}
+      />
 
-        <FormTextInput
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          textContentType="password"
-          accessibilityLabel="Password"
-          returnKeyType="done"
-          onSubmitEditing={onSubmit}
-          testID="passwordInput"
-        />
+      <Pressable
+        accessibilityRole="button"
+        onPress={tryEmail}
+        disabled={busy}
+        style={{ backgroundColor:'#111', padding:14, borderRadius:12, opacity: busy ? 0.6 : 1 }}
+      >
+        <Text style={{ color:'#fff', textAlign:'center' }}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+      </Pressable>
 
-        <View style={styles.actions}>
-          <Pressable
-            testID="signInButton"
-            onPress={onSubmit}
-            accessibilityRole="button"
-            accessibilityLabel="Sign In"
-            disabled={!canSubmit || busy || !!ssoBusy}
-            style={({ pressed }) => [
-              styles.button,
-              (!canSubmit || busy || !!ssoBusy) && styles.buttonDisabled,
-              pressed && !busy && !ssoBusy && styles.buttonPressed,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator />
-            ) : (
-              <ThemedText type="body" style={styles.buttonText}>
-                Sign In
-              </ThemedText>
-            )}
-          </Pressable>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Social sign-in */}
-        <View accessible accessibilityLabel="Social sign-in options">
-          <AppleSignInButton
-            disabled={!!ssoBusy || busy}
-            onStart={() => setSsoBusy('apple')}
-            onFinish={() => setSsoBusy(null)}
-            testID="appleButton"
-          />
-
-          <Pressable
-            testID="googleButton"
-            onPress={onGoogle}
-            accessibilityRole="button"
-            accessibilityLabel="Continue with Google"
-            disabled={!!ssoBusy || busy}
-            style={({ pressed }) => [
-              styles.ssoButton,
-              (!!ssoBusy || busy) && styles.buttonDisabled,
-              pressed && !ssoBusy && !busy && styles.buttonPressed,
-            ]}
-          >
-            {ssoBusy === 'google' ? (
-              <ActivityIndicator />
-            ) : (
-              <ThemedText type="body" style={styles.buttonText}>
-                G  Continue with Google
-              </ThemedText>
-            )}
-          </Pressable>
-        </View>
-
-        <ThemedText style={styles.footer}>
-          New here? <Link href="/auth/sign-up">Create an account</Link>
-        </ThemedText>
-      </ThemedView>
-    </ScreenContainer>
+      <Pressable
+        accessibilityRole="button"
+        onPress={tryApple}
+        disabled={busy}
+        style={{ backgroundColor:'#000', padding:14, borderRadius:12, marginTop:4, opacity: busy ? 0.6 : 1 }}
+      >
+        <Text style={{ color:'#fff', textAlign:'center' }}>Sign in with Apple</Text>
+      </Pressable>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { padding: 16, borderRadius: 12, borderWidth: 1 },
-  actions: { marginTop: 16 },
-  divider: { height: 1, backgroundColor: '#00000020', marginVertical: 16 },
-  button: {
-    height: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  ssoButton: {
-    height: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 10,
-  },
-  buttonPressed: { opacity: 0.8 },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { fontSize: 16, fontWeight: '600' },
-  footer: { marginTop: 12 },
-});

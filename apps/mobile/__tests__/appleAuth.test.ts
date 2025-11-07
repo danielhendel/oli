@@ -1,8 +1,8 @@
 /**
  * Integration-style unit test for signInWithApple()
  * - Mocks native modules (expo-apple-authentication, expo-crypto)
- * - Mocks Firebase Auth (getAuth + signInWithCredential) *inside* the factory
- * - Mocks telemetry to avoid console noise
+ * - Mocks Firebase Auth (OAuthProvider + signInWithCredential)
+ * - Uses centralized client boundary (getFirebaseAuth) for assertions
  * - Verifies we exchange Apple idToken with Firebase using the *raw* nonce
  */
 
@@ -10,6 +10,7 @@ jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
   AppleAuthenticationButtonType: { SIGN_IN: 0 },
   AppleAuthenticationButtonStyle: { BLACK: 0 },
+  isAvailableAsync: jest.fn(async () => true), // ✅ ensure available
   signInAsync: jest.fn(async () => ({
     identityToken: 'apple-id-token.jwt',
   })),
@@ -21,30 +22,29 @@ jest.mock('expo-crypto', () => ({
 }));
 
 // Silence telemetry
-jest.mock('../lib/analytics/telemetry', () => ({
+jest.mock('@/lib/analytics/telemetry', () => ({
   logEvent: jest.fn(),
 }));
 
-// Mock Firebase Auth (all created inside the factory; no out-of-scope refs)
+// Mock Firebase Auth (only the parts we assert against)
 jest.mock('firebase/auth', () => {
-  const getAuth = jest.fn(() => ({}));
   const signInWithCredential = jest.fn(async () => undefined);
-  const OAuthProvider = jest.fn().mockImplementation((_providerId: string) => ({
-    credential: jest.fn((opts: { idToken: string; rawNonce: string }) => ({
-      _type: 'apple-credential',
-      ...opts,
-    })),
+  const OAuthProvider = jest.fn().mockImplementation((_providerId: string) => ({}));
+  (OAuthProvider as any).credential = jest.fn((opts: { idToken: string; rawNonce: string }) => ({
+    _type: 'apple-credential',
+    ...opts,
   }));
+
   return {
-    getAuth,
     signInWithCredential,
     OAuthProvider,
   };
 });
 
 // Import AFTER mocks so the mocked modules are used
-import { signInWithApple } from '../lib/auth/oauth/apple';
-import { getAuth, signInWithCredential, OAuthProvider } from 'firebase/auth';
+import { signInWithApple } from '@/lib/auth/oauth/apple';
+import { OAuthProvider, signInWithCredential } from 'firebase/auth';
+import { getFirebaseAuth } from '@/lib/firebaseClient';
 
 describe('signInWithApple', () => {
   beforeEach(() => {
@@ -54,8 +54,8 @@ describe('signInWithApple', () => {
   it('exchanges Apple identityToken with Firebase using raw nonce', async () => {
     await expect(signInWithApple()).resolves.toBeUndefined();
 
-    // getAuth called once
-    expect(getAuth).toHaveBeenCalledTimes(1);
+    // getFirebaseAuth called once (centralized boundary)
+    expect(getFirebaseAuth).toHaveBeenCalledTimes(1);
 
     // OAuthProvider constructed with 'apple.com'
     expect(OAuthProvider).toHaveBeenCalledWith('apple.com');

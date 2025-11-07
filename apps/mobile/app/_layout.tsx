@@ -1,41 +1,24 @@
-import React, { useEffect, useRef } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
-import AuthProvider, { useAuth } from '@/providers/AuthProvider';
-import { ThemeProvider } from '@/theme'; // adjust the import if your theme exports differently
+// apps/mobile/app/_layout.tsx
+import { Slot, Redirect, usePathname } from 'expo-router';
+import AuthProvider from '@/providers/AuthProvider';
+import { ThemeProvider } from '@/theme';
+
+function RootRedirect() {
+  const pathname = usePathname();
+  // If the app is launched at oli:/// (no path), redirect to auth entry.
+  if (!pathname || pathname === '/' || pathname === '') {
+    return <Redirect href="/auth/sign-in" />;
+  }
+  return null;
+}
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AuthGate />
+        <RootRedirect />
+        <Slot />
       </AuthProvider>
     </ThemeProvider>
   );
-}
-
-function AuthGate() {
-  const router = useRouter();
-  const segments = useSegments();
-  const { user, initializing } = useAuth();
-
-  const lastRouteRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (initializing) return;
-
-    const inAuthGroup = segments[0] === 'auth';
-
-    let target: string | null = null;
-    if (!user && !inAuthGroup) target = '/auth/sign-in';
-    else if (user && inAuthGroup) target = '/';
-
-    if (target && lastRouteRef.current !== target) {
-      lastRouteRef.current = target;
-      router.replace(target);
-    }
-  }, [segments, user, initializing, router]);
-
-  if (initializing) return null;
-
-  return <Slot />;
 }

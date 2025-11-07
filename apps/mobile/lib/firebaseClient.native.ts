@@ -1,23 +1,27 @@
-// apps/mobile/lib/firebaseClient.native.ts
 /**
- * Firebase app & Auth init for React Native (Expo).
- * - Uses Web config (required for RN Firebase Web SDK)
- * - AsyncStorage persistence via getReactNativePersistence from 'firebase/auth'
- * - Race-safe, idempotent across Fast Refresh
+ * Firebase client (native): iOS/Android dev & prod builds.
+ * - Tries to use getReactNativePersistence (if the RN subpath exists)
+ * - If not present, initializes Auth without a persistence option (memory)
+ * - Exposes getFirebaseAuth/getFirestoreDb like the web client
  */
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import * as AuthMod from 'firebase/auth';
-import type { Auth, Persistence } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ---- Env helpers ----
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import {
+  getAuth,
+  initializeAuth,
+  type Auth,
+  type Persistence,
+} from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+
+/* ---------------- Env ---------------- */
 function requiredEnv(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`[firebaseClient] Missing env ${name}`);
+  if (!v) throw new Error(`[firebaseClient(native)] Missing env ${name}`);
   return v;
 }
 
-// Read EXPO_PUBLIC_* so values are available at runtime in RN
 const firebaseConfig = {
   apiKey: requiredEnv('EXPO_PUBLIC_FIREBASE_API_KEY'),
   authDomain: requiredEnv('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
@@ -27,57 +31,51 @@ const firebaseConfig = {
   storageBucket: requiredEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
 };
 
-function assertWebConfigShape(cfg: typeof firebaseConfig) {
-  const apiKeyOk = /^AIza[0-9A-Za-z_-]{35}$/.test(cfg.apiKey);
-  const appIdOk = /^1:\d+:web:[0-9a-f]+$/i.test(cfg.appId);
-
-  if (!apiKeyOk || !appIdOk) {
-    throw new Error(
-      [
-        '[firebaseClient] Invalid Firebase Web config.',
-        `apiKey: ${apiKeyOk ? 'OK' : 'INVALID'}`,
-        `appId: ${appIdOk ? 'OK' : 'INVALID (must contain ":web:")'}`,
-        'Use Web app credentials from Firebase Console → Project settings → Your apps (</>).',
-      ].join(' ')
-    );
-  }
-}
-
-// ---- Singletons ----
+/* ------------- Singletons ------------- */
 let _app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
+let _db: Firestore | undefined;
 let _authInitPromise: Promise<Auth> | null = null;
 
+/* ------------- App ------------- */
 export function getFirebaseApp(): FirebaseApp {
   if (_app) return _app;
-  assertWebConfigShape(firebaseConfig);
   _app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   return _app;
 }
 
-/** Initialize Firebase Auth once with RN persistence. */
-async function initAuthOnce(app: FirebaseApp): Promise<Auth> {
-  if (_auth) return _auth;
+/* ------------- Auth ------------- */
+export function warmAuth(): Promise<Auth> {
+  if (_auth) return Promise.resolve(_auth);
   if (_authInitPromise) return _authInitPromise;
+
+  const app = getFirebaseApp();
 
   _authInitPromise = (async () => {
     try {
-      const getReactNativePersistence =
-        (AuthMod as unknown as { getReactNativePersistence?: (s: unknown) => unknown })
-          .getReactNativePersistence;
-
-      if (typeof getReactNativePersistence !== 'function') {
-        throw new Error(
-          "[firebaseClient] getReactNativePersistence not found on 'firebase/auth'. " +
-            'Ensure firebase >= 11 and @react-native-async-storage/async-storage is installed.'
-        );
+      // Try to load official helper if present
+      let getRNPersist: ((store: typeof AsyncStorage) => Persistence) | undefined;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const rnAuth = require('firebase/auth/react-native');
+        getRNPersist = rnAuth?.getReactNativePersistence;
+      } catch {
+        getRNPersist = undefined;
       }
 
-      const persistence = getReactNativePersistence(AsyncStorage) as unknown as Persistence;
-      _auth = AuthMod.initializeAuth(app, { persistence });
+      if (getRNPersist) {
+        _auth = initializeAuth(app, {
+          persistence: getRNPersist(AsyncStorage) as unknown as Persistence,
+        });
+      } else {
+        // Fallback: memory persistence (no crash, but won’t persist sessions)
+        _auth = initializeAuth(app);
+      }
+
       return _auth;
     } catch {
-      _auth = AuthMod.getAuth(app);
+      // Already initialized (e.g., HMR)
+      _auth = getAuth(app);
       return _auth;
     }
   })();
@@ -85,27 +83,26 @@ async function initAuthOnce(app: FirebaseApp): Promise<Auth> {
   return _authInitPromise;
 }
 
-/** Public accessor: auto-initialize on first call (race-safe). */
+export async function ensureAuthInitialized(): Promise<Auth> {
+  return warmAuth();
+}
+
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
-  const app = getFirebaseApp();
-  void initAuthOnce(app);
-  if (!_auth) {
-    throw new Error(
-      '[firebaseClient] Auth not yet initialized. Call ensureAuthInitialized() during app bootstrap.'
-    );
-  }
-  return _auth;
+  throw new Error('[firebaseClient(native)] Auth not initialized. Call ensureAuthInitialized() first.');
 }
 
-/** Optional awaitable guard for app bootstrap. */
-export async function ensureAuthInitialized(): Promise<Auth> {
-  const app = getFirebaseApp();
-  return initAuthOnce(app);
+/* ----------- Firestore ----------- */
+export function getFirestoreDb(): Firestore {
+  if (_db) return _db;
+  _db = getFirestore(getFirebaseApp());
+  return _db;
 }
 
-/** Back-compat shim: keep old API used by AuthProvider. */
-export function warmAuth(): Promise<Auth> {
-  const app = getFirebaseApp();
-  return initAuthOnce(app);
+/* -------- Test helper -------- */
+export function __resetFirebaseClientForTests__(): void {
+  _app = undefined;
+  _auth = undefined;
+  _db = undefined;
+  _authInitPromise = null;
 }

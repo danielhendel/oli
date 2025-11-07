@@ -1,19 +1,18 @@
-// apps/mobile/lib/firebaseClient.ts
 /**
- * Canonical, race-safe Firebase app & Auth initialization for Expo (web + native).
- * - NO imports from 'firebase/auth/react-native' (Metro-safe)
- * - Provides RN persistence via a tiny AsyncStorage-backed adapter
- * - Guards misuse on native if ensureAuthInitialized() wasn't called first
+ * Firebase client (web / Expo Go fallback).
+ * - No native modules. Auth persistence is browser default (or memory in Expo Go).
+ * - API surface matches firebaseClient.native.ts.
  */
 
 import { Platform } from 'react-native';
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, initializeAuth, type Auth, type Persistence } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
+// ---------- Env helpers ----------
 function requiredEnv(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`[firebaseClient] Missing env ${name}`);
+  if (!v) throw new Error(`[firebaseClient(web)] Missing env ${name}`);
   return v;
 }
 
@@ -26,87 +25,47 @@ const firebaseConfig = {
   storageBucket: requiredEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
 };
 
+// ---------- Singletons ----------
 let _app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
-let _authInitPromise: Promise<Auth> | null = null;
+let _db: Firestore | undefined;
 
-/**
- * Minimal AsyncStorage-backed persistence for React Native.
- * Matches Firebase's Persistence contract; listeners are no-ops because
- * AsyncStorage doesn't broadcast cross-context updates by itself.
- */
-function createRNAsyncStoragePersistence(): Persistence {
-  type Listener = (key: string, value: string | null) => void;
-  const listeners = new Set<Listener>();
-
-  const persistenceLike = {
-    type: 'LOCAL',
-    _isAvailable: async () => true,
-    _set: async (key: string, value: string) => {
-      await AsyncStorage.setItem(key, value);
-      for (const l of listeners) l(key, value);
-    },
-    _get: async (key: string) => {
-      return AsyncStorage.getItem(key);
-    },
-    _remove: async (key: string) => {
-      await AsyncStorage.removeItem(key);
-      for (const l of listeners) l(key, null);
-    },
-    _addListener: (listener: Listener) => {
-      listeners.add(listener);
-    },
-    _removeListener: (listener: Listener) => {
-      listeners.delete(listener);
-    },
-  };
-
-  // The Persistence type isn't structural in public types; we cast here intentionally.
-  return persistenceLike as unknown as Persistence;
-}
-
+// ---------- App ----------
 export function getFirebaseApp(): FirebaseApp {
   if (_app) return _app;
   _app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   return _app;
 }
 
-/** Warm and register Firebase Auth (idempotent across fast refresh) */
-export function warmAuth(): Promise<Auth> {
-  if (_auth) return Promise.resolve(_auth);
-  if (_authInitPromise) return _authInitPromise;
-
-  const app = getFirebaseApp();
-
-  _authInitPromise = (async () => {
-    if (Platform.OS === 'web') {
-      _auth = getAuth(app);
-      return _auth;
-    }
-
-    try {
-      const rnPersistence = createRNAsyncStoragePersistence();
-      _auth = initializeAuth(app, { persistence: rnPersistence });
-      return _auth;
-    } catch {
-      // Already initialized (e.g., HMR) — just retrieve it.
-      _auth = getAuth(app);
-      return _auth;
-    }
-  })();
-
-  return _authInitPromise;
+// ---------- Auth ----------
+export async function warmAuth(): Promise<Auth> {
+  if (_auth) return _auth;
+  // Web & Expo Go: just grab the default auth instance.
+  _auth = getAuth(getFirebaseApp());
+  return _auth;
 }
 
 export async function ensureAuthInitialized(): Promise<Auth> {
   return warmAuth();
 }
 
-/** Synchronous accessor after ensureAuthInitialized() */
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
-  if (Platform.OS !== 'web') {
-    throw new Error('[firebaseClient] Auth not initialized. Call ensureAuthInitialized() first.');
-  }
-  return getAuth(getFirebaseApp());
+  // On web/Expo Go this is safe to call synchronously.
+  _auth = getAuth(getFirebaseApp());
+  return _auth;
+}
+
+// ---------- Firestore ----------
+export function getFirestoreDb(): Firestore {
+  if (_db) return _db;
+  _db = getFirestore(getFirebaseApp());
+  return _db;
+}
+
+// ---------- Test helper ----------
+export function __resetFirebaseClientForTests__(): void {
+  _app = undefined;
+  _auth = undefined;
+  _db = undefined;
 }

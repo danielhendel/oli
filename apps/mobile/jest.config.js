@@ -1,12 +1,16 @@
 // Jest config for Expo SDK 54 + React Native
-// Keep all RN/Expo packages in transform, map "@/x" to "<rootDir>/x"
+// - Keep RN/Expo modules transformed
+// - Load our polyfills/mocks before tests
+// - Use jsdom for RN tests; override to node in specific tests when needed
 
 module.exports = {
   preset: 'jest-expo',
-  testEnvironment: 'jsdom', // allows DOM-like APIs for RN testing & auth mocks
+  testEnvironment: 'jsdom',
+  setupFiles: [
+    '<rootDir>/jest-setup.ts', // loads fetch polyfill + Expo/Firebase mocks BEFORE tests
+  ],
   setupFilesAfterEnv: [
-    '@testing-library/jest-native/extend-expect',
-    '<rootDir>/jest-setup.ts', // <-- loads our Apple/Constants mocks
+    '@testing-library/jest-native/extend-expect', // RTL matchers
   ],
   transformIgnorePatterns: [
     'node_modules/(?!(jest-)?react-native|@react-native|react-native' +
@@ -19,6 +23,5 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
-  // Keep tests snappy in CI
   maxWorkers: 2,
 };
