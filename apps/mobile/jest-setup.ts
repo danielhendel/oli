@@ -11,12 +11,19 @@ export {};
 
 /**
  * Jest setup for Expo SDK 54 + RN
+ * - Ensures __DEV__ exists
  * - Mocks Apple Sign-In so tests can run in Node
  * - Pretends we're on a native/dev-client build (not Expo Go)
  * - Provides a virtual `expo-device` so "real device" guards pass
  * - Mocks centralized Firebase client to avoid real initialization
- * - Mocks expo-router (Stack/Slot/useRouter) for routing tests
+ * - Mocks expo-router (Stack/Slot/useRouter/usePathname/Redirect)
+ * - Mocks react-native-safe-area-context + react-native-gesture-handler
  */
+
+/* ---------------------------------- */
+/* React Native global __DEV__ flag    */
+/* ---------------------------------- */
+(global as unknown as { __DEV__: boolean }).__DEV__ = true;
 
 /* ---------------------------------- */
 /* Firebase RN persistence (virtual)   */
@@ -30,24 +37,21 @@ jest.mock(
 );
 
 /* ---------------------------------- */
-/* Mock the core Firebase Auth APIs    */
-/* so tests can assert on calls        */
+/* Mock Firebase Auth APIs             */
 /* ---------------------------------- */
 jest.mock('firebase/auth', () => {
   const getAuth = jest.fn(() => ({ __mockAuth__: true }));
   const signInWithCredential = jest.fn(async () => ({ user: { uid: 'test-uid' } }));
 
-  // Jest-mockable constructor + static .credential
   const OAuthProvider = Object.assign(
-    jest.fn(function (this: any, providerId: string) {
+    jest.fn(function (this: { providerId?: string }, providerId: string) {
       this.providerId = providerId;
     }),
     {
-      // Return EXACT shape tests expect, including a base64url-like rawNonce
-      credential: jest.fn((_args?: { idToken: string; rawNonce?: string }) => ({
+      credential: jest.fn(() => ({
         _type: 'apple-credential',
         idToken: 'apple-id-token.jwt',
-        rawNonce: 'dGVzdF9ub25jZV9iYXNlNjR1cmwzMjg0NTY3ODkw', // url-safe, length > 30
+        rawNonce: 'dGVzdF9ub25jZV9iYXNlNjR1cmwzMjg0NTY3ODkw',
       })),
     }
   );
@@ -61,10 +65,7 @@ jest.mock('firebase/auth', () => {
 });
 
 /* ---------------------------------- */
-/* Mock centralized Firebase client    */
-/* - Prevent real env/initializeApp    */
-/* - Make getFirebaseAuth() a jest.fn  */
-/*   so tests can assert call counts   */
+/* Centralized Firebase Client Mock    */
 /* ---------------------------------- */
 jest.mock('@/lib/firebaseClient', () => {
   const mockAuth = { __mockAuth__: true };
@@ -72,13 +73,13 @@ jest.mock('@/lib/firebaseClient', () => {
     __esModule: true,
     getFirebaseAuth: jest.fn(() => mockAuth),
     ensureAuthInitialized: jest.fn().mockResolvedValue(mockAuth),
-    getFirestoreDb: jest.fn(() => ({})), // if something imports DB in tests
+    getFirestoreDb: jest.fn(() => ({})),
     __resetFirebaseClientForTests__: jest.fn(),
   };
 });
 
 /* ---------------------------------- */
-/* Apple Sign-In (native behavior)     */
+/* Apple Auth Mock                     */
 /* ---------------------------------- */
 jest.mock('expo-apple-authentication', () => ({
   __esModule: true,
@@ -87,7 +88,7 @@ jest.mock('expo-apple-authentication', () => ({
     user: 'apple-test-user',
     fullName: { givenName: 'Test', familyName: 'User' },
     email: 'test@example.com',
-    identityToken: 'apple-id-token.jwt', // consistent with tests
+    identityToken: 'apple-id-token.jwt',
     authorizationCode: 'test.code',
   }),
   AppleAuthenticationScope: { FULL_NAME: 'FULL_NAME', EMAIL: 'EMAIL' },
@@ -95,61 +96,100 @@ jest.mock('expo-apple-authentication', () => ({
 }));
 
 /* ---------------------------------- */
-/* Environment (treat as native build) */
+/* Expo Constants Mock                 */
 /* ---------------------------------- */
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
-    appOwnership: 'standalone', // behave like a native/dev-client build
+    appOwnership: 'standalone',
     expoConfig: { scheme: 'oli' },
   },
 }));
 
 /* ---------------------------------- */
-/* Device guard (virtual mock)         */
+/* Expo Device Mock                    */
 /* ---------------------------------- */
 jest.mock(
   'expo-device',
   () => ({
     __esModule: true,
-    isDevice: true, // pretend we're on a real device
+    isDevice: true,
   }),
   { virtual: true }
 );
 
 /* ---------------------------------- */
-/* expo-router mock (Stack/Slot/router)*/
-/* - Expose __mockReplace/__mockPush   */
-/*   so tests can assert navigations    */
+/* Safe Area Mock                      */
+/* ---------------------------------- */
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    SafeAreaProvider: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(View, null, children),
+    SafeAreaView: ({ children, ...rest }: any) =>
+      React.createElement(View, rest, children),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+/* ---------------------------------- */
+/* Gesture Handler Mock (FIXED)        */
+/* ---------------------------------- */
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const createStub = (_displayName: string) => {
+    const Comp = ({ children, ...props }: any) =>
+      React.createElement(View, props, children);
+    return Comp;
+  };
+
+  return {
+    __esModule: true,
+    GestureHandlerRootView: createStub('GestureHandlerRootView'),
+    PanGestureHandler: createStub('PanGestureHandler'),
+    TapGestureHandler: createStub('TapGestureHandler'),
+    State: {},
+    Directions: {},
+  };
+});
+
+/* ---------------------------------- */
+/* Expo Router Mock                    */
 /* ---------------------------------- */
 jest.mock('expo-router', () => {
   const React = require('react');
   const mockReplace = jest.fn();
   const mockPush = jest.fn();
-
-  const Stack = ({ children }: { children?: React.ReactNode }) =>
-    React.createElement(React.Fragment, null, children);
-
-  const Slot = ({ children }: { children?: React.ReactNode }) =>
-    React.createElement(React.Fragment, null, children);
+  const mockUsePathname = jest.fn(() => '/');
 
   return {
     __esModule: true,
-    Stack,
-    Slot,
+    Stack: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    Slot: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    Redirect: ({ href }: { href: string }) => {
+      mockReplace(href);
+      return null;
+    },
     useRouter: () => ({ replace: mockReplace, push: mockPush }),
+    useSegments: jest.fn(() => []),
+    usePathname: mockUsePathname,
+
     __mockReplace: mockReplace,
     __mockPush: mockPush,
+    __mockUsePathname: mockUsePathname,
   };
 });
 
 /* ---------------------------------- */
-/* Providers used by RootLayout        */
-/* - Pass-through wrappers supporting  */
-/*   both default and named imports    */
+/* Theme + AuthProvider mocks          */
 /* ---------------------------------- */
 jest.mock('@/theme', () => {
-  const ThemeProvider = ({ children }: { children?: React.ReactNode }) => children ?? null;
+  const ThemeProvider = ({ children }: any) => children ?? null;
   return {
     __esModule: true,
     default: ThemeProvider,
@@ -161,7 +201,8 @@ jest.mock('@/providers/AuthProvider', () => {
   const React = require('react');
   const Ctx = React.createContext({ user: null, initializing: false });
   const useAuth = () => React.useContext(Ctx);
-  const AuthProvider = ({ children }: { children?: React.ReactNode }) => children ?? null;
+  const AuthProvider = ({ children }: any) => children ?? null;
+
   return {
     __esModule: true,
     default: AuthProvider,
@@ -169,9 +210,3 @@ jest.mock('@/providers/AuthProvider', () => {
     useAuth,
   };
 });
-
-/* ---------------------------------- */
-/* Note: We intentionally DO NOT mock  */
-/* '@/lib/auth/oauth/apple' here so    */
-/* the real implementation is tested.  */
-/* ---------------------------------- */
