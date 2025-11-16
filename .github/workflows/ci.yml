@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   # --- API checks (only when services/api/** changes) ---
-  check:
+  api-check:
     name: API - typecheck/lint/test
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect API changes
+      - name: Detect changes
         id: changes
         uses: dorny/paths-filter@v3
         with:
@@ -100,15 +100,15 @@ jobs:
   mobile-check:
     name: Mobile - typecheck/lint/test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect mobile changes
-        id: changes
+      - name: Detect changes
+        id: mobile_changes
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -117,7 +117,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
       - name: Use Node.js 20
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -125,13 +125,13 @@ jobs:
           cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Install deps (mobile)
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         run: npm ci || npm install
 
       # ⛑️ Prestart env guard — fail fast on invalid/missing env or bad Expo URL vars
       - name: Validate env (mobile prestart guard)
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         env:
           EXPO_NO_DOTENV: '1'
@@ -147,16 +147,16 @@ jobs:
         run: node ./scripts/prestart.cjs
 
       - name: Typecheck (mobile)
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         run: npm run typecheck
 
       - name: Lint (mobile)
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         run: npm run lint
 
       - name: Test (mobile)
-        if: steps.changes.outputs.mobile == 'true'
+        if: steps.mobile_changes.outputs.mobile == 'true'
         working-directory: apps/mobile
         run: npm test -- --ci
