@@ -16,12 +16,13 @@ jobs:
     name: API - typecheck/lint/test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect changes
+      - name: Detect API changes
         id: changes
         uses: dorny/paths-filter@v3
         with:
@@ -91,7 +92,7 @@ jobs:
               exit 0
             fi
             sleep 6
-          end
+          done
           echo "❌ Prod Firebase health probe failed."
           exit 1
 
@@ -100,12 +101,13 @@ jobs:
     name: Mobile - typecheck/lint/test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect changes
+      - name: Detect mobile changes
         id: changes
         uses: dorny/paths-filter@v3
         with:
