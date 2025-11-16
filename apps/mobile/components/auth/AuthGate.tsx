@@ -1,13 +1,14 @@
 // apps/mobile/components/auth/AuthGate.tsx
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '@/providers/AuthProvider';
 
 /**
  * Global auth-aware route guard.
+ *
+ * Behavior:
  * - If unauthenticated and in private group (app) → /auth/sign-in
- * - If authenticated and in auth group → /(app)/profile
- * - If launched at "/" (no segments) → route based on auth state
+ * - If authenticated and in auth group → /(app) (root of the private app)
  *
  * Important: Always navigate to a concrete screen (not a group).
  */
@@ -20,10 +21,6 @@ export default function AuthGate() {
   const root = segments[0] ?? '';
   const inPrivateApp = root === '(app)';
   const inAuth = root === 'auth';
-  const atRoot = root === '';
-
-  // Prevent repeated replace() calls causing loops or flicker
-  const lastNavRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (initializing) return;
@@ -34,7 +31,7 @@ export default function AuthGate() {
       return;
     }
 
-    // signed in → leaving the auth group takes you to Home
+    // signed in → leaving the auth group takes you to the app root
     if (user && inAuth) {
       router.replace('/(app)'); // hits app/(app)/index.tsx
       return;
@@ -43,4 +40,3 @@ export default function AuthGate() {
 
   return null;
 }
-

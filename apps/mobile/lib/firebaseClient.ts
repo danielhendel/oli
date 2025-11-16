@@ -1,15 +1,14 @@
+// apps/mobile/lib/firebaseClient.ts
 /**
  * Firebase client (web / Expo Go fallback).
  * - No native modules. Auth persistence is browser default (or memory in Expo Go).
  * - API surface matches firebaseClient.native.ts.
  */
-
-import { Platform } from 'react-native';
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
-// ---------- Env helpers ----------
+/* ---------------- Env ---------------- */
 function requiredEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`[firebaseClient(web)] Missing env ${name}`);
@@ -25,22 +24,21 @@ const firebaseConfig = {
   storageBucket: requiredEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
 };
 
-// ---------- Singletons ----------
+/* ------------- Singletons ------------- */
 let _app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
 let _db: Firestore | undefined;
 
-// ---------- App ----------
+/* ------------- App ------------- */
 export function getFirebaseApp(): FirebaseApp {
   if (_app) return _app;
   _app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   return _app;
 }
 
-// ---------- Auth ----------
+/* ------------- Auth ------------- */
 export async function warmAuth(): Promise<Auth> {
   if (_auth) return _auth;
-  // Web & Expo Go: just grab the default auth instance.
   _auth = getAuth(getFirebaseApp());
   return _auth;
 }
@@ -51,19 +49,18 @@ export async function ensureAuthInitialized(): Promise<Auth> {
 
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
-  // On web/Expo Go this is safe to call synchronously.
   _auth = getAuth(getFirebaseApp());
   return _auth;
 }
 
-// ---------- Firestore ----------
+/* ----------- Firestore ----------- */
 export function getFirestoreDb(): Firestore {
   if (_db) return _db;
   _db = getFirestore(getFirebaseApp());
   return _db;
 }
 
-// ---------- Test helper ----------
+/* -------- Test helper -------- */
 export function __resetFirebaseClientForTests__(): void {
   _app = undefined;
   _auth = undefined;

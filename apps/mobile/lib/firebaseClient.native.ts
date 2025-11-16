@@ -1,10 +1,10 @@
+// apps/mobile/lib/firebaseClient.native.ts
 /**
  * Firebase client (native): iOS/Android dev & prod builds.
  * - Tries to use getReactNativePersistence (if the RN subpath exists)
  * - If not present, initializes Auth without a persistence option (memory)
  * - Exposes getFirebaseAuth/getFirestoreDb like the web client
  */
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
@@ -53,10 +53,9 @@ export function warmAuth(): Promise<Auth> {
 
   _authInitPromise = (async () => {
     try {
-      // Try to load official helper if present
       let getRNPersist: ((store: typeof AsyncStorage) => Persistence) | undefined;
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // Dynamically load RN persistence if available
         const rnAuth = require('firebase/auth/react-native');
         getRNPersist = rnAuth?.getReactNativePersistence;
       } catch {
@@ -68,13 +67,12 @@ export function warmAuth(): Promise<Auth> {
           persistence: getRNPersist(AsyncStorage) as unknown as Persistence,
         });
       } else {
-        // Fallback: memory persistence (no crash, but won’t persist sessions)
         _auth = initializeAuth(app);
       }
 
       return _auth;
     } catch {
-      // Already initialized (e.g., HMR)
+      // Already initialized (e.g. HMR)
       _auth = getAuth(app);
       return _auth;
     }
@@ -89,7 +87,9 @@ export async function ensureAuthInitialized(): Promise<Auth> {
 
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
-  throw new Error('[firebaseClient(native)] Auth not initialized. Call ensureAuthInitialized() first.');
+  throw new Error(
+    '[firebaseClient(native)] Auth not initialized. Call ensureAuthInitialized() first.'
+  );
 }
 
 /* ----------- Firestore ----------- */
