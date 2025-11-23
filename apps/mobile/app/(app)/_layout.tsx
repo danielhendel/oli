@@ -7,7 +7,11 @@ export default function AppLayout() {
   return (
     <>
       <AuthGate />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false, // 🔴 hide the native header, use our custom one
+        }}
+      />
     </>
   );
 }

@@ -1,11 +1,12 @@
 // apps/mobile/app/_layout.tsx
+import React from 'react';
 import { Slot, Redirect, usePathname } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AuthProvider from '@/providers/AuthProvider';
 import { ThemeProvider } from '@/theme';
 
 function RootRedirect() {
   const pathname = usePathname();
-  // If the app is launched at oli:/// (no path), redirect to auth entry.
   if (!pathname || pathname === '/' || pathname === '') {
     return <Redirect href="/auth/sign-in" />;
   }
@@ -14,11 +15,13 @@ function RootRedirect() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootRedirect />
-        <Slot />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RootRedirect />
+          <Slot />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

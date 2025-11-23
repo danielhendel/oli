@@ -2,7 +2,6 @@
 
 // Polyfill fetch for Node/Jest
 import 'cross-fetch/polyfill';
-import type React from 'react';
 
 /* eslint-env jest */
 /* global jest */
@@ -91,8 +90,8 @@ jest.mock('expo-apple-authentication', () => ({
     identityToken: 'apple-id-token.jwt',
     authorizationCode: 'test.code',
   }),
-  AppleAuthenticationScope: { FULL_NAME: 'FULL_NAME', EMAIL: 'EMAIL' },
-  AppleAuthenticationCredentialState: { AUTHORIZED: 1 },
+    AppleAuthenticationScope: { FULL_NAME: 'FULL_NAME', EMAIL: 'EMAIL' },
+    AppleAuthenticationCredentialState: { AUTHORIZED: 1 },
 }));
 
 /* ---------------------------------- */
@@ -119,32 +118,45 @@ jest.mock(
 );
 
 /* ---------------------------------- */
-/* Safe Area Mock                      */
+/* Safe Area Mock (FIXED)             */
 /* ---------------------------------- */
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
-  const { View } = require('react-native');
+
+  const SafeAreaView = ({ children, ...rest }: any) =>
+    React.createElement('div', rest, children);
+
+  const SafeAreaProvider = ({ children, ...rest }: any) =>
+    React.createElement('div', rest, children);
 
   return {
     __esModule: true,
-    SafeAreaProvider: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement(View, null, children),
-    SafeAreaView: ({ children, ...rest }: any) =>
-      React.createElement(View, rest, children),
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+    SafeAreaView,
+    SafeAreaProvider,
+    SafeAreaInsetsContext: {
+      Consumer: ({ children }: any) =>
+        children({ top: 0, left: 0, right: 0, bottom: 0 }),
+      Provider: ({ children }: any) => children,
+    },
+    useSafeAreaInsets: () => ({
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+    }),
+    initialWindowSafeAreaInsets: { top: 0, left: 0, right: 0, bottom: 0 },
   };
 });
 
 /* ---------------------------------- */
-/* Gesture Handler Mock (FIXED)        */
+/* Gesture Handler Mock (no RN View)   */
 /* ---------------------------------- */
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const { View } = require('react-native');
 
   const createStub = (_displayName: string) => {
     const Comp = ({ children, ...props }: any) =>
-      React.createElement(View, props, children);
+      React.createElement('div', props, children);
     return Comp;
   };
 
