@@ -1,24 +1,25 @@
 // apps/mobile/lib/firebaseClient.native.ts
 /**
- * Firebase client (native): iOS/Android dev & prod builds.
- * - Tries to use getReactNativePersistence (if the RN subpath exists)
- * - If not present, initializes Auth without a persistence option (memory)
- * - Exposes getFirebaseAuth/getFirestoreDb like the web client
+ * Firebase client (native): iOS/Android dev & EAS builds.
+ *
+ * For now we intentionally mirror the web client behavior:
+ * - Use the default Auth instance via getAuth(getFirebaseApp()).
+ * - No React Native persistence (sessions are in-memory only).
+ *
+ * This keeps things simple and avoids the “Component auth has not
+ * been registered yet” issues while we’re still in Sprint 1.
  */
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import {
-  getAuth,
-  initializeAuth,
-  type Auth,
-  type Persistence,
-} from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
 /* ---------------- Env ---------------- */
 function requiredEnv(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`[firebaseClient(native)] Missing env ${name}`);
+  if (!v) {
+    throw new Error(`[firebaseClient(native)] Missing env ${name}`);
+  }
   return v;
 }
 
@@ -35,7 +36,6 @@ const firebaseConfig = {
 let _app: FirebaseApp | undefined;
 let _auth: Auth | undefined;
 let _db: Firestore | undefined;
-let _authInitPromise: Promise<Auth> | null = null;
 
 /* ------------- App ------------- */
 export function getFirebaseApp(): FirebaseApp {
@@ -45,40 +45,12 @@ export function getFirebaseApp(): FirebaseApp {
 }
 
 /* ------------- Auth ------------- */
-export function warmAuth(): Promise<Auth> {
-  if (_auth) return Promise.resolve(_auth);
-  if (_authInitPromise) return _authInitPromise;
+export async function warmAuth(): Promise<Auth> {
+  if (_auth) return _auth;
 
-  const app = getFirebaseApp();
-
-  _authInitPromise = (async () => {
-    try {
-      let getRNPersist: ((store: typeof AsyncStorage) => Persistence) | undefined;
-      try {
-        // Dynamically load RN persistence if available
-        const rnAuth = require('firebase/auth/react-native');
-        getRNPersist = rnAuth?.getReactNativePersistence;
-      } catch {
-        getRNPersist = undefined;
-      }
-
-      if (getRNPersist) {
-        _auth = initializeAuth(app, {
-          persistence: getRNPersist(AsyncStorage) as unknown as Persistence,
-        });
-      } else {
-        _auth = initializeAuth(app);
-      }
-
-      return _auth;
-    } catch {
-      // Already initialized (e.g. HMR)
-      _auth = getAuth(app);
-      return _auth;
-    }
-  })();
-
-  return _authInitPromise;
+  // Native dev / EAS build: use the default Auth instance, same as web.
+  _auth = getAuth(getFirebaseApp());
+  return _auth;
 }
 
 export async function ensureAuthInitialized(): Promise<Auth> {
@@ -87,9 +59,8 @@ export async function ensureAuthInitialized(): Promise<Auth> {
 
 export function getFirebaseAuth(): Auth {
   if (_auth) return _auth;
-  throw new Error(
-    '[firebaseClient(native)] Auth not initialized. Call ensureAuthInitialized() first.'
-  );
+  // Safe fallback if a caller forgot to await ensureAuthInitialized
+  return getAuth(getFirebaseApp());
 }
 
 /* ----------- Firestore ----------- */
@@ -104,5 +75,4 @@ export function __resetFirebaseClientForTests__(): void {
   _app = undefined;
   _auth = undefined;
   _db = undefined;
-  _authInitPromise = null;
 }
