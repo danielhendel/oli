@@ -11,6 +11,7 @@ import type {
 } from '../types/health';
 import type { WriteResult } from 'firebase-admin/firestore';
 import { aggregateDailyFactsForDay } from './aggregateDailyFacts';
+import { enrichDailyFactsWithBaselinesAndAverages } from './enrichDailyFacts';
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
@@ -33,11 +34,22 @@ const getYesterdayUtcYmd = (): YmdDateString => {
   return toYmdUtc(yesterday);
 };
 
+const getYmdNDaysBefore = (date: YmdDateString, days: number): YmdDateString => {
+  const [yearStr, monthStr, dayStr] = date.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  const base = new Date(Date.UTC(year, month - 1, day));
+  base.setUTCDate(base.getUTCDate() - days);
+  return toYmdUtc(base);
+};
+
 /**
  * Scheduled job:
  *  - Runs daily (UTC)
  *  - Recomputes DailyFacts for the previous UTC day across all users
- *  - Uses CanonicalEvents (collectionGroup "events") as the source of truth
+ *  - Enriches DailyFacts with 7-day rolling averages and HRV baselines
  *
  * Firestore paths:
  *  - Input:  /users/{userId}/events/{eventId}
@@ -73,23 +85,39 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       eventsByUser.set(data.userId, userEvents);
     });
 
-    const writePromises: Promise<WriteResult>[] = [];
+    const userIds = Array.from(eventsByUser.keys());
 
-    eventsByUser.forEach((userEvents, userId) => {
-      const dailyFacts: DailyFacts = aggregateDailyFactsForDay({
+    const writePromises: Promise<WriteResult>[] = userIds.map(async (userId) => {
+      const userEvents = eventsByUser.get(userId) ?? [];
+
+      const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
         userId,
         date: targetDate,
         computedAt,
         events: userEvents,
       });
 
-      const ref = db
-        .collection('users')
-        .doc(userId)
-        .collection('dailyFacts')
-        .doc(targetDate);
+      // Load previous up-to-6 days of DailyFacts (for a 7-day window including today).
+      const startDate = getYmdNDaysBefore(targetDate, 6);
+      const userRef = db.collection('users').doc(userId);
 
-      writePromises.push(ref.set(dailyFacts));
+      const historySnapshot = await userRef
+        .collection('dailyFacts')
+        .where('date', '>=', startDate)
+        .where('date', '<', targetDate) // strictly before today
+        .get();
+
+      const historyFacts: DailyFacts[] = historySnapshot.docs.map(
+        (doc) => doc.data() as DailyFacts,
+      );
+
+      const enrichedDailyFacts = enrichDailyFactsWithBaselinesAndAverages({
+        today: baseDailyFacts,
+        history: historyFacts,
+      });
+
+      const ref = userRef.collection('dailyFacts').doc(targetDate);
+      return ref.set(enrichedDailyFacts);
     });
 
     await Promise.all(writePromises);

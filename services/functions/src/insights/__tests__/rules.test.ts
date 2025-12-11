@@ -17,10 +17,13 @@ const makeFacts = (overrides: Partial<DailyFacts>): DailyFacts => ({
 });
 
 describe('generateInsightsForDailyFacts', () => {
-  it('generates low_sleep_duration when totalMinutes < 420', () => {
+  it('generates low_sleep_duration when totalMinutes < 420 and confidence is high', () => {
     const facts = makeFacts({
       sleep: {
         totalMinutes: 360,
+      },
+      confidence: {
+        sleep: 0.8,
       },
     });
 
@@ -37,10 +40,13 @@ describe('generateInsightsForDailyFacts', () => {
     expect(lowSleep?.evidence[0]?.factPath).toBe('sleep.totalMinutes');
   });
 
-  it('does not generate low_sleep_duration when totalMinutes >= 420', () => {
+  it('does not generate low_sleep_duration when confidence is low', () => {
     const facts = makeFacts({
       sleep: {
-        totalMinutes: 450,
+        totalMinutes: 360,
+      },
+      confidence: {
+        sleep: 0.2,
       },
     });
 
@@ -55,10 +61,34 @@ describe('generateInsightsForDailyFacts', () => {
     expect(lowSleep).toBeUndefined();
   });
 
-  it('generates low_steps when steps < 8000', () => {
+  it('does not generate low_sleep_duration when totalMinutes >= 420 even with high confidence', () => {
+    const facts = makeFacts({
+      sleep: {
+        totalMinutes: 450,
+      },
+      confidence: {
+        sleep: 0.9,
+      },
+    });
+
+    const insights = generateInsightsForDailyFacts({
+      userId: facts.userId,
+      date: facts.date,
+      facts,
+      now: '2025-01-02T03:00:00.000Z',
+    });
+
+    const lowSleep = insights.find((i) => i.kind === 'low_sleep_duration');
+    expect(lowSleep).toBeUndefined();
+  });
+
+  it('generates low_steps when steps < 8000 and activity confidence is high', () => {
     const facts = makeFacts({
       activity: {
         steps: 5000,
+      },
+      confidence: {
+        activity: 0.9,
       },
     });
 
@@ -75,10 +105,34 @@ describe('generateInsightsForDailyFacts', () => {
     expect(lowSteps?.evidence[0]?.factPath).toBe('activity.steps');
   });
 
-  it('generates high_training_load when trainingLoad > 150', () => {
+  it('does not generate low_steps when activity confidence is low', () => {
+    const facts = makeFacts({
+      activity: {
+        steps: 5000,
+      },
+      confidence: {
+        activity: 0.1,
+      },
+    });
+
+    const insights = generateInsightsForDailyFacts({
+      userId: facts.userId,
+      date: facts.date,
+      facts,
+      now: '2025-01-02T03:00:00.000Z',
+    });
+
+    const lowSteps = insights.find((i) => i.kind === 'low_steps');
+    expect(lowSteps).toBeUndefined();
+  });
+
+  it('generates high_training_load when trainingLoad > 150 and activity confidence is high', () => {
     const facts = makeFacts({
       activity: {
         trainingLoad: 200,
+      },
+      confidence: {
+        activity: 0.9,
       },
     });
 
@@ -94,10 +148,13 @@ describe('generateInsightsForDailyFacts', () => {
     expect(highLoad?.severity).toBe('warning');
   });
 
-  it('generates low_hrv when hrvRmssd < 50', () => {
+  it('generates low_hrv when hrvRmssd < 50 and recovery confidence is high', () => {
     const facts = makeFacts({
       recovery: {
         hrvRmssd: 40,
+      },
+      confidence: {
+        recovery: 0.8,
       },
     });
 
@@ -112,6 +169,27 @@ describe('generateInsightsForDailyFacts', () => {
     expect(lowHrv).toBeDefined();
     expect(lowHrv?.severity).toBe('info');
     expect(lowHrv?.evidence[0]?.factPath).toBe('recovery.hrvRmssd');
+  });
+
+  it('does not generate low_hrv when recovery confidence is low', () => {
+    const facts = makeFacts({
+      recovery: {
+        hrvRmssd: 40,
+      },
+      confidence: {
+        recovery: 0.2,
+      },
+    });
+
+    const insights = generateInsightsForDailyFacts({
+      userId: facts.userId,
+      date: facts.date,
+      facts,
+      now: '2025-01-02T03:00:00.000Z',
+    });
+
+    const lowHrv = insights.find((i) => i.kind === 'low_hrv');
+    expect(lowHrv).toBeUndefined();
   });
 
   it('generates no insights when facts are empty', () => {
@@ -132,6 +210,11 @@ describe('generateInsightsForDailyFacts', () => {
       sleep: { totalMinutes: 360 },
       activity: { steps: 5000, trainingLoad: 200 },
       recovery: { hrvRmssd: 40 },
+      confidence: {
+        sleep: 0.8,
+        activity: 0.9,
+        recovery: 0.8,
+      },
     });
 
     const first = generateInsightsForDailyFacts({

@@ -18,6 +18,25 @@ import type {
   }
   
   /**
+   * Minimum domain confidence required for an insight to fire.
+   *
+   * Option A (conservative): require at least 0.5 confidence so that
+   * we only generate insights when we have reasonably dense data for
+   * the relevant domain over the last 7 days.
+   */
+  const MIN_DOMAIN_CONFIDENCE = 0.5;
+  
+  type DomainKey = 'sleep' | 'activity' | 'recovery' | 'body';
+  
+  const getDomainConfidence = (facts: DailyFacts, domain: DomainKey): number | undefined =>
+    facts.confidence?.[domain];
+  
+  const hasSufficientConfidence = (facts: DailyFacts, domain: DomainKey): boolean => {
+    const value = getDomainConfidence(facts, domain);
+    return typeof value === 'number' && value >= MIN_DOMAIN_CONFIDENCE;
+  };
+  
+  /**
    * Deterministic ID for a given rule + day.
    * Ensures re-runs overwrite the same Insight document.
    */
@@ -45,7 +64,7 @@ import type {
       tags,
       createdAt: ctx.now,
       updatedAt: ctx.now,
-      ruleVersion: 'baseline-insights-v1.0.0',
+      ruleVersion: 'baseline-insights-v1.1.0',
       schemaVersion: 1,
     };
   };
@@ -53,11 +72,17 @@ import type {
   /**
    * Rule: low_sleep_duration
    * - Triggered when total sleep minutes < 7h (420 minutes).
+   * - Requires sufficient sleep domain confidence.
    */
   const generateSleepInsights = (ctx: InsightRuleContext): Insight[] => {
     const { facts } = ctx;
     const sleepFacts = facts.sleep;
+  
     if (!sleepFacts || !isNumber(sleepFacts.totalMinutes)) {
+      return [];
+    }
+  
+    if (!hasSufficientConfidence(facts, 'sleep')) {
       return [];
     }
   
@@ -96,11 +121,17 @@ import type {
   /**
    * Rule: low_steps
    * - Triggered when steps < 8,000 for the day.
+   * - Requires sufficient activity domain confidence.
    */
   const generateStepsInsights = (ctx: InsightRuleContext): Insight[] => {
     const { facts } = ctx;
     const activity = facts.activity;
+  
     if (!activity || !isNumber(activity.steps)) {
+      return [];
+    }
+  
+    if (!hasSufficientConfidence(facts, 'activity')) {
       return [];
     }
   
@@ -136,12 +167,17 @@ import type {
   /**
    * Rule: high_training_load
    * - Triggered when trainingLoad > 150 for the day.
-   * - Simple heuristic to highlight unusually hard days.
+   * - Requires sufficient activity domain confidence.
    */
   const generateTrainingLoadInsights = (ctx: InsightRuleContext): Insight[] => {
     const { facts } = ctx;
     const activity = facts.activity;
+  
     if (!activity || !isNumber(activity.trainingLoad)) {
+      return [];
+    }
+  
+    if (!hasSufficientConfidence(facts, 'activity')) {
       return [];
     }
   
@@ -179,11 +215,21 @@ import type {
   /**
    * Rule: low_hrv (simple same-day check)
    * - Triggered when hrvRmssd < 50 ms.
+   * - Requires sufficient recovery domain confidence.
+   *
+   * Note: future versions can pivot entirely to deviation vs. baseline
+   * (hrvRmssdDeviation), but v1.1 stays simple while still being
+   * confidence-gated.
    */
   const generateHrvInsights = (ctx: InsightRuleContext): Insight[] => {
     const { facts } = ctx;
     const recovery = facts.recovery;
+  
     if (!recovery || !isNumber(recovery.hrvRmssd)) {
+      return [];
+    }
+  
+    if (!hasSufficientConfidence(facts, 'recovery')) {
       return [];
     }
   
@@ -223,6 +269,7 @@ import type {
    *
    * - Pure and deterministic.
    * - Safe to call multiple times (IDs are deterministic per-day/per-rule).
+   * - Now confidence-aware: rules will not fire if domain confidence is low.
    */
   export const generateInsightsForDailyFacts = (ctx: InsightRuleContext): Insight[] => {
     return [
