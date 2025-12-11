@@ -1,0 +1,65 @@
+// services/functions/firestore.rules
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------
+    // USER ROOT DOC
+    // ------------------------------------------
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // ------------------------------------------
+      // SOURCES: Devices, Apps, Integrations
+      // User owns these. They can read/write them.
+      // ------------------------------------------
+      match /sources/{sourceId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+
+      // ------------------------------------------
+      // RAW EVENTS: Only sources + user can write.
+      // Backend normalizes these into canonical events.
+      // ------------------------------------------
+      match /rawEvents/{rawEventId} {
+        allow create: if request.auth.uid == userId;
+        allow read:   if request.auth.uid == userId;
+
+        // user cannot update normalized data once created
+        allow update, delete: if false;
+      }
+
+      // ------------------------------------------
+      // CANONICAL EVENTS: Backend-only write.
+      // Clients cannot create or modify events.
+      // ------------------------------------------
+      match /events/{eventId} {
+        allow read: if request.auth.uid == userId;
+
+        allow write: if request.auth.token.admin == true;
+      }
+
+      // ------------------------------------------
+      // DAILY FACTS: Backend-only write.
+      // User can read to power the UX, analytics, charts.
+      // ------------------------------------------
+      match /dailyFacts/{dateId} {
+        allow read: if request.auth.uid == userId;
+
+        allow write: if request.auth.token.admin == true;
+      }
+
+      // ------------------------------------------
+      // INSIGHTS: Backend-only write.
+      // User reads them through dashboard + insights feed.
+      // ------------------------------------------
+      match /insights/{insightId} {
+        allow read: if request.auth.uid == userId;
+
+        allow write: if request.auth.token.admin == true;
+      }
+    }
+  }
+}
