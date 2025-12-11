@@ -7,7 +7,24 @@
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
-    "types": ["expo", "react", "react-native"]
+
+    // 👇 Make TS understand our project structure + Jest
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["apps/mobile/*"]
+    },
+    "types": ["expo", "react", "react-native", "jest", "node"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "app"]
+  "include": [
+    "apps/mobile",
+    "services",
+    "infra",
+    "types",
+    "scripts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "lib/dev/firebaseProbe.ts"
+  ]
 }

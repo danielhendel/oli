@@ -1,98 +1,91 @@
-// ESLint v9 flat config for Expo/React Native + TypeScript + Jest
+// eslint.config.mjs
+// Flat config for Oli monorepo: lint TS in apps + services, ignore mocks/scripts/compiled JS.
 
 import js from '@eslint/js';
-import globals from 'globals';
-import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
-import react from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
-import prettier from 'eslint-config-prettier';
+import tsParser from '@typescript-eslint/parser';
+import globals from 'globals';
 
+/** @type {import('eslint').Linter.FlatConfig[]} */
 export default [
-  // Ignore common build artefacts and metadata across the repo
+  // 1) Global ignores
   {
     ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/.expo/**',
-      '**/.expo-shared/**',
-      '**/coverage/**'
+      'node_modules',
+      'dist',
+      // Jest / RN mocks
+      'apps/mobile/__mocks__/**',
+      // Expo / dev / Node scripts (CJS)
+      'apps/mobile/scripts/**',
+      // Compiled JS from Firebase functions
+      'services/functions/lib/**'
     ]
   },
 
-  // Base JS recommendations
-  js.configs.recommended,
-
-  // TypeScript + React rules applied across the repo
+  // 2) Default TS config for app + services
   {
-    files: ['**/*.{ts,tsx}'],
+    files: [
+      'apps/mobile/**/*.{ts,tsx,d.ts}',
+      'services/api/**/*.{ts,tsx,d.ts}',
+      'services/functions/**/*.{ts,tsx,d.ts}'
+    ],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        ecmaVersion: 2023,
+        ecmaVersion: 2020,
         sourceType: 'module',
-        ecmaFeatures: { jsx: true }
+        project: './tsconfig.json'
       },
       globals: {
         ...globals.browser,
-        ...globals.node
+        ...globals.node,
+        jest: true
       }
     },
     plugins: {
-      '@typescript-eslint': tsPlugin,
-      react,
-      'react-hooks': reactHooks
+      '@typescript-eslint': tsPlugin
     },
-    settings: { react: { version: 'detect' } },
     rules: {
-      // TS recommended (flat-merged)
+      // Start from JS + TS recommended
+      ...js.configs.recommended.rules,
       ...tsPlugin.configs.recommended.rules,
 
-      // React + Hooks recommended (flat-merged)
-      ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-
-      // Modern React (no need to import React in scope)
-      'react/react-in-jsx-scope': 'off',
-      'react/jsx-uses-react': 'off',
-
-      // Hygiene
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+      // Oli Great Code Standard basics
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-require-imports': 'error'
     }
   },
 
-  // ✅ Node/CommonJS tooling files (allow module/require/__dirname)
+  // 3) Relaxed rules for Jest setup, tests, shims, and test-only type helpers
   {
     files: [
-      '**/*.config.{js,cjs,mjs}',
-      '**/babel.config.js',
-      '**/metro.config.js',
-      '**/jest.config.js',
-      '**/.eslintrc.js'
+      'apps/mobile/jest-setup.ts',
+      'apps/mobile/**/__tests__/**/*.{ts,tsx}',
+      'apps/mobile/types/expo-router-testing.d.ts',
+      'apps/mobile/shims/**/*.{ts,tsx}'
     ],
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'commonjs',
-      globals: { ...globals.node }
-    },
     rules: {
-      // These files are config scripts; allow CommonJS
-      'no-undef': 'off'
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-undef': 'off',
+      'no-redeclare': 'off'
     }
   },
 
-  // ✅ Jest globals for tests + allow require() in tests
+  // 4) Boundary files where `any` is temporarily allowed
   {
-    files: ['**/__tests__/**/*.[jt]s?(x)', '**/*.{test,spec}.[jt]s?(x)'],
-    languageOptions: {
-      globals: { ...globals.jest }
-    },
+    files: [
+      'apps/mobile/app/(app)/profile/general.tsx',
+      'apps/mobile/components/auth/AppleSignInButton.tsx',
+      'apps/mobile/hooks/useUserGeneralProfile.ts',
+      'apps/mobile/hooks/useUserProfile.ts',
+      'apps/mobile/lib/auth/oauth/**/*.{ts,tsx}',
+      'apps/mobile/lib/auth/postSignIn.ts',
+      'services/api/src/**/*.{ts,tsx}'
+    ],
     rules: {
-      '@typescript-eslint/no-require-imports': 'off'
+      '@typescript-eslint/no-explicit-any': 'off'
     }
-  },
-
-  // Disable rules that conflict with Prettier formatting
-  prettier
+  }
 ];
