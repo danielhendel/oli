@@ -1,51 +1,29 @@
 // apps/mobile/app/(app)/index.tsx
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeDashboard() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const r = useRouter();
 
-  const headerHeight = insets.top + 48; // status bar + 48px content area
-
-  const handleProfilePress = () => {
-    console.log('[Home] Profile icon pressed');
-    router.push('/profile');
-  };
-
-  const handleSettingsPress = () => {
-    console.log('[Home] Settings icon pressed');
-    router.push('/settings');
-  };
-
-  const handleProfileButtonPress = () => {
-    console.log('[Home] Profile button pressed');
-    router.push('/profile');
-  };
-
-  const handleGeneralProfilePress = () => {
-    console.log('[Home] Edit General Profile pressed');
-    router.push('/profile/general');
-  };
+  function handleOpenSettings(source: 'header' | 'debug') {
+    // This MUST fire if the press is working.
+    Alert.alert('Tap detected', `Settings pressed from: ${source}`);
+    r.push('/settings'); // we’ll use the existing /settings screen
+  }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
-      {/* App header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top,
-            height: headerHeight,
-          },
-        ]}
-      >
+    <SafeAreaView
+      style={styles.safe}
+      edges={['top', 'left', 'right']}
+    >
+      {/* Simple sticky header */}
+      <View style={styles.header}>
         <Pressable
-          onPress={handleProfilePress}
-          hitSlop={12}
+          onPress={() => r.push('/(app)/profile')}
+          hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Open profile"
           style={styles.headerIconTouchable}
@@ -53,13 +31,17 @@ export default function HomeDashboard() {
           <Ionicons name="person-circle-outline" size={26} color="#111" />
         </Pressable>
 
-        <Text style={styles.headerTitle} accessibilityRole="header" accessible>
+        <Text
+          style={styles.headerTitle}
+          accessibilityRole="header"
+          accessible
+        >
           Oli
         </Text>
 
         <Pressable
-          onPress={handleSettingsPress}
-          hitSlop={12}
+          onPress={() => handleOpenSettings('header')}
+          hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
           style={styles.headerIconTouchable}
@@ -75,7 +57,7 @@ export default function HomeDashboard() {
         </Text>
 
         <Pressable
-          onPress={handleProfileButtonPress}
+          onPress={() => r.push('/(app)/profile')}
           style={styles.primaryButton}
           accessibilityRole="button"
           accessibilityLabel="Open profile"
@@ -84,7 +66,7 @@ export default function HomeDashboard() {
         </Pressable>
 
         <Pressable
-          onPress={handleGeneralProfilePress}
+          onPress={() => r.push('/(app)/profile/general')}
           style={styles.primaryButton}
           accessibilityRole="button"
           accessibilityLabel="Edit general profile"
@@ -112,12 +94,12 @@ export default function HomeDashboard() {
           <Text style={styles.disabledButtonText}>Nutrition (coming soon)</Text>
         </Pressable>
 
-        {/* Debug button — uses the same handler as the gear */}
+        {/* Big debug button – should act exactly like the header gear */}
         <Pressable
-          onPress={handleSettingsPress}
-          style={[styles.primaryButton, { marginTop: 24 }]}
+          onPress={() => handleOpenSettings('debug')}
+          style={[styles.primaryButton, { marginTop: 32 }]}
           accessibilityRole="button"
-          accessibilityLabel="Debug: open settings"
+          accessibilityLabel="Debug: Open settings"
         >
           <Text style={styles.primaryButtonText}>Debug: Open Settings</Text>
         </Pressable>
@@ -132,6 +114,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    marginTop: 8, // nudge below status bar
+    height: 52,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
