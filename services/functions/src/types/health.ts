@@ -1,7 +1,7 @@
 // services/functions/src/types/health.ts
 
 /**
- * Oli Health OS — Canonical Schema v1 (Sprint 2)
+ * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions)
  *
  * These types are:
  * - Storage-agnostic (no Firestore/Admin types)
@@ -252,17 +252,47 @@ export interface DailyActivityFacts {
   distanceKm?: number;
   moveMinutes?: number;
   trainingLoad?: number;
+
+  /**
+   * Sprint 5 — Precision features:
+   * 7-day rolling averages for movement / training load.
+   */
+  stepsAvg7d?: number;
+  trainingLoadAvg7d?: number;
 }
 
 export interface DailyRecoveryFacts {
   hrvRmssd?: number;
   restingHeartRate?: number;
   readinessScore?: number;
+
+  /**
+   * Sprint 5 — Precision features:
+   * Baseline + relative deviation for HRV.
+   *
+   * - hrvRmssdBaseline: 7-day average (or similar) of HRV RMSSD.
+   * - hrvRmssdDeviation: (today - baseline) / baseline, e.g. -0.2 = 20% below.
+   */
+  hrvRmssdBaseline?: number;
+  hrvRmssdDeviation?: number;
 }
 
 export interface DailyBodyFacts {
   weightKg?: number;
   bodyFatPercent?: number;
+}
+
+/**
+ * Sprint 5 — Domain-level confidence scores for DailyFacts.
+ * Values are 0–1, where:
+ * - 0 means "no confidence / essentially missing"
+ * - 1 means "high confidence / strong sensor coverage"
+ */
+export interface DailyDomainConfidence {
+  sleep?: number;
+  activity?: number;
+  recovery?: number;
+  body?: number;
 }
 
 export interface DailyFacts {
@@ -277,6 +307,12 @@ export interface DailyFacts {
   activity?: DailyActivityFacts;
   recovery?: DailyRecoveryFacts;
   body?: DailyBodyFacts;
+
+  /**
+   * Domain-level confidence for this day's facts (0–1).
+   * All fields are optional to keep v1 backwards-compatible.
+   */
+  confidence?: DailyDomainConfidence;
 
   /** Schema + compute audit */
   schemaVersion: 1;
