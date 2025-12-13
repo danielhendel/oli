@@ -9,7 +9,6 @@ import type {
   IsoDateTimeString,
   YmdDateString,
 } from '../types/health';
-import type { WriteResult } from 'firebase-admin/firestore';
 import { aggregateDailyFactsForDay } from './aggregateDailyFacts';
 import { enrichDailyFactsWithBaselinesAndAverages } from './enrichDailyFacts';
 
@@ -87,7 +86,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
 
     const userIds = Array.from(eventsByUser.keys());
 
-    const writePromises: Promise<WriteResult>[] = userIds.map(async (userId) => {
+    const writePromises = userIds.map(async (userId) => {
       const userEvents = eventsByUser.get(userId) ?? [];
 
       const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
@@ -108,7 +107,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
         .get();
 
       const historyFacts: DailyFacts[] = historySnapshot.docs.map(
-        (doc) => doc.data() as DailyFacts,
+        (d) => d.data() as DailyFacts,
       );
 
       const enrichedDailyFacts = enrichDailyFactsWithBaselinesAndAverages({
