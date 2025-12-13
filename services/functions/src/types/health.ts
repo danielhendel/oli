@@ -1,7 +1,7 @@
 // services/functions/src/types/health.ts
 
 /**
- * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions)
+ * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions + Sprint 6)
  *
  * These types are:
  * - Storage-agnostic (no Firestore/Admin types)
@@ -32,19 +32,16 @@ export type HealthSourceType =
 
 /**
  * Core canonical event kinds for v1.
- * Sprint 2 focuses on the body + training stack:
- * - Sleep
- * - Steps / activity
- * - Workouts
- * - Weight
- * - HRV / recovery
+ * Sprint 6 adds:
+ * - Nutrition daily totals (macros) as a canonical event kind.
  */
 export type CanonicalEventKind =
   | 'sleep'
   | 'steps'
   | 'workout'
   | 'weight'
-  | 'hrv';
+  | 'hrv'
+  | 'nutrition';
 
 /**
  * RawEvent is the ingestion boundary type.
@@ -175,6 +172,24 @@ export interface StepsCanonicalEvent extends BaseCanonicalEvent {
 }
 
 /**
+ * Sprint 6 — Strength training set details.
+ * Optional, vendor-agnostic, and safe to omit (keeps v1 compatible).
+ */
+export interface WorkoutSet {
+  /** Free-form exercise label (provider-agnostic) */
+  exercise: string;
+
+  /** Reps in the set (null if unknown) */
+  reps: number | null;
+
+  /** Weight in kilograms (null if unknown / bodyweight / not applicable) */
+  weightKg: number | null;
+
+  /** Optional RPE (1–10). Nullable when provided but unknown. */
+  rpe?: number | null;
+}
+
+/**
  * WorkoutCanonicalEvent — explicit workouts / training sessions.
  */
 export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
@@ -191,6 +206,12 @@ export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
 
   /** Optional training load / strain metric (provider-agnostic scalar) */
   trainingLoad?: number | null;
+
+  /**
+   * Sprint 6 — Optional strength details.
+   * Present only when source provides set-level data (manual logging, gym devices, etc.)
+   */
+  sets?: WorkoutSet[];
 }
 
 /**
@@ -223,6 +244,24 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
 }
 
 /**
+ * Sprint 6 — NutritionCanonicalEvent
+ * Daily totals (macros) as a canonical event. This enables DailyFacts nutrition rollups now,
+ * with meal-level detail coming later without breaking this schema.
+ */
+export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
+  kind: 'nutrition';
+
+  /** Daily totals */
+  totalKcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+
+  /** Optional fiber total */
+  fiberG?: number | null;
+}
+
+/**
  * Discriminated union of all canonical events.
  * This is the primary event type used by the normalization layer.
  */
@@ -231,7 +270,8 @@ export type CanonicalEvent =
   | StepsCanonicalEvent
   | WorkoutCanonicalEvent
   | WeightCanonicalEvent
-  | HrvCanonicalEvent;
+  | HrvCanonicalEvent
+  | NutritionCanonicalEvent;
 
 /**
  * DailyFacts — per-day rollups produced from CanonicalEvents.
@@ -252,6 +292,14 @@ export interface DailyActivityFacts {
   distanceKm?: number;
   moveMinutes?: number;
   trainingLoad?: number;
+
+  /**
+   * Sprint 6 — Strength training rollups derived from workout.sets:
+   * - volumeKg: sum(weightKg * reps) for sets where both are known
+   * - totalSets: count of sets (including those with unknown weights/reps)
+   */
+  volumeKg?: number;
+  totalSets?: number;
 
   /**
    * Sprint 5 — Precision features:
@@ -283,6 +331,18 @@ export interface DailyBodyFacts {
 }
 
 /**
+ * Sprint 6 — DailyNutritionFacts
+ * Daily macro totals that feed insights and UI.
+ */
+export interface DailyNutritionFacts {
+  totalKcal?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
+  fiberG?: number;
+}
+
+/**
  * Sprint 5 — Domain-level confidence scores for DailyFacts.
  * Values are 0–1, where:
  * - 0 means "no confidence / essentially missing"
@@ -293,6 +353,9 @@ export interface DailyDomainConfidence {
   activity?: number;
   recovery?: number;
   body?: number;
+
+  /** Sprint 6 */
+  nutrition?: number;
 }
 
 export interface DailyFacts {
@@ -307,6 +370,9 @@ export interface DailyFacts {
   activity?: DailyActivityFacts;
   recovery?: DailyRecoveryFacts;
   body?: DailyBodyFacts;
+
+  /** Sprint 6 */
+  nutrition?: DailyNutritionFacts;
 
   /**
    * Domain-level confidence for this day's facts (0–1).
@@ -390,11 +456,7 @@ export interface Insight {
  * Firestore path (logical):
  *   /users/{userId}/sources/{sourceId}
  */
-export type SourceStatus =
-  | 'connected'
-  | 'disconnected'
-  | 'error'
-  | 'revoked';
+export type SourceStatus = 'connected' | 'disconnected' | 'error' | 'revoked';
 
 export interface UserSourceConnection {
   /** Document id (sourceId) */
@@ -470,8 +532,5 @@ export function isCanonicalEvent(
 export function isDailyFacts(value: unknown): value is DailyFacts {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as DailyFacts;
-  return (
-    typeof candidate.userId === 'string' &&
-    typeof candidate.date === 'string'
-  );
+  return typeof candidate.userId === 'string' && typeof candidate.date === 'string';
 }

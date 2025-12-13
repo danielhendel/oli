@@ -1,6 +1,11 @@
 // services/functions/src/dailyFacts/enrichDailyFacts.ts
 
-import type { DailyFacts } from '../types/health';
+import type {
+  DailyFacts,
+  DailyActivityFacts,
+  DailyRecoveryFacts,
+  DailyDomainConfidence,
+} from '../types/health';
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
@@ -17,12 +22,39 @@ export interface EnrichDailyFactsInput {
    * This is the document we will enrich with baselines and rolling averages.
    */
   today: DailyFacts;
+
   /**
-   * Previous DailyFacts documents for this user, sorted or unsorted.
-   * Caller should ensure these represent recent days (e.g. up to the last 6 days).
+   * Previous DailyFacts documents for this user.
+   * Caller should ensure these represent recent days (ideally up to the last 6 days).
    */
   history: DailyFacts[];
 }
+
+const hasAnyTruthyKey = (obj: Record<string, unknown> | undefined): boolean => {
+  if (!obj) return false;
+  return Object.values(obj).some((v) => v !== undefined && v !== null);
+};
+
+const activityHasSignal = (a: DailyActivityFacts | undefined): boolean => {
+  if (!a) return false;
+  return (
+    isNumber(a.steps) ||
+    isNumber(a.distanceKm) ||
+    isNumber(a.moveMinutes) ||
+    isNumber(a.trainingLoad)
+  );
+};
+
+const recoveryHasSignal = (r: DailyRecoveryFacts | undefined): boolean => {
+  if (!r) return false;
+  return isNumber(r.hrvRmssd) || isNumber(r.restingHeartRate) || isNumber(r.readinessScore);
+};
+
+const clamp01 = (value: number): number => {
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+};
 
 /**
  * Enrich a DailyFacts document with:
@@ -30,128 +62,103 @@ export interface EnrichDailyFactsInput {
  * - HRV baseline and relative deviation
  * - Domain-level confidence scores (0–1) based on 7-day coverage
  *
- * This function is:
- * - Pure and deterministic given (today, history)
- * - Safe to call multiple times (idempotent; it overwrites derived fields)
+ * Pure + deterministic. Idempotent (overwrites derived fields).
  */
 export const enrichDailyFactsWithBaselinesAndAverages = (
   input: EnrichDailyFactsInput,
 ): DailyFacts => {
   const { today, history } = input;
 
-  // Start with a shallow copy of today's DailyFacts.
+  // Shallow copy. We only create nested objects if we need to write derived fields.
   const enriched: DailyFacts = { ...today };
 
-  // Clone nested objects only when they exist, to avoid mutating the original.
-  if (today.sleep) {
-    enriched.sleep = { ...today.sleep };
-  }
+  // ---------------------------------------------------------------------------
+  // Rolling averages (requires at least 1 prior day)
+  // ---------------------------------------------------------------------------
 
-  if (today.activity) {
-    enriched.activity = { ...today.activity };
-  }
+  const hasPrior = history.length > 0;
+  if (hasPrior) {
+    const windowFacts: DailyFacts[] = [...history, today];
 
-  if (today.recovery) {
-    enriched.recovery = { ...today.recovery };
-  }
+    const stepsValues = windowFacts
+      .map((f) => f.activity?.steps)
+      .filter(isNumber);
 
-  if (today.body) {
-    enriched.body = { ...today.body };
-  }
+    const trainingLoadValues = windowFacts
+      .map((f) => f.activity?.trainingLoad)
+      .filter(isNumber);
 
-  if (today.confidence) {
-    enriched.confidence = { ...today.confidence };
-  }
-
-  // ------- 7-day rolling averages for steps & training load -------
-  //
-  // We only compute rolling averages when we have at least ONE prior day
-  // of history. Otherwise, we leave these derived fields undefined to
-  // avoid pretending we have a "trend" with just a single day.
-
-  const activityWindow =
-    history.length > 0
-      ? [...history, today]
-      : [];
-
-  const stepsValues = activityWindow
-    .map((facts) => facts.activity?.steps)
-    .filter(isNumber);
-
-  const trainingLoadValues = activityWindow
-    .map((facts) => facts.activity?.trainingLoad)
-    .filter(isNumber);
-
-  if (stepsValues.length > 0) {
-    if (!enriched.activity) enriched.activity = {};
     const avgSteps = average(stepsValues);
-    if (avgSteps !== undefined) {
-      enriched.activity.stepsAvg7d = avgSteps;
-    }
-  }
-
-  if (trainingLoadValues.length > 0) {
-    if (!enriched.activity) enriched.activity = {};
     const avgTrainingLoad = average(trainingLoadValues);
-    if (avgTrainingLoad !== undefined) {
-      enriched.activity.trainingLoadAvg7d = avgTrainingLoad;
+
+    if (avgSteps !== undefined || avgTrainingLoad !== undefined) {
+      const baseActivity: DailyActivityFacts | undefined = enriched.activity
+        ? { ...enriched.activity }
+        : undefined;
+
+      const nextActivity: DailyActivityFacts = baseActivity ?? {};
+
+      if (avgSteps !== undefined) nextActivity.stepsAvg7d = avgSteps;
+      if (avgTrainingLoad !== undefined) nextActivity.trainingLoadAvg7d = avgTrainingLoad;
+
+      enriched.activity = nextActivity;
     }
   }
 
-  // ------- HRV baseline + deviation -------
-  //
-  // Baseline is computed from history only (previous days),
-  // so today's HRV can be compared against a prior norm.
+  // ---------------------------------------------------------------------------
+  // HRV baseline + deviation (baseline from history only)
+  // ---------------------------------------------------------------------------
 
   const hrvHistoryValues = history
-    .map((facts) => facts.recovery?.hrvRmssd)
+    .map((f) => f.recovery?.hrvRmssd)
     .filter(isNumber);
 
   const baseline = average(hrvHistoryValues);
 
   if (baseline !== undefined) {
-    if (!enriched.recovery) enriched.recovery = {};
-    enriched.recovery.hrvRmssdBaseline = baseline;
+    const baseRecovery: DailyRecoveryFacts | undefined = enriched.recovery
+      ? { ...enriched.recovery }
+      : undefined;
 
-    const todayHrv = enriched.recovery.hrvRmssd;
+    const nextRecovery: DailyRecoveryFacts = baseRecovery ?? {};
+
+    nextRecovery.hrvRmssdBaseline = baseline;
+
+    const todayHrv = nextRecovery.hrvRmssd;
     if (isNumber(todayHrv) && baseline !== 0) {
-      const deviation = (todayHrv - baseline) / baseline;
-      enriched.recovery.hrvRmssdDeviation = deviation;
+      nextRecovery.hrvRmssdDeviation = (todayHrv - baseline) / baseline;
     }
+
+    enriched.recovery = nextRecovery;
   }
 
-  // ------- Domain-level confidence (0–1) -------
-  //
-  // We approximate coverage over a 7-day window:
-  // - Window is the target day + last 6 days (if present in history).
-  // - For each domain, confidence = (# of days with that domain) / 7.
-  // - If no days have data for a domain, we leave that confidence undefined.
+  // ---------------------------------------------------------------------------
+  // Domain-level confidence (0–1)
+  // - Coverage is measured over a FIXED 7-day window (Sprint 5 semantics)
+  // - Missing days count as "no data" (so divisor stays 7)
+  // - Presence is based on meaningful signal, not just object existence
+  // ---------------------------------------------------------------------------
 
-  const windowFacts: DailyFacts[] = [...history, today];
   const windowSize = 7;
+  const window = [...history, today].slice(-windowSize);
 
-  const computeDomainCoverage = (selector: (facts: DailyFacts) => unknown): number | undefined => {
-    if (windowFacts.length === 0) {
-      return undefined;
-    }
+  const computeCoverage = (isPresent: (f: DailyFacts) => boolean): number | undefined => {
+    if (window.length === 0) return undefined;
 
-    const presentCount = windowFacts.reduce((count, facts) => {
-      const value = selector(facts);
-      return value ? count + 1 : count;
-    }, 0);
+    const present = window.reduce((count, f) => (isPresent(f) ? count + 1 : count), 0);
+    if (present === 0) return undefined;
 
-    if (presentCount === 0) {
-      return undefined;
-    }
-
-    const score = presentCount / windowSize;
-    return score > 1 ? 1 : score;
+    return clamp01(present / windowSize);
   };
 
-  const sleepConfidence = computeDomainCoverage((f) => f.sleep);
-  const activityConfidence = computeDomainCoverage((f) => f.activity);
-  const recoveryConfidence = computeDomainCoverage((f) => f.recovery);
-  const bodyConfidence = computeDomainCoverage((f) => f.body);
+  const sleepConfidence = computeCoverage((f) =>
+    hasAnyTruthyKey(f.sleep as unknown as Record<string, unknown> | undefined),
+  );
+  const activityConfidence = computeCoverage((f) => activityHasSignal(f.activity));
+  const recoveryConfidence = computeCoverage((f) => recoveryHasSignal(f.recovery));
+  const bodyConfidence = computeCoverage((f) =>
+    hasAnyTruthyKey(f.body as unknown as Record<string, unknown> | undefined),
+  );
 
   if (
     sleepConfidence !== undefined ||
@@ -159,25 +166,18 @@ export const enrichDailyFactsWithBaselinesAndAverages = (
     recoveryConfidence !== undefined ||
     bodyConfidence !== undefined
   ) {
-    if (!enriched.confidence) {
-      enriched.confidence = {};
-    }
+    const baseConfidence: DailyDomainConfidence | undefined = enriched.confidence
+      ? { ...enriched.confidence }
+      : undefined;
 
-    if (sleepConfidence !== undefined) {
-      enriched.confidence.sleep = sleepConfidence;
-    }
+    const nextConfidence: DailyDomainConfidence = baseConfidence ?? {};
 
-    if (activityConfidence !== undefined) {
-      enriched.confidence.activity = activityConfidence;
-    }
+    if (sleepConfidence !== undefined) nextConfidence.sleep = sleepConfidence;
+    if (activityConfidence !== undefined) nextConfidence.activity = activityConfidence;
+    if (recoveryConfidence !== undefined) nextConfidence.recovery = recoveryConfidence;
+    if (bodyConfidence !== undefined) nextConfidence.body = bodyConfidence;
 
-    if (recoveryConfidence !== undefined) {
-      enriched.confidence.recovery = recoveryConfidence;
-    }
-
-    if (bodyConfidence !== undefined) {
-      enriched.confidence.body = bodyConfidence;
-    }
+    enriched.confidence = nextConfidence;
   }
 
   return enriched;
