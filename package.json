@@ -50,6 +50,18 @@
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/apps/mobile/$1"
-    }
+    },
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/dist/",
+      "<rootDir>/build/",
+      "<rootDir>/coverage/",
+      "<rootDir>/services/functions/lib/",
+      "<rootDir>/services/api/lib/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/services/functions/lib/",
+      "<rootDir>/services/api/lib/"
+    ]
   }
 }
