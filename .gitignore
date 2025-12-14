@@ -43,3 +43,4 @@ yarn-error.*
 
 # Ignore backup env files
 **/*.bak
+services/functions/lib/
