@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "noImplicitOverride": true,
+      "exactOptionalPropertyTypes": true,
+      "forceConsistentCasingInFileNames": true,
+  
+      "target": "ES2020",
+      "module": "ESNext",
+      "moduleResolution": "Bundler",
+      "lib": ["ES2020", "DOM"],
+      "resolveJsonModule": true,
+      "allowJs": false,
+      "skipLibCheck": true,
+      "esModuleInterop": true,
+  
+      "composite": true,
+      "incremental": true,
+  
+      "declaration": true,
+      "declarationMap": true,
+      "emitDeclarationOnly": true,
+  
+      "outDir": "dist-types",
+      "rootDir": ".",
+  
+      "types": []
+    }
+  }
+  

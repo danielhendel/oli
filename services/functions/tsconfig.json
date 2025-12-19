@@ -1,22 +1,12 @@
 {
-    "compilerOptions": {
-      "target": "ES2022",
-      "module": "CommonJS",
-      "moduleResolution": "Node",
-      "outDir": "lib",
-      "rootDir": "src",
-      "strict": true,
-      "esModuleInterop": true,
-      "resolveJsonModule": true,
-      "lib": ["ES2022"],
-      "types": ["node"],
-      "skipLibCheck": true
-    },
-    "include": ["src/**/*"],
-    "exclude": [
-      "node_modules",
-      "../../apps/**",
-      "../../node_modules/@types/react-native/**"
-    ]
-  }
-  
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../dist-types/functions",
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo",
+    "types": ["node", "jest"]
+  },
+  "references": [{ "path": "../../lib" }],
+  "include": ["src/**/*", "**/*.ts"],
+  "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
+}

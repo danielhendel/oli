@@ -1,58 +1,21 @@
 {
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    /* ✅ HealthOS Great Code Standard: strict, scalable TS defaults */
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "exactOptionalPropertyTypes": true,
-    "forceConsistentCasingInFileNames": true,
+  /**
+   * Root TS Solution File
+   * --------------------------------
+   * - No compilerOptions
+   * - No includes
+   * - No Expo coupling
+   *
+   * This file exists ONLY to orchestrate
+   * project boundaries via references.
+   */
 
-    /* ✅ Expo Router / RN */
-    "jsx": "react-jsx",
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "lib": ["ES2020", "DOM"],
-    "resolveJsonModule": true,
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "noEmit": true,
+  "files": [],
 
-    /* ✅ Canonical root app structure */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    },
-
-    /* ✅ Jest + Node only at root */
-    "types": ["jest", "node"]
-  },
-
-  /* ✅ Root TypeScript ONLY validates the canonical app + shared libs/types */
-  "include": [
-    "app/**/*",
-    "lib/**/*",
-    "types/**/*",
-    "scripts/**/*",
-    "*.ts",
-    "*.tsx",
-    "expo-env.d.ts"
-  ],
-
-  /* ✅ Explicitly exclude backend + infra so CI doesn't require their deps at root */
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "coverage",
-    ".expo",
-    "android",
-    "ios",
-    "services/**",
-    "infra/**",
-    "archive/**"
+  "references": [
+    { "path": "./lib" },
+    { "path": "./app" },
+    { "path": "./services/functions" },
+    { "path": "./services/api" }
   ]
 }
