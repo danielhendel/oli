@@ -1,4 +1,5 @@
-// eslint.config.mjs (ESLint v9 Flat Config)
+// eslint.config.mjs — ESLint v9 Flat Config
+
 import js from "@eslint/js";
 import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
@@ -7,7 +8,7 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
-  // 1) Ignore generated, native, legacy, and build output folders
+  // Ignore generated, native, legacy, and build output
   {
     ignores: [
       "**/node_modules/**",
@@ -20,14 +21,25 @@ export default [
       "web-build/**",
       "coverage/**",
       "services/**/lib/**",
-      "**/*.d.ts" // generated typings frequently break basic JS parsing unless TS parser is applied everywhere
+      "**/*.d.ts"
     ],
   },
 
-  // 2) Base JS rules
+  // Base JS rules
   js.configs.recommended,
 
-  // 3) TypeScript + React (applies to .ts/.tsx)
+  // ✅ Jest test files (JS/TS)
+  {
+    files: ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+  },
+
+  // TypeScript + React
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -52,17 +64,13 @@ export default [
       react: { version: "detect" },
     },
     rules: {
-      // TS recommended (non-typechecked)
       ...tsPlugin.configs.recommended.rules,
 
-      // React / RN
       "react/react-in-jsx-scope": "off",
       "react/jsx-uses-react": "off",
 
-      // Hooks rules (important)
       ...reactHooksPlugin.configs.recommended.rules,
 
-      // Practical TS hygiene
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },

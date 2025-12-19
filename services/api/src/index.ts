@@ -1,43 +1,25 @@
-// ─────────────────────────────────────────────────────────────
-// Health endpoints (must be registered BEFORE any auth middleware)
-// ─────────────────────────────────────────────────────────────
-import express, { type Request, type Response } from "express";
-import firebaseRouter from "./routes/firebase";
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
 
-const app = (global as any).apiApp || express();
-(global as any).apiApp = app;
+import firebaseRoutes from "./routes/firebase";
 
-const healthPayload = () => ({
-  ok: true,
-  service: "api",
-  uptime: process.uptime(),
-  timestamp: new Date().toISOString(),
-});
+const app = express();
 
-// Root health
-app.get("/", (_req: Request, res: Response) => {
-  res.status(200).json(healthPayload());
-});
+app.use(cors());
+app.use(express.json());
 
-// Conventional health route
 app.get("/healthz", (_req: Request, res: Response) => {
-  res.status(200).json(healthPayload());
+  res.status(200).json({ ok: true });
 });
 
-// Optional /api/healthz
-app.get("/api/healthz", (_req: Request, res: Response) => {
-  res.status(200).json(healthPayload());
-});
+app.use("/firebase", firebaseRoutes);
 
-// Firebase health
-app.use("/api/firebase", firebaseRouter);
-
-// If running as standalone server
-if (require.main === module) {
-  const port = Number(process.env.PORT) || 8080;
-  app.listen(port, () => {
-    console.log(`api listening on :${port}`);
-  });
-}
+// Global error handler (typed, safe)
+app.use(
+  (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+);
 
 export default app;
