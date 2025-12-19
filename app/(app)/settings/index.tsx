@@ -1,30 +1,40 @@
-import React from "react";
+import { useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
+import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 
-export default function SettingsScreen() {
+type SettingsSection = {
+  title: string;
+  href: string;
+  subtitle?: string;
+  disabled?: boolean;
+};
+
+const SECTIONS: SettingsSection[] = [
+  { title: "Account", href: "/(app)/settings/account", subtitle: "Profile & credentials" },
+  { title: "Devices", href: "/(app)/settings/devices", subtitle: "Wearables & integrations", disabled: true },
+  { title: "Privacy", href: "/(app)/settings/privacy", subtitle: "Data & permissions", disabled: true },
+];
+
+export default function SettingsEntryScreen() {
+  const router = useRouter();
+
   return (
-    <ModuleScreenShell
-      title="Settings"
-      subtitle="Account, privacy, devices"
-    >
-      <ModuleSectionCard
-        title="Account"
-        description="Profile, authentication, and security."
-        rightBadge="Soon"
-      />
+    <ModuleScreenShell title="Settings" subtitle="App & data preferences">
+      {SECTIONS.map((s) => {
+        const disabled = Boolean(s.disabled);
 
-      <ModuleSectionCard
-        title="Privacy"
-        description="Data controls, permissions, and export."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Devices"
-        description="Connect and manage integrations."
-        rightBadge="Soon"
-      />
+        return (
+          <ModuleSectionLinkRow
+            key={s.href}
+            title={s.title}
+            disabled={disabled}
+            onPress={() => {
+              if (!disabled) router.push(s.href);
+            }}
+            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
+          />
+        );
+      })}
     </ModuleScreenShell>
   );
 }

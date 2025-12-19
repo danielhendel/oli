@@ -1,37 +1,40 @@
-import React from "react";
+import { useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
-import { ModuleEmptyState } from "@/lib/ui/ModuleEmptyState";
+import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 
-export default function WorkoutsScreen() {
+type TrainingSection = {
+  title: string;
+  href: string;
+  subtitle?: string;
+  disabled?: boolean;
+};
+
+const SECTIONS: TrainingSection[] = [
+  { title: "Overview", href: "/(app)/workouts/overview", subtitle: "Workload & performance" },
+  { title: "Log Workout", href: "/(app)/workouts/log", subtitle: "Manual workout entry" },
+  { title: "History", href: "/(app)/workouts/history", subtitle: "Past sessions & trends" },
+];
+
+export default function WorkoutsEntryScreen() {
+  const router = useRouter();
+
   return (
-    <ModuleScreenShell
-      title="Training"
-      subtitle="Strength & cardio"
-    >
-      <ModuleEmptyState
-        title="No training logged yet"
-        description="Log a workout to begin tracking volume, progression, and performance."
-        hint="Coming next: manual logging, templates, and history."
-      />
+    <ModuleScreenShell title="Training" subtitle="Strength & cardio">
+      {SECTIONS.map((s) => {
+        const disabled = Boolean(s.disabled);
 
-      <ModuleSectionCard
-        title="Today"
-        description="Quick entry to start or log your next session."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Recent sessions"
-        description="Your latest workouts and training consistency."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Progress"
-        description="Strength trends and performance markers over time."
-        rightBadge="Soon"
-      />
+        return (
+          <ModuleSectionLinkRow
+            key={s.href}
+            title={s.title}
+            disabled={disabled}
+            onPress={() => {
+              if (!disabled) router.push(s.href);
+            }}
+            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
+          />
+        );
+      })}
     </ModuleScreenShell>
   );
 }

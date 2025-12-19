@@ -1,37 +1,40 @@
-import React from "react";
+import { useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
-import { ModuleEmptyState } from "@/lib/ui/ModuleEmptyState";
+import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 
-export default function NutritionScreen() {
+type NutritionSection = {
+  title: string;
+  href: string;
+  subtitle?: string;
+  disabled?: boolean;
+};
+
+const SECTIONS: NutritionSection[] = [
+  { title: "Overview", href: "/(app)/nutrition/overview", subtitle: "Calories & macros" },
+  { title: "Log Nutrition", href: "/(app)/nutrition/log", subtitle: "Meals & foods" },
+  { title: "Targets", href: "/(app)/nutrition/targets", subtitle: "Macro & calorie goals" },
+];
+
+export default function NutritionEntryScreen() {
+  const router = useRouter();
+
   return (
-    <ModuleScreenShell
-      title="Nutrition"
-      subtitle="Macros & micros"
-    >
-      <ModuleEmptyState
-        title="No nutrition data yet"
-        description="Connect a nutrition tracker or start logging meals to build your macro and micronutrient profile."
-        hint="Coming next: targets, daily summary, and imports."
-      />
+    <ModuleScreenShell title="Nutrition" subtitle="Macros & micros">
+      {SECTIONS.map((s) => {
+        const disabled = Boolean(s.disabled);
 
-      <ModuleSectionCard
-        title="Today"
-        description="Daily macro progress and energy intake."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Targets"
-        description="Your macro and micronutrient targets and adherence."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Trends"
-        description="Weekly averages and consistency over time."
-        rightBadge="Soon"
-      />
+        return (
+          <ModuleSectionLinkRow
+            key={s.href}
+            title={s.title}
+            disabled={disabled}
+            onPress={() => {
+              if (!disabled) router.push(s.href);
+            }}
+            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
+          />
+        );
+      })}
     </ModuleScreenShell>
   );
 }

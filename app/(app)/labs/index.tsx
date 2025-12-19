@@ -1,37 +1,40 @@
-import React from "react";
+import { useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
-import { ModuleEmptyState } from "@/lib/ui/ModuleEmptyState";
+import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 
-export default function LabsScreen() {
+type LabsSection = {
+  title: string;
+  href: string;
+  subtitle?: string;
+  disabled?: boolean;
+};
+
+const SECTIONS: LabsSection[] = [
+  { title: "Overview", href: "/(app)/labs/overview", subtitle: "Biomarker summary" },
+  { title: "Upload Labs", href: "/(app)/labs/upload", subtitle: "PDF & lab results", disabled: true },
+  { title: "Biomarkers", href: "/(app)/labs/biomarkers", subtitle: "Individual markers", disabled: true },
+];
+
+export default function LabsEntryScreen() {
+  const router = useRouter();
+
   return (
-    <ModuleScreenShell
-      title="Labs"
-      subtitle="Bloodwork & biomarkers"
-    >
-      <ModuleEmptyState
-        title="No labs uploaded yet"
-        description="Upload your first lab panel to track biomarkers over time."
-        hint="Coming next: uploads, panel parsing, and trend charts."
-      />
+    <ModuleScreenShell title="Labs" subtitle="Bloodwork & biomarkers">
+      {SECTIONS.map((s) => {
+        const disabled = Boolean(s.disabled);
 
-      <ModuleSectionCard
-        title="Latest panel"
-        description="Your most recent biomarker snapshot."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Trends"
-        description="Longitudinal biomarker history and deltas."
-        rightBadge="Soon"
-      />
-
-      <ModuleSectionCard
-        title="Insights"
-        description="Flagged biomarkers and context."
-        rightBadge="Soon"
-      />
+        return (
+          <ModuleSectionLinkRow
+            key={s.href}
+            title={s.title}
+            disabled={disabled}
+            onPress={() => {
+              if (!disabled) router.push(s.href);
+            }}
+            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
+          />
+        );
+      })}
     </ModuleScreenShell>
   );
 }
