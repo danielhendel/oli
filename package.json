@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint apps/mobile services/api services/functions --ext .ts,.tsx",
+    "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "jest"
@@ -44,23 +44,25 @@
   "jest": {
     "preset": "jest-expo",
     "setupFilesAfterEnv": [
-      "<rootDir>/apps/mobile/jest-setup.ts"
+      "<rootDir>/jest.setup.ts"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!(jest-)?expo|@expo(nent)?/.*|@expo-google-fonts/.*|react-native|@react-native(-community)?/.*|@react-navigation/.*|firebase/.*)"
     ],
     "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/apps/mobile/$1"
+      "^@/(.*)$": "<rootDir>/app/$1"
     },
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules/",
       "<rootDir>/dist/",
       "<rootDir>/build/",
       "<rootDir>/coverage/",
+      "<rootDir>/archive/",
       "<rootDir>/services/functions/lib/",
       "<rootDir>/services/api/lib/"
     ],
     "modulePathIgnorePatterns": [
+      "<rootDir>/archive/",
       "<rootDir>/services/functions/lib/",
       "<rootDir>/services/api/lib/"
     ]
