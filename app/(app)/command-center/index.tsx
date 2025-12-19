@@ -1,61 +1,62 @@
 import { ScrollView, Text, View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+
 import { ModuleTile } from "@/lib/ui/ModuleTile";
+import { COMMAND_CENTER_MODULES, isModuleDisabled } from "@/lib/modules/commandCenterModules";
 
 export default function CommandCenterScreen() {
   const router = useRouter();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Command Center</Text>
         <Text style={styles.subtitle}>Your health, unified</Text>
       </View>
 
+      {/* Grid */}
       <View style={styles.grid}>
-        <ModuleTile
-          id="body"
-          title="Body"
-          subtitle="Weight, DEXA, composition"
-          onPress={() => router.push("/(app)/body")}
-        />
+        {COMMAND_CENTER_MODULES.map((m) => {
+          const disabled = isModuleDisabled(m);
 
-        <ModuleTile
-          id="training"
-          title="Training"
-          subtitle="Strength & cardio"
-          onPress={() => router.push("/(app)/workouts")}
-        />
-
-        <ModuleTile
-          id="nutrition"
-          title="Nutrition"
-          subtitle="Macros & micros"
-          onPress={() => router.push("/(app)/nutrition")}
-        />
-
-        <ModuleTile
-          id="recovery"
-          title="Recovery"
-          subtitle="Sleep & readiness"
-          disabled
-        />
-
-        <ModuleTile
-          id="labs"
-          title="Labs"
-          subtitle="Bloodwork & biomarkers"
-          disabled
-        />
+          return (
+            <ModuleTile
+              key={m.id}
+              id={m.id}
+              title={m.title}
+              disabled={disabled}
+              onPress={() => {
+                if (!disabled) router.push(m.href);
+              }}
+              {...(m.subtitle ? { subtitle: m.subtitle } : {})}
+            />
+          );
+        })}
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, gap: 24 },
-  header: { gap: 6 },
-  title: { fontSize: 28, fontWeight: "800" },
-  subtitle: { fontSize: 16, opacity: 0.7 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 }
+  container: {
+    padding: 16,
+    gap: 24,
+  },
+  header: {
+    gap: 6,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
 });
