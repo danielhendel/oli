@@ -1,4 +1,3 @@
-// app/(app)/labs/index.tsx
 import React from "react";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
