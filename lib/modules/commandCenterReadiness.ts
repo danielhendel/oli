@@ -1,27 +1,23 @@
-// lib/modules/commandCenterReadiness.ts
-import type { CommandCenterModule, CommandCenterModuleId } from "./commandCenterModules";
-
-export type ModuleReadiness = {
-  disabled: boolean;
-  badge?: "SOON" | "LOCKED";
-};
+import type { CommandCenterModuleId } from "./commandCenterModules";
 
 /**
- * Central place to control which modules are clickable + what badge they show.
- * Keeps module definitions (title/subtitle/href) clean and stable.
+ * Step 6 contract:
+ * - Disabled state is computed here (not stored on module objects)
+ * - Badge is computed here (not stored on module objects)
+ *
+ * Later we’ll replace this with real data readiness logic.
  */
-export function getModuleReadiness(id: CommandCenterModuleId): ModuleReadiness {
-  switch (id) {
-    case "recovery":
-      return { disabled: true, badge: "SOON" };
-    case "labs":
-      return { disabled: true, badge: "LOCKED" };
-    default:
-      return { disabled: false };
-  }
+
+export type ModuleBadge = "Ready" | "Soon" | "Connect" | "Empty";
+
+export function isModuleDisabled(id: CommandCenterModuleId): boolean {
+  // Conservative defaults for MVP shell:
+  // allow main shells, mark future modules disabled
+  return id === "recovery" || id === "labs";
 }
 
-/** Convenience helper if you prefer passing the module object around. */
-export function isModuleDisabled(module: CommandCenterModule): boolean {
-  return getModuleReadiness(module.id).disabled;
+export function getModuleBadge(id: CommandCenterModuleId): string | undefined {
+  // Optional badge label (omit when undefined)
+  if (id === "recovery" || id === "labs") return "Soon";
+  return "Ready";
 }
