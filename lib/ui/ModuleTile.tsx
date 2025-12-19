@@ -1,5 +1,4 @@
-// lib/ui/ModuleTile.tsx
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, StyleSheet, View } from "react-native";
 
 export type ModuleTileProps = {
   id: string;
@@ -10,16 +9,13 @@ export type ModuleTileProps = {
   disabled?: boolean;
 };
 
-export function ModuleTile({
-  title,
-  subtitle,
-  badge,
-  onPress,
-  disabled = false,
-}: ModuleTileProps) {
+export function ModuleTile({ title, subtitle, badge, onPress, disabled = false }: ModuleTileProps) {
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
+      onPress={() => {
+        if (!disabled) onPress?.();
+      }}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
@@ -29,18 +25,15 @@ export function ModuleTile({
       ]}
     >
       <View style={styles.topRow}>
-        <Text style={[styles.title, disabled && styles.titleDisabled]}>{title}</Text>
-
+        <Text style={styles.title}>{title}</Text>
         {badge ? (
-          <View style={styles.badge}>
+          <View style={[styles.badge, disabled && styles.badgeDisabled]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         ) : null}
       </View>
 
-      {subtitle ? (
-        <Text style={[styles.subtitle, disabled && styles.subtitleDisabled]}>{subtitle}</Text>
-      ) : null}
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </Pressable>
   );
 }
@@ -57,40 +50,28 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: "row",
-    alignItems: "center",
+    gap: 10,
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
   },
-  pressed: {
-    opacity: 0.85,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  titleDisabled: {
-    opacity: 0.55,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.75,
-  },
-  subtitleDisabled: {
-    opacity: 0.5,
-  },
+  pressed: { opacity: 0.85 },
+  disabled: { opacity: 0.5 },
+
+  title: { fontSize: 18, fontWeight: "700" },
+  subtitle: { fontSize: 14, opacity: 0.7, marginTop: 8 },
+
   badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: "#9B9BA0",
+    backgroundColor: "#E5E5EA",
+  },
+  badgeDisabled: {
+    backgroundColor: "#E5E5EA",
   },
   badgeText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "white",
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: "700",
+    opacity: 0.9,
   },
 });
