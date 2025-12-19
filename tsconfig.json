@@ -1,21 +1,19 @@
 {
-  /**
-   * Root TS Solution File
-   * --------------------------------
-   * - No compilerOptions
-   * - No includes
-   * - No Expo coupling
-   *
-   * This file exists ONLY to orchestrate
-   * project boundaries via references.
-   */
-
   "files": [],
-
   "references": [
-    { "path": "./lib" },
-    { "path": "./app" },
-    { "path": "./services/functions" },
-    { "path": "./services/api" }
-  ]
+    {
+      "path": "./lib"
+    },
+    {
+      "path": "./app"
+    },
+    {
+      "path": "./services/functions"
+    },
+    {
+      "path": "./services/api"
+    }
+  ],
+  "compilerOptions": {},
+  "extends": "expo/tsconfig.base"
 }

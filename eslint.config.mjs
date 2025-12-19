@@ -8,7 +8,9 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
-  // Ignore generated, native, legacy, and build output
+  // ---------------------------------------------------------------------------
+  // 0) Ignore generated, native, legacy, and build output
+  // ---------------------------------------------------------------------------
   {
     ignores: [
       "**/node_modules/**",
@@ -23,29 +25,48 @@ export default [
       "coverage/**",
       "services/**/lib/**",
       "**/*.d.ts",
-      "**/*.d.ts.map"
-    ]
+      "**/*.d.ts.map",
+    ],
   },
 
-  // Base JS rules
+  // ---------------------------------------------------------------------------
+  // 1) Base JS rules
+  // ---------------------------------------------------------------------------
   js.configs.recommended,
 
-  // ✅ Jest test files (JS/TS)
+  // ---------------------------------------------------------------------------
+  // 2) Node-only config files (babel / metro / config scripts)
+  //    Fixes: `'module' is not defined` + flat-config ESLint v9 warnings
+  // ---------------------------------------------------------------------------
+  {
+    files: ["babel.config.js", "metro.config.js", "*.config.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        module: "readonly",
+        require: "readonly",
+        __dirname: "readonly",
+        process: "readonly",
+      },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // 3) Jest test files
+  // ---------------------------------------------------------------------------
   {
     files: ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.jest
-      }
-    }
+        ...globals.jest,
+      },
+    },
   },
 
-  // ✅ ARCHITECTURE GUARDRAILS (Phase B Step 2)
-  // 1) Hard layer boundaries via import restrictions.
-  //    - app/** can’t import server runtimes
-  //    - services/** can’t import client runtimes
-  //    - lib/** stays pure
+  // ---------------------------------------------------------------------------
+  // 4) ARCHITECTURE GUARDRAILS (Phase B)
+  // ---------------------------------------------------------------------------
   {
     files: ["**/*.ts", "**/*.tsx"],
     rules: {
@@ -56,18 +77,20 @@ export default [
             // 🚫 Never import generated TS outputs
             "dist-types/*",
 
-            // 🚫 app should never import services directly
+            // 🚫 app must not import server code
             "services/*",
 
-            // 🚫 services should never import app directly
-            "app/*"
-          ]
-        }
-      ]
-    }
+            // 🚫 services must not import app code
+            "app/*",
+          ],
+        },
+      ],
+    },
   },
 
-  // 2) app/** restrictions (client-only)
+  // ---------------------------------------------------------------------------
+  // 5) Client-only restrictions (app/** + lib/**)
+  // ---------------------------------------------------------------------------
   {
     files: ["app/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     rules: {
@@ -80,19 +103,21 @@ export default [
             { name: "express", message: "Client code must never import express." },
             { name: "cors", message: "Client code must never import cors." },
             { name: "@google-cloud/pubsub", message: "Client code must never import @google-cloud/pubsub." },
-            { name: "rate-limiter-flexible", message: "Client code must never import server-only rate limiter." }
+            { name: "rate-limiter-flexible", message: "Client code must never import server-only rate limiter." },
           ],
           patterns: [
             "firebase-admin/*",
             "firebase-functions/*",
-            "@google-cloud/*"
-          ]
-        }
-      ]
-    }
+            "@google-cloud/*",
+          ],
+        },
+      ],
+    },
   },
 
-  // 3) services/** restrictions (server-only)
+  // ---------------------------------------------------------------------------
+  // 6) Server-only restrictions (services/**)
+  // ---------------------------------------------------------------------------
   {
     files: ["services/**/*.{ts,tsx}"],
     rules: {
@@ -102,20 +127,22 @@ export default [
           paths: [
             { name: "expo", message: "Server code must never import Expo runtime." },
             { name: "expo-router", message: "Server code must never import Expo Router." },
-            { name: "react-native", message: "Server code must never import react-native." }
+            { name: "react-native", message: "Server code must never import react-native." },
           ],
           patterns: [
             "expo/*",
             "expo-router/*",
             "react-native/*",
-            "@react-native/*"
-          ]
-        }
-      ]
-    }
+            "@react-native/*",
+          ],
+        },
+      ],
+    },
   },
 
-  // TypeScript + React
+  // ---------------------------------------------------------------------------
+  // 7) TypeScript + React (JSX enabled everywhere it belongs)
+  // ---------------------------------------------------------------------------
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -123,34 +150,37 @@ export default [
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: "module",
-        ecmaFeatures: { jsx: true }
+        ecmaFeatures: { jsx: true },
       },
       globals: {
         ...globals.node,
         ...globals.browser,
-        ...globals.es2021
-      }
+        ...globals.es2021,
+      },
     },
     plugins: {
       "@typescript-eslint": tsPlugin,
       react: reactPlugin,
-      "react-hooks": reactHooksPlugin
+      "react-hooks": reactHooksPlugin,
     },
     settings: {
-      react: { version: "detect" }
+      react: { version: "detect" },
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
 
+      // React (new JSX transform)
       "react/react-in-jsx-scope": "off",
       "react/jsx-uses-react": "off",
 
+      // Hooks
       ...reactHooksPlugin.configs.recommended.rules,
 
+      // Clean unused vars
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
-      ]
-    }
-  }
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ];

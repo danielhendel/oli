@@ -4,9 +4,21 @@
       "rootDir": ".",
       "outDir": "../dist-types/lib",
       "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/lib.tsbuildinfo",
-      "types": ["node"]
+  
+      "baseUrl": "..",
+      "paths": {
+        "@/*": ["./*"]
+      }
     },
     "include": ["./**/*"],
-    "exclude": ["**/*.test.*", "**/__tests__/**", "../node_modules", "../dist", "../build", "../coverage"]
+    "exclude": [
+      "**/*.test.*",
+      "**/__tests__/**",
+      "../node_modules",
+      "../dist",
+      "../dist-types",
+      "../build",
+      "../coverage"
+    ]
   }
   

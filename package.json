@@ -38,6 +38,7 @@
     "@types/react-native": "^0.72.8",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "cors": "^2.8.5",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^9.1.2",
