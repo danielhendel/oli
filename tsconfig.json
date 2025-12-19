@@ -1,4 +1,5 @@
 {
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     /* ✅ HealthOS Great Code Standard: strict, scalable TS defaults */
     "strict": true,
@@ -20,26 +21,28 @@
     "isolatedModules": true,
     "noEmit": true,
 
-    /* ✅ Project structure (root app is canonical) */
+    /* ✅ Canonical root app structure */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },
 
-    /* ✅ Jest + Node types only (do NOT include "expo" here) */
+    /* ✅ Jest + Node only at root */
     "types": ["jest", "node"]
   },
+
+  /* ✅ Root TypeScript ONLY validates the canonical app + shared libs/types */
   "include": [
     "app/**/*",
     "lib/**/*",
-    "src/**/*",
     "types/**/*",
-    "services/**/*",
     "scripts/**/*",
     "*.ts",
     "*.tsx",
     "expo-env.d.ts"
   ],
+
+  /* ✅ Explicitly exclude backend + infra so CI doesn't require their deps at root */
   "exclude": [
     "node_modules",
     "dist",
@@ -47,6 +50,9 @@
     "coverage",
     ".expo",
     "android",
-    "ios"
+    "ios",
+    "services/**",
+    "infra/**",
+    "archive/**"
   ]
 }
