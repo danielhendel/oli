@@ -1,55 +1,27 @@
 // lib/modules/commandCenterReadiness.ts
+import type { CommandCenterModule, CommandCenterModuleId } from "./commandCenterModules";
 
-export type ModuleReadiness = "available" | "needsSetup" | "locked" | "comingSoon";
-
-export function isModuleNavigable(readiness: ModuleReadiness): boolean {
-  return readiness === "available" || readiness === "needsSetup";
-}
-
-export function isModuleDisabledByReadiness(readiness: ModuleReadiness): boolean {
-  return !isModuleNavigable(readiness);
-}
+export type ModuleReadiness = {
+  disabled: boolean;
+  badge?: "SOON" | "LOCKED";
+};
 
 /**
- * Sprint 5 Step 3:
- * Readiness is stubbed + deterministic for now.
- *
- * Later (Sprint 6+), replace this with real logic:
- * - auth state
- * - profile completeness
- * - data availability (events/facts)
- * - feature flags / remote config
+ * Central place to control which modules are clickable + what badge they show.
+ * Keeps module definitions (title/subtitle/href) clean and stable.
  */
-export function getModuleReadiness(moduleId: string): ModuleReadiness {
-  switch (moduleId) {
-    case "body":
-    case "training":
-    case "nutrition":
-    case "settings":
-      return "available";
-
+export function getModuleReadiness(id: CommandCenterModuleId): ModuleReadiness {
+  switch (id) {
     case "recovery":
-      return "comingSoon";
-
+      return { disabled: true, badge: "SOON" };
     case "labs":
-      return "locked";
-
+      return { disabled: true, badge: "LOCKED" };
     default:
-      // Safe default: don't block dev navigation unintentionally
-      return "available";
+      return { disabled: false };
   }
 }
 
-export function getReadinessBadge(readiness: ModuleReadiness): string | undefined {
-  switch (readiness) {
-    case "needsSetup":
-      return "SET UP";
-    case "comingSoon":
-      return "SOON";
-    case "locked":
-      return "LOCKED";
-    case "available":
-    default:
-      return undefined;
-  }
+/** Convenience helper if you prefer passing the module object around. */
+export function isModuleDisabled(module: CommandCenterModule): boolean {
+  return getModuleReadiness(module.id).disabled;
 }

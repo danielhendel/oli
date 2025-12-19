@@ -15,11 +15,7 @@ export type CommandCenterModule = {
   href: string;
 };
 
-/**
- * Sprint 5 Step 2:
- * Data-driven module definitions.
- */
-export const COMMAND_CENTER_MODULES: CommandCenterModule[] = [
+export const COMMAND_CENTER_MODULES: readonly CommandCenterModule[] = [
   {
     id: "body",
     title: "Body",
@@ -56,4 +52,4 @@ export const COMMAND_CENTER_MODULES: CommandCenterModule[] = [
     subtitle: "Account, privacy, devices",
     href: "/(app)/settings",
   },
-];
+] as const;
