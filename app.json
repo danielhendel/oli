@@ -1,0 +1,8 @@
+{
+  "android": {
+    "package": "com.olifitness.oli"
+  },
+  "ios": {
+    "bundleIdentifier": "com.olifitness.oli"
+  }
+}
