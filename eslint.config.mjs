@@ -17,12 +17,14 @@ export default [
       "android/**",
       "ios/**",
       "dist/**",
+      "dist-types/**",
       "build/**",
       "web-build/**",
       "coverage/**",
       "services/**/lib/**",
-      "**/*.d.ts"
-    ],
+      "**/*.d.ts",
+      "**/*.d.ts.map"
+    ]
   },
 
   // Base JS rules
@@ -34,9 +36,9 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.jest,
-      },
-    },
+        ...globals.jest
+      }
+    }
   },
 
   // TypeScript + React
@@ -47,21 +49,21 @@ export default [
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: "module",
-        ecmaFeatures: { jsx: true },
+        ecmaFeatures: { jsx: true }
       },
       globals: {
         ...globals.node,
         ...globals.browser,
-        ...globals.es2021,
-      },
+        ...globals.es2021
+      }
     },
     plugins: {
       "@typescript-eslint": tsPlugin,
       react: reactPlugin,
-      "react-hooks": reactHooksPlugin,
+      "react-hooks": reactHooksPlugin
     },
     settings: {
-      react: { version: "detect" },
+      react: { version: "detect" }
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
@@ -73,8 +75,8 @@ export default [
 
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
-    },
-  },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
+      ]
+    }
+  }
 ];
