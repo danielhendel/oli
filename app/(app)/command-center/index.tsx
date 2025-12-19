@@ -1,8 +1,15 @@
+// app/(app)/command-center/index.tsx
+
 import { ScrollView, Text, View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
 import { ModuleTile } from "@/lib/ui/ModuleTile";
-import { COMMAND_CENTER_MODULES, isModuleDisabled } from "@/lib/modules/commandCenterModules";
+import { COMMAND_CENTER_MODULES } from "@/lib/modules/commandCenterModules";
+import {
+  getModuleReadiness,
+  getReadinessBadge,
+  isModuleNavigable,
+} from "@/lib/modules/commandCenterReadiness";
 
 export default function CommandCenterScreen() {
   const router = useRouter();
@@ -18,7 +25,9 @@ export default function CommandCenterScreen() {
       {/* Grid */}
       <View style={styles.grid}>
         {COMMAND_CENTER_MODULES.map((m) => {
-          const disabled = isModuleDisabled(m);
+          const readiness = getModuleReadiness(m.id);
+          const disabled = !isModuleNavigable(readiness);
+          const badge = getReadinessBadge(readiness);
 
           return (
             <ModuleTile
@@ -30,6 +39,7 @@ export default function CommandCenterScreen() {
                 if (!disabled) router.push(m.href);
               }}
               {...(m.subtitle ? { subtitle: m.subtitle } : {})}
+              {...(badge ? { badge } : {})}
             />
           );
         })}
