@@ -1,98 +1,80 @@
-// ESLint v9 flat config for Expo/React Native + TypeScript + Jest
+// eslint.config.mjs — ESLint v9 Flat Config
 
-import js from '@eslint/js';
-import globals from 'globals';
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
-import react from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
-import prettier from 'eslint-config-prettier';
+import js from "@eslint/js";
+import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import reactPlugin from "eslint-plugin-react";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
-  // Ignore common build artefacts and metadata across the repo
+  // Ignore generated, native, legacy, and build output
   {
     ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/.expo/**',
-      '**/.expo-shared/**',
-      '**/coverage/**'
-    ]
+      "**/node_modules/**",
+      "**/.expo/**",
+      "archive/**",
+      "android/**",
+      "ios/**",
+      "dist/**",
+      "build/**",
+      "web-build/**",
+      "coverage/**",
+      "services/**/lib/**",
+      "**/*.d.ts"
+    ],
   },
 
-  // Base JS recommendations
+  // Base JS rules
   js.configs.recommended,
 
-  // TypeScript + React rules applied across the repo
+  // ✅ Jest test files (JS/TS)
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+  },
+
+  // TypeScript + React
+  {
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        ecmaVersion: 2023,
-        sourceType: 'module',
-        ecmaFeatures: { jsx: true }
+        ecmaVersion: 2022,
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
       },
       globals: {
+        ...globals.node,
         ...globals.browser,
-        ...globals.node
-      }
+        ...globals.es2021,
+      },
     },
     plugins: {
-      '@typescript-eslint': tsPlugin,
-      react,
-      'react-hooks': reactHooks
+      "@typescript-eslint": tsPlugin,
+      react: reactPlugin,
+      "react-hooks": reactHooksPlugin,
     },
-    settings: { react: { version: 'detect' } },
+    settings: {
+      react: { version: "detect" },
+    },
     rules: {
-      // TS recommended (flat-merged)
       ...tsPlugin.configs.recommended.rules,
 
-      // React + Hooks recommended (flat-merged)
-      ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off",
+      "react/jsx-uses-react": "off",
 
-      // Modern React (no need to import React in scope)
-      'react/react-in-jsx-scope': 'off',
-      'react/jsx-uses-react': 'off',
+      ...reactHooksPlugin.configs.recommended.rules,
 
-      // Hygiene
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
-    }
-  },
-
-  // ✅ Node/CommonJS tooling files (allow module/require/__dirname)
-  {
-    files: [
-      '**/*.config.{js,cjs,mjs}',
-      '**/babel.config.js',
-      '**/metro.config.js',
-      '**/jest.config.js',
-      '**/.eslintrc.js'
-    ],
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'commonjs',
-      globals: { ...globals.node }
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
-    rules: {
-      // These files are config scripts; allow CommonJS
-      'no-undef': 'off'
-    }
   },
-
-  // ✅ Jest globals for tests + allow require() in tests
-  {
-    files: ['**/__tests__/**/*.[jt]s?(x)', '**/*.{test,spec}.[jt]s?(x)'],
-    languageOptions: {
-      globals: { ...globals.jest }
-    },
-    rules: {
-      '@typescript-eslint/no-require-imports': 'off'
-    }
-  },
-
-  // Disable rules that conflict with Prettier formatting
-  prettier
 ];

@@ -1,15 +1,19 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# ----------------------------------------
+# Dependencies
+# ----------------------------------------
 node_modules/
 
-# Expo
+# ----------------------------------------
+# Expo / React Native
+# ----------------------------------------
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# ----------------------------------------
+# Native (iOS / Android)
+# ----------------------------------------
 .kotlin/
 *.orig.*
 *.jks
@@ -17,29 +21,65 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
 
-# Metro
+# Android build output
+android/**/build/
+android/.gradle/
+
+# iOS build output & local env
+ios/Pods/
+ios/DerivedData/
+ios/.xcode.env.local
+*.xcuserstate
+*.xcuserdata
+*.hmap
+*.ipa
+*.dSYM
+
+# ----------------------------------------
+# Metro / Debug
+# ----------------------------------------
 .metro-health-check*
-
-# debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# ----------------------------------------
 # macOS
+# ----------------------------------------
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# Env files
+# ----------------------------------------
+# Environment variables (CRITICAL)
+# ----------------------------------------
 .env
 .env.*
 !.env.example
 
-# Ignore backup env files
+# ----------------------------------------
+# Temporary / backup files
+# ----------------------------------------
 **/*.bak
+*.tsbuildinfo
+
+# ----------------------------------------
+# Local archives / audit artifacts
+# ----------------------------------------
+*.zip
+oli-project-src/
+oli-project-src.zip
+oli-review.zip
+oli-native-audit.zip
+oli-*.diff
+oli-*.txt
+
+# ----------------------------------------
+# Legacy / local-only folders
+# ----------------------------------------
+archive/
+
+# ----------------------------------------
+# Firebase / Functions build output
+# ----------------------------------------
+services/functions/lib/

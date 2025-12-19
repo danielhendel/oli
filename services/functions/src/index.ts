@@ -1,14 +1,32 @@
-import * as admin from 'firebase-admin';
-// ⬅️ Pull the v1 API explicitly so `.auth.user().onCreate` exists.
+// services/functions/src/index.ts
+
 import * as functionsV1 from 'firebase-functions/v1';
 
-try {
-  admin.app();
-} catch {
-  admin.initializeApp();
-}
+import { admin, db } from './firebaseAdmin';
 
-const db = admin.firestore();
+// -----------------------------
+// Triggers & Scheduled Jobs
+// -----------------------------
+
+// v2 Firestore trigger (Event → Canonical)
+import { onRawEventCreated } from './normalization/onRawEventCreated';
+
+// v2 Scheduled jobs (Canonical → DailyFacts → Insights → IntelligenceContext)
+import { onDailyFactsRecomputeScheduled } from './dailyFacts/onDailyFactsRecomputeScheduled';
+import { onInsightsRecomputeScheduled } from './insights/onInsightsRecomputeScheduled';
+import { onDailyIntelligenceContextRecomputeScheduled } from './intelligence/onDailyIntelligenceContextRecomputeScheduled';
+
+// -----------------------------
+// Admin HTTP Endpoints (Sprint 6+7)
+// -----------------------------
+
+import { recomputeDailyFactsAdminHttp } from './http/recomputeDailyFactsAdminHttp';
+import { recomputeInsightsAdminHttp } from './http/recomputeInsightsAdminHttp';
+import { recomputeDailyIntelligenceContextAdminHttp } from './http/recomputeDailyIntelligenceContextAdminHttp';
+
+// -----------------------------
+// Helpers
+// -----------------------------
 
 function defaultGeneralProfile(user: {
   uid: string;
@@ -16,6 +34,7 @@ function defaultGeneralProfile(user: {
   email?: string | null;
 }) {
   const now = admin.firestore.FieldValue.serverTimestamp();
+
   return {
     displayName: user.displayName ?? null,
     firstName: null as string | null,
@@ -27,10 +46,31 @@ function defaultGeneralProfile(user: {
   };
 }
 
-// v1 Auth trigger (stable and supported in firebase-functions v6)
+// -----------------------------
+// v1 Auth Trigger
+// -----------------------------
+
 export const onAuthCreate = functionsV1.auth.user().onCreate(async (user) => {
   const uid = user.uid;
-  await db
-    .doc(`users/${uid}/profile/general`)
-    .set(defaultGeneralProfile(user), { merge: true });
+
+  await db.doc(`users/${uid}/profile/general`).set(defaultGeneralProfile(user), {
+    merge: true,
+  });
 });
+
+// -----------------------------
+// v2 Exports (must be exported to deploy)
+// -----------------------------
+
+// Firestore trigger
+export { onRawEventCreated };
+
+// Scheduled jobs
+export { onDailyFactsRecomputeScheduled };
+export { onInsightsRecomputeScheduled };
+export { onDailyIntelligenceContextRecomputeScheduled };
+
+// Admin-only HTTP endpoints
+export { recomputeDailyFactsAdminHttp };
+export { recomputeInsightsAdminHttp };
+export { recomputeDailyIntelligenceContextAdminHttp };

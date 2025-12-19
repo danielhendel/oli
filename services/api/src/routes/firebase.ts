@@ -1,40 +1,16 @@
-import { Router } from 'express';
-import { db } from '../lib/firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { Router, Request, Response } from "express";
 
 const router = Router();
 
-router.get('/healthz', async (_req, res) => {
-  try {
-    const docRef = db.collection('_meta').doc('healthz');
+router.post("/verify", (req: Request, res: Response) => {
+  const body: unknown = req.body;
 
-    await docRef.set(
-      { lastCheckedAt: FieldValue.serverTimestamp(), source: 'api' },
-      { merge: true }
-    );
-
-    const snap = await docRef.get();
-    const data = snap.data() || {};
-    const lastCheckedIso =
-      data.lastCheckedAt?.toDate?.()?.toISOString?.() ?? null;
-
-    res.json({
-      ok: true,
-      service: 'api',
-      firestore: {
-        exists: snap.exists,
-        lastCheckedAt: lastCheckedIso,
-      },
-    });
-  } catch (err: any) {
-    console.error('firebase healthz error', err);
-    res.status(500).json({
-      ok: false,
-      service: 'api',
-      error: 'firestore_error',
-      message: err?.message ?? String(err),
-    });
+  if (!body || typeof body !== "object") {
+    return res.status(400).json({ error: "Invalid request body" });
   }
+
+  // Example placeholder logic — replace with real verification
+  return res.status(200).json({ ok: true });
 });
 
 export default router;

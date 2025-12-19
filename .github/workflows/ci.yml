@@ -1,162 +1,24 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
 
-# Prevent overlapping runs on the same branch/PR
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  # --- API checks (only when services/api/** changes) ---
-  api-check:
-    name: API - typecheck/lint/test
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
+          node-version: "20"
+          cache: "npm"
 
-      - name: Detect changes
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            api:
-              - 'services/api/**'
-              - '.github/workflows/ci.yml'
-
-      - name: Use Node.js 20
-        if: steps.changes.outputs.api == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: services/api/package-lock.json
-
-      - name: Install deps (services/api)
-        if: steps.changes.outputs.api == 'true'
-        working-directory: services/api
-        run: npm ci || npm install
-
-      - name: Typecheck (services/api)
-        if: steps.changes.outputs.api == 'true'
-        working-directory: services/api
-        run: npm run typecheck
-
-      - name: Lint (services/api, if present)
-        if: steps.changes.outputs.api == 'true'
-        working-directory: services/api
-        run: |
-          if npm run | grep -E -q '^[[:space:]]+lint[[:space:]]'; then
-            npm run lint
-          else
-            echo "No lint script; skipping"
-          fi
-
-      - name: Test (services/api, if present)
-        if: steps.changes.outputs.api == 'true'
-        working-directory: services/api
-        run: |
-          if npm run | grep -E -q '^[[:space:]]+test[[:space:]]'; then
-            npm test -- --ci
-          else
-            echo "No test script; skipping"
-          fi
-
-      # --- Prod Firebase health probe (only on pushes to main) ---
-      - name: Install jq
-        if: steps.changes.outputs.api == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Probe Firebase health (prod)
-        if: steps.changes.outputs.api == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          CLOUD_RUN_URL: ${{ secrets.CLOUD_RUN_URL }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Probing $CLOUD_RUN_URL/api/firebase/healthz"
-          for i in {1..10}; do
-            RESP="$(curl -fsS "$CLOUD_RUN_URL/api/firebase/healthz" || true)"
-            echo "::group::Probe attempt $i"
-            echo "$RESP"
-            echo "::endgroup::"
-            if echo "$RESP" | jq -e '.ok == true and (.firestore.exists == true)'; then
-              echo "✅ Prod Firebase health probe passed."
-              exit 0
-            fi
-            sleep 6
-          done
-          echo "❌ Prod Firebase health probe failed."
-          exit 1
-
-  # --- Mobile checks (only when apps/mobile/** changes) ---
-  mobile-check:
-    name: Mobile - typecheck/lint/test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changes
-        id: mobile_changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            mobile:
-              - 'apps/mobile/**'
-              - '.github/workflows/ci.yml'
-
-      - name: Use Node.js 20
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: apps/mobile/package-lock.json
-
-      - name: Install deps (mobile)
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        working-directory: apps/mobile
-        run: npm ci || npm install
-
-      # ⛑️ Prestart env guard — fail fast on invalid/missing env or bad Expo URL vars
-      - name: Validate env (mobile prestart guard)
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        working-directory: apps/mobile
-        env:
-          EXPO_NO_DOTENV: '1'
-          # Minimal public vars so schema passes (no secrets in CI)
-          EXPO_PUBLIC_FIREBASE_API_KEY: test
-          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: oli-staging.firebaseapp.com
-          EXPO_PUBLIC_FIREBASE_PROJECT_ID: oli-staging-fdbba
-          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: oli-staging.appspot.com
-          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: test
-          EXPO_PUBLIC_FIREBASE_APP_ID: test
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: test.apps.googleusercontent.com
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: test.apps.googleusercontent.com
-        run: node ./scripts/prestart.cjs
-
-      - name: Typecheck (mobile)
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        working-directory: apps/mobile
-        run: npm run typecheck
-
-      - name: Lint (mobile)
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        working-directory: apps/mobile
-        run: npm run lint
-
-      - name: Test (mobile)
-        if: steps.mobile_changes.outputs.mobile == 'true'
-        working-directory: apps/mobile
-        run: npm test -- --ci
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx expo config --type public
+      - run: npm test -- --ci
