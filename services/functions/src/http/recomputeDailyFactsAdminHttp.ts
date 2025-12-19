@@ -4,7 +4,12 @@ import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 
 import { db } from '../firebaseAdmin';
-import type { CanonicalEvent, DailyFacts, IsoDateTimeString, YmdDateString } from '../types/health';
+import type {
+  CanonicalEvent,
+  DailyFacts,
+  IsoDateTimeString,
+  YmdDateString,
+} from '../types/health';
 import { aggregateDailyFactsForDay } from '../dailyFacts/aggregateDailyFacts';
 import { enrichDailyFactsWithBaselinesAndAverages } from '../dailyFacts/enrichDailyFacts';
 import { requireAdmin } from './adminAuth';
@@ -22,13 +27,33 @@ const toYmdUtc = (date: Date): YmdDateString => {
   return `${year}-${month}-${day}`;
 };
 
-const getYmdNDaysBefore = (date: YmdDateString, days: number): YmdDateString => {
-  const [yearStr, monthStr, dayStr] = date.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
+const parseIntStrict = (value: string): number | null => {
+  if (!/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 
-  const base = new Date(Date.UTC(year, month - 1, day));
+const parseYmdUtc = (ymd: YmdDateString): Date => {
+  // ymd is "YYYY-MM-DD"
+  const parts = ymd.split('-');
+  if (parts.length !== 3) {
+    throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  }
+
+  const y = parseIntStrict(parts[0] ?? '');
+  const m = parseIntStrict(parts[1] ?? '');
+  const d = parseIntStrict(parts[2] ?? '');
+
+  if (y === null || m === null || d === null) {
+    throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  }
+
+  // monthIndex is 0-based
+  return new Date(Date.UTC(y, m - 1, d));
+};
+
+const getYmdNDaysBefore = (date: YmdDateString, days: number): YmdDateString => {
+  const base = parseYmdUtc(date);
   base.setUTCDate(base.getUTCDate() - days);
   return toYmdUtc(base);
 };
@@ -72,7 +97,9 @@ export const recomputeDailyFactsAdminHttp = onRequest(
 
     const body = parseBody(req.body);
     if (!body) {
-      res.status(400).json({ ok: false, error: 'Invalid body. Expected { userId, date: YYYY-MM-DD }' });
+      res
+        .status(400)
+        .json({ ok: false, error: 'Invalid body. Expected { userId, date: YYYY-MM-DD }' });
       return;
     }
 
@@ -80,8 +107,9 @@ export const recomputeDailyFactsAdminHttp = onRequest(
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
     try {
-      // Load canonical events for that user+day
       const userRef = db.collection('users').doc(userId);
+
+      // Load canonical events for that user+day
       const eventsSnap = await userRef.collection('events').where('day', '==', date).get();
       const events: CanonicalEvent[] = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 

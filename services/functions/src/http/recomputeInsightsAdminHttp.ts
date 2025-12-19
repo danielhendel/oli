@@ -29,12 +29,18 @@ const parseIntStrict = (value: string): number | null => {
 
 const parseYmdUtc = (ymd: YmdDateString): Date => {
   const parts = ymd.split('-');
+  if (parts.length !== 3) {
+    throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  }
+
   const y = parseIntStrict(parts[0] ?? '');
   const m = parseIntStrict(parts[1] ?? '');
   const d = parseIntStrict(parts[2] ?? '');
+
   if (y === null || m === null || d === null) {
     throw new Error(`Invalid YmdDateString: "${ymd}"`);
   }
+
   return new Date(Date.UTC(y, m - 1, d));
 };
 
@@ -79,6 +85,9 @@ const sortByDateAsc = (a: DailyFacts, b: DailyFacts): number => {
 /**
  * Admin-only HTTP endpoint
  * Recomputes Insights for a specific user + date using a 7-day DailyFacts window.
+ *
+ * Input:
+ *  { "userId": "...", "date": "YYYY-MM-DD" }
  */
 export const recomputeInsightsAdminHttp = onRequest(
   { region: 'us-central1' },
@@ -91,7 +100,9 @@ export const recomputeInsightsAdminHttp = onRequest(
 
     const body = parseBody(req.body);
     if (!body) {
-      res.status(400).json({ ok: false, error: 'Invalid body. Expected { userId, date: YYYY-MM-DD }' });
+      res
+        .status(400)
+        .json({ ok: false, error: 'Invalid body. Expected { userId, date: YYYY-MM-DD }' });
       return;
     }
 
@@ -101,7 +112,6 @@ export const recomputeInsightsAdminHttp = onRequest(
     try {
       const userRef = db.collection('users').doc(userId);
 
-      // Load a 7-day window ending at date (inclusive) from dailyFacts
       const windowDates = buildWindowDatesInclusive(date, 7);
 
       const windowSnap = await userRef
@@ -111,14 +121,14 @@ export const recomputeInsightsAdminHttp = onRequest(
 
       const windowFacts = windowSnap.docs.map((d) => d.data() as DailyFacts).sort(sortByDateAsc);
 
-      // Ensure we have "today"
-      const todayFromStore = windowFacts.find((f) => f.date === date);
-      if (!todayFromStore) {
-        res.status(404).json({ ok: false, error: `DailyFacts not found for userId=${userId} date=${date}` });
+      const today = windowFacts.find((f) => f.date === date);
+      if (!today) {
+        res
+          .status(404)
+          .json({ ok: false, error: `DailyFacts not found for userId=${userId} date=${date}` });
         return;
       }
 
-      const today = todayFromStore;
       const history = windowFacts.filter((f) => f.date !== date);
 
       const insights = generateInsightsForDailyFacts({
@@ -129,7 +139,6 @@ export const recomputeInsightsAdminHttp = onRequest(
         now,
       });
 
-      // Deterministic IDs => overwrite same docs on rerun
       const batch = db.batch();
       const insightsCol = userRef.collection('insights');
 
