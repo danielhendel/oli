@@ -1,40 +1,36 @@
+import { View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
+import { getModuleSections } from "@/lib/modules/moduleSectionRoutes";
+import { getSectionReadiness } from "@/lib/modules/moduleReadiness";
 
-type LabsSection = {
-  title: string;
-  href: string;
-  subtitle?: string;
-  disabled?: boolean;
-};
-
-const SECTIONS: LabsSection[] = [
-  { title: "Overview", href: "/(app)/labs/overview", subtitle: "Biomarker summary" },
-  { title: "Upload Labs", href: "/(app)/labs/upload", subtitle: "PDF & lab results", disabled: true },
-  { title: "Biomarkers", href: "/(app)/labs/biomarkers", subtitle: "Individual markers", disabled: true },
-];
-
-export default function LabsEntryScreen() {
+export default function LabsHomeScreen() {
   const router = useRouter();
+  const sections = getModuleSections("labs");
 
   return (
-    <ModuleScreenShell title="Labs" subtitle="Bloodwork & biomarkers">
-      {SECTIONS.map((s) => {
-        const disabled = Boolean(s.disabled);
+    <ModuleScreenShell title="Labs" subtitle="Biomarkers & uploads">
+      <View style={styles.list}>
+        {sections.map((s) => {
+          const r = getSectionReadiness(s.id);
 
-        return (
-          <ModuleSectionLinkRow
-            key={s.href}
-            title={s.title}
-            disabled={disabled}
-            onPress={() => {
-              if (!disabled) router.push(s.href);
-            }}
-            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
-          />
-        );
-      })}
+          return (
+            <ModuleSectionLinkRow
+              key={s.id}
+              title={s.title}
+              disabled={r.disabled}
+              onPress={() => router.push(s.href)}
+              {...(r.badge ? { badge: r.badge } : {})}
+            />
+          );
+        })}
+      </View>
     </ModuleScreenShell>
   );
 }
+
+const styles = StyleSheet.create({
+  list: { gap: 10 },
+});
