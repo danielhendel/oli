@@ -1,40 +1,40 @@
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
+
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
+import { getModuleSections } from "@/lib/modules/moduleSectionRoutes";
+import { getSectionReadiness } from "@/lib/modules/moduleReadiness";
 
-type BodySection = {
-  title: string;
-  href: string;
-  subtitle?: string;
-  disabled?: boolean;
-};
-
-const SECTIONS: BodySection[] = [
-  { title: "Overview", href: "/(app)/body/overview", subtitle: "Composition summary" },
-  { title: "Weight", href: "/(app)/body/weight", subtitle: "Daily weigh-ins & trends" },
-  { title: "DEXA", href: "/(app)/body/dexa", subtitle: "Body composition scans", disabled: true },
-];
-
-export default function BodyEntryScreen() {
+export default function BodyIndexScreen() {
   const router = useRouter();
+  const sections = getModuleSections("body");
 
   return (
-    <ModuleScreenShell title="Body" subtitle="Weight, DEXA, composition">
-      {SECTIONS.map((s) => {
-        const disabled = Boolean(s.disabled);
+    <ModuleScreenShell title="Body" subtitle="Composition & measurements">
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.list}>
+          {sections.map((s) => {
+            const r = getSectionReadiness(s.id);
 
-        return (
-          <ModuleSectionLinkRow
-            key={s.href}
-            title={s.title}
-            disabled={disabled}
-            onPress={() => {
-              if (!disabled) router.push(s.href);
-            }}
-            {...(s.subtitle ? { subtitle: s.subtitle } : {})}
-          />
-        );
-      })}
+            return (
+              <ModuleSectionLinkRow
+                key={s.id}
+                title={s.title}
+                disabled={r.disabled}
+                onPress={() => router.push(s.href)}
+                {...(r.subtitle ? { subtitle: r.subtitle } : {})}
+                {...(r.badge ? { badge: r.badge } : {})}
+              />
+            );
+          })}
+        </View>
+      </ScrollView>
     </ModuleScreenShell>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { padding: 16, paddingBottom: 28 },
+  list: { gap: 12 },
+});

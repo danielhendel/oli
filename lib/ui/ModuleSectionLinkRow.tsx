@@ -1,18 +1,21 @@
-import React from "react";
+// lib/ui/ModuleSectionLinkRow.tsx
+
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type ModuleSectionLinkRowProps = {
   title: string;
   subtitle?: string;
-  disabled?: boolean;
+  badge?: string;
   onPress?: () => void;
+  disabled?: boolean;
 };
 
 export function ModuleSectionLinkRow({
   title,
   subtitle,
-  disabled = false,
+  badge,
   onPress,
+  disabled = false,
 }: ModuleSectionLinkRowProps) {
   return (
     <Pressable
@@ -28,31 +31,52 @@ export function ModuleSectionLinkRow({
         pressed && !disabled && styles.pressed,
       ]}
     >
-      <View style={styles.textCol}>
+      <View style={styles.left}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
 
-      <Text style={[styles.chevron, disabled && styles.chevronDisabled]}>›</Text>
+      <View style={styles.right}>
+        {badge ? (
+          <View style={[styles.badge, disabled && styles.badgeDisabled]}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        ) : null}
+
+        <Text style={[styles.chevron, disabled && styles.chevronDisabled]}>›</Text>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: "#F2F2F7",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    paddingVertical: 12,
   },
   pressed: { opacity: 0.85 },
-  disabled: { opacity: 0.45 },
+  disabled: { opacity: 0.55 },
 
-  textCol: { flex: 1, gap: 4 },
-  title: { fontSize: 15, fontWeight: "800" },
+  left: { flex: 1, gap: 4 },
+  title: { fontSize: 16, fontWeight: "700" },
   subtitle: { fontSize: 13, opacity: 0.7 },
 
-  chevron: { fontSize: 22, opacity: 0.5 },
-  chevronDisabled: { opacity: 0.25 },
+  right: { flexDirection: "row", alignItems: "center", gap: 10 },
+  chevron: { fontSize: 22, opacity: 0.6, marginTop: -1 },
+  chevronDisabled: { opacity: 0.35 },
+
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#E5E5EA",
+  },
+  badgeDisabled: { backgroundColor: "#E5E5EA" },
+  badgeText: { fontSize: 12, fontWeight: "700", opacity: 0.9 },
 });
