@@ -2,16 +2,30 @@
 
 /**
  * IMPORTANT:
- * This import MUST run before any other firebase-admin usage
- * to ensure the Admin SDK is initialized with the correct projectId
- * via Application Default Credentials (ADC).
+ * Load env FIRST (from services/api/.env.local),
+ * then initialize firebase-admin,
+ * then import the Express app.
  */
-import "./lib/firebaseAdmin";
 
-import app from "./index";
+import path from "path";
+import dotenv from "dotenv";
 
-const port = Number(process.env.PORT ?? "8080");
-
-app.listen(port, () => {
-  console.log(`API listening on port ${port}`);
+dotenv.config({
+  path: path.resolve(__dirname, "../.env.local"),
 });
+
+const main = async () => {
+  // Ensure firebase-admin is initialized AFTER env is loaded
+  await import("./lib/firebaseAdmin");
+
+  // Import app AFTER firebase admin initialization
+  const mod = await import("./index");
+  const app = mod.default;
+
+  const port = Number(process.env.PORT ?? "8080");
+  app.listen(port, () => {
+    console.log(`API listening on port ${port}`);
+  });
+};
+
+void main();

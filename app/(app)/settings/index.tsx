@@ -10,6 +10,9 @@ export default function SettingsHomeScreen() {
   const router = useRouter();
   const sections = getModuleSections("settings");
 
+  const appEnv = process.env.APP_ENV ?? "development";
+  const showDebug = appEnv !== "production";
+
   return (
     <ModuleScreenShell title="Settings" subtitle="Account & privacy">
       <View style={styles.list}>
@@ -26,6 +29,23 @@ export default function SettingsHomeScreen() {
             />
           );
         })}
+
+        {showDebug ? (
+          <>
+            <ModuleSectionLinkRow
+              title="Debug token"
+              disabled={false}
+              badge="Dev"
+              onPress={() => router.push("/debug/token")}
+            />
+            <ModuleSectionLinkRow
+              title="Debug API smoke"
+              disabled={false}
+              badge="Dev"
+              onPress={() => router.push("/debug/api-smoke")}
+            />
+          </>
+        ) : null}
       </View>
     </ModuleScreenShell>
   );

@@ -1,20 +1,13 @@
 // lib/firebaseConfig.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import { initializeAuth, getAuth, inMemoryPersistence, type Auth } from "firebase/auth";
+import * as AuthMod from "firebase/auth";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
 
 /**
  * Firebase client configuration.
  * Uses EXPO_PUBLIC_* variables (safe for client-side use).
  * Enforces single initialization and strict typing.
- *
- * NOTE:
- * We intentionally use inMemoryPersistence for Auth to keep the toolchain
- * deterministic and lint-clean in this repo’s current dependency configuration.
- * This still fully supports sign-in, ID token generation, and API auth.
- *
- * We will upgrade to AsyncStorage persistence once the Firebase RN persistence
- * entrypoint is available in your installed Firebase package + TS resolution.
  */
 
 type FirebaseClientConfig = {
@@ -57,24 +50,42 @@ const getFirebaseApp = (): FirebaseApp => {
   return initializeApp(readFirebaseConfig());
 };
 
+type GetReactNativePersistenceFn = (storage: unknown) => unknown;
+
+const getBestAuthPersistence = (): unknown => {
+  // Some firebase versions export getReactNativePersistence at runtime,
+  // but TS types may not include it. Probe safely.
+  const maybe = (AuthMod as unknown as { getReactNativePersistence?: GetReactNativePersistenceFn })
+    .getReactNativePersistence;
+
+  if (typeof maybe === "function") {
+    return maybe(ReactNativeAsyncStorage);
+  }
+
+  // Fallback: works but does not persist across full app restarts.
+  return AuthMod.inMemoryPersistence;
+};
+
 /**
  * Firebase Auth (React Native)
  *
- * Uses in-memory persistence for now (auth works, token works, but may not
- * persist across a full app restart).
+ * We prefer AsyncStorage persistence when available, otherwise fall back
+ * to in-memory persistence (still supports login + ID tokens).
+ *
+ * IMPORTANT: initializeAuth must be called once per app instance.
  */
-export const getFirebaseAuth = (): Auth => {
+export const getFirebaseAuth = (): AuthMod.Auth => {
   const app = getFirebaseApp();
 
   // If Auth was already initialized for this app, getAuth(app) returns it.
   try {
-    return getAuth(app);
+    return AuthMod.getAuth(app);
   } catch {
-    // continue
+    // continue and initialize
   }
 
-  return initializeAuth(app, {
-    persistence: inMemoryPersistence,
+  return AuthMod.initializeAuth(app, {
+    persistence: getBestAuthPersistence() as AuthMod.Persistence,
   });
 };
 

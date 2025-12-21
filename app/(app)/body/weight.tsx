@@ -1,9 +1,232 @@
+import { useMemo, useState } from "react";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { getIdToken } from "@/lib/auth/getIdToken";
+import { ingestRawEvent } from "@/lib/api/ingest";
+import { buildManualWeightPayload, poundsToKg } from "@/lib/events/manualWeight";
 
 export default function BodyWeightScreen() {
+  const router = useRouter();
+
+  const [unit, setUnit] = useState<"lb" | "kg">("lb");
+  const [weightText, setWeightText] = useState("");
+  const [bodyFatText, setBodyFatText] = useState("");
+  const [status, setStatus] = useState<
+    | { state: "idle" }
+    | { state: "saving" }
+    | { state: "error"; message: string }
+    | { state: "saved"; rawEventId: string }
+  >({ state: "idle" });
+
+  const parsed = useMemo(() => {
+    const w = Number(weightText);
+    const bf = bodyFatText.trim() === "" ? null : Number(bodyFatText);
+
+    const weightOk = Number.isFinite(w) && w > 0;
+    const bfOk = bf === null || (Number.isFinite(bf) && bf >= 0 && bf <= 100);
+
+    const weightKg = weightOk ? (unit === "kg" ? w : poundsToKg(w)) : null;
+    const bodyFatPercent = bfOk ? bf : NaN;
+
+    return {
+      weightOk,
+      bfOk,
+      weightKg,
+      bodyFatPercent: bf === null ? null : bodyFatPercent,
+    };
+  }, [weightText, bodyFatText, unit]);
+
+  const canSave = parsed.weightOk && parsed.bfOk && parsed.weightKg !== null && status.state !== "saving";
+
+  const onSave = async (): Promise<void> => {
+    if (!canSave || parsed.weightKg === null) return;
+    setStatus({ state: "saving" });
+
+    try {
+      const token = await getIdToken();
+
+      const payload = buildManualWeightPayload({
+        weightKg: parsed.weightKg,
+        ...(parsed.bodyFatPercent !== null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
+      });
+
+      const idempotencyKey = `weight-${payload.day}-${payload.time}`;
+
+      const res = await ingestRawEvent(
+        {
+          provider: "manual",
+          kind: "weight",
+          observedAt: payload.time,
+          sourceId: "manual",
+          payload,
+        },
+        token,
+        { idempotencyKey }
+      );
+
+      if (!res.ok) {
+        setStatus({ state: "error", message: res.message });
+        return;
+      }
+
+      setStatus({ state: "saved", rawEventId: res.data.rawEventId });
+
+      setTimeout(() => {
+        router.back();
+      }, 250);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setStatus({ state: "error", message: msg });
+    }
+  };
+
   return (
     <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
-      {null}
+      <View style={styles.card}>
+        <Text style={styles.label}>Weight</Text>
+        <View style={styles.row}>
+          <TextInput
+            value={weightText}
+            onChangeText={setWeightText}
+            keyboardType="decimal-pad"
+            placeholder={unit === "lb" ? "e.g. 185.2" : "e.g. 84.0"}
+            style={[styles.input, { flex: 1 }]}
+            accessibilityLabel="Weight input"
+          />
+
+          <View style={styles.unitGroup}>
+            <Pressable
+              onPress={() => setUnit("lb")}
+              accessibilityRole="button"
+              accessibilityLabel="Use pounds"
+              style={[styles.unitButton, unit === "lb" && styles.unitActive]}
+            >
+              <Text style={[styles.unitText, unit === "lb" && styles.unitTextActive]}>lb</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setUnit("kg")}
+              accessibilityRole="button"
+              accessibilityLabel="Use kilograms"
+              style={[styles.unitButton, unit === "kg" && styles.unitActive]}
+            >
+              <Text style={[styles.unitText, unit === "kg" && styles.unitTextActive]}>kg</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {!parsed.weightOk && weightText.trim() !== "" ? (
+          <Text style={styles.helperError}>Enter a valid number greater than 0.</Text>
+        ) : null}
+
+        <Text style={[styles.label, { marginTop: 14 }]}>Body fat % (optional)</Text>
+        <TextInput
+          value={bodyFatText}
+          onChangeText={setBodyFatText}
+          keyboardType="decimal-pad"
+          placeholder="e.g. 18.5"
+          style={styles.input}
+          accessibilityLabel="Body fat percentage input"
+        />
+
+        {!parsed.bfOk ? <Text style={styles.helperError}>Body fat must be between 0 and 100.</Text> : null}
+
+        <Pressable
+          onPress={() => void onSave()}
+          disabled={!canSave}
+          accessibilityRole="button"
+          accessibilityLabel="Save weight"
+          style={({ pressed }) => [
+            styles.saveButton,
+            !canSave && styles.saveDisabled,
+            pressed && canSave && { opacity: 0.9 },
+          ]}
+        >
+          <Text style={styles.saveText}>{status.state === "saving" ? "Saving…" : "Save"}</Text>
+        </Pressable>
+
+        {status.state === "error" ? <Text style={styles.helperError}>{status.message}</Text> : null}
+        {status.state === "saved" ? (
+          <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text>
+        ) : null}
+      </View>
     </ModuleScreenShell>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  input: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  unitGroup: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+  },
+  unitButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unitActive: {
+    backgroundColor: "#111827",
+  },
+  unitText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  unitTextActive: {
+    color: "#FFFFFF",
+  },
+  saveButton: {
+    marginTop: 10,
+    backgroundColor: "#111827",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  saveDisabled: {
+    opacity: 0.35,
+  },
+  saveText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  helperError: {
+    color: "#B00020",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  helperSuccess: {
+    color: "#1B5E20",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});

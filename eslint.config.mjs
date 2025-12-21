@@ -9,20 +9,20 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
   // ---------------------------------------------------------------------------
-  // 0) Ignore generated, native, legacy, and build output
+  // 0) Ignore generated, native, legacy, and build output (CRITICAL)
   // ---------------------------------------------------------------------------
   {
     ignores: [
       "**/node_modules/**",
       "**/.expo/**",
       "archive/**",
-      "android/**",
-      "ios/**",
-      "dist/**",
-      "dist-types/**",
-      "build/**",
-      "web-build/**",
-      "coverage/**",
+      "**/android/**",
+      "**/ios/**",
+      "**/dist/**",
+      "**/dist-types/**",
+      "**/build/**",
+      "**/web-build/**",
+      "**/coverage/**",
       "services/**/lib/**",
       "**/*.d.ts",
       "**/*.d.ts.map",
@@ -36,7 +36,6 @@ export default [
 
   // ---------------------------------------------------------------------------
   // 2) Node-only config files (babel / metro / config scripts)
-  //    Fixes: `'module' is not defined` + flat-config ESLint v9 warnings
   // ---------------------------------------------------------------------------
   {
     files: ["babel.config.js", "metro.config.js", "*.config.js"],
@@ -65,7 +64,7 @@ export default [
   },
 
   // ---------------------------------------------------------------------------
-  // 4) ARCHITECTURE GUARDRAILS (Phase B)
+  // 4) ARCHITECTURE GUARDRAILS
   // ---------------------------------------------------------------------------
   {
     files: ["**/*.ts", "**/*.tsx"],
@@ -141,7 +140,7 @@ export default [
   },
 
   // ---------------------------------------------------------------------------
-  // 7) TypeScript + React (JSX enabled everywhere it belongs)
+  // 7) TypeScript + React (JSX enabled where appropriate)
   // ---------------------------------------------------------------------------
   {
     files: ["**/*.ts", "**/*.tsx"],
