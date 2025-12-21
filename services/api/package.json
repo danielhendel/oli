@@ -2,12 +2,12 @@
   "name": "api",
   "version": "1.0.0",
   "description": "Healthz-enabled Express API for Cloud Run",
-  "main": "dist/index.js",
+  "main": "dist/server.js",
   "type": "commonjs",
   "scripts": {
+    "dev": "node -r ts-node/register/transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

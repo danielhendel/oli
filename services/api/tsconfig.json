@@ -1,12 +1,17 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "../../dist-types/api",
-    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/api.tsbuildinfo",
-    "types": ["node", "jest"]
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "references": [{ "path": "../../lib" }],
-  "include": ["src/**/*", "**/*.ts"],
-  "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
+  "include": ["src/**/*.ts"]
 }
