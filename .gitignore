@@ -1,20 +1,31 @@
-# ========================================
-# Dependencies
-# ========================================
+# ----------------------------------------
+# Dependencies / Package managers
+# ----------------------------------------
 node_modules/
 node_modules/.cache/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
-# ========================================
+# ----------------------------------------
 # Expo / React Native
-# ========================================
+# ----------------------------------------
 .expo/
 dist/
+dist-types/
 web-build/
 expo-env.d.ts
 
-# ========================================
+# Metro / packager caches
+.metro-health-check*
+
+# ----------------------------------------
 # Native (iOS / Android)
-# ========================================
+# ----------------------------------------
 .kotlin/
 *.orig.*
 *.jks
@@ -38,44 +49,40 @@ ios/.xcode.env.local
 *.ipa
 *.dSYM
 
-# ========================================
-# Metro / Debug / Logs
-# ========================================
-.metro-health-check*
+# ----------------------------------------
+# Logs / Debug
+# ----------------------------------------
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-*.log
 
-# Explicit Firebase / Firestore emulator logs (never commit)
+# Firebase / emulator debug logs (never commit)
 firebase-debug.log
 firestore-debug.log
+ui-debug.log
 
-# ========================================
+# ----------------------------------------
 # macOS
-# ========================================
+# ----------------------------------------
 .DS_Store
 
-# ========================================
+# ----------------------------------------
 # Environment variables (CRITICAL)
-# ========================================
+# ----------------------------------------
 .env
 .env.*
 !.env.example
 
-# ========================================
-# TypeScript / Build Artifacts
-# ========================================
-**/*.bak
+# ----------------------------------------
+# TypeScript / build caches
+# ----------------------------------------
 *.tsbuildinfo
-dist-types/
-dist/
-build/
-coverage/
+node_modules/.cache/tsbuildinfo/
 
-# ========================================
+# ----------------------------------------
 # Local archives / audit artifacts
-# ========================================
+# ----------------------------------------
 *.zip
 oli-project-src/
 oli-project-src.zip
@@ -84,15 +91,26 @@ oli-native-audit.zip
 oli-*.diff
 oli-*.txt
 
-# ========================================
-# Legacy / Local-only folders
-# ========================================
+# ----------------------------------------
+# Legacy / local-only folders
+# ----------------------------------------
 archive/
-
-# Archived docs (history lives in git, not repo)
 docs/_archive/
 
-# ========================================
+# ----------------------------------------
+# Firebase local tooling files (staging-only repo hygiene)
+# ----------------------------------------
+.firebase/
+firebase.json
+.firebaserc
+
+# ----------------------------------------
 # Firebase / Functions build output
-# ========================================
+# ----------------------------------------
 services/functions/lib/
+
+# ----------------------------------------
+# Cloud Run local env (never commit)
+# ----------------------------------------
+cloudrun/.env.local
+services/api/.env.local
