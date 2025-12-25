@@ -1,66 +1,95 @@
-# Local Development Guide
+Local Development Guide (Staging-Only)
 
-This is the **exact sequence** that works.
+This guide describes the only supported local workflow.
 
-No steps omitted.
+❌ No Firebase emulators
 
----
+❌ No localhost APIs
 
-## Prerequisites
+❌ No legacy flows
 
-- Node.js 18+
-- npm
-- Expo CLI
-- Google Cloud SDK
-- Firebase project created
+All development runs against staging Cloud Run services.
 
----
+Prerequisites
 
-## 1. Authenticate with Google Cloud
+Node.js 18+
 
-```bash
+npm
+
+Expo CLI
+
+Google Cloud SDK
+
+Firebase project (staging)
+
+Cloud Run API deployed (staging)
+
+1. Authenticate with Google Cloud
 gcloud auth login
 gcloud auth application-default login
-gcloud config set project <firebase-project-id>
-gcloud auth application-default set-quota-project <firebase-project-id>
-2. Start API Service
-bash
-Copy code
-cd services/api
-lsof -ti :8080 | xargs kill -9 || true
+gcloud config set project <staging-project-id>
+gcloud auth application-default set-quota-project <staging-project-id>
 
-GOOGLE_CLOUD_PROJECT=<project-id> \
-GCLOUD_PROJECT=<project-id> \
-PORT=8080 \
-npm run dev
-Expected output:
 
-csharp
-Copy code
-[api] firebase-admin initialized projectId=<project-id>
-API listening on port 8080
+Verify:
+
+gcloud config get-value project
+
+2. Configure Environment Variables (Mobile)
+
+Create or update your local Expo env file:
+
+.env.local
+
+EXPO_PUBLIC_BACKEND_BASE_URL=https://<your-staging-cloudrun-api>
+
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+
+
+⚠️ Do not include:
+
+localhost
+
+emulator hosts
+
+.env.local in git (already ignored)
+
 3. Start Mobile App
-bash
-Copy code
-cd ../../
+
+From repo root:
+
 npx expo start -c
-Open in iOS simulator.
+
+
+Open in iOS Simulator
+
+App connects directly to staging Firebase + Cloud Run
 
 4. Sign In
-Create user in Firebase Auth console (email/password)
 
-Sign in via app
+Create a user using the app UI
 
-5. Generate Token
-Navigate to Debug → Token
+Firebase Auth is the sole identity authority
 
-Generate token
+No manual Firebase Console steps required
 
-Copy token
+5. Generate ID Token
 
-6. Test Ingest
-bash
-Copy code
+In the app:
+
+Debug → Token
+
+
+Generate Firebase ID token
+
+Copy token to clipboard
+
+6. Test Event Ingest (Staging)
 TOKEN="$(xcrun simctl pbpaste booted | tr -d '\n' | tr -d '\r')"
 
 curl -i \
@@ -73,65 +102,60 @@ curl -i \
     "occurredAt": "2025-12-20T00:00:00Z",
     "payload": { "steps": 1234 }
   }' \
-  http://localhost:8080/ingest/events
-Expected:
+  https://<your-staging-cloudrun-api>/ingest/events
 
-Copy code
-202 Accepted
-If any step fails, do not continue.
+Expected Response
+HTTP/1.1 202 Accepted
 
-yaml
-Copy code
 
----
+If this fails, do not proceed.
 
-# 📄 `docs/SECURITY_MODEL.md`
+Enforcement Guarantees
 
-```md
-# Security Model
+The backend will refuse to start if any emulator variables are present:
 
-This system uses **Firebase Auth as the sole identity authority**.
+FIRESTORE_EMULATOR_HOST
 
----
+FIREBASE_AUTH_EMULATOR_HOST
 
-## Identity
+This ensures:
 
-- Users authenticate via Firebase Auth
-- Mobile app receives Firebase ID token
-- Token is sent to backend via Authorization header
+No accidental local writes
 
----
+No environment drift
 
-## API Authentication
+Production-safe habits from day one
 
-```http
-Authorization: Bearer <firebase-id-token>
-Backend:
+Troubleshooting
+❌ 401 / 403
 
-Verifies token using firebase-admin
+Token expired
 
-Extracts uid
+User not authenticated
 
-Rejects invalid or expired tokens
+Wrong Firebase project
 
-Authorization
-All data is user-scoped
+❌ Network Error
 
-Firestore writes occur under /users/{uid}
+Incorrect Cloud Run URL
 
-No cross-user access is possible
+Service not deployed
 
-Idempotency
-Client may send Idempotency-Key header
+Missing HTTPS
 
-API uses key as Firestore document ID
+❌ App won’t boot
+npx expo start -c
 
-Duplicate requests return 202 Accepted
+Non-Goals (Intentionally Unsupported)
 
-Trust Boundaries
-Layer	Trust
-Mobile App	Untrusted
-API	Trusted
-Firestore	Trusted
-Functions	Trusted
+Firebase emulators
 
+Local Firestore
+
+Local Auth
+
+localhost APIs
+
+Hybrid dev/prod modes
+
+These are deferred until post-MVP team scale.
