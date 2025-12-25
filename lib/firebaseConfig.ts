@@ -1,14 +1,9 @@
 // lib/firebaseConfig.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import * as AuthMod from "firebase/auth";
+import { getAuth, initializeAuth, type Auth } from "firebase/auth";
+import { getReactNativePersistence } from "firebase/auth/react-native";
 import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
-
-/**
- * Firebase client configuration.
- * Uses EXPO_PUBLIC_* variables (safe for client-side use).
- * Enforces single initialization and strict typing.
- */
 
 type FirebaseClientConfig = {
   apiKey: string;
@@ -19,21 +14,20 @@ type FirebaseClientConfig = {
   appId?: string;
 };
 
+const requireEnv = (key: string): string => {
+  const v = process.env[key];
+  if (!v || v.trim().length === 0) throw new Error(`Missing required env var: ${key}`);
+  return v.trim();
+};
+
 const readFirebaseConfig = (): FirebaseClientConfig => {
-  const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
-  const authDomain = process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+  const apiKey = requireEnv("EXPO_PUBLIC_FIREBASE_API_KEY");
+  const authDomain = requireEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN");
+  const projectId = requireEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
 
-  if (!apiKey || !authDomain || !projectId) {
-    throw new Error(
-      "Missing Firebase env vars. Set EXPO_PUBLIC_FIREBASE_API_KEY, " +
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN, EXPO_PUBLIC_FIREBASE_PROJECT_ID."
-    );
-  }
-
-  const storageBucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  const messagingSenderId = process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-  const appId = process.env.EXPO_PUBLIC_FIREBASE_APP_ID;
+  const storageBucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  const messagingSenderId = process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim();
+  const appId = process.env.EXPO_PUBLIC_FIREBASE_APP_ID?.trim();
 
   return {
     apiKey,
@@ -45,51 +39,34 @@ const readFirebaseConfig = (): FirebaseClientConfig => {
   };
 };
 
-const getFirebaseApp = (): FirebaseApp => {
+let cachedAuth: Auth | null = null;
+let cachedDb: Firestore | null = null;
+
+export const getFirebaseApp = (): FirebaseApp => {
   if (getApps().length > 0) return getApp();
   return initializeApp(readFirebaseConfig());
 };
 
-type GetReactNativePersistenceFn = (storage: unknown) => unknown;
+export const getFirebaseAuth = (): Auth => {
+  if (cachedAuth) return cachedAuth;
 
-const getBestAuthPersistence = (): unknown => {
-  // Some firebase versions export getReactNativePersistence at runtime,
-  // but TS types may not include it. Probe safely.
-  const maybe = (AuthMod as unknown as { getReactNativePersistence?: GetReactNativePersistenceFn })
-    .getReactNativePersistence;
-
-  if (typeof maybe === "function") {
-    return maybe(ReactNativeAsyncStorage);
-  }
-
-  // Fallback: works but does not persist across full app restarts.
-  return AuthMod.inMemoryPersistence;
-};
-
-/**
- * Firebase Auth (React Native)
- *
- * We prefer AsyncStorage persistence when available, otherwise fall back
- * to in-memory persistence (still supports login + ID tokens).
- *
- * IMPORTANT: initializeAuth must be called once per app instance.
- */
-export const getFirebaseAuth = (): AuthMod.Auth => {
   const app = getFirebaseApp();
 
-  // If Auth was already initialized for this app, getAuth(app) returns it.
   try {
-    return AuthMod.getAuth(app);
+    cachedAuth = initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
   } catch {
-    // continue and initialize
+    cachedAuth = getAuth(app);
   }
 
-  return AuthMod.initializeAuth(app, {
-    persistence: getBestAuthPersistence() as AuthMod.Persistence,
-  });
+  return cachedAuth;
 };
 
 export const getDb = (): Firestore => {
+  if (cachedDb) return cachedDb;
   const app = getFirebaseApp();
-  return getFirestore(app);
+  cachedDb = getFirestore(app);
+  void getFirebaseAuth();
+  return cachedDb;
 };

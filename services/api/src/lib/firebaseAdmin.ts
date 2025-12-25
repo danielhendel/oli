@@ -1,97 +1,87 @@
+import { App, getApp, getApps, initializeApp, applicationDefault } from "firebase-admin/app";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
+
 /**
  * Firebase Admin (API)
  *
- * Option A (staging-first):
- * - Cloud Run uses real Firebase (staging/prod) via ADC
- * - Emulators are enabled ONLY when APP_ENV=local
+ * Goal:
+ * - Always initialize the DEFAULT admin app (no name).
+ * - Never crash at import-time if env hasn't loaded yet.
+ * - Prefer explicit env vars locally, but allow GCP (Cloud Run) ADC defaults.
  *
  * IMPORTANT:
- * We initialize the DEFAULT admin app (no name).
- * Many call sites use getAuth() / getFirestore() without passing an app.
- * Initializing a named app would break auth verification.
+ * - Do NOT resolve project id at module load time.
+ * - Resolve lazily when initializing.
  */
 
-import {
-  App,
-  getApp,
-  getApps,
-  initializeApp,
-  applicationDefault,
-} from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+let _adminApp: App | null = null;
+let _db: Firestore | null = null;
 
-/**
- * Resolve Firebase project ID robustly across environments.
- */
-const resolveProjectId = (): string => {
-  // Preferred: explicit GCP env vars
-  const fromEnv =
-    process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+const tryResolveProjectId = (): string | undefined => {
+  const fromEnv = (process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "").trim();
   if (fromEnv) return fromEnv;
 
-  // Fallback: FIREBASE_CONFIG (sometimes injected)
-  const fc = process.env.FIREBASE_CONFIG;
+  const fc = (process.env.FIREBASE_CONFIG || "").trim();
   if (fc) {
     try {
       const parsed = JSON.parse(fc) as { projectId?: string };
-      if (parsed.projectId) return parsed.projectId;
+      if (typeof parsed.projectId === "string" && parsed.projectId.trim()) return parsed.projectId.trim();
     } catch {
       // ignore malformed FIREBASE_CONFIG
     }
   }
 
-  throw new Error(
-    "Missing project id for Firebase Admin. Set GOOGLE_CLOUD_PROJECT or GCLOUD_PROJECT (e.g. oli-staging-fdbba)."
-  );
+  // Return undefined (do not throw) so ADC can infer project in GCP runtimes.
+  return undefined;
 };
 
-export const projectId = resolveProjectId();
+export const getAdminApp = (): App => {
+  if (_adminApp) return _adminApp;
 
-/**
- * Determine runtime environment.
- */
-type AppEnv = "local" | "staging" | "production";
-
-const readAppEnv = (): AppEnv => {
-  const raw = (process.env.APP_ENV ?? "").trim().toLowerCase();
-  if (raw === "local" || raw === "staging" || raw === "production") {
-    return raw;
+  if (getApps().length > 0) {
+    _adminApp = getApp(); // default app
+    return _adminApp;
   }
-  return "staging"; // safe default (Option A)
-};
 
-const APP_ENV: AppEnv = readAppEnv();
+  const projectId = tryResolveProjectId();
 
-/**
- * Initialize the DEFAULT Firebase Admin app.
- */
-let app: App;
-
-if (getApps().length === 0) {
-  app = initializeApp({
+  _adminApp = initializeApp({
     credential: applicationDefault(),
-    projectId,
+    ...(projectId ? { projectId } : {}),
   });
 
   // eslint-disable-next-line no-console
   console.log(
-    `[api] firebase-admin initialized DEFAULT app projectId=${projectId} APP_ENV=${APP_ENV}`
+    `[api] firebase-admin initialized DEFAULT app` +
+      (projectId ? ` projectId=${projectId}` : " projectId=<inferred>")
   );
 
-  if (APP_ENV === "local") {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[api] firebase-admin using emulators: auth=${process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "unset"} firestore=${process.env.FIRESTORE_EMULATOR_HOST ?? "unset"}`
-    );
-  } else {
-    // eslint-disable-next-line no-console
-    console.log(
-      "[api] firebase-admin using real Firebase (staging/production)"
-    );
-  }
-} else {
-  app = getApp();
-}
+  return _adminApp;
+};
 
-export const adminApp = app;
-export const db = getFirestore(app);
+export const getDb = (): Firestore => {
+  if (_db) return _db;
+  const app = getAdminApp();
+  _db = getFirestore(app);
+  return _db;
+};
+
+/**
+ * Back-compat exports (if other files import { adminApp, db })
+ * Keep these, but they will initialize lazily instead of at import time.
+ */
+export const adminApp: App = new Proxy({} as App, {
+  get(_t, prop) {
+    const app = getAdminApp();
+    // @ts-expect-error - proxy passthrough
+    return app[prop];
+  },
+});
+
+export const db: Firestore = new Proxy({} as Firestore, {
+  get(_t, prop) {
+    const firestore = getDb();
+    // @ts-expect-error - proxy passthrough
+    return firestore[prop];
+  },
+});
