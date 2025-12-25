@@ -1,14 +1,36 @@
 Local Development Guide (Staging-Only)
 
-This guide describes the only supported local workflow.
+This document defines the only supported local development workflow for Oli Health OS v1.
 
-❌ No Firebase emulators
+This repo intentionally enforces production-grade discipline from day one.
 
-❌ No localhost APIs
+❌ Explicitly Unsupported
 
-❌ No legacy flows
+Firebase emulators
 
-All development runs against staging Cloud Run services.
+Local databases
+
+Local authentication
+
+Local HTTP APIs
+
+Hybrid local/staging modes
+
+Legacy development flows
+
+All development runs against staging Firebase + staging Cloud Run.
+
+✅ What Is Supported
+
+Expo mobile app (local runtime)
+
+Staging Firebase (Auth, Firestore, Storage)
+
+Staging Cloud Run API
+
+Real authentication + real data paths
+
+Strict environment enforcement
 
 Prerequisites
 
@@ -20,11 +42,14 @@ Expo CLI
 
 Google Cloud SDK
 
-Firebase project (staging)
+Staging Firebase project
 
-Cloud Run API deployed (staging)
+Staging Cloud Run API deployed and reachable over HTTPS
 
-1. Authenticate with Google Cloud
+1. Authenticate With Google Cloud
+
+Authenticate once per machine:
+
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project <staging-project-id>
@@ -37,9 +62,12 @@ gcloud config get-value project
 
 2. Configure Environment Variables (Mobile)
 
-Create or update your local Expo env file:
+Create or update your local Expo environment file:
 
 .env.local
+
+
+Required values:
 
 EXPO_PUBLIC_BACKEND_BASE_URL=https://<your-staging-cloudrun-api>
 
@@ -50,47 +78,60 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 
+⚠️ Do NOT include
 
-⚠️ Do not include:
+Any local dev host
 
-localhost
+Any emulator configuration
 
-emulator hosts
+Any non-HTTPS backend URL
 
-.env.local in git (already ignored)
+.env.local is intentionally ignored by git.
 
-3. Start Mobile App
+3. Start the Mobile App
 
-From repo root:
+From the repo root:
 
 npx expo start -c
 
 
-Open in iOS Simulator
+Open in the iOS Simulator.
 
-App connects directly to staging Firebase + Cloud Run
+The app connects directly to:
+
+Staging Firebase
+
+Staging Cloud Run API
+
+No local backend processes are required.
 
 4. Sign In
 
-Create a user using the app UI
+Create a user directly in the app UI
 
 Firebase Auth is the sole identity authority
 
-No manual Firebase Console steps required
+No manual Firebase Console steps are required
 
-5. Generate ID Token
+5. Generate a Firebase ID Token
 
 In the app:
 
 Debug → Token
 
 
-Generate Firebase ID token
+Generate an ID token
 
-Copy token to clipboard
+Copy it to the clipboard
 
 6. Test Event Ingest (Staging)
+
+Paste the token from the simulator clipboard:
+
 TOKEN="$(xcrun simctl pbpaste booted | tr -d '\n' | tr -d '\r')"
+
+
+Send a test event:
 
 curl -i \
   -H "Authorization: Bearer $TOKEN" \
@@ -112,13 +153,11 @@ If this fails, do not proceed.
 
 Enforcement Guarantees
 
-The backend will refuse to start if any emulator variables are present:
+The backend refuses to start if any emulator-related environment variables are present.
 
-FIRESTORE_EMULATOR_HOST
+Startup will fail if any emulator host variables are detected.
 
-FIREBASE_AUTH_EMULATOR_HOST
-
-This ensures:
+This guarantees:
 
 No accidental local writes
 
@@ -126,8 +165,10 @@ No environment drift
 
 Production-safe habits from day one
 
+Clean auditability
+
 Troubleshooting
-❌ 401 / 403
+❌ 401 / 403 Unauthorized
 
 Token expired
 
@@ -143,10 +184,15 @@ Service not deployed
 
 Missing HTTPS
 
-❌ App won’t boot
+❌ App Won’t Boot
 npx expo start -c
 
-Non-Goals (Intentionally Unsupported)
+
+Ensure .env.local values are correct.
+
+Non-Goals (Intentionally Deferred)
+
+The following are explicitly out of scope for v1:
 
 Firebase emulators
 
@@ -154,8 +200,14 @@ Local Firestore
 
 Local Auth
 
-localhost APIs
+Local HTTP APIs
 
-Hybrid dev/prod modes
+Multi-environment dev modes
 
 These are deferred until post-MVP team scale.
+
+✅ Status
+
+This document is authoritative.
+
+If a workflow is not described here, it is not supported.
