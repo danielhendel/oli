@@ -1,9 +1,16 @@
 // lib/firebaseConfig.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import { getAuth, initializeAuth, type Auth } from "firebase/auth";
-import { getReactNativePersistence } from "firebase/auth/react-native";
-import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuth, initializeAuth, type Auth, type Persistence } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+/**
+ * Firebase's RN persistence helper lives in @firebase/auth internals.
+ * TypeScript may not be able to resolve this path due to package "exports",
+ * but Metro can at runtime once @firebase/auth is installed at the repo root.
+ */
+// @ts-expect-error - deep import is intentionally used for RN persistence
+import * as FirebaseAuthRn from "@firebase/auth/dist/rn/index.js";
 
 type FirebaseClientConfig = {
   apiKey: string;
@@ -39,12 +46,21 @@ const readFirebaseConfig = (): FirebaseClientConfig => {
   };
 };
 
+let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
 let cachedDb: Firestore | null = null;
 
+const getReactNativePersistenceSafe = (): ((storage: unknown) => Persistence) | null => {
+  const maybe = (FirebaseAuthRn as unknown as { getReactNativePersistence?: (s: unknown) => Persistence })
+    .getReactNativePersistence;
+
+  return typeof maybe === "function" ? maybe : null;
+};
+
 export const getFirebaseApp = (): FirebaseApp => {
-  if (getApps().length > 0) return getApp();
-  return initializeApp(readFirebaseConfig());
+  if (cachedApp) return cachedApp;
+  cachedApp = getApps().length > 0 ? getApp() : initializeApp(readFirebaseConfig());
+  return cachedApp;
 };
 
 export const getFirebaseAuth = (): Auth => {
@@ -52,10 +68,18 @@ export const getFirebaseAuth = (): Auth => {
 
   const app = getFirebaseApp();
 
+  // Always try initializeAuth FIRST, with RN persistence if available.
+  // If already initialized elsewhere in this runtime, fall back to getAuth(app).
   try {
-    cachedAuth = initializeAuth(app, {
-      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-    });
+    const getPersistence = getReactNativePersistenceSafe();
+    if (getPersistence) {
+      cachedAuth = initializeAuth(app, {
+        persistence: getPersistence(AsyncStorage),
+      });
+    } else {
+      // Memory persistence fallback (should be rare with @firebase/auth installed)
+      cachedAuth = initializeAuth(app);
+    }
   } catch {
     cachedAuth = getAuth(app);
   }
@@ -65,8 +89,12 @@ export const getFirebaseAuth = (): Auth => {
 
 export const getDb = (): Firestore => {
   if (cachedDb) return cachedDb;
+
   const app = getFirebaseApp();
   cachedDb = getFirestore(app);
+
+  // Ensure Auth initializes early
   void getFirebaseAuth();
+
   return cachedDb;
 };
