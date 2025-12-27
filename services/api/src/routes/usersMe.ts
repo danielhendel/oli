@@ -3,25 +3,31 @@ import { Router, type Response } from "express";
 import { getFirestore } from "firebase-admin/firestore";
 
 import type { AuthedRequest } from "../middleware/auth";
+import type { RequestWithRid } from "../lib/logger";
+import { logger } from "../lib/logger";
 import { dayQuerySchema } from "../types/day";
-
-type InsightsResponse = {
-  /** Echo of the requested day */
-  day: string;
-  /** Number of insight documents returned */
-  count: number;
-  /** Raw Insight docs (typed on Functions side; treated as JSON at API boundary) */
-  items: Record<string, unknown>[];
-};
+import {
+  dailyFactsDtoSchema,
+  insightDtoSchema,
+  insightsResponseDtoSchema,
+  intelligenceContextDtoSchema,
+} from "../types/dtos";
 
 const router = Router();
+
+const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
 
 const parseDay = (req: AuthedRequest, res: Response): string | null => {
   const parsed = dayQuerySchema.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({
-      error: "Invalid query params",
-      details: parsed.error.flatten(),
+      ok: false,
+      error: {
+        code: "INVALID_QUERY",
+        message: "Invalid query params",
+        details: parsed.error.flatten(),
+        requestId: getRid(req),
+      },
     });
     return null;
   }
@@ -31,10 +37,33 @@ const parseDay = (req: AuthedRequest, res: Response): string | null => {
 const requireUid = (req: AuthedRequest, res: Response): string | null => {
   const uid = req.uid;
   if (!uid) {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "Unauthorized", requestId: getRid(req) },
+    });
     return null;
   }
   return uid;
+};
+
+const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, details: unknown) => {
+  const rid = getRid(req);
+
+  logger.error({
+    msg: "invalid_firestore_doc",
+    rid,
+    resource,
+    details,
+  });
+
+  res.status(500).json({
+    ok: false,
+    error: {
+      code: "INVALID_DOC",
+      message: `Invalid ${resource} document`,
+      requestId: rid,
+    },
+  });
 };
 
 /**
@@ -53,19 +82,23 @@ router.get("/daily-facts", async (req: AuthedRequest, res: Response) => {
 
   const snap = await ref.get();
   if (!snap.exists) {
-    return res.status(404).json({ error: "Not found", resource: "dailyFacts", day });
+    return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "dailyFacts", day } });
   }
 
-  return res.status(200).json(snap.data());
+  const data = snap.data();
+  const parsed = dailyFactsDtoSchema.safeParse(data);
+  if (!parsed.success) {
+    return invalidDoc500(req, res, "dailyFacts", parsed.error.flatten());
+  }
+
+  return res.status(200).json(parsed.data);
 });
 
 /**
  * GET /users/me/insights?day=YYYY-MM-DD
  * Firestore: /users/{uid}/insights/{insightId} where Insight.date === day
  *
- * Note:
- * - Insights are stored as one doc per insight (id = insight.id), not one doc per day.
- * - This endpoint is intentionally NOT 404 when there are zero insights.
+ * Not 404 when zero insights.
  */
 router.get("/insights", async (req: AuthedRequest, res: Response) => {
   const uid = requireUid(req, res);
@@ -75,45 +108,56 @@ router.get("/insights", async (req: AuthedRequest, res: Response) => {
   if (!day) return;
 
   const db = getFirestore();
-  const snap = await db
-    .collection("users")
-    .doc(uid)
-    .collection("insights")
-    .where("date", "==", day)
-    .get();
+  const snap = await db.collection("users").doc(uid).collection("insights").where("date", "==", day).get();
+
+  const parsedDocs = snap.docs.map((d) => {
+    const raw = d.data();
+    const parsed = insightDtoSchema.safeParse(raw);
+    return { docId: d.id, parsed };
+  });
+
+  const bad = parsedDocs.find((x) => !x.parsed.success);
+  if (bad && !bad.parsed.success) {
+    return invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
+  }
+
+  // ✅ InsightDto[]
+  const items = parsedDocs.map((x) => x.parsed.data);
 
   // Deterministic ordering: severity (critical→warning→info), then kind, then id
-  const severityRank = (v: unknown): number => {
+  const severityRank = (v: "critical" | "warning" | "info"): number => {
     if (v === "critical") return 0;
     if (v === "warning") return 1;
-    return 2; // info or unknown
+    return 2;
   };
 
-  const items = snap.docs
-    .map((d) => d.data() as Record<string, unknown>)
-    .sort((a, b) => {
-      const sA = severityRank(a["severity"]);
-      const sB = severityRank(b["severity"]);
-      if (sA !== sB) return sA - sB;
+  const sorted = [...items].sort((a, b) => {
+    // ✅ Some TS configs (noUncheckedIndexedAccess) consider comparator args possibly undefined.
+    // Make comparator total.
+    if (!a && !b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
 
-      const kA = typeof a["kind"] === "string" ? (a["kind"] as string) : "";
-      const kB = typeof b["kind"] === "string" ? (b["kind"] as string) : "";
-      if (kA !== kB) return kA.localeCompare(kB);
+    const sA = severityRank(a.severity);
+    const sB = severityRank(b.severity);
+    if (sA !== sB) return sA - sB;
 
-      const idA = typeof a["id"] === "string" ? (a["id"] as string) : "";
-      const idB = typeof b["id"] === "string" ? (b["id"] as string) : "";
-      return idA.localeCompare(idB);
-    });
+    if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+    return a.id.localeCompare(b.id);
+  });
 
-  const out: InsightsResponse = { day, count: items.length, items };
-  return res.status(200).json(out);
+  const out = { day, count: sorted.length, items: sorted };
+  const validated = insightsResponseDtoSchema.safeParse(out);
+  if (!validated.success) {
+    return invalidDoc500(req, res, "insightsResponse", validated.error.flatten());
+  }
+
+  return res.status(200).json(validated.data);
 });
 
 /**
  * GET /users/me/intelligence-context?day=YYYY-MM-DD
- *
- * Canonical location (repo-truth):
- *   /users/{uid}/intelligenceContext/{YYYY-MM-DD}
+ * Firestore: /users/{uid}/intelligenceContext/{YYYY-MM-DD}
  */
 router.get("/intelligence-context", async (req: AuthedRequest, res: Response) => {
   const uid = requireUid(req, res);
@@ -127,10 +171,16 @@ router.get("/intelligence-context", async (req: AuthedRequest, res: Response) =>
 
   const snap = await ref.get();
   if (!snap.exists) {
-    return res.status(404).json({ error: "Not found", resource: "intelligenceContext", day });
+    return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "intelligenceContext", day } });
   }
 
-  return res.status(200).json(snap.data());
+  const data = snap.data();
+  const parsed = intelligenceContextDtoSchema.safeParse(data);
+  if (!parsed.success) {
+    return invalidDoc500(req, res, "intelligenceContext", parsed.error.flatten());
+  }
+
+  return res.status(200).json(parsed.data);
 });
 
 export default router;
