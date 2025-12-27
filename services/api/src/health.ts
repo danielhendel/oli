@@ -1,21 +1,35 @@
-// Simple, dependency-free health router.
-// Keep this tiny: no auth, no DB calls.
-import { Router, Request, Response } from "express";
+import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-function payload() {
-  return {
-    ok: true as const,
-    service: "api",
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-  };
-}
+type HealthOk = {
+  ok: true;
+  service: "oli-api";
+  env?: string;
+  requestId?: string;
+};
 
-// Three conventional paths so the probe can hit whatever your env exposes.
-router.get("/", (_req: Request, res: Response) => res.status(200).json(payload()));
-router.get("/healthz", (_req: Request, res: Response) => res.status(200).json(payload()));
-router.get("/api/healthz", (_req: Request, res: Response) => res.status(200).json(payload()));
+const getRid = (req: Request): string | undefined => {
+  const rid = req.header("x-request-id")?.trim();
+  return rid ? rid : undefined;
+};
+
+const handler = (req: Request, res: Response) => {
+  const env = process.env.APP_ENV;
+  const rid = getRid(req);
+
+  const body: HealthOk = {
+    ok: true,
+    service: "oli-api",
+    ...(env ? { env } : {}),
+    ...(rid ? { requestId: rid } : {}),
+  };
+
+  res.status(200).json(body);
+};
+
+router.get("/", handler);
+router.get("/health", handler);
+router.get("/healthz", handler);
 
 export default router;
