@@ -1,5 +1,6 @@
 // lib/api/usersMe.ts
 import { apiGetJsonAuthed, apiPostJsonAuthed, type ApiResult } from "@/lib/api/http";
+import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 
 export type DayKey = string;
 
@@ -109,5 +110,7 @@ export type LogWeightResponseDto = {
 };
 
 export const logWeight = async (body: LogWeightRequestDto, token: string): Promise<ApiResult<LogWeightResponseDto>> => {
-  return apiPostJsonAuthed<LogWeightResponseDto>(`/users/me/body/weight`, body, token);
+  return apiPostJsonAuthed<LogWeightResponseDto>(`/users/me/body/weight`, body, token, {
+    idempotencyKey: manualWeightIdempotencyKey(body),
+  });
 };

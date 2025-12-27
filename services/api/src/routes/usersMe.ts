@@ -20,6 +20,14 @@ const router = Router();
 
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
 
+const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
+  const key = req.header("Idempotency-Key") ?? req.header("X-Idempotency-Key") ?? undefined;
+  if (!key) return undefined;
+  // Firestore doc IDs can't contain '/'.
+  if (key.includes("/")) return undefined;
+  return key;
+};
+
 const parseDay = (req: AuthedRequest, res: Response): string | null => {
   const parsed = dayQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -106,7 +114,13 @@ router.post("/body/weight", async (req: AuthedRequest, res: Response) => {
     return invalidBody400(req, res, { time: "Invalid ISO datetime string" });
   }
 
-  const rawEventId = randomUUID();
+  const db = getFirestore();
+  const rawEventsCol = db.collection("users").doc(uid).collection("rawEvents");
+
+  const idempotencyKey = getIdempotencyKey(req);
+  const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc(randomUUID());
+  const rawEventId = docRef.id;
+
   const nowIso = new Date().toISOString();
 
   // ✅ MUST match parseRawEvent required keys:
@@ -134,8 +148,22 @@ router.post("/body/weight", async (req: AuthedRequest, res: Response) => {
     },
   };
 
-  const db = getFirestore();
-  await db.collection("users").doc(uid).collection("rawEvents").doc(rawEventId).set(rawEvent, { merge: false });
+  try {
+    // ✅ Idempotent: create() fails if doc exists — perfect for retries.
+    await docRef.create(rawEvent);
+  } catch (e: unknown) {
+    // If it already exists, treat as success (retry replay).
+    const snap = await docRef.get();
+    if (snap.exists) {
+      const out = { ok: true as const, rawEventId, day: payload.day };
+      const validated = logWeightResponseDtoSchema.safeParse(out);
+      if (!validated.success) {
+        return invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
+      }
+      return res.status(200).json(validated.data);
+    }
+    throw e;
+  }
 
   const out = { ok: true as const, rawEventId, day: payload.day };
   const validated = logWeightResponseDtoSchema.safeParse(out);
