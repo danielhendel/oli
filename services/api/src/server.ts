@@ -5,6 +5,8 @@
  * Any emulator/local switching is explicitly out of scope until after MVP launch.
  */
 
+import { logger } from "./lib/logger";
+
 const assertNoEmulators = (): void => {
   const offenders: string[] = [];
   if (process.env.FIRESTORE_EMULATOR_HOST) offenders.push("FIRESTORE_EMULATOR_HOST");
@@ -19,29 +21,31 @@ const assertNoEmulators = (): void => {
   }
 };
 
+const port = (() => {
+  const raw = process.env.PORT?.trim();
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 8080;
+})();
+
 const main = async (): Promise<void> => {
   assertNoEmulators();
 
-  // Import Express app. Firebase Admin should initialize lazily when first used (via getDb/getAdminApp).
+  // Initialize Firebase Admin lazily-safe module (should not throw at import-time)
+  await import("./lib/firebaseAdmin");
+
+  // Import Express app after firebase-admin init
   const mod = await import("./index");
   const app = mod.default;
 
-  // Cloud Run required port
-  const raw = (process.env.PORT ?? "8080").trim();
-  const port = Number(raw);
-  const safePort = Number.isFinite(port) && port > 0 ? port : 8080;
-
-  // Startup stamp (proves which build is deployed)
-  // eslint-disable-next-line no-console
-  console.log(
-    `[api] boot STAGING-ONLY port=${safePort} service=${process.env.K_SERVICE ?? "unknown"} rev=${
-      process.env.K_REVISION ?? "unknown"
-    }`
-  );
-
-  app.listen(safePort, () => {
-    // eslint-disable-next-line no-console
-    console.log(`API listening on port ${safePort} (STAGING-ONLY)`);
+  app.listen(port, () => {
+    logger.info({
+      msg: "api_listening",
+      port,
+      env: process.env.NODE_ENV ?? "unknown",
+      cloudRun: Boolean(process.env.K_SERVICE),
+      service: process.env.K_SERVICE ?? null,
+      revision: process.env.K_REVISION ?? null,
+    });
   });
 };
 
