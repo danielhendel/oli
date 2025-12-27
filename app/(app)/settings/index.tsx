@@ -11,51 +11,63 @@ export default function SettingsHomeScreen() {
   const router = useRouter();
   const sections = getModuleSections("settings");
 
-  const appEnv = process.env.APP_ENV ?? "development";
+  /**
+   * Debug tools must never ship to production.
+   * APP_ENV is preferred (explicit), NODE_ENV is fallback-safe.
+   */
+  const appEnv = process.env.APP_ENV ?? process.env.NODE_ENV ?? "development";
   const showDebug = appEnv !== "production";
+
+  // Prevent duplicate "Account" row if it's already present in module sections.
+  const normalizedTitle = (s: { title: string }) => s.title.trim().toLowerCase();
+  const hasAccountInSections = sections.some((s) => normalizedTitle(s) === "account");
 
   return (
     <ModuleScreenShell title="Settings" subtitle="Account & privacy">
       <View style={styles.list}>
+        {/* Module-driven settings sections */}
         {sections.map((s) => {
-          const r = getSectionReadiness(s.id);
+          const readiness = getSectionReadiness(s.id);
 
           return (
             <ModuleSectionLinkRow
               key={s.id}
               title={s.title}
-              disabled={r.disabled}
+              disabled={readiness.disabled}
               onPress={() => router.push(s.href)}
-              {...(r.badge ? { badge: r.badge } : {})}
+              {...(readiness.badge ? { badge: readiness.badge } : {})}
             />
           );
         })}
 
-        {/* Ensure Account actually goes somewhere real */}
-        <ModuleSectionLinkRow
-          title="Account"
-          disabled={false}
-          onPress={() => router.push("/settings/account")}
-        />
+        {/* Account is always available and must route correctly (only if not already present) */}
+        {!hasAccountInSections ? (
+          <ModuleSectionLinkRow
+            title="Account"
+            disabled={false}
+            onPress={() => router.push("/(app)/settings/account")}
+          />
+        ) : null}
 
+        {/* Debug tools (non-production only) */}
         {showDebug ? (
           <>
             <ModuleSectionLinkRow
-              title="Debug token"
-              disabled={false}
+              title="Debug Token"
               badge="Dev"
+              disabled={false}
               onPress={() => router.push("/debug/token")}
             />
             <ModuleSectionLinkRow
-              title="Debug API smoke"
-              disabled={false}
+              title="Debug API Smoke"
               badge="Dev"
+              disabled={false}
               onPress={() => router.push("/debug/api-smoke")}
             />
             <ModuleSectionLinkRow
               title="Debug Backend Health"
-              disabled={false}
               badge="Dev"
+              disabled={false}
               onPress={() => router.push("/debug/health")}
             />
           </>

@@ -1,17 +1,17 @@
 // lib/data/useDailyFacts.ts
 import { useEffect, useState } from "react";
 
-import { getDailyFacts } from "../api/usersMe";
+import { getDailyFacts, type DailyFactsDto } from "../api/usersMe";
 import { useAuth } from "../auth/AuthProvider";
+import type { ApiFailure } from "../api/http";
 
 export type DailyFactsState =
   | { status: "loading" }
-  | { status: "ready"; data: unknown }
+  | { status: "ready"; data: DailyFactsDto }
   | { status: "not_found" }
   | { status: "error"; message: string };
 
 const localDayKey = (): string => {
-  // Local YYYY-MM-DD
   const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -19,11 +19,13 @@ const localDayKey = (): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const formatApiError = (res: { status: number; error: string; kind: string; requestId: string }): string =>
-  `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId})`;
+const formatApiError = (res: ApiFailure): string => {
+  const rid = res.requestId ? `, requestId=${res.requestId}` : "";
+  return `${res.error} (kind=${res.kind}, status=${res.status}${rid})`;
+};
 
 export function useDailyFacts(dayKey?: string): DailyFactsState {
-  const { user, getIdToken } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
   const day = dayKey ?? localDayKey();
 
   const [state, setState] = useState<DailyFactsState>({ status: "loading" });
@@ -33,19 +35,25 @@ export function useDailyFacts(dayKey?: string): DailyFactsState {
 
     const run = async () => {
       try {
+        // ✅ Don’t fire network calls until auth is settled.
+        if (initializing) {
+          if (alive) setState({ status: "loading" });
+          return;
+        }
+
+        // ✅ If signed out, treat as loading; RouteGuard redirects.
         if (!user) {
-          if (alive) setState({ status: "error", message: "Not signed in" });
+          if (alive) setState({ status: "loading" });
           return;
         }
 
         const token = await getIdToken(false);
         if (!token) {
-          if (alive) setState({ status: "error", message: "No auth token" });
+          if (alive) setState({ status: "error", message: "No auth token (try Re-auth)" });
           return;
         }
 
         const res = await getDailyFacts(day, token);
-
         if (!alive) return;
 
         if (res.ok) {
@@ -72,7 +80,7 @@ export function useDailyFacts(dayKey?: string): DailyFactsState {
     return () => {
       alive = false;
     };
-  }, [day, user, getIdToken]);
+  }, [day, user, initializing, getIdToken]);
 
   return state;
 }

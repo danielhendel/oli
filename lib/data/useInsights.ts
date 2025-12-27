@@ -1,13 +1,13 @@
 // lib/data/useInsights.ts
 import { useEffect, useState } from "react";
 
-import { getInsights } from "../api/usersMe";
+import { getInsights, type InsightsResponseDto } from "../api/usersMe";
 import { useAuth } from "../auth/AuthProvider";
+import type { ApiFailure } from "../api/http";
 
 export type InsightsState =
   | { status: "loading" }
-  | { status: "ready"; data: unknown }
-  | { status: "not_found" }
+  | { status: "ready"; data: InsightsResponseDto }
   | { status: "error"; message: string };
 
 const localDayKey = (): string => {
@@ -18,11 +18,13 @@ const localDayKey = (): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const formatApiError = (res: { status: number; error: string; kind: string; requestId: string }): string =>
-  `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId})`;
+const formatApiError = (res: ApiFailure): string => {
+  const rid = res.requestId ? `, requestId=${res.requestId}` : "";
+  return `${res.error} (kind=${res.kind}, status=${res.status}${rid})`;
+};
 
 export function useInsights(dayKey?: string): InsightsState {
-  const { user, getIdToken } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
   const day = dayKey ?? localDayKey();
 
   const [state, setState] = useState<InsightsState>({ status: "loading" });
@@ -32,32 +34,33 @@ export function useInsights(dayKey?: string): InsightsState {
 
     const run = async () => {
       try {
+        if (initializing) {
+          if (alive) setState({ status: "loading" });
+          return;
+        }
+
         if (!user) {
-          if (alive) setState({ status: "error", message: "Not signed in" });
+          if (alive) setState({ status: "loading" });
           return;
         }
 
         const token = await getIdToken(false);
         if (!token) {
-          if (alive) setState({ status: "error", message: "No auth token" });
+          if (alive) setState({ status: "error", message: "No auth token (try Re-auth)" });
           return;
         }
 
         const res = await getInsights(day, token);
-
         if (!alive) return;
 
         if (res.ok) {
+          // ✅ Backend contract: not 404 when empty; returns {count:0,items:[]}
           setState({ status: "ready", data: res.json });
           return;
         }
 
-        if (res.status === 404) {
-          setState({ status: "not_found" });
-          return;
-        }
-
-        setState({ status: "error", message: formatApiError(res) });
+        // If we ever see 404 here, treat as an error (backend bug / mismatch).
+        setState({ status: "error", message: res.status === 404 ? "Insights route returned 404 (should be 200 empty list)" : formatApiError(res) });
       } catch (e: unknown) {
         if (!alive) return;
         const msg = e instanceof Error ? e.message : "Unknown error";
@@ -71,7 +74,7 @@ export function useInsights(dayKey?: string): InsightsState {
     return () => {
       alive = false;
     };
-  }, [day, user, getIdToken]);
+  }, [day, user, initializing, getIdToken]);
 
   return state;
 }
