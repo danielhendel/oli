@@ -6,7 +6,7 @@ import healthRouter from "./health";
 import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
-import { authMiddleware } from "./middleware/auth";
+import { authMiddleware, type AuthedRequest } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
 const app = express();
@@ -18,12 +18,21 @@ app.use(accessLogMiddleware);
 app.use(cors());
 app.use(express.json());
 
-// Public health endpoints (unauth)
+// Health endpoints (unauth)
 app.use(healthRouter);
 
-// Authed health check — verifies auth boundary works end-to-end
-app.get("/health/auth", authMiddleware, (_req: Request, res: Response) => {
-  res.status(200).json({ ok: true });
+/**
+ * Auth health check
+ * - 200 when signed in (valid Firebase ID token)
+ * - 401 with a clear message when missing/invalid
+ *
+ * This MUST be behind authMiddleware (otherwise it proves nothing).
+ */
+app.get("/health/auth", authMiddleware, (req: AuthedRequest, res: Response) => {
+  res.status(200).json({
+    ok: true,
+    uid: req.uid ?? null,
+  });
 });
 
 /**
@@ -71,32 +80,3 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
 export default app;
 
-/**
- * Cloud Run entrypoint (only when executed directly)
- *
- * NOTE:
- * - Cloud Run uses `PORT` (usually 8080)
- * - Your Dockerfile runs `node dist/server.js`, so Cloud Run will typically
- *   start the server from server.ts. This block is for safety/local usage
- *   when running `node dist/index.js`.
- */
-const port = (() => {
-  const raw = process.env.PORT?.trim();
-  const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : 8080;
-})();
-
-const isRunningInCloudRun = Boolean(process.env.K_SERVICE);
-
-if (require.main === module) {
-  app.listen(port, () => {
-    logger.info({
-      msg: "api_listening",
-      port,
-      env: process.env.NODE_ENV ?? "unknown",
-      cloudRun: isRunningInCloudRun,
-      service: process.env.K_SERVICE ?? null,
-      revision: process.env.K_REVISION ?? null,
-    });
-  });
-}
