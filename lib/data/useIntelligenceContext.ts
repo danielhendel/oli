@@ -1,44 +1,77 @@
 // lib/data/useIntelligenceContext.ts
-
 import { useEffect, useState } from "react";
-import type { DayKey, IntelligenceContextDoc } from "../api/models";
+
 import { getIntelligenceContext } from "../api/usersMe";
-import { getIdToken } from "../auth/getIdToken";
+import { useAuth } from "../auth/AuthProvider";
 
-type State =
+export type IntelligenceContextState =
   | { status: "loading" }
+  | { status: "ready"; data: unknown }
   | { status: "not_found" }
-  | { status: "error"; message: string }
-  | { status: "ready"; data: IntelligenceContextDoc };
+  | { status: "error"; message: string };
 
-export const useIntelligenceContext = (day: DayKey): State => {
-  const [state, setState] = useState<State>({ status: "loading" });
+const localDayKey = (): string => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const formatApiError = (res: { status: number; error: string; kind: string; requestId: string }): string =>
+  `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId})`;
+
+export function useIntelligenceContext(dayKey?: string): IntelligenceContextState {
+  const { user, getIdToken } = useAuth();
+  const day = dayKey ?? localDayKey();
+
+  const [state, setState] = useState<IntelligenceContextState>({ status: "loading" });
 
   useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
+    let alive = true;
 
-    void (async () => {
+    const run = async () => {
       try {
-        const token = await getIdToken();
-        if (cancelled) return;
+        if (!user) {
+          if (alive) setState({ status: "error", message: "Not signed in" });
+          return;
+        }
+
+        const token = await getIdToken(false);
+        if (!token) {
+          if (alive) setState({ status: "error", message: "No auth token" });
+          return;
+        }
 
         const res = await getIntelligenceContext(day, token);
-        if (cancelled) return;
 
-        if (res.ok) return setState({ status: "ready", data: res.data });
-        if (res.error === "not_found") return setState({ status: "not_found" });
-        return setState({ status: "error", message: res.message });
+        if (!alive) return;
+
+        if (res.ok) {
+          setState({ status: "ready", data: res.json });
+          return;
+        }
+
+        if (res.status === 404) {
+          setState({ status: "not_found" });
+          return;
+        }
+
+        setState({ status: "error", message: formatApiError(res) });
       } catch (e: unknown) {
+        if (!alive) return;
         const msg = e instanceof Error ? e.message : "Unknown error";
-        if (!cancelled) setState({ status: "error", message: msg });
+        setState({ status: "error", message: msg });
       }
-    })();
+    };
+
+    setState({ status: "loading" });
+    void run();
 
     return () => {
-      cancelled = true;
+      alive = false;
     };
-  }, [day]);
+  }, [day, user, getIdToken]);
 
   return state;
-};
+}

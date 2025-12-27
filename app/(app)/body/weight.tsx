@@ -1,3 +1,4 @@
+// app/(app)/body/weight.tsx
 import { useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
@@ -67,7 +68,11 @@ export default function BodyWeightScreen() {
       );
 
       if (!res.ok) {
-        setStatus({ state: "error", message: res.message });
+        // ✅ 10/10 observability: surface kind/status/requestId so you can match Cloud Run logs fast
+        setStatus({
+          state: "error",
+          message: `${res.message} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId})`,
+        });
         return;
       }
 

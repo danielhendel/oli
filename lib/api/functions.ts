@@ -1,67 +1,36 @@
 // lib/api/functions.ts
-import type { ApiResult, JsonValue } from "./http";
+import { apiPostJsonAuthed, type ApiResult } from "./http";
 
-const parseJsonSafely = (text: string): JsonValue | undefined => {
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text) as JsonValue;
-  } catch {
-    return undefined;
-  }
-};
-
-const getFunctionsBaseUrl = (): string => {
-  const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId || projectId.trim().length === 0) {
-    throw new Error("Missing EXPO_PUBLIC_FIREBASE_PROJECT_ID.");
-  }
-  return `https://us-central1-${projectId.trim()}.cloudfunctions.net`;
-};
-
-const joinUrl = (base: string, path: string): string => {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${p}`;
-};
-
-export const functionsPostJson = async (
+/**
+ * Calls a backend function-like endpoint via the Cloud Run API boundary.
+ * Returns ApiResult so requestId/kind are always present.
+ */
+export const callFunctionJson = async (
   functionName: string,
   body: unknown,
-  idToken: string
+  idToken: string,
+  opts?: { timeoutMs?: number; idempotencyKey?: string }
 ): Promise<ApiResult> => {
-  const base = getFunctionsBaseUrl();
-  const url = joinUrl(base, functionName);
+  const path = `/functions/${encodeURIComponent(functionName)}`;
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify(body),
-    });
+  const postOpts =
+    opts && (opts.timeoutMs !== undefined || opts.idempotencyKey !== undefined)
+      ? {
+          ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+          ...(opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {}),
+        }
+      : undefined;
 
-    const text = await res.text();
-    const json = parseJsonSafely(text);
-
-    if (!res.ok) {
-      return json
-        ? { ok: false as const, status: res.status, error: `POST ${functionName} failed (${res.status})`, json }
-        : { ok: false as const, status: res.status, error: `POST ${functionName} failed (${res.status})` };
-    }
-
-    return { ok: true as const, status: res.status, json: json ?? ({} as JsonValue) };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Network error";
-    return { ok: false as const, status: 0, error: msg };
-  }
+  return apiPostJsonAuthed(path, body, idToken, postOpts);
 };
 
-// Back-compat export required by lib/debug/recompute.ts
+/**
+ * Back-compat export expected by older debug tooling.
+ * If you still use admin-only callable routes later, keep this wrapper.
+ */
 export const callAdminFunction = async (
   functionName: string,
   body: unknown,
-  idToken: string
-): Promise<ApiResult> => {
-  return functionsPostJson(functionName, body, idToken);
-};
+  idToken: string,
+  opts?: { timeoutMs?: number; idempotencyKey?: string }
+): Promise<ApiResult> => callFunctionJson(functionName, body, idToken, opts);
