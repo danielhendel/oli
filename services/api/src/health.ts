@@ -7,11 +7,12 @@ type HealthOk = {
   ok: true;
   service: "oli-api";
   env?: string;
+  requestId?: string;
   timestamp: string;
   uptimeSec: number;
 };
 
-const buildBody = (): HealthOk => {
+const buildBody = (req: Request): HealthOk => {
   const body: HealthOk = {
     ok: true,
     service: "oli-api",
@@ -22,17 +23,15 @@ const buildBody = (): HealthOk => {
   const env = process.env.APP_ENV?.trim();
   if (env) body.env = env;
 
+  // helpful for ops/debug, but NOT required for correctness
+  const trace = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
+  if (trace) body.requestId = trace;
+
   return body;
 };
 
-// Public health check (no auth)
-router.get("/health", (_req: Request, res: Response) => res.status(200).json(buildBody()));
-
-/**
- * Auth health check
- * - This route MUST be mounted behind authMiddleware in index.ts
- * - If it is hit, auth is already verified.
- */
-router.get("/health/auth", (_req: Request, res: Response) => res.status(200).json({ ok: true }));
+// Unauthenticated
+router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+router.get("/healthz", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
 
 export default router;

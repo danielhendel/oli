@@ -6,7 +6,7 @@ import healthRouter from "./health";
 import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
-import { authMiddleware, type AuthedRequest } from "./middleware/auth";
+import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
 const app = express();
@@ -21,17 +21,23 @@ app.use(express.json());
 // Health endpoints (unauth)
 app.use(healthRouter);
 
+// Root sanity check (optional)
+app.get("/", (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true, service: "oli-api" });
+});
+
 /**
- * Auth health check
- * - 200 when signed in (valid Firebase ID token)
- * - 401 with a clear message when missing/invalid
- *
- * This MUST be behind authMiddleware (otherwise it proves nothing).
+ * AUTH-PROTECTED HEALTH CHECK
+ * - 200 only if authMiddleware accepts the token
+ * - 401/403 otherwise (whatever your authMiddleware returns)
  */
-app.get("/health/auth", authMiddleware, (req: AuthedRequest, res: Response) => {
+app.get("/health/auth", authMiddleware, (req: Request, res: Response) => {
+  const withRid = req as RequestWithRid & { uid?: string };
+
   res.status(200).json({
     ok: true,
-    uid: req.uid ?? null,
+    uid: withRid.uid ?? null,
+    requestId: withRid.rid ?? null,
   });
 });
 
@@ -49,11 +55,6 @@ app.use("/ingest", authMiddleware, eventsRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
-
-// (Optional) nice default for root — helps sanity-check service is alive
-app.get("/", (_req: Request, res: Response) => {
-  res.status(200).json({ ok: true, service: "oli-api" });
-});
 
 // Global error handler (typed, safe, request-id aware)
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
