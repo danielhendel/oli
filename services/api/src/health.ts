@@ -1,3 +1,4 @@
+// services/api/src/health.ts
 import { Router, type Request, type Response } from "express";
 
 const router = Router();
@@ -6,12 +7,11 @@ type HealthOk = {
   ok: true;
   service: "oli-api";
   env?: string;
-  requestId?: string;
   timestamp: string;
   uptimeSec: number;
 };
 
-const buildBody = (req: Request): HealthOk => {
+const buildBody = (): HealthOk => {
   const body: HealthOk = {
     ok: true,
     service: "oli-api",
@@ -22,14 +22,17 @@ const buildBody = (req: Request): HealthOk => {
   const env = process.env.APP_ENV?.trim();
   if (env) body.env = env;
 
-  const requestId = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
-  if (requestId) body.requestId = requestId;
-
   return body;
 };
 
-// ✅ explicit health endpoints Cloud Run / uptime checks commonly use
-router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
-router.get("/healthz", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+// Public health check (no auth)
+router.get("/health", (_req: Request, res: Response) => res.status(200).json(buildBody()));
+
+/**
+ * Auth health check
+ * - This route MUST be mounted behind authMiddleware in index.ts
+ * - If it is hit, auth is already verified.
+ */
+router.get("/health/auth", (_req: Request, res: Response) => res.status(200).json({ ok: true }));
 
 export default router;

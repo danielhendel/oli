@@ -7,12 +7,7 @@ import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
 import { authMiddleware } from "./middleware/auth";
-import {
-  accessLogMiddleware,
-  requestIdMiddleware,
-  logger,
-  type RequestWithRid,
-} from "./lib/logger";
+import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
 const app = express();
 
@@ -23,8 +18,13 @@ app.use(accessLogMiddleware);
 app.use(cors());
 app.use(express.json());
 
-// Health endpoints (unauth)
+// Public health endpoints (unauth)
 app.use(healthRouter);
+
+// Authed health check — verifies auth boundary works end-to-end
+app.get("/health/auth", authMiddleware, (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true });
+});
 
 /**
  * Firebase helper routes (authenticated) — used for client-side token debugging.
@@ -72,13 +72,13 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 export default app;
 
 /**
- * Cloud Run entrypoint
- * - Cloud Run sets PORT (usually 8080)
- * - Must listen on process.env.PORT
+ * Cloud Run entrypoint (only when executed directly)
  *
- * NOTE: If your Dockerfile runs `node dist/server.js`, then `server.ts`
- * should import this app and listen there. This block is still useful for
- * local runs like `node dist/index.js`.
+ * NOTE:
+ * - Cloud Run uses `PORT` (usually 8080)
+ * - Your Dockerfile runs `node dist/server.js`, so Cloud Run will typically
+ *   start the server from server.ts. This block is for safety/local usage
+ *   when running `node dist/index.js`.
  */
 const port = (() => {
   const raw = process.env.PORT?.trim();
@@ -88,8 +88,6 @@ const port = (() => {
 
 const isRunningInCloudRun = Boolean(process.env.K_SERVICE);
 
-// Only start the server when this file is the program entrypoint.
-// (Prevents double-listen in tests/imports.)
 if (require.main === module) {
   app.listen(port, () => {
     logger.info({
