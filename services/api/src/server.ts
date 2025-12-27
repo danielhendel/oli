@@ -22,18 +22,26 @@ const assertNoEmulators = (): void => {
 const main = async (): Promise<void> => {
   assertNoEmulators();
 
-  // Initialize Firebase Admin first (reads env at import time)
-  await import("./lib/firebaseAdmin");
-
-  // Import Express app after firebase-admin init
+  // Import Express app. Firebase Admin should initialize lazily when first used (via getDb/getAdminApp).
   const mod = await import("./index");
   const app = mod.default;
 
   // Cloud Run required port
-  const port = Number(process.env.PORT ?? "8080");
+  const raw = (process.env.PORT ?? "8080").trim();
+  const port = Number(raw);
+  const safePort = Number.isFinite(port) && port > 0 ? port : 8080;
 
-  app.listen(port, () => {
-    console.log(`API listening on port ${port} (STAGING-ONLY)`);
+  // Startup stamp (proves which build is deployed)
+  // eslint-disable-next-line no-console
+  console.log(
+    `[api] boot STAGING-ONLY port=${safePort} service=${process.env.K_SERVICE ?? "unknown"} rev=${
+      process.env.K_REVISION ?? "unknown"
+    }`
+  );
+
+  app.listen(safePort, () => {
+    // eslint-disable-next-line no-console
+    console.log(`API listening on port ${safePort} (STAGING-ONLY)`);
   });
 };
 
