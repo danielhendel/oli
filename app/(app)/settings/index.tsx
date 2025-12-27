@@ -1,3 +1,4 @@
+// app/(app)/settings/index.tsx
 import { View, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -30,6 +31,13 @@ export default function SettingsHomeScreen() {
           );
         })}
 
+        {/* Ensure Account actually goes somewhere real */}
+        <ModuleSectionLinkRow
+          title="Account"
+          disabled={false}
+          onPress={() => router.push("/settings/account")}
+        />
+
         {showDebug ? (
           <>
             <ModuleSectionLinkRow
@@ -43,6 +51,12 @@ export default function SettingsHomeScreen() {
               disabled={false}
               badge="Dev"
               onPress={() => router.push("/debug/api-smoke")}
+            />
+            <ModuleSectionLinkRow
+              title="Debug Backend Health"
+              disabled={false}
+              badge="Dev"
+              onPress={() => router.push("/debug/health")}
             />
           </>
         ) : null}

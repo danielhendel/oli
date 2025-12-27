@@ -1,26 +1,9 @@
 // app/(auth)/sign-in.tsx
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "expo-router";
 
-import { getFirebaseAuth } from "@/lib/firebaseConfig";
-
-type AuthErrorLike = { code?: string; message?: string };
-
-const toAuthMessage = (err: unknown): string => {
-  const e = err as AuthErrorLike;
-  const code = typeof e?.code === "string" ? e.code : "";
-  const msg = typeof e?.message === "string" ? e.message : "Unknown error";
-
-  if (code.includes("auth/invalid-credential")) return "Invalid email or password.";
-  if (code.includes("auth/user-not-found")) return "No account found for that email.";
-  if (code.includes("auth/wrong-password")) return "Invalid email or password.";
-  if (code.includes("auth/invalid-email")) return "Please enter a valid email address.";
-  if (code.includes("auth/too-many-requests")) return "Too many attempts. Try again later.";
-
-  return msg;
-};
+import { signInWithEmail } from "@/lib/auth/actions";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -40,11 +23,13 @@ export default function SignInScreen() {
 
     setSubmitting(true);
     try {
-      const auth = getFirebaseAuth();
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      router.replace("/");
-    } catch (err) {
-      Alert.alert("Sign in failed", toAuthMessage(err));
+      const result = await signInWithEmail(email, password);
+      if (!result.ok) {
+        Alert.alert(result.title, result.message);
+        return;
+      }
+
+      router.replace("/(app)/command-center");
     } finally {
       setSubmitting(false);
     }

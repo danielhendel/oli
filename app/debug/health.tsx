@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 
 import { getEnv } from "@/lib/env";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { apiGetJson, type ApiResult } from "@/lib/api/http";
+import { apiGetJson, type ApiResult, type JsonValue } from "@/lib/api/http";
 
 type RowProps = {
   title: string;
@@ -16,6 +16,18 @@ const pretty = (v: unknown): string => {
     return JSON.stringify(v, null, 2);
   } catch {
     return String(v);
+  }
+};
+
+/**
+ * Debug-only coercion:
+ * Convert unknown to JsonValue where possible, else null.
+ */
+const coerceJsonValue = (v: unknown): JsonValue | null => {
+  try {
+    return JSON.parse(JSON.stringify(v)) as JsonValue;
+  } catch {
+    return null;
   }
 };
 
@@ -66,6 +78,7 @@ export default function DebugHealthScreen() {
           kind: "http",
           status: 401,
           error: "No token. Sign in first to test /health/auth.",
+          json: null,
           requestId: "client-no-token",
         });
         return;
@@ -76,31 +89,34 @@ export default function DebugHealthScreen() {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       });
 
-      const requestId = res.headers.get("x-request-id")?.trim() || "missing";
+      const requestId = (res.headers.get("x-request-id") ?? "").trim() || "missing";
       const text = await res.text();
 
-      let json: unknown = {};
-      try {
-        json = text ? (JSON.parse(text) as unknown) : {};
-      } catch {
-        setHealthAuth({
-          ok: false,
-          kind: "parse",
-          status: res.status,
-          error: "Invalid JSON from /health/auth",
-          requestId,
-        });
-        return;
+      let parsedUnknown: unknown = null;
+      if (text.length) {
+        try {
+          parsedUnknown = JSON.parse(text) as unknown;
+        } catch {
+          setHealthAuth({
+            ok: false,
+            kind: "parse",
+            status: res.status,
+            error: "Invalid JSON from /health/auth",
+            json: { raw: text },
+            requestId,
+          });
+          return;
+        }
       }
 
       if (!res.ok) {
         setHealthAuth({
           ok: false,
-          kind: "http",
+          kind: res.status === 401 ? "auth" : "http",
           status: res.status,
-          error: "Unauthorized",
+          error: res.status === 401 ? "Unauthorized" : `HTTP ${res.status}`,
+          json: coerceJsonValue(parsedUnknown),
           requestId,
-          json: json as unknown as never, // ApiResult expects JsonValue; we avoid any and keep debug-only payload
         });
         return;
       }
@@ -108,7 +124,7 @@ export default function DebugHealthScreen() {
       setHealthAuth({
         ok: true,
         status: res.status,
-        json: json as unknown as never, // debug-only; still no any
+        json: coerceJsonValue(parsedUnknown) ?? null,
         requestId,
       });
     } finally {
@@ -139,7 +155,11 @@ export default function DebugHealthScreen() {
           alignItems: "center",
         }}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Run Check</Text>}
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={{ color: "#fff", fontWeight: "800" }}>Run Check</Text>
+        )}
       </Pressable>
 
       <ResultRow title="GET /health" result={health} />

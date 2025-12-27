@@ -1,43 +1,42 @@
 // lib/auth/AuthProvider.tsx
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
-import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { getFirebaseAuth } from "@/lib/firebaseConfig";
+import { signOutUser as signOutUserAction } from "@/lib/auth/actions";
 
 export type AuthContextValue = {
   user: User | null;
-
-  // Back-compat with your existing app/_layout.tsx usage:
   initializing: boolean;
 
-  // Optional nicer name for other screens:
-  loading: boolean;
-
+  /**
+   * Returns Firebase ID token for current user (or null if signed out)
+   */
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
+
+  /**
+   * Back-compat: debug/token.tsx expects this name
+   */
   signOutUser: () => Promise<void>;
+
+  /**
+   * Preferred name for UI screens (settings/account.tsx)
+   */
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export const useAuth = (): AuthContextValue => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider />");
-  return ctx;
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [initializing, setInitializing] = useState<boolean>(true);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const auth = getFirebaseAuth();
-
-    const unsub = onAuthStateChanged(auth, (u: User | null) => {
+    const unsub = onAuthStateChanged(getFirebaseAuth(), (u) => {
       setUser(u);
       setInitializing(false);
     });
-
     return () => unsub();
   }, []);
 
@@ -45,17 +44,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       user,
       initializing,
-      loading: initializing,
-      getIdToken: async (forceRefresh?: boolean): Promise<string | null> => {
+
+      getIdToken: async (forceRefresh?: boolean) => {
         const u = getFirebaseAuth().currentUser;
         if (!u) return null;
         return u.getIdToken(Boolean(forceRefresh));
       },
-      signOutUser: async (): Promise<void> => {
-        await firebaseSignOut(getFirebaseAuth());
+
+      signOutUser: async () => {
+        await signOutUserAction();
+      },
+
+      signOut: async () => {
+        await signOutUserAction();
       },
     };
   }, [user, initializing]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+export const useAuth = (): AuthContextValue => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  return ctx;
+};

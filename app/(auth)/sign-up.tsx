@@ -1,24 +1,9 @@
 // app/(auth)/sign-up.tsx
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "expo-router";
 
-import { getFirebaseAuth } from "@/lib/firebaseConfig";
-
-type AuthErrorLike = { code?: string; message?: string };
-
-const toAuthMessage = (err: unknown): string => {
-  const e = err as AuthErrorLike;
-  const code = typeof e?.code === "string" ? e.code : "";
-  const msg = typeof e?.message === "string" ? e.message : "Unknown error";
-
-  if (code.includes("auth/email-already-in-use")) return "That email is already in use.";
-  if (code.includes("auth/invalid-email")) return "Please enter a valid email address.";
-  if (code.includes("auth/weak-password")) return "Password is too weak. Use at least 6 characters.";
-
-  return msg;
-};
+import { signUpWithEmail } from "@/lib/auth/actions";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -27,7 +12,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const canSubmit = useMemo(() => email.trim().length > 0 && password.length >= 6 && !submitting, [
+  const canSubmit = useMemo(() => email.trim().length > 0 && password.length > 0 && !submitting, [
     email,
     password,
     submitting,
@@ -38,11 +23,14 @@ export default function SignUpScreen() {
 
     setSubmitting(true);
     try {
-      const auth = getFirebaseAuth();
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-      router.replace("/");
-    } catch (err) {
-      Alert.alert("Sign up failed", toAuthMessage(err));
+      const result = await signUpWithEmail(email, password);
+      if (!result.ok) {
+        Alert.alert(result.title, result.message);
+        return;
+      }
+
+      // After sign up, treat as signed-in (Firebase does this by default).
+      router.replace("/(app)/command-center");
     } finally {
       setSubmitting(false);
     }
@@ -65,10 +53,9 @@ export default function SignUpScreen() {
       />
 
       <Text style={styles.label}>Password</Text>
-      <Text style={styles.hint}>At least 6 characters.</Text>
       <TextInput
         secureTextEntry
-        placeholder="••••••••"
+        placeholder="At least 6 characters"
         value={password}
         onChangeText={setPassword}
         style={styles.input}
@@ -94,7 +81,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: "center" },
   title: { fontSize: 28, fontWeight: "700", marginBottom: 16 },
   label: { marginTop: 12, marginBottom: 6, fontSize: 14, opacity: 0.8 },
-  hint: { marginBottom: 6, fontSize: 12, opacity: 0.7 },
   input: {
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.15)",
