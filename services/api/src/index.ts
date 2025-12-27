@@ -18,27 +18,12 @@ app.use(accessLogMiddleware);
 app.use(cors());
 app.use(express.json());
 
-// Health endpoints (unauth)
+// Unauthed health endpoints
 app.use(healthRouter);
 
-// Root sanity check (optional)
+// Nice default for root — helps sanity-check service is alive
 app.get("/", (_req: Request, res: Response) => {
   res.status(200).json({ ok: true, service: "oli-api" });
-});
-
-/**
- * AUTH-PROTECTED HEALTH CHECK
- * - 200 only if authMiddleware accepts the token
- * - 401/403 otherwise (whatever your authMiddleware returns)
- */
-app.get("/health/auth", authMiddleware, (req: Request, res: Response) => {
-  const withRid = req as RequestWithRid & { uid?: string };
-
-  res.status(200).json({
-    ok: true,
-    uid: withRid.uid ?? null,
-    requestId: withRid.rid ?? null,
-  });
 });
 
 /**
@@ -80,4 +65,3 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 });
 
 export default app;
-

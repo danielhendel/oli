@@ -23,15 +23,17 @@ const buildBody = (req: Request): HealthOk => {
   const env = process.env.APP_ENV?.trim();
   if (env) body.env = env;
 
-  // helpful for ops/debug, but NOT required for correctness
-  const trace = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
-  if (trace) body.requestId = trace;
+  // Use trace id if present (still fine)
+  const requestId = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
+  if (requestId) body.requestId = requestId;
 
   return body;
 };
 
-// Unauthenticated
+// ✅ public health endpoint
 router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
-router.get("/healthz", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+
+// ✅ use /ready or /live (NOT /healthz)
+router.get("/ready", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
 
 export default router;
