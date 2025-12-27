@@ -36,13 +36,28 @@ const toneBg: Record<StatusTone, string> = {
   danger: "#FDECEC",
 };
 
+// Keep this local + tiny so it can’t become a new “system”.
+function formatTodaySummary(input: {
+  facts?: { steps?: number; sleepMin?: number; weightKg?: number };
+  insightsCount?: number;
+}): string {
+  const parts: string[] = [];
+
+  if (typeof input.facts?.steps === "number") parts.push(`${input.facts.steps.toLocaleString()} steps`);
+  if (typeof input.facts?.sleepMin === "number") parts.push(`${Math.round(input.facts.sleepMin)} min sleep`);
+  if (typeof input.facts?.weightKg === "number") parts.push(`${input.facts.weightKg.toFixed(1)} kg`);
+
+  if (typeof input.insightsCount === "number") parts.push(`${input.insightsCount} insights`);
+
+  return parts.length ? parts.join(" • ") : "No facts yet — log your first event to start building today.";
+}
+
 function DataStatusCard(props: { day: string }) {
   const facts = useDailyFacts(props.day);
   const insights = useInsights(props.day);
   const ctx = useIntelligenceContext(props.day);
 
-  const anyLoading =
-    facts.status === "loading" || insights.status === "loading" || ctx.status === "loading";
+  const anyLoading = facts.status === "loading" || insights.status === "loading" || ctx.status === "loading";
 
   const anyError = facts.status === "error" || insights.status === "error" || ctx.status === "error";
 
@@ -51,8 +66,7 @@ function DataStatusCard(props: { day: string }) {
   // - Insights is not required and is treated as empty list (never "not_found" in our updated hook)
   const allNotFound = facts.status === "not_found" && ctx.status === "not_found";
 
-  const anyReady =
-    facts.status === "ready" || insights.status === "ready" || ctx.status === "ready";
+  const anyReady = facts.status === "ready" || insights.status === "ready" || ctx.status === "ready";
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
@@ -86,6 +100,22 @@ function DataStatusCard(props: { day: string }) {
     subtitle = parts.join("  •  ");
   }
 
+  const factsSummary =
+    facts.status === "ready"
+      ? {
+          // exactOptionalPropertyTypes: omit keys when undefined
+          ...(typeof facts.data.activity?.steps === "number" ? { steps: facts.data.activity.steps } : {}),
+          ...(typeof facts.data.sleep?.totalMinutes === "number" ? { sleepMin: facts.data.sleep.totalMinutes } : {}),
+          ...(typeof facts.data.body?.weightKg === "number" ? { weightKg: facts.data.body.weightKg } : {}),
+        }
+      : null;
+
+  // exactOptionalPropertyTypes: OMIT props when they’re not present (don’t pass `facts: undefined`)
+  const summary = formatTodaySummary({
+    ...(factsSummary && Object.keys(factsSummary).length > 0 ? { facts: factsSummary } : {}),
+    ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
+  });
+
   return (
     <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
       <View style={styles.statusTopRow}>
@@ -95,6 +125,10 @@ function DataStatusCard(props: { day: string }) {
 
       <Text style={[styles.statusTitle, { color: toneColor[tone] }]}>{title}</Text>
       <Text style={styles.statusSubtitle}>{subtitle}</Text>
+
+      <View style={styles.summaryWrap}>
+        <Text style={styles.summaryText}>{summary}</Text>
+      </View>
     </View>
   );
 }
@@ -250,6 +284,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#374151",
     lineHeight: 18,
+  },
+  summaryWrap: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.08)",
+  },
+  summaryText: {
+    fontSize: 12,
+    color: "#111827",
+    fontWeight: "700",
+    lineHeight: 16,
   },
 
   quickRow: {

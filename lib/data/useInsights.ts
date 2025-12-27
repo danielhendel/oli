@@ -1,9 +1,8 @@
-// lib/data/useInsights.ts
 import { useEffect, useState } from "react";
 
 import { getInsights, type InsightsResponseDto } from "../api/usersMe";
 import { useAuth } from "../auth/AuthProvider";
-import type { ApiFailure } from "../api/http";
+import type { ApiFailure, ApiResult } from "../api/http";
 
 export type InsightsState =
   | { status: "loading" }
@@ -23,6 +22,9 @@ const formatApiError = (res: ApiFailure): string => {
   return `${res.error} (kind=${res.kind}, status=${res.status}${rid})`;
 };
 
+const isAuthExpired = (res: ApiResult<unknown>): res is ApiFailure =>
+  !res.ok && res.status === 401;
+
 export function useInsights(dayKey?: string): InsightsState {
   const { user, initializing, getIdToken } = useAuth();
   const day = dayKey ?? localDayKey();
@@ -32,35 +34,50 @@ export function useInsights(dayKey?: string): InsightsState {
   useEffect(() => {
     let alive = true;
 
+    const runWithToken = async (token: string): Promise<ApiResult<InsightsResponseDto>> => {
+      return getInsights(day, token);
+    };
+
     const run = async () => {
       try {
-        if (initializing) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
+        if (initializing) return;
+        if (!user) return;
 
-        if (!user) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
-
-        const token = await getIdToken(false);
-        if (!token) {
+        const t1 = await getIdToken(false);
+        if (!t1) {
           if (alive) setState({ status: "error", message: "No auth token (try Re-auth)" });
           return;
         }
 
-        const res = await getInsights(day, token);
+        let res = await runWithToken(t1);
+
+        if (isAuthExpired(res)) {
+          const t2 = await getIdToken(true);
+          if (!t2) {
+            if (alive) setState({ status: "error", message: "Session expired (try Re-auth)" });
+            return;
+          }
+          res = await runWithToken(t2);
+        }
+
         if (!alive) return;
 
         if (res.ok) {
-          // ✅ Backend contract: not 404 when empty; returns {count:0,items:[]}
+          // Backend contract: not 404 when empty; returns {count:0,items:[]}
           setState({ status: "ready", data: res.json });
           return;
         }
 
-        // If we ever see 404 here, treat as an error (backend bug / mismatch).
-        setState({ status: "error", message: res.status === 404 ? "Insights route returned 404 (should be 200 empty list)" : formatApiError(res) });
+        // If we ever see 404 here, treat as error (backend mismatch)
+        if (res.status === 404) {
+          setState({
+            status: "error",
+            message: "Insights route returned 404 (should be 200 empty list)",
+          });
+          return;
+        }
+
+        setState({ status: "error", message: formatApiError(res) });
       } catch (e: unknown) {
         if (!alive) return;
         const msg = e instanceof Error ? e.message : "Unknown error";

@@ -4,12 +4,13 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { getIdToken } from "@/lib/auth/getIdToken";
-import { ingestRawEvent } from "@/lib/api/ingest";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload, poundsToKg } from "@/lib/events/manualWeight";
 
 export default function BodyWeightScreen() {
   const router = useRouter();
+  const { user, initializing, getIdToken } = useAuth();
 
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
   const [weightText, setWeightText] = useState("");
@@ -39,44 +40,52 @@ export default function BodyWeightScreen() {
     };
   }, [weightText, bodyFatText, unit]);
 
-  const canSave = parsed.weightOk && parsed.bfOk && parsed.weightKg !== null && status.state !== "saving";
+  const canSave =
+    !initializing &&
+    Boolean(user) &&
+    parsed.weightOk &&
+    parsed.bfOk &&
+    parsed.weightKg !== null &&
+    status.state !== "saving";
 
   const onSave = async (): Promise<void> => {
     if (!canSave || parsed.weightKg === null) return;
     setStatus({ state: "saving" });
 
     try {
-      const token = await getIdToken();
+      if (initializing) {
+        setStatus({ state: "error", message: "Auth still initializing. Try again." });
+        return;
+      }
+      if (!user) {
+        setStatus({ state: "error", message: "Not signed in." });
+        return;
+      }
 
+      const token = await getIdToken(false);
+      if (!token) {
+        setStatus({ state: "error", message: "No auth token (try Debug → Re-auth)" });
+        return;
+      }
+
+      // ✅ Generates ManualWeightPayload:
+      // { time, day, timezone, weightKg, bodyFatPercent? }
       const payload = buildManualWeightPayload({
         weightKg: parsed.weightKg,
         ...(parsed.bodyFatPercent !== null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
       });
 
-      const idempotencyKey = `weight-${payload.day}-${payload.time}`;
-
-      const res = await ingestRawEvent(
-        {
-          provider: "manual",
-          kind: "weight",
-          observedAt: payload.time,
-          sourceId: "manual",
-          payload,
-        },
-        token,
-        { idempotencyKey }
-      );
+      const res = await logWeight(payload, token);
 
       if (!res.ok) {
-        // ✅ 10/10 observability: surface kind/status/requestId so you can match Cloud Run logs fast
         setStatus({
           state: "error",
-          message: `${res.message} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId})`,
+          message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
         });
         return;
       }
 
-      setStatus({ state: "saved", rawEventId: res.data.rawEventId });
+      setStatus({ state: "saved", rawEventId: res.json.rawEventId });
 
       setTimeout(() => {
         router.back();
@@ -91,6 +100,7 @@ export default function BodyWeightScreen() {
     <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
       <View style={styles.card}>
         <Text style={styles.label}>Weight</Text>
+
         <View style={styles.row}>
           <TextInput
             value={weightText}
@@ -110,6 +120,7 @@ export default function BodyWeightScreen() {
             >
               <Text style={[styles.unitText, unit === "lb" && styles.unitTextActive]}>lb</Text>
             </Pressable>
+
             <Pressable
               onPress={() => setUnit("kg")}
               accessibilityRole="button"
@@ -155,6 +166,10 @@ export default function BodyWeightScreen() {
         {status.state === "saved" ? (
           <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text>
         ) : null}
+
+        <Text style={styles.helperNote}>
+          Daily facts may take a moment to update while the pipeline processes your raw event.
+        </Text>
       </View>
     </ModuleScreenShell>
   );
@@ -233,5 +248,11 @@ const styles = StyleSheet.create({
     color: "#1B5E20",
     fontSize: 12,
     fontWeight: "700",
+  },
+  helperNote: {
+    marginTop: 8,
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

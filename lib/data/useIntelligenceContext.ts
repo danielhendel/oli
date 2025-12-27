@@ -1,9 +1,8 @@
-// lib/data/useIntelligenceContext.ts
 import { useEffect, useState } from "react";
 
 import { getIntelligenceContext, type IntelligenceContextDto } from "../api/usersMe";
 import { useAuth } from "../auth/AuthProvider";
-import type { ApiFailure } from "../api/http";
+import type { ApiFailure, ApiResult } from "../api/http";
 
 export type IntelligenceContextState =
   | { status: "loading" }
@@ -24,6 +23,9 @@ const formatApiError = (res: ApiFailure): string => {
   return `${res.error} (kind=${res.kind}, status=${res.status}${rid})`;
 };
 
+const isAuthExpired = (res: ApiResult<unknown>): res is ApiFailure =>
+  !res.ok && res.status === 401;
+
 export function useIntelligenceContext(dayKey?: string): IntelligenceContextState {
   const { user, initializing, getIdToken } = useAuth();
   const day = dayKey ?? localDayKey();
@@ -33,25 +35,32 @@ export function useIntelligenceContext(dayKey?: string): IntelligenceContextStat
   useEffect(() => {
     let alive = true;
 
+    const runWithToken = async (token: string): Promise<ApiResult<IntelligenceContextDto>> => {
+      return getIntelligenceContext(day, token);
+    };
+
     const run = async () => {
       try {
-        if (initializing) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
+        if (initializing) return;
+        if (!user) return;
 
-        if (!user) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
-
-        const token = await getIdToken(false);
-        if (!token) {
+        const t1 = await getIdToken(false);
+        if (!t1) {
           if (alive) setState({ status: "error", message: "No auth token (try Re-auth)" });
           return;
         }
 
-        const res = await getIntelligenceContext(day, token);
+        let res = await runWithToken(t1);
+
+        if (isAuthExpired(res)) {
+          const t2 = await getIdToken(true);
+          if (!t2) {
+            if (alive) setState({ status: "error", message: "Session expired (try Re-auth)" });
+            return;
+          }
+          res = await runWithToken(t2);
+        }
+
         if (!alive) return;
 
         if (res.ok) {

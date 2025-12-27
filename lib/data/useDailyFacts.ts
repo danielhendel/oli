@@ -1,9 +1,8 @@
-// lib/data/useDailyFacts.ts
 import { useEffect, useState } from "react";
 
 import { getDailyFacts, type DailyFactsDto } from "../api/usersMe";
 import { useAuth } from "../auth/AuthProvider";
-import type { ApiFailure } from "../api/http";
+import type { ApiFailure, ApiResult } from "../api/http";
 
 export type DailyFactsState =
   | { status: "loading" }
@@ -24,6 +23,9 @@ const formatApiError = (res: ApiFailure): string => {
   return `${res.error} (kind=${res.kind}, status=${res.status}${rid})`;
 };
 
+const isAuthExpired = (res: ApiResult<unknown>): res is ApiFailure =>
+  !res.ok && res.status === 401;
+
 export function useDailyFacts(dayKey?: string): DailyFactsState {
   const { user, initializing, getIdToken } = useAuth();
   const day = dayKey ?? localDayKey();
@@ -33,27 +35,37 @@ export function useDailyFacts(dayKey?: string): DailyFactsState {
   useEffect(() => {
     let alive = true;
 
+    const runWithToken = async (token: string): Promise<ApiResult<DailyFactsDto>> => {
+      return getDailyFacts(day, token);
+    };
+
     const run = async () => {
       try {
-        // ✅ Don’t fire network calls until auth is settled.
-        if (initializing) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
+        // Don’t fire network calls until auth is settled.
+        if (initializing) return;
 
-        // ✅ If signed out, treat as loading; RouteGuard redirects.
-        if (!user) {
-          if (alive) setState({ status: "loading" });
-          return;
-        }
+        // If signed out, treat as loading; RouteGuard redirects.
+        if (!user) return;
 
-        const token = await getIdToken(false);
-        if (!token) {
+        // First attempt: normal token
+        const t1 = await getIdToken(false);
+        if (!t1) {
           if (alive) setState({ status: "error", message: "No auth token (try Re-auth)" });
           return;
         }
 
-        const res = await getDailyFacts(day, token);
+        let res = await runWithToken(t1);
+
+        // If token expired, force refresh once and retry
+        if (isAuthExpired(res)) {
+          const t2 = await getIdToken(true);
+          if (!t2) {
+            if (alive) setState({ status: "error", message: "Session expired (try Re-auth)" });
+            return;
+          }
+          res = await runWithToken(t2);
+        }
+
         if (!alive) return;
 
         if (res.ok) {
