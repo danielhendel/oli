@@ -7,20 +7,12 @@ import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
 import { authMiddleware } from "./middleware/auth";
-import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
-
-/**
- * Express app (NO LISTENING HERE)
- *
- * This module must be side-effect free:
- * - It should only build and export the Express app.
- * - Cloud Run startup (listen on PORT) happens in `server.ts`.
- *
- * Why:
- * - Avoid double-listen bugs
- * - Make runtime deterministic
- * - Keep tests/imports safe
- */
+import {
+  accessLogMiddleware,
+  requestIdMiddleware,
+  logger,
+  type RequestWithRid,
+} from "./lib/logger";
 
 const app = express();
 
@@ -31,7 +23,7 @@ app.use(accessLogMiddleware);
 app.use(cors());
 app.use(express.json());
 
-// Health endpoints (unauth + authed)
+// Health endpoints (unauth)
 app.use(healthRouter);
 
 /**
@@ -48,6 +40,11 @@ app.use("/ingest", authMiddleware, eventsRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
+
+// (Optional) nice default for root — helps sanity-check service is alive
+app.get("/", (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true, service: "oli-api" });
+});
 
 // Global error handler (typed, safe, request-id aware)
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -73,3 +70,35 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 });
 
 export default app;
+
+/**
+ * Cloud Run entrypoint
+ * - Cloud Run sets PORT (usually 8080)
+ * - Must listen on process.env.PORT
+ *
+ * NOTE: If your Dockerfile runs `node dist/server.js`, then `server.ts`
+ * should import this app and listen there. This block is still useful for
+ * local runs like `node dist/index.js`.
+ */
+const port = (() => {
+  const raw = process.env.PORT?.trim();
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 8080;
+})();
+
+const isRunningInCloudRun = Boolean(process.env.K_SERVICE);
+
+// Only start the server when this file is the program entrypoint.
+// (Prevents double-listen in tests/imports.)
+if (require.main === module) {
+  app.listen(port, () => {
+    logger.info({
+      msg: "api_listening",
+      port,
+      env: process.env.NODE_ENV ?? "unknown",
+      cloudRun: isRunningInCloudRun,
+      service: process.env.K_SERVICE ?? null,
+      revision: process.env.K_REVISION ?? null,
+    });
+  });
+}
