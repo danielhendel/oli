@@ -1,5 +1,5 @@
 // lib/api/usersMe.ts
-import { apiGetJsonAuthed, type ApiResult } from "@/lib/api/http";
+import { apiGetJsonAuthed, apiPostJsonAuthed, type ApiResult } from "@/lib/api/http";
 
 export type DayKey = string;
 
@@ -85,4 +85,29 @@ export const getInsights = async (day: string, token: string): Promise<ApiResult
 
 export const getIntelligenceContext = async (day: string, token: string): Promise<ApiResult<IntelligenceContextDto>> => {
   return apiGetJsonAuthed<IntelligenceContextDto>(`/users/me/intelligence-context?day=${encodeURIComponent(day)}`, token);
+};
+
+/**
+ * ─────────────────────────────────────────────
+ * Sprint 2: Weight logging
+ * Must match ManualWeightPayload:
+ * { time, day, timezone, weightKg, bodyFatPercent? }
+ * ─────────────────────────────────────────────
+ */
+export type LogWeightRequestDto = {
+  time: string; // ISO
+  day: DayKey; // YYYY-MM-DD
+  timezone: string;
+  weightKg: number;
+  bodyFatPercent?: number | null;
+};
+
+export type LogWeightResponseDto = {
+  ok: true;
+  rawEventId: string;
+  day: DayKey;
+};
+
+export const logWeight = async (body: LogWeightRequestDto, token: string): Promise<ApiResult<LogWeightResponseDto>> => {
+  return apiPostJsonAuthed<LogWeightResponseDto>(`/users/me/body/weight`, body, token);
 };

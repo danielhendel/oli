@@ -166,3 +166,34 @@ export const intelligenceContextDtoSchema = z
   .strip();
 
 export type IntelligenceContextDto = z.infer<typeof intelligenceContextDtoSchema>;
+
+/**
+ * ─────────────────────────────────────────────
+ * Sprint 2: WRITE DTOs — Weight logging
+ * Must match functions/normalization expectations:
+ * - mapRawEventToCanonical expects ManualWeightPayload:
+ *   { time, day, timezone, weightKg, bodyFatPercent? }
+ * ─────────────────────────────────────────────
+ */
+
+export const logWeightRequestDtoSchema = z
+  .object({
+    time: isoString,          // ISO datetime string
+    day: dayKeySchema,        // YYYY-MM-DD (local day key)
+    timezone: z.string().min(1),
+    weightKg: z.number().finite().positive(),
+    bodyFatPercent: z.number().finite().min(0).max(100).nullable().optional(),
+  })
+  .strip();
+
+export type LogWeightRequestDto = z.infer<typeof logWeightRequestDtoSchema>;
+
+export const logWeightResponseDtoSchema = z
+  .object({
+    ok: z.literal(true),
+    rawEventId: z.string().min(1),
+    day: dayKeySchema,
+  })
+  .strip();
+
+export type LogWeightResponseDto = z.infer<typeof logWeightResponseDtoSchema>;

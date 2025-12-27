@@ -1,6 +1,7 @@
 // services/api/src/routes/usersMe.ts
 import { Router, type Response } from "express";
 import { getFirestore } from "firebase-admin/firestore";
+import { randomUUID } from "crypto";
 
 import type { AuthedRequest } from "../middleware/auth";
 import type { RequestWithRid } from "../lib/logger";
@@ -11,6 +12,8 @@ import {
   insightDtoSchema,
   insightsResponseDtoSchema,
   intelligenceContextDtoSchema,
+  logWeightRequestDtoSchema,
+  logWeightResponseDtoSchema,
 } from "../types/dtos";
 
 const router = Router();
@@ -65,6 +68,83 @@ const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, deta
     },
   });
 };
+
+const invalidBody400 = (req: AuthedRequest, res: Response, details: unknown) => {
+  res.status(400).json({
+    ok: false,
+    error: {
+      code: "INVALID_BODY",
+      message: "Invalid request body",
+      details,
+      requestId: getRid(req),
+    },
+  });
+};
+
+/**
+ * POST /users/me/body/weight
+ *
+ * Body MUST match ManualWeightPayload expected by functions:
+ * { time, day, timezone, weightKg, bodyFatPercent? }
+ *
+ * Writes RawEvent matching services/functions/src/validation/rawEvent.ts
+ * into: /users/{uid}/rawEvents/{rawEventId}
+ */
+router.post("/body/weight", async (req: AuthedRequest, res: Response) => {
+  const uid = requireUid(req, res);
+  if (!uid) return;
+
+  const parsed = logWeightRequestDtoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return invalidBody400(req, res, parsed.error.flatten());
+  }
+
+  const payload = parsed.data;
+
+  // Validate ISO date string parse (defensive)
+  if (Number.isNaN(Date.parse(payload.time))) {
+    return invalidBody400(req, res, { time: "Invalid ISO datetime string" });
+  }
+
+  const rawEventId = randomUUID();
+  const nowIso = new Date().toISOString();
+
+  // ✅ MUST match parseRawEvent required keys:
+  // requiredStringKeys: id,userId,sourceId,provider,receivedAt,observedAt
+  // sourceType must be valid HealthSourceType (manual)
+  // kind must be CanonicalEventKind (weight)
+  // schemaVersion === 1
+  // payload must exist
+  const rawEvent = {
+    schemaVersion: 1 as const,
+    id: rawEventId,
+    userId: uid,
+    sourceId: "manual",
+    provider: "manual",
+    sourceType: "manual",
+    kind: "weight",
+    receivedAt: nowIso,
+    observedAt: payload.time,
+    payload: {
+      time: payload.time,
+      day: payload.day,
+      timezone: payload.timezone,
+      weightKg: payload.weightKg,
+      ...(payload.bodyFatPercent !== undefined ? { bodyFatPercent: payload.bodyFatPercent } : {}),
+    },
+  };
+
+  const db = getFirestore();
+  await db.collection("users").doc(uid).collection("rawEvents").doc(rawEventId).set(rawEvent, { merge: false });
+
+  const out = { ok: true as const, rawEventId, day: payload.day };
+  const validated = logWeightResponseDtoSchema.safeParse(out);
+  if (!validated.success) {
+    return invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
+  }
+
+  return res.status(200).json(validated.data);
+});
 
 /**
  * GET /users/me/daily-facts?day=YYYY-MM-DD
@@ -121,10 +201,8 @@ router.get("/insights", async (req: AuthedRequest, res: Response) => {
     return invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
   }
 
-  // ✅ InsightDto[]
   const items = parsedDocs.map((x) => x.parsed.data);
 
-  // Deterministic ordering: severity (critical→warning→info), then kind, then id
   const severityRank = (v: "critical" | "warning" | "info"): number => {
     if (v === "critical") return 0;
     if (v === "warning") return 1;
@@ -132,8 +210,6 @@ router.get("/insights", async (req: AuthedRequest, res: Response) => {
   };
 
   const sorted = [...items].sort((a, b) => {
-    // ✅ Some TS configs (noUncheckedIndexedAccess) consider comparator args possibly undefined.
-    // Make comparator total.
     if (!a && !b) return 0;
     if (!a) return 1;
     if (!b) return -1;
