@@ -1,46 +1,55 @@
-import type { NextFunction, Request, Response } from "express";
-import { getAuth } from "firebase-admin/auth";
+// services/api/src/middleware/auth.ts
+import type { NextFunction, Response } from "express";
 
+import { admin } from "../firebaseAdmin";
 import type { RequestWithRid } from "../lib/logger";
 
-export type AuthedRequest = Request & { uid?: string };
+export type AuthedRequest = RequestWithRid & {
+  uid?: string;
+};
 
-export async function authMiddleware(
-  req: AuthedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const rid = (req as RequestWithRid).rid ?? "unknown";
+type UnauthorizedJson = {
+  ok: false;
+  error: {
+    code: "UNAUTHORIZED";
+    message: "Unauthorized";
+    requestId: string;
+    reason?: string; // staging-only
+  };
+};
+
+const isStaging = (): boolean => (process.env.APP_ENV ?? "").toLowerCase() === "staging";
+
+const jsonUnauthorized = (res: Response, requestId: string, reason?: string) => {
+  const body: UnauthorizedJson = {
+    ok: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      requestId,
+      ...(isStaging() && reason ? { reason } : {}),
+    },
+  };
+  return res.status(401).json(body);
+};
+
+export const authMiddleware = async (req: AuthedRequest, res: Response, next: NextFunction) => {
+  const rid = req.rid ?? res.getHeader("x-request-id")?.toString() ?? "missing";
+
+  const header = req.header("authorization") ?? req.header("Authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1];
+
+  if (!token) {
+    return jsonUnauthorized(res, rid, "missing_bearer");
+  }
 
   try {
-    const header = req.header("authorization") ?? req.header("Authorization");
-    if (!header?.startsWith("Bearer ")) {
-      res.status(401).json({
-        ok: false,
-        error: {
-          code: "MISSING_AUTH",
-          message: "Missing Authorization: Bearer <token>",
-          requestId: rid,
-        },
-      });
-      return;
-    }
-
-    const idToken = header.slice("Bearer ".length).trim();
-    const decoded = await getAuth().verifyIdToken(idToken, true);
+    const decoded = await admin.auth().verifyIdToken(token);
     req.uid = decoded.uid;
-
-    next();
-    return;
-  } catch {
-    res.status(401).json({
-      ok: false,
-      error: {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        requestId: rid,
-      },
-    });
-    return;
+    return next();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "verify_failed";
+    return jsonUnauthorized(res, rid, `verify_failed:${msg.slice(0, 160)}`);
   }
-}
+};
