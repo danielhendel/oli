@@ -7,29 +7,29 @@ type HealthOk = {
   service: "oli-api";
   env?: string;
   requestId?: string;
+  timestamp: string;
+  uptimeSec: number;
 };
 
-const getRid = (req: Request): string | undefined => {
-  const rid = req.header("x-request-id")?.trim();
-  return rid ? rid : undefined;
-};
-
-const handler = (req: Request, res: Response) => {
-  const env = process.env.APP_ENV;
-  const rid = getRid(req);
-
+const buildBody = (req: Request): HealthOk => {
   const body: HealthOk = {
     ok: true,
     service: "oli-api",
-    ...(env ? { env } : {}),
-    ...(rid ? { requestId: rid } : {}),
+    timestamp: new Date().toISOString(),
+    uptimeSec: Math.round(process.uptime()),
   };
 
-  res.status(200).json(body);
+  const env = process.env.APP_ENV?.trim();
+  if (env) body.env = env;
+
+  const requestId = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
+  if (requestId) body.requestId = requestId;
+
+  return body;
 };
 
-router.get("/", handler);
-router.get("/health", handler);
-router.get("/healthz", handler);
+// ✅ explicit health endpoints Cloud Run / uptime checks commonly use
+router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+router.get("/healthz", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
 
 export default router;
