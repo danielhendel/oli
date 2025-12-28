@@ -4,9 +4,10 @@
     "rootDir": ".",
     "outDir": "../../dist-types/functions",
     "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo",
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "composite": true
   },
-  "references": [{ "path": "../../lib" }],
+  "references": [{ "path": "../../lib/tsconfig.build.json" }],
   "include": ["src/**/*", "**/*.ts"],
   "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
 }

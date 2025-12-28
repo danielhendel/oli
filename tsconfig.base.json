@@ -1,27 +1,31 @@
 {
-    "compilerOptions": {
-      "strict": true,
-      "noUncheckedIndexedAccess": true,
-      "noImplicitOverride": true,
-      "exactOptionalPropertyTypes": true,
-      "forceConsistentCasingInFileNames": true,
-  
-      "target": "ES2020",
-      "module": "ESNext",
-      "moduleResolution": "Bundler",
-      "lib": ["ES2020", "DOM"],
-      "jsx": "react-jsx",
-  
-      "resolveJsonModule": true,
-      "allowJs": false,
-      "skipLibCheck": true,
-      "esModuleInterop": true,
-      "isolatedModules": true,
-  
-      "composite": true,
-      "declaration": true,
-      "declarationMap": true,
-      "emitDeclarationOnly": true
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@oli/contracts": ["lib/contracts/index.ts"],
+      "@oli/contracts/*": ["lib/contracts/*"],
+
+      "@/lib": ["lib/index.ts"],
+      "@/lib/*": ["lib/*"],
+
+      "@/*": ["./*"]
     }
   }
-  
+}

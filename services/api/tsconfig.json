@@ -1,11 +1,13 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
+
     "module": "CommonJS",
     "moduleResolution": "Node",
 
-    "rootDir": "../..",
+    "rootDir": ".",
     "outDir": "dist",
 
     "strict": true,
@@ -13,12 +15,15 @@
     "exactOptionalPropertyTypes": true,
 
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
     "composite": true,
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "../../lib/contracts/**/*.ts"],
+  "references": [{ "path": "../../lib/tsconfig.build.json" }],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

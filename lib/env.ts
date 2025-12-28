@@ -22,21 +22,44 @@ export type Env = Readonly<{
   EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID?: string;
 }>;
 
+/**
+ * In Expo/RN, `process.env` can be typed loosely depending on toolchain.
+ * We treat it as unknown and narrow safely to satisfy strict ESLint rules.
+ */
+const readEnvRecord = (): Record<string, unknown> => {
+  const p: unknown = (globalThis as unknown as { process?: unknown }).process;
+  const env: unknown =
+    typeof p === "object" && p !== null && "env" in p ? (p as { env?: unknown }).env : undefined;
+
+  return typeof env === "object" && env !== null ? (env as Record<string, unknown>) : {};
+};
+
+const ENV = readEnvRecord();
+
+const asNonEmptyString = (v: unknown): string | null => {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length > 0 ? t : null;
+};
+
 const requireEnv = (key: string): string => {
-  const v = process.env[key];
-  if (!v || v.trim().length === 0) {
+  const v = asNonEmptyString(ENV[key]);
+  if (!v) {
     throw new Error(`❌ Missing required env var: ${key}`);
   }
-  return v.trim();
+  return v;
+};
+
+const optionalEnv = (key: string): string | undefined => {
+  const v = asNonEmptyString(ENV[key]);
+  return v ?? undefined;
 };
 
 const normalizeBaseUrl = (url: string): string => url.replace(/\/+$/, "");
 
 const assertHttpsCloudRunUrl = (url: string): void => {
   if (!url.startsWith("https://")) {
-    throw new Error(
-      `❌ Invalid EXPO_PUBLIC_BACKEND_BASE_URL. Must start with https://\n\nGot: ${url}`
-    );
+    throw new Error(`❌ Invalid EXPO_PUBLIC_BACKEND_BASE_URL. Must start with https://\n\nGot: ${url}`);
   }
   const lowered = url.toLowerCase();
   if (lowered.includes("localhost") || lowered.includes("127.0.0.1")) {
@@ -51,21 +74,20 @@ let cached: Env | null = null;
 export const getEnv = (): Env => {
   if (cached) return cached;
 
-  const rawEnv = (process.env.EXPO_PUBLIC_ENVIRONMENT ?? "staging").trim();
-  const EXPO_PUBLIC_ENVIRONMENT: Environment = rawEnv === "staging" ? "staging" : (() => {
-    throw new Error(
-      `❌ Invalid EXPO_PUBLIC_ENVIRONMENT. This repo is staging-only.\n\nAllowed: staging\nGot: ${rawEnv}`
-    );
-  })();
+  const rawEnv = (optionalEnv("EXPO_PUBLIC_ENVIRONMENT") ?? "staging").trim();
+  const EXPO_PUBLIC_ENVIRONMENT: Environment =
+    rawEnv === "staging"
+      ? "staging"
+      : (() => {
+          throw new Error(
+            `❌ Invalid EXPO_PUBLIC_ENVIRONMENT. This repo is staging-only.\n\nAllowed: staging\nGot: ${rawEnv}`
+          );
+        })();
 
   const baseUrl = normalizeBaseUrl(requireEnv("EXPO_PUBLIC_BACKEND_BASE_URL"));
   assertHttpsCloudRunUrl(baseUrl);
 
-  const expectedProjectIdRaw = process.env.EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID;
-  const expectedProjectId =
-    expectedProjectIdRaw && expectedProjectIdRaw.trim().length > 0
-      ? expectedProjectIdRaw.trim()
-      : undefined;
+  const expectedProjectId = optionalEnv("EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID");
 
   const env: Env = Object.freeze({
     EXPO_PUBLIC_ENVIRONMENT,

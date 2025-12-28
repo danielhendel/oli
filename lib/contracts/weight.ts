@@ -3,10 +3,10 @@ import { dayKeySchema } from "./day";
 
 const isoString = z.string().min(1);
 
+// Raw manual payload written into RawEvent payload (server will add `day`)
 export const manualWeightPayloadSchema = z
   .object({
     time: isoString,
-    day: dayKeySchema,
     timezone: z.string().min(1),
     weightKg: z.number().finite().positive(),
     bodyFatPercent: z.number().finite().min(0).max(100).nullable().optional(),

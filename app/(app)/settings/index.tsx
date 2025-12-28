@@ -7,15 +7,24 @@ import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 import { getModuleSections } from "@/lib/modules/moduleSectionRoutes";
 import { getSectionReadiness } from "@/lib/modules/moduleReadiness";
 
+type Section = ReturnType<typeof getModuleSections>[number];
+
+const getStringEnv = (key: string): string | undefined => {
+  const v = process.env[key];
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+};
+
 export default function SettingsHomeScreen() {
   const router = useRouter();
-  const sections = getModuleSections("settings");
+
+  // preserve typing from module system
+  const sections: Section[] = getModuleSections("settings");
 
   /**
    * Debug tools must never ship to production.
    * APP_ENV is preferred (explicit), NODE_ENV is fallback-safe.
    */
-  const appEnv = process.env.APP_ENV ?? process.env.NODE_ENV ?? "development";
+  const appEnv = getStringEnv("APP_ENV") ?? getStringEnv("NODE_ENV") ?? "development";
   const showDebug = appEnv !== "production";
 
   // Prevent duplicate "Account" row if it's already present in module sections.
@@ -25,7 +34,6 @@ export default function SettingsHomeScreen() {
   return (
     <ModuleScreenShell title="Settings" subtitle="Account & privacy">
       <View style={styles.list}>
-        {/* Module-driven settings sections */}
         {sections.map((s) => {
           const readiness = getSectionReadiness(s.id);
 
@@ -40,7 +48,6 @@ export default function SettingsHomeScreen() {
           );
         })}
 
-        {/* Account is always available and must route correctly (only if not already present) */}
         {!hasAccountInSections ? (
           <ModuleSectionLinkRow
             title="Account"
@@ -49,7 +56,6 @@ export default function SettingsHomeScreen() {
           />
         ) : null}
 
-        {/* Debug tools (non-production only) */}
         {showDebug ? (
           <>
             <ModuleSectionLinkRow

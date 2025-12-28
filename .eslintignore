@@ -1,7 +1,0 @@
-**/dist/**
-**/dist-types/**
-**/build/**
-**/coverage/**
-**/*.d.ts
-lib/contracts/**/*.js
-lib/contracts/**/*.js.map

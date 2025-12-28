@@ -58,15 +58,17 @@ function DataStatusCard(props: { day: string }) {
   const ctx = useIntelligenceContext(props.day);
 
   const anyLoading = facts.status === "loading" || insights.status === "loading" || ctx.status === "loading";
-
   const anyError = facts.status === "error" || insights.status === "error" || ctx.status === "error";
-
-  // IMPORTANT:
-  // - DailyFacts + IntelligenceContext are "required docs" (can be not_found)
-  // - Insights is not required and is treated as empty list (never "not_found" in our updated hook)
-  const allNotFound = facts.status === "not_found" && ctx.status === "not_found";
-
   const anyReady = facts.status === "ready" || insights.status === "ready" || ctx.status === "ready";
+
+  // Hooks no longer expose "not_found". Treat "ready but empty" as the new “no data yet”.
+  const hasAnyFact =
+    facts.status === "ready" &&
+    (typeof facts.data.activity?.steps === "number" ||
+      typeof facts.data.sleep?.totalMinutes === "number" ||
+      typeof facts.data.body?.weightKg === "number");
+
+  const hasAnySignal = hasAnyFact || (insights.status === "ready" && insights.data.count > 0) || ctx.status === "ready";
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
@@ -80,12 +82,12 @@ function DataStatusCard(props: { day: string }) {
     tone = "danger";
     title = "Couldn’t load your data";
     const msg =
-      (facts.status === "error" ? facts.message : null) ??
-      (insights.status === "error" ? insights.message : null) ??
-      (ctx.status === "error" ? ctx.message : null) ??
+      (facts.status === "error" ? facts.error : null) ??
+      (insights.status === "error" ? insights.error : null) ??
+      (ctx.status === "error" ? ctx.error : null) ??
       "Please try again.";
     subtitle = msg;
-  } else if (allNotFound) {
+  } else if (anyReady && !hasAnySignal) {
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
@@ -94,7 +96,6 @@ function DataStatusCard(props: { day: string }) {
     title = "Today is live";
     const parts: string[] = [];
     parts.push(facts.status === "ready" ? "Facts ✓" : "Facts —");
-    // Insights hook returns "ready" with {count:0,items:[]} even if none exist
     parts.push(insights.status === "ready" ? "Insights ✓" : "Insights —");
     parts.push(ctx.status === "ready" ? "Context ✓" : "Context —");
     subtitle = parts.join("  •  ");
@@ -103,14 +104,12 @@ function DataStatusCard(props: { day: string }) {
   const factsSummary =
     facts.status === "ready"
       ? {
-          // exactOptionalPropertyTypes: omit keys when undefined
           ...(typeof facts.data.activity?.steps === "number" ? { steps: facts.data.activity.steps } : {}),
           ...(typeof facts.data.sleep?.totalMinutes === "number" ? { sleepMin: facts.data.sleep.totalMinutes } : {}),
           ...(typeof facts.data.body?.weightKg === "number" ? { weightKg: facts.data.body.weightKg } : {}),
         }
       : null;
 
-  // exactOptionalPropertyTypes: OMIT props when they’re not present (don’t pass `facts: undefined`)
   const summary = formatTodaySummary({
     ...(factsSummary && Object.keys(factsSummary).length > 0 ? { facts: factsSummary } : {}),
     ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
@@ -168,7 +167,6 @@ export default function CommandCenterScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Top row: header + gear */}
         <View style={styles.headerRow}>
           <View style={styles.headerCol}>
             <CommandCenterHeader title="Command Center" subtitle="Your health, unified" />
@@ -184,28 +182,9 @@ export default function CommandCenterScreen() {
           </Pressable>
         </View>
 
-        {/* Data Status (truth-first) */}
         <DataStatusCard day={day} />
-
-        {/* Quick actions (Golden Path) */}
         <QuickActionsRow />
 
-        {/* Debug seed button (non-production only) */}
-        {process.env.NODE_ENV !== "production" ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Seed Weight (debug)"
-            onPress={() => {
-              // If you already had a seed function wired in a previous iteration,
-              // paste it back here. Leaving as no-op prevents lint issues.
-            }}
-            style={({ pressed }) => [styles.seedButton, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.seedButtonText}>Seed Weight (debug)</Text>
-          </Pressable>
-        ) : null}
-
-        {/* Grid */}
         <View style={styles.grid}>
           {COMMAND_CENTER_MODULES.map((m) => {
             const disabled = isModuleDisabled(m.id);
@@ -320,22 +299,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 6,
-  },
-
-  seedButton: {
-    width: "100%",
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    backgroundColor: "#0B1220",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  seedButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.2,
   },
 
   grid: {

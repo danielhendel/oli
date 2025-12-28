@@ -4,11 +4,11 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 
 import { getEnv } from "@/lib/env";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { apiGetJson, type ApiResult, type JsonValue } from "@/lib/api/http";
+import { apiGetJson, type ApiResult, type JsonValue, type FailureKind } from "@/lib/api/http";
 
 type RowProps = {
   title: string;
-  result: ApiResult | null;
+  result: ApiResult<JsonValue> | null;
 };
 
 const pretty = (v: unknown): string => {
@@ -19,10 +19,6 @@ const pretty = (v: unknown): string => {
   }
 };
 
-/**
- * Debug-only coercion:
- * Convert unknown to JsonValue where possible, else null.
- */
 const coerceJsonValue = (v: unknown): JsonValue | null => {
   try {
     return JSON.parse(JSON.stringify(v)) as JsonValue;
@@ -30,6 +26,11 @@ const coerceJsonValue = (v: unknown): JsonValue | null => {
     return null;
   }
 };
+
+// Your FailureKind union clearly includes HTTP and PARSE (uppercase).
+// It does NOT include AUTH in your repo right now, so treat auth failures as HTTP with a better message.
+const KIND_HTTP: FailureKind = "HTTP";
+const KIND_PARSE: FailureKind = "PARSE";
 
 function ResultRow({ title, result }: RowProps) {
   return (
@@ -40,17 +41,17 @@ function ResultRow({ title, result }: RowProps) {
       ) : result.ok ? (
         <>
           <Text style={{ color: "#0a7" }}>OK ({result.status})</Text>
-          <Text style={{ color: "#444" }}>x-request-id: {result.requestId}</Text>
+          <Text style={{ color: "#444" }}>x-request-id: {result.requestId ?? "missing"}</Text>
           <Text style={{ fontFamily: "Courier" }}>{pretty(result.json)}</Text>
         </>
       ) : (
         <>
           <Text style={{ color: "#b00" }}>
-            FAIL ({result.status || 0}) • kind={result.kind}
+            FAIL ({result.status}) • kind={result.kind}
           </Text>
-          <Text style={{ color: "#444" }}>x-request-id: {result.requestId}</Text>
+          <Text style={{ color: "#444" }}>x-request-id: {result.requestId ?? "missing"}</Text>
           <Text style={{ color: "#444" }}>{result.error}</Text>
-          {result.json ? <Text style={{ fontFamily: "Courier" }}>{pretty(result.json)}</Text> : null}
+          {"json" in result && result.json ? <Text style={{ fontFamily: "Courier" }}>{pretty(result.json)}</Text> : null}
         </>
       )}
     </View>
@@ -62,23 +63,22 @@ export default function DebugHealthScreen() {
   const { user, getIdToken } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [health, setHealth] = useState<ApiResult | null>(null);
-  const [healthAuth, setHealthAuth] = useState<ApiResult | null>(null);
+  const [health, setHealth] = useState<ApiResult<JsonValue> | null>(null);
+  const [healthAuth, setHealthAuth] = useState<ApiResult<JsonValue> | null>(null);
 
-  const run = async () => {
+  const run = async (): Promise<void> => {
     setLoading(true);
     try {
       const r1 = await apiGetJson("/health");
       setHealth(r1);
 
-      const token = await getIdToken(false);
+      const token = await getIdToken();
       if (!token) {
         setHealthAuth({
           ok: false,
-          kind: "http",
+          kind: KIND_HTTP,
           status: 401,
           error: "No token. Sign in first to test /health/auth.",
-          json: null,
           requestId: "client-no-token",
         });
         return;
@@ -89,7 +89,7 @@ export default function DebugHealthScreen() {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       });
 
-      const requestId = (res.headers.get("x-request-id") ?? "").trim() || "missing";
+      const requestId = (res.headers.get("x-request-id") ?? "").trim() || null;
       const text = await res.text();
 
       let parsedUnknown: unknown = null;
@@ -99,32 +99,35 @@ export default function DebugHealthScreen() {
         } catch {
           setHealthAuth({
             ok: false,
-            kind: "parse",
+            kind: KIND_PARSE,
             status: res.status,
             error: "Invalid JSON from /health/auth",
-            json: { raw: text },
+            json: coerceJsonValue({ raw: text }),
             requestId,
           });
           return;
         }
       }
 
+      const json = coerceJsonValue(parsedUnknown);
+
       if (!res.ok) {
         setHealthAuth({
           ok: false,
-          kind: res.status === 401 ? "auth" : "http",
+          kind: KIND_HTTP,
           status: res.status,
           error: res.status === 401 ? "Unauthorized" : `HTTP ${res.status}`,
-          json: coerceJsonValue(parsedUnknown),
+          ...(json !== null ? { json } : {}),
           requestId,
         });
         return;
       }
 
+      // ApiOk<T> requires `json: T`. JsonValue includes null, so always provide it.
       setHealthAuth({
         ok: true,
         status: res.status,
-        json: coerceJsonValue(parsedUnknown) ?? null,
+        json: json ?? null,
         requestId,
       });
     } finally {
@@ -145,7 +148,7 @@ export default function DebugHealthScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={run}
+        onPress={() => void run()}
         disabled={loading}
         style={{
           backgroundColor: "#111",
@@ -155,11 +158,7 @@ export default function DebugHealthScreen() {
           alignItems: "center",
         }}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={{ color: "#fff", fontWeight: "800" }}>Run Check</Text>
-        )}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>Run Check</Text>}
       </Pressable>
 
       <ResultRow title="GET /health" result={health} />

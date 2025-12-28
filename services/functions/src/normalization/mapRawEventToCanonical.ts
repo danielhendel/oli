@@ -10,7 +10,7 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
-} from '../types/health';
+} from "../types/health";
 
 /**
  * RawEvent → CanonicalEvent mapper.
@@ -19,12 +19,13 @@ import type {
  * - Pure: no Firestore/Admin calls, no I/O.
  * - Deterministic: same RawEvent → same CanonicalEvent.
  * - Safe to reuse in the Reprocessing Engine.
+ *
+ * IMPORTANT:
+ * - `day` is derived server-side from (time/start, timezone).
+ * - Do NOT trust any client-provided `day`.
  */
 
-export type MappingFailureReason =
-  | 'UNSUPPORTED_PROVIDER'
-  | 'UNSUPPORTED_KIND'
-  | 'MALFORMED_PAYLOAD';
+export type MappingFailureReason = "UNSUPPORTED_PROVIDER" | "UNSUPPORTED_KIND" | "MALFORMED_PAYLOAD";
 
 export type MappingFailure = {
   ok: false;
@@ -40,13 +41,48 @@ export type MappingSuccess = {
 export type MappingResult = MappingSuccess | MappingFailure;
 
 // -----------------------------------------------------------------------------
+// Canonical dayKey derivation
+// -----------------------------------------------------------------------------
+
+const toYmdUtc = (date: Date): YmdDateString => {
+  const yyyy = String(date.getUTCFullYear()).padStart(4, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}` as YmdDateString;
+};
+
+/**
+ * Canonical dayKey derivation using IANA timezone.
+ * Falls back to UTC if timezone is invalid/unavailable.
+ *
+ * NOTE: uses en-CA format which yields YYYY-MM-DD.
+ */
+const ymdInTimeZoneFromIso = (iso: string, timeZone: string): YmdDateString => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return toYmdUtc(new Date());
+  }
+
+  try {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return fmt.format(d) as YmdDateString;
+  } catch {
+    return toYmdUtc(d);
+  }
+};
+
+// -----------------------------------------------------------------------------
 // Manual payload shapes & guards
 // -----------------------------------------------------------------------------
 
 type ManualWindowBase = {
   start: IsoDateTimeString;
   end: IsoDateTimeString;
-  day: YmdDateString;
   timezone: string;
 };
 
@@ -66,14 +102,13 @@ type ManualStepsPayload = ManualWindowBase & {
 
 type ManualWorkoutPayload = ManualWindowBase & {
   sport: string;
-  intensity?: 'easy' | 'moderate' | 'hard';
+  intensity?: "easy" | "moderate" | "hard";
   durationMinutes: number;
   trainingLoad?: number | null;
 };
 
 type ManualWeightPayload = {
   time: IsoDateTimeString;
-  day: YmdDateString;
   timezone: string;
   weightKg: number;
   bodyFatPercent?: number | null;
@@ -81,11 +116,10 @@ type ManualWeightPayload = {
 
 type ManualHrvPayload = {
   time: IsoDateTimeString;
-  day: YmdDateString;
   timezone: string;
   rmssdMs?: number | null;
   sdnnMs?: number | null;
-  measurementType?: 'nightly' | 'spot';
+  measurementType?: "nightly" | "spot";
 };
 
 type ManualPayloadByKind = {
@@ -98,95 +132,69 @@ type ManualPayloadByKind = {
 
 type ManualKind = keyof ManualPayloadByKind;
 
-const MANUAL_KINDS: readonly ManualKind[] = [
-  'sleep',
-  'steps',
-  'workout',
-  'weight',
-  'hrv',
-] as const;
+const MANUAL_KINDS: readonly ManualKind[] = ["sleep", "steps", "workout", "weight", "hrv"] as const;
 
-const isManualKind = (kind: RawEvent['kind']): kind is ManualKind =>
+const isManualKind = (kind: RawEvent["kind"]): kind is ManualKind =>
   (MANUAL_KINDS as readonly string[]).includes(kind);
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const hasString = (obj: Record<string, unknown>, key: string): boolean =>
-  typeof obj[key] === 'string';
+const hasString = (obj: Record<string, unknown>, key: string): boolean => typeof obj[key] === "string";
 
-const hasNumber = (obj: Record<string, unknown>, key: string): boolean =>
-  typeof obj[key] === 'number';
+const hasNumber = (obj: Record<string, unknown>, key: string): boolean => typeof obj[key] === "number";
 
 const isManualWindowBase = (value: unknown): value is ManualWindowBase => {
   if (!isRecord(value)) return false;
-  return (
-    hasString(value, 'start') &&
-    hasString(value, 'end') &&
-    hasString(value, 'day') &&
-    hasString(value, 'timezone')
-  );
+  return hasString(value, "start") && hasString(value, "end") && hasString(value, "timezone");
 };
 
 const isManualSleepPayload = (value: unknown): value is ManualSleepPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
-  if (!hasNumber(value, 'totalMinutes')) return false;
+  if (!hasNumber(value, "totalMinutes")) return false;
 
   // IMPORTANT: after isManualWindowBase, TS narrows the value to ManualWindowBase.
   // Access extra fields via the record shape (safe runtime check) to satisfy strict TS.
-  return typeof (value as Record<string, unknown>)['isMainSleep'] === 'boolean';
+  return typeof (value as Record<string, unknown>)["isMainSleep"] === "boolean";
 };
 
 const isManualStepsPayload = (value: unknown): value is ManualStepsPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
-  return hasNumber(value, 'steps');
+  return hasNumber(value, "steps");
 };
 
 const isManualWorkoutPayload = (value: unknown): value is ManualWorkoutPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
-  return hasString(value, 'sport') && hasNumber(value, 'durationMinutes');
+  return hasString(value, "sport") && hasNumber(value, "durationMinutes");
 };
 
 const isManualWeightPayload = (value: unknown): value is ManualWeightPayload => {
   if (!isRecord(value)) return false;
-  return (
-    hasString(value, 'time') &&
-    hasString(value, 'day') &&
-    hasString(value, 'timezone') &&
-    hasNumber(value, 'weightKg')
-  );
+  return hasString(value, "time") && hasString(value, "timezone") && hasNumber(value, "weightKg");
 };
 
 const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
   if (!isRecord(value)) return false;
-  return (
-    hasString(value, 'time') &&
-    hasString(value, 'day') &&
-    hasString(value, 'timezone')
-  );
+  return hasString(value, "time") && hasString(value, "timezone");
 };
 
 /**
  * Parse manual payload based on kind.
  * Constrains K to keyof ManualPayloadByKind to allow indexed access.
  */
-const parseManualPayload = <K extends ManualKind>(
-  kind: K,
-  payload: unknown,
-): ManualPayloadByKind[K] | null => {
+const parseManualPayload = <K extends ManualKind>(kind: K, payload: unknown): ManualPayloadByKind[K] | null => {
   switch (kind) {
-    case 'sleep':
+    case "sleep":
       return isManualSleepPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
-    case 'steps':
+    case "steps":
       return isManualStepsPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
-    case 'workout':
+    case "workout":
       return isManualWorkoutPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
-    case 'weight':
+    case "weight":
       return isManualWeightPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
-    case 'hrv':
+    case "hrv":
       return isManualHrvPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
     default: {
       const _exhaustive: never = kind;
@@ -199,51 +207,61 @@ const parseManualPayload = <K extends ManualKind>(
 // Manual mappers (provider === "manual")
 // -----------------------------------------------------------------------------
 
-const mapManualSleep = (raw: RawEvent, payload: ManualSleepPayload): SleepCanonicalEvent => ({
-  id: raw.id,
-  userId: raw.userId,
-  sourceId: raw.sourceId,
-  kind: 'sleep',
-  start: payload.start,
-  end: payload.end,
-  day: payload.day,
-  timezone: payload.timezone,
-  createdAt: raw.receivedAt,
-  updatedAt: raw.receivedAt,
-  schemaVersion: 1,
-  totalMinutes: payload.totalMinutes,
-  efficiency: payload.efficiency ?? null,
-  latencyMinutes: payload.latencyMinutes ?? null,
-  awakenings: payload.awakenings ?? null,
-  isMainSleep: payload.isMainSleep,
-});
+const mapManualSleep = (raw: RawEvent, payload: ManualSleepPayload): SleepCanonicalEvent => {
+  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
 
-const mapManualSteps = (raw: RawEvent, payload: ManualStepsPayload): StepsCanonicalEvent => ({
-  id: raw.id,
-  userId: raw.userId,
-  sourceId: raw.sourceId,
-  kind: 'steps',
-  start: payload.start,
-  end: payload.end,
-  day: payload.day,
-  timezone: payload.timezone,
-  createdAt: raw.receivedAt,
-  updatedAt: raw.receivedAt,
-  schemaVersion: 1,
-  steps: payload.steps,
-  distanceKm: payload.distanceKm ?? null,
-  moveMinutes: payload.moveMinutes ?? null,
-});
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    sourceId: raw.sourceId,
+    kind: "sleep",
+    start: payload.start,
+    end: payload.end,
+    day,
+    timezone: payload.timezone,
+    createdAt: raw.receivedAt,
+    updatedAt: raw.receivedAt,
+    schemaVersion: 1,
+    totalMinutes: payload.totalMinutes,
+    efficiency: payload.efficiency ?? null,
+    latencyMinutes: payload.latencyMinutes ?? null,
+    awakenings: payload.awakenings ?? null,
+    isMainSleep: payload.isMainSleep,
+  };
+};
+
+const mapManualSteps = (raw: RawEvent, payload: ManualStepsPayload): StepsCanonicalEvent => {
+  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    sourceId: raw.sourceId,
+    kind: "steps",
+    start: payload.start,
+    end: payload.end,
+    day,
+    timezone: payload.timezone,
+    createdAt: raw.receivedAt,
+    updatedAt: raw.receivedAt,
+    schemaVersion: 1,
+    steps: payload.steps,
+    distanceKm: payload.distanceKm ?? null,
+    moveMinutes: payload.moveMinutes ?? null,
+  };
+};
 
 const mapManualWorkout = (raw: RawEvent, payload: ManualWorkoutPayload): WorkoutCanonicalEvent => {
+  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+
   const base: WorkoutCanonicalEvent = {
     id: raw.id,
     userId: raw.userId,
     sourceId: raw.sourceId,
-    kind: 'workout',
+    kind: "workout",
     start: payload.start,
     end: payload.end,
-    day: payload.day,
+    day,
     timezone: payload.timezone,
     createdAt: raw.receivedAt,
     updatedAt: raw.receivedAt,
@@ -261,31 +279,37 @@ const mapManualWorkout = (raw: RawEvent, payload: ManualWorkoutPayload): Workout
   return base;
 };
 
-const mapManualWeight = (raw: RawEvent, payload: ManualWeightPayload): WeightCanonicalEvent => ({
-  id: raw.id,
-  userId: raw.userId,
-  sourceId: raw.sourceId,
-  kind: 'weight',
-  start: payload.time,
-  end: payload.time,
-  day: payload.day,
-  timezone: payload.timezone,
-  createdAt: raw.receivedAt,
-  updatedAt: raw.receivedAt,
-  schemaVersion: 1,
-  weightKg: payload.weightKg,
-  bodyFatPercent: payload.bodyFatPercent ?? null,
-});
+const mapManualWeight = (raw: RawEvent, payload: ManualWeightPayload): WeightCanonicalEvent => {
+  const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    sourceId: raw.sourceId,
+    kind: "weight",
+    start: payload.time,
+    end: payload.time,
+    day,
+    timezone: payload.timezone,
+    createdAt: raw.receivedAt,
+    updatedAt: raw.receivedAt,
+    schemaVersion: 1,
+    weightKg: payload.weightKg,
+    bodyFatPercent: payload.bodyFatPercent ?? null,
+  };
+};
 
 const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEvent => {
+  const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+
   const base: HrvCanonicalEvent = {
     id: raw.id,
     userId: raw.userId,
     sourceId: raw.sourceId,
-    kind: 'hrv',
+    kind: "hrv",
     start: payload.time,
     end: payload.time,
-    day: payload.day,
+    day,
     timezone: payload.timezone,
     createdAt: raw.receivedAt,
     updatedAt: raw.receivedAt,
@@ -313,10 +337,10 @@ const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEve
  * - Other providers (e.g. "apple_health", "oura") will be added later.
  */
 export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
-  if (raw.provider !== 'manual') {
+  if (raw.provider !== "manual") {
     return {
       ok: false,
-      reason: 'UNSUPPORTED_PROVIDER',
+      reason: "UNSUPPORTED_PROVIDER",
       details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
     };
   }
@@ -324,7 +348,7 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
   if (!isManualKind(raw.kind)) {
     return {
       ok: false,
-      reason: 'UNSUPPORTED_KIND',
+      reason: "UNSUPPORTED_KIND",
       details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
     };
   }
@@ -332,60 +356,60 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
   // Parse INSIDE each case so the payload is correctly typed per-kind
   // (avoids union payload issues under strict TS).
   switch (raw.kind) {
-    case 'sleep': {
-      const payload = parseManualPayload('sleep', raw.payload);
+    case "sleep": {
+      const payload = parseManualPayload("sleep", raw.payload);
       if (!payload) {
         return {
           ok: false,
-          reason: 'MALFORMED_PAYLOAD',
+          reason: "MALFORMED_PAYLOAD",
           details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
         };
       }
       return { ok: true, canonical: mapManualSleep(raw, payload) };
     }
 
-    case 'steps': {
-      const payload = parseManualPayload('steps', raw.payload);
+    case "steps": {
+      const payload = parseManualPayload("steps", raw.payload);
       if (!payload) {
         return {
           ok: false,
-          reason: 'MALFORMED_PAYLOAD',
+          reason: "MALFORMED_PAYLOAD",
           details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
         };
       }
       return { ok: true, canonical: mapManualSteps(raw, payload) };
     }
 
-    case 'workout': {
-      const payload = parseManualPayload('workout', raw.payload);
+    case "workout": {
+      const payload = parseManualPayload("workout", raw.payload);
       if (!payload) {
         return {
           ok: false,
-          reason: 'MALFORMED_PAYLOAD',
+          reason: "MALFORMED_PAYLOAD",
           details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
         };
       }
       return { ok: true, canonical: mapManualWorkout(raw, payload) };
     }
 
-    case 'weight': {
-      const payload = parseManualPayload('weight', raw.payload);
+    case "weight": {
+      const payload = parseManualPayload("weight", raw.payload);
       if (!payload) {
         return {
           ok: false,
-          reason: 'MALFORMED_PAYLOAD',
+          reason: "MALFORMED_PAYLOAD",
           details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
         };
       }
       return { ok: true, canonical: mapManualWeight(raw, payload) };
     }
 
-    case 'hrv': {
-      const payload = parseManualPayload('hrv', raw.payload);
+    case "hrv": {
+      const payload = parseManualPayload("hrv", raw.payload);
       if (!payload) {
         return {
           ok: false,
-          reason: 'MALFORMED_PAYLOAD',
+          reason: "MALFORMED_PAYLOAD",
           details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
         };
       }

@@ -42,7 +42,10 @@ app.use("/ingest", authMiddleware, eventsRoutes);
 app.use("/users/me", authMiddleware, usersMeRoutes);
 
 // Global error handler (typed, safe, request-id aware)
-app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+  // keep Express signature, but we don't use next
+  void next;
+
   const rid = (req as RequestWithRid).rid ?? "unknown";
   const message = err instanceof Error ? err.message : "Unknown error";
 

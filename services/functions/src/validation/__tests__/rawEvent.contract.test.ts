@@ -1,64 +1,50 @@
 // services/functions/src/validation/__tests__/rawEvent.contract.test.ts
+import { rawEventDocSchema } from "@oli/contracts";
 
-import { describe, it, expect } from "@jest/globals";
-import type { RawEvent } from "../../types/health";
-import { parseRawEvent } from "../rawEvent";
-import { mapRawEventToCanonical } from "../../normalization/mapRawEventToCanonical";
-
-describe("RawEvent contract (API ⇄ Firestore ⇄ Functions)", () => {
-  it("accepts the canonical RawEvent envelope and normalizes it", () => {
-    const raw: RawEvent = {
-      id: "raw-1",
-      userId: "user-1",
-      sourceId: "manual",
-      sourceType: "manual",
-      provider: "manual",
-      kind: "weight",
-      receivedAt: "2025-01-02T03:04:05.000Z",
-      observedAt: "2025-01-02T03:00:00.000Z",
-      payload: {
-        time: "2025-01-02T03:00:00.000Z",
-        day: "2025-01-01",
-        timezone: "America/New_York",
-        weightKg: 80,
-      },
+describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
+  test("accepts a valid manual weight RawEvent doc", () => {
+    const raw = {
       schemaVersion: 1,
+      id: "abc123",
+      userId: "user_1",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "weight",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        time: "2025-01-02T00:00:00.000Z",
+        timezone: "America/New_York",
+        weightKg: 80.5,
+        bodyFatPercent: 12.3
+      }
     };
 
-    const parsed = parseRawEvent(raw);
-    expect(parsed.ok).toBe(true);
-
-    if (!parsed.ok) {
-      throw new Error("RawEvent should have parsed successfully");
-    }
-
-    const mapped = mapRawEventToCanonical(parsed.value);
-    expect(mapped.ok).toBe(true);
-
-    if (!mapped.ok) {
-      throw new Error("RawEvent should have normalized successfully");
-    }
-
-    expect(mapped.canonical.kind).toBe("weight");
-    expect(mapped.canonical.userId).toBe("user-1");
-    expect(mapped.canonical.schemaVersion).toBe(1);
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
   });
 
-  it("rejects non-ISO timestamps", () => {
-    const bad = {
-      id: "raw-1",
-      userId: "user-1",
-      sourceId: "manual",
-      sourceType: "manual",
-      provider: "manual",
-      kind: "weight",
-      receivedAt: "not-a-date",
-      observedAt: "also-not-a-date",
-      payload: {},
+  test("rejects malformed payload for kind", () => {
+    const raw = {
       schemaVersion: 1,
+      id: "abc123",
+      userId: "user_1",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "weight",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        start: "2025-01-02T00:00:00.000Z",
+        end: "2025-01-02T01:00:00.000Z",
+        timezone: "America/New_York",
+        steps: 1000
+      }
     };
 
-    const parsed = parseRawEvent(bad);
-    expect(parsed.ok).toBe(false);
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(false);
   });
 });

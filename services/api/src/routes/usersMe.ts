@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import type { AuthedRequest } from "../middleware/auth";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
+import { ymdInTimeZoneFromIso } from "../lib/dayKey";
 import { dayQuerySchema } from "../types/day";
 import {
   dailyFactsDtoSchema,
@@ -16,6 +17,11 @@ import {
   logWeightResponseDtoSchema,
 } from "../types/dtos";
 
+import { asyncHandler } from "../lib/asyncHandler";
+
+// ✅ Authoritative contract
+import { rawEventDocSchema } from "@oli/contracts";
+
 const router = Router();
 
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
@@ -23,7 +29,6 @@ const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "u
 const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
   const key = req.header("Idempotency-Key") ?? req.header("X-Idempotency-Key") ?? undefined;
   if (!key) return undefined;
-  // Firestore doc IDs can't contain '/'.
   if (key.includes("/")) return undefined;
   return key;
 };
@@ -91,200 +96,214 @@ const invalidBody400 = (req: AuthedRequest, res: Response, details: unknown) => 
 
 /**
  * POST /users/me/body/weight
- *
- * Body MUST match ManualWeightPayload expected by functions:
- * { time, day, timezone, weightKg, bodyFatPercent? }
- *
- * Writes RawEvent matching services/functions/src/validation/rawEvent.ts
- * into: /users/{uid}/rawEvents/{rawEventId}
  */
-router.post("/body/weight", async (req: AuthedRequest, res: Response) => {
-  const uid = requireUid(req, res);
-  if (!uid) return;
+router.post(
+  "/body/weight",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
 
-  const parsed = logWeightRequestDtoSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return invalidBody400(req, res, parsed.error.flatten());
-  }
-
-  const payload = parsed.data;
-
-  // Validate ISO date string parse (defensive)
-  if (Number.isNaN(Date.parse(payload.time))) {
-    return invalidBody400(req, res, { time: "Invalid ISO datetime string" });
-  }
-
-  const db = getFirestore();
-  const rawEventsCol = db.collection("users").doc(uid).collection("rawEvents");
-
-  const idempotencyKey = getIdempotencyKey(req);
-  const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc(randomUUID());
-  const rawEventId = docRef.id;
-
-  const nowIso = new Date().toISOString();
-
-  // ✅ MUST match parseRawEvent required keys:
-  // requiredStringKeys: id,userId,sourceId,provider,receivedAt,observedAt
-  // sourceType must be valid HealthSourceType (manual)
-  // kind must be CanonicalEventKind (weight)
-  // schemaVersion === 1
-  // payload must exist
-  const rawEvent = {
-    schemaVersion: 1 as const,
-    id: rawEventId,
-    userId: uid,
-    sourceId: "manual",
-    provider: "manual",
-    sourceType: "manual",
-    kind: "weight",
-    receivedAt: nowIso,
-    observedAt: payload.time,
-    payload: {
-      time: payload.time,
-      day: payload.day,
-      timezone: payload.timezone,
-      weightKg: payload.weightKg,
-      ...(payload.bodyFatPercent !== undefined ? { bodyFatPercent: payload.bodyFatPercent } : {}),
-    },
-  };
-
-  try {
-    // ✅ Idempotent: create() fails if doc exists — perfect for retries.
-    await docRef.create(rawEvent);
-  } catch (e: unknown) {
-    // If it already exists, treat as success (retry replay).
-    const snap = await docRef.get();
-    if (snap.exists) {
-      const out = { ok: true as const, rawEventId, day: payload.day };
-      const validated = logWeightResponseDtoSchema.safeParse(out);
-      if (!validated.success) {
-        return invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
-      }
-      return res.status(200).json(validated.data);
+    const parsed = logWeightRequestDtoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      invalidBody400(req, res, parsed.error.flatten());
+      return;
     }
-    throw e;
-  }
 
-  const out = { ok: true as const, rawEventId, day: payload.day };
-  const validated = logWeightResponseDtoSchema.safeParse(out);
-  if (!validated.success) {
-    return invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
-  }
+    const payload = parsed.data;
 
-  return res.status(200).json(validated.data);
-});
+    if (Number.isNaN(Date.parse(payload.time))) {
+      invalidBody400(req, res, { time: "Invalid ISO datetime string" });
+      return;
+    }
+
+    const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+
+    const db = getFirestore();
+    const rawEventsCol = db.collection("users").doc(uid).collection("rawEvents");
+
+    const idempotencyKey = getIdempotencyKey(req);
+    const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc(randomUUID());
+    const rawEventId = docRef.id;
+
+    const nowIso = new Date().toISOString();
+
+    const rawEvent = {
+      schemaVersion: 1 as const,
+      id: rawEventId,
+      userId: uid,
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "weight" as const,
+      receivedAt: nowIso,
+      observedAt: payload.time,
+      payload: {
+        time: payload.time,
+        day,
+        timezone: payload.timezone,
+        weightKg: payload.weightKg,
+        ...(payload.bodyFatPercent !== undefined ? { bodyFatPercent: payload.bodyFatPercent } : {}),
+      },
+    };
+
+    const rawValidated = rawEventDocSchema.safeParse(rawEvent);
+    if (!rawValidated.success) {
+      invalidDoc500(req, res, "rawEvent", rawValidated.error.flatten());
+      return;
+    }
+
+    try {
+      await docRef.create(rawValidated.data);
+    } catch (e: unknown) {
+      const snap = await docRef.get();
+      if (snap.exists) {
+        const out = { ok: true as const, rawEventId, day };
+        const validated = logWeightResponseDtoSchema.safeParse(out);
+        if (!validated.success) {
+          invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
+          return;
+        }
+        res.status(200).json(validated.data);
+        return;
+      }
+      throw e;
+    }
+
+    const out = { ok: true as const, rawEventId, day };
+    const validated = logWeightResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  })
+);
 
 /**
  * GET /users/me/daily-facts?day=YYYY-MM-DD
- * Firestore: /users/{uid}/dailyFacts/{day}
  */
-router.get("/daily-facts", async (req: AuthedRequest, res: Response) => {
-  const uid = requireUid(req, res);
-  if (!uid) return;
+router.get(
+  "/daily-facts",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
 
-  const day = parseDay(req, res);
-  if (!day) return;
+    const day = parseDay(req, res);
+    if (!day) return;
 
-  const db = getFirestore();
-  const ref = db.collection("users").doc(uid).collection("dailyFacts").doc(day);
+    const db = getFirestore();
+    const ref = db.collection("users").doc(uid).collection("dailyFacts").doc(day);
 
-  const snap = await ref.get();
-  if (!snap.exists) {
-    return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "dailyFacts", day } });
-  }
+    const snap = await ref.get();
+    if (!snap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "dailyFacts", day } });
+      return;
+    }
 
-  const data = snap.data();
-  const parsed = dailyFactsDtoSchema.safeParse(data);
-  if (!parsed.success) {
-    return invalidDoc500(req, res, "dailyFacts", parsed.error.flatten());
-  }
+    const data = snap.data();
+    const parsed = dailyFactsDtoSchema.safeParse(data);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "dailyFacts", parsed.error.flatten());
+      return;
+    }
 
-  return res.status(200).json(parsed.data);
-});
+    res.status(200).json(parsed.data);
+  })
+);
 
 /**
  * GET /users/me/insights?day=YYYY-MM-DD
- * Firestore: /users/{uid}/insights/{insightId} where Insight.date === day
- *
- * Not 404 when zero insights.
  */
-router.get("/insights", async (req: AuthedRequest, res: Response) => {
-  const uid = requireUid(req, res);
-  if (!uid) return;
+router.get(
+  "/insights",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
 
-  const day = parseDay(req, res);
-  if (!day) return;
+    const day = parseDay(req, res);
+    if (!day) return;
 
-  const db = getFirestore();
-  const snap = await db.collection("users").doc(uid).collection("insights").where("date", "==", day).get();
+    const db = getFirestore();
+    const snap = await db.collection("users").doc(uid).collection("insights").where("date", "==", day).get();
 
-  const parsedDocs = snap.docs.map((d) => {
-    const raw = d.data();
-    const parsed = insightDtoSchema.safeParse(raw);
-    return { docId: d.id, parsed };
-  });
+    const parsedDocs = snap.docs.map((d) => {
+      const raw = d.data();
+      const parsed = insightDtoSchema.safeParse(raw);
+      return { docId: d.id, parsed };
+    });
 
-  const bad = parsedDocs.find((x) => !x.parsed.success);
-  if (bad && !bad.parsed.success) {
-    return invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
-  }
+    const bad = parsedDocs.find((x) => !x.parsed.success);
+    if (bad && !bad.parsed.success) {
+      invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
+      return;
+    }
 
-  const items = parsedDocs.map((x) => x.parsed.data);
+    const items = parsedDocs.map((x) => x.parsed.data);
 
-  const severityRank = (v: "critical" | "warning" | "info"): number => {
-    if (v === "critical") return 0;
-    if (v === "warning") return 1;
-    return 2;
-  };
+    const severityRank = (v: "critical" | "warning" | "info"): number => {
+      if (v === "critical") return 0;
+      if (v === "warning") return 1;
+      return 2;
+    };
 
-  const sorted = [...items].sort((a, b) => {
-    if (!a && !b) return 0;
-    if (!a) return 1;
-    if (!b) return -1;
+    // Defensive comparator (satisfies TS even if items is inferred loosely elsewhere)
+    const sorted = [...items].sort((a, b) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
 
-    const sA = severityRank(a.severity);
-    const sB = severityRank(b.severity);
-    if (sA !== sB) return sA - sB;
+      const sA = severityRank(a.severity);
+      const sB = severityRank(b.severity);
+      if (sA !== sB) return sA - sB;
 
-    if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
-    return a.id.localeCompare(b.id);
-  });
+      if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+      return a.id.localeCompare(b.id);
+    });
 
-  const out = { day, count: sorted.length, items: sorted };
-  const validated = insightsResponseDtoSchema.safeParse(out);
-  if (!validated.success) {
-    return invalidDoc500(req, res, "insightsResponse", validated.error.flatten());
-  }
+    const out = { day, count: sorted.length, items: sorted };
+    const validated = insightsResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "insightsResponse", validated.error.flatten());
+      return;
+    }
 
-  return res.status(200).json(validated.data);
-});
+    res.status(200).json(validated.data);
+  })
+);
 
 /**
  * GET /users/me/intelligence-context?day=YYYY-MM-DD
- * Firestore: /users/{uid}/intelligenceContext/{YYYY-MM-DD}
  */
-router.get("/intelligence-context", async (req: AuthedRequest, res: Response) => {
-  const uid = requireUid(req, res);
-  if (!uid) return;
+router.get(
+  "/intelligence-context",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
 
-  const day = parseDay(req, res);
-  if (!day) return;
+    const day = parseDay(req, res);
+    if (!day) return;
 
-  const db = getFirestore();
-  const ref = db.collection("users").doc(uid).collection("intelligenceContext").doc(day);
+    const db = getFirestore();
+    const ref = db.collection("users").doc(uid).collection("intelligenceContext").doc(day);
 
-  const snap = await ref.get();
-  if (!snap.exists) {
-    return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "intelligenceContext", day } });
-  }
+    const snap = await ref.get();
+    if (!snap.exists) {
+      res
+        .status(404)
+        .json({ ok: false, error: { code: "NOT_FOUND", resource: "intelligenceContext", day } });
+      return;
+    }
 
-  const data = snap.data();
-  const parsed = intelligenceContextDtoSchema.safeParse(data);
-  if (!parsed.success) {
-    return invalidDoc500(req, res, "intelligenceContext", parsed.error.flatten());
-  }
+    const data = snap.data();
+    const parsed = intelligenceContextDtoSchema.safeParse(data);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "intelligenceContext", parsed.error.flatten());
+      return;
+    }
 
-  return res.status(200).json(parsed.data);
-});
+    res.status(200).json(parsed.data);
+  })
+);
 
 export default router;

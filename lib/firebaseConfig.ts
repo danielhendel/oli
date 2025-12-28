@@ -10,8 +10,14 @@ import { getEnv } from "./env";
  * Firebase's RN persistence helper lives in @firebase/auth internals.
  * TypeScript may not be able to resolve this path due to package "exports",
  * but Metro can at runtime once @firebase/auth is installed at the repo root.
+ *
+ * IMPORTANT:
+ * - Do NOT use @ts-expect-error here: it will fail when TS *doesn't* error.
+ * - Use @ts-ignore instead, since the deep import may or may not be type-resolvable
+ *   depending on Firebase package/export changes.
  */
-// @ts-expect-error - deep import is intentionally used for RN persistence
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - deep import is intentionally used for RN persistence
 import * as FirebaseAuthRn from "@firebase/auth/dist/rn/index.js";
 
 type FirebaseClientConfig = {
@@ -49,6 +55,7 @@ const getReactNativePersistenceSafe = (): ((storage: unknown) => Persistence) | 
 
 export const getFirebaseApp = (): FirebaseApp => {
   if (cachedApp) return cachedApp;
+
   cachedApp = getApps().length > 0 ? getApp() : initializeApp(readFirebaseConfig());
   return cachedApp;
 };
@@ -72,6 +79,7 @@ export const getFirebaseAuth = (): Auth => {
 
 export const getFirestoreDb = (): Firestore => {
   if (cachedDb) return cachedDb;
+
   const app = getFirebaseApp();
   cachedDb = getFirestore(app);
   return cachedDb;

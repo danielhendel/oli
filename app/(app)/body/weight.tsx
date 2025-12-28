@@ -6,7 +6,17 @@ import { useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { logWeight } from "@/lib/api/usersMe";
-import { buildManualWeightPayload, poundsToKg } from "@/lib/events/manualWeight";
+import { buildManualWeightPayload } from "@/lib/events/manualWeight";
+
+const getDeviceTimeZone = (): string => {
+  // RN Hermes usually supports Intl; fall back safely.
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.length ? tz : "UTC";
+  } catch {
+    return "UTC";
+  }
+};
 
 export default function BodyWeightScreen() {
   const router = useRouter();
@@ -24,19 +34,21 @@ export default function BodyWeightScreen() {
 
   const parsed = useMemo(() => {
     const w = Number(weightText);
-    const bf = bodyFatText.trim() === "" ? null : Number(bodyFatText);
+    const bfRaw = bodyFatText.trim() === "" ? null : Number(bodyFatText);
 
     const weightOk = Number.isFinite(w) && w > 0;
-    const bfOk = bf === null || (Number.isFinite(bf) && bf >= 0 && bf <= 100);
+    const bfOk = bfRaw === null || (Number.isFinite(bfRaw) && bfRaw >= 0 && bfRaw <= 100);
 
-    const weightKg = weightOk ? (unit === "kg" ? w : poundsToKg(w)) : null;
-    const bodyFatPercent = bfOk ? bf : NaN;
+    // This screen supports both unit entry, but the manual weight event helper
+    // currently expects weightLbs in the payload builder.
+    const weightLbs =
+      weightOk ? (unit === "lb" ? w : w * 2.2046226218) : null;
 
     return {
       weightOk,
       bfOk,
-      weightKg,
-      bodyFatPercent: bf === null ? null : bodyFatPercent,
+      weightLbs,
+      bodyFatPercent: bfRaw === null ? null : bfRaw,
     };
   }, [weightText, bodyFatText, unit]);
 
@@ -45,11 +57,11 @@ export default function BodyWeightScreen() {
     Boolean(user) &&
     parsed.weightOk &&
     parsed.bfOk &&
-    parsed.weightKg !== null &&
+    parsed.weightLbs !== null &&
     status.state !== "saving";
 
   const onSave = async (): Promise<void> => {
-    if (!canSave || parsed.weightKg === null) return;
+    if (!canSave || parsed.weightLbs === null) return;
     setStatus({ state: "saving" });
 
     try {
@@ -62,16 +74,20 @@ export default function BodyWeightScreen() {
         return;
       }
 
-      const token = await getIdToken(false);
+      const token = await getIdToken();
       if (!token) {
         setStatus({ state: "error", message: "No auth token (try Debug → Re-auth)" });
         return;
       }
 
-      // ✅ Generates ManualWeightPayload:
-      // { time, day, timezone, weightKg, bodyFatPercent? }
+      const time = new Date().toISOString();
+      const timezone = getDeviceTimeZone();
+
+      // ✅ buildManualWeightPayload requires time + timezone + weightLbs
       const payload = buildManualWeightPayload({
-        weightKg: parsed.weightKg,
+        time,
+        timezone,
+        weightLbs: parsed.weightLbs,
         ...(parsed.bodyFatPercent !== null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
       });
 

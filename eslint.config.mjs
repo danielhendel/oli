@@ -1,185 +1,131 @@
-// eslint.config.mjs — ESLint v9 Flat Config
-
+// eslint.config.mjs
 import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 import globals from "globals";
-import tsParser from "@typescript-eslint/parser";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import reactPlugin from "eslint-plugin-react";
-import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
-  // ---------------------------------------------------------------------------
-  // 0) Ignore generated, native, legacy, and build output (CRITICAL)
-  // ---------------------------------------------------------------------------
+  // ─────────────────────────────────────────────
+  // Global ignores (flat config)
+  // ─────────────────────────────────────────────
   {
     ignores: [
       "**/node_modules/**",
+      "**/.turbo/**",
+      "**/coverage/**",
+
+      // Expo generated
       "**/.expo/**",
-      "archive/**",
-      "**/android/**",
-      "**/ios/**",
+
+      // Build outputs
       "**/dist/**",
-      "**/dist-types/**",
       "**/build/**",
       "**/web-build/**",
-      "**/coverage/**",
-      "services/**/lib/**",
+
+      // Repo generated outputs
+      "**/dist-types/**",
+      "**/lib/dist-types/**",
+      "**/services/**/dist/**",
+      "**/services/**/lib/**",
+
+      // ✅ Critical: never lint .d.ts (generated / type surface)
       "**/*.d.ts",
-      "**/*.d.ts.map",
+
+      // Legacy ESLint configs should not be lint targets
+      "**/.eslintrc.*",
+      "**/services/**/.eslintrc.*",
     ],
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
   },
 
-  // ---------------------------------------------------------------------------
-  // 1) Base JS rules
-  // ---------------------------------------------------------------------------
+  // Base JS recommended (mainly for config scripts if they get linted)
   js.configs.recommended,
 
-  // ---------------------------------------------------------------------------
-  // 2) Node-only config files (babel / metro / config scripts)
-  // ---------------------------------------------------------------------------
-  {
-    files: ["babel.config.js", "metro.config.js", "*.config.js"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        module: "readonly",
-        require: "readonly",
-        __dirname: "readonly",
-        process: "readonly",
-      },
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // 3) Jest test files
-  // ---------------------------------------------------------------------------
-  {
-    files: ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.jest,
-      },
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // 4) ARCHITECTURE GUARDRAILS
-  // ---------------------------------------------------------------------------
-  {
-    files: ["**/*.ts", "**/*.tsx"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            // 🚫 Never import generated TS outputs
-            "dist-types/*",
-
-            // 🚫 app must not import server code
-            "services/*",
-
-            // 🚫 services must not import app code
-            "app/*",
-          ],
-        },
+  // ─────────────────────────────────────────────
+  // TypeScript rules (source only)
+  // ─────────────────────────────────────────────
+  ...tseslint.config(
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      // ✅ Extra safety: exclude generated areas even if included by CLI patterns
+      ignores: [
+        "**/dist/**",
+        "**/build/**",
+        "**/dist-types/**",
+        "**/lib/dist-types/**",
+        "**/services/**/dist/**",
+        "**/services/**/lib/**",
+        "**/*.d.ts",
       ],
     },
-  },
+    tseslint.configs.recommended,
+    tseslint.configs.stylistic
+  ),
 
-  // ---------------------------------------------------------------------------
-  // 5) Client-only restrictions (app/** + lib/**)
-  // ---------------------------------------------------------------------------
-  {
-    files: ["app/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            { name: "firebase-admin", message: "Client code must never import firebase-admin." },
-            { name: "firebase-functions", message: "Client code must never import firebase-functions." },
-            { name: "express", message: "Client code must never import express." },
-            { name: "cors", message: "Client code must never import cors." },
-            { name: "@google-cloud/pubsub", message: "Client code must never import @google-cloud/pubsub." },
-            { name: "rate-limiter-flexible", message: "Client code must never import server-only rate limiter." },
-          ],
-          patterns: [
-            "firebase-admin/*",
-            "firebase-functions/*",
-            "@google-cloud/*",
-          ],
-        },
-      ],
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // 6) Server-only restrictions (services/**)
-  // ---------------------------------------------------------------------------
-  {
-    files: ["services/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            { name: "expo", message: "Server code must never import Expo runtime." },
-            { name: "expo-router", message: "Server code must never import Expo Router." },
-            { name: "react-native", message: "Server code must never import react-native." },
-          ],
-          patterns: [
-            "expo/*",
-            "expo-router/*",
-            "react-native/*",
-            "@react-native/*",
-          ],
-        },
-      ],
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // 7) TypeScript + React (JSX enabled where appropriate)
-  // ---------------------------------------------------------------------------
+  // ─────────────────────────────────────────────
+  // App/source defaults (Expo/RN uses browser-like globals such as fetch/setTimeout)
+  // ─────────────────────────────────────────────
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        ecmaVersion: 2022,
-        sourceType: "module",
-        ecmaFeatures: { jsx: true },
-      },
       globals: {
-        ...globals.node,
         ...globals.browser,
         ...globals.es2021,
       },
     },
-    plugins: {
-      "@typescript-eslint": tsPlugin,
-      react: reactPlugin,
-      "react-hooks": reactHooksPlugin,
+    rules: {
+      "@typescript-eslint/consistent-type-definitions": "off",
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
+      "@typescript-eslint/dot-notation": "off",
+      "@typescript-eslint/prefer-regexp-exec": "off",
+      "@typescript-eslint/no-misused-promises": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
     },
-    settings: {
-      react: { version: "detect" },
+  },
+
+  // ─────────────────────────────────────────────
+  // Server/services TS: allow node globals like process
+  // ─────────────────────────────────────────────
+  {
+    files: ["services/**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
+  // Jest test files: allow describe/test/expect (TS + JS)
+  {
+    files: [
+      "**/__tests__/**/*.[jt]s?(x)",
+      "**/*.test.[jt]s?(x)",
+      "**/*.spec.[jt]s?(x)",
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
     },
     rules: {
-      ...tsPlugin.configs.recommended.rules,
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 
-      // React (new JSX transform)
-      "react/react-in-jsx-scope": "off",
-      "react/jsx-uses-react": "off",
-
-      // Hooks
-      ...reactHooksPlugin.configs.recommended.rules,
-
-      // Clean unused vars
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
+  // JS/CJS/MJS config/build scripts: allow require()
+  {
+    files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 ];

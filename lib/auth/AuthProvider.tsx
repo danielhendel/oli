@@ -1,5 +1,5 @@
 // lib/auth/AuthProvider.tsx
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import type { User } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -9,31 +9,20 @@ import { signOutUser as signOutUserAction } from "@/lib/auth/actions";
 export type AuthContextValue = {
   user: User | null;
   initializing: boolean;
-
-  /**
-   * Returns Firebase ID token for current user (or null if signed out)
-   */
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
-
-  /**
-   * Back-compat: debug/token.tsx expects this name
-   */
   signOutUser: () => Promise<void>;
-
-  /**
-   * Preferred name for UI screens (settings/account.tsx)
-   */
-  signOut: () => Promise<void>;
+  signOut: () => Promise<void>; // alias used by some screens
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider = ({ children }: PropsWithChildren): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(getFirebaseAuth(), (u) => {
+    const auth = getFirebaseAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setInitializing(false);
     });
@@ -44,17 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       user,
       initializing,
-
       getIdToken: async (forceRefresh?: boolean) => {
-        const u = getFirebaseAuth().currentUser;
+        const auth = getFirebaseAuth();
+        const u = auth.currentUser;
         if (!u) return null;
-        return u.getIdToken(Boolean(forceRefresh));
+        return u.getIdToken(!!forceRefresh);
       },
-
       signOutUser: async () => {
         await signOutUserAction();
       },
-
       signOut: async () => {
         await signOutUserAction();
       },
@@ -62,10 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, initializing]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};
 
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 };

@@ -1,13 +1,14 @@
-import { App, getApp, getApps, initializeApp, applicationDefault } from "firebase-admin/app";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { App, applicationDefault, getApp, getApps, initializeApp } from "firebase-admin/app";
+import { Firestore, getFirestore } from "firebase-admin/firestore";
 
 /**
  * Firebase Admin (API) — Cloud Run safe
  *
- * Requirements:
- * - NO import-time initialization that can throw
- * - NO hard requirement on GOOGLE_CLOUD_PROJECT
+ * Goals:
+ * - No import-time initialization that can throw
+ * - No hard requirement on GOOGLE_CLOUD_PROJECT
  * - Allow ADC to infer projectId in Cloud Run
+ * - Avoid noisy logs during tests (and allow opt-out via env)
  */
 
 let _adminApp: App | null = null;
@@ -21,7 +22,8 @@ const tryResolveProjectId = (): string | undefined => {
   if (fc) {
     try {
       const parsed = JSON.parse(fc) as { projectId?: string };
-      if (typeof parsed.projectId === "string" && parsed.projectId.trim()) return parsed.projectId.trim();
+      const pid = typeof parsed.projectId === "string" ? parsed.projectId.trim() : "";
+      if (pid) return pid;
     } catch {
       // ignore malformed FIREBASE_CONFIG
     }
@@ -29,6 +31,15 @@ const tryResolveProjectId = (): string | undefined => {
 
   // Key: do NOT throw — Cloud Run ADC can infer projectId
   return undefined;
+};
+
+const shouldLog = (): boolean => {
+  // Default: log once on boot in Cloud Run / local dev
+  // Never log in tests; allow explicit opt-out in prod
+  if (process.env.NODE_ENV === "test") return false;
+  const raw = (process.env.OLI_ADMIN_LOG || "").trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "off") return false;
+  return true;
 };
 
 export const getAdminApp = (): App => {
@@ -46,10 +57,11 @@ export const getAdminApp = (): App => {
     ...(projectId ? { projectId } : {}),
   });
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[api] firebase-admin initialized` + (projectId ? ` projectId=${projectId}` : " projectId=<inferred>")
-  );
+  if (shouldLog()) {
+    console.log(
+      `[api] firebase-admin initialized` + (projectId ? ` projectId=${projectId}` : " projectId=<inferred>")
+    );
+  }
 
   return _adminApp;
 };

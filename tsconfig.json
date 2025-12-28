@@ -2,16 +2,16 @@
   "files": [],
   "references": [
     {
-      "path": "./lib"
+      "path": "./lib/tsconfig.build.json"
     },
     {
-      "path": "./app"
+      "path": "./app/tsconfig.json"
     },
     {
-      "path": "./services/functions"
+      "path": "./services/functions/tsconfig.json"
     },
     {
-      "path": "./services/api"
+      "path": "./services/api/tsconfig.json"
     }
   ],
   "compilerOptions": {},

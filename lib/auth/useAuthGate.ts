@@ -1,24 +1,19 @@
 // lib/auth/useAuthGate.ts
 import { useEffect, useState } from "react";
-import type { User } from "firebase/auth";
-import { onAuthStateChanged } from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebaseConfig";
+import { getFirebaseAuth } from "../firebaseConfig";
 
-export type AuthGateState =
-  | { status: "loading"; user: null }
-  | { status: "signedOut"; user: null }
-  | { status: "signedIn"; user: User };
-
-export const useAuthGate = (): AuthGateState => {
-  const [state, setState] = useState<AuthGateState>({ status: "loading", user: null });
+export const useAuthGate = (): { ready: boolean; uid: string | null } => {
+  const auth = getFirebaseAuth();
+  const [ready, setReady] = useState<boolean>(false);
+  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(getFirebaseAuth(), (user) => {
-      if (!user) setState({ status: "signedOut", user: null });
-      else setState({ status: "signedIn", user });
+    const unsub = auth.onAuthStateChanged((u) => {
+      setUid(u?.uid ?? null);
+      setReady(true);
     });
     return () => unsub();
-  }, []);
+  }, [auth]);
 
-  return state;
+  return { ready, uid };
 };

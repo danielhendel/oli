@@ -1,0 +1,7 @@
+{
+    "projects": {
+      "staging": "oli-staging-fdbba",
+      "prod": "replace_with_prod_project_id"
+    }
+  }
+  
