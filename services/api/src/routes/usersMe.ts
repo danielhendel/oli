@@ -20,7 +20,8 @@ import {
 import { asyncHandler } from "../lib/asyncHandler";
 
 // ✅ Authoritative contract
-import { rawEventDocSchema } from "@oli/contracts";
+import { rawEventDocSchema } from "../../../../lib/contracts";
+
 
 const router = Router();
 

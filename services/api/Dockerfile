@@ -1,32 +1,37 @@
-# ---- Build stage ----
-    FROM node:20-alpine AS build
-    WORKDIR /app
-    
-    # Install deps (requires package-lock.json)
-    COPY package*.json ./
-    RUN npm ci --ignore-scripts
-    
-    # Build TypeScript
-    COPY tsconfig.json ./
-    COPY src ./src
-    RUN npm run build
-    
-    # ---- Runtime stage ----
-    FROM node:20-alpine
-    ENV NODE_ENV=production
-    WORKDIR /app
-    
-    # Install only prod deps
-    COPY package*.json ./
-    RUN npm ci --omit=dev --ignore-scripts
-    
-    # Bring compiled JS
-    COPY --from=build /app/dist ./dist
-    
-    # Cloud Run conventions
-    ENV PORT=8080
-    EXPOSE 8080
-    
-    # IMPORTANT: server.js is the entry that actually listens on PORT
-    CMD ["node", "dist/server.js"]
-    
+# services/api/Dockerfile
+
+FROM node:20-slim AS deps
+WORKDIR /workspace
+
+# Install from repo root so workspace has the same dependency graph as local
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:20-slim AS build
+WORKDIR /workspace
+
+COPY --from=deps /workspace/node_modules ./node_modules
+
+# Copy only what the API build needs
+COPY tsconfig.json tsconfig.base.json tsconfig.*.json ./
+COPY lib ./lib
+COPY services/api ./services/api
+
+# Build API
+WORKDIR /workspace/services/api
+RUN npm run build
+
+FROM node:20-slim AS run
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Compiled output contains dist/services/api/src/* because rootDir is repo root
+COPY --from=build /workspace/services/api/dist ./dist
+
+# Optional (nice for metadata/tools)
+COPY --from=build /workspace/services/api/package.json ./package.json
+
+EXPOSE 8080
+
+# Start the real server entrypoint (your server.ts already exists and is correct)
+CMD ["node", "dist/services/api/src/server.js"]

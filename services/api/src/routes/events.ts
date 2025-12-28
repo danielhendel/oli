@@ -2,7 +2,7 @@
 import { Router, type Response } from "express";
 import { getFirestore } from "firebase-admin/firestore";
 
-import { rawEventDocSchema } from "@oli/contracts";
+import { rawEventDocSchema } from "../../../../lib/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import { idempotencyMiddleware } from "../middleware/idempotency";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";

@@ -127,3 +127,8 @@ services/functions/lib/
 # ----------------------------------------
 cloudrun/.env.local
 services/api/.env.local
+
+# Never commit built JS next to TS sources
+lib/contracts/*.js
+lib/contracts/*.js.map
+
