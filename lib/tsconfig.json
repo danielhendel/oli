@@ -1,24 +1,26 @@
 {
-    "extends": "../tsconfig.base.json",
-    "compilerOptions": {
-      "rootDir": ".",
-      "outDir": "../dist-types/lib",
-      "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/lib.tsbuildinfo",
-  
-      "baseUrl": "..",
-      "paths": {
-        "@/*": ["./*"]
-      }
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist-types/lib",
+    "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/lib.tsbuildinfo",
+
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"]
     },
-    "include": ["./**/*"],
-    "exclude": [
-      "**/*.test.*",
-      "**/__tests__/**",
-      "../node_modules",
-      "../dist",
-      "../dist-types",
-      "../build",
-      "../coverage"
-    ]
-  }
-  
+
+    "composite": true,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"],
+  "exclude": [
+    "**/*.test.*",
+    "**/__tests__/**",
+    "../node_modules",
+    "../dist",
+    "../dist-types",
+    "../build",
+    "../coverage"
+  ]
+}

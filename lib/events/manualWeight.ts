@@ -35,16 +35,17 @@ export const buildManualWeightPayload = (input: {
 /**
  * Deterministic idempotency key for manual weight logs.
  *
- * Rules:
- * - Same day + same values → dedupe
- * - Different values → new event
- *
  * IMPORTANT:
- * - Firestore document IDs cannot contain '/'
- * - IANA timezones (e.g. "America/New_York") MUST be sanitized
+ * - Firestore doc IDs cannot contain '/'
+ * - Accept bodyFatPercent possibly being undefined due to exactOptionalPropertyTypes
  */
-export const manualWeightIdempotencyKey = (payload: ManualWeightPayload): string => {
-  const bf = payload.bodyFatPercent ?? "";
-  const tzSafe = payload.timezone.split("/").join("_"); // ES2019-safe
+export const manualWeightIdempotencyKey = (payload: {
+  day: string;
+  timezone: string;
+  weightKg: number;
+  bodyFatPercent?: number | null | undefined;
+}): string => {
+  const bf = payload.bodyFatPercent ?? ""; // treats undefined/null as empty
+  const tzSafe = payload.timezone.split("/").join("_");
   return `manual:weight:${payload.day}:${tzSafe}:${payload.weightKg}:${bf}`;
 };
