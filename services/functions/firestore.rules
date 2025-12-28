@@ -1,54 +1,63 @@
-// services/functions/firestore.rules
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // ✅ Default deny: future-proof against new collections/subcollections.
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
+    // ------------------------------------------------------------
+    // USERS (owner-scoped)
+    // ------------------------------------------------------------
+    match /users/{userId} {
+      // The user doc itself (profile/settings).
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+
+      // ----------------------------------------------------------
+      // SOURCES (user-owned config)
+      // ----------------------------------------------------------
       match /sources/{sourceId} {
-        allow read, write: if request.auth.uid == userId;
+        allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
       }
 
-      // ------------------------------------------
+      // ----------------------------------------------------------
       // RAW EVENTS (INGESTION BOUNDARY)
       //
-      // 🔒 IMPORTANT:
-      // RawEvents MUST ONLY be written by backend services (Cloud Run API / Functions Admin SDK),
-      // never by the client. This prevents bypassing validation, idempotency, auditing, and
-      // future ingestion controls.
-      //
-      // Clients may read their own RawEvents for debugging/visibility, but cannot write.
-      // ------------------------------------------
+      // 🔒 Backend-only writes (Cloud Run / Functions Admin SDK).
+      // Clients may read their own raw events (debug/visibility),
+      // but cannot create/update/delete.
+      // ----------------------------------------------------------
       match /rawEvents/{rawEventId} {
-        allow read: if request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
 
-      // Canonical events: backend-only writes
+      // ----------------------------------------------------------
+      // CANONICAL EVENTS / DAILY FACTS / INSIGHTS / INTELLIGENCE
+      //
+      // 🔒 Backend-only writes (Admin SDK bypasses rules).
+      // Clients can read their own derived data.
+      // ----------------------------------------------------------
       match /events/{eventId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.token.admin == true;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
       }
 
-      // Daily facts: backend-only writes
       match /dailyFacts/{dateId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.token.admin == true;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
       }
 
-      // Insights: backend-only writes
       match /insights/{insightId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.token.admin == true;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
       }
 
-      // Intelligence context: backend-only writes
       match /intelligenceContext/{dateId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.token.admin == true;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update, delete: if false;
       }
     }
   }
