@@ -35,13 +35,16 @@ export const buildManualWeightPayload = (input: {
 /**
  * Deterministic idempotency key for manual weight logs.
  *
- * MVP rule:
- * - "Same day + same values" should dedupe.
- * - If user changes values, a new event should be created.
+ * Rules:
+ * - Same day + same values → dedupe
+ * - Different values → new event
  *
- * Note: must not include '/' since key becomes a Firestore doc id.
+ * IMPORTANT:
+ * - Firestore document IDs cannot contain '/'
+ * - IANA timezones (e.g. "America/New_York") MUST be sanitized
  */
 export const manualWeightIdempotencyKey = (payload: ManualWeightPayload): string => {
   const bf = payload.bodyFatPercent ?? "";
-  return `manual:weight:${payload.day}:${payload.timezone}:${payload.weightKg}:${bf}`;
+  const tzSafe = payload.timezone.split("/").join("_"); // ES2019-safe
+  return `manual:weight:${payload.day}:${tzSafe}:${payload.weightKg}:${bf}`;
 };
