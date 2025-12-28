@@ -1,14 +1,78 @@
 // lib/env.ts
+//
+// Centralized environment handling.
+// - Staging-only guardrail
+// - Fail-fast required vars
+// - Backward compatible getEnv() API
+// - Compatible with exactOptionalPropertyTypes
+
+export type AppEnvironment = "staging";
+
+/** Returns undefined if missing or empty. */
+function optionalEnv(key: string): string | undefined {
+  const value = process.env[key];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Throws if missing or empty. */
+function requiredEnv(key: string): string {
+  const v = optionalEnv(key);
+  if (!v) {
+    throw new Error(
+      `❌ Missing required environment variable: ${key}\n\n` +
+        `This repo is staging-only. Add ${key} to your .env.* file (or EAS env) and restart Expo.`
+    );
+  }
+  return v;
+}
+
 /**
- * STAGING-ONLY environment validation.
- *
- * FAILS FAST with a clear error if required values are missing or invalid.
+ * Support both keys to avoid drift:
+ * - EXPO_PUBLIC_ENVIRONMENT (preferred)
+ * - EXPO_PUBLIC_APP_ENV (legacy/template)
  */
+function readEnvironment(): string {
+  return (
+    optionalEnv("EXPO_PUBLIC_ENVIRONMENT") ??
+    optionalEnv("EXPO_PUBLIC_APP_ENV") ??
+    "staging"
+  ).trim();
+}
 
-export type Environment = "staging";
+function assertStagingOnly(env: string): asserts env is AppEnvironment {
+  if (env !== "staging") {
+    throw new Error(
+      `❌ Invalid environment. This repo is STAGING ONLY.\n\n` +
+        `Set EXPO_PUBLIC_ENVIRONMENT=staging (preferred) or EXPO_PUBLIC_APP_ENV=staging.\n` +
+        `Got: ${env}`
+    );
+  }
+}
 
-export type Env = Readonly<{
-  EXPO_PUBLIC_ENVIRONMENT: Environment;
+// ---- Resolve + validate environment ----
+
+const environment = readEnvironment();
+assertStagingOnly(environment);
+
+// Required for app to function in staging
+const backendBaseUrl = requiredEnv("EXPO_PUBLIC_BACKEND_BASE_URL");
+
+// Required Firebase Web App config (staging)
+const firebaseApiKey = requiredEnv("EXPO_PUBLIC_FIREBASE_API_KEY");
+const firebaseAuthDomain = requiredEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN");
+const firebaseProjectId = requiredEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
+const firebaseStorageBucket = requiredEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET");
+const firebaseMessagingSenderId = requiredEnv(
+  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+);
+const firebaseAppId = requiredEnv("EXPO_PUBLIC_FIREBASE_APP_ID");
+
+// ---- Canonical Env object ----
+
+export const Env: Readonly<{
+  EXPO_PUBLIC_ENVIRONMENT: AppEnvironment;
   EXPO_PUBLIC_BACKEND_BASE_URL: string;
 
   EXPO_PUBLIC_FIREBASE_API_KEY: string;
@@ -17,101 +81,27 @@ export type Env = Readonly<{
   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: string;
   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: string;
   EXPO_PUBLIC_FIREBASE_APP_ID: string;
+}> = {
+  EXPO_PUBLIC_ENVIRONMENT: environment,
+  EXPO_PUBLIC_BACKEND_BASE_URL: backendBaseUrl,
 
-  // Optional sanity check (only present if configured)
-  EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID?: string;
-}>;
-
-/**
- * In Expo/RN, `process.env` can be typed loosely depending on toolchain.
- * We treat it as unknown and narrow safely to satisfy strict ESLint rules.
- */
-const readEnvRecord = (): Record<string, unknown> => {
-  const p: unknown = (globalThis as unknown as { process?: unknown }).process;
-  const env: unknown =
-    typeof p === "object" && p !== null && "env" in p ? (p as { env?: unknown }).env : undefined;
-
-  return typeof env === "object" && env !== null ? (env as Record<string, unknown>) : {};
+  EXPO_PUBLIC_FIREBASE_API_KEY: firebaseApiKey,
+  EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: firebaseAuthDomain,
+  EXPO_PUBLIC_FIREBASE_PROJECT_ID: firebaseProjectId,
+  EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: firebaseStorageBucket,
+  EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: firebaseMessagingSenderId,
+  EXPO_PUBLIC_FIREBASE_APP_ID: firebaseAppId
 };
 
-const ENV = readEnvRecord();
+// ---- Back-compat API ----
+// getEnv()            → full Env object
+// getEnv("KEY")       → single optional string (raw read)
 
-const asNonEmptyString = (v: unknown): string | null => {
-  if (typeof v !== "string") return null;
-  const t = v.trim();
-  return t.length > 0 ? t : null;
-};
-
-const requireEnv = (key: string): string => {
-  const v = asNonEmptyString(ENV[key]);
-  if (!v) {
-    throw new Error(`❌ Missing required env var: ${key}`);
+export function getEnv(): typeof Env;
+export function getEnv(key: string): string | undefined;
+export function getEnv(key?: string) {
+  if (typeof key === "string") {
+    return optionalEnv(key);
   }
-  return v;
-};
-
-const optionalEnv = (key: string): string | undefined => {
-  const v = asNonEmptyString(ENV[key]);
-  return v ?? undefined;
-};
-
-const normalizeBaseUrl = (url: string): string => url.replace(/\/+$/, "");
-
-const assertHttpsCloudRunUrl = (url: string): void => {
-  if (!url.startsWith("https://")) {
-    throw new Error(`❌ Invalid EXPO_PUBLIC_BACKEND_BASE_URL. Must start with https://\n\nGot: ${url}`);
-  }
-  const lowered = url.toLowerCase();
-  if (lowered.includes("localhost") || lowered.includes("127.0.0.1")) {
-    throw new Error(
-      `❌ Invalid EXPO_PUBLIC_BACKEND_BASE_URL. Localhost is not allowed (staging-only).\n\nGot: ${url}`
-    );
-  }
-};
-
-let cached: Env | null = null;
-
-export const getEnv = (): Env => {
-  if (cached) return cached;
-
-  const rawEnv = (optionalEnv("EXPO_PUBLIC_ENVIRONMENT") ?? "staging").trim();
-  const EXPO_PUBLIC_ENVIRONMENT: Environment =
-    rawEnv === "staging"
-      ? "staging"
-      : (() => {
-          throw new Error(
-            `❌ Invalid EXPO_PUBLIC_ENVIRONMENT. This repo is staging-only.\n\nAllowed: staging\nGot: ${rawEnv}`
-          );
-        })();
-
-  const baseUrl = normalizeBaseUrl(requireEnv("EXPO_PUBLIC_BACKEND_BASE_URL"));
-  assertHttpsCloudRunUrl(baseUrl);
-
-  const expectedProjectId = optionalEnv("EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID");
-
-  const env: Env = Object.freeze({
-    EXPO_PUBLIC_ENVIRONMENT,
-    EXPO_PUBLIC_BACKEND_BASE_URL: baseUrl,
-
-    EXPO_PUBLIC_FIREBASE_API_KEY: requireEnv("EXPO_PUBLIC_FIREBASE_API_KEY"),
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: requireEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-    EXPO_PUBLIC_FIREBASE_PROJECT_ID: requireEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID"),
-    EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: requireEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET"),
-    EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: requireEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
-    EXPO_PUBLIC_FIREBASE_APP_ID: requireEnv("EXPO_PUBLIC_FIREBASE_APP_ID"),
-
-    ...(expectedProjectId ? { EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID: expectedProjectId } : {}),
-  });
-
-  if (
-    env.EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID &&
-    env.EXPO_PUBLIC_FIREBASE_PROJECT_ID !== env.EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID
-  ) {
-    throw new Error(
-      `❌ Firebase project mismatch.\n\nExpected: ${env.EXPO_PUBLIC_EXPECTED_FIREBASE_PROJECT_ID}\nActual: ${env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}\n\nFix EXPO_PUBLIC_FIREBASE_PROJECT_ID.`
-    );
-  }
-
-  cached = env;
-  return env;
-};
+  return Env;
+}
