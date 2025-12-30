@@ -27,6 +27,8 @@ const port = (() => {
   return Number.isFinite(n) && n > 0 ? n : 8080;
 })();
 
+const host = "0.0.0.0";
+
 const main = async (): Promise<void> => {
   assertNoEmulators();
 
@@ -37,9 +39,10 @@ const main = async (): Promise<void> => {
   const mod = await import("./index");
   const app = mod.default;
 
-  app.listen(port, () => {
+  app.listen(port, host, () => {
     logger.info({
       msg: "api_listening",
+      host,
       port,
       env: process.env.NODE_ENV ?? "unknown",
       cloudRun: Boolean(process.env.K_SERVICE),
