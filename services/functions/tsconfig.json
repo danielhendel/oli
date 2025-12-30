@@ -1,14 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "lib",
-    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo",
+    "noEmit": true,
     "types": ["node", "jest"],
     "composite": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "esModuleInterop": true
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo"
   },
   "references": [{ "path": "../../lib/tsconfig.build.json" }],
   "include": ["src/**/*"],
