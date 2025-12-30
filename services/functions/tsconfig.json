@@ -5,7 +5,10 @@
     "outDir": "lib",
     "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo",
     "types": ["node", "jest"],
-    "composite": true
+    "composite": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true
   },
   "references": [{ "path": "../../lib/tsconfig.build.json" }],
   "include": ["src/**/*"],
