@@ -1,7 +1,9 @@
 {
-    "firestore": {
-      "rules": "services/functions/firestore.rules",
-      "indexes": "services/functions/firestore.indexes.json"
-    }
+  "firestore": {
+    "rules": "services/functions/firestore.rules",
+    "indexes": "services/functions/firestore.indexes.json"
+  },
+  "functions": {
+    "source": "services/functions"
   }
-  
+}
