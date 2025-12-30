@@ -3,7 +3,7 @@
 FROM node:20-slim AS deps
 WORKDIR /workspace
 
-# Install from repo root so workspace has the same dependency graph as local
+# Install from repo root so dependency graph matches local
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -25,6 +25,9 @@ FROM node:20-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
+# ✅ IMPORTANT: include node_modules that contains firebase-admin
+COPY --from=deps /workspace/node_modules ./node_modules
+
 # Compiled output contains dist/services/api/src/* because rootDir is repo root
 COPY --from=build /workspace/services/api/dist ./dist
 
@@ -33,5 +36,4 @@ COPY --from=build /workspace/services/api/package.json ./package.json
 
 EXPOSE 8080
 
-# Start the real server entrypoint (your server.ts already exists and is correct)
 CMD ["node", "dist/services/api/src/server.js"]
