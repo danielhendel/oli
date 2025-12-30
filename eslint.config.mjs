@@ -9,6 +9,7 @@ export default [
   // ─────────────────────────────────────────────
   {
     ignores: [
+      // Node / tooling
       "**/node_modules/**",
       "**/.turbo/**",
       "**/coverage/**",
@@ -25,12 +26,15 @@ export default [
       "**/dist-types/**",
       "**/lib/dist-types/**",
       "**/services/**/dist/**",
-      "**/services/**/lib/**",
 
-      // ✅ Critical: never lint .d.ts (generated / type surface)
+      // 🔒 CRITICAL: never lint Functions bundle output
+      "services/functions/lib/**",
+      "services/functions/lib/**/*.map",
+
+      // Never lint generated declaration files
       "**/*.d.ts",
 
-      // Legacy ESLint configs should not be lint targets
+      // Legacy / config files
       "**/.eslintrc.*",
       "**/services/**/.eslintrc.*",
     ],
@@ -39,7 +43,9 @@ export default [
     },
   },
 
-  // Base JS recommended (mainly for config scripts if they get linted)
+  // ─────────────────────────────────────────────
+  // Base JS recommended (for config / scripts)
+  // ─────────────────────────────────────────────
   js.configs.recommended,
 
   // ─────────────────────────────────────────────
@@ -48,14 +54,18 @@ export default [
   ...tseslint.config(
     {
       files: ["**/*.ts", "**/*.tsx"],
-      // ✅ Extra safety: exclude generated areas even if included by CLI patterns
+      // Extra safety: exclude generated areas even if CLI patterns include them
       ignores: [
         "**/dist/**",
         "**/build/**",
         "**/dist-types/**",
         "**/lib/dist-types/**",
         "**/services/**/dist/**",
-        "**/services/**/lib/**",
+
+        // 🔒 Absolute exclusion of Functions bundle
+        "services/functions/lib/**",
+        "services/functions/lib/**/*.map",
+
         "**/*.d.ts",
       ],
     },
@@ -64,7 +74,7 @@ export default [
   ),
 
   // ─────────────────────────────────────────────
-  // App/source defaults (Expo/RN uses browser-like globals such as fetch/setTimeout)
+  // App/source defaults (Expo / RN globals)
   // ─────────────────────────────────────────────
   {
     files: ["**/*.ts", "**/*.tsx"],
@@ -88,7 +98,7 @@ export default [
   },
 
   // ─────────────────────────────────────────────
-  // Server/services TS: allow node globals like process
+  // Server / services TS (Node globals)
   // ─────────────────────────────────────────────
   {
     files: ["services/**/*.{ts,tsx}"],
@@ -99,7 +109,9 @@ export default [
     },
   },
 
-  // Jest test files: allow describe/test/expect (TS + JS)
+  // ─────────────────────────────────────────────
+  // Jest test files
+  // ─────────────────────────────────────────────
   {
     files: [
       "**/__tests__/**/*.[jt]s?(x)",
@@ -116,7 +128,9 @@ export default [
     },
   },
 
-  // JS/CJS/MJS config/build scripts: allow require()
+  // ─────────────────────────────────────────────
+  // JS / CJS / MJS scripts (Node environment)
+  // ─────────────────────────────────────────────
   {
     files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
     languageOptions: {
