@@ -10,6 +10,9 @@ import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDa
 import { generateInsightsForDailyFacts } from "../insights/rules";
 import { buildDailyIntelligenceContextDoc } from "../intelligence/buildDailyIntelligenceContext";
 
+// ✅ Data Readiness Contract
+import { buildPipelineMeta } from "../pipeline/pipelineMeta";
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
@@ -64,9 +67,20 @@ export const onCanonicalEventCreated = onDocumentCreated(
 
     const userRef = db.collection("users").doc(userId);
 
-    // 1) Load ALL canonical events for this user+day.
+    /**
+     * 1) Load ALL canonical events for this user + day
+     */
     const eventsSnap = await userRef.collection("events").where("day", "==", day).get();
     const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+
+    // Latest canonical timestamp = truth anchor for readiness
+    const latestCanonicalEventAt: IsoDateTimeString =
+      eventsForDay.reduce<IsoDateTimeString | null>((max, ev) => {
+        const t = ev.updatedAt ?? ev.createdAt;
+        if (!t) return max;
+        if (!max) return t;
+        return t > max ? t : max;
+      }, null) ?? computedAt;
 
     const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
       userId,
@@ -75,7 +89,9 @@ export const onCanonicalEventCreated = onDocumentCreated(
       events: eventsForDay,
     });
 
-    // 2) Load up to 6 prior days of DailyFacts for enrichment.
+    /**
+     * 2) Load up to 6 prior days of DailyFacts for enrichment
+     */
     const startDate = addDaysUtc(day, -6);
     const historySnap = await userRef
       .collection("dailyFacts")
@@ -90,9 +106,21 @@ export const onCanonicalEventCreated = onDocumentCreated(
       history: historyFacts,
     });
 
-    await userRef.collection("dailyFacts").doc(day).set(enrichedDailyFacts, { merge: true });
+    // ✅ Write DailyFacts with readiness meta
+    await userRef.collection("dailyFacts").doc(day).set(
+      {
+        ...enrichedDailyFacts,
+        meta: buildPipelineMeta({
+          computedAt: latestCanonicalEventAt,
+          source: { eventsForDay: eventsForDay.length },
+        }),
+      },
+      { merge: true },
+    );
 
-    // 3) Insights for this day.
+    /**
+     * 3) Insights for this day
+     */
     const insights = generateInsightsForDailyFacts({
       userId,
       date: day,
@@ -105,7 +133,9 @@ export const onCanonicalEventCreated = onDocumentCreated(
       await userRef.collection("insights").doc(insight.id).set(insight, { merge: true });
     }
 
-    // 4) Intelligence context doc.
+    /**
+     * 4) Intelligence Context
+     */
     const ctxDoc = buildDailyIntelligenceContextDoc({
       userId,
       date: day,
@@ -115,7 +145,20 @@ export const onCanonicalEventCreated = onDocumentCreated(
       insightsForDay: insights,
     });
 
-    await userRef.collection("intelligenceContext").doc(day).set(ctxDoc, { merge: true });
+    // ✅ Write IntelligenceContext with readiness meta
+    await userRef.collection("intelligenceContext").doc(day).set(
+      {
+        ...ctxDoc,
+        meta: buildPipelineMeta({
+          computedAt: latestCanonicalEventAt,
+          source: {
+            eventsForDay: eventsForDay.length,
+            insightsWritten: insights.length,
+          },
+        }),
+      },
+      { merge: true },
+    );
 
     logger.info("Realtime recompute completed", {
       userId,
@@ -123,5 +166,5 @@ export const onCanonicalEventCreated = onDocumentCreated(
       eventsForDay: eventsForDay.length,
       insightsWritten: insights.length,
     });
-  }
+  },
 );

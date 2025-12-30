@@ -1,8 +1,17 @@
+// lib/contracts/intelligenceContext.ts
 import { z } from "zod";
 import { dayKeySchema } from "./day";
 
 const isoString = z.string().min(1);
 const confidenceSchema = z.record(z.string(), z.number().finite().min(0).max(1)).optional();
+
+const computeMetaSchema = z
+  .object({
+    computedAt: isoString,
+    pipelineVersion: z.number().int().positive(),
+    source: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strip();
 
 export const intelligenceContextDtoSchema = z
   .object({
@@ -13,7 +22,13 @@ export const intelligenceContextDtoSchema = z
     userId: z.string().min(1),
     date: dayKeySchema,
 
+    // existing
     computedAt: isoString,
+
+    // new (contract)
+    meta: computeMetaSchema.optional(),
+
+    confidence: confidenceSchema,
 
     facts: z
       .object({
@@ -28,18 +43,10 @@ export const intelligenceContextDtoSchema = z
       })
       .strip(),
 
-    confidence: confidenceSchema,
-
     insights: z
       .object({
-        count: z.number().int().nonnegative(),
-        bySeverity: z
-          .object({
-            info: z.number().int().nonnegative(),
-            warning: z.number().int().nonnegative(),
-            critical: z.number().int().nonnegative(),
-          })
-          .strip(),
+        count: z.number().int(),
+        severities: z.record(z.string(), z.number().int()).optional(),
         tags: z.array(z.string()),
         kinds: z.array(z.string()),
         ids: z.array(z.string()),

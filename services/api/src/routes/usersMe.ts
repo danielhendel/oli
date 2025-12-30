@@ -2,6 +2,7 @@
 import { Router, type Response } from "express";
 import { getFirestore } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 
 import type { AuthedRequest } from "../middleware/auth";
 import type { RequestWithRid } from "../lib/logger";
@@ -21,7 +22,6 @@ import { asyncHandler } from "../lib/asyncHandler";
 
 // ✅ Authoritative contract
 import { rawEventDocSchema } from "../../../../lib/contracts";
-
 
 const router = Router();
 
@@ -94,6 +94,14 @@ const invalidBody400 = (req: AuthedRequest, res: Response, details: unknown) => 
     },
   });
 };
+
+// ✅ Minimal DTO for day-truth response (kept local to avoid coupling)
+const dayTruthDtoSchema = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  eventsCount: z.number().int().nonnegative(),
+  latestCanonicalEventAt: z.string().datetime().nullable(),
+});
+type DayTruthDto = z.infer<typeof dayTruthDtoSchema>;
 
 /**
  * POST /users/me/body/weight
@@ -178,7 +186,55 @@ router.post(
     }
 
     res.status(200).json(validated.data);
-  })
+  }),
+);
+
+/**
+ * GET /users/me/day-truth?day=YYYY-MM-DD
+ *
+ * Truth anchor for UI readiness gating.
+ * Reads canonical events for the day and returns:
+ * - eventsCount
+ * - latestCanonicalEventAt (max(updatedAt ?? createdAt))
+ */
+router.get(
+  "/day-truth",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const day = parseDay(req, res);
+    if (!day) return;
+
+    const db = getFirestore();
+
+    // Canonical events live here (repo-truth): users/{uid}/events
+    const snap = await db.collection("users").doc(uid).collection("events").where("day", "==", day).get();
+
+    let latest: string | null = null;
+
+    for (const d of snap.docs) {
+      const raw = d.data() as Record<string, unknown>;
+
+      const updatedAt = typeof raw["updatedAt"] === "string" ? (raw["updatedAt"] as string) : null;
+      const createdAt = typeof raw["createdAt"] === "string" ? (raw["createdAt"] as string) : null;
+
+      const candidate = updatedAt ?? createdAt;
+
+      // ISO strings compare lexicographically for ordering
+      if (candidate && (!latest || candidate > latest)) latest = candidate;
+    }
+
+    const out: DayTruthDto = { day, eventsCount: snap.size, latestCanonicalEventAt: latest };
+
+    const validated = dayTruthDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "dayTruth", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
 );
 
 /**
@@ -210,7 +266,7 @@ router.get(
     }
 
     res.status(200).json(parsed.data);
-  })
+  }),
 );
 
 /**
@@ -248,7 +304,6 @@ router.get(
       return 2;
     };
 
-    // Defensive comparator (satisfies TS even if items is inferred loosely elsewhere)
     const sorted = [...items].sort((a, b) => {
       if (!a && !b) return 0;
       if (!a) return 1;
@@ -270,7 +325,7 @@ router.get(
     }
 
     res.status(200).json(validated.data);
-  })
+  }),
 );
 
 /**
@@ -290,9 +345,7 @@ router.get(
 
     const snap = await ref.get();
     if (!snap.exists) {
-      res
-        .status(404)
-        .json({ ok: false, error: { code: "NOT_FOUND", resource: "intelligenceContext", day } });
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "intelligenceContext", day } });
       return;
     }
 
@@ -304,7 +357,7 @@ router.get(
     }
 
     res.status(200).json(parsed.data);
-  })
+  }),
 );
 
 export default router;

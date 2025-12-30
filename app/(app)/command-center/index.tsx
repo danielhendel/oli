@@ -13,6 +13,10 @@ import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useInsights } from "@/lib/data/useInsights";
 import { useIntelligenceContext } from "@/lib/data/useIntelligenceContext";
 
+// ✅ Readiness contract truth anchor
+import { useDayTruth } from "@/lib/data/useDayTruth";
+import { isFreshComputedAt } from "@/lib/data/readiness";
+
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 
 const toneLabel: Record<StatusTone, string> = {
@@ -53,15 +57,37 @@ function formatTodaySummary(input: {
 }
 
 function DataStatusCard(props: { day: string }) {
+  const dayTruth = useDayTruth(props.day);
   const facts = useDailyFacts(props.day);
   const insights = useInsights(props.day);
   const ctx = useIntelligenceContext(props.day);
 
-  const anyLoading = facts.status === "loading" || insights.status === "loading" || ctx.status === "loading";
-  const anyError = facts.status === "error" || insights.status === "error" || ctx.status === "error";
-  const anyReady = facts.status === "ready" || insights.status === "ready" || ctx.status === "ready";
+  const anyLoading =
+    dayTruth.status === "loading" ||
+    facts.status === "loading" ||
+    insights.status === "loading" ||
+    ctx.status === "loading";
 
-  // Hooks no longer expose "not_found". Treat "ready but empty" as the new “no data yet”.
+  const anyError =
+    dayTruth.status === "error" || facts.status === "error" || insights.status === "error" || ctx.status === "error";
+
+  // Canonical truth anchor for this day
+  const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
+  const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
+
+  // Readiness contract: prefer meta.computedAt, fallback to legacy computedAt for backward compatibility
+  const factsComputedAt =
+    facts.status === "ready" ? facts.data.meta?.computedAt ?? facts.data.computedAt ?? null : null;
+
+  const ctxComputedAt = ctx.status === "ready" ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
+
+  const factsFresh = isFreshComputedAt({ computedAtIso: factsComputedAt, latestEventAtIso: latestEventAt });
+  const ctxFresh = isFreshComputedAt({ computedAtIso: ctxComputedAt, latestEventAtIso: latestEventAt });
+
+  // We require derived truth freshness for "Ready"
+  const isReady = hasEvents ? factsFresh && ctxFresh : false;
+
+  // We still keep a simple “has any fact” summary (used for the bottom summary string)
   const hasAnyFact =
     facts.status === "ready" &&
     (typeof facts.data.activity?.steps === "number" ||
@@ -72,33 +98,48 @@ function DataStatusCard(props: { day: string }) {
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
-  let subtitle = "Syncing today’s facts, insights, and context.";
+  let subtitle = "Syncing today’s canonical events and derived truth.";
 
   if (anyLoading) {
     tone = "neutral";
     title = "Checking your data…";
-    subtitle = "Syncing today’s facts, insights, and context.";
+    subtitle = "Syncing today’s canonical events and derived truth.";
   } else if (anyError) {
     tone = "danger";
     title = "Couldn’t load your data";
     const msg =
+      (dayTruth.status === "error" ? dayTruth.error : null) ??
       (facts.status === "error" ? facts.error : null) ??
       (insights.status === "error" ? insights.error : null) ??
       (ctx.status === "error" ? ctx.error : null) ??
       "Please try again.";
     subtitle = msg;
-  } else if (anyReady && !hasAnySignal) {
+  } else if (dayTruth.status === "ready" && !hasEvents) {
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
-  } else if (anyReady) {
-    tone = "success";
-    title = "Today is live";
+  } else if (!factsFresh || !ctxFresh) {
+    // Honesty state: canonical exists, derived truth not yet fresh
+    tone = "neutral";
+    title = "Computing today…";
     const parts: string[] = [];
-    parts.push(facts.status === "ready" ? "Facts ✓" : "Facts —");
-    parts.push(insights.status === "ready" ? "Insights ✓" : "Insights —");
-    parts.push(ctx.status === "ready" ? "Context ✓" : "Context —");
+    parts.push("Events ✓");
+    parts.push(factsFresh ? "Facts ✓" : "Facts computing…");
+    parts.push(ctxFresh ? "Context ✓" : "Context computing…");
     subtitle = parts.join("  •  ");
+  } else if (isReady) {
+    tone = "success";
+    title = "Today is ready";
+    subtitle = ["Events ✓", "Facts ✓", "Context ✓"].join("  •  ");
+  } else if (hasAnySignal) {
+    // Defensive fallback (should be rare): we have *some* signal but not passing contract
+    tone = "neutral";
+    title = "Computing today…";
+    subtitle = "Waiting for derived truth to catch up to canonical events.";
+  } else {
+    tone = "warning";
+    title = "No data yet for today";
+    subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
   }
 
   const factsSummary =

@@ -31,10 +31,7 @@ function isNotFoundIntelligenceContext(res: ApiFailure): boolean {
  * Client-only empty context.
  * Represents a valid "no data yet" day without creating a backend document.
  */
-function emptyIntelligenceContext(
-  userId: string,
-  day: string
-): IntelligenceContextDto {
+function emptyIntelligenceContext(userId: string, day: string): IntelligenceContextDto {
   const computedAt = new Date().toISOString();
 
   return {
@@ -49,22 +46,23 @@ function emptyIntelligenceContext(
 
     insights: {
       count: 0,
-      bySeverity: {
+      // ✅ Contract expects `severities` (not `bySeverity`)
+      severities: {
         info: 0,
         warning: 0,
-        critical: 0
+        critical: 0,
       },
       tags: [],
       kinds: [],
-      ids: []
+      ids: [],
     },
 
     readiness: {
       hasDailyFacts: false,
-      hasInsights: false
+      hasInsights: false,
     },
 
-    confidence: {}
+    confidence: {},
   };
 }
 
@@ -91,18 +89,18 @@ export const useIntelligenceContext = (day: string) => {
           setState({
             status: "error",
             error: "No auth token",
-            requestId: null
+            requestId: null,
           });
         }
         return;
       }
 
-      const res: ApiResult<IntelligenceContextDto> =
-        await getIntelligenceContext(day, t1);
+      const res: ApiResult<IntelligenceContextDto> = await getIntelligenceContext(day, t1);
 
       if (cancelled) return;
 
       if (res.ok) {
+        // Repo-truth: ApiOk<T> uses `.json` on success in this codebase
         setState({ status: "ready", data: res.json });
         return;
       }
@@ -111,7 +109,7 @@ export const useIntelligenceContext = (day: string) => {
       if (isNotFoundIntelligenceContext(res)) {
         setState({
           status: "ready",
-          data: emptyIntelligenceContext(user.uid, day)
+          data: emptyIntelligenceContext(user.uid, day),
         });
         return;
       }
@@ -124,14 +122,13 @@ export const useIntelligenceContext = (day: string) => {
             setState({
               status: "error",
               error: res.error,
-              requestId: res.requestId
+              requestId: res.requestId,
             });
           }
           return;
         }
 
-        const res2: ApiResult<IntelligenceContextDto> =
-          await getIntelligenceContext(day, t2);
+        const res2: ApiResult<IntelligenceContextDto> = await getIntelligenceContext(day, t2);
 
         if (cancelled) return;
 
@@ -143,7 +140,7 @@ export const useIntelligenceContext = (day: string) => {
         if (isNotFoundIntelligenceContext(res2)) {
           setState({
             status: "ready",
-            data: emptyIntelligenceContext(user.uid, day)
+            data: emptyIntelligenceContext(user.uid, day),
           });
           return;
         }
@@ -151,7 +148,7 @@ export const useIntelligenceContext = (day: string) => {
         setState({
           status: "error",
           error: res2.error,
-          requestId: res2.requestId
+          requestId: res2.requestId,
         });
         return;
       }
@@ -159,7 +156,7 @@ export const useIntelligenceContext = (day: string) => {
       setState({
         status: "error",
         error: res.error,
-        requestId: res.requestId
+        requestId: res.requestId,
       });
     };
 

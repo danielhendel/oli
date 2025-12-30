@@ -1,129 +1,173 @@
 // services/functions/src/dailyFacts/onDailyFactsRecomputeScheduled.ts
 
-import { onSchedule } from 'firebase-functions/v2/scheduler';
-import * as logger from 'firebase-functions/logger';
-import { db } from '../firebaseAdmin';
-import type {
-  CanonicalEvent,
-  DailyFacts,
-  IsoDateTimeString,
-  YmdDateString,
-} from '../types/health';
-import { aggregateDailyFactsForDay } from './aggregateDailyFacts';
-import { enrichDailyFactsWithBaselinesAndAverages } from './enrichDailyFacts';
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import * as logger from "firebase-functions/logger";
+import type { WriteBatch } from "firebase-admin/firestore";
+
+import { db } from "../firebaseAdmin";
+import type { CanonicalEvent, DailyFacts, IsoDateTimeString, YmdDateString } from "../types/health";
+import { aggregateDailyFactsForDay } from "./aggregateDailyFacts";
+import { enrichDailyFactsWithBaselinesAndAverages } from "./enrichDailyFacts";
+
+// ✅ Data Readiness Contract
+import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
-
-  const paddedMonth = month.toString().padStart(2, '0');
-  const paddedDay = day.toString().padStart(2, '0');
-
-  return `${year.toString().padStart(4, '0')}-${paddedMonth}-${paddedDay}`;
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day
+    .toString()
+    .padStart(2, "0")}`;
 };
 
 const getYesterdayUtcYmd = (): YmdDateString => {
   const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
-  const day = now.getUTCDate();
-
-  const yesterday = new Date(Date.UTC(year, month, day - 1));
-  return toYmdUtc(yesterday);
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  return toYmdUtc(new Date(Date.UTC(y, m, d - 1)));
 };
 
-const getYmdNDaysBefore = (date: YmdDateString, days: number): YmdDateString => {
-  const [yearStr, monthStr, dayStr] = date.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-
-  const base = new Date(Date.UTC(year, month - 1, day));
-  base.setUTCDate(base.getUTCDate() - days);
-  return toYmdUtc(base);
+const commitBatches = async (batches: WriteBatch[]): Promise<void> => {
+  for (const batch of batches) {
+    await batch.commit();
+  }
 };
 
 /**
  * Scheduled job:
  *  - Runs daily (UTC)
- *  - Recomputes DailyFacts for the previous UTC day across all users
- *  - Enriches DailyFacts with 7-day rolling averages and HRV baselines
+ *  - For each user with any canonical events on targetDate:
+ *      - Load all canonical events for that day
+ *      - Build base DailyFacts
+ *      - Enrich with up to 6 prior days DailyFacts
+ *      - Write to /users/{userId}/dailyFacts/{YYYY-MM-DD}
  *
  * Firestore paths:
- *  - Input:  /users/{userId}/events/{eventId}
+ *  - Input:  /users/{userId}/events/{eventId} (where day == targetDate)
+ *  - Input:  /users/{userId}/dailyFacts/{yyyy-MM-dd} (history window)
  *  - Output: /users/{userId}/dailyFacts/{yyyy-MM-dd}
  */
 export const onDailyFactsRecomputeScheduled = onSchedule(
   {
-    schedule: '0 3 * * *', // 03:00 UTC daily
-    region: 'us-central1',
+    // Runs daily at 03:00 UTC
+    schedule: "0 3 * * *",
+    region: "us-central1",
   },
   async () => {
     const targetDate = getYesterdayUtcYmd();
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
-    logger.info('DailyFacts recompute started', { targetDate });
+    logger.info("DailyFacts recompute started", { targetDate });
 
-    const eventsSnapshot = await db
-      .collectionGroup('events')
-      .where('day', '==', targetDate)
-      .get();
+    // Find all users who have canonical events for targetDate.
+    const eventsSnapshot = await db.collectionGroup("events").where("day", "==", targetDate).get();
 
     if (eventsSnapshot.empty) {
-      logger.info('No events found for target date', { targetDate });
+      logger.info("No canonical events found for target date", { targetDate });
       return;
     }
 
+    // Group events by userId (from path: users/{userId}/events/{eventId})
     const eventsByUser = new Map<string, CanonicalEvent[]>();
+    for (const doc of eventsSnapshot.docs) {
+      const userId = doc.ref.parent.parent?.id;
+      if (!userId) {
+        logger.warn("Skipping event doc with unexpected path", { path: doc.ref.path });
+        continue;
+      }
+      const ev = doc.data() as CanonicalEvent;
+      const arr = eventsByUser.get(userId);
+      if (arr) arr.push(ev);
+      else eventsByUser.set(userId, [ev]);
+    }
 
-    eventsSnapshot.docs.forEach((doc) => {
-      const data = doc.data() as CanonicalEvent;
-      const userEvents = eventsByUser.get(data.userId) ?? [];
-      userEvents.push(data);
-      eventsByUser.set(data.userId, userEvents);
-    });
+    const MAX_OPS_PER_BATCH = 450;
+    const batches: WriteBatch[] = [];
+    let currentBatch = db.batch();
+    let currentOps = 0;
 
-    const userIds = Array.from(eventsByUser.keys());
+    let usersProcessed = 0;
+    let docsWritten = 0;
 
-    const writePromises = userIds.map(async (userId) => {
-      const userEvents = eventsByUser.get(userId) ?? [];
+    for (const [userId, eventsForDay] of eventsByUser.entries()) {
+      const userRef = db.collection("users").doc(userId);
 
-      const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
+      // Truth anchor for readiness: latest canonical timestamp for the day
+      const latestCanonicalEventAt: IsoDateTimeString =
+        eventsForDay.reduce<IsoDateTimeString | null>((max, ev) => {
+          const t = ev.updatedAt ?? ev.createdAt;
+          if (!t) return max;
+          if (!max) return t;
+          return t > max ? t : max;
+        }, null) ?? computedAt;
+
+      const base: DailyFacts = aggregateDailyFactsForDay({
         userId,
         date: targetDate,
         computedAt,
-        events: userEvents,
+        events: eventsForDay,
       });
 
-      // Load previous up-to-6 days of DailyFacts (for a 7-day window including today).
-      const startDate = getYmdNDaysBefore(targetDate, 6);
-      const userRef = db.collection('users').doc(userId);
+      // Load up-to-6 prior days for enrichment window
+      const startDate = (() => {
+        const baseDate = new Date(Date.parse(`${targetDate}T00:00:00.000Z`));
+        // If parsing fails (shouldn't), fallback to computedAt day boundary:
+        if (Number.isNaN(baseDate.getTime())) return targetDate;
+        baseDate.setUTCDate(baseDate.getUTCDate() - 6);
+        return toYmdUtc(baseDate);
+      })();
 
-      const historySnapshot = await userRef
-        .collection('dailyFacts')
-        .where('date', '>=', startDate)
-        .where('date', '<', targetDate) // strictly before today
+      const historySnap = await userRef
+        .collection("dailyFacts")
+        .where("date", ">=", startDate)
+        .where("date", "<", targetDate)
         .get();
 
-      const historyFacts: DailyFacts[] = historySnapshot.docs.map(
-        (d) => d.data() as DailyFacts,
-      );
+      const history: DailyFacts[] = historySnap.docs.map((d) => d.data() as DailyFacts);
 
-      const enrichedDailyFacts = enrichDailyFactsWithBaselinesAndAverages({
-        today: baseDailyFacts,
-        history: historyFacts,
+      const enriched = enrichDailyFactsWithBaselinesAndAverages({
+        today: base,
+        history,
       });
 
-      const ref = userRef.collection('dailyFacts').doc(targetDate);
-      return ref.set(enrichedDailyFacts);
-    });
+      if (currentOps >= MAX_OPS_PER_BATCH) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        currentOps = 0;
+      }
 
-    await Promise.all(writePromises);
+      const outRef = userRef.collection("dailyFacts").doc(targetDate);
 
-    logger.info('DailyFacts recompute completed', {
+      currentBatch.set(
+        outRef,
+        {
+          ...enriched,
+          meta: buildPipelineMeta({
+            computedAt: latestCanonicalEventAt,
+            source: { eventsForDay: eventsForDay.length },
+          }),
+        },
+        { merge: true },
+      );
+      currentOps += 1;
+
+      usersProcessed += 1;
+      docsWritten += 1;
+    }
+
+    if (currentOps > 0) {
+      batches.push(currentBatch);
+    }
+
+    await commitBatches(batches);
+
+    logger.info("DailyFacts recompute completed", {
       targetDate,
-      userCount: eventsByUser.size,
+      usersProcessed,
+      docsWritten,
+      batchesCommitted: batches.length,
     });
   },
 );
