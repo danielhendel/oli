@@ -12,6 +12,9 @@ import { enrichDailyFactsWithBaselinesAndAverages } from "./enrichDailyFacts";
 // ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
+// ✅ Latency logging (canonical → dailyFacts)
+import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -152,6 +155,16 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
         { merge: true },
       );
       currentOps += 1;
+
+      // ✅ Latency logging (canonical → dailyFacts)
+      const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+      const warnAfterSec = 30;
+
+      if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+        logger.warn("Pipeline latency high (canonical→dailyFacts)", { userId, date: targetDate, latencyMs, warnAfterSec });
+      } else {
+        logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
+      }
 
       usersProcessed += 1;
       docsWritten += 1;

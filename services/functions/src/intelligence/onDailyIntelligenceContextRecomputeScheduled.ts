@@ -11,6 +11,9 @@ import { buildDailyIntelligenceContext } from "./buildDailyIntelligenceContext";
 // ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
+// ✅ Latency logging (canonical → context)
+import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -146,6 +149,16 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
         { merge: true },
       );
       currentOps += 1;
+
+      // ✅ Latency logging (canonical → context)
+      const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+      const warnAfterSec = 30;
+
+      if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+        logger.warn("Pipeline latency high (canonical→context)", { userId, date: targetDate, latencyMs, warnAfterSec });
+      } else {
+        logger.info("Pipeline latency (canonical→context)", { userId, date: targetDate, latencyMs });
+      }
 
       usersProcessed += 1;
       docsWritten += 1;

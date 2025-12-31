@@ -56,6 +56,30 @@ function formatTodaySummary(input: {
   return parts.length ? parts.join(" • ") : "No facts yet — log your first event to start building today.";
 }
 
+function formatIsoToHms(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "—";
+  const d = new Date(ms);
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  const ss = d.getSeconds().toString().padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function DevPipelineOverlay(props: { canonicalAt?: string | null; factsAt?: string | null; contextAt?: string | null }) {
+  if (!__DEV__) return null;
+
+  return (
+    <View style={styles.devOverlay}>
+      <Text style={styles.devOverlayTitle}>Pipeline timestamps (dev)</Text>
+      <Text style={styles.devOverlayLine}>Canonical: {formatIsoToHms(props.canonicalAt)}</Text>
+      <Text style={styles.devOverlayLine}>Facts:     {formatIsoToHms(props.factsAt)}</Text>
+      <Text style={styles.devOverlayLine}>Context:   {formatIsoToHms(props.contextAt)}</Text>
+    </View>
+  );
+}
+
 function DataStatusCard(props: { day: string }) {
   const dayTruth = useDayTruth(props.day);
   const facts = useDailyFacts(props.day);
@@ -156,6 +180,10 @@ function DataStatusCard(props: { day: string }) {
     ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
   });
 
+  const canonicalAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
+  const factsAt = factsComputedAt;
+  const contextAt = ctxComputedAt;
+
   return (
     <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
       <View style={styles.statusTopRow}>
@@ -169,6 +197,8 @@ function DataStatusCard(props: { day: string }) {
       <View style={styles.summaryWrap}>
         <Text style={styles.summaryText}>{summary}</Text>
       </View>
+
+      {__DEV__ ? <DevPipelineOverlay canonicalAt={canonicalAt} factsAt={factsAt} contextAt={contextAt} /> : null}
     </View>
   );
 }
@@ -315,6 +345,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#111827",
     fontWeight: "700",
+    lineHeight: 16,
+  },
+
+  devOverlay: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.10)",
+  },
+  devOverlayTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  devOverlayLine: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#374151",
     lineHeight: 16,
   },
 

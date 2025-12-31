@@ -13,6 +13,9 @@ import { buildDailyIntelligenceContextDoc } from "../intelligence/buildDailyInte
 // ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
+// ✅ Latency logging (canonical → derived)
+import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
@@ -159,6 +162,16 @@ export const onCanonicalEventCreated = onDocumentCreated(
       },
       { merge: true },
     );
+
+    // ✅ Latency logging (canonical → derived)
+    const latencyMs = computeLatencyMs(latestCanonicalEventAt, latestCanonicalEventAt);
+    const warnAfterSec = 30;
+
+    if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+      logger.warn("Pipeline latency high (canonical→derived)", { userId, day, latencyMs, warnAfterSec });
+    } else {
+      logger.info("Pipeline latency (canonical→derived)", { userId, day, latencyMs });
+    }
 
     logger.info("Realtime recompute completed", {
       userId,
