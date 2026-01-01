@@ -2,6 +2,8 @@
 import { ScrollView, View, StyleSheet, Pressable, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ModuleTile } from "@/lib/ui/ModuleTile";
 import { CommandCenterHeader } from "@/lib/ui/CommandCenterHeader";
@@ -12,10 +14,11 @@ import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useInsights } from "@/lib/data/useInsights";
 import { useIntelligenceContext } from "@/lib/data/useIntelligenceContext";
-
-// ✅ Readiness contract truth anchor
 import { useDayTruth } from "@/lib/data/useDayTruth";
-import { isFreshComputedAt } from "@/lib/data/readiness";
+
+import { isCompatiblePipelineVersion, isFreshComputedAt } from "@/lib/data/readiness";
+import { PIPELINE_VERSION } from "@/lib/pipeline/version";
+import { subscribeRefresh } from "@/lib/navigation/refreshBus";
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 
@@ -40,7 +43,6 @@ const toneBg: Record<StatusTone, string> = {
   danger: "#FDECEC",
 };
 
-// Keep this local + tiny so it can’t become a new “system”.
 function formatTodaySummary(input: {
   facts?: { steps?: number; sleepMin?: number; weightKg?: number };
   insightsCount?: number;
@@ -50,7 +52,6 @@ function formatTodaySummary(input: {
   if (typeof input.facts?.steps === "number") parts.push(`${input.facts.steps.toLocaleString()} steps`);
   if (typeof input.facts?.sleepMin === "number") parts.push(`${Math.round(input.facts.sleepMin)} min sleep`);
   if (typeof input.facts?.weightKg === "number") parts.push(`${input.facts.weightKg.toFixed(1)} kg`);
-
   if (typeof input.insightsCount === "number") parts.push(`${input.insightsCount} insights`);
 
   return parts.length ? parts.join(" • ") : "No facts yet — log your first event to start building today.";
@@ -67,7 +68,13 @@ function formatIsoToHms(iso: string | null | undefined): string {
   return `${hh}:${mm}:${ss}`;
 }
 
-function DevPipelineOverlay(props: { canonicalAt?: string | null; factsAt?: string | null; contextAt?: string | null }) {
+function DevPipelineOverlay(props: {
+  canonicalAt?: string | null;
+  factsAt?: string | null;
+  contextAt?: string | null;
+  factsPv?: number | null;
+  ctxPv?: number | null;
+}) {
   if (!__DEV__) return null;
 
   return (
@@ -76,15 +83,52 @@ function DevPipelineOverlay(props: { canonicalAt?: string | null; factsAt?: stri
       <Text style={styles.devOverlayLine}>Canonical: {formatIsoToHms(props.canonicalAt)}</Text>
       <Text style={styles.devOverlayLine}>Facts:     {formatIsoToHms(props.factsAt)}</Text>
       <Text style={styles.devOverlayLine}>Context:   {formatIsoToHms(props.contextAt)}</Text>
+      <Text style={styles.devOverlayLine}>
+        PV: facts {props.factsPv ?? "—"} / ctx {props.ctxPv ?? "—"} (expected {PIPELINE_VERSION})
+      </Text>
     </View>
   );
 }
 
-function DataStatusCard(props: { day: string }) {
+function DataStatusCard(props: { day: string; refreshKey: string | null; focusNonce: number }) {
   const dayTruth = useDayTruth(props.day);
   const facts = useDailyFacts(props.day);
   const insights = useInsights(props.day);
   const ctx = useIntelligenceContext(props.day);
+
+  const refetchDayTruth = dayTruth.refetch;
+  const refetchFacts = facts.refetch;
+  const refetchInsights = insights.refetch;
+  const refetchCtx = ctx.refetch;
+
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCount = useRef(0);
+  const lastRefreshKey = useRef<string | null>(null);
+
+  const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
+  const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
+
+  const factsComputedAt =
+    facts.status === "ready" ? facts.data.meta?.computedAt ?? facts.data.computedAt ?? null : null;
+  const ctxComputedAt = ctx.status === "ready" ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
+
+  const factsFresh = isFreshComputedAt({ computedAtIso: factsComputedAt, latestEventAtIso: latestEventAt });
+  const ctxFresh = isFreshComputedAt({ computedAtIso: ctxComputedAt, latestEventAtIso: latestEventAt });
+
+  const factsPipelineVersion = facts.status === "ready" ? facts.data.meta?.pipelineVersion ?? null : null;
+  const ctxPipelineVersion = ctx.status === "ready" ? ctx.data.meta?.pipelineVersion ?? null : null;
+
+  const factsVersionOk = isCompatiblePipelineVersion({
+    pipelineVersion: factsPipelineVersion,
+    expectedPipelineVersion: PIPELINE_VERSION,
+  });
+
+  const ctxVersionOk = isCompatiblePipelineVersion({
+    pipelineVersion: ctxPipelineVersion,
+    expectedPipelineVersion: PIPELINE_VERSION,
+  });
+
+  const isReady = hasEvents ? factsFresh && ctxFresh && factsVersionOk && ctxVersionOk : false;
 
   const anyLoading =
     dayTruth.status === "loading" ||
@@ -93,25 +137,11 @@ function DataStatusCard(props: { day: string }) {
     ctx.status === "loading";
 
   const anyError =
-    dayTruth.status === "error" || facts.status === "error" || insights.status === "error" || ctx.status === "error";
+    dayTruth.status === "error" ||
+    facts.status === "error" ||
+    insights.status === "error" ||
+    ctx.status === "error";
 
-  // Canonical truth anchor for this day
-  const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
-  const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
-
-  // Readiness contract: prefer meta.computedAt, fallback to legacy computedAt for backward compatibility
-  const factsComputedAt =
-    facts.status === "ready" ? facts.data.meta?.computedAt ?? facts.data.computedAt ?? null : null;
-
-  const ctxComputedAt = ctx.status === "ready" ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
-
-  const factsFresh = isFreshComputedAt({ computedAtIso: factsComputedAt, latestEventAtIso: latestEventAt });
-  const ctxFresh = isFreshComputedAt({ computedAtIso: ctxComputedAt, latestEventAtIso: latestEventAt });
-
-  // We require derived truth freshness for "Ready"
-  const isReady = hasEvents ? factsFresh && ctxFresh : false;
-
-  // We still keep a simple “has any fact” summary (used for the bottom summary string)
   const hasAnyFact =
     facts.status === "ready" &&
     (typeof facts.data.activity?.steps === "number" ||
@@ -119,6 +149,50 @@ function DataStatusCard(props: { day: string }) {
       typeof facts.data.body?.weightKg === "number");
 
   const hasAnySignal = hasAnyFact || (insights.status === "ready" && insights.data.count > 0) || ctx.status === "ready";
+
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) clearInterval(pollTimer.current);
+    pollTimer.current = null;
+  }, []);
+
+  const kickRefetch = useCallback(
+    (cacheBust?: string) => {
+      const opts = cacheBust ? { cacheBust } : undefined; // exactOptionalPropertyTypes-safe
+      void refetchDayTruth(opts);
+      void refetchFacts(opts);
+      void refetchInsights(opts);
+      void refetchCtx(opts);
+    },
+    [refetchDayTruth, refetchFacts, refetchInsights, refetchCtx],
+  );
+
+  // Always refresh on focus; if refreshKey arrives (from bus), poll briefly.
+  useEffect(() => {
+    kickRefetch();
+
+    const rk = props.refreshKey;
+    if (!rk) return;
+
+    if (lastRefreshKey.current === rk) return;
+    lastRefreshKey.current = rk;
+
+    kickRefetch(rk);
+
+    stopPolling();
+    pollCount.current = 0;
+
+    pollTimer.current = setInterval(() => {
+      pollCount.current += 1;
+      kickRefetch(rk);
+      if (pollCount.current >= 12) stopPolling();
+    }, 400);
+
+    return () => stopPolling();
+  }, [props.focusNonce, props.refreshKey, kickRefetch, stopPolling]);
+
+  useEffect(() => {
+    if (isReady) stopPolling();
+  }, [isReady, stopPolling]);
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
@@ -142,21 +216,21 @@ function DataStatusCard(props: { day: string }) {
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
-  } else if (!factsFresh || !ctxFresh) {
-    // Honesty state: canonical exists, derived truth not yet fresh
+  } else if (!factsFresh || !ctxFresh || !factsVersionOk || !ctxVersionOk) {
     tone = "neutral";
     title = "Computing today…";
     const parts: string[] = [];
     parts.push("Events ✓");
     parts.push(factsFresh ? "Facts ✓" : "Facts computing…");
     parts.push(ctxFresh ? "Context ✓" : "Context computing…");
+    if (factsFresh && !factsVersionOk) parts.push("Facts upgrading…");
+    if (ctxFresh && !ctxVersionOk) parts.push("Context upgrading…");
     subtitle = parts.join("  •  ");
   } else if (isReady) {
     tone = "success";
     title = "Today is ready";
     subtitle = ["Events ✓", "Facts ✓", "Context ✓"].join("  •  ");
   } else if (hasAnySignal) {
-    // Defensive fallback (should be rare): we have *some* signal but not passing contract
     tone = "neutral";
     title = "Computing today…";
     subtitle = "Waiting for derived truth to catch up to canonical events.";
@@ -181,8 +255,6 @@ function DataStatusCard(props: { day: string }) {
   });
 
   const canonicalAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
-  const factsAt = factsComputedAt;
-  const contextAt = ctxComputedAt;
 
   return (
     <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
@@ -198,7 +270,15 @@ function DataStatusCard(props: { day: string }) {
         <Text style={styles.summaryText}>{summary}</Text>
       </View>
 
-      {__DEV__ ? <DevPipelineOverlay canonicalAt={canonicalAt} factsAt={factsAt} contextAt={contextAt} /> : null}
+      {__DEV__ ? (
+        <DevPipelineOverlay
+          canonicalAt={canonicalAt}
+          factsAt={factsComputedAt}
+          contextAt={ctxComputedAt}
+          factsPv={factsPipelineVersion}
+          ctxPv={ctxPipelineVersion}
+        />
+      ) : null}
     </View>
   );
 }
@@ -235,6 +315,28 @@ export default function CommandCenterScreen() {
   const router = useRouter();
   const day = getTodayDayKey();
 
+  const [focusNonce, setFocusNonce] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      setFocusNonce((n) => n + 1);
+      return undefined;
+    }, []),
+  );
+
+  // Refresh key delivered via refreshBus (deterministic).
+  const [refreshKey, setRefreshKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeRefresh(({ topic, key }) => {
+      if (topic !== "commandCenter") return;
+      setRefreshKey(key);
+    });
+    return unsub;
+  }, []);
+
+  // Hard guarantee: remount status card when refreshKey changes
+  const statusCardKey = useMemo(() => `${day}:${refreshKey ?? "no-refresh"}`, [day, refreshKey]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -253,7 +355,7 @@ export default function CommandCenterScreen() {
           </Pressable>
         </View>
 
-        <DataStatusCard day={day} />
+        <DataStatusCard key={statusCardKey} day={day} refreshKey={refreshKey} focusNonce={focusNonce} />
         <QuickActionsRow />
 
         <View style={styles.grid}>

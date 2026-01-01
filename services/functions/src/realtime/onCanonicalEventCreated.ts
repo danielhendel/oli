@@ -114,8 +114,11 @@ export const onCanonicalEventCreated = onDocumentCreated(
       {
         ...enrichedDailyFacts,
         meta: buildPipelineMeta({
-          computedAt: latestCanonicalEventAt,
-          source: { eventsForDay: eventsForDay.length },
+          computedAt, // ✅ actual compute time
+          source: {
+            eventsForDay: eventsForDay.length,
+            latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
+          },
         }),
       },
       { merge: true },
@@ -153,10 +156,11 @@ export const onCanonicalEventCreated = onDocumentCreated(
       {
         ...ctxDoc,
         meta: buildPipelineMeta({
-          computedAt: latestCanonicalEventAt,
+          computedAt, // ✅ actual compute time
           source: {
             eventsForDay: eventsForDay.length,
             insightsWritten: insights.length,
+            latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
           },
         }),
       },
@@ -164,7 +168,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
     );
 
     // ✅ Latency logging (canonical → derived)
-    const latencyMs = computeLatencyMs(latestCanonicalEventAt, latestCanonicalEventAt);
+    const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
     const warnAfterSec = 30;
 
     if (shouldWarnLatency(latencyMs, warnAfterSec)) {

@@ -1,72 +1,78 @@
 // lib/data/useInsights.ts
-import { useEffect, useState } from "react";
-import { getInsights } from "../api/usersMe";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { getInsights, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { InsightsResponseDto } from "@/lib/contracts";
-import type { ApiResult } from "../api/http";
-import { useAuth } from "../auth/AuthProvider";
 
 type State =
-  | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; data: InsightsResponseDto }
-  | { status: "error"; error: string; requestId: string | null };
+  | { status: "error"; error: string; requestId: string | null }
+  | { status: "ready"; data: InsightsResponseDto };
 
-export const useInsights = (day: string) => {
+type RefetchOpts = TruthGetOptions;
+
+function emptyInsights(day: string): InsightsResponseDto {
+  return { day, count: 0, items: [] };
+}
+
+export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
   const { user, initializing, getIdToken } = useAuth();
-  const [state, setState] = useState<State>({ status: "idle" });
 
-  useEffect(() => {
-    let cancelled = false;
+  const dayRef = useRef(day);
+  dayRef.current = day;
 
-    const run = async (): Promise<void> => {
-      if (initializing) return;
+  const reqSeq = useRef(0);
+
+  const [state, setState] = useState<State>({ status: "loading" });
+
+  const fetchOnce = useCallback(
+    async (opts?: RefetchOpts) => {
+      const seq = ++reqSeq.current;
+      const safeSet = (next: State) => {
+        if (seq !== reqSeq.current) return;
+        setState(next);
+      };
+
+      if (initializing) {
+        safeSet({ status: "loading" });
+        return;
+      }
 
       if (!user) {
-        if (!cancelled) setState({ status: "idle" });
+        safeSet({ status: "ready", data: emptyInsights(dayRef.current) });
         return;
       }
 
-      if (!cancelled) setState({ status: "loading" });
+      const token = await getIdToken();
+      if (seq !== reqSeq.current) return;
 
-      const t1 = await getIdToken(false);
-      if (!t1) {
-        if (!cancelled) setState({ status: "error", error: "No auth token", requestId: null });
+      if (!token) {
+        safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      const res: ApiResult<InsightsResponseDto> = await getInsights(day, t1);
-      if (cancelled) return;
+      safeSet({ status: "loading" });
 
-      if (res.ok) {
-        setState({ status: "ready", data: res.json });
-        return;
-      }
+      const res = await getInsights(dayRef.current, token, opts);
+      if (seq !== reqSeq.current) return;
 
-      if (res.status === 401) {
-        const t2 = await getIdToken(true);
-        if (!t2) {
-          if (!cancelled) setState({ status: "error", error: res.error, requestId: res.requestId });
+      if (!res.ok) {
+        if (res.kind === "http" && res.status === 404) {
+          safeSet({ status: "ready", data: emptyInsights(dayRef.current) });
           return;
         }
-
-        const res2: ApiResult<InsightsResponseDto> = await getInsights(day, t2);
-        if (cancelled) return;
-
-        if (res2.ok) setState({ status: "ready", data: res2.json });
-        else setState({ status: "error", error: res2.error, requestId: res2.requestId });
+        safeSet({ status: "error", error: res.error, requestId: res.requestId });
         return;
       }
 
-      setState({ status: "error", error: res.error, requestId: res.requestId });
-    };
+      safeSet({ status: "ready", data: res.json });
+    },
+    [getIdToken, initializing, user],
+  );
 
-    // ✅ satisfy no-floating-promises
-    void run();
+  useEffect(() => {
+    void fetchOnce();
+  }, [fetchOnce, day, user?.uid]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [day, user, initializing, getIdToken]);
-
-  return state;
-};
+  return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
+}

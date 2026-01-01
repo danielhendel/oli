@@ -1,32 +1,24 @@
 // lib/api/functions.ts
-import type { ApiResult } from "./http";
+import type { ApiResult, JsonValue } from "./http";
 import { apiPostJsonAuthed } from "./http";
 
-export type CallFunctionOptions = {
-  idempotencyKey?: string;
-  timeoutMs?: number;
-};
+type CallFunctionOk<T> = { ok: true; data: T };
+type CallFunctionFail = { ok: false; error: string };
 
-export const callFunctionJson = async <TRes = unknown>(
-  functionName: string,
+export async function callFunctionAuthed<T = JsonValue>(
+  name: string,
   body: unknown,
   idToken: string,
-  opts?: CallFunctionOptions,
-): Promise<ApiResult<TRes>> => {
-  const path = `/functions/${encodeURIComponent(functionName)}`;
-  return apiPostJsonAuthed<TRes>(path, body, idToken, opts);
-};
+): Promise<ApiResult<CallFunctionOk<T> | CallFunctionFail>> {
+  return apiPostJsonAuthed(`/functions/${encodeURIComponent(name)}`, body, idToken, { timeoutMs: 15000 });
+}
 
-/**
- * Admin function wrapper (kept for debug tooling compatibility).
- * Uses the same backend routing; admin auth is enforced server-side.
- */
-export const callAdminFunction = async <TRes = unknown>(
-  functionName: string,
+// ✅ Back-compat for older debug tooling
+export async function callAdminFunction<T = JsonValue>(
+  name: string,
   body: unknown,
   idToken: string,
-  opts?: CallFunctionOptions,
-): Promise<ApiResult<TRes>> => {
-  const path = `/admin/functions/${encodeURIComponent(functionName)}`;
-  return apiPostJsonAuthed<TRes>(path, body, idToken, opts);
-};
+): Promise<ApiResult<CallFunctionOk<T> | CallFunctionFail>> {
+  // If you later split admin endpoints, change ONLY this path.
+  return apiPostJsonAuthed(`/functions/${encodeURIComponent(name)}`, body, idToken, { timeoutMs: 15000 });
+}

@@ -1,171 +1,93 @@
 // lib/data/useIntelligenceContext.ts
-import { useEffect, useState } from "react";
-import { getIntelligenceContext } from "../api/usersMe";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { getIntelligenceContext, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { IntelligenceContextDto } from "@/lib/contracts";
-import type { ApiResult, ApiFailure } from "../api/http";
-import { useAuth } from "../auth/AuthProvider";
 
 type State =
-  | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; data: IntelligenceContextDto }
-  | { status: "error"; error: string; requestId: string | null };
+  | { status: "error"; error: string; requestId: string | null }
+  | { status: "ready"; data: IntelligenceContextDto };
 
-function isNotFoundIntelligenceContext(res: ApiFailure): boolean {
-  if (res.status !== 404) return false;
+type RefetchOpts = TruthGetOptions;
 
-  const json = res.json;
-  if (!json || typeof json !== "object") return false;
-
-  // Expected backend shape:
-  // { ok:false, error:{ code:"NOT_FOUND", resource:"intelligenceContext", day:"YYYY-MM-DD" } }
-  const root = json as Record<string, unknown>;
-  const err = root["error"];
-  if (!err || typeof err !== "object") return false;
-
-  const e = err as Record<string, unknown>;
-  return e["code"] === "NOT_FOUND" && e["resource"] === "intelligenceContext";
-}
-
-/**
- * Client-only empty context.
- * Represents a valid "no data yet" day without creating a backend document.
- */
-function emptyIntelligenceContext(userId: string, day: string): IntelligenceContextDto {
-  const computedAt = new Date().toISOString();
-
+function emptyIntelligenceContext(uid: string, day: string): IntelligenceContextDto {
+  const now = new Date().toISOString();
   return {
     schemaVersion: 1,
-    version: "v1",
-    id: day, // stable per-day placeholder (not persisted)
-    userId,
+    id: `ctx-${uid}-${day}`,
+    version: "0",
+    userId: uid,
     date: day,
-    computedAt,
-
+    computedAt: now,
     facts: {},
-
-    insights: {
-      count: 0,
-      // ✅ Contract expects `severities` (not `bySeverity`)
-      severities: {
-        info: 0,
-        warning: 0,
-        critical: 0,
-      },
-      tags: [],
-      kinds: [],
-      ids: [],
+    insights: { count: 0, tags: [], kinds: [], ids: [] },
+    readiness: { hasDailyFacts: false, hasInsights: false },
+    meta: {
+      computedAt: now,
+      pipelineVersion: 1,
     },
-
-    readiness: {
-      hasDailyFacts: false,
-      hasInsights: false,
-    },
-
-    confidence: {},
   };
 }
 
-export const useIntelligenceContext = (day: string) => {
+export function useIntelligenceContext(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
   const { user, initializing, getIdToken } = useAuth();
-  const [state, setState] = useState<State>({ status: "idle" });
 
-  useEffect(() => {
-    let cancelled = false;
+  const dayRef = useRef(day);
+  dayRef.current = day;
 
-    const run = async (): Promise<void> => {
-      if (initializing) return;
+  const reqSeq = useRef(0);
+
+  const [state, setState] = useState<State>({ status: "loading" });
+
+  const fetchOnce = useCallback(
+    async (opts?: RefetchOpts) => {
+      const seq = ++reqSeq.current;
+      const safeSet = (next: State) => {
+        if (seq !== reqSeq.current) return;
+        setState(next);
+      };
+
+      if (initializing) {
+        safeSet({ status: "loading" });
+        return;
+      }
 
       if (!user) {
-        if (!cancelled) setState({ status: "idle" });
+        safeSet({ status: "loading" });
         return;
       }
 
-      if (!cancelled) setState({ status: "loading" });
+      const token = await getIdToken();
+      if (seq !== reqSeq.current) return;
 
-      const t1 = await getIdToken(false);
-      if (!t1) {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            error: "No auth token",
-            requestId: null,
-          });
-        }
+      if (!token) {
+        safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      const res: ApiResult<IntelligenceContextDto> = await getIntelligenceContext(day, t1);
+      safeSet({ status: "loading" });
 
-      if (cancelled) return;
+      const res = await getIntelligenceContext(dayRef.current, token, opts);
+      if (seq !== reqSeq.current) return;
 
-      if (res.ok) {
-        // Repo-truth: ApiOk<T> uses `.json` on success in this codebase
-        setState({ status: "ready", data: res.json });
-        return;
-      }
-
-      // ✅ NOT_FOUND → empty/ready (expected for new day)
-      if (isNotFoundIntelligenceContext(res)) {
-        setState({
-          status: "ready",
-          data: emptyIntelligenceContext(user.uid, day),
-        });
-        return;
-      }
-
-      // Retry once on auth failure
-      if (res.status === 401) {
-        const t2 = await getIdToken(true);
-        if (!t2) {
-          if (!cancelled) {
-            setState({
-              status: "error",
-              error: res.error,
-              requestId: res.requestId,
-            });
-          }
+      if (!res.ok) {
+        if (res.kind === "http" && res.status === 404) {
+          safeSet({ status: "ready", data: emptyIntelligenceContext(user.uid, dayRef.current) });
           return;
         }
-
-        const res2: ApiResult<IntelligenceContextDto> = await getIntelligenceContext(day, t2);
-
-        if (cancelled) return;
-
-        if (res2.ok) {
-          setState({ status: "ready", data: res2.json });
-          return;
-        }
-
-        if (isNotFoundIntelligenceContext(res2)) {
-          setState({
-            status: "ready",
-            data: emptyIntelligenceContext(user.uid, day),
-          });
-          return;
-        }
-
-        setState({
-          status: "error",
-          error: res2.error,
-          requestId: res2.requestId,
-        });
+        safeSet({ status: "error", error: res.error, requestId: res.requestId });
         return;
       }
 
-      setState({
-        status: "error",
-        error: res.error,
-        requestId: res.requestId,
-      });
-    };
+      safeSet({ status: "ready", data: res.json });
+    },
+    [getIdToken, initializing, user],
+  );
 
-    void run();
+  useEffect(() => {
+    void fetchOnce();
+  }, [fetchOnce, day, user?.uid]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [day, user, initializing, getIdToken]);
-
-  return state;
-};
+  return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
+}

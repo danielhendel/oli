@@ -11,16 +11,18 @@ export type IngestFail = {
   requestId: string | null;
   kind: ApiFailure["kind"];
   error: string;
+  json?: ApiFailure["json"];
 };
 
-export type IngestResult = IngestOk | IngestFail;
-
-export const ingestRawEvent = async (
+export async function ingestRawEventAuthed(
   body: unknown,
   idToken: string,
-  config?: { idempotencyKey?: string },
-): Promise<IngestResult> => {
-  const res: ApiResult<IngestAccepted> = await apiPostJsonAuthed<IngestAccepted>("/ingest/events", body, idToken, config);
+  opts?: { idempotencyKey?: string; timeoutMs?: number },
+): Promise<IngestOk | IngestFail> {
+  const res: ApiResult<IngestAccepted> = await apiPostJsonAuthed<IngestAccepted>("/ingest/events", body, idToken, {
+    ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
+    ...(typeof opts?.timeoutMs === "number" ? { timeoutMs: opts.timeoutMs } : {}),
+  });
 
   if (res.ok) {
     return { ok: true, status: 202, data: res.json, requestId: res.requestId };
@@ -32,5 +34,6 @@ export const ingestRawEvent = async (
     requestId: res.requestId,
     kind: res.kind,
     error: res.error,
+    ...(res.json !== undefined ? { json: res.json } : {}),
   };
-};
+}

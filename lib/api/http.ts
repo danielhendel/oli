@@ -1,12 +1,10 @@
 // lib/api/http.ts
-import { getEnv } from "@/lib/env";
-
 export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [k: string]: JsonValue };
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
-export type FailureKind = "NETWORK" | "HTTP" | "PARSE" | "UNKNOWN";
+export type FailureKind = "network" | "http" | "parse" | "unknown";
 
-export type ApiOk<T = JsonValue> = {
+export type ApiOk<T> = {
   ok: true;
   status: number;
   requestId: string | null;
@@ -15,160 +13,176 @@ export type ApiOk<T = JsonValue> = {
 
 export type ApiFailure = {
   ok: false;
-  kind: FailureKind;
   status: number;
-  requestId: string | null;
+  kind: FailureKind;
   error: string;
-  json?: JsonValue;
+  requestId: string | null;
+  json?: JsonValue; // optional, only present when we actually have one
 };
 
-export type ApiResult<T = JsonValue> = ApiOk<T> | ApiFailure;
+export type ApiResult<T> = ApiOk<T> | ApiFailure;
 
-type PostOptions = {
-  idempotencyKey?: string;
+export type GetOptions = {
+  cacheBust?: string;
+  noStore?: boolean;
   timeoutMs?: number;
 };
 
-const baseUrl = (): string => getEnv().EXPO_PUBLIC_BACKEND_BASE_URL.replace(/\/+$/, "");
-const readRequestId = (res: Response): string | null => res.headers.get("x-request-id");
+export type PostOptions = {
+  idempotencyKey?: string;
+  timeoutMs?: number;
+  noStore?: boolean;
+};
 
-const stringifyError = (status: number, json: JsonValue | undefined): string => {
-  if (typeof json === "string") return json;
-  if (json && typeof json === "object") {
-    const maybe = (json as Record<string, unknown>)["error"];
-    if (typeof maybe === "string") return maybe;
-    try {
-      return JSON.stringify(json);
-    } catch {
-      // ignore
+function isJsonValue(v: unknown): v is JsonValue {
+  if (v === null) return true;
+  const t = typeof v;
+  if (t === "string" || t === "number" || t === "boolean") return true;
+  if (Array.isArray(v)) return v.every(isJsonValue);
+  if (t === "object") {
+    const rec = v as Record<string, unknown>;
+    return Object.values(rec).every(isJsonValue);
+  }
+  return false;
+}
+
+function appendCacheBust(url: string, cacheBust?: string): string {
+  if (!cacheBust) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}t=${encodeURIComponent(cacheBust)}`;
+}
+
+async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
+  const controller = new AbortController();
+  const t = timeoutMs ?? 15000;
+  const timer = setTimeout(() => controller.abort(), t);
+
+  try {
+    const res = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      // defensive: helps some fetch implementations avoid caching
+      cache: "no-store",
+    });
+
+    const rid = res.headers.get("x-request-id") ?? null;
+    const status = res.status;
+
+    const text = await res.text();
+
+    // If there is a body, it must be valid JSON in our API.
+    let parsedUnknown: unknown = null;
+    if (text) {
+      try {
+        parsedUnknown = JSON.parse(text) as unknown;
+      } catch {
+        return {
+          ok: false,
+          status,
+          kind: "parse",
+          error: "Invalid JSON response",
+          requestId: rid,
+        };
+      }
     }
-  }
-  return `HTTP ${status}`;
-};
 
-const withTimeout = async <T>(p: Promise<T>, timeoutMs: number): Promise<T> => {
-  let t: ReturnType<typeof setTimeout> | null = null;
-  try {
-    return await Promise.race([
-      p,
-      new Promise<T>((_, reject) => {
-        t = setTimeout(() => reject(new Error("timeout")), timeoutMs);
-      }),
-    ]);
+    const parsedJson: JsonValue | undefined =
+      parsedUnknown !== null && isJsonValue(parsedUnknown) ? parsedUnknown : undefined;
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        status,
+        kind: "http",
+        error: `HTTP ${status}`,
+        requestId: rid,
+        ...(parsedJson !== undefined ? { json: parsedJson } : {}),
+      };
+    }
+
+    // Success: if no body, return null as T.
+    if (parsedUnknown === null) {
+      return { ok: true, status, requestId: rid, json: null as unknown as T };
+    }
+
+    return { ok: true, status, requestId: rid, json: parsedUnknown as T };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Network error";
+    return { ok: false, status: 0, kind: "network", error: msg, requestId: null };
   } finally {
-    if (t) clearTimeout(t);
+    clearTimeout(timer);
   }
-};
+}
 
-const safeJson = async (res: Response): Promise<JsonValue | undefined> => {
-  const text = await res.text();
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text) as JsonValue;
-  } catch {
-    return text as JsonValue;
-  }
-};
+type HeaderOptions = { noStore?: true; idempotencyKey?: string };
 
-const failure = (
-  kind: FailureKind,
-  status: number,
-  requestId: string | null,
-  error: string,
-  json?: JsonValue,
-): ApiFailure => (json !== undefined ? { ok: false, kind, status, requestId, error, json } : { ok: false, kind, status, requestId, error });
-
-/**
- * GET JSON (no auth) — used for /health, etc.
- */
-export const apiGetJson = async <T = JsonValue>(path: string, timeoutMs = 15000): Promise<ApiResult<T>> => {
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      }),
-      timeoutMs,
-    );
-
-    const requestId = readRequestId(res);
-    const json = await safeJson(res);
-
-    if (!res.ok) return failure("HTTP", res.status, requestId, stringifyError(res.status, json), json);
-    return { ok: true, status: res.status, requestId, json: json as unknown as T };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return failure("NETWORK", 0, null, msg);
-  }
-};
-
-/**
- * GET JSON (authed)
- */
-export const apiGetJsonAuthed = async <T = JsonValue>(
-  path: string,
-  idToken: string,
-  timeoutMs = 15000,
-): Promise<ApiResult<T>> => {
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          Accept: "application/json",
-        },
-      }),
-      timeoutMs,
-    );
-
-    const requestId = readRequestId(res);
-    const json = await safeJson(res);
-
-    if (!res.ok) return failure("HTTP", res.status, requestId, stringifyError(res.status, json), json);
-    return { ok: true, status: res.status, requestId, json: json as unknown as T };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return failure("NETWORK", 0, null, msg);
-  }
-};
-
-/**
- * POST JSON (authed)
- */
-export const apiPostJsonAuthed = async <TRes = JsonValue>(
-  path: string,
-  body: unknown,
-  idToken: string,
-  opts?: PostOptions,
-): Promise<ApiResult<TRes>> => {
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-
+function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${idToken}`,
     Accept: "application/json",
     "Content-Type": "application/json",
   };
 
-  if (opts?.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
-
-  try {
-    const res = await withTimeout(
-      fetch(url, { method: "POST", headers, body: JSON.stringify(body) }),
-      opts?.timeoutMs ?? 15000,
-    );
-
-    const requestId = readRequestId(res);
-    const json = await safeJson(res);
-
-    if (!res.ok) return failure("HTTP", res.status, requestId, stringifyError(res.status, json), json);
-    return { ok: true, status: res.status, requestId, json: json as unknown as TRes };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return failure("NETWORK", 0, null, msg);
+  if (opts?.noStore) {
+    headers["Cache-Control"] = "no-store";
+    headers["Pragma"] = "no-cache";
   }
-};
+  if (opts?.idempotencyKey) {
+    headers["Idempotency-Key"] = opts.idempotencyKey;
+  }
+
+  return headers;
+}
+
+export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
+  const base = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!base) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
+
+  const url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
+
+  const headerOpts: HeaderOptions = {};
+  if (opts?.noStore) headerOpts.noStore = true;
+
+  const headers = buildHeaders(headerOpts);
+  headers.Authorization = `Bearer ${idToken}`;
+
+  return apiFetchJson<T>(url, { method: "GET", headers }, opts?.timeoutMs);
+}
+
+export async function apiPostJsonAuthed<T>(
+  path: string,
+  body: unknown,
+  idToken: string,
+  opts?: PostOptions,
+): Promise<ApiResult<T>> {
+  const base = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!base) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
+
+  const url = `${base}${path}`;
+
+  const headerOpts: HeaderOptions = {};
+  if (opts?.noStore) headerOpts.noStore = true;
+  if (opts?.idempotencyKey) headerOpts.idempotencyKey = opts.idempotencyKey;
+
+  const headers = buildHeaders(headerOpts);
+  headers.Authorization = `Bearer ${idToken}`;
+
+  const bodyStr = JSON.stringify(body);
+
+  return apiFetchJson<T>(url, { method: "POST", headers, body: bodyStr }, opts?.timeoutMs);
+}

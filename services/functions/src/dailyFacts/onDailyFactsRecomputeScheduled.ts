@@ -148,8 +148,11 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
         {
           ...enriched,
           meta: buildPipelineMeta({
-            computedAt: latestCanonicalEventAt,
-            source: { eventsForDay: eventsForDay.length },
+            computedAt, // ✅ actual compute time
+            source: {
+              eventsForDay: eventsForDay.length,
+              latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
+            },
           }),
         },
         { merge: true },
@@ -161,7 +164,12 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       const warnAfterSec = 30;
 
       if (shouldWarnLatency(latencyMs, warnAfterSec)) {
-        logger.warn("Pipeline latency high (canonical→dailyFacts)", { userId, date: targetDate, latencyMs, warnAfterSec });
+        logger.warn("Pipeline latency high (canonical→dailyFacts)", {
+          userId,
+          date: targetDate,
+          latencyMs,
+          warnAfterSec,
+        });
       } else {
         logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
       }

@@ -7,9 +7,9 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
+import { emitRefresh } from "@/lib/navigation/refreshBus";
 
 const getDeviceTimeZone = (): string => {
-  // RN Hermes usually supports Intl; fall back safely.
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return typeof tz === "string" && tz.length ? tz : "UTC";
@@ -17,6 +17,10 @@ const getDeviceTimeZone = (): string => {
     return "UTC";
   }
 };
+
+function makeRefreshKey(): string {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 export default function BodyWeightScreen() {
   const router = useRouter();
@@ -39,10 +43,7 @@ export default function BodyWeightScreen() {
     const weightOk = Number.isFinite(w) && w > 0;
     const bfOk = bfRaw === null || (Number.isFinite(bfRaw) && bfRaw >= 0 && bfRaw <= 100);
 
-    // This screen supports both unit entry, but the manual weight event helper
-    // currently expects weightLbs in the payload builder.
-    const weightLbs =
-      weightOk ? (unit === "lb" ? w : w * 2.2046226218) : null;
+    const weightLbs = weightOk ? (unit === "lb" ? w : w * 2.2046226218) : null;
 
     return {
       weightOk,
@@ -74,7 +75,7 @@ export default function BodyWeightScreen() {
         return;
       }
 
-      const token = await getIdToken();
+      const token = await getIdToken(false);
       if (!token) {
         setStatus({ state: "error", message: "No auth token (try Debug → Re-auth)" });
         return;
@@ -83,7 +84,6 @@ export default function BodyWeightScreen() {
       const time = new Date().toISOString();
       const timezone = getDeviceTimeZone();
 
-      // ✅ buildManualWeightPayload requires time + timezone + weightLbs
       const payload = buildManualWeightPayload({
         time,
         timezone,
@@ -103,9 +103,18 @@ export default function BodyWeightScreen() {
 
       setStatus({ state: "saved", rawEventId: res.json.rawEventId });
 
+      // ✅ Deterministic: notify Command Center immediately.
+      const refreshKey = makeRefreshKey();
+      emitRefresh("commandCenter", refreshKey);
+
+      // Navigate back (Command Center is already in stack).
       setTimeout(() => {
-        router.back();
-      }, 250);
+        try {
+          router.back();
+        } catch {
+          router.replace("/(app)/command-center");
+        }
+      }, 150);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setStatus({ state: "error", message: msg });

@@ -1,5 +1,4 @@
 // lib/debug/seed.ts
-
 import { apiPostJsonAuthed, type JsonValue } from "../api/http";
 import { getIdToken } from "../auth/getIdToken";
 import { getTodayDayKey } from "../time/dayKey";
@@ -21,7 +20,7 @@ const findFirstString = (obj: Record<string, JsonValue> | null, keys: string[]):
 export type SeedResult = {
   ok: true;
   rawEventId?: string;
-  response?: JsonValue;
+  response: JsonValue;
 };
 
 export const seedTodayWeight = async (): Promise<SeedResult> => {
@@ -38,12 +37,11 @@ export const seedTodayWeight = async (): Promise<SeedResult> => {
       time: now,
       timezone: "America/New_York",
       weightKg: 80,
-      // helpful for tracing later even if API doesn't return rawEventId
       clientSeedKey: `seed-weight-${day}`,
     },
   };
 
-  const res = await apiPostJsonAuthed("/ingest/events", body, token, {
+  const res = await apiPostJsonAuthed<JsonValue>("/ingest/events", body, token, {
     idempotencyKey: `seed-weight-${day}`,
   });
 
@@ -51,8 +49,6 @@ export const seedTodayWeight = async (): Promise<SeedResult> => {
 
   const obj = asRecord(res.json);
 
-  // Support multiple possible response shapes without failing:
-  // { rawEventId }, { id }, { eventId }, { result: { id } }, etc.
   const rawEventId =
     findFirstString(obj, ["rawEventId", "id", "eventId"]) ??
     findFirstString(asRecord(obj?.result), ["rawEventId", "id", "eventId"]) ??
