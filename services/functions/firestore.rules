@@ -3,60 +3,101 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ✅ Default deny: future-proof against new collections/subcollections.
+    // ============================================================
+    // DEFAULT DENY (GLOBAL SAFETY NET)
+    //
+    // Any collection or document not explicitly allowed below
+    // is denied by default. This protects against:
+    // - New collections accidentally becoming writable
+    // - Typos or schema drift creating security holes
+    // ============================================================
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // ------------------------------------------------------------
-    // USERS (owner-scoped)
-    // ------------------------------------------------------------
+    // ============================================================
+    // USERS (OWNER-SCOPED ROOT)
+    // ============================================================
     match /users/{userId} {
-      // The user doc itself (profile/settings).
-      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
 
       // ----------------------------------------------------------
-      // SOURCES (user-owned config)
+      // USER ROOT DOCUMENT (profile / settings)
+      //
+      // ❗ CRITICAL INVARIANT:
+      // Client-side deletion is DISALLOWED until backend-enforced
+      // cascading deletion + audit guarantees exist.
+      // ----------------------------------------------------------
+      allow read, create, update: if request.auth != null
+                                  && request.auth.uid == userId;
+      allow delete: if false;
+
+      // ----------------------------------------------------------
+      // SOURCES (user-owned configuration)
+      //
+      // Examples:
+      // - Apple Health source
+      // - Manual logging source
       // ----------------------------------------------------------
       match /sources/{sourceId} {
-        allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, create, update, delete: if request.auth != null
+                                            && request.auth.uid == userId;
       }
 
       // ----------------------------------------------------------
       // RAW EVENTS (INGESTION BOUNDARY)
       //
-      // 🔒 Backend-only writes (Cloud Run / Functions Admin SDK).
-      // Clients may read their own raw events (debug/visibility),
-      // but cannot create/update/delete.
+      // ❗ CRITICAL INVARIANT:
+      // - Clients may READ their raw events for transparency/debug
+      // - Clients may NEVER write raw events
+      // - All writes go through API / backend ingestion only
       // ----------------------------------------------------------
       match /rawEvents/{rawEventId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
 
       // ----------------------------------------------------------
-      // CANONICAL EVENTS / DAILY FACTS / INSIGHTS / INTELLIGENCE
+      // CANONICAL EVENTS (NORMALIZED TRUTH)
       //
-      // 🔒 Backend-only writes (Admin SDK bypasses rules).
-      // Clients can read their own derived data.
+      // ❗ Backend-only writes (Admin SDK bypasses rules)
       // ----------------------------------------------------------
       match /events/{eventId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
 
+      // ----------------------------------------------------------
+      // DAILY FACTS (DERIVED TRUTH)
+      //
+      // ❗ Backend-only writes
+      // ----------------------------------------------------------
       match /dailyFacts/{dateId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
 
+      // ----------------------------------------------------------
+      // INSIGHTS (DERIVED INTERPRETATIONS)
+      //
+      // ❗ Backend-only writes
+      // ----------------------------------------------------------
       match /insights/{insightId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
 
+      // ----------------------------------------------------------
+      // INTELLIGENCE CONTEXT (DAILY SUMMARY STATE)
+      //
+      // ❗ Backend-only writes
+      // ----------------------------------------------------------
       match /intelligenceContext/{dateId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
     }

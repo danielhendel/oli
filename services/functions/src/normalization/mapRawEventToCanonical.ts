@@ -1,5 +1,3 @@
-// services/functions/src/normalization/mapRawEventToCanonical.ts
-
 import type {
   CanonicalEvent,
   RawEvent,
@@ -25,7 +23,10 @@ import type {
  * - Do NOT trust any client-provided `day`.
  */
 
-export type MappingFailureReason = "UNSUPPORTED_PROVIDER" | "UNSUPPORTED_KIND" | "MALFORMED_PAYLOAD";
+export type MappingFailureReason =
+  | "UNSUPPORTED_PROVIDER"
+  | "UNSUPPORTED_KIND"
+  | "MALFORMED_PAYLOAD";
 
 export type MappingFailure = {
   ok: false;
@@ -53,15 +54,14 @@ const toYmdUtc = (date: Date): YmdDateString => {
 
 /**
  * Canonical dayKey derivation using IANA timezone.
+ * Returns null if the ISO timestamp is invalid.
  * Falls back to UTC if timezone is invalid/unavailable.
  *
  * NOTE: uses en-CA format which yields YYYY-MM-DD.
  */
-const ymdInTimeZoneFromIso = (iso: string, timeZone: string): YmdDateString => {
+const ymdInTimeZoneFromIso = (iso: string, timeZone: string): YmdDateString | null => {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    return toYmdUtc(new Date());
-  }
+  if (Number.isNaN(d.getTime())) return null;
 
   try {
     const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -137,11 +137,14 @@ const MANUAL_KINDS: readonly ManualKind[] = ["sleep", "steps", "workout", "weigh
 const isManualKind = (kind: RawEvent["kind"]): kind is ManualKind =>
   (MANUAL_KINDS as readonly string[]).includes(kind);
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
-const hasString = (obj: Record<string, unknown>, key: string): boolean => typeof obj[key] === "string";
+const hasString = (obj: Record<string, unknown>, key: string): boolean =>
+  typeof obj[key] === "string";
 
-const hasNumber = (obj: Record<string, unknown>, key: string): boolean => typeof obj[key] === "number";
+const hasNumber = (obj: Record<string, unknown>, key: string): boolean =>
+  typeof obj[key] === "number";
 
 const isManualWindowBase = (value: unknown): value is ManualWindowBase => {
   if (!isRecord(value)) return false;
@@ -152,9 +155,6 @@ const isManualSleepPayload = (value: unknown): value is ManualSleepPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
   if (!hasNumber(value, "totalMinutes")) return false;
-
-  // IMPORTANT: after isManualWindowBase, TS narrows the value to ManualWindowBase.
-  // Access extra fields via the record shape (safe runtime check) to satisfy strict TS.
   return typeof (value as Record<string, unknown>)["isMainSleep"] === "boolean";
 };
 
@@ -184,7 +184,10 @@ const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
  * Parse manual payload based on kind.
  * Constrains K to keyof ManualPayloadByKind to allow indexed access.
  */
-const parseManualPayload = <K extends ManualKind>(kind: K, payload: unknown): ManualPayloadByKind[K] | null => {
+const parseManualPayload = <K extends ManualKind>(
+  kind: K,
+  payload: unknown,
+): ManualPayloadByKind[K] | null => {
   switch (kind) {
     case "sleep":
       return isManualSleepPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
@@ -207,8 +210,12 @@ const parseManualPayload = <K extends ManualKind>(kind: K, payload: unknown): Ma
 // Manual mappers (provider === "manual")
 // -----------------------------------------------------------------------------
 
-const mapManualSleep = (raw: RawEvent, payload: ManualSleepPayload): SleepCanonicalEvent => {
+const mapManualSleep = (
+  raw: RawEvent,
+  payload: ManualSleepPayload,
+): SleepCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  if (!day) return null;
 
   return {
     id: raw.id,
@@ -230,8 +237,12 @@ const mapManualSleep = (raw: RawEvent, payload: ManualSleepPayload): SleepCanoni
   };
 };
 
-const mapManualSteps = (raw: RawEvent, payload: ManualStepsPayload): StepsCanonicalEvent => {
+const mapManualSteps = (
+  raw: RawEvent,
+  payload: ManualStepsPayload,
+): StepsCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  if (!day) return null;
 
   return {
     id: raw.id,
@@ -251,8 +262,12 @@ const mapManualSteps = (raw: RawEvent, payload: ManualStepsPayload): StepsCanoni
   };
 };
 
-const mapManualWorkout = (raw: RawEvent, payload: ManualWorkoutPayload): WorkoutCanonicalEvent => {
+const mapManualWorkout = (
+  raw: RawEvent,
+  payload: ManualWorkoutPayload,
+): WorkoutCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  if (!day) return null;
 
   const base: WorkoutCanonicalEvent = {
     id: raw.id,
@@ -271,7 +286,6 @@ const mapManualWorkout = (raw: RawEvent, payload: ManualWorkoutPayload): Workout
     trainingLoad: payload.trainingLoad ?? null,
   };
 
-  // exactOptionalPropertyTypes-safe: only set when defined
   if (payload.intensity) {
     base.intensity = payload.intensity;
   }
@@ -279,8 +293,12 @@ const mapManualWorkout = (raw: RawEvent, payload: ManualWorkoutPayload): Workout
   return base;
 };
 
-const mapManualWeight = (raw: RawEvent, payload: ManualWeightPayload): WeightCanonicalEvent => {
+const mapManualWeight = (
+  raw: RawEvent,
+  payload: ManualWeightPayload,
+): WeightCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+  if (!day) return null;
 
   return {
     id: raw.id,
@@ -299,8 +317,9 @@ const mapManualWeight = (raw: RawEvent, payload: ManualWeightPayload): WeightCan
   };
 };
 
-const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEvent => {
+const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+  if (!day) return null;
 
   const base: HrvCanonicalEvent = {
     id: raw.id,
@@ -318,7 +337,6 @@ const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEve
     sdnnMs: payload.sdnnMs ?? null,
   };
 
-  // exactOptionalPropertyTypes-safe: only set when defined
   if (payload.measurementType) {
     base.measurementType = payload.measurementType;
   }
@@ -330,12 +348,6 @@ const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEve
 // Entry point
 // -----------------------------------------------------------------------------
 
-/**
- * Map a RawEvent into a CanonicalEvent.
- *
- * - Currently supports provider === "manual".
- * - Other providers (e.g. "apple_health", "oura") will be added later.
- */
 export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
   if (raw.provider !== "manual") {
     return {
@@ -353,67 +365,65 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
-  // Parse INSIDE each case so the payload is correctly typed per-kind
-  // (avoids union payload issues under strict TS).
   switch (raw.kind) {
     case "sleep": {
       const payload = parseManualPayload("sleep", raw.payload);
       if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
-        };
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
       }
-      return { ok: true, canonical: mapManualSleep(raw, payload) };
+      const canonical = mapManualSleep(raw, payload);
+      if (!canonical) {
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+      }
+      return { ok: true, canonical };
     }
 
     case "steps": {
       const payload = parseManualPayload("steps", raw.payload);
       if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
-        };
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
       }
-      return { ok: true, canonical: mapManualSteps(raw, payload) };
+      const canonical = mapManualSteps(raw, payload);
+      if (!canonical) {
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+      }
+      return { ok: true, canonical };
     }
 
     case "workout": {
       const payload = parseManualPayload("workout", raw.payload);
       if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
-        };
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
       }
-      return { ok: true, canonical: mapManualWorkout(raw, payload) };
+      const canonical = mapManualWorkout(raw, payload);
+      if (!canonical) {
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+      }
+      return { ok: true, canonical };
     }
 
     case "weight": {
       const payload = parseManualPayload("weight", raw.payload);
       if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
-        };
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
       }
-      return { ok: true, canonical: mapManualWeight(raw, payload) };
+      const canonical = mapManualWeight(raw, payload);
+      if (!canonical) {
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "time" } };
+      }
+      return { ok: true, canonical };
     }
 
     case "hrv": {
       const payload = parseManualPayload("hrv", raw.payload);
       if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { provider: raw.provider, kind: raw.kind, rawEventId: raw.id },
-        };
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
       }
-      return { ok: true, canonical: mapManualHrv(raw, payload) };
+      const canonical = mapManualHrv(raw, payload);
+      if (!canonical) {
+        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "time" } };
+      }
+      return { ok: true, canonical };
     }
 
     default: {
