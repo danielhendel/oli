@@ -88,7 +88,10 @@ const parseBody = (raw: unknown): Body | null => {
  *  { ok: true, written: true, path: "...", date: "...", userId: "..." }
  */
 export const recomputeDailyFactsAdminHttp = onRequest(
-  { region: "us-central1" },
+  {
+    region: "us-central1",
+    invoker: "private",
+  },
   async (req, res) => {
     const auth = await requireAdmin(req.header("authorization"));
     if (!auth.ok) {
@@ -113,14 +116,9 @@ export const recomputeDailyFactsAdminHttp = onRequest(
       /**
        * Load canonical events for that user + day
        */
-      const eventsSnap = await userRef
-        .collection("events")
-        .where("day", "==", date)
-        .get();
+      const eventsSnap = await userRef.collection("events").where("day", "==", date).get();
 
-      const events: CanonicalEvent[] = eventsSnap.docs.map(
-        (d) => d.data() as CanonicalEvent,
-      );
+      const events: CanonicalEvent[] = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
       // Truth anchor for readiness
       const latestCanonicalEventAt: IsoDateTimeString =
@@ -149,9 +147,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
         .where("date", "<", date)
         .get();
 
-      const history: DailyFacts[] = historySnap.docs.map(
-        (d) => d.data() as DailyFacts,
-      );
+      const history: DailyFacts[] = historySnap.docs.map((d) => d.data() as DailyFacts);
 
       const enriched = enrichDailyFactsWithBaselinesAndAverages({
         today: base,

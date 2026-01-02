@@ -4,7 +4,13 @@ import { onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 
 import { db } from "../firebaseAdmin";
-import type { CanonicalEvent, DailyFacts, Insight, IsoDateTimeString, YmdDateString } from "../types/health";
+import type {
+  CanonicalEvent,
+  DailyFacts,
+  Insight,
+  IsoDateTimeString,
+  YmdDateString,
+} from "../types/health";
 import { requireAdmin } from "./adminAuth";
 import { buildDailyIntelligenceContext } from "../intelligence/buildDailyIntelligenceContext";
 
@@ -44,7 +50,10 @@ const parseBody = (raw: unknown): Body | null => {
  *  { "userId": "...", "date": "YYYY-MM-DD" }
  */
 export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
-  { region: "us-central1" },
+  {
+    region: "us-central1",
+    invoker: "private",
+  },
   async (req, res) => {
     const auth = await requireAdmin(req.header("authorization"));
     if (!auth.ok) {
@@ -54,7 +63,9 @@ export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
 
     const body = parseBody(req.body);
     if (!body) {
-      res.status(400).json({ ok: false, error: "Invalid body. Expected { userId, date: YYYY-MM-DD }" });
+      res
+        .status(400)
+        .json({ ok: false, error: "Invalid body. Expected { userId, date: YYYY-MM-DD }" });
       return;
     }
 
@@ -67,7 +78,9 @@ export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
       // DailyFacts is required input
       const dailyFactsSnap = await userRef.collection("dailyFacts").doc(date).get();
       if (!dailyFactsSnap.exists) {
-        res.status(404).json({ ok: false, error: `DailyFacts not found for userId=${userId} date=${date}` });
+        res
+          .status(404)
+          .json({ ok: false, error: `DailyFacts not found for userId=${userId} date=${date}` });
         return;
       }
 
@@ -130,7 +143,9 @@ export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
       });
     } catch (err) {
       logger.error("Admin recomputeDailyIntelligenceContext failed", { userId, date, err });
-      res.status(500).json({ ok: false, error: "Internal error recomputing Daily Intelligence Context" });
+      res
+        .status(500)
+        .json({ ok: false, error: "Internal error recomputing Daily Intelligence Context" });
     }
   },
 );
