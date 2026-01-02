@@ -9,6 +9,8 @@ import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
 
+const LBS_PER_KG = 2.2046226218;
+
 const getDeviceTimeZone = (): string => {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -43,12 +45,14 @@ export default function BodyWeightScreen() {
     const weightOk = Number.isFinite(w) && w > 0;
     const bfOk = bfRaw === null || (Number.isFinite(bfRaw) && bfRaw >= 0 && bfRaw <= 100);
 
-    const weightLbs = weightOk ? (unit === "lb" ? w : w * 2.2046226218) : null;
+    const weightLbs = weightOk ? (unit === "lb" ? w : w * LBS_PER_KG) : null;
+    const weightKg = weightOk ? (unit === "kg" ? w : w / LBS_PER_KG) : null;
 
     return {
       weightOk,
       bfOk,
       weightLbs,
+      weightKg,
       bodyFatPercent: bfRaw === null ? null : bfRaw,
     };
   }, [weightText, bodyFatText, unit]);
@@ -59,10 +63,11 @@ export default function BodyWeightScreen() {
     parsed.weightOk &&
     parsed.bfOk &&
     parsed.weightLbs !== null &&
+    parsed.weightKg !== null &&
     status.state !== "saving";
 
   const onSave = async (): Promise<void> => {
-    if (!canSave || parsed.weightLbs === null) return;
+    if (!canSave || parsed.weightLbs === null || parsed.weightKg === null) return;
     setStatus({ state: "saving" });
 
     try {
@@ -103,18 +108,18 @@ export default function BodyWeightScreen() {
 
       setStatus({ state: "saved", rawEventId: res.json.rawEventId });
 
-      // ✅ Deterministic: notify Command Center immediately.
       const refreshKey = makeRefreshKey();
+
+      // ✅ bus (if CC is mounted underneath)
       emitRefresh("commandCenter", refreshKey);
 
-      // Navigate back (Command Center is already in stack).
-      setTimeout(() => {
-        try {
-          router.back();
-        } catch {
-          router.replace("/(app)/command-center");
-        }
-      }, 150);
+      // ✅ also pass optimistic weight so CC updates instantly even if pipeline lags
+      const ow = parsed.weightKg.toFixed(2);
+
+      router.replace({
+        pathname: "/(app)/command-center",
+        params: { refresh: refreshKey, ow },
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setStatus({ state: "error", message: msg });
@@ -201,22 +206,9 @@ export default function BodyWeightScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#F2F2F7",
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+  card: { backgroundColor: "#F2F2F7", borderRadius: 16, padding: 14, gap: 8 },
+  label: { fontSize: 13, fontWeight: "700", color: "#111827" },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
   input: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
@@ -234,50 +226,14 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     overflow: "hidden",
   },
-  unitButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  unitActive: {
-    backgroundColor: "#111827",
-  },
-  unitText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  unitTextActive: {
-    color: "#FFFFFF",
-  },
-  saveButton: {
-    marginTop: 10,
-    backgroundColor: "#111827",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  saveDisabled: {
-    opacity: 0.35,
-  },
-  saveText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  helperError: {
-    color: "#B00020",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  helperSuccess: {
-    color: "#1B5E20",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  helperNote: {
-    marginTop: 8,
-    color: "#6B7280",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  unitButton: { paddingHorizontal: 12, paddingVertical: 12 },
+  unitActive: { backgroundColor: "#111827" },
+  unitText: { fontSize: 14, fontWeight: "800", color: "#111827" },
+  unitTextActive: { color: "#FFFFFF" },
+  saveButton: { marginTop: 10, backgroundColor: "#111827", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  saveDisabled: { opacity: 0.35 },
+  saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  helperError: { color: "#B00020", fontSize: 12, fontWeight: "600" },
+  helperSuccess: { color: "#1B5E20", fontSize: 12, fontWeight: "700" },
+  helperNote: { marginTop: 8, color: "#6B7280", fontSize: 12, fontWeight: "600" },
 });

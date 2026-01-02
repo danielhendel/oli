@@ -12,12 +12,17 @@ type State =
 type RefetchOpts = TruthGetOptions;
 
 function emptyDayTruth(day: string): DayTruthDto {
-  // IMPORTANT: Must match your actual DayTruthDto contract.
   return {
     day,
     eventsCount: 0,
     latestCanonicalEventAt: null,
   };
+}
+
+function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
+  const cb = opts?.cacheBust;
+  if (!cb) return opts;
+  return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
 export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
@@ -29,36 +34,39 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
   const reqSeq = useRef(0);
 
   const [state, setState] = useState<State>({ status: "loading" });
+  const stateRef = useRef<State>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const fetchOnce = useCallback(
     async (opts?: RefetchOpts) => {
       const seq = ++reqSeq.current;
+
       const safeSet = (next: State) => {
-        if (seq !== reqSeq.current) return;
-        setState(next);
+        if (seq === reqSeq.current) setState(next);
       };
 
-      if (initializing) {
-        safeSet({ status: "loading" });
+      if (initializing || !user) {
+        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
-      if (!user) {
-        safeSet({ status: "loading" });
-        return;
-      }
-
-      const token = await getIdToken();
+      const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
 
       if (!token) {
+        if (stateRef.current.status === "ready") return;
         safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      safeSet({ status: "loading" });
+      // SWR
+      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
-      const res = await getDayTruth(dayRef.current, token, opts);
+      const optsUnique = withUniqueCacheBust(opts, seq);
+
+      const res = await getDayTruth(dayRef.current, token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       if (!res.ok) {
@@ -66,6 +74,9 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
           safeSet({ status: "ready", data: emptyDayTruth(dayRef.current) });
           return;
         }
+
+        if (stateRef.current.status === "ready") return;
+
         safeSet({ status: "error", error: res.error, requestId: res.requestId });
         return;
       }

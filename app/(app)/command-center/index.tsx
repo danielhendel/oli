@@ -1,6 +1,6 @@
 // app/(app)/command-center/index.tsx
 import { ScrollView, View, StyleSheet, Pressable, Text } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,7 +18,7 @@ import { useDayTruth } from "@/lib/data/useDayTruth";
 
 import { isCompatiblePipelineVersion, isFreshComputedAt } from "@/lib/data/readiness";
 import { PIPELINE_VERSION } from "@/lib/pipeline/version";
-import { subscribeRefresh } from "@/lib/navigation/refreshBus";
+import { subscribeRefresh, consumeRefresh } from "@/lib/navigation/refreshBus";
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 
@@ -105,6 +105,10 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
   const pollCount = useRef(0);
   const lastRefreshKey = useRef<string | null>(null);
 
+  // ✅ Baselines captured at the moment refresh starts
+  const baselineWeightKg = useRef<number | null>(null);
+  const baselineCanonicalAt = useRef<string | null>(null);
+
   const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
   const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
 
@@ -128,7 +132,7 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     expectedPipelineVersion: PIPELINE_VERSION,
   });
 
-  const isReady = hasEvents ? factsFresh && ctxFresh && factsVersionOk && ctxVersionOk : false;
+  const derivedReady = hasEvents ? factsFresh && ctxFresh && factsVersionOk && ctxVersionOk : false;
 
   const anyLoading =
     dayTruth.status === "loading" ||
@@ -142,13 +146,7 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     insights.status === "error" ||
     ctx.status === "error";
 
-  const hasAnyFact =
-    facts.status === "ready" &&
-    (typeof facts.data.activity?.steps === "number" ||
-      typeof facts.data.sleep?.totalMinutes === "number" ||
-      typeof facts.data.body?.weightKg === "number");
-
-  const hasAnySignal = hasAnyFact || (insights.status === "ready" && insights.data.count > 0) || ctx.status === "ready";
+  const currentWeightKg = facts.status === "ready" ? facts.data.body?.weightKg ?? null : null;
 
   const stopPolling = useCallback(() => {
     if (pollTimer.current) clearInterval(pollTimer.current);
@@ -166,33 +164,70 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     [refetchDayTruth, refetchFacts, refetchInsights, refetchCtx],
   );
 
-  // Always refresh on focus; if refreshKey arrives (from bus), poll briefly.
+  // ✅ Always refetch on focus
   useEffect(() => {
     kickRefetch();
+  }, [props.focusNonce, kickRefetch]);
 
+  // ✅ On refreshKey change: start polling until we OBSERVE the weight changed/appeared (or timeout).
+  useEffect(() => {
     const rk = props.refreshKey;
     if (!rk) return;
 
     if (lastRefreshKey.current === rk) return;
     lastRefreshKey.current = rk;
 
-    kickRefetch(rk);
+    // capture baselines at refresh start
+    baselineWeightKg.current = currentWeightKg;
+    baselineCanonicalAt.current = latestEventAt ?? null;
 
     stopPolling();
     pollCount.current = 0;
 
+    // kick immediately with cache bust
+    kickRefetch(rk);
+
     pollTimer.current = setInterval(() => {
       pollCount.current += 1;
       kickRefetch(rk);
-      if (pollCount.current >= 12) stopPolling();
-    }, 400);
+
+      // hard cap: 90 seconds (90 * 1000ms)
+      if (pollCount.current >= 90) stopPolling();
+    }, 1000);
 
     return () => stopPolling();
-  }, [props.focusNonce, props.refreshKey, kickRefetch, stopPolling]);
+  }, [props.refreshKey, currentWeightKg, latestEventAt, kickRefetch, stopPolling]);
 
+  // ✅ Stop polling once we can tell the UI should update:
+  // - weight appeared (baseline null -> number)
+  // - or weight changed (number -> different number)
+  // - or canonical advanced (extra “good” signal, but not required)
   useEffect(() => {
-    if (isReady) stopPolling();
-  }, [isReady, stopPolling]);
+    if (!pollTimer.current) return;
+
+    const bw = baselineWeightKg.current;
+    const bc = baselineCanonicalAt.current;
+
+    const weightAppeared = bw === null && typeof currentWeightKg === "number";
+    const weightChanged =
+      typeof bw === "number" && typeof currentWeightKg === "number" && currentWeightKg !== bw;
+
+    const canonicalAdvanced =
+      bc === null ? latestEventAt !== null : latestEventAt !== null && latestEventAt !== bc;
+
+    if (weightAppeared || weightChanged || canonicalAdvanced) {
+      // if derived is already clean, great; but we don't require it to stop showing the new weight
+      stopPolling();
+    }
+  }, [currentWeightKg, latestEventAt, stopPolling, derivedReady]);
+
+  const hasAnyFact =
+    facts.status === "ready" &&
+    (typeof facts.data.activity?.steps === "number" ||
+      typeof facts.data.sleep?.totalMinutes === "number" ||
+      typeof facts.data.body?.weightKg === "number");
+
+  const hasAnySignal = hasAnyFact || (insights.status === "ready" && insights.data.count > 0) || ctx.status === "ready";
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
@@ -216,17 +251,11 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
-  } else if (!factsFresh || !ctxFresh || !factsVersionOk || !ctxVersionOk) {
+  } else if (!derivedReady) {
     tone = "neutral";
     title = "Computing today…";
-    const parts: string[] = [];
-    parts.push("Events ✓");
-    parts.push(factsFresh ? "Facts ✓" : "Facts computing…");
-    parts.push(ctxFresh ? "Context ✓" : "Context computing…");
-    if (factsFresh && !factsVersionOk) parts.push("Facts upgrading…");
-    if (ctxFresh && !ctxVersionOk) parts.push("Context upgrading…");
-    subtitle = parts.join("  •  ");
-  } else if (isReady) {
+    subtitle = "Waiting for derived truth to catch up to canonical events.";
+  } else if (derivedReady) {
     tone = "success";
     title = "Today is ready";
     subtitle = ["Events ✓", "Facts ✓", "Context ✓"].join("  •  ");
@@ -315,6 +344,9 @@ export default function CommandCenterScreen() {
   const router = useRouter();
   const day = getTodayDayKey();
 
+  const params = useLocalSearchParams<{ refresh?: string }>();
+  const refreshParam = typeof params.refresh === "string" ? params.refresh : null;
+
   const [focusNonce, setFocusNonce] = useState(0);
   useFocusEffect(
     useCallback(() => {
@@ -323,18 +355,24 @@ export default function CommandCenterScreen() {
     }, []),
   );
 
-  // Refresh key delivered via refreshBus (deterministic).
   const [refreshKey, setRefreshKey] = useState<string | null>(null);
 
+  // ✅ consume refresh param whenever it changes
+  useEffect(() => {
+    if (!refreshParam) return;
+    setRefreshKey((prev) => (prev === refreshParam ? prev : refreshParam));
+  }, [refreshParam]);
+
+  // ✅ subscribe to bus (works if CC stays mounted)
   useEffect(() => {
     const unsub = subscribeRefresh(({ topic, key }) => {
       if (topic !== "commandCenter") return;
-      setRefreshKey(key);
+      setRefreshKey((prev) => (prev === key ? prev : key));
+      consumeRefresh(topic, key);
     });
     return unsub;
   }, []);
 
-  // Hard guarantee: remount status card when refreshKey changes
   const statusCardKey = useMemo(() => `${day}:${refreshKey ?? "no-refresh"}`, [day, refreshKey]);
 
   return (
@@ -385,10 +423,7 @@ export default function CommandCenterScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
-  container: {
-    padding: 16,
-    gap: 18,
-  },
+  container: { padding: 16, gap: 18 },
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -408,94 +443,23 @@ const styles = StyleSheet.create({
   gearPressed: { opacity: 0.8 },
   gearText: { fontSize: 18 },
 
-  statusCard: {
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
-  },
-  statusTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  statusPill: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  statusDay: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  statusSubtitle: {
-    fontSize: 13,
-    color: "#374151",
-    lineHeight: 18,
-  },
-  summaryWrap: {
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.08)",
-  },
-  summaryText: {
-    fontSize: 12,
-    color: "#111827",
-    fontWeight: "700",
-    lineHeight: 16,
-  },
+  statusCard: { borderRadius: 16, padding: 14, gap: 8 },
+  statusTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  statusPill: { fontSize: 12, fontWeight: "700", letterSpacing: 0.2 },
+  statusDay: { fontSize: 12, color: "#6B7280", fontWeight: "600" },
+  statusTitle: { fontSize: 16, fontWeight: "800" },
+  statusSubtitle: { fontSize: 13, color: "#374151", lineHeight: 18 },
+  summaryWrap: { marginTop: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.08)" },
+  summaryText: { fontSize: 12, color: "#111827", fontWeight: "700", lineHeight: 16 },
 
-  devOverlay: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.10)",
-  },
-  devOverlayTitle: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 6,
-  },
-  devOverlayLine: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#374151",
-    lineHeight: 16,
-  },
+  devOverlay: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.10)" },
+  devOverlayTitle: { fontSize: 12, fontWeight: "800", color: "#111827", marginBottom: 6 },
+  devOverlayLine: { fontSize: 12, fontWeight: "700", color: "#374151", lineHeight: 16 },
 
-  quickRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  quickButton: {
-    flex: 1,
-    backgroundColor: "#111827",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  quickButtonTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: 0.2,
-  },
-  quickButtonSubtitle: {
-    color: "#D1D5DB",
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 6,
-  },
+  quickRow: { flexDirection: "row", gap: 12 },
+  quickButton: { flex: 1, backgroundColor: "#111827", borderRadius: 16, paddingVertical: 14, paddingHorizontal: 14 },
+  quickButtonTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "900", letterSpacing: 0.2 },
+  quickButtonSubtitle: { color: "#D1D5DB", fontSize: 12, fontWeight: "700", marginTop: 6 },
 
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
 });

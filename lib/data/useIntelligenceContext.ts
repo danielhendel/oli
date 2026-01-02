@@ -39,22 +39,26 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
   const reqSeq = useRef(0);
 
   const [state, setState] = useState<State>({ status: "loading" });
+  const stateRef = useRef<State>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const fetchOnce = useCallback(
     async (opts?: RefetchOpts) => {
       const seq = ++reqSeq.current;
+
       const safeSet = (next: State) => {
-        if (seq !== reqSeq.current) return;
-        setState(next);
+        if (seq === reqSeq.current) setState(next);
       };
 
       if (initializing) {
-        safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
       if (!user) {
-        safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
@@ -62,11 +66,13 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
       if (seq !== reqSeq.current) return;
 
       if (!token) {
+        if (stateRef.current.status === "ready") return;
         safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      safeSet({ status: "loading" });
+      // ✅ Stale-while-revalidate
+      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const res = await getIntelligenceContext(dayRef.current, token, opts);
       if (seq !== reqSeq.current) return;
@@ -76,6 +82,9 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
           safeSet({ status: "ready", data: emptyIntelligenceContext(user.uid, dayRef.current) });
           return;
         }
+
+        if (stateRef.current.status === "ready") return;
+
         safeSet({ status: "error", error: res.error, requestId: res.requestId });
         return;
       }
