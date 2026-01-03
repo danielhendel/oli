@@ -277,13 +277,6 @@ function checkInvariantDocsAreBinding() {
 
 /**
  * CHECK 7 — iOS Pods must not be committed
- *
- * Rule:
- * - In CI only, ios/Pods/ must not exist in the repo tree.
- *
- * Rationale:
- * - Locally, Pods may exist after pod install / expo prebuild (that's fine).
- * - In CI, Pods should never exist unless someone committed them.
  */
 function checkIosPodsNotCommitted() {
   const isCI = String(process.env.CI ?? "").trim().toLowerCase() === "true";
@@ -297,15 +290,10 @@ function checkIosPodsNotCommitted() {
     fail(
       `CHECK 7 (iOS Pods not committed) failed:\n` +
         `- ios/Pods exists in the CI checkout\n\n` +
-        `Meaning:\n` +
-        `- In real CI, this typically only happens if Pods were committed (or vendor-copied) into the repo.\n` +
-        `- On a developer machine, you can reproduce CI by setting CI=true, but local Pods may exist.\n\n` +
-        `Fix (if Pods are committed):\n` +
+        `Fix:\n` +
         `1) Ensure .gitignore includes "ios/Pods/"\n` +
         `2) Remove tracked Pods: git rm -r --cached ios/Pods && commit\n` +
-        `3) Pods must be generated locally (pod install / expo prebuild), never committed\n\n` +
-        `Sanity check:\n` +
-        `- git ls-files ios/Pods | wc -l  (should be 0)`
+        `3) Pods must be generated locally (pod install / expo prebuild), never committed`
     );
   }
 
@@ -314,20 +302,8 @@ function checkIosPodsNotCommitted() {
 
 /**
  * CHECK 8 — patch-package integrity (version drift tripwire)
- *
- * Rule:
- * - For every patches/*.patch file:
- *   (a) filename must parse to {package, version}
- *   (b) package-lock.json must contain that package at that exact version
- *   (c) patch must contain at least one diff against node_modules/
- *
- * Why:
- * - Prevents “silent patch drift” where upgrades change installed versions
- *   but patches remain, causing runtime/metro regressions later.
  */
 function parsePatchFilename(fileName) {
-  // patch-package format: <pkgName>+<version>.patch
-  // scoped packages encode "/" as "+" too: @scope+name+<version>.patch
   const base = fileName.endsWith(".patch") ? fileName.slice(0, -".patch".length) : fileName;
   const parts = base.split("+").filter(Boolean);
   if (parts.length < 2) return null;
@@ -337,7 +313,7 @@ function parsePatchFilename(fileName) {
 
   let pkg;
   if (parts[0].startsWith("@")) {
-    if (parts.length < 3) return null; // @scope + name + version
+    if (parts.length < 3) return null;
     const scope = parts[0];
     const name = parts[1];
     pkg = `${scope}/${name}`;
@@ -361,14 +337,12 @@ function readPackageLock() {
 function findInstalledVersionInLock(lockJson, pkg) {
   if (!lockJson) return null;
 
-  // npm v7+ lock has `packages` map
   if (lockJson.packages && typeof lockJson.packages === "object") {
     const key = `node_modules/${pkg}`;
     const rec = lockJson.packages[key];
     if (rec && typeof rec.version === "string") return rec.version;
   }
 
-  // fallback: dependencies tree
   const deps = lockJson.dependencies;
   if (deps && typeof deps === "object") {
     const rec = deps[pkg];
@@ -400,7 +374,7 @@ function checkPatchPackageIntegrity() {
     fail(
       `CHECK 8 (patch-package integrity) failed:\n` +
         `- patches/ contains patch files, but package-lock.json is missing or unreadable.\n\n` +
-        `Fix: commit package-lock.json (npm ci relies on it) so patch integrity can be validated.`
+        `Fix: commit package-lock.json so patch integrity can be validated.`
     );
   }
 
@@ -416,7 +390,6 @@ function checkPatchPackageIntegrity() {
     const patchPath = path.join(patchesDir, f);
     const text = readText(patchPath);
 
-    // must be a real patch against node_modules/
     if (!/diff --git a\/node_modules\//.test(text)) {
       offenders.push(`- patches/${f} — does not contain a diff against a/node_modules/...`);
       continue;
@@ -441,13 +414,63 @@ function checkPatchPackageIntegrity() {
       `CHECK 8 (patch-package integrity) failed:\n` +
         offenders.join("\n") +
         `\n\nFix options:\n` +
-        `1) Update the patch filename/version to match the installed dependency version, OR\n` +
-        `2) Regenerate patches after upgrading dependencies (preferred), OR\n` +
-        `3) Remove obsolete patches if no longer needed.`
+        `1) Rename patch version to match lock, OR\n` +
+        `2) Regenerate patch after upgrading deps, OR\n` +
+        `3) Remove obsolete patch.`
     );
   }
 
   console.log("✅ CHECK 8 passed: patch-package patches match package-lock.json versions and appear valid.");
+}
+
+/**
+ * CHECK 9 — API route files must not directly use firebase-admin Firestore
+ *
+ * Rule:
+ * - Any file under services/api/src/routes/** must NOT:
+ *   (a) import from "firebase-admin/firestore"
+ *   (b) call getFirestore()
+ *
+ * Why:
+ * - Forces a single adapter boundary (one place to scope paths, add logging, enforce rules).
+ * - Prevents route-by-route drift where one route accidentally bypasses user scoping.
+ */
+function checkApiRoutesNoDirectAdminFirestore() {
+  const routesDir = path.join(ROOT, "services", "api", "src", "routes");
+  if (!fs.existsSync(routesDir)) return;
+
+  const files = walk(routesDir, { includeExts: [".ts"], ignoreDirs: ["__tests__", "dist", "lib"] });
+
+  const offenders = [];
+
+  for (const f of files) {
+    const text = readText(f);
+
+    const importsAdminFirestore =
+      /from\s+["']firebase-admin\/firestore["']/.test(text) ||
+      /require\s*\(\s*["']firebase-admin\/firestore["']\s*\)/.test(text);
+
+    const callsGetFirestore = /\bgetFirestore\s*\(/.test(text);
+
+    if (importsAdminFirestore || callsGetFirestore) {
+      const reasons = [];
+      if (importsAdminFirestore) reasons.push(`imports "firebase-admin/firestore"`);
+      if (callsGetFirestore) reasons.push("calls getFirestore()");
+      offenders.push(`- ${rel(f)} — ${reasons.join(" and ")}`);
+    }
+  }
+
+  if (offenders.length) {
+    fail(
+      `CHECK 9 (API route Firestore boundary) failed:\n` +
+        offenders.join("\n") +
+        `\n\nFix:\n` +
+        `- Routes must import Firestore access ONLY via a single adapter module (e.g. services/api/src/db.ts or services/api/src/firebaseAdmin.ts).\n` +
+        `- That adapter is where we enforce scoping/instrumentation.\n`
+    );
+  }
+
+  console.log("✅ CHECK 9 passed: API route files do not directly import/call firebase-admin Firestore.");
 }
 
 function main() {
@@ -460,6 +483,7 @@ function main() {
   checkInvariantDocsAreBinding();
   checkIosPodsNotCommitted();
   checkPatchPackageIntegrity();
+  checkApiRoutesNoDirectAdminFirestore();
   console.log("\n✅ All invariant checks passed.");
 }
 

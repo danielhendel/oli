@@ -1,13 +1,14 @@
 // services/api/src/routes/usersMe.ts
-import { Router, type Response } from "express";
-import { getFirestore } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
+import { Router, type Response } from "express";
 import { z } from "zod";
 
+import { rawEventDocSchema } from "../../../../lib/contracts";
 import type { AuthedRequest } from "../middleware/auth";
+import { asyncHandler } from "../lib/asyncHandler";
+import { ymdInTimeZoneFromIso } from "../lib/dayKey";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
-import { ymdInTimeZoneFromIso } from "../lib/dayKey";
 import { dayQuerySchema } from "../types/day";
 import {
   dailyFactsDtoSchema,
@@ -18,10 +19,8 @@ import {
   logWeightResponseDtoSchema,
 } from "../types/dtos";
 
-import { asyncHandler } from "../lib/asyncHandler";
-
-// ✅ Authoritative contract
-import { rawEventDocSchema } from "../../../../lib/contracts";
+// ✅ Firestore access ONLY via adapter (CHECK 9)
+import { userCollection } from "../db";
 
 const router = Router();
 
@@ -127,8 +126,8 @@ router.post(
 
     const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
 
-    const db = getFirestore();
-    const rawEventsCol = db.collection("users").doc(uid).collection("rawEvents");
+    // ✅ user-scoped Firestore access via adapter
+    const rawEventsCol = userCollection(uid, "rawEvents");
 
     const idempotencyKey = getIdempotencyKey(req);
     const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc(randomUUID());
@@ -206,10 +205,8 @@ router.get(
     const day = parseDay(req, res);
     if (!day) return;
 
-    const db = getFirestore();
-
-    // Canonical events live here (repo-truth): users/{uid}/events
-    const snap = await db.collection("users").doc(uid).collection("events").where("day", "==", day).get();
+    // ✅ user-scoped (repo-truth): users/{uid}/events
+    const snap = await userCollection(uid, "events").where("day", "==", day).get();
 
     let latest: string | null = null;
 
@@ -249,8 +246,7 @@ router.get(
     const day = parseDay(req, res);
     if (!day) return;
 
-    const db = getFirestore();
-    const ref = db.collection("users").doc(uid).collection("dailyFacts").doc(day);
+    const ref = userCollection(uid, "dailyFacts").doc(day);
 
     const snap = await ref.get();
     if (!snap.exists) {
@@ -281,8 +277,7 @@ router.get(
     const day = parseDay(req, res);
     if (!day) return;
 
-    const db = getFirestore();
-    const snap = await db.collection("users").doc(uid).collection("insights").where("date", "==", day).get();
+    const snap = await userCollection(uid, "insights").where("date", "==", day).get();
 
     const parsedDocs = snap.docs.map((d) => {
       const raw = d.data();
@@ -340,8 +335,7 @@ router.get(
     const day = parseDay(req, res);
     if (!day) return;
 
-    const db = getFirestore();
-    const ref = db.collection("users").doc(uid).collection("intelligenceContext").doc(day);
+    const ref = userCollection(uid, "intelligenceContext").doc(day);
 
     const snap = await ref.get();
     if (!snap.exists) {
