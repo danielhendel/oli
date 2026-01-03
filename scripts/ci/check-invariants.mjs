@@ -195,14 +195,6 @@ function checkApiNoGlobalFirestoreRootCollections() {
 
 /**
  * CHECK 5 — Account deletion must be implemented end-to-end
- *
- * Rule:
- * - If the API exposes an account deletion route, then:
- *   (a) functions must include a Pub/Sub executor using onMessagePublished(), and
- *   (b) that executor must reference the canonical topic "account.delete.v1".
- *
- * This avoids brittle string matching in API code (API may use constants/env),
- * and prevents “route exists but no executor” regressions.
  */
 function checkAccountDeleteExecutorExists() {
   const apiFile = path.join(ROOT, "services", "api", "src", "routes", "account.ts");
@@ -246,13 +238,6 @@ function checkAccountDeleteExecutorExists() {
 
 /**
  * CHECK 6 — Invariant documentation must be binding, not scaffolding
- *
- * Rule:
- * - docs/INVARIANTS_MAP.md must exist
- * - must not contain placeholder language (TODO, TBD, placeholder)
- * - must reference CHECK 1..CHECK 5 explicitly
- *
- * This prevents docs from drifting into non-binding fluff.
  */
 function checkInvariantDocsAreBinding() {
   const docPath = path.join(ROOT, "docs", "INVARIANTS_MAP.md");
@@ -327,6 +312,143 @@ function checkIosPodsNotCommitted() {
   console.log("✅ CHECK 7 passed (CI): ios/Pods is not present (not committed).");
 }
 
+/**
+ * CHECK 8 — patch-package integrity (version drift tripwire)
+ *
+ * Rule:
+ * - For every patches/*.patch file:
+ *   (a) filename must parse to {package, version}
+ *   (b) package-lock.json must contain that package at that exact version
+ *   (c) patch must contain at least one diff against node_modules/
+ *
+ * Why:
+ * - Prevents “silent patch drift” where upgrades change installed versions
+ *   but patches remain, causing runtime/metro regressions later.
+ */
+function parsePatchFilename(fileName) {
+  // patch-package format: <pkgName>+<version>.patch
+  // scoped packages encode "/" as "+" too: @scope+name+<version>.patch
+  const base = fileName.endsWith(".patch") ? fileName.slice(0, -".patch".length) : fileName;
+  const parts = base.split("+").filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const version = parts[parts.length - 1];
+  if (!version || !/^\d+\.\d+\.\d+/.test(version)) return null;
+
+  let pkg;
+  if (parts[0].startsWith("@")) {
+    if (parts.length < 3) return null; // @scope + name + version
+    const scope = parts[0];
+    const name = parts[1];
+    pkg = `${scope}/${name}`;
+  } else {
+    pkg = parts[0];
+  }
+
+  return { pkg, version };
+}
+
+function readPackageLock() {
+  const lockPath = path.join(ROOT, "package-lock.json");
+  if (!fs.existsSync(lockPath)) return null;
+  try {
+    return JSON.parse(readText(lockPath));
+  } catch {
+    return null;
+  }
+}
+
+function findInstalledVersionInLock(lockJson, pkg) {
+  if (!lockJson) return null;
+
+  // npm v7+ lock has `packages` map
+  if (lockJson.packages && typeof lockJson.packages === "object") {
+    const key = `node_modules/${pkg}`;
+    const rec = lockJson.packages[key];
+    if (rec && typeof rec.version === "string") return rec.version;
+  }
+
+  // fallback: dependencies tree
+  const deps = lockJson.dependencies;
+  if (deps && typeof deps === "object") {
+    const rec = deps[pkg];
+    if (rec && typeof rec.version === "string") return rec.version;
+  }
+
+  return null;
+}
+
+function checkPatchPackageIntegrity() {
+  const patchesDir = path.join(ROOT, "patches");
+  if (!fs.existsSync(patchesDir)) {
+    console.log("ℹ️ CHECK 8 skipped: no patches/ directory (no patch-package integrity enforcement needed).");
+    return;
+  }
+
+  const patchFiles = fs
+    .readdirSync(patchesDir)
+    .filter((f) => f.endsWith(".patch"))
+    .sort();
+
+  if (!patchFiles.length) {
+    console.log("ℹ️ CHECK 8 skipped: patches/ exists but contains no .patch files.");
+    return;
+  }
+
+  const lock = readPackageLock();
+  if (!lock) {
+    fail(
+      `CHECK 8 (patch-package integrity) failed:\n` +
+        `- patches/ contains patch files, but package-lock.json is missing or unreadable.\n\n` +
+        `Fix: commit package-lock.json (npm ci relies on it) so patch integrity can be validated.`
+    );
+  }
+
+  const offenders = [];
+
+  for (const f of patchFiles) {
+    const parsed = parsePatchFilename(f);
+    if (!parsed) {
+      offenders.push(`- patches/${f} — cannot parse {package, version} from filename`);
+      continue;
+    }
+
+    const patchPath = path.join(patchesDir, f);
+    const text = readText(patchPath);
+
+    // must be a real patch against node_modules/
+    if (!/diff --git a\/node_modules\//.test(text)) {
+      offenders.push(`- patches/${f} — does not contain a diff against a/node_modules/...`);
+      continue;
+    }
+
+    const installed = findInstalledVersionInLock(lock, parsed.pkg);
+    if (!installed) {
+      offenders.push(`- patches/${f} — package "${parsed.pkg}" not found in package-lock.json`);
+      continue;
+    }
+
+    if (installed !== parsed.version) {
+      offenders.push(
+        `- patches/${f} — version mismatch for "${parsed.pkg}": patch=${parsed.version}, lock=${installed}`
+      );
+      continue;
+    }
+  }
+
+  if (offenders.length) {
+    fail(
+      `CHECK 8 (patch-package integrity) failed:\n` +
+        offenders.join("\n") +
+        `\n\nFix options:\n` +
+        `1) Update the patch filename/version to match the installed dependency version, OR\n` +
+        `2) Regenerate patches after upgrading dependencies (preferred), OR\n` +
+        `3) Remove obsolete patches if no longer needed.`
+    );
+  }
+
+  console.log("✅ CHECK 8 passed: patch-package patches match package-lock.json versions and appear valid.");
+}
 
 function main() {
   console.log("Running Oli constitutional invariant CI checks...\n");
@@ -337,6 +459,7 @@ function main() {
   checkAccountDeleteExecutorExists();
   checkInvariantDocsAreBinding();
   checkIosPodsNotCommitted();
+  checkPatchPackageIntegrity();
   console.log("\n✅ All invariant checks passed.");
 }
 
