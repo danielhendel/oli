@@ -20,6 +20,12 @@ import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeSche
 import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
 
 // =============================
+// Account Executors (Pub/Sub)
+// =============================
+
+import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
+
+// =============================
 // Admin HTTP Endpoints
 // (Internal / Admin-only)
 // =============================
@@ -74,6 +80,9 @@ export { onCanonicalEventCreated };
 export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
+
+// Account executors (Pub/Sub)
+export { onAccountDeleteRequested };
 
 // Admin-only HTTP endpoints
 export { recomputeDailyFactsAdminHttp };

@@ -4,20 +4,18 @@ import { getFirestore } from "firebase-admin/firestore";
 
 import { rawEventDocSchema } from "../../../../lib/contracts";
 import type { AuthedRequest } from "../middleware/auth";
-import { idempotencyMiddleware } from "../middleware/idempotency";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 
 const router = Router();
 
-const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
-  const anyReq = req as unknown as { idempotencyKey?: unknown };
-  const fromMiddleware = typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
+const getIdempotencyKey = (req: AuthedRequest): string | null => {
+  const v =
+    (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : null) ??
+    (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : null);
 
-  const fromHeader =
-    (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
-    (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
-
-  return fromMiddleware ?? fromHeader ?? undefined;
+  if (!v) return null;
+  const trimmed = v.trim();
+  return trimmed.length ? trimmed : null;
 };
 
 const dayKeyFromIso = (iso: string): string => {
@@ -35,15 +33,24 @@ const dayKeyFromIso = (iso: string): string => {
  *
  * Mounted at: POST /ingest/events
  */
-router.post("/", idempotencyMiddleware, async (req: AuthedRequest, res: Response) => {
+router.post("/", async (req: AuthedRequest, res: Response) => {
   const uid = req.uid;
   if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+  // Hard requirement: ingestion must be idempotent
+  const idempotencyKey = getIdempotencyKey(req);
+  if (!idempotencyKey) {
+    return res.status(400).json({
+      error: "Missing Idempotency-Key header",
+      details: { header: "Idempotency-Key (or X-Idempotency-Key) is required for ingestion POST routes." },
+    });
+  }
 
   const parsed = ingestRawEventSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
       error: "Invalid raw event",
-      details: parsed.error.flatten()
+      details: parsed.error.flatten(),
     });
   }
 
@@ -68,9 +75,8 @@ router.post("/", idempotencyMiddleware, async (req: AuthedRequest, res: Response
   const db = getFirestore();
   const rawEventsCol = db.collection("users").doc(uid).collection("rawEvents");
 
-  const idempotencyKey = getIdempotencyKey(req);
-  const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc();
-
+  // Deterministic write ID = idempotency key (retries become create() collisions)
+  const docRef = rawEventsCol.doc(idempotencyKey);
   const rawEventId = docRef.id;
 
   // CANONICAL RawEvent envelope (must match @oli/contracts rawEventDocSchema)
@@ -89,7 +95,7 @@ router.post("/", idempotencyMiddleware, async (req: AuthedRequest, res: Response
 
     payload: body.payload,
 
-    schemaVersion
+    schemaVersion,
   };
 
   // ✅ Contract validation (fail fast, before writing)
@@ -97,7 +103,7 @@ router.post("/", idempotencyMiddleware, async (req: AuthedRequest, res: Response
   if (!validated.success) {
     return res.status(400).json({
       error: "Invalid raw event (contract)",
-      details: validated.error.flatten()
+      details: validated.error.flatten(),
     });
   }
 
@@ -107,7 +113,12 @@ router.post("/", idempotencyMiddleware, async (req: AuthedRequest, res: Response
   } catch (err: unknown) {
     const existing = await docRef.get();
     if (existing.exists) {
-      return res.status(202).json({ ok: true as const, rawEventId, day, idempotentReplay: true as const });
+      return res.status(202).json({
+        ok: true as const,
+        rawEventId,
+        day,
+        idempotentReplay: true as const,
+      });
     }
     throw err;
   }

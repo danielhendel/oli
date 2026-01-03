@@ -1,300 +1,68 @@
-# Oli Constitutional Invariants — Code Map (Binding)
+# Oli Constitutional Invariants — Enforcement Map (Binding)
 
-This document maps each Constitutional Invariant to the concrete code + infra artifacts that:
-- **ENFORCE** it (mechanisms that make it true)
-- **DEPEND ON** it (assumptions that break if violated)
-- **VIOLATE / RISK** it (known gaps or fragile areas)
-- **TEST / GUARD** it (automated checks, if any)
+This document is **binding**. If code diverges, code must change or this file must be updated in the same PR.
 
-**Rule:** If an invariant is not enforced by code/infra/tests, it is not real.
+## What this is
+A one-to-one map from:
+**Invariant → Enforcement mechanism → Verification gate → Owning files**
 
----
-
-## How to Use This Map
-
-Before shipping any feature or refactor:
-1) Find the invariants it touches.
-2) Review the “RISK / VIOLATIONS” items.
-3) Ensure enforcement exists (or add a guard).
-4) Update this map in the same PR.
+If an invariant has no enforcement + verification, it is not an invariant — it is a wish.
 
 ---
 
-# Invariant Index
+## Invariant Index
 
-## I — Truth is Deterministic
-
-### I.1 Single Source of Truth
-**Definition:** Only one truth hierarchy exists:
-Raw Events → Canonical Events → Derived Facts → Intelligence Context.
-
-**ENFORCED BY**
-- [ ] (list files)
-**DEPENDS ON**
-- [ ] (list features/screens)
-**RISK / VIOLATIONS**
-- [ ] (duplicate truth paths, shadow caches, client-side derivations)
-**TEST / GUARD**
-- [ ] (tests / CI checks)
+| ID | Invariant (Plain English) | Enforced Where | Verified By | What breaks if violated |
+|---:|---|---|---|---|
+| I-01 | **Client never writes derived truth** (`events`, `dailyFacts`, `insights`, `intelligenceContext`) | Client architecture (only ingestion API writes), code tripwire | `scripts/ci/check-invariants.mjs` CHECK 2 | Users can forge “truth”; pipeline becomes meaningless |
+| I-02 | **API ingestion is idempotent** (retries do not create duplicates) | `services/api/src/routes/events.ts` deterministic doc ID + `create()` | `scripts/ci/check-invariants.mjs` CHECK 3 | Duplicate raw events → incorrect daily facts/insights |
+| I-03 | **Cloud Run writes are user-scoped only** (`/users/{uid}/...`) | API uses `db.collection("users").doc(uid)...` | `scripts/ci/check-invariants.mjs` CHECK 4 | Deletion/export becomes unsafe; cross-user leakage risk |
+| I-04 | **Admin/recompute endpoints are not public** | Functions HTTP endpoints must set `invoker` explicitly and never `public` | `scripts/ci/check-invariants.mjs` CHECK 1 | Anyone can trigger recompute/privileged ops |
+| I-05 | **Account deletion is end-to-end real** (route ⇒ executor exists) | API queues delete; Functions Pub/Sub executes deletion | `scripts/ci/check-invariants.mjs` CHECK 5 | App Store compliance failure; platform trust failure |
+| I-06 | **RawEvent contract is canonical & validated before write** | `services/api/src/routes/events.ts` + `rawEventDocSchema` | Jest: `services/functions/src/validation/__tests__/rawEvent.contract.test.ts` | Downstream pipeline breaks or silently corrupts |
+| I-07 | **Normalization is deterministic** (same RawEvent → same CanonicalEvent) | `services/functions/src/normalization/*` | Jest: `mapRawEventToCanonical.test.ts` | Facts drift; insights drift; user loses trust |
+| I-08 | **DailyFacts aggregation is deterministic & tested** | `services/functions/src/dailyFacts/*` | Jest: `aggregateDailyFacts.test.ts`, `enrichDailyFacts.test.ts` | Score/insights become unstable/noisy |
 
 ---
 
-### I.2 Truth Must Be Reproducible
-**Definition:** Same inputs + pipeline version → same outputs.
+## Enforcement Details
 
-**ENFORCED BY**
-- [ ] pipelineVersion fields / deterministic aggregation
-**DEPENDS ON**
-- [ ] insight generation correctness
-**RISK / VIOLATIONS**
-- [ ] nondeterministic IDs, time-based transforms
-**TEST / GUARD**
-- [ ] snapshot tests for aggregators
+### I-01 — Client never writes derived truth
+- **Enforced:** Architectural boundary (client reads only) + CI tripwire
+- **Verified by:** CHECK 2 in `scripts/ci/check-invariants.mjs`
+- **Owning areas:** `app/**`, `lib/**`, ingestion API
+- **Notes:** This is a heuristic tripwire. If you later introduce a legitimate client write, you must justify and update invariant.
 
----
+### I-02 — API ingestion is idempotent
+- **Enforced:** Deterministic IDs from `Idempotency-Key`, `docRef.create()`
+- **Verified by:** CHECK 3
+- **Owning file:** `services/api/src/routes/events.ts`
+- **Failure mode:** Duplicates on retry (mobile network reality) corrupt daily facts.
 
-### I.3 Truth Readiness is Enforced
-**Definition:** “READY” is a server-side fact, not a UI guess.
+### I-03 — Cloud Run writes are user-scoped only
+- **Enforced:** API must start all paths at `.collection("users")`
+- **Verified by:** CHECK 4
+- **Owning scope:** `services/api/src/**`
+- **Failure mode:** deletion/export cannot be correct; blast radius increases.
 
-**ENFORCED BY**
-- [ ] readiness endpoint / meta checks
-**DEPENDS ON**
-- [ ] Command Center rendering semantics
-**RISK / VIOLATIONS**
-- [ ] refreshBus/caching hacks, partial fetch fanout
-**TEST / GUARD**
-- [ ] readiness contract tests
+### I-04 — Admin endpoints are not public
+- **Enforced:** Functions `invoker` must be explicit and not public on admin-ish endpoints
+- **Verified by:** CHECK 1
+- **Owning scope:** `services/functions/src/http/**`
 
----
+### I-05 — Account deletion is end-to-end real
+- **Enforced:** API exposes deletion route; Functions consumes Pub/Sub topic and deletes Firestore subtree + Auth
+- **Verified by:** CHECK 5
+- **Owning scope:** `services/api/src/routes/account.ts`, `services/functions/src/account/onAccountDeleteRequested.ts`
 
-## II — Ingestion is Disciplined
-
-### II.1 One Way In
-**Definition:** All ingestion flows through one contract/front door.
-
-**ENFORCED BY**
-- [ ] API ingestion routes
-**DEPENDS ON**
-- [ ] all future integrations
-**RISK / VIOLATIONS**
-- [ ] secondary ingestion endpoints (Functions HTTP, direct Firestore writes)
-**TEST / GUARD**
-- [ ] CI check: forbid additional ingest entrypoints
+### I-06–I-08 — Data pipeline determinism (RawEvent → Canonical → DailyFacts → Insights)
+- **Enforced:** Pure functions + deterministic transforms
+- **Verified by:** Jest tests listed above
+- **Owning scope:** `services/functions/src/**`
 
 ---
 
-### II.2 Idempotency is Mandatory
-**Definition:** Retries never create duplicate raw events.
-
-**ENFORCED BY**
-- [ ] Idempotency-Key → deterministic write ID
-**DEPENDS ON**
-- [ ] mobile retry behavior
-**RISK / VIOLATIONS**
-- [ ] routes ignoring Idempotency-Key, random UUID writes
-**TEST / GUARD**
-- [ ] unit test: same key → same doc id
-
----
-
-### II.3 Provenance is Required
-**Definition:** Each event declares source/method/time/confidence.
-
-**ENFORCED BY**
-- [ ] schema validation at ingestion boundary
-**DEPENDS ON**
-- [ ] trust scoring, explainability
-**RISK / VIOLATIONS**
-- [ ] missing sourceId/ingestionMethod fields
-**TEST / GUARD**
-- [ ] schema validation tests
-
----
-
-## III — Derived Data is Sacred
-
-### III.1 Derived Data is Backend-only
-**Definition:** Clients can never write derived truth.
-
-**ENFORCED BY**
-- [ ] Firestore rules deny writes to derived collections
-**DEPENDS ON**
-- [ ] trust in Command Center
-**RISK / VIOLATIONS**
-- [ ] client code writing to /dailyFacts, /insights, /intelligenceContext
-**TEST / GUARD**
-- [ ] CI check scanning client write paths
-
----
-
-### III.2 Derived Data Must Be Explainable
-**Definition:** Every derived value traces to inputs + version.
-
-**ENFORCED BY**
-- [ ] meta fields (computedAt, pipelineVersion, input anchors)
-**DEPENDS ON**
-- [ ] future AI explanations
-**RISK / VIOLATIONS**
-- [ ] derived docs without input anchors
-**TEST / GUARD**
-- [ ] tests: derived includes required meta
-
----
-
-## IV — Scale Must Be Intentional
-
-### IV.1 Compute Matches Data Frequency
-**Definition:** High-frequency data cannot trigger full-day recompute storms.
-
-**ENFORCED BY**
-- [ ] incremental aggregation / debounced recompute policy
-**DEPENDS ON**
-- [ ] steps/HR/sleep ingestion
-**RISK / VIOLATIONS**
-- [ ] recompute-on-every-event for high-frequency streams
-**TEST / GUARD**
-- [ ] load/cost test harness (future)
-
----
-
-### IV.2 Cost Growth Must Be Predictable
-**Definition:** No quadratic reads/event amplification.
-
-**ENFORCED BY**
-- [ ] bounded queries, batch processing
-**DEPENDS ON**
-- [ ] multi-stream ingestion
-**RISK / VIOLATIONS**
-- [ ] fanout queries per event
-**TEST / GUARD**
-- [ ] CI budgets (future)
-
----
-
-## V — Security is Non-Negotiable
-
-### V.1 No Admin Surface is Public
-**Definition:** No admin/recompute endpoint is publicly invokable.
-
-**ENFORCED BY**
-- [ ] Cloud Run IAM: no allUsers invoker on admin services
-**DEPENDS ON**
-- [ ] system stability + cost control
-**RISK / VIOLATIONS**
-- [ ] accidental allUsers binding
-**TEST / GUARD**
-- [ ] CI check: fail if admin service has allUsers invoker
-
----
-
-### V.2 Least Privilege Always
-**Definition:** Services have only required IAM permissions.
-
-**ENFORCED BY**
-- [ ] Terraform / IAM bindings
-**DEPENDS ON**
-- [ ] containment of breach
-**RISK / VIOLATIONS**
-- [ ] editor/owner roles on service accounts
-**TEST / GUARD**
-- [ ] IAM policy diff checks (future)
-
----
-
-### V.3 Perimeter Assumptions are Explicit
-**Definition:** Public services must be intentional + protected.
-
-**ENFORCED BY**
-- [ ] gateway / rate limiting / WAF
-**DEPENDS ON**
-- [ ] reliability under abuse
-**RISK / VIOLATIONS**
-- [ ] public invoker without throttling
-**TEST / GUARD**
-- [ ] smoke tests + rate limits (future)
-
----
-
-## VI — User Ownership is Absolute
-
-### VI.1 Export/Deletion/Audit Exists
-**Definition:** User can export and delete all data; actions are auditable.
-
-**ENFORCED BY**
-- [ ] export + deletion pipelines
-**DEPENDS ON**
-- [ ] compliance & trust
-**RISK / VIOLATIONS**
-- [ ] partial deletion, orphaned docs
-**TEST / GUARD**
-- [ ] integration tests (future)
-
----
-
-## VII — No UI Lies
-
-### VII.1 UI Reflects System State Only
-**Definition:** UI cannot fabricate readiness/completeness.
-
-**ENFORCED BY**
-- [ ] readiness contract gating UI
-**DEPENDS ON**
-- [ ] user trust
-**RISK / VIOLATIONS**
-- [ ] optimistic displays without server truth
-**TEST / GUARD**
-- [ ] UI state tests (future)
-
----
-
-### VII.2 No UX Hacks for Correctness
-**Definition:** No cache-bust/refreshBus as correctness mechanism.
-
-**ENFORCED BY**
-- [ ] removal of refresh hacks
-**DEPENDS ON**
-- [ ] long-term correctness
-**RISK / VIOLATIONS**
-- [ ] refreshBus usage in Command Center
-**TEST / GUARD**
-- [ ] lint rule to block refreshBus in app screens (future)
-
----
-
-## VIII — Observability is Required
-
-### VIII.1 Every Failure is Visible
-**Definition:** Failures are logged and traceable end-to-end.
-
-**ENFORCED BY**
-- [ ] structured logs, error reporting
-**DEPENDS ON**
-- [ ] operability
-**RISK / VIOLATIONS**
-- [ ] silent retries, dropped events
-**TEST / GUARD**
-- [ ] log assertions (future)
-
----
-
-## IX — Documents Match Reality
-
-### IX.1 Code is Final Authority; Docs Must Update
-**Definition:** Conflicts are resolved explicitly and docs updated.
-
-**ENFORCED BY**
-- [ ] PR checklist requirement
-**DEPENDS ON**
-- [ ] roadmap correctness
-**RISK / VIOLATIONS**
-- [ ] stale SYSTEM_STATE/ROADMAP_REALITY
-**TEST / GUARD**
-- [ ] CI: fail if doc version not bumped on key changes (future)
-
----
-
-# Appendix — “Hot Files” (Do Not Touch Casually)
-
-List files whose changes frequently impact multiple invariants.
-
-- [ ] (fill in after audit)
+## Change Control
+Any PR that:
+- changes schema, ingestion, pipeline, deletion/export, or security boundaries
+MUST update this file and keep CI green.

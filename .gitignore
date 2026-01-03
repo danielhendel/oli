@@ -53,10 +53,12 @@ android/.gradle/
 
 # iOS build output & local env
 ios/Pods/
+ios/**/Pods/
 ios/DerivedData/
+ios/build/
 ios/.xcode.env.local
 *.xcuserstate
-*.xcuserdata
+**/xcuserdata/
 *.hmap
 *.ipa
 *.dSYM
@@ -108,7 +110,6 @@ docs/_archive/
 # Firebase local tooling files
 # ----------------------------------------
 .firebase/
-firebase-debug.log
 
 # ⚠️ IMPORTANT:
 # These are environment-specific.
@@ -131,4 +132,3 @@ services/api/.env.local
 # Never commit built JS next to TS sources
 lib/contracts/*.js
 lib/contracts/*.js.map
-
