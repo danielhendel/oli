@@ -28,7 +28,7 @@ export const logWeight = async (
   idToken: string,
 ): Promise<ApiResult<LogWeightResponseDto>> => {
   // Ensure no accidental undefined fields sneak into the JSON body.
-  // (JSON.stringify will drop undefined, but this also enforces a clean shape.)
+  // (JSON.stringify drops undefined, but this enforces a clean shape.)
   const clean: LogWeightRequestDto = {
     time: payload.time,
     timezone: payload.timezone,
@@ -37,7 +37,18 @@ export const logWeight = async (
     ...(payload.bodyFatPercent === undefined ? {} : { bodyFatPercent: payload.bodyFatPercent }),
   };
 
-  return apiPostJsonAuthed<LogWeightResponseDto>("/users/me/body/weight", clean, idToken, {
+  // ✅ Canonical ingestion envelope (single front door)
+  // Server is authoritative for day; we still include payload.day when present for back-compat.
+  const ingestBody = {
+    provider: "manual",
+    kind: "weight",
+    observedAt: clean.time,
+    sourceId: "manual",
+    payload: clean,
+  };
+
+  // ✅ This must hit POST /ingest (events router is mounted at /ingest and uses router.post("/"))
+  return apiPostJsonAuthed<LogWeightResponseDto>("/ingest", ingestBody, idToken, {
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualWeightIdempotencyKey(clean),

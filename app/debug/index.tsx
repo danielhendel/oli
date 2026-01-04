@@ -4,6 +4,15 @@ import { Text, Pressable, ScrollView } from "react-native";
 import { apiGetJsonAuthed, apiPostJsonAuthed, type ApiResult, type JsonValue } from "@/lib/api/http";
 import { getIdToken } from "@/lib/auth/getIdToken";
 
+const getDeviceTimeZone = (): string => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.length ? tz : "UTC";
+  } catch {
+    return "UTC";
+  }
+};
+
 export default function DebugIndex() {
   const [result, setResult] = useState<ApiResult<JsonValue> | null>(null);
 
@@ -21,12 +30,25 @@ export default function DebugIndex() {
 
   const logWeight = async () => {
     const token = await getIdToken();
-    const r = await apiPostJsonAuthed<JsonValue>(
-      "/users/me/body/weight",
-      { weightKg: 80 },
-      token,
-      { idempotencyKey: `debug-weight-${Date.now()}` },
-    );
+    const now = new Date().toISOString();
+    const timezone = getDeviceTimeZone();
+
+    const body = {
+      provider: "manual",
+      kind: "weight",
+      observedAt: now,
+      sourceId: "manual",
+      payload: {
+        time: now,
+        timezone,
+        weightKg: 80,
+      },
+    };
+
+    const r = await apiPostJsonAuthed<JsonValue>("/ingest", body, token, {
+      idempotencyKey: `debug-weight-${Date.now()}`,
+    });
+
     setResult(r);
   };
 
@@ -43,7 +65,7 @@ export default function DebugIndex() {
       </Pressable>
 
       <Pressable onPress={logWeight} style={{ padding: 12, borderWidth: 1, borderRadius: 10 }}>
-        <Text>POST /users/me/body/weight</Text>
+        <Text>POST /ingest (weight)</Text>
       </Pressable>
 
       <Text selectable style={{ fontFamily: "Menlo", fontSize: 12, paddingTop: 8 }}>
