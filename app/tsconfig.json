@@ -1,18 +1,26 @@
 {
-    "extends": "../tsconfig.base.json",
-    "compilerOptions": {
-      "jsx": "react-jsx",
-      "baseUrl": "..",
-      "paths": {
-        "@/*": ["./*"]
-      },
-      "rootDir": ".",
-      "outDir": "../dist-types/app",
-      "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/app.tsbuildinfo",
-      "types": ["jest", "node"]
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist-types/app",
+    "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/app.tsbuildinfo",
+
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"]
     },
-    "references": [{ "path": "../lib" }],
-    "include": ["./**/*", "../expo-env.d.ts"],
-    "exclude": ["../node_modules", "../dist", "../build", "../coverage", "../.expo", "../android", "../ios"]
-  }
-  
+
+    "composite": true
+  },
+  "references": [{ "path": "../lib/tsconfig.build.json" }],
+  "include": ["./**/*", "../expo-env.d.ts"],
+  "exclude": [
+    "**/*.test.*",
+    "**/__tests__/**",
+    "../node_modules",
+    "../dist",
+    "../dist-types",
+    "../build",
+    "../coverage"
+  ]
+}

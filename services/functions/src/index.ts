@@ -1,32 +1,42 @@
 // services/functions/src/index.ts
 
-import * as functionsV1 from 'firebase-functions/v1';
+import * as functionsV1 from "firebase-functions/v1";
 
-import { admin, db } from './firebaseAdmin';
+import { admin, db } from "./firebaseAdmin";
 
-// -----------------------------
+// =============================
 // Triggers & Scheduled Jobs
-// -----------------------------
+// =============================
 
-// v2 Firestore trigger (Event → Canonical)
-import { onRawEventCreated } from './normalization/onRawEventCreated';
+// v2 Firestore trigger (RawEvent → CanonicalEvent)
+import { onRawEventCreated } from "./normalization/onRawEventCreated";
+
+// v2 Firestore trigger (CanonicalEvent → DailyFacts → Insights → IntelligenceContext, realtime)
+import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
 
 // v2 Scheduled jobs (Canonical → DailyFacts → Insights → IntelligenceContext)
-import { onDailyFactsRecomputeScheduled } from './dailyFacts/onDailyFactsRecomputeScheduled';
-import { onInsightsRecomputeScheduled } from './insights/onInsightsRecomputeScheduled';
-import { onDailyIntelligenceContextRecomputeScheduled } from './intelligence/onDailyIntelligenceContextRecomputeScheduled';
+import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
+import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
+import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
 
-// -----------------------------
-// Admin HTTP Endpoints (Sprint 6+7)
-// -----------------------------
+// =============================
+// Account Executors (Pub/Sub)
+// =============================
 
-import { recomputeDailyFactsAdminHttp } from './http/recomputeDailyFactsAdminHttp';
-import { recomputeInsightsAdminHttp } from './http/recomputeInsightsAdminHttp';
-import { recomputeDailyIntelligenceContextAdminHttp } from './http/recomputeDailyIntelligenceContextAdminHttp';
+import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
 
-// -----------------------------
+// =============================
+// Admin HTTP Endpoints
+// (Internal / Admin-only)
+// =============================
+
+import { recomputeDailyFactsAdminHttp } from "./http/recomputeDailyFactsAdminHttp";
+import { recomputeInsightsAdminHttp } from "./http/recomputeInsightsAdminHttp";
+import { recomputeDailyIntelligenceContextAdminHttp } from "./http/recomputeDailyIntelligenceContextAdminHttp";
+
+// =============================
 // Helpers
-// -----------------------------
+// =============================
 
 function defaultGeneralProfile(user: {
   uid: string;
@@ -46,9 +56,9 @@ function defaultGeneralProfile(user: {
   };
 }
 
-// -----------------------------
+// =============================
 // v1 Auth Trigger
-// -----------------------------
+// =============================
 
 export const onAuthCreate = functionsV1.auth.user().onCreate(async (user) => {
   const uid = user.uid;
@@ -58,17 +68,21 @@ export const onAuthCreate = functionsV1.auth.user().onCreate(async (user) => {
   });
 });
 
-// -----------------------------
-// v2 Exports (must be exported to deploy)
-// -----------------------------
+// =============================
+// v2 Exports (DEPLOYED)
+// =============================
 
-// Firestore trigger
+// Firestore triggers
 export { onRawEventCreated };
+export { onCanonicalEventCreated };
 
-// Scheduled jobs
+// Scheduled recompute jobs
 export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
+
+// Account executors (Pub/Sub)
+export { onAccountDeleteRequested };
 
 // Admin-only HTTP endpoints
 export { recomputeDailyFactsAdminHttp };

@@ -1,29 +1,55 @@
-import type { NextFunction, Request, Response } from "express";
-import { getAuth } from "firebase-admin/auth";
+// services/api/src/middleware/auth.ts
+import type { NextFunction, Response } from "express";
 
-export type AuthedRequest = Request & { uid?: string };
+import { admin } from "../firebaseAdmin";
+import type { RequestWithRid } from "../lib/logger";
 
-export async function authMiddleware(
-  req: AuthedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const header = req.header("authorization") ?? req.header("Authorization");
-    if (!header?.startsWith("Bearer ")) {
-      res.status(401).json({ error: "Missing Authorization: Bearer <token>" });
-      return;
-    }
+export type AuthedRequest = RequestWithRid & {
+  uid?: string;
+};
 
-    const idToken = header.slice("Bearer ".length).trim();
-    const decoded = await getAuth().verifyIdToken(idToken, true);
-    req.uid = decoded.uid;
+type UnauthorizedJson = {
+  ok: false;
+  error: {
+    code: "UNAUTHORIZED";
+    message: "Unauthorized";
+    requestId: string;
+    reason?: string; // staging-only
+  };
+};
 
-    next();
-    return;
-  } catch {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+const isStaging = (): boolean => (process.env.APP_ENV ?? "").toLowerCase() === "staging";
+
+const jsonUnauthorized = (res: Response, requestId: string, reason?: string) => {
+  const body: UnauthorizedJson = {
+    ok: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      requestId,
+      ...(isStaging() && reason ? { reason } : {}),
+    },
+  };
+  return res.status(401).json(body);
+};
+
+export const authMiddleware = async (req: AuthedRequest, res: Response, next: NextFunction) => {
+  const rid = req.rid ?? res.getHeader("x-request-id")?.toString() ?? "missing";
+
+  const header = req.header("authorization") ?? req.header("Authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1];
+
+  if (!token) {
+    return jsonUnauthorized(res, rid, "missing_bearer");
   }
-}
 
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.uid = decoded.uid;
+    return next();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "verify_failed";
+    return jsonUnauthorized(res, rid, `verify_failed:${msg.slice(0, 160)}`);
+  }
+};

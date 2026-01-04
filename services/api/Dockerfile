@@ -1,30 +1,39 @@
-# ---- Build stage ----
-FROM node:20-alpine AS build
-WORKDIR /app
+# services/api/Dockerfile
 
-# Install deps (requires package-lock.json)
-COPY package*.json ./
-RUN npm ci --ignore-scripts
+FROM node:20-slim AS deps
+WORKDIR /workspace
 
-# Build TypeScript
-COPY tsconfig.json ./
-COPY src ./src
+# Install from repo root so dependency graph matches local
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:20-slim AS build
+WORKDIR /workspace
+
+COPY --from=deps /workspace/node_modules ./node_modules
+
+# Copy only what the API build needs
+COPY tsconfig.json tsconfig.base.json tsconfig.*.json ./
+COPY lib ./lib
+COPY services/api ./services/api
+
+# Build API
+WORKDIR /workspace/services/api
 RUN npm run build
 
-# ---- Runtime stage ----
-FROM node:20-alpine
-ENV NODE_ENV=production
+FROM node:20-slim AS run
 WORKDIR /app
+ENV NODE_ENV=production
 
-# Install only prod deps
-COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+# ✅ IMPORTANT: include node_modules that contains firebase-admin
+COPY --from=deps /workspace/node_modules ./node_modules
 
-# Bring compiled JS
-COPY --from=build /app/dist ./dist
+# Compiled output contains dist/services/api/src/* because rootDir is repo root
+COPY --from=build /workspace/services/api/dist ./dist
 
-# Cloud Run conventions
-ENV PORT=8080
+# Optional (nice for metadata/tools)
+COPY --from=build /workspace/services/api/package.json ./package.json
+
 EXPOSE 8080
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/services/api/src/server.js"]
