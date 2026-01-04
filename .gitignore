@@ -132,3 +132,6 @@ services/api/.env.local
 # Never commit built JS next to TS sources
 lib/contracts/*.js
 lib/contracts/*.js.map
+
+# Cloud Run local env var file (do not commit)
+cloudrun.env.yaml

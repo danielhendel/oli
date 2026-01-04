@@ -40,8 +40,42 @@ const app = express();
 app.use(requestIdMiddleware);
 app.use(accessLogMiddleware);
 
-app.use(cors());
-app.use(express.json());
+/**
+ * CORS (MVP-safe)
+ * - Native/mobile + curl often send no Origin => allow.
+ * - Browsers must match allowlist in CORS_ALLOW_ORIGINS (comma-separated).
+ * - If allowlist is empty => deny browser origins by default (tight).
+ *
+ * Example:
+ *   CORS_ALLOW_ORIGINS="http://localhost:8081,http://localhost:19006"
+ */
+const allowedOrigins = new Set(
+  (process.env.CORS_ALLOW_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+);
+
+app.use(
+  cors({
+    // Helps browsers read x-request-id
+    exposedHeaders: ["x-request-id"],
+    origin: (origin, cb) => {
+      // Non-browser clients (curl, RN fetch) usually omit Origin
+      if (!origin) return cb(null, true);
+
+      // Tight-by-default: if you didn't configure allowlist, deny browsers
+      if (allowedOrigins.size === 0) return cb(new Error("CORS origin denied"), false);
+
+      if (allowedOrigins.has(origin)) return cb(null, true);
+
+      return cb(new Error("CORS origin denied"), false);
+    },
+  })
+);
+
+// Optional hardening: prevent accidental huge payloads
+app.use(express.json({ limit: "1mb" }));
 
 // Unauthed health endpoints
 app.use(healthRouter);
@@ -65,6 +99,39 @@ app.use("/ingest", authMiddleware, eventsRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
+
+/**
+ * CORS rejection handler
+ * If a browser Origin is denied, cors() forwards an Error into Express.
+ * Without this, it would be reported as a 500 "unhandled_error".
+ */
+app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+  const message = err instanceof Error ? err.message : "";
+
+  if (message === "CORS origin denied") {
+    const rid = (req as RequestWithRid).rid ?? "unknown";
+
+    logger.info({
+      msg: "cors_denied",
+      rid,
+      origin: req.headers.origin ?? null,
+      path: req.originalUrl,
+      method: req.method,
+    });
+
+    res.status(403).json({
+      ok: false,
+      error: {
+        code: "CORS_DENIED",
+        message: "CORS origin denied",
+        requestId: rid,
+      },
+    });
+    return;
+  }
+
+  next(err);
+});
 
 // Global error handler (typed, safe, request-id aware)
 app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {

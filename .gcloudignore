@@ -1,0 +1,13 @@
+# .gcloudignore
+.git
+**/.DS_Store
+**/node_modules
+**/dist
+**/dist-types
+**/build
+**/coverage
+**/.expo
+**/ios/build
+**/android/build
+.env
+.env.*
