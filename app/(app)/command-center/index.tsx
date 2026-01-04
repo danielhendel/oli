@@ -46,12 +46,26 @@ const toneBg: Record<StatusTone, string> = {
 function formatTodaySummary(input: {
   facts?: { steps?: number; sleepMin?: number; weightKg?: number };
   insightsCount?: number;
+  optimistic?: { weightKg?: number };
+  isSyncingOptimistic?: boolean;
 }): string {
   const parts: string[] = [];
 
   if (typeof input.facts?.steps === "number") parts.push(`${input.facts.steps.toLocaleString()} steps`);
   if (typeof input.facts?.sleepMin === "number") parts.push(`${Math.round(input.facts.sleepMin)} min sleep`);
-  if (typeof input.facts?.weightKg === "number") parts.push(`${input.facts.weightKg.toFixed(1)} kg`);
+
+  const effectiveWeightKg =
+    typeof input.facts?.weightKg === "number"
+      ? input.facts.weightKg
+      : typeof input.optimistic?.weightKg === "number"
+        ? input.optimistic.weightKg
+        : null;
+
+  if (typeof effectiveWeightKg === "number") {
+    const suffix = input.isSyncingOptimistic ? " (syncing…)" : "";
+    parts.push(`${effectiveWeightKg.toFixed(1)} kg${suffix}`);
+  }
+
   if (typeof input.insightsCount === "number") parts.push(`${input.insightsCount} insights`);
 
   return parts.length ? parts.join(" • ") : "No facts yet — log your first event to start building today.";
@@ -90,7 +104,18 @@ function DevPipelineOverlay(props: {
   );
 }
 
-function DataStatusCard(props: { day: string; refreshKey: string | null; focusNonce: number }) {
+function parseOptionalNumber(s: string | null): number | null {
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function DataStatusCard(props: {
+  day: string;
+  refreshKey: string | null;
+  focusNonce: number;
+  optimisticWeightKg: number | null;
+}) {
   const dayTruth = useDayTruth(props.day);
   const facts = useDailyFacts(props.day);
   const insights = useInsights(props.day);
@@ -105,9 +130,11 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
   const pollCount = useRef(0);
   const lastRefreshKey = useRef<string | null>(null);
 
-  // ✅ Baselines captured at the moment refresh starts
+  // ✅ Baselines captured at refresh start
   const baselineWeightKg = useRef<number | null>(null);
   const baselineCanonicalAt = useRef<string | null>(null);
+  const baselineFactsAt = useRef<string | null>(null);
+  const baselineCtxAt = useRef<string | null>(null);
 
   const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
   const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
@@ -169,7 +196,7 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     kickRefetch();
   }, [props.focusNonce, kickRefetch]);
 
-  // ✅ On refreshKey change: start polling until we OBSERVE the weight changed/appeared (or timeout).
+  // ✅ On refreshKey change: start polling until we OBSERVE new truth (or timeout).
   useEffect(() => {
     const rk = props.refreshKey;
     if (!rk) return;
@@ -180,6 +207,8 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     // capture baselines at refresh start
     baselineWeightKg.current = currentWeightKg;
     baselineCanonicalAt.current = latestEventAt ?? null;
+    baselineFactsAt.current = factsComputedAt ?? null;
+    baselineCtxAt.current = ctxComputedAt ?? null;
 
     stopPolling();
     pollCount.current = 0;
@@ -191,22 +220,22 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
       pollCount.current += 1;
       kickRefetch(rk);
 
-      // hard cap: 90 seconds (90 * 1000ms)
+      // hard cap: 90 seconds
       if (pollCount.current >= 90) stopPolling();
     }, 1000);
 
     return () => stopPolling();
-  }, [props.refreshKey, currentWeightKg, latestEventAt, kickRefetch, stopPolling]);
+  }, [props.refreshKey, currentWeightKg, latestEventAt, factsComputedAt, ctxComputedAt, kickRefetch, stopPolling]);
 
-  // ✅ Stop polling once we can tell the UI should update:
-  // - weight appeared (baseline null -> number)
-  // - or weight changed (number -> different number)
-  // - or canonical advanced (extra “good” signal, but not required)
+  // ✅ Stop polling only when we can prove "new truth" relative to the refresh baseline.
+  // CRITICAL: do NOT stop just because derivedReady is true (it can be true from stale pre-refresh state).
   useEffect(() => {
     if (!pollTimer.current) return;
 
     const bw = baselineWeightKg.current;
     const bc = baselineCanonicalAt.current;
+    const bf = baselineFactsAt.current;
+    const bctx = baselineCtxAt.current;
 
     const weightAppeared = bw === null && typeof currentWeightKg === "number";
     const weightChanged =
@@ -215,11 +244,18 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
     const canonicalAdvanced =
       bc === null ? latestEventAt !== null : latestEventAt !== null && latestEventAt !== bc;
 
-    if (weightAppeared || weightChanged || canonicalAdvanced) {
-      // if derived is already clean, great; but we don't require it to stop showing the new weight
+    const factsAdvanced =
+      bf === null ? factsComputedAt !== null : factsComputedAt !== null && factsComputedAt !== bf;
+
+    const ctxAdvanced =
+      bctx === null ? ctxComputedAt !== null : ctxComputedAt !== null && ctxComputedAt !== bctx;
+
+    const pipelineCaughtUp = canonicalAdvanced && derivedReady && factsAdvanced && ctxAdvanced;
+
+    if (weightAppeared || weightChanged || pipelineCaughtUp) {
       stopPolling();
     }
-  }, [currentWeightKg, latestEventAt, stopPolling, derivedReady]);
+  }, [currentWeightKg, latestEventAt, factsComputedAt, ctxComputedAt, derivedReady, stopPolling]);
 
   const hasAnyFact =
     facts.status === "ready" &&
@@ -278,9 +314,15 @@ function DataStatusCard(props: { day: string; refreshKey: string | null; focusNo
         }
       : null;
 
+  const isShowingOptimistic =
+    typeof factsSummary?.weightKg !== "number" &&
+    typeof props.optimisticWeightKg === "number";
+
   const summary = formatTodaySummary({
     ...(factsSummary && Object.keys(factsSummary).length > 0 ? { facts: factsSummary } : {}),
     ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
+    ...(typeof props.optimisticWeightKg === "number" ? { optimistic: { weightKg: props.optimisticWeightKg } } : {}),
+    ...(isShowingOptimistic ? { isSyncingOptimistic: true } : {}),
   });
 
   const canonicalAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
@@ -344,8 +386,9 @@ export default function CommandCenterScreen() {
   const router = useRouter();
   const day = getTodayDayKey();
 
-  const params = useLocalSearchParams<{ refresh?: string }>();
+  const params = useLocalSearchParams<{ refresh?: string; ow?: string }>();
   const refreshParam = typeof params.refresh === "string" ? params.refresh : null;
+  const owParam = typeof params.ow === "string" ? params.ow : null;
 
   const [focusNonce, setFocusNonce] = useState(0);
   useFocusEffect(
@@ -356,12 +399,20 @@ export default function CommandCenterScreen() {
   );
 
   const [refreshKey, setRefreshKey] = useState<string | null>(null);
+  const [optimisticWeightKg, setOptimisticWeightKg] = useState<number | null>(null);
 
   // ✅ consume refresh param whenever it changes
   useEffect(() => {
     if (!refreshParam) return;
     setRefreshKey((prev) => (prev === refreshParam ? prev : refreshParam));
   }, [refreshParam]);
+
+  // ✅ consume optimistic weight whenever it changes (tied to navigation param)
+  useEffect(() => {
+    const ow = parseOptionalNumber(owParam);
+    if (ow === null) return;
+    setOptimisticWeightKg(ow);
+  }, [owParam]);
 
   // ✅ subscribe to bus (works if CC stays mounted)
   useEffect(() => {
@@ -393,7 +444,13 @@ export default function CommandCenterScreen() {
           </Pressable>
         </View>
 
-        <DataStatusCard key={statusCardKey} day={day} refreshKey={refreshKey} focusNonce={focusNonce} />
+        <DataStatusCard
+          key={statusCardKey}
+          day={day}
+          refreshKey={refreshKey}
+          focusNonce={focusNonce}
+          optimisticWeightKg={optimisticWeightKg}
+        />
         <QuickActionsRow />
 
         <View style={styles.grid}>
