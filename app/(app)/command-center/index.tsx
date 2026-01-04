@@ -130,7 +130,6 @@ function DataStatusCard(props: {
   const pollCount = useRef(0);
   const lastRefreshKey = useRef<string | null>(null);
 
-  // ✅ Baselines captured at refresh start
   const baselineWeightKg = useRef<number | null>(null);
   const baselineCanonicalAt = useRef<string | null>(null);
   const baselineFactsAt = useRef<string | null>(null);
@@ -182,7 +181,7 @@ function DataStatusCard(props: {
 
   const kickRefetch = useCallback(
     (cacheBust?: string) => {
-      const opts = cacheBust ? { cacheBust } : undefined; // exactOptionalPropertyTypes-safe
+      const opts = cacheBust ? { cacheBust } : undefined;
       void refetchDayTruth(opts);
       void refetchFacts(opts);
       void refetchInsights(opts);
@@ -191,12 +190,10 @@ function DataStatusCard(props: {
     [refetchDayTruth, refetchFacts, refetchInsights, refetchCtx],
   );
 
-  // ✅ Always refetch on focus
   useEffect(() => {
     kickRefetch();
   }, [props.focusNonce, kickRefetch]);
 
-  // ✅ On refreshKey change: start polling until we OBSERVE new truth (or timeout).
   useEffect(() => {
     const rk = props.refreshKey;
     if (!rk) return;
@@ -204,7 +201,6 @@ function DataStatusCard(props: {
     if (lastRefreshKey.current === rk) return;
     lastRefreshKey.current = rk;
 
-    // capture baselines at refresh start
     baselineWeightKg.current = currentWeightKg;
     baselineCanonicalAt.current = latestEventAt ?? null;
     baselineFactsAt.current = factsComputedAt ?? null;
@@ -213,22 +209,17 @@ function DataStatusCard(props: {
     stopPolling();
     pollCount.current = 0;
 
-    // kick immediately with cache bust
     kickRefetch(rk);
 
     pollTimer.current = setInterval(() => {
       pollCount.current += 1;
       kickRefetch(rk);
-
-      // hard cap: 90 seconds
       if (pollCount.current >= 90) stopPolling();
     }, 1000);
 
     return () => stopPolling();
   }, [props.refreshKey, currentWeightKg, latestEventAt, factsComputedAt, ctxComputedAt, kickRefetch, stopPolling]);
 
-  // ✅ Stop polling only when we can prove "new truth" relative to the refresh baseline.
-  // CRITICAL: do NOT stop just because derivedReady is true (it can be true from stale pre-refresh state).
   useEffect(() => {
     if (!pollTimer.current) return;
 
@@ -238,32 +229,16 @@ function DataStatusCard(props: {
     const bctx = baselineCtxAt.current;
 
     const weightAppeared = bw === null && typeof currentWeightKg === "number";
-    const weightChanged =
-      typeof bw === "number" && typeof currentWeightKg === "number" && currentWeightKg !== bw;
+    const weightChanged = typeof bw === "number" && typeof currentWeightKg === "number" && currentWeightKg !== bw;
 
-    const canonicalAdvanced =
-      bc === null ? latestEventAt !== null : latestEventAt !== null && latestEventAt !== bc;
-
-    const factsAdvanced =
-      bf === null ? factsComputedAt !== null : factsComputedAt !== null && factsComputedAt !== bf;
-
-    const ctxAdvanced =
-      bctx === null ? ctxComputedAt !== null : ctxComputedAt !== null && ctxComputedAt !== bctx;
+    const canonicalAdvanced = bc === null ? latestEventAt !== null : latestEventAt !== null && latestEventAt !== bc;
+    const factsAdvanced = bf === null ? factsComputedAt !== null : factsComputedAt !== null && factsComputedAt !== bf;
+    const ctxAdvanced = bctx === null ? ctxComputedAt !== null : ctxComputedAt !== null && ctxComputedAt !== bctx;
 
     const pipelineCaughtUp = canonicalAdvanced && derivedReady && factsAdvanced && ctxAdvanced;
 
-    if (weightAppeared || weightChanged || pipelineCaughtUp) {
-      stopPolling();
-    }
+    if (weightAppeared || weightChanged || pipelineCaughtUp) stopPolling();
   }, [currentWeightKg, latestEventAt, factsComputedAt, ctxComputedAt, derivedReady, stopPolling]);
-
-  const hasAnyFact =
-    facts.status === "ready" &&
-    (typeof facts.data.activity?.steps === "number" ||
-      typeof facts.data.sleep?.totalMinutes === "number" ||
-      typeof facts.data.body?.weightKg === "number");
-
-  const hasAnySignal = hasAnyFact || (insights.status === "ready" && insights.data.count > 0) || ctx.status === "ready";
 
   let tone: StatusTone = "neutral";
   let title = "Checking your data…";
@@ -295,34 +270,40 @@ function DataStatusCard(props: {
     tone = "success";
     title = "Today is ready";
     subtitle = ["Events ✓", "Facts ✓", "Context ✓"].join("  •  ");
-  } else if (hasAnySignal) {
-    tone = "neutral";
-    title = "Computing today…";
-    subtitle = "Waiting for derived truth to catch up to canonical events.";
-  } else {
-    tone = "warning";
-    title = "No data yet for today";
-    subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
   }
+
+  const optimistic = typeof props.optimisticWeightKg === "number" ? props.optimisticWeightKg : null;
+
+  // ✅ If we're in an active refresh and the facts weight doesn't yet match the optimistic weight,
+  // show optimistic immediately even if day-truth hasn't advanced yet.
+  const eps = 0.01;
+  const factsMatchOptimistic =
+    typeof currentWeightKg === "number" && optimistic !== null && Math.abs(currentWeightKg - optimistic) < eps;
+
+  const inRefreshWindow = props.refreshKey !== null && optimistic !== null && !factsMatchOptimistic;
+
+  const shouldPreferOptimisticWeight =
+    optimistic !== null &&
+    (inRefreshWindow || !factsFresh || typeof currentWeightKg !== "number");
 
   const factsSummary =
     facts.status === "ready"
       ? {
           ...(typeof facts.data.activity?.steps === "number" ? { steps: facts.data.activity.steps } : {}),
           ...(typeof facts.data.sleep?.totalMinutes === "number" ? { sleepMin: facts.data.sleep.totalMinutes } : {}),
-          ...(typeof facts.data.body?.weightKg === "number" ? { weightKg: facts.data.body.weightKg } : {}),
+          ...(!shouldPreferOptimisticWeight && typeof facts.data.body?.weightKg === "number"
+            ? { weightKg: facts.data.body.weightKg }
+            : {}),
         }
       : null;
 
-  const isShowingOptimistic =
-    typeof factsSummary?.weightKg !== "number" &&
-    typeof props.optimisticWeightKg === "number";
+  const isSyncingOptimistic = shouldPreferOptimisticWeight && optimistic !== null && hasEvents;
 
   const summary = formatTodaySummary({
     ...(factsSummary && Object.keys(factsSummary).length > 0 ? { facts: factsSummary } : {}),
     ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
-    ...(typeof props.optimisticWeightKg === "number" ? { optimistic: { weightKg: props.optimisticWeightKg } } : {}),
-    ...(isShowingOptimistic ? { isSyncingOptimistic: true } : {}),
+    ...(optimistic !== null ? { optimistic: { weightKg: optimistic } } : {}),
+    ...(isSyncingOptimistic ? { isSyncingOptimistic: true } : {}),
   });
 
   const canonicalAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
@@ -401,25 +382,28 @@ export default function CommandCenterScreen() {
   const [refreshKey, setRefreshKey] = useState<string | null>(null);
   const [optimisticWeightKg, setOptimisticWeightKg] = useState<number | null>(null);
 
-  // ✅ consume refresh param whenever it changes
   useEffect(() => {
     if (!refreshParam) return;
     setRefreshKey((prev) => (prev === refreshParam ? prev : refreshParam));
   }, [refreshParam]);
 
-  // ✅ consume optimistic weight whenever it changes (tied to navigation param)
   useEffect(() => {
     const ow = parseOptionalNumber(owParam);
     if (ow === null) return;
     setOptimisticWeightKg(ow);
   }, [owParam]);
 
-  // ✅ subscribe to bus (works if CC stays mounted)
   useEffect(() => {
-    const unsub = subscribeRefresh(({ topic, key }) => {
-      if (topic !== "commandCenter") return;
-      setRefreshKey((prev) => (prev === key ? prev : key));
-      consumeRefresh(topic, key);
+    const unsub = subscribeRefresh((ev) => {
+      if (ev.topic !== "commandCenter") return;
+
+      setRefreshKey((prev) => (prev === ev.key ? prev : ev.key));
+
+      if (typeof ev.optimisticWeightKg === "number") {
+        setOptimisticWeightKg(ev.optimisticWeightKg);
+      }
+
+      consumeRefresh(ev.topic, ev.key);
     });
     return unsub;
   }, []);

@@ -110,12 +110,11 @@ export default function BodyWeightScreen() {
 
       const refreshKey = makeRefreshKey();
 
-      // ✅ bus (if CC is mounted underneath)
-      emitRefresh("commandCenter", refreshKey);
+      // ✅ Bus payload: deterministic immediate CC update even if params don't update / screen stays mounted.
+      emitRefresh("commandCenter", refreshKey, { optimisticWeightKg: parsed.weightKg });
 
-      // ✅ also pass optimistic weight so CC updates instantly even if pipeline lags
+      // ✅ Keep params as redundancy
       const ow = parsed.weightKg.toFixed(2);
-
       router.replace({
         pathname: "/(app)/command-center",
         params: { refresh: refreshKey, ow },
@@ -193,9 +192,7 @@ export default function BodyWeightScreen() {
         </Pressable>
 
         {status.state === "error" ? <Text style={styles.helperError}>{status.message}</Text> : null}
-        {status.state === "saved" ? (
-          <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text>
-        ) : null}
+        {status.state === "saved" ? <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text> : null}
 
         <Text style={styles.helperNote}>
           Daily facts may take a moment to update while the pipeline processes your raw event.

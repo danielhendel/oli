@@ -1,10 +1,19 @@
 // lib/navigation/refreshBus.ts
 export type RefreshTopic = "commandCenter";
 
-export type RefreshEvent = {
-  topic: RefreshTopic;
-  key: string;
+/**
+ * Typed per-topic payloads.
+ */
+export type RefreshPayloadByTopic = {
+  commandCenter: {
+    optimisticWeightKg?: number;
+  };
 };
+
+export type RefreshEvent<TTopic extends RefreshTopic = RefreshTopic> = {
+  topic: TTopic;
+  key: string;
+} & RefreshPayloadByTopic[TTopic];
 
 type StorageLike = {
   getItem(key: string): Promise<string | null>;
@@ -13,7 +22,6 @@ type StorageLike = {
 };
 
 const STORAGE_PREFIX = "oli.refreshBus.v1";
-
 function storageKey(topic: RefreshTopic): string {
   return `${STORAGE_PREFIX}:${topic}:pending`;
 }
@@ -22,10 +30,7 @@ function storageKey(topic: RefreshTopic): string {
 // Storage selection
 // --------------------
 
-// Test injection (Jest)
 let injectedStorage: StorageLike | null = null;
-
-// Default AsyncStorage loaded lazily (lint-safe)
 let defaultStorage: StorageLike | null = null;
 let defaultStoragePromise: Promise<StorageLike> | null = null;
 
@@ -56,7 +61,6 @@ async function ensureDefaultStorage(): Promise<StorageLike> {
         defaultStorage = s as StorageLike;
         return defaultStorage;
       } catch {
-        // ✅ Jest / Node safety: fall back to in-memory storage instead of crashing.
         defaultStorage = createMemoryStorage();
         return defaultStorage;
       }
@@ -77,12 +81,17 @@ async function getStorage(): Promise<StorageLike> {
 
 let subscribers = new Set<(ev: RefreshEvent) => void>();
 
-// ✅ Same-session source of truth for replay
-let pendingByTopic: Record<RefreshTopic, string[]> = {
+// Same-session replay list
+let pendingKeys: Record<RefreshTopic, string[]> = {
   commandCenter: [],
 };
 
-// In-session dedupe so we don’t double-deliver
+// Same-session payloads (NOT persisted)
+let pendingPayloads: Record<RefreshTopic, Record<string, RefreshPayloadByTopic[RefreshTopic]>> = {
+  commandCenter: {},
+};
+
+// In-session dedupe
 let delivered = new Set<string>(); // `${topic}:${key}`
 
 async function loadPending(topic: RefreshTopic): Promise<string[]> {
@@ -108,44 +117,54 @@ function notify(ev: RefreshEvent): void {
 }
 
 function addPendingSync(topic: RefreshTopic, key: string): void {
-  const list = pendingByTopic[topic];
+  const list = pendingKeys[topic];
   if (list.includes(key)) return;
-  pendingByTopic[topic] = [...list, key];
+  pendingKeys[topic] = [...list, key];
 }
 
 function removePendingSync(topic: RefreshTopic, key: string): void {
-  const list = pendingByTopic[topic];
-  if (!list.length) return;
-  pendingByTopic[topic] = list.filter((k) => k !== key);
+  pendingKeys[topic] = pendingKeys[topic].filter((k) => k !== key);
+  delete pendingPayloads[topic][key];
+}
+
+function hasPayload(obj: unknown): obj is Record<string, unknown> {
+  return typeof obj === "object" && obj !== null && Object.keys(obj as Record<string, unknown>).length > 0;
 }
 
 function replayFromMemory(cb: (ev: RefreshEvent) => void): void {
-  const topics: RefreshTopic[] = ["commandCenter"];
+  const topic: RefreshTopic = "commandCenter";
+  for (const key of pendingKeys[topic]) {
+    const id = `${topic}:${key}`;
+    if (delivered.has(id)) continue;
+    delivered.add(id);
 
-  for (const topic of topics) {
-    const mem = pendingByTopic[topic];
-    for (const key of mem) {
-      const id = `${topic}:${key}`;
-      if (delivered.has(id)) continue;
-      delivered.add(id);
-      cb({ topic, key });
-    }
+    const payload = pendingPayloads[topic][key];
+    if (hasPayload(payload)) cb({ topic, key, ...(payload as RefreshPayloadByTopic["commandCenter"]) });
+    else cb({ topic, key });
   }
 }
 
-export function emitRefresh(topic: RefreshTopic, key: string): void {
-  // ✅ Same-session replay available immediately
+export function emitRefresh(
+  topic: "commandCenter",
+  key: string,
+  payload?: RefreshPayloadByTopic["commandCenter"],
+): void {
   addPendingSync(topic, key);
 
-  // Persist across restarts (async)
+  if (hasPayload(payload)) {
+    // TS-safe: non-generic write
+    pendingPayloads.commandCenter[key] = payload;
+  }
+
+  // Persist keys only (payload intentionally not persisted)
   void (async () => {
     const disk = await loadPending(topic);
     if (disk.includes(key)) return;
     await savePending(topic, [...disk, key]);
   })();
 
-  // Deliver to active subscribers immediately
-  notify({ topic, key });
+  if (hasPayload(payload)) notify({ topic, key, ...(payload as RefreshPayloadByTopic["commandCenter"]) });
+  else notify({ topic, key });
 }
 
 export function consumeRefresh(topic: RefreshTopic, key: string): void {
@@ -154,34 +173,28 @@ export function consumeRefresh(topic: RefreshTopic, key: string): void {
 
   void (async () => {
     const disk = await loadPending(topic);
-    const next = disk.filter((k) => k !== key);
-    await savePending(topic, next);
+    await savePending(topic, disk.filter((k) => k !== key));
   })();
 }
 
 export function subscribeRefresh(cb: (ev: RefreshEvent) => void): () => void {
   subscribers.add(cb);
 
-  // ✅ CRITICAL: replay SAME-SESSION pending synchronously (deterministic)
+  // replay same-session immediately
   replayFromMemory(cb);
 
-  // Then merge + replay disk async (cross-restart)
+  // disk merge/replay (payload-less)
   void (async () => {
-    const topics: RefreshTopic[] = ["commandCenter"];
+    const topic: RefreshTopic = "commandCenter";
+    const disk = await loadPending(topic);
+    if (!disk.length) return;
 
-    for (const topic of topics) {
-      const disk = await loadPending(topic);
-      if (!disk.length) continue;
-
-      // union into memory
-      pendingByTopic[topic] = Array.from(new Set([...pendingByTopic[topic], ...disk]));
-
-      for (const key of disk) {
-        const id = `${topic}:${key}`;
-        if (delivered.has(id)) continue;
-        delivered.add(id);
-        cb({ topic, key });
-      }
+    pendingKeys[topic] = Array.from(new Set([...pendingKeys[topic], ...disk]));
+    for (const key of disk) {
+      const id = `${topic}:${key}`;
+      if (delivered.has(id)) continue;
+      delivered.add(id);
+      cb({ topic, key });
     }
   })();
 
@@ -191,15 +204,15 @@ export function subscribeRefresh(cb: (ev: RefreshEvent) => void): () => void {
 }
 
 // --------------------
-// Test-only hooks
+// Test hooks
 // --------------------
 export function __testing_setStorage(s: StorageLike | null): void {
   injectedStorage = s;
 }
-
 export function __testing_reset(): void {
   subscribers = new Set();
-  pendingByTopic = { commandCenter: [] };
+  pendingKeys = { commandCenter: [] };
+  pendingPayloads = { commandCenter: {} };
   delivered = new Set();
   injectedStorage = null;
   defaultStorage = null;
