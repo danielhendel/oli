@@ -1,12 +1,9 @@
 // services/api/src/routes/usersMe.ts
-import { randomUUID } from "crypto";
 import { Router, type Response } from "express";
 import { z } from "zod";
 
-import { rawEventDocSchema } from "../../../../lib/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
-import { ymdInTimeZoneFromIso } from "../lib/dayKey";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
 import { dayQuerySchema } from "../types/day";
@@ -15,8 +12,6 @@ import {
   insightDtoSchema,
   insightsResponseDtoSchema,
   intelligenceContextDtoSchema,
-  logWeightRequestDtoSchema,
-  logWeightResponseDtoSchema,
 } from "../types/dtos";
 
 // ✅ Firestore access ONLY via adapter (CHECK 9)
@@ -25,13 +20,6 @@ import { userCollection } from "../db";
 const router = Router();
 
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
-
-const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
-  const key = req.header("Idempotency-Key") ?? req.header("X-Idempotency-Key") ?? undefined;
-  if (!key) return undefined;
-  if (key.includes("/")) return undefined;
-  return key;
-};
 
 const parseDay = (req: AuthedRequest, res: Response): string | null => {
   const parsed = dayQuerySchema.safeParse(req.query);
@@ -82,18 +70,6 @@ const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, deta
   });
 };
 
-const invalidBody400 = (req: AuthedRequest, res: Response, details: unknown) => {
-  res.status(400).json({
-    ok: false,
-    error: {
-      code: "INVALID_BODY",
-      message: "Invalid request body",
-      details,
-      requestId: getRid(req),
-    },
-  });
-};
-
 // ✅ Minimal DTO for day-truth response (kept local to avoid coupling)
 const dayTruthDtoSchema = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -101,92 +77,6 @@ const dayTruthDtoSchema = z.object({
   latestCanonicalEventAt: z.string().datetime().nullable(),
 });
 type DayTruthDto = z.infer<typeof dayTruthDtoSchema>;
-
-/**
- * POST /users/me/body/weight
- */
-router.post(
-  "/body/weight",
-  asyncHandler(async (req: AuthedRequest, res: Response) => {
-    const uid = requireUid(req, res);
-    if (!uid) return;
-
-    const parsed = logWeightRequestDtoSchema.safeParse(req.body);
-    if (!parsed.success) {
-      invalidBody400(req, res, parsed.error.flatten());
-      return;
-    }
-
-    const payload = parsed.data;
-
-    if (Number.isNaN(Date.parse(payload.time))) {
-      invalidBody400(req, res, { time: "Invalid ISO datetime string" });
-      return;
-    }
-
-    const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
-
-    // ✅ user-scoped Firestore access via adapter
-    const rawEventsCol = userCollection(uid, "rawEvents");
-
-    const idempotencyKey = getIdempotencyKey(req);
-    const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc(randomUUID());
-    const rawEventId = docRef.id;
-
-    const nowIso = new Date().toISOString();
-
-    const rawEvent = {
-      schemaVersion: 1 as const,
-      id: rawEventId,
-      userId: uid,
-      sourceId: "manual",
-      provider: "manual",
-      sourceType: "manual",
-      kind: "weight" as const,
-      receivedAt: nowIso,
-      observedAt: payload.time,
-      payload: {
-        time: payload.time,
-        day,
-        timezone: payload.timezone,
-        weightKg: payload.weightKg,
-        ...(payload.bodyFatPercent !== undefined ? { bodyFatPercent: payload.bodyFatPercent } : {}),
-      },
-    };
-
-    const rawValidated = rawEventDocSchema.safeParse(rawEvent);
-    if (!rawValidated.success) {
-      invalidDoc500(req, res, "rawEvent", rawValidated.error.flatten());
-      return;
-    }
-
-    try {
-      await docRef.create(rawValidated.data);
-    } catch (e: unknown) {
-      const snap = await docRef.get();
-      if (snap.exists) {
-        const out = { ok: true as const, rawEventId, day };
-        const validated = logWeightResponseDtoSchema.safeParse(out);
-        if (!validated.success) {
-          invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
-          return;
-        }
-        res.status(200).json(validated.data);
-        return;
-      }
-      throw e;
-    }
-
-    const out = { ok: true as const, rawEventId, day };
-    const validated = logWeightResponseDtoSchema.safeParse(out);
-    if (!validated.success) {
-      invalidDoc500(req, res, "logWeightResponse", validated.error.flatten());
-      return;
-    }
-
-    res.status(200).json(validated.data);
-  }),
-);
 
 /**
  * GET /users/me/day-truth?day=YYYY-MM-DD

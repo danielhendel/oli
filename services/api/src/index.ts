@@ -1,5 +1,5 @@
 // services/api/src/index.ts
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction, type Router } from "express";
 import cors from "cors";
 
 import healthRouter from "./health";
@@ -8,6 +8,31 @@ import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
+
+const assertNoUsersMeWriteRoutes = (router: Router): void => {
+  // Regression invariant: /users/me must be READ-only.
+  // Specifically: disallow POST /body/weight (duplicate ingestion door).
+  const stack = (router as unknown as { stack?: unknown[] }).stack;
+  if (!Array.isArray(stack)) return;
+
+  for (const layer of stack) {
+    const l = layer as {
+      route?: {
+        path?: string;
+        methods?: Record<string, boolean>;
+      };
+    };
+
+    const path = l.route?.path;
+    const methods = l.route?.methods;
+
+    if (path === "/body/weight" && methods?.post) {
+      throw new Error("Invariant failed: /users/me must not expose POST /body/weight. Use POST /ingest only.");
+    }
+  }
+};
+
+assertNoUsersMeWriteRoutes(usersMeRoutes);
 
 const app = express();
 
