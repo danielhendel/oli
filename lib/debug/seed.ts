@@ -41,7 +41,7 @@ export const seedTodayWeight = async (): Promise<SeedResult> => {
     },
   };
 
-  const res = await apiPostJsonAuthed<JsonValue>("/ingest/events", body, token, {
+  const res = await apiPostJsonAuthed<JsonValue>("/ingest", body, token, {
     idempotencyKey: `seed-weight-${day}`,
   });
 

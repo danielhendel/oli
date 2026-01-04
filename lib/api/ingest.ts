@@ -19,7 +19,7 @@ export async function ingestRawEventAuthed(
   idToken: string,
   opts?: { idempotencyKey?: string; timeoutMs?: number },
 ): Promise<IngestOk | IngestFail> {
-  const res: ApiResult<IngestAccepted> = await apiPostJsonAuthed<IngestAccepted>("/ingest/events", body, idToken, {
+  const res: ApiResult<IngestAccepted> = await apiPostJsonAuthed<IngestAccepted>("/ingest", body, idToken, {
     ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
     ...(typeof opts?.timeoutMs === "number" ? { timeoutMs: opts.timeoutMs } : {}),
   });
