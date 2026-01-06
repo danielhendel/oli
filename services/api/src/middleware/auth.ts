@@ -33,15 +33,30 @@ const jsonUnauthorized = (res: Response, requestId: string, reason?: string) => 
   return res.status(401).json(body);
 };
 
+// NOTE: API Gateway often sets Authorization for gateway->backend auth,
+// and forwards the original client Authorization as X-Forwarded-Authorization.
+// Therefore we MUST prefer X-Forwarded-Authorization first.
+const extractBearerToken = (req: AuthedRequest): { token: string | null; source: string } => {
+  const rawXF =
+    req.header("x-forwarded-authorization") ?? req.header("X-Forwarded-Authorization") ?? null;
+
+  const rawAuth = req.header("authorization") ?? req.header("Authorization") ?? null;
+
+  const raw = rawXF ?? rawAuth ?? "";
+
+  const match = raw.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1] ?? null;
+
+  const source = rawXF ? "x-forwarded-authorization" : rawAuth ? "authorization" : "missing";
+  return { token, source };
+};
+
 export const authMiddleware = async (req: AuthedRequest, res: Response, next: NextFunction) => {
   const rid = req.rid ?? res.getHeader("x-request-id")?.toString() ?? "missing";
 
-  const header = req.header("authorization") ?? req.header("Authorization") ?? "";
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1];
-
+  const { token, source } = extractBearerToken(req);
   if (!token) {
-    return jsonUnauthorized(res, rid, "missing_bearer");
+    return jsonUnauthorized(res, rid, `missing_bearer:${source}`);
   }
 
   try {

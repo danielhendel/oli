@@ -22,22 +22,29 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
 const dayKeyFromIso = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
 
 /**
- * Canonical ingestion gateway
+ * Canonical ingestion gateway (AUTHENTICATED)
  *
  * - Validates body
  * - Validates canonical RawEvent doc with @oli/contracts
  * - Writes RawEvent to: /users/{uid}/rawEvents/{rawEventId}
  * - Firestore trigger normalizes → pipeline
  *
- * Mounted at: POST /ingest/events
+ * ✅ Mounted at: POST /ingest   (see services/api/src/index.ts)
+ *
+ * IDENTITY + INTEGRITY:
+ * - Requires Idempotency-Key (or X-Idempotency-Key)
+ * - Uses that key as the Firestore doc id to guarantee idempotency
  */
 router.post("/", async (req: AuthedRequest, res: Response) => {
   const uid = req.uid;
-  if (!uid) return res.status(401).json({ error: "Unauthorized" });
+  if (!uid) {
+    return res.status(401).json({ ok: false as const, error: "Unauthorized" });
+  }
 
   const parsed = ingestRawEventSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
+      ok: false as const,
       error: "Invalid raw event",
       details: parsed.error.flatten(),
     });
@@ -48,7 +55,18 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   // Canonicalize timestamps
   const observedAt = body.observedAt ?? body.occurredAt;
   if (!observedAt) {
-    return res.status(400).json({ error: "Missing observedAt/occurredAt" });
+    return res.status(400).json({ ok: false as const, error: "Missing observedAt/occurredAt" });
+  }
+
+  const idempotencyKey = getIdempotencyKey(req);
+  if (!idempotencyKey) {
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "MISSING_IDEMPOTENCY_KEY" as const,
+        message: "Idempotency-Key header is required for ingestion",
+      },
+    });
   }
 
   const receivedAt = new Date().toISOString();
@@ -60,8 +78,8 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   // ✅ MUST be user-scoped
   const rawEventsCol = userCollection(uid, "rawEvents");
 
-  const idempotencyKey = getIdempotencyKey(req);
-  const docRef = idempotencyKey ? rawEventsCol.doc(idempotencyKey) : rawEventsCol.doc();
+  // ✅ Mandatory idempotency: doc id is deterministic
+  const docRef = rawEventsCol.doc(idempotencyKey);
   const rawEventId = docRef.id;
 
   const doc = {
@@ -85,6 +103,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   const validated = rawEventDocSchema.safeParse(doc);
   if (!validated.success) {
     return res.status(400).json({
+      ok: false as const,
       error: "Invalid raw event (contract)",
       details: validated.error.flatten(),
     });
@@ -93,9 +112,15 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   try {
     await docRef.create(validated.data);
   } catch (err: unknown) {
+    // If create() failed because the doc already exists, treat as an idempotent replay.
     const existing = await docRef.get();
     if (existing.exists) {
-      return res.status(202).json({ ok: true as const, rawEventId, day, idempotentReplay: true as const });
+      return res.status(202).json({
+        ok: true as const,
+        rawEventId,
+        day,
+        idempotentReplay: true as const,
+      });
     }
     throw err;
   }

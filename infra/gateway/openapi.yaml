@@ -1,0 +1,84 @@
+swagger: "2.0"
+info:
+  title: oli-api-gateway
+  version: "1.0.0"
+
+schemes:
+  - https
+
+# Host is required by Swagger 2.0, but API Gateway will set the real hostname at deploy time.
+# This value is not used as the runtime gateway hostname.
+host: example.invalid
+
+basePath: /
+
+produces:
+  - application/json
+
+consumes:
+  - application/json
+
+# Route all configured paths to the same Cloud Run backend.
+x-google-backend:
+  address: https://oli-api-7lrup47o4q-uc.a.run.app
+  path_translation: APPEND_PATH_TO_ADDRESS
+
+securityDefinitions:
+  firebase:
+    authorizationUrl: ""
+    flow: implicit
+    type: oauth2
+    x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
+    # Use X509 public keys endpoint (supported by API Gateway)
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    # Optional but correct for Firebase ID tokens (aud is the Firebase project id)
+    x-google-audiences: "oli-staging-fdbba"
+
+# Require Firebase JWT on everything by default
+security:
+  - firebase: []
+
+paths:
+  /health:
+    get:
+      operationId: healthGet
+      # Public health endpoint
+      security: []
+      responses:
+        200:
+          description: OK
+
+  /ingest:
+    post:
+      operationId: ingestPost
+      responses:
+        200:
+          description: OK
+
+  /users/me/day-truth:
+    get:
+      operationId: dayTruthGet
+      responses:
+        200:
+          description: OK
+
+  /users/me/daily-facts:
+    get:
+      operationId: dailyFactsGet
+      responses:
+        200:
+          description: OK
+
+  /users/me/insights:
+    get:
+      operationId: insightsGet
+      responses:
+        200:
+          description: OK
+
+  /users/me/intelligence-context:
+    get:
+      operationId: intelligenceContextGet
+      responses:
+        200:
+          description: OK
