@@ -4,12 +4,15 @@
     "composite": true,
     "rootDir": "../..",
     "outDir": "dist",
-    "module": "CommonJS",
+
     "target": "ES2020",
-    "moduleResolution": "Node",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
+
     "baseUrl": ".",
     "paths": {
       "@oli/contracts": ["../../lib/contracts/index.ts"],

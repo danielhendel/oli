@@ -24,6 +24,7 @@ import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onD
 // =============================
 
 import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
+import { onAccountExportRequested } from "./account/onAccountExportRequested";
 
 // =============================
 // Admin HTTP Endpoints
@@ -38,11 +39,7 @@ import { recomputeDailyIntelligenceContextAdminHttp } from "./http/recomputeDail
 // Helpers
 // =============================
 
-function defaultGeneralProfile(user: {
-  uid: string;
-  displayName?: string | null;
-  email?: string | null;
-}) {
+function defaultGeneralProfile(user: { uid: string; displayName?: string | null; email?: string | null }) {
   const now = admin.firestore.FieldValue.serverTimestamp();
 
   return {
@@ -83,6 +80,7 @@ export { onDailyIntelligenceContextRecomputeScheduled };
 
 // Account executors (Pub/Sub)
 export { onAccountDeleteRequested };
+export { onAccountExportRequested };
 
 // Admin-only HTTP endpoints
 export { recomputeDailyFactsAdminHttp };

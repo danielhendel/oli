@@ -6,21 +6,22 @@ info:
 schemes:
   - https
 
-# Host is required by Swagger 2.0, but API Gateway will set the real hostname at deploy time.
-# This value is not used as the runtime gateway hostname.
-host: example.invalid
-
+# IMPORTANT:
+# For API Gateway / ESPv2, set host to the managed service name.
+host: oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog
 basePath: /
 
 produces:
   - application/json
-
 consumes:
   - application/json
 
-# Route all configured paths to the same Cloud Run backend.
+x-google-endpoints:
+  - name: oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog
+    allowCors: true
+
 x-google-backend:
-  address: https://oli-api-7lrup47o4q-uc.a.run.app
+  address: https://oli-api-1010034434203.us-central1.run.app
   path_translation: APPEND_PATH_TO_ADDRESS
 
 securityDefinitions:
@@ -28,57 +29,133 @@ securityDefinitions:
     authorizationUrl: ""
     flow: implicit
     type: oauth2
+    scopes: {}
     x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
-    # Use X509 public keys endpoint (supported by API Gateway)
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
-    # Optional but correct for Firebase ID tokens (aud is the Firebase project id)
     x-google-audiences: "oli-staging-fdbba"
-
-# Require Firebase JWT on everything by default
-security:
-  - firebase: []
+    # Accept JWT from either header (Gateway/backend setups often rewrite Authorization)
+    x-google-jwt-locations:
+      - header: "Authorization"
+        value_prefix: "Bearer "
+      - header: "X-Forwarded-Authorization"
+        value_prefix: "Bearer "
 
 paths:
   /health:
+    options:
+      operationId: healthOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     get:
       operationId: healthGet
-      # Public health endpoint
       security: []
       responses:
         200:
           description: OK
 
   /ingest:
+    options:
+      operationId: ingestOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     post:
       operationId: ingestPost
+      security:
+        - firebase: []
       responses:
         200:
           description: OK
 
+  /export:
+    options:
+      operationId: exportOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: exportPost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Accepted
+
+  /account/delete:
+    options:
+      operationId: accountDeleteOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: accountDeletePost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Accepted
+
   /users/me/day-truth:
+    options:
+      operationId: dayTruthOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     get:
       operationId: dayTruthGet
+      security:
+        - firebase: []
       responses:
         200:
           description: OK
 
   /users/me/daily-facts:
+    options:
+      operationId: dailyFactsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     get:
       operationId: dailyFactsGet
+      security:
+        - firebase: []
       responses:
         200:
           description: OK
 
   /users/me/insights:
+    options:
+      operationId: insightsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     get:
       operationId: insightsGet
+      security:
+        - firebase: []
       responses:
         200:
           description: OK
 
   /users/me/intelligence-context:
+    options:
+      operationId: intelligenceContextOptions
+      security: []
+      responses:
+        204:
+          description: No Content
     get:
       operationId: intelligenceContextGet
+      security:
+        - firebase: []
       responses:
         200:
           description: OK

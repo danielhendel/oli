@@ -12,9 +12,9 @@ import {
   insightDtoSchema,
   insightsResponseDtoSchema,
   intelligenceContextDtoSchema,
+  type InsightDto,
 } from "../types/dtos";
 
-// ✅ Firestore access ONLY via adapter (CHECK 9)
 import { userCollection } from "../db";
 
 const router = Router();
@@ -70,7 +70,6 @@ const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, deta
   });
 };
 
-// ✅ Minimal DTO for day-truth response (kept local to avoid coupling)
 const dayTruthDtoSchema = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   eventsCount: z.number().int().nonnegative(),
@@ -78,14 +77,6 @@ const dayTruthDtoSchema = z.object({
 });
 type DayTruthDto = z.infer<typeof dayTruthDtoSchema>;
 
-/**
- * GET /users/me/day-truth?day=YYYY-MM-DD
- *
- * Truth anchor for UI readiness gating.
- * Reads canonical events for the day and returns:
- * - eventsCount
- * - latestCanonicalEventAt (max(updatedAt ?? createdAt))
- */
 router.get(
   "/day-truth",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -95,7 +86,6 @@ router.get(
     const day = parseDay(req, res);
     if (!day) return;
 
-    // ✅ user-scoped (repo-truth): users/{uid}/events
     const snap = await userCollection(uid, "events").where("day", "==", day).get();
 
     let latest: string | null = null;
@@ -108,7 +98,6 @@ router.get(
 
       const candidate = updatedAt ?? createdAt;
 
-      // ISO strings compare lexicographically for ordering
       if (candidate && (!latest || candidate > latest)) latest = candidate;
     }
 
@@ -124,9 +113,6 @@ router.get(
   }),
 );
 
-/**
- * GET /users/me/daily-facts?day=YYYY-MM-DD
- */
 router.get(
   "/daily-facts",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -155,9 +141,6 @@ router.get(
   }),
 );
 
-/**
- * GET /users/me/insights?day=YYYY-MM-DD
- */
 router.get(
   "/insights",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -169,19 +152,32 @@ router.get(
 
     const snap = await userCollection(uid, "insights").where("date", "==", day).get();
 
-    const parsedDocs = snap.docs.map((d) => {
+    type Insight = InsightDto;
+    type Parsed =
+      | { success: true; data: Insight }
+      | { success: false; error: z.ZodError };
+
+    type InsightParsedDoc = {
+      docId: string;
+      parsed: Parsed;
+    };
+
+    const parsedDocs: InsightParsedDoc[] = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
       const raw = d.data();
-      const parsed = insightDtoSchema.safeParse(raw);
+      const parsed = insightDtoSchema.safeParse(raw) as Parsed;
       return { docId: d.id, parsed };
     });
 
-    const bad = parsedDocs.find((x) => !x.parsed.success);
+    const bad = parsedDocs.find((x: InsightParsedDoc) => !x.parsed.success);
     if (bad && !bad.parsed.success) {
       invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
       return;
     }
 
-    const items = parsedDocs.map((x) => x.parsed.data);
+    const items: Insight[] = [];
+    for (const doc of parsedDocs) {
+      if (doc.parsed.success) items.push(doc.parsed.data);
+    }
 
     const severityRank = (v: "critical" | "warning" | "info"): number => {
       if (v === "critical") return 0;
@@ -189,11 +185,7 @@ router.get(
       return 2;
     };
 
-    const sorted = [...items].sort((a, b) => {
-      if (!a && !b) return 0;
-      if (!a) return 1;
-      if (!b) return -1;
-
+    const sorted = [...items].sort((a: Insight, b: Insight) => {
       const sA = severityRank(a.severity);
       const sB = severityRank(b.severity);
       if (sA !== sB) return sA - sB;
@@ -213,9 +205,6 @@ router.get(
   }),
 );
 
-/**
- * GET /users/me/intelligence-context?day=YYYY-MM-DD
- */
 router.get(
   "/intelligence-context",
   asyncHandler(async (req: AuthedRequest, res: Response) => {

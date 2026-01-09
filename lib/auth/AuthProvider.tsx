@@ -1,5 +1,12 @@
 // lib/auth/AuthProvider.tsx
-import React, { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import type { User } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -20,22 +27,25 @@ export const AuthProvider = ({ children }: PropsWithChildren): React.ReactElemen
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
+  // Important: resolve auth once for the provider lifetime (prevents instance drift)
+  const auth = useMemo(() => getFirebaseAuth(), []);
+
   useEffect(() => {
-    const auth = getFirebaseAuth();
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setInitializing(false);
     });
     return () => unsub();
-  }, []);
+  }, [auth]);
 
   const value = useMemo<AuthContextValue>(() => {
     return {
       user,
       initializing,
       getIdToken: async (forceRefresh?: boolean) => {
-        const auth = getFirebaseAuth();
-        const u = auth.currentUser;
+        // Use the already-known user first (this fixes the current bug).
+        // Fallback to auth.currentUser only as a backup.
+        const u = user ?? auth.currentUser;
         if (!u) return null;
         return u.getIdToken(!!forceRefresh);
       },
@@ -46,7 +56,7 @@ export const AuthProvider = ({ children }: PropsWithChildren): React.ReactElemen
         await signOutUserAction();
       },
     };
-  }, [user, initializing]);
+  }, [user, initializing, auth]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

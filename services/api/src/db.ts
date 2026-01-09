@@ -1,5 +1,10 @@
 // services/api/src/db.ts
-import { getFirestore, type CollectionReference, type DocumentReference } from "firebase-admin/firestore";
+import {
+  getFirestore,
+  FieldValue,
+  type CollectionReference,
+  type DocumentReference,
+} from "firebase-admin/firestore";
 
 /**
  * Single Firestore adapter for the Cloud Run API.
@@ -11,6 +16,9 @@ import { getFirestore, type CollectionReference, type DocumentReference } from "
  * This module is the only place in the API where getFirestore() is called.
  */
 export const db = getFirestore();
+
+// Re-export FieldValue so routes can use serverTimestamp without importing firestore directly.
+export { FieldValue };
 
 export function userDoc(uid: string): DocumentReference {
   if (!uid) throw new Error("userDoc(uid): uid is required");
@@ -26,7 +34,7 @@ export function userCollection<T = FirebaseFirestore.DocumentData>(
     | "dailyFacts"
     | "insights"
     | "intelligenceContext"
-    | string
+    | string,
 ): CollectionReference<T> {
   return userDoc(uid).collection(name) as CollectionReference<T>;
 }

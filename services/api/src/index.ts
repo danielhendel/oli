@@ -6,6 +6,7 @@ import healthRouter from "./health";
 import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import usersMeRoutes from "./routes/usersMe";
+import accountRoutes from "./routes/account";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
@@ -99,6 +100,13 @@ app.use("/ingest", authMiddleware, eventsRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
+
+/**
+ * Account operations (authenticated)
+ * - POST /export
+ * - POST /account/delete
+ */
+app.use("/", authMiddleware, accountRoutes);
 
 /**
  * CORS rejection handler

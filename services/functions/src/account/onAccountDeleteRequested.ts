@@ -25,7 +25,9 @@ function deletionDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId:
 async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: string) {
   const userRef = db.collection("users").doc(uid);
 
+  // ✅ Verified: profile exists (functions index writes users/{uid}/profile/general)
   const collections = [
+    "profile",
     "rawEvents",
     "events",
     "dailyFacts",
