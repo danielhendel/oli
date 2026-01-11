@@ -135,3 +135,12 @@ lib/contracts/*.js.map
 
 # Cloud Run local env var file (do not commit)
 cloudrun.env.yaml
+
+api-gateway-*.json
+cloudrun-*-iam.json
+eventarc-triggers-*.json
+project-iam-policy.json
+audit-final/
+audit-iam-eventarc/
+oli-audit-closure/
+
