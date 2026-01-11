@@ -1,8 +1,13 @@
 {
-  "android": {
-    "package": "com.olifitness.oli"
-  },
-  "ios": {
-    "bundleIdentifier": "com.olifitness.oli"
+  "expo": {
+    "name": "Oli",
+    "slug": "oli",
+    "scheme": "oli",
+    "ios": {
+      "bundleIdentifier": "com.olifitness.oli"
+    },
+    "android": {
+      "package": "com.olifitness.oli"
+    }
   }
 }

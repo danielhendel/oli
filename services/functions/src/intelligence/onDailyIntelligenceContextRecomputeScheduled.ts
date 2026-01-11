@@ -1,20 +1,26 @@
 // services/functions/src/intelligence/onDailyIntelligenceContextRecomputeScheduled.ts
 
-import { onSchedule } from 'firebase-functions/v2/scheduler';
-import * as logger from 'firebase-functions/logger';
-import type { WriteBatch } from 'firebase-admin/firestore';
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import * as logger from "firebase-functions/logger";
+import type { WriteBatch } from "firebase-admin/firestore";
 
-import { db } from '../firebaseAdmin';
-import type { DailyFacts, Insight, IsoDateTimeString, YmdDateString } from '../types/health';
-import { buildDailyIntelligenceContext } from './buildDailyIntelligenceContext';
+import { db } from "../firebaseAdmin";
+import type { CanonicalEvent, DailyFacts, Insight, IsoDateTimeString, YmdDateString } from "../types/health";
+import { buildDailyIntelligenceContext } from "./buildDailyIntelligenceContext";
+
+// ✅ Data Readiness Contract
+import { buildPipelineMeta } from "../pipeline/pipelineMeta";
+
+// ✅ Latency logging (canonical → context)
+import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
-  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day
     .toString()
-    .padStart(2, '0')}`;
+    .padStart(2, "0")}`;
 };
 
 const getYesterdayUtcYmd = (): YmdDateString => {
@@ -49,23 +55,21 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
     // DailyFacts: 03:00 UTC
     // Insights:   03:15 UTC
     // IntelligenceContext: run after Insights
-    schedule: '30 3 * * *',
-    region: 'us-central1',
+    schedule: "30 3 * * *",
+    region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
   async () => {
     const targetDate = getYesterdayUtcYmd();
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
-    logger.info('DailyIntelligenceContext recompute started', { targetDate });
+    logger.info("DailyIntelligenceContext recompute started", { targetDate });
 
     // Find all users who have DailyFacts for targetDate.
-    const dailyFactsSnapshot = await db
-      .collectionGroup('dailyFacts')
-      .where('date', '==', targetDate)
-      .get();
+    const dailyFactsSnapshot = await db.collectionGroup("dailyFacts").where("date", "==", targetDate).get();
 
     if (dailyFactsSnapshot.empty) {
-      logger.info('No DailyFacts found for target date', { targetDate });
+      logger.info("No DailyFacts found for target date", { targetDate });
       return;
     }
 
@@ -81,14 +85,14 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       const userId = doc.ref.parent.parent?.id;
 
       if (!userId) {
-        logger.warn('Skipping DailyFacts doc with unexpected path', { path: doc.ref.path });
+        logger.warn("Skipping DailyFacts doc with unexpected path", { path: doc.ref.path });
         continue;
       }
 
       const today = doc.data() as DailyFacts;
 
       if (!today || today.userId !== userId || today.date !== targetDate) {
-        logger.warn('Skipping DailyFacts doc with inconsistent data', {
+        logger.warn("Skipping DailyFacts doc with inconsistent data", {
           path: doc.ref.path,
           userIdFromPath: userId,
           userIdFromDoc: today?.userId,
@@ -98,14 +102,23 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
         continue;
       }
 
-      const userRef = db.collection('users').doc(userId);
+      const userRef = db.collection("users").doc(userId);
 
-      const insightsSnap = await userRef
-        .collection('insights')
-        .where('date', '==', targetDate)
-        .get();
-
+      // Load insights for the day
+      const insightsSnap = await userRef.collection("insights").where("date", "==", targetDate).get();
       const insightsForDay = insightsSnap.docs.map((d) => d.data() as Insight);
+
+      // ✅ Truth anchor for readiness: latest canonical event timestamp for the day
+      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
+      const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+
+      const latestCanonicalEventAt: IsoDateTimeString =
+        eventsForDay.reduce<IsoDateTimeString | null>((max, ev) => {
+          const t = ev.updatedAt ?? ev.createdAt;
+          if (!t) return max;
+          if (!max) return t;
+          return t > max ? t : max;
+        }, null) ?? computedAt;
 
       const intelligenceDoc = buildDailyIntelligenceContext({
         userId,
@@ -121,9 +134,32 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
         currentOps = 0;
       }
 
-      const outRef = userRef.collection('intelligenceContext').doc(targetDate);
-      currentBatch.set(outRef, intelligenceDoc, { merge: true });
+      const outRef = userRef.collection("intelligenceContext").doc(targetDate);
+      currentBatch.set(
+        outRef,
+        {
+          ...intelligenceDoc,
+          meta: buildPipelineMeta({
+            computedAt: latestCanonicalEventAt,
+            source: {
+              eventsForDay: eventsForDay.length,
+              insightsWritten: insightsForDay.length,
+            },
+          }),
+        },
+        { merge: true },
+      );
       currentOps += 1;
+
+      // ✅ Latency logging (canonical → context)
+      const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+      const warnAfterSec = 30;
+
+      if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+        logger.warn("Pipeline latency high (canonical→context)", { userId, date: targetDate, latencyMs, warnAfterSec });
+      } else {
+        logger.info("Pipeline latency (canonical→context)", { userId, date: targetDate, latencyMs });
+      }
 
       usersProcessed += 1;
       docsWritten += 1;
@@ -135,7 +171,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
 
     await commitBatches(batches);
 
-    logger.info('DailyIntelligenceContext recompute completed', {
+    logger.info("DailyIntelligenceContext recompute completed", {
       targetDate,
       usersProcessed,
       docsWritten,

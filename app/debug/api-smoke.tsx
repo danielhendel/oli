@@ -1,0 +1,69 @@
+// app/debug/api-smoke.tsx
+import React, { useState } from "react";
+import { View, Text, Pressable } from "react-native";
+import { apiGetJsonAuthed, apiPostJsonAuthed, type ApiResult, type JsonValue } from "../../lib/api/http";
+import { getIdToken } from "../../lib/auth/getIdToken";
+
+const getDeviceTimeZone = (): string => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.length ? tz : "UTC";
+  } catch {
+    return "UTC";
+  }
+};
+
+export default function ApiSmoke() {
+  const [result, setResult] = useState<ApiResult<JsonValue> | null>(null);
+
+  const runGet = async () => {
+    const token = await getIdToken();
+    const r = await apiGetJsonAuthed<JsonValue>("/users/me/day-truth", token, { noStore: true });
+    setResult(r);
+  };
+
+  const runPost = async () => {
+    const token = await getIdToken();
+    const now = new Date().toISOString();
+    const timezone = getDeviceTimeZone();
+
+    // ✅ canonical ingest envelope
+    const body = {
+      provider: "manual",
+      kind: "weight",
+      observedAt: now,
+      sourceId: "manual",
+      payload: {
+        time: now,
+        timezone,
+        weightKg: 80,
+      },
+    };
+
+    const r = await apiPostJsonAuthed<JsonValue>("/ingest", body, token, {
+      idempotencyKey: `debug-weight-${Date.now()}`,
+    });
+
+    setResult(r);
+  };
+
+  return (
+    <View style={{ padding: 16, gap: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: "600" }}>API Smoke</Text>
+
+      <Pressable onPress={runGet} style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>GET /users/me/day-truth</Text>
+      </Pressable>
+
+      <Pressable onPress={runPost} style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>POST /ingest (weight)</Text>
+      </Pressable>
+
+      <View style={{ paddingTop: 12 }}>
+        <Text selectable style={{ fontFamily: "Menlo" }}>
+          {result ? JSON.stringify(result, null, 2) : "No result yet"}
+        </Text>
+      </View>
+    </View>
+  );
+}

@@ -1,0 +1,30 @@
+# dependencies
+**/node_modules
+**/.yarn
+**/.pnp
+**/.pnp.*
+**/npm-debug.log
+**/yarn-debug.log
+**/yarn-error.log
+
+# build outputs
+**/dist
+**/dist-types
+**/build
+**/coverage
+**/.turbo
+**/.next
+
+# expo / react native
+.expo
+**/.expo
+**/ios/build
+**/android/build
+
+# tooling / vcs
+.git
+**/.DS_Store
+
+# local env (never ship)
+.env
+.env.*

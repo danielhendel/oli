@@ -1,29 +1,32 @@
 // services/functions/src/http/recomputeDailyFactsAdminHttp.ts
 
-import { onRequest } from 'firebase-functions/v2/https';
-import * as logger from 'firebase-functions/logger';
+import { onRequest } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 
-import { db } from '../firebaseAdmin';
+import { db } from "../firebaseAdmin";
 import type {
   CanonicalEvent,
   DailyFacts,
   IsoDateTimeString,
   YmdDateString,
-} from '../types/health';
-import { aggregateDailyFactsForDay } from '../dailyFacts/aggregateDailyFacts';
-import { enrichDailyFactsWithBaselinesAndAverages } from '../dailyFacts/enrichDailyFacts';
-import { requireAdmin } from './adminAuth';
+} from "../types/health";
+import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
+import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
+import { requireAdmin } from "./adminAuth";
+
+// ✅ Data Readiness Contract
+import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
 const isYmd = (value: unknown): value is YmdDateString =>
-  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
+  typeof value === "string" && value.trim().length > 0;
 
 const toYmdUtc = (date: Date): YmdDateString => {
-  const year = date.getUTCFullYear().toString().padStart(4, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-  const day = date.getUTCDate().toString().padStart(2, '0');
+  const year = date.getUTCFullYear().toString().padStart(4, "0");
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = date.getUTCDate().toString().padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
@@ -34,21 +37,19 @@ const parseIntStrict = (value: string): number | null => {
 };
 
 const parseYmdUtc = (ymd: YmdDateString): Date => {
-  // ymd is "YYYY-MM-DD"
-  const parts = ymd.split('-');
+  const parts = ymd.split("-");
   if (parts.length !== 3) {
     throw new Error(`Invalid YmdDateString: "${ymd}"`);
   }
 
-  const y = parseIntStrict(parts[0] ?? '');
-  const m = parseIntStrict(parts[1] ?? '');
-  const d = parseIntStrict(parts[2] ?? '');
+  const y = parseIntStrict(parts[0] ?? "");
+  const m = parseIntStrict(parts[1] ?? "");
+  const d = parseIntStrict(parts[2] ?? "");
 
   if (y === null || m === null || d === null) {
     throw new Error(`Invalid YmdDateString: "${ymd}"`);
   }
 
-  // monthIndex is 0-based
   return new Date(Date.UTC(y, m - 1, d));
 };
 
@@ -64,11 +65,11 @@ type Body = {
 };
 
 const parseBody = (raw: unknown): Body | null => {
-  if (!raw || typeof raw !== 'object') return null;
+  if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
 
-  const userId = obj['userId'];
-  const date = obj['date'];
+  const userId = obj["userId"];
+  const date = obj["date"];
 
   if (!isNonEmptyString(userId)) return null;
   if (!isYmd(date)) return null;
@@ -87,9 +88,13 @@ const parseBody = (raw: unknown): Body | null => {
  *  { ok: true, written: true, path: "...", date: "...", userId: "..." }
  */
 export const recomputeDailyFactsAdminHttp = onRequest(
-  { region: 'us-central1' },
+  {
+    region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    invoker: "private",
+  },
   async (req, res) => {
-    const auth = await requireAdmin(req.header('authorization'));
+    const auth = await requireAdmin(req.header("authorization"));
     if (!auth.ok) {
       res.status(auth.status).json({ ok: false, error: auth.message });
       return;
@@ -99,7 +104,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
     if (!body) {
       res
         .status(400)
-        .json({ ok: false, error: 'Invalid body. Expected { userId, date: YYYY-MM-DD }' });
+        .json({ ok: false, error: "Invalid body. Expected { userId, date: YYYY-MM-DD }" });
       return;
     }
 
@@ -107,11 +112,23 @@ export const recomputeDailyFactsAdminHttp = onRequest(
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
     try {
-      const userRef = db.collection('users').doc(userId);
+      const userRef = db.collection("users").doc(userId);
 
-      // Load canonical events for that user+day
-      const eventsSnap = await userRef.collection('events').where('day', '==', date).get();
+      /**
+       * Load canonical events for that user + day
+       */
+      const eventsSnap = await userRef.collection("events").where("day", "==", date).get();
+
       const events: CanonicalEvent[] = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+
+      // Truth anchor for readiness
+      const latestCanonicalEventAt: IsoDateTimeString =
+        events.reduce<IsoDateTimeString | null>((max, ev) => {
+          const t = ev.updatedAt ?? ev.createdAt;
+          if (!t) return max;
+          if (!max) return t;
+          return t > max ? t : max;
+        }, null) ?? computedAt;
 
       const base: DailyFacts = aggregateDailyFactsForDay({
         userId,
@@ -120,23 +137,44 @@ export const recomputeDailyFactsAdminHttp = onRequest(
         events,
       });
 
-      // Load up-to-6 prior days for enrichment window
+      /**
+       * Load up-to-6 prior days for enrichment window
+       */
       const startDate = getYmdNDaysBefore(date, 6);
 
       const historySnap = await userRef
-        .collection('dailyFacts')
-        .where('date', '>=', startDate)
-        .where('date', '<', date)
+        .collection("dailyFacts")
+        .where("date", ">=", startDate)
+        .where("date", "<", date)
         .get();
 
       const history: DailyFacts[] = historySnap.docs.map((d) => d.data() as DailyFacts);
 
-      const enriched = enrichDailyFactsWithBaselinesAndAverages({ today: base, history });
+      const enriched = enrichDailyFactsWithBaselinesAndAverages({
+        today: base,
+        history,
+      });
 
-      const ref = userRef.collection('dailyFacts').doc(date);
-      await ref.set(enriched);
+      /**
+       * Write DailyFacts with readiness meta
+       */
+      const ref = userRef.collection("dailyFacts").doc(date);
+      await ref.set(
+        {
+          ...enriched,
+          meta: buildPipelineMeta({
+            computedAt: latestCanonicalEventAt,
+            source: { eventsForDay: events.length },
+          }),
+        },
+        { merge: true },
+      );
 
-      logger.info('Admin recomputeDailyFacts complete', { userId, date });
+      logger.info("Admin recomputeDailyFacts complete", {
+        userId,
+        date,
+        eventsForDay: events.length,
+      });
 
       res.status(200).json({
         ok: true,
@@ -146,8 +184,8 @@ export const recomputeDailyFactsAdminHttp = onRequest(
         path: ref.path,
       });
     } catch (err) {
-      logger.error('Admin recomputeDailyFacts failed', { userId, date, err });
-      res.status(500).json({ ok: false, error: 'Internal error recomputing DailyFacts' });
+      logger.error("Admin recomputeDailyFacts failed", { userId, date, err });
+      res.status(500).json({ ok: false, error: "Internal error recomputing DailyFacts" });
     }
   },
 );

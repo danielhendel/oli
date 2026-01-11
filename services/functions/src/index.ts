@@ -1,32 +1,53 @@
 // services/functions/src/index.ts
 
-import * as functionsV1 from 'firebase-functions/v1';
+import * as functionsV1 from "firebase-functions/v1";
+import { setGlobalOptions } from "firebase-functions/v2";
 
-import { admin, db } from './firebaseAdmin';
+import { admin, db } from "./firebaseAdmin";
 
-// -----------------------------
-// Triggers & Scheduled Jobs
-// -----------------------------
+// =============================
+// Global options (v2 only)
+// =============================
+//
+// NOTE:
+// We no longer rely on setGlobalOptions() for IAM correctness because
+// each Gen2 function explicitly sets { region, serviceAccount } in its
+// own options object (approved strategy). This remains as a safe default.
+setGlobalOptions({
+  region: "us-central1",
+  // Runtime service account for Gen2 functions (Cloud Run service identity)
+  serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+});
 
-// v2 Firestore trigger (Event → Canonical)
-import { onRawEventCreated } from './normalization/onRawEventCreated';
+// =============================
+// Triggers & Scheduled Jobs (v2)
+// =============================
+//
+// IMPORTANT:
+// These are static ES imports so the module graph loads deterministically.
+// IAM correctness is enforced per-function via explicit options objects.
 
-// v2 Scheduled jobs (Canonical → DailyFacts → Insights → IntelligenceContext)
-import { onDailyFactsRecomputeScheduled } from './dailyFacts/onDailyFactsRecomputeScheduled';
-import { onInsightsRecomputeScheduled } from './insights/onInsightsRecomputeScheduled';
-import { onDailyIntelligenceContextRecomputeScheduled } from './intelligence/onDailyIntelligenceContextRecomputeScheduled';
+// Firestore triggers
+import { onRawEventCreated } from "./normalization/onRawEventCreated";
+import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
 
-// -----------------------------
-// Admin HTTP Endpoints (Sprint 6+7)
-// -----------------------------
+// Scheduled recompute jobs
+import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
+import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
+import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
 
-import { recomputeDailyFactsAdminHttp } from './http/recomputeDailyFactsAdminHttp';
-import { recomputeInsightsAdminHttp } from './http/recomputeInsightsAdminHttp';
-import { recomputeDailyIntelligenceContextAdminHttp } from './http/recomputeDailyIntelligenceContextAdminHttp';
+// Account executors (Pub/Sub)
+import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
+import { onAccountExportRequested } from "./account/onAccountExportRequested";
 
-// -----------------------------
-// Helpers
-// -----------------------------
+// Admin-only HTTP endpoints
+import { recomputeDailyFactsAdminHttp } from "./http/recomputeDailyFactsAdminHttp";
+import { recomputeInsightsAdminHttp } from "./http/recomputeInsightsAdminHttp";
+import { recomputeDailyIntelligenceContextAdminHttp } from "./http/recomputeDailyIntelligenceContextAdminHttp";
+
+// =============================
+// Helpers (v1)
+// =============================
 
 function defaultGeneralProfile(user: {
   uid: string;
@@ -46,29 +67,44 @@ function defaultGeneralProfile(user: {
   };
 }
 
-// -----------------------------
+// =============================
 // v1 Auth Trigger
-// -----------------------------
+// =============================
+//
+// IMPORTANT:
+// Move Gen1 Auth trigger off the App Engine Default Service Account.
+// Sprint requirement: no default SAs with elevated permissions.
+// This keeps logic identical; only runtime identity changes.
+export const onAuthCreate = functionsV1
+  .runWith({
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+  })
+  .region("us-central1")
+  .auth.user()
+  .onCreate(async (user) => {
+    const uid = user.uid;
 
-export const onAuthCreate = functionsV1.auth.user().onCreate(async (user) => {
-  const uid = user.uid;
-
-  await db.doc(`users/${uid}/profile/general`).set(defaultGeneralProfile(user), {
-    merge: true,
+    await db.doc(`users/${uid}/profile/general`).set(defaultGeneralProfile(user), {
+      merge: true,
+    });
   });
-});
 
-// -----------------------------
-// v2 Exports (must be exported to deploy)
-// -----------------------------
+// =============================
+// v2 Exports (DEPLOYED)
+// =============================
 
-// Firestore trigger
+// Firestore triggers
 export { onRawEventCreated };
+export { onCanonicalEventCreated };
 
-// Scheduled jobs
+// Scheduled recompute jobs
 export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
+
+// Account executors (Pub/Sub)
+export { onAccountDeleteRequested };
+export { onAccountExportRequested };
 
 // Admin-only HTTP endpoints
 export { recomputeDailyFactsAdminHttp };

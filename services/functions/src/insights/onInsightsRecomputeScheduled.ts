@@ -98,6 +98,7 @@ export const onInsightsRecomputeScheduled = onSchedule(
     // Run shortly after DailyFacts recompute (which is at 03:00 UTC).
     schedule: '15 3 * * *',
     region: 'us-central1',
+    serviceAccount: 'oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com',
   },
   async () => {
     const targetDate = getYesterdayUtcYmd();

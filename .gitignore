@@ -1,8 +1,15 @@
 # ----------------------------------------
-# Dependencies
+# Dependencies / Package managers
 # ----------------------------------------
 node_modules/
 node_modules/.cache/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
 # ----------------------------------------
 # Expo / React Native
@@ -11,6 +18,22 @@ node_modules/.cache/
 dist/
 web-build/
 expo-env.d.ts
+
+# ----------------------------------------
+# TypeScript build outputs (MONOREPO SAFE)
+# ----------------------------------------
+dist-types/
+lib/dist-types/
+services/**/dist-types/
+
+# tsbuildinfo (project references / incremental builds)
+*.tsbuildinfo
+node_modules/.cache/tsbuildinfo/
+
+# ----------------------------------------
+# Metro / packager caches
+# ----------------------------------------
+.metro-health-check*
 
 # ----------------------------------------
 # Native (iOS / Android)
@@ -30,22 +53,28 @@ android/.gradle/
 
 # iOS build output & local env
 ios/Pods/
+ios/**/Pods/
 ios/DerivedData/
+ios/build/
 ios/.xcode.env.local
 *.xcuserstate
-*.xcuserdata
+**/xcuserdata/
 *.hmap
 *.ipa
 *.dSYM
 
 # ----------------------------------------
-# Metro / Debug
+# Logs / Debug
 # ----------------------------------------
-.metro-health-check*
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-*.log
+
+# Firebase / emulator debug logs (never commit)
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 # ----------------------------------------
 # macOS
@@ -60,13 +89,6 @@ yarn-error.*
 !.env.example
 
 # ----------------------------------------
-# Temporary / backup files
-# ----------------------------------------
-**/*.bak
-*.tsbuildinfo
-dist-types/
-
-# ----------------------------------------
 # Local archives / audit artifacts
 # ----------------------------------------
 *.zip
@@ -76,15 +98,68 @@ oli-review.zip
 oli-native-audit.zip
 oli-*.diff
 oli-*.txt
+AUDIT_CONTEXT.txt
 
 # ----------------------------------------
 # Legacy / local-only folders
 # ----------------------------------------
 archive/
+docs/_archive/
+
+# ----------------------------------------
+# Firebase local tooling files
+# ----------------------------------------
+.firebase/
+
+# ⚠️ IMPORTANT:
+# These are environment-specific.
+# Commit ONLY if you intentionally want repo-bound Firebase config.
+# ----------------------------------------
+# firebase.json
+# .firebaserc
 
 # ----------------------------------------
 # Firebase / Functions build output
 # ----------------------------------------
 services/functions/lib/
 
+# ----------------------------------------
+# Cloud Run local env (never commit)
+# ----------------------------------------
+cloudrun/.env.local
+services/api/.env.local
 
+# Never commit built JS next to TS sources
+lib/contracts/*.js
+lib/contracts/*.js.map
+
+# Cloud Run local env var file (do not commit)
+cloudrun.env.yaml
+
+# ----------------------------------------
+# Generated infra / IAM artifacts (non-canonical)
+# ----------------------------------------
+api-gateway-*.json
+cloudrun-*-iam.json
+eventarc-triggers-*.json
+project-iam-policy.json
+
+# ----------------------------------------
+# IAM / forensics dumps (Sprint 1 lockdown)
+# (Repo-root only — does NOT affect docs/iam snapshots)
+# ----------------------------------------
+/before.*.json
+/project-iam-policy.*.json
+/cloudrun-*.describe.json
+/cloudfunctions-*.json
+/cloudfunctions-describe/
+/tmp.*.json
+/service-accounts.json
+/patch_eventarc_service_account.sh
+
+# ----------------------------------------
+# Audit output folders
+# ----------------------------------------
+audit-final/
+audit-iam-eventarc/
+oli-audit-closure/

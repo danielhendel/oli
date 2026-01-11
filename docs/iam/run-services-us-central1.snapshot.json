@@ -1,0 +1,1738 @@
+[
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/build-enable-automatic-updates": "false",
+        "run.googleapis.com/build-id": "f931e00c-0734-421e-8dd3-d5007071887b",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/cloud-run-source-deploy/oli-api",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/f931e00c-0734-421e-8dd3-d5007071887b",
+        "run.googleapis.com/build-source-location": "gs://run-sources-oli-staging-fdbba-us-central1/services/oli-api/1766518598.561122-fdd1b3fd79ff4c07ae50b0756dc5066e.zip#1766518608693737",
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "551.0.0",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "8ac22999-53f2-4ec8-87f1-43fb2a7c7c74",
+        "run.googleapis.com/urls": "[\"https://oli-api-1010034434203.us-central1.run.app\",\"https://oli-api-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "dhendel4@gmail.com",
+        "serving.knative.dev/lastModifier": "firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-23T19:25:02.208206Z",
+      "generation": 60,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "commit-sha": "5439bbf21c46ebced6fc21e57dbe94c0ed144daa",
+        "gcb-build-id": "39724e0e-f301-4e55-8ece-3aa9ded2980b",
+        "gcb-trigger-id": "c57fc2d0-4cdb-466d-9706-2b5a10d5cd37",
+        "gcb-trigger-region": "global",
+        "managed-by": "gcp-cloud-build-deploy-cloud-run"
+      },
+      "name": "oli-api",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIHBsVbDs",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/oli-api",
+      "uid": "3c37f654-82c6-41aa-ad87-716543868fb8"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "551.0.0",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "client.knative.dev/nonce": "dhpxccdehn",
+            "commit-sha": "5439bbf21c46ebced6fc21e57dbe94c0ed144daa",
+            "gcb-build-id": "39724e0e-f301-4e55-8ece-3aa9ded2980b",
+            "gcb-trigger-id": "c57fc2d0-4cdb-466d-9706-2b5a10d5cd37",
+            "gcb-trigger-region": "global",
+            "managed-by": "gcp-cloud-build-deploy-cloud-run",
+            "run.googleapis.com/startupProbeType": "Default"
+          }
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "CORS_ALLOW_ORIGINS",
+                  "value": "http://localhost:8081,http://localhost:19006,http://localhost:19000"
+                },
+                {
+                  "name": "APP_ENV",
+                  "value": "staging"
+                },
+                {
+                  "name": "TOPIC_DELETE",
+                  "value": "account.delete.v1"
+                },
+                {
+                  "name": "TOPIC_EXPORTS",
+                  "value": "exports.requests.v1"
+                },
+                {
+                  "name": "EXPORTS_BUCKET",
+                  "value": "oli-staging-fdbba-staging-data-exports"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/cloud-run-source-deploy/oli-api:71fcb99",
+              "name": "oli-api-1",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1000m",
+                  "memory": "512Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "serviceAccountName": "oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 300
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://oli-api-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T12:43:30.936891Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T12:43:26.106891Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T12:43:30.903817Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "oli-api-00057-lpp",
+      "latestReadyRevisionName": "oli-api-00057-lpp",
+      "observedGeneration": 60,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "oli-api-00057-lpp"
+        }
+      ],
+      "url": "https://oli-api-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onAccountDeleteRequested",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onAccountDeleteRequested",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onAccountDeleteRequested/function-source.zip#1768158759910245",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountDeleteRequested\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "fdec93ff-449e-43c9-9f72-c73affd37ba0",
+        "run.googleapis.com/urls": "[\"https://onaccountdeleterequested-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountDeleteRequested\",\"https://onaccountdeleterequested-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2026-01-09T19:03:04.951438Z",
+      "generation": 5,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "onaccountdeleterequested",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "onaccountdeleterequested",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY59R1A",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/onaccountdeleterequested",
+      "uid": "03ad1854-b39a-465f-a10a-d3d1c72aa2cb"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "google.cloud.pubsub.topic.v1.messagePublished",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "onaccountdeleterequested",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "onaccountdeleterequested-00005-wuk"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onAccountDeleteRequested"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "cloudevent"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onAccountDeleteRequested"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://onaccountdeleterequested-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:41.959504Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:36.674515Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:41.916539Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "onaccountdeleterequested-00005-wuk",
+      "latestReadyRevisionName": "onaccountdeleterequested-00005-wuk",
+      "observedGeneration": 5,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "onaccountdeleterequested-00005-wuk"
+        }
+      ],
+      "url": "https://onaccountdeleterequested-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onAccountExportRequested",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onAccountExportRequested",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onAccountExportRequested/function-source.zip#1768158818591560",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountExportRequested\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "a3fa9727-a8ea-4877-ad4e-145388047692",
+        "run.googleapis.com/urls": "[\"https://onaccountexportrequested-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountExportRequested\",\"https://onaccountexportrequested-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2026-01-09T19:51:18.767108Z",
+      "generation": 5,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "onaccountexportrequested",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "onaccountexportrequested",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY69kRY",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/onaccountexportrequested",
+      "uid": "de87b86c-7f01-434f-b6f7-efd2e8f21796"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "google.cloud.pubsub.topic.v1.messagePublished",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "onaccountexportrequested",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "onaccountexportrequested-00005-rub"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onAccountExportRequested"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "cloudevent"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onAccountExportRequested"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://onaccountexportrequested-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.172694Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.066667Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.129825Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "onaccountexportrequested-00005-rub",
+      "latestReadyRevisionName": "onaccountexportrequested-00005-rub",
+      "observedGeneration": 5,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "onaccountexportrequested-00005-rub"
+        }
+      ],
+      "url": "https://onaccountexportrequested-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onCanonicalEventCreated",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onCanonicalEventCreated",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onCanonicalEventCreated/function-source.zip#1768158818651342",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onCanonicalEventCreated\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "0742824d-78b6-4096-af5e-c8818390c6b7",
+        "run.googleapis.com/urls": "[\"https://oncanonicaleventcreated-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onCanonicalEventCreated\",\"https://oncanonicaleventcreated-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T19:23:53.895373Z",
+      "generation": 9,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "oncanonicaleventcreated",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "oncanonicaleventcreated",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY7RA8I",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/oncanonicaleventcreated",
+      "uid": "17e80ebb-f1f5-4075-ad5b-fbdca6bcddbb"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "google.cloud.firestore.document.v1.created",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "oncanonicaleventcreated",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "oncanonicaleventcreated-00009-jif"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onCanonicalEventCreated"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "cloudevent"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onCanonicalEventCreated"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://oncanonicaleventcreated-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:47.447234Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:45.562588Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:47.399772Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "oncanonicaleventcreated-00009-jif",
+      "latestReadyRevisionName": "oncanonicaleventcreated-00009-jif",
+      "observedGeneration": 9,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "oncanonicaleventcreated-00009-jif"
+        }
+      ],
+      "url": "https://oncanonicaleventcreated-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onDailyFactsRecomputeScheduled",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onDailyFactsRecomputeScheduled",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onDailyFactsRecomputeScheduled/function-source.zip#1768158818594746",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyFactsRecomputeScheduled\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "92108e88-d111-48a1-aabd-e8296e268b0d",
+        "run.googleapis.com/urls": "[\"https://ondailyfactsrecomputescheduled-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyFactsRecomputeScheduled\",\"https://ondailyfactsrecomputescheduled-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:08.107895Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "deployment-scheduled": "true",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "ondailyfactsrecomputescheduled",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "ondailyfactsrecomputescheduled",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY6qm9k",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/ondailyfactsrecomputescheduled",
+      "uid": "1c0db33f-7ea7-43e5-a615-9a5fa9215aa1"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "deployment-scheduled": "true",
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "ondailyfactsrecomputescheduled",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "ondailyfactsrecomputescheduled-00008-nir"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onDailyFactsRecomputeScheduled"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onDailyFactsRecomputeScheduled"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://ondailyfactsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:44.930265Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.178687Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:44.890669Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "ondailyfactsrecomputescheduled-00008-nir",
+      "latestReadyRevisionName": "ondailyfactsrecomputescheduled-00008-nir",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "ondailyfactsrecomputescheduled-00008-nir"
+        }
+      ],
+      "url": "https://ondailyfactsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onDailyIntelligenceContextRecomputeScheduled",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onDailyIntelligenceContextRecomputeScheduled",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onDailyIntelligenceContextRecomputeScheduled/function-source.zip#1768158818597829",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyIntelligenceContextRecomputeScheduled\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "77aed703-dbad-41c2-9790-65472f62d839",
+        "run.googleapis.com/urls": "[\"https://ondailyintelligencecontextrecomputescheduled-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyIntelligenceContextRecomputeScheduled\",\"https://ondailyintelligencecontextrecomputescheduled-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:08.789598Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "deployment-scheduled": "true",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "ondailyintelligencecontextrecomputescheduled",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "ondailyintelligencecontextrecomputescheduled",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY7Isfk",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/ondailyintelligencecontextrecomputescheduled",
+      "uid": "76d07b13-8064-4f9c-bdc0-1af523b67113"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "deployment-scheduled": "true",
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "ondailyintelligencecontextrecomputescheduled",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "ondailyintelligencecontextrecomputescheduled-00008-nep"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onDailyIntelligenceContextRecomputeScheduled"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onDailyIntelligenceContextRecomputeScheduled"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://ondailyintelligencecontextrecomputescheduled-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.902009Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:39.990123Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.855006Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "ondailyintelligencecontextrecomputescheduled-00008-nep",
+      "latestReadyRevisionName": "ondailyintelligencecontextrecomputescheduled-00008-nep",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "ondailyintelligencecontextrecomputescheduled-00008-nep"
+        }
+      ],
+      "url": "https://ondailyintelligencecontextrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onInsightsRecomputeScheduled",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onInsightsRecomputeScheduled",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onInsightsRecomputeScheduled/function-source.zip#1768158818594120",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onInsightsRecomputeScheduled\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "88d37091-df24-4bc3-8971-d3717b588102",
+        "run.googleapis.com/urls": "[\"https://oninsightsrecomputescheduled-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onInsightsRecomputeScheduled\",\"https://oninsightsrecomputescheduled-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:10.566812Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "deployment-scheduled": "true",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "oninsightsrecomputescheduled",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "oninsightsrecomputescheduled",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY6/8Dc",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/oninsightsrecomputescheduled",
+      "uid": "39fdae09-500f-450f-a58f-59f966ed72ff"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "deployment-scheduled": "true",
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "oninsightsrecomputescheduled",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "oninsightsrecomputescheduled-00008-nac"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onInsightsRecomputeScheduled"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onInsightsRecomputeScheduled"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://oninsightsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.328119Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.231147Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.280277Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "oninsightsrecomputescheduled-00008-nac",
+      "latestReadyRevisionName": "oninsightsrecomputescheduled-00008-nac",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "oninsightsrecomputescheduled-00008-nac"
+        }
+      ],
+      "url": "https://oninsightsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "onRawEventCreated",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "onRawEventCreated",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/onRawEventCreated/function-source.zip#1768158818620600",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onRawEventCreated\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "e391e8ba-6ec9-4ffb-8881-6cc766da07da",
+        "run.googleapis.com/urls": "[\"https://onraweventcreated-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/onRawEventCreated\",\"https://onraweventcreated-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:34:33.837237Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "onraweventcreated",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "onraweventcreated",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY6/xxA",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/onraweventcreated",
+      "uid": "4e7b5caf-2f86-41ac-9953-558925f01b78"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "google.cloud.firestore.document.v1.created",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "onraweventcreated",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "onraweventcreated-00008-ruw"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/onRawEventCreated"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "cloudevent"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "onRawEventCreated"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://onraweventcreated-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.317584Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.136063Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.278762Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "onraweventcreated-00008-ruw",
+      "latestReadyRevisionName": "onraweventcreated-00008-ruw",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "onraweventcreated-00008-ruw"
+        }
+      ],
+      "url": "https://onraweventcreated-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "recomputeDailyFactsAdminHttp",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "recomputeDailyFactsAdminHttp",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/recomputeDailyFactsAdminHttp/function-source.zip#1768158818616639",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyFactsAdminHttp\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "661fff6b-09f1-43e5-9436-42073a9ff8d7",
+        "run.googleapis.com/urls": "[\"https://recomputedailyfactsadminhttp-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyFactsAdminHttp\",\"https://recomputedailyfactsadminhttp-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:10.771206Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "recomputedailyfactsadminhttp",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "recomputedailyfactsadminhttp",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY62Krc",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/recomputedailyfactsadminhttp",
+      "uid": "ff08b395-1bec-488e-8d9d-eff145b178c8"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "recomputedailyfactsadminhttp",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "recomputedailyfactsadminhttp-00008-ziv"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeDailyFactsAdminHttp"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "recomputeDailyFactsAdminHttp"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://recomputedailyfactsadminhttp-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:45.687735Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.209199Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:45.648024Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "recomputedailyfactsadminhttp-00008-ziv",
+      "latestReadyRevisionName": "recomputedailyfactsadminhttp-00008-ziv",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "recomputedailyfactsadminhttp-00008-ziv"
+        }
+      ],
+      "url": "https://recomputedailyfactsadminhttp-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "recomputeDailyIntelligenceContextAdminHttp",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "recomputeDailyIntelligenceContextAdminHttp",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/recomputeDailyIntelligenceContextAdminHttp/function-source.zip#1768158818650623",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyIntelligenceContextAdminHttp\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "ebc21a25-9384-4ad6-8a60-d91b484996e1",
+        "run.googleapis.com/urls": "[\"https://recomputedailyintelligencecontextadminhttp-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyIntelligenceContextAdminHttp\",\"https://recomputedailyintelligencecontextadminhttp-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:07.205911Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "recomputedailyintelligencecontextadminhttp",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "recomputedailyintelligencecontextadminhttp",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY6xYmA",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/recomputedailyintelligencecontextadminhttp",
+      "uid": "5c4d990a-bfb3-4cfd-b286-f62af7925448"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "recomputedailyintelligencecontextadminhttp",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "recomputedailyintelligencecontextadminhttp-00008-cir"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeDailyIntelligenceContextAdminHttp"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "recomputeDailyIntelligenceContextAdminHttp"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://recomputedailyintelligencecontextadminhttp-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:45.374304Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.113347Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:45.332458Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "recomputedailyintelligencecontextadminhttp-00008-cir",
+      "latestReadyRevisionName": "recomputedailyintelligencecontextadminhttp-00008-cir",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "recomputedailyintelligencecontextadminhttp-00008-cir"
+        }
+      ],
+      "url": "https://recomputedailyintelligencecontextadminhttp-7lrup47o4q-uc.a.run.app"
+    }
+  },
+  {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cloudfunctions.googleapis.com/function-id": "recomputeInsightsAdminHttp",
+        "run.googleapis.com/build-base-image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20",
+        "run.googleapis.com/build-enable-automatic-updates": "true",
+        "run.googleapis.com/build-environment-variables": "{\"GOOGLE_NODE_RUN_SCRIPTS\":\"\"}",
+        "run.googleapis.com/build-function-target": "recomputeInsightsAdminHttp",
+        "run.googleapis.com/build-image-uri": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+        "run.googleapis.com/build-name": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+        "run.googleapis.com/build-service-account": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "run.googleapis.com/build-source-location": "gs://gcf-v2-sources-1010034434203-us-central1/recomputeInsightsAdminHttp/function-source.zip#1768158818619788",
+        "run.googleapis.com/client-name": "cli-firebase",
+        "run.googleapis.com/custom-audiences": "[\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeInsightsAdminHttp\"]",
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/ingress-status": "all",
+        "run.googleapis.com/maxScale": "20",
+        "run.googleapis.com/operation-id": "60a354d9-0bf3-4c1a-a489-cc9eaad61875",
+        "run.googleapis.com/urls": "[\"https://recomputeinsightsadminhttp-1010034434203.us-central1.run.app\",\"https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeInsightsAdminHttp\",\"https://recomputeinsightsadminhttp-7lrup47o4q-uc.a.run.app\"]",
+        "serving.knative.dev/creator": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com",
+        "serving.knative.dev/lastModifier": "service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      },
+      "creationTimestamp": "2025-12-30T18:30:04.776082Z",
+      "generation": 8,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+        "goog-cloudfunctions-runtime": "nodejs20",
+        "goog-drz-cloudfunctions-id": "recomputeinsightsadminhttp",
+        "goog-drz-cloudfunctions-location": "us-central1",
+        "goog-managed-by": "cloudfunctions"
+      },
+      "name": "recomputeinsightsadminhttp",
+      "namespace": "1010034434203",
+      "resourceVersion": "AAZIIY7AgGI",
+      "selfLink": "/apis/serving.knative.dev/v1/namespaces/1010034434203/services/recomputeinsightsadminhttp",
+      "uid": "e213823f-1707-454f-9f6d-79244a59490b"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "cloudfunctions.googleapis.com/trigger-type": "HTTP_TRIGGER",
+            "run.googleapis.com/base-images": "{\"worker\":\"us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs20\"}",
+            "run.googleapis.com/client-name": "cli-firebase",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "labels": {
+            "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13",
+            "goog-drz-cloudfunctions-id": "recomputeinsightsadminhttp",
+            "goog-drz-cloudfunctions-location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "name": "recomputeinsightsadminhttp-00008-lux"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "FIREBASE_CONFIG",
+                  "value": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}"
+                },
+                {
+                  "name": "GCLOUD_PROJECT",
+                  "value": "oli-staging-fdbba"
+                },
+                {
+                  "name": "EVENTARC_CLOUD_EVENT_SOURCE",
+                  "value": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeInsightsAdminHttp"
+                },
+                {
+                  "name": "FUNCTION_TARGET",
+                  "value": "recomputeInsightsAdminHttp"
+                },
+                {
+                  "name": "LOG_EXECUTION_ID",
+                  "value": "true"
+                },
+                {
+                  "name": "FUNCTION_SIGNATURE_TYPE",
+                  "value": "http"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli--staging--fdbba__us--central1__on_account_delete_requested:version_1",
+              "name": "worker",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "256Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "runtimeClassName": "run.googleapis.com/linux-base-image-update",
+          "serviceAccountName": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+          "timeoutSeconds": 60
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    },
+    "status": {
+      "address": {
+        "url": "https://recomputeinsightsadminhttp-7lrup47o4q-uc.a.run.app"
+      },
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.365026Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:40.020370Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-01-11T19:13:46.315849Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ],
+      "latestCreatedRevisionName": "recomputeinsightsadminhttp-00008-lux",
+      "latestReadyRevisionName": "recomputeinsightsadminhttp-00008-lux",
+      "observedGeneration": 8,
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "recomputeinsightsadminhttp-00008-lux"
+        }
+      ],
+      "url": "https://recomputeinsightsadminhttp-7lrup47o4q-uc.a.run.app"
+    }
+  }
+]

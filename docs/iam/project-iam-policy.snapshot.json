@@ -1,0 +1,185 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-apigateway.iam.gserviceaccount.com"
+      ],
+      "role": "roles/apigateway.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-apigateway-mgmt.iam.gserviceaccount.com"
+      ],
+      "role": "roles/apigateway_management.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-artifactregistry.iam.gserviceaccount.com"
+      ],
+      "role": "roles/artifactregistry.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/artifactregistry.writer"
+    },
+    {
+      "members": [
+        "serviceAccount:1010034434203@cloudbuild.gserviceaccount.com"
+      ],
+      "role": "roles/cloudbuild.builds.builder"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-cloudbuild.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudbuild.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcf-admin-robot.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudfunctions.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudscheduler.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@containerregistry.iam.gserviceaccount.com"
+      ],
+      "role": "roles/containerregistry.ServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/datastore.user"
+    },
+    {
+      "members": [
+        "serviceAccount:oli-eventarc-invoker@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/eventarc.eventReceiver"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-eventarc.iam.gserviceaccount.com"
+      ],
+      "role": "roles/eventarc.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-firebase.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebase.managementServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebase.sdkAdminServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebaseauth.admin"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-firebasemods.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebasemods.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@firebase-rules.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebaserules.system"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-firebasestorage.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firebasestorage.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-firestore.iam.gserviceaccount.com"
+      ],
+      "role": "roles/firestore.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:service-1010034434203@gcp-sa-pubsub.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iam.serviceAccountTokenCreator"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iam.serviceAccountUser"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/logging.logWriter"
+    },
+    {
+      "members": [
+        "user:dhendel4@gmail.com"
+      ],
+      "role": "roles/owner"
+    },
+    {
+      "members": [
+        "serviceAccount:oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/pubsub.publisher"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@gcp-sa-pubsub.iam.gserviceaccount.com"
+      ],
+      "role": "roles/pubsub.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.admin"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1010034434203@serverless-robot-prod.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:oli-ci-cloudrun-iam@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.viewer"
+    },
+    {
+      "members": [
+        "serviceAccount:firebase-adminsdk-fbsvc@oli-staging-fdbba.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.admin"
+    }
+  ],
+  "etag": "BwZIIdFCboo=",
+  "version": 1
+}

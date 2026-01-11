@@ -1,12 +1,24 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "../../dist-types/api",
-    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/api.tsbuildinfo",
-    "types": ["node", "jest"]
+    "composite": true,
+    "rootDir": "../..",
+    "outDir": "dist",
+
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@oli/contracts": ["../../lib/contracts/index.ts"],
+      "@oli/contracts/*": ["../../lib/contracts/*"]
+    }
   },
-  "references": [{ "path": "../../lib" }],
-  "include": ["src/**/*", "**/*.ts"],
-  "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
+  "include": ["src/**/*.ts", "../../lib/contracts/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }
