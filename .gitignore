@@ -136,11 +136,30 @@ lib/contracts/*.js.map
 # Cloud Run local env var file (do not commit)
 cloudrun.env.yaml
 
+# ----------------------------------------
+# Generated infra / IAM artifacts (non-canonical)
+# ----------------------------------------
 api-gateway-*.json
 cloudrun-*-iam.json
 eventarc-triggers-*.json
 project-iam-policy.json
+
+# ----------------------------------------
+# IAM / forensics dumps (Sprint 1 lockdown)
+# (Repo-root only — does NOT affect docs/iam snapshots)
+# ----------------------------------------
+/before.*.json
+/project-iam-policy.*.json
+/cloudrun-*.describe.json
+/cloudfunctions-*.json
+/cloudfunctions-describe/
+/tmp.*.json
+/service-accounts.json
+/patch_eventarc_service_account.sh
+
+# ----------------------------------------
+# Audit output folders
+# ----------------------------------------
 audit-final/
 audit-iam-eventarc/
 oli-audit-closure/
-
