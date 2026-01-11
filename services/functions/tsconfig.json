@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "../../dist-types/functions",
-    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo",
-    "types": ["node", "jest"]
+    "noEmit": true,
+    "types": ["node", "jest"],
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo"
   },
-  "references": [{ "path": "../../lib" }],
-  "include": ["src/**/*", "**/*.ts"],
+  "references": [{ "path": "../../lib/tsconfig.build.json" }],
+  "include": ["src/**/*"],
   "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
 }
