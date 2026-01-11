@@ -52,6 +52,17 @@ function appendCacheBust(url: string, cacheBust?: string): string {
   return `${url}${sep}t=${encodeURIComponent(cacheBust)}`;
 }
 
+function normalizeBaseUrl(base: string): string {
+  // Avoid accidental double slashes when callers pass "/path"
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function snippet(text: string, max = 300): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
+}
+
 async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
   const controller = new AbortController();
   const t = timeoutMs ?? 15000;
@@ -70,12 +81,28 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
 
     const text = await res.text();
 
-    // If there is a body, it must be valid JSON in our API.
+    // Attempt to parse JSON if there is a body.
+    // Important behavior:
+    // - If res.ok === false and body is NOT JSON, return kind:"http" with a body snippet (don't mask as parse error).
+    // - If res.ok === true and body is NOT JSON, that's a real API bug; return kind:"parse".
     let parsedUnknown: unknown = null;
+    let parsedJson: JsonValue | undefined;
+
     if (text) {
       try {
         parsedUnknown = JSON.parse(text) as unknown;
+        parsedJson = parsedUnknown !== null && isJsonValue(parsedUnknown) ? parsedUnknown : undefined;
       } catch {
+        if (!res.ok) {
+          const bodySnippet = snippet(text);
+          return {
+            ok: false,
+            status,
+            kind: "http",
+            error: bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`,
+            requestId: rid,
+          };
+        }
         return {
           ok: false,
           status,
@@ -86,10 +113,9 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
       }
     }
 
-    const parsedJson: JsonValue | undefined =
-      parsedUnknown !== null && isJsonValue(parsedUnknown) ? parsedUnknown : undefined;
-
     if (!res.ok) {
+      // Prefer structured JSON error if present, otherwise fall back to HTTP status only.
+      // (If body was non-JSON, we already returned above with a snippet.)
       return {
         ok: false,
         status,
@@ -107,7 +133,15 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
 
     return { ok: true, status, requestId: rid, json: parsedUnknown as T };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Network error";
+    // Make aborts/timeouts explicit (fetch throws AbortError in most environments)
+    const isAbort =
+      typeof e === "object" &&
+      e !== null &&
+      "name" in e &&
+      typeof (e as { name?: unknown }).name === "string" &&
+      (e as { name: string }).name === "AbortError";
+
+    const msg = isAbort ? "Request timed out" : e instanceof Error ? e.message : "Network error";
     return { ok: false, status: 0, kind: "network", error: msg, requestId: null };
   } finally {
     clearTimeout(timer);
@@ -134,8 +168,8 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
 }
 
 export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
-  const base = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (!base) {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!baseRaw) {
     return {
       ok: false,
       status: 0,
@@ -145,6 +179,7 @@ export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: 
     };
   }
 
+  const base = normalizeBaseUrl(baseRaw);
   const url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
 
   const headerOpts: HeaderOptions = {};
@@ -162,8 +197,8 @@ export async function apiPostJsonAuthed<T>(
   idToken: string,
   opts?: PostOptions,
 ): Promise<ApiResult<T>> {
-  const base = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (!base) {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!baseRaw) {
     return {
       ok: false,
       status: 0,
@@ -173,6 +208,7 @@ export async function apiPostJsonAuthed<T>(
     };
   }
 
+  const base = normalizeBaseUrl(baseRaw);
   const url = `${base}${path}`;
 
   const headerOpts: HeaderOptions = {};
