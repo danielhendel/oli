@@ -23,12 +23,7 @@ export default function SettingsAccountScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/(auth)/sign-in")}
-            style={{
-              backgroundColor: "#111",
-              padding: 14,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
+            style={{ backgroundColor: "#111", padding: 14, borderRadius: 12, alignItems: "center" }}
           >
             <Text style={{ color: "#fff", fontWeight: "800" }}>Sign in</Text>
           </Pressable>
@@ -38,23 +33,33 @@ export default function SettingsAccountScreen() {
             onPress={() => {
               Alert.alert("Sign out?", "You’ll need to sign in again to access your data.", [
                 { text: "Cancel", style: "cancel" },
-                {
-                  text: "Sign out",
-                  style: "destructive",
-                  onPress: () => void signOut(),
-                },
+                { text: "Sign out", style: "destructive", onPress: () => void signOut() },
               ]);
             }}
-            style={{
-              backgroundColor: "#111",
-              padding: 14,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
+            style={{ backgroundColor: "#111", padding: 14, borderRadius: 12, alignItems: "center" }}
           >
             <Text style={{ color: "#fff", fontWeight: "800" }}>Sign out</Text>
           </Pressable>
         )}
+
+        {user ? (
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontSize: 12, opacity: 0.7 }}>Danger zone</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/(app)/settings/delete-account")}
+              style={{
+                borderWidth: 1,
+                borderColor: "#e6a0a0",
+                padding: 14,
+                borderRadius: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "#b00020", fontWeight: "800" }}>Delete account</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </ModuleScreenShell>
   );

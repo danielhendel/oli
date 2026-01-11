@@ -1,4 +1,5 @@
 // lib/api/http.ts
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
@@ -17,7 +18,12 @@ export type ApiFailure = {
   kind: FailureKind;
   error: string;
   requestId: string | null;
-  json?: JsonValue; // optional, only present when we actually have one
+
+  /**
+   * Optional parsed JSON body from the server (useful for structured errors).
+   * Present only when the response body is valid JSON.
+   */
+  json?: JsonValue;
 };
 
 export type ApiResult<T> = ApiOk<T> | ApiFailure;
@@ -30,8 +36,21 @@ export type GetOptions = {
 
 export type PostOptions = {
   idempotencyKey?: string;
+
+  /**
+   * Correlation/idempotency id sent as `x-request-id`.
+   * Required by some gateway routes (e.g. POST /account/delete).
+   */
+  requestId?: string;
+
   timeoutMs?: number;
   noStore?: boolean;
+};
+
+type HeaderOptions = {
+  noStore?: true;
+  idempotencyKey?: string;
+  requestId?: string;
 };
 
 function isJsonValue(v: unknown): v is JsonValue {
@@ -46,110 +65,6 @@ function isJsonValue(v: unknown): v is JsonValue {
   return false;
 }
 
-function appendCacheBust(url: string, cacheBust?: string): string {
-  if (!cacheBust) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}t=${encodeURIComponent(cacheBust)}`;
-}
-
-function normalizeBaseUrl(base: string): string {
-  // Avoid accidental double slashes when callers pass "/path"
-  return base.endsWith("/") ? base.slice(0, -1) : base;
-}
-
-function snippet(text: string, max = 300): string {
-  const trimmed = text.trim();
-  if (!trimmed) return "";
-  return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
-}
-
-async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
-  const controller = new AbortController();
-  const t = timeoutMs ?? 15000;
-  const timer = setTimeout(() => controller.abort(), t);
-
-  try {
-    const res = await fetch(url, {
-      ...init,
-      signal: controller.signal,
-      // defensive: helps some fetch implementations avoid caching
-      cache: "no-store",
-    });
-
-    const rid = res.headers.get("x-request-id") ?? null;
-    const status = res.status;
-
-    const text = await res.text();
-
-    // Attempt to parse JSON if there is a body.
-    // Important behavior:
-    // - If res.ok === false and body is NOT JSON, return kind:"http" with a body snippet (don't mask as parse error).
-    // - If res.ok === true and body is NOT JSON, that's a real API bug; return kind:"parse".
-    let parsedUnknown: unknown = null;
-    let parsedJson: JsonValue | undefined;
-
-    if (text) {
-      try {
-        parsedUnknown = JSON.parse(text) as unknown;
-        parsedJson = parsedUnknown !== null && isJsonValue(parsedUnknown) ? parsedUnknown : undefined;
-      } catch {
-        if (!res.ok) {
-          const bodySnippet = snippet(text);
-          return {
-            ok: false,
-            status,
-            kind: "http",
-            error: bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`,
-            requestId: rid,
-          };
-        }
-        return {
-          ok: false,
-          status,
-          kind: "parse",
-          error: "Invalid JSON response",
-          requestId: rid,
-        };
-      }
-    }
-
-    if (!res.ok) {
-      // Prefer structured JSON error if present, otherwise fall back to HTTP status only.
-      // (If body was non-JSON, we already returned above with a snippet.)
-      return {
-        ok: false,
-        status,
-        kind: "http",
-        error: `HTTP ${status}`,
-        requestId: rid,
-        ...(parsedJson !== undefined ? { json: parsedJson } : {}),
-      };
-    }
-
-    // Success: if no body, return null as T.
-    if (parsedUnknown === null) {
-      return { ok: true, status, requestId: rid, json: null as unknown as T };
-    }
-
-    return { ok: true, status, requestId: rid, json: parsedUnknown as T };
-  } catch (e: unknown) {
-    // Make aborts/timeouts explicit (fetch throws AbortError in most environments)
-    const isAbort =
-      typeof e === "object" &&
-      e !== null &&
-      "name" in e &&
-      typeof (e as { name?: unknown }).name === "string" &&
-      (e as { name: string }).name === "AbortError";
-
-    const msg = isAbort ? "Request timed out" : e instanceof Error ? e.message : "Network error";
-    return { ok: false, status: 0, kind: "network", error: msg, requestId: null };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-type HeaderOptions = { noStore?: true; idempotencyKey?: string };
-
 function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -163,11 +78,128 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   if (opts?.idempotencyKey) {
     headers["Idempotency-Key"] = opts.idempotencyKey;
   }
+  if (opts?.requestId) {
+    headers["x-request-id"] = opts.requestId;
+  }
 
   return headers;
 }
 
-export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
+function normalizeBaseUrl(base: string): string {
+  // allow user to set with or without trailing slash
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function appendCacheBust(url: string, cacheBust?: string): string {
+  if (!cacheBust) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}cb=${encodeURIComponent(cacheBust)}`;
+}
+
+function headerRequestId(res: Response): string | null {
+  // gateway may echo x-request-id
+  return res.headers.get("x-request-id") ?? res.headers.get("X-Request-Id") ?? null;
+}
+
+async function apiFetchJson<T>(
+  url: string,
+  init: RequestInit,
+  timeoutMs?: number,
+): Promise<ApiResult<T>> {
+  const controller = new AbortController();
+  const t = timeoutMs && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const requestId = headerRequestId(res);
+
+    // Read body as text first to handle empty bodies safely.
+    const text = await res.text();
+
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      let errJson: JsonValue | undefined = undefined;
+
+      if (text) {
+        try {
+          const parsed = JSON.parse(text) as unknown;
+
+          if (isJsonValue(parsed)) {
+            errJson = parsed;
+          }
+
+          if (typeof parsed === "string") {
+            errMsg = parsed;
+          } else if (parsed && typeof parsed === "object") {
+            const rec = parsed as Record<string, unknown>;
+            const msg = rec.error ?? rec.message ?? rec.detail;
+            if (typeof msg === "string" && msg.trim()) errMsg = msg;
+          }
+        } catch {
+          // keep errMsg, but append raw text if short
+          const trimmed = text.trim();
+          if (trimmed && trimmed.length <= 300) errMsg = `${errMsg}: ${trimmed}`;
+        }
+      }
+
+      return {
+        ok: false,
+        status: res.status,
+        kind: "http",
+        error: errMsg,
+        requestId,
+        ...(errJson !== undefined ? { json: errJson } : {}),
+      };
+    }
+
+    // Success: parse JSON if present
+    if (!text) {
+      // Some endpoints may return empty 204/202 bodies; let caller decide.
+      return { ok: true, status: res.status, requestId, json: undefined as unknown as T };
+    }
+
+    try {
+      const parsed = JSON.parse(text) as unknown;
+
+      // Optional: validate JsonValue shape to catch weird parses early.
+      if (!isJsonValue(parsed)) {
+        return {
+          ok: false,
+          status: res.status,
+          kind: "parse",
+          error: "Response was not valid JSON value",
+          requestId,
+        };
+      }
+
+      return { ok: true, status: res.status, requestId, json: parsed as unknown as T };
+    } catch (e) {
+      return {
+        ok: false,
+        status: res.status,
+        kind: "parse",
+        error: e instanceof Error ? e.message : "Failed to parse JSON",
+        requestId,
+      };
+    }
+  } catch (e) {
+    const msg =
+      e instanceof Error
+        ? e.name === "AbortError"
+          ? "Request timed out"
+          : e.message
+        : "Network error";
+    return { ok: false, status: 0, kind: "network", error: msg, requestId: null };
+  } finally {
+    if (t) clearTimeout(t);
+  }
+}
+
+export async function apiGetJsonAuthed<T>(
+  path: string,
+  idToken: string,
+  opts?: GetOptions,
+): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
   if (!baseRaw) {
     return {
@@ -214,11 +246,14 @@ export async function apiPostJsonAuthed<T>(
   const headerOpts: HeaderOptions = {};
   if (opts?.noStore) headerOpts.noStore = true;
   if (opts?.idempotencyKey) headerOpts.idempotencyKey = opts.idempotencyKey;
+  if (opts?.requestId) headerOpts.requestId = opts.requestId;
 
   const headers = buildHeaders(headerOpts);
   headers.Authorization = `Bearer ${idToken}`;
 
-  const bodyStr = JSON.stringify(body);
-
-  return apiFetchJson<T>(url, { method: "POST", headers, body: bodyStr }, opts?.timeoutMs);
+  return apiFetchJson<T>(
+    url,
+    { method: "POST", headers, body: JSON.stringify(body) },
+    opts?.timeoutMs,
+  );
 }
