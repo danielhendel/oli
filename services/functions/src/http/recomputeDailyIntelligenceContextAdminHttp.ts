@@ -52,6 +52,7 @@ const parseBody = (raw: unknown): Body | null => {
 export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
   {
     region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
     invoker: "private",
   },
   async (req, res) => {

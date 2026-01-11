@@ -21,8 +21,17 @@ await build({
   target: "node20",
   sourcemap: true,
   logLevel: "info",
-  // IMPORTANT: bundle workspace packages too (default behavior).
-  // If you have native deps you must externalize them, but you likely don't here.
+
+  // CRITICAL:
+  // Do not bundle firebase-functions or firebase-admin into the output bundle.
+  // Bundling firebase-functions pulls in its ESM runtime helpers which rely on import.meta.url,
+  // and will crash when executed from a CommonJS bundle during Firebase CLI analysis.
+  external: [
+    "firebase-functions",
+    "firebase-functions/*",
+    "firebase-admin",
+    "firebase-admin/*",
+  ],
 });
 
 console.log(`Built ${outFile}`);

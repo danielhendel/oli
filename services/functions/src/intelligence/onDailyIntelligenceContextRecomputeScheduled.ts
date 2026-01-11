@@ -57,6 +57,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
     // IntelligenceContext: run after Insights
     schedule: "30 3 * * *",
     region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
   async () => {
     const targetDate = getYesterdayUtcYmd();

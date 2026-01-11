@@ -52,7 +52,11 @@ async function readCollectionAll(
  * - writes GCS artifact + pointer in Firestore
  */
 export const onAccountExportRequested = onMessagePublished(
-  TOPIC,
+  {
+    topic: TOPIC,
+    region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+  },
   async (event) => {
     const payload = event.data?.message?.json as unknown;
 

@@ -95,6 +95,7 @@ const sortByDateAsc = (a: DailyFacts, b: DailyFacts): number => {
 export const recomputeInsightsAdminHttp = onRequest(
   {
     region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
     invoker: "private",
   },
   async (req, res) => {

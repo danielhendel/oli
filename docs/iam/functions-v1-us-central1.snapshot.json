@@ -1,0 +1,705 @@
+[
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "recomputeDailyFactsAdminHttp",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818616639",
+          "object": "recomputeDailyFactsAdminHttp/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818616639",
+          "object": "recomputeDailyFactsAdminHttp/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.769386919Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/recomputeDailyFactsAdminHttp",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeDailyFactsAdminHttp",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "recomputeDailyFactsAdminHttp",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "recomputedailyfactsadminhttp-00008-ziv",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/recomputedailyfactsadminhttp",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://recomputedailyfactsadminhttp-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:46.097813910Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyFactsAdminHttp"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "recomputeInsightsAdminHttp",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818619788",
+          "object": "recomputeInsightsAdminHttp/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818619788",
+          "object": "recomputeInsightsAdminHttp/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.803906441Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/recomputeInsightsAdminHttp",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeInsightsAdminHttp",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "recomputeInsightsAdminHttp",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "recomputeinsightsadminhttp-00008-lux",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeinsightsadminhttp",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://recomputeinsightsadminhttp-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:46.685673148Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeInsightsAdminHttp"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onAccountDeleteRequested",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158759910245",
+          "object": "onAccountDeleteRequested/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158759910245",
+          "object": "onAccountDeleteRequested/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2026-01-09T19:02:09.511210784Z",
+    "environment": "GEN_2",
+    "eventTrigger": {
+      "eventType": "google.cloud.pubsub.topic.v1.messagePublished",
+      "pubsubTopic": "projects/oli-staging-fdbba/topics/account.delete.v1",
+      "retryPolicy": "RETRY_POLICY_DO_NOT_RETRY",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "trigger": "projects/oli-staging-fdbba/locations/us-central1/triggers/onaccountdeleterequested-050599",
+      "triggerRegion": "us-central1"
+    },
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onAccountDeleteRequested",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onAccountDeleteRequested",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "onAccountDeleteRequested",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "onaccountdeleterequested-00005-wuk",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/onaccountdeleterequested",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://onaccountdeleterequested-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:42.294355296Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountDeleteRequested"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "recomputeDailyIntelligenceContextAdminHttp",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818650623",
+          "object": "recomputeDailyIntelligenceContextAdminHttp/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818650623",
+          "object": "recomputeDailyIntelligenceContextAdminHttp/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.754863016Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/recomputeDailyIntelligenceContextAdminHttp",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/recomputeDailyIntelligenceContextAdminHttp",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "recomputeDailyIntelligenceContextAdminHttp",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "recomputedailyintelligencecontextadminhttp-00008-cir",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/recomputedailyintelligencecontextadminhttp",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://recomputedailyintelligencecontextadminhttp-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:45.718470610Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/recomputeDailyIntelligenceContextAdminHttp"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onDailyIntelligenceContextRecomputeScheduled",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818597829",
+          "object": "onDailyIntelligenceContextRecomputeScheduled/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818597829",
+          "object": "onDailyIntelligenceContextRecomputeScheduled/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.774980108Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-scheduled": "true",
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onDailyIntelligenceContextRecomputeScheduled",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onDailyIntelligenceContextRecomputeScheduled",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "onDailyIntelligenceContextRecomputeScheduled",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "ondailyintelligencecontextrecomputescheduled-00008-nep",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/ondailyintelligencecontextrecomputescheduled",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://ondailyintelligencecontextrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:47.165273602Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyIntelligenceContextRecomputeScheduled"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onInsightsRecomputeScheduled",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818594120",
+          "object": "onInsightsRecomputeScheduled/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818594120",
+          "object": "onInsightsRecomputeScheduled/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.760092682Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-scheduled": "true",
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onInsightsRecomputeScheduled",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onInsightsRecomputeScheduled",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "onInsightsRecomputeScheduled",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "oninsightsrecomputescheduled-00008-nac",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/oninsightsrecomputescheduled",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://oninsightsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:46.598306346Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onInsightsRecomputeScheduled"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onRawEventCreated",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818620600",
+          "object": "onRawEventCreated/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818620600",
+          "object": "onRawEventCreated/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:33:36.742840077Z",
+    "environment": "GEN_2",
+    "eventTrigger": {
+      "eventFilters": [
+        {
+          "attribute": "database",
+          "value": "(default)"
+        },
+        {
+          "attribute": "namespace",
+          "value": "(default)"
+        },
+        {
+          "attribute": "document",
+          "operator": "match-path-pattern",
+          "value": "users/{userId}/rawEvents/{rawEventId}"
+        }
+      ],
+      "eventType": "google.cloud.firestore.document.v1.created",
+      "pubsubTopic": "projects/oli-staging-fdbba/topics/eventarc-us-central1-onraweventcreated-081537-557",
+      "retryPolicy": "RETRY_POLICY_DO_NOT_RETRY",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "trigger": "projects/oli-staging-fdbba/locations/us-central1/triggers/onraweventcreated-081537",
+      "triggerRegion": "us-central1"
+    },
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onRawEventCreated",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onRawEventCreated",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "onRawEventCreated",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "onraweventcreated-00008-ruw",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/onraweventcreated",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://onraweventcreated-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:46.598001179Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onRawEventCreated"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onAccountExportRequested",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818591560",
+          "object": "onAccountExportRequested/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818591560",
+          "object": "onAccountExportRequested/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2026-01-09T19:50:17.570154624Z",
+    "environment": "GEN_2",
+    "eventTrigger": {
+      "eventType": "google.cloud.pubsub.topic.v1.messagePublished",
+      "pubsubTopic": "projects/oli-staging-fdbba/topics/exports.requests.v1",
+      "retryPolicy": "RETRY_POLICY_DO_NOT_RETRY",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "trigger": "projects/oli-staging-fdbba/locations/us-central1/triggers/onaccountexportrequested-465319",
+      "triggerRegion": "us-central1"
+    },
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onAccountExportRequested",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onAccountExportRequested",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "onAccountExportRequested",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "onaccountexportrequested-00005-rub",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/onaccountexportrequested",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://onaccountexportrequested-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:46.382541422Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onAccountExportRequested"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onCanonicalEventCreated",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818651342",
+          "object": "onCanonicalEventCreated/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818651342",
+          "object": "onCanonicalEventCreated/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T19:22:59.734791152Z",
+    "environment": "GEN_2",
+    "eventTrigger": {
+      "eventFilters": [
+        {
+          "attribute": "database",
+          "value": "(default)"
+        },
+        {
+          "attribute": "namespace",
+          "value": "(default)"
+        },
+        {
+          "attribute": "document",
+          "operator": "match-path-pattern",
+          "value": "users/{userId}/events/{eventId}"
+        }
+      ],
+      "eventType": "google.cloud.firestore.document.v1.created",
+      "pubsubTopic": "projects/oli-staging-fdbba/topics/eventarc-us-central1-oncanonicaleventcreated-604581-794",
+      "retryPolicy": "RETRY_POLICY_DO_NOT_RETRY",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "trigger": "projects/oli-staging-fdbba/locations/us-central1/triggers/oncanonicaleventcreated-604581",
+      "triggerRegion": "us-central1"
+    },
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onCanonicalEventCreated",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onCanonicalEventCreated",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "onCanonicalEventCreated",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "oncanonicaleventcreated-00009-jif",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/oncanonicaleventcreated",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://oncanonicaleventcreated-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:47.735347934Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onCanonicalEventCreated"
+  },
+  {
+    "buildConfig": {
+      "automaticUpdatePolicy": {},
+      "build": "projects/1010034434203/locations/us-central1/builds/337b5193-9655-4a23-a60e-514c46f3dd54",
+      "dockerRegistry": "ARTIFACT_REGISTRY",
+      "dockerRepository": "projects/oli-staging-fdbba/locations/us-central1/repositories/gcf-artifacts",
+      "entryPoint": "onDailyFactsRecomputeScheduled",
+      "environmentVariables": {
+        "GOOGLE_NODE_RUN_SCRIPTS": ""
+      },
+      "runtime": "nodejs20",
+      "serviceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818594746",
+          "object": "onDailyFactsRecomputeScheduled/function-source.zip"
+        }
+      },
+      "sourceProvenance": {
+        "resolvedStorageSource": {
+          "bucket": "gcf-v2-sources-1010034434203-us-central1",
+          "generation": "1768158818594746",
+          "object": "onDailyFactsRecomputeScheduled/function-source.zip"
+        }
+      }
+    },
+    "createTime": "2025-12-30T18:29:13.712993025Z",
+    "environment": "GEN_2",
+    "labels": {
+      "deployment-scheduled": "true",
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "1aaf5443acbed8fc80c1d3396e117bc9b3178c13"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onDailyFactsRecomputeScheduled",
+    "satisfiesPzi": true,
+    "serviceConfig": {
+      "allTrafficOnLatestRevision": true,
+      "availableCpu": "1",
+      "availableMemory": "256Mi",
+      "environmentVariables": {
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/services/onDailyFactsRecomputeScheduled",
+        "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+        "FUNCTION_SIGNATURE_TYPE": "http",
+        "FUNCTION_TARGET": "onDailyFactsRecomputeScheduled",
+        "GCLOUD_PROJECT": "oli-staging-fdbba",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "maxInstanceCount": 20,
+      "maxInstanceRequestConcurrency": 80,
+      "revision": "ondailyfactsrecomputescheduled-00008-nir",
+      "service": "projects/oli-staging-fdbba/locations/us-central1/services/ondailyfactsrecomputescheduled",
+      "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+      "timeoutSeconds": 60,
+      "uri": "https://ondailyfactsrecomputescheduled-7lrup47o4q-uc.a.run.app"
+    },
+    "state": "ACTIVE",
+    "updateTime": "2026-01-11T19:13:45.181807286Z",
+    "url": "https://us-central1-oli-staging-fdbba.cloudfunctions.net/onDailyFactsRecomputeScheduled"
+  },
+  {
+    "automaticUpdatePolicy": {},
+    "availableMemoryMb": 256,
+    "buildEnvironmentVariables": {
+      "GOOGLE_NODE_RUN_SCRIPTS": ""
+    },
+    "buildId": "427c18f7-9462-4ec5-aef6-2a0c73114209",
+    "buildName": "projects/1010034434203/locations/us-central1/builds/427c18f7-9462-4ec5-aef6-2a0c73114209",
+    "buildServiceAccount": "projects/oli-staging-fdbba/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+    "dockerRegistry": "ARTIFACT_REGISTRY",
+    "entryPoint": "onAuthCreate",
+    "environmentVariables": {
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/oli-staging-fdbba/locations/us-central1/functions/onAuthCreate",
+      "FIREBASE_CONFIG": "{\"projectId\":\"oli-staging-fdbba\",\"storageBucket\":\"oli-staging-fdbba.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "oli-staging-fdbba"
+    },
+    "eventTrigger": {
+      "eventType": "providers/firebase.auth/eventTypes/user.create",
+      "failurePolicy": {},
+      "resource": "projects/oli-staging-fdbba",
+      "service": "firebaseauth.googleapis.com"
+    },
+    "ingressSettings": "ALLOW_ALL",
+    "labels": {
+      "deployment-tool": "cli-firebase",
+      "firebase-functions-hash": "e44dab7761c7c3a2bab22c7de8fbec5a63f00351"
+    },
+    "maxInstances": 3000,
+    "name": "projects/oli-staging-fdbba/locations/us-central1/functions/onAuthCreate",
+    "runtime": "nodejs20",
+    "satisfiesPzi": true,
+    "serviceAccountEmail": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    "sourceUploadUrl": "https://storage.googleapis.com/uploads-1065734559820.us-central1.cloudfunctions.appspot.com/92591ea9-d7c0-480d-846e-877e34046d94.zip",
+    "status": "ACTIVE",
+    "timeout": "60s",
+    "updateTime": "2026-01-11T19:14:39.954Z",
+    "versionId": "8"
+  }
+]

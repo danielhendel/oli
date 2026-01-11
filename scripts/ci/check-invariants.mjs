@@ -14,6 +14,15 @@ function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function readJson(filePath) {
+  try {
+    return JSON.parse(readText(filePath));
+  } catch (err) {
+    const e = err instanceof Error ? err.message : String(err);
+    fail(`Failed to parse JSON: ${filePath}\n${e}`);
+  }
+}
+
 function walk(dir, { includeExts = null, ignoreDirs = [] } = {}) {
   const out = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -37,12 +46,16 @@ function rel(p) {
   return path.relative(ROOT, p);
 }
 
+function exists(p) {
+  return fs.existsSync(p);
+}
+
 /**
  * CHECK 1 — No public admin HTTP functions
  */
 function checkAdminHttpNotPublic() {
   const base = path.join(ROOT, "services", "functions", "src");
-  if (!fs.existsSync(base)) return;
+  if (!exists(base)) return;
 
   const files = walk(base, {
     includeExts: [".ts"],
@@ -83,7 +96,7 @@ function checkAdminHttpNotPublic() {
  * CHECK 2 — Client must not write derived truth
  */
 function checkClientNoDerivedWrites() {
-  const targets = [path.join(ROOT, "app"), path.join(ROOT, "lib")].filter(fs.existsSync);
+  const targets = [path.join(ROOT, "app"), path.join(ROOT, "lib")].filter(exists);
   if (!targets.length) return;
 
   const files = targets.flatMap((t) =>
@@ -118,7 +131,7 @@ function checkClientNoDerivedWrites() {
  */
 function checkApiIdempotency() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
-  if (!fs.existsSync(routesDir)) return;
+  if (!exists(routesDir)) return;
 
   const files = walk(routesDir, { includeExts: [".ts"], ignoreDirs: ["__tests__", "dist", "lib"] });
 
@@ -154,7 +167,7 @@ function checkApiIdempotency() {
  */
 function checkApiNoGlobalFirestoreRootCollections() {
   const base = path.join(ROOT, "services", "api", "src");
-  if (!fs.existsSync(base)) return;
+  if (!exists(base)) return;
 
   const files = walk(base, {
     includeExts: [".ts"],
@@ -200,7 +213,7 @@ function checkAccountDeleteExecutorExists() {
   const apiFile = path.join(ROOT, "services", "api", "src", "routes", "account.ts");
   const fnDir = path.join(ROOT, "services", "functions", "src");
 
-  if (!fs.existsSync(apiFile) || !fs.existsSync(fnDir)) return;
+  if (!exists(apiFile) || !exists(fnDir)) return;
 
   const apiText = readText(apiFile);
 
@@ -242,7 +255,7 @@ function checkAccountDeleteExecutorExists() {
 function checkInvariantDocsAreBinding() {
   const docPath = path.join(ROOT, "docs", "INVARIANTS_MAP.md");
 
-  if (!fs.existsSync(docPath)) {
+  if (!exists(docPath)) {
     fail(
       `CHECK 6 (Invariant docs binding) failed:\n` +
         `- docs/INVARIANTS_MAP.md is missing\n\n` +
@@ -286,7 +299,7 @@ function checkIosPodsNotCommitted() {
   }
 
   const podsDir = path.join(ROOT, "ios", "Pods");
-  if (fs.existsSync(podsDir)) {
+  if (exists(podsDir)) {
     fail(
       `CHECK 7 (iOS Pods not committed) failed:\n` +
         `- ios/Pods exists in the CI checkout\n\n` +
@@ -326,7 +339,7 @@ function parsePatchFilename(fileName) {
 
 function readPackageLock() {
   const lockPath = path.join(ROOT, "package-lock.json");
-  if (!fs.existsSync(lockPath)) return null;
+  if (!exists(lockPath)) return null;
   try {
     return JSON.parse(readText(lockPath));
   } catch {
@@ -354,7 +367,7 @@ function findInstalledVersionInLock(lockJson, pkg) {
 
 function checkPatchPackageIntegrity() {
   const patchesDir = path.join(ROOT, "patches");
-  if (!fs.existsSync(patchesDir)) {
+  if (!exists(patchesDir)) {
     console.log("ℹ️ CHECK 8 skipped: no patches/ directory (no patch-package integrity enforcement needed).");
     return;
   }
@@ -425,19 +438,10 @@ function checkPatchPackageIntegrity() {
 
 /**
  * CHECK 9 — API route files must not directly use firebase-admin Firestore
- *
- * Rule:
- * - Any file under services/api/src/routes/** must NOT:
- *   (a) import from "firebase-admin/firestore"
- *   (b) call getFirestore()
- *
- * Why:
- * - Forces a single adapter boundary (one place to scope paths, add logging, enforce rules).
- * - Prevents route-by-route drift where one route accidentally bypasses user scoping.
  */
 function checkApiRoutesNoDirectAdminFirestore() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
-  if (!fs.existsSync(routesDir)) return;
+  if (!exists(routesDir)) return;
 
   const files = walk(routesDir, { includeExts: [".ts"], ignoreDirs: ["__tests__", "dist", "lib"] });
 
@@ -473,8 +477,216 @@ function checkApiRoutesNoDirectAdminFirestore() {
   console.log("✅ CHECK 9 passed: API route files do not directly import/call firebase-admin Firestore.");
 }
 
+/**
+ * CHECK 10 — IAM snapshot files must exist (CI has no GCP auth; snapshots are the enforcement input)
+ *
+ * We enforce IAM invariants by parsing committed JSON snapshots under docs/iam/.
+ */
+function requiredIamSnapshots() {
+  return [
+    {
+      id: "projectIam",
+      file: path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json"),
+      description: "Project IAM policy snapshot (gcloud projects get-iam-policy ... --format=json)",
+    },
+    {
+      id: "runServices",
+      file: path.join(ROOT, "docs", "iam", "run-services-us-central1.snapshot.json"),
+      description:
+        "Cloud Run services list snapshot (gcloud run services list --region=us-central1 --format=json)",
+    },
+    {
+      id: "functionsV2",
+      file: path.join(ROOT, "docs", "iam", "functions-v2-us-central1.snapshot.json"),
+      description:
+        "Cloud Functions v2 list snapshot (gcloud functions list --v2 --regions=us-central1 --format=json)",
+    },
+    {
+      id: "functionsV1",
+      file: path.join(ROOT, "docs", "iam", "functions-v1-us-central1.snapshot.json"),
+      description:
+        "Cloud Functions v1 list snapshot (gcloud functions list --regions=us-central1 --format=json)",
+    },
+  ];
+}
+
+function checkIamSnapshotsExist() {
+  const snaps = requiredIamSnapshots();
+  const missing = snaps.filter((s) => !exists(s.file));
+
+  if (missing.length) {
+    const help = [
+      "CHECK 10 (IAM snapshots present) failed:",
+      "",
+      "Missing required IAM snapshot files under docs/iam/:",
+      ...missing.map((m) => `- ${rel(m.file)} — ${m.description}`),
+      "",
+      "Fix (generate + commit snapshots):",
+      "",
+      "  mkdir -p docs/iam",
+      "  gcloud projects get-iam-policy oli-staging-fdbba --format=json > docs/iam/project-iam-policy.snapshot.json",
+      "  gcloud run services list --project=oli-staging-fdbba --region=us-central1 --format=json > docs/iam/run-services-us-central1.snapshot.json",
+      "  gcloud functions list --v2 --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/iam/functions-v2-us-central1.snapshot.json",
+      "  gcloud functions list --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/iam/functions-v1-us-central1.snapshot.json",
+      "",
+      "Then commit the docs/iam/*.snapshot.json files.",
+    ].join("\n");
+
+    fail(help);
+  }
+
+  console.log("✅ CHECK 10 passed: Required IAM snapshot JSON files are present under docs/iam/.");
+}
+
+/**
+ * CHECK 11 — roles/editor is forbidden in project IAM
+ */
+function checkIamNoEditorRole() {
+  const policyPath = path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json");
+  const policy = readJson(policyPath);
+
+  const bindings = Array.isArray(policy.bindings) ? policy.bindings : [];
+  const offenders = bindings
+    .filter((b) => b && b.role === "roles/editor")
+    .map((b) => ({
+      role: b.role,
+      members: Array.isArray(b.members) ? b.members : [],
+    }))
+    .filter((b) => b.members.length > 0);
+
+  if (offenders.length) {
+    const msg =
+      offenders
+        .map((o) => `- roles/editor members:\n  ${o.members.map((m) => `- ${m}`).join("\n  ")}`)
+        .join("\n") +
+      "\n\nFix: remove roles/editor bindings from the project IAM policy.";
+    fail(`CHECK 11 (IAM: roles/editor forbidden) failed:\n${msg}`);
+  }
+
+  console.log("✅ CHECK 11 passed: Project IAM contains no roles/editor bindings.");
+}
+
+/**
+ * CHECK 12 — Default service accounts must have zero bindings (no privilege creep)
+ */
+function checkIamNoDefaultServiceAccountBindings() {
+  const policyPath = path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json");
+  const policy = readJson(policyPath);
+
+  const bindings = Array.isArray(policy.bindings) ? policy.bindings : [];
+
+  const isComputeDefault = (m) =>
+    typeof m === "string" && /-compute@developer\.gserviceaccount\.com$/.test(m);
+  const isAppspotDefault = (m) => typeof m === "string" && /@appspot\.gserviceaccount\.com$/.test(m);
+
+  const offenders = [];
+
+  for (const b of bindings) {
+    const role = b?.role;
+    const members = Array.isArray(b?.members) ? b.members : [];
+    for (const m of members) {
+      if (isComputeDefault(m) || isAppspotDefault(m)) {
+        offenders.push({ role, member: m });
+      }
+    }
+  }
+
+  if (offenders.length) {
+    const msg =
+      offenders.map((o) => `- ${o.member} has ${o.role}`).join("\n") +
+      "\n\nFix: default service accounts must not have any project IAM bindings.";
+    fail(`CHECK 12 (IAM: default service accounts must have zero bindings) failed:\n${msg}`);
+  }
+
+  console.log("✅ CHECK 12 passed: No default service account members appear in project IAM bindings.");
+}
+
+/**
+ * CHECK 13 — Runtime identities must match allowlist (Cloud Run + Functions)
+ *
+ * Enforced via committed snapshots (CI has no GCP auth).
+ */
+function checkRuntimeServiceAccountsAllowlist() {
+  const EXPECTED = {
+    projectId: "oli-staging-fdbba",
+    region: "us-central1",
+    functionsRuntimeSa: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    apiRuntimeSa: "oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    cloudRunApiServiceName: "oli-api",
+  };
+
+  // Cloud Run services list snapshot
+  const runPath = path.join(ROOT, "docs", "iam", "run-services-us-central1.snapshot.json");
+  const runServices = readJson(runPath);
+  const runArr = Array.isArray(runServices) ? runServices : [];
+  const runOffenders = [];
+
+  for (const svc of runArr) {
+    const name = svc?.metadata?.name;
+    const sa = svc?.spec?.template?.spec?.serviceAccountName;
+
+    if (name === EXPECTED.cloudRunApiServiceName) {
+      if (sa !== EXPECTED.apiRuntimeSa) {
+        runOffenders.push(`- Cloud Run ${name}: serviceAccountName=${String(sa)} (expected ${EXPECTED.apiRuntimeSa})`);
+      }
+    }
+  }
+
+  if (!runArr.some((s) => s?.metadata?.name === EXPECTED.cloudRunApiServiceName)) {
+    runOffenders.push(`- Cloud Run service "${EXPECTED.cloudRunApiServiceName}" not found in snapshot`);
+  }
+
+  // Cloud Functions v2 list snapshot
+  const fn2Path = path.join(ROOT, "docs", "iam", "functions-v2-us-central1.snapshot.json");
+  const fn2 = readJson(fn2Path);
+  const fn2Arr = Array.isArray(fn2) ? fn2 : [];
+  const fn2Offenders = [];
+
+  for (const f of fn2Arr) {
+    const name = f?.name ? String(f.name).split("/").pop() : undefined;
+    const sa = f?.serviceConfig?.serviceAccountEmail;
+    if (!name) continue;
+    if (sa !== EXPECTED.functionsRuntimeSa) {
+      fn2Offenders.push(`- Functions v2 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`);
+    }
+  }
+
+  if (!fn2Arr.length) {
+    fn2Offenders.push("- Functions v2 snapshot is empty (unexpected)");
+  }
+
+  // Cloud Functions v1 list snapshot (only enforce if present in snapshot; must be runtime SA)
+  const fn1Path = path.join(ROOT, "docs", "iam", "functions-v1-us-central1.snapshot.json");
+  const fn1 = readJson(fn1Path);
+  const fn1Arr = Array.isArray(fn1) ? fn1 : [];
+  const fn1Offenders = [];
+
+  for (const f of fn1Arr) {
+    const name = f?.name;
+    const sa = f?.serviceAccountEmail;
+    if (!name) continue;
+
+    // Enforce only for v1 functions that actually exist in this repo (snapshot-driven)
+    if (sa && sa !== EXPECTED.functionsRuntimeSa) {
+      fn1Offenders.push(`- Functions v1 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`);
+    }
+  }
+
+  const offenders = [...runOffenders, ...fn2Offenders, ...fn1Offenders];
+  if (offenders.length) {
+    fail(
+      `CHECK 13 (Runtime service accounts allowlist) failed:\n` +
+        offenders.join("\n") +
+        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`
+    );
+  }
+
+  console.log("✅ CHECK 13 passed: Cloud Run + Functions runtime identities match the allowlist.");
+}
+
 function main() {
   console.log("Running Oli constitutional invariant CI checks...\n");
+
   checkAdminHttpNotPublic();
   checkClientNoDerivedWrites();
   checkApiIdempotency();
@@ -484,6 +696,13 @@ function main() {
   checkIosPodsNotCommitted();
   checkPatchPackageIntegrity();
   checkApiRoutesNoDirectAdminFirestore();
+
+  // IAM / security-blocking checks (Sprint 1)
+  checkIamSnapshotsExist(); // CHECK 10
+  checkIamNoEditorRole(); // CHECK 11
+  checkIamNoDefaultServiceAccountBindings(); // CHECK 12
+  checkRuntimeServiceAccountsAllowlist(); // CHECK 13
+
   console.log("\n✅ All invariant checks passed.");
 }
 

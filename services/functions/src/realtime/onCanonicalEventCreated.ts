@@ -16,6 +16,12 @@ import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 // ✅ Latency logging (canonical → derived)
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
 
+const FUNCTION_REGION = "us-central1";
+
+// ✅ IMPORTANT: This is the runtime identity for the Gen2 function execution.
+// Make sure this service account exists and has the permissions you expect.
+const RUNTIME_SERVICE_ACCOUNT = "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com";
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
@@ -51,7 +57,10 @@ const addDaysUtc = (ymd: YmdDateString, deltaDays: number): YmdDateString => {
 export const onCanonicalEventCreated = onDocumentCreated(
   {
     document: "users/{userId}/events/{eventId}",
-    region: "us-central1",
+    region: FUNCTION_REGION,
+
+    // ✅ Force Gen2 to execute as this service account (reliable vs setGlobalOptions)
+    serviceAccount: RUNTIME_SERVICE_ACCOUNT,
   },
   async (event) => {
     const userId = event.params.userId as string;

@@ -21,6 +21,7 @@ export const onRawEventCreated = onDocumentCreated(
   {
     document: "users/{userId}/rawEvents/{rawEventId}",
     region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
   async (event) => {
     const snapshot = event.data;
@@ -63,6 +64,11 @@ export const onRawEventCreated = onDocumentCreated(
 
     const canonical = result.canonical;
 
-    await db.collection("users").doc(rawEvent.userId).collection("events").doc(canonical.id).set(canonical);
+    await db
+      .collection("users")
+      .doc(rawEvent.userId)
+      .collection("events")
+      .doc(canonical.id)
+      .set(canonical);
   }
 );

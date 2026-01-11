@@ -14,7 +14,11 @@ type AccountDeleteMessage = {
 const assertUid = (uid: unknown): uid is string =>
   typeof uid === "string" && uid.trim().length > 0;
 
-function deletionDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
+function deletionDocRef(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  requestId: string
+) {
   return db
     .collection("users")
     .doc(uid)
@@ -63,72 +67,79 @@ async function deleteAuthUser(uid: string) {
  * - idempotent (safe retries)
  * - observable lifecycle state
  */
-export const onAccountDeleteRequested = onMessagePublished(TOPIC, async (event) => {
-  const payload = event.data?.message?.json as unknown;
+export const onAccountDeleteRequested = onMessagePublished(
+  {
+    topic: TOPIC,
+    region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+  },
+  async (event) => {
+    const payload = event.data?.message?.json as unknown;
 
-  if (!payload || typeof payload !== "object") {
-    logger.error("account.delete: invalid payload");
-    return;
-  }
+    if (!payload || typeof payload !== "object") {
+      logger.error("account.delete: invalid payload");
+      return;
+    }
 
-  const { uid, requestId = event.id, requestedAt } = payload as AccountDeleteMessage;
+    const { uid, requestId = event.id, requestedAt } = payload as AccountDeleteMessage;
 
-  if (!assertUid(uid)) {
-    logger.error("account.delete: invalid uid", { uid });
-    return;
-  }
+    if (!assertUid(uid)) {
+      logger.error("account.delete: invalid uid", { uid });
+      return;
+    }
 
-  const db = getFirestore();
-  const ref = deletionDocRef(db, uid, requestId);
+    const db = getFirestore();
+    const ref = deletionDocRef(db, uid, requestId);
 
-  const snap = await ref.get();
-  if (snap.exists && snap.data()?.status === "completed") {
-    logger.info("account.delete: already completed, skipping", { uid, requestId });
-    return;
-  }
+    const snap = await ref.get();
+    if (snap.exists && snap.data()?.status === "completed") {
+      logger.info("account.delete: already completed, skipping", { uid, requestId });
+      return;
+    }
 
-  // Mark in-progress
-  await ref.set(
-    {
-      uid,
-      requestId,
-      requestedAt: requestedAt ?? null,
-      status: "in_progress",
-      startedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  try {
-    logger.info("account.delete: deleting firestore subtree", { uid, requestId });
-    await deleteUserFirestoreSubtree(db, uid);
-
-    logger.info("account.delete: deleting auth user", { uid, requestId });
-    await deleteAuthUser(uid);
-
+    // Mark in-progress
     await ref.set(
       {
-        status: "completed",
-        completedAt: FieldValue.serverTimestamp(),
+        uid,
+        requestId,
+        requestedAt: requestedAt ?? null,
+        status: "in_progress",
+        startedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
 
-    logger.info("account.delete: completed", { uid, requestId });
-  } catch (err) {
-    logger.error("account.delete: failed", { uid, requestId, err });
+    try {
+      logger.info("account.delete: deleting firestore subtree", { uid, requestId });
+      await deleteUserFirestoreSubtree(db, uid);
 
-    await ref.set(
-      {
-        status: "failed",
-        error: err instanceof Error ? err.message : String(err),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+      logger.info("account.delete: deleting auth user", { uid, requestId });
+      await deleteAuthUser(uid);
 
-    throw err; // let Pub/Sub retry
+      await ref.set(
+        {
+          status: "completed",
+          completedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      logger.info("account.delete: completed", { uid, requestId });
+    } catch (err) {
+      logger.error("account.delete: failed", { uid, requestId, err });
+
+      await ref.set(
+        {
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      throw err; // let Pub/Sub retry
+    }
   }
-});
+);

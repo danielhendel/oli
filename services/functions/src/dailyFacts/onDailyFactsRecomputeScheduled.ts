@@ -57,6 +57,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
     // Runs daily at 03:00 UTC
     schedule: "0 3 * * *",
     region: "us-central1",
+    serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
   async () => {
     const targetDate = getYesterdayUtcYmd();
