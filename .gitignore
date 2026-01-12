@@ -101,6 +101,12 @@ oli-*.txt
 AUDIT_CONTEXT.txt
 
 # ----------------------------------------
+# Local proof bundles (Sprint 3)
+# ----------------------------------------
+.repo-proof/
+.sprint3-proof/
+
+# ----------------------------------------
 # Legacy / local-only folders
 # ----------------------------------------
 archive/
@@ -143,6 +149,9 @@ api-gateway-*.json
 cloudrun-*-iam.json
 eventarc-triggers-*.json
 project-iam-policy.json
+
+# Allow the canonical CI snapshot for CHECK 14 (if kept at repo root)
+!cloudrun-oli-api-iam.json
 
 # ----------------------------------------
 # IAM / forensics dumps (Sprint 1 lockdown)

@@ -8,6 +8,10 @@ If code diverges from any invariant listed here:
 
 If an invariant has no **enforcement mechanism** *and* no **verification gate**, it is **not an invariant**.
 
+CI enforces:
+- No invariant exists without enforcement + verification
+- No CHECK exists without a mapped invariant, and no mapped CHECK exists without implementation
+
 ---
 
 ## What This Is
@@ -30,9 +34,9 @@ This file is required by CI and is audited.
 | I-04 | Only backend compute writes derived truth | Firestore rules (`allow write: if false`) | Firestore rules test + manual review | Client bypasses pipeline |
 | I-05 | Canonical events are immutable once written | Functions design + no update paths | Code review | Historical truth mutates |
 | I-06 | Account deletion deletes **all** user data and auth | Deletion executor function | **CHECK 5** + manual verification + logs | GDPR / App Store violation |
-| I-07 | Cloud Run service is not publicly invokable | Cloud Run IAM policy | CI invariant check + manual IAM review | Public attack surface |
-| I-08 | All client traffic goes through API Gateway | Infra topology | Infra review | Bypass auth & rate limits |
-| I-09 | Authentication is mandatory on all user routes | API middleware | Unit tests + gateway config | Unauthorized access |
+| I-07 | Cloud Run service is not publicly invokable | Cloud Run IAM invoker policy | **CHECK 14** + manual IAM review | Public attack surface |
+| I-08 | All client traffic goes through API Gateway | Cloud Run invoker policy includes API Gateway SA | **CHECK 14** + infra review | Bypass auth & rate limits |
+| I-09 | Authentication is mandatory on all user routes | API middleware | Jest tests (CI) + gateway config review | Unauthorized access |
 | I-10 | Source of truth is code, not documentation | Governance rule | Human review | Schema drift |
 | I-11 | `roles/editor` is forbidden in project IAM | IAM policy snapshot + CI | **CHECK 11** | Unbounded blast radius |
 | I-12 | Default service accounts must not hold elevated roles | IAM policy snapshot + CI | **CHECK 12** | Privilege creep backdoor |
@@ -102,26 +106,29 @@ This file is required by CI and is audited.
   - `scripts/ci/check-invariants.mjs` (**CHECK 5**)
 
 ### I-07 — Cloud Run is not public
-- **Enforced by**: IAM policy (no `allUsers` / `allAuthenticatedUsers`)
+- **Enforced by**: IAM policy (no `allUsers` / `allAuthenticatedUsers` on `roles/run.invoker`)
 - **Verified by**:
-  - CI invariant check (if implemented for Cloud Run IAM snapshot)
+  - **CHECK 14** (CI: invoker not public)
   - Manual IAM inspection: `gcloud run services get-iam-policy`
 - **Files**:
-  - Cloud Run IAM snapshot/artifacts (repo-managed)
-  - `scripts/ci/check-invariants.mjs`
+  - `cloudrun-oli-api-iam.json` (snapshot input for CI)
+  - `scripts/ci/check-invariants.mjs` (**CHECK 14**)
 
 ### I-08 — API Gateway is mandatory
-- **Enforced by**: Network + IAM topology
+- **Enforced by**: IAM topology (Cloud Run invoker includes API Gateway SA)
 - **Verified by**:
+  - **CHECK 14** (CI: API Gateway SA must be invoker)
   - Infra review
 - **Files**:
-  - API Gateway config artifacts
-  - Cloud Run IAM artifacts
+  - `cloudrun-oli-api-iam.json` (snapshot input for CI)
+  - `infra/gateway/openapi.yaml`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 14**)
 
 ### I-09 — Auth required on all user routes
 - **Enforced by**: Auth middleware
 - **Verified by**:
-  - Unit tests + gateway config review
+  - Jest tests (CI)
+  - Gateway config review
 - **Files**:
   - `services/api/src/middleware/auth.ts`
 
@@ -178,21 +185,26 @@ This file is required by CI and is audited.
 
 ## Verification Gates
 
-- CI invariant script: `scripts/ci/check-invariants.mjs`
-  - **CHECK 1** — Admin HTTP endpoints are not public and require explicit invoker
-  - **CHECK 2** — Client never writes derived truth
-  - **CHECK 3** — API ingestion routes enforce Idempotency-Key
-  - **CHECK 4** — API Firestore root collection must be `users`
-  - **CHECK 5** — Account deletion executor exists for `account.delete.v1`
-  - **CHECK 6** — This document is binding and enforcement-linked
-  - **CHECK 7** — iOS Pods not committed
-  - **CHECK 8** — patch-package integrity
-  - **CHECK 9** — API routes cannot directly import/call firebase-admin Firestore
-  - **CHECK 10** — IAM snapshots present (repo-enforced)
-  - **CHECK 11** — IAM forbids `roles/editor`
-  - **CHECK 12** — IAM forbids default SA bindings
-  - **CHECK 13** — Runtime SA allowlist enforced
+CI invariant script: `scripts/ci/check-invariants.mjs`
+
+- **CHECK 1** — Admin HTTP endpoints are not public and require explicit invoker
+- **CHECK 2** — Client never writes derived truth
+- **CHECK 3** — API ingestion routes enforce Idempotency-Key
+- **CHECK 4** — API Firestore root collection must be `users`
+- **CHECK 5** — Account deletion executor exists for `account.delete.v1`
+- **CHECK 6** — Invariants map cannot drift; no orphan invariants; no orphan checks; referenced files must exist
+- **CHECK 7** — iOS Pods not committed
+- **CHECK 8** — patch-package integrity
+- **CHECK 9** — API routes cannot directly import/call firebase-admin Firestore
+- **CHECK 10** — IAM snapshots present (repo-enforced)
+- **CHECK 11** — IAM forbids `roles/editor`
+- **CHECK 12** — IAM forbids default SA bindings
+- **CHECK 13** — Runtime SA allowlist enforced
+- **CHECK 14** — Cloud Run invoker is not public AND API Gateway is an invoker
+
+Also:
 - Firestore emulator tests
+- Jest unit tests
 - Manual infra inspection (IAM / Gateway)
 
 ---
