@@ -23,24 +23,31 @@ service cloud.firestore {
       // ----------------------------------------------------------
       // USER ROOT DOCUMENT (profile / settings)
       //
-      // ❗ CRITICAL INVARIANT:
-      // Client-side deletion is DISALLOWED until backend-enforced
-      // cascading deletion + audit guarantees exist.
+      // 🔒 Sprint 4 — Client Firestore Lockdown
+      //
+      // ❗ CONSTITUTIONAL INVARIANT:
+      // Clients may READ their own data, but may NEVER WRITE.
+      // All writes go through backend APIs only.
       // ----------------------------------------------------------
-      allow read, create, update: if request.auth != null
-                                  && request.auth.uid == userId;
-      allow delete: if false;
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+      allow create, update, delete: if false;
 
       // ----------------------------------------------------------
       // SOURCES (user-owned configuration)
       //
+      // 🔒 Sprint 4 — Client Firestore Lockdown
+      //
       // Examples:
       // - Apple Health source
       // - Manual logging source
+      //
+      // ❗ Backend-only writes
       // ----------------------------------------------------------
       match /sources/{sourceId} {
-        allow read, create, update, delete: if request.auth != null
-                                            && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
       }
 
       // ----------------------------------------------------------

@@ -14,6 +14,9 @@
     "format:check": "prettier --check .",
     "test": "jest",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
+
+    "check:client-firestore": "node scripts/ci/check-client-firestore.mjs",
+
     "postinstall": "patch-package"
   },
   "dependencies": {

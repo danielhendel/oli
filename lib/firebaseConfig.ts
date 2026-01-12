@@ -1,6 +1,5 @@
 // lib/firebaseConfig.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, initializeAuth, type Auth, type Persistence } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -31,7 +30,6 @@ type FirebaseClientConfig = {
 
 let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
-let cachedDb: Firestore | null = null;
 
 const readFirebaseConfig = (): FirebaseClientConfig => {
   const env = getEnv(); // FAIL FAST if anything is misconfigured
@@ -77,10 +75,11 @@ export const getFirebaseAuth = (): Auth => {
   return cachedAuth;
 };
 
-export const getFirestoreDb = (): Firestore => {
-  if (cachedDb) return cachedDb;
-
-  const app = getFirebaseApp();
-  cachedDb = getFirestore(app);
-  return cachedDb;
-};
+/**
+ * 🔒 Sprint 4 (Client Firestore Lockdown)
+ *
+ * Clients must NOT import or initialize Firestore.
+ *
+ * - All reads/writes happen via the Cloud Run API boundary (lib/api/*)
+ * - Firestore security rules are the last line of defense
+ */

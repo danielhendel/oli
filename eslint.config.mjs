@@ -4,37 +4,21 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default [
-  // ─────────────────────────────────────────────
-  // Global ignores (flat config)
-  // ─────────────────────────────────────────────
   {
     ignores: [
-      // Node / tooling
       "**/node_modules/**",
       "**/.turbo/**",
       "**/coverage/**",
-
-      // Expo generated
       "**/.expo/**",
-
-      // Build outputs
       "**/dist/**",
       "**/build/**",
       "**/web-build/**",
-
-      // Repo generated outputs
       "**/dist-types/**",
       "**/lib/dist-types/**",
       "**/services/**/dist/**",
-
-      // 🔒 CRITICAL: never lint Functions bundle output
       "services/functions/lib/**",
       "services/functions/lib/**/*.map",
-
-      // Never lint generated declaration files
       "**/*.d.ts",
-
-      // Legacy / config files
       "**/.eslintrc.*",
       "**/services/**/.eslintrc.*",
     ],
@@ -43,29 +27,19 @@ export default [
     },
   },
 
-  // ─────────────────────────────────────────────
-  // Base JS recommended (for config / scripts)
-  // ─────────────────────────────────────────────
   js.configs.recommended,
 
-  // ─────────────────────────────────────────────
-  // TypeScript rules (source only)
-  // ─────────────────────────────────────────────
   ...tseslint.config(
     {
       files: ["**/*.ts", "**/*.tsx"],
-      // Extra safety: exclude generated areas even if CLI patterns include them
       ignores: [
         "**/dist/**",
         "**/build/**",
         "**/dist-types/**",
         "**/lib/dist-types/**",
         "**/services/**/dist/**",
-
-        // 🔒 Absolute exclusion of Functions bundle
         "services/functions/lib/**",
         "services/functions/lib/**/*.map",
-
         "**/*.d.ts",
       ],
     },
@@ -73,9 +47,6 @@ export default [
     tseslint.configs.stylistic
   ),
 
-  // ─────────────────────────────────────────────
-  // App/source defaults (Expo / RN globals)
-  // ─────────────────────────────────────────────
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -98,8 +69,39 @@ export default [
   },
 
   // ─────────────────────────────────────────────
-  // Server / services TS (Node globals)
+  // Sprint 4 — Client Firestore Lockdown
   // ─────────────────────────────────────────────
+  {
+    files: ["app/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "firebase/firestore",
+              message: "Client Firestore is forbidden. Use the Cloud Run API boundary (lib/api/*).",
+            },
+            {
+              name: "firebase/firestore/lite",
+              message: "Client Firestore is forbidden. Use the Cloud Run API boundary (lib/api/*).",
+            },
+            {
+              name: "@firebase/firestore",
+              message: "Client Firestore is forbidden. Use the Cloud Run API boundary (lib/api/*).",
+            },
+          ],
+          patterns: [
+            {
+              group: ["firebase/firestore/*", "@firebase/firestore/*"],
+              message: "Client Firestore is forbidden. Use the Cloud Run API boundary (lib/api/*).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   {
     files: ["services/**/*.{ts,tsx}"],
     languageOptions: {
@@ -109,15 +111,8 @@ export default [
     },
   },
 
-  // ─────────────────────────────────────────────
-  // Jest test files
-  // ─────────────────────────────────────────────
   {
-    files: [
-      "**/__tests__/**/*.[jt]s?(x)",
-      "**/*.test.[jt]s?(x)",
-      "**/*.spec.[jt]s?(x)",
-    ],
+    files: ["**/__tests__/**/*.[jt]s?(x)", "**/*.test.[jt]s?(x)", "**/*.spec.[jt]s?(x)"],
     languageOptions: {
       globals: {
         ...globals.jest,
@@ -128,9 +123,6 @@ export default [
     },
   },
 
-  // ─────────────────────────────────────────────
-  // JS / CJS / MJS scripts (Node environment)
-  // ─────────────────────────────────────────────
   {
     files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
     languageOptions: {

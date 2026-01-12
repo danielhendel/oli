@@ -24,6 +24,10 @@ jobs:
       - name: Constitutional invariant tripwires
         run: npm run check:invariants
 
+      # Sprint 4 — Client Firestore Lockdown (independent CI tripwire)
+      - name: Client Firestore Lockdown (Sprint 4)
+        run: npm run check:client-firestore
+
       - name: Typecheck
         run: npm run typecheck
 
