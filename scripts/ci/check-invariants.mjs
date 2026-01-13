@@ -89,7 +89,9 @@ function checkAdminHttpNotPublic() {
     fail(`CHECK 1 (Admin HTTP not public) failed:\n${msg}`);
   }
 
-  console.log("✅ CHECK 1 passed: Admin/recompute HTTP endpoints are not declared public and require explicit invoker.");
+  console.log(
+    "✅ CHECK 1 passed: Admin/recompute HTTP endpoints are not declared public and require explicit invoker.",
+  );
 }
 
 /**
@@ -100,7 +102,7 @@ function checkClientNoDerivedWrites() {
   if (!targets.length) return;
 
   const files = targets.flatMap((t) =>
-    walk(t, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "lib"] })
+    walk(t, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "lib"] }),
   );
 
   const writeFns = /\b(addDoc|setDoc|updateDoc|deleteDoc|writeBatch|runTransaction)\b/;
@@ -119,7 +121,7 @@ function checkClientNoDerivedWrites() {
     fail(
       `CHECK 2 (Client no derived writes) failed:\n` +
         offenders.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: clients must only read derived collections; all writes go through the backend ingestion API.`
+        `\n\nFix: clients must only read derived collections; all writes go through the backend ingestion API.`,
     );
   }
 
@@ -155,7 +157,7 @@ function checkApiIdempotency() {
     fail(
       `CHECK 3 (API idempotency) failed:\n` +
         offenders.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: ingestion POST routes must read Idempotency-Key and use deterministic write IDs (or equivalent request record).`
+        `\n\nFix: ingestion POST routes must read Idempotency-Key and use deterministic write IDs (or equivalent request record).`,
     );
   }
 
@@ -199,7 +201,7 @@ function checkApiNoGlobalFirestoreRootCollections() {
     fail(
       `CHECK 4 (API root collection must be users) failed:\n` +
         offenders.map((o) => `- ${o.file} — root collection "${o.col}"`).join("\n") +
-        `\n\nFix: API must only start Firestore paths at collection("users"), then scope by uid.`
+        `\n\nFix: API must only start Firestore paths at collection("users"), then scope by uid.`,
     );
   }
 
@@ -242,7 +244,7 @@ function checkAccountDeleteExecutorExists() {
     fail(
       `CHECK 5 (Account deletion executor) failed:\n` +
         `- services/api/src/routes/account.ts exposes an account deletion route, but no Pub/Sub executor was found for topic "${topic}".\n\n` +
-        `Fix: add a Functions Gen2 onMessagePublished("${topic}") executor that performs deletion.`
+        `Fix: add a Functions Gen2 onMessagePublished("${topic}") executor that performs deletion.`,
     );
   }
 
@@ -266,7 +268,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     fail(
       `CHECK 6 (Invariant map drift) failed:\n` +
         `- docs/INVARIANTS_MAP.md is missing\n\n` +
-        `Fix: restore the invariant enforcement map.`
+        `Fix: restore the invariant enforcement map.`,
     );
   }
 
@@ -277,7 +279,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     fail(
       `CHECK 6 (Invariant map drift) failed:\n` +
         `- docs/INVARIANTS_MAP.md contains placeholder language (TODO/TBD/placeholder)\n\n` +
-        `Fix: replace placeholders with concrete enforcement details.`
+        `Fix: replace placeholders with concrete enforcement details.`,
     );
   }
 
@@ -299,10 +301,18 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
       `Invariant map and enforcement script are out of sync.`,
       ``,
       ...(missingInDoc.length
-        ? [`Missing in docs/INVARIANTS_MAP.md (implemented in code but not mapped):`, ...missingInDoc.map((id) => `- CHECK ${id}`), ``]
+        ? [
+            `Missing in docs/INVARIANTS_MAP.md (implemented in code but not mapped):`,
+            ...missingInDoc.map((id) => `- CHECK ${id}`),
+            ``,
+          ]
         : []),
       ...(extraInDoc.length
-        ? [`Missing in scripts/ci/check-invariants.mjs (mapped in docs but not implemented):`, ...extraInDoc.map((id) => `- CHECK ${id}`), ``]
+        ? [
+            `Missing in scripts/ci/check-invariants.mjs (mapped in docs but not implemented):`,
+            ...extraInDoc.map((id) => `- CHECK ${id}`),
+            ``,
+          ]
         : []),
       `Fix: update docs/INVARIANTS_MAP.md and/or scripts/ci/check-invariants.mjs so they match exactly.`,
     ];
@@ -326,7 +336,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     fail(
       `CHECK 6 (Invariant map drift) failed:\n` +
         `- Could not parse any invariant rows from the Invariant Index table.\n\n` +
-        `Fix: ensure the Invariant Index is a valid markdown table with rows starting "| I-.." `
+        `Fix: ensure the Invariant Index is a valid markdown table with rows starting "| I-.." `,
     );
   }
 
@@ -343,7 +353,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     fail(
       `CHECK 6 (No orphan invariants) failed:\n` +
         orphanInvariants.map((s) => `- ${s}`).join("\n") +
-        `\n\nFix: every invariant must declare an enforcement mechanism and a verification gate.`
+        `\n\nFix: every invariant must declare an enforcement mechanism and a verification gate.`,
     );
   }
 
@@ -354,42 +364,43 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
       tableCheckRefs.add(Number(m[1]));
     }
   }
-  const missingChecksFromTable = [...tableCheckRefs].filter((id) => !expected.has(id)).sort((a, b) => a - b);
+  const missingChecksFromTable = [...tableCheckRefs]
+    .filter((id) => !expected.has(id))
+    .sort((a, b) => a - b);
   if (missingChecksFromTable.length) {
     fail(
       `CHECK 6 (Invariant table references missing checks) failed:\n` +
         missingChecksFromTable.map((id) => `- CHECK ${id}`).join("\n") +
-        `\n\nFix: either implement the missing checks in scripts/ci/check-invariants.mjs or remove them from the map.`
+        `\n\nFix: either implement the missing checks in scripts/ci/check-invariants.mjs or remove them from the map.`,
     );
   }
 
   // Enforcement must be real: verify that any backticked repo path under "Files:" exists.
   // We intentionally validate only relative paths that look like repo files.
   const filePathRe = /`([a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)+)`/g;
-const fileRefs = new Set();
+  const fileRefs = new Set();
 
-for (const m of text.matchAll(filePathRe)) {
-  const p = String(m[1]).trim();
+  for (const m of text.matchAll(filePathRe)) {
+    const p = String(m[1]).trim();
 
-  // Ignore IAM roles and principals (not repo files)
-  if (p.startsWith("roles/")) continue;
-  if (p.startsWith("serviceAccount:")) continue;
-  if (p.startsWith("user:")) continue;
-  if (p.startsWith("group:")) continue;
-  if (p.startsWith("domain:")) continue;
-  if (p === "allUsers" || p === "allAuthenticatedUsers") continue;
+    // Ignore IAM roles and principals (not repo files)
+    if (p.startsWith("roles/")) continue;
+    if (p.startsWith("serviceAccount:")) continue;
+    if (p.startsWith("user:")) continue;
+    if (p.startsWith("group:")) continue;
+    if (p.startsWith("domain:")) continue;
+    if (p === "allUsers" || p === "allAuthenticatedUsers") continue;
 
-  // Ignore CLI snippets and URLs
-  if (p.startsWith("gcloud ")) continue;
-  if (p.includes("://")) continue;
+    // Ignore CLI snippets and URLs
+    if (p.startsWith("gcloud ")) continue;
+    if (p.includes("://")) continue;
 
-  // Only treat values that look like real repo files as enforceable paths.
-  // Require a file extension (.ts, .json, .yml, .tf, .md, etc.)
-  if (!/\.[a-z0-9]{1,8}$/i.test(p)) continue;
+    // Only treat values that look like real repo files as enforceable paths.
+    // Require a file extension (.ts, .json, .yml, .tf, .md, etc.)
+    if (!/\.[a-z0-9]{1,8}$/i.test(p)) continue;
 
-  fileRefs.add(p);
-}
-
+    fileRefs.add(p);
+  }
 
   const missingFiles = [];
   for (const p of [...fileRefs]) {
@@ -401,11 +412,13 @@ for (const m of text.matchAll(filePathRe)) {
     fail(
       `CHECK 6 (Invariant map references missing files) failed:\n` +
         missingFiles.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: either restore the missing files or update docs/INVARIANTS_MAP.md so it only references real enforcement locations.`
+        `\n\nFix: either restore the missing files or update docs/INVARIANTS_MAP.md so it only references real enforcement locations.`,
     );
   }
 
-  console.log("✅ CHECK 6 passed: INVARIANTS_MAP is binding and perfectly aligned with enforcement (no drift, no orphan invariants).");
+  console.log(
+    "✅ CHECK 6 passed: INVARIANTS_MAP is binding and perfectly aligned with enforcement (no drift, no orphan invariants).",
+  );
 }
 
 /**
@@ -426,7 +439,7 @@ function checkIosPodsNotCommitted() {
         `Fix:\n` +
         `1) Ensure .gitignore includes "ios/Pods/"\n` +
         `2) Remove tracked Pods: git rm -r --cached ios/Pods && commit\n` +
-        `3) Pods must be generated locally (pod install / expo prebuild), never committed`
+        `3) Pods must be generated locally (pod install / expo prebuild), never committed`,
     );
   }
 
@@ -507,7 +520,7 @@ function checkPatchPackageIntegrity() {
     fail(
       `CHECK 8 (patch-package integrity) failed:\n` +
         `- patches/ contains patch files, but package-lock.json is missing or unreadable.\n\n` +
-        `Fix: commit package-lock.json so patch integrity can be validated.`
+        `Fix: commit package-lock.json so patch integrity can be validated.`,
     );
   }
 
@@ -536,7 +549,7 @@ function checkPatchPackageIntegrity() {
 
     if (installed !== parsed.version) {
       offenders.push(
-        `- patches/${f} — version mismatch for "${parsed.pkg}": patch=${parsed.version}, lock=${installed}`
+        `- patches/${f} — version mismatch for "${parsed.pkg}": patch=${parsed.version}, lock=${installed}`,
       );
       continue;
     }
@@ -549,7 +562,7 @@ function checkPatchPackageIntegrity() {
         `\n\nFix options:\n` +
         `1) Rename patch version to match lock, OR\n` +
         `2) Regenerate patch after upgrading deps, OR\n` +
-        `3) Remove obsolete patch.`
+        `3) Remove obsolete patch.`,
     );
   }
 
@@ -590,7 +603,7 @@ function checkApiRoutesNoDirectAdminFirestore() {
         offenders.join("\n") +
         `\n\nFix:\n` +
         `- Routes must import Firestore access ONLY via a single adapter module (e.g. services/api/src/db.ts or services/api/src/firebaseAdmin.ts).\n` +
-        `- That adapter is where we enforce scoping/instrumentation.\n`
+        `- That adapter is where we enforce scoping/instrumentation.\n`,
     );
   }
 
@@ -678,8 +691,7 @@ function checkIamNoEditorRole() {
     const msg =
       offenders
         .map((o) => `- roles/editor members:\n  ${o.members.map((m) => `- ${m}`).join("\n  ")}`)
-        .join("\n") +
-      "\n\nFix: remove roles/editor bindings from the project IAM policy.";
+        .join("\n") + "\n\nFix: remove roles/editor bindings from the project IAM policy.";
     fail(`CHECK 11 (IAM: roles/editor forbidden) failed:\n${msg}`);
   }
 
@@ -748,7 +760,7 @@ function checkRuntimeServiceAccountsAllowlist() {
     if (name === EXPECTED.cloudRunApiServiceName) {
       if (sa !== EXPECTED.apiRuntimeSa) {
         runOffenders.push(
-          `- Cloud Run ${name}: serviceAccountName=${String(sa)} (expected ${EXPECTED.apiRuntimeSa})`
+          `- Cloud Run ${name}: serviceAccountName=${String(sa)} (expected ${EXPECTED.apiRuntimeSa})`,
         );
       }
     }
@@ -770,7 +782,7 @@ function checkRuntimeServiceAccountsAllowlist() {
     if (!name) continue;
     if (sa !== EXPECTED.functionsRuntimeSa) {
       fn2Offenders.push(
-        `- Functions v2 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`
+        `- Functions v2 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`,
       );
     }
   }
@@ -792,7 +804,7 @@ function checkRuntimeServiceAccountsAllowlist() {
 
     if (sa && sa !== EXPECTED.functionsRuntimeSa) {
       fn1Offenders.push(
-        `- Functions v1 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`
+        `- Functions v1 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`,
       );
     }
   }
@@ -802,7 +814,7 @@ function checkRuntimeServiceAccountsAllowlist() {
     fail(
       `CHECK 13 (Runtime service accounts allowlist) failed:\n` +
         offenders.join("\n") +
-        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`
+        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`,
     );
   }
 
@@ -832,7 +844,7 @@ function checkCloudRunInvokerNotPublicAndGatewayOnly() {
         `Expected one of:\n` +
         candidates.map((p) => `- ${rel(p)}`).join("\n") +
         `\n\nFix (generate + commit snapshot):\n` +
-        `  gcloud run services get-iam-policy oli-api --project=oli-staging-fdbba --region=us-central1 --format=json > cloudrun-oli-api-iam.json`
+        `  gcloud run services get-iam-policy oli-api --project=oli-staging-fdbba --region=us-central1 --format=json > cloudrun-oli-api-iam.json`,
     );
   }
 
@@ -842,31 +854,101 @@ function checkCloudRunInvokerNotPublicAndGatewayOnly() {
   const invokerBindings = bindings.filter((b) => b?.role === "roles/run.invoker");
   const invokerMembers = invokerBindings.flatMap((b) => (Array.isArray(b?.members) ? b.members : []));
 
-  const publicMembers = invokerMembers.filter(
-    (m) => m === "allUsers" || m === "allAuthenticatedUsers"
-  );
+  const publicMembers = invokerMembers.filter((m) => m === "allUsers" || m === "allAuthenticatedUsers");
   if (publicMembers.length) {
     fail(
       `CHECK 14 (Cloud Run not public) failed:\n` +
         `- ${rel(found)} grants roles/run.invoker to:\n` +
         publicMembers.map((m) => `  - ${m}`).join("\n") +
-        `\n\nFix: remove allUsers/allAuthenticatedUsers from Cloud Run invoker bindings and re-snapshot.`
+        `\n\nFix: remove allUsers/allAuthenticatedUsers from Cloud Run invoker bindings and re-snapshot.`,
     );
   }
 
   // Require API Gateway SA to be an invoker (proves “all client traffic goes through gateway” at IAM boundary)
   const hasGatewaySa = invokerMembers.some((m) =>
-    /gcp-sa-apigateway\.iam\.gserviceaccount\.com$/.test(String(m))
+    /gcp-sa-apigateway\.iam\.gserviceaccount\.com$/.test(String(m)),
   );
   if (!hasGatewaySa) {
     fail(
       `CHECK 14 (Gateway must be invoker) failed:\n` +
         `- ${rel(found)} does not include the API Gateway service account as a roles/run.invoker member.\n\n` +
-        `Fix: grant roles/run.invoker on oli-api to the API Gateway managed service account and re-snapshot.`
+        `Fix: grant roles/run.invoker on oli-api to the API Gateway managed service account and re-snapshot.`,
     );
   }
 
   console.log("✅ CHECK 14 passed: Cloud Run is not public and API Gateway is an authorized invoker.");
+}
+
+/**
+ * CHECK 15 — CanonicalEventKind must align exactly with ingestion rawEventKindSchema
+ *
+ * Prevents schema drift where backend claims canonical kinds that ingestion cannot produce.
+ *
+ * Sources of truth:
+ * - lib/contracts/rawEvent.ts → rawEventKindSchema = z.enum([...])
+ * - services/functions/src/types/health.ts → export type CanonicalEventKind = | '...'
+ */
+function checkCanonicalKindsNoDrift() {
+  const rawEventPath = path.join(ROOT, "lib", "contracts", "rawEvent.ts");
+  const healthPath = path.join(ROOT, "services", "functions", "src", "types", "health.ts");
+  if (!exists(rawEventPath) || !exists(healthPath)) return;
+
+  const rawText = readText(rawEventPath);
+  const healthText = readText(healthPath);
+
+  // Extract kinds from: rawEventKindSchema = z.enum(["sleep", ...])
+  const rawEnumMatch = rawText.match(/rawEventKindSchema\s*=\s*z\.enum\s*\(\s*\[([\s\S]*?)\]\s*\)/m);
+  if (!rawEnumMatch) {
+    fail(
+      `CHECK 15 (Canonical kind drift) failed:\n` +
+        `- Could not parse rawEventKindSchema enum from ${rel(rawEventPath)}\n\n` +
+        `Fix: ensure rawEventKindSchema is declared as z.enum([...]) in lib/contracts/rawEvent.ts.`,
+    );
+  }
+
+  const rawEnumBody = String(rawEnumMatch[1]);
+  const rawKinds = [...rawEnumBody.matchAll(/["']([^"']+)["']/g)].map((m) => String(m[1]));
+
+  // Extract kinds from:
+  // export type CanonicalEventKind = | 'sleep' | 'steps' ...
+  const canonicalMatch = healthText.match(/export\s+type\s+CanonicalEventKind\s*=\s*([\s\S]*?);/m);
+  if (!canonicalMatch) {
+    fail(
+      `CHECK 15 (Canonical kind drift) failed:\n` +
+        `- Could not parse CanonicalEventKind union from ${rel(healthPath)}\n\n` +
+        `Fix: ensure CanonicalEventKind is declared as a string-literal union in services/functions/src/types/health.ts.`,
+    );
+  }
+
+  const canonicalBody = String(canonicalMatch[1]);
+  const canonicalKinds = [...canonicalBody.matchAll(/["']([^"']+)["']/g)].map((m) => String(m[1]));
+
+  const a = new Set(rawKinds);
+  const b = new Set(canonicalKinds);
+
+  const onlyInRaw = [...a].filter((k) => !b.has(k)).sort();
+  const onlyInCanonical = [...b].filter((k) => !a.has(k)).sort();
+
+  if (onlyInRaw.length || onlyInCanonical.length) {
+    const lines = [
+      `CHECK 15 (Canonical kind drift) failed:`,
+      ``,
+      `rawEventKindSchema (ingestion) and CanonicalEventKind (backend) must match EXACTLY.`,
+      ``,
+      onlyInRaw.length ? `Present only in rawEventKindSchema: ${onlyInRaw.join(", ")}` : null,
+      onlyInCanonical.length ? `Present only in CanonicalEventKind: ${onlyInCanonical.join(", ")}` : null,
+      ``,
+      `Files:`,
+      `- ${rel(rawEventPath)}`,
+      `- ${rel(healthPath)}`,
+      ``,
+      `Fix: update CanonicalEventKind and/or rawEventKindSchema so the allowed kinds match.`,
+    ].filter(Boolean);
+
+    fail(lines.join("\n"));
+  }
+
+  console.log("✅ CHECK 15 passed: CanonicalEventKind matches rawEventKindSchema (no kind drift).");
 }
 
 // ---- CHECK registry (single source of truth) ----
@@ -885,6 +967,7 @@ const CHECKS = [
   { id: 12, fn: checkIamNoDefaultServiceAccountBindings },
   { id: 13, fn: checkRuntimeServiceAccountsAllowlist },
   { id: 14, fn: checkCloudRunInvokerNotPublicAndGatewayOnly },
+  { id: 15, fn: checkCanonicalKindsNoDrift },
 ];
 
 function main() {

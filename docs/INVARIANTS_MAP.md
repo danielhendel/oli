@@ -41,6 +41,7 @@ This file is required by CI and is audited.
 | I-11 | `roles/editor` is forbidden in project IAM | IAM policy snapshot + CI | **CHECK 11** | Unbounded blast radius |
 | I-12 | Default service accounts must not hold elevated roles | IAM policy snapshot + CI | **CHECK 12** | Privilege creep backdoor |
 | I-13 | All compute workloads must run under dedicated runtime service accounts | Cloud Run/Functions snapshots + CI | **CHECK 13** | Runtime identity drift |
+| I-14 | Canonical event kinds cannot drift from ingestion kinds | CI invariant tripwire | **CHECK 15** | Silent schema drift / dead kinds |
 
 ---
 
@@ -139,6 +140,18 @@ This file is required by CI and is audited.
 - **Files**:
   - `docs/SOURCE_OF_TRUTH.md`
 
+### I-14 — Canonical kinds cannot drift from ingestion
+- **Enforced by**: CI invariant tripwire
+- **Mechanism**:
+  - Parse `rawEventKindSchema` from ingestion contract and `CanonicalEventKind` from backend types
+  - Fail CI if the sets do not match exactly
+- **Verified by**:
+  - **CHECK 15** (CI)
+- **Files**:
+  - `lib/contracts/rawEvent.ts`
+  - `services/functions/src/types/health.ts`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 15**)
+
 ---
 
 ## IAM / Identity Invariants (Security-Blocking)
@@ -201,6 +214,7 @@ CI invariant script: `scripts/ci/check-invariants.mjs`
 - **CHECK 12** — IAM forbids default SA bindings
 - **CHECK 13** — Runtime SA allowlist enforced
 - **CHECK 14** — Cloud Run invoker is not public AND API Gateway is an invoker
+- **CHECK 15** — CanonicalEventKind matches rawEventKindSchema (no kind drift)
 
 Also:
 - Firestore emulator tests

@@ -1,7 +1,7 @@
 // services/functions/src/types/health.ts
 
 /**
- * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions + Sprint 6)
+ * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions)
  *
  * These types are:
  * - Storage-agnostic (no Firestore/Admin types)
@@ -32,16 +32,13 @@ export type HealthSourceType =
 
 /**
  * Core canonical event kinds for v1.
- * Sprint 6 adds:
- * - Nutrition daily totals (macros) as a canonical event kind.
  */
 export type CanonicalEventKind =
   | 'sleep'
   | 'steps'
   | 'workout'
   | 'weight'
-  | 'hrv'
-  | 'nutrition';
+  | 'hrv';
 
 /**
  * RawEvent is the ingestion boundary type.
@@ -244,24 +241,6 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
 }
 
 /**
- * Sprint 6 — NutritionCanonicalEvent
- * Daily totals (macros) as a canonical event. This enables DailyFacts nutrition rollups now,
- * with meal-level detail coming later without breaking this schema.
- */
-export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'nutrition';
-
-  /** Daily totals */
-  totalKcal: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-
-  /** Optional fiber total */
-  fiberG?: number | null;
-}
-
-/**
  * Discriminated union of all canonical events.
  * This is the primary event type used by the normalization layer.
  */
@@ -270,8 +249,7 @@ export type CanonicalEvent =
   | StepsCanonicalEvent
   | WorkoutCanonicalEvent
   | WeightCanonicalEvent
-  | HrvCanonicalEvent
-  | NutritionCanonicalEvent;
+  | HrvCanonicalEvent;
 
 /**
  * DailyFacts — per-day rollups produced from CanonicalEvents.
@@ -518,14 +496,9 @@ export function isYmdDateString(value: string): boolean {
  * Type guard to distinguish CanonicalEvent from RawEvent based on
  * the presence of canonical-only fields.
  */
-export function isCanonicalEvent(
-  event: CanonicalEvent | RawEvent
-): event is CanonicalEvent {
+export function isCanonicalEvent(event: CanonicalEvent | RawEvent): event is CanonicalEvent {
   const candidate = event as CanonicalEvent;
-  return (
-    typeof candidate.kind === 'string' &&
-    typeof (candidate as { start?: unknown }).start === 'string'
-  );
+  return typeof candidate.kind === 'string' && typeof (candidate as { start?: unknown }).start === 'string';
 }
 
 /** Minimal runtime check for DailyFacts shape */
