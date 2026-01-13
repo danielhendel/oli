@@ -10,6 +10,9 @@ import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDa
 import { generateInsightsForDailyFacts } from "../insights/rules";
 import { buildDailyIntelligenceContextDoc } from "../intelligence/buildDailyIntelligenceContext";
 
+// ✅ Insights authority: prune stale docs after recompute
+import { pruneInsightsForDay } from "../insights/pruneInsightsForDay";
+
 // ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 
@@ -134,7 +137,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
     );
 
     /**
-     * 3) Insights for this day
+     * 3) Insights for this day (AUTHORITATIVE: upsert + prune)
      */
     const insights = generateInsightsForDailyFacts({
       userId,
@@ -144,9 +147,23 @@ export const onCanonicalEventCreated = onDocumentCreated(
       now: computedAt,
     });
 
+    // Upsert generated insights in a single batch
+    const insightsBatch = db.batch();
+    const insightsCol = userRef.collection("insights");
     for (const insight of insights) {
-      await userRef.collection("insights").doc(insight.id).set(insight, { merge: true });
+      insightsBatch.set(insightsCol.doc(insight.id), insight, { merge: true });
     }
+    await insightsBatch.commit();
+
+    // Prune stale insights for this day that are no longer generated
+    const keepIds = new Set(insights.map((i) => i.id));
+    const pruneRes = await pruneInsightsForDay({
+      userRef,
+      day,
+      keepIds,
+    });
+
+    const insightsPruned = pruneRes.deleted;
 
     /**
      * 4) Intelligence Context
@@ -169,6 +186,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
           source: {
             eventsForDay: eventsForDay.length,
             insightsWritten: insights.length,
+            insightsPruned, // ✅ NEW: authoritative recompute signal
             latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
           },
         }),
@@ -191,6 +209,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
       day,
       eventsForDay: eventsForDay.length,
       insightsWritten: insights.length,
+      insightsPruned,
     });
   },
 );

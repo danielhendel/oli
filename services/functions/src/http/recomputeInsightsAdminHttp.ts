@@ -6,6 +6,7 @@ import * as logger from "firebase-functions/logger";
 import { db } from "../firebaseAdmin";
 import type { DailyFacts, IsoDateTimeString, YmdDateString } from "../types/health";
 import { generateInsightsForDailyFacts } from "../insights/rules";
+import { pruneInsightsForDay } from "../insights/pruneInsightsForDay";
 import { requireAdmin } from "./adminAuth";
 
 const isYmd = (value: unknown): value is YmdDateString =>
@@ -148,16 +149,32 @@ export const recomputeInsightsAdminHttp = onRequest(
         now,
       });
 
+      // Upsert generated insights in a single batch
       const batch = db.batch();
       const insightsCol = userRef.collection("insights");
 
       for (const insight of insights) {
-        batch.set(insightsCol.doc(insight.id), insight);
+        batch.set(insightsCol.doc(insight.id), insight, { merge: true });
       }
 
       await batch.commit();
 
-      logger.info("Admin recomputeInsights complete", { userId, date, insights: insights.length });
+      // Prune stale insights for this day that are no longer generated
+      const keepIds = new Set(insights.map((i) => i.id));
+      const pruneRes = await pruneInsightsForDay({
+        userRef,
+        day: date,
+        keepIds,
+      });
+
+      const insightsPruned = pruneRes.deleted;
+
+      logger.info("Admin recomputeInsights complete", {
+        userId,
+        date,
+        insightsWritten: insights.length,
+        insightsPruned,
+      });
 
       res.status(200).json({
         ok: true,
@@ -165,6 +182,7 @@ export const recomputeInsightsAdminHttp = onRequest(
         userId,
         date,
         insightsWritten: insights.length,
+        insightsPruned,
       });
     } catch (err) {
       logger.error("Admin recomputeInsights failed", { userId, date, err });
