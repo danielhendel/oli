@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getInsights, type TruthGetOptions } from "@/lib/api/usersMe";
-import type { InsightsResponseDto } from "@/lib/contracts";
+import { insightsResponseDtoSchema, validateOrExplain, type InsightsResponseDto } from "@/lib/contracts";
 
 type State =
   | { status: "loading" }
@@ -13,6 +13,12 @@ type RefetchOpts = TruthGetOptions;
 
 function emptyInsights(day: string): InsightsResponseDto {
   return { day, count: 0, items: [] };
+}
+
+function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
+  const cb = opts?.cacheBust;
+  if (!cb) return opts;
+  return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
 export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
@@ -37,19 +43,12 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
         if (seq === reqSeq.current) setState(next);
       };
 
-      if (initializing) {
+      if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
-      if (!user) {
-        // If signed out, keep any existing ready state; otherwise return an empty ready
-        if (stateRef.current.status === "ready") return;
-        safeSet({ status: "ready", data: emptyInsights(dayRef.current) });
-        return;
-      }
-
-      const token = await getIdToken();
+      const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
 
       if (!token) {
@@ -58,10 +57,11 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      // ✅ Stale-while-revalidate
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
-      const res = await getInsights(dayRef.current, token, opts);
+      const optsUnique = withUniqueCacheBust(opts, seq);
+
+      const res = await getInsights(dayRef.current, token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       if (!res.ok) {
@@ -76,7 +76,13 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      const validated = validateOrExplain(insightsResponseDtoSchema, res.json);
+      if (!validated.ok) {
+        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        return;
+      }
+
+      safeSet({ status: "ready", data: validated.value });
     },
     [getIdToken, initializing, user],
   );

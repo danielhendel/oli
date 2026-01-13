@@ -2,7 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getIntelligenceContext, type TruthGetOptions } from "@/lib/api/usersMe";
-import type { IntelligenceContextDto } from "@/lib/contracts";
+import {
+  intelligenceContextDtoSchema,
+  validateOrExplain,
+  type IntelligenceContextDto,
+} from "@/lib/contracts";
 
 type State =
   | { status: "loading" }
@@ -30,7 +34,9 @@ function emptyIntelligenceContext(uid: string, day: string): IntelligenceContext
   };
 }
 
-export function useIntelligenceContext(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
+export function useIntelligenceContext(
+  day: string,
+): State & { refetch: (opts?: RefetchOpts) => void } {
   const { user, initializing, getIdToken } = useAuth();
 
   const dayRef = useRef(day);
@@ -52,17 +58,12 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
         if (seq === reqSeq.current) setState(next);
       };
 
-      if (initializing) {
+      if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
-      if (!user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
-        return;
-      }
-
-      const token = await getIdToken();
+      const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
 
       if (!token) {
@@ -71,7 +72,6 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
         return;
       }
 
-      // ✅ Stale-while-revalidate
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const res = await getIntelligenceContext(dayRef.current, token, opts);
@@ -89,7 +89,14 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      const validated = validateOrExplain(intelligenceContextDtoSchema, res.json);
+      if (!validated.ok) {
+        // Fail closed even if we previously had ready data.
+        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        return;
+      }
+
+      safeSet({ status: "ready", data: validated.value });
     },
     [getIdToken, initializing, user],
   );

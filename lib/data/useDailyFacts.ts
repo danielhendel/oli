@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDailyFacts, type TruthGetOptions } from "@/lib/api/usersMe";
-import type { DailyFactsDto } from "@/lib/contracts";
+import { dailyFactsDtoSchema, validateOrExplain, type DailyFactsDto } from "@/lib/contracts";
 
 type State =
   | { status: "loading" }
@@ -35,9 +35,6 @@ function emptyDailyFacts(userId: string, day: string): DailyFactsDto {
 function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
   const cb = opts?.cacheBust;
   if (!cb) return opts;
-
-  // Ensure every call is unique even if caller passes the same refreshKey repeatedly.
-  // exactOptionalPropertyTypes-safe: omit cacheBust when not present
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
@@ -47,7 +44,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
   const dayRef = useRef(day);
   dayRef.current = day;
 
-  const requestSeq = useRef(0);
+  const reqSeq = useRef(0);
 
   const [state, setState] = useState<State>({ status: "loading" });
   const stateRef = useRef<State>(state);
@@ -57,28 +54,33 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
 
   const fetchOnce = useCallback(
     async (opts?: RefetchOpts) => {
-      const seq = ++requestSeq.current;
+      const seq = ++reqSeq.current;
 
       const safeSet = (next: State) => {
-        if (seq === requestSeq.current) setState(next);
+        if (seq === reqSeq.current) setState(next);
       };
 
       if (initializing || !user) {
-        // keep any existing ready state (no flicker)
         if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
       const token = await getIdToken(false);
-      if (!token || seq !== requestSeq.current) return;
+      if (seq !== reqSeq.current) return;
 
-      // SWR: do not drop ready data to loading on refetch
+      if (!token) {
+        if (stateRef.current.status === "ready") return;
+        safeSet({ status: "error", error: "No auth token", requestId: null });
+        return;
+      }
+
+      // SWR
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
       const res = await getDailyFacts(dayRef.current, token, optsUnique);
-      if (seq !== requestSeq.current) return;
+      if (seq !== reqSeq.current) return;
 
       if (!res.ok) {
         if (res.kind === "http" && res.status === 404) {
@@ -89,7 +91,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
           return;
         }
 
-        // If we already have ready data, keep it rather than flickering to an error card mid-refresh.
+        // Preserve ready data during background refresh failures (avoid flicker).
         if (stateRef.current.status === "ready") return;
 
         safeSet({
@@ -100,7 +102,14 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      const validated = validateOrExplain(dailyFactsDtoSchema, res.json);
+      if (!validated.ok) {
+        // Fail closed even if we previously had ready data.
+        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        return;
+      }
+
+      safeSet({ status: "ready", data: validated.value });
     },
     [getIdToken, initializing, user],
   );

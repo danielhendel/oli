@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDayTruth, type TruthGetOptions } from "@/lib/api/usersMe";
-import type { DayTruthDto } from "@/lib/contracts";
+import { dayTruthDtoSchema, validateOrExplain, type DayTruthDto } from "@/lib/contracts";
 
 type State =
   | { status: "loading" }
@@ -61,7 +61,6 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      // SWR
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
@@ -81,7 +80,13 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      const validated = validateOrExplain(dayTruthDtoSchema, res.json);
+      if (!validated.ok) {
+        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        return;
+      }
+
+      safeSet({ status: "ready", data: validated.value });
     },
     [getIdToken, initializing, user],
   );
