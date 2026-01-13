@@ -3,12 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDailyFacts, type TruthGetOptions } from "@/lib/api/usersMe";
 import { dailyFactsDtoSchema, validateOrExplain, type DailyFactsDto } from "@/lib/contracts";
+import type { HookState } from "./hookResult";
 
-type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
-  | { status: "ready"; data: DailyFactsDto };
-
+type State = HookState<DailyFactsDto>;
 type RefetchOpts = TruthGetOptions;
 
 function emptyDailyFacts(userId: string, day: string): DailyFactsDto {
@@ -85,7 +82,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
       if (!res.ok) {
         if (res.kind === "http" && res.status === 404) {
           safeSet({
-            status: "ready",
+            status: "empty",
             data: emptyDailyFacts(user.uid, dayRef.current),
           });
           return;
@@ -105,7 +102,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
       const validated = validateOrExplain(dailyFactsDtoSchema, res.json);
       if (!validated.ok) {
         // Fail closed even if we previously had ready data.
-        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        safeSet({ status: "invalid", error: validated.error, requestId: res.requestId });
         return;
       }
 

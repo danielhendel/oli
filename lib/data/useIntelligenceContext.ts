@@ -7,12 +7,9 @@ import {
   validateOrExplain,
   type IntelligenceContextDto,
 } from "@/lib/contracts";
+import type { HookState } from "./hookResult";
 
-type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
-  | { status: "ready"; data: IntelligenceContextDto };
-
+type State = HookState<IntelligenceContextDto>;
 type RefetchOpts = TruthGetOptions;
 
 function emptyIntelligenceContext(uid: string, day: string): IntelligenceContextDto {
@@ -79,7 +76,7 @@ export function useIntelligenceContext(
 
       if (!res.ok) {
         if (res.kind === "http" && res.status === 404) {
-          safeSet({ status: "ready", data: emptyIntelligenceContext(user.uid, dayRef.current) });
+          safeSet({ status: "empty", data: emptyIntelligenceContext(user.uid, dayRef.current) });
           return;
         }
 
@@ -92,7 +89,7 @@ export function useIntelligenceContext(
       const validated = validateOrExplain(intelligenceContextDtoSchema, res.json);
       if (!validated.ok) {
         // Fail closed even if we previously had ready data.
-        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        safeSet({ status: "invalid", error: validated.error, requestId: res.requestId });
         return;
       }
 

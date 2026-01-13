@@ -51,8 +51,10 @@ function formatTodaySummary(input: {
 }): string {
   const parts: string[] = [];
 
-  if (typeof input.facts?.steps === "number") parts.push(`${input.facts.steps.toLocaleString()} steps`);
-  if (typeof input.facts?.sleepMin === "number") parts.push(`${Math.round(input.facts.sleepMin)} min sleep`);
+  if (typeof input.facts?.steps === "number")
+    parts.push(`${input.facts.steps.toLocaleString()} steps`);
+  if (typeof input.facts?.sleepMin === "number")
+    parts.push(`${Math.round(input.facts.sleepMin)} min sleep`);
 
   const effectiveWeightKg =
     typeof input.facts?.weightKg === "number"
@@ -140,13 +142,16 @@ function DataStatusCard(props: {
 
   const factsComputedAt =
     facts.status === "ready" ? facts.data.meta?.computedAt ?? facts.data.computedAt ?? null : null;
-  const ctxComputedAt = ctx.status === "ready" ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
+
+  // ✅ Treat ctx "empty" as a loaded (non-error) state
+  const ctxLoaded = ctx.status === "ready" || ctx.status === "empty";
+  const ctxComputedAt = ctxLoaded ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
 
   const factsFresh = isFreshComputedAt({ computedAtIso: factsComputedAt, latestEventAtIso: latestEventAt });
   const ctxFresh = isFreshComputedAt({ computedAtIso: ctxComputedAt, latestEventAtIso: latestEventAt });
 
   const factsPipelineVersion = facts.status === "ready" ? facts.data.meta?.pipelineVersion ?? null : null;
-  const ctxPipelineVersion = ctx.status === "ready" ? ctx.data.meta?.pipelineVersion ?? null : null;
+  const ctxPipelineVersion = ctxLoaded ? ctx.data.meta?.pipelineVersion ?? null : null;
 
   const factsVersionOk = isCompatiblePipelineVersion({
     pipelineVersion: factsPipelineVersion,
@@ -166,11 +171,13 @@ function DataStatusCard(props: {
     insights.status === "loading" ||
     ctx.status === "loading";
 
+  // ✅ Treat ctx "invalid" as an error
   const anyError =
     dayTruth.status === "error" ||
     facts.status === "error" ||
     insights.status === "error" ||
-    ctx.status === "error";
+    ctx.status === "error" ||
+    ctx.status === "invalid";
 
   const currentWeightKg = facts.status === "ready" ? facts.data.body?.weightKg ?? null : null;
 
@@ -256,6 +263,7 @@ function DataStatusCard(props: {
       (facts.status === "error" ? facts.error : null) ??
       (insights.status === "error" ? insights.error : null) ??
       (ctx.status === "error" ? ctx.error : null) ??
+      (ctx.status === "invalid" ? ctx.error : null) ??
       "Please try again.";
     subtitle = msg;
   } else if (dayTruth.status === "ready" && !hasEvents) {

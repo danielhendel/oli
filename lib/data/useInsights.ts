@@ -3,12 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getInsights, type TruthGetOptions } from "@/lib/api/usersMe";
 import { insightsResponseDtoSchema, validateOrExplain, type InsightsResponseDto } from "@/lib/contracts";
+import type { HookState } from "./hookResult";
 
-type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
-  | { status: "ready"; data: InsightsResponseDto };
-
+type State = HookState<InsightsResponseDto>;
 type RefetchOpts = TruthGetOptions;
 
 function emptyInsights(day: string): InsightsResponseDto {
@@ -66,7 +63,7 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
 
       if (!res.ok) {
         if (res.kind === "http" && res.status === 404) {
-          safeSet({ status: "ready", data: emptyInsights(dayRef.current) });
+          safeSet({ status: "empty", data: emptyInsights(dayRef.current) });
           return;
         }
 
@@ -78,7 +75,7 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
 
       const validated = validateOrExplain(insightsResponseDtoSchema, res.json);
       if (!validated.ok) {
-        safeSet({ status: "error", error: validated.error, requestId: res.requestId });
+        safeSet({ status: "invalid", error: validated.error, requestId: res.requestId });
         return;
       }
 
