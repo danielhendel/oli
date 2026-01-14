@@ -31,6 +31,12 @@ function emptyIntelligenceContext(uid: string, day: string): IntelligenceContext
   };
 }
 
+function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
+  const cb = opts?.cacheBust;
+  if (!cb) return opts;
+  return { ...opts, cacheBust: `${cb}:${seq}` };
+}
+
 export function useIntelligenceContext(
   day: string,
 ): State & { refetch: (opts?: RefetchOpts) => void } {
@@ -71,7 +77,9 @@ export function useIntelligenceContext(
 
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
-      const res = await getIntelligenceContext(dayRef.current, token, opts);
+      const optsUnique = withUniqueCacheBust(opts, seq);
+
+      const res = await getIntelligenceContext(dayRef.current, token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       if (!res.ok) {
@@ -80,6 +88,7 @@ export function useIntelligenceContext(
           return;
         }
 
+        // Preserve ready data during background refresh failures (avoid flicker).
         if (stateRef.current.status === "ready") return;
 
         safeSet({ status: "error", error: res.error, requestId: res.requestId });
