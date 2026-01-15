@@ -21,6 +21,19 @@ export const rawEventSchemaVersionSchema = z.literal(1);
 export const rawEventKindSchema = z.enum(["sleep", "steps", "workout", "weight", "hrv"]);
 
 // -----------------------------
+// Fingerprinting (Idempotency safety)
+// -----------------------------
+
+/**
+ * Fingerprint version for RawEvent idempotency hashing.
+ * Increment only if hashing rules change.
+ */
+export const rawEventFingerprintVersionSchema = z.literal(1);
+
+/** SHA-256 hex string (64 hex chars). */
+export const sha256HexSchema = z.string().regex(/^[a-f0-9]{64}$/i, "Invalid SHA-256 hex");
+
+// -----------------------------
 // Payloads (manual + future-proof day optional)
 // -----------------------------
 
@@ -34,12 +47,6 @@ const manualWindowBaseSchema = z
   })
   .strip();
 
-// IMPORTANT:
-// These payload schemas are intentionally NOT exported with generic names that may collide
-// with other contract modules (e.g., contracts/weight.ts).
-// Consumers should use:
-// - rawEventDocSchema (primary)
-// - rawEventPayloadByKindSchemas (secondary, keyed by kind)
 const manualSleepPayloadSchema = manualWindowBaseSchema
   .extend({
     totalMinutes: z.number().finite().nonnegative(),
@@ -88,7 +95,6 @@ const manualHrvPayloadSchema = z
   })
   .strip();
 
-// Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
   steps: manualStepsPayloadSchema,
@@ -106,6 +112,12 @@ const rawEventBaseSchema = z
     schemaVersion: rawEventSchemaVersionSchema,
     id: z.string().min(1),
     userId: z.string().min(1),
+
+    // Idempotency + replay safety
+    idempotencyKey: z.string().min(1),
+    fingerprintVersion: rawEventFingerprintVersionSchema,
+    payloadHash: sha256HexSchema,
+
     sourceId: z.string().min(1),
     provider: z.string().min(1),
     sourceType: z.string().min(1),
@@ -116,13 +128,6 @@ const rawEventBaseSchema = z
   })
   .strip();
 
-/**
- * Authoritative RawEvent Firestore document schema.
- *
- * - Validates root metadata
- * - Validates payload shape based on `kind`
- * - Keeps provider/sourceType flexible for future integrations
- */
 export const rawEventDocSchema = rawEventBaseSchema.superRefine((val, ctx) => {
   const kind = val.kind;
   const payloadSchema = payloadByKindSchema[kind];
@@ -134,7 +139,6 @@ export const rawEventDocSchema = rawEventBaseSchema.superRefine((val, ctx) => {
       message: `Invalid payload for kind="${kind}"`,
     });
 
-    // Attach flattened payload errors to improve logs/debugging
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: JSON.stringify(parsed.error.flatten()),
@@ -151,10 +155,6 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualHrvPayloadSchema>;
 };
 
-/**
- * Secondary export: payload schemas keyed by canonical kind.
- * This avoids naming collisions with other contract modules.
- */
 export const rawEventPayloadByKindSchemas = {
   sleep: manualSleepPayloadSchema,
   steps: manualStepsPayloadSchema,

@@ -31,6 +31,9 @@ setGlobalOptions({
 import { onRawEventCreated } from "./normalization/onRawEventCreated";
 import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
 
+// ✅ DayTruth (Phase 1 longitudinal replay anchor)
+import { onIntelligenceContextWritten } from "./dayTruth/onIntelligenceContextWritten";
+
 // Scheduled recompute jobs
 import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
 import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
@@ -49,11 +52,7 @@ import { recomputeDailyIntelligenceContextAdminHttp } from "./http/recomputeDail
 // Helpers (v1)
 // =============================
 
-function defaultGeneralProfile(user: {
-  uid: string;
-  displayName?: string | null;
-  email?: string | null;
-}) {
+function defaultGeneralProfile(user: { uid: string; displayName?: string | null; email?: string | null }) {
   const now = admin.firestore.FieldValue.serverTimestamp();
 
   return {
@@ -96,6 +95,9 @@ export const onAuthCreate = functionsV1
 // Firestore triggers
 export { onRawEventCreated };
 export { onCanonicalEventCreated };
+
+// ✅ DayTruth (Phase 1 longitudinal replay anchor)
+export { onIntelligenceContextWritten };
 
 // Scheduled recompute jobs
 export { onDailyFactsRecomputeScheduled };

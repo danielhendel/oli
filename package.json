@@ -14,9 +14,7 @@
     "format:check": "prettier --check .",
     "test": "jest",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
-
     "check:client-firestore": "node scripts/ci/check-client-firestore.mjs",
-
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -42,6 +40,7 @@
     "@types/node": "^20.11.30",
     "@types/react": "~19.0.10",
     "@types/react-native": "^0.72.8",
+    "@types/supertest": "^6.0.3",
     "babel-plugin-module-resolver": "^5.0.2",
     "cors": "^2.8.5",
     "eslint": "^9.39.2",
@@ -57,6 +56,7 @@
     "patch-package": "^8.0.1",
     "prettier": "^3.6.2",
     "rate-limiter-flexible": "^5.0.5",
+    "supertest": "^7.2.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.50.1",
     "zod": "^3.23.8"

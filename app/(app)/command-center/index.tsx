@@ -331,14 +331,15 @@ function DataStatusCard(props: {
       </View>
 
       {__DEV__ ? (
-        <DevPipelineOverlay
-          canonicalAt={canonicalAt}
-          factsAt={factsComputedAt}
-          contextAt={ctxComputedAt}
-          factsPv={factsPipelineVersion}
-          ctxPv={ctxPipelineVersion}
-        />
-      ) : null}
+  <DevPipelineOverlay
+    canonicalAt={canonicalAt ?? null}
+    factsAt={factsComputedAt ?? null}
+    contextAt={ctxComputedAt ?? null}
+    factsPv={factsPipelineVersion ?? null}
+    ctxPv={ctxPipelineVersion ?? null}
+  />
+) : null}
+
     </View>
   );
 }

@@ -1,5 +1,6 @@
 // lib/data/useDayTruth.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDayTruth, type TruthGetOptions } from "@/lib/api/usersMe";
 import { dayTruthDtoSchema, validateOrExplain, type DayTruthDto } from "@/lib/contracts";
@@ -8,12 +9,14 @@ import type { HookState } from "./hookResult";
 type State = HookState<DayTruthDto>;
 type RefetchOpts = TruthGetOptions;
 
-function emptyDayTruth(day: string): DayTruthDto {
-  return {
+function emptyDayTruth(userId: string, day: string): DayTruthDto {
+  return dayTruthDtoSchema.parse({
+    userId,
     day,
-    eventsCount: 0,
     latestCanonicalEventAt: null,
-  };
+    eventsCount: 0,
+    insightsCount: 0,
+  });
 }
 
 function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
@@ -58,6 +61,7 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
+      // SWR: only show loading if we don't already have ready data
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
@@ -67,13 +71,21 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
 
       if (!res.ok) {
         if (res.kind === "http" && res.status === 404) {
-          safeSet({ status: "empty", data: emptyDayTruth(dayRef.current) });
+          safeSet({
+            status: "empty",
+            data: emptyDayTruth(user.uid, dayRef.current),
+          });
           return;
         }
 
+        // Preserve ready data during background refresh failures (avoid flicker).
         if (stateRef.current.status === "ready") return;
 
-        safeSet({ status: "error", error: res.error, requestId: res.requestId });
+        safeSet({
+          status: "error",
+          error: res.error,
+          requestId: res.requestId,
+        });
         return;
       }
 
@@ -83,7 +95,17 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      safeSet({ status: "ready", data: validated.value });
+      // ✅ Normalize to satisfy the *consumer* DTO contract:
+      // Some schema versions may treat these fields as optional, but UI expects them present.
+      const dto: DayTruthDto = {
+        ...validated.value,
+        day: validated.value.day,
+        latestCanonicalEventAt: validated.value.latestCanonicalEventAt ?? null,
+        eventsCount: validated.value.eventsCount ?? 0,
+        insightsCount: validated.value.insightsCount ?? 0,
+      };
+
+      safeSet({ status: "ready", data: dto });
     },
     [getIdToken, initializing, user],
   );
@@ -92,5 +114,11 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
     void fetchOnce();
   }, [fetchOnce, day, user?.uid]);
 
-  return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
+  return useMemo(
+    () => ({
+      ...state,
+      refetch: fetchOnce,
+    }),
+    [state, fetchOnce],
+  );
 }

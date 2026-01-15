@@ -38,17 +38,8 @@ const commitBatches = async (batches: WriteBatch[]): Promise<void> => {
 };
 
 /**
- * Scheduled job:
- *  - Runs daily (UTC), after Insights recompute
- *  - For each user with DailyFacts on targetDate:
- *      - Load Insights for that day
- *      - Build DailyIntelligenceContext doc
- *      - Write to /users/{userId}/intelligenceContext/{YYYY-MM-DD}
- *
- * Firestore paths:
- *  - Input:  /users/{userId}/dailyFacts/{yyyy-MM-dd}
- *  - Input:  /users/{userId}/insights/{yyyy-MM-dd}_{kind}
- *  - Output: /users/{userId}/intelligenceContext/{yyyy-MM-dd}
+ * PHASE 1 INVARIANT:
+ * - Recompute must be authoritative (no stale fields). Therefore writes MUST NOT use merge:true.
  */
 export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
   {
@@ -108,7 +99,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       const insightsSnap = await userRef.collection("insights").where("date", "==", targetDate).get();
       const insightsForDay = insightsSnap.docs.map((d) => d.data() as Insight);
 
-      // ✅ Truth anchor for readiness: latest canonical event timestamp for the day
+      // Truth anchor for readiness: latest canonical event timestamp for the day
       const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
       const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
@@ -135,23 +126,23 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       }
 
       const outRef = userRef.collection("intelligenceContext").doc(targetDate);
-      currentBatch.set(
-        outRef,
-        {
-          ...intelligenceDoc,
-          meta: buildPipelineMeta({
-            computedAt: latestCanonicalEventAt,
-            source: {
-              eventsForDay: eventsForDay.length,
-              insightsWritten: insightsForDay.length,
-            },
-          }),
-        },
-        { merge: true },
-      );
+
+      // ✅ AUTHORITATIVE WRITE (no merge) — prevents stale fields
+      currentBatch.set(outRef, {
+        ...intelligenceDoc,
+        meta: buildPipelineMeta({
+          computedAt, // ✅ actual compute time (not canonical timestamp)
+          source: {
+            eventsForDay: eventsForDay.length,
+            insightsWritten: insightsForDay.length,
+            latestCanonicalEventAt, // ✅ carry anchor explicitly
+          },
+        }),
+      });
+
       currentOps += 1;
 
-      // ✅ Latency logging (canonical → context)
+      // Latency logging (canonical → context)
       const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
       const warnAfterSec = 30;
 

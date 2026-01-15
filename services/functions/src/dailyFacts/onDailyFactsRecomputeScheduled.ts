@@ -15,6 +15,8 @@ import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 // ✅ Latency logging (canonical → dailyFacts)
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
 
+const DAILY_FACTS_SCHEMA_VERSION = 1 as const;
+
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -51,6 +53,9 @@ const commitBatches = async (batches: WriteBatch[]): Promise<void> => {
  *  - Input:  /users/{userId}/events/{eventId} (where day == targetDate)
  *  - Input:  /users/{userId}/dailyFacts/{yyyy-MM-dd} (history window)
  *  - Output: /users/{userId}/dailyFacts/{yyyy-MM-dd}
+ *
+ * PHASE 1 INVARIANT:
+ * - Recompute must be authoritative (no stale fields). Therefore writes MUST NOT use merge:true.
  */
 export const onDailyFactsRecomputeScheduled = onSchedule(
   {
@@ -117,7 +122,6 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       // Load up-to-6 prior days for enrichment window
       const startDate = (() => {
         const baseDate = new Date(Date.parse(`${targetDate}T00:00:00.000Z`));
-        // If parsing fails (shouldn't), fallback to computedAt day boundary:
         if (Number.isNaN(baseDate.getTime())) return targetDate;
         baseDate.setUTCDate(baseDate.getUTCDate() - 6);
         return toYmdUtc(baseDate);
@@ -144,20 +148,19 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
 
       const outRef = userRef.collection("dailyFacts").doc(targetDate);
 
-      currentBatch.set(
-        outRef,
-        {
-          ...enriched,
-          meta: buildPipelineMeta({
-            computedAt, // ✅ actual compute time
-            source: {
-              eventsForDay: eventsForDay.length,
-              latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
-            },
-          }),
-        },
-        { merge: true },
-      );
+      // ✅ AUTHORITATIVE WRITE (merge: false) — prevents stale fields
+      currentBatch.set(outRef, {
+        ...enriched,
+        schemaVersion: DAILY_FACTS_SCHEMA_VERSION,
+        meta: buildPipelineMeta({
+          computedAt, // ✅ actual compute time
+          source: {
+            eventsForDay: eventsForDay.length,
+            latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
+          },
+        }),
+      });
+
       currentOps += 1;
 
       // ✅ Latency logging (canonical → dailyFacts)

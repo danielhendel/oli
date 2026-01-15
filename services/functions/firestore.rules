@@ -107,6 +107,28 @@ service cloud.firestore {
                     && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
+
+      // ----------------------------------------------------------
+      // DAY TRUTH (IMMUTABLE DAILY SNAPSHOT + REVISIONS)
+      //
+      // Phase 1: Historical replay anchor.
+      //
+      // ❗ CRITICAL INVARIANT:
+      // - Clients may READ their dayTruth snapshots
+      // - Clients may NEVER write
+      // - Revisions are also read-only to clients
+      // ----------------------------------------------------------
+      match /dayTruth/{dateId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+
+        match /revisions/{revisionId} {
+          allow read: if request.auth != null
+                      && request.auth.uid == userId;
+          allow create, update, delete: if false;
+        }
+      }
     }
   }
 }
