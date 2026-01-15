@@ -100,7 +100,7 @@ function checkClientNoDerivedWrites() {
   if (!targets.length) return;
 
   const files = targets.flatMap((t) =>
-    walk(t, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "lib"] })
+    walk(t, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "lib"] }),
   );
 
   const writeFns = /\b(addDoc|setDoc|updateDoc|deleteDoc|writeBatch|runTransaction)\b/;
@@ -119,7 +119,7 @@ function checkClientNoDerivedWrites() {
     fail(
       `CHECK 2 (Client no derived writes) failed:\n` +
         offenders.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: clients must only read derived collections; all writes go through the backend ingestion API.`
+        `\n\nFix: clients must only read derived collections; all writes go through the backend ingestion API.`,
     );
   }
 
@@ -155,7 +155,7 @@ function checkApiIdempotency() {
     fail(
       `CHECK 3 (API idempotency) failed:\n` +
         offenders.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: ingestion POST routes must read Idempotency-Key and use deterministic write IDs (or equivalent request record).`
+        `\n\nFix: ingestion POST routes must read Idempotency-Key and use deterministic write IDs (or equivalent request record).`,
     );
   }
 
@@ -199,7 +199,7 @@ function checkApiNoGlobalFirestoreRootCollections() {
     fail(
       `CHECK 4 (API root collection must be users) failed:\n` +
         offenders.map((o) => `- ${o.file} — root collection "${o.col}"`).join("\n") +
-        `\n\nFix: API must only start Firestore paths at collection("users"), then scope by uid.`
+        `\n\nFix: API must only start Firestore paths at collection("users"), then scope by uid.`,
     );
   }
 
@@ -242,7 +242,7 @@ function checkAccountDeleteExecutorExists() {
     fail(
       `CHECK 5 (Account deletion executor) failed:\n` +
         `- services/api/src/routes/account.ts exposes an account deletion route, but no Pub/Sub executor was found for topic "${topic}".\n\n` +
-        `Fix: add a Functions Gen2 onMessagePublished("${topic}") executor that performs deletion.`
+        `Fix: add a Functions Gen2 onMessagePublished("${topic}") executor that performs deletion.`,
     );
   }
 
@@ -250,16 +250,23 @@ function checkAccountDeleteExecutorExists() {
 }
 
 /**
- * CHECK 6 — Invariant documentation must be binding, not scaffolding
+ * CHECK 6 — Invariants map is binding AND cannot drift (no orphan invariants, no orphan checks)
+ *
+ * Enforces:
+ *  - docs/INVARIANTS_MAP.md must exist
+ *  - no TODO/TBD/placeholder language
+ *  - every CHECK implemented in this script appears in the map
+ *  - every CHECK referenced in the map exists in this script
+ *  - every invariant row has enforcement + verification fields
+ *  - every "Files:" reference in the map must exist on disk (enforcement is real)
  */
-function checkInvariantDocsAreBinding() {
+function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
   const docPath = path.join(ROOT, "docs", "INVARIANTS_MAP.md");
-
   if (!exists(docPath)) {
     fail(
-      `CHECK 6 (Invariant docs binding) failed:\n` +
+      `CHECK 6 (Invariant map drift) failed:\n` +
         `- docs/INVARIANTS_MAP.md is missing\n\n` +
-        `Fix: restore the invariant enforcement map.`
+        `Fix: restore the invariant enforcement map.`,
     );
   }
 
@@ -268,24 +275,148 @@ function checkInvariantDocsAreBinding() {
   const forbidden = /\b(TODO|TBD|placeholder)\b/i;
   if (forbidden.test(text)) {
     fail(
-      `CHECK 6 (Invariant docs binding) failed:\n` +
+      `CHECK 6 (Invariant map drift) failed:\n` +
         `- docs/INVARIANTS_MAP.md contains placeholder language (TODO/TBD/placeholder)\n\n` +
-        `Fix: replace placeholders with concrete enforcement details.`
+        `Fix: replace placeholders with concrete enforcement details.`,
     );
   }
 
-  const requiredChecks = ["CHECK 1", "CHECK 2", "CHECK 3", "CHECK 4", "CHECK 5"];
-  const missing = requiredChecks.filter((c) => !text.includes(c));
+  // Extract CHECK ids mentioned anywhere in the doc (authoritative list).
+  const mentioned = new Set();
+  for (const m of text.matchAll(/\bCHECK\s+(\d+)\b/g)) {
+    mentioned.add(Number(m[1]));
+  }
 
-  if (missing.length) {
+  const expected = new Set(expectedCheckIds);
+
+  const missingInDoc = [...expected].filter((id) => !mentioned.has(id)).sort((a, b) => a - b);
+  const extraInDoc = [...mentioned].filter((id) => !expected.has(id)).sort((a, b) => a - b);
+
+  if (missingInDoc.length || extraInDoc.length) {
+    const lines = [
+      `CHECK 6 (Invariant map drift) failed:`,
+      ``,
+      `Invariant map and enforcement script are out of sync.`,
+      ``,
+      ...(missingInDoc.length
+        ? [
+            `Missing in docs/INVARIANTS_MAP.md (implemented in code but not mapped):`,
+            ...missingInDoc.map((id) => `- CHECK ${id}`),
+            ``,
+          ]
+        : []),
+      ...(extraInDoc.length
+        ? [
+            `Missing in scripts/ci/check-invariants.mjs (mapped in docs but not implemented):`,
+            ...extraInDoc.map((id) => `- CHECK ${id}`),
+            ``,
+          ]
+        : []),
+      `Fix: update docs/INVARIANTS_MAP.md and/or scripts/ci/check-invariants.mjs so they match exactly.`,
+    ];
+    fail(lines.join("\n"));
+  }
+
+  // Parse the invariant index table rows: ensure no invariant exists without enforcement + verification.
+  const tableRowRe = /^\|\s*(I-\d+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/gm;
+  const rows = [];
+  for (const m of text.matchAll(tableRowRe)) {
+    rows.push({
+      id: String(m[1]).trim(),
+      invariant: String(m[2]).trim(),
+      enforcedWhere: String(m[3]).trim(),
+      verifiedBy: String(m[4]).trim(),
+      breakage: String(m[5]).trim(),
+    });
+  }
+
+  if (!rows.length) {
     fail(
-      `CHECK 6 (Invariant docs binding) failed:\n` +
-        `- docs/INVARIANTS_MAP.md does not reference: ${missing.join(", ")}\n\n` +
-        `Fix: explicitly link invariants to their enforcement checks.`
+      `CHECK 6 (Invariant map drift) failed:\n` +
+        `- Could not parse any invariant rows from the Invariant Index table.\n\n` +
+        `Fix: ensure the Invariant Index is a valid markdown table with rows starting "| I-.." `,
     );
   }
 
-  console.log("✅ CHECK 6 passed: Invariant documentation is present, concrete, and enforcement-linked.");
+  const orphanInvariants = [];
+  for (const r of rows) {
+    if (!r.enforcedWhere || r.enforcedWhere === "-" || r.enforcedWhere.toLowerCase() === "tbd") {
+      orphanInvariants.push(`${r.id} — missing "Enforced Where"`);
+    }
+    if (!r.verifiedBy || r.verifiedBy === "-" || r.verifiedBy.toLowerCase() === "tbd") {
+      orphanInvariants.push(`${r.id} — missing "Verified By"`);
+    }
+  }
+  if (orphanInvariants.length) {
+    fail(
+      `CHECK 6 (No orphan invariants) failed:\n` +
+        orphanInvariants.map((s) => `- ${s}`).join("\n") +
+        `\n\nFix: every invariant must declare an enforcement mechanism and a verification gate.`,
+    );
+  }
+
+  // Verify that any "CHECK N" referenced in the table is a real implemented check.
+  const tableCheckRefs = new Set();
+  for (const r of rows) {
+    for (const m of r.verifiedBy.matchAll(/\bCHECK\s+(\d+)\b/g)) {
+      tableCheckRefs.add(Number(m[1]));
+    }
+  }
+  const missingChecksFromTable = [...tableCheckRefs]
+    .filter((id) => !expected.has(id))
+    .sort((a, b) => a - b);
+  if (missingChecksFromTable.length) {
+    fail(
+      `CHECK 6 (Invariant table references missing checks) failed:\n` +
+        missingChecksFromTable.map((id) => `- CHECK ${id}`).join("\n") +
+        `\n\nFix: either implement the missing checks in scripts/ci/check-invariants.mjs or remove them from the map.`,
+    );
+  }
+
+  // Enforcement must be real: verify that any backticked repo path under "Files:" exists.
+  // We intentionally validate only relative paths that look like repo files.
+  const filePathRe = /`([a-zA-Z0-9_.-]+(?:\/[a-zA-Z0-9_.-]+)+)`/g;
+  const fileRefs = new Set();
+
+  for (const m of text.matchAll(filePathRe)) {
+    const p = String(m[1]).trim();
+
+    // Ignore IAM roles and principals (not repo files)
+    if (p.startsWith("roles/")) continue;
+    if (p.startsWith("serviceAccount:")) continue;
+    if (p.startsWith("user:")) continue;
+    if (p.startsWith("group:")) continue;
+    if (p.startsWith("domain:")) continue;
+    if (p === "allUsers" || p === "allAuthenticatedUsers") continue;
+
+    // Ignore CLI snippets and URLs
+    if (p.startsWith("gcloud ")) continue;
+    if (p.includes("://")) continue;
+
+    // Only treat values that look like real repo files as enforceable paths.
+    // Require a file extension (.ts, .json, .yml, .tf, .md, etc.)
+    if (!/\.[a-z0-9]{1,8}$/i.test(p)) continue;
+
+    fileRefs.add(p);
+  }
+
+  const missingFiles = [];
+  for (const p of [...fileRefs]) {
+    const abs = path.join(ROOT, p);
+    if (!exists(abs)) missingFiles.push(p);
+  }
+
+  if (missingFiles.length) {
+    fail(
+      `CHECK 6 (Invariant map references missing files) failed:\n` +
+        missingFiles.map((p) => `- ${p}`).join("\n") +
+        `\n\nFix: either restore the missing files or update docs/INVARIANTS_MAP.md so it only references real enforcement locations.`,
+    );
+  }
+
+  console.log(
+    "✅ CHECK 6 passed: INVARIANTS_MAP is binding and perfectly aligned with enforcement (no drift, no orphan invariants).",
+  );
 }
 
 /**
@@ -306,7 +437,7 @@ function checkIosPodsNotCommitted() {
         `Fix:\n` +
         `1) Ensure .gitignore includes "ios/Pods/"\n` +
         `2) Remove tracked Pods: git rm -r --cached ios/Pods && commit\n` +
-        `3) Pods must be generated locally (pod install / expo prebuild), never committed`
+        `3) Pods must be generated locally (pod install / expo prebuild), never committed`,
     );
   }
 
@@ -387,7 +518,7 @@ function checkPatchPackageIntegrity() {
     fail(
       `CHECK 8 (patch-package integrity) failed:\n` +
         `- patches/ contains patch files, but package-lock.json is missing or unreadable.\n\n` +
-        `Fix: commit package-lock.json so patch integrity can be validated.`
+        `Fix: commit package-lock.json so patch integrity can be validated.`,
     );
   }
 
@@ -416,7 +547,7 @@ function checkPatchPackageIntegrity() {
 
     if (installed !== parsed.version) {
       offenders.push(
-        `- patches/${f} — version mismatch for "${parsed.pkg}": patch=${parsed.version}, lock=${installed}`
+        `- patches/${f} — version mismatch for "${parsed.pkg}": patch=${parsed.version}, lock=${installed}`,
       );
       continue;
     }
@@ -429,7 +560,7 @@ function checkPatchPackageIntegrity() {
         `\n\nFix options:\n` +
         `1) Rename patch version to match lock, OR\n` +
         `2) Regenerate patch after upgrading deps, OR\n` +
-        `3) Remove obsolete patch.`
+        `3) Remove obsolete patch.`,
     );
   }
 
@@ -470,7 +601,7 @@ function checkApiRoutesNoDirectAdminFirestore() {
         offenders.join("\n") +
         `\n\nFix:\n` +
         `- Routes must import Firestore access ONLY via a single adapter module (e.g. services/api/src/db.ts or services/api/src/firebaseAdmin.ts).\n` +
-        `- That adapter is where we enforce scoping/instrumentation.\n`
+        `- That adapter is where we enforce scoping/instrumentation.\n`,
     );
   }
 
@@ -558,8 +689,7 @@ function checkIamNoEditorRole() {
     const msg =
       offenders
         .map((o) => `- roles/editor members:\n  ${o.members.map((m) => `- ${m}`).join("\n  ")}`)
-        .join("\n") +
-      "\n\nFix: remove roles/editor bindings from the project IAM policy.";
+        .join("\n") + "\n\nFix: remove roles/editor bindings from the project IAM policy.";
     fail(`CHECK 11 (IAM: roles/editor forbidden) failed:\n${msg}`);
   }
 
@@ -627,7 +757,9 @@ function checkRuntimeServiceAccountsAllowlist() {
 
     if (name === EXPECTED.cloudRunApiServiceName) {
       if (sa !== EXPECTED.apiRuntimeSa) {
-        runOffenders.push(`- Cloud Run ${name}: serviceAccountName=${String(sa)} (expected ${EXPECTED.apiRuntimeSa})`);
+        runOffenders.push(
+          `- Cloud Run ${name}: serviceAccountName=${String(sa)} (expected ${EXPECTED.apiRuntimeSa})`,
+        );
       }
     }
   }
@@ -647,7 +779,9 @@ function checkRuntimeServiceAccountsAllowlist() {
     const sa = f?.serviceConfig?.serviceAccountEmail;
     if (!name) continue;
     if (sa !== EXPECTED.functionsRuntimeSa) {
-      fn2Offenders.push(`- Functions v2 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`);
+      fn2Offenders.push(
+        `- Functions v2 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`,
+      );
     }
   }
 
@@ -655,7 +789,7 @@ function checkRuntimeServiceAccountsAllowlist() {
     fn2Offenders.push("- Functions v2 snapshot is empty (unexpected)");
   }
 
-  // Cloud Functions v1 list snapshot (only enforce if present in snapshot; must be runtime SA)
+  // Cloud Functions v1 list snapshot
   const fn1Path = path.join(ROOT, "docs", "iam", "functions-v1-us-central1.snapshot.json");
   const fn1 = readJson(fn1Path);
   const fn1Arr = Array.isArray(fn1) ? fn1 : [];
@@ -666,9 +800,10 @@ function checkRuntimeServiceAccountsAllowlist() {
     const sa = f?.serviceAccountEmail;
     if (!name) continue;
 
-    // Enforce only for v1 functions that actually exist in this repo (snapshot-driven)
     if (sa && sa !== EXPECTED.functionsRuntimeSa) {
-      fn1Offenders.push(`- Functions v1 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`);
+      fn1Offenders.push(
+        `- Functions v1 ${name}: serviceAccountEmail=${String(sa)} (expected ${EXPECTED.functionsRuntimeSa})`,
+      );
     }
   }
 
@@ -677,31 +812,233 @@ function checkRuntimeServiceAccountsAllowlist() {
     fail(
       `CHECK 13 (Runtime service accounts allowlist) failed:\n` +
         offenders.join("\n") +
-        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`
+        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`,
     );
   }
 
   console.log("✅ CHECK 13 passed: Cloud Run + Functions runtime identities match the allowlist.");
 }
 
+/**
+ * CHECK 14 — Cloud Run must not be publicly invokable AND must be invokable by API Gateway
+ */
+function checkCloudRunInvokerNotPublicAndGatewayOnly() {
+  const candidates = [
+    path.join(ROOT, "cloudrun-oli-api-iam.json"),
+    path.join(ROOT, "docs", "iam", "cloudrun-oli-api-iam.snapshot.json"),
+  ];
+
+  const found = candidates.find((p) => exists(p));
+  if (!found) {
+    fail(
+      `CHECK 14 (Cloud Run invoker policy snapshot present) failed:\n` +
+        `- Missing Cloud Run IAM policy snapshot for oli-api.\n\n` +
+        `Expected one of:\n` +
+        candidates.map((p) => `- ${rel(p)}`).join("\n") +
+        `\n\nFix (generate + commit snapshot):\n` +
+        `  gcloud run services get-iam-policy oli-api --project=oli-staging-fdbba --region=us-central1 --format=json > cloudrun-oli-api-iam.json`,
+    );
+  }
+
+  const policy = readJson(found);
+  const bindings = Array.isArray(policy.bindings) ? policy.bindings : [];
+
+  const invokerBindings = bindings.filter((b) => b?.role === "roles/run.invoker");
+  const invokerMembers = invokerBindings.flatMap((b) => (Array.isArray(b?.members) ? b.members : []));
+
+  const publicMembers = invokerMembers.filter((m) => m === "allUsers" || m === "allAuthenticatedUsers");
+  if (publicMembers.length) {
+    fail(
+      `CHECK 14 (Cloud Run not public) failed:\n` +
+        `- ${rel(found)} grants roles/run.invoker to:\n` +
+        publicMembers.map((m) => `  - ${m}`).join("\n") +
+        `\n\nFix: remove allUsers/allAuthenticatedUsers from Cloud Run invoker bindings and re-snapshot.`,
+    );
+  }
+
+  const hasGatewaySa = invokerMembers.some((m) => /gcp-sa-apigateway\.iam\.gserviceaccount\.com$/.test(String(m)));
+  if (!hasGatewaySa) {
+    fail(
+      `CHECK 14 (Gateway must be invoker) failed:\n` +
+        `- ${rel(found)} does not include the API Gateway service account as a roles/run.invoker member.\n\n` +
+        `Fix: grant roles/run.invoker on oli-api to the API Gateway managed service account and re-snapshot.`,
+    );
+  }
+
+  console.log("✅ CHECK 14 passed: Cloud Run is not public and API Gateway is an authorized invoker.");
+}
+
+/**
+ * CHECK 15 — CanonicalEventKind must align exactly with ingestion rawEventKindSchema
+ */
+function checkCanonicalKindsNoDrift() {
+  const rawEventPath = path.join(ROOT, "lib", "contracts", "rawEvent.ts");
+  const healthPath = path.join(ROOT, "services", "functions", "src", "types", "health.ts");
+  if (!exists(rawEventPath) || !exists(healthPath)) return;
+
+  const rawText = readText(rawEventPath);
+  const healthText = readText(healthPath);
+
+  const rawEnumMatch = rawText.match(/rawEventKindSchema\s*=\s*z\.enum\s*\(\s*\[([\s\S]*?)\]\s*\)/m);
+  if (!rawEnumMatch) {
+    fail(
+      `CHECK 15 (Canonical kind drift) failed:\n` +
+        `- Could not parse rawEventKindSchema enum from ${rel(rawEventPath)}\n\n` +
+        `Fix: ensure rawEventKindSchema is declared as z.enum([...]) in lib/contracts/rawEvent.ts.`,
+    );
+  }
+
+  const rawEnumBody = String(rawEnumMatch[1]);
+  const rawKinds = [...rawEnumBody.matchAll(/["']([^"']+)["']/g)].map((m) => String(m[1]));
+
+  const canonicalMatch = healthText.match(/export\s+type\s+CanonicalEventKind\s*=\s*([\s\S]*?);/m);
+  if (!canonicalMatch) {
+    fail(
+      `CHECK 15 (Canonical kind drift) failed:\n` +
+        `- Could not parse CanonicalEventKind union from ${rel(healthPath)}\n\n` +
+        `Fix: ensure CanonicalEventKind is declared as a string-literal union in services/functions/src/types/health.ts.`,
+    );
+  }
+
+  const canonicalBody = String(canonicalMatch[1]);
+  const canonicalKinds = [...canonicalBody.matchAll(/["']([^"']+)["']/g)].map((m) => String(m[1]));
+
+  const a = new Set(rawKinds);
+  const b = new Set(canonicalKinds);
+
+  const onlyInRaw = [...a].filter((k) => !b.has(k)).sort();
+  const onlyInCanonical = [...b].filter((k) => !a.has(k)).sort();
+
+  if (onlyInRaw.length || onlyInCanonical.length) {
+    const lines = [
+      `CHECK 15 (Canonical kind drift) failed:`,
+      ``,
+      `rawEventKindSchema (ingestion) and CanonicalEventKind (backend) must match EXACTLY.`,
+      ``,
+      onlyInRaw.length ? `Present only in rawEventKindSchema: ${onlyInRaw.join(", ")}` : null,
+      onlyInCanonical.length ? `Present only in CanonicalEventKind: ${onlyInCanonical.join(", ")}` : null,
+      ``,
+      `Files:`,
+      `- ${rel(rawEventPath)}`,
+      `- ${rel(healthPath)}`,
+      ``,
+      `Fix: update CanonicalEventKind and/or rawEventKindSchema so the allowed kinds match.`,
+    ].filter(Boolean);
+
+    fail(lines.join("\n"));
+  }
+
+  console.log("✅ CHECK 15 passed: CanonicalEventKind matches rawEventKindSchema (no kind drift).");
+}
+
+/**
+ * CHECK 16 — Phase 1 scope contract must exist and be non-trivial
+ */
+function checkPhase1ScopeDoc() {
+  const p = path.join(ROOT, "docs", "PHASE_1_SCOPE.md");
+  if (!exists(p)) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- Missing required file: docs/PHASE_1_SCOPE.md\n\n` +
+        `Fix: add docs/PHASE_1_SCOPE.md (binding Phase 1 scope contract).`,
+    );
+  }
+
+  const text = readText(p).trim();
+
+  if (text.length < 400) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- docs/PHASE_1_SCOPE.md is too small (${text.length} chars). It must be non-trivial and binding.\n\n` +
+        `Fix: expand Phase 1 scope with required capabilities and invariants.`,
+    );
+  }
+
+  const hasPlaceholders = /\b(TODO|TBD|PLACEHOLDER)\b/i.test(text);
+  if (hasPlaceholders) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- docs/PHASE_1_SCOPE.md contains placeholder language (TODO/TBD/PLACEHOLDER).\n\n` +
+        `Fix: replace placeholders with binding requirements.`,
+    );
+  }
+
+  console.log("✅ CHECK 16 passed: Phase 1 scope contract exists and is non-trivial.");
+}
+
+/**
+ * CHECK 17 — Cloud Run API must not write Canonical/Derived directly (RawEvents-first)
+ */
+function checkApiRawEventsFirstNoDerivedTargets() {
+  const base = path.join(ROOT, "services", "api", "src");
+  if (!exists(base)) return;
+
+  const files = walk(base, {
+    includeExts: [".ts"],
+    ignoreDirs: ["__tests__", "dist", "lib"],
+  });
+
+  const forbidden = [
+    /\bcollection\s*\(\s*["']events["']\s*\)/,
+    /\bcollection\s*\(\s*["']dailyFacts["']\s*\)/,
+    /\bcollection\s*\(\s*["']insights["']\s*\)/,
+    /\bcollection\s*\(\s*["']intelligenceContext["']\s*\)/,
+  ];
+
+  const offenders = [];
+
+  for (const f of files) {
+    const text = readText(f);
+    for (const rx of forbidden) {
+      if (rx.test(text)) {
+        offenders.push(rel(f));
+        break;
+      }
+    }
+  }
+
+  if (offenders.length) {
+    fail(
+      `CHECK 17 (API RawEvents-first) failed:\n` +
+        offenders.map((p) => `- ${p}`).join("\n") +
+        `\n\nFix: API must not write/read Canonical/Derived collections directly. All ingestion must land as RawEvents; derived truth is backend compute only.`,
+    );
+  }
+
+  console.log("✅ CHECK 17 passed: API does not target derived/canonical collections directly.");
+}
+
+// ---- CHECK registry (single source of truth) ----
+const CHECKS = [
+  { id: 1, fn: checkAdminHttpNotPublic },
+  { id: 2, fn: checkClientNoDerivedWrites },
+  { id: 3, fn: checkApiIdempotency },
+  { id: 4, fn: checkApiNoGlobalFirestoreRootCollections },
+  { id: 5, fn: checkAccountDeleteExecutorExists },
+  // CHECK 6 is special: it validates map drift and orphan invariants against THIS registry
+  { id: 7, fn: checkIosPodsNotCommitted },
+  { id: 8, fn: checkPatchPackageIntegrity },
+  { id: 9, fn: checkApiRoutesNoDirectAdminFirestore },
+  { id: 10, fn: checkIamSnapshotsExist },
+  { id: 11, fn: checkIamNoEditorRole },
+  { id: 12, fn: checkIamNoDefaultServiceAccountBindings },
+  { id: 13, fn: checkRuntimeServiceAccountsAllowlist },
+  { id: 14, fn: checkCloudRunInvokerNotPublicAndGatewayOnly },
+  { id: 15, fn: checkCanonicalKindsNoDrift },
+  { id: 16, fn: checkPhase1ScopeDoc },
+  { id: 17, fn: checkApiRawEventsFirstNoDerivedTargets },
+];
+
 function main() {
   console.log("Running Oli constitutional invariant CI checks...\n");
 
-  checkAdminHttpNotPublic();
-  checkClientNoDerivedWrites();
-  checkApiIdempotency();
-  checkApiNoGlobalFirestoreRootCollections();
-  checkAccountDeleteExecutorExists();
-  checkInvariantDocsAreBinding();
-  checkIosPodsNotCommitted();
-  checkPatchPackageIntegrity();
-  checkApiRoutesNoDirectAdminFirestore();
+  const expectedCheckIds = CHECKS.map((c) => c.id).concat([6]).sort((a, b) => a - b);
 
-  // IAM / security-blocking checks (Sprint 1)
-  checkIamSnapshotsExist(); // CHECK 10
-  checkIamNoEditorRole(); // CHECK 11
-  checkIamNoDefaultServiceAccountBindings(); // CHECK 12
-  checkRuntimeServiceAccountsAllowlist(); // CHECK 13
+  // Run all checks except CHECK 6 (special drift/orphan check)
+  for (const c of CHECKS) c.fn();
+
+  // Run drift/orphan enforcement against the registry
+  checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds); // CHECK 6
 
   console.log("\n✅ All invariant checks passed.");
 }

@@ -30,13 +30,14 @@ This file is required by CI and is audited.
 | I-04 | Only backend compute writes derived truth | Firestore rules (`allow write: if false`) | Firestore rules test + manual review | Client bypasses pipeline |
 | I-05 | Canonical events are immutable once written | Functions design + no update paths | Code review | Historical truth mutates |
 | I-06 | Account deletion deletes **all** user data and auth | Deletion executor function | **CHECK 5** + manual verification + logs | GDPR / App Store violation |
-| I-07 | Cloud Run service is not publicly invokable | Cloud Run IAM policy | CI invariant check + manual IAM review | Public attack surface |
-| I-08 | All client traffic goes through API Gateway | Infra topology | Infra review | Bypass auth & rate limits |
+| I-07 | Cloud Run service is not publicly invokable | Cloud Run IAM policy | **CHECK 14** + manual IAM review | Public attack surface |
+| I-08 | All client traffic goes through API Gateway | Infra topology + Cloud Run invoker allowlist | **CHECK 14** + infra review | Bypass auth & rate limits |
 | I-09 | Authentication is mandatory on all user routes | API middleware | Unit tests + gateway config | Unauthorized access |
 | I-10 | Source of truth is code, not documentation | Governance rule | Human review | Schema drift |
 | I-11 | `roles/editor` is forbidden in project IAM | IAM policy snapshot + CI | **CHECK 11** | Unbounded blast radius |
 | I-12 | Default service accounts must not hold elevated roles | IAM policy snapshot + CI | **CHECK 12** | Privilege creep backdoor |
 | I-13 | All compute workloads must run under dedicated runtime service accounts | Cloud Run/Functions snapshots + CI | **CHECK 13** | Runtime identity drift |
+| I-14 | Canonical event kinds match ingestion RawEvent kinds (no kind drift) | Contracts + CI drift check | **CHECK 15** | Ingestion can’t produce supported canonical kinds (pipeline break) |
 
 ---
 
@@ -104,19 +105,20 @@ This file is required by CI and is audited.
 ### I-07 — Cloud Run is not public
 - **Enforced by**: IAM policy (no `allUsers` / `allAuthenticatedUsers`)
 - **Verified by**:
-  - CI invariant check (if implemented for Cloud Run IAM snapshot)
+  - **CHECK 14** (CI: Cloud Run invoker policy snapshot)
   - Manual IAM inspection: `gcloud run services get-iam-policy`
 - **Files**:
-  - Cloud Run IAM snapshot/artifacts (repo-managed)
-  - `scripts/ci/check-invariants.mjs`
+  - `cloudrun-oli-api-iam.json`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 14**)
 
 ### I-08 — API Gateway is mandatory
-- **Enforced by**: Network + IAM topology
+- **Enforced by**: Cloud Run invoker policy (only API Gateway can invoke) + infra topology
 - **Verified by**:
+  - **CHECK 14** (CI: Gateway SA must be present in Cloud Run invoker members)
   - Infra review
 - **Files**:
-  - API Gateway config artifacts
-  - Cloud Run IAM artifacts
+  - `cloudrun-oli-api-iam.json`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 14**)
 
 ### I-09 — Auth required on all user routes
 - **Enforced by**: Auth middleware
@@ -131,6 +133,17 @@ This file is required by CI and is audited.
   - Human review
 - **Files**:
   - `docs/SOURCE_OF_TRUTH.md`
+
+### I-14 — Canonical kinds do not drift from ingestion kinds
+- **Enforced by**: CI kind-drift tripwire
+- **Mechanism**:
+  - `CanonicalEventKind` in Functions must match `rawEventKindSchema` exactly.
+- **Verified by**:
+  - **CHECK 15** (CI)
+- **Files**:
+  - `lib/contracts/rawEvent.ts`
+  - `services/functions/src/types/health.ts`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 15**)
 
 ---
 
@@ -192,6 +205,8 @@ This file is required by CI and is audited.
   - **CHECK 11** — IAM forbids `roles/editor`
   - **CHECK 12** — IAM forbids default SA bindings
   - **CHECK 13** — Runtime SA allowlist enforced
+  - **CHECK 14** — Cloud Run is not public and API Gateway is an authorized invoker
+  - **CHECK 15** — CanonicalEventKind matches rawEventKindSchema (no kind drift)
 - Firestore emulator tests
 - Manual infra inspection (IAM / Gateway)
 
@@ -202,3 +217,30 @@ This file is required by CI and is audited.
 Any change to this file requires:
 - Code review
 - Audit acknowledgement
+
+---
+
+## Phase 1 (Personal Health Library) Invariants (Product-Blocking)
+
+### I-15 — Phase 1 scope contract must exist (binding)
+- **Enforced by**: CI doc existence + minimum content validation
+- **Mechanism**:
+  - `docs/PHASE_1_SCOPE.md` must exist
+  - Must not be empty or stub-only
+- **Verified by**:
+  - **CHECK 16** (CI)
+- **Files**:
+  - `docs/PHASE_1_SCOPE.md`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 16**)
+
+### I-16 — API ingestion is RawEvents-first (no direct Canonical/Derived writes)
+- **Enforced by**: CI static scan of Cloud Run API for canonical/derived collection targets
+- **Mechanism**:
+  - Cloud Run API must not write to derived/canonical collection names directly:
+    - `events`, `dailyFacts`, `insights`, `intelligenceContext`
+  - All ingestion must land as RawEvents first (canonical/derived are backend compute only)
+- **Verified by**:
+  - **CHECK 17** (CI)
+- **Files**:
+  - `services/api/src/**`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 17**)
