@@ -80,13 +80,18 @@
       "<rootDir>/archive/",
       "<rootDir>/dist-types/",
       "<rootDir>/services/functions/lib/",
-      "<rootDir>/services/api/lib/"
+      "<rootDir>/services/api/lib/",
+      "<rootDir>/services/api/dist/",
+      "<rootDir>/services/api/dist-types/",
+      "\\.d\\.ts$"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/archive/",
       "<rootDir>/dist-types/",
       "<rootDir>/services/functions/lib/",
-      "<rootDir>/services/api/lib/"
+      "<rootDir>/services/api/lib/",
+      "<rootDir>/services/api/dist/",
+      "<rootDir>/services/api/dist-types/"
     ]
   }
 }

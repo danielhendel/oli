@@ -18,7 +18,14 @@ export const isoDateTimeStringSchema = z
 // but keep the *payload+kind* strict to what Functions support today.
 export const rawEventSchemaVersionSchema = z.literal(1);
 
-export const rawEventKindSchema = z.enum(["sleep", "steps", "workout", "weight", "hrv"]);
+export const rawEventKindSchema = z.enum([
+  "sleep",
+  "steps",
+  "workout",
+  "weight",
+  "hrv",
+  "nutrition",
+]);
 
 // -----------------------------
 // Payloads (manual + future-proof day optional)
@@ -88,6 +95,16 @@ const manualHrvPayloadSchema = z
   })
   .strip();
 
+const manualNutritionPayloadSchema = manualWindowBaseSchema
+  .extend({
+    totalKcal: z.number().finite().nonnegative(),
+    proteinG: z.number().finite().nonnegative(),
+    carbsG: z.number().finite().nonnegative(),
+    fatG: z.number().finite().nonnegative(),
+    fiberG: z.number().finite().nonnegative().nullable().optional(),
+  })
+  .strip();
+
 // Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
@@ -95,6 +112,7 @@ const payloadByKindSchema = {
   workout: manualWorkoutPayloadSchema,
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
+  nutrition: manualNutritionPayloadSchema,
 } as const;
 
 // -----------------------------
@@ -148,7 +166,8 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualStepsPayloadSchema>
     | z.infer<typeof manualWorkoutPayloadSchema>
     | z.infer<typeof manualWeightPayloadSchema>
-    | z.infer<typeof manualHrvPayloadSchema>;
+    | z.infer<typeof manualHrvPayloadSchema>
+    | z.infer<typeof manualNutritionPayloadSchema>;
 };
 
 /**
@@ -161,4 +180,5 @@ export const rawEventPayloadByKindSchemas = {
   workout: manualWorkoutPayloadSchema,
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
+  nutrition: manualNutritionPayloadSchema,
 } as const;
