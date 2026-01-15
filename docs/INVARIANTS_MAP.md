@@ -228,3 +228,31 @@ Also:
 Any change to this file requires:
 - Code review
 - Audit acknowledgement
+
+---
+
+## Phase 1 (Personal Health Library) Invariants (Product-Blocking)
+
+### I-15 — Phase 1 scope contract must exist (binding)
+- **Enforced by**: CI doc existence + minimum content validation
+- **Mechanism**:
+  - `docs/PHASE_1_SCOPE.md` must exist
+  - Must not be empty or stub-only
+- **Verified by**:
+  - **CHECK 16** (CI)
+- **Files**:
+  - `docs/PHASE_1_SCOPE.md`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 16**)
+
+### I-16 — API ingestion is RawEvents-first (no direct Canonical/Derived writes)
+- **Enforced by**: CI static scan of Cloud Run API for canonical/derived collection targets
+- **Mechanism**:
+  - Cloud Run API must not write to derived/canonical collection names directly:
+    - `events`, `dailyFacts`, `insights`, `intelligenceContext`
+  - All ingestion must land as RawEvents first (canonical/derived are backend compute only)
+- **Verified by**:
+  - **CHECK 17** (CI)
+- **Files**:
+  - `services/api/src/**`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 17**)
+

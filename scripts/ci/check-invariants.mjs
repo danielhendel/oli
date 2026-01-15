@@ -951,6 +951,86 @@ function checkCanonicalKindsNoDrift() {
   console.log("✅ CHECK 15 passed: CanonicalEventKind matches rawEventKindSchema (no kind drift).");
 }
 
+/**
+ * CHECK 16 — Phase 1 scope contract must exist and be non-trivial
+ */
+function checkPhase1ScopeDoc() {
+  const p = path.join(ROOT, "docs", "PHASE_1_SCOPE.md");
+  if (!exists(p)) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- Missing required file: docs/PHASE_1_SCOPE.md\n\n` +
+        `Fix: add docs/PHASE_1_SCOPE.md (binding Phase 1 scope contract).`,
+    );
+  }
+
+  const text = readText(p).trim();
+
+  // Fail-closed: must be meaningfully populated
+  if (text.length < 400) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- docs/PHASE_1_SCOPE.md is too small (${text.length} chars). It must be non-trivial and binding.\n\n` +
+        `Fix: expand Phase 1 scope with required capabilities and invariants.`,
+    );
+  }
+
+  const hasPlaceholders = /\b(TODO|TBD|PLACEHOLDER)\b/i.test(text);
+  if (hasPlaceholders) {
+    fail(
+      `CHECK 16 (Phase 1 scope contract) failed:\n` +
+        `- docs/PHASE_1_SCOPE.md contains placeholder language (TODO/TBD/PLACEHOLDER).\n\n` +
+        `Fix: replace placeholders with binding requirements.`,
+    );
+  }
+
+  console.log("✅ CHECK 16 passed: Phase 1 scope contract exists and is non-trivial.");
+}
+
+/**
+ * CHECK 17 — Cloud Run API must not write Canonical/Derived directly (RawEvents-first)
+ */
+function checkApiRawEventsFirstNoDerivedTargets() {
+  const base = path.join(ROOT, "services", "api", "src");
+  if (!exists(base)) return;
+
+  const files = walk(base, {
+    includeExts: [".ts"],
+    ignoreDirs: ["__tests__", "dist", "lib"],
+  });
+
+  // We intentionally only scan for derived/canonical collection names.
+  // If the API ever needs to read these, do it through safe endpoints, not Firestore paths.
+  const forbidden = [
+    /\bcollection\s*\(\s*["']events["']\s*\)/,
+    /\bcollection\s*\(\s*["']dailyFacts["']\s*\)/,
+    /\bcollection\s*\(\s*["']insights["']\s*\)/,
+    /\bcollection\s*\(\s*["']intelligenceContext["']\s*\)/,
+  ];
+
+  const offenders = [];
+
+  for (const f of files) {
+    const text = readText(f);
+    for (const rx of forbidden) {
+      if (rx.test(text)) {
+        offenders.push(rel(f));
+        break;
+      }
+    }
+  }
+
+  if (offenders.length) {
+    fail(
+      `CHECK 17 (API RawEvents-first) failed:\n` +
+        offenders.map((p) => `- ${p}`).join("\n") +
+        `\n\nFix: API must not write/read Canonical/Derived collections directly. All ingestion must land as RawEvents; derived truth is backend compute only.`,
+    );
+  }
+
+  console.log("✅ CHECK 17 passed: API does not target derived/canonical collections directly.");
+}
+
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [
   { id: 1, fn: checkAdminHttpNotPublic },
@@ -968,6 +1048,8 @@ const CHECKS = [
   { id: 13, fn: checkRuntimeServiceAccountsAllowlist },
   { id: 14, fn: checkCloudRunInvokerNotPublicAndGatewayOnly },
   { id: 15, fn: checkCanonicalKindsNoDrift },
+  { id: 16, fn: checkPhase1ScopeDoc },
+  { id: 17, fn: checkApiRawEventsFirstNoDerivedTargets },
 ];
 
 function main() {
