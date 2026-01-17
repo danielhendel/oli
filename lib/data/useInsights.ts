@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getInsights, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { InsightsResponseDto } from "@/lib/contracts";
+import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
   | { status: "loading" }
+  | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: InsightsResponseDto };
 
@@ -58,25 +60,30 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
         return;
       }
 
-      // ✅ Stale-while-revalidate
+      // Stale-while-revalidate
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const res = await getInsights(dayRef.current, token, opts);
       if (seq !== reqSeq.current) return;
 
-      if (!res.ok) {
-        if (res.kind === "http" && res.status === 404) {
-          safeSet({ status: "ready", data: emptyInsights(dayRef.current) });
-          return;
-        }
+      const outcome = truthOutcomeFromApiResult(res);
 
-        if (stateRef.current.status === "ready") return;
-
-        safeSet({ status: "error", error: res.error, requestId: res.requestId });
+      if (outcome.status === "ready") {
+        safeSet({ status: "ready", data: outcome.data });
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      if (outcome.status === "missing") {
+        // Insights are derived truth: missing must stay missing (not fabricated).
+        if (stateRef.current.status === "ready") return;
+        safeSet({ status: "missing" });
+        return;
+      }
+
+      // outcome.status === "error"
+      if (stateRef.current.status === "ready") return;
+
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
     [getIdToken, initializing, user],
   );

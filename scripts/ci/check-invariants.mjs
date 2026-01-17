@@ -1008,6 +1008,81 @@ function checkApiRawEventsFirstNoDerivedTargets() {
   console.log("✅ CHECK 17 passed: API does not target derived/canonical collections directly.");
 }
 
+/**
+ * CHECK 18 — Canonical events must be written immutably (no overwrite)
+ *
+ * Enforces:
+ * - Normalization must not call .set(canonical) directly for /users/{uid}/events/{id}
+ * - Must use immutable writer (create-only OR identical-on-replay)
+ */
+function checkCanonicalWriteIsImmutable() {
+  const f = path.join(ROOT, "services", "functions", "src", "normalization", "onRawEventCreated.ts");
+  if (!exists(f)) return;
+
+  const text = readText(f);
+
+  const usesImmutableWriter = /writeCanonicalEventImmutable/.test(text);
+
+  // detect patterns like: .collection("events").doc(...).set(canonical)
+  const hasDirectSetCanonical =
+    /\.collection\(\s*["']events["']\s*\)[\s\S]*?\.set\s*\(\s*canonical\s*\)/m.test(text);
+
+  if (!usesImmutableWriter || hasDirectSetCanonical) {
+    fail(
+      `CHECK 18 (Canonical immutability) failed:\n` +
+        `- ${rel(f)} must write canonical events immutably (create-only OR identical-on-replay)\n\n` +
+        `Fix:\n` +
+        `- Use writeCanonicalEventImmutable(...)\n` +
+        `- Do not call .set(canonical) directly for /users/{uid}/events/{id}\n`,
+    );
+  }
+
+  console.log("✅ CHECK 18 passed: Canonical events are written immutably (no overwrite).");
+}
+
+/**
+ * CHECK 19 — Derived truth writers must emit Derived Ledger runs (append-only historical truth)
+ *
+ * Enforces:
+ * - Any function that writes dailyFacts / insights / intelligenceContext must call writeDerivedLedgerRun(...)
+ */
+function checkDerivedWritersEmitLedgerRuns() {
+  const targets = [
+    "services/functions/src/realtime/onCanonicalEventCreated.ts",
+    "services/functions/src/dailyFacts/onDailyFactsRecomputeScheduled.ts",
+    "services/functions/src/insights/onInsightsRecomputeScheduled.ts",
+    "services/functions/src/intelligence/onDailyIntelligenceContextRecomputeScheduled.ts",
+  ];
+
+  const missing = [];
+  for (const p of targets) {
+    const abs = path.join(ROOT, p);
+    if (!exists(abs)) continue;
+    const text = readText(abs);
+
+    const writesDerived =
+      /collection\(\s*["']dailyFacts["']\s*\)/.test(text) ||
+      /collection\(\s*["']insights["']\s*\)/.test(text) ||
+      /collection\(\s*["']intelligenceContext["']\s*\)/.test(text);
+
+    if (!writesDerived) continue;
+
+    const hasLedgerCall = /\bwriteDerivedLedgerRun\s*\(/.test(text);
+    if (!hasLedgerCall) missing.push(p);
+  }
+
+  if (missing.length) {
+    fail(
+      `CHECK 19 (Derived Ledger emission) failed:\n` +
+        missing.map((p) => `- ${p}`).join("\n") +
+        `\n\nFix: any derived writer must call writeDerivedLedgerRun(...) so historical truth is replayable.`,
+    );
+  }
+
+  console.log("✅ CHECK 19 passed: Derived truth writers emit Derived Ledger runs.");
+}
+
+
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [
   { id: 1, fn: checkAdminHttpNotPublic },
@@ -1027,6 +1102,8 @@ const CHECKS = [
   { id: 15, fn: checkCanonicalKindsNoDrift },
   { id: 16, fn: checkPhase1ScopeDoc },
   { id: 17, fn: checkApiRawEventsFirstNoDerivedTargets },
+  { id: 18, fn: checkCanonicalWriteIsImmutable },
+  { id: 19, fn: checkDerivedWritersEmitLedgerRuns },
 ];
 
 function main() {

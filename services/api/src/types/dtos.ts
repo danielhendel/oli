@@ -1,4 +1,5 @@
 // services/api/src/types/dtos.ts
+
 export { dailyFactsDtoSchema } from "../../../../lib/contracts/dailyFacts";
 export type { DailyFactsDto } from "../../../../lib/contracts/dailyFacts";
 
@@ -15,3 +16,15 @@ export type { IntelligenceContextDto } from "../../../../lib/contracts/intellige
 
 export { logWeightRequestDtoSchema, logWeightResponseDtoSchema } from "../../../../lib/contracts/weight";
 export type { LogWeightRequestDto, LogWeightResponseDto } from "../../../../lib/contracts/weight";
+
+// ✅ Step 4 — Derived Ledger replay contracts
+export {
+  derivedLedgerRunSummaryDtoSchema,
+  derivedLedgerRunsResponseDtoSchema,
+  derivedLedgerReplayResponseDtoSchema,
+} from "../../../../lib/contracts/derivedLedger";
+export type {
+  DerivedLedgerRunSummaryDto,
+  DerivedLedgerRunsResponseDto,
+  DerivedLedgerReplayResponseDto,
+} from "../../../../lib/contracts/derivedLedger";

@@ -2,9 +2,9 @@
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
-import { db } from "../firebaseAdmin";
 import { mapRawEventToCanonical } from "./mapRawEventToCanonical";
 import { parseRawEvent } from "../validation/rawEvent";
+import { writeCanonicalEventImmutable } from "./writeCanonicalEventImmutable";
 
 /**
  * Firestore trigger:
@@ -14,6 +14,7 @@ import { parseRawEvent } from "../validation/rawEvent";
  * Behavior:
  * - Validates RawEvent envelope strictly (fail fast).
  * - Maps RawEvent → CanonicalEvent via pure mapper.
+ * - Writes canonical truth immutably (create-only OR identical-on-replay).
  * - Logs failures (no silent drops).
  * - Avoids logging any user PII.
  */
@@ -64,11 +65,22 @@ export const onRawEventCreated = onDocumentCreated(
 
     const canonical = result.canonical;
 
-    await db
-      .collection("users")
-      .doc(rawEvent.userId)
-      .collection("events")
-      .doc(canonical.id)
-      .set(canonical);
-  }
+    const writeRes = await writeCanonicalEventImmutable({
+      userId: rawEvent.userId,
+      canonical,
+      sourceRawEventId: rawEvent.id,
+      sourceRawEventPath: snapshot.ref.path,
+    });
+
+    if (!writeRes.ok) {
+      // Important: do not throw (would cause retries and noise).
+      // This is a real integrity violation that must be investigated.
+      logger.error("Canonical write conflict: immutability prevented overwrite", {
+        userId: rawEvent.userId,
+        canonicalId: canonical.id,
+        existingHash: writeRes.existingHash,
+        incomingHash: writeRes.incomingHash,
+      });
+    }
+  },
 );

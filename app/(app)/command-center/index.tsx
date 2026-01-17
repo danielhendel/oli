@@ -1,5 +1,5 @@
 // app/(app)/command-center/index.tsx
-import { ScrollView, View, StyleSheet, Pressable, Text } from "react-native";
+import { ScrollView, View, StyleSheet, Pressable, Text, TextInput } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -19,6 +19,11 @@ import { useDayTruth } from "@/lib/data/useDayTruth";
 import { isCompatiblePipelineVersion, isFreshComputedAt } from "@/lib/data/readiness";
 import { PIPELINE_VERSION } from "@/lib/pipeline/version";
 import { subscribeRefresh, consumeRefresh } from "@/lib/navigation/refreshBus";
+
+// ✅ Step 5 (Replay UI)
+import { useDerivedLedgerRuns } from "@/lib/data/useDerivedLedgerRuns";
+import { useDerivedLedgerReplay } from "@/lib/data/useDerivedLedgerReplay";
+import type { DerivedLedgerReplayResponseDto, DerivedLedgerRunsResponseDto } from "@/lib/contracts/derivedLedger";
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 
@@ -95,8 +100,8 @@ function DevPipelineOverlay(props: {
     <View style={styles.devOverlay}>
       <Text style={styles.devOverlayTitle}>Pipeline timestamps (dev)</Text>
       <Text style={styles.devOverlayLine}>Canonical: {formatIsoToHms(props.canonicalAt)}</Text>
-      <Text style={styles.devOverlayLine}>Facts:     {formatIsoToHms(props.factsAt)}</Text>
-      <Text style={styles.devOverlayLine}>Context:   {formatIsoToHms(props.contextAt)}</Text>
+      <Text style={styles.devOverlayLine}>Facts: {formatIsoToHms(props.factsAt)}</Text>
+      <Text style={styles.devOverlayLine}>Context: {formatIsoToHms(props.contextAt)}</Text>
       <Text style={styles.devOverlayLine}>
         PV: facts {props.factsPv ?? "—"} / ctx {props.ctxPv ?? "—"} (expected {PIPELINE_VERSION})
       </Text>
@@ -110,11 +115,308 @@ function parseOptionalNumber(s: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+type ReplayUiState =
+  | { enabled: false }
+  | {
+      enabled: true;
+      selectedRunId: string | null;
+      asOf: string;
+      runs: ReturnType<typeof useDerivedLedgerRuns>;
+      replay: ReturnType<typeof useDerivedLedgerReplay>;
+      replayDoc: DerivedLedgerReplayResponseDto | null;
+      replayLoading: boolean;
+      replayMissing: boolean;
+      replayError: string | null;
+    };
+
+function ReplayControlsDev(props: {
+  day: string;
+  value: ReplayUiState;
+  onChange: (next: ReplayUiState) => void;
+}) {
+  if (!__DEV__) return null;
+
+  const enabled = props.value.enabled;
+  const [expanded, setExpanded] = useState(false);
+
+  const selectedRunId = enabled ? props.value.selectedRunId : null;
+  const asOf = enabled ? props.value.asOf : "";
+
+  const runs = useDerivedLedgerRuns(props.day);
+
+  const effectiveRunId = enabled
+    ? selectedRunId ?? (runs.status === "ready" ? runs.data.latestRunId ?? null : null)
+    : null;
+
+  const replay = useDerivedLedgerReplay({
+    day: props.day,
+    ...(effectiveRunId ? { runId: effectiveRunId } : {}),
+    ...(asOf.trim().length > 0 ? { asOf: asOf.trim() } : {}),
+  });
+
+  const replayDoc = replay.status === "ready" ? replay.data : null;
+
+  const replayLoading = enabled ? replay.status === "loading" : false;
+  const replayMissing = enabled ? replay.status === "missing" : false;
+  const replayError = enabled ? (replay.status === "error" ? replay.error : null) : null;
+
+  // --- ✅ Loop-proof parent sync ---
+
+  const onChangeRef = useRef(props.onChange);
+  useEffect(() => {
+    onChangeRef.current = props.onChange;
+  }, [props.onChange]);
+
+  const lastSigRef = useRef<string>("");
+
+  const runsLatestRunId = runs.status === "ready" ? runs.data.latestRunId ?? null : null;
+  const runsCount = runs.status === "ready" ? runs.data.runs.length : 0;
+
+  const replayRunId = replay.status === "ready" ? replay.data.runId : null;
+  const replayComputedAt = replay.status === "ready" ? replay.data.computedAt : null;
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const sigObj = {
+      enabled: true as const,
+      selectedRunId: selectedRunId ?? null,
+      asOf,
+      effectiveRunId,
+      runsStatus: runs.status,
+      runsLatestRunId,
+      runsCount,
+      replayStatus: replay.status,
+      replayRunId,
+      replayComputedAt,
+      replayLoading,
+      replayMissing,
+      replayError,
+    };
+
+    const sig = JSON.stringify(sigObj);
+    if (sig === lastSigRef.current) return;
+    lastSigRef.current = sig;
+
+    onChangeRef.current({
+      enabled: true,
+      selectedRunId: selectedRunId ?? null,
+      asOf,
+      runs,
+      replay,
+      replayDoc,
+      replayLoading,
+      replayMissing,
+      replayError,
+    });
+  }, [
+    enabled,
+    selectedRunId,
+    asOf,
+    effectiveRunId,
+    runs.status,
+    runsLatestRunId,
+    runsCount,
+    replay.status,
+    replayRunId,
+    replayComputedAt,
+    replayLoading,
+    replayMissing,
+    replayError,
+    runs,
+    replay,
+    replayDoc,
+  ]);
+
+  const toggleEnabled = () => {
+    if (enabled) {
+      props.onChange({ enabled: false });
+      setExpanded(false);
+      return;
+    }
+
+    props.onChange({
+      enabled: true,
+      selectedRunId: null,
+      asOf: "",
+      runs,
+      replay,
+      replayDoc,
+      replayLoading: true,
+      replayMissing: false,
+      replayError: null,
+    });
+  };
+
+  type RunSummary = DerivedLedgerRunsResponseDto["runs"][number];
+  const runsList: RunSummary[] = runs.status === "ready" ? runs.data.runs : [];
+
+  return (
+    <View style={styles.replayWrap}>
+      <View style={styles.replayTopRow}>
+        <Text style={styles.replayTitle}>Replay Mode (dev)</Text>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={enabled ? "Disable replay mode" : "Enable replay mode"}
+          onPress={toggleEnabled}
+          style={({ pressed }) => [
+            styles.replayToggle,
+            enabled ? styles.replayToggleOn : styles.replayToggleOff,
+            pressed && { opacity: 0.9 },
+          ]}
+        >
+          <Text style={[styles.replayToggleText, !enabled && { color: "#111827" }]}>{enabled ? "ON" : "OFF"}</Text>
+        </Pressable>
+      </View>
+
+      {!enabled ? (
+        <Text style={styles.replayHint}>
+          When enabled, Command Center uses Derived Ledger snapshots instead of live truth.
+        </Text>
+      ) : (
+        <>
+          <Text style={styles.replayHint}>
+            Select a ledger run to replay “what was known at the time”. Live truth is not used.
+          </Text>
+
+          <View style={styles.replayRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Pick replay run"
+              onPress={() => setExpanded((v) => !v)}
+              style={({ pressed }) => [styles.replayButton, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.replayButtonText}>{effectiveRunId ? `Run: ${effectiveRunId}` : "Pick a run"}</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Use latest run"
+              onPress={() => {
+                const latest = runs.status === "ready" ? runs.data.latestRunId ?? null : null;
+                props.onChange({
+                  enabled: true,
+                  selectedRunId: latest,
+                  asOf,
+                  runs,
+                  replay,
+                  replayDoc,
+                  replayLoading,
+                  replayMissing,
+                  replayError,
+                });
+              }}
+              style={({ pressed }) => [styles.replayButtonSecondary, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.replayButtonSecondaryText}>Latest</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.replayInputRow}>
+            <Text style={styles.replayInputLabel}>asOf (optional)</Text>
+            <TextInput
+              value={asOf}
+              onChangeText={(t) => {
+                if (!enabled) return;
+                props.onChange({
+                  enabled: true,
+                  selectedRunId: selectedRunId ?? null,
+                  asOf: t,
+                  runs,
+                  replay,
+                  replayDoc,
+                  replayLoading,
+                  replayMissing,
+                  replayError,
+                });
+              }}
+              placeholder="2026-01-16T12:00:00.000Z"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.replayInput}
+            />
+          </View>
+
+          {expanded ? (
+            <View style={styles.replayList}>
+              {runs.status === "loading" ? (
+                <Text style={styles.replayListHint}>Loading runs…</Text>
+              ) : runs.status === "missing" ? (
+                <Text style={styles.replayListHint}>No runs found for this day.</Text>
+              ) : runs.status === "error" ? (
+                <Text style={styles.replayListHint}>Error loading runs: {runs.error}</Text>
+              ) : runsList.length === 0 ? (
+                <Text style={styles.replayListHint}>No runs yet for this day.</Text>
+              ) : (
+                runsList.map((r) => {
+                  const selected = r.runId === effectiveRunId;
+                  return (
+                    <Pressable
+                      key={r.runId}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select run ${r.runId}`}
+                      onPress={() => {
+                        props.onChange({
+                          enabled: true,
+                          selectedRunId: r.runId,
+                          asOf,
+                          runs,
+                          replay,
+                          replayDoc,
+                          replayLoading,
+                          replayMissing,
+                          replayError,
+                        });
+                        setExpanded(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.replayListItem,
+                        selected && styles.replayListItemSelected,
+                        pressed && { opacity: 0.9 },
+                      ]}
+                    >
+                      <Text style={styles.replayListRunId}>{r.runId}</Text>
+                      <Text style={styles.replayListMeta}>
+                        {r.computedAt} • pv {r.pipelineVersion}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          ) : null}
+
+          <View style={styles.replayStatusRow}>
+            <Text style={styles.replayStatusText}>
+              {replayLoading
+                ? "Loading replay…"
+                : replayMissing
+                  ? "Replay missing."
+                  : replayError
+                    ? `Replay error: ${replayError}`
+                    : replayDoc
+                      ? `Replaying run ${replayDoc.runId}`
+                      : "—"}
+            </Text>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 function DataStatusCard(props: {
   day: string;
   refreshKey: string | null;
   focusNonce: number;
   optimisticWeightKg: number | null;
+
+  // Step 5 replay surface
+  replayOverride?: DerivedLedgerReplayResponseDto | null;
+  replayLoading?: boolean;
+  replayMissing?: boolean;
+  replayError?: string | null;
 }) {
   const dayTruth = useDayTruth(props.day);
   const facts = useDailyFacts(props.day);
@@ -135,18 +437,47 @@ function DataStatusCard(props: {
   const baselineFactsAt = useRef<string | null>(null);
   const baselineCtxAt = useRef<string | null>(null);
 
-  const latestEventAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
-  const hasEvents = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
+  const latestEventAtLive = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
+  const hasEventsLive = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
+
+  const replay = props.replayOverride ?? null;
+  const replayModeActive =
+    Boolean(replay) || Boolean(props.replayLoading) || Boolean(props.replayMissing) || Boolean(props.replayError);
+
+  // In replay mode, do NOT “borrow” live derived truth.
+  const latestEventAt = replayModeActive ? replay?.latestCanonicalEventAt ?? null : latestEventAtLive;
+  const hasEvents = replayModeActive ? Boolean(replay?.latestCanonicalEventAt) : hasEventsLive;
+
+  const factsDoc = replayModeActive ? replay?.dailyFacts : facts.status === "ready" ? facts.data : null;
+  const ctxDoc = replayModeActive ? replay?.intelligenceContext : ctx.status === "ready" ? ctx.data : null;
+  const insightsDoc = replayModeActive ? replay?.insights : insights.status === "ready" ? insights.data : null;
 
   const factsComputedAt =
-    facts.status === "ready" ? facts.data.meta?.computedAt ?? facts.data.computedAt ?? null : null;
-  const ctxComputedAt = ctx.status === "ready" ? ctx.data.meta?.computedAt ?? ctx.data.computedAt ?? null : null;
+    factsDoc && typeof (factsDoc as unknown as { meta?: { computedAt?: unknown } })?.meta?.computedAt === "string"
+      ? (factsDoc as unknown as { meta: { computedAt: string } }).meta.computedAt
+      : factsDoc && typeof (factsDoc as unknown as { computedAt?: unknown })?.computedAt === "string"
+        ? (factsDoc as unknown as { computedAt: string }).computedAt
+        : null;
+
+  const ctxComputedAt =
+    ctxDoc && typeof (ctxDoc as unknown as { meta?: { computedAt?: unknown } })?.meta?.computedAt === "string"
+      ? (ctxDoc as unknown as { meta: { computedAt: string } }).meta.computedAt
+      : ctxDoc && typeof (ctxDoc as unknown as { computedAt?: unknown })?.computedAt === "string"
+        ? (ctxDoc as unknown as { computedAt: string }).computedAt
+        : null;
 
   const factsFresh = isFreshComputedAt({ computedAtIso: factsComputedAt, latestEventAtIso: latestEventAt });
   const ctxFresh = isFreshComputedAt({ computedAtIso: ctxComputedAt, latestEventAtIso: latestEventAt });
 
-  const factsPipelineVersion = facts.status === "ready" ? facts.data.meta?.pipelineVersion ?? null : null;
-  const ctxPipelineVersion = ctx.status === "ready" ? ctx.data.meta?.pipelineVersion ?? null : null;
+  const factsPipelineVersion =
+    factsDoc && typeof (factsDoc as unknown as { meta?: { pipelineVersion?: unknown } })?.meta?.pipelineVersion === "number"
+      ? (factsDoc as unknown as { meta: { pipelineVersion: number } }).meta.pipelineVersion
+      : null;
+
+  const ctxPipelineVersion =
+    ctxDoc && typeof (ctxDoc as unknown as { meta?: { pipelineVersion?: unknown } })?.meta?.pipelineVersion === "number"
+      ? (ctxDoc as unknown as { meta: { pipelineVersion: number } }).meta.pipelineVersion
+      : null;
 
   const factsVersionOk = isCompatiblePipelineVersion({
     pipelineVersion: factsPipelineVersion,
@@ -158,21 +489,34 @@ function DataStatusCard(props: {
     expectedPipelineVersion: PIPELINE_VERSION,
   });
 
-  const derivedReady = hasEvents ? factsFresh && ctxFresh && factsVersionOk && ctxVersionOk : false;
+  // Replay correctness: do NOT consider “freshness” against current canonical.
+  // In replay mode, readiness means “snapshots exist and are internally consistent (PV ok).”
+  const derivedReady = replayModeActive
+    ? Boolean(factsDoc) && Boolean(ctxDoc) && factsVersionOk && ctxVersionOk
+    : hasEvents
+      ? factsFresh && ctxFresh && factsVersionOk && ctxVersionOk
+      : false;
 
   const anyLoading =
-    dayTruth.status === "loading" ||
-    facts.status === "loading" ||
-    insights.status === "loading" ||
-    ctx.status === "loading";
+    replayModeActive
+      ? Boolean(props.replayLoading) || dayTruth.status === "loading"
+      : dayTruth.status === "loading" ||
+        facts.status === "loading" ||
+        insights.status === "loading" ||
+        ctx.status === "loading";
 
   const anyError =
-    dayTruth.status === "error" ||
-    facts.status === "error" ||
-    insights.status === "error" ||
-    ctx.status === "error";
+    replayModeActive
+      ? Boolean(props.replayError) || dayTruth.status === "error"
+      : dayTruth.status === "error" ||
+        facts.status === "error" ||
+        insights.status === "error" ||
+        ctx.status === "error";
 
-  const currentWeightKg = facts.status === "ready" ? facts.data.body?.weightKg ?? null : null;
+  const currentWeightKg =
+    factsDoc && typeof (factsDoc as unknown as { body?: { weightKg?: unknown } })?.body?.weightKg === "number"
+      ? (factsDoc as unknown as { body: { weightKg: number } }).body.weightKg
+      : null;
 
   const stopPolling = useCallback(() => {
     if (pollTimer.current) clearInterval(pollTimer.current);
@@ -246,36 +590,43 @@ function DataStatusCard(props: {
 
   if (anyLoading) {
     tone = "neutral";
-    title = "Checking your data…";
-    subtitle = "Syncing today’s canonical events and derived truth.";
+    title = replayModeActive ? "Loading replay…" : "Checking your data…";
+    subtitle = replayModeActive
+      ? "Fetching Derived Ledger snapshots for this run."
+      : "Syncing today’s canonical events and derived truth.";
   } else if (anyError) {
     tone = "danger";
-    title = "Couldn’t load your data";
+    title = replayModeActive ? "Replay failed" : "Couldn’t load your data";
     const msg =
+      props.replayError ??
       (dayTruth.status === "error" ? dayTruth.error : null) ??
-      (facts.status === "error" ? facts.error : null) ??
-      (insights.status === "error" ? insights.error : null) ??
-      (ctx.status === "error" ? ctx.error : null) ??
+      (!replayModeActive && facts.status === "error" ? facts.error : null) ??
+      (!replayModeActive && insights.status === "error" ? insights.error : null) ??
+      (!replayModeActive && ctx.status === "error" ? ctx.error : null) ??
       "Please try again.";
     subtitle = msg;
+  } else if (replayModeActive && props.replayMissing) {
+    tone = "warning";
+    title = "Replay missing";
+    subtitle = "No Derived Ledger replay found for this selection.";
   } else if (dayTruth.status === "ready" && !hasEvents) {
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
   } else if (!derivedReady) {
     tone = "neutral";
-    title = "Computing today…";
-    subtitle = "Waiting for derived truth to catch up to canonical events.";
+    title = replayModeActive ? "Replay incomplete" : "Computing today…";
+    subtitle = replayModeActive
+      ? "This replay run does not include all required snapshots (facts/context) or pipeline versions mismatch."
+      : "Waiting for derived truth to catch up to canonical events.";
   } else if (derivedReady) {
     tone = "success";
-    title = "Today is ready";
+    title = replayModeActive ? "Replay is ready" : "Today is ready";
     subtitle = ["Events ✓", "Facts ✓", "Context ✓"].join("  •  ");
   }
 
   const optimistic = typeof props.optimisticWeightKg === "number" ? props.optimisticWeightKg : null;
 
-  // ✅ If we're in an active refresh and the facts weight doesn't yet match the optimistic weight,
-  // show optimistic immediately even if day-truth hasn't advanced yet.
   const eps = 0.01;
   const factsMatchOptimistic =
     typeof currentWeightKg === "number" && optimistic !== null && Math.abs(currentWeightKg - optimistic) < eps;
@@ -283,30 +634,39 @@ function DataStatusCard(props: {
   const inRefreshWindow = props.refreshKey !== null && optimistic !== null && !factsMatchOptimistic;
 
   const shouldPreferOptimisticWeight =
-    optimistic !== null &&
-    (inRefreshWindow || !factsFresh || typeof currentWeightKg !== "number");
+    !replayModeActive && optimistic !== null && (inRefreshWindow || !factsFresh || typeof currentWeightKg !== "number");
 
   const factsSummary =
-    facts.status === "ready"
+    factsDoc
       ? {
-          ...(typeof facts.data.activity?.steps === "number" ? { steps: facts.data.activity.steps } : {}),
-          ...(typeof facts.data.sleep?.totalMinutes === "number" ? { sleepMin: facts.data.sleep.totalMinutes } : {}),
-          ...(!shouldPreferOptimisticWeight && typeof facts.data.body?.weightKg === "number"
-            ? { weightKg: facts.data.body.weightKg }
+          ...(typeof (factsDoc as unknown as { activity?: { steps?: unknown } })?.activity?.steps === "number"
+            ? { steps: (factsDoc as unknown as { activity: { steps: number } }).activity.steps }
+            : {}),
+          ...(typeof (factsDoc as unknown as { sleep?: { totalMinutes?: unknown } })?.sleep?.totalMinutes === "number"
+            ? { sleepMin: (factsDoc as unknown as { sleep: { totalMinutes: number } }).sleep.totalMinutes }
+            : {}),
+          ...(!shouldPreferOptimisticWeight &&
+          typeof (factsDoc as unknown as { body?: { weightKg?: unknown } })?.body?.weightKg === "number"
+            ? { weightKg: (factsDoc as unknown as { body: { weightKg: number } }).body.weightKg }
             : {}),
         }
       : null;
 
   const isSyncingOptimistic = shouldPreferOptimisticWeight && optimistic !== null && hasEvents;
 
+  const insightsCount =
+    insightsDoc && typeof (insightsDoc as unknown as { count?: unknown })?.count === "number"
+      ? (insightsDoc as unknown as { count: number }).count
+      : undefined;
+
   const summary = formatTodaySummary({
     ...(factsSummary && Object.keys(factsSummary).length > 0 ? { facts: factsSummary } : {}),
-    ...(insights.status === "ready" ? { insightsCount: insights.data.count } : {}),
+    ...(typeof insightsCount === "number" ? { insightsCount } : {}),
     ...(optimistic !== null ? { optimistic: { weightKg: optimistic } } : {}),
     ...(isSyncingOptimistic ? { isSyncingOptimistic: true } : {}),
   });
 
-  const canonicalAt = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
+  const canonicalAt = latestEventAt;
 
   return (
     <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
@@ -410,6 +770,13 @@ export default function CommandCenterScreen() {
 
   const statusCardKey = useMemo(() => `${day}:${refreshKey ?? "no-refresh"}`, [day, refreshKey]);
 
+  const [replayState, setReplayState] = useState<ReplayUiState>({ enabled: false });
+
+  const replayOverride = replayState.enabled ? replayState.replayDoc : null;
+  const replayLoading = replayState.enabled ? replayState.replayLoading : false;
+  const replayMissing = replayState.enabled ? replayState.replayMissing : false;
+  const replayError = replayState.enabled ? replayState.replayError : null;
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -428,13 +795,20 @@ export default function CommandCenterScreen() {
           </Pressable>
         </View>
 
+        <ReplayControlsDev day={day} value={replayState} onChange={setReplayState} />
+
         <DataStatusCard
           key={statusCardKey}
           day={day}
           refreshKey={refreshKey}
           focusNonce={focusNonce}
           optimisticWeightKg={optimisticWeightKg}
+          replayOverride={replayOverride}
+          replayLoading={replayLoading}
+          replayMissing={replayMissing}
+          replayError={replayError}
         />
+
         <QuickActionsRow />
 
         <View style={styles.grid}>
@@ -483,6 +857,61 @@ const styles = StyleSheet.create({
   },
   gearPressed: { opacity: 0.8 },
   gearText: { fontSize: 18 },
+
+  replayWrap: { borderRadius: 16, padding: 14, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E5E7EB" },
+  replayTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  replayTitle: { fontSize: 13, fontWeight: "900", color: "#111827" },
+  replayHint: { marginTop: 8, fontSize: 12, fontWeight: "700", color: "#374151", lineHeight: 16 },
+
+  replayToggle: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999 },
+  replayToggleOn: { backgroundColor: "#111827" },
+  replayToggleOff: { backgroundColor: "#E5E7EB" },
+  replayToggleText: { color: "#FFFFFF", fontWeight: "900", fontSize: 12 },
+
+  replayRow: { marginTop: 10, flexDirection: "row", gap: 10 },
+  replayButton: { flex: 1, backgroundColor: "#111827", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 },
+  replayButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  replayButtonSecondary: {
+    width: 90,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  replayButtonSecondaryText: { color: "#111827", fontSize: 12, fontWeight: "900" },
+
+  replayInputRow: { marginTop: 10, gap: 6 },
+  replayInputLabel: { fontSize: 12, fontWeight: "900", color: "#111827" },
+  replayInput: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  replayList: { marginTop: 10, gap: 8 },
+  replayListHint: { fontSize: 12, fontWeight: "800", color: "#6B7280" },
+  replayListItem: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  replayListItemSelected: { borderColor: "#111827" },
+  replayListRunId: { fontSize: 12, fontWeight: "900", color: "#111827" },
+  replayListMeta: { marginTop: 4, fontSize: 11, fontWeight: "700", color: "#374151" },
+
+  replayStatusRow: { marginTop: 10 },
+  replayStatusText: { fontSize: 12, fontWeight: "800", color: "#374151", lineHeight: 16 },
 
   statusCard: { borderRadius: 16, padding: 14, gap: 8 },
   statusTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

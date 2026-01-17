@@ -3,34 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDailyFacts, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { DailyFactsDto } from "@/lib/contracts";
+import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
   | { status: "loading" }
+  | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: DailyFactsDto };
 
 type RefetchOpts = TruthGetOptions;
-
-function emptyDailyFacts(userId: string, day: string): DailyFactsDto {
-  const now = new Date().toISOString();
-
-  return {
-    schemaVersion: 1,
-    date: day,
-    userId,
-    computedAt: now,
-    meta: {
-      computedAt: now,
-      pipelineVersion: 1,
-    },
-    sleep: {},
-    activity: {},
-    body: {},
-    nutrition: {},
-    recovery: {},
-    confidence: {},
-  };
-}
 
 function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
   const cb = opts?.cacheBust;
@@ -80,27 +61,26 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
       const res = await getDailyFacts(dayRef.current, token, optsUnique);
       if (seq !== requestSeq.current) return;
 
-      if (!res.ok) {
-        if (res.kind === "http" && res.status === 404) {
-          safeSet({
-            status: "ready",
-            data: emptyDailyFacts(user.uid, dayRef.current),
-          });
-          return;
-        }
+      const outcome = truthOutcomeFromApiResult(res);
 
-        // If we already have ready data, keep it rather than flickering to an error card mid-refresh.
-        if (stateRef.current.status === "ready") return;
-
-        safeSet({
-          status: "error",
-          error: res.error,
-          requestId: res.requestId,
-        });
+      if (outcome.status === "ready") {
+        safeSet({ status: "ready", data: outcome.data });
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      if (outcome.status === "missing") {
+        // Important: missing derived truth is NOT computed truth.
+        // If we already have a real ready doc, keep it during refresh to avoid a trust-regression flicker.
+        if (stateRef.current.status === "ready") return;
+        safeSet({ status: "missing" });
+        return;
+      }
+
+      // outcome.status === "error"
+      // If we already have ready data, keep it rather than flickering to an error card mid-refresh.
+      if (stateRef.current.status === "ready") return;
+
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
     [getIdToken, initializing, user],
   );

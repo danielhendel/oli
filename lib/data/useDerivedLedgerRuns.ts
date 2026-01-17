@@ -1,19 +1,26 @@
-// lib/data/useIntelligenceContext.ts
+// lib/data/useDerivedLedgerRuns.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getIntelligenceContext, type TruthGetOptions } from "@/lib/api/usersMe";
-import type { IntelligenceContextDto } from "@/lib/contracts";
+
+import { getDerivedLedgerRuns, type TruthGetOptions } from "@/lib/api/derivedLedgerMe";
+import type { DerivedLedgerRunsResponseDto } from "@/lib/contracts/derivedLedger";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
   | { status: "loading" }
   | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
-  | { status: "ready"; data: IntelligenceContextDto };
+  | { status: "ready"; data: DerivedLedgerRunsResponseDto };
 
 type RefetchOpts = TruthGetOptions;
 
-export function useIntelligenceContext(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
+function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
+  const cb = opts?.cacheBust;
+  if (!cb) return opts;
+  return { ...opts, cacheBust: `${cb}:${seq}` };
+}
+
+export function useDerivedLedgerRuns(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
   const { user, initializing, getIdToken } = useAuth();
 
   const dayRef = useRef(day);
@@ -35,17 +42,12 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
         if (seq === reqSeq.current) setState(next);
       };
 
-      if (initializing) {
+      if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
         return;
       }
 
-      if (!user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
-        return;
-      }
-
-      const token = await getIdToken();
+      const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
 
       if (!token) {
@@ -54,10 +56,11 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
         return;
       }
 
-      // Stale-while-revalidate
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
-      const res = await getIntelligenceContext(dayRef.current, token, opts);
+      const optsUnique = withUniqueCacheBust(opts, seq);
+
+      const res = await getDerivedLedgerRuns(dayRef.current, token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       const outcome = truthOutcomeFromApiResult(res);
@@ -68,15 +71,12 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
       }
 
       if (outcome.status === "missing") {
-        // Important: missing derived truth is NOT computed truth.
         if (stateRef.current.status === "ready") return;
         safeSet({ status: "missing" });
         return;
       }
 
-      // outcome.status === "error"
       if (stateRef.current.status === "ready") return;
-
       safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
     [getIdToken, initializing, user],

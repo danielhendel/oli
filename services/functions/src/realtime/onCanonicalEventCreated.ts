@@ -4,22 +4,20 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 
 import { db } from "../firebaseAdmin";
-import type { CanonicalEvent, DailyFacts, IsoDateTimeString, YmdDateString } from "../types/health";
+import type { CanonicalEvent, DailyFacts, Insight, IsoDateTimeString, YmdDateString } from "../types/health";
+
 import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
+
 import { generateInsightsForDailyFacts } from "../insights/rules";
-import { buildDailyIntelligenceContextDoc } from "../intelligence/buildDailyIntelligenceContext";
+import { buildDailyIntelligenceContext } from "../intelligence/buildDailyIntelligenceContext";
 
-// ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
-
-// ✅ Latency logging (canonical → derived)
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
 
-const FUNCTION_REGION = "us-central1";
+import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "../pipeline/derivedLedger";
 
-// ✅ IMPORTANT: This is the runtime identity for the Gen2 function execution.
-// Make sure this service account exists and has the permissions you expect.
+const FUNCTION_REGION = "us-central1";
 const RUNTIME_SERVICE_ACCOUNT = "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com";
 
 const toYmdUtc = (date: Date): YmdDateString => {
@@ -29,12 +27,20 @@ const toYmdUtc = (date: Date): YmdDateString => {
   return `${year.toString().padStart(4, "0")}-${month}-${day}`;
 };
 
+const parseIntStrict = (value: string): number | null => {
+  if (!/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
 const parseYmdUtc = (ymd: YmdDateString): Date => {
-  const [y, m, d] = ymd.split("-");
-  const year = Number(y);
-  const month = Number(m);
-  const day = Number(d);
-  return new Date(Date.UTC(year, month - 1, day));
+  const parts = ymd.split("-");
+  if (parts.length !== 3) throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  const y = parseIntStrict(parts[0] ?? "");
+  const m = parseIntStrict(parts[1] ?? "");
+  const d = parseIntStrict(parts[2] ?? "");
+  if (y === null || m === null || d === null) throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  return new Date(Date.UTC(y, m - 1, d));
 };
 
 const addDaysUtc = (ymd: YmdDateString, deltaDays: number): YmdDateString => {
@@ -43,57 +49,42 @@ const addDaysUtc = (ymd: YmdDateString, deltaDays: number): YmdDateString => {
   return toYmdUtc(next);
 };
 
-/**
- * Realtime "golden path" recompute.
- *
- * Trigger:
- * - On create of /users/{userId}/events/{eventId}
- *
- * Writes:
- * - /users/{userId}/dailyFacts/{day}
- * - /users/{userId}/insights/{insightId}
- * - /users/{userId}/intelligenceContext/{day}
- */
 export const onCanonicalEventCreated = onDocumentCreated(
   {
     document: "users/{userId}/events/{eventId}",
     region: FUNCTION_REGION,
-
-    // ✅ Force Gen2 to execute as this service account (reliable vs setGlobalOptions)
     serviceAccount: RUNTIME_SERVICE_ACCOUNT,
   },
   async (event) => {
-    const userId = event.params.userId as string;
-    const eventId = event.params.eventId as string;
+    const userId = String(event.params.userId);
+    const eventId = String(event.params.eventId);
 
-    const data = event.data?.data() as CanonicalEvent | undefined;
-    if (!data) {
-      logger.warn("onCanonicalEventCreated: missing event data", { userId, eventId });
+    const canonical = event.data?.data() as CanonicalEvent | undefined;
+    if (!canonical) {
+      logger.warn("onCanonicalEventCreated: missing canonical event data", { userId, eventId });
       return;
     }
 
-    const day = data.day as YmdDateString;
+    const day = canonical.day as YmdDateString;
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
-    logger.info("Realtime recompute started", { userId, eventId, day, kind: data.kind });
+    logger.info("Realtime recompute started", { userId, eventId, day, kind: canonical.kind });
 
     const userRef = db.collection("users").doc(userId);
 
-    /**
-     * 1) Load ALL canonical events for this user + day
-     */
+    // Canonical events for this day (truth anchor)
     const eventsSnap = await userRef.collection("events").where("day", "==", day).get();
     const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
-    // Latest canonical timestamp = truth anchor for readiness
-    const latestCanonicalEventAt: IsoDateTimeString =
-      eventsForDay.reduce<IsoDateTimeString | null>((max, ev) => {
+    const latestCanonicalEventAt: IsoDateTimeString | undefined =
+      eventsForDay.reduce<IsoDateTimeString | undefined>((max, ev) => {
         const t = ev.updatedAt ?? ev.createdAt;
         if (!t) return max;
         if (!max) return t;
         return t > max ? t : max;
-      }, null) ?? computedAt;
+      }, undefined) ?? undefined;
 
+    // DailyFacts for this day
     const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
       userId,
       date: day,
@@ -101,13 +92,11 @@ export const onCanonicalEventCreated = onDocumentCreated(
       events: eventsForDay,
     });
 
-    /**
-     * 2) Load up to 6 prior days of DailyFacts for enrichment
-     */
-    const startDate = addDaysUtc(day, -6);
+    // Prior 6 days for enrichment
+    const startHistoryDate = addDaysUtc(day, -6);
     const historySnap = await userRef
       .collection("dailyFacts")
-      .where("date", ">=", startDate)
+      .where("date", ">=", startHistoryDate)
       .where("date", "<", day)
       .get();
 
@@ -118,25 +107,21 @@ export const onCanonicalEventCreated = onDocumentCreated(
       history: historyFacts,
     });
 
-    // ✅ Write DailyFacts with readiness meta
-    await userRef.collection("dailyFacts").doc(day).set(
-      {
-        ...enrichedDailyFacts,
-        meta: buildPipelineMeta({
-          computedAt, // ✅ actual compute time
-          source: {
-            eventsForDay: eventsForDay.length,
-            latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
-          },
-        }),
-      },
-      { merge: true },
-    );
+    const dailyFactsWithMeta = {
+      ...enrichedDailyFacts,
+      meta: buildPipelineMeta({
+        computedAt,
+        source: {
+          eventsForDay: eventsForDay.length,
+          ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+        },
+      }),
+    };
 
-    /**
-     * 3) Insights for this day
-     */
-    const insights = generateInsightsForDailyFacts({
+    await userRef.collection("dailyFacts").doc(day).set(dailyFactsWithMeta, { merge: true });
+
+    // Insights
+    const insights: Insight[] = generateInsightsForDailyFacts({
       userId,
       date: day,
       today: enrichedDailyFacts,
@@ -148,42 +133,57 @@ export const onCanonicalEventCreated = onDocumentCreated(
       await userRef.collection("insights").doc(insight.id).set(insight, { merge: true });
     }
 
-    /**
-     * 4) Intelligence Context
-     */
-    const ctxDoc = buildDailyIntelligenceContextDoc({
+    // Intelligence Context
+    const ctxDoc = buildDailyIntelligenceContext({
       userId,
       date: day,
       computedAt,
       today: enrichedDailyFacts,
-      history: historyFacts,
       insightsForDay: insights,
     });
 
-    // ✅ Write IntelligenceContext with readiness meta
-    await userRef.collection("intelligenceContext").doc(day).set(
-      {
-        ...ctxDoc,
-        meta: buildPipelineMeta({
-          computedAt, // ✅ actual compute time
-          source: {
-            eventsForDay: eventsForDay.length,
-            insightsWritten: insights.length,
-            latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
-          },
-        }),
-      },
-      { merge: true },
-    );
+    const ctxWithMeta = {
+      ...ctxDoc,
+      meta: buildPipelineMeta({
+        computedAt,
+        source: {
+          eventsForDay: eventsForDay.length,
+          insightsWritten: insights.length,
+          ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+        },
+      }),
+    };
 
-    // ✅ Latency logging (canonical → derived)
-    const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
-    const warnAfterSec = 30;
+    await userRef.collection("intelligenceContext").doc(day).set(ctxWithMeta, { merge: true });
 
-    if (shouldWarnLatency(latencyMs, warnAfterSec)) {
-      logger.warn("Pipeline latency high (canonical→derived)", { userId, day, latencyMs, warnAfterSec });
-    } else {
-      logger.info("Pipeline latency (canonical→derived)", { userId, day, latencyMs });
+    // Derived Ledger run (append-only, retry-safe)
+    const runId = makeLedgerRunIdFromSeed("rt", `onCanonicalEventCreated_${eventId}_${day}`);
+    const pipelineVersion = 1;
+
+    await writeDerivedLedgerRun({
+      db,
+      userId,
+      date: day,
+      runId,
+      computedAt,
+      pipelineVersion,
+      trigger: { type: "realtime", name: "onCanonicalEventCreated", eventId },
+      ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+      dailyFacts: dailyFactsWithMeta as unknown as object,
+      intelligenceContext: ctxWithMeta as unknown as object,
+      insights: insights as unknown as object[],
+    });
+
+    // Latency logging (only if we have an anchor)
+    if (latestCanonicalEventAt) {
+      const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+      const warnAfterSec = 30;
+
+      if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+        logger.warn("Pipeline latency high (canonical→derived)", { userId, day, latencyMs, warnAfterSec });
+      } else {
+        logger.info("Pipeline latency (canonical→derived)", { userId, day, latencyMs });
+      }
     }
 
     logger.info("Realtime recompute completed", {
