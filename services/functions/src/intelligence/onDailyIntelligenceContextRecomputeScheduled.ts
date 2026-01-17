@@ -8,11 +8,32 @@ import { db } from "../firebaseAdmin";
 import type { CanonicalEvent, DailyFacts, Insight, IsoDateTimeString, YmdDateString } from "../types/health";
 import { buildDailyIntelligenceContext } from "./buildDailyIntelligenceContext";
 
-// ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
-
-// ✅ Latency logging (canonical → context)
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
+
+import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "../pipeline/derivedLedger";
+
+type PipelineMetaLike = {
+  pipelineVersion?: number;
+  source?: Record<string, unknown>;
+};
+
+function readPipelineMetaLike(value: unknown): PipelineMetaLike | null {
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  const meta = rec["meta"];
+  if (!meta || typeof meta !== "object") return null;
+  const m = meta as Record<string, unknown>;
+
+  const pipelineVersion = typeof m["pipelineVersion"] === "number" ? m["pipelineVersion"] : undefined;
+  const source =
+    typeof m["source"] === "object" && m["source"] !== null ? (m["source"] as Record<string, unknown>) : undefined;
+
+    return {
+      ...(pipelineVersion !== undefined ? { pipelineVersion } : {}),
+      ...(source !== undefined ? { source } : {}),
+    };    
+}
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
@@ -25,55 +46,32 @@ const toYmdUtc = (date: Date): YmdDateString => {
 
 const getYesterdayUtcYmd = (): YmdDateString => {
   const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
-  const d = now.getUTCDate();
-  return toYmdUtc(new Date(Date.UTC(y, m, d - 1)));
+  return toYmdUtc(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1)));
 };
 
 const commitBatches = async (batches: WriteBatch[]): Promise<void> => {
-  for (const batch of batches) {
-    await batch.commit();
-  }
+  for (const batch of batches) await batch.commit();
 };
 
-/**
- * Scheduled job:
- *  - Runs daily (UTC), after Insights recompute
- *  - For each user with DailyFacts on targetDate:
- *      - Load Insights for that day
- *      - Build DailyIntelligenceContext doc
- *      - Write to /users/{userId}/intelligenceContext/{YYYY-MM-DD}
- *
- * Firestore paths:
- *  - Input:  /users/{userId}/dailyFacts/{yyyy-MM-dd}
- *  - Input:  /users/{userId}/insights/{yyyy-MM-dd}_{kind}
- *  - Output: /users/{userId}/intelligenceContext/{yyyy-MM-dd}
- */
 export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
   {
-    // DailyFacts: 03:00 UTC
-    // Insights:   03:15 UTC
-    // IntelligenceContext: run after Insights
     schedule: "30 3 * * *",
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
-  async () => {
+  async (event) => {
     const targetDate = getYesterdayUtcYmd();
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
     logger.info("DailyIntelligenceContext recompute started", { targetDate });
 
-    // Find all users who have DailyFacts for targetDate.
     const dailyFactsSnapshot = await db.collectionGroup("dailyFacts").where("date", "==", targetDate).get();
-
     if (dailyFactsSnapshot.empty) {
       logger.info("No DailyFacts found for target date", { targetDate });
       return;
     }
 
-    const MAX_OPS_PER_BATCH = 450;
+    const MAX_OPS_PER_BATCH = 360;
     const batches: WriteBatch[] = [];
     let currentBatch = db.batch();
     let currentOps = 0;
@@ -81,16 +79,22 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
     let usersProcessed = 0;
     let docsWritten = 0;
 
+    // Stable-ish seed for this scheduled invocation (ScheduledEvent has no .id)
+    const runIdBase = makeLedgerRunIdFromSeed(
+      "sch_ctx",
+      `${String(event.jobName ?? "ctx")}_${String(event.scheduleTime ?? computedAt)}_${targetDate}`,
+    );
+
+    const triggerEventId = `${String(event.jobName ?? "ctx")}_${String(event.scheduleTime ?? computedAt)}`;
+
     for (const doc of dailyFactsSnapshot.docs) {
       const userId = doc.ref.parent.parent?.id;
-
       if (!userId) {
         logger.warn("Skipping DailyFacts doc with unexpected path", { path: doc.ref.path });
         continue;
       }
 
       const today = doc.data() as DailyFacts;
-
       if (!today || today.userId !== userId || today.date !== targetDate) {
         logger.warn("Skipping DailyFacts doc with inconsistent data", {
           path: doc.ref.path,
@@ -104,11 +108,9 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
 
       const userRef = db.collection("users").doc(userId);
 
-      // Load insights for the day
       const insightsSnap = await userRef.collection("insights").where("date", "==", targetDate).get();
       const insightsForDay = insightsSnap.docs.map((d) => d.data() as Insight);
 
-      // ✅ Truth anchor for readiness: latest canonical event timestamp for the day
       const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
       const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
@@ -128,6 +130,18 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
         insightsForDay,
       });
 
+      const intelligenceWithMeta = {
+        ...intelligenceDoc,
+        meta: buildPipelineMeta({
+          computedAt,
+          source: {
+            eventsForDay: eventsForDay.length,
+            insightsWritten: insightsForDay.length,
+            latestCanonicalEventAt,
+          },
+        }),
+      };
+
       if (currentOps >= MAX_OPS_PER_BATCH) {
         batches.push(currentBatch);
         currentBatch = db.batch();
@@ -135,23 +149,28 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       }
 
       const outRef = userRef.collection("intelligenceContext").doc(targetDate);
-      currentBatch.set(
-        outRef,
-        {
-          ...intelligenceDoc,
-          meta: buildPipelineMeta({
-            computedAt: latestCanonicalEventAt,
-            source: {
-              eventsForDay: eventsForDay.length,
-              insightsWritten: insightsForDay.length,
-            },
-          }),
-        },
-        { merge: true },
-      );
+      currentBatch.set(outRef, intelligenceWithMeta, { merge: true });
       currentOps += 1;
 
-      // ✅ Latency logging (canonical → context)
+      // ✅ Ledger run (retry-safe per scheduler seed + user)
+      const runId = `${runIdBase}_${userId}`;
+
+      const todayPipelineVersion = readPipelineMetaLike(today)?.pipelineVersion ?? 1;
+      const intelligencePipelineVersion = readPipelineMetaLike(intelligenceWithMeta)?.pipelineVersion ?? undefined;
+      const pipelineVersion = intelligencePipelineVersion ?? todayPipelineVersion;
+
+      await writeDerivedLedgerRun({
+        db,
+        userId,
+        date: targetDate,
+        runId,
+        computedAt,
+        pipelineVersion,
+        trigger: { type: "scheduled", name: "onDailyIntelligenceContextRecomputeScheduled", eventId: triggerEventId },
+        ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+        intelligenceContext: intelligenceWithMeta,
+      });
+
       const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
       const warnAfterSec = 30;
 
@@ -165,10 +184,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       docsWritten += 1;
     }
 
-    if (currentOps > 0) {
-      batches.push(currentBatch);
-    }
-
+    if (currentOps > 0) batches.push(currentBatch);
     await commitBatches(batches);
 
     logger.info("DailyIntelligenceContext recompute completed", {

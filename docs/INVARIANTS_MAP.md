@@ -28,7 +28,7 @@ This file is required by CI and is audited.
 | I-02 | API ingestion is idempotent (retries never create duplicates) | API route uses Idempotency-Key as document ID | **CHECK 3** + unit test + code review | Duplicate events, double counting |
 | I-03 | Cloud Run writes are user-scoped only (`/users/{uid}/…`) | API route construction + CI static scan | **CHECK 4** + code review + runtime logs | Cross-user data leakage |
 | I-04 | Only backend compute writes derived truth | Firestore rules (`allow write: if false`) | Firestore rules test + manual review | Client bypasses pipeline |
-| I-05 | Canonical events are immutable once written | Functions design + no update paths | Code review | Historical truth mutates |
+| I-05 | Canonical events are immutable once written | Functions design + no update paths | **CHECK 18** + code review | Historical truth mutates |
 | I-06 | Account deletion deletes **all** user data and auth | Deletion executor function | **CHECK 5** + manual verification + logs | GDPR / App Store violation |
 | I-07 | Cloud Run service is not publicly invokable | Cloud Run IAM policy | **CHECK 14** + manual IAM review | Public attack surface |
 | I-08 | All client traffic goes through API Gateway | Infra topology + Cloud Run invoker allowlist | **CHECK 14** + infra review | Bypass auth & rate limits |
@@ -38,6 +38,8 @@ This file is required by CI and is audited.
 | I-12 | Default service accounts must not hold elevated roles | IAM policy snapshot + CI | **CHECK 12** | Privilege creep backdoor |
 | I-13 | All compute workloads must run under dedicated runtime service accounts | Cloud Run/Functions snapshots + CI | **CHECK 13** | Runtime identity drift |
 | I-14 | Canonical event kinds match ingestion RawEvent kinds (no kind drift) | Contracts + CI drift check | **CHECK 15** | Ingestion can’t produce supported canonical kinds (pipeline break) |
+| I-17 | Derived truth must be historically replayable (append-only ledger captures what was known) | Backend derived writers must emit immutable ledger runs + snapshots | **CHECK 19** + code review | “What was known at the time” cannot be reconstructed |
+
 
 ---
 
@@ -89,9 +91,11 @@ This file is required by CI and is audited.
 ### I-05 — Canonical events are immutable
 - **Enforced by**: Write-once functions, no update paths
 - **Verified by**:
+  - **CHECK 18** (CI: canonical writes must be immutable; normalization cannot overwrite canonical truth)
   - Code review
 - **Files**:
   - `services/functions/src/normalization/onRawEventCreated.ts`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 18**)
 
 ### I-06 — Account deletion is complete
 - **Enforced by**: Recursive delete + auth deletion
@@ -207,6 +211,8 @@ This file is required by CI and is audited.
   - **CHECK 13** — Runtime SA allowlist enforced
   - **CHECK 14** — Cloud Run is not public and API Gateway is an authorized invoker
   - **CHECK 15** — CanonicalEventKind matches rawEventKindSchema (no kind drift)
+  - **CHECK 18** — Canonical events are written immutably (no overwrite)
+  - **CHECK 19** — Derived writers emit Derived Ledger runs (append-only historical truth)
 - Firestore emulator tests
 - Manual infra inspection (IAM / Gateway)
 
@@ -244,3 +250,21 @@ Any change to this file requires:
 - **Files**:
   - `services/api/src/**`
   - `scripts/ci/check-invariants.mjs` (**CHECK 17**)
+
+  ### I-17 — Derived truth is historically replayable (append-only ledger)
+- **Enforced by**: Derived writers emit append-only ledger runs + immutable snapshots
+- **Mechanism**:
+  - Every write to `dailyFacts`, `insights`, or `intelligenceContext` must also emit:
+    - `/users/{uid}/derivedLedger/{day}/runs/{runId}` (append-only)
+    - `/users/{uid}/derivedLedger/{day}/runs/{runId}/snapshots/...` (append-only snapshots)
+- **Verified by**:
+  - **CHECK 19** (CI)
+  - Code review
+- **Files**:
+  - `services/functions/src/pipeline/derivedLedger.ts`
+  - `services/functions/src/realtime/onCanonicalEventCreated.ts`
+  - `services/functions/src/dailyFacts/onDailyFactsRecomputeScheduled.ts`
+  - `services/functions/src/insights/onInsightsRecomputeScheduled.ts`
+  - `services/functions/src/intelligence/onDailyIntelligenceContextRecomputeScheduled.ts`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 19**)
+

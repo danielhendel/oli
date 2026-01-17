@@ -12,6 +12,9 @@ import {
   insightDtoSchema,
   insightsResponseDtoSchema,
   intelligenceContextDtoSchema,
+  derivedLedgerReplayResponseDtoSchema,
+  derivedLedgerRunsResponseDtoSchema,
+  derivedLedgerRunSummaryDtoSchema,
   type InsightDto,
 } from "../types/dtos";
 
@@ -153,9 +156,7 @@ router.get(
     const snap = await userCollection(uid, "insights").where("date", "==", day).get();
 
     type Insight = InsightDto;
-    type Parsed =
-      | { success: true; data: Insight }
-      | { success: false; error: z.ZodError };
+    type Parsed = { success: true; data: Insight } | { success: false; error: z.ZodError };
 
     type InsightParsedDoc = {
       docId: string;
@@ -230,6 +231,220 @@ router.get(
     }
 
     res.status(200).json(parsed.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Step 4 — Derived Ledger Replay Reader
+// ----------------------------
+
+const replayQuerySchema = z
+  .object({
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    runId: z.string().min(1).optional(),
+    asOf: z.string().datetime().optional(),
+  })
+  .strip();
+
+type TimestampLike = { toDate: () => Date };
+
+const isTimestampLike = (v: unknown): v is TimestampLike => {
+  if (!v || typeof v !== "object") return false;
+  return typeof (v as TimestampLike).toDate === "function";
+};
+
+const toIsoFromTimestampLike = (v: unknown): string | null => {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (isTimestampLike(v)) return v.toDate().toISOString();
+  return null;
+};
+
+router.get(
+  "/derived-ledger/runs",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const day = parseDay(req, res);
+    if (!day) return;
+
+    const pointerRef = userCollection(uid, "derivedLedger").doc(day);
+    const pointerSnap = await pointerRef.get();
+
+    if (!pointerSnap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerDay", day } });
+      return;
+    }
+
+    const pointerRaw = pointerSnap.data() as Record<string, unknown> | undefined;
+    const latestRunId =
+      typeof pointerRaw?.["latestRunId"] === "string" ? (pointerRaw["latestRunId"] as string) : undefined;
+
+    const runsSnap = await pointerRef.collection("runs").orderBy("computedAt", "desc").limit(50).get();
+
+    const runs = runsSnap.docs.map((d) => {
+      const raw = d.data() as Record<string, unknown>;
+      const createdAtIso = toIsoFromTimestampLike(raw["createdAt"]) ?? new Date(0).toISOString();
+      return { ...raw, createdAt: createdAtIso };
+    });
+
+    for (const r of runs) {
+      const parsed = derivedLedgerRunSummaryDtoSchema.safeParse(r);
+      if (!parsed.success) {
+        invalidDoc500(req, res, "derivedLedgerRun", parsed.error.flatten());
+        return;
+      }
+    }
+
+    const out = { day, latestRunId, runs };
+    const validated = derivedLedgerRunsResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "derivedLedgerRunsResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+router.get(
+  "/derived-ledger/replay",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = replayQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { day, runId: runIdFromQuery, asOf } = parsedQ.data;
+
+    const pointerRef = userCollection(uid, "derivedLedger").doc(day);
+    const pointerSnap = await pointerRef.get();
+    if (!pointerSnap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerDay", day } });
+      return;
+    }
+
+    const pointerRaw = pointerSnap.data() as Record<string, unknown> | undefined;
+    const latestRunId =
+      typeof pointerRaw?.["latestRunId"] === "string" ? (pointerRaw["latestRunId"] as string) : undefined;
+
+    let chosenRunId: string | undefined = runIdFromQuery;
+
+    if (!chosenRunId && asOf) {
+      const q = await pointerRef
+        .collection("runs")
+        .where("computedAt", "<=", asOf)
+        .orderBy("computedAt", "desc")
+        .limit(1)
+        .get();
+
+      const doc = q.docs[0];
+      if (doc) chosenRunId = doc.id;
+    }
+
+    if (!chosenRunId) chosenRunId = latestRunId;
+
+    if (!chosenRunId) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerRun", day } });
+      return;
+    }
+
+    const runRef = pointerRef.collection("runs").doc(chosenRunId);
+    const runSnap = await runRef.get();
+
+    if (!runSnap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerRun", runId: chosenRunId } });
+      return;
+    }
+
+    const runRaw = runSnap.data() as Record<string, unknown>;
+    const runCreatedAt = toIsoFromTimestampLike(runRaw["createdAt"]) ?? new Date(0).toISOString();
+
+    const runNormalized = { ...runRaw, createdAt: runCreatedAt };
+    const runParsed = derivedLedgerRunSummaryDtoSchema.safeParse(runNormalized);
+    if (!runParsed.success) {
+      invalidDoc500(req, res, "derivedLedgerRun", runParsed.error.flatten());
+      return;
+    }
+
+    const snapsRef = runRef.collection("snapshots");
+
+    const dailyFactsSnap = await snapsRef.doc("dailyFacts").get();
+    const intelligenceSnap = await snapsRef.doc("intelligenceContext").get();
+    const insightsItemsSnap = await snapsRef.doc("insights").collection("items").get();
+
+    const dailyFacts = dailyFactsSnap.exists
+      ? ((dailyFactsSnap.data() as Record<string, unknown>)["data"] as unknown)
+      : undefined;
+
+    const intelligenceContext = intelligenceSnap.exists
+      ? ((intelligenceSnap.data() as Record<string, unknown>)["data"] as unknown)
+      : undefined;
+
+    const insightsItems: unknown[] = insightsItemsSnap.docs.map((d) => {
+      const raw = d.data() as Record<string, unknown>;
+      return raw["data"];
+    });
+
+    if (dailyFacts) {
+      const p = dailyFactsDtoSchema.safeParse(dailyFacts);
+      if (!p.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot.dailyFacts", p.error.flatten());
+        return;
+      }
+    }
+
+    if (intelligenceContext) {
+      const p = intelligenceContextDtoSchema.safeParse(intelligenceContext);
+      if (!p.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot.intelligenceContext", p.error.flatten());
+        return;
+      }
+    }
+
+    let insightsOut: unknown | undefined = undefined;
+    if (insightsItems.length > 0) {
+      const out = { day, count: insightsItems.length, items: insightsItems };
+      const p = insightsResponseDtoSchema.safeParse(out);
+      if (!p.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot.insights", p.error.flatten());
+        return;
+      }
+      insightsOut = p.data;
+    }
+
+    const response = {
+      day,
+      runId: runParsed.data.runId,
+      computedAt: runParsed.data.computedAt,
+      pipelineVersion: runParsed.data.pipelineVersion,
+      trigger: runParsed.data.trigger,
+      ...(runParsed.data.latestCanonicalEventAt ? { latestCanonicalEventAt: runParsed.data.latestCanonicalEventAt } : {}),
+      ...(dailyFacts ? { dailyFacts } : {}),
+      ...(intelligenceContext ? { intelligenceContext } : {}),
+      ...(insightsOut ? { insights: insightsOut } : {}),
+    };
+
+    const validated = derivedLedgerReplayResponseDtoSchema.safeParse(response);
+    if (!validated.success) {
+      invalidDoc500(req, res, "derivedLedgerReplayResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
   }),
 );
 

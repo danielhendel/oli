@@ -6,189 +6,201 @@ import type { WriteBatch } from "firebase-admin/firestore";
 
 import { db } from "../firebaseAdmin";
 import type { CanonicalEvent, DailyFacts, IsoDateTimeString, YmdDateString } from "../types/health";
+
 import { aggregateDailyFactsForDay } from "./aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "./enrichDailyFacts";
 
-// ✅ Data Readiness Contract
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
-
-// ✅ Latency logging (canonical → dailyFacts)
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
+
+import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "../pipeline/derivedLedger";
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
-  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day
-    .toString()
-    .padStart(2, "0")}`;
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+};
+
+const parseIntStrict = (value: string): number | null => {
+  if (!/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const parseYmdUtc = (ymd: YmdDateString): Date => {
+  const parts = ymd.split("-");
+  if (parts.length !== 3) throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  const y = parseIntStrict(parts[0] ?? "");
+  const m = parseIntStrict(parts[1] ?? "");
+  const d = parseIntStrict(parts[2] ?? "");
+  if (y === null || m === null || d === null) throw new Error(`Invalid YmdDateString: "${ymd}"`);
+  return new Date(Date.UTC(y, m - 1, d));
+};
+
+const addDaysUtc = (ymd: YmdDateString, deltaDays: number): YmdDateString => {
+  const base = parseYmdUtc(ymd);
+  const next = new Date(base.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+  return toYmdUtc(next);
 };
 
 const getYesterdayUtcYmd = (): YmdDateString => {
   const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
-  const d = now.getUTCDate();
-  return toYmdUtc(new Date(Date.UTC(y, m, d - 1)));
+  return toYmdUtc(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1)));
 };
 
 const commitBatches = async (batches: WriteBatch[]): Promise<void> => {
-  for (const batch of batches) {
-    await batch.commit();
-  }
+  for (const batch of batches) await batch.commit();
 };
 
-/**
- * Scheduled job:
- *  - Runs daily (UTC)
- *  - For each user with any canonical events on targetDate:
- *      - Load all canonical events for that day
- *      - Build base DailyFacts
- *      - Enrich with up to 6 prior days DailyFacts
- *      - Write to /users/{userId}/dailyFacts/{YYYY-MM-DD}
- *
- * Firestore paths:
- *  - Input:  /users/{userId}/events/{eventId} (where day == targetDate)
- *  - Input:  /users/{userId}/dailyFacts/{yyyy-MM-dd} (history window)
- *  - Output: /users/{userId}/dailyFacts/{yyyy-MM-dd}
- */
 export const onDailyFactsRecomputeScheduled = onSchedule(
   {
-    // Runs daily at 03:00 UTC
     schedule: "0 3 * * *",
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
   },
-  async () => {
+  async (event) => {
     const targetDate = getYesterdayUtcYmd();
     const computedAt: IsoDateTimeString = new Date().toISOString();
 
     logger.info("DailyFacts recompute started", { targetDate });
 
-    // Find all users who have canonical events for targetDate.
-    const eventsSnapshot = await db.collectionGroup("events").where("day", "==", targetDate).get();
-
-    if (eventsSnapshot.empty) {
-      logger.info("No canonical events found for target date", { targetDate });
+    // We iterate users directly (avoid global collectionGroup writes assumptions)
+    const usersSnap = await db.collection("users").select().get();
+    if (usersSnap.empty) {
+      logger.info("No users found; skipping DailyFacts recompute", { targetDate });
       return;
     }
 
-    // Group events by userId (from path: users/{userId}/events/{eventId})
-    const eventsByUser = new Map<string, CanonicalEvent[]>();
-    for (const doc of eventsSnapshot.docs) {
-      const userId = doc.ref.parent.parent?.id;
-      if (!userId) {
-        logger.warn("Skipping event doc with unexpected path", { path: doc.ref.path });
-        continue;
-      }
-      const ev = doc.data() as CanonicalEvent;
-      const arr = eventsByUser.get(userId);
-      if (arr) arr.push(ev);
-      else eventsByUser.set(userId, [ev]);
-    }
-
-    const MAX_OPS_PER_BATCH = 450;
+    const MAX_OPS_PER_BATCH = 360;
     const batches: WriteBatch[] = [];
     let currentBatch = db.batch();
     let currentOps = 0;
 
     let usersProcessed = 0;
     let docsWritten = 0;
+    let usersWithNoEvents = 0;
 
-    for (const [userId, eventsForDay] of eventsByUser.entries()) {
+    // Stable seed for this scheduled invocation (ScheduledEvent has no .id)
+    const runIdBase = makeLedgerRunIdFromSeed(
+      "sch_dailyFacts",
+      `${String(event.jobName ?? "dailyFacts")}_${String(event.scheduleTime ?? computedAt)}_${targetDate}`,
+    );
+    const triggerEventId = `${String(event.jobName ?? "dailyFacts")}_${String(event.scheduleTime ?? computedAt)}`;
+
+    const startHistoryDate = addDaysUtc(targetDate, -6);
+
+    for (const userDoc of usersSnap.docs) {
+      const userId = userDoc.id;
       const userRef = db.collection("users").doc(userId);
 
-      // Truth anchor for readiness: latest canonical timestamp for the day
-      const latestCanonicalEventAt: IsoDateTimeString =
-        eventsForDay.reduce<IsoDateTimeString | null>((max, ev) => {
+      // Canonical events for this day
+      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
+      const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+
+      if (eventsForDay.length === 0) {
+        usersWithNoEvents += 1;
+
+        // Still emit a ledger run with no dailyFacts snapshot? For Phase 1 truthfulness,
+        // we emit a run with an empty derived snapshot showing "no events → minimal facts".
+        // Aggregate will produce a valid dailyFacts doc deterministically even if events=[].
+      }
+
+      const latestCanonicalEventAt: IsoDateTimeString | undefined =
+        eventsForDay.reduce<IsoDateTimeString | undefined>((max, ev) => {
           const t = ev.updatedAt ?? ev.createdAt;
           if (!t) return max;
           if (!max) return t;
           return t > max ? t : max;
-        }, null) ?? computedAt;
+        }, undefined) ?? undefined;
 
-      const base: DailyFacts = aggregateDailyFactsForDay({
+      const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
         userId,
         date: targetDate,
         computedAt,
         events: eventsForDay,
       });
 
-      // Load up-to-6 prior days for enrichment window
-      const startDate = (() => {
-        const baseDate = new Date(Date.parse(`${targetDate}T00:00:00.000Z`));
-        // If parsing fails (shouldn't), fallback to computedAt day boundary:
-        if (Number.isNaN(baseDate.getTime())) return targetDate;
-        baseDate.setUTCDate(baseDate.getUTCDate() - 6);
-        return toYmdUtc(baseDate);
-      })();
-
+      // Load history for enrichment (prior 6 days)
       const historySnap = await userRef
         .collection("dailyFacts")
-        .where("date", ">=", startDate)
+        .where("date", ">=", startHistoryDate)
         .where("date", "<", targetDate)
         .get();
 
-      const history: DailyFacts[] = historySnap.docs.map((d) => d.data() as DailyFacts);
+      const historyFacts = historySnap.docs.map((d) => d.data() as DailyFacts);
 
       const enriched = enrichDailyFactsWithBaselinesAndAverages({
-        today: base,
-        history,
+        today: baseDailyFacts,
+        history: historyFacts,
       });
 
+      const dailyFactsWithMeta = {
+        ...enriched,
+        meta: buildPipelineMeta({
+          computedAt,
+          source: {
+            eventsForDay: eventsForDay.length,
+            ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+          },
+        }),
+      };
+
+      // Batch write "latest" DailyFacts pointer doc
       if (currentOps >= MAX_OPS_PER_BATCH) {
         batches.push(currentBatch);
         currentBatch = db.batch();
         currentOps = 0;
       }
 
-      const outRef = userRef.collection("dailyFacts").doc(targetDate);
-
-      currentBatch.set(
-        outRef,
-        {
-          ...enriched,
-          meta: buildPipelineMeta({
-            computedAt, // ✅ actual compute time
-            source: {
-              eventsForDay: eventsForDay.length,
-              latestCanonicalEventAt, // ✅ preserve truth anchor explicitly
-            },
-          }),
-        },
-        { merge: true },
-      );
+      currentBatch.set(userRef.collection("dailyFacts").doc(targetDate), dailyFactsWithMeta, { merge: true });
       currentOps += 1;
 
-      // ✅ Latency logging (canonical → dailyFacts)
-      const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
-      const warnAfterSec = 30;
+      // Ledger run (append-only)
+      const runId = `${runIdBase}_${userId}`;
+      const pipelineVersion = 1;
 
-      if (shouldWarnLatency(latencyMs, warnAfterSec)) {
-        logger.warn("Pipeline latency high (canonical→dailyFacts)", {
-          userId,
-          date: targetDate,
-          latencyMs,
-          warnAfterSec,
-        });
-      } else {
-        logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
+      await writeDerivedLedgerRun({
+        db,
+        userId,
+        date: targetDate,
+        runId,
+        computedAt,
+        pipelineVersion,
+        trigger: { type: "scheduled", name: "onDailyFactsRecomputeScheduled", eventId: triggerEventId },
+        ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+        dailyFacts: dailyFactsWithMeta as unknown as object,
+      });
+
+      // Latency logging (if we have a canonical anchor)
+      if (latestCanonicalEventAt) {
+        const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+        const warnAfterSec = 30;
+
+        if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+          logger.warn("Pipeline latency high (canonical→dailyFacts)", {
+            userId,
+            date: targetDate,
+            latencyMs,
+            warnAfterSec,
+          });
+        } else {
+          logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
+        }
       }
 
       usersProcessed += 1;
       docsWritten += 1;
     }
 
-    if (currentOps > 0) {
-      batches.push(currentBatch);
-    }
-
-    await commitBatches(batches);
+    if (currentOps > 0) batches.push(currentBatch);
+    if (batches.length > 0) await commitBatches(batches);
 
     logger.info("DailyFacts recompute completed", {
       targetDate,
       usersProcessed,
       docsWritten,
+      usersWithNoEvents,
       batchesCommitted: batches.length,
     });
   },

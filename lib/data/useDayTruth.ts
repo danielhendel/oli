@@ -3,21 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDayTruth, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { DayTruthDto } from "@/lib/contracts";
+import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
   | { status: "loading" }
+  | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: DayTruthDto };
 
 type RefetchOpts = TruthGetOptions;
-
-function emptyDayTruth(day: string): DayTruthDto {
-  return {
-    day,
-    eventsCount: 0,
-    latestCanonicalEventAt: null,
-  };
-}
 
 function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
   const cb = opts?.cacheBust;
@@ -69,19 +63,24 @@ export function useDayTruth(day: string): State & { refetch: (opts?: RefetchOpts
       const res = await getDayTruth(dayRef.current, token, optsUnique);
       if (seq !== reqSeq.current) return;
 
-      if (!res.ok) {
-        if (res.kind === "http" && res.status === 404) {
-          safeSet({ status: "ready", data: emptyDayTruth(dayRef.current) });
-          return;
-        }
+      const outcome = truthOutcomeFromApiResult(res);
 
-        if (stateRef.current.status === "ready") return;
-
-        safeSet({ status: "error", error: res.error, requestId: res.requestId });
+      if (outcome.status === "ready") {
+        safeSet({ status: "ready", data: outcome.data });
         return;
       }
 
-      safeSet({ status: "ready", data: res.json });
+      if (outcome.status === "missing") {
+        // Day truth is computed from canonical events and should normally exist.
+        // If it is missing unexpectedly during refresh, keep last known good.
+        if (stateRef.current.status === "ready") return;
+        safeSet({ status: "missing" });
+        return;
+      }
+
+      if (stateRef.current.status === "ready") return;
+
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
     [getIdToken, initializing, user],
   );
