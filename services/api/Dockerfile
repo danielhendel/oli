@@ -1,44 +1,41 @@
 # services/api/Dockerfile
-# IMPORTANT: This Dockerfile must be built with the REPO ROOT as the build context.
-# Example (repo root):
-#   docker build -f services/api/Dockerfile .
-# or (Cloud Build):
-#   gcloud builds submit -f services/api/Dockerfile .
+# Built with build context = services/api (Cloud Run --source services/api)
 
 FROM node:20-slim AS deps
-WORKDIR /workspace
+WORKDIR /app
 
-# Install from repo root so dependency graph matches local
 COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM node:20-slim AS build
-WORKDIR /workspace
+WORKDIR /app
 
-COPY --from=deps /workspace/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
-# The API tsconfig extends ../../tsconfig.base.json and includes ../../lib/contracts/**
-# So we must bring those into /workspace for the build.
-COPY tsconfig.base.json ./
-COPY lib/contracts ./lib/contracts
-COPY services/api ./services/api
-
-# Build API
-WORKDIR /workspace/services/api
+# Compile TS -> dist/*
 RUN npm run build
 
 FROM node:20-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Include node_modules (firebase-admin, etc.)
-COPY --from=deps /workspace/node_modules ./node_modules
+# Bring runtime deps
+COPY --from=deps /app/node_modules ./node_modules
 
-# Compiled output contains dist/services/api/src/* because rootDir is repo root (../..)
-COPY --from=build /workspace/services/api/dist ./dist
+# Bring compiled output
+COPY --from=build /app/dist ./dist
+COPY package.json ./package.json
 
-# Optional (nice for metadata/tools)
-COPY --from=build /workspace/services/api/package.json ./package.json
+# --- IMPORTANT ---
+# Make the TS path alias "@oli/contracts" resolvable at runtime.
+# We vendor the compiled contracts into node_modules/@oli/contracts so that:
+#   require("@oli/contracts")
+#   require("@oli/contracts/day")
+# etc. all work in plain Node.
+RUN mkdir -p node_modules/@oli/contracts \
+  && cp -R dist/lib/contracts/* node_modules/@oli/contracts/ \
+  && printf '{\n  "name": "@oli/contracts",\n  "private": true,\n  "main": "index.js"\n}\n' > node_modules/@oli/contracts/package.json
 
 EXPOSE 8080
-CMD ["node", "dist/services/api/src/server.js"]
+CMD ["node", "dist/src/server.js"]
