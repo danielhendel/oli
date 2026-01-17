@@ -1,7 +1,7 @@
 // services/api/src/routes/events.ts
 import { Router, type Response } from "express";
 
-import { rawEventDocSchema } from "../../../../lib/contracts";
+import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";

@@ -156,20 +156,14 @@ router.get(
     const snap = await userCollection(uid, "insights").where("date", "==", day).get();
 
     type Insight = InsightDto;
-    type Parsed = { success: true; data: Insight } | { success: false; error: z.ZodError };
 
-    type InsightParsedDoc = {
-      docId: string;
-      parsed: Parsed;
-    };
-
-    const parsedDocs: InsightParsedDoc[] = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const parsedDocs = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
       const raw = d.data();
-      const parsed = insightDtoSchema.safeParse(raw) as Parsed;
+      const parsed = insightDtoSchema.safeParse(raw); // <-- no cast
       return { docId: d.id, parsed };
     });
 
-    const bad = parsedDocs.find((x: InsightParsedDoc) => !x.parsed.success);
+    const bad = parsedDocs.find((x) => !x.parsed.success);
     if (bad && !bad.parsed.success) {
       invalidDoc500(req, res, "insights", { docId: bad.docId, issues: bad.parsed.error.flatten() });
       return;

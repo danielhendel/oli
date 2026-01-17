@@ -159,3 +159,33 @@ paths:
       responses:
         200:
           description: OK
+
+  /users/me/derived-ledger/runs:
+    options:
+      operationId: derivedLedgerRunsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: derivedLedgerRunsGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/derived-ledger/replay:
+    options:
+      operationId: derivedLedgerReplayOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: derivedLedgerReplayGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
