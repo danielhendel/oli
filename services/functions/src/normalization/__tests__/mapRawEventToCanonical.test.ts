@@ -1,7 +1,7 @@
-// services/functions/src/normalization/mapRawEventToCanonical.test.ts
+// services/functions/src/normalization/__tests__/mapRawEventToCanonical.test.ts
 import { describe, it, expect } from "@jest/globals";
-import type { RawEvent, CanonicalEvent } from "../types/health";
-import { mapRawEventToCanonical } from "./mapRawEventToCanonical";
+import type { RawEvent, CanonicalEvent } from "../../types/health";
+import { mapRawEventToCanonical } from "../mapRawEventToCanonical";
 
 const baseRawEvent: Omit<RawEvent, "id" | "payload" | "kind" | "provider"> = {
   userId: "user_123",
@@ -146,5 +146,32 @@ describe("mapRawEventToCanonical", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("Expected mapping failure");
     expect(result.reason).toBe("MALFORMED_PAYLOAD");
+  });
+
+  it("treats upload.file as memory-only (no canonical output)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_upload_1",
+      provider: "manual",
+      kind: "upload.file",
+      payload: {
+        storagePath: "users/user_123/uploads/abc.pdf",
+        fileHash: "sha256:deadbeef",
+        mimeType: "application/pdf",
+        originalFilename: "labs.pdf",
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected mapping failure (no-op)");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details).toEqual(
+      expect.objectContaining({
+        kind: "upload.file",
+        memoryOnly: true,
+        rawEventId: "raw_upload_1",
+      })
+    );
   });
 });

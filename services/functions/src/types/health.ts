@@ -23,12 +23,12 @@ export type YmdDateString = string;
  * This matches the ingestion / OS design in the Master System Architecture.
  */
 export type HealthSourceType =
-  | 'wearable'
-  | 'mobile_app'
-  | 'manual'
-  | 'lab'
-  | 'device'
-  | 'import';
+  | "wearable"
+  | "mobile_app"
+  | "manual"
+  | "lab"
+  | "device"
+  | "import";
 
 /**
  * Core canonical event kinds for v1.
@@ -36,12 +36,22 @@ export type HealthSourceType =
  * - Nutrition daily totals (macros) as a canonical event kind.
  */
 export type CanonicalEventKind =
-  | 'sleep'
-  | 'steps'
-  | 'workout'
-  | 'weight'
-  | 'hrv'
-  | 'nutrition';
+  | "sleep"
+  | "steps"
+  | "workout"
+  | "weight"
+  | "hrv"
+  | "nutrition";
+
+/**
+ * Raw event kinds are the ingestion boundary discriminants.
+ *
+ * IMPORTANT:
+ * - RawEvent kinds may include "memory-only" artifacts that do NOT normalize into CanonicalEvents
+ *   (Phase 1: upload.file with no parsing).
+ * - CanonicalEventKind remains strictly the set of normalized health facts.
+ */
+export type RawEventKind = CanonicalEventKind | "upload.file";
 
 /**
  * RawEvent is the ingestion boundary type.
@@ -67,8 +77,8 @@ export interface RawEvent {
   /** Provider identifier (e.g. "apple_health", "oura", "manual") */
   provider: string;
 
-  /** Target canonical event kind this raw payload contributes to */
-  kind: CanonicalEventKind;
+  /** Discriminant for the raw event envelope */
+  kind: RawEventKind;
 
   /** When Oli received this event (server time, ISO-8601 UTC) */
   receivedAt: IsoDateTimeString;
@@ -137,7 +147,7 @@ export interface BaseCanonicalEvent {
  * SleepCanonicalEvent — normalized sleep episode.
  */
 export interface SleepCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'sleep';
+  kind: "sleep";
 
   /** Total minutes asleep during this episode */
   totalMinutes: number;
@@ -159,7 +169,7 @@ export interface SleepCanonicalEvent extends BaseCanonicalEvent {
  * StepsCanonicalEvent — steps / incidental activity over a window.
  */
 export interface StepsCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'steps';
+  kind: "steps";
 
   /** Total steps in this window */
   steps: number;
@@ -193,13 +203,13 @@ export interface WorkoutSet {
  * WorkoutCanonicalEvent — explicit workouts / training sessions.
  */
 export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'workout';
+  kind: "workout";
 
   /** Free-form sport name (e.g. "run", "cycling", "strength_training") */
   sport: string;
 
   /** Coarse-grained intensity bucket */
-  intensity?: 'easy' | 'moderate' | 'hard';
+  intensity?: "easy" | "moderate" | "hard";
 
   /** Workout duration in minutes */
   durationMinutes: number;
@@ -218,7 +228,7 @@ export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
  * WeightCanonicalEvent — body weight & composition measurements.
  */
 export interface WeightCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'weight';
+  kind: "weight";
 
   /** Body weight in kilograms */
   weightKg: number;
@@ -231,7 +241,7 @@ export interface WeightCanonicalEvent extends BaseCanonicalEvent {
  * HrvCanonicalEvent — HRV / recovery markers.
  */
 export interface HrvCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'hrv';
+  kind: "hrv";
 
   /** Root-mean-square of successive differences (ms) */
   rmssdMs?: number | null;
@@ -240,7 +250,7 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
   sdnnMs?: number | null;
 
   /** Whether this was a nightly aggregated measurement or spot check */
-  measurementType?: 'nightly' | 'spot';
+  measurementType?: "nightly" | "spot";
 }
 
 /**
@@ -249,7 +259,7 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
  * with meal-level detail coming later without breaking this schema.
  */
 export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
-  kind: 'nutrition';
+  kind: "nutrition";
 
   /** Daily totals */
   totalKcal: number;
@@ -391,7 +401,7 @@ export interface DailyFacts {
  * Firestore path (logical):
  *   /users/{userId}/insights/{insightId}
  */
-export type InsightSeverity = 'info' | 'warning' | 'critical';
+export type InsightSeverity = "info" | "warning" | "critical";
 
 export interface InsightEvidencePoint {
   /** Path into DailyFacts or CanonicalEvents that this insight is based on */
@@ -404,7 +414,7 @@ export interface InsightEvidencePoint {
   threshold?: number;
 
   /** Direction of the comparison that triggered the rule */
-  direction?: 'above' | 'below' | 'outside_range';
+  direction?: "above" | "below" | "outside_range";
 }
 
 export interface Insight {
@@ -456,7 +466,7 @@ export interface Insight {
  * Firestore path (logical):
  *   /users/{userId}/sources/{sourceId}
  */
-export type SourceStatus = 'connected' | 'disconnected' | 'error' | 'revoked';
+export type SourceStatus = "connected" | "disconnected" | "error" | "revoked";
 
 export interface UserSourceConnection {
   /** Document id (sourceId) */
@@ -523,14 +533,14 @@ export function isCanonicalEvent(
 ): event is CanonicalEvent {
   const candidate = event as CanonicalEvent;
   return (
-    typeof candidate.kind === 'string' &&
-    typeof (candidate as { start?: unknown }).start === 'string'
+    typeof candidate.kind === "string" &&
+    typeof (candidate as { start?: unknown }).start === "string"
   );
 }
 
 /** Minimal runtime check for DailyFacts shape */
 export function isDailyFacts(value: unknown): value is DailyFacts {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
   const candidate = value as DailyFacts;
-  return typeof candidate.userId === 'string' && typeof candidate.date === 'string';
+  return typeof candidate.userId === "string" && typeof candidate.date === "string";
 }

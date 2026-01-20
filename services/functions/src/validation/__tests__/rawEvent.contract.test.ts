@@ -17,8 +17,33 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
         time: "2025-01-02T00:00:00.000Z",
         timezone: "America/New_York",
         weightKg: 80.5,
-        bodyFatPercent: 12.3
-      }
+        bodyFatPercent: 12.3,
+      },
+    };
+
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
+  test('accepts a valid file RawEvent doc (no parsing)', () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "file_evt_1",
+      userId: "user_1",
+      sourceId: "upload",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "file",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        storageBucket: "oli-staging-uploads",
+        storagePath: "uploads/user_1/abcdef1234567890/test.pdf",
+        sha256: "abcdef1234567890",
+        sizeBytes: 12345,
+        mimeType: "application/pdf",
+        originalFilename: "test.pdf",
+      },
     };
 
     const parsed = rawEventDocSchema.safeParse(raw);
@@ -40,8 +65,8 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
         start: "2025-01-02T00:00:00.000Z",
         end: "2025-01-02T01:00:00.000Z",
         timezone: "America/New_York",
-        steps: 1000
-      }
+        steps: 1000,
+      },
     };
 
     const parsed = rawEventDocSchema.safeParse(raw);
