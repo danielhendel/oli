@@ -21,6 +21,11 @@ import type {
  * IMPORTANT:
  * - `day` is derived server-side from (time/start, timezone).
  * - Do NOT trust any client-provided `day`.
+ *
+ * Phase 1 note:
+ * - Some RawEvent kinds are "memory-only" and intentionally do NOT emit CanonicalEvents
+ *   (e.g., upload.file with no parsing). Those return UNSUPPORTED_KIND with a marker
+ *   so callers can treat them as a valid no-op.
  */
 
 export type MappingFailureReason =
@@ -349,6 +354,19 @@ const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEve
 // -----------------------------------------------------------------------------
 
 export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
+  /**
+   * Phase 1: memory-only uploads.
+   * Upload events are intentionally NOT normalizable into canonical health facts.
+   * They are still valid RawEvents and should be treated as a valid no-op by callers.
+   */
+  if (raw.kind === "upload.file") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, memoryOnly: true },
+    };
+  }
+
   if (raw.provider !== "manual") {
     return {
       ok: false,
@@ -373,7 +391,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       const canonical = mapManualSleep(raw, payload);
       if (!canonical) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id, field: "start" },
+        };
       }
       return { ok: true, canonical };
     }
@@ -385,7 +407,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       const canonical = mapManualSteps(raw, payload);
       if (!canonical) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id, field: "start" },
+        };
       }
       return { ok: true, canonical };
     }
@@ -397,7 +423,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       const canonical = mapManualWorkout(raw, payload);
       if (!canonical) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "start" } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id, field: "start" },
+        };
       }
       return { ok: true, canonical };
     }
@@ -409,7 +439,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       const canonical = mapManualWeight(raw, payload);
       if (!canonical) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "time" } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id, field: "time" },
+        };
       }
       return { ok: true, canonical };
     }
@@ -421,7 +455,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       const canonical = mapManualHrv(raw, payload);
       if (!canonical) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id, field: "time" } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id, field: "time" },
+        };
       }
       return { ok: true, canonical };
     }

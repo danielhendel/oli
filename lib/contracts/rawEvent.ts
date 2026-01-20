@@ -15,9 +15,16 @@ export const isoDateTimeStringSchema = z
   .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid ISO datetime string");
 
 // NOTE: Keep provider/sourceType flexible for future integrations,
-// but keep the *payload+kind* strict to what Functions support today.
+// but keep the *payload+kind* strict to what Functions + Phase 1 support today.
 export const rawEventSchemaVersionSchema = z.literal(1);
 
+/**
+ * RawEvent kinds are the ingestion boundary taxonomy.
+ *
+ * Phase 1 rule:
+ * - Canonical kinds exist here (sleep/steps/...)
+ * - "file" is memory-only (upload artifact), not canonical, not normalized yet.
+ */
 export const rawEventKindSchema = z.enum([
   "sleep",
   "steps",
@@ -25,10 +32,11 @@ export const rawEventKindSchema = z.enum([
   "weight",
   "hrv",
   "nutrition",
+  "file",
 ]);
 
 // -----------------------------
-// Payloads (manual + future-proof day optional)
+// Payloads
 // -----------------------------
 
 const manualWindowBaseSchema = z
@@ -41,12 +49,7 @@ const manualWindowBaseSchema = z
   })
   .strip();
 
-// IMPORTANT:
-// These payload schemas are intentionally NOT exported with generic names that may collide
-// with other contract modules (e.g., contracts/weight.ts).
-// Consumers should use:
-// - rawEventDocSchema (primary)
-// - rawEventPayloadByKindSchemas (secondary, keyed by kind)
+// Manual payloads (canonicalizable)
 const manualSleepPayloadSchema = manualWindowBaseSchema
   .extend({
     totalMinutes: z.number().finite().nonnegative(),
@@ -105,6 +108,25 @@ const manualNutritionPayloadSchema = manualWindowBaseSchema
   })
   .strip();
 
+/**
+ * Phase 1: file upload artifact (NO parsing)
+ *
+ * Required properties:
+ * - storageBucket + storagePath: verifiable reference to stored bytes
+ * - sha256 + sizeBytes: integrity + replay/debug
+ * - mimeType + originalFilename: user meaning + future parsing
+ */
+const manualFilePayloadSchema = z
+  .object({
+    storageBucket: z.string().min(1),
+    storagePath: z.string().min(1),
+    sha256: z.string().min(1),
+    sizeBytes: z.number().finite().int().nonnegative(),
+    mimeType: z.string().min(1),
+    originalFilename: z.string().min(1),
+  })
+  .strip();
+
 // Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
@@ -113,6 +135,7 @@ const payloadByKindSchema = {
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
+  file: manualFilePayloadSchema,
 } as const;
 
 // -----------------------------
@@ -167,7 +190,8 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualWorkoutPayloadSchema>
     | z.infer<typeof manualWeightPayloadSchema>
     | z.infer<typeof manualHrvPayloadSchema>
-    | z.infer<typeof manualNutritionPayloadSchema>;
+    | z.infer<typeof manualNutritionPayloadSchema>
+    | z.infer<typeof manualFilePayloadSchema>;
 };
 
 /**
@@ -181,4 +205,5 @@ export const rawEventPayloadByKindSchemas = {
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
+  file: manualFilePayloadSchema,
 } as const;

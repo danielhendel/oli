@@ -1,6 +1,7 @@
 // services/api/src/routes/usersMe.ts
 import { Router, type Response } from "express";
 import { z } from "zod";
+import { rawEventDocSchema } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -113,6 +114,71 @@ router.get(
     }
 
     res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Phase 1 — RawEvents Read Boundary
+// ----------------------------
+
+const rawEventParamsSchema = z
+  .object({
+    id: z.string().min(1),
+  })
+  .strip();
+
+/**
+ * GET /users/me/rawEvents/:id
+ *
+ * Phase 1 requirement:
+ * - User can retrieve/verify any stored RawEvent (memory entry) by id.
+ *
+ * Properties:
+ * - Authenticated
+ * - User-scoped read ONLY
+ * - Fail-closed contract enforcement via @oli/contracts rawEventDocSchema
+ */
+router.get(
+  "/rawEvents/:id",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedParams = rawEventParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_PARAMS",
+          message: "Invalid route params",
+          details: parsedParams.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { id } = parsedParams.data;
+
+    const ref = userCollection(uid, "rawEvents").doc(id);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      res.status(404).json({
+        ok: false,
+        error: { code: "NOT_FOUND", resource: "rawEvents", id },
+      });
+      return;
+    }
+
+    const data = snap.data();
+    const parsed = rawEventDocSchema.safeParse(data);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "rawEvents", parsed.error.flatten());
+      return;
+    }
+
+    res.status(200).json(parsed.data);
   }),
 );
 
@@ -360,7 +426,10 @@ router.get(
     const runSnap = await runRef.get();
 
     if (!runSnap.exists) {
-      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerRun", runId: chosenRunId } });
+      res.status(404).json({
+        ok: false,
+        error: { code: "NOT_FOUND", resource: "derivedLedgerRun", runId: chosenRunId },
+      });
       return;
     }
 
@@ -426,7 +495,9 @@ router.get(
       computedAt: runParsed.data.computedAt,
       pipelineVersion: runParsed.data.pipelineVersion,
       trigger: runParsed.data.trigger,
-      ...(runParsed.data.latestCanonicalEventAt ? { latestCanonicalEventAt: runParsed.data.latestCanonicalEventAt } : {}),
+      ...(runParsed.data.latestCanonicalEventAt
+        ? { latestCanonicalEventAt: runParsed.data.latestCanonicalEventAt }
+        : {}),
       ...(dailyFacts ? { dailyFacts } : {}),
       ...(intelligenceContext ? { intelligenceContext } : {}),
       ...(insightsOut ? { insights: insightsOut } : {}),

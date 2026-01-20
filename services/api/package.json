@@ -20,7 +20,8 @@
     "express": "^4.21.2",
     "firebase-admin": "^13.5.0",
     "rate-limiter-flexible": "^8.0.1",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "@oli/contracts": "file:../../lib/contracts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

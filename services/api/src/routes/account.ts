@@ -1,9 +1,9 @@
 // services/api/src/routes/account.ts
 import { Router, type Response } from "express";
 
-import { publishJSON } from "../lib/pubsub.js";
-import type { AuthedRequest } from "../middleware/auth.js";
-import { FieldValue, userCollection } from "../db.js";
+import { publishJSON } from "../lib/pubsub";
+import type { AuthedRequest } from "../middleware/auth";
+import { FieldValue, userCollection } from "../db";
 
 const router = Router();
 
