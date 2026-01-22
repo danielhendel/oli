@@ -91,7 +91,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
   {
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
-    invoker: "private",
+    invoker: "public",
   },
   async (req, res) => {
     const auth = await requireAdmin(req.header("authorization"));
