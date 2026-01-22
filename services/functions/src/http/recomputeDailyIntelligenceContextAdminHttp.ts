@@ -53,7 +53,7 @@ export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
   {
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
-    invoker: "public",
+    invoker: "private",
   },
   async (req, res) => {
     const auth = await requireAdmin(req.header("authorization"));
