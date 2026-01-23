@@ -43,18 +43,22 @@ const buildBody = (req: Request): HealthOk => {
     return body;
   }
 
-  // Fallback: trace id if present (still fine)
+  // Fallback: trace id if present
   const trace = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
   if (trace) body.requestId = trace;
 
   return body;
 };
 
-// ✅ public health endpoint
+// ✅ Public endpoints
 router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
 
-// ✅ use /ready or /live (NOT /healthz)
+// ✅ /healthz is a commonly expected probe path (CI/probes/etc.)
+router.get("/healthz", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+
+// ✅ readiness/liveness aliases
 router.get("/ready", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+router.get("/live", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
 
 /**
  * ✅ authenticated health endpoint
