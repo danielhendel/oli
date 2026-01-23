@@ -55,6 +55,48 @@ paths:
         200:
           description: OK
 
+  /healthz:
+    options:
+      operationId: healthzOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: healthzGet
+      security: []
+      responses:
+        200:
+          description: OK
+
+  /ready:
+    options:
+      operationId: readyOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: readyGet
+      security: []
+      responses:
+        200:
+          description: OK
+
+  /live:
+    options:
+      operationId: liveOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: liveGet
+      security: []
+      responses:
+        200:
+          description: OK
+
   /ingest:
     options:
       operationId: ingestOptions
@@ -184,6 +226,28 @@ paths:
           description: No Content
     get:
       operationId: derivedLedgerReplayGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /preferences:
+    options:
+      operationId: preferencesOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: preferencesGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+    put:
+      operationId: preferencesPut
       security:
         - firebase: []
       responses:
