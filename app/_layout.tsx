@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
 
 function RouteGuard() {
   const { user, initializing } = useAuth();
@@ -36,21 +37,23 @@ function RouteGuard() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="auto" />
-      <RouteGuard />
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Auth flow */}
-        <Stack.Screen name="(auth)" />
+      <PreferencesProvider>
+        <StatusBar style="auto" />
+        <RouteGuard />
+        <Stack screenOptions={{ headerShown: false }}>
+          {/* Auth flow */}
+          <Stack.Screen name="(auth)" />
 
-        {/* Product shell */}
-        <Stack.Screen name="(app)" />
+          {/* Product shell */}
+          <Stack.Screen name="(app)" />
 
-        {/* Root index exists (can be used for deep-links / legacy) */}
-        <Stack.Screen name="index" />
+          {/* Root index exists (can be used for deep-links / legacy) */}
+          <Stack.Screen name="index" />
 
-        {/* Debug area */}
-        <Stack.Screen name="debug" />
-      </Stack>
+          {/* Debug area */}
+          <Stack.Screen name="debug" />
+        </Stack>
+      </PreferencesProvider>
     </AuthProvider>
   );
 }

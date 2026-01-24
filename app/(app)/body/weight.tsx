@@ -1,5 +1,5 @@
 // app/(app)/body/weight.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 
 const LBS_PER_KG = 2.2046226218;
 
@@ -27,8 +28,12 @@ function makeRefreshKey(): string {
 export default function BodyWeightScreen() {
   const router = useRouter();
   const { user, initializing, getIdToken } = useAuth();
+  const { state: prefState } = usePreferences();
 
+  // Default unit comes from preferences, but we must never override user toggles on this screen.
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
+  const [unitTouched, setUnitTouched] = useState(false);
+
   const [weightText, setWeightText] = useState("");
   const [bodyFatText, setBodyFatText] = useState("");
   const [status, setStatus] = useState<
@@ -37,6 +42,13 @@ export default function BodyWeightScreen() {
     | { state: "error"; message: string }
     | { state: "saved"; rawEventId: string }
   >({ state: "idle" });
+
+  // Apply preferred unit once (or whenever prefs change) ONLY if user hasn't touched unit toggle here.
+  useEffect(() => {
+    if (unitTouched) return;
+    const preferred = prefState.preferences.units.mass; // "lb" | "kg"
+    setUnit(preferred);
+  }, [prefState.preferences.units.mass, unitTouched]);
 
   const parsed = useMemo(() => {
     const w = Number(weightText);
@@ -125,6 +137,11 @@ export default function BodyWeightScreen() {
     }
   };
 
+  const onSelectUnit = (next: "lb" | "kg") => {
+    setUnitTouched(true);
+    setUnit(next);
+  };
+
   return (
     <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
       <View style={styles.card}>
@@ -142,7 +159,7 @@ export default function BodyWeightScreen() {
 
           <View style={styles.unitGroup}>
             <Pressable
-              onPress={() => setUnit("lb")}
+              onPress={() => onSelectUnit("lb")}
               accessibilityRole="button"
               accessibilityLabel="Use pounds"
               style={[styles.unitButton, unit === "lb" && styles.unitActive]}
@@ -151,7 +168,7 @@ export default function BodyWeightScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => setUnit("kg")}
+              onPress={() => onSelectUnit("kg")}
               accessibilityRole="button"
               accessibilityLabel="Use kilograms"
               style={[styles.unitButton, unit === "kg" && styles.unitActive]}
@@ -192,7 +209,9 @@ export default function BodyWeightScreen() {
         </Pressable>
 
         {status.state === "error" ? <Text style={styles.helperError}>{status.message}</Text> : null}
-        {status.state === "saved" ? <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text> : null}
+        {status.state === "saved" ? (
+          <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text>
+        ) : null}
 
         <Text style={styles.helperNote}>
           Daily facts may take a moment to update while the pipeline processes your raw event.
@@ -227,7 +246,13 @@ const styles = StyleSheet.create({
   unitActive: { backgroundColor: "#111827" },
   unitText: { fontSize: 14, fontWeight: "800", color: "#111827" },
   unitTextActive: { color: "#FFFFFF" },
-  saveButton: { marginTop: 10, backgroundColor: "#111827", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  saveButton: {
+    marginTop: 10,
+    backgroundColor: "#111827",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
   saveDisabled: { opacity: 0.35 },
   saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   helperError: { color: "#B00020", fontSize: 12, fontWeight: "600" },
