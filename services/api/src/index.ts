@@ -8,6 +8,7 @@ import eventsRoutes from "./routes/events";
 import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
+import preferencesRoutes from "./routes/preferences";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
@@ -102,6 +103,12 @@ app.use("/ingest", authMiddleware, eventsRoutes);
  * Phase 1: writes storage bytes + emits memory-only RawEvent(kind="file").
  */
 app.use("/uploads", authMiddleware, uploadsRoutes);
+
+/**
+ * View-layer preferences (authenticated).
+ * Phase 1: units + timezone bucketing preferences.
+ */
+app.use("/preferences", authMiddleware, preferencesRoutes);
 
 /**
  * AUTHENTICATED READ BOUNDARY
