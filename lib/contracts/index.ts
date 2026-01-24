@@ -1,9 +1,13 @@
 // lib/contracts/index.ts
-export * from "./day";
-export * from "./weight";
+
+export * from "./rawEvent";
 export * from "./dailyFacts";
+export * from "./derivedLedger";
 export * from "./insights";
 export * from "./intelligenceContext";
-export * from "./rawEvent";
+export * from "./day";
 export * from "./dayTruth";
-export * from "./derivedLedger";
+export * from "./weight";
+
+// ✅ Preferences (Phase 1)
+export * from "./preferences";

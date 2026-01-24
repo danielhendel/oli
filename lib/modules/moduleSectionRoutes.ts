@@ -3,7 +3,7 @@
 export type ModuleId = "body" | "workouts" | "nutrition" | "recovery" | "labs" | "settings";
 
 export type ModuleSection = {
-  id: string; // will be refined to ModuleSectionId via `as const` below
+  id: string; // refined to ModuleSectionId via `as const` below
   moduleId: ModuleId;
   title: string;
   href: string;
@@ -37,6 +37,7 @@ export const MODULE_SECTIONS = [
 
   // SETTINGS
   { id: "settings.account", moduleId: "settings", title: "Account", href: "/(app)/settings/account" },
+  { id: "settings.units", moduleId: "settings", title: "Units", href: "/(app)/settings/units" },
   { id: "settings.devices", moduleId: "settings", title: "Devices", href: "/(app)/settings/devices" },
   { id: "settings.privacy", moduleId: "settings", title: "Privacy", href: "/(app)/settings/privacy" },
 ] as const satisfies readonly ModuleSection[];
