@@ -1,6 +1,10 @@
 # .gcloudignore
+# Keep Cloud Run build contexts deterministic and avoid accidentally excluding deploy-critical files.
+
 .git
 **/.DS_Store
+
+# Always exclude local deps / outputs
 **/node_modules
 **/dist
 **/dist-types
@@ -9,5 +13,15 @@
 **/.expo
 **/ios/build
 **/android/build
+
+# Env files should never ship
 .env
 .env.*
+
+# --- Explicit allowlist overrides (defensive) ---
+# Ensure API build context always includes what Dockerfile expects.
+!services/api/package.json
+!services/api/package-lock.json
+!services/api/Dockerfile
+!services/api/src/**
+!services/api/lib/**
