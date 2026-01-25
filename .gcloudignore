@@ -1,10 +1,10 @@
 # .gcloudignore
-# Keep Cloud Run build contexts deterministic and avoid accidentally excluding deploy-critical files.
+# Deterministic Cloud Run source builds from repo root.
 
 .git
 **/.DS_Store
 
-# Always exclude local deps / outputs
+# Never ship local deps / outputs
 **/node_modules
 **/dist
 **/dist-types
@@ -14,14 +14,23 @@
 **/ios/build
 **/android/build
 
-# Env files should never ship
+# Never ship secrets
 .env
 .env.*
 
-# --- Explicit allowlist overrides (defensive) ---
-# Ensure API build context always includes what Dockerfile expects.
-!services/api/package.json
-!services/api/package-lock.json
-!services/api/Dockerfile
-!services/api/src/**
-!services/api/lib/**
+# --- Allowlist the actual build context we need for root deploy ---
+!package.json
+!package-lock.json
+!tsconfig.json
+!Dockerfile
+!scripts/**
+
+# Canonical contracts package (single source of truth)
+!lib/contracts/**
+# (Allow other lib files only if you actually need them; safe default is include all lib)
+!lib/**
+
+# API service source
+!services/api/**
+# Functions can remain excluded if you want smaller contexts, but safe to include:
+!services/functions/**

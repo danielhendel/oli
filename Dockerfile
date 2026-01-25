@@ -1,29 +1,55 @@
-# Build stage
-FROM node:20-alpine AS build
+# Root Dockerfile (Option A)
+# Builds & runs Cloud Run API from repo root using npm workspaces.
+# Deterministic, cache-friendly, no vendoring hacks.
+
+FROM node:20-slim AS deps
 WORKDIR /app
 
-# Install deps (only re-run when package files change)
-COPY package*.json ./
-RUN npm ci
+RUN npm --version && npm install -g npm@11.8.0 && npm --version
 
-# Copy source and build
-COPY tsconfig*.json ./
-COPY src ./src
-RUN npm run build
+# Copy only manifests first for maximum Docker cache hit rate
+COPY package.json package-lock.json ./
+COPY lib/contracts/package.json lib/contracts/package.json
+COPY services/api/package.json services/api/package.json
+COPY services/functions/package.json services/functions/package.json
 
-# Runtime stage
-FROM node:20-alpine AS runtime
+# Deterministic install at repo root (creates workspace links in node_modules)
+# Ignore scripts to prevent lifecycle builds before sources are copied.
+RUN npm ci --no-audit --no-fund --ignore-scripts
+
+FROM node:20-slim AS build
+WORKDIR /app
+RUN npm install -g npm@11.8.0
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build order matters: contracts must emit dist/ before api compiles against it.
+# IMPORTANT: wipe BOTH output + the actual incremental buildinfo that lands under dist/
+RUN rm -rf lib/contracts/dist || true
+RUN rm -f lib/contracts/dist/tsconfig.tsbuildinfo || true
+RUN npm run -w @oli/contracts build
+
+RUN rm -rf services/api/dist || true
+RUN rm -f services/api/dist/tsconfig.tsbuildinfo || true
+RUN npm run -w api build
+
+FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
+RUN npm install -g npm@11.8.0
 
-# Only production deps
-COPY package*.json ./
-RUN npm ci --omit=dev
+# Copy the pieces runtime needs
+COPY package.json package-lock.json ./
+COPY services/api/package.json services/api/package.json
+COPY lib/contracts/package.json lib/contracts/package.json
+COPY --from=build /app/lib/contracts/dist ./lib/contracts/dist
+COPY --from=build /app/services/api/dist ./services/api/dist
 
-# Copy compiled app from build stage
-COPY --from=build /app/dist ./dist
+# Install production dependencies for the API workspace (guarantees pubsub exists)
+# This uses the root lockfile deterministically.
+RUN npm ci -w api --omit=dev --no-audit --no-fund --ignore-scripts
 
-# Cloud Run will set $PORT; ensure your server listens on it.
 EXPOSE 8080
-CMD ["node", "dist/index.js"]
+CMD ["node", "services/api/dist/src/server.js"]

@@ -270,6 +270,18 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     );
   }
 
+  // --- Option A Monorepo invariant: duplicate contracts folder must never exist ---
+  const dupContractsDir = path.join(ROOT, "services", "api", "lib", "contracts");
+  if (exists(dupContractsDir)) {
+    fail(
+      `CHECK 6 (Invariant map drift) failed:\n` +
+        `- Duplicate contracts folder detected at services/api/lib/contracts\n\n` +
+        `Fix:\n` +
+        `- Remove services/api/lib/contracts entirely.\n` +
+        `- services/api must depend on @oli/contracts via npm workspaces only (single source of truth at lib/contracts).`,
+    );
+  }
+
   const text = readText(docPath);
 
   const forbidden = /\b(TODO|TBD|placeholder)\b/i;

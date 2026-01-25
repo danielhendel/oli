@@ -19,11 +19,7 @@ type ApiError = {
 const jsonServerMisconfig = (res: Response, requestId: string, message: string) => {
   const body: ApiError = {
     ok: false,
-    error: {
-      code: "SERVER_MISCONFIG",
-      message,
-      requestId,
-    },
+    error: { code: "SERVER_MISCONFIG", message, requestId },
   };
   return res.status(500).json(body);
 };
@@ -31,11 +27,7 @@ const jsonServerMisconfig = (res: Response, requestId: string, message: string) 
 const jsonBadRequest = (res: Response, requestId: string, message: string) => {
   const body: ApiError = {
     ok: false,
-    error: {
-      code: "BAD_REQUEST",
-      message,
-      requestId,
-    },
+    error: { code: "BAD_REQUEST", message, requestId },
   };
   return res.status(400).json(body);
 };
@@ -68,12 +60,12 @@ const requireEnv = (key: "TOPIC_EXPORTS" | "TOPIC_DELETE"): string | null => {
 };
 
 /** Request a user export (publishes to Pub/Sub) */
-router.post("/export", async (req: AuthedRequest, res: Response) => {
+/** Mounted at /export */
+router.post("/", async (req: AuthedRequest, res: Response) => {
   const rid = getRequestId(req, res);
   const uid = assertAuthedUid(req, res);
   if (!uid) return;
 
-  // We require a stable request id for idempotency.
   if (!rid || rid === "missing") {
     return jsonBadRequest(res, rid, "Missing x-request-id");
   }
@@ -81,22 +73,18 @@ router.post("/export", async (req: AuthedRequest, res: Response) => {
   const topic = requireEnv("TOPIC_EXPORTS");
   if (!topic) return jsonServerMisconfig(res, rid, "Missing TOPIC_EXPORTS env var");
 
-  const requestId = rid; // stable correlation id across gateway -> api -> pubsub -> worker
+  const requestId = rid;
   const statusRef = userCollection(uid, "accountExports").doc(requestId);
 
-  // ✅ Idempotency: if status doc already exists, return it and DO NOT republish
   const existing = await statusRef.get();
   if (existing.exists) {
     const data = existing.data() as Record<string, unknown> | undefined;
-    const status = typeof data?.["status"] === "string" ? (data?.["status"] as string) : "unknown";
-
-    // Keep semantics simple: retry returns current state.
+    const status = typeof data?.["status"] === "string" ? (data["status"] as string) : "unknown";
     return res.status(200).json({ ok: true as const, status, requestId });
   }
 
   const requestedAt = new Date().toISOString();
 
-  // ✅ Create queued status doc immediately (observable from the moment API returns 202)
   await statusRef.set(
     {
       uid,
@@ -118,7 +106,8 @@ router.post("/export", async (req: AuthedRequest, res: Response) => {
 });
 
 /** Request account deletion (publishes to Pub/Sub) */
-router.post("/account/delete", async (req: AuthedRequest, res: Response) => {
+/** Mounted at /account */
+router.post("/delete", async (req: AuthedRequest, res: Response) => {
   const rid = getRequestId(req, res);
   const uid = assertAuthedUid(req, res);
   if (!uid) return;
