@@ -34,6 +34,9 @@ RUN rm -rf services/api/dist || true
 RUN rm -f services/api/dist/tsconfig.tsbuildinfo || true
 RUN npm run -w api build
 
+# Build-time assertions: fail image build if critical routes are missing in compiled artifact.
+RUN node scripts/ci/assert-api-routes.mjs
+
 FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production

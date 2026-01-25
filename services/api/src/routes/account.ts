@@ -60,8 +60,8 @@ const requireEnv = (key: "TOPIC_EXPORTS" | "TOPIC_DELETE"): string | null => {
 };
 
 /** Request a user export (publishes to Pub/Sub) */
-/** Mounted at /export */
-router.post("/", async (req: AuthedRequest, res: Response) => {
+/** Route: POST /export */
+router.post("/export", async (req: AuthedRequest, res: Response) => {
   const rid = getRequestId(req, res);
   const uid = assertAuthedUid(req, res);
   if (!uid) return;
@@ -106,8 +106,8 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 });
 
 /** Request account deletion (publishes to Pub/Sub) */
-/** Mounted at /account */
-router.post("/delete", async (req: AuthedRequest, res: Response) => {
+/** Route: POST /account/delete */
+router.post("/account/delete", async (req: AuthedRequest, res: Response) => {
   const rid = getRequestId(req, res);
   const uid = assertAuthedUid(req, res);
   if (!uid) return;

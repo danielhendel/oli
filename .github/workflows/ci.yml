@@ -38,3 +38,5 @@ jobs:
 
       - name: Tests
         run: npm test -- --ci
+      
+      - run: scripts/ci/guardrails.sh
