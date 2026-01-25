@@ -3,11 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
+  "workspaces": [
+    "lib/contracts",
+    "services/api",
+    "services/functions"
+  ],
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+
+    "build": "npm run -w @oli/contracts build && npm run -w api build",
+    "start:api": "npm run -w api start",
+
     "typecheck": "tsc -b",
     "lint": "eslint app lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",

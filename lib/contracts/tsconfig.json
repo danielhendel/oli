@@ -11,7 +11,10 @@
     "sourceMap": false,
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/contracts.tsbuildinfo"
   },
   "include": ["*.ts"]
 }
