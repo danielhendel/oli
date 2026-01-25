@@ -157,18 +157,18 @@ export const recomputeDailyFactsAdminHttp = onRequest(
 
       /**
        * Write DailyFacts with readiness meta
+       *
+       * ✅ Authoritative recompute: overwrite the doc fully (no merge),
+       * so stale fields cannot survive across recomputes.
        */
       const ref = userRef.collection("dailyFacts").doc(date);
-      await ref.set(
-        {
-          ...enriched,
-          meta: buildPipelineMeta({
-            computedAt: latestCanonicalEventAt,
-            source: { eventsForDay: events.length },
-          }),
-        },
-        { merge: true },
-      );
+      await ref.set({
+        ...enriched,
+        meta: buildPipelineMeta({
+          computedAt: latestCanonicalEventAt,
+          source: { eventsForDay: events.length },
+        }),
+      });
 
       logger.info("Admin recomputeDailyFacts complete", {
         userId,

@@ -118,7 +118,8 @@ export const onCanonicalEventCreated = onDocumentCreated(
       }),
     };
 
-    await userRef.collection("dailyFacts").doc(day).set(dailyFactsWithMeta, { merge: true });
+    // ✅ Authoritative write (NO merge)
+    await userRef.collection("dailyFacts").doc(day).set(dailyFactsWithMeta);
 
     // Insights
     const insights: Insight[] = generateInsightsForDailyFacts({
@@ -130,7 +131,8 @@ export const onCanonicalEventCreated = onDocumentCreated(
     });
 
     for (const insight of insights) {
-      await userRef.collection("insights").doc(insight.id).set(insight, { merge: true });
+      // ✅ Authoritative write (NO merge)
+      await userRef.collection("insights").doc(insight.id).set(insight);
     }
 
     // Intelligence Context
@@ -142,10 +144,13 @@ export const onCanonicalEventCreated = onDocumentCreated(
       insightsForDay: insights,
     });
 
+    // ✅ Truth anchor for readiness: latest canonical event time (fallback to computedAt)
+    const ctxComputedAt = latestCanonicalEventAt ?? computedAt;
+
     const ctxWithMeta = {
       ...ctxDoc,
       meta: buildPipelineMeta({
-        computedAt,
+        computedAt: ctxComputedAt,
         source: {
           eventsForDay: eventsForDay.length,
           insightsWritten: insights.length,
@@ -154,7 +159,8 @@ export const onCanonicalEventCreated = onDocumentCreated(
       }),
     };
 
-    await userRef.collection("intelligenceContext").doc(day).set(ctxWithMeta, { merge: true });
+    // ✅ Authoritative write (NO merge)
+    await userRef.collection("intelligenceContext").doc(day).set(ctxWithMeta);
 
     // Derived Ledger run (append-only, retry-safe)
     const runId = makeLedgerRunIdFromSeed("rt", `onCanonicalEventCreated_${eventId}_${day}`);

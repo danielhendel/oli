@@ -1,3 +1,5 @@
+// services/functions/src/account/onAccountDeleteRequested.ts
+
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { getAuth } from "firebase-admin/auth";
@@ -5,39 +7,30 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 const TOPIC = "account.delete.v1";
 
+// Global lifecycle collection (NOT under /users/{uid})
+const ACCOUNT_DELETIONS_COLLECTION = "accountDeletions";
+
 type AccountDeleteMessage = {
   uid: string;
   requestId?: string;
   requestedAt?: string;
 };
 
-const assertUid = (uid: unknown): uid is string =>
-  typeof uid === "string" && uid.trim().length > 0;
+const assertUid = (uid: unknown): uid is string => typeof uid === "string" && uid.trim().length > 0;
 
-function deletionDocRef(
-  db: FirebaseFirestore.Firestore,
-  uid: string,
-  requestId: string
-) {
-  return db
-    .collection("users")
-    .doc(uid)
-    .collection("accountDeletion")
-    .doc(requestId);
+function deletionDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
+  // Single doc per (uid, requestId) for idempotency & observability.
+  // Keep IDs short + safe (Firestore disallows "/")
+  const id = `${uid}_${requestId}`.replace(/\//g, "_");
+  return db.collection(ACCOUNT_DELETIONS_COLLECTION).doc(id);
 }
 
 async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: string) {
   const userRef = db.collection("users").doc(uid);
 
   // ✅ Verified: profile exists (functions index writes users/{uid}/profile/general)
-  const collections = [
-    "profile",
-    "rawEvents",
-    "events",
-    "dailyFacts",
-    "insights",
-    "intelligenceContext",
-  ] as const;
+  // Keep accountDeletion here to clean up any legacy docs from earlier versions.
+  const collections = ["profile", "rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "accountDeletion"] as const;
 
   for (const col of collections) {
     await db.recursiveDelete(userRef.collection(col));
@@ -63,9 +56,9 @@ async function deleteAuthUser(uid: string) {
  * Account deletion executor
  *
  * Guarantees:
- * - user-scoped writes only
+ * - user-scoped deletes only (data removed under /users/{uid})
  * - idempotent (safe retries)
- * - observable lifecycle state
+ * - observable lifecycle state (stored outside user subtree)
  */
 export const onAccountDeleteRequested = onMessagePublished(
   {
@@ -91,6 +84,7 @@ export const onAccountDeleteRequested = onMessagePublished(
     const db = getFirestore();
     const ref = deletionDocRef(db, uid, requestId);
 
+    // Idempotency guard
     const snap = await ref.get();
     if (snap.exists && snap.data()?.status === "completed") {
       logger.info("account.delete: already completed, skipping", { uid, requestId });
@@ -107,7 +101,7 @@ export const onAccountDeleteRequested = onMessagePublished(
         startedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     try {
@@ -123,7 +117,7 @@ export const onAccountDeleteRequested = onMessagePublished(
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       logger.info("account.delete: completed", { uid, requestId });
@@ -136,10 +130,10 @@ export const onAccountDeleteRequested = onMessagePublished(
           error: err instanceof Error ? err.message : String(err),
           updatedAt: FieldValue.serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       throw err; // let Pub/Sub retry
     }
-  }
+  },
 );

@@ -111,21 +111,19 @@ export const recomputeDailyIntelligenceContextAdminHttp = onRequest(
         insightsForDay,
       });
 
-      // ✅ Write IntelligenceContext with readiness meta
+      // ✅ Authoritative recompute: overwrite the doc fully (no merge),
+      // so stale fields cannot survive across recomputes.
       const outRef = userRef.collection("intelligenceContext").doc(date);
-      await outRef.set(
-        {
-          ...intelligenceDoc,
-          meta: buildPipelineMeta({
-            computedAt: latestCanonicalEventAt,
-            source: {
-              eventsForDay: eventsForDay.length,
-              insightsWritten: insightsForDay.length,
-            },
-          }),
-        },
-        { merge: true },
-      );
+      await outRef.set({
+        ...intelligenceDoc,
+        meta: buildPipelineMeta({
+          computedAt: latestCanonicalEventAt,
+          source: {
+            eventsForDay: eventsForDay.length,
+            insightsWritten: insightsForDay.length,
+          },
+        }),
+      });
 
       logger.info("Admin recomputeDailyIntelligenceContext complete", {
         userId,

@@ -19,6 +19,16 @@ export type IsoDateTimeString = string;
 export type YmdDateString = string;
 
 /**
+ * ✅ Data Readiness Contract (storage-agnostic)
+ * Attached to pipeline outputs so downstream consumers can reason about freshness.
+ */
+export type PipelineMeta = {
+  computedAt: IsoDateTimeString;
+  pipelineVersion: number;
+  source?: Record<string, unknown>;
+};
+
+/**
  * High-level source classification.
  * This matches the ingestion / OS design in the Master System Architecture.
  */
@@ -393,6 +403,9 @@ export interface DailyFacts {
   /** Schema + compute audit */
   schemaVersion: 1;
   computedAt: IsoDateTimeString;
+
+  /** ✅ Data Readiness Contract */
+  meta?: PipelineMeta;
 }
 
 /**
@@ -449,6 +462,9 @@ export interface Insight {
   /** Audit + versioning fields */
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
+
+  /** ✅ Data Readiness Contract */
+  meta?: PipelineMeta;
 
   /**
    * Version of the ruleset / engine that produced this insight.
@@ -528,9 +544,7 @@ export function isYmdDateString(value: string): boolean {
  * Type guard to distinguish CanonicalEvent from RawEvent based on
  * the presence of canonical-only fields.
  */
-export function isCanonicalEvent(
-  event: CanonicalEvent | RawEvent
-): event is CanonicalEvent {
+export function isCanonicalEvent(event: CanonicalEvent | RawEvent): event is CanonicalEvent {
   const candidate = event as CanonicalEvent;
   return (
     typeof candidate.kind === "string" &&

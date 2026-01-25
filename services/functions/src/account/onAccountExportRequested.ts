@@ -1,10 +1,14 @@
 // services/functions/src/account/onAccountExportRequested.ts
+
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
 const TOPIC = "exports.requests.v1";
+
+// Global lifecycle collection (NOT under /users/{uid})
+const ACCOUNT_EXPORTS_COLLECTION = "accountExports";
 
 // Confirmed to exist in staging runtime evidence.
 // Hard default keeps deployment deterministic.
@@ -16,19 +20,13 @@ type AccountExportMessage = {
   requestedAt?: string;
 };
 
-const assertUid = (uid: unknown): uid is string =>
-  typeof uid === "string" && uid.trim().length > 0;
+const assertUid = (uid: unknown): uid is string => typeof uid === "string" && uid.trim().length > 0;
 
-function exportDocRef(
-  db: FirebaseFirestore.Firestore,
-  uid: string,
-  requestId: string,
-) {
-  return db
-    .collection("users")
-    .doc(uid)
-    .collection("accountExports")
-    .doc(requestId);
+function exportDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
+  // Single doc per (uid, requestId) for idempotency & observability.
+  // Keep IDs short + safe (Firestore disallows "/")
+  const id = `${uid}_${requestId}`.replace(/\//g, "_");
+  return db.collection(ACCOUNT_EXPORTS_COLLECTION).doc(id);
 }
 
 async function readCollectionAll(
@@ -46,10 +44,13 @@ async function readCollectionAll(
  * Account export executor
  *
  * Guarantees:
- * - user-scoped only
+ * - user-scoped data read only
  * - idempotent
  * - observable lifecycle (queued → in_progress → completed|failed)
  * - writes GCS artifact + pointer in Firestore
+ *
+ * NOTE:
+ * Lifecycle doc is stored outside /users/{uid} so account deletion cannot resurrect user subtree.
  */
 export const onAccountExportRequested = onMessagePublished(
   {
@@ -65,8 +66,7 @@ export const onAccountExportRequested = onMessagePublished(
       return;
     }
 
-    const { uid, requestId = event.id, requestedAt } =
-      payload as AccountExportMessage;
+    const { uid, requestId = event.id, requestedAt } = payload as AccountExportMessage;
 
     if (!assertUid(uid)) {
       logger.error("account.export: invalid uid", { uid });
@@ -97,8 +97,7 @@ export const onAccountExportRequested = onMessagePublished(
     );
 
     try {
-      const bucketName =
-        process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
+      const bucketName = process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
 
       logger.info("account.export: collecting data", {
         uid,
@@ -106,21 +105,10 @@ export const onAccountExportRequested = onMessagePublished(
         bucketName,
       });
 
-      const profileGeneralSnap = await db
-        .doc(`users/${uid}/profile/general`)
-        .get();
+      const profileGeneralSnap = await db.doc(`users/${uid}/profile/general`).get();
+      const profileGeneral = profileGeneralSnap.exists ? profileGeneralSnap.data() : null;
 
-      const profileGeneral = profileGeneralSnap.exists
-        ? profileGeneralSnap.data()
-        : null;
-
-      const collections = [
-        "rawEvents",
-        "events",
-        "dailyFacts",
-        "insights",
-        "intelligenceContext",
-      ] as const;
+      const collections = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext"] as const;
 
       const data: Record<string, unknown> = {
         profile: { general: profileGeneral },
@@ -128,8 +116,7 @@ export const onAccountExportRequested = onMessagePublished(
       };
 
       for (const col of collections) {
-        (data.collections as Record<string, unknown>)[col] =
-          await readCollectionAll(db, `users/${uid}/${col}`);
+        (data.collections as Record<string, unknown>)[col] = await readCollectionAll(db, `users/${uid}/${col}`);
       }
 
       const artifact = {
