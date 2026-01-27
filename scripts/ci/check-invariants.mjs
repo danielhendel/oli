@@ -270,6 +270,18 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     );
   }
 
+  // --- Option A Monorepo invariant: duplicate contracts folder must never exist ---
+  const dupContractsDir = path.join(ROOT, "services", "api", "lib", "contracts");
+  if (exists(dupContractsDir)) {
+    fail(
+      `CHECK 6 (Invariant map drift) failed:\n` +
+        `- Duplicate contracts folder detected at services/api/lib/contracts\n\n` +
+        `Fix:\n` +
+        `- Remove services/api/lib/contracts entirely.\n` +
+        `- services/api must depend on @oli/contracts via npm workspaces only (single source of truth at lib/contracts).`,
+    );
+  }
+
   const text = readText(docPath);
 
   const forbidden = /\b(TODO|TBD|placeholder)\b/i;
@@ -869,12 +881,25 @@ function checkCloudRunInvokerNotPublicAndGatewayOnly() {
 }
 
 /**
- * CHECK 15 — CanonicalEventKind must align exactly with ingestion rawEventKindSchema
+ * CHECK 15 — CanonicalEventKind must be a subset of ingestion rawEventKindSchema.
+ *
+ * Phase 1 requirement:
+ * - RawEvents may include "memory-only" kinds that do NOT normalize into CanonicalEvents (e.g. upload.file).
+ * - CanonicalEventKind must remain the strict set of normalized health facts.
+ *
+ * Enforcement:
+ * - CanonicalEventKind ⊆ rawEventKindSchema
+ * - Any extra raw kinds must be explicitly allowlisted as memory-only.
+ * - Any new raw kind not allowlisted FAILS (prevents silent drift).
  */
 function checkCanonicalKindsNoDrift() {
   const rawEventPath = path.join(ROOT, "lib", "contracts", "rawEvent.ts");
   const healthPath = path.join(ROOT, "services", "functions", "src", "types", "health.ts");
   if (!exists(rawEventPath) || !exists(healthPath)) return;
+
+  // Memory-only RawEvent kinds are explicitly allowlisted here.
+  // If you add another raw-only kind, it MUST be added to this list and documented.
+  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file"];
 
   const rawText = readText(rawEventPath);
   const healthText = readText(healthPath);
@@ -903,32 +928,53 @@ function checkCanonicalKindsNoDrift() {
   const canonicalBody = String(canonicalMatch[1]);
   const canonicalKinds = [...canonicalBody.matchAll(/["']([^"']+)["']/g)].map((m) => String(m[1]));
 
-  const a = new Set(rawKinds);
-  const b = new Set(canonicalKinds);
+  const rawSet = new Set(rawKinds);
+  const canonicalSet = new Set(canonicalKinds);
+  const memoryOnlySet = new Set(MEMORY_ONLY_RAW_EVENT_KINDS);
 
-  const onlyInRaw = [...a].filter((k) => !b.has(k)).sort();
-  const onlyInCanonical = [...b].filter((k) => !a.has(k)).sort();
+  // Canonical must be fully included in raw (no backend-only canonical kinds)
+  const missingInRaw = [...canonicalSet].filter((k) => !rawSet.has(k)).sort();
 
-  if (onlyInRaw.length || onlyInCanonical.length) {
+  // Raw may include extras, but ONLY if allowlisted as memory-only
+  const rawExtras = [...rawSet].filter((k) => !canonicalSet.has(k)).sort();
+  const rawExtrasNotAllowlisted = rawExtras.filter((k) => !memoryOnlySet.has(k)).sort();
+
+  // Allowlist must not contain unknown values (guard against typos)
+  const allowlistNotInRaw = [...memoryOnlySet].filter((k) => !rawSet.has(k)).sort();
+
+  if (missingInRaw.length || rawExtrasNotAllowlisted.length || allowlistNotInRaw.length) {
     const lines = [
       `CHECK 15 (Canonical kind drift) failed:`,
       ``,
-      `rawEventKindSchema (ingestion) and CanonicalEventKind (backend) must match EXACTLY.`,
+      `Rules:`,
+      `- CanonicalEventKind must be a subset of rawEventKindSchema`,
+      `- rawEventKindSchema may contain ONLY allowlisted memory-only kinds beyond canonical`,
       ``,
-      onlyInRaw.length ? `Present only in rawEventKindSchema: ${onlyInRaw.join(", ")}` : null,
-      onlyInCanonical.length ? `Present only in CanonicalEventKind: ${onlyInCanonical.join(", ")}` : null,
+      missingInRaw.length
+        ? `Canonical kinds missing from rawEventKindSchema: ${missingInRaw.join(", ")}`
+        : null,
+      rawExtrasNotAllowlisted.length
+        ? `Raw kinds present but NOT allowlisted as memory-only: ${rawExtrasNotAllowlisted.join(", ")}`
+        : null,
+      allowlistNotInRaw.length
+        ? `Allowlisted memory-only kinds not present in rawEventKindSchema (typo/drift): ${allowlistNotInRaw.join(", ")}`
+        : null,
       ``,
       `Files:`,
       `- ${rel(rawEventPath)}`,
       `- ${rel(healthPath)}`,
       ``,
-      `Fix: update CanonicalEventKind and/or rawEventKindSchema so the allowed kinds match.`,
+      `Fix:`,
+      `- If you added a new raw-only kind, add it to MEMORY_ONLY_RAW_EVENT_KINDS in scripts/ci/check-invariants.mjs`,
+      `- If you added a new canonical kind, it must also exist in rawEventKindSchema`,
     ].filter(Boolean);
 
     fail(lines.join("\n"));
   }
 
-  console.log("✅ CHECK 15 passed: CanonicalEventKind matches rawEventKindSchema (no kind drift).");
+  console.log(
+    "✅ CHECK 15 passed: CanonicalEventKind ⊆ rawEventKindSchema; raw-only kinds are explicitly allowlisted (no drift).",
+  );
 }
 
 /**
@@ -1081,7 +1127,6 @@ function checkDerivedWritersEmitLedgerRuns() {
 
   console.log("✅ CHECK 19 passed: Derived truth writers emit Derived Ledger runs.");
 }
-
 
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [

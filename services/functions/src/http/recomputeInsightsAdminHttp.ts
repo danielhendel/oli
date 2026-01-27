@@ -8,6 +8,9 @@ import type { DailyFacts, IsoDateTimeString, YmdDateString } from "../types/heal
 import { generateInsightsForDailyFacts } from "../insights/rules";
 import { requireAdmin } from "./adminAuth";
 
+// ✅ Data Readiness Contract
+import { buildPipelineMeta } from "../pipeline/pipelineMeta";
+
 const isYmd = (value: unknown): value is YmdDateString =>
   typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
@@ -85,6 +88,27 @@ const sortByDateAsc = (a: DailyFacts, b: DailyFacts): number => {
   return 0;
 };
 
+const chunk = <T,>(arr: T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
+
+const latestComputedAtFromDailyFactsWindow = (
+  facts: DailyFacts[],
+  fallback: IsoDateTimeString,
+): IsoDateTimeString => {
+  // DailyFacts is expected to have `computedAt` (string ISO).
+  const max = facts.reduce<IsoDateTimeString | null>((acc, f) => {
+    const t = (f as { computedAt?: IsoDateTimeString }).computedAt;
+    if (!t) return acc;
+    if (!acc) return t;
+    return t > acc ? t : acc;
+  }, null);
+
+  return max ?? fallback;
+};
+
 /**
  * Admin-only HTTP endpoint
  * Recomputes Insights for a specific user + date using a 7-day DailyFacts window.
@@ -148,22 +172,61 @@ export const recomputeInsightsAdminHttp = onRequest(
         now,
       });
 
-      const batch = db.batch();
+      // ✅ Truth anchor for readiness: latest DailyFacts computedAt in the window
+      const latestDailyFactsAt = latestComputedAtFromDailyFactsWindow(windowFacts, now);
+
       const insightsCol = userRef.collection("insights");
 
-      for (const insight of insights) {
-        batch.set(insightsCol.doc(insight.id), insight);
+      /**
+       * ✅ Authoritative recompute:
+       * 1) Delete all existing insights for this (userId, date)
+       * 2) Write the newly computed insight set
+       *
+       * This guarantees no stale insight docs survive across recomputes.
+       */
+      const existingSnap = await insightsCol.where("date", "==", date).get();
+      const existingRefs = existingSnap.docs.map((d) => d.ref);
+
+      // Firestore batch limit is 500 ops; use a safe headroom.
+      for (const refsChunk of chunk(existingRefs, 450)) {
+        const delBatch = db.batch();
+        for (const ref of refsChunk) delBatch.delete(ref);
+        await delBatch.commit();
       }
 
-      await batch.commit();
+      const insightDocs = insights.map((insight) => ({
+        ref: insightsCol.doc(insight.id),
+        data: {
+          ...insight,
+          meta: buildPipelineMeta({
+            computedAt: latestDailyFactsAt,
+            source: {
+              windowDays: windowDates.length,
+              dailyFactsDocs: windowFacts.length,
+            },
+          }),
+        } as Record<string, unknown>,
+      }));
 
-      logger.info("Admin recomputeInsights complete", { userId, date, insights: insights.length });
+      for (const docsChunk of chunk(insightDocs, 450)) {
+        const writeBatch = db.batch();
+        for (const d of docsChunk) writeBatch.set(d.ref, d.data);
+        await writeBatch.commit();
+      }
+
+      logger.info("Admin recomputeInsights complete", {
+        userId,
+        date,
+        deletedExisting: existingRefs.length,
+        insightsWritten: insights.length,
+      });
 
       res.status(200).json({
         ok: true,
         written: true,
         userId,
         date,
+        deletedExisting: existingRefs.length,
         insightsWritten: insights.length,
       });
     } catch (err) {

@@ -3,16 +3,25 @@
   "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
+  "workspaces": [
+    "lib/contracts",
+    "services/api",
+    "services/functions"
+  ],
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+
+    "build": "npm run -w @oli/contracts build && npm run -w api build",
+    "start:api": "npm run -w api start",
+
     "typecheck": "tsc -b",
     "lint": "eslint app lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "jest",
+    "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "postinstall": "patch-package"
   },
@@ -32,6 +41,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@eslint/js": "^9.39.2",
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@google-cloud/pubsub": "^4.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -48,6 +58,7 @@
     "express": "^4.19.2",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^6.6.0",
+    "firebase-tools": "^13.11.2",
     "globals": "^16.4.0",
     "jest": "^29.7.0",
     "jest-expo": "~53.0.10",
@@ -63,7 +74,9 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/scripts/test/jest.setup.ts"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!(jest-)?expo|@expo(nent)?/.*|@expo-google-fonts/.*|react-native|@react-native(-community)?/.*|@react-navigation/.*|firebase/.*)"
     ],

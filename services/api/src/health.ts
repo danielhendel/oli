@@ -6,6 +6,10 @@ import type { RequestWithRid } from "./lib/logger";
 
 const router = Router();
 
+/* -------------------------------------------------------------------------- */
+/*                                    Types                                   */
+/* -------------------------------------------------------------------------- */
+
 type HealthOk = {
   ok: true;
   service: "oli-api";
@@ -25,6 +29,10 @@ type HealthAuthOk = {
   uid: string;
 };
 
+/* -------------------------------------------------------------------------- */
+/*                               Shared helpers                                */
+/* -------------------------------------------------------------------------- */
+
 const buildBody = (req: Request): HealthOk => {
   const body: HealthOk = {
     ok: true,
@@ -36,41 +44,60 @@ const buildBody = (req: Request): HealthOk => {
   const env = process.env.APP_ENV?.trim();
   if (env) body.env = env;
 
-  // Prefer our app-level request id if present (set by requestIdMiddleware)
+  // Prefer app-level request id (set by requestIdMiddleware)
   const rid = (req as RequestWithRid).rid?.trim();
   if (rid) {
     body.requestId = rid;
     return body;
   }
 
-  // Fallback: trace id if present (still fine)
+  // Fallback: GCP trace id
   const trace = req.header("x-cloud-trace-context")?.split("/")[0]?.trim();
   if (trace) body.requestId = trace;
 
   return body;
 };
 
-// ✅ public health endpoint
-router.get("/health", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+const publicHealthHandler = (req: Request, res: Response) => {
+  res.status(200).json(buildBody(req));
+};
 
-// ✅ use /ready or /live (NOT /healthz)
-router.get("/ready", (req: Request, res: Response) => res.status(200).json(buildBody(req)));
+/* -------------------------------------------------------------------------- */
+/*                               Public endpoints                              */
+/* -------------------------------------------------------------------------- */
+
+// Primary public health endpoint
+router.get("/health", publicHealthHandler);
+
+// Common probe alias (CI / k8s / tooling)
+// NOTE: may be intercepted by some Google frontends in certain setups
+router.get("/healthz", publicHealthHandler);
+
+// ✅ Reliable probe path through API Gateway when /healthz is intercepted
+router.get("/_healthz", publicHealthHandler);
+
+// Readiness / liveness aliases
+router.get("/ready", publicHealthHandler);
+router.get("/live", publicHealthHandler);
+
+/* -------------------------------------------------------------------------- */
+/*                            Authenticated health                             */
+/* -------------------------------------------------------------------------- */
 
 /**
- * ✅ authenticated health endpoint
  * Purpose:
- * - validates Firebase ID token verification on the deployed Cloud Run API
- * - returns structured JSON (never HTML)
+ * - Validates Firebase ID token verification
+ * - Ensures authenticated requests work end-to-end
+ * - Always returns structured JSON
  */
 router.get("/health/auth", authMiddleware, (req: AuthedRequest, res: Response) => {
-  const rid = (req as RequestWithRid).rid ?? "unknown";
   const env = process.env.APP_ENV?.trim();
 
   const out: HealthAuthOk = {
     ok: true,
     service: "oli-api",
     ...(env ? { env } : {}),
-    requestId: rid,
+    requestId: (req as RequestWithRid).rid ?? "unknown",
     timestamp: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
     uid: req.uid ?? "unknown",

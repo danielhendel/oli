@@ -1,14 +1,8 @@
 // services/functions/src/pipeline/pipelineMeta.ts
 
-import type { IsoDateTimeString } from "../types/health";
+import type { IsoDateTimeString, PipelineMeta } from "../types/health";
 
 export const PIPELINE_VERSION = 1 as const;
-
-export type PipelineMeta = {
-  computedAt: IsoDateTimeString;
-  pipelineVersion: number;
-  source?: Record<string, unknown>;
-};
 
 export const buildPipelineMeta = (args: {
   computedAt: IsoDateTimeString;

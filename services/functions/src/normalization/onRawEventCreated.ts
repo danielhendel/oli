@@ -5,6 +5,7 @@ import * as logger from "firebase-functions/logger";
 import { mapRawEventToCanonical } from "./mapRawEventToCanonical";
 import { parseRawEvent } from "../validation/rawEvent";
 import { writeCanonicalEventImmutable } from "./writeCanonicalEventImmutable";
+import { upsertRawEventDedupeEvidence } from "../ingestion/rawEventDedupe";
 
 /**
  * Firestore trigger:
@@ -13,6 +14,7 @@ import { writeCanonicalEventImmutable } from "./writeCanonicalEventImmutable";
  *
  * Behavior:
  * - Validates RawEvent envelope strictly (fail fast).
+ * - Records replay/duplicate evidence (no silent duplication).
  * - Maps RawEvent → CanonicalEvent via pure mapper.
  * - Writes canonical truth immutably (create-only OR identical-on-replay).
  * - Logs failures (no silent drops).
@@ -50,6 +52,31 @@ export const onRawEventCreated = onDocumentCreated(
       return;
     }
 
+    // Step 2: record duplicate/replay evidence (does not alter ingestion behavior).
+    // Validate contract-first inside the dedupe helper by passing the raw snapshot data.
+    try {
+      const dedupe = await upsertRawEventDedupeEvidence({
+        userId: rawEvent.userId,
+        rawEvent: snapshot.data(),
+      });
+
+      if (!dedupe.ok) {
+        logger.warn("RawEvent dedupe evidence skipped due to invalid contract", {
+          path: snapshot.ref.path,
+          userId: rawEvent.userId,
+        });
+      }
+    } catch (err) {
+      // Never throw: ingestion must remain stable and retries would create noise.
+      logger.error("Failed to write RawEvent dedupe evidence", {
+        userId: rawEvent.userId,
+        rawEventId: rawEvent.id,
+        provider: rawEvent.provider,
+        kind: rawEvent.kind,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     const result = mapRawEventToCanonical(rawEvent);
 
     if (!result.ok) {
@@ -80,6 +107,7 @@ export const onRawEventCreated = onDocumentCreated(
         canonicalId: canonical.id,
         existingHash: writeRes.existingHash,
         incomingHash: writeRes.incomingHash,
+        integrityViolationPath: writeRes.integrityViolationPath,
       });
     }
   },

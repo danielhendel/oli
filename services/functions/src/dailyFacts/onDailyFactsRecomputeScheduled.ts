@@ -138,7 +138,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       const dailyFactsWithMeta = {
         ...enriched,
         meta: buildPipelineMeta({
-          computedAt,
+          computedAt: latestCanonicalEventAt ?? computedAt,
           source: {
             eventsForDay: eventsForDay.length,
             ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
@@ -153,7 +153,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
         currentOps = 0;
       }
 
-      currentBatch.set(userRef.collection("dailyFacts").doc(targetDate), dailyFactsWithMeta, { merge: true });
+      currentBatch.set(userRef.collection("dailyFacts").doc(targetDate), dailyFactsWithMeta);
       currentOps += 1;
 
       // Ledger run (append-only)

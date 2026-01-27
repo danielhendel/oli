@@ -215,18 +215,15 @@ export async function writeDerivedLedgerRun(args: {
     }
   }
 
-  // 3) Update pointer doc (mutable “latest” pointer)
-  await dayPointerRef.set(
-    {
-      schemaVersion: 1,
-      userId,
-      date,
-      latestRunId: runId,
-      latestComputedAt: computedAt,
-      pipelineVersion,
-      trigger,
-      updatedAt: now,
-    },
-    { merge: true },
-  );
+  // 3) Update pointer doc (mutable “latest” pointer) — authoritative overwrite (NO merge)
+  await dayPointerRef.set({
+    schemaVersion: 1,
+    userId,
+    date,
+    latestRunId: runId,
+    latestComputedAt: computedAt,
+    pipelineVersion,
+    trigger,
+    updatedAt: now,
+  });
 }

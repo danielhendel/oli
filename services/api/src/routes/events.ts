@@ -1,22 +1,30 @@
 // services/api/src/routes/events.ts
 import { Router, type Response } from "express";
 
-import { rawEventDocSchema } from "../../../../lib/contracts";
+import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
 const router = Router();
 
+/**
+ * Prefer header-based idempotency. Allow middleware injection if present.
+ * This preserves your current behavior while making the contract explicit:
+ * - Idempotency-Key (or X-Idempotency-Key) is the canonical interface.
+ */
 const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
-  const anyReq = req as unknown as { idempotencyKey?: unknown };
-  const fromMiddleware = typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
-
   const fromHeader =
     (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
     (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
 
-  return fromMiddleware ?? fromHeader ?? undefined;
+  if (fromHeader) return fromHeader;
+
+  // Preserve compatibility with any upstream middleware that sets req.idempotencyKey
+  const anyReq = req as unknown as { idempotencyKey?: unknown };
+  const fromMiddleware = typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
+
+  return fromMiddleware ?? undefined;
 };
 
 const dayKeyFromIso = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
@@ -24,8 +32,9 @@ const dayKeyFromIso = (iso: string): string => new Date(iso).toISOString().slice
 /**
  * Canonical ingestion gateway (AUTHENTICATED)
  *
- * - Validates body
- * - Validates canonical RawEvent doc with @oli/contracts
+ * - Validates body (ingestRawEventSchema)
+ * - Canonicalizes timestamps
+ * - Validates canonical RawEvent doc with @oli/contracts (rawEventDocSchema)
  * - Writes RawEvent to: /users/{uid}/rawEvents/{rawEventId}
  * - Firestore trigger normalizes → pipeline
  *
@@ -52,9 +61,11 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const body: IngestRawEventBody = parsed.data;
 
-  // Canonicalize timestamps
+  // Canonicalize timestamps (observedAt preferred)
   const observedAt = body.observedAt ?? body.occurredAt;
   if (!observedAt) {
+    // This should be unreachable because ingestRawEventSchema enforces it,
+    // but we fail closed anyway.
     return res.status(400).json({ ok: false as const, error: "Missing observedAt/occurredAt" });
   }
 
@@ -72,6 +83,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   const receivedAt = new Date().toISOString();
   const day = dayKeyFromIso(observedAt);
 
+  // Phase 1: gateway currently represents manual ingestion
   const sourceType = "manual" as const;
   const schemaVersion = 1 as const;
 
@@ -111,21 +123,32 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   try {
     await docRef.create(validated.data);
-  } catch (err: unknown) {
+    return res.status(202).json({ ok: true as const, rawEventId, day });
+  } catch {
     // If create() failed because the doc already exists, treat as an idempotent replay.
-    const existing = await docRef.get();
-    if (existing.exists) {
-      return res.status(202).json({
-        ok: true as const,
-        rawEventId,
-        day,
-        idempotentReplay: true as const,
-      });
+    // We avoid assuming error codes and instead check existence (fail closed).
+    try {
+      const existing = await docRef.get();
+      if (existing.exists) {
+        return res.status(202).json({
+          ok: true as const,
+          rawEventId,
+          day,
+          idempotentReplay: true as const,
+        });
+      }
+    } catch {
+      // Firestore read failed — fall through to internal error.
     }
-    throw err;
-  }
 
-  return res.status(202).json({ ok: true as const, rawEventId, day });
+    return res.status(500).json({
+      ok: false as const,
+      error: {
+        code: "INGEST_WRITE_FAILED" as const,
+        message: "Failed to write RawEvent",
+      },
+    });
+  }
 });
 
 export default router;

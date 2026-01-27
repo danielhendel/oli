@@ -5,8 +5,10 @@ import cors from "cors";
 import healthRouter from "./health";
 import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
+import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
+import preferencesRoutes from "./routes/preferences";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
@@ -54,7 +56,7 @@ const allowedOrigins = new Set(
   (process.env.CORS_ALLOW_ORIGINS ?? "")
     .split(",")
     .map((s) => s.trim())
-    .filter((s) => s.length > 0)
+    .filter((s) => s.length > 0),
 );
 
 app.use(
@@ -72,7 +74,7 @@ app.use(
 
       return cb(new Error("CORS origin denied"), false);
     },
-  })
+  }),
 );
 
 // Optional hardening: prevent accidental huge payloads
@@ -95,6 +97,18 @@ app.use("/firebase", authMiddleware, firebaseRoutes);
  * Ingestion boundary (authenticated).
  */
 app.use("/ingest", authMiddleware, eventsRoutes);
+
+/**
+ * Upload ingestion boundary (authenticated).
+ * Phase 1: writes storage bytes + emits memory-only RawEvent(kind="file").
+ */
+app.use("/uploads", authMiddleware, uploadsRoutes);
+
+/**
+ * View-layer preferences (authenticated).
+ * Phase 1: units + timezone bucketing preferences.
+ */
+app.use("/preferences", authMiddleware, preferencesRoutes);
 
 /**
  * AUTHENTICATED READ BOUNDARY

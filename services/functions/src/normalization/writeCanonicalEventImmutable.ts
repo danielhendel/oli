@@ -1,13 +1,34 @@
 // services/functions/src/normalization/writeCanonicalEventImmutable.ts
 
+import crypto from "node:crypto"; // ✅ ADD
 import * as logger from "firebase-functions/logger";
-import { db } from "../firebaseAdmin";
+import { admin, db } from "../firebaseAdmin";
 import type { CanonicalEvent } from "../types/health";
 import { canonicalEquals, canonicalHash } from "./canonicalImmutability";
 
 export type WriteCanonicalResult =
   | { ok: true; mode: "created" | "identical_noop" }
-  | { ok: false; mode: "conflict"; existingHash: string; incomingHash: string };
+  | {
+      ok: false;
+      mode: "conflict";
+      existingHash: string;
+      incomingHash: string;
+      integrityViolationPath: string;
+    };
+
+function deterministicIntegrityViolationId(input: {
+  userId: string;
+  canonicalId: string;
+  sourceRawEventId: string;
+  existingHash: string;
+  incomingHash: string;
+}): string {
+  // Deterministic, replay-safe doc id:
+  // retries/duplicate triggers will attempt to create the same doc id and
+  // therefore cannot spam integrity evidence.
+  const payload = JSON.stringify(input);
+  return crypto.createHash("sha256").update(payload).digest("hex");
+}
 
 export async function writeCanonicalEventImmutable(params: {
   userId: string;
@@ -23,7 +44,6 @@ export async function writeCanonicalEventImmutable(params: {
     const snap = await tx.get(ref);
 
     if (!snap.exists) {
-      // Create-only: canonical truth is immutable once written.
       tx.create(ref, canonical);
       return { ok: true, mode: "created" } as const;
     }
@@ -31,11 +51,9 @@ export async function writeCanonicalEventImmutable(params: {
     const existing = snap.data() as CanonicalEvent;
 
     if (canonicalEquals(existing, canonical)) {
-      // Idempotent replay: identical canonical event is allowed, but we do not rewrite.
       return { ok: true, mode: "identical_noop" } as const;
     }
 
-    // Conflict: same canonical ID but different content (corruption vector).
     const existingHash = canonicalHash(existing);
     const incomingHash = canonicalHash(canonical);
 
@@ -48,7 +66,45 @@ export async function writeCanonicalEventImmutable(params: {
       incomingHash,
     });
 
-    // Do NOT overwrite. Return conflict so caller can decide retry/alert behavior.
-    return { ok: false, mode: "conflict", existingHash, incomingHash } as const;
+    const integrityId = deterministicIntegrityViolationId({
+      userId,
+      canonicalId: canonical.id,
+      sourceRawEventId,
+      existingHash,
+      incomingHash,
+    });
+
+    const integrityRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("integrityViolations")
+      .doc(integrityId);
+
+    // Create-only evidence. If the same conflict is retried, doc already exists -> tx.create fails.
+    // We treat that as "evidence already recorded" and still return conflict.
+    try {
+      tx.create(integrityRef, {
+        type: "CANONICAL_IMMUTABILITY_CONFLICT" as const,
+        userId,
+        canonicalId: canonical.id,
+        sourceRawEventId,
+        sourceRawEventPath,
+        existingHash,
+        incomingHash,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch {
+      // NOTE: Firestore will throw at commit time if doc exists.
+      // We intentionally do not branch on it here; the caller still receives conflict.
+      // The evidence is either created now or already existed.
+    }
+
+    return {
+      ok: false,
+      mode: "conflict",
+      existingHash,
+      incomingHash,
+      integrityViolationPath: integrityRef.path,
+    } as const;
   });
 }

@@ -34,6 +34,11 @@ export type PostOptions = {
   noStore?: boolean;
 };
 
+export type PutOptions = {
+  timeoutMs?: number;
+  noStore?: boolean;
+};
+
 function isJsonValue(v: unknown): v is JsonValue {
   if (v === null) return true;
   const t = typeof v;
@@ -221,4 +226,35 @@ export async function apiPostJsonAuthed<T>(
   const bodyStr = JSON.stringify(body);
 
   return apiFetchJson<T>(url, { method: "POST", headers, body: bodyStr }, opts?.timeoutMs);
+}
+
+export async function apiPutJsonAuthed<T>(
+  path: string,
+  body: unknown,
+  idToken: string,
+  opts?: PutOptions,
+): Promise<ApiResult<T>> {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
+
+  const base = normalizeBaseUrl(baseRaw);
+  const url = `${base}${path}`;
+
+  const headerOpts: HeaderOptions = {};
+  if (opts?.noStore) headerOpts.noStore = true;
+
+  const headers = buildHeaders(headerOpts);
+  headers.Authorization = `Bearer ${idToken}`;
+
+  const bodyStr = JSON.stringify(body);
+
+  return apiFetchJson<T>(url, { method: "PUT", headers, body: bodyStr }, opts?.timeoutMs);
 }

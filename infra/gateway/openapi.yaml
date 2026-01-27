@@ -6,7 +6,6 @@ info:
 schemes:
   - https
 
-# IMPORTANT:
 # For API Gateway / ESPv2, set host to the managed service name.
 host: oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog
 basePath: /
@@ -20,11 +19,19 @@ x-google-endpoints:
   - name: oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog
     allowCors: true
 
+# Default backend (all paths unless overridden)
 x-google-backend:
   address: https://oli-api-1010034434203.us-central1.run.app
   path_translation: APPEND_PATH_TO_ADDRESS
 
 securityDefinitions:
+  # Satisfies API Gateway "API-consuming project" requirements.
+  # This does NOT change auth behavior unless referenced in "security".
+  api_key:
+    type: apiKey
+    name: key
+    in: query
+
   firebase:
     authorizationUrl: ""
     flow: implicit
@@ -33,12 +40,15 @@ securityDefinitions:
     x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "oli-staging-fdbba"
-    # Accept JWT from either header (Gateway/backend setups often rewrite Authorization)
     x-google-jwt-locations:
       - header: "Authorization"
         value_prefix: "Bearer "
       - header: "X-Forwarded-Authorization"
         value_prefix: "Bearer "
+
+# Default: require Firebase for all operations unless explicitly opened with security: []
+security:
+  - firebase: []
 
 paths:
   /health:
@@ -51,9 +61,115 @@ paths:
     get:
       operationId: healthGet
       security: []
+      produces:
+        - application/json
       responses:
         200:
           description: OK
+          schema:
+            $ref: "#/definitions/HealthResponse"
+
+  # NOTE:
+  # /healthz is a conventional probe path, and Cloud Run will serve it.
+  # HOWEVER: on your API Gateway hostname (*.gateway.dev), Google Frontend intercepts /healthz
+  # and returns an HTML 404 before ESPv2/container see the request.
+  # Result: https://<gateway>.gateway.dev/healthz => 404 HTML (not your API)
+  /healthz:
+    options:
+      operationId: healthzOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: healthzGet
+      security: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/HealthResponse"
+
+  # IMPORTANT:
+  # This is the *reliable* probe path through API Gateway in this environment.
+  # Keep GET security: [] to ensure this endpoint stays PUBLIC (no Firebase required).
+  /_healthz:
+    options:
+      operationId: _healthzOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: _healthzGet
+      security: []   # PUBLIC (bypasses top-level firebase requirement)
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/HealthResponse"
+
+  /ready:
+    options:
+      operationId: readyOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: readyGet
+      security: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/HealthResponse"
+
+  /live:
+    options:
+      operationId: liveOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: liveGet
+      security: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/HealthResponse"
+
+  # Authenticated health check (matches services/api/src/health.ts)
+  /health/auth:
+    options:
+      operationId: healthAuthOptions
+      # Browsers preflight should be unauthenticated
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: healthAuthGet
+      # Inherits top-level firebase requirement, but keeping explicit is fine too:
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: "#/definitions/HealthAuthResponse"
 
   /ingest:
     options:
@@ -159,3 +275,102 @@ paths:
       responses:
         200:
           description: OK
+
+  /users/me/derived-ledger/runs:
+    options:
+      operationId: derivedLedgerRunsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: derivedLedgerRunsGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/derived-ledger/replay:
+    options:
+      operationId: derivedLedgerReplayOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: derivedLedgerReplayGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /preferences:
+    options:
+      operationId: preferencesOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: preferencesGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+    put:
+      operationId: preferencesPut
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+definitions:
+  HealthResponse:
+    type: object
+    required:
+      - ok
+      - service
+      - timestamp
+      - uptimeSec
+    properties:
+      ok:
+        type: boolean
+      service:
+        type: string
+      timestamp:
+        type: string
+      uptimeSec:
+        type: integer
+      env:
+        type: string
+      requestId:
+        type: string
+
+  HealthAuthResponse:
+    type: object
+    required:
+      - ok
+      - service
+      - timestamp
+      - uptimeSec
+      - requestId
+      - uid
+    properties:
+      ok:
+        type: boolean
+      service:
+        type: string
+      timestamp:
+        type: string
+      uptimeSec:
+        type: integer
+      env:
+        type: string
+      requestId:
+        type: string
+      uid:
+        type: string

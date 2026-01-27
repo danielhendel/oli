@@ -28,6 +28,28 @@ function db(): Firestore {
 }
 
 // ----------------------------
+// Phase 1 integrity surfaces
+// ----------------------------
+
+/**
+ * Backend-only integrity evidence records.
+ * Phase 1 requires: "no silent drops" + explicit conflict evidence.
+ *
+ * NOTE: createdAt is a serverTimestamp FieldValue; we type it as unknown here to
+ * avoid importing admin SDK FieldValue types into the collections layer.
+ */
+export type IntegrityViolationRecord = {
+  type: "CANONICAL_IMMUTABILITY_CONFLICT";
+  userId: string;
+  canonicalId: string;
+  sourceRawEventId: string;
+  sourceRawEventPath: string;
+  existingHash: string;
+  incomingHash: string;
+  createdAt: unknown;
+};
+
+// ----------------------------
 // Collection Path Builders
 // ----------------------------
 
@@ -66,6 +88,15 @@ export function userInsightsCol(userId: string): CollectionReference<Insight> {
     .collection("insights") as CollectionReference<Insight>;
 }
 
+export function userIntegrityViolationsCol(
+  userId: string
+): CollectionReference<IntegrityViolationRecord> {
+  return db()
+    .collection("users")
+    .doc(userId)
+    .collection("integrityViolations") as CollectionReference<IntegrityViolationRecord>;
+}
+
 // ----------------------------
 // Document Helpers
 // ----------------------------
@@ -84,3 +115,6 @@ export const dailyFactsDoc = (userId: string, ymd: string) =>
 
 export const insightDoc = (userId: string, insightId: string) =>
   userInsightsCol(userId).doc(insightId);
+
+export const integrityViolationDoc = (userId: string, violationId: string) =>
+  userIntegrityViolationsCol(userId).doc(violationId);

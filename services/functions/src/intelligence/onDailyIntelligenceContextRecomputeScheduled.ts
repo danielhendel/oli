@@ -133,11 +133,10 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       const intelligenceWithMeta = {
         ...intelligenceDoc,
         meta: buildPipelineMeta({
-          computedAt,
+          computedAt: latestCanonicalEventAt,
           source: {
             eventsForDay: eventsForDay.length,
             insightsWritten: insightsForDay.length,
-            latestCanonicalEventAt,
           },
         }),
       };
@@ -149,7 +148,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       }
 
       const outRef = userRef.collection("intelligenceContext").doc(targetDate);
-      currentBatch.set(outRef, intelligenceWithMeta, { merge: true });
+      currentBatch.set(outRef, intelligenceWithMeta);
       currentOps += 1;
 
       // ✅ Ledger run (retry-safe per scheduler seed + user)
