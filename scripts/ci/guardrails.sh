@@ -23,7 +23,9 @@ if (!dep) {
 }
 
 if (dep !== contracts.version) {
-  console.error(`guardrails: FAIL - services/api @oli/contracts must equal lib/contracts version (${contracts.version}), got ${JSON.stringify(dep)}`);
+  console.error(
+    `guardrails: FAIL - services/api @oli/contracts must equal lib/contracts version (${contracts.version}), got ${JSON.stringify(dep)}`
+  );
   process.exit(1);
 }
 NODE
@@ -52,22 +54,32 @@ try {
 
 const real = fs.realpathSync(resolved).replace(/\\/g, "/");
 if (!real.includes("/lib/contracts/")) {
-  console.error(`guardrails: FAIL - @oli/contracts is not workspace-linked (expected realpath to include /lib/contracts/). resolved=${resolved} realpath=${real}`);
+  console.error(
+    `guardrails: FAIL - @oli/contracts is not workspace-linked (expected realpath to include /lib/contracts/). resolved=${resolved} realpath=${real}`
+  );
   process.exit(1);
 }
 
 console.log("guardrails: contracts_resolve_ok", { resolved, realpath: real });
 NODE
 
-# 4) Root lockfile must exist; nested lockfiles disallowed
+# 4) Root lockfile must exist; nested lockfiles disallowed (outside node_modules)
 if [ ! -f "package-lock.json" ]; then
   echo "guardrails: FAIL - root package-lock.json missing"
   exit 1
 fi
 
-nested_lockfiles="$(find . -name "package-lock.json" -not -path "./package-lock.json" -print)"
+# Ignore vendored lockfiles inside node_modules (some deps ship them)
+nested_lockfiles="$(
+  find . \
+    -path "./node_modules" -prune -o \
+    -name "package-lock.json" \
+    -not -path "./package-lock.json" \
+    -print
+)"
+
 if [ -n "$nested_lockfiles" ]; then
-  echo "guardrails: FAIL - nested package-lock.json files found:"
+  echo "guardrails: FAIL - nested package-lock.json files found (outside node_modules):"
   echo "$nested_lockfiles"
   exit 1
 fi
