@@ -14,25 +14,37 @@ type State =
 
 type RefetchOpts = TruthGetOptions;
 
+export type UseDerivedLedgerReplayOptions = {
+  enabled?: boolean;
+};
+
 function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): RefetchOpts | undefined {
   const cb = opts?.cacheBust;
   if (!cb) return opts;
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
-export function useDerivedLedgerReplay(args: {
-  day: string;
-  runId?: string;
-  asOf?: string;
-}): State & { refetch: (opts?: RefetchOpts) => void } {
+export function useDerivedLedgerReplay(
+  args: {
+    day: string;
+    runId?: string;
+    asOf?: string;
+  },
+  options?: UseDerivedLedgerReplayOptions,
+): State & { refetch: (opts?: RefetchOpts) => void } {
+  const enabled = options?.enabled ?? true;
+
   const { user, initializing, getIdToken } = useAuth();
 
   const argsRef = useRef(args);
   argsRef.current = args;
 
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>(enabled ? { status: "loading" } : { status: "missing" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -45,6 +57,11 @@ export function useDerivedLedgerReplay(args: {
       const safeSet = (next: State) => {
         if (seq === reqSeq.current) setState(next);
       };
+
+      if (!enabledRef.current) {
+        safeSet({ status: "missing" });
+        return;
+      }
 
       if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
@@ -87,9 +104,13 @@ export function useDerivedLedgerReplay(args: {
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ status: "missing" });
+      return;
+    }
     void fetchOnce();
     // re-fetch when key inputs change
-  }, [fetchOnce, args.day, args.runId, args.asOf, user?.uid]);
+  }, [fetchOnce, args.day, args.runId, args.asOf, user?.uid, enabled]);
 
   return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
 }
