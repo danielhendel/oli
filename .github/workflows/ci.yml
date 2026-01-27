@@ -29,14 +29,18 @@ jobs:
       - name: Constitutional invariant tripwires
         run: npm run check:invariants
 
-      # Ensures Expo public config resolves in CI (catches broken app.json/env expectations)
+      # 🔒 Phase 1 proof gate (NEW)
+      # Redundant by design: Phase 1 is "memory, truth, trust"
+      - name: Phase 1 proof gate (truth + determinism)
+        run: bash scripts/ci/proof-gate.sh
+
+      # Ensures Expo public config resolves in CI
       - name: Expo config (public)
         env:
-          # Prevents Expo CLI from trying to open interactive prompts in CI
           CI: "true"
         run: npx expo config --type public
 
       - name: Tests
         run: npm test -- --ci
-      
+
       - run: scripts/ci/guardrails.sh
