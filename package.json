@@ -21,8 +21,11 @@
     "lint": "eslint app lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
+    "proof:phase1": "bash scripts/ci/proof-gate.sh",
+
     "postinstall": "patch-package"
   },
   "dependencies": {
