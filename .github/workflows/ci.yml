@@ -20,6 +20,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Build contracts (workspace)
+        run: npm run -w @oli/contracts build
+
       - name: Typecheck
         run: npm run typecheck
 
