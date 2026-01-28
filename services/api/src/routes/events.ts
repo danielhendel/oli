@@ -27,13 +27,59 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
   return fromMiddleware ?? undefined;
 };
 
-const dayKeyFromIso = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
+type StableApiErrorCode = "TIMEZONE_REQUIRED" | "TIMEZONE_INVALID" | "MISSING_IDEMPOTENCY_KEY" | "INGEST_WRITE_FAILED";
+
+const badRequest = (res: Response, code: StableApiErrorCode, message: string) =>
+  res.status(400).json({
+    ok: false as const,
+    error: {
+      code,
+      message,
+    },
+  });
+
+const internalError = (res: Response, code: StableApiErrorCode, message: string) =>
+  res.status(500).json({
+    ok: false as const,
+    error: {
+      code,
+      message,
+    },
+  });
+
+/**
+ * Extract + validate an IANA timezone string.
+ * Fail-closed: no silent UTC fallback.
+ */
+const requireValidTimeZone = (reqBody: unknown): string | undefined => {
+  const tz = (reqBody as { timeZone?: unknown } | null | undefined)?.timeZone;
+  const timeZone = typeof tz === "string" ? tz : undefined;
+
+  if (!timeZone) return undefined;
+
+  // Validate IANA timezone via Intl. Throws RangeError on invalid tz.
+  // We do NOT rely on try/catch in Date parsing.
+  new Intl.DateTimeFormat("en-US", { timeZone });
+
+  return timeZone;
+};
+
+/**
+ * Single source-of-truth dayKey algorithm (must match canonical normalization):
+ * Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(observedAt))
+ */
+const canonicalDayKeyFromObservedAt = (observedAtIso: string, timeZone: string): string => {
+  const formatter = new Intl.DateTimeFormat("en-CA", { timeZone });
+  return formatter.format(new Date(observedAtIso));
+};
 
 /**
  * Canonical ingestion gateway (AUTHENTICATED)
  *
  * - Validates body (ingestRawEventSchema)
  * - Canonicalizes timestamps
+ * - Requires valid timeZone (fail closed; no UTC fallback)
+ * - Computes dayKey using canonical algorithm (Intl.DateTimeFormat("en-CA", { timeZone }))
  * - Validates canonical RawEvent doc with @oli/contracts (rawEventDocSchema)
  * - Writes RawEvent to: /users/{uid}/rawEvents/{rawEventId}
  * - Firestore trigger normalizes → pipeline
@@ -48,6 +94,18 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   const uid = req.uid;
   if (!uid) {
     return res.status(401).json({ ok: false as const, error: "Unauthorized" });
+  }
+
+  // Contract-first: timeZone is authoritative + required.
+  // We validate directly off req.body to fail closed even if schema changes lag behind.
+  let timeZone: string | undefined;
+  try {
+    timeZone = requireValidTimeZone(req.body);
+  } catch {
+    return badRequest(res, "TIMEZONE_INVALID", "Invalid timeZone (must be an IANA timezone, e.g. America/New_York)");
+  }
+  if (!timeZone) {
+    return badRequest(res, "TIMEZONE_REQUIRED", "timeZone is required (IANA timezone, e.g. America/New_York)");
   }
 
   const parsed = ingestRawEventSchema.safeParse(req.body);
@@ -81,7 +139,9 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   }
 
   const receivedAt = new Date().toISOString();
-  const day = dayKeyFromIso(observedAt);
+
+  // ✅ Must match canonical dayKey semantics
+  const day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
 
   // Phase 1: gateway currently represents manual ingestion
   const sourceType = "manual" as const;
@@ -106,6 +166,10 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
     receivedAt,
     observedAt,
+
+    // Contract-first: timezone is authoritative at the envelope level.
+    // This MUST validate against @oli/contracts rawEventDocSchema.
+    timeZone,
 
     payload: body.payload,
 
@@ -141,13 +205,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
       // Firestore read failed — fall through to internal error.
     }
 
-    return res.status(500).json({
-      ok: false as const,
-      error: {
-        code: "INGEST_WRITE_FAILED" as const,
-        message: "Failed to write RawEvent",
-      },
-    });
+    return internalError(res, "INGEST_WRITE_FAILED", "Failed to write RawEvent");
   }
 });
 

@@ -19,6 +19,11 @@ import { upsertRawEventDedupeEvidence } from "../ingestion/rawEventDedupe";
  * - Writes canonical truth immutably (create-only OR identical-on-replay).
  * - Logs failures (no silent drops).
  * - Avoids logging any user PII.
+ *
+ * Phase 1 / Step 1 invariant:
+ * - Canonical `day` must be derived deterministically from the authoritative time anchor
+ *   and timezone, using Intl.DateTimeFormat("en-CA", { timeZone }).
+ *   (Enforced inside mapRawEventToCanonical; this trigger preserves that authority.)
  */
 export const onRawEventCreated = onDocumentCreated(
   {
@@ -77,6 +82,7 @@ export const onRawEventCreated = onDocumentCreated(
       });
     }
 
+    // Pure deterministic normalization
     const result = mapRawEventToCanonical(rawEvent);
 
     if (!result.ok) {
@@ -86,6 +92,8 @@ export const onRawEventCreated = onDocumentCreated(
         provider: rawEvent.provider,
         kind: rawEvent.kind,
         reason: result.reason,
+        // Include details only if provided, but keep it safe (no payload).
+        ...(result.details ? { details: result.details } : {}),
       });
       return;
     }
