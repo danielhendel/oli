@@ -1,3 +1,4 @@
+// services/functions/src/normalization/mapRawEventToCanonical.ts
 import type {
   CanonicalEvent,
   RawEvent,
@@ -47,37 +48,31 @@ export type MappingSuccess = {
 export type MappingResult = MappingSuccess | MappingFailure;
 
 // -----------------------------------------------------------------------------
-// Canonical dayKey derivation
+// Canonical dayKey derivation (AUTHORITATIVE)
 // -----------------------------------------------------------------------------
-
-const toYmdUtc = (date: Date): YmdDateString => {
-  const yyyy = String(date.getUTCFullYear()).padStart(4, "0");
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}` as YmdDateString;
-};
 
 /**
  * Canonical dayKey derivation using IANA timezone.
- * Returns null if the ISO timestamp is invalid.
- * Falls back to UTC if timezone is invalid/unavailable.
  *
- * NOTE: uses en-CA format which yields YYYY-MM-DD.
+ * Algorithm must match the ingestion acknowledgement semantics:
+ *   Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(iso))
+ *
+ * Returns null if:
+ * - ISO timestamp is invalid, OR
+ * - timeZone is invalid (fail closed; no UTC fallback here)
  */
-const ymdInTimeZoneFromIso = (iso: string, timeZone: string): YmdDateString | null => {
+const ymdInTimeZoneFromIso = (
+  iso: string,
+  timeZone: string,
+): YmdDateString | null => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
 
   try {
-    const fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone });
     return fmt.format(d) as YmdDateString;
   } catch {
-    return toYmdUtc(d);
+    return null;
   }
 };
 
@@ -137,7 +132,13 @@ type ManualPayloadByKind = {
 
 type ManualKind = keyof ManualPayloadByKind;
 
-const MANUAL_KINDS: readonly ManualKind[] = ["sleep", "steps", "workout", "weight", "hrv"] as const;
+const MANUAL_KINDS: readonly ManualKind[] = [
+  "sleep",
+  "steps",
+  "workout",
+  "weight",
+  "hrv",
+] as const;
 
 const isManualKind = (kind: RawEvent["kind"]): kind is ManualKind =>
   (MANUAL_KINDS as readonly string[]).includes(kind);
@@ -322,7 +323,10 @@ const mapManualWeight = (
   };
 };
 
-const mapManualHrv = (raw: RawEvent, payload: ManualHrvPayload): HrvCanonicalEvent | null => {
+const mapManualHrv = (
+  raw: RawEvent,
+  payload: ManualHrvPayload,
+): HrvCanonicalEvent | null => {
   const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
   if (!day) return null;
 
@@ -387,14 +391,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     case "sleep": {
       const payload = parseManualPayload("sleep", raw.payload);
       if (!payload) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
       }
       const canonical = mapManualSleep(raw, payload);
       if (!canonical) {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start" },
+          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
         };
       }
       return { ok: true, canonical };
@@ -403,14 +411,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     case "steps": {
       const payload = parseManualPayload("steps", raw.payload);
       if (!payload) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
       }
       const canonical = mapManualSteps(raw, payload);
       if (!canonical) {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start" },
+          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
         };
       }
       return { ok: true, canonical };
@@ -419,14 +431,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     case "workout": {
       const payload = parseManualPayload("workout", raw.payload);
       if (!payload) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
       }
       const canonical = mapManualWorkout(raw, payload);
       if (!canonical) {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start" },
+          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
         };
       }
       return { ok: true, canonical };
@@ -435,14 +451,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     case "weight": {
       const payload = parseManualPayload("weight", raw.payload);
       if (!payload) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
       }
       const canonical = mapManualWeight(raw, payload);
       if (!canonical) {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "time" },
+          details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
         };
       }
       return { ok: true, canonical };
@@ -451,14 +471,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     case "hrv": {
       const payload = parseManualPayload("hrv", raw.payload);
       if (!payload) {
-        return { ok: false, reason: "MALFORMED_PAYLOAD", details: { rawEventId: raw.id } };
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
       }
       const canonical = mapManualHrv(raw, payload);
       if (!canonical) {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "time" },
+          details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
         };
       }
       return { ok: true, canonical };

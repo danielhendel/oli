@@ -22,7 +22,6 @@ describe("mapRawEventToCanonical", () => {
       payload: {
         start: "2025-01-01T22:00:00.000Z",
         end: "2025-01-02T06:00:00.000Z",
-        day: "2025-01-01",
         timezone: "America/New_York",
         totalMinutes: 480,
         efficiency: 0.9,
@@ -64,7 +63,6 @@ describe("mapRawEventToCanonical", () => {
       payload: {
         start: "2025-01-01T08:00:00.000Z",
         end: "2025-01-01T21:00:00.000Z",
-        day: "2025-01-01",
         timezone: "America/New_York",
         steps: 12000,
         distanceKm: 8.4,
@@ -78,7 +76,7 @@ describe("mapRawEventToCanonical", () => {
 
     const canonical = result.canonical;
     expect(canonical.kind).toBe("steps");
-    if (canonical.kind !== "steps") throw new Error("Expected steps kind");
+    expect(canonical.day).toBe("2025-01-01");
 
     const stepsEvent = canonical as Extract<CanonicalEvent, { kind: "steps" }>;
     expect(stepsEvent.steps).toBe(12000);
@@ -94,7 +92,6 @@ describe("mapRawEventToCanonical", () => {
       kind: "weight",
       payload: {
         time: "2025-01-01T06:00:00.000Z",
-        day: "2025-01-01",
         timezone: "America/New_York",
         weightKg: 73.482,
         bodyFatPercent: null,
@@ -107,12 +104,13 @@ describe("mapRawEventToCanonical", () => {
 
     const canonical = result.canonical;
     expect(canonical.kind).toBe("weight");
-    if (canonical.kind !== "weight") throw new Error("Expected weight kind");
+    expect(canonical.day).toBe("2025-01-01");
 
     const weightEvent = canonical as Extract<CanonicalEvent, { kind: "weight" }>;
     expect(weightEvent.weightKg).toBe(73.482);
-    // bodyFatPercent is optional/nullable depending on your canonical type; accept null/undefined.
-    expect("bodyFatPercent" in weightEvent ? weightEvent.bodyFatPercent : undefined).toBeNull();
+    expect(
+      "bodyFatPercent" in weightEvent ? weightEvent.bodyFatPercent : undefined,
+    ).toBeNull();
   });
 
   it("returns failure for unsupported provider", () => {
@@ -137,7 +135,6 @@ describe("mapRawEventToCanonical", () => {
       provider: "manual",
       kind: "sleep",
       payload: {
-        // missing start/end/day/timezone/totalMinutes
         isMainSleep: true,
       } as unknown,
     };
@@ -171,7 +168,66 @@ describe("mapRawEventToCanonical", () => {
         kind: "upload.file",
         memoryOnly: true,
         rawEventId: "raw_upload_1",
-      })
+      }),
     );
+  });
+
+  it("derives canonical day using Intl.DateTimeFormat('en-CA', { timeZone }) across boundary conditions", () => {
+    const cases: {
+      name: string;
+      start: string;
+      end: string;
+      timeZone: string;
+      expectedDay: string;
+    }[] = [
+      {
+        name: "America/New_York near midnight",
+        start: "2024-01-02T04:59:00.000Z",
+        end: "2024-01-02T05:09:00.000Z",
+        timeZone: "America/New_York",
+        expectedDay: "2024-01-01",
+      },
+      {
+        name: "Asia/Tokyo non-US timezone",
+        start: "2024-06-01T15:00:00.000Z",
+        end: "2024-06-01T16:00:00.000Z",
+        timeZone: "Asia/Tokyo",
+        expectedDay: "2024-06-02",
+      },
+      {
+        name: "America/New_York DST transition",
+        start: "2024-03-10T06:59:00.000Z",
+        end: "2024-03-10T08:10:00.000Z",
+        timeZone: "America/New_York",
+        expectedDay: "2024-03-10",
+      },
+    ];
+
+    for (const c of cases) {
+      const raw: RawEvent = {
+        ...baseRawEvent,
+        id: `raw_sleep_day_${c.expectedDay}`,
+        provider: "manual",
+        kind: "sleep",
+        payload: {
+          start: c.start,
+          end: c.end,
+          timezone: c.timeZone,
+          totalMinutes: 60,
+          isMainSleep: true,
+        } as unknown,
+      };
+
+      const result = mapRawEventToCanonical(raw);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(`Expected mapping success: ${c.name}`);
+
+      const expected = new Intl.DateTimeFormat("en-CA", {
+        timeZone: c.timeZone,
+      }).format(new Date(c.start));
+
+      expect(expected).toBe(c.expectedDay);
+      expect(result.canonical.day).toBe(c.expectedDay);
+    }
   });
 });
