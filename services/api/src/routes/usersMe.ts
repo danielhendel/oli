@@ -20,6 +20,7 @@ import {
 } from "../types/dtos";
 
 import { userCollection } from "../db";
+import usersMeEventsRoutes from "./usersMe.events";
 
 const router = Router();
 
@@ -80,6 +81,11 @@ const dayTruthDtoSchema = z.object({
   latestCanonicalEventAt: z.string().datetime().nullable(),
 });
 type DayTruthDto = z.infer<typeof dayTruthDtoSchema>;
+
+// ----------------------------
+// ✅ Step 2 — Canonical Truth Read Surface
+// ----------------------------
+router.use(usersMeEventsRoutes);
 
 router.get(
   "/day-truth",

@@ -17,6 +17,10 @@ export type { IntelligenceContextDto } from "@oli/contracts/intelligenceContext"
 export { logWeightRequestDtoSchema, logWeightResponseDtoSchema } from "@oli/contracts/weight";
 export type { LogWeightRequestDto, LogWeightResponseDto } from "@oli/contracts/weight";
 
+// ✅ Step 2 — Canonical Truth Read Surface DTO
+export { canonicalEventDtoSchema } from "./canonicalEvent.dto";
+export type { CanonicalEventDto } from "./canonicalEvent.dto";
+
 // ✅ Step 4 — Derived Ledger replay contracts
 export {
   derivedLedgerRunSummaryDtoSchema,

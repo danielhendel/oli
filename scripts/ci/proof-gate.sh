@@ -30,6 +30,12 @@ echo "→ Phase 1 proof tests"
 # Step 1 adds two guarantees:
 #   A) Ingestion acknowledgement day must match canonical dayKey semantics (proved via canonical day derivation tests)
 #   B) Invalid/missing timezone must fail closed (400) and must not write RawEvent (proved via API route test)
+#
+# Step 2 adds canonical truth read guarantees:
+#   C) Canonical events are retrievable via safe APIs (list-by-day + get-by-id)
+#   D) All returned canonical docs are runtime-validated and fail-closed (no silent drops)
+#   E) Ordering and pagination are deterministic and stable (cursor-based)
+#   F) Authz invariants: cross-user reads forbidden
 TESTS=(
   "services/functions/src/normalization/__tests__/canonicalImmutability.test.ts"
   "services/functions/src/ingestion/__tests__/rawEventDedupe.test.ts"
@@ -42,6 +48,9 @@ TESTS=(
 
   # Step 1 proof: ingestion rejects invalid/missing timezone and does not attempt RawEvent write
   "services/api/src/routes/__tests__/events.ingest.invalid-timezone.test.ts"
+
+  # Step 2 proof: canonical truth read surface (validated DTO, fail-closed, deterministic order, stable cursor pagination, authz)
+  "services/api/src/routes/__tests__/canonicalEvents.test.ts"
 )
 
 missing=0
