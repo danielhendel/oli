@@ -36,6 +36,12 @@ echo "→ Phase 1 proof tests"
 #   D) All returned canonical docs are runtime-validated and fail-closed (no silent drops)
 #   E) Ordering and pagination are deterministic and stable (cursor-based)
 #   F) Authz invariants: cross-user reads forbidden
+#
+# Step 3 adds RawEvent Library (Memory Index) guarantees:
+#   G) RawEvents list surfaces are user-scoped and validated at runtime (fail-closed: invalid doc => 500)
+#   H) Deterministic ordering + stable cursor pagination
+#   I) Filtering correctness and invalid filters fail closed (400)
+#   J) Upload safety: no payloads, no secrets (no base64, no signed URLs/tokens), only allowed summary fields
 TESTS=(
   "services/functions/src/normalization/__tests__/canonicalImmutability.test.ts"
   "services/functions/src/ingestion/__tests__/rawEventDedupe.test.ts"
@@ -51,6 +57,9 @@ TESTS=(
 
   # Step 2 proof: canonical truth read surface (validated DTO, fail-closed, deterministic order, stable cursor pagination, authz)
   "services/api/src/routes/__tests__/canonicalEvents.test.ts"
+
+  # Step 3 proof: raw event library (memory index) list endpoints + filtering + upload safety + fail-closed validation
+  "services/api/src/routes/__tests__/rawEvents.list.test.ts"
 )
 
 missing=0

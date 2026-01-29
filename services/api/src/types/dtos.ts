@@ -32,3 +32,7 @@ export type {
   DerivedLedgerRunsResponseDto,
   DerivedLedgerReplayResponseDto,
 } from "@oli/contracts/derivedLedger";
+
+// ✅ Step 3 — RawEvent Library (Memory Index) DTOs
+export { rawEventListItemDtoSchema, rawEventsListResponseDtoSchema } from "./rawEventListItem.dto";
+export type { RawEventListItemDto, RawEventsListResponseDto } from "./rawEventListItem.dto";
