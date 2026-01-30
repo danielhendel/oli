@@ -25,14 +25,7 @@ import { z } from "zod";
  *
  * Adding a new kind here is a Phase 1–critical change and must be deliberate.
  */
-export const rawEventKindSchema = z.enum([
-  "sleep",
-  "steps",
-  "workout",
-  "weight",
-  "hrv",
-]);
-
+export const rawEventKindSchema = z.enum(["sleep", "steps", "workout", "weight", "hrv"]);
 export type RawEventKind = z.infer<typeof rawEventKindSchema>;
 
 /**
@@ -43,16 +36,20 @@ export const rawEventProviderSchema = z.enum(["manual"]);
 export type RawEventProvider = z.infer<typeof rawEventProviderSchema>;
 
 /**
+ * Schema versions accepted at the ingestion boundary.
+ * Phase 1 supports only version 1.
+ */
+export const rawEventSchemaVersionSchema = z.literal(1);
+export type RawEventSchemaVersion = z.infer<typeof rawEventSchemaVersionSchema>;
+
+/**
  * ISO datetime validator (must be parseable by Date.parse).
  * Used for all ingestion time semantics.
  */
 const isoDateTimeString = z
   .string()
   .min(1)
-  .refine(
-    (v) => !Number.isNaN(Date.parse(v)),
-    { message: "Invalid ISO datetime string" }
-  );
+  .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid ISO datetime string" });
 
 /**
  * RawEvent ingestion request body for the Cloud Run gateway.
@@ -61,6 +58,15 @@ const isoDateTimeString = z
  * - `observedAt` is preferred and canonical.
  * - `occurredAt` is accepted for backward compatibility.
  * - Exactly one of them MUST be present.
+ *
+ * Source semantics (Phase 1 Trust Boundary):
+ * - `sourceId` is REQUIRED and must correspond to a user-registered source.
+ * - There are NO implicit / anonymous / default sources at ingestion time.
+ *
+ * Timezone semantics (Phase 1 Truth Boundary):
+ * - `timeZone` is REQUIRED by the API route and must be a valid IANA timezone.
+ * - We accept the key here to keep the contract strict + aligned with the route.
+ * - Enforcement (required + IANA validation) happens in the route to fail closed.
  *
  * Payload semantics:
  * - Payload is intentionally opaque at the ingestion boundary.
@@ -71,18 +77,30 @@ export const ingestRawEventSchema = z
     provider: rawEventProviderSchema.default("manual"),
     kind: rawEventKindSchema,
 
+    // Phase 1 schema version (fail-closed)
+    schemaVersion: rawEventSchemaVersionSchema.default(1),
+
     // Preferred canonical time
     observedAt: isoDateTimeString.optional(),
 
     // Legacy compatibility
     occurredAt: isoDateTimeString.optional(),
 
-    // Optional source identifier (defaults to manual)
-    sourceId: z.string().min(1).optional().default("manual"),
+    // REQUIRED (no defaults). Must be validated server-side against source registry.
+    sourceId: z.string().min(1),
+
+    /**
+     * Accepted by contract so `.strict()` doesn't reject it.
+     * The route enforces:
+     * - required
+     * - IANA validity (Intl.DateTimeFormat(..., { timeZone }))
+     */
+    timeZone: z.string().min(1).optional(),
 
     // Deliberately opaque at ingestion boundary
     payload: z.unknown(),
   })
+  .strict()
   .superRefine((val, ctx) => {
     if (!val.observedAt && !val.occurredAt) {
       ctx.addIssue({

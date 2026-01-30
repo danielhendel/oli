@@ -34,13 +34,16 @@ service cloud.firestore {
       // ----------------------------------------------------------
       // SOURCES (user-owned configuration)
       //
-      // Examples:
-      // - Apple Health source
-      // - Manual logging source
+      // Phase 1 Trust Boundary:
+      // - Clients may READ their sources for transparency
+      // - Clients may NEVER create/update/delete sources directly
+      // - All writes go through API / backend only
       // ----------------------------------------------------------
       match /sources/{sourceId} {
-        allow read, create, update, delete: if request.auth != null
-                                            && request.auth.uid == userId;
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+
+        allow create, update, delete: if false;
       }
 
       // ----------------------------------------------------------

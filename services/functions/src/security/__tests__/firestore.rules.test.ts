@@ -38,7 +38,7 @@ describe("Firestore security rules (I-01 / I-04)", () => {
 
   const userDb = (auth: Authed) => testEnv.authenticatedContext(auth.uid).firestore();
 
-  it("allows an authenticated user to read their own docs (raw + derived)", async () => {
+  it("allows an authenticated user to read their own docs (raw + derived + sources)", async () => {
     const uid = "user_a";
     const day = "2026-01-01";
 
@@ -49,6 +49,19 @@ describe("Firestore security rules (I-01 / I-04)", () => {
       await db.doc(`users/${uid}/insights/ins_1`).set({ userId: uid, id: "ins_1" });
       await db.doc(`users/${uid}/rawEvents/re_1`).set({ userId: uid, id: "re_1" });
       await db.doc(`users/${uid}/events/ev_1`).set({ userId: uid, id: "ev_1" });
+
+      // Step 4: sources are readable but not writable by clients
+      await db.doc(`users/${uid}/sources/src_1`).set({
+        id: "src_1",
+        userId: uid,
+        provider: "manual",
+        sourceType: "api",
+        isActive: true,
+        allowedKinds: ["sleep"],
+        supportedSchemaVersions: [1],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     });
 
     const db = userDb({ uid });
@@ -58,9 +71,12 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertSucceeds(db.doc(`users/${uid}/insights/ins_1`).get());
     await assertSucceeds(db.doc(`users/${uid}/rawEvents/re_1`).get());
     await assertSucceeds(db.doc(`users/${uid}/events/ev_1`).get());
+
+    // Step 4: sources are readable
+    await assertSucceeds(db.doc(`users/${uid}/sources/src_1`).get());
   });
 
-  it("denies client writes to ingestion + derived truth (I-01 / I-04)", async () => {
+  it("denies client writes to ingestion + derived truth + sources (I-01 / I-04)", async () => {
     const uid = "user_a";
     const day = "2026-01-01";
     const db = userDb({ uid });
@@ -80,15 +96,30 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertFails(db.doc(`users/${uid}/dailyFacts/${day}`).update({ any: "field" }));
     await assertFails(db.doc(`users/${uid}/dailyFacts/${day}`).delete());
 
-    await assertFails(
-      db.doc(`users/${uid}/intelligenceContext/${day}`).set({ userId: uid, day })
-    );
+    await assertFails(db.doc(`users/${uid}/intelligenceContext/${day}`).set({ userId: uid, day }));
     await assertFails(db.doc(`users/${uid}/intelligenceContext/${day}`).update({ any: "field" }));
     await assertFails(db.doc(`users/${uid}/intelligenceContext/${day}`).delete());
 
     await assertFails(db.doc(`users/${uid}/insights/ins_1`).set({ userId: uid, id: "ins_1" }));
     await assertFails(db.doc(`users/${uid}/insights/ins_1`).update({ any: "field" }));
     await assertFails(db.doc(`users/${uid}/insights/ins_1`).delete());
+
+    // Step 4: sources are NOT writable by clients
+    await assertFails(
+      db.doc(`users/${uid}/sources/src_1`).set({
+        id: "src_1",
+        userId: uid,
+        provider: "manual",
+        sourceType: "api",
+        isActive: true,
+        allowedKinds: ["sleep"],
+        supportedSchemaVersions: [1],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    await assertFails(db.doc(`users/${uid}/sources/src_1`).update({ isActive: false }));
+    await assertFails(db.doc(`users/${uid}/sources/src_1`).delete());
   });
 
   it("denies cross-user reads (user isolation)", async () => {
@@ -99,9 +130,27 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
       const db = ctx.firestore();
       await db.doc(`users/${uidA}/dailyFacts/${day}`).set({ userId: uidA, date: day });
+
+      // Step 4: also seed a source doc for uidA
+      await db.doc(`users/${uidA}/sources/src_1`).set({
+        id: "src_1",
+        userId: uidA,
+        provider: "manual",
+        sourceType: "api",
+        isActive: true,
+        allowedKinds: ["sleep"],
+        supportedSchemaVersions: [1],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     });
 
     const dbB = userDb({ uid: uidB });
+
+    // Existing invariant
     await assertFails(dbB.doc(`users/${uidA}/dailyFacts/${day}`).get());
+
+    // Step 4 invariant: cannot read another user's sources
+    await assertFails(dbB.doc(`users/${uidA}/sources/src_1`).get());
   });
 });

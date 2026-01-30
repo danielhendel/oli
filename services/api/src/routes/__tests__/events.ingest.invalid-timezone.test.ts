@@ -2,16 +2,20 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import express from "express";
 
-// Jest hoists jest.mock() calls, and the module factory cannot reference
-// out-of-scope variables unless they are prefixed with "mock" (case-insensitive).
 const mockUserCollection = jest.fn();
 
 jest.mock("../../db", () => {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    userCollection: (...args: any[]) => mockUserCollection(...args),
+    userCollection: (...args: unknown[]) => mockUserCollection(...args),
   };
 });
+
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(v: unknown): v is JsonObject {
+  return typeof v === "object" && v !== null;
+}
 
 describe("POST /ingest - invalid/missing timezone", () => {
   beforeEach(() => {
@@ -23,7 +27,6 @@ describe("POST /ingest - invalid/missing timezone", () => {
   });
 
   it("fails closed (400) with stable error code on invalid timezone and does not attempt to write a RawEvent", async () => {
-    // Use CommonJS require to avoid Jest ESM/vm-modules requirement.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const router = require("../events").default as express.Router;
 
@@ -57,30 +60,25 @@ describe("POST /ingest - invalid/missing timezone", () => {
         body: JSON.stringify({
           provider: "manual",
           kind: "sleep",
+          schemaVersion: 1,
+          sourceId: "src_manual_api",
           observedAt: "2025-01-01T00:00:00.000Z",
           timeZone: "Not/AZone",
-          payload: {
-            start: "2025-01-01T00:00:00.000Z",
-            end: "2025-01-01T01:00:00.000Z",
-            timezone: "Not/AZone",
-            totalMinutes: 60,
-            isMainSleep: true,
-          },
+          payload: { any: "opaque" },
         }),
       });
 
       expect(res.status).toBe(400);
 
-      const body = (await res.json()) as unknown;
+      const body: unknown = await res.json();
+      expect(isJsonObject(body)).toBe(true);
+      if (!isJsonObject(body)) throw new Error("Expected JSON object");
 
-      expect(body).toEqual(
-        expect.objectContaining({
-          ok: false,
-          error: expect.objectContaining({
-            code: "TIMEZONE_INVALID",
-          }),
-        }),
-      );
+      const error = body["error"];
+      expect(isJsonObject(error)).toBe(true);
+      if (!isJsonObject(error)) throw new Error("Expected error object");
+
+      expect(error["code"]).toBe("TIMEZONE_INVALID");
 
       // ✅ Proof: no write attempt occurred (db userCollection never called)
       expect(mockUserCollection).not.toHaveBeenCalled();
@@ -122,28 +120,24 @@ describe("POST /ingest - invalid/missing timezone", () => {
         body: JSON.stringify({
           provider: "manual",
           kind: "sleep",
+          schemaVersion: 1,
+          sourceId: "src_manual_api",
           observedAt: "2025-01-01T00:00:00.000Z",
-          payload: {
-            start: "2025-01-01T00:00:00.000Z",
-            end: "2025-01-01T01:00:00.000Z",
-            totalMinutes: 60,
-            isMainSleep: true,
-          },
+          payload: { any: "opaque" },
         }),
       });
 
       expect(res.status).toBe(400);
 
-      const body = (await res.json()) as unknown;
+      const body: unknown = await res.json();
+      expect(isJsonObject(body)).toBe(true);
+      if (!isJsonObject(body)) throw new Error("Expected JSON object");
 
-      expect(body).toEqual(
-        expect.objectContaining({
-          ok: false,
-          error: expect.objectContaining({
-            code: "TIMEZONE_REQUIRED",
-          }),
-        }),
-      );
+      const error = body["error"];
+      expect(isJsonObject(error)).toBe(true);
+      if (!isJsonObject(error)) throw new Error("Expected error object");
+
+      expect(error["code"]).toBe("TIMEZONE_REQUIRED");
 
       // ✅ Proof: no write attempt occurred (db userCollection never called)
       expect(mockUserCollection).not.toHaveBeenCalled();

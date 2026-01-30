@@ -7,6 +7,8 @@ import type { AuthedRequest } from "../middleware/auth";
 import { userCollection } from "../db";
 import { rawEventDocSchema } from "@oli/contracts";
 import { admin } from "../firebaseAdmin";
+import { requireActiveSource } from "../ingestion/sourceGating";
+import { rawEventSchemaVersionSchema } from "../types/events";
 
 const router = Router();
 
@@ -22,12 +24,23 @@ const router = Router();
  * - This route treats uploads as "memory-only" RawEvents (kind: "file")
  * - No parsing (payload is strictly storage reference + integrity metadata)
  * - Normalization may ignore these; Phase 1 still requires them to exist in the Personal Health Library
+ *
+ * PHASE 1 TRUST BOUNDARY:
+ * - Requires sourceId
+ * - Validates source exists, belongs to user, active
+ * - Validates kind="file" + schemaVersion are allowed by source
  */
 
 // --------- Request validation ---------
 
 const uploadBodySchema = z
   .object({
+    // REQUIRED: must correspond to a user-registered source
+    sourceId: z.string().min(1),
+
+    // Phase 1 schema version (fail-closed)
+    schemaVersion: rawEventSchemaVersionSchema.default(1),
+
     fileBase64: z.string().min(1),
     filename: z.string().min(1),
     mimeType: z.string().min(1),
@@ -114,6 +127,25 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const body: UploadBody = parsed.data;
 
+  // Trust boundary: validate source BEFORE any replay acceptance.
+  // This prevents a bypass where a legacy rawEvent exists without valid source attribution.
+  const sourceCheck = await requireActiveSource({
+    uid,
+    sourceId: body.sourceId,
+    kind: "file",
+    schemaVersion: body.schemaVersion,
+  });
+
+  if (!sourceCheck.ok) {
+    return res.status(sourceCheck.status).json({
+      ok: false as const,
+      error: {
+        code: sourceCheck.code,
+        message: sourceCheck.message,
+      },
+    });
+  }
+
   // RawEvents live under the user scope
   const rawEventsCol = userCollection(uid, "rawEvents");
 
@@ -199,12 +231,19 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   const rawEvent = {
     id: rawEventId,
     userId: uid,
+
     kind: "file",
     provider: "manual",
+
+    // Kept for contract compatibility; trust is enforced by sourceId registry.
     sourceType: "manual",
-    sourceId: "upload",
+
+    // REQUIRED and registry-validated (no implicit actors)
+    sourceId: body.sourceId,
+
     observedAt,
     receivedAt,
+
     payload: {
       storageBucket: storageRef.bucket,
       storagePath: storageRef.objectPath,
@@ -213,7 +252,8 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
       mimeType: body.mimeType,
       originalFilename: body.filename,
     },
-    schemaVersion: 1 as const,
+
+    schemaVersion: body.schemaVersion,
   };
 
   const validated = rawEventDocSchema.safeParse(rawEvent);
@@ -244,3 +284,4 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 });
 
 export default router;
+

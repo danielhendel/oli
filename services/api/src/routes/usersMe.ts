@@ -21,6 +21,7 @@ import {
 
 import { userCollection } from "../db";
 import usersMeEventsRoutes from "./usersMe.events";
+import usersMeSourcesRoutes from "./usersMe.sources";
 
 // ✅ Step 3 — RawEvent Library (Memory Index)
 import { decodeCursor, encodeCursor } from "../pagination/cursor";
@@ -91,6 +92,12 @@ type DayTruthDto = z.infer<typeof dayTruthDtoSchema>;
 // ✅ Step 2 — Canonical Truth Read Surface
 // ----------------------------
 router.use(usersMeEventsRoutes);
+
+// ----------------------------
+// ✅ Step 4 — Source Registry (Trust Boundary)
+// Mounted at: /users/me/sources/*
+// ----------------------------
+router.use("/sources", usersMeSourcesRoutes);
 
 router.get(
   "/day-truth",

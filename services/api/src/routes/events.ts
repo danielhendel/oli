@@ -5,14 +5,10 @@ import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
+import { requireActiveSource } from "../ingestion/sourceGating";
 
 const router = Router();
 
-/**
- * Prefer header-based idempotency. Allow middleware injection if present.
- * This preserves your current behavior while making the contract explicit:
- * - Idempotency-Key (or X-Idempotency-Key) is the canonical interface.
- */
 const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
   const fromHeader =
     (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
@@ -20,14 +16,19 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
 
   if (fromHeader) return fromHeader;
 
-  // Preserve compatibility with any upstream middleware that sets req.idempotencyKey
   const anyReq = req as unknown as { idempotencyKey?: unknown };
   const fromMiddleware = typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
 
   return fromMiddleware ?? undefined;
 };
 
-type StableApiErrorCode = "TIMEZONE_REQUIRED" | "TIMEZONE_INVALID" | "MISSING_IDEMPOTENCY_KEY" | "INGEST_WRITE_FAILED";
+type StableApiErrorCode =
+  | "TIMEZONE_REQUIRED"
+  | "TIMEZONE_INVALID"
+  | "MISSING_IDEMPOTENCY_KEY"
+  | "INGEST_WRITE_FAILED"
+  | "SOURCE_PROVIDER_MISMATCH"
+  | "MISSING_SOURCE_ID";
 
 const badRequest = (res: Response, code: StableApiErrorCode, message: string) =>
   res.status(400).json({
@@ -47,57 +48,35 @@ const internalError = (res: Response, code: StableApiErrorCode, message: string)
     },
   });
 
-/**
- * Extract + validate an IANA timezone string.
- * Fail-closed: no silent UTC fallback.
- */
 const requireValidTimeZone = (reqBody: unknown): string | undefined => {
   const tz = (reqBody as { timeZone?: unknown } | null | undefined)?.timeZone;
   const timeZone = typeof tz === "string" ? tz : undefined;
 
   if (!timeZone) return undefined;
 
-  // Validate IANA timezone via Intl. Throws RangeError on invalid tz.
-  // We do NOT rely on try/catch in Date parsing.
   new Intl.DateTimeFormat("en-US", { timeZone });
-
   return timeZone;
 };
 
-/**
- * Single source-of-truth dayKey algorithm (must match canonical normalization):
- * Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(observedAt))
- */
+// ✅ Step 4: stable gating shape for missing sourceId, before schema parse
+const requireSourceId = (reqBody: unknown): string | undefined => {
+  const v = (reqBody as { sourceId?: unknown } | null | undefined)?.sourceId;
+  const sourceId = typeof v === "string" ? v.trim() : "";
+  return sourceId.length > 0 ? sourceId : undefined;
+};
+
 const canonicalDayKeyFromObservedAt = (observedAtIso: string, timeZone: string): string => {
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone });
   return formatter.format(new Date(observedAtIso));
 };
 
-/**
- * Canonical ingestion gateway (AUTHENTICATED)
- *
- * - Validates body (ingestRawEventSchema)
- * - Canonicalizes timestamps
- * - Requires valid timeZone (fail closed; no UTC fallback)
- * - Computes dayKey using canonical algorithm (Intl.DateTimeFormat("en-CA", { timeZone }))
- * - Validates canonical RawEvent doc with @oli/contracts (rawEventDocSchema)
- * - Writes RawEvent to: /users/{uid}/rawEvents/{rawEventId}
- * - Firestore trigger normalizes → pipeline
- *
- * ✅ Mounted at: POST /ingest   (see services/api/src/index.ts)
- *
- * IDENTITY + INTEGRITY:
- * - Requires Idempotency-Key (or X-Idempotency-Key)
- * - Uses that key as the Firestore doc id to guarantee idempotency
- */
 router.post("/", async (req: AuthedRequest, res: Response) => {
   const uid = req.uid;
   if (!uid) {
     return res.status(401).json({ ok: false as const, error: "Unauthorized" });
   }
 
-  // Contract-first: timeZone is authoritative + required.
-  // We validate directly off req.body to fail closed even if schema changes lag behind.
+  // timeZone is authoritative + required
   let timeZone: string | undefined;
   try {
     timeZone = requireValidTimeZone(req.body);
@@ -106,6 +85,18 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   }
   if (!timeZone) {
     return badRequest(res, "TIMEZONE_REQUIRED", "timeZone is required (IANA timezone, e.g. America/New_York)");
+  }
+
+  // ✅ Step 4: fail closed w/ stable shape if sourceId missing
+  const sourceIdPre = requireSourceId(req.body);
+  if (!sourceIdPre) {
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "MISSING_SOURCE_ID" as const,
+        message: "sourceId is required",
+      },
+    });
   }
 
   const parsed = ingestRawEventSchema.safeParse(req.body);
@@ -119,11 +110,8 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const body: IngestRawEventBody = parsed.data;
 
-  // Canonicalize timestamps (observedAt preferred)
   const observedAt = body.observedAt ?? body.occurredAt;
   if (!observedAt) {
-    // This should be unreachable because ingestRawEventSchema enforces it,
-    // but we fail closed anyway.
     return res.status(400).json({ ok: false as const, error: "Missing observedAt/occurredAt" });
   }
 
@@ -138,19 +126,34 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     });
   }
 
-  const receivedAt = new Date().toISOString();
+  const sourceCheck = await requireActiveSource({
+    uid,
+    sourceId: body.sourceId,
+    kind: body.kind,
+    schemaVersion: body.schemaVersion,
+  });
 
-  // ✅ Must match canonical dayKey semantics
+  if (!sourceCheck.ok) {
+    return res.status(sourceCheck.status).json({
+      ok: false as const,
+      error: {
+        code: sourceCheck.code,
+        message: sourceCheck.message,
+      },
+    });
+  }
+
+  if (body.provider !== sourceCheck.source.provider) {
+    return badRequest(res, "SOURCE_PROVIDER_MISMATCH", "provider does not match registered source provider");
+  }
+
+  const receivedAt = new Date().toISOString();
   const day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
 
-  // Phase 1: gateway currently represents manual ingestion
   const sourceType = "manual" as const;
-  const schemaVersion = 1 as const;
+  const schemaVersion = body.schemaVersion;
 
-  // ✅ MUST be user-scoped
   const rawEventsCol = userCollection(uid, "rawEvents");
-
-  // ✅ Mandatory idempotency: doc id is deterministic
   const docRef = rawEventsCol.doc(idempotencyKey);
   const rawEventId = docRef.id;
 
@@ -158,7 +161,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     id: rawEventId,
     userId: uid,
 
-    sourceId: body.sourceId ?? "manual",
+    sourceId: body.sourceId,
     sourceType,
 
     provider: body.provider,
@@ -167,8 +170,6 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     receivedAt,
     observedAt,
 
-    // Contract-first: timezone is authoritative at the envelope level.
-    // This MUST validate against @oli/contracts rawEventDocSchema.
     timeZone,
 
     payload: body.payload,
@@ -189,8 +190,6 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     await docRef.create(validated.data);
     return res.status(202).json({ ok: true as const, rawEventId, day });
   } catch {
-    // If create() failed because the doc already exists, treat as an idempotent replay.
-    // We avoid assuming error codes and instead check existence (fail closed).
     try {
       const existing = await docRef.get();
       if (existing.exists) {
@@ -202,7 +201,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
         });
       }
     } catch {
-      // Firestore read failed — fall through to internal error.
+      // ignore, fall through
     }
 
     return internalError(res, "INGEST_WRITE_FAILED", "Failed to write RawEvent");
