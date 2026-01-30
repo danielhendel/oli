@@ -16,10 +16,13 @@ import {
   derivedLedgerReplayResponseDtoSchema,
   derivedLedgerRunsResponseDtoSchema,
   derivedLedgerRunSummaryDtoSchema,
+  derivedLedgerExplainResponseDtoSchema,
+  canonicalEventDtoSchema,
   type InsightDto,
 } from "../types/dtos";
 
 import { userCollection } from "../db";
+import { derivedLedgerRunIdExistsForOtherUser } from "../db/derivedLedger";
 import usersMeEventsRoutes from "./usersMe.events";
 import usersMeSourcesRoutes from "./usersMe.sources";
 
@@ -833,6 +836,205 @@ router.get(
     const validated = derivedLedgerReplayResponseDtoSchema.safeParse(response);
     if (!validated.success) {
       invalidDoc500(req, res, "derivedLedgerReplayResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Step 6 — Explainable Derived Truth
+// GET /users/me/derived-ledger/explain?day=YYYY-MM-DD&runId=RUN_ID
+// ----------------------------
+
+const explainQuerySchema = z
+  .object({
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    runId: z.string().min(1),
+  })
+  .strip();
+
+// NOTE: We intentionally rely on the shared contract DTO for the response shape.
+// We only do lightweight runtime validation of the stored run doc & referenced docs.
+const runExplainSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    runId: z.string().min(1),
+    userId: z.string().min(1),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    affectedDays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1),
+    computedAt: z.string().min(1),
+    pipelineVersion: z.number().int().positive(),
+    trigger: z.unknown(),
+    latestCanonicalEventAt: z.string().min(1).optional(),
+    invariantsApplied: z.array(z.string().min(1)).min(1),
+    canonicalEventIds: z.array(z.string().min(1)),
+    snapshotRefs: z.array(
+      z
+        .object({
+          kind: z.enum(["dailyFacts", "insights", "intelligenceContext"]),
+          doc: z.string().min(1),
+          hash: z.string().min(1),
+        })
+        .strip(),
+    ),
+    createdAt: z.string().min(1),
+  })
+  .strip();
+
+const snapshotMetaSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    kind: z.string().min(1),
+    hash: z.string().min(1),
+    createdAt: z.unknown(),
+    data: z.unknown(),
+  })
+  .strip();
+
+router.get(
+  "/derived-ledger/explain",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = explainQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { day, runId } = parsedQ.data;
+
+    const pointerRef = userCollection(uid, "derivedLedger").doc(day);
+    const pointerSnap = await pointerRef.get();
+
+    if (!pointerSnap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerDay", day } });
+      return;
+    }
+
+    const runRef = pointerRef.collection("runs").doc(runId);
+    const runSnap = await runRef.get();
+
+    if (!runSnap.exists) {
+      const existsElsewhere = await derivedLedgerRunIdExistsForOtherUser({ uid, runId });
+      if (existsElsewhere) {
+        res.status(403).json({ ok: false, error: { code: "FORBIDDEN", resource: "derivedLedgerRun", runId } });
+        return;
+      }
+
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "derivedLedgerRun", runId } });
+      return;
+    }
+
+    // Normalize createdAt to ISO string for contract validation
+    const rawRun = runSnap.data() as Record<string, unknown>;
+    const createdAtIso = toIsoFromTimestampLike(rawRun["createdAt"]) ?? new Date(0).toISOString();
+    const runNormalized = { ...rawRun, createdAt: createdAtIso };
+
+    const runParsed = runExplainSchema.safeParse(runNormalized);
+    if (!runParsed.success) {
+      invalidDoc500(req, res, "derivedLedgerRunExplain", runParsed.error.flatten());
+      return;
+    }
+
+    // Defensive invariants (fail-closed)
+    if (runParsed.data.userId !== uid) {
+      invalidDoc500(req, res, "derivedLedgerRunExplain", { message: "userId mismatch" });
+      return;
+    }
+    if (runParsed.data.date !== day) {
+      invalidDoc500(req, res, "derivedLedgerRunExplain", { message: "date mismatch" });
+      return;
+    }
+    if (!runParsed.data.affectedDays.includes(day)) {
+      invalidDoc500(req, res, "derivedLedgerRunExplain", { message: "affectedDays missing day" });
+      return;
+    }
+
+    // Resolve referenced snapshot documents and assert hash matches stored snapshot hash.
+    // No payload returned; this is validation only (fail-closed).
+    const snapsRoot = runRef.collection("snapshots");
+
+    for (const ref of runParsed.data.snapshotRefs) {
+      let snapData: unknown | null = null;
+
+      if (ref.doc === "dailyFacts" || ref.doc === "intelligenceContext") {
+        const s = await snapsRoot.doc(ref.doc).get();
+        snapData = s.exists ? (s.data() as unknown) : null;
+      } else if (ref.doc.startsWith("insights/items/")) {
+        const insightId = ref.doc.slice("insights/items/".length);
+        if (!insightId) {
+          invalidDoc500(req, res, "derivedLedgerSnapshotRef", { message: "empty insightId" });
+          return;
+        }
+        const s = await snapsRoot.doc("insights").collection("items").doc(insightId).get();
+        snapData = s.exists ? (s.data() as unknown) : null;
+      } else {
+        invalidDoc500(req, res, "derivedLedgerSnapshotRef", { message: "unsupported snapshot ref", ref });
+        return;
+      }
+
+      if (!snapData) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot", { message: "missing snapshot doc", ref });
+        return;
+      }
+
+      const parsedSnap = snapshotMetaSchema.safeParse(snapData);
+      if (!parsedSnap.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot", parsedSnap.error.flatten());
+        return;
+      }
+
+      if (parsedSnap.data.hash !== ref.hash) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot", {
+          message: "snapshot hash mismatch",
+          expected: ref.hash,
+          actual: parsedSnap.data.hash,
+          doc: ref.doc,
+        });
+        return;
+      }
+    }
+
+    // Resolve referenced canonical event documents and validate shapes/user scope.
+    // No payload returned; this is validation only (fail-closed).
+    for (const eventId of runParsed.data.canonicalEventIds) {
+      const eSnap = await userCollection(uid, "events").doc(eventId).get();
+      if (!eSnap.exists) {
+        invalidDoc500(req, res, "canonicalEvent", { message: "missing canonical event", eventId });
+        return;
+      }
+
+      const raw = eSnap.data() as Record<string, unknown>;
+      const candidate = { ...raw, id: eventId };
+      const parsedEv = canonicalEventDtoSchema.safeParse(candidate);
+      if (!parsedEv.success) {
+        invalidDoc500(req, res, "canonicalEvent", parsedEv.error.flatten());
+        return;
+      }
+
+      if (parsedEv.data.userId !== uid) {
+        invalidDoc500(req, res, "canonicalEvent", { message: "cross-user canonical event", eventId });
+        return;
+      }
+    }
+
+    const response = { day, run: runParsed.data };
+
+    const validated = derivedLedgerExplainResponseDtoSchema.safeParse(response);
+    if (!validated.success) {
+      invalidDoc500(req, res, "derivedLedgerExplainResponse", validated.error.flatten());
       return;
     }
 

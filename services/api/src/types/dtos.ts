@@ -22,15 +22,19 @@ export { canonicalEventDtoSchema } from "./canonicalEvent.dto";
 export type { CanonicalEventDto } from "./canonicalEvent.dto";
 
 // ✅ Step 4 — Derived Ledger replay contracts
+// ✅ Step 6 — Explainable Derived Truth contracts
 export {
   derivedLedgerRunSummaryDtoSchema,
   derivedLedgerRunsResponseDtoSchema,
   derivedLedgerReplayResponseDtoSchema,
+  derivedLedgerExplainResponseDtoSchema,
 } from "@oli/contracts/derivedLedger";
 export type {
   DerivedLedgerRunSummaryDto,
   DerivedLedgerRunsResponseDto,
   DerivedLedgerReplayResponseDto,
+  DerivedLedgerRunExplainDto,
+  DerivedLedgerExplainResponseDto,
 } from "@oli/contracts/derivedLedger";
 
 // ✅ Step 3 — RawEvent Library (Memory Index) DTOs

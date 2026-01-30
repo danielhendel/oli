@@ -73,7 +73,16 @@ export const onCanonicalEventCreated = onDocumentCreated(
     const userRef = db.collection("users").doc(userId);
 
     // Canonical events for this day (truth anchor)
-    const eventsSnap = await userRef.collection("events").where("day", "==", day).get();
+    // ✅ Deterministic ordering for replay + explain determinism
+    // NOTE: Some canonical event kinds may not have "start"; Firestore requires the field
+    // to exist on docs for orderBy. We only add orderBy("start") if it's safe.
+    //
+    // Because we cannot assume per-kind storage guarantees here, we order by __name__ only.
+    const eventsSnap = await userRef.collection("events").where("day", "==", day).orderBy("__name__", "asc").get();
+
+    // ✅ Step 6: store canonical provenance as IDs only
+    const canonicalEventIds = eventsSnap.docs.map((d) => d.id);
+
     const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
     const latestCanonicalEventAt: IsoDateTimeString | undefined =
@@ -174,6 +183,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
       computedAt,
       pipelineVersion,
       trigger: { type: "realtime", name: "onCanonicalEventCreated", eventId },
+      canonicalEventIds,
       ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
       dailyFacts: dailyFactsWithMeta as unknown as object,
       intelligenceContext: ctxWithMeta as unknown as object,
@@ -197,6 +207,7 @@ export const onCanonicalEventCreated = onDocumentCreated(
       day,
       eventsForDay: eventsForDay.length,
       insightsWritten: insights.length,
+      canonicalEventIdsCount: canonicalEventIds.length,
     });
   },
 );

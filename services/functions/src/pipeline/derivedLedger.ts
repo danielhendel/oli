@@ -12,16 +12,35 @@ type Trigger =
 
 type SnapshotKind = "dailyFacts" | "intelligenceContext";
 
+type SnapshotRef = {
+  kind: "dailyFacts" | "insights" | "intelligenceContext";
+  // Firestore document path relative to the run's snapshots root.
+  // Examples:
+  //  - "dailyFacts"
+  //  - "intelligenceContext"
+  //  - "insights/items/{insightId}"
+  doc: string;
+  hash: string;
+};
+
 type LedgerRunRecord = {
   schemaVersion: 1;
   runId: string;
   userId: string;
   date: YmdDateString;
 
+  // Step 6: explicit day(s) impacted by this run
+  affectedDays: YmdDateString[];
+
   computedAt: IsoDateTimeString;
   pipelineVersion: number;
 
   trigger: Trigger;
+
+  // Step 6: deterministic, stored explainability anchors
+  invariantsApplied: string[];
+  canonicalEventIds: string[];
+  snapshotRefs: SnapshotRef[];
 
   // “what was known” truth anchor for replay/debug
   latestCanonicalEventAt?: IsoDateTimeString;
@@ -89,9 +108,7 @@ async function createOrAssertIdentical<T extends object>(ref: DocumentReference,
     const b = stableStringify(doc);
 
     if (a !== b) {
-      throw new Error(
-        `Derived ledger immutability violation: attempted to overwrite ${ref.path} with different content.`,
-      );
+      throw new Error(`Derived ledger immutability violation: attempted to overwrite ${ref.path} with different content.`);
     }
     // identical: no-op
   });
@@ -122,6 +139,9 @@ export async function writeDerivedLedgerRun(args: {
 
   trigger: Trigger;
 
+  // Step 6: canonical provenance (IDs only)
+  canonicalEventIds: string[];
+
   // optional anchor
   latestCanonicalEventAt?: IsoDateTimeString;
 
@@ -138,11 +158,17 @@ export async function writeDerivedLedgerRun(args: {
     computedAt,
     pipelineVersion,
     trigger,
+    canonicalEventIds,
     latestCanonicalEventAt,
     dailyFacts,
     intelligenceContext,
     insights,
   } = args;
+
+  const invariantsApplied = invariantsForPipelineVersion(pipelineVersion);
+
+  // Deterministic snapshot refs (IDs + hashes only)
+  const snapshotRefs: SnapshotRef[] = [];
 
   const userRef = db.collection("users").doc(userId);
 
@@ -155,28 +181,7 @@ export async function writeDerivedLedgerRun(args: {
 
   const now = (await import("firebase-admin/firestore")).Timestamp.now();
 
-  // NOTE: exactOptionalPropertyTypes=true → omit optional props when undefined
-  const runRecord: LedgerRunRecord = {
-    schemaVersion: 1,
-    runId,
-    userId,
-    date,
-    computedAt,
-    pipelineVersion,
-    trigger,
-    ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
-    outputs: {
-      hasDailyFacts: Boolean(dailyFacts),
-      insightsCount: Array.isArray(insights) ? insights.length : 0,
-      hasIntelligenceContext: Boolean(intelligenceContext),
-    },
-    createdAt: now,
-  };
-
-  // 1) Run record (append-only)
-  await createOrAssertIdentical(runRef, runRecord);
-
-  // 2) Snapshots (append-only)
+  // 1) Snapshots (append-only)
   const writeSnapshot = async (kind: SnapshotKind, data: object): Promise<void> => {
     const body = stableStringify(data);
     const hash = sha256Hex(body);
@@ -188,6 +193,8 @@ export async function writeDerivedLedgerRun(args: {
       data,
     };
     await createOrAssertIdentical(snapshotsRef.doc(kind), snapDoc);
+
+    snapshotRefs.push({ kind, doc: kind, hash });
   };
 
   if (dailyFacts) await writeSnapshot("dailyFacts", dailyFacts);
@@ -197,8 +204,7 @@ export async function writeDerivedLedgerRun(args: {
     const insightsCol = snapshotsRef.doc("insights").collection("items");
     for (const insight of insights) {
       const insightObj = insight as Record<string, unknown>;
-      const insightId =
-        tryGetString(insightObj, "id") ?? sha256Hex(stableStringify(insightObj)).slice(0, 24);
+      const insightId = tryGetString(insightObj, "id") ?? sha256Hex(stableStringify(insightObj)).slice(0, 24);
 
       const body = stableStringify(insightObj);
       const hash = sha256Hex(body);
@@ -212,8 +218,38 @@ export async function writeDerivedLedgerRun(args: {
       };
 
       await createOrAssertIdentical(insightsCol.doc(sanitizeDocId(insightId)), snapDoc);
+
+      snapshotRefs.push({ kind: "insights", doc: `insights/items/${sanitizeDocId(insightId)}`, hash });
     }
   }
+
+  // Ensure deterministic ordering of snapshot refs (stable replay + explain determinism)
+  snapshotRefs.sort((a, b) => (a.doc < b.doc ? -1 : a.doc > b.doc ? 1 : 0));
+
+  // NOTE: exactOptionalPropertyTypes=true → omit optional props when undefined
+  const runRecord: LedgerRunRecord = {
+    schemaVersion: 1,
+    runId,
+    userId,
+    date,
+    affectedDays: [date],
+    computedAt,
+    pipelineVersion,
+    trigger,
+    ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+    invariantsApplied,
+    canonicalEventIds: canonicalEventIds.slice(),
+    snapshotRefs,
+    outputs: {
+      hasDailyFacts: Boolean(dailyFacts),
+      insightsCount: Array.isArray(insights) ? insights.length : 0,
+      hasIntelligenceContext: Boolean(intelligenceContext),
+    },
+    createdAt: now,
+  };
+
+  // 2) Run record (append-only)
+  await createOrAssertIdentical(runRef, runRecord);
 
   // 3) Update pointer doc (mutable “latest” pointer) — authoritative overwrite (NO merge)
   await dayPointerRef.set({
@@ -227,3 +263,19 @@ export async function writeDerivedLedgerRun(args: {
     updatedAt: now,
   });
 }
+
+function invariantsForPipelineVersion(pipelineVersion: number): string[] {
+  // Step 6 requirement: invariants are explicit static identifiers.
+  // Authoritative map lives in docs/INVARIANTS_MAP.md; this function is the
+  // deterministic binding used by stored ledger runs.
+  //
+  // NOTE: Currently Phase 1 uses a single invariant set, but we keep the
+  // versioned signature to ensure invariants remain deterministically bound
+  // to pipelineVersion in stored ledger runs.
+  void pipelineVersion;
+
+  // Current Phase 1 invariant for derived ledger replayability:
+  //   I-17 — Derived truth must be historically replayable (append-only ledger)
+  return ["I-17"];
+}
+

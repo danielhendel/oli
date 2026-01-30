@@ -95,7 +95,13 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       const userRef = db.collection("users").doc(userId);
 
       // Canonical events for this day
-      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
+      // ✅ Deterministic ordering for replay + explain determinism
+      // NOTE: Cannot assume all canonical docs have "start" across kinds.
+      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).orderBy("__name__", "asc").get();
+
+      // ✅ Step 6: store canonical provenance as IDs only
+      const canonicalEventIds = eventsSnap.docs.map((d) => d.id);
+
       const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
       if (eventsForDay.length === 0) {
@@ -168,6 +174,7 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
         computedAt,
         pipelineVersion,
         trigger: { type: "scheduled", name: "onDailyFactsRecomputeScheduled", eventId: triggerEventId },
+        canonicalEventIds,
         ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
         dailyFacts: dailyFactsWithMeta as unknown as object,
       });

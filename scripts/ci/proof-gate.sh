@@ -49,6 +49,12 @@ echo "→ Phase 1 proof tests"
 #   M) Ingest gateway enforces sourceId + kind + schemaVersion (no bypass)
 #   N) Upload path enforces the same source rules (no bypass)
 #   O) Firestore rules deny client writes to ingestion + sources
+#
+# Step 6 adds Explainable Derived Truth guarantees:
+#   P) Explain determinism: same (day, runId) always yields same explanation payload
+#   Q) Trace completeness: includes run + derived refs + canonical IDs exactly as stored
+#   R) Fail-closed: missing/invalid referenced docs -> 500
+#   S) Authz: user cannot explain another user's run
 
 TESTS=(
   "services/functions/src/normalization/__tests__/canonicalImmutability.test.ts"
@@ -80,6 +86,9 @@ TESTS=(
 
   # Step 4 proof: Firestore rules deny client writes
   "services/functions/src/security/__tests__/firestore.rules.test.ts"
+
+  # Step 6 proof: explainable derived truth (determinism, trace completeness, fail-closed, authz)
+  "services/api/src/routes/__tests__/derivedLedger.explain.test.ts"
 )
 
 missing=0

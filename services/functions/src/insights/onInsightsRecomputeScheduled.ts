@@ -26,10 +26,10 @@ function readPipelineMetaLike(value: unknown): PipelineMetaLike | null {
   const source =
     typeof m["source"] === "object" && m["source"] !== null ? (m["source"] as Record<string, unknown>) : undefined;
 
-    return {
-      ...(pipelineVersion !== undefined ? { pipelineVersion } : {}),
-      ...(source !== undefined ? { source } : {}),
-    };    
+  return {
+    ...(pipelineVersion !== undefined ? { pipelineVersion } : {}),
+    ...(source !== undefined ? { source } : {}),
+  };
 }
 
 function readLatestCanonicalEventAtFromMeta(value: unknown): string | undefined {
@@ -175,6 +175,16 @@ export const onInsightsRecomputeScheduled = onSchedule(
 
       const pipelineVersion = readPipelineMetaLike(todayFacts)?.pipelineVersion ?? 1;
 
+      // ✅ Step 6: canonical event IDs used (truth anchor), deterministic order
+      // NOTE: Cannot assume all canonical docs have "start" across kinds.
+      const eventsSnap = await userRef
+        .collection("events")
+        .where("day", "==", targetDate)
+        .orderBy("__name__", "asc")
+        .get();
+
+      const canonicalEventIds = eventsSnap.docs.map((d) => d.id);
+
       await writeDerivedLedgerRun({
         db,
         userId,
@@ -183,6 +193,7 @@ export const onInsightsRecomputeScheduled = onSchedule(
         computedAt: now,
         pipelineVersion,
         trigger: { type: "scheduled", name: "onInsightsRecomputeScheduled", eventId: triggerEventId },
+        canonicalEventIds,
         ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
         insights,
       });

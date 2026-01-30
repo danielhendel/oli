@@ -74,3 +74,53 @@ export const derivedLedgerReplayResponseDtoSchema = z
   .strip();
 
 export type DerivedLedgerReplayResponseDto = z.infer<typeof derivedLedgerReplayResponseDtoSchema>;
+
+// ---------------------------------------------
+// ✅ Step 6 — Explainable Derived Truth
+// ---------------------------------------------
+
+// References are IDs + hashes only (no payloads).
+const snapshotRefSchema = z
+  .object({
+    kind: z.enum(["dailyFacts", "insights", "intelligenceContext"]),
+    // Firestore document path relative to the run's snapshots root.
+    // Examples:
+    //  - "dailyFacts"
+    //  - "intelligenceContext"
+    //  - "insights/items/{insightId}"
+    doc: z.string().min(1),
+    hash: z.string().min(1),
+  })
+  .strip();
+
+const derivedLedgerRunExplainDtoSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    runId: z.string().min(1),
+    userId: z.string().min(1),
+    date: dayKeySchema,
+    affectedDays: z.array(dayKeySchema).min(1),
+    computedAt: isoString,
+    pipelineVersion: z.number().int().positive(),
+    trigger: triggerSchema,
+    latestCanonicalEventAt: isoString.optional(),
+
+    // Step 6 required fields
+    invariantsApplied: z.array(z.string().min(1)).min(1),
+    canonicalEventIds: z.array(z.string().min(1)),
+    snapshotRefs: z.array(snapshotRefSchema),
+
+    createdAt: isoString, // API-normalized
+  })
+  .strip();
+
+export type DerivedLedgerRunExplainDto = z.infer<typeof derivedLedgerRunExplainDtoSchema>;
+
+export const derivedLedgerExplainResponseDtoSchema = z
+  .object({
+    day: dayKeySchema,
+    run: derivedLedgerRunExplainDtoSchema,
+  })
+  .strip();
+
+export type DerivedLedgerExplainResponseDto = z.infer<typeof derivedLedgerExplainResponseDtoSchema>;

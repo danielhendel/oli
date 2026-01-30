@@ -29,10 +29,10 @@ function readPipelineMetaLike(value: unknown): PipelineMetaLike | null {
   const source =
     typeof m["source"] === "object" && m["source"] !== null ? (m["source"] as Record<string, unknown>) : undefined;
 
-    return {
-      ...(pipelineVersion !== undefined ? { pipelineVersion } : {}),
-      ...(source !== undefined ? { source } : {}),
-    };    
+  return {
+    ...(pipelineVersion !== undefined ? { pipelineVersion } : {}),
+    ...(source !== undefined ? { source } : {}),
+  };
 }
 
 const toYmdUtc = (date: Date): YmdDateString => {
@@ -111,7 +111,18 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
       const insightsSnap = await userRef.collection("insights").where("date", "==", targetDate).get();
       const insightsForDay = insightsSnap.docs.map((d) => d.data() as Insight);
 
-      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
+      // Canonical events for this day (truth anchor)
+      // ✅ Deterministic ordering for replay + explain determinism
+      // NOTE: Cannot assume all canonical docs have "start" across kinds.
+      const eventsSnap = await userRef
+        .collection("events")
+        .where("day", "==", targetDate)
+        .orderBy("__name__", "asc")
+        .get();
+
+      // ✅ Step 6: store canonical provenance as IDs only
+      const canonicalEventIds = eventsSnap.docs.map((d) => d.id);
+
       const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
       const latestCanonicalEventAt: IsoDateTimeString =
@@ -166,6 +177,7 @@ export const onDailyIntelligenceContextRecomputeScheduled = onSchedule(
         computedAt,
         pipelineVersion,
         trigger: { type: "scheduled", name: "onDailyIntelligenceContextRecomputeScheduled", eventId: triggerEventId },
+        canonicalEventIds,
         ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
         intelligenceContext: intelligenceWithMeta,
       });
