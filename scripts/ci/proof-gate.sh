@@ -22,6 +22,15 @@ echo "🔒 Phase 1 proof gate starting…"
 echo "→ Invariants (binding)"
 node scripts/ci/check-invariants.mjs
 
+# Step 5 (Backfill ingestion path) is an operational tool, not a new API surface.
+# We enforce its existence structurally so it cannot silently regress or disappear.
+echo "→ Step 5 backfill runner (structural guarantee)"
+BACKFILL_RUNNER="scripts/phase1/backfill_raw_events.mjs"
+if [[ ! -f "$BACKFILL_RUNNER" ]]; then
+  echo "❌ Missing required Step 5 runner: $BACKFILL_RUNNER"
+  exit 1
+fi
+
 echo "→ Phase 1 proof tests"
 
 # Explicit list of tests that represent Phase 1 truth guarantees.
@@ -49,6 +58,9 @@ echo "→ Phase 1 proof tests"
 #   M) Ingest gateway enforces sourceId + kind + schemaVersion (no bypass)
 #   N) Upload path enforces the same source rules (no bypass)
 #   O) Firestore rules deny client writes to ingestion + sources
+#
+# Step 5 adds Backfill Ingestion Path guarantees:
+#   T) Backfill runner exists (operational tool; uses /ingest, no alternate front door)
 #
 # Step 6 adds Explainable Derived Truth guarantees:
 #   P) Explain determinism: same (day, runId) always yields same explanation payload
