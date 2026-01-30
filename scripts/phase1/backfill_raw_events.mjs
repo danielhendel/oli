@@ -21,6 +21,11 @@
  *
  * Deterministic idempotency:
  * - sha256("v1|kind|provider|observedAt|sourceId|stableJson(payload)")
+ *
+ * Run semantics (Step 5 style):
+ * - Continue processing even if some lines fail
+ * - Exit code is 1 if ANY line failed
+ * - Summary printed at end
  */
 
 import fs from "fs";
@@ -45,7 +50,13 @@ function stableJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return "[" + value.map(stableJson).join(",") + "]";
   const keys = Object.keys(value).sort();
-  return "{" + keys.map((k) => JSON.stringify(k) + ":" + stableJson(value[k])).join(",") + "}";
+  return (
+    "{" +
+    keys
+      .map((k) => JSON.stringify(k) + ":" + stableJson(value[k]))
+      .join(",") +
+    "}"
+  );
 }
 
 function sha256Hex(s) {
@@ -53,7 +64,8 @@ function sha256Hex(s) {
 }
 
 function makeIdempotencyKey(evt) {
-  const sourceId = typeof evt.sourceId === "string" && evt.sourceId.length ? evt.sourceId : "backfill";
+  const sourceId =
+    typeof evt.sourceId === "string" && evt.sourceId.length ? evt.sourceId : "backfill";
   const payloadStable = stableJson(evt.payload ?? {});
   const seed = `v1|${evt.kind}|${evt.provider}|${evt.observedAt}|${sourceId}|${payloadStable}`;
   return sha256Hex(seed);
@@ -66,13 +78,13 @@ async function postIngest({ idempotencyKey, body }) {
     console.log(`[DRY_RUN] POST ${url}`);
     console.log(`Idempotency-Key: ${idempotencyKey}`);
     console.log(JSON.stringify(body));
-    return { ok: true, dryRun: true };
+    return { ok: true, dryRun: true, rawEventId: "dry-run", idempotentReplay: false };
   }
 
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${ID_TOKEN}`,
+      Authorization: `Bearer ${ID_TOKEN}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
@@ -90,8 +102,7 @@ async function postIngest({ idempotencyKey, body }) {
   }
 
   if (!res.ok || json?.ok !== true) {
-    const msg = JSON.stringify(json);
-    throw new Error(`Ingest failed (${res.status}): ${msg}`);
+    throw new Error(`Ingest failed (${res.status}): ${JSON.stringify(json)}`);
   }
 
   return json;
@@ -99,10 +110,22 @@ async function postIngest({ idempotencyKey, body }) {
 
 function validateLine(obj, lineNo) {
   const mustStr = (k) => typeof obj?.[k] === "string" && obj[k].length > 0;
+
   if (!mustStr("kind")) throw new Error(`Line ${lineNo}: missing/invalid "kind"`);
   if (!mustStr("provider")) throw new Error(`Line ${lineNo}: missing/invalid "provider"`);
-  if (!mustStr("observedAt")) throw new Error(`Line ${lineNo}: missing/invalid "observedAt" (ISO string)`);
-  if (typeof obj.payload !== "object" || obj.payload === null) throw new Error(`Line ${lineNo}: "payload" must be an object`);
+  if (!mustStr("observedAt")) {
+    throw new Error(`Line ${lineNo}: missing/invalid "observedAt" (ISO string)`);
+  }
+
+  // Basic ISO validation (fail-closed)
+  const t = Date.parse(obj.observedAt);
+  if (!Number.isFinite(t)) {
+    throw new Error(`Line ${lineNo}: "observedAt" must be a valid ISO timestamp`);
+  }
+
+  if (typeof obj.payload !== "object" || obj.payload === null) {
+    throw new Error(`Line ${lineNo}: "payload" must be an object`);
+  }
 }
 
 async function main() {
@@ -116,6 +139,10 @@ async function main() {
 
   let ok = 0;
   let replay = 0;
+  let failed = 0;
+
+  /** @type {{ lineNo: number; message: string }[]} */
+  const errors = [];
 
   for (let i = 0; i < lines.length; i++) {
     const lineNo = i + 1;
@@ -124,12 +151,25 @@ async function main() {
     try {
       evt = JSON.parse(lines[i]);
     } catch {
-      throw new Error(`Line ${lineNo}: invalid JSON`);
+      failed += 1;
+      const msg = `Line ${lineNo}: invalid JSON`;
+      errors.push({ lineNo, message: msg });
+      process.stdout.write(`✖ line ${lineNo}/${lines.length} failed (invalid JSON)\n`);
+      continue;
     }
 
-    validateLine(evt, lineNo);
+    try {
+      validateLine(evt, lineNo);
+    } catch (e) {
+      failed += 1;
+      const msg = String(e instanceof Error ? e.message : e);
+      errors.push({ lineNo, message: msg });
+      process.stdout.write(`✖ line ${lineNo}/${lines.length} failed (validation)\n`);
+      continue;
+    }
 
-    const sourceId = typeof evt.sourceId === "string" && evt.sourceId.length ? evt.sourceId : "backfill";
+    const sourceId =
+      typeof evt.sourceId === "string" && evt.sourceId.length ? evt.sourceId : "backfill";
     const idempotencyKey = makeIdempotencyKey({ ...evt, sourceId });
 
     const body = {
@@ -150,16 +190,27 @@ async function main() {
           (resp.idempotentReplay ? " (replay)\n" : "\n"),
       );
     } catch (e) {
-      console.error(`✖ line ${lineNo} failed`);
-      console.error(String(e instanceof Error ? e.message : e));
-      process.exit(1);
+      failed += 1;
+      const msg = String(e instanceof Error ? e.message : e);
+      errors.push({ lineNo, message: msg });
+      process.stdout.write(`✖ line ${lineNo}/${lines.length} failed\n`);
     }
 
     // tiny pacing to avoid bursting local/dev logs
     await sleep(20);
   }
 
-  console.log(`Done. ok=${ok} replays=${replay}`);
+  console.log(`Done. ok=${ok} replays=${replay} failed=${failed}`);
+
+  if (failed > 0) {
+    console.error(`\n❌ Backfill completed with ${failed} error(s). Showing up to first 20:\n`);
+    for (const err of errors.slice(0, 20)) {
+      console.error(`- ${err.message}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("✅ Backfill completed successfully with zero errors.");
 }
 
 main().catch((e) => {
