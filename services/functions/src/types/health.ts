@@ -57,11 +57,11 @@ export type CanonicalEventKind =
  * Raw event kinds are the ingestion boundary discriminants.
  *
  * IMPORTANT:
- * - RawEvent kinds may include "memory-only" artifacts that do NOT normalize into CanonicalEvents
- *   (Phase 1: upload.file with no parsing).
- * - CanonicalEventKind remains strictly the set of normalized health facts.
+ * - RawEvent kinds may include "memory-only" artifacts that do NOT normalize into CanonicalEvents.
+ * - Contracts + API uploads use kind="file" for memory-only uploads.
+ * - We keep "upload.file" temporarily for backward compatibility if any legacy docs exist.
  */
-export type RawEventKind = CanonicalEventKind | "upload.file";
+export type RawEventKind = CanonicalEventKind | "file" | "upload.file";
 
 /**
  * RawEvent is the ingestion boundary type.
@@ -265,35 +265,28 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
 
 /**
  * Sprint 6 — NutritionCanonicalEvent
- * Daily totals (macros) as a canonical event. This enables DailyFacts nutrition rollups now,
- * with meal-level detail coming later without breaking this schema.
+ * Daily totals (macros) as a canonical event.
  *
- * Step 7 adds required provenance fields for replay safety + explainability:
- * - rawEventId: immutable link to the source RawEvent document id
- * - provider: immutable source provider label (e.g. "manual")
+ * Step 7 provenance fields are required for nutrition canonical docs:
+ * - rawEventId
+ * - provider
  */
 export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
   kind: "nutrition";
 
-  /** Step 7 provenance: immutable link to source RawEvent (required for this kind). */
   rawEventId: string;
-
-  /** Step 7 provenance: source provider (required for this kind). */
   provider: string;
 
-  /** Daily totals */
   totalKcal: number;
   proteinG: number;
   carbsG: number;
   fatG: number;
 
-  /** Optional fiber total */
   fiberG?: number | null;
 }
 
 /**
  * Discriminated union of all canonical events.
- * This is the primary event type used by the normalization layer.
  */
 export type CanonicalEvent =
   | SleepCanonicalEvent
@@ -305,9 +298,6 @@ export type CanonicalEvent =
 
 /**
  * DailyFacts — per-day rollups produced from CanonicalEvents.
- *
- * Firestore path (logical):
- *   /users/{userId}/dailyFacts/{yyyy-MM-dd}
  */
 export interface DailySleepFacts {
   totalMinutes?: number;
@@ -323,18 +313,9 @@ export interface DailyActivityFacts {
   moveMinutes?: number;
   trainingLoad?: number;
 
-  /**
-   * Sprint 6 — Strength training rollups derived from workout.sets:
-   * - volumeKg: sum(weightKg * reps) for sets where both are known
-   * - totalSets: count of sets (including those with unknown weights/reps)
-   */
   volumeKg?: number;
   totalSets?: number;
 
-  /**
-   * Sprint 5 — Precision features:
-   * 7-day rolling averages for movement / training load.
-   */
   stepsAvg7d?: number;
   trainingLoadAvg7d?: number;
 }
@@ -344,13 +325,6 @@ export interface DailyRecoveryFacts {
   restingHeartRate?: number;
   readinessScore?: number;
 
-  /**
-   * Sprint 5 — Precision features:
-   * Baseline + relative deviation for HRV.
-   *
-   * - hrvRmssdBaseline: 7-day average (or similar) of HRV RMSSD.
-   * - hrvRmssdDeviation: (today - baseline) / baseline, e.g. -0.2 = 20% below.
-   */
   hrvRmssdBaseline?: number;
   hrvRmssdDeviation?: number;
 }
@@ -360,10 +334,6 @@ export interface DailyBodyFacts {
   bodyFatPercent?: number;
 }
 
-/**
- * Sprint 6 — DailyNutritionFacts
- * Daily macro totals that feed insights and UI.
- */
 export interface DailyNutritionFacts {
   totalKcal?: number;
   proteinG?: number;
@@ -372,171 +342,95 @@ export interface DailyNutritionFacts {
   fiberG?: number;
 }
 
-/**
- * Sprint 5 — Domain-level confidence scores for DailyFacts.
- * Values are 0–1, where:
- * - 0 means "no confidence / essentially missing"
- * - 1 means "high confidence / strong sensor coverage"
- */
 export interface DailyDomainConfidence {
   sleep?: number;
   activity?: number;
   recovery?: number;
   body?: number;
-
-  /** Sprint 6 */
   nutrition?: number;
 }
 
 export interface DailyFacts {
-  /** User this document belongs to */
   userId: string;
-
-  /** Logical day: YYYY-MM-DD in the user’s local zone */
   date: YmdDateString;
 
-  /** Domain-specific rollups */
   sleep?: DailySleepFacts;
   activity?: DailyActivityFacts;
   recovery?: DailyRecoveryFacts;
   body?: DailyBodyFacts;
-
-  /** Sprint 6 */
   nutrition?: DailyNutritionFacts;
 
-  /**
-   * Domain-level confidence for this day's facts (0–1).
-   * All fields are optional to keep v1 backwards-compatible.
-   */
   confidence?: DailyDomainConfidence;
 
-  /** Schema + compute audit */
   schemaVersion: 1;
   computedAt: IsoDateTimeString;
-
-  /** ✅ Data Readiness Contract */
   meta?: PipelineMeta;
 }
 
 /**
  * Insight — output of the Intelligence layer.
- *
- * Firestore path (logical):
- *   /users/{userId}/insights/{insightId}
  */
 export type InsightSeverity = "info" | "warning" | "critical";
 
 export interface InsightEvidencePoint {
-  /** Path into DailyFacts or CanonicalEvents that this insight is based on */
-  factPath: string; // e.g. "sleep.totalMinutes" or "activity.steps"
-
-  /** Actual value observed */
+  factPath: string;
   value: number | string | boolean | null;
-
-  /** Threshold used to trigger the rule (if applicable) */
   threshold?: number;
-
-  /** Direction of the comparison that triggered the rule */
   direction?: "above" | "below" | "outside_range";
 }
 
 export interface Insight {
-  /** Unique insight id (document id) */
   id: string;
-
-  /** Target user */
   userId: string;
-
-  /** Logical day this insight is attached to (YYYY-MM-DD) */
   date: YmdDateString;
 
-  /**
-   * Machine-friendly kind identifier.
-   * Example: "low_sleep_duration", "high_training_load"
-   */
   kind: string;
-
-  /** Human-friendly title and body copy for the user */
   title: string;
   message: string;
 
-  /** Severity bucket used for prioritization and UI treatment */
   severity: InsightSeverity;
-
-  /** Evidence backing this insight, for auditability and explainability */
   evidence: InsightEvidencePoint[];
 
-  /** Optional tags used for filtering and grouping in the UI */
   tags?: string[];
 
-  /** Audit + versioning fields */
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 
-  /** ✅ Data Readiness Contract */
   meta?: PipelineMeta;
 
-  /**
-   * Version of the ruleset / engine that produced this insight.
-   * Example: "sleep-v1.0.0"
-   */
   ruleVersion: string;
-
-  /** Schema version for the Insight document */
   schemaVersion: 1;
 }
 
 /**
  * UserSourceConnection — links a user to a specific upstream provider.
- *
- * Firestore path (logical):
- *   /users/{userId}/sources/{sourceId}
  */
 export type SourceStatus = "connected" | "disconnected" | "error" | "revoked";
 
 export interface UserSourceConnection {
-  /** Document id (sourceId) */
   id: string;
-
-  /** Owner user id */
   userId: string;
 
-  /** High-level source classification (wearable, manual, etc.) */
   sourceType: HealthSourceType;
-
-  /** Provider identifier (e.g. "apple_health", "oura", "strava") */
   provider: string;
 
-  /** Human-friendly name shown in UI  */
   displayName?: string;
 
-  /** Current connection status */
   status: SourceStatus;
 
-  /** Granted scopes / capabilities for this connection */
   scopes?: string[];
 
-  /** Last attempted sync time (success or failure) */
   lastSyncAt?: IsoDateTimeString | null;
-
-  /** Last successful sync time (for idempotent backfills) */
   lastSuccessfulSyncAt?: IsoDateTimeString | null;
 
-  /** Last error code/message (if status === "error") */
   lastErrorCode?: string | null;
   lastErrorMessage?: string | null;
 
-  /**
-   * Provider-specific configuration (tokens, ids, etc.).
-   * Kept opaque at the schema layer; concrete types live in integration modules.
-   */
   config?: Record<string, unknown>;
 
-  /** Audit fields */
   createdAt: IsoDateTimeString;
   updatedAt: IsoDateTimeString;
 
-  /** Schema version for the UserSourceConnection document */
   schemaVersion: 1;
 }
 
@@ -545,18 +439,11 @@ export interface UserSourceConnection {
  * to keep pipeline transitions type-safe.
  */
 
-/** Returns true if the given string matches YYYY-MM-DD. */
 export function isYmdDateString(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-/**
- * Type guard to distinguish CanonicalEvent from RawEvent based on
- * the presence of canonical-only fields.
- */
-export function isCanonicalEvent(
-  event: CanonicalEvent | RawEvent,
-): event is CanonicalEvent {
+export function isCanonicalEvent(event: CanonicalEvent | RawEvent): event is CanonicalEvent {
   const candidate = event as CanonicalEvent;
   return (
     typeof candidate.kind === "string" &&
@@ -564,7 +451,6 @@ export function isCanonicalEvent(
   );
 }
 
-/** Minimal runtime check for DailyFacts shape */
 export function isDailyFacts(value: unknown): value is DailyFacts {
   if (!value || typeof value !== "object") return false;
   const candidate = value as DailyFacts;

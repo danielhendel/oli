@@ -26,7 +26,7 @@ import type {
  *
  * Phase 1 note:
  * - Some RawEvent kinds are "memory-only" and intentionally do NOT emit CanonicalEvents
- *   (e.g., upload.file with no parsing). Those return UNSUPPORTED_KIND with a marker
+ *   (e.g., file uploads with no parsing). Those return UNSUPPORTED_KIND with a marker
  *   so callers can treat them as a valid no-op.
  */
 
@@ -448,7 +448,7 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
    * Upload events are intentionally NOT normalizable into canonical health facts.
    * They are still valid RawEvents and should be treated as a valid no-op by callers.
    */
-  if (raw.kind === "upload.file") {
+  if (raw.kind === "upload.file" || raw.kind === "file") {
     return {
       ok: false,
       reason: "UNSUPPORTED_KIND",
