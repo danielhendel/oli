@@ -7,6 +7,7 @@ import type {
   DailyBodyFacts,
   DailyRecoveryFacts,
   DailySleepFacts,
+  DailyNutritionFacts,
   IsoDateTimeString,
   YmdDateString,
   SleepCanonicalEvent,
@@ -14,10 +15,11 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
-} from '../types/health';
+  NutritionCanonicalEvent,
+} from "../types/health";
 
 const isNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
+  typeof value === "number" && Number.isFinite(value);
 
 const average = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
@@ -29,11 +31,18 @@ const average = (values: number[]): number | undefined => {
 // Kind filters (keeps downstream code fully typed)
 // -----------------------------------------------------------------------------
 
-const isSleepEvent = (e: CanonicalEvent): e is SleepCanonicalEvent => e.kind === 'sleep';
-const isStepsEvent = (e: CanonicalEvent): e is StepsCanonicalEvent => e.kind === 'steps';
-const isWorkoutEvent = (e: CanonicalEvent): e is WorkoutCanonicalEvent => e.kind === 'workout';
-const isWeightEvent = (e: CanonicalEvent): e is WeightCanonicalEvent => e.kind === 'weight';
-const isHrvEvent = (e: CanonicalEvent): e is HrvCanonicalEvent => e.kind === 'hrv';
+const isSleepEvent = (e: CanonicalEvent): e is SleepCanonicalEvent =>
+  e.kind === "sleep";
+const isStepsEvent = (e: CanonicalEvent): e is StepsCanonicalEvent =>
+  e.kind === "steps";
+const isWorkoutEvent = (e: CanonicalEvent): e is WorkoutCanonicalEvent =>
+  e.kind === "workout";
+const isWeightEvent = (e: CanonicalEvent): e is WeightCanonicalEvent =>
+  e.kind === "weight";
+const isHrvEvent = (e: CanonicalEvent): e is HrvCanonicalEvent =>
+  e.kind === "hrv";
+const isNutritionEvent = (e: CanonicalEvent): e is NutritionCanonicalEvent =>
+  e.kind === "nutrition";
 
 // -----------------------------------------------------------------------------
 // Builders
@@ -127,9 +136,9 @@ const buildBodyFacts = (events: CanonicalEvent[]): DailyBodyFacts | undefined =>
   if (weightEvents.length === 0) return undefined;
 
   // latest measurement wins (lexicographic ISO timestamp sort is safe here)
-  const latest = [...weightEvents].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))[
-    weightEvents.length - 1
-  ];
+  const latest = [...weightEvents].sort((a, b) =>
+    a.start < b.start ? -1 : a.start > b.start ? 1 : 0,
+  )[weightEvents.length - 1];
 
   if (!latest) return undefined;
 
@@ -162,6 +171,42 @@ const buildRecoveryFacts = (events: CanonicalEvent[]): DailyRecoveryFacts | unde
   return Object.keys(facts).length > 0 ? facts : undefined;
 };
 
+/**
+ * Step 7 — Nutrition daily aggregation.
+ *
+ * Deterministic rule:
+ * - If multiple nutrition canonical events exist for the day, the latest `start` wins.
+ *
+ * Why:
+ * - Manual daily totals are treated as a daily snapshot; users may overwrite.
+ * - Start is an ISO string → lexicographic sort is stable and deterministic.
+ */
+const buildNutritionFacts = (
+  events: CanonicalEvent[],
+): DailyNutritionFacts | undefined => {
+  const nutritionEvents = events.filter(isNutritionEvent);
+  if (nutritionEvents.length === 0) return undefined;
+
+  const latest = [...nutritionEvents].sort((a, b) =>
+    a.start < b.start ? -1 : a.start > b.start ? 1 : 0,
+  )[nutritionEvents.length - 1];
+
+  if (!latest) return undefined;
+
+  const facts: DailyNutritionFacts = {
+    totalKcal: latest.totalKcal,
+    proteinG: latest.proteinG,
+    carbsG: latest.carbsG,
+    fatG: latest.fatG,
+  };
+
+  if (isNumber(latest.fiberG)) {
+    facts.fiberG = latest.fiberG;
+  }
+
+  return facts;
+};
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -180,13 +225,16 @@ export interface AggregateDailyFactsInput {
  * - Uses only CanonicalEvents, never RawEvents.
  * - Safe for scheduled jobs and reprocessing pipelines.
  */
-export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): DailyFacts => {
+export const aggregateDailyFactsForDay = (
+  input: AggregateDailyFactsInput,
+): DailyFacts => {
   const { userId, date, computedAt, events } = input;
 
   const sleep = buildSleepFacts(events);
   const activity = buildActivityFacts(events);
   const body = buildBodyFacts(events);
   const recovery = buildRecoveryFacts(events);
+  const nutrition = buildNutritionFacts(events);
 
   const dailyFacts: DailyFacts = {
     userId,
@@ -199,6 +247,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   if (activity) dailyFacts.activity = activity;
   if (recovery) dailyFacts.recovery = recovery;
   if (body) dailyFacts.body = body;
+  if (nutrition) dailyFacts.nutrition = nutrition;
 
   return dailyFacts;
 };

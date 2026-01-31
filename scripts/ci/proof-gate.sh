@@ -67,6 +67,13 @@ echo "→ Phase 1 proof tests"
 #   Q) Trace completeness: includes run + derived refs + canonical IDs exactly as stored
 #   R) Fail-closed: missing/invalid referenced docs -> 500
 #   S) Authz: user cannot explain another user's run
+#
+# Step 7 adds Expand Supported Data Types (Safely):
+#   U) New kind ingestion is contracts-first + fail-closed
+#   V) New kind normalizes deterministically into immutable canonical truth
+#   W) New kind is retrievable via canonical + raw surfaces with DTO validation
+#   X) New kind derived behavior is deterministic (included or explicitly excluded)
+#   Y) Idempotent replays/backfills do not create divergent truth
 
 TESTS=(
   "services/functions/src/normalization/__tests__/canonicalImmutability.test.ts"
@@ -80,6 +87,9 @@ TESTS=(
 
   # Step 1 proof: timezone rejection (fail-closed, no writes)
   "services/api/src/routes/__tests__/events.ingest.invalid-timezone.test.ts"
+
+  # Step 7 proof: nutrition ingestion (strict contract + create-only + replay-safe)
+  "services/api/src/routes/__tests__/events.ingest.nutrition.happy.test.ts"
 
   # Step 2 proof: canonical truth read surface
   "services/api/src/routes/__tests__/canonicalEvents.test.ts"

@@ -21,7 +21,9 @@ import { z } from "zod";
 const isoDateTimeStringSchema = z
   .string()
   .min(1)
-  .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid ISO datetime string" });
+  .refine((v) => !Number.isNaN(Date.parse(v)), {
+    message: "Invalid ISO datetime string",
+  });
 
 const ymdDateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -46,7 +48,7 @@ const baseCanonicalEventDtoSchema = z
 
     schemaVersion: z.literal(1),
 
-    // Provenance (ONLY if stored; not required)
+    // Provenance (ONLY if stored; not required at the base layer)
     rawEventId: z.string().min(1).optional(),
     provider: z.string().min(1).optional(),
   })
@@ -109,13 +111,28 @@ const hrvCanonicalEventDtoSchema = baseCanonicalEventDtoSchema
   })
   .strict();
 
+/**
+ * Nutrition canonical events MUST align with the canonical storage shape written by
+ * mapRawEventToCanonical.ts (services/functions).
+ *
+ * Step 7 provenance:
+ * - For nutrition, canonical docs include required provenance fields.
+ * - We enforce those here (fail-closed) so truth reads cannot silently omit provenance.
+ */
 const nutritionCanonicalEventDtoSchema = baseCanonicalEventDtoSchema
   .extend({
     kind: z.literal("nutrition"),
-    caloriesKcal: z.number().finite(),
+
+    // Align with canonical storage shape (services/functions/src/types/health.ts)
+    totalKcal: z.number().finite(),
     proteinG: z.number().finite(),
     carbsG: z.number().finite(),
     fatG: z.number().finite(),
+    fiberG: z.number().finite().nullable().optional(),
+
+    // Step 7 provenance (required for nutrition canonical docs)
+    rawEventId: z.string().min(1),
+    provider: z.string().min(1),
   })
   .strict();
 

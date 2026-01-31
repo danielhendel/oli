@@ -267,9 +267,19 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
  * Sprint 6 — NutritionCanonicalEvent
  * Daily totals (macros) as a canonical event. This enables DailyFacts nutrition rollups now,
  * with meal-level detail coming later without breaking this schema.
+ *
+ * Step 7 adds required provenance fields for replay safety + explainability:
+ * - rawEventId: immutable link to the source RawEvent document id
+ * - provider: immutable source provider label (e.g. "manual")
  */
 export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
   kind: "nutrition";
+
+  /** Step 7 provenance: immutable link to source RawEvent (required for this kind). */
+  rawEventId: string;
+
+  /** Step 7 provenance: source provider (required for this kind). */
+  provider: string;
 
   /** Daily totals */
   totalKcal: number;
@@ -544,7 +554,9 @@ export function isYmdDateString(value: string): boolean {
  * Type guard to distinguish CanonicalEvent from RawEvent based on
  * the presence of canonical-only fields.
  */
-export function isCanonicalEvent(event: CanonicalEvent | RawEvent): event is CanonicalEvent {
+export function isCanonicalEvent(
+  event: CanonicalEvent | RawEvent,
+): event is CanonicalEvent {
   const candidate = event as CanonicalEvent;
   return (
     typeof candidate.kind === "string" &&

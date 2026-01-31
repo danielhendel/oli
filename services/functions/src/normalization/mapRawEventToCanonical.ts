@@ -9,6 +9,7 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
+  NutritionCanonicalEvent,
 } from "../types/health";
 
 /**
@@ -122,12 +123,21 @@ type ManualHrvPayload = {
   measurementType?: "nightly" | "spot";
 };
 
+type ManualNutritionPayload = ManualWindowBase & {
+  totalKcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG?: number | null;
+};
+
 type ManualPayloadByKind = {
   sleep: ManualSleepPayload;
   steps: ManualStepsPayload;
   workout: ManualWorkoutPayload;
   weight: ManualWeightPayload;
   hrv: ManualHrvPayload;
+  nutrition: ManualNutritionPayload;
 };
 
 type ManualKind = keyof ManualPayloadByKind;
@@ -138,6 +148,7 @@ const MANUAL_KINDS: readonly ManualKind[] = [
   "workout",
   "weight",
   "hrv",
+  "nutrition",
 ] as const;
 
 const isManualKind = (kind: RawEvent["kind"]): kind is ManualKind =>
@@ -154,7 +165,11 @@ const hasNumber = (obj: Record<string, unknown>, key: string): boolean =>
 
 const isManualWindowBase = (value: unknown): value is ManualWindowBase => {
   if (!isRecord(value)) return false;
-  return hasString(value, "start") && hasString(value, "end") && hasString(value, "timezone");
+  return (
+    hasString(value, "start") &&
+    hasString(value, "end") &&
+    hasString(value, "timezone")
+  );
 };
 
 const isManualSleepPayload = (value: unknown): value is ManualSleepPayload => {
@@ -170,20 +185,42 @@ const isManualStepsPayload = (value: unknown): value is ManualStepsPayload => {
   return hasNumber(value, "steps");
 };
 
-const isManualWorkoutPayload = (value: unknown): value is ManualWorkoutPayload => {
+const isManualWorkoutPayload = (
+  value: unknown,
+): value is ManualWorkoutPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
   return hasString(value, "sport") && hasNumber(value, "durationMinutes");
 };
 
-const isManualWeightPayload = (value: unknown): value is ManualWeightPayload => {
+const isManualWeightPayload = (
+  value: unknown,
+): value is ManualWeightPayload => {
   if (!isRecord(value)) return false;
-  return hasString(value, "time") && hasString(value, "timezone") && hasNumber(value, "weightKg");
+  return (
+    hasString(value, "time") &&
+    hasString(value, "timezone") &&
+    hasNumber(value, "weightKg")
+  );
 };
 
 const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
   if (!isRecord(value)) return false;
   return hasString(value, "time") && hasString(value, "timezone");
+};
+
+const isManualNutritionPayload = (
+  value: unknown,
+): value is ManualNutritionPayload => {
+  if (!isRecord(value)) return false;
+  if (!isManualWindowBase(value)) return false;
+
+  return (
+    hasNumber(value, "totalKcal") &&
+    hasNumber(value, "proteinG") &&
+    hasNumber(value, "carbsG") &&
+    hasNumber(value, "fatG")
+  );
 };
 
 /**
@@ -196,15 +233,29 @@ const parseManualPayload = <K extends ManualKind>(
 ): ManualPayloadByKind[K] | null => {
   switch (kind) {
     case "sleep":
-      return isManualSleepPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+      return isManualSleepPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     case "steps":
-      return isManualStepsPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+      return isManualStepsPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     case "workout":
-      return isManualWorkoutPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+      return isManualWorkoutPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     case "weight":
-      return isManualWeightPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+      return isManualWeightPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     case "hrv":
-      return isManualHrvPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+      return isManualHrvPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
+    case "nutrition":
+      return isManualNutritionPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -353,6 +404,40 @@ const mapManualHrv = (
   return base;
 };
 
+const mapManualNutrition = (
+  raw: RawEvent,
+  payload: ManualNutritionPayload,
+): NutritionCanonicalEvent | null => {
+  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  if (!day) return null;
+
+  const base: NutritionCanonicalEvent = {
+    id: raw.id,
+    userId: raw.userId,
+    sourceId: raw.sourceId,
+    kind: "nutrition",
+    start: payload.start,
+    end: payload.end,
+    day,
+    timezone: payload.timezone,
+    createdAt: raw.receivedAt,
+    updatedAt: raw.receivedAt,
+    schemaVersion: 1,
+
+    // Step 7 provenance (required for nutrition canonical docs)
+    rawEventId: raw.id,
+    provider: raw.provider,
+
+    totalKcal: payload.totalKcal,
+    proteinG: payload.proteinG,
+    carbsG: payload.carbsG,
+    fatG: payload.fatG,
+    fiberG: payload.fiberG ?? null,
+  };
+
+  return base;
+};
+
 // -----------------------------------------------------------------------------
 // Entry point
 // -----------------------------------------------------------------------------
@@ -402,7 +487,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
+          details: {
+            rawEventId: raw.id,
+            field: "start",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };
@@ -422,7 +511,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
+          details: {
+            rawEventId: raw.id,
+            field: "start",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };
@@ -442,7 +535,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
+          details: {
+            rawEventId: raw.id,
+            field: "start",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };
@@ -462,7 +559,11 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
+          details: {
+            rawEventId: raw.id,
+            field: "time",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };
@@ -482,7 +583,35 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
         return {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
+          details: {
+            rawEventId: raw.id,
+            field: "time",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
+        };
+      }
+      return { ok: true, canonical };
+    }
+
+    case "nutrition": {
+      const payload = parseManualPayload("nutrition", raw.payload);
+      if (!payload) {
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
+      }
+      const canonical = mapManualNutrition(raw, payload);
+      if (!canonical) {
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: {
+            rawEventId: raw.id,
+            field: "start",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };
