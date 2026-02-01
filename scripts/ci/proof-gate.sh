@@ -31,6 +31,20 @@ if [[ ! -f "$BACKFILL_RUNNER" ]]; then
   exit 1
 fi
 
+# Step 8 (Failure Memory) introduces new backend surfaces + DTOs.
+# We enforce their existence structurally so they cannot silently regress/disappear.
+echo "→ Step 8 failure memory modules (structural guarantee)"
+STEP8_FILES=(
+  "services/api/src/db/failures.ts"
+  "services/api/src/types/failureEntry.dto.ts"
+)
+for f in "${STEP8_FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo "❌ Missing required Step 8 module: $f"
+    exit 1
+  fi
+done
+
 echo "→ Phase 1 proof tests"
 
 # Explicit list of tests that represent Phase 1 truth guarantees.
@@ -74,6 +88,9 @@ echo "→ Phase 1 proof tests"
 #   W) New kind is retrievable via canonical + raw surfaces with DTO validation
 #   X) New kind derived behavior is deterministic (included or explicitly excluded)
 #   Y) Idempotent replays/backfills do not create divergent truth
+#
+# Step 8 adds Failure Memory guarantees:
+#   Z) Failure memory is readable (user-scoped), deterministic, cursor-paginated, and fail-closed
 
 TESTS=(
   "services/functions/src/normalization/__tests__/canonicalImmutability.test.ts"
@@ -111,6 +128,9 @@ TESTS=(
 
   # Step 6 proof: explainable derived truth (determinism, trace completeness, fail-closed, authz)
   "services/api/src/routes/__tests__/derivedLedger.explain.test.ts"
+
+  # Step 8 proof: failure memory read surface (cursor, deterministic ordering, fail-closed)
+  "services/api/src/routes/__tests__/usersMe.failures.test.ts"
 )
 
 missing=0

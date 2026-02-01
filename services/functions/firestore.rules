@@ -61,6 +61,20 @@ service cloud.firestore {
       }
 
       // ----------------------------------------------------------
+      // FAILURES (FAILURE MEMORY SURFACE) — Phase 1 / Step 8
+      //
+      // ❗ CRITICAL INVARIANT:
+      // - Clients may READ their failures for transparency
+      // - Clients may NEVER create/update/delete failures directly
+      // - All writes go through backend only
+      // ----------------------------------------------------------
+      match /failures/{failureId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+
+      // ----------------------------------------------------------
       // CANONICAL EVENTS (NORMALIZED TRUTH)
       //
       // ❗ Backend-only writes (Admin SDK bypasses rules)

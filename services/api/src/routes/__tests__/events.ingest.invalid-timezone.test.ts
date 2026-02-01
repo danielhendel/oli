@@ -4,6 +4,15 @@ import express from "express";
 
 const mockUserCollection = jest.fn();
 
+// Step 8: API now writes failure memory using FieldValue.serverTimestamp()
+jest.mock("firebase-admin/firestore", () => {
+  return {
+    FieldValue: {
+      serverTimestamp: () => "__server_timestamp__",
+    },
+  };
+});
+
 jest.mock("../../db", () => {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +26,17 @@ function isJsonObject(v: unknown): v is JsonObject {
   return typeof v === "object" && v !== null;
 }
 
+type MockDocRef = {
+  create: jest.Mock;
+  get?: jest.Mock;
+};
+
+function makeMockCollection(): { doc: jest.Mock } & Record<string, unknown> {
+  const create = jest.fn().mockResolvedValue(undefined);
+  const doc = jest.fn((): MockDocRef => ({ create }));
+  return { doc };
+}
+
 describe("POST /ingest - invalid/missing timezone", () => {
   beforeEach(() => {
     mockUserCollection.mockReset();
@@ -26,7 +46,23 @@ describe("POST /ingest - invalid/missing timezone", () => {
     jest.restoreAllMocks();
   });
 
-  it("fails closed (400) with stable error code on invalid timezone and does not attempt to write a RawEvent", async () => {
+  it("fails closed (400) with stable error code on invalid timezone, records failure memory, and does not attempt to write a RawEvent", async () => {
+    // Arrange: userCollection("user_test_123","failures") is called.
+    const failuresCol = makeMockCollection();
+
+    mockUserCollection.mockImplementation((uid: unknown, colName: unknown) => {
+      if (uid === "user_test_123" && colName === "failures") return failuresCol;
+      // If rawEvents is mistakenly attempted, return a throwy stub
+      if (uid === "user_test_123" && colName === "rawEvents") {
+        return {
+          doc: () => {
+            throw new Error("RawEvents write should not be attempted for invalid timezone");
+          },
+        };
+      }
+      return makeMockCollection();
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const router = require("../events").default as express.Router;
 
@@ -80,14 +116,38 @@ describe("POST /ingest - invalid/missing timezone", () => {
 
       expect(error["code"]).toBe("TIMEZONE_INVALID");
 
-      // ✅ Proof: no write attempt occurred (db userCollection never called)
-      expect(mockUserCollection).not.toHaveBeenCalled();
+      // ✅ Step 8: failure memory write attempted
+      expect(mockUserCollection).toHaveBeenCalledWith("user_test_123", "failures");
+      expect(failuresCol.doc).toHaveBeenCalledTimes(1);
+
+      const docRef = failuresCol.doc.mock.results[0]?.value as MockDocRef | undefined;
+      expect(docRef).toBeDefined();
+      expect(docRef?.create).toHaveBeenCalledTimes(1);
+
+      // ✅ Still: RawEvents write NOT attempted
+      const calls = mockUserCollection.mock.calls;
+      const calledRawEvents = calls.some((c) => c[0] === "user_test_123" && c[1] === "rawEvents");
+      expect(calledRawEvents).toBe(false);
     } finally {
       server.close();
     }
   });
 
-  it("fails closed (400) with stable error code on missing timezone and does not attempt to write a RawEvent", async () => {
+  it("fails closed (400) with stable error code on missing timezone, records failure memory, and does not attempt to write a RawEvent", async () => {
+    const failuresCol = makeMockCollection();
+
+    mockUserCollection.mockImplementation((uid: unknown, colName: unknown) => {
+      if (uid === "user_test_123" && colName === "failures") return failuresCol;
+      if (uid === "user_test_123" && colName === "rawEvents") {
+        return {
+          doc: () => {
+            throw new Error("RawEvents write should not be attempted for missing timezone");
+          },
+        };
+      }
+      return makeMockCollection();
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const router = require("../events").default as express.Router;
 
@@ -139,8 +199,18 @@ describe("POST /ingest - invalid/missing timezone", () => {
 
       expect(error["code"]).toBe("TIMEZONE_REQUIRED");
 
-      // ✅ Proof: no write attempt occurred (db userCollection never called)
-      expect(mockUserCollection).not.toHaveBeenCalled();
+      // ✅ Step 8: failure memory write attempted
+      expect(mockUserCollection).toHaveBeenCalledWith("user_test_123", "failures");
+      expect(failuresCol.doc).toHaveBeenCalledTimes(1);
+
+      const docRef = failuresCol.doc.mock.results[0]?.value as MockDocRef | undefined;
+      expect(docRef).toBeDefined();
+      expect(docRef?.create).toHaveBeenCalledTimes(1);
+
+      // ✅ Still: RawEvents write NOT attempted
+      const calls = mockUserCollection.mock.calls;
+      const calledRawEvents = calls.some((c) => c[0] === "user_test_123" && c[1] === "rawEvents");
+      expect(calledRawEvents).toBe(false);
     } finally {
       server.close();
     }

@@ -19,7 +19,7 @@ import type {
   CanonicalEvent,
   DailyFacts,
   Insight,
-  UserSourceConnection
+  UserSourceConnection,
 } from "../types/health";
 
 /** Singleton Firestore instance (admin SDK init happens elsewhere) */
@@ -46,6 +46,48 @@ export type IntegrityViolationRecord = {
   sourceRawEventPath: string;
   existingHash: string;
   incomingHash: string;
+  createdAt: unknown;
+};
+
+// ----------------------------
+// Phase 1 failure memory (Step 8)
+// ----------------------------
+
+/**
+ * Failure memory entries are user-readable, client-write denied by rules.
+ *
+ * NOTE: createdAt is a serverTimestamp FieldValue; we type it as unknown here to
+ * avoid importing admin SDK FieldValue types into the collections layer.
+ */
+export type FailureEntryType =
+  | "INGEST_REJECTED"
+  | "RAW_EVENT_INVALID"
+  | "NORMALIZATION_FAILED"
+  | "CANONICAL_WRITE_CONFLICT";
+
+export type FailureEntry = {
+  type: FailureEntryType;
+  userId: string;
+  code: string;
+  message: string;
+
+  /**
+   * yyyy-mm-dd day key for longitudinal listing.
+   * Derivation rules are enforced by writers (API/functions).
+   */
+  day: string;
+
+  /** Optional time anchors. */
+  timeZone?: string;
+  observedAt?: unknown;
+
+  /** Optional traceability back to RawEvent. */
+  rawEventId?: string;
+  rawEventPath?: string;
+
+  /** Optional safe details (must never include raw payload). */
+  details?: Record<string, unknown> | null;
+
   createdAt: unknown;
 };
 
@@ -88,33 +130,35 @@ export function userInsightsCol(userId: string): CollectionReference<Insight> {
     .collection("insights") as CollectionReference<Insight>;
 }
 
-export function userIntegrityViolationsCol(
-  userId: string
-): CollectionReference<IntegrityViolationRecord> {
+export function userIntegrityViolationsCol(userId: string): CollectionReference<IntegrityViolationRecord> {
   return db()
     .collection("users")
     .doc(userId)
     .collection("integrityViolations") as CollectionReference<IntegrityViolationRecord>;
 }
 
+export function userFailuresCol(userId: string): CollectionReference<FailureEntry> {
+  return db()
+    .collection("users")
+    .doc(userId)
+    .collection("failures") as CollectionReference<FailureEntry>;
+}
+
 // ----------------------------
 // Document Helpers
 // ----------------------------
 
-export const userSourceDoc = (userId: string, sourceId: string) =>
-  userSourcesCol(userId).doc(sourceId);
+export const userSourceDoc = (userId: string, sourceId: string) => userSourcesCol(userId).doc(sourceId);
 
-export const rawEventDoc = (userId: string, rawEventId: string) =>
-  userRawEventsCol(userId).doc(rawEventId);
+export const rawEventDoc = (userId: string, rawEventId: string) => userRawEventsCol(userId).doc(rawEventId);
 
-export const canonicalEventDoc = (userId: string, eventId: string) =>
-  userEventsCol(userId).doc(eventId);
+export const canonicalEventDoc = (userId: string, eventId: string) => userEventsCol(userId).doc(eventId);
 
-export const dailyFactsDoc = (userId: string, ymd: string) =>
-  userDailyFactsCol(userId).doc(ymd);
+export const dailyFactsDoc = (userId: string, ymd: string) => userDailyFactsCol(userId).doc(ymd);
 
-export const insightDoc = (userId: string, insightId: string) =>
-  userInsightsCol(userId).doc(insightId);
+export const insightDoc = (userId: string, insightId: string) => userInsightsCol(userId).doc(insightId);
 
 export const integrityViolationDoc = (userId: string, violationId: string) =>
   userIntegrityViolationsCol(userId).doc(violationId);
+
+export const failureDoc = (userId: string, failureId: string) => userFailuresCol(userId).doc(failureId);

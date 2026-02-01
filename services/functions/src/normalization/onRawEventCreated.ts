@@ -6,6 +6,7 @@ import { mapRawEventToCanonical } from "./mapRawEventToCanonical";
 import { parseRawEvent } from "../validation/rawEvent";
 import { writeCanonicalEventImmutable } from "./writeCanonicalEventImmutable";
 import { upsertRawEventDedupeEvidence } from "../ingestion/rawEventDedupe";
+import { writeFailureEntry } from "../failures/writeFailureEntry";
 
 /**
  * Firestore trigger:
@@ -24,7 +25,23 @@ import { upsertRawEventDedupeEvidence } from "../ingestion/rawEventDedupe";
  * - Canonical `day` must be derived deterministically from the authoritative time anchor
  *   and timezone, using Intl.DateTimeFormat("en-CA", { timeZone }).
  *   (Enforced inside mapRawEventToCanonical; this trigger preserves that authority.)
+ *
+ * Phase 1 / Step 8 invariant:
+ * - No silent drops: all failure paths must write a FailureEntry into:
+ *     /users/{userId}/failures/{failureId}
+ *   Client is read-only; writes are server-only.
  */
+
+function getTimeZoneFromRawDoc(rawDoc: unknown): string | null {
+  // NOTE:
+  // - The authoritative ingestion contract (@oli/contracts) may include `timeZone`
+  // - But the Functions-layer RawEvent interface does NOT currently expose it.
+  // - Therefore, for Step 8 we extract it from the raw Firestore doc safely.
+  if (!rawDoc || typeof rawDoc !== "object") return null;
+  const tz = (rawDoc as Record<string, unknown>)["timeZone"];
+  return typeof tz === "string" && tz.trim().length > 0 ? tz : null;
+}
+
 export const onRawEventCreated = onDocumentCreated(
   {
     document: "users/{userId}/rawEvents/{rawEventId}",
@@ -35,25 +52,86 @@ export const onRawEventCreated = onDocumentCreated(
     const snapshot = event.data;
     if (!snapshot) return;
 
-    const parsed = parseRawEvent(snapshot.data());
+    const pathUserId = event.params.userId;
+    const pathRawEventId = event.params.rawEventId;
+
+    const rawDoc = snapshot.data();
+    const timeZoneFromDoc = getTimeZoneFromRawDoc(rawDoc);
+
+    const parsed = parseRawEvent(rawDoc);
     if (!parsed.ok) {
       logger.warn("Invalid RawEvent envelope (dropping)", {
         path: snapshot.ref.path,
         reason: parsed.reason,
       });
+
+      // Step 8: persist failure memory (best-effort, payload-safe, idempotent)
+      const code = "RAW_EVENT_CONTRACT_INVALID";
+      const failureId = `raw_${pathRawEventId}_${code}`;
+
+      try {
+        await writeFailureEntry({
+          userId: pathUserId,
+          failureId,
+          type: "RAW_EVENT_INVALID",
+          code,
+          message: "Invalid RawEvent envelope; normalization dropped the event.",
+          rawEventId: pathRawEventId,
+          rawEventPath: snapshot.ref.path,
+          details: {
+            reason: parsed.reason,
+          },
+        });
+      } catch (err) {
+        // Never throw; trigger stability > reporting.
+        logger.error("Failed to persist failure memory for invalid RawEvent", {
+          path: snapshot.ref.path,
+          userId: pathUserId,
+          rawEventId: pathRawEventId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       return;
     }
 
     const rawEvent = parsed.value;
 
     // Optional extra guard: ensure doc path user matches payload userId
-    const pathUserId = event.params.userId;
     if (rawEvent.userId !== pathUserId) {
       logger.warn("RawEvent userId mismatch (dropping)", {
         path: snapshot.ref.path,
         pathUserId,
         rawUserId: rawEvent.userId,
       });
+
+      // Step 8: persist failure memory (best-effort, payload-safe, idempotent)
+      const code = "RAW_EVENT_USER_MISMATCH";
+      const failureId = `raw_${pathRawEventId}_${code}`;
+
+      try {
+        await writeFailureEntry({
+          userId: pathUserId,
+          failureId,
+          type: "RAW_EVENT_INVALID",
+          code,
+          message: "RawEvent userId mismatch between document path and payload; dropped.",
+          rawEventId: pathRawEventId,
+          rawEventPath: snapshot.ref.path,
+          details: {
+            pathUserId,
+            rawUserId: rawEvent.userId,
+          },
+        });
+      } catch (err) {
+        logger.error("Failed to persist failure memory for RawEvent user mismatch", {
+          path: snapshot.ref.path,
+          userId: pathUserId,
+          rawEventId: pathRawEventId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       return;
     }
 
@@ -62,7 +140,7 @@ export const onRawEventCreated = onDocumentCreated(
     try {
       const dedupe = await upsertRawEventDedupeEvidence({
         userId: rawEvent.userId,
-        rawEvent: snapshot.data(),
+        rawEvent: rawDoc,
       });
 
       if (!dedupe.ok) {
@@ -92,9 +170,37 @@ export const onRawEventCreated = onDocumentCreated(
         provider: rawEvent.provider,
         kind: rawEvent.kind,
         reason: result.reason,
-        // Include details only if provided, but keep it safe (no payload).
         ...(result.details ? { details: result.details } : {}),
       });
+
+      // Step 8: persist failure memory (best-effort, payload-safe, idempotent)
+      const code = result.reason;
+      const failureId = `raw_${pathRawEventId}_${code}`;
+
+      try {
+        await writeFailureEntry({
+          userId: rawEvent.userId,
+          failureId,
+          type: "NORMALIZATION_FAILED",
+          code,
+          message: "Normalization mapping failed; canonical event not produced.",
+          rawEventId: pathRawEventId,
+          rawEventPath: snapshot.ref.path,
+          observedAt: rawEvent.observedAt ?? null,
+          timeZone: timeZoneFromDoc,
+          details: result.details ?? null,
+        });
+      } catch (err) {
+        logger.error("Failed to persist failure memory for normalization failure", {
+          userId: rawEvent.userId,
+          rawEventId: rawEvent.id,
+          provider: rawEvent.provider,
+          kind: rawEvent.kind,
+          code,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       return;
     }
 

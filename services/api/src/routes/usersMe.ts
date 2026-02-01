@@ -31,6 +31,10 @@ import { decodeCursor, encodeCursor } from "../pagination/cursor";
 import { listRawEventsByObservedAtRange } from "../db/rawEvents";
 import { rawEventListItemDtoSchema, rawEventsListResponseDtoSchema } from "../types/rawEventListItem.dto";
 
+// ✅ Step 8 — Failure Memory (Read Surface)
+import { listFailuresByCreatedAtRange, listFailuresByDay } from "../db/failures";
+import { failureListResponseSchema } from "../types/failureEntry.dto";
+
 const router = Router();
 
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
@@ -131,6 +135,149 @@ router.get(
     const validated = dayTruthDtoSchema.safeParse(out);
     if (!validated.success) {
       invalidDoc500(req, res, "dayTruth", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Step 8 — Failure Memory (Read Surface)
+// IMPORTANT: Read-only, fail-closed parsing, cursor pagination.
+// ----------------------------
+
+const failuresListQuerySchema = z
+  .object({
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    limit: z.coerce.number().int().positive().max(100).optional(),
+    cursor: z.string().min(1).optional(),
+  })
+  .strict();
+
+const failuresRangeQuerySchema = z
+  .object({
+    start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    limit: z.coerce.number().int().positive().max(100).optional(),
+    cursor: z.string().min(1).optional(),
+  })
+  .strict();
+
+/**
+ * GET /users/me/failures?day=YYYY-MM-DD
+ *
+ * Longitudinal failure memory list by day.
+ * Cursor pagination, deterministic ordering, runtime DTO validation (fail-closed).
+ */
+router.get(
+  "/failures",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = failuresListQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const limit = parsedQ.data.limit ?? 50;
+
+    // Fail-closed cursor decode: db layer throws for invalid cursor.
+    let result: Awaited<ReturnType<typeof listFailuresByDay>>;
+    try {
+      result = await listFailuresByDay({
+        uid,
+        day: parsedQ.data.day,
+        limit,
+        ...(parsedQ.data.cursor ? { cursor: parsedQ.data.cursor } : {}),
+      });
+    } catch {
+      res.status(400).json({
+        ok: false,
+        error: { code: "INVALID_CURSOR", message: "Invalid cursor", requestId: getRid(req) },
+      });
+      return;
+    }
+
+    const response = { items: result.items, nextCursor: result.nextCursor };
+    const validated = failureListResponseSchema.safeParse(response);
+    if (!validated.success) {
+      invalidDoc500(req, res, "failuresListResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+/**
+ * GET /users/me/failures/range?start=YYYY-MM-DD&end=YYYY-MM-DD
+ *
+ * Longitudinal failure memory list by day range (inclusive).
+ * Cursor pagination, deterministic ordering, runtime DTO validation (fail-closed).
+ */
+router.get(
+  "/failures/range",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = failuresRangeQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsedQ.data;
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: { code: "INVALID_RANGE", message: "start must be <= end", requestId: getRid(req) },
+      });
+      return;
+    }
+
+    const limit = parsedQ.data.limit ?? 50;
+
+    let result: Awaited<ReturnType<typeof listFailuresByCreatedAtRange>>;
+    try {
+      result = await listFailuresByCreatedAtRange({
+        uid,
+        startDay: start,
+        endDay: end,
+        limit,
+        ...(parsedQ.data.cursor ? { cursor: parsedQ.data.cursor } : {}),
+      });
+    } catch {
+      res.status(400).json({
+        ok: false,
+        error: { code: "INVALID_CURSOR", message: "Invalid cursor", requestId: getRid(req) },
+      });
+      return;
+    }
+
+    const response = { items: result.items, nextCursor: result.nextCursor };
+    const validated = failureListResponseSchema.safeParse(response);
+    if (!validated.success) {
+      invalidDoc500(req, res, "failuresRangeListResponse", validated.error.flatten());
       return;
     }
 

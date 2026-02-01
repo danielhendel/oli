@@ -37,8 +37,9 @@ describe("Firestore security rules (I-01 / I-04)", () => {
   });
 
   const userDb = (auth: Authed) => testEnv.authenticatedContext(auth.uid).firestore();
+  const unauthDb = () => testEnv.unauthenticatedContext().firestore();
 
-  it("allows an authenticated user to read their own docs (raw + derived + sources)", async () => {
+  it("allows an authenticated user to read their own docs (raw + derived + sources + failures)", async () => {
     const uid = "user_a";
     const day = "2026-01-01";
 
@@ -62,6 +63,16 @@ describe("Firestore security rules (I-01 / I-04)", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      // Step 8: failures are readable but not writable by clients
+      await db.doc(`users/${uid}/failures/f_1`).set({
+        userId: uid,
+        type: "INGEST_REJECTED",
+        code: "TIMEZONE_INVALID",
+        message: "Timezone invalid.",
+        day,
+        createdAt: new Date().toISOString(),
+      });
     });
 
     const db = userDb({ uid });
@@ -74,9 +85,41 @@ describe("Firestore security rules (I-01 / I-04)", () => {
 
     // Step 4: sources are readable
     await assertSucceeds(db.doc(`users/${uid}/sources/src_1`).get());
+
+    // Step 8: failures are readable
+    await assertSucceeds(db.doc(`users/${uid}/failures/f_1`).get());
   });
 
-  it("denies client writes to ingestion + derived truth + sources (I-01 / I-04)", async () => {
+  it("denies unauthenticated reads to all user-scoped docs (including failures)", async () => {
+    const uid = "user_a";
+    const day = "2026-01-01";
+
+    await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
+      const db = ctx.firestore();
+      await db.doc(`users/${uid}/dailyFacts/${day}`).set({ userId: uid, date: day });
+      await db.doc(`users/${uid}/rawEvents/re_1`).set({ userId: uid, id: "re_1" });
+      await db.doc(`users/${uid}/events/ev_1`).set({ userId: uid, id: "ev_1" });
+      await db.doc(`users/${uid}/sources/src_1`).set({ id: "src_1", userId: uid });
+      await db.doc(`users/${uid}/failures/f_1`).set({
+        userId: uid,
+        type: "RAW_EVENT_INVALID",
+        code: "RAW_EVENT_CONTRACT_INVALID",
+        message: "Invalid RawEvent envelope; normalization dropped the event.",
+        day,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    const db = unauthDb();
+
+    await assertFails(db.doc(`users/${uid}/dailyFacts/${day}`).get());
+    await assertFails(db.doc(`users/${uid}/rawEvents/re_1`).get());
+    await assertFails(db.doc(`users/${uid}/events/ev_1`).get());
+    await assertFails(db.doc(`users/${uid}/sources/src_1`).get());
+    await assertFails(db.doc(`users/${uid}/failures/f_1`).get());
+  });
+
+  it("denies client writes to ingestion + derived truth + sources + failures (I-01 / I-04)", async () => {
     const uid = "user_a";
     const day = "2026-01-01";
     const db = userDb({ uid });
@@ -120,6 +163,20 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     );
     await assertFails(db.doc(`users/${uid}/sources/src_1`).update({ isActive: false }));
     await assertFails(db.doc(`users/${uid}/sources/src_1`).delete());
+
+    // Step 8: failures are NOT writable by clients
+    await assertFails(
+      db.doc(`users/${uid}/failures/f_1`).set({
+        userId: uid,
+        type: "INGEST_REJECTED",
+        code: "TIMEZONE_INVALID",
+        message: "Timezone invalid.",
+        day,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    await assertFails(db.doc(`users/${uid}/failures/f_1`).update({ message: "nope" }));
+    await assertFails(db.doc(`users/${uid}/failures/f_1`).delete());
   });
 
   it("denies cross-user reads (user isolation)", async () => {
@@ -143,6 +200,16 @@ describe("Firestore security rules (I-01 / I-04)", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      // Step 8: seed a failure doc for uidA
+      await db.doc(`users/${uidA}/failures/f_1`).set({
+        userId: uidA,
+        type: "INGEST_REJECTED",
+        code: "TIMEZONE_INVALID",
+        message: "Timezone invalid.",
+        day,
+        createdAt: new Date().toISOString(),
+      });
     });
 
     const dbB = userDb({ uid: uidB });
@@ -152,5 +219,8 @@ describe("Firestore security rules (I-01 / I-04)", () => {
 
     // Step 4 invariant: cannot read another user's sources
     await assertFails(dbB.doc(`users/${uidA}/sources/src_1`).get());
+
+    // Step 8 invariant: cannot read another user's failures
+    await assertFails(dbB.doc(`users/${uidA}/failures/f_1`).get());
   });
 });
