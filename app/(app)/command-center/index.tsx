@@ -16,6 +16,7 @@ import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useInsights } from "@/lib/data/useInsights";
 import { useIntelligenceContext } from "@/lib/data/useIntelligenceContext";
 import { useDayTruth } from "@/lib/data/useDayTruth";
+import { useFailuresRange } from "@/lib/data/useFailuresRange";
 
 import { isCompatiblePipelineVersion } from "@/lib/data/readiness";
 import { resolveReadiness } from "@/lib/data/resolveReadiness";
@@ -86,6 +87,12 @@ function formatIsoToHms(iso: string | null | undefined): string {
   const mm = d.getMinutes().toString().padStart(2, "0");
   const ss = d.getSeconds().toString().padStart(2, "0");
   return `${hh}:${mm}:${ss}`;
+}
+
+function formatIsoToLocal(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return iso;
+  return new Date(ms).toLocaleString();
 }
 
 function DevPipelineOverlay(props: {
@@ -276,6 +283,59 @@ function QuickActionsRow() {
   );
 }
 
+type FailuresPresenceUi =
+  | { status: "loading" }
+  | { status: "error"; error: string; requestId: string | null }
+  | { status: "ready"; hasFailures: boolean; latestCreatedAt: string | null };
+
+function FailurePresenceCard(props: { state: FailuresPresenceUi; onPress: () => void }) {
+  const s = props.state;
+
+  if (s.status === "loading") {
+    return (
+      <Pressable onPress={props.onPress} style={[styles.failuresCard, styles.failuresCardNeutral]}>
+        <Text style={styles.failuresLabel}>Failures</Text>
+        <Text style={styles.failuresTitle}>Checking…</Text>
+        <Text style={styles.failuresSubtitle}>If failures exist, they will be shown.</Text>
+      </Pressable>
+    );
+  }
+
+  if (s.status === "error") {
+    return (
+      <Pressable onPress={props.onPress} style={[styles.failuresCard, styles.failuresCardDanger]}>
+        <Text style={[styles.failuresLabel, styles.failuresDangerText]}>Failures</Text>
+        <Text style={[styles.failuresTitle, styles.failuresDangerText]}>Failed to load failures</Text>
+        <Text style={styles.failuresSubtitle}>
+          {s.error}
+          {s.requestId ? ` • Request ID: ${s.requestId}` : ""}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  // ready
+  if (!s.hasFailures) {
+    return (
+      <Pressable onPress={props.onPress} style={[styles.failuresCard, styles.failuresCardNeutral]}>
+        <Text style={styles.failuresLabel}>Failures</Text>
+        <Text style={styles.failuresTitle}>No failures recorded</Text>
+        <Text style={styles.failuresSubtitle}>No failed, rejected, or missing data has been written.</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={props.onPress} style={[styles.failuresCard, styles.failuresCardWarning]}>
+      <Text style={[styles.failuresLabel, styles.failuresWarningText]}>Failures</Text>
+      <Text style={[styles.failuresTitle, styles.failuresWarningText]}>Failures recorded</Text>
+      <Text style={styles.failuresSubtitle}>
+        Latest: {s.latestCreatedAt ?? "—"} • Tap to view all failures.
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function CommandCenterScreen(props: Props) {
   const router = useRouter();
 
@@ -285,6 +345,29 @@ export default function CommandCenterScreen(props: Props) {
   const facts = useDailyFacts(dayKey);
   const insights = useInsights(dayKey);
   const ctx = useIntelligenceContext(dayKey);
+
+  // Sprint 1: Failure presence must be visible and must not depend on readiness logic.
+  // We query a tiny range with limit=1 and surface its truth immediately.
+  const failuresPresence = useFailuresRange(
+    { start: "1970-01-01", end: dayKey, limit: 1 },
+    { mode: "page" },
+  );
+
+  const failuresPresenceUi: FailuresPresenceUi = useMemo(() => {
+    if (failuresPresence.status === "loading") return { status: "loading" };
+    if (failuresPresence.status === "error") {
+      return { status: "error", error: failuresPresence.error, requestId: failuresPresence.requestId };
+    }
+
+    const first = failuresPresence.data.items[0] ?? null;
+    const latest = first?.createdAt ? formatIsoToLocal(first.createdAt) : null;
+
+    return {
+      status: "ready",
+      hasFailures: failuresPresence.data.items.length > 0,
+      latestCreatedAt: latest,
+    };
+  }, [failuresPresence]);
 
   const { replayOverride, replayLoading, replayError, replayMissing } = useReplayOverride(dayKey);
 
@@ -424,8 +507,11 @@ export default function CommandCenterScreen(props: Props) {
       void facts.refetch(opts);
       void insights.refetch(opts);
       void ctx.refetch(opts);
+
+      // Failure presence must also refresh when Command Center refreshes.
+      void failuresPresence.refetch(opts);
     },
-    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch],
+    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch, failuresPresence.refetch],
   );
 
   useEffect(() => {
@@ -570,6 +656,9 @@ export default function CommandCenterScreen(props: Props) {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <CommandCenterHeader title="Command Center" subtitle={todaySummary} />
 
+        {/* Sprint 1: Failure presence is surfaced before readiness/status UI. */}
+        <FailurePresenceCard state={failuresPresenceUi} onPress={() => router.push("/(app)/failures")} />
+
         {replayUi.enabled ? <ReplayPanel state={replayUi} onClose={onCloseReplay} onPickRun={onPickRun} /> : null}
 
         <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
@@ -633,6 +722,21 @@ export default function CommandCenterScreen(props: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   container: { padding: 16, paddingBottom: 40 },
+
+  failuresCard: {
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  failuresCardNeutral: { backgroundColor: "#F2F2F7" },
+  failuresCardWarning: { backgroundColor: "#FFF5E6" },
+  failuresCardDanger: { backgroundColor: "#FDECEC" },
+  failuresLabel: { fontSize: 12, fontWeight: "900", color: "#111", letterSpacing: 0.2 },
+  failuresTitle: { fontSize: 16, fontWeight: "900", marginTop: 6, color: "#111" },
+  failuresSubtitle: { fontSize: 13, marginTop: 6, color: "#333", opacity: 0.85 },
+  failuresWarningText: { color: "#7A4E00" },
+  failuresDangerText: { color: "#B00020" },
 
   statusCard: {
     borderRadius: 16,

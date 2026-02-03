@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "..",
     "outDir": "../dist-types/app",
     "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/app.tsbuildinfo",
 
@@ -12,8 +12,15 @@
 
     "composite": true
   },
-  "references": [{ "path": "../lib/tsconfig.build.json" }],
-  "include": ["./**/*", "../expo-env.d.ts"],
+  "references": [
+    { "path": "../lib/tsconfig.build.json" }
+  ],
+  "include": [
+    "./**/*",
+    "../components/**/*.ts",
+    "../components/**/*.tsx",
+    "../expo-env.d.ts"
+  ],
   "exclude": [
     "**/*.test.*",
     "**/__tests__/**",
