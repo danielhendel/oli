@@ -11,6 +11,7 @@ export default function AppLayout() {
       <Stack.Screen name="nutrition/index" options={{ title: "Nutrition" }} />
       <Stack.Screen name="workouts/index" options={{ title: "Workouts" }} />
       <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
+      <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
     </Stack>
   );

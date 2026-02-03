@@ -18,7 +18,7 @@
     "start:api": "npm run -w api start",
 
     "typecheck": "tsc -b",
-    "lint": "eslint app lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
+    "lint": "eslint app components lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
 
