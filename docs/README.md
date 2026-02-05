@@ -1,8 +1,10 @@
 # Oli Health OS — Repo Truth (Read First)
 
+Canonical entry point: docs/INDEX.md
+
 This repository contains the **actual, working implementation** of the Oli Health OS as of today.
 
-This document is the **single entry point** for understanding:
+This document is a Repo Reality Overview. For understanding:
 - What is live and functional
 - How the system works end-to-end
 - How to run everything locally without guesswork
@@ -54,8 +56,8 @@ If something is not documented here, it should be assumed **not production-ready
 ## How to Start Locally (Happy Path)
 
 See:
-- `docs/LOCAL_DEV.md`
-- `docs/SYSTEM_STATE.md`
+- `docs/40_engineering/local-dev/LOCAL_DEV.md`
+- `docs/20_architecture/SYSTEM_STATE.md`
 
 ---
 
