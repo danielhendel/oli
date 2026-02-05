@@ -1,4 +1,9 @@
-# Oli Constitutional Invariants — Enforcement Map (Binding)
+# 🔍 Invariant Enforcement Map (Operational)
+
+**Authority:** subordinate to docs/00_truth/INVARIANTS_MAP.md  
+**Scope:** current implementation evidence (CI checks, file paths, infra snapshots)
+
+**Note:** IDs in this document represent operational enforcement controls; constitutional invariants live in `docs/00_truth/INVARIANTS_MAP.md` and may map to multiple operational controls.
 
 This document is **binding**.
 
@@ -6,7 +11,7 @@ If code diverges from any invariant listed here:
 - The code **must be changed** to comply, or
 - This document **must be explicitly updated** with review.
 
-If an invariant has no **enforcement mechanism** *and* no **verification gate**, it is **not an invariant**.
+If enforcement is missing, it must be explicitly tracked as planned and phase-scoped.
 
 ---
 
@@ -136,7 +141,7 @@ This file is required by CI and is audited.
 - **Verified by**:
   - Human review
 - **Files**:
-  - `docs/SOURCE_OF_TRUTH.md`
+  - `docs/00_truth/SOURCE_OF_TRUTH.md`
 
 ### I-14 — Canonical kinds do not drift from ingestion kinds
 - **Enforced by**: CI kind-drift tripwire
@@ -161,7 +166,7 @@ This file is required by CI and is audited.
   - **CHECK 11** (CI)
 - **Files**:
   - `scripts/ci/check-invariants.mjs` (**CHECK 11**)
-  - `docs/iam/project-iam-policy.snapshot.json`
+  - `docs/_snapshots/iam/project-iam-policy.snapshot.json`
 
 ### I-12 — No default service account privilege creep
 - **Enforced by**: CI invariant tripwire
@@ -173,8 +178,8 @@ This file is required by CI and is audited.
   - **CHECK 12** (CI)
 - **Files**:
   - `scripts/ci/check-invariants.mjs` (**CHECK 12**)
-  - `docs/iam/project-iam-policy.snapshot.json`
-  - `docs/IAM_INTENT.md`
+  - `docs/_snapshots/iam/project-iam-policy.snapshot.json`
+  - `docs/50_security_privacy/iam/IAM_INTENT.md`
 
 ### I-13 — Dedicated runtime identities for all compute workloads
 - **Enforced by**: CI invariant tripwire
@@ -186,10 +191,10 @@ This file is required by CI and is audited.
   - **CHECK 13** (CI)
 - **Files**:
   - `scripts/ci/check-invariants.mjs` (**CHECK 13**)
-  - `docs/iam/run-services-us-central1.snapshot.json`
-  - `docs/iam/functions-v2-us-central1.snapshot.json`
-  - `docs/iam/functions-v1-us-central1.snapshot.json`
-  - `docs/IAM_INTENT.md`
+  - `docs/_snapshots/iam/run-services-us-central1.snapshot.json`
+  - `docs/_snapshots/iam/functions-v2-us-central1.snapshot.json`
+  - `docs/_snapshots/iam/functions-v1-us-central1.snapshot.json`
+  - `docs/50_security_privacy/iam/IAM_INTENT.md`
 
 ---
 
@@ -231,12 +236,12 @@ Any change to this file requires:
 ### I-15 — Phase 1 scope contract must exist (binding)
 - **Enforced by**: CI doc existence + minimum content validation
 - **Mechanism**:
-  - `docs/PHASE_1_SCOPE.md` must exist
+  - `docs/00_truth/phase1/PHASE_1_SCOPE.md` must exist
   - Must not be empty or stub-only
 - **Verified by**:
   - **CHECK 16** (CI)
 - **Files**:
-  - `docs/PHASE_1_SCOPE.md`
+  - `docs/00_truth/phase1/PHASE_1_SCOPE.md`
   - `scripts/ci/check-invariants.mjs` (**CHECK 16**)
 
 ### I-16 — API ingestion is RawEvents-first (no direct Canonical/Derived writes)
