@@ -253,7 +253,7 @@ function checkAccountDeleteExecutorExists() {
  * CHECK 6 — Invariants map is binding AND cannot drift (no orphan invariants, no orphan checks)
  *
  * Enforces:
- *  - docs/INVARIANTS_MAP.md must exist
+ *  - docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md must exist
  *  - no TODO/TBD/placeholder language
  *  - every CHECK implemented in this script appears in the map
  *  - every CHECK referenced in the map exists in this script
@@ -261,11 +261,11 @@ function checkAccountDeleteExecutorExists() {
  *  - every "Files:" reference in the map must exist on disk (enforcement is real)
  */
 function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
-  const docPath = path.join(ROOT, "docs", "INVARIANTS_MAP.md");
+  const docPath = path.join(ROOT, "docs", "90_audits", "INVARIANT_ENFORCEMENT_MAP.md");
   if (!exists(docPath)) {
     fail(
       `CHECK 6 (Invariant map drift) failed:\n` +
-        `- docs/INVARIANTS_MAP.md is missing\n\n` +
+        `- docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md is missing\n\n` +
         `Fix: restore the invariant enforcement map.`,
     );
   }
@@ -288,7 +288,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
   if (forbidden.test(text)) {
     fail(
       `CHECK 6 (Invariant map drift) failed:\n` +
-        `- docs/INVARIANTS_MAP.md contains placeholder language (TODO/TBD/placeholder)\n\n` +
+        `- docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md contains placeholder language (TODO/TBD/placeholder)\n\n` +
         `Fix: replace placeholders with concrete enforcement details.`,
     );
   }
@@ -312,7 +312,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
       ``,
       ...(missingInDoc.length
         ? [
-            `Missing in docs/INVARIANTS_MAP.md (implemented in code but not mapped):`,
+            `Missing in docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md (implemented in code but not mapped):`,
             ...missingInDoc.map((id) => `- CHECK ${id}`),
             ``,
           ]
@@ -324,7 +324,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
             ``,
           ]
         : []),
-      `Fix: update docs/INVARIANTS_MAP.md and/or scripts/ci/check-invariants.mjs so they match exactly.`,
+      `Fix: update docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md and/or scripts/ci/check-invariants.mjs so they match exactly.`,
     ];
     fail(lines.join("\n"));
   }
@@ -422,7 +422,7 @@ function checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds) {
     fail(
       `CHECK 6 (Invariant map references missing files) failed:\n` +
         missingFiles.map((p) => `- ${p}`).join("\n") +
-        `\n\nFix: either restore the missing files or update docs/INVARIANTS_MAP.md so it only references real enforcement locations.`,
+        `\n\nFix: either restore the missing files or update docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md so it only references real enforcement locations.`,
     );
   }
 
@@ -623,30 +623,30 @@ function checkApiRoutesNoDirectAdminFirestore() {
 /**
  * CHECK 10 — IAM snapshot files must exist (CI has no GCP auth; snapshots are the enforcement input)
  *
- * We enforce IAM invariants by parsing committed JSON snapshots under docs/iam/.
+ * We enforce IAM invariants by parsing committed JSON snapshots under docs/_snapshots/iam/.
  */
 function requiredIamSnapshots() {
   return [
     {
       id: "projectIam",
-      file: path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json"),
+      file: path.join(ROOT, "docs", "_snapshots", "iam", "project-iam-policy.snapshot.json"),
       description: "Project IAM policy snapshot (gcloud projects get-iam-policy ... --format=json)",
     },
     {
       id: "runServices",
-      file: path.join(ROOT, "docs", "iam", "run-services-us-central1.snapshot.json"),
+      file: path.join(ROOT, "docs", "_snapshots", "iam", "run-services-us-central1.snapshot.json"),
       description:
         "Cloud Run services list snapshot (gcloud run services list --region=us-central1 --format=json)",
     },
     {
       id: "functionsV2",
-      file: path.join(ROOT, "docs", "iam", "functions-v2-us-central1.snapshot.json"),
+      file: path.join(ROOT, "docs", "_snapshots", "iam", "functions-v2-us-central1.snapshot.json"),
       description:
         "Cloud Functions v2 list snapshot (gcloud functions list --v2 --regions=us-central1 --format=json)",
     },
     {
       id: "functionsV1",
-      file: path.join(ROOT, "docs", "iam", "functions-v1-us-central1.snapshot.json"),
+      file: path.join(ROOT, "docs", "_snapshots", "iam", "functions-v1-us-central1.snapshot.json"),
       description:
         "Cloud Functions v1 list snapshot (gcloud functions list --regions=us-central1 --format=json)",
     },
@@ -661,31 +661,31 @@ function checkIamSnapshotsExist() {
     const help = [
       "CHECK 10 (IAM snapshots present) failed:",
       "",
-      "Missing required IAM snapshot files under docs/iam/:",
+      "Missing required IAM snapshot files under docs/_snapshots/iam/:",
       ...missing.map((m) => `- ${rel(m.file)} — ${m.description}`),
       "",
       "Fix (generate + commit snapshots):",
       "",
-      "  mkdir -p docs/iam",
-      "  gcloud projects get-iam-policy oli-staging-fdbba --format=json > docs/iam/project-iam-policy.snapshot.json",
-      "  gcloud run services list --project=oli-staging-fdbba --region=us-central1 --format=json > docs/iam/run-services-us-central1.snapshot.json",
-      "  gcloud functions list --v2 --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/iam/functions-v2-us-central1.snapshot.json",
-      "  gcloud functions list --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/iam/functions-v1-us-central1.snapshot.json",
+      "  mkdir -p docs/_snapshots/iam",
+      "  gcloud projects get-iam-policy oli-staging-fdbba --format=json > docs/_snapshots/iam/project-iam-policy.snapshot.json",
+      "  gcloud run services list --project=oli-staging-fdbba --region=us-central1 --format=json > docs/_snapshots/iam/run-services-us-central1.snapshot.json",
+      "  gcloud functions list --v2 --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/_snapshots/iam/functions-v2-us-central1.snapshot.json",
+      "  gcloud functions list --project=oli-staging-fdbba --regions=us-central1 --format=json > docs/_snapshots/iam/functions-v1-us-central1.snapshot.json",
       "",
-      "Then commit the docs/iam/*.snapshot.json files.",
+      "Then commit the docs/_snapshots/iam/*.snapshot.json files.",
     ].join("\n");
 
     fail(help);
   }
 
-  console.log("✅ CHECK 10 passed: Required IAM snapshot JSON files are present under docs/iam/.");
+  console.log("✅ CHECK 10 passed: Required IAM snapshot JSON files are present under docs/_snapshots/iam/.");
 }
 
 /**
  * CHECK 11 — roles/editor is forbidden in project IAM
  */
 function checkIamNoEditorRole() {
-  const policyPath = path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json");
+  const policyPath = path.join(ROOT, "docs", "_snapshots", "iam", "project-iam-policy.snapshot.json");
   const policy = readJson(policyPath);
 
   const bindings = Array.isArray(policy.bindings) ? policy.bindings : [];
@@ -712,7 +712,7 @@ function checkIamNoEditorRole() {
  * CHECK 12 — Default service accounts must have zero bindings (no privilege creep)
  */
 function checkIamNoDefaultServiceAccountBindings() {
-  const policyPath = path.join(ROOT, "docs", "iam", "project-iam-policy.snapshot.json");
+  const policyPath = path.join(ROOT, "docs", "_snapshots", "iam", "project-iam-policy.snapshot.json");
   const policy = readJson(policyPath);
 
   const bindings = Array.isArray(policy.bindings) ? policy.bindings : [];
@@ -758,7 +758,7 @@ function checkRuntimeServiceAccountsAllowlist() {
   };
 
   // Cloud Run services list snapshot
-  const runPath = path.join(ROOT, "docs", "iam", "run-services-us-central1.snapshot.json");
+  const runPath = path.join(ROOT, "docs", "_snapshots", "iam", "run-services-us-central1.snapshot.json");
   const runServices = readJson(runPath);
   const runArr = Array.isArray(runServices) ? runServices : [];
   const runOffenders = [];
@@ -781,7 +781,7 @@ function checkRuntimeServiceAccountsAllowlist() {
   }
 
   // Cloud Functions v2 list snapshot
-  const fn2Path = path.join(ROOT, "docs", "iam", "functions-v2-us-central1.snapshot.json");
+  const fn2Path = path.join(ROOT, "docs", "_snapshots", "iam", "functions-v2-us-central1.snapshot.json");
   const fn2 = readJson(fn2Path);
   const fn2Arr = Array.isArray(fn2) ? fn2 : [];
   const fn2Offenders = [];
@@ -802,7 +802,7 @@ function checkRuntimeServiceAccountsAllowlist() {
   }
 
   // Cloud Functions v1 list snapshot
-  const fn1Path = path.join(ROOT, "docs", "iam", "functions-v1-us-central1.snapshot.json");
+  const fn1Path = path.join(ROOT, "docs", "_snapshots", "iam", "functions-v1-us-central1.snapshot.json");
   const fn1 = readJson(fn1Path);
   const fn1Arr = Array.isArray(fn1) ? fn1 : [];
   const fn1Offenders = [];
@@ -824,7 +824,7 @@ function checkRuntimeServiceAccountsAllowlist() {
     fail(
       `CHECK 13 (Runtime service accounts allowlist) failed:\n` +
         offenders.join("\n") +
-        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/iam snapshots.`,
+        `\n\nFix: redeploy workloads to use dedicated service accounts and refresh docs/_snapshots/iam snapshots.`,
     );
   }
 
@@ -837,7 +837,7 @@ function checkRuntimeServiceAccountsAllowlist() {
 function checkCloudRunInvokerNotPublicAndGatewayOnly() {
   const candidates = [
     path.join(ROOT, "cloudrun-oli-api-iam.json"),
-    path.join(ROOT, "docs", "iam", "cloudrun-oli-api-iam.snapshot.json"),
+    path.join(ROOT, "docs", "_snapshots", "iam", "cloudrun-oli-api-iam.snapshot.json"),
   ];
 
   const found = candidates.find((p) => exists(p));
@@ -981,12 +981,12 @@ function checkCanonicalKindsNoDrift() {
  * CHECK 16 — Phase 1 scope contract must exist and be non-trivial
  */
 function checkPhase1ScopeDoc() {
-  const p = path.join(ROOT, "docs", "PHASE_1_SCOPE.md");
+  const p = path.join(ROOT, "docs", "00_truth", "phase1", "PHASE_1_SCOPE.md");
   if (!exists(p)) {
     fail(
       `CHECK 16 (Phase 1 scope contract) failed:\n` +
-        `- Missing required file: docs/PHASE_1_SCOPE.md\n\n` +
-        `Fix: add docs/PHASE_1_SCOPE.md (binding Phase 1 scope contract).`,
+        `- Missing required file: docs/00_truth/phase1/PHASE_1_SCOPE.md\n\n` +
+        `Fix: add docs/00_truth/phase1/PHASE_1_SCOPE.md (binding Phase 1 scope contract).`,
     );
   }
 
@@ -995,7 +995,7 @@ function checkPhase1ScopeDoc() {
   if (text.length < 400) {
     fail(
       `CHECK 16 (Phase 1 scope contract) failed:\n` +
-        `- docs/PHASE_1_SCOPE.md is too small (${text.length} chars). It must be non-trivial and binding.\n\n` +
+        `- docs/00_truth/phase1/PHASE_1_SCOPE.md is too small (${text.length} chars). It must be non-trivial and binding.\n\n` +
         `Fix: expand Phase 1 scope with required capabilities and invariants.`,
     );
   }
@@ -1004,7 +1004,7 @@ function checkPhase1ScopeDoc() {
   if (hasPlaceholders) {
     fail(
       `CHECK 16 (Phase 1 scope contract) failed:\n` +
-        `- docs/PHASE_1_SCOPE.md contains placeholder language (TODO/TBD/PLACEHOLDER).\n\n` +
+        `- docs/00_truth/phase1/PHASE_1_SCOPE.md contains placeholder language (TODO/TBD/PLACEHOLDER).\n\n` +
         `Fix: replace placeholders with binding requirements.`,
     );
   }
