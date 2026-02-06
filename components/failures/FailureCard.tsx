@@ -1,6 +1,6 @@
 // components/failures/FailureCard.tsx
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import type { FailureListItemDto } from "@/lib/contracts/failure";
 
 function formatLocalDateTime(iso: string): string {
@@ -30,15 +30,16 @@ function extractDomain(details: FailureListItemDto["details"]): string | null {
 
 export type FailureCardProps = {
   item: FailureListItemDto;
+  onPress?: () => void;
 };
 
-export function FailureCard({ item }: FailureCardProps) {
+export function FailureCard({ item, onPress }: FailureCardProps) {
   const domain = useMemo(() => extractDomain(item.details), [item.details]);
 
   const sourceParts: string[] = [item.type];
   if (item.rawEventPath) sourceParts.push(item.rawEventPath);
 
-  return (
+  const content = (
     <View style={styles.card} accessibilityRole="summary">
       <Text style={styles.title}>Failed</Text>
 
@@ -69,6 +70,11 @@ export function FailureCard({ item }: FailureCardProps) {
       ) : null}
     </View>
   );
+
+  if (onPress) {
+    return <Pressable onPress={onPress}>{content}</Pressable>;
+  }
+  return content;
 }
 
 const styles = StyleSheet.create({

@@ -200,11 +200,11 @@ router.get(
       .limit(limit)
       .get();
 
-    const failures: FailureListItemDto[] = snap.docs.map((d) =>
+    const items: FailureListItemDto[] = snap.docs.map((d) =>
       toFailureListItemDto(d.id, d.data() as Record<string, unknown>),
     );
 
-    res.status(200).json({ failures });
+    res.status(200).json({ items, nextCursor: null });
   }),
 );
 
@@ -250,11 +250,11 @@ router.get(
       .limit(limit)
       .get();
 
-    const failures: FailureListItemDto[] = snap.docs.map((d) =>
+    const items: FailureListItemDto[] = snap.docs.map((d) =>
       toFailureListItemDto(d.id, d.data() as Record<string, unknown>),
     );
 
-    res.status(200).json({ failures });
+    res.status(200).json({ items, nextCursor: null });
   }),
 );
 
