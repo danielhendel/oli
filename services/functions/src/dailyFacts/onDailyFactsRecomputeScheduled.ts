@@ -14,6 +14,7 @@ import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
 
 import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "../pipeline/derivedLedger";
+import { writeFailureImmutable } from "../failures/writeFailureImmutable";
 
 const toYmdUtc = (date: Date): YmdDateString => {
   const year = date.getUTCFullYear();
@@ -94,103 +95,123 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
       const userId = userDoc.id;
       const userRef = db.collection("users").doc(userId);
 
-      // Canonical events for this day
-      const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
-      const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+      try {
+        // Canonical events for this day
+        const eventsSnap = await userRef.collection("events").where("day", "==", targetDate).get();
+        const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
-      if (eventsForDay.length === 0) {
-        usersWithNoEvents += 1;
+        if (eventsForDay.length === 0) {
+          usersWithNoEvents += 1;
+        }
 
-        // Still emit a ledger run with no dailyFacts snapshot? For Phase 1 truthfulness,
-        // we emit a run with an empty derived snapshot showing "no events → minimal facts".
-        // Aggregate will produce a valid dailyFacts doc deterministically even if events=[].
-      }
+        const latestCanonicalEventAt: IsoDateTimeString | undefined =
+          eventsForDay.reduce<IsoDateTimeString | undefined>((max, ev) => {
+            const t = ev.updatedAt ?? ev.createdAt;
+            if (!t) return max;
+            if (!max) return t;
+            return t > max ? t : max;
+          }, undefined) ?? undefined;
 
-      const latestCanonicalEventAt: IsoDateTimeString | undefined =
-        eventsForDay.reduce<IsoDateTimeString | undefined>((max, ev) => {
-          const t = ev.updatedAt ?? ev.createdAt;
-          if (!t) return max;
-          if (!max) return t;
-          return t > max ? t : max;
-        }, undefined) ?? undefined;
+        const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
+          userId,
+          date: targetDate,
+          computedAt,
+          events: eventsForDay,
+        });
 
-      const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
-        userId,
-        date: targetDate,
-        computedAt,
-        events: eventsForDay,
-      });
+        const historySnap = await userRef
+          .collection("dailyFacts")
+          .where("date", ">=", startHistoryDate)
+          .where("date", "<", targetDate)
+          .get();
 
-      // Load history for enrichment (prior 6 days)
-      const historySnap = await userRef
-        .collection("dailyFacts")
-        .where("date", ">=", startHistoryDate)
-        .where("date", "<", targetDate)
-        .get();
+        const historyFacts = historySnap.docs.map((d) => d.data() as DailyFacts);
 
-      const historyFacts = historySnap.docs.map((d) => d.data() as DailyFacts);
+        const enriched = enrichDailyFactsWithBaselinesAndAverages({
+          today: baseDailyFacts,
+          history: historyFacts,
+        });
 
-      const enriched = enrichDailyFactsWithBaselinesAndAverages({
-        today: baseDailyFacts,
-        history: historyFacts,
-      });
+        const dailyFactsWithMeta = {
+          ...enriched,
+          meta: buildPipelineMeta({
+            computedAt: latestCanonicalEventAt ?? computedAt,
+            source: {
+              eventsForDay: eventsForDay.length,
+              ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+            },
+          }),
+        };
 
-      const dailyFactsWithMeta = {
-        ...enriched,
-        meta: buildPipelineMeta({
-          computedAt: latestCanonicalEventAt ?? computedAt,
-          source: {
-            eventsForDay: eventsForDay.length,
-            ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
-          },
-        }),
-      };
+        if (currentOps >= MAX_OPS_PER_BATCH) {
+          batches.push(currentBatch);
+          currentBatch = db.batch();
+          currentOps = 0;
+        }
 
-      // Batch write "latest" DailyFacts pointer doc
-      if (currentOps >= MAX_OPS_PER_BATCH) {
-        batches.push(currentBatch);
-        currentBatch = db.batch();
-        currentOps = 0;
-      }
+        currentBatch.set(userRef.collection("dailyFacts").doc(targetDate), dailyFactsWithMeta);
+        currentOps += 1;
 
-      currentBatch.set(userRef.collection("dailyFacts").doc(targetDate), dailyFactsWithMeta);
-      currentOps += 1;
+        const runId = `${runIdBase}_${userId}`;
+        const pipelineVersion = 1;
 
-      // Ledger run (append-only)
-      const runId = `${runIdBase}_${userId}`;
-      const pipelineVersion = 1;
+        await writeDerivedLedgerRun({
+          db,
+          userId,
+          date: targetDate,
+          runId,
+          computedAt,
+          pipelineVersion,
+          trigger: { type: "scheduled", name: "onDailyFactsRecomputeScheduled", eventId: triggerEventId },
+          ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
+          dailyFacts: dailyFactsWithMeta as unknown as object,
+        });
 
-      await writeDerivedLedgerRun({
-        db,
-        userId,
-        date: targetDate,
-        runId,
-        computedAt,
-        pipelineVersion,
-        trigger: { type: "scheduled", name: "onDailyFactsRecomputeScheduled", eventId: triggerEventId },
-        ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
-        dailyFacts: dailyFactsWithMeta as unknown as object,
-      });
+        if (latestCanonicalEventAt) {
+          const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
+          const warnAfterSec = 30;
 
-      // Latency logging (if we have a canonical anchor)
-      if (latestCanonicalEventAt) {
-        const latencyMs = computeLatencyMs(computedAt, latestCanonicalEventAt);
-        const warnAfterSec = 30;
+          if (shouldWarnLatency(latencyMs, warnAfterSec)) {
+            logger.warn("Pipeline latency high (canonical→dailyFacts)", {
+              userId,
+              date: targetDate,
+              latencyMs,
+              warnAfterSec,
+            });
+          } else {
+            logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
+          }
+        }
 
-        if (shouldWarnLatency(latencyMs, warnAfterSec)) {
-          logger.warn("Pipeline latency high (canonical→dailyFacts)", {
+        usersProcessed += 1;
+        docsWritten += 1;
+      } catch (err) {
+        logger.error("Pipeline failure (dailyFacts.compute)", {
+          userId,
+          date: targetDate,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        try {
+          await writeFailureImmutable(
+            { requestId: triggerEventId },
+            {
+              userId,
+              source: "pipeline",
+              stage: "dailyFacts.compute",
+              reasonCode: "DERIVE_FAILED",
+              message: err instanceof Error ? err.message : String(err),
+              day: targetDate,
+              requestId: triggerEventId,
+              details: { _: "pipeline_error" },
+            },
+          );
+        } catch (failErr) {
+          logger.error("Failed to write failure record (pipeline)", {
             userId,
-            date: targetDate,
-            latencyMs,
-            warnAfterSec,
+            error: failErr instanceof Error ? failErr.message : String(failErr),
           });
-        } else {
-          logger.info("Pipeline latency (canonical→dailyFacts)", { userId, date: targetDate, latencyMs });
         }
       }
-
-      usersProcessed += 1;
-      docsWritten += 1;
     }
 
     if (currentOps > 0) batches.push(currentBatch);
