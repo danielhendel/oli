@@ -32,6 +32,7 @@ export const rawEventKindSchema = z.enum([
   "weight",
   "hrv",
   "nutrition",
+  "strength_workout",
   "file",
 ]);
 
@@ -108,6 +109,36 @@ const manualNutritionPayloadSchema = manualWindowBaseSchema
   })
   .strip();
 
+const strengthWorkoutSetSchema = z
+  .object({
+    reps: z.number().finite().int().nonnegative(),
+    load: z.number().finite().nonnegative(),
+    unit: z.enum(["lb", "kg"]),
+    isWarmup: z.boolean().optional(),
+    rpe: z.number().finite().min(0).max(10).optional(),
+    rir: z.number().finite().min(0).max(10).optional(),
+    notes: z.string().max(256).optional(),
+  })
+  .strip()
+  .refine((s) => !(s.rpe !== undefined && s.rir !== undefined), {
+    message: "rpe and rir cannot both be present",
+  });
+
+const strengthWorkoutExerciseSchema = z
+  .object({
+    name: z.string().min(1),
+    sets: z.array(strengthWorkoutSetSchema).min(1),
+  })
+  .strip();
+
+const manualStrengthWorkoutPayloadSchema = z
+  .object({
+    startedAt: isoDateTimeStringSchema,
+    timeZone: z.string().min(1),
+    exercises: z.array(strengthWorkoutExerciseSchema).min(1),
+  })
+  .strip();
+
 /**
  * Phase 1: file upload artifact (NO parsing)
  *
@@ -135,6 +166,7 @@ const payloadByKindSchema = {
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
+  strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
 } as const;
 
@@ -191,6 +223,7 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualWeightPayloadSchema>
     | z.infer<typeof manualHrvPayloadSchema>
     | z.infer<typeof manualNutritionPayloadSchema>
+    | z.infer<typeof manualStrengthWorkoutPayloadSchema>
     | z.infer<typeof manualFilePayloadSchema>;
 };
 
@@ -205,5 +238,6 @@ export const rawEventPayloadByKindSchemas = {
   weight: manualWeightPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
+  strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
 } as const;

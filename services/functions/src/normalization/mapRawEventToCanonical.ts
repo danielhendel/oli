@@ -9,6 +9,8 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
+  StrengthWorkoutCanonicalEvent,
+  StrengthWorkoutCanonicalSet,
 } from "../types/health";
 
 /**
@@ -122,12 +124,34 @@ type ManualHrvPayload = {
   measurementType?: "nightly" | "spot";
 };
 
+type ManualStrengthWorkoutSetPayload = {
+  reps: number;
+  load: number;
+  unit: "lb" | "kg";
+  isWarmup?: boolean;
+  rpe?: number;
+  rir?: number;
+  notes?: string;
+};
+
+type ManualStrengthWorkoutExercisePayload = {
+  name: string;
+  sets: ManualStrengthWorkoutSetPayload[];
+};
+
+type ManualStrengthWorkoutPayload = {
+  startedAt: IsoDateTimeString;
+  timeZone: string;
+  exercises: ManualStrengthWorkoutExercisePayload[];
+};
+
 type ManualPayloadByKind = {
   sleep: ManualSleepPayload;
   steps: ManualStepsPayload;
   workout: ManualWorkoutPayload;
   weight: ManualWeightPayload;
   hrv: ManualHrvPayload;
+  strength_workout: ManualStrengthWorkoutPayload;
 };
 
 type ManualKind = keyof ManualPayloadByKind;
@@ -138,6 +162,7 @@ const MANUAL_KINDS: readonly ManualKind[] = [
   "workout",
   "weight",
   "hrv",
+  "strength_workout",
 ] as const;
 
 const isManualKind = (kind: RawEvent["kind"]): kind is ManualKind =>
@@ -186,6 +211,39 @@ const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
   return hasString(value, "time") && hasString(value, "timezone");
 };
 
+const isManualStrengthWorkoutPayload = (
+  value: unknown,
+): value is ManualStrengthWorkoutPayload => {
+  if (!isRecord(value)) return false;
+  if (!hasString(value, "startedAt") || !hasString(value, "timeZone")) return false;
+  const exs = value.exercises;
+  if (!Array.isArray(exs) || exs.length === 0) return false;
+  for (const ex of exs) {
+    if (!isRecord(ex) || !hasString(ex, "name")) return false;
+    const sets = ex.sets;
+    if (!Array.isArray(sets) || sets.length === 0) return false;
+    for (const s of sets) {
+      if (!isRecord(s)) return false;
+      if (
+        typeof s.reps !== "number" ||
+        s.reps < 0 ||
+        !Number.isInteger(s.reps)
+      )
+        return false;
+      if (typeof s.load !== "number" || s.load < 0) return false;
+      if (s.unit !== "lb" && s.unit !== "kg") return false;
+      if (s.rpe !== undefined && s.rir !== undefined) return false;
+      if (s.rpe !== undefined && (typeof s.rpe !== "number" || s.rpe < 0 || s.rpe > 10))
+        return false;
+      if (s.rir !== undefined && (typeof s.rir !== "number" || s.rir < 0 || s.rir > 10))
+        return false;
+      if (s.notes !== undefined && (typeof s.notes !== "string" || s.notes.length > 256))
+        return false;
+    }
+  }
+  return true;
+};
+
 /**
  * Parse manual payload based on kind.
  * Constrains K to keyof ManualPayloadByKind to allow indexed access.
@@ -205,6 +263,10 @@ const parseManualPayload = <K extends ManualKind>(
       return isManualWeightPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
     case "hrv":
       return isManualHrvPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
+    case "strength_workout":
+      return isManualStrengthWorkoutPayload(payload)
+        ? (payload as ManualPayloadByKind[K])
+        : null;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -353,6 +415,46 @@ const mapManualHrv = (
   return base;
 };
 
+const mapManualStrengthWorkout = (
+  raw: RawEvent,
+  payload: ManualStrengthWorkoutPayload,
+): StrengthWorkoutCanonicalEvent | null => {
+  const day = ymdInTimeZoneFromIso(payload.startedAt, payload.timeZone);
+  if (!day) return null;
+
+  const exercises: StrengthWorkoutCanonicalSet[] = [];
+  for (const ex of payload.exercises) {
+    for (const s of ex.sets) {
+      const set: StrengthWorkoutCanonicalSet = {
+        exercise: ex.name,
+        reps: s.reps,
+        load: s.load,
+        unit: s.unit,
+      };
+      if (s.isWarmup !== undefined) set.isWarmup = s.isWarmup;
+      if (s.rpe !== undefined) set.rpe = s.rpe;
+      else if (s.rir !== undefined) set.rir = s.rir;
+      if (s.notes !== undefined) set.notes = s.notes;
+      exercises.push(set);
+    }
+  }
+
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    sourceId: raw.sourceId,
+    kind: "strength_workout",
+    start: payload.startedAt,
+    end: payload.startedAt,
+    day,
+    timezone: payload.timeZone,
+    createdAt: raw.receivedAt,
+    updatedAt: raw.receivedAt,
+    schemaVersion: 1,
+    exercises,
+  };
+};
+
 // -----------------------------------------------------------------------------
 // Entry point
 // -----------------------------------------------------------------------------
@@ -483,6 +585,30 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
           ok: false,
           reason: "MALFORMED_PAYLOAD",
           details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
+        };
+      }
+      return { ok: true, canonical };
+    }
+
+    case "strength_workout": {
+      const payload = parseManualPayload("strength_workout", raw.payload);
+      if (!payload) {
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: { rawEventId: raw.id },
+        };
+      }
+      const canonical = mapManualStrengthWorkout(raw, payload);
+      if (!canonical) {
+        return {
+          ok: false,
+          reason: "MALFORMED_PAYLOAD",
+          details: {
+            rawEventId: raw.id,
+            field: "startedAt",
+            reason: "INVALID_TIME_OR_TIMEZONE",
+          },
         };
       }
       return { ok: true, canonical };

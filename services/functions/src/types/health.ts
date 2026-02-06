@@ -51,7 +51,8 @@ export type CanonicalEventKind =
   | "workout"
   | "weight"
   | "hrv"
-  | "nutrition";
+  | "nutrition"
+  | "strength_workout";
 
 /**
  * Raw event kinds are the ingestion boundary discriminants.
@@ -282,6 +283,32 @@ export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
 }
 
 /**
+ * Sprint 2.1 — Strength workout set (canonical).
+ * Unit required per set; mixed units allowed across sets.
+ */
+export interface StrengthWorkoutCanonicalSet {
+  exercise: string;
+  reps: number;
+  load: number;
+  unit: "lb" | "kg";
+  isWarmup?: boolean;
+  rpe?: number | null;
+  rir?: number | null;
+  notes?: string | null;
+}
+
+/**
+ * Sprint 2.1 — StrengthWorkoutCanonicalEvent
+ * Workout-level canonical truth for strength training.
+ */
+export interface StrengthWorkoutCanonicalEvent extends BaseCanonicalEvent {
+  kind: "strength_workout";
+
+  /** Exercise name + sets, preserving order */
+  exercises: StrengthWorkoutCanonicalSet[];
+}
+
+/**
  * Discriminated union of all canonical events.
  * This is the primary event type used by the normalization layer.
  */
@@ -291,7 +318,8 @@ export type CanonicalEvent =
   | WorkoutCanonicalEvent
   | WeightCanonicalEvent
   | HrvCanonicalEvent
-  | NutritionCanonicalEvent;
+  | NutritionCanonicalEvent
+  | StrengthWorkoutCanonicalEvent;
 
 /**
  * DailyFacts — per-day rollups produced from CanonicalEvents.
@@ -363,6 +391,18 @@ export interface DailyNutritionFacts {
 }
 
 /**
+ * Sprint 2.1 — DailyStrengthFacts
+ * Derived from strength_workout canonical events.
+ * Volume = sum(reps * load) per unit across all sets.
+ */
+export interface DailyStrengthFacts {
+  workoutsCount: number;
+  totalSets: number;
+  totalReps: number;
+  totalVolumeByUnit: { lb?: number; kg?: number };
+}
+
+/**
  * Sprint 5 — Domain-level confidence scores for DailyFacts.
  * Values are 0–1, where:
  * - 0 means "no confidence / essentially missing"
@@ -393,6 +433,9 @@ export interface DailyFacts {
 
   /** Sprint 6 */
   nutrition?: DailyNutritionFacts;
+
+  /** Sprint 2.1 */
+  strength?: DailyStrengthFacts;
 
   /**
    * Domain-level confidence for this day's facts (0–1).

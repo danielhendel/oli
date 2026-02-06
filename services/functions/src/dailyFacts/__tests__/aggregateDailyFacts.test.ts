@@ -8,6 +8,7 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
+  StrengthWorkoutCanonicalEvent,
 } from '../../types/health';
 import { aggregateDailyFactsForDay } from '../aggregateDailyFacts';
 
@@ -81,6 +82,22 @@ const makeHrv = (overrides: Partial<HrvCanonicalEvent>): HrvCanonicalEvent => ({
   ...overrides,
 });
 
+const makeStrengthWorkout = (
+  overrides: Partial<StrengthWorkoutCanonicalEvent>,
+): StrengthWorkoutCanonicalEvent => ({
+  id: 'strength_1',
+  kind: 'strength_workout',
+  start: '2025-01-01T18:00:00.000Z',
+  end: '2025-01-01T18:00:00.000Z',
+  exercises: [
+    { exercise: 'Bench Press', reps: 10, load: 135, unit: 'lb' },
+    { exercise: 'Bench Press', reps: 8, load: 155, unit: 'lb' },
+    { exercise: 'Squat', reps: 5, load: 100, unit: 'kg' },
+  ],
+  ...baseMeta,
+  ...overrides,
+});
+
 describe('aggregateDailyFactsForDay', () => {
   it('aggregates sleep, activity, body, and recovery facts for a day', () => {
     const events: CanonicalEvent[] = [
@@ -138,6 +155,51 @@ describe('aggregateDailyFactsForDay', () => {
     expect(recovery.hrvRmssd).toBe(70);
   });
 
+  it('aggregates strength facts correctly including mixed-unit volume', () => {
+    const events: CanonicalEvent[] = [
+      makeStrengthWorkout({
+        id: 'strength_1',
+        exercises: [
+          { exercise: 'Bench Press', reps: 10, load: 135, unit: 'lb' },
+          { exercise: 'Bench Press', reps: 8, load: 155, unit: 'lb' },
+        ],
+      }),
+      makeStrengthWorkout({
+        id: 'strength_2',
+        exercises: [
+          { exercise: 'Squat', reps: 5, load: 100, unit: 'kg' },
+          { exercise: 'Squat', reps: 5, load: 120, unit: 'kg' },
+        ],
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.strength).toBeDefined();
+    const strength = result.strength!;
+    expect(strength.workoutsCount).toBe(2);
+    expect(strength.totalSets).toBe(4);
+    expect(strength.totalReps).toBe(28); // 10+8+5+5
+    expect(strength.totalVolumeByUnit.lb).toBe(10 * 135 + 8 * 155); // 1350 + 1240 = 2590
+    expect(strength.totalVolumeByUnit.kg).toBe(5 * 100 + 5 * 120); // 500 + 600 = 1100
+  });
+
+  it('omits strength field when no strength workouts exist', () => {
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: [makeSleep({}), makeSteps({})],
+    });
+
+    expect(result.strength).toBeUndefined();
+  });
+
   it('returns minimal DailyFacts when no events exist', () => {
     const result = aggregateDailyFactsForDay({
       userId: 'user_123',
@@ -153,5 +215,6 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.activity).toBeUndefined();
     expect(result.body).toBeUndefined();
     expect(result.recovery).toBeUndefined();
+    expect(result.strength).toBeUndefined();
   });
 });
