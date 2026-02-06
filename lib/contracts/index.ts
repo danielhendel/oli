@@ -7,6 +7,7 @@ export * from "./insights";
 export * from "./intelligenceContext";
 export * from "./day";
 export * from "./dayTruth";
+export * from "./failure";
 export * from "./weight";
 
 // ✅ Preferences (Phase 1)

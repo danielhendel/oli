@@ -100,6 +100,17 @@ service cloud.firestore {
                     && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
+
+      // ----------------------------------------------------------
+      // FAILURES (IMMUTABLE FAILURE MEMORY)
+      //
+      // ❗ Backend-only writes (append-only)
+      // ----------------------------------------------------------
+      match /failures/{failureId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
     }
   }
 }

@@ -1,13 +1,13 @@
 // services/api/src/routes/usersMe.ts
 import { Router, type Response } from "express";
 import { z } from "zod";
-import { rawEventDocSchema } from "@oli/contracts";
+import { rawEventDocSchema, type FailureListItemDto } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
-import { dayQuerySchema } from "../types/day";
+import { dayQuerySchema, dayKeySchema } from "../types/day";
 import {
   dailyFactsDtoSchema,
   insightDtoSchema,
@@ -74,6 +74,26 @@ const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, deta
   });
 };
 
+// ----------------------------
+// Shared helpers
+// ----------------------------
+
+type TimestampLike = { toDate: () => Date };
+
+const isTimestampLike = (v: unknown): v is TimestampLike =>
+  v != null && typeof v === "object" && typeof (v as TimestampLike).toDate === "function";
+
+const toIsoFromTimestampLike = (v: unknown): string | null => {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (isTimestampLike(v)) return v.toDate().toISOString();
+  return null;
+};
+
+// ----------------------------
+// Day truth
+// ----------------------------
+
 const dayTruthDtoSchema = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   eventsCount: z.number().int().nonnegative(),
@@ -114,6 +134,127 @@ router.get(
     }
 
     res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Phase 1 — Failure Memory
+// ----------------------------
+
+const failuresDayQuerySchema = z
+  .object({
+    day: dayKeySchema,
+    limit: z.coerce.number().int().min(1).max(500).default(200),
+  })
+  .strip();
+
+const failuresRangeQuerySchema = z
+  .object({
+    start: dayKeySchema,
+    end: dayKeySchema,
+    limit: z.coerce.number().int().min(1).max(2000).default(500),
+  })
+  .strip();
+
+function toFailureListItemDto(docId: string, raw: Record<string, unknown>): FailureListItemDto {
+  const createdAt = toIsoFromTimestampLike(raw["createdAt"]) ?? new Date(0).toISOString();
+  return {
+    id: docId,
+    type: (raw["source"] as string) ?? "unknown",
+    code: (raw["reasonCode"] as string) ?? "UNKNOWN",
+    message: (raw["message"] as string) ?? "",
+    day: (raw["day"] as string) ?? "",
+    createdAt,
+    ...(raw["rawEventId"] ? { rawEventId: raw["rawEventId"] as string } : {}),
+    ...(raw["details"] && typeof raw["details"] === "object"
+      ? { details: raw["details"] as Record<string, unknown> }
+      : {}),
+  };
+}
+
+router.get(
+  "/failures",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = failuresDayQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { day, limit } = parsed.data;
+
+    const snap = await userCollection(uid, "failures")
+      .where("day", "==", day)
+      .orderBy("createdAt", "desc")
+      .limit(limit)
+      .get();
+
+    const failures: FailureListItemDto[] = snap.docs.map((d) =>
+      toFailureListItemDto(d.id, d.data() as Record<string, unknown>),
+    );
+
+    res.status(200).json({ failures });
+  }),
+);
+
+router.get(
+  "/failures/range",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = failuresRangeQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end, limit } = parsed.data;
+
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "start must be <= end",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const snap = await userCollection(uid, "failures")
+      .where("day", ">=", start)
+      .where("day", "<=", end)
+      .orderBy("day", "asc")
+      .orderBy("createdAt", "asc")
+      .limit(limit)
+      .get();
+
+    const failures: FailureListItemDto[] = snap.docs.map((d) =>
+      toFailureListItemDto(d.id, d.data() as Record<string, unknown>),
+    );
+
+    res.status(200).json({ failures });
   }),
 );
 
@@ -225,7 +366,7 @@ router.get(
 
     const parsedDocs = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
       const raw = d.data();
-      const parsed = insightDtoSchema.safeParse(raw); // <-- no cast
+      const parsed = insightDtoSchema.safeParse(raw);
       return { docId: d.id, parsed };
     });
 
@@ -305,20 +446,6 @@ const replayQuerySchema = z
     asOf: z.string().datetime().optional(),
   })
   .strip();
-
-type TimestampLike = { toDate: () => Date };
-
-const isTimestampLike = (v: unknown): v is TimestampLike => {
-  if (!v || typeof v !== "object") return false;
-  return typeof (v as TimestampLike).toDate === "function";
-};
-
-const toIsoFromTimestampLike = (v: unknown): string | null => {
-  if (!v) return null;
-  if (typeof v === "string") return v;
-  if (isTimestampLike(v)) return v.toDate().toISOString();
-  return null;
-};
 
 router.get(
   "/derived-ledger/runs",
@@ -495,9 +622,7 @@ router.get(
       computedAt: runParsed.data.computedAt,
       pipelineVersion: runParsed.data.pipelineVersion,
       trigger: runParsed.data.trigger,
-      ...(runParsed.data.latestCanonicalEventAt
-        ? { latestCanonicalEventAt: runParsed.data.latestCanonicalEventAt }
-        : {}),
+      ...(runParsed.data.latestCanonicalEventAt ? { latestCanonicalEventAt: runParsed.data.latestCanonicalEventAt } : {}),
       ...(dailyFacts ? { dailyFacts } : {}),
       ...(intelligenceContext ? { intelligenceContext } : {}),
       ...(insightsOut ? { insights: insightsOut } : {}),

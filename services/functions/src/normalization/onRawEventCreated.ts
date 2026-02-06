@@ -6,6 +6,47 @@ import { mapRawEventToCanonical } from "./mapRawEventToCanonical";
 import { parseRawEvent } from "../validation/rawEvent";
 import { writeCanonicalEventImmutable } from "./writeCanonicalEventImmutable";
 import { upsertRawEventDedupeEvidence } from "../ingestion/rawEventDedupe";
+import { writeFailureImmutable } from "../failures/writeFailureImmutable";
+
+function toYmdUtc(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = d.getUTCDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function deriveDayFromRaw(raw: Record<string, unknown> | undefined): string | null {
+  if (!raw) return null;
+  const observedAt = raw["observedAt"];
+  const timeZone = raw["timeZone"];
+  if (typeof observedAt !== "string" || typeof timeZone !== "string") return null;
+  try {
+    const d = new Date(observedAt);
+    if (Number.isNaN(d.getTime())) return null;
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone });
+    return fmt.format(d);
+  } catch {
+    return null;
+  }
+}
+
+/** Bounded zod issue summary (no raw payload dumps) */
+function boundedZodSummary(issues: unknown): Record<string, unknown> {
+  if (!issues || typeof issues !== "object") return { _: "unknown" };
+  const obj = issues as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (Array.isArray(obj["formErrors"])) out.formErrors = obj.formErrors;
+  if (obj["fieldErrors"] && typeof obj.fieldErrors === "object") {
+    const fe = obj.fieldErrors as Record<string, unknown>;
+    out.fieldErrors = Object.keys(fe)
+      .slice(0, 10)
+      .reduce((acc, k) => {
+        acc[k] = fe[k];
+        return acc;
+      }, {} as Record<string, unknown>);
+  }
+  return Object.keys(out).length > 0 ? out : { _: "validation_failed" };
+}
 
 /**
  * Firestore trigger:
@@ -41,6 +82,28 @@ export const onRawEventCreated = onDocumentCreated(
         path: snapshot.ref.path,
         reason: parsed.reason,
       });
+      const rawData = snapshot.data() as Record<string, unknown> | undefined;
+      const day = deriveDayFromRaw(rawData) ?? toYmdUtc(new Date());
+      try {
+        await writeFailureImmutable(
+          {},
+          {
+            userId: event.params.userId,
+            source: "normalization",
+            stage: "rawEvent.validate",
+            reasonCode: "RAW_EVENT_INVALID",
+            message: "RawEvent failed contract validation",
+            day,
+            rawEventId: event.params.rawEventId,
+            details: boundedZodSummary(parsed.issues),
+          },
+        );
+      } catch (err) {
+        logger.error("Failed to write failure record", {
+          path: snapshot.ref.path,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return;
     }
 
@@ -95,6 +158,30 @@ export const onRawEventCreated = onDocumentCreated(
         // Include details only if provided, but keep it safe (no payload).
         ...(result.details ? { details: result.details } : {}),
       });
+      const day = deriveDayFromRaw(snapshot.data() as Record<string, unknown>) ?? toYmdUtc(new Date());
+      const reasonCode =
+        result.reason === "UNSUPPORTED_KIND" ? "RAW_KIND_UNSUPPORTED" : "NORMALIZE_ERROR";
+      try {
+        await writeFailureImmutable(
+          {},
+          {
+            userId: rawEvent.userId,
+            source: "normalization",
+            stage: "normalize.map",
+            reasonCode,
+            message: `Normalization failed: ${result.reason}`,
+            day,
+            rawEventId: rawEvent.id,
+            ...(result.details ? { details: result.details } : {}),
+          },
+        );
+      } catch (err) {
+        logger.error("Failed to write failure record (normalize.map)", {
+          userId: rawEvent.userId,
+          rawEventId: rawEvent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return;
     }
 
@@ -117,6 +204,31 @@ export const onRawEventCreated = onDocumentCreated(
         incomingHash: writeRes.incomingHash,
         integrityViolationPath: writeRes.integrityViolationPath,
       });
+      try {
+        await writeFailureImmutable(
+          {},
+          {
+            userId: rawEvent.userId,
+            source: "normalization",
+            stage: "canonical.write",
+            reasonCode: "CANONICAL_IMMUTABILITY_CONFLICT",
+            message: "Canonical immutability conflict: attempted overwrite with different content",
+            day: canonical.day,
+            rawEventId: rawEvent.id,
+            canonicalEventId: canonical.id,
+            details: {
+              existingHash: writeRes.existingHash,
+              incomingHash: writeRes.incomingHash,
+            },
+          },
+        );
+      } catch (err) {
+        logger.error("Failed to write failure record (canonical.write)", {
+          userId: rawEvent.userId,
+          canonicalId: canonical.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   },
 );
