@@ -7,9 +7,10 @@ import { FailureCard } from "@/components/failures/FailureCard";
 export type FailureListProps = {
   items: FailureListItemDto[];
   truncated?: boolean;
+  onItemPress?: (item: FailureListItemDto) => void;
 };
 
-export function FailureList({ items, truncated = false }: FailureListProps) {
+export function FailureList({ items, truncated = false, onItemPress }: FailureListProps) {
   if (!items.length) {
     return (
       <View style={styles.empty}>
@@ -33,7 +34,11 @@ export function FailureList({ items, truncated = false }: FailureListProps) {
       ) : null}
 
       {items.map((item) => (
-        <FailureCard key={item.id} item={item} />
+        <FailureCard
+          key={item.id}
+          item={item}
+          {...(onItemPress ? { onPress: () => onItemPress(item) } : {})}
+        />
       ))}
     </View>
   );

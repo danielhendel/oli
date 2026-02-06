@@ -24,6 +24,7 @@
   "exclude": [
     "**/*.test.*",
     "**/__tests__/**",
+    "../components/**/__tests__/**",
     "../node_modules",
     "../dist",
     "../dist-types",

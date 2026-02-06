@@ -87,12 +87,12 @@ describe("Failure Memory — Phase 1 proof", () => {
 
     expect(res.status).toBe(200);
 
-    const json = (await res.json()) as { failures: Record<string, unknown>[] };
+    const json = (await res.json()) as { items: Record<string, unknown>[] };
 
-    expect(json.failures).toBeDefined();
-    expect(Array.isArray(json.failures)).toBe(true);
+    expect(json.items).toBeDefined();
+    expect(Array.isArray(json.items)).toBe(true);
 
-    const found = json.failures.find((f) => f.id === failureId);
+    const found = json.items.find((f) => f.id === failureId);
     expect(found).toBeDefined();
     expect(found?.type).toBe("normalization");
     expect(found?.code).toBe("RAW_EVENT_INVALID");
