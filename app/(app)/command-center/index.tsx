@@ -310,8 +310,6 @@ function CardioSection(props: {
   );
 }
 
-=======
->>>>>>> main
 function StrengthSection(props: {
   model: ReturnType<typeof buildStrengthCommandCenterModel>;
   onPressLog: () => void;
