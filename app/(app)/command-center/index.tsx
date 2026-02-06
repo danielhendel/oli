@@ -13,6 +13,10 @@ import { ProvenanceRow } from "@/lib/ui/ProvenanceRow";
 import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 import { buildStrengthCommandCenterModel } from "@/lib/modules/commandCenterStrength";
+import {
+  buildCardioCommandCenterModel,
+  formatDistanceDualDisplay,
+} from "@/lib/modules/commandCenterCardio";
 
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
@@ -230,6 +234,78 @@ function ReplayPanel(props: {
       ) : (
         <Text style={styles.replayPanelMuted}>Pick a run to overlay snapshots.</Text>
       )}
+    </View>
+  );
+}
+
+
+function getDisplayLocale(): string {
+  try {
+    const loc = Intl.DateTimeFormat?.().resolvedOptions?.()?.locale;
+    return typeof loc === "string" ? loc : "en-US";
+  } catch {
+    return "en-US";
+  }
+}
+
+function CardioSection(props: {
+  model: ReturnType<typeof buildCardioCommandCenterModel>;
+  onPressWorkouts: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+  const locale = getDisplayLocale();
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.summary ? (
+          <View style={styles.cardioGrid}>
+            <View style={styles.cardioMetric}>
+              <Text style={styles.cardioMetricLabel}>Steps</Text>
+              <Text style={styles.cardioMetricValue}>
+                {typeof m.summary.steps === "number" ? m.summary.steps.toLocaleString() : "—"}
+              </Text>
+            </View>
+            <View style={styles.cardioMetric}>
+              <Text style={styles.cardioMetricLabel}>Move minutes</Text>
+              <Text style={styles.cardioMetricValue}>
+                {typeof m.summary.moveMinutes === "number" ? m.summary.moveMinutes.toLocaleString() : "—"}
+              </Text>
+            </View>
+            <View style={styles.cardioMetric}>
+              <Text style={styles.cardioMetricLabel}>Distance</Text>
+              <Text style={styles.cardioMetricValue}>
+                {typeof m.summary.distanceKm === "number"
+                  ? formatDistanceDualDisplay({ distanceKm: m.summary.distanceKm, locale }).combined
+                  : "—"}
+              </Text>
+            </View>
+            <View style={styles.cardioMetric}>
+              <Text style={styles.cardioMetricLabel}>Training load</Text>
+              <Text style={styles.cardioMetricValue}>
+                {typeof m.summary.trainingLoad === "number" ? m.summary.trainingLoad.toFixed(1) : "—"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {m.showWorkoutsCta ? (
+          <ModuleSectionLinkRow
+            title="Go to Workouts"
+            subtitle="View training and add activity inputs"
+            onPress={props.onPressWorkouts}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
     </View>
   );
 }
@@ -701,6 +777,18 @@ export default function CommandCenterScreen(props: Props) {
 
   const replayUi = useReplayUi(dayKey);
 
+  const displayLocale = useMemo(() => getDisplayLocale(), []);
+
+  const cardioModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    return buildCardioCommandCenterModel({
+      dataReadinessState,
+      factsDoc: factsDoc ?? null,
+      hasFailures,
+      locale: displayLocale,
+    });
+  }, [dataReadinessState, factsDoc, failuresPresenceUi, displayLocale]);
+
   const strengthModel = useMemo(() => {
     const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
     return buildStrengthCommandCenterModel({
@@ -755,6 +843,12 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
+        <CardioSection
+          model={cardioModel}
+          onPressWorkouts={() => router.push("/(app)/workouts")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
 
         <StrengthSection
           model={strengthModel}
@@ -839,6 +933,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
+  },
+
+  cardioGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  cardioMetric: {
+    width: "48%",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  cardioMetricLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: "700",
+  },
+  cardioMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+    color: "#111",
   },
   strengthMetric: {
     width: "48%",
