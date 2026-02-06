@@ -172,6 +172,92 @@ describe("mapRawEventToCanonical", () => {
     );
   });
 
+  it("maps valid strength_workout payload to StrengthWorkoutCanonicalEvent and derives day", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_strength_1",
+      provider: "manual",
+      kind: "strength_workout",
+      payload: {
+        startedAt: "2025-01-01T18:00:00.000Z",
+        timeZone: "America/New_York",
+        exercises: [
+          {
+            name: "Bench Press",
+            sets: [
+              { reps: 10, load: 135, unit: "lb" },
+              { reps: 8, load: 155, unit: "lb", rpe: 8 },
+            ],
+          },
+          {
+            name: "Squat",
+            sets: [{ reps: 5, load: 100, unit: "kg", isWarmup: true }],
+          },
+        ],
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    expect(canonical.id).toBe(raw.id);
+    expect(canonical.userId).toBe(raw.userId);
+    expect(canonical.sourceId).toBe(raw.sourceId);
+    expect(canonical.kind).toBe("strength_workout");
+    expect(canonical.start).toBe("2025-01-01T18:00:00.000Z");
+    expect(canonical.end).toBe("2025-01-01T18:00:00.000Z");
+    expect(canonical.day).toBe("2025-01-01");
+    expect(canonical.timezone).toBe("America/New_York");
+    expect(canonical.createdAt).toBe(raw.receivedAt);
+    expect(canonical.updatedAt).toBe(raw.receivedAt);
+    expect(canonical.schemaVersion).toBe(1);
+
+    if (canonical.kind !== "strength_workout") throw new Error("Expected strength_workout kind");
+    const strength = canonical as Extract<CanonicalEvent, { kind: "strength_workout" }>;
+    expect(strength.exercises).toHaveLength(3);
+    expect(strength.exercises[0]).toEqual({
+      exercise: "Bench Press",
+      reps: 10,
+      load: 135,
+      unit: "lb",
+    });
+    expect(strength.exercises[1]).toEqual({
+      exercise: "Bench Press",
+      reps: 8,
+      load: 155,
+      unit: "lb",
+      rpe: 8,
+    });
+    expect(strength.exercises[2]).toEqual({
+      exercise: "Squat",
+      reps: 5,
+      load: 100,
+      unit: "kg",
+      isWarmup: true,
+    });
+  });
+
+  it("returns ok:false MALFORMED_PAYLOAD for invalid strength_workout payload", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_strength_bad",
+      provider: "manual",
+      kind: "strength_workout",
+      payload: {
+        startedAt: "2025-01-01T18:00:00.000Z",
+        timeZone: "America/New_York",
+        exercises: [], // non-empty required
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected mapping failure");
+    expect(result.reason).toBe("MALFORMED_PAYLOAD");
+  });
+
   it("derives canonical day using Intl.DateTimeFormat('en-CA', { timeZone }) across boundary conditions", () => {
     const cases: {
       name: string;

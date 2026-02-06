@@ -7,6 +7,7 @@ import type {
   DailyBodyFacts,
   DailyRecoveryFacts,
   DailySleepFacts,
+  DailyStrengthFacts,
   IsoDateTimeString,
   YmdDateString,
   SleepCanonicalEvent,
@@ -14,6 +15,7 @@ import type {
   WorkoutCanonicalEvent,
   WeightCanonicalEvent,
   HrvCanonicalEvent,
+  StrengthWorkoutCanonicalEvent,
 } from '../types/health';
 
 const isNumber = (value: unknown): value is number =>
@@ -34,6 +36,9 @@ const isStepsEvent = (e: CanonicalEvent): e is StepsCanonicalEvent => e.kind ===
 const isWorkoutEvent = (e: CanonicalEvent): e is WorkoutCanonicalEvent => e.kind === 'workout';
 const isWeightEvent = (e: CanonicalEvent): e is WeightCanonicalEvent => e.kind === 'weight';
 const isHrvEvent = (e: CanonicalEvent): e is HrvCanonicalEvent => e.kind === 'hrv';
+const isStrengthWorkoutEvent = (
+  e: CanonicalEvent,
+): e is StrengthWorkoutCanonicalEvent => e.kind === 'strength_workout';
 
 // -----------------------------------------------------------------------------
 // Builders
@@ -162,6 +167,39 @@ const buildRecoveryFacts = (events: CanonicalEvent[]): DailyRecoveryFacts | unde
   return Object.keys(facts).length > 0 ? facts : undefined;
 };
 
+const buildStrengthFacts = (
+  events: CanonicalEvent[],
+): DailyStrengthFacts | undefined => {
+  const strengthEvents = events.filter(isStrengthWorkoutEvent);
+  if (strengthEvents.length === 0) return undefined;
+
+  let totalSets = 0;
+  let totalReps = 0;
+  const totalVolumeByUnit: { lb?: number; kg?: number } = {};
+
+  for (const ev of strengthEvents) {
+    for (const set of ev.exercises) {
+      totalSets += 1;
+      totalReps += set.reps;
+      const volume = set.reps * set.load;
+      if (set.unit === 'lb') {
+        totalVolumeByUnit.lb = (totalVolumeByUnit.lb ?? 0) + volume;
+      } else {
+        totalVolumeByUnit.kg = (totalVolumeByUnit.kg ?? 0) + volume;
+      }
+    }
+  }
+
+  const facts: DailyStrengthFacts = {
+    workoutsCount: strengthEvents.length,
+    totalSets,
+    totalReps,
+    totalVolumeByUnit,
+  };
+
+  return facts;
+};
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -187,6 +225,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   const activity = buildActivityFacts(events);
   const body = buildBodyFacts(events);
   const recovery = buildRecoveryFacts(events);
+  const strength = buildStrengthFacts(events);
 
   const dailyFacts: DailyFacts = {
     userId,
@@ -199,6 +238,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   if (activity) dailyFacts.activity = activity;
   if (recovery) dailyFacts.recovery = recovery;
   if (body) dailyFacts.body = body;
+  if (strength) dailyFacts.strength = strength;
 
   return dailyFacts;
 };

@@ -61,6 +61,18 @@ export const dailyFactsDtoSchema = z
       })
       .strip()
       .optional(),
+    strength: z
+      .object({
+        workoutsCount: z.number().int().nonnegative(),
+        totalSets: z.number().int().nonnegative(),
+        totalReps: z.number().int().nonnegative(),
+        totalVolumeByUnit: z.object({
+          lb: z.number().finite().nonnegative().optional(),
+          kg: z.number().finite().nonnegative().optional(),
+        }),
+      })
+      .strip()
+      .optional(),
 
     confidence: confidenceSchema,
   })
