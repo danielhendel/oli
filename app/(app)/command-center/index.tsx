@@ -238,6 +238,7 @@ function ReplayPanel(props: {
   );
 }
 
+
 function getDisplayLocale(): string {
   try {
     const loc = Intl.DateTimeFormat?.().resolvedOptions?.()?.locale;
@@ -309,6 +310,8 @@ function CardioSection(props: {
   );
 }
 
+=======
+>>>>>>> main
 function StrengthSection(props: {
   model: ReturnType<typeof buildStrengthCommandCenterModel>;
   onPressLog: () => void;
@@ -933,6 +936,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 10,
   },
+
   cardioGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
