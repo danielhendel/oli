@@ -10,6 +10,9 @@ import { CommandCenterHeader } from "@/lib/ui/CommandCenterHeader";
 import { COMMAND_CENTER_MODULES } from "@/lib/modules/commandCenterModules";
 import { getModuleBadge, isModuleDisabled } from "@/lib/modules/commandCenterReadiness";
 import { ProvenanceRow } from "@/lib/ui/ProvenanceRow";
+import { ModuleSectionCard } from "@/lib/ui/ModuleSectionCard";
+import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
+import { buildStrengthCommandCenterModel } from "@/lib/modules/commandCenterStrength";
 
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
@@ -227,6 +230,64 @@ function ReplayPanel(props: {
       ) : (
         <Text style={styles.replayPanelMuted}>Pick a run to overlay snapshots.</Text>
       )}
+    </View>
+  );
+}
+
+function StrengthSection(props: {
+  model: ReturnType<typeof buildStrengthCommandCenterModel>;
+  onPressLog: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.summary ? (
+          <View style={styles.strengthGrid}>
+            <View style={styles.strengthMetric}>
+              <Text style={styles.strengthMetricLabel}>Workouts</Text>
+              <Text style={styles.strengthMetricValue}>{m.summary.workoutsCount.toLocaleString()}</Text>
+            </View>
+            <View style={styles.strengthMetric}>
+              <Text style={styles.strengthMetricLabel}>Sets</Text>
+              <Text style={styles.strengthMetricValue}>{m.summary.totalSets.toLocaleString()}</Text>
+            </View>
+            <View style={styles.strengthMetric}>
+              <Text style={styles.strengthMetricLabel}>Reps</Text>
+              <Text style={styles.strengthMetricValue}>{m.summary.totalReps.toLocaleString()}</Text>
+            </View>
+            <View style={styles.strengthMetric}>
+              <Text style={styles.strengthMetricLabel}>Volume</Text>
+              <Text style={styles.strengthMetricValue}>
+                {typeof m.summary.totalVolumeByUnit.lb === "number"
+                  ? `${Math.round(m.summary.totalVolumeByUnit.lb).toLocaleString()} lb`
+                  : "—"}
+                {typeof m.summary.totalVolumeByUnit.kg === "number"
+                  ? ` / ${Math.round(m.summary.totalVolumeByUnit.kg).toLocaleString()} kg`
+                  : ""}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {m.showLogCta ? (
+          <ModuleSectionLinkRow
+            title="Log a strength workout"
+            subtitle="Add sets/reps/weight to build today’s summary"
+            onPress={props.onPressLog}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
     </View>
   );
 }
@@ -640,6 +701,15 @@ export default function CommandCenterScreen(props: Props) {
 
   const replayUi = useReplayUi(dayKey);
 
+  const strengthModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    return buildStrengthCommandCenterModel({
+      dataReadinessState: dataReadinessState,
+      factsDoc: factsDoc ?? null,
+      hasFailures,
+    });
+  }, [dataReadinessState, factsDoc, failuresPresenceUi]);
+
   const onPickRun = useCallback(
     (runId: string) => {
       router.setParams({ replay: "1", rid: runId });
@@ -685,6 +755,12 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
+        <StrengthSection
+          model={strengthModel}
+          onPressLog={() => router.push("/(app)/training/strength/log")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
 
         <View style={styles.grid}>
           {COMMAND_CENTER_MODULES.map((m) => {
@@ -753,6 +829,33 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
     marginTop: 10,
+  },
+
+  sectionWrap: {
+    marginTop: 12,
+  },
+
+  strengthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  strengthMetric: {
+    width: "48%",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  strengthMetricLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: "700",
+  },
+  strengthMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+    color: "#111",
   },
 
   quickActionsRow: {
