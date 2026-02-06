@@ -2,6 +2,10 @@
 import type { ApiResult } from "@/lib/api/http";
 import { apiGetJsonAuthed, apiPostJsonAuthed } from "@/lib/api/http";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
+import {
+  manualStrengthWorkoutIdempotencyKey,
+  type ManualStrengthWorkoutPayload,
+} from "@/lib/events/manualStrengthWorkout";
 
 import type {
   LogWeightRequestDto,
@@ -11,6 +15,8 @@ import type {
   IntelligenceContextDto,
   DayTruthDto,
 } from "@/lib/contracts";
+
+export type LogStrengthWorkoutResponseDto = { ok: true; rawEventId: string; day?: string };
 
 export type TruthGetOptions = {
   cacheBust?: string;
@@ -52,6 +58,26 @@ export const logWeight = async (
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualWeightIdempotencyKey(clean),
+  });
+};
+
+export const logStrengthWorkout = async (
+  payload: ManualStrengthWorkoutPayload,
+  idToken: string,
+): Promise<ApiResult<LogStrengthWorkoutResponseDto>> => {
+  const ingestBody = {
+    provider: "manual",
+    kind: "strength_workout",
+    observedAt: payload.startedAt,
+    sourceId: "manual",
+    timeZone: payload.timeZone,
+    payload,
+  };
+
+  return apiPostJsonAuthed<LogStrengthWorkoutResponseDto>("/ingest", ingestBody, idToken, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey: manualStrengthWorkoutIdempotencyKey(payload),
   });
 };
 

@@ -13,6 +13,7 @@ export default function AppLayout() {
       <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
       <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+      <Stack.Screen name="training/strength/log" options={{ title: "Log Strength" }} />
     </Stack>
   );
 }
