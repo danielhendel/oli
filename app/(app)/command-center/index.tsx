@@ -17,6 +17,7 @@ import {
   buildCardioCommandCenterModel,
   formatDistanceDualDisplay,
 } from "@/lib/modules/commandCenterCardio";
+import { buildNutritionCommandCenterModel } from "@/lib/modules/commandCenterNutrition";
 
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
@@ -295,6 +296,65 @@ function CardioSection(props: {
             title="Go to Workouts"
             subtitle="View training and add activity inputs"
             onPress={props.onPressWorkouts}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
+    </View>
+  );
+}
+
+function NutritionSection(props: {
+  model: ReturnType<typeof buildNutritionCommandCenterModel>;
+  onPressLog: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.summary ? (
+          <View style={styles.nutritionGrid}>
+            <View style={styles.nutritionMetric}>
+              <Text style={styles.nutritionMetricLabel}>Kcal</Text>
+              <Text style={styles.nutritionMetricValue}>
+                {typeof m.summary.totalKcal === "number" ? m.summary.totalKcal.toLocaleString() : "—"}
+              </Text>
+            </View>
+            <View style={styles.nutritionMetric}>
+              <Text style={styles.nutritionMetricLabel}>Protein</Text>
+              <Text style={styles.nutritionMetricValue}>
+                {typeof m.summary.proteinG === "number" ? `${m.summary.proteinG}g` : "—"}
+              </Text>
+            </View>
+            <View style={styles.nutritionMetric}>
+              <Text style={styles.nutritionMetricLabel}>Carbs</Text>
+              <Text style={styles.nutritionMetricValue}>
+                {typeof m.summary.carbsG === "number" ? `${m.summary.carbsG}g` : "—"}
+              </Text>
+            </View>
+            <View style={styles.nutritionMetric}>
+              <Text style={styles.nutritionMetricLabel}>Fat</Text>
+              <Text style={styles.nutritionMetricValue}>
+                {typeof m.summary.fatG === "number" ? `${m.summary.fatG}g` : "—"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {m.showLogCta ? (
+          <ModuleSectionLinkRow
+            title="Log nutrition"
+            subtitle="Add food entries to build today's summary"
+            onPress={props.onPressLog}
           />
         ) : null}
 
@@ -798,6 +858,15 @@ export default function CommandCenterScreen(props: Props) {
     });
   }, [dataReadinessState, factsDoc, failuresPresenceUi]);
 
+  const nutritionModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    return buildNutritionCommandCenterModel({
+      dataReadinessState,
+      factsDoc: factsDoc ?? null,
+      hasFailures,
+    });
+  }, [dataReadinessState, factsDoc, failuresPresenceUi]);
+
   const onPickRun = useCallback(
     (runId: string) => {
       router.setParams({ replay: "1", rid: runId });
@@ -843,6 +912,12 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
+        <NutritionSection
+          model={nutritionModel}
+          onPressLog={() => router.push("/(app)/nutrition/log")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
 
         <CardioSection
           model={cardioModel}
@@ -952,6 +1027,28 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cardioMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+    color: "#111",
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  nutritionMetric: {
+    width: "48%",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  nutritionMetricLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: "700",
+  },
+  nutritionMetricValue: {
     fontSize: 18,
     fontWeight: "900",
     marginTop: 4,
