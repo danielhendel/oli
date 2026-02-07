@@ -18,6 +18,7 @@ import {
   formatDistanceDualDisplay,
 } from "@/lib/modules/commandCenterCardio";
 import { buildNutritionCommandCenterModel } from "@/lib/modules/commandCenterNutrition";
+import { buildRecoveryCommandCenterModel } from "@/lib/modules/commandCenterRecovery";
 
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
@@ -413,6 +414,66 @@ function StrengthSection(props: {
             title="Log a strength workout"
             subtitle="Add sets/reps/weight to build today’s summary"
             onPress={props.onPressLog}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
+    </View>
+  );
+}
+
+function RecoverySection(props: {
+  model: ReturnType<typeof buildRecoveryCommandCenterModel>;
+  onPressReadiness: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+
+  const formatDeviation = (val: number): string => {
+    const sign = val >= 0 ? "+" : "";
+    return `${sign}${val.toFixed(1)}`;
+  };
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.summary ? (
+          <View style={styles.recoveryGrid}>
+            <View style={styles.recoveryMetric}>
+              <Text style={styles.recoveryMetricLabel}>HRV (RMSSD)</Text>
+              <Text style={styles.recoveryMetricValue}>
+                {typeof m.summary.hrvRmssd === "number" ? m.summary.hrvRmssd.toFixed(1) : "—"}
+              </Text>
+            </View>
+            <View style={styles.recoveryMetric}>
+              <Text style={styles.recoveryMetricLabel}>Baseline</Text>
+              <Text style={styles.recoveryMetricValue}>
+                {typeof m.summary.hrvRmssdBaseline === "number" ? m.summary.hrvRmssdBaseline.toFixed(1) : "—"}
+              </Text>
+            </View>
+            <View style={styles.recoveryMetric}>
+              <Text style={styles.recoveryMetricLabel}>Deviation</Text>
+              <Text style={styles.recoveryMetricValue}>
+                {typeof m.summary.hrvRmssdDeviation === "number"
+                  ? formatDeviation(m.summary.hrvRmssdDeviation)
+                  : "—"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {m.showReadinessCta ? (
+          <ModuleSectionLinkRow
+            title="View readiness"
+            subtitle="Check recovery readiness and HRV status"
+            onPress={props.onPressReadiness}
           />
         ) : null}
 
@@ -867,6 +928,15 @@ export default function CommandCenterScreen(props: Props) {
     });
   }, [dataReadinessState, factsDoc, failuresPresenceUi]);
 
+  const recoveryModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    return buildRecoveryCommandCenterModel({
+      dataReadinessState,
+      factsDoc: factsDoc ?? null,
+      hasFailures,
+    });
+  }, [dataReadinessState, factsDoc, failuresPresenceUi]);
+
   const onPickRun = useCallback(
     (runId: string) => {
       router.setParams({ replay: "1", rid: runId });
@@ -912,6 +982,12 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
+        <RecoverySection
+          model={recoveryModel}
+          onPressReadiness={() => router.push("/(app)/recovery/readiness")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
 
         <NutritionSection
           model={nutritionModel}
@@ -1066,6 +1142,29 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   strengthMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+    color: "#111",
+  },
+
+  recoveryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  recoveryMetric: {
+    width: "48%",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  recoveryMetricLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: "700",
+  },
+  recoveryMetricValue: {
     fontSize: 18,
     fontWeight: "900",
     marginTop: 4,
