@@ -493,6 +493,7 @@ function RecoverySection(props: {
   );
 }
 
+
 function BodySection(props: {
   model: ReturnType<typeof buildBodyCommandCenterModel>;
   locale: string;
@@ -545,6 +546,7 @@ function BodySection(props: {
     </View>
   );
 }
+
 
 function useReplayOverride(dayKey: string): {
   replayOverride: DerivedLedgerReplayResponseDto | null;
@@ -994,6 +996,7 @@ export default function CommandCenterScreen(props: Props) {
     });
   }, [dataReadinessState, factsDoc, failuresPresenceUi]);
 
+
   const bodyModel = useMemo(() => {
     const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
     return buildBodyCommandCenterModel({
@@ -1049,6 +1052,7 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
 
         <BodySection
           model={bodyModel}
