@@ -117,6 +117,25 @@ export const getIntelligenceContext = async (
   );
 };
 
+export type UploadsPresenceResponseDto = {
+  ok: true;
+  count: number;
+  latest: {
+    rawEventId: string;
+    observedAt: string;
+    receivedAt: string;
+    originalFilename?: string;
+    mimeType?: string;
+  } | null;
+};
+
+export const getUploads = async (
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<UploadsPresenceResponseDto>> => {
+  return apiGetJsonAuthed<UploadsPresenceResponseDto>("/users/me/uploads", idToken, truthGetOpts(opts));
+};
+
 /**
  * Truth surface for UI readiness gating.
  */

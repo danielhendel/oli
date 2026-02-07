@@ -24,12 +24,15 @@ import {
   formatWeightDualDisplay,
 } from "@/lib/modules/commandCenterBody";
 
+import { buildLabsCommandCenterModel } from "@/lib/modules/commandCenterLabs";
+
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useInsights } from "@/lib/data/useInsights";
 import { useIntelligenceContext } from "@/lib/data/useIntelligenceContext";
 import { useDayTruth } from "@/lib/data/useDayTruth";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
+import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 
 import { isCompatiblePipelineVersion } from "@/lib/data/readiness";
 import { resolveReadiness } from "@/lib/data/resolveReadiness";
@@ -494,6 +497,45 @@ function RecoverySection(props: {
 }
 
 
+function LabsSection(props: {
+  model: ReturnType<typeof buildLabsCommandCenterModel>;
+  onPressUpload: () => void;
+  onPressView: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.showUploadCta ? (
+          <ModuleSectionLinkRow
+            title="Upload labs"
+            subtitle="Add lab reports and bloodwork"
+            onPress={props.onPressUpload}
+          />
+        ) : null}
+
+        {m.showViewCta ? (
+          <ModuleSectionLinkRow
+            title="View labs"
+            subtitle="See your lab uploads and overview"
+            onPress={props.onPressView}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
+    </View>
+  );
+}
+
 function BodySection(props: {
   model: ReturnType<typeof buildBodyCommandCenterModel>;
   locale: string;
@@ -670,6 +712,8 @@ export default function CommandCenterScreen(props: Props) {
     { mode: "page" },
   );
 
+  const uploadsPresence = useUploadsPresence();
+
   const failuresPresenceUi: FailuresPresenceUi = useMemo(() => {
     if (failuresPresence.status === "loading") return { status: "loading" };
     if (failuresPresence.status === "error") {
@@ -827,8 +871,9 @@ export default function CommandCenterScreen(props: Props) {
 
       // Failure presence must also refresh when Command Center refreshes.
       void failuresPresence.refetch(opts);
+      void uploadsPresence.refetch(opts);
     },
-    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch, failuresPresence.refetch],
+    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch, failuresPresence.refetch, uploadsPresence.refetch],
   );
 
   useEffect(() => {
@@ -1007,6 +1052,17 @@ export default function CommandCenterScreen(props: Props) {
     });
   }, [dataReadinessState, factsDoc, failuresPresenceUi, displayLocale]);
 
+  const labsModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    const uploads =
+      uploadsPresence.status === "ready" ? { count: uploadsPresence.data.count, latest: uploadsPresence.data.latest } : null;
+    return buildLabsCommandCenterModel({
+      dataReadinessState,
+      uploads,
+      hasFailures,
+    });
+  }, [dataReadinessState, uploadsPresence, failuresPresenceUi]);
+
   const onPickRun = useCallback(
     (runId: string) => {
       router.setParams({ replay: "1", rid: runId });
@@ -1082,6 +1138,13 @@ export default function CommandCenterScreen(props: Props) {
         <StrengthSection
           model={strengthModel}
           onPressLog={() => router.push("/(app)/training/strength/log")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
+
+        <LabsSection
+          model={labsModel}
+          onPressUpload={() => router.push("/(app)/labs/upload")}
+          onPressView={() => router.push("/(app)/labs/overview")}
           onPressFailures={() => router.push("/(app)/failures")}
         />
 
