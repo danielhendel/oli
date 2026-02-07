@@ -1,7 +1,12 @@
 // services/api/src/routes/usersMe.ts
 import { Router, type Response } from "express";
 import { z } from "zod";
-import { rawEventDocSchema, type FailureListItemDto } from "@oli/contracts";
+import {
+  rawEventDocSchema,
+  type FailureListItemDto,
+  labResultDtoSchema,
+  createLabResultRequestDtoSchema,
+} from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -52,6 +57,15 @@ const requireUid = (req: AuthedRequest, res: Response): string | null => {
     return null;
   }
   return uid;
+};
+
+const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
+  const fromHeader =
+    (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
+    (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
+  if (fromHeader) return fromHeader;
+  const anyReq = req as unknown as { idempotencyKey?: unknown };
+  return typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
 };
 
 const invalidDoc500 = (req: AuthedRequest, res: Response, resource: string, details: unknown) => {
@@ -745,6 +759,243 @@ router.get(
     const validated = derivedLedgerReplayResponseDtoSchema.safeParse(response);
     if (!validated.success) {
       invalidDoc500(req, res, "derivedLedgerReplayResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// ✅ Sprint 2.9 — Labs Biomarkers v0 (manual entry)
+// ----------------------------
+
+const labResultsListQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(50).default(50),
+  })
+  .strip();
+
+const labResultIdParamsSchema = z
+  .object({
+    id: z.string().min(1),
+  })
+  .strip();
+
+/**
+ * Canonical content for immutability comparison.
+ * Stable stringify of the mutable fields (excludes id, userId, createdAt, updatedAt).
+ */
+function labResultCanonicalContent(doc: {
+  collectedAt: string;
+  sourceRawEventId?: string;
+  biomarkers: unknown[];
+}): string {
+  return JSON.stringify({
+    collectedAt: doc.collectedAt,
+    sourceRawEventId: doc.sourceRawEventId ?? undefined,
+    biomarkers: doc.biomarkers,
+  });
+}
+
+router.post(
+  "/labResults",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const idempotencyKey = getIdempotencyKey(req);
+    if (!idempotencyKey) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "MISSING_IDEMPOTENCY_KEY",
+          message: "Idempotency-Key header is required for lab result creation",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const parsed = createLabResultRequestDtoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_BODY",
+          message: "Invalid request body",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const body = parsed.data;
+    const now = new Date().toISOString();
+
+    const labResultsCol = userCollection(uid, "labResults");
+    const docRef = labResultsCol.doc(idempotencyKey);
+
+    const doc = {
+      schemaVersion: 1 as const,
+      id: docRef.id,
+      userId: uid,
+      collectedAt: body.collectedAt,
+      ...(body.sourceRawEventId ? { sourceRawEventId: body.sourceRawEventId } : {}),
+      biomarkers: body.biomarkers,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const existingSnap = await docRef.get();
+
+    if (existingSnap.exists) {
+      const existingData = existingSnap.data() as Record<string, unknown>;
+      const incomingContent = {
+        collectedAt: body.collectedAt,
+        biomarkers: body.biomarkers,
+        ...(body.sourceRawEventId ? { sourceRawEventId: body.sourceRawEventId } : {}),
+      };
+      const existingContent = {
+        collectedAt: existingData.collectedAt as string,
+        biomarkers: existingData.biomarkers as unknown[],
+        ...(existingData.sourceRawEventId ? { sourceRawEventId: existingData.sourceRawEventId as string } : {}),
+      };
+      const incomingCanonical = labResultCanonicalContent(incomingContent);
+      const existingCanonical = labResultCanonicalContent(existingContent);
+
+      if (incomingCanonical === existingCanonical) {
+        res.status(202).json({
+          ok: true as const,
+          id: docRef.id,
+          idempotentReplay: true as const,
+        });
+        return;
+      }
+
+      res.status(409).json({
+        ok: false as const,
+        error: { code: "IMMUTABLE_CONFLICT" as const },
+        requestId: getRid(req),
+      });
+      return;
+    }
+
+    await docRef.create(doc);
+
+    res.status(202).json({
+      ok: true as const,
+      id: docRef.id,
+    });
+  }),
+);
+
+router.get(
+  "/labResults",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = labResultsListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { limit } = parsed.data;
+
+    const snap = await userCollection(uid, "labResults")
+      .orderBy("collectedAt", "desc")
+      .limit(limit)
+      .get();
+
+    const items: unknown[] = [];
+
+    for (const d of snap.docs) {
+      const raw = d.data() as Record<string, unknown>;
+      const createdAtIso = toIsoFromTimestampLike(raw["createdAt"]) ?? (raw["createdAt"] as string);
+      const updatedAtIso = toIsoFromTimestampLike(raw["updatedAt"]) ?? (raw["updatedAt"] as string);
+      const normalized = {
+        ...raw,
+        id: d.id,
+        createdAt: createdAtIso,
+        updatedAt: updatedAtIso,
+      };
+
+      const validated = labResultDtoSchema.safeParse(normalized);
+      if (!validated.success) {
+        invalidDoc500(req, res, "labResults", {
+          docId: d.id,
+          issues: validated.error.flatten(),
+        });
+        return;
+      }
+      items.push(validated.data);
+    }
+
+    res.status(200).json({
+      ok: true as const,
+      items,
+      nextCursor: null,
+    });
+  }),
+);
+
+router.get(
+  "/labResults/:id",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedParams = labResultIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_PARAMS",
+          message: "Invalid route params",
+          details: parsedParams.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { id } = parsedParams.data;
+
+    const docRef = userCollection(uid, "labResults").doc(id);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      res.status(404).json({
+        ok: false,
+        error: { code: "NOT_FOUND", resource: "labResults", id },
+      });
+      return;
+    }
+
+    const raw = snap.data() as Record<string, unknown>;
+    const createdAtIso = toIsoFromTimestampLike(raw["createdAt"]) ?? (raw["createdAt"] as string);
+    const updatedAtIso = toIsoFromTimestampLike(raw["updatedAt"]) ?? (raw["updatedAt"] as string);
+    const normalized = {
+      ...raw,
+      id: snap.id,
+      createdAt: createdAtIso,
+      updatedAt: updatedAtIso,
+    };
+
+    const validated = labResultDtoSchema.safeParse(normalized);
+    if (!validated.success) {
+      invalidDoc500(req, res, "labResults", validated.error.flatten());
       return;
     }
 

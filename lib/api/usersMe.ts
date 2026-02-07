@@ -14,6 +14,9 @@ import type {
   InsightsResponseDto,
   IntelligenceContextDto,
   DayTruthDto,
+  LabResultDto,
+  LabResultsListResponseDto,
+  CreateLabResultRequestDto,
 } from "@/lib/contracts";
 
 export type LogStrengthWorkoutResponseDto = { ok: true; rawEventId: string; day?: string };
@@ -148,5 +151,54 @@ export const getDayTruth = async (
     `/users/me/day-truth?day=${encodeURIComponent(day)}`,
     idToken,
     truthGetOpts(opts),
+  );
+};
+
+// ----------------------------
+// Sprint 2.9 — Labs Biomarkers v0
+// ----------------------------
+
+export type CreateLabResultResponseDto = { ok: true; id: string; idempotentReplay?: true };
+
+export const getLabResults = async (
+  idToken: string,
+  opts?: { limit?: number } & TruthGetOptions,
+): Promise<ApiResult<LabResultsListResponseDto>> => {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiGetJsonAuthed<LabResultsListResponseDto>(
+    `/users/me/labResults${qs ? `?${qs}` : ""}`,
+    idToken,
+    truthGetOpts(opts),
+  );
+};
+
+export const getLabResult = async (
+  id: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<LabResultDto>> => {
+  return apiGetJsonAuthed<LabResultDto>(
+    `/users/me/labResults/${encodeURIComponent(id)}`,
+    idToken,
+    truthGetOpts(opts),
+  );
+};
+
+export const createLabResult = async (
+  payload: CreateLabResultRequestDto,
+  idToken: string,
+  idempotencyKey: string,
+): Promise<ApiResult<CreateLabResultResponseDto>> => {
+  return apiPostJsonAuthed<CreateLabResultResponseDto>(
+    "/users/me/labResults",
+    payload,
+    idToken,
+    {
+      timeoutMs: 15000,
+      noStore: true,
+      idempotencyKey,
+    },
   );
 };
