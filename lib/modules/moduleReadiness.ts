@@ -58,7 +58,9 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     case "labs.overview":
       return SOON("Soon");
     case "labs.biomarkers":
-      return SOON("Soon");
+      return READY;
+    case "labs.log":
+      return READY;
     case "labs.upload":
       return SOON("Soon");
 

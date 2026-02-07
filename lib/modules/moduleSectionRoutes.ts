@@ -32,8 +32,9 @@ export const MODULE_SECTIONS = [
 
   // LABS
   { id: "labs.overview", moduleId: "labs", title: "Overview", href: "/(app)/labs/overview" },
-  { id: "labs.upload", moduleId: "labs", title: "Upload", href: "/(app)/labs/upload" },
   { id: "labs.biomarkers", moduleId: "labs", title: "Biomarkers", href: "/(app)/labs/biomarkers" },
+  { id: "labs.log", moduleId: "labs", title: "Log biomarkers", href: "/(app)/labs/log" },
+  { id: "labs.upload", moduleId: "labs", title: "Upload", href: "/(app)/labs/upload" },
 
   // SETTINGS
   { id: "settings.account", moduleId: "settings", title: "Account", href: "/(app)/settings/account" },
