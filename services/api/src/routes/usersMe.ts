@@ -279,6 +279,120 @@ const rawEventParamsSchema = z
  * - User-scoped read ONLY
  * - Fail-closed contract enforcement via @oli/contracts rawEventDocSchema
  */
+// ----------------------------
+// ✅ Sprint 2.8 — Uploads Presence (read-only)
+// ----------------------------
+
+const uploadsListQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(50).default(50),
+  })
+  .strip();
+
+const UPLOADS_LIST_INDEX_ERROR_CODES = ["failed-precondition", "FAILED_PRECONDITION"] as const;
+
+function isFirestoreIndexError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: string }).code;
+  return typeof code === "string" && UPLOADS_LIST_INDEX_ERROR_CODES.includes(code as (typeof UPLOADS_LIST_INDEX_ERROR_CODES)[number]);
+}
+
+router.get(
+  "/uploads",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = uploadsListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { limit } = parsed.data;
+
+    let snap: FirebaseFirestore.QuerySnapshot;
+    try {
+      snap = await userCollection(uid, "rawEvents")
+        .where("kind", "==", "file")
+        .where("sourceId", "==", "upload")
+        .orderBy("observedAt", "desc")
+        .limit(limit)
+        .get();
+    } catch (err: unknown) {
+      if (isFirestoreIndexError(err)) {
+        const rid = getRid(req);
+        logger.error({
+          msg: "uploads_list_firestore_index_missing",
+          rid,
+          details: err instanceof Error ? err.message : String(err),
+        });
+        res.status(500).json({
+          ok: false,
+          error: {
+            code: "FIRESTORE_INDEX_MISSING",
+            message: "Uploads list query requires a composite index. Add the index and redeploy.",
+            requestId: rid,
+          },
+        });
+        return;
+      }
+      throw err;
+    }
+
+    const docs = snap.docs;
+
+    for (const d of docs) {
+      const data = d.data();
+      const parsedDoc = rawEventDocSchema.safeParse(data);
+      if (!parsedDoc.success) {
+        invalidDoc500(req, res, "rawEvents", {
+          docId: d.id,
+          issues: parsedDoc.error.flatten(),
+        });
+        return;
+      }
+    }
+
+    const count = docs.length;
+
+    let latest: {
+      rawEventId: string;
+      observedAt: string;
+      receivedAt: string;
+      originalFilename?: string;
+      mimeType?: string;
+    } | null = null;
+
+    if (count > 0) {
+      const first = docs[0]!;
+      const data = rawEventDocSchema.parse(first.data());
+      const payload = data.payload as { originalFilename?: string; mimeType?: string };
+      latest = {
+        rawEventId: first.id,
+        observedAt: data.observedAt,
+        receivedAt: data.receivedAt,
+        ...(payload.originalFilename ? { originalFilename: payload.originalFilename } : {}),
+        ...(payload.mimeType ? { mimeType: payload.mimeType } : {}),
+      };
+    }
+
+    res.status(200).json({
+      ok: true,
+      count,
+      latest,
+    });
+  }),
+);
+
 router.get(
   "/rawEvents/:id",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
