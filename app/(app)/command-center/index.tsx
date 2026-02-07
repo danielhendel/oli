@@ -19,6 +19,10 @@ import {
 } from "@/lib/modules/commandCenterCardio";
 import { buildNutritionCommandCenterModel } from "@/lib/modules/commandCenterNutrition";
 import { buildRecoveryCommandCenterModel } from "@/lib/modules/commandCenterRecovery";
+import {
+  buildBodyCommandCenterModel,
+  formatWeightDualDisplay,
+} from "@/lib/modules/commandCenterBody";
 
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
@@ -489,6 +493,59 @@ function RecoverySection(props: {
   );
 }
 
+function BodySection(props: {
+  model: ReturnType<typeof buildBodyCommandCenterModel>;
+  locale: string;
+  onPressLogWeight: () => void;
+  onPressFailures: () => void;
+}) {
+  const m = props.model;
+  const locale = props.locale;
+
+  return (
+    <View style={styles.sectionWrap}>
+      <ModuleSectionCard title={m.title} rightBadge={m.state} description={m.description}>
+        {m.summary ? (
+          <View style={styles.bodyGrid}>
+            <View style={styles.bodyMetric}>
+              <Text style={styles.bodyMetricLabel}>Weight</Text>
+              <Text style={styles.bodyMetricValue}>
+                {typeof m.summary.weightKg === "number"
+                  ? formatWeightDualDisplay({ weightKg: m.summary.weightKg, locale }).combined
+                  : "—"}
+              </Text>
+            </View>
+            <View style={styles.bodyMetric}>
+              <Text style={styles.bodyMetricLabel}>Body fat</Text>
+              <Text style={styles.bodyMetricValue}>
+                {typeof m.summary.bodyFatPercent === "number"
+                  ? `${m.summary.bodyFatPercent.toFixed(1)}%`
+                  : "—"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {m.showLogWeightCta ? (
+          <ModuleSectionLinkRow
+            title="Log weight"
+            subtitle="Add weight entry to build today's body summary"
+            onPress={props.onPressLogWeight}
+          />
+        ) : null}
+
+        {m.showFailuresCta ? (
+          <ModuleSectionLinkRow
+            title="View failures"
+            subtitle="See why derived truth is missing or invalid"
+            onPress={props.onPressFailures}
+          />
+        ) : null}
+      </ModuleSectionCard>
+    </View>
+  );
+}
+
 function useReplayOverride(dayKey: string): {
   replayOverride: DerivedLedgerReplayResponseDto | null;
   replayLoading: boolean;
@@ -937,6 +994,16 @@ export default function CommandCenterScreen(props: Props) {
     });
   }, [dataReadinessState, factsDoc, failuresPresenceUi]);
 
+  const bodyModel = useMemo(() => {
+    const hasFailures = failuresPresenceUi.status === "ready" ? failuresPresenceUi.hasFailures : false;
+    return buildBodyCommandCenterModel({
+      dataReadinessState,
+      factsDoc: factsDoc ?? null,
+      hasFailures,
+      locale: displayLocale,
+    });
+  }, [dataReadinessState, factsDoc, failuresPresenceUi, displayLocale]);
+
   const onPickRun = useCallback(
     (runId: string) => {
       router.setParams({ replay: "1", rid: runId });
@@ -982,6 +1049,13 @@ export default function CommandCenterScreen(props: Props) {
         />
 
         <QuickActionsRow />
+
+        <BodySection
+          model={bodyModel}
+          locale={displayLocale}
+          onPressLogWeight={() => router.push("/(app)/body/weight")}
+          onPressFailures={() => router.push("/(app)/failures")}
+        />
 
         <RecoverySection
           model={recoveryModel}
@@ -1165,6 +1239,29 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   recoveryMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+    color: "#111",
+  },
+
+  bodyGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  bodyMetric: {
+    width: "48%",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  bodyMetricLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: "700",
+  },
+  bodyMetricValue: {
     fontSize: 18,
     fontWeight: "900",
     marginTop: 4,
