@@ -1,5 +1,6 @@
 // lib/contracts/rawEvent.ts
 import { z } from "zod";
+import { dayKeySchema } from "./day";
 
 // -----------------------------
 // Primitives
@@ -35,6 +36,20 @@ export const rawEventKindSchema = z.enum([
   "strength_workout",
   "file",
 ]);
+
+/**
+ * POST /ingest accepted response (shared by weight, strength_workout, etc.)
+ */
+export const ingestAcceptedResponseDtoSchema = z
+  .object({
+    ok: z.literal(true),
+    rawEventId: z.string().min(1),
+    day: dayKeySchema.optional(),
+    idempotentReplay: z.literal(true).optional(),
+  })
+  .strip();
+
+export type IngestAcceptedResponseDto = z.infer<typeof ingestAcceptedResponseDtoSchema>;
 
 // -----------------------------
 // Payloads

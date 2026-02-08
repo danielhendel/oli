@@ -1,7 +1,8 @@
 // lib/data/useFailures.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { apiGetJsonAuthed, type GetOptions } from "@/lib/api/http";
+import { getFailures } from "@/lib/api/failures";
+import type { GetOptions } from "@/lib/api/http";
 import type { FailureListResponseDto } from "@/lib/contracts/failure";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
@@ -83,14 +84,11 @@ export function useFailures(
       if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
 
       const { day, limit, cursor } = argsRef.current;
-      const qs = new URLSearchParams({ day });
-      if (typeof limit === "number") qs.set("limit", String(limit));
-      if (cursor) qs.set("cursor", cursor);
-
       const optsUnique = withUniqueCacheBust(opts, seq);
 
-      const res = await apiGetJsonAuthed<FailureListResponseDto>(`/users/me/failures?${qs.toString()}`, token, {
-        noStore: true,
+      const res = await getFailures(day, token, {
+        ...(typeof limit === "number" ? { limit } : {}),
+        ...(cursor ? { cursor } : {}),
         ...(optsUnique?.cacheBust ? { cacheBust: optsUnique.cacheBust } : {}),
         ...(optsUnique?.timeoutMs ? { timeoutMs: optsUnique.timeoutMs } : {}),
       });

@@ -1,4 +1,10 @@
 // lib/api/functions.ts
+/**
+ * Sprint 2 — Generic function caller.
+ * RATIONALE: callFunctionAuthed is a generic HTTP trigger for arbitrary Cloud Functions.
+ * No fixed DTO schema exists; responses are caller-typed (T = JsonValue by default).
+ * Client callers that need structured responses MUST validate at the call site with their own schema.
+ */
 import type { ApiResult, JsonValue } from "./http";
 import { apiPostJsonAuthed } from "./http";
 

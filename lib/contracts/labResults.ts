@@ -40,7 +40,16 @@ export const createLabResultRequestDtoSchema = z
   })
   .strip();
 
+export const createLabResultResponseDtoSchema = z
+  .object({
+    ok: z.literal(true),
+    id: z.string().min(1),
+    idempotentReplay: z.literal(true).optional(),
+  })
+  .strip();
+
 export type BiomarkerReadingDto = z.infer<typeof biomarkerReadingDtoSchema>;
 export type LabResultDto = z.infer<typeof labResultDtoSchema>;
 export type LabResultsListResponseDto = z.infer<typeof labResultsListResponseDtoSchema>;
 export type CreateLabResultRequestDto = z.infer<typeof createLabResultRequestDtoSchema>;
+export type CreateLabResultResponseDto = z.infer<typeof createLabResultResponseDtoSchema>;

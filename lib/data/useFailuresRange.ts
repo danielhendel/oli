@@ -1,7 +1,8 @@
 // lib/data/useFailuresRange.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { apiGetJsonAuthed, type GetOptions } from "@/lib/api/http";
+import { getFailuresRange } from "@/lib/api/failures";
+import type { GetOptions } from "@/lib/api/http";
 import type { FailureListItemDto, FailureListResponseDto } from "@/lib/contracts/failure";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
@@ -52,18 +53,7 @@ async function fetchFailuresRangePage(input: {
   token: string;
   opts?: GetOptions;
 }): Promise<ReturnType<typeof truthOutcomeFromApiResult<FailureListResponseDto>>> {
-  const { start, end, limit, cursor } = input.args;
-
-  const qs = new URLSearchParams({ start, end });
-  if (typeof limit === "number") qs.set("limit", String(limit));
-  if (cursor) qs.set("cursor", cursor);
-
-  const res = await apiGetJsonAuthed<FailureListResponseDto>(`/users/me/failures/range?${qs.toString()}`, input.token, {
-    noStore: true,
-    ...(input.opts?.cacheBust ? { cacheBust: input.opts.cacheBust } : {}),
-    ...(input.opts?.timeoutMs ? { timeoutMs: input.opts.timeoutMs } : {}),
-  });
-
+  const res = await getFailuresRange(input.args, input.token, input.opts);
   return truthOutcomeFromApiResult(res);
 }
 

@@ -1,17 +1,15 @@
 // lib/api/derivedLedgerMe.ts
-import type { ApiFailure, ApiResult, JsonValue } from "@/lib/api/http";
-import { apiGetJsonAuthed } from "@/lib/api/http";
+import type { ApiResult } from "@/lib/api/http";
+import type { TruthGetOptions } from "@/lib/api/usersMe";
 
+export type { TruthGetOptions };
+import { apiGetZodAuthed } from "@/lib/api/validate";
 import {
   derivedLedgerReplayResponseDtoSchema,
   derivedLedgerRunsResponseDtoSchema,
   type DerivedLedgerReplayResponseDto,
   type DerivedLedgerRunsResponseDto,
 } from "@/lib/contracts/derivedLedger";
-
-export type TruthGetOptions = {
-  cacheBust?: string;
-};
 
 function truthGetOpts(opts?: TruthGetOptions) {
   return {
@@ -20,57 +18,17 @@ function truthGetOpts(opts?: TruthGetOptions) {
   };
 }
 
-function isJsonValue(v: unknown): v is JsonValue {
-  if (v === null) return true;
-  const t = typeof v;
-  if (t === "string" || t === "number" || t === "boolean") return true;
-  if (Array.isArray(v)) return v.every(isJsonValue);
-  if (t === "object") {
-    const rec = v as Record<string, unknown>;
-    return Object.values(rec).every(isJsonValue);
-  }
-  return false;
-}
-
-function attachJsonIfSafe(failure: ApiFailure, jsonUnknown: unknown): ApiFailure {
-  // ApiFailure.json?: JsonValue (optional). With exactOptionalPropertyTypes, we must not pass undefined explicitly.
-  if (jsonUnknown !== undefined && isJsonValue(jsonUnknown)) {
-    return { ...failure, json: jsonUnknown };
-  }
-  return failure;
-}
-
 export async function getDerivedLedgerRuns(
   day: string,
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<DerivedLedgerRunsResponseDto>> {
-  const res = await apiGetJsonAuthed<unknown>(
+  return apiGetZodAuthed(
     `/users/me/derived-ledger/runs?day=${encodeURIComponent(day)}`,
     idToken,
+    derivedLedgerRunsResponseDtoSchema,
     truthGetOpts(opts),
   );
-
-  if (!res.ok) return res as ApiResult<DerivedLedgerRunsResponseDto>;
-
-  const parsed = derivedLedgerRunsResponseDtoSchema.safeParse(res.json);
-  if (!parsed.success) {
-    const base: ApiFailure = {
-      ok: false,
-      status: res.status,
-      kind: "parse",
-      error: "Invalid DerivedLedgerRuns response",
-      requestId: res.requestId,
-    };
-    return attachJsonIfSafe(base, res.json) as ApiResult<DerivedLedgerRunsResponseDto>;
-  }
-
-  return {
-    ok: true,
-    status: res.status,
-    requestId: res.requestId,
-    json: parsed.data,
-  };
 }
 
 export async function getDerivedLedgerReplay(
@@ -82,30 +40,30 @@ export async function getDerivedLedgerReplay(
   if (args.runId) params.set("runId", args.runId);
   if (args.asOf) params.set("asOf", args.asOf);
 
-  const res = await apiGetJsonAuthed<unknown>(
+  return apiGetZodAuthed(
     `/users/me/derived-ledger/replay?${params.toString()}`,
     idToken,
+    derivedLedgerReplayResponseDtoSchema,
     truthGetOpts(opts),
   );
+}
 
-  if (!res.ok) return res as ApiResult<DerivedLedgerReplayResponseDto>;
+/**
+ * Sprint 1 — GET /users/me/derived-ledger/snapshot (alias for replay)
+ */
+export async function getDerivedLedgerSnapshot(
+  args: { day: string; runId?: string; asOf?: string },
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<DerivedLedgerReplayResponseDto>> {
+  const params = new URLSearchParams({ day: args.day });
+  if (args.runId) params.set("runId", args.runId);
+  if (args.asOf) params.set("asOf", args.asOf);
 
-  const parsed = derivedLedgerReplayResponseDtoSchema.safeParse(res.json);
-  if (!parsed.success) {
-    const base: ApiFailure = {
-      ok: false,
-      status: res.status,
-      kind: "parse",
-      error: "Invalid DerivedLedgerReplay response",
-      requestId: res.requestId,
-    };
-    return attachJsonIfSafe(base, res.json) as ApiResult<DerivedLedgerReplayResponseDto>;
-  }
-
-  return {
-    ok: true,
-    status: res.status,
-    requestId: res.requestId,
-    json: parsed.data,
-  };
+  return apiGetZodAuthed(
+    `/users/me/derived-ledger/snapshot?${params.toString()}`,
+    idToken,
+    derivedLedgerReplayResponseDtoSchema,
+    truthGetOpts(opts),
+  );
 }

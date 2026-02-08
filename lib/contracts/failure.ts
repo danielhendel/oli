@@ -7,26 +7,37 @@
  * Client must not invent semantics beyond these fields.
  */
 
-export type FailureDetailsDto = Record<string, unknown> | null;
+import { z } from "zod";
+import { dayKeySchema } from "./day";
 
-export type FailureListItemDto = {
-  id: string;
-  type: string;
-  code: string;
-  message: string;
-  day: string; // YYYY-MM-DD
+const isoString = z.string().min(1);
 
-  /** ISO timestamp string */
-  createdAt: string;
+export const failureDetailsDtoSchema = z.record(z.string(), z.unknown()).nullable();
+export type FailureDetailsDto = z.infer<typeof failureDetailsDtoSchema>;
 
-  timeZone?: string;
-  observedAt?: string;
-  rawEventId?: string;
-  rawEventPath?: string;
-  details?: FailureDetailsDto;
-};
+export const failureListItemDtoSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.string().min(1),
+    code: z.string().min(1),
+    message: z.string().min(1),
+    day: dayKeySchema,
+    createdAt: isoString,
+    timeZone: z.string().min(1).optional(),
+    observedAt: isoString.optional(),
+    rawEventId: z.string().min(1).optional(),
+    rawEventPath: z.string().min(1).optional(),
+    details: failureDetailsDtoSchema.optional(),
+  })
+  .strip();
 
-export type FailureListResponseDto = {
-  items: FailureListItemDto[];
-  nextCursor: string | null;
-};
+export type FailureListItemDto = z.infer<typeof failureListItemDtoSchema>;
+
+export const failureListResponseDtoSchema = z
+  .object({
+    items: z.array(failureListItemDtoSchema),
+    nextCursor: z.string().nullable(),
+  })
+  .strip();
+
+export type FailureListResponseDto = z.infer<typeof failureListResponseDtoSchema>;
