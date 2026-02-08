@@ -142,6 +142,18 @@ export default function TimelineDayScreen() {
         </View>
 
         <Pressable
+          style={styles.replayRow}
+          onPress={() =>
+            router.push({
+              pathname: "/(app)/(tabs)/library/replay/day/[dayKey]",
+              params: { dayKey: day },
+            })
+          }
+        >
+          <Text style={styles.replayRowText}>Replay this day</Text>
+        </Pressable>
+
+        <Pressable
           style={styles.provenanceToggle}
           onPress={() => setProvenanceExpanded(!provenanceExpanded)}
         >
@@ -198,6 +210,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   eventTime: { fontSize: 15, color: "#1C1C1E" },
+  replayRow: {
+    marginTop: 24,
+    padding: 14,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+  },
+  replayRowText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
   provenanceToggle: {
     marginTop: 24,
     padding: 12,
