@@ -1,6 +1,6 @@
 // app/(app)/event/[id].tsx
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { LoadingState, ErrorState } from "@/lib/ui/ScreenStates";
 import { useEvents } from "@/lib/data/useEvents";
@@ -16,6 +16,7 @@ function formatIso(iso: string): string {
 
 export default function EventDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const eventId = params.id ?? "";
 
   const [provenanceExpanded, setProvenanceExpanded] = useState(false);
@@ -111,6 +112,7 @@ export default function EventDetailScreen() {
   }
 
   const lineageData = lineage.status === "ready" ? lineage.data : null;
+  const canonicalEventId = event.id;
 
   return (
     <ScreenContainer>
@@ -139,6 +141,14 @@ export default function EventDetailScreen() {
           <Text style={styles.fieldValue}>{event.sourceId}</Text>
         </View>
 
+        <Pressable
+          style={styles.lineageCta}
+          onPress={() =>
+            router.push(`/(app)/(tabs)/library/lineage/${canonicalEventId}`)
+          }
+        >
+          <Text style={styles.lineageCtaText}>View lineage</Text>
+        </Pressable>
         <Pressable
           style={styles.provenanceToggle}
           onPress={() => setProvenanceExpanded(!provenanceExpanded)}
@@ -179,8 +189,15 @@ const styles = StyleSheet.create({
   section: { marginTop: 16 },
   fieldLabel: { fontSize: 13, fontWeight: "600", color: "#8E8E93", marginBottom: 4 },
   fieldValue: { fontSize: 17, color: "#1C1C1E" },
-  provenanceToggle: {
+  lineageCta: {
     marginTop: 24,
+    padding: 12,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+  },
+  lineageCtaText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  provenanceToggle: {
+    marginTop: 8,
     padding: 12,
     backgroundColor: "#F2F2F7",
     borderRadius: 12,
