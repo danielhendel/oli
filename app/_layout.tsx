@@ -27,7 +27,7 @@ function RouteGuard() {
     }
 
     if (user && inAuthGroup) {
-      router.replace("/(app)/command-center");
+      router.replace("/(app)/(tabs)/dash");
     }
   }, [initializing, router, segments, user]);
 

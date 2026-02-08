@@ -19,6 +19,9 @@ import {
   labResultDtoSchema,
   createLabResultResponseDtoSchema,
   uploadsPresenceResponseDtoSchema,
+  canonicalEventsListResponseDtoSchema,
+  timelineResponseDtoSchema,
+  lineageResponseDtoSchema,
   type LogWeightRequestDto,
   type LogWeightResponseDto,
   type DailyFactsDto,
@@ -31,6 +34,9 @@ import {
   type CreateLabResultResponseDto,
   type UploadsPresenceResponseDto,
   type IngestAcceptedResponseDto,
+  type CanonicalEventsListResponseDto,
+  type TimelineResponseDto,
+  type LineageResponseDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -142,6 +148,74 @@ export const getUploads = async (
   opts?: TruthGetOptions,
 ): Promise<ApiResult<UploadsPresenceResponseDto>> => {
   return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
+};
+
+// ----------------------------
+// Sprint 1 — Retrieval Surfaces (timeline, events, lineage)
+// ----------------------------
+
+export const getTimeline = async (
+  start: string,
+  end: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<TimelineResponseDto>> => {
+  const qs = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  return apiGetZodAuthed(
+    `/users/me/timeline?${qs}`,
+    idToken,
+    timelineResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+export const getEvents = async (
+  idToken: string,
+  opts?: {
+    start?: string;
+    end?: string;
+    kinds?: string[];
+    cursor?: string;
+    limit?: number;
+  } & TruthGetOptions,
+): Promise<ApiResult<CanonicalEventsListResponseDto>> => {
+  const params = new URLSearchParams();
+  if (opts?.start) params.set("start", opts.start);
+  if (opts?.end) params.set("end", opts.end);
+  if (opts?.kinds?.length) params.set("kinds", opts.kinds.join(","));
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiGetZodAuthed(
+    `/users/me/events${qs ? `?${qs}` : ""}`,
+    idToken,
+    canonicalEventsListResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+export const getLineage = async (
+  idToken: string,
+  opts:
+    | { canonicalEventId: string }
+    | { day: string; kind: string; observedAt: string },
+  truthOpts?: TruthGetOptions,
+): Promise<ApiResult<LineageResponseDto>> => {
+  const params = new URLSearchParams();
+  if ("canonicalEventId" in opts) {
+    params.set("canonicalEventId", opts.canonicalEventId);
+  } else {
+    params.set("day", opts.day);
+    params.set("kind", opts.kind);
+    params.set("observedAt", opts.observedAt);
+  }
+  const qs = params.toString();
+  return apiGetZodAuthed(
+    `/users/me/lineage?${qs}`,
+    idToken,
+    lineageResponseDtoSchema,
+    truthGetOpts(truthOpts),
+  );
 };
 
 /**

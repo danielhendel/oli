@@ -1,0 +1,104 @@
+// app/(app)/(tabs)/library/index.tsx
+import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/lib/ui/ScreenStates";
+import { useFailuresRange } from "@/lib/data/useFailuresRange";
+import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
+import { useMemo } from "react";
+
+type LibraryCategory = {
+  id: string;
+  title: string;
+  countLabel?: string;
+  kinds?: string[];
+};
+
+const LIBRARY_CATEGORIES: LibraryCategory[] = [
+  { id: "strength", title: "Strength", kinds: ["strength_workout"] },
+  { id: "cardio", title: "Cardio", kinds: ["steps", "workout"] },
+  { id: "sleep", title: "Sleep", kinds: ["sleep"] },
+  { id: "hrv", title: "HRV", kinds: ["hrv"] },
+  { id: "labs", title: "Labs", countLabel: "Available" },
+  { id: "uploads", title: "Uploads", countLabel: "Available" },
+  { id: "failures", title: "Failures", countLabel: "Available" },
+];
+
+function getRangeForCount(): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 90);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+export default function LibraryIndexScreen() {
+  const router = useRouter();
+  const range = useMemo(() => getRangeForCount(), []);
+
+  const failures = useFailuresRange(
+    { start: range.start, end: range.end, limit: 500 },
+    { mode: "page" },
+  );
+  const uploads = useUploadsPresence();
+
+  const getCategoryCount = (cat: LibraryCategory): string => {
+    if (cat.id === "failures") {
+      if (failures.status === "loading") return "…";
+      if (failures.status === "ready")
+        return String(failures.data.items.length);
+      return "—";
+    }
+    if (cat.id === "uploads") {
+      if (uploads.status === "loading") return "…";
+      if (uploads.status === "ready") return String(uploads.data.count);
+      return "—";
+    }
+    return cat.countLabel ?? "Available";
+  };
+
+  return (
+    <ScreenContainer>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.title}>Library</Text>
+        <Text style={styles.subtitle}>Category list with presence and counts</Text>
+
+        <View style={styles.list}>
+          {LIBRARY_CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat.id}
+              style={styles.row}
+              onPress={() =>
+                router.push({
+                  pathname: "/(app)/(tabs)/library/[category]",
+                  params: { category: cat.id },
+                })
+              }
+              accessibilityLabel={`${cat.title}, ${getCategoryCount(cat)}`}
+            >
+              <Text style={styles.rowTitle}>{cat.title}</Text>
+              <Text style={styles.rowCount}>{getCategoryCount(cat)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { padding: 16, paddingBottom: 40 },
+  title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
+  subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
+  list: { marginTop: 24, gap: 1, backgroundColor: "#F2F2F7", borderRadius: 12, overflow: "hidden" },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  rowTitle: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
+  rowCount: { fontSize: 15, color: "#8E8E93" },
+});
