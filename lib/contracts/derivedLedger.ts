@@ -17,6 +17,13 @@ const triggerSchema = z.union([
     .strip(),
   z
     .object({
+      type: z.literal("realtime"),
+      name: z.literal("onRawEventCreated_factOnly"),
+      eventId: z.string().min(1),
+    })
+    .strip(),
+  z
+    .object({
       type: z.literal("scheduled"),
       name: z.string().min(1),
       eventId: z.string().min(1),

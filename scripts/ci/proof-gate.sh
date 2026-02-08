@@ -42,6 +42,9 @@ TESTS=(
 
   # Step 1 proof: ingestion rejects invalid/missing timezone and does not attempt RawEvent write
   "services/api/src/routes/__tests__/events.ingest.invalid-timezone.test.ts"
+
+  # Sprint 6: Phase 1 E2E proof — log → recompute → visible → replayable
+  "services/api/src/routes/__tests__/phase1E2E.logRecomputeVisibleReplay.test.ts"
 )
 
 missing=0

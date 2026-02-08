@@ -32,6 +32,15 @@ jobs:
       - name: Constitutional invariant tripwires
         run: npm run check:invariants
 
+      - name: Build API (for assert-api-routes)
+        run: npm run -w api build
+
+      - name: API route invariants
+        run: node scripts/ci/assert-api-routes.mjs
+
+      - name: UI route invariants
+        run: node scripts/ci/assert-ui-routes.mjs
+
       # 🔒 Phase 1 proof gate (NEW)
       # Redundant by design: Phase 1 is "memory, truth, trust"
       - name: Phase 1 proof gate (truth + determinism)

@@ -1,0 +1,11 @@
+{
+  "rawEventIds": ["raw_redacted_001"],
+  "canonicalEventId": "ev_redacted_001",
+  "derivedLedgerRuns": [
+    {
+      "day": "2026-01-15",
+      "runId": "run_redacted_001",
+      "computedAt": "2026-01-15T15:00:00.000Z"
+    }
+  ]
+}
