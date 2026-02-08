@@ -42,6 +42,9 @@ const REQUIRED_UI_ROUTES = [
 
   // Replay
   "app/(app)/(tabs)/library/replay/day/[dayKey].tsx",
+
+  // Failures (Phase 1 Lock #2)
+  "app/(app)/failures/index.tsx",
 ];
 
 const missing = REQUIRED_UI_ROUTES.filter((p) => !fs.existsSync(path.join(ROOT, p)));

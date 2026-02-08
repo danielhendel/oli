@@ -3,6 +3,7 @@ import React, { useMemo, useState, useCallback } from "react";
 import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { ErrorState } from "@/lib/ui/ScreenStates";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useFailures } from "@/lib/data/useFailures";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
@@ -106,7 +107,7 @@ export default function FailuresScreen() {
         )}
       </View>
 
-      {state.status === "loading" ? (
+      {state.status === "partial" ? (
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Loading failures…</Text>
           <Text style={styles.infoText}>If failures exist, they will be shown.</Text>
@@ -114,11 +115,13 @@ export default function FailuresScreen() {
       ) : null}
 
       {state.status === "error" ? (
-        <View style={[styles.infoCard, styles.errorCard]}>
-          <Text style={styles.errorTitle}>Failed to load failures</Text>
-          <Text style={styles.infoText}>{state.error}</Text>
-          {state.requestId ? <Text style={styles.requestId}>Request ID: {state.requestId}</Text> : null}
-        </View>
+        <ErrorState
+          title="Failed to load failures"
+          message={state.error}
+          requestId={state.requestId}
+          onRetry={() => state.refetch()}
+          isContractError={state.reason === "contract"}
+        />
       ) : null}
 
       {state.status === "ready" ? (
@@ -193,17 +196,5 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 13,
     opacity: 0.75,
-  },
-  errorCard: {
-    backgroundColor: "#FDECEC",
-  },
-  errorTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#B00020",
-  },
-  requestId: {
-    fontSize: 12,
-    opacity: 0.7,
   },
 });
