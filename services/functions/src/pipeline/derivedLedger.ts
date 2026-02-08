@@ -1,7 +1,8 @@
 // services/functions/src/pipeline/derivedLedger.ts
 
 import crypto from "node:crypto";
-import type { DocumentReference, Firestore, Timestamp } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 
 export type IsoDateTimeString = string;
 export type YmdDateString = string;
@@ -154,7 +155,7 @@ export async function writeDerivedLedgerRun(args: {
   const runRef = dayPointerRef.collection("runs").doc(runId);
   const snapshotsRef = runRef.collection("snapshots");
 
-  const now = (await import("firebase-admin/firestore")).Timestamp.now();
+  const now = Timestamp.now();
 
   // NOTE: exactOptionalPropertyTypes=true → omit optional props when undefined
   const runRecord: LedgerRunRecord = {

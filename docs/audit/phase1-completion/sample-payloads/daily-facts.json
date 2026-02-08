@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "userId": "uid_redacted",
+  "date": "2026-01-15",
+  "computedAt": "2026-01-15T15:00:00.000Z",
+  "body": {
+    "weightKg": 73.5,
+    "bodyFatPercent": 18
+  }
+}

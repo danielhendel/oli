@@ -1,0 +1,48 @@
+{
+  "day": "2026-01-15",
+  "runId": "run_redacted_001",
+  "computedAt": "2026-01-15T15:00:00.000Z",
+  "pipelineVersion": 1,
+  "trigger": {
+    "type": "realtime",
+    "name": "onCanonicalEventCreated",
+    "eventId": "ev_redacted_001"
+  },
+  "dailyFacts": {
+    "schemaVersion": 1,
+    "userId": "uid_redacted",
+    "date": "2026-01-15",
+    "computedAt": "2026-01-15T15:00:00.000Z",
+    "body": {
+      "weightKg": 73.5,
+      "bodyFatPercent": 18
+    }
+  },
+  "intelligenceContext": {
+    "schemaVersion": 1,
+    "version": "1.0.0",
+    "id": "2026-01-15",
+    "userId": "uid_redacted",
+    "date": "2026-01-15",
+    "computedAt": "2026-01-15T15:00:00.000Z",
+    "facts": {
+      "weightKg": 73.5,
+      "bodyFatPercent": 18
+    },
+    "insights": {
+      "count": 0,
+      "tags": [],
+      "kinds": [],
+      "ids": []
+    },
+    "readiness": {
+      "hasDailyFacts": true,
+      "hasInsights": true
+    }
+  },
+  "insights": {
+    "day": "2026-01-15",
+    "count": 0,
+    "items": []
+  }
+}

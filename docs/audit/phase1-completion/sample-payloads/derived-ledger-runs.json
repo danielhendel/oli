@@ -1,0 +1,25 @@
+{
+  "day": "2026-01-15",
+  "latestRunId": "run_redacted_001",
+  "runs": [
+    {
+      "schemaVersion": 1,
+      "runId": "run_redacted_001",
+      "userId": "uid_redacted",
+      "date": "2026-01-15",
+      "computedAt": "2026-01-15T15:00:00.000Z",
+      "pipelineVersion": 1,
+      "trigger": {
+        "type": "realtime",
+        "name": "onCanonicalEventCreated",
+        "eventId": "ev_redacted_001"
+      },
+      "outputs": {
+        "hasDailyFacts": true,
+        "insightsCount": 0,
+        "hasIntelligenceContext": true
+      },
+      "createdAt": "2026-01-15T15:00:00.000Z"
+    }
+  ]
+}

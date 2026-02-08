@@ -84,6 +84,7 @@ const mustHave = [
   { method: "GET", path: "/timeline" },
   { method: "GET", path: "/lineage" },
   { method: "GET", path: "/derived-ledger/snapshot" },
+  { method: "GET", path: "/derived-ledger/runs" },
 ];
 
 // Hard fail if route table is empty — means we aren’t inspecting the right thing.
