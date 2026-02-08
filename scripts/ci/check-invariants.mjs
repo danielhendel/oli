@@ -1197,6 +1197,105 @@ See lib/contracts/readiness.ts.`;
   );
 }
 
+/**
+ * CHECK 21 — PHASE_1_DEFINITION.md must match enforced routes + readiness
+ *
+ * Enforces repo-truth LAW: the authoritative Phase 1 definition document must
+ * contain the canonical readiness vocabulary and the exact API/UI routes
+ * enforced by assert-api-routes and assert-ui-routes.
+ */
+function checkPhase1DefinitionDocMatchesEnforcedReality() {
+  const docPath = path.join(ROOT, "docs", "00_truth", "phase1", "PHASE_1_DEFINITION.md");
+  if (!exists(docPath)) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- Missing required file: docs/00_truth/phase1/PHASE_1_DEFINITION.md\n\n` +
+        `Fix: create PHASE_1_DEFINITION.md as the authoritative repo-truth LAW document.`,
+    );
+  }
+
+  const text = readText(docPath);
+
+  // Canonical readiness vocabulary (must appear as structured list or inline)
+  const readinessOk =
+    /missing\s*\|\s*partial\s*\|\s*ready\s*\|\s*error/.test(text) ||
+    [/missing/, /partial/, /ready/, /error/].every((re) => re.test(text));
+
+  if (!readinessOk) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- docs/00_truth/phase1/PHASE_1_DEFINITION.md must contain canonical readiness vocabulary: missing | partial | ready | error\n\n` +
+        `Fix: add the readiness vocabulary line to match lib/contracts/readiness.ts.`,
+    );
+  }
+
+  // Required API routes section + all routes from assert-api-routes.mjs
+  if (!/Required API Routes/i.test(text)) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- Missing section header "Required API routes" (or "Required API Routes")\n\n` +
+        `Fix: add a "Required API routes" section listing what assert-api-routes.mjs enforces.`,
+    );
+  }
+
+  const apiRoutes = [
+    "/export",
+    "/account/delete",
+    "/raw-events",
+    "/events",
+    "/timeline",
+    "/lineage",
+    "/derived-ledger/snapshot",
+    "/derived-ledger/runs",
+  ];
+  const missingApi = apiRoutes.filter((r) => !text.includes(r));
+  if (missingApi.length) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- "Required API routes" section is missing these routes (enforced by assert-api-routes.mjs):\n` +
+        missingApi.map((r) => `  - ${r}`).join("\n") +
+        `\n\nFix: add all asserted API routes to PHASE_1_DEFINITION.md.`,
+    );
+  }
+
+  // Required UI routes section + all routes from assert-ui-routes.mjs
+  if (!/Required UI Routes/i.test(text)) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- Missing section header "Required UI routes" (or "Required UI Routes")\n\n` +
+        `Fix: add a "Required UI routes" section listing what assert-ui-routes.mjs enforces.`,
+    );
+  }
+
+  const uiRoutes = [
+    "app/(app)/(tabs)/_layout.tsx",
+    "app/(app)/(tabs)/dash.tsx",
+    "app/(app)/(tabs)/timeline/index.tsx",
+    "app/(app)/(tabs)/timeline/[day].tsx",
+    "app/(app)/(tabs)/manage.tsx",
+    "app/(app)/(tabs)/library/index.tsx",
+    "app/(app)/(tabs)/library/[category].tsx",
+    "app/(app)/(tabs)/stats.tsx",
+    "app/(app)/event/[id].tsx",
+    "app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx",
+    "app/(app)/(tabs)/library/replay/day/[dayKey].tsx",
+    "app/(app)/failures/index.tsx",
+  ];
+  const missingUi = uiRoutes.filter((r) => !text.includes(r));
+  if (missingUi.length) {
+    fail(
+      `CHECK 21 (Phase 1 definition doc) failed:\n` +
+        `- "Required UI routes" section is missing these route files (enforced by assert-ui-routes.mjs):\n` +
+        missingUi.map((r) => `  - ${r}`).join("\n") +
+        `\n\nFix: add all asserted UI routes to PHASE_1_DEFINITION.md.`,
+    );
+  }
+
+  console.log(
+    "✅ CHECK 21 passed: PHASE_1_DEFINITION.md contains canonical readiness + required API/UI routes.", 
+  );
+}
+
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [
   { id: 1, fn: checkAdminHttpNotPublic },
@@ -1219,6 +1318,7 @@ const CHECKS = [
   { id: 18, fn: checkCanonicalWriteIsImmutable },
   { id: 19, fn: checkDerivedWritersEmitLedgerRuns },
   { id: 20, fn: checkReadinessDrift },
+  { id: 21, fn: checkPhase1DefinitionDocMatchesEnforcedReality },
 ];
 
 function main() {

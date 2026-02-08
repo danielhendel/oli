@@ -45,6 +45,7 @@ This file is required by CI and is audited.
 | I-14 | Canonical event kinds match ingestion RawEvent kinds (no kind drift) | Contracts + CI drift check | **CHECK 15** | Ingestion can’t produce supported canonical kinds (pipeline break) |
 | I-17 | Derived truth must be historically replayable (append-only ledger captures what was known) | Backend derived writers must emit immutable ledger runs + snapshots | **CHECK 19** + code review | “What was known at the time” cannot be reconstructed |
 | I-18 | Readiness vocabulary is canonical (missing, partial, ready, error) — no drift | CI static scan of app/lib/components for disallowed strings | **CHECK 20** | Readiness semantics fragment; UI/redux drift; downstream bugs |
+| I-19 | Phase 1 definition doc must match enforced routes + readiness (repo-truth LAW) | CI reads PHASE_1_DEFINITION.md and asserts content | **CHECK 21** | LAW doc drifts from CI-enforced reality; auditors get wrong contract |
 
 
 ---
@@ -220,6 +221,7 @@ This file is required by CI and is audited.
   - **CHECK 18** — Canonical events are written immutably (no overwrite)
   - **CHECK 19** — Derived writers emit Derived Ledger runs (append-only historical truth)
   - **CHECK 20** — Readiness vocabulary is canonical (Phase 1 Lock #3; no loading/empty/invalid/etc.)
+  - **CHECK 21** — PHASE_1_DEFINITION.md must match enforced routes + readiness (repo-truth LAW)
 - Firestore emulator tests
 - Manual infra inspection (IAM / Gateway)
 
@@ -287,4 +289,18 @@ Any change to this file requires:
   - `lib/contracts/readiness.ts`
   - `scripts/ci/check-invariants.mjs` (**CHECK 20**)
   - `scripts/ci/readiness-drift-check.mjs` (extracted logic, testable)
+
+### I-19 — Phase 1 definition doc must match enforced reality (repo-truth LAW)
+- **Enforced by**: CI invariant tripwire
+- **Mechanism**:
+  - `docs/00_truth/phase1/PHASE_1_DEFINITION.md` must exist
+  - Must contain canonical readiness vocabulary (missing | partial | ready | error)
+  - Must contain "Required API routes" section with every route from `assert-api-routes.mjs`
+  - Must contain "Required UI routes" section with every route from `assert-ui-routes.mjs`
+- **Verified by**:
+  - **CHECK 21** (CI)
+- **Files**:
+  - `docs/00_truth/phase1/PHASE_1_DEFINITION.md`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 21**)
+  - `scripts/ci/__tests__/phase1-definition-invariant.test.ts`
 
