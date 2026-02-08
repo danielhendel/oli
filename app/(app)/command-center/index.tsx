@@ -177,11 +177,11 @@ function useReplayUi(dayKey: string): ReplayUiState {
     enabled: true,
     isOpen,
     runs: runsState.status === "ready" ? runsState.data : null,
-    runsLoading: runsState.status === "loading",
+    runsLoading: runsState.status === "partial",
     runsError: runsState.status === "error" ? runsState.error : null,
     selectedRunId: selectedRunIdParam,
     replay: replayState.status === "ready" ? replayState.data : null,
-    replayLoading: replayState.status === "loading",
+    replayLoading: replayState.status === "partial",
     replayError: replayState.status === "error" ? replayState.error : null,
     replayMissing: replayState.status === "missing",
   };
@@ -647,14 +647,14 @@ function QuickActionsRow(props: { dayKey: string }) {
 }
 
 type FailuresPresenceUi =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; hasFailures: boolean; latestCreatedAt: string | null };
 
 function FailurePresenceCard(props: { state: FailuresPresenceUi; onPress: () => void }) {
   const s = props.state;
 
-  if (s.status === "loading") {
+  if (s.status === "partial") {
     return (
       <Pressable onPress={props.onPress} style={[styles.failuresCard, styles.failuresCardNeutral]}>
         <Text style={styles.failuresLabel}>Failures</Text>
@@ -739,7 +739,7 @@ export default function CommandCenterScreen(props: Props) {
   const uploadsPresence = useUploadsPresence();
 
   const failuresPresenceUi: FailuresPresenceUi = useMemo(() => {
-    if (failuresPresence.status === "loading") return { status: "loading" };
+    if (failuresPresence.status === "partial") return { status: "partial" };
     if (failuresPresence.status === "error") {
       return { status: "error", error: failuresPresence.error, requestId: failuresPresence.requestId };
     }
@@ -826,7 +826,7 @@ export default function CommandCenterScreen(props: Props) {
   const factsReadiness = replayModeActive
     ? undefined
     : resolveReadiness({
-        network: facts.status === "loading" ? "loading" : facts.status === "error" ? "error" : "ok",
+        network: facts.status === "partial" ? "loading" : facts.status === "error" ? "error" : "ok",
         zodValid: facts.status === "ready" || facts.status === "missing",
         eventsCount,
         computedAtIso: factsComputedAt,
@@ -838,7 +838,7 @@ export default function CommandCenterScreen(props: Props) {
   const ctxReadiness = replayModeActive
     ? undefined
     : resolveReadiness({
-        network: ctx.status === "loading" ? "loading" : ctx.status === "error" ? "error" : "ok",
+        network: ctx.status === "partial" ? "loading" : ctx.status === "error" ? "error" : "ok",
         zodValid: ctx.status === "ready" || ctx.status === "missing",
         eventsCount,
         computedAtIso: ctxComputedAt,
@@ -853,8 +853,8 @@ export default function CommandCenterScreen(props: Props) {
 
   const anyLoading =
     replayModeActive
-      ? Boolean(props.replayLoading ?? replayLoading) || dayTruth.status === "loading"
-      : dayTruth.status === "loading" || facts.status === "loading" || insights.status === "loading" || ctx.status === "loading";
+      ? Boolean(props.replayLoading ?? replayLoading) || dayTruth.status === "partial"
+      : dayTruth.status === "partial" || facts.status === "partial" || insights.status === "partial" || ctx.status === "partial";
 
   const anyError =
     replayModeActive
@@ -864,25 +864,23 @@ export default function CommandCenterScreen(props: Props) {
   const dataReadinessState =
     replayModeActive
       ? anyLoading
-        ? "loading"
+        ? "partial"
         : anyError
-          ? "invalid"
+          ? "error"
           : hasDataForDay
             ? derivedReady
               ? "ready"
               : "partial"
-            : "empty"
+            : "missing"
       : factsReadiness && ctxReadiness
-        ? factsReadiness.state === "invalid" || ctxReadiness.state === "invalid"
-          ? "invalid"
+        ? factsReadiness.state === "error" || ctxReadiness.state === "error"
+          ? "error"
           : factsReadiness.state === "partial" || ctxReadiness.state === "partial"
             ? "partial"
-            : factsReadiness.state === "empty" || ctxReadiness.state === "empty"
-              ? "empty"
-              : factsReadiness.state === "loading" || ctxReadiness.state === "loading"
-                ? "loading"
-                : "ready"
-        : "loading";
+            : factsReadiness.state === "missing" || ctxReadiness.state === "missing"
+              ? "missing"
+              : "ready"
+        : "partial";
 
   const stopPolling = useCallback(() => {
     if (pollTimer.current) clearInterval(pollTimer.current);

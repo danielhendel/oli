@@ -1,0 +1,157 @@
+🔒 Phase 1 proof gate starting…
+→ Invariants (binding)
+Running Oli constitutional invariant CI checks...
+
+✅ CHECK 1 passed: Admin/recompute HTTP endpoints are not declared public and require explicit invoker.
+✅ CHECK 2 passed: No client-side writes to derived truth collections detected.
+✅ CHECK 3 passed: API ingestion routes appear to enforce Idempotency-Key.
+✅ CHECK 4 passed: API starts Firestore paths only at collection('users').
+✅ CHECK 5 passed: Account deletion route has a Functions Pub/Sub executor.
+ℹ️ CHECK 7 skipped (not CI): local ios/Pods may exist after pod install / expo prebuild.
+✅ CHECK 8 passed: patch-package patches match package-lock.json versions and appear valid.
+✅ CHECK 9 passed: API route files do not directly import/call firebase-admin Firestore.
+✅ CHECK 10 passed: Required IAM snapshot JSON files are present under docs/_snapshots/iam/.
+✅ CHECK 11 passed: Project IAM contains no roles/editor bindings.
+✅ CHECK 12 passed: No default service account members appear in project IAM bindings.
+✅ CHECK 13 passed: Cloud Run + Functions runtime identities match the allowlist.
+✅ CHECK 14 passed: Cloud Run is not public and API Gateway is an authorized invoker.
+✅ CHECK 15 passed: CanonicalEventKind ⊆ rawEventKindSchema; raw-only kinds are explicitly allowlisted (no drift).
+✅ CHECK 16 passed: Phase 1 scope contract exists and is non-trivial.
+✅ CHECK 17 passed: API does not target derived/canonical collections directly.
+✅ CHECK 18 passed: Canonical events are written immutably (no overwrite).
+✅ CHECK 19 passed: Derived truth writers emit Derived Ledger runs.
+✅ CHECK 20 passed: No non-canonical readiness strings in app/lib/components (Phase 1 Lock #3).
+✅ CHECK 6 passed: INVARIANTS_MAP is binding and perfectly aligned with enforcement (no drift, no orphan invariants).
+Running client trust boundary guards...
+
+✅ CHECK 1 passed: fetch( only in lib/api/http.ts
+✅ CHECK 2 passed: apiGetJsonAuthed( only in validate.ts or debug paths
+✅ CHECK 3 passed: Phase 1 screens do not import from lib/api/http
+
+✅ All client trust boundary checks passed.
+
+✅ All invariant checks passed.
+→ Phase 1 proof tests
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+
+> oli@1.0.0 test
+> node scripts/test/run-jest-with-firestore-emulator.mjs --ci --runInBand --passWithNoTests=false --runTestsByPath services/functions/src/normalization/__tests__/canonicalImmutability.test.ts services/functions/src/ingestion/__tests__/rawEventDedupe.test.ts services/functions/src/http/__tests__/authoritativeRecompute.noMerge.test.ts services/functions/src/http/__tests__/recomputeInsights.authoritative.test.ts services/functions/src/pipeline/__tests__/phase1Determinism.unit.test.ts services/functions/src/normalization/__tests__/mapRawEventToCanonical.test.ts services/api/src/routes/__tests__/events.ingest.invalid-timezone.test.ts services/api/src/routes/__tests__/phase1E2E.logRecomputeVisibleReplay.test.ts services/api/src/routes/__tests__/phase1E2E.replayImmutability.test.ts services/api/src/routes/__tests__/phase1E2E.exportProof.test.ts
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+i  emulators: Starting emulators: firestore
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: jest
+watchman warning:  Recrawled this watch 11 times, most recently because:
+MustScanSubDirs UserDroppedTo resolve, please review the information on
+https://facebook.github.io/watchman/docs/troubleshooting.html#recrawl
+To clear this warning, run:
+`watchman watch-del '/Users/danielhendel/oli' ; watchman watch-project '/Users/danielhendel/oli'`
+
+PASS services/api/src/routes/__tests__/rawEvents.read.test.ts
+PASS services/api/src/routes/__tests__/timeline.test.ts
+PASS services/api/src/routes/__tests__/lineage.test.ts
+PASS services/api/src/routes/__tests__/rawEvents.list.test.ts
+  ● Console
+
+    console.error
+      {"level":"error","msg":"invalid_firestore_doc","rid":"unknown","resource":"rawEvents","details":{"docId":"raw_bad","issues":{"formErrors":[],"fieldErrors":{"observedAt":["Invalid ISO datetime string"]}}}}
+
+       7 | export const logger = {
+       8 |   info: (o: LogPayload) => console.log(JSON.stringify({ level: "info", ...o })),
+    >  9 |   error: (o: LogPayload) => console.error(JSON.stringify({ level: "error", ...o })),
+         |                                     ^
+      10 | };
+      11 |
+      12 | export type RequestWithRid = Request & { rid?: string };
+
+      at Object.error (services/api/src/lib/logger.ts:9:37)
+      at error (services/api/src/routes/usersMe.ts:84:10)
+      at invalidDoc500 (services/api/src/routes/usersMe.ts:581:9)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS services/api/src/routes/__tests__/uploads.list.test.ts
+  ● Console
+
+    console.error
+      {"level":"error","msg":"invalid_firestore_doc","rid":"unknown","resource":"rawEvents","details":{"docId":"idem_bad","issues":{"formErrors":["Invalid payload for kind=\"file\"","{\"formErrors\":[],\"fieldErrors\":{\"storageBucket\":[\"String must contain at least 1 character(s)\"],\"storagePath\":[\"String must contain at least 1 character(s)\"],\"sha256\":[\"String must contain at least 1 character(s)\"],\"sizeBytes\":[\"Number must be greater than or equal to 0\"],\"mimeType\":[\"String must contain at least 1 character(s)\"],\"originalFilename\":[\"String must contain at least 1 character(s)\"]}}"],"fieldErrors":{}}}}
+
+       7 | export const logger = {
+       8 |   info: (o: LogPayload) => console.log(JSON.stringify({ level: "info", ...o })),
+    >  9 |   error: (o: LogPayload) => console.error(JSON.stringify({ level: "error", ...o })),
+         |                                     ^
+      10 | };
+      11 |
+      12 | export type RequestWithRid = Request & { rid?: string };
+
+      at Object.error (services/api/src/lib/logger.ts:9:37)
+      at error (services/api/src/routes/usersMe.ts:84:10)
+      at invalidDoc500 (services/api/src/routes/usersMe.ts:411:9)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS services/api/src/routes/__tests__/labResults.v0.test.ts
+PASS services/functions/src/ingestion/__tests__/rawEventDedupe.test.ts
+PASS app/(app)/(tabs)/library/replay/day/__tests__/replay-day-run-selection.test.tsx
+PASS services/api/src/routes/__tests__/failures.proof.test.ts
+PASS services/functions/src/http/__tests__/authoritativeRecompute.noMerge.test.ts
+PASS services/api/src/routes/__tests__/events.list.test.ts
+PASS services/api/src/routes/__tests__/events.ingest.invalid-timezone.test.ts
+PASS services/functions/src/http/__tests__/recomputeInsights.authoritative.test.ts
+PASS services/api/src/routes/__tests__/derivedLedger.snapshot.test.ts
+PASS app/(app)/failures/__tests__/failures-screen-renders.test.tsx
+PASS app/(app)/(tabs)/library/lineage/__tests__/lineage-screen-fail-closed.test.tsx
+PASS lib/modules/__tests__/commandCenterNutrition.test.ts
+PASS lib/events/__tests__/manualStrengthWorkout.test.ts
+PASS lib/modules/__tests__/commandCenterCardio.test.ts
+PASS services/functions/src/pipeline/__tests__/phase1Determinism.unit.test.ts
+PASS services/functions/src/failures/__tests__/writeFailureImmutable.test.ts
+PASS lib/modules/__tests__/commandCenterStrength.test.ts
+PASS app/(app)/(tabs)/library/lineage/__tests__/lineage-screen-valid.test.tsx
+PASS services/functions/src/normalization/__tests__/mapRawEventToCanonical.test.ts
+PASS services/functions/src/dailyFacts/__tests__/aggregateDailyFacts.test.ts
+PASS components/failures/__tests__/FailureList.test.tsx
+PASS lib/modules/__tests__/commandCenterLabs.test.ts
+PASS lib/modules/__tests__/commandCenterRecovery.test.ts
+PASS services/functions/src/dailyFacts/__tests__/enrichDailyFacts.test.ts
+PASS app/(app)/(tabs)/__tests__/tabs-navigation.test.tsx
+PASS lib/modules/__tests__/commandCenterReadiness.test.ts
+PASS app/(app)/(tabs)/library/replay/day/__tests__/replay-day-valid.test.tsx
+PASS lib/util/__tests__/clamp.test.js
+PASS lib/ui/__tests__/ProvenanceRow.test.tsx
+PASS services/api/src/routes/__tests__/preferences.test.ts
+PASS lib/data/__tests__/readiness.test.ts
+PASS services/functions/src/validation/__tests__/rawEvent.contract.test.ts
+PASS lib/api/__tests__/validate.test.ts
+PASS app/(app)/failures/__tests__/failures-screen-fail-closed.test.tsx
+PASS services/functions/src/normalization/__tests__/onRawEventCreated.factOnly.test.ts
+PASS services/functions/src/normalization/__tests__/canonicalImmutability.test.ts
+PASS services/functions/src/http/__tests__/ingestRawEventHttp.test.ts
+PASS lib/data/__tests__/resolveReadiness.test.ts
+PASS app/(app)/(tabs)/__tests__/timeline-fail-closed.test.tsx
+PASS app/(app)/(tabs)/library/replay/day/__tests__/replay-day-fail-closed.test.tsx
+PASS services/functions/src/ingestion/__tests__/rawEvents.test.ts
+PASS lib/time/__tests__/dayKey.test.js
+PASS lib/navigation/__tests__/refreshBus.test.ts
+PASS lib/ui/__tests__/ScreenStates.test.tsx
+PASS lib/data/__tests__/truthOutcome.test.ts
+PASS services/functions/src/insights/__tests__/rules.test.ts
+PASS scripts/ci/__tests__/readiness-invariant.test.ts
+PASS lib/modules/__tests__/commandCenterBody.test.ts
+PASS services/functions/src/intelligence/__tests__/buildDailyIntelligenceContext.test.ts
+PASS services/api/src/routes/__tests__/phase1E2E.exportProof.test.ts
+PASS services/api/src/routes/__tests__/phase1E2E.logRecomputeVisibleReplay.test.ts
+PASS services/api/src/routes/__tests__/phase1E2E.replayImmutability.test.ts
+PASS services/functions/src/security/__tests__/firestore.rules.test.ts
+
+Test Suites: 58 passed, 58 total
+Tests:       237 passed, 237 total
+Snapshots:   0 total
+Time:        2.741 s, estimated 3 s
+Ran all test suites.
+✔  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  logging: Stopping Logging Emulator
+✅ Phase 1 proof gate passed.

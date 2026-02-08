@@ -45,13 +45,13 @@ export default function LibraryIndexScreen() {
 
   const getCategoryCount = (cat: LibraryCategory): string => {
     if (cat.id === "failures") {
-      if (failures.status === "loading") return "…";
+      if (failures.status === "partial") return "…";
       if (failures.status === "ready")
         return String(failures.data.items.length);
       return "—";
     }
     if (cat.id === "uploads") {
-      if (uploads.status === "loading") return "…";
+      if (uploads.status === "partial") return "…";
       if (uploads.status === "ready") return String(uploads.data.count);
       return "—";
     }

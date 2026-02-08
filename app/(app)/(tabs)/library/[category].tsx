@@ -82,7 +82,7 @@ export default function LibraryCategoryScreen() {
     );
   }
 
-  if (events.status === "loading") {
+  if (events.status === "partial") {
     return (
       <ScreenContainer>
         <LoadingState message="Loading events…" />

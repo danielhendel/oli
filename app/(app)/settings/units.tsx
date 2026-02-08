@@ -55,7 +55,7 @@ export default function UnitsSettingsScreen() {
         })}
       </View>
 
-      {state.status === "loading" ? (
+      {state.status === "partial" ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <ActivityIndicator />
           <Text>Saving…</Text>

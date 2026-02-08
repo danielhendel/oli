@@ -32,6 +32,9 @@ jobs:
       - name: Constitutional invariant tripwires
         run: npm run check:invariants
 
+      - name: Client trust boundary guard
+        run: node scripts/ci/assert-client-trust-boundary.mjs
+
       - name: Build API (for assert-api-routes)
         run: npm run -w api build
 

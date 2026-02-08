@@ -2,6 +2,7 @@
 /* eslint-disable no-console */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const ROOT = process.cwd();
 
@@ -1129,6 +1130,73 @@ function checkDerivedWritersEmitLedgerRuns() {
   console.log("✅ CHECK 19 passed: Derived truth writers emit Derived Ledger runs.");
 }
 
+/**
+ * CHECK 20 — Readiness vocabulary is canonical (Phase 1 Lock #3)
+ *
+ * Fails if non-canonical readiness strings appear in app/lib/components.
+ * Canonical: missing | partial | ready | error
+ * Disallowed: loading, empty, invalid, not-ready, unknown, unready, pending, coming_soon
+ */
+function checkReadinessDrift() {
+  const DISALLOWED = [
+    "loading",
+    "empty",
+    "invalid",
+    "not-ready",
+    "unknown",
+    "unready",
+    "pending",
+    "coming_soon",
+  ];
+  const pattern = new RegExp(
+    `(?:^|[^\\w])(?:status|state)\\s*:\\s*["'](${DISALLOWED.join("|")})["']`,
+    "g",
+  );
+
+  const targets = ["app", "lib", "components"]
+    .map((d) => path.join(ROOT, d))
+    .filter((p) => exists(p));
+
+  const offenders = [];
+
+  for (const dir of targets) {
+    const files = walk(dir, {
+      includeExts: [".ts", ".tsx"],
+      ignoreDirs: ["__tests__", "dist"],
+    });
+    for (const f of files) {
+      if (f.includes(".test.")) continue;
+      const text = readText(f);
+      let m;
+      // eslint-disable-next-line no-cond-assign
+      while ((m = pattern.exec(text)) !== null) {
+        offenders.push({ path: rel(f), values: [m[1]] });
+      }
+    }
+  }
+
+  if (offenders.length) {
+    const byPath = new Map();
+    for (const o of offenders) {
+      const key = o.path;
+      if (!byPath.has(key)) byPath.set(key, new Set());
+      byPath.get(key).add(o.values[0]);
+    }
+    const msg =
+      `CHECK 20 (Readiness drift) failed:\n` +
+      [...byPath.entries()]
+        .map(([p, vals]) => `- ${p}: disallowed readiness values: ${[...vals].join(", ")}`)
+        .join("\n") +
+      `\n\nFix: Use only canonical readiness vocabulary: missing | partial | ready | error.
+See lib/contracts/readiness.ts.`;
+    fail(msg);
+  }
+
+  console.log(
+    "✅ CHECK 20 passed: No non-canonical readiness strings in app/lib/components (Phase 1 Lock #3).",
+  );
+}
+
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [
   { id: 1, fn: checkAdminHttpNotPublic },
@@ -1150,6 +1218,7 @@ const CHECKS = [
   { id: 17, fn: checkApiRawEventsFirstNoDerivedTargets },
   { id: 18, fn: checkCanonicalWriteIsImmutable },
   { id: 19, fn: checkDerivedWritersEmitLedgerRuns },
+  { id: 20, fn: checkReadinessDrift },
 ];
 
 function main() {
@@ -1162,6 +1231,15 @@ function main() {
 
   // Run drift/orphan enforcement against the registry
   checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds); // CHECK 6
+
+  // Client trust boundary guard (fetch, apiGetJsonAuthed, Phase 1 screens)
+  const boundary = spawnSync("node", ["scripts/ci/assert-client-trust-boundary.mjs"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (boundary.status !== 0) {
+    process.exit(boundary.status ?? 1);
+  }
 
   console.log("\n✅ All invariant checks passed.");
 }

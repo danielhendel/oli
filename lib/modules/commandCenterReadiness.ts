@@ -8,19 +8,18 @@ import type { CommandCenterModuleId } from "./commandCenterModules";
  * - Fail-closed: when truth is not provably valid, we disable module navigation (except Settings).
  */
 
-export type CommandCenterDataReadinessState = "loading" | "empty" | "invalid" | "partial" | "ready";
+/** Phase 1 Lock #3: Canonical readiness vocabulary. */
+export type CommandCenterDataReadinessState = "missing" | "partial" | "ready" | "error";
 
 export type ModuleBadge = "Ready" | "Soon" | "Connect" | "Empty";
 
 function badgeForDataState(state: CommandCenterDataReadinessState): string | undefined {
   switch (state) {
-    case "loading":
-      return "Loading";
-    case "empty":
-      return "Empty";
     case "partial":
       return "Needs input";
-    case "invalid":
+    case "missing":
+      return "Empty";
+    case "error":
       return "Error";
     case "ready":
       return undefined;

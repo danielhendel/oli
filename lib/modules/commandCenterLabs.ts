@@ -1,7 +1,9 @@
 // lib/modules/commandCenterLabs.ts
 import type { UploadsPresence } from "@/lib/data/useUploadsPresence";
 
-export type ReadinessVocabularyState = "loading" | "empty" | "invalid" | "partial" | "ready";
+import type { Readiness } from "../contracts/readiness";
+
+export type ReadinessVocabularyState = Readiness;
 
 export type LabsCommandCenterModel = {
   state: ReadinessVocabularyState;
@@ -30,11 +32,12 @@ export function buildLabsCommandCenterModel(args: {
 }): LabsCommandCenterModel {
   const { dataReadinessState, uploads, hasFailures } = args;
 
-  if (dataReadinessState === "loading") {
+  if (dataReadinessState === "partial") {
     return {
-      state: "loading",
+      state: "partial",
       title: "Labs",
-      description: "Loading lab uploads presence…",
+      description:
+        "Your derived truth is still building (partial). Lab upload presence will be available when the pipeline catches up.",
       latestSummary: null,
       showUploadCta: false,
       showViewCta: false,
@@ -42,9 +45,9 @@ export function buildLabsCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "invalid") {
+  if (dataReadinessState === "error") {
     return {
-      state: "invalid",
+      state: "error",
       title: "Labs",
       description:
         "Your derived truth is currently invalid (pipeline error). Fix upstream issues or review failures to understand why labs cannot be shown.",
@@ -55,26 +58,13 @@ export function buildLabsCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "empty") {
+  if (dataReadinessState === "missing") {
     return {
-      state: "empty",
+      state: "missing",
       title: "Labs",
       description: "No events yet today — lab uploads will appear here once you add data.",
       latestSummary: null,
       showUploadCta: true,
-      showViewCta: false,
-      showFailuresCta: hasFailures,
-    };
-  }
-
-  if (dataReadinessState === "partial") {
-    return {
-      state: "partial",
-      title: "Labs",
-      description:
-        "Your derived truth is still building (partial). Lab upload presence will be available when the pipeline catches up.",
-      latestSummary: null,
-      showUploadCta: false,
       showViewCta: false,
       showFailuresCta: hasFailures,
     };

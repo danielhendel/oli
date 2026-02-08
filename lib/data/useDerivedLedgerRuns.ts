@@ -2,14 +2,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
+import type { FailureKind } from "@/lib/api/http";
 import { getDerivedLedgerRuns, type TruthGetOptions } from "@/lib/api/derivedLedgerMe";
 import type { DerivedLedgerRunsResponseDto } from "@/lib/contracts/derivedLedger";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "missing" }
-  | { status: "error"; error: string; requestId: string | null }
+  | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "ready"; data: DerivedLedgerRunsResponseDto };
 
 type RefetchOpts = TruthGetOptions;
@@ -40,7 +41,7 @@ export function useDerivedLedgerRuns(
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>(enabled ? { status: "loading" } : { status: "missing" });
+  const [state, setState] = useState<State>(enabled ? { status: "partial" } : { status: "missing" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -60,7 +61,7 @@ export function useDerivedLedgerRuns(
       }
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -69,11 +70,11 @@ export function useDerivedLedgerRuns(
 
       if (!token) {
         if (stateRef.current.status === "ready") return;
-        safeSet({ status: "error", error: "No auth token", requestId: null });
+        safeSet({ status: "error", error: "No auth token", requestId: null, reason: "unknown" });
         return;
       }
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
@@ -94,7 +95,7 @@ export function useDerivedLedgerRuns(
       }
 
       if (stateRef.current.status === "ready") return;
-      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
     },
     [getIdToken, initializing, user],
   );

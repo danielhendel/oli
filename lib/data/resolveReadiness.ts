@@ -3,7 +3,8 @@ import { isCompatiblePipelineVersion, isFreshComputedAt } from "@/lib/data/readi
 
 export type NetworkStatus = "loading" | "ok" | "error";
 
-export type ReadinessState = "loading" | "empty" | "invalid" | "partial" | "ready";
+/** Phase 1 Lock #3: Canonical readiness vocabulary. Use Readiness from @oli/contracts. */
+export type ReadinessState = "missing" | "partial" | "ready" | "error";
 
 export type ResolveReadinessInput = {
   network: NetworkStatus;
@@ -38,14 +39,14 @@ export type ReadinessResult = {
  * This resolver is the single source of truth for readiness gating.
  */
 export function resolveReadiness(input: ResolveReadinessInput): ReadinessResult {
-  if (input.network === "loading") return { state: "loading", reason: "network-loading" };
-  if (input.network === "error") return { state: "invalid", reason: "network-error" };
+  if (input.network === "loading") return { state: "partial", reason: "network-loading" };
+  if (input.network === "error") return { state: "error", reason: "network-error" };
 
   // network === "ok"
   // Sprint 0 Option A: fact-only days (eventsCount=0) can have derived truth via facts/context.
   // Only treat as empty when we have neither events nor computedAt.
-  if (input.eventsCount === 0 && !input.computedAtIso) return { state: "empty", reason: "no-events" };
-  if (input.eventsCount === null) return { state: "loading", reason: "network-loading" };
+  if (input.eventsCount === 0 && !input.computedAtIso) return { state: "missing", reason: "no-events" };
+  if (input.eventsCount === null) return { state: "partial", reason: "network-loading" };
 
   // If events or derived truth exist, schema must be valid.
   if (!input.zodValid) return { state: "partial", reason: "invalid-payload" };
@@ -61,7 +62,7 @@ export function resolveReadiness(input: ResolveReadinessInput): ReadinessResult 
     pipelineVersion: input.pipelineVersion,
     expectedPipelineVersion: input.expectedPipelineVersion,
   });
-  if (!versionOk) return { state: "invalid", reason: "pipeline-version-mismatch" };
+  if (!versionOk) return { state: "error", reason: "pipeline-version-mismatch" };
 
   const fresh = isFreshComputedAt({
     computedAtIso: input.computedAtIso,

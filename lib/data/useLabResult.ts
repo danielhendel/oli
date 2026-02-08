@@ -7,7 +7,7 @@ import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { TruthGetOptions } from "@/lib/api/usersMe";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: LabResultDto };
@@ -26,7 +26,7 @@ export function useLabResult(id: string): State & { refetch: (opts?: TruthGetOpt
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -41,14 +41,14 @@ export function useLabResult(id: string): State & { refetch: (opts?: TruthGetOpt
       };
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
       const token = await getIdToken(false);
       if (!token || seq !== reqSeq.current) return;
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 

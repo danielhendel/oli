@@ -7,7 +7,7 @@ import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: { items: LabResultsListResponseDto["items"]; nextCursor: string | null } };
 
@@ -22,7 +22,7 @@ export function useLabResults(opts?: { limit?: number } & GetOptions): State & {
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -37,7 +37,7 @@ export function useLabResults(opts?: { limit?: number } & GetOptions): State & {
       };
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -50,7 +50,7 @@ export function useLabResults(opts?: { limit?: number } & GetOptions): State & {
         return;
       }
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const mergedOpts = { ...opts, ...refetchOpts };
       const optsUnique = withUniqueCacheBust(mergedOpts, seq);

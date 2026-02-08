@@ -1,0 +1,36 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+
+> oli@1.0.0 check:invariants
+> node scripts/ci/check-invariants.mjs
+
+Running Oli constitutional invariant CI checks...
+
+✅ CHECK 1 passed: Admin/recompute HTTP endpoints are not declared public and require explicit invoker.
+✅ CHECK 2 passed: No client-side writes to derived truth collections detected.
+✅ CHECK 3 passed: API ingestion routes appear to enforce Idempotency-Key.
+✅ CHECK 4 passed: API starts Firestore paths only at collection('users').
+✅ CHECK 5 passed: Account deletion route has a Functions Pub/Sub executor.
+ℹ️ CHECK 7 skipped (not CI): local ios/Pods may exist after pod install / expo prebuild.
+✅ CHECK 8 passed: patch-package patches match package-lock.json versions and appear valid.
+✅ CHECK 9 passed: API route files do not directly import/call firebase-admin Firestore.
+✅ CHECK 10 passed: Required IAM snapshot JSON files are present under docs/_snapshots/iam/.
+✅ CHECK 11 passed: Project IAM contains no roles/editor bindings.
+✅ CHECK 12 passed: No default service account members appear in project IAM bindings.
+✅ CHECK 13 passed: Cloud Run + Functions runtime identities match the allowlist.
+✅ CHECK 14 passed: Cloud Run is not public and API Gateway is an authorized invoker.
+✅ CHECK 15 passed: CanonicalEventKind ⊆ rawEventKindSchema; raw-only kinds are explicitly allowlisted (no drift).
+✅ CHECK 16 passed: Phase 1 scope contract exists and is non-trivial.
+✅ CHECK 17 passed: API does not target derived/canonical collections directly.
+✅ CHECK 18 passed: Canonical events are written immutably (no overwrite).
+✅ CHECK 19 passed: Derived truth writers emit Derived Ledger runs.
+✅ CHECK 20 passed: No non-canonical readiness strings in app/lib/components (Phase 1 Lock #3).
+✅ CHECK 6 passed: INVARIANTS_MAP is binding and perfectly aligned with enforcement (no drift, no orphan invariants).
+Running client trust boundary guards...
+
+✅ CHECK 1 passed: fetch( only in lib/api/http.ts
+✅ CHECK 2 passed: apiGetJsonAuthed( only in validate.ts or debug paths
+✅ CHECK 3 passed: Phase 1 screens do not import from lib/api/http
+
+✅ All client trust boundary checks passed.
+
+✅ All invariant checks passed.

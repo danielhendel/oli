@@ -25,6 +25,7 @@ jest.mock("@/lib/data/useTimeline", () => ({
     status: "error",
     error: "Invalid response shape",
     requestId: "req-123",
+    reason: "contract",
     refetch: jest.fn(),
   }),
 }));

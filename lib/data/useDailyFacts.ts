@@ -6,7 +6,7 @@ import type { DailyFactsDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: DailyFactsDto };
@@ -30,7 +30,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
 
   const requestSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -46,7 +46,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
 
       if (initializing || !user) {
         // keep any existing ready state (no flicker)
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -54,7 +54,7 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
       if (!token || seq !== requestSeq.current) return;
 
       // SWR: do not drop ready data to loading on refetch
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 

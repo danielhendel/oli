@@ -21,3 +21,9 @@ export * from "./retrieval";
 
 // Sprint 2.8 — Uploads Presence
 export * from "./uploads";
+
+// Phase 1 Lock #3 — Canonical readiness vocabulary
+export * from "./readiness";
+
+// Phase 1 Lock #6 — Export job model
+export * from "./export";

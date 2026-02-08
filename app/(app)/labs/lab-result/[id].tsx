@@ -25,7 +25,7 @@ export default function LabResultDetailScreen() {
   const labResult = useLabResult(id ?? "");
   const { status, refetch } = labResult;
 
-  if (status === "loading") {
+  if (status === "partial") {
     return (
       <ModuleScreenShell title="Lab result" subtitle="Loading…">
         <View style={styles.center}>

@@ -82,8 +82,7 @@ export default function LineageScreen() {
   const autoExpandProvenance = hasFailures || hasAnomalies;
 
   const isContractError =
-    lineage.status === "error" &&
-    (lineage.error?.toLowerCase().includes("invalid") ?? false);
+    lineage.status === "error" && lineage.reason === "contract";
 
   // Fail-closed: contract mismatch → ErrorState, no partial render
   if (lineage.status === "error" && isContractError) {
@@ -107,7 +106,7 @@ export default function LineageScreen() {
     );
   }
 
-  if (lineage.status === "loading" || lineage.status === "missing") {
+  if (lineage.status === "partial" || lineage.status === "missing") {
     return (
       <ScreenContainer>
         <LoadingState message="Loading lineage…" />
@@ -128,7 +127,7 @@ export default function LineageScreen() {
     );
   }
 
-  const lineageData = lineage.data as LineageResponseDto;
+  const lineageData = lineage.data;
   const hasDerivedLedgerDay = lineageData.derivedLedgerRuns.length > 0;
 
   // Fail-closed: missing required references → FailureState (canonicalEventId required)
@@ -256,9 +255,8 @@ function buildNarrative(
     parts.push(`Raw event IDs: ${lineage.rawEventIds.join(", ")}.`);
   }
   if (hasDerivedLedgerDay) {
-    parts.push(
-      `Derived ledger exists for day(s): ${lineage.derivedLedgerRuns.map((r) => r.day).join(", ")}.`,
-    );
+    const days = lineage.derivedLedgerRuns.map((r) => r.day);
+    parts.push(`Derived ledger exists for day(s): ${days.join(", ")}.`);
   } else {
     parts.push("No derived ledger runs for this event.");
   }

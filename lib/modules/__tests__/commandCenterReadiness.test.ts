@@ -2,7 +2,7 @@
 import { getModuleBadge, isModuleDisabled, type CommandCenterDataReadinessState } from "../commandCenterReadiness";
 
 describe("commandCenterReadiness (Phase 1 §4.1 fail-closed)", () => {
-  const states: CommandCenterDataReadinessState[] = ["loading", "empty", "partial", "invalid", "ready"];
+  const states: CommandCenterDataReadinessState[] = ["partial", "missing", "error", "ready"];
 
   it("keeps Settings accessible in all data states", () => {
     for (const s of states) {
@@ -28,9 +28,8 @@ describe("commandCenterReadiness (Phase 1 §4.1 fail-closed)", () => {
   });
 
   it("shows data-status badges when data is not ready", () => {
-    expect(getModuleBadge("body", "loading")).toBe("Loading");
-    expect(getModuleBadge("body", "empty")).toBe("Empty");
     expect(getModuleBadge("body", "partial")).toBe("Needs input");
-    expect(getModuleBadge("body", "invalid")).toBe("Error");
+    expect(getModuleBadge("body", "missing")).toBe("Empty");
+    expect(getModuleBadge("body", "error")).toBe("Error");
   });
 });

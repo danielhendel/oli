@@ -52,6 +52,7 @@ jest.mock("@/lib/data/useDerivedLedgerSnapshot", () => ({
     status: "error",
     error: "Invalid response shape — Zod validation failed",
     requestId: "req-456",
+    reason: "contract",
     refetch: jest.fn(),
   }),
 }));
@@ -79,6 +80,7 @@ describe("ReplayDayScreen fail-closed", () => {
         status: "error",
         error: "Invalid response shape — Zod validation failed",
         requestId: "req-456",
+        reason: "contract",
         refetch: jest.fn(),
       }),
     }));

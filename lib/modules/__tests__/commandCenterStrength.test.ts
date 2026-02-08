@@ -13,38 +13,38 @@ function makeFacts(overrides: Partial<DailyFactsDto> = {}): DailyFactsDto {
 }
 
 describe("buildStrengthCommandCenterModel", () => {
-  it("returns loading model", () => {
+  it("returns partial model", () => {
     const m = buildStrengthCommandCenterModel({
-      dataReadinessState: "loading",
+      dataReadinessState: "partial",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("loading");
+    expect(m.state).toBe("partial");
     expect(m.summary).toBeNull();
-    expect(m.showLogCta).toBe(false);
+    expect(m.showLogCta).toBe(true);
   });
 
-  it("returns invalid model and failures CTA when failures exist", () => {
+  it("returns error model and failures CTA when failures exist", () => {
     const m = buildStrengthCommandCenterModel({
-      dataReadinessState: "invalid",
+      dataReadinessState: "error",
       factsDoc: null,
       hasFailures: true,
     });
 
-    expect(m.state).toBe("invalid");
+    expect(m.state).toBe("error");
     expect(m.showFailuresCta).toBe(true);
     expect(m.showLogCta).toBe(true);
   });
 
-  it("returns empty model", () => {
+  it("returns missing model", () => {
     const m = buildStrengthCommandCenterModel({
-      dataReadinessState: "empty",
+      dataReadinessState: "missing",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("empty");
+    expect(m.state).toBe("missing");
     expect(m.summary).toBeNull();
     expect(m.showLogCta).toBe(true);
   });

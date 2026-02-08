@@ -1,7 +1,8 @@
 // lib/modules/commandCenterBody.ts
+import type { Readiness } from "../contracts/readiness";
 import type { DailyFactsDto } from "../contracts/dailyFacts";
 
-export type ReadinessVocabularyState = "loading" | "empty" | "invalid" | "partial" | "ready";
+export type ReadinessVocabularyState = Readiness;
 
 export type BodySummaryUi = {
   weightKg?: number;
@@ -59,20 +60,9 @@ export function buildBodyCommandCenterModel(args: {
 }): BodyCommandCenterModel {
   const { dataReadinessState, factsDoc, hasFailures, locale = "en-US" } = args;
 
-  if (dataReadinessState === "loading") {
+  if (dataReadinessState === "error") {
     return {
-      state: "loading",
-      title: "Body",
-      description: "Loading derived body summary…",
-      summary: null,
-      showLogWeightCta: false,
-      showFailuresCta: false,
-    };
-  }
-
-  if (dataReadinessState === "invalid") {
-    return {
-      state: "invalid",
+      state: "error",
       title: "Body",
       description:
         "Your derived truth is currently invalid (pipeline error). Fix upstream issues or review failures to understand why body data cannot be computed.",
@@ -82,9 +72,9 @@ export function buildBodyCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "empty") {
+  if (dataReadinessState === "missing") {
     return {
-      state: "empty",
+      state: "missing",
       title: "Body",
       description: "No events yet today — log weight to generate today's body summary.",
       summary: null,

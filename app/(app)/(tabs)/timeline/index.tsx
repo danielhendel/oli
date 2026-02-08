@@ -1,8 +1,8 @@
 // app/(app)/(tabs)/timeline/index.tsx
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
+import { ScreenContainer, EmptyState } from "@/lib/ui/ScreenStates";
+import { FailClosed } from "@/lib/ui/FailClosed";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo } from "react";
 
@@ -22,88 +22,86 @@ export default function TimelineIndexScreen() {
 
   const timeline = useTimeline(range, { enabled: true });
 
-  const isContractError =
-    timeline.status === "error" &&
-    (timeline.error?.toLowerCase().includes("invalid") ?? false);
-
-  if (timeline.status === "loading") {
-    return (
-      <ScreenContainer>
-        <LoadingState message="Loading timeline…" />
-      </ScreenContainer>
-    );
-  }
-
-  if (timeline.status === "error") {
-    return (
-      <ScreenContainer>
-        <ErrorState
-          message={timeline.error}
-          requestId={timeline.requestId}
-          onRetry={() => timeline.refetch()}
-          isContractError={isContractError}
-        />
-      </ScreenContainer>
-    );
-  }
-
-  const days = timeline.data.days;
-
-  if (days.length === 0) {
-    return (
-      <ScreenContainer>
-        <Text style={styles.title}>Timeline</Text>
-        <EmptyState
-          title="No days"
-          description="No timeline data for this range."
-        />
-      </ScreenContainer>
-    );
-  }
+  const outcome = useMemo(
+    () =>
+      timeline.status === "partial"
+        ? { status: "partial" as const }
+        : timeline.status === "error"
+          ? {
+              status: "error" as const,
+              error: timeline.error,
+              requestId: timeline.requestId,
+              reason: timeline.reason,
+            }
+          : { status: "ready" as const, data: timeline.data },
+    [timeline],
+  );
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Timeline</Text>
-        <Text style={styles.subtitle}>
-          Day list with presence and light counts
-        </Text>
+      <FailClosed
+        outcome={outcome}
+        onRetry={() => timeline.refetch()}
+        loadingMessage="Loading timeline…"
+      >
+        {(data) => {
+          const days = data.days;
+          if (days.length === 0) {
+            return (
+              <>
+                <Text style={styles.title}>Timeline</Text>
+                <EmptyState
+                  title="No days"
+                  description="No timeline data for this range."
+                />
+              </>
+            );
+          }
+          return (
+            <ScrollView contentContainerStyle={styles.scroll}>
+              <Text style={styles.title}>Timeline</Text>
+              <Text style={styles.subtitle}>
+                Day list with presence and light counts
+              </Text>
 
-        <View style={styles.list}>
-          {days.map((d) => (
-            <Pressable
-              key={d.day}
-              style={styles.row}
-              onPress={() =>
-                router.push({
-                  pathname: "/(app)/(tabs)/timeline/[day]",
-                  params: { day: d.day },
-                })
-              }
-              accessibilityLabel={`Day ${d.day}, ${d.canonicalCount} events`}
-            >
-              <Text style={styles.rowDay}>{d.day}</Text>
-              <View style={styles.badges}>
-                <Text style={styles.badge}>
-                  {d.canonicalCount} events
-                </Text>
-                {d.hasDailyFacts && (
-                  <Text style={styles.badge}>facts</Text>
-                )}
-                {d.hasInsights && (
-                  <Text style={styles.badge}>insights</Text>
-                )}
-                {d.hasIntelligenceContext && (
-                  <Text style={styles.badge}>context</Text>
-                )}
-                {d.hasDerivedLedger && (
-                  <Text style={styles.badge}>ledger</Text>
-                )}
+              <View style={styles.list}>
+                {days.map((d) => (
+                  <Pressable
+                    key={d.day}
+                    style={styles.row}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(app)/(tabs)/timeline/[day]",
+                        params: { day: d.day },
+                      })
+                    }
+                    accessibilityLabel={`Day ${d.day}, ${d.canonicalCount} events`}
+                  >
+                    <Text style={styles.rowDay}>{d.day}</Text>
+                    <View style={styles.badges}>
+                      <Text style={styles.badge}>
+                        {d.canonicalCount} events
+                      </Text>
+                      {d.hasDailyFacts && (
+                        <Text style={styles.badge}>facts</Text>
+                      )}
+                      {d.hasInsights && (
+                        <Text style={styles.badge}>insights</Text>
+                      )}
+                      {d.hasIntelligenceContext && (
+                        <Text style={styles.badge}>context</Text>
+                      )}
+                      {d.hasDerivedLedger && (
+                        <Text style={styles.badge}>ledger</Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
               </View>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+            </ScrollView>
+          );
+        }}
+      </FailClosed>
     </ScreenContainer>
   );
 }

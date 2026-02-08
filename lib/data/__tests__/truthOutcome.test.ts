@@ -25,7 +25,12 @@ describe("truthOutcomeFromApiResult", () => {
       error: "HTTP 500",
       requestId: "r3",
     };
-    expect(truthOutcomeFromApiResult(res)).toEqual({ status: "error", error: "HTTP 500", requestId: "r3" });
+    expect(truthOutcomeFromApiResult(res)).toEqual({
+      status: "error",
+      error: "HTTP 500",
+      requestId: "r3",
+      reason: "http",
+    });
   });
 
   it("returns error for contract (schema) failures (fail-closed)", () => {
@@ -41,6 +46,7 @@ describe("truthOutcomeFromApiResult", () => {
       status: "error",
       error: "Invalid response shape",
       requestId: "r4",
+      reason: "contract",
     });
   });
 });

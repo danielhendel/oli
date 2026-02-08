@@ -1,7 +1,8 @@
 // lib/modules/commandCenterCardio.ts
+import type { Readiness } from "../contracts/readiness";
 import type { DailyFactsDto } from "../contracts/dailyFacts";
 
-export type ReadinessVocabularyState = "loading" | "empty" | "invalid" | "partial" | "ready";
+export type ReadinessVocabularyState = Readiness;
 
 export type CardioSummaryUi = {
   steps?: number;
@@ -61,20 +62,9 @@ export function buildCardioCommandCenterModel(args: {
 }): CardioCommandCenterModel {
   const { dataReadinessState, factsDoc, hasFailures, locale = "en-US" } = args;
 
-  if (dataReadinessState === "loading") {
+  if (dataReadinessState === "error") {
     return {
-      state: "loading",
-      title: "Cardio",
-      description: "Loading derived cardio summary…",
-      summary: null,
-      showWorkoutsCta: false,
-      showFailuresCta: false,
-    };
-  }
-
-  if (dataReadinessState === "invalid") {
-    return {
-      state: "invalid",
+      state: "error",
       title: "Cardio",
       description:
         "Your derived truth is currently invalid (pipeline error). Fix upstream issues or review failures to understand why cardio cannot be computed.",
@@ -84,9 +74,9 @@ export function buildCardioCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "empty") {
+  if (dataReadinessState === "missing") {
     return {
-      state: "empty",
+      state: "missing",
       title: "Cardio",
       description: "No events yet today — log activity (steps, workouts) to generate today's cardio summary.",
       summary: null,

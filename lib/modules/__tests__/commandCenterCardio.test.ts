@@ -47,38 +47,38 @@ describe("isMilesFirstLocale", () => {
 });
 
 describe("buildCardioCommandCenterModel", () => {
-  it("returns loading model", () => {
+  it("returns partial model", () => {
     const m = buildCardioCommandCenterModel({
-      dataReadinessState: "loading",
+      dataReadinessState: "partial",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("loading");
+    expect(m.state).toBe("partial");
     expect(m.summary).toBeNull();
-    expect(m.showWorkoutsCta).toBe(false);
+    expect(m.showWorkoutsCta).toBe(true);
   });
 
-  it("returns invalid model with showFailuresCta true when failures exist", () => {
+  it("returns error model with showFailuresCta true when failures exist", () => {
     const m = buildCardioCommandCenterModel({
-      dataReadinessState: "invalid",
+      dataReadinessState: "error",
       factsDoc: null,
       hasFailures: true,
     });
 
-    expect(m.state).toBe("invalid");
+    expect(m.state).toBe("error");
     expect(m.showFailuresCta).toBe(true);
     expect(m.showWorkoutsCta).toBe(true);
   });
 
-  it("returns empty model", () => {
+  it("returns missing model", () => {
     const m = buildCardioCommandCenterModel({
-      dataReadinessState: "empty",
+      dataReadinessState: "missing",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("empty");
+    expect(m.state).toBe("missing");
     expect(m.summary).toBeNull();
     expect(m.showWorkoutsCta).toBe(true);
   });
