@@ -6,6 +6,10 @@ import {
   type FailureListItemDto,
   labResultDtoSchema,
   createLabResultRequestDtoSchema,
+  rawEventsListQuerySchema,
+  canonicalEventsListQuerySchema,
+  timelineQuerySchema,
+  lineageQuerySchema,
 } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
@@ -21,10 +25,16 @@ import {
   derivedLedgerReplayResponseDtoSchema,
   derivedLedgerRunsResponseDtoSchema,
   derivedLedgerRunSummaryDtoSchema,
+  rawEventListItemSchema,
+  rawEventsListResponseDtoSchema,
+  canonicalEventListItemSchema,
+  canonicalEventsListResponseDtoSchema,
+  timelineResponseDtoSchema,
+  lineageResponseDtoSchema,
   type InsightDto,
 } from "../types/dtos";
 
-import { userCollection } from "../db";
+import { userCollection, documentIdPath } from "../db";
 
 const router = Router();
 
@@ -103,6 +113,36 @@ const toIsoFromTimestampLike = (v: unknown): string | null => {
   if (isTimestampLike(v)) return v.toDate().toISOString();
   return null;
 };
+
+/** Parse start/end as day or ISO; return ISO bounds. */
+function parseStartEndAsIso(
+  start: string | undefined,
+  end: string | undefined,
+): { startIso: string; endIso: string } | null {
+  if (!start || !end) return null;
+  const startIso = /^\d{4}-\d{2}-\d{2}$/.test(start)
+    ? `${start}T00:00:00.000Z`
+    : start;
+  const endIso = /^\d{4}-\d{2}-\d{2}$/.test(end)
+    ? `${end}T23:59:59.999Z`
+    : end;
+  if (Number.isNaN(Date.parse(startIso)) || Number.isNaN(Date.parse(endIso)))
+    return null;
+  return { startIso, endIso };
+}
+
+/** Encode cursor for pagination: base64(docId) */
+function encodeCursor(docId: string): string {
+  return Buffer.from(docId, "utf8").toString("base64url");
+}
+
+function decodeCursor(cursor: string): string | null {
+  try {
+    return Buffer.from(cursor, "base64url").toString("utf8") || null;
+  } catch {
+    return null;
+  }
+}
 
 // ----------------------------
 // Day truth
@@ -451,6 +491,467 @@ router.get(
   }),
 );
 
+// ----------------------------
+// Sprint 1 — GET /users/me/raw-events (list/query)
+// ----------------------------
+
+router.get(
+  "/raw-events",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = rawEventsListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end, kinds, cursor, limit } = parsed.data;
+
+    let q = userCollection(uid, "rawEvents")
+      .orderBy("observedAt", "desc")
+      .orderBy(documentIdPath, "desc")
+      .limit(limit + 1);
+
+    if (kinds && kinds.length > 0) {
+      if (kinds.length === 1) {
+        q = q.where("kind", "==", kinds[0]) as ReturnType<typeof q.where>;
+      } else {
+        q = q.where("kind", "in", kinds.slice(0, 30)) as ReturnType<typeof q.where>;
+      }
+    }
+
+    if (start && end) {
+      const range = parseStartEndAsIso(start, end);
+      if (range) {
+        q = q
+          .where("observedAt", ">=", range.startIso)
+          .where("observedAt", "<=", range.endIso) as ReturnType<typeof q.where>;
+      }
+    }
+
+    if (cursor) {
+      const docId = decodeCursor(cursor);
+      if (docId) {
+        const docSnap = await userCollection(uid, "rawEvents").doc(docId).get();
+        if (docSnap.exists) {
+          q = q.startAfter(docSnap) as ReturnType<typeof q.startAfter>;
+        }
+      }
+    }
+
+    const snap = await q.get();
+    const docs = snap.docs;
+
+    const items: unknown[] = [];
+    for (const d of docs) {
+      const raw = d.data() as Record<string, unknown>;
+      const observedAt =
+        typeof raw["observedAt"] === "string"
+          ? raw["observedAt"]
+          : toIsoFromTimestampLike(raw["observedAt"]);
+      const receivedAt =
+        typeof raw["receivedAt"] === "string"
+          ? raw["receivedAt"]
+          : toIsoFromTimestampLike(raw["receivedAt"]);
+      if (!observedAt || !receivedAt) {
+        invalidDoc500(req, res, "rawEvents", { docId: d.id, reason: "missing timestamps" });
+        return;
+      }
+      const item = {
+        id: d.id,
+        userId: raw["userId"],
+        sourceId: raw["sourceId"],
+        kind: raw["kind"],
+        observedAt,
+        receivedAt,
+        schemaVersion: raw["schemaVersion"],
+      };
+      const validated = rawEventListItemSchema.safeParse(item);
+      if (!validated.success) {
+        invalidDoc500(req, res, "rawEvents", {
+          docId: d.id,
+          issues: validated.error.flatten(),
+        });
+        return;
+      }
+      items.push(validated.data);
+    }
+
+    const hasMore = docs.length > limit;
+    const outItems = hasMore ? items.slice(0, -1) : items;
+    const lastDoc = hasMore ? docs[docs.length - 2] : null;
+    const nextCursor = lastDoc ? encodeCursor(lastDoc.id) : null;
+
+    const out = { items: outItems, nextCursor };
+    const validated = rawEventsListResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "rawEventsListResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// Sprint 1 — GET /users/me/events (canonical list/query)
+// ----------------------------
+
+router.get(
+  "/events",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = canonicalEventsListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end, kinds, cursor, limit } = parsed.data;
+
+    let q = userCollection(uid, "events")
+      .orderBy("start", "desc")
+      .orderBy(documentIdPath, "desc")
+      .limit(limit + 1);
+
+    if (kinds && kinds.length > 0) {
+      if (kinds.length === 1) {
+        q = q.where("kind", "==", kinds[0]) as ReturnType<typeof q.where>;
+      } else {
+        q = q.where("kind", "in", kinds.slice(0, 30)) as ReturnType<typeof q.where>;
+      }
+    }
+
+    if (start && end) {
+      const range = parseStartEndAsIso(start, end);
+      if (range) {
+        q = q
+          .where("start", ">=", range.startIso)
+          .where("start", "<=", range.endIso) as ReturnType<typeof q.where>;
+      }
+    }
+
+    if (cursor) {
+      const docId = decodeCursor(cursor);
+      if (docId) {
+        const docSnap = await userCollection(uid, "events").doc(docId).get();
+        if (docSnap.exists) {
+          q = q.startAfter(docSnap) as ReturnType<typeof q.startAfter>;
+        }
+      }
+    }
+
+    const snap = await q.get();
+    const docs = snap.docs;
+
+    const items: unknown[] = [];
+    for (const d of docs) {
+      const raw = d.data() as Record<string, unknown>;
+      const startVal =
+        typeof raw["start"] === "string" ? raw["start"] : toIsoFromTimestampLike(raw["start"]);
+      const endVal =
+        typeof raw["end"] === "string" ? raw["end"] : toIsoFromTimestampLike(raw["end"]);
+      const createdAt =
+        typeof raw["createdAt"] === "string"
+          ? raw["createdAt"]
+          : toIsoFromTimestampLike(raw["createdAt"]);
+      const updatedAt =
+        typeof raw["updatedAt"] === "string"
+          ? raw["updatedAt"]
+          : toIsoFromTimestampLike(raw["updatedAt"]);
+      if (!startVal || !endVal || !createdAt || !updatedAt) {
+        invalidDoc500(req, res, "events", { docId: d.id, reason: "missing timestamps" });
+        return;
+      }
+      const item = {
+        id: d.id,
+        userId: raw["userId"],
+        sourceId: raw["sourceId"],
+        kind: raw["kind"],
+        start: startVal,
+        end: endVal,
+        day: raw["day"],
+        timezone: raw["timezone"],
+        createdAt,
+        updatedAt,
+        schemaVersion: raw["schemaVersion"],
+      };
+      const validated = canonicalEventListItemSchema.safeParse(item);
+      if (!validated.success) {
+        invalidDoc500(req, res, "events", {
+          docId: d.id,
+          issues: validated.error.flatten(),
+        });
+        return;
+      }
+      items.push(validated.data);
+    }
+
+    const hasMore = docs.length > limit;
+    const outItems = hasMore ? items.slice(0, -1) : items;
+    const lastDoc = hasMore ? docs[docs.length - 2] : null;
+    const nextCursor = lastDoc ? encodeCursor(lastDoc.id) : null;
+
+    const out = { items: outItems, nextCursor };
+    const validated = canonicalEventsListResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "canonicalEventsListResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// Sprint 1 — GET /users/me/timeline (days → aggregates)
+// ----------------------------
+
+router.get(
+  "/timeline",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = timelineQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsed.data;
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "start must be <= end",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const days: string[] = [];
+    for (let d = start; d <= end; ) {
+      days.push(d);
+      const next = new Date(d + "T12:00:00.000Z");
+      next.setUTCDate(next.getUTCDate() + 1);
+      d = next.toISOString().slice(0, 10);
+    }
+
+    const outDays: unknown[] = [];
+
+    for (const day of days) {
+      const [eventsSnap, dailyFactsSnap, insightsSnap, intelSnap, ledgerSnap] = await Promise.all([
+        userCollection(uid, "events").where("day", "==", day).get(),
+        userCollection(uid, "dailyFacts").doc(day).get(),
+        userCollection(uid, "insights").where("date", "==", day).get(),
+        userCollection(uid, "intelligenceContext").doc(day).get(),
+        userCollection(uid, "derivedLedger").doc(day).get(),
+      ]);
+
+      const canonicalCount = eventsSnap.size;
+
+      const dailyFactsRaw = dailyFactsSnap.exists ? dailyFactsSnap.data() : undefined;
+      const dailyFactsValid = dailyFactsRaw
+        ? dailyFactsDtoSchema.safeParse(dailyFactsRaw)
+        : null;
+      if (dailyFactsRaw && dailyFactsValid && !dailyFactsValid.success) {
+        invalidDoc500(req, res, "dailyFacts", { day, issues: dailyFactsValid.error.flatten() });
+        return;
+      }
+      const hasDailyFacts = !!dailyFactsRaw && !!dailyFactsValid?.success;
+
+      const insightsDocs = insightsSnap.docs;
+      for (const idoc of insightsDocs) {
+        const parsed = insightDtoSchema.safeParse(idoc.data());
+        if (!parsed.success) {
+          invalidDoc500(req, res, "insights", {
+            day,
+            docId: idoc.id,
+            issues: parsed.error.flatten(),
+          });
+          return;
+        }
+      }
+      const hasInsights = insightsDocs.length > 0;
+
+      const intelRaw = intelSnap.exists ? intelSnap.data() : undefined;
+      const intelValid = intelRaw
+        ? intelligenceContextDtoSchema.safeParse(intelRaw)
+        : null;
+      if (intelRaw && intelValid && !intelValid.success) {
+        invalidDoc500(req, res, "intelligenceContext", {
+          day,
+          issues: intelValid.error.flatten(),
+        });
+        return;
+      }
+      const hasIntelligenceContext = !!intelRaw && !!intelValid?.success;
+
+      const hasDerivedLedger = ledgerSnap.exists;
+
+      outDays.push({
+        day,
+        canonicalCount,
+        hasDailyFacts,
+        hasInsights,
+        hasIntelligenceContext,
+        hasDerivedLedger,
+      });
+    }
+
+    const out = { days: outDays };
+    const validated = timelineResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "timelineResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// Sprint 1 — GET /users/me/lineage (raw → canonical → derived)
+// ----------------------------
+
+router.get(
+  "/lineage",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = lineageQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { canonicalEventId, day, kind, observedAt } = parsed.data;
+
+    let canonicalId: string | null = null;
+    let rawEventIds: string[] = [];
+    let eventDay: string | undefined;
+
+    if (canonicalEventId) {
+      const canonSnap = await userCollection(uid, "events").doc(canonicalEventId).get();
+      if (!canonSnap.exists) {
+        res.status(404).json({
+          ok: false,
+          error: { code: "NOT_FOUND", resource: "canonicalEvent", id: canonicalEventId },
+        });
+        return;
+      }
+      canonicalId = canonicalEventId;
+      const canonData = canonSnap.data() as Record<string, unknown>;
+      const sourceRawId = canonData["id"] as string | undefined;
+      if (sourceRawId) rawEventIds = [sourceRawId];
+      eventDay = canonData["day"] as string | undefined;
+    } else if (day && kind && observedAt) {
+      const canonSnap = await userCollection(uid, "events")
+        .where("day", "==", day)
+        .where("kind", "==", kind)
+        .where("start", "==", observedAt)
+        .limit(1)
+        .get();
+      const doc = canonSnap.docs[0];
+      if (!doc) {
+        res.status(404).json({
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            resource: "canonicalEvent",
+            message: `No canonical event for day=${day} kind=${kind} observedAt=${observedAt}`,
+          },
+        });
+        return;
+      }
+      canonicalId = doc.id;
+      const canonData = doc.data() as Record<string, unknown>;
+      const sourceRawId = canonData["id"] as string | undefined;
+      if (sourceRawId) rawEventIds = [sourceRawId];
+      eventDay = day;
+    } else {
+      eventDay = undefined;
+    }
+
+    const derivedLedgerRuns: { day: string; runId: string; computedAt: string }[] = [];
+    if (eventDay) {
+      const ledgerRef = userCollection(uid, "derivedLedger").doc(eventDay);
+      const runsSnap = await ledgerRef.collection("runs").orderBy("computedAt", "desc").limit(10).get();
+      for (const r of runsSnap.docs) {
+        const raw = r.data() as Record<string, unknown>;
+        const computedAt =
+          typeof raw["computedAt"] === "string"
+            ? raw["computedAt"]
+            : toIsoFromTimestampLike(raw["createdAt"]);
+        if (computedAt) {
+          derivedLedgerRuns.push({
+            day: eventDay,
+            runId: r.id,
+            computedAt,
+          });
+        }
+      }
+    }
+
+    const out = {
+      rawEventIds,
+      canonicalEventId: canonicalId,
+      derivedLedgerRuns,
+    };
+    const validated = lineageResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "lineageResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// Sprint 1 — GET /users/me/derived-ledger/snapshot (alias for replay)
+// ----------------------------
+
 router.get(
   "/daily-facts",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -624,7 +1125,7 @@ router.get(
 );
 
 router.get(
-  "/derived-ledger/replay",
+  ["/derived-ledger/replay", "/derived-ledger/snapshot"],
   asyncHandler(async (req: AuthedRequest, res: Response) => {
     const uid = requireUid(req, res);
     if (!uid) return;

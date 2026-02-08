@@ -15,3 +15,6 @@ export * from "./preferences";
 
 // ✅ Labs Biomarkers v0 ( Sprint 2.9 )
 export * from "./labResults";
+
+// Sprint 1 — Retrieval Surfaces
+export * from "./retrieval";
