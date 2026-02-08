@@ -6,7 +6,7 @@ import type { InsightsResponseDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: InsightsResponseDto };
@@ -25,7 +25,7 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -40,7 +40,7 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
       };
 
       if (initializing) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -61,7 +61,7 @@ export function useInsights(day: string): State & { refetch: (opts?: RefetchOpts
       }
 
       // Stale-while-revalidate
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const res = await getInsights(dayRef.current, token, opts);
       if (seq !== reqSeq.current) return;

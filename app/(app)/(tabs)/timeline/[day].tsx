@@ -59,8 +59,7 @@ export default function TimelineDayScreen() {
   );
 
   const isContractError =
-    events.status === "error" &&
-    (events.error?.toLowerCase().includes("invalid") ?? false);
+    events.status === "error" && events.reason === "contract";
 
   if (!day) {
     return (
@@ -70,7 +69,7 @@ export default function TimelineDayScreen() {
     );
   }
 
-  if (events.status === "loading") {
+  if (events.status === "partial") {
     return (
       <ScreenContainer>
         <LoadingState message="Loading day…" />

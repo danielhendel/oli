@@ -69,7 +69,7 @@ export default function EventDetailScreen() {
     );
   }
 
-  if (events.status === "loading" || (event && lineage.status === "loading")) {
+  if (events.status === "partial" || (event && lineage.status === "partial")) {
     return (
       <ScreenContainer>
         <LoadingState message="Loading event…" />

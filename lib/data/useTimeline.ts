@@ -2,13 +2,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getTimeline } from "@/lib/api/usersMe";
-import type { GetOptions } from "@/lib/api/http";
+import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { TimelineResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
+  | { status: "partial" }
+  | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "ready"; data: TimelineResponseDto };
 
 function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOptions | undefined {
@@ -37,7 +37,7 @@ export function useTimeline(
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -57,7 +57,7 @@ export function useTimeline(
       }
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -66,11 +66,11 @@ export function useTimeline(
 
       if (!token) {
         if (stateRef.current.status === "ready") return;
-        safeSet({ status: "error", error: "No auth token", requestId: null });
+        safeSet({ status: "error", error: "No auth token", requestId: null, reason: "unknown" });
         return;
       }
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
@@ -89,7 +89,7 @@ export function useTimeline(
         return;
       }
 
-      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
     },
     [getIdToken, initializing, user],
   );

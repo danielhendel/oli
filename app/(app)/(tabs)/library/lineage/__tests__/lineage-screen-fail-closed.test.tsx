@@ -25,6 +25,7 @@ jest.mock("@/lib/data/useLineage", () => ({
     status: "error",
     error: "Invalid response shape",
     requestId: "req-456",
+    reason: "contract",
     refetch: jest.fn(),
   }),
 }));

@@ -96,8 +96,8 @@ export default function ReplayDayScreen() {
   }, [asOfIso, effectiveComputedAt]);
 
   const isContractError =
-    (runs.status === "error" && (runs.error?.toLowerCase().includes("invalid") ?? false)) ||
-    (snapshot.status === "error" && (snapshot.error?.toLowerCase().includes("invalid") ?? false));
+    (runs.status === "error" && runs.reason === "contract") ||
+    (snapshot.status === "error" && snapshot.reason === "contract");
 
   if (!day) {
     return (
@@ -133,7 +133,7 @@ export default function ReplayDayScreen() {
     );
   }
 
-  if (runs.status === "loading") {
+  if (runs.status === "partial") {
     return (
       <ScreenContainer>
         <LoadingState message="Loading runs…" />
@@ -159,7 +159,7 @@ export default function ReplayDayScreen() {
     }
   }, [runs.status, runsData?.latestRunId, runsData?.runs, selectedRunId, asOfIso, defaultRunId]);
 
-  if (snapshot.status === "loading") {
+  if (snapshot.status === "partial") {
     return (
       <ScreenContainer>
         <LoadingState message="Loading snapshot…" />

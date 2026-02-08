@@ -34,7 +34,7 @@ export default function BiomarkersScreen() {
         <Text style={styles.ctaText}>Log biomarkers</Text>
       </Pressable>
 
-      {status === "loading" && (
+      {status === "partial" && (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading…</Text>

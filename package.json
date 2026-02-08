@@ -24,6 +24,7 @@
 
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
+    "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "proof:phase1": "bash scripts/ci/proof-gate.sh",
 
     "postinstall": "patch-package"

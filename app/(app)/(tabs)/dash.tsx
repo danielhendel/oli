@@ -52,7 +52,7 @@ export default function DashScreen() {
           <View style={styles.row}>
             <Text style={styles.label}>Failures needing review</Text>
             <Text style={styles.value}>
-              {failuresPresence.status === "loading"
+              {failuresPresence.status === "partial"
                 ? "…"
                 : typeof failuresCount === "number"
                   ? String(failuresCount)
@@ -62,7 +62,7 @@ export default function DashScreen() {
           <View style={styles.row}>
             <Text style={styles.label}>Uploads waiting</Text>
             <Text style={styles.value}>
-              {uploadsPresence.status === "loading"
+              {uploadsPresence.status === "partial"
                 ? "…"
                 : typeof uploadsWaiting === "number"
                   ? String(uploadsWaiting)
@@ -76,7 +76,7 @@ export default function DashScreen() {
           <View style={styles.row}>
             <Text style={styles.label}>Today's events</Text>
             <Text style={styles.value}>
-              {timeline.status === "loading"
+              {timeline.status === "partial"
                 ? "…"
                 : typeof todayEvents === "number"
                   ? String(todayEvents)

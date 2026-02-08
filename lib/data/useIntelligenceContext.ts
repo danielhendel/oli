@@ -6,7 +6,7 @@ import type { IntelligenceContextDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "missing" }
   | { status: "error"; error: string; requestId: string | null }
   | { status: "ready"; data: IntelligenceContextDto };
@@ -21,7 +21,7 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -36,12 +36,12 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
       };
 
       if (initializing) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
       if (!user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -55,7 +55,7 @@ export function useIntelligenceContext(day: string): State & { refetch: (opts?: 
       }
 
       // Stale-while-revalidate
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const res = await getIntelligenceContext(dayRef.current, token, opts);
       if (seq !== reqSeq.current) return;

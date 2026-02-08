@@ -12,7 +12,7 @@ import React, {
   import { getPreferences, updateMassUnit } from "@/lib/api/preferences";
   
   type PreferencesState =
-    | { status: "loading"; preferences: Preferences }
+    | { status: "partial"; preferences: Preferences }
     | { status: "ready"; preferences: Preferences }
     | { status: "error"; preferences: Preferences; message: string };
   
@@ -34,7 +34,7 @@ import React, {
   
     const refresh = async (): Promise<void> => {
       if (initializing) {
-        setState((s) => ({ ...s, status: "loading" }));
+        setState((s) => ({ ...s, status: "partial" }));
         return;
       }
   
@@ -43,7 +43,7 @@ import React, {
         return;
       }
   
-      setState((s) => ({ ...s, status: "loading" }));
+      setState((s) => ({ ...s, status: "partial" }));
   
       const token = await getIdToken(false);
       if (!token) {

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getFailuresRange } from "@/lib/api/failures";
-import type { GetOptions } from "@/lib/api/http";
+import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { FailureListItemDto, FailureListResponseDto } from "@/lib/contracts/failure";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
@@ -13,8 +13,8 @@ type Ready = {
 };
 
 type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
+  | { status: "partial" }
+  | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "ready"; data: Ready };
 
 export type UseFailuresRangeArgs = {
@@ -81,7 +81,7 @@ export function useFailuresRange(
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -101,7 +101,7 @@ export function useFailuresRange(
       }
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -110,11 +110,11 @@ export function useFailuresRange(
 
       if (!token) {
         if (stateRef.current.status === "ready") return;
-        safeSet({ status: "error", error: "No auth token", requestId: null });
+        safeSet({ status: "error", error: "No auth token", requestId: null, reason: "unknown" });
         return;
       }
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "loading" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
@@ -145,7 +145,7 @@ export function useFailuresRange(
           return;
         }
 
-        safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+        safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
         return;
       }
 
@@ -177,7 +177,7 @@ export function useFailuresRange(
         }
 
         if (outcome.status === "error") {
-          safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+          safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
           return;
         }
 

@@ -2,13 +2,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getLineage } from "@/lib/api/usersMe";
-import type { GetOptions } from "@/lib/api/http";
+import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { LineageResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
-  | { status: "loading" }
-  | { status: "error"; error: string; requestId: string | null }
+  | { status: "partial" }
+  | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "missing" }
   | { status: "ready"; data: LineageResponseDto };
 
@@ -37,7 +37,7 @@ export function useLineage(
 
   const reqSeq = useRef(0);
 
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
   useEffect(() => {
     stateRef.current = state;
@@ -58,7 +58,7 @@ export function useLineage(
 
       if (initializing || !user) {
         if (stateRef.current.status !== "ready" && stateRef.current.status !== "missing")
-          safeSet({ status: "loading" });
+          safeSet({ status: "partial" });
         return;
       }
 
@@ -67,12 +67,12 @@ export function useLineage(
 
       if (!token) {
         if (stateRef.current.status === "ready") return;
-        safeSet({ status: "error", error: "No auth token", requestId: null });
+        safeSet({ status: "error", error: "No auth token", requestId: null, reason: "unknown" });
         return;
       }
 
       if (stateRef.current.status !== "ready" && stateRef.current.status !== "missing")
-        safeSet({ status: "loading" });
+        safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
@@ -91,7 +91,7 @@ export function useLineage(
         return;
       }
 
-      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
     },
     [getIdToken, initializing, user],
   );
