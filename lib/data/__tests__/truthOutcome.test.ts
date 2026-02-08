@@ -27,4 +27,20 @@ describe("truthOutcomeFromApiResult", () => {
     };
     expect(truthOutcomeFromApiResult(res)).toEqual({ status: "error", error: "HTTP 500", requestId: "r3" });
   });
+
+  it("returns error for contract (schema) failures (fail-closed)", () => {
+    const res = {
+      ok: false as const,
+      status: 200,
+      kind: "contract" as const,
+      error: "Invalid response shape",
+      requestId: "r4",
+      json: { issues: [{ path: ["day"], message: "Required" }] },
+    };
+    expect(truthOutcomeFromApiResult(res)).toEqual({
+      status: "error",
+      error: "Invalid response shape",
+      requestId: "r4",
+    });
+  });
 });

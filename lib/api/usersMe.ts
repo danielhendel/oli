@@ -1,25 +1,37 @@
 // lib/api/usersMe.ts
 import type { ApiResult } from "@/lib/api/http";
-import { apiGetJsonAuthed, apiPostJsonAuthed } from "@/lib/api/http";
+import { apiPostZodAuthed } from "@/lib/api/validate";
+import { apiGetZodAuthed } from "@/lib/api/validate";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 import {
   manualStrengthWorkoutIdempotencyKey,
   type ManualStrengthWorkoutPayload,
 } from "@/lib/events/manualStrengthWorkout";
 
-import type {
-  LogWeightRequestDto,
-  LogWeightResponseDto,
-  DailyFactsDto,
-  InsightsResponseDto,
-  IntelligenceContextDto,
-  DayTruthDto,
-  LabResultDto,
-  LabResultsListResponseDto,
-  CreateLabResultRequestDto,
-} from "@/lib/contracts";
-
-export type LogStrengthWorkoutResponseDto = { ok: true; rawEventId: string; day?: string };
+import {
+  logWeightResponseDtoSchema,
+  ingestAcceptedResponseDtoSchema,
+  dailyFactsDtoSchema,
+  insightsResponseDtoSchema,
+  intelligenceContextDtoSchema,
+  dayTruthDtoSchema,
+  labResultsListResponseDtoSchema,
+  labResultDtoSchema,
+  createLabResultResponseDtoSchema,
+  uploadsPresenceResponseDtoSchema,
+  type LogWeightRequestDto,
+  type LogWeightResponseDto,
+  type DailyFactsDto,
+  type InsightsResponseDto,
+  type IntelligenceContextDto,
+  type DayTruthDto,
+  type LabResultDto,
+  type LabResultsListResponseDto,
+  type CreateLabResultRequestDto,
+  type CreateLabResultResponseDto,
+  type UploadsPresenceResponseDto,
+  type IngestAcceptedResponseDto,
+} from "@oli/contracts";
 
 export type TruthGetOptions = {
   cacheBust?: string;
@@ -59,7 +71,7 @@ export const logWeight = async (
   };
 
   // ✅ This must hit POST /ingest (events router is mounted at /ingest and uses router.post("/"))
-  return apiPostJsonAuthed<LogWeightResponseDto>("/ingest", ingestBody, idToken, {
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, logWeightResponseDtoSchema, {
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualWeightIdempotencyKey(clean),
@@ -69,7 +81,7 @@ export const logWeight = async (
 export const logStrengthWorkout = async (
   payload: ManualStrengthWorkoutPayload,
   idToken: string,
-): Promise<ApiResult<LogStrengthWorkoutResponseDto>> => {
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
   const ingestBody = {
     provider: "manual",
     kind: "strength_workout",
@@ -79,7 +91,7 @@ export const logStrengthWorkout = async (
     payload,
   };
 
-  return apiPostJsonAuthed<LogStrengthWorkoutResponseDto>("/ingest", ingestBody, idToken, {
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualStrengthWorkoutIdempotencyKey(payload),
@@ -91,9 +103,10 @@ export const getDailyFacts = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<DailyFactsDto>> => {
-  return apiGetJsonAuthed<DailyFactsDto>(
+  return apiGetZodAuthed(
     `/users/me/daily-facts?day=${encodeURIComponent(day)}`,
     idToken,
+    dailyFactsDtoSchema,
     truthGetOpts(opts),
   );
 };
@@ -103,9 +116,10 @@ export const getInsights = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<InsightsResponseDto>> => {
-  return apiGetJsonAuthed<InsightsResponseDto>(
+  return apiGetZodAuthed(
     `/users/me/insights?day=${encodeURIComponent(day)}`,
     idToken,
+    insightsResponseDtoSchema,
     truthGetOpts(opts),
   );
 };
@@ -115,30 +129,19 @@ export const getIntelligenceContext = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<IntelligenceContextDto>> => {
-  return apiGetJsonAuthed<IntelligenceContextDto>(
+  return apiGetZodAuthed(
     `/users/me/intelligence-context?day=${encodeURIComponent(day)}`,
     idToken,
+    intelligenceContextDtoSchema,
     truthGetOpts(opts),
   );
-};
-
-export type UploadsPresenceResponseDto = {
-  ok: true;
-  count: number;
-  latest: {
-    rawEventId: string;
-    observedAt: string;
-    receivedAt: string;
-    originalFilename?: string;
-    mimeType?: string;
-  } | null;
 };
 
 export const getUploads = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<UploadsPresenceResponseDto>> => {
-  return apiGetJsonAuthed<UploadsPresenceResponseDto>("/users/me/uploads", idToken, truthGetOpts(opts));
+  return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
 };
 
 /**
@@ -149,9 +152,10 @@ export const getDayTruth = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<DayTruthDto>> => {
-  return apiGetJsonAuthed<DayTruthDto>(
+  return apiGetZodAuthed(
     `/users/me/day-truth?day=${encodeURIComponent(day)}`,
     idToken,
+    dayTruthDtoSchema,
     truthGetOpts(opts),
   );
 };
@@ -160,8 +164,6 @@ export const getDayTruth = async (
 // Sprint 2.9 — Labs Biomarkers v0
 // ----------------------------
 
-export type CreateLabResultResponseDto = { ok: true; id: string; idempotentReplay?: true };
-
 export const getLabResults = async (
   idToken: string,
   opts?: { limit?: number } & TruthGetOptions,
@@ -169,9 +171,10 @@ export const getLabResults = async (
   const params = new URLSearchParams();
   if (opts?.limit != null) params.set("limit", String(opts.limit));
   const qs = params.toString();
-  return apiGetJsonAuthed<LabResultsListResponseDto>(
+  return apiGetZodAuthed(
     `/users/me/labResults${qs ? `?${qs}` : ""}`,
     idToken,
+    labResultsListResponseDtoSchema,
     truthGetOpts(opts),
   );
 };
@@ -181,9 +184,10 @@ export const getLabResult = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<LabResultDto>> => {
-  return apiGetJsonAuthed<LabResultDto>(
+  return apiGetZodAuthed(
     `/users/me/labResults/${encodeURIComponent(id)}`,
     idToken,
+    labResultDtoSchema,
     truthGetOpts(opts),
   );
 };
@@ -193,10 +197,11 @@ export const createLabResult = async (
   idToken: string,
   idempotencyKey: string,
 ): Promise<ApiResult<CreateLabResultResponseDto>> => {
-  return apiPostJsonAuthed<CreateLabResultResponseDto>(
+  return apiPostZodAuthed(
     "/users/me/labResults",
     payload,
     idToken,
+    createLabResultResponseDtoSchema,
     {
       timeoutMs: 15000,
       noStore: true,

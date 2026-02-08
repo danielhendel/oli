@@ -18,3 +18,6 @@ export * from "./labResults";
 
 // Sprint 1 — Retrieval Surfaces
 export * from "./retrieval";
+
+// Sprint 2.8 — Uploads Presence
+export * from "./uploads";

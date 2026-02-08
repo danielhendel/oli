@@ -1,7 +1,8 @@
 // lib/data/useUploadsPresence.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getUploads, type UploadsPresenceResponseDto } from "@/lib/api/usersMe";
+import { getUploads } from "@/lib/api/usersMe";
+import type { UploadsPresenceResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 

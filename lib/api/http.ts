@@ -2,7 +2,7 @@
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
-export type FailureKind = "network" | "http" | "parse" | "unknown";
+export type FailureKind = "network" | "http" | "parse" | "contract" | "unknown";
 
 export type ApiOk<T> = {
   ok: true;

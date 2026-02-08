@@ -1,8 +1,9 @@
 // lib/api/ingest.ts
-import type { ApiFailure, ApiResult } from "./http";
-import { apiPostJsonAuthed } from "./http";
+import type { ApiFailure } from "./http";
+import { apiPostZodAuthed } from "./validate";
+import { ingestAcceptedResponseDtoSchema, type IngestAcceptedResponseDto } from "@oli/contracts";
 
-export type IngestAccepted = { ok: true; rawEventId: string; day?: string };
+export type IngestAccepted = IngestAcceptedResponseDto;
 
 export type IngestOk = { ok: true; status: 202; data: IngestAccepted; requestId: string | null };
 export type IngestFail = {
@@ -19,7 +20,7 @@ export async function ingestRawEventAuthed(
   idToken: string,
   opts?: { idempotencyKey?: string; timeoutMs?: number },
 ): Promise<IngestOk | IngestFail> {
-  const res: ApiResult<IngestAccepted> = await apiPostJsonAuthed<IngestAccepted>("/ingest", body, idToken, {
+  const res = await apiPostZodAuthed("/ingest", body, idToken, ingestAcceptedResponseDtoSchema, {
     ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
     ...(typeof opts?.timeoutMs === "number" ? { timeoutMs: opts.timeoutMs } : {}),
   });
