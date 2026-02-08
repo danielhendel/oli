@@ -619,12 +619,16 @@ type Props = {
   replayMissing?: boolean;
 };
 
-function QuickActionsRow() {
+function QuickActionsRow(props: { dayKey: string }) {
   const router = useRouter();
+  const { dayKey } = props;
 
   return (
     <View style={styles.quickActionsRow}>
-      <Pressable onPress={() => router.push("/(app)/body/weight")} style={styles.quickActionBtn}>
+      <Pressable
+        onPress={() => router.push({ pathname: "/(app)/body/weight", params: { day: dayKey } })}
+        style={styles.quickActionBtn}
+      >
         <Text style={styles.quickActionTitle}>Log weight</Text>
         <Text style={styles.quickActionSubtitle}>Fast entry</Text>
       </Pressable>
@@ -695,10 +699,30 @@ function FailurePresenceCard(props: { state: FailuresPresenceUi; onPress: () => 
   );
 }
 
+const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
+
 export default function CommandCenterScreen(props: Props) {
   const router = useRouter();
+  const params = useLocalSearchParams<{ day?: string; refresh?: string; ow?: string }>();
 
-  const dayKey = useMemo(() => getTodayDayKey(), []);
+  const paramDay = typeof params.day === "string" && YYYY_MM_DD.test(params.day) ? params.day : null;
+  const paramRefresh = typeof params.refresh === "string" ? params.refresh : null;
+  const paramOptimisticWeightKg =
+    typeof params.ow === "string" ? (() => { const n = parseFloat(params.ow); return Number.isFinite(n) ? n : null; })() : null;
+
+  const todayKey = useMemo(() => getTodayDayKey(), []);
+  const dayKey = paramDay ?? todayKey;
+
+  const [refreshKey, setRefreshKey] = useState<string | null>(paramRefresh);
+  const [optimisticWeightKg, setOptimisticWeightKg] = useState<number | null>(paramOptimisticWeightKg);
+
+  useEffect(() => {
+    setRefreshKey(paramRefresh);
+  }, [paramRefresh]);
+
+  useEffect(() => {
+    setOptimisticWeightKg(paramOptimisticWeightKg);
+  }, [paramOptimisticWeightKg]);
 
   const dayTruth = useDayTruth(dayKey);
   const facts = useDailyFacts(dayKey);
@@ -748,10 +772,8 @@ export default function CommandCenterScreen(props: Props) {
   const baselineCtxAt = useRef<string | null>(null);
 
   const latestEventAtLive = dayTruth.status === "ready" ? dayTruth.data.latestCanonicalEventAt : null;
-  const hasEventsLive = dayTruth.status === "ready" && dayTruth.data.eventsCount > 0;
 
   const latestEventAt = replayModeActive ? replay?.latestCanonicalEventAt ?? null : latestEventAtLive;
-  const hasEvents = replayModeActive ? Boolean(replay?.latestCanonicalEventAt) : hasEventsLive;
 
   const eventsCount = dayTruth.status === "ready" ? dayTruth.data.eventsCount : null;
 
@@ -778,6 +800,12 @@ export default function CommandCenterScreen(props: Props) {
     ctxDoc && typeof (ctxDoc as unknown as { meta?: { pipelineVersion?: unknown } })?.meta?.pipelineVersion === "number"
       ? (ctxDoc as unknown as { meta: { pipelineVersion: number } }).meta.pipelineVersion
       : null;
+
+  // Sprint 0 Option A: day has data if events exist OR derived truth (facts/context) exists.
+  const hasDataForDay = replayModeActive
+    ? Boolean(factsDoc) || Boolean(ctxDoc) || Boolean(replay?.latestCanonicalEventAt)
+    : dayTruth.status === "ready" &&
+      (dayTruth.data.eventsCount > 0 || factsComputedAt != null || ctxComputedAt != null);
 
   // Minimal, deterministic provenance for the “today metric surface”.
   // If facts/context disagree, we show facts as the primary computedAt/PV and
@@ -839,7 +867,7 @@ export default function CommandCenterScreen(props: Props) {
         ? "loading"
         : anyError
           ? "invalid"
-          : hasEvents
+          : hasDataForDay
             ? derivedReady
               ? "ready"
               : "partial"
@@ -881,7 +909,7 @@ export default function CommandCenterScreen(props: Props) {
   }, [props.focusNonce, kickRefetch]);
 
   useEffect(() => {
-    const rk = props.refreshKey;
+    const rk = refreshKey;
     if (!rk) return;
 
     if (lastRefreshKey.current === rk) return;
@@ -903,10 +931,10 @@ export default function CommandCenterScreen(props: Props) {
     }, 1500);
 
     return () => stopPolling();
-  }, [props.refreshKey, latestEventAt, factsComputedAt, ctxComputedAt, stopPolling, kickRefetch]);
+  }, [refreshKey, latestEventAt, factsComputedAt, ctxComputedAt, stopPolling, kickRefetch]);
 
   useEffect(() => {
-    if (!props.refreshKey) return;
+    if (!refreshKey) return;
 
     const canonicalAdvanced = baselineCanonicalAt.current && latestEventAt ? latestEventAt !== baselineCanonicalAt.current : false;
     const factsAdvanced = baselineFactsAt.current && factsComputedAt ? factsComputedAt !== baselineFactsAt.current : false;
@@ -914,13 +942,17 @@ export default function CommandCenterScreen(props: Props) {
 
     const pipelineCaughtUp = canonicalAdvanced && derivedReady && factsAdvanced && ctxAdvanced;
     if (pipelineCaughtUp) stopPolling();
-  }, [props.refreshKey, latestEventAt, factsComputedAt, ctxComputedAt, derivedReady, stopPolling]);
+  }, [refreshKey, latestEventAt, factsComputedAt, ctxComputedAt, derivedReady, stopPolling]);
 
   useFocusEffect(
     useCallback(() => {
       const unsubscribe = subscribeRefresh((ev) => {
         if (ev.topic !== "commandCenter") return;
         consumeRefresh(ev.topic, ev.key);
+        setRefreshKey(ev.key);
+        if ("optimisticWeightKg" in ev && typeof ev.optimisticWeightKg === "number") {
+          setOptimisticWeightKg(ev.optimisticWeightKg);
+        }
         kickRefetch(ev.key);
       });
       return () => unsubscribe();
@@ -939,7 +971,7 @@ export default function CommandCenterScreen(props: Props) {
     tone = "neutral";
     title = "Loading…";
     subtitle = "Fetching today’s data.";
-  } else if (!hasEvents) {
+  } else if (!hasDataForDay) {
     tone = "warning";
     title = "No data yet for today";
     subtitle = "Log your first event (weight, workout, sleep, steps) to start building your Health OS.";
@@ -961,12 +993,12 @@ export default function CommandCenterScreen(props: Props) {
       ? (factsDoc as unknown as { body: { weightKg: number } }).body.weightKg
       : null;
 
-  const optimistic = typeof props.optimisticWeightKg === "number" ? props.optimisticWeightKg : null;
+  const optimistic = typeof optimisticWeightKg === "number" ? optimisticWeightKg : null;
 
   const factsMatchOptimistic =
     typeof currentWeightKg === "number" && optimistic !== null && Math.abs(currentWeightKg - optimistic) < eps;
 
-  const inRefreshWindow = props.refreshKey !== null && optimistic !== null && !factsMatchOptimistic;
+  const inRefreshWindow = refreshKey !== null && optimistic !== null && !factsMatchOptimistic;
 
   const shouldPreferOptimisticWeight =
     !replayModeActive && optimistic !== null && (inRefreshWindow || !factsFresh || typeof currentWeightKg !== "number");
@@ -1107,13 +1139,15 @@ export default function CommandCenterScreen(props: Props) {
           ctxPv={ctxPipelineVersion}
         />
 
-        <QuickActionsRow />
+        <QuickActionsRow dayKey={dayKey} />
 
 
         <BodySection
           model={bodyModel}
           locale={displayLocale}
-          onPressLogWeight={() => router.push("/(app)/body/weight")}
+          onPressLogWeight={() =>
+            router.push({ pathname: "/(app)/body/weight", params: { day: dayKey } })
+          }
           onPressFailures={() => router.push("/(app)/failures")}
         />
 
@@ -1137,7 +1171,9 @@ export default function CommandCenterScreen(props: Props) {
 
         <StrengthSection
           model={strengthModel}
-          onPressLog={() => router.push("/(app)/training/strength/log")}
+          onPressLog={() =>
+            router.push({ pathname: "/(app)/training/strength/log", params: { day: dayKey } })
+          }
           onPressFailures={() => router.push("/(app)/failures")}
         />
 

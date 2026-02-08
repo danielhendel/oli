@@ -1,6 +1,7 @@
 // app/(app)/training/strength/log.tsx
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -10,6 +11,7 @@ import {
   type ManualStrengthWorkoutPayload,
 } from "@/lib/events/manualStrengthWorkout";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
+import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 const getDeviceTimeZone = (): string => {
   try {
@@ -70,6 +72,11 @@ function parseRpeRir(s: string): number | null {
 }
 
 export default function StrengthLogScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ day?: string }>();
+  const forcedDay =
+    typeof params.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : null;
+
   const { user, initializing, getIdToken } = useAuth();
 
   const [startedAt, setStartedAt] = useState(() => new Date().toISOString());
@@ -202,6 +209,12 @@ export default function StrengthLogScreen() {
 
       const refreshKey = makeRefreshKey();
       emitRefresh("commandCenter", refreshKey);
+
+      const day = forcedDay ?? ymdInTimeZoneFromIso(payload.startedAt, payload.timeZone);
+      router.replace({
+        pathname: "/(app)/command-center",
+        params: { day, refresh: refreshKey },
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setStatus({ state: "error", message: msg });

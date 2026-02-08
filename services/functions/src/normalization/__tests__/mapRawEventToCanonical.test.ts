@@ -84,7 +84,7 @@ describe("mapRawEventToCanonical", () => {
     expect(stepsEvent.moveMinutes).toBe(90);
   });
 
-  it("maps manual weight payload to WeightCanonicalEvent", () => {
+  it("returns fact-only for weight (no canonical event, trigger recompute via onRawEventCreated)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,
       id: "raw_weight_1",
@@ -99,18 +99,16 @@ describe("mapRawEventToCanonical", () => {
     };
 
     const result = mapRawEventToCanonical(raw);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("Expected mapping success");
-
-    const canonical = result.canonical;
-    expect(canonical.kind).toBe("weight");
-    expect(canonical.day).toBe("2025-01-01");
-
-    const weightEvent = canonical as Extract<CanonicalEvent, { kind: "weight" }>;
-    expect(weightEvent.weightKg).toBe(73.482);
-    expect(
-      "bodyFatPercent" in weightEvent ? weightEvent.bodyFatPercent : undefined,
-    ).toBeNull();
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected fact-only (no canonical)");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details).toEqual(
+      expect.objectContaining({
+        kind: "weight",
+        factOnly: true,
+        rawEventId: "raw_weight_1",
+      }),
+    );
   });
 
   it("returns failure for unsupported provider", () => {

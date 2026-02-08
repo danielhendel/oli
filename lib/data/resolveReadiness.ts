@@ -42,14 +42,18 @@ export function resolveReadiness(input: ResolveReadinessInput): ReadinessResult 
   if (input.network === "error") return { state: "invalid", reason: "network-error" };
 
   // network === "ok"
-  if (input.eventsCount === 0) return { state: "empty", reason: "no-events" };
+  // Sprint 0 Option A: fact-only days (eventsCount=0) can have derived truth via facts/context.
+  // Only treat as empty when we have neither events nor computedAt.
+  if (input.eventsCount === 0 && !input.computedAtIso) return { state: "empty", reason: "no-events" };
   if (input.eventsCount === null) return { state: "loading", reason: "network-loading" };
 
-  // If events exist, derived truth must be schema-valid.
+  // If events or derived truth exist, schema must be valid.
   if (!input.zodValid) return { state: "partial", reason: "invalid-payload" };
 
   // Derived truth must expose its meta surface.
-  if (!input.computedAtIso || !input.latestCanonicalEventAtIso) {
+  // For fact-only days (eventsCount=0), computedAt is sufficient; latestCanonicalEventAt is optional.
+  if (!input.computedAtIso) return { state: "partial", reason: "missing-meta" };
+  if (input.eventsCount > 0 && !input.latestCanonicalEventAtIso) {
     return { state: "partial", reason: "missing-meta" };
   }
 

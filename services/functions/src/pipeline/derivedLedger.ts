@@ -8,6 +8,7 @@ export type YmdDateString = string;
 
 type Trigger =
   | { type: "realtime"; name: "onCanonicalEventCreated"; eventId: string }
+  | { type: "realtime"; name: "onRawEventCreated_factOnly"; eventId: string }
   | { type: "scheduled"; name: string; eventId: string };
 
 type SnapshotKind = "dailyFacts" | "intelligenceContext";

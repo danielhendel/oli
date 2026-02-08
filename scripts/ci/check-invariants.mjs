@@ -1098,6 +1098,7 @@ function checkDerivedWritersEmitLedgerRuns() {
     "services/functions/src/dailyFacts/onDailyFactsRecomputeScheduled.ts",
     "services/functions/src/insights/onInsightsRecomputeScheduled.ts",
     "services/functions/src/intelligence/onDailyIntelligenceContextRecomputeScheduled.ts",
+    "services/functions/src/pipeline/recomputeForDay.ts",
   ];
 
   const missing = [];

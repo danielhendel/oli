@@ -209,21 +209,27 @@ export interface AggregateDailyFactsInput {
   date: YmdDateString;
   computedAt: IsoDateTimeString;
   events: CanonicalEvent[];
+  /**
+   * Optional body facts from fact-only raw events (e.g. weight).
+   * Used when no canonical weight events exist for the day.
+   * Constitutional: we compute derived truth from non-event inputs.
+   */
+  factOnlyBody?: DailyBodyFacts;
 }
 
 /**
  * Aggregate CanonicalEvents for a single user + day into a DailyFacts document.
  *
  * - Pure and deterministic given the input.
- * - Uses only CanonicalEvents, never RawEvents.
+ * - Uses CanonicalEvents for most domains; factOnlyBody for body when no canonical weight.
  * - Safe for scheduled jobs and reprocessing pipelines.
  */
 export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): DailyFacts => {
-  const { userId, date, computedAt, events } = input;
+  const { userId, date, computedAt, events, factOnlyBody } = input;
 
   const sleep = buildSleepFacts(events);
   const activity = buildActivityFacts(events);
-  const body = buildBodyFacts(events);
+  const body = buildBodyFacts(events) ?? factOnlyBody;
   const recovery = buildRecoveryFacts(events);
   const strength = buildStrengthFacts(events);
 

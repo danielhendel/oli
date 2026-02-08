@@ -7,7 +7,6 @@ import type {
   SleepCanonicalEvent,
   StepsCanonicalEvent,
   WorkoutCanonicalEvent,
-  WeightCanonicalEvent,
   HrvCanonicalEvent,
   StrengthWorkoutCanonicalEvent,
   StrengthWorkoutCanonicalSet,
@@ -30,6 +29,18 @@ import type {
  *   (e.g., upload.file with no parsing). Those return UNSUPPORTED_KIND with a marker
  *   so callers can treat them as a valid no-op.
  */
+
+/**
+ * RawEvent kinds that are fact-only: they update derived truth (dailyFacts, intelligenceContext)
+ * but do NOT emit canonical events. Constitutional: canonical = "what happened"; weight is a
+ * measurement fact, not an event.
+ */
+export const FACT_ONLY_RAW_EVENT_KINDS = ["weight"] as const;
+
+export type FactOnlyRawEventKind = (typeof FACT_ONLY_RAW_EVENT_KINDS)[number];
+
+export const isFactOnlyKind = (kind: string): kind is FactOnlyRawEventKind =>
+  (FACT_ONLY_RAW_EVENT_KINDS as readonly string[]).includes(kind);
 
 export type MappingFailureReason =
   | "UNSUPPORTED_PROVIDER"
@@ -361,30 +372,6 @@ const mapManualWorkout = (
   return base;
 };
 
-const mapManualWeight = (
-  raw: RawEvent,
-  payload: ManualWeightPayload,
-): WeightCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
-  if (!day) return null;
-
-  return {
-    id: raw.id,
-    userId: raw.userId,
-    sourceId: raw.sourceId,
-    kind: "weight",
-    start: payload.time,
-    end: payload.time,
-    day,
-    timezone: payload.timezone,
-    createdAt: raw.receivedAt,
-    updatedAt: raw.receivedAt,
-    schemaVersion: 1,
-    weightKg: payload.weightKg,
-    bodyFatPercent: payload.bodyFatPercent ?? null,
-  };
-};
-
 const mapManualHrv = (
   raw: RawEvent,
   payload: ManualHrvPayload,
@@ -550,25 +537,13 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       return { ok: true, canonical };
     }
 
-    case "weight": {
-      const payload = parseManualPayload("weight", raw.payload);
-      if (!payload) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id },
-        };
-      }
-      const canonical = mapManualWeight(raw, payload);
-      if (!canonical) {
-        return {
-          ok: false,
-          reason: "MALFORMED_PAYLOAD",
-          details: { rawEventId: raw.id, field: "time", reason: "INVALID_TIME_OR_TIMEZONE" },
-        };
-      }
-      return { ok: true, canonical };
-    }
+    case "weight":
+      // Fact-only: handled by early return; this case satisfies exhaustive switch
+      return {
+        ok: false,
+        reason: "UNSUPPORTED_KIND",
+        details: { kind: raw.kind, rawEventId: raw.id, factOnly: true },
+      };
 
     case "hrv": {
       const payload = parseManualPayload("hrv", raw.payload);

@@ -48,11 +48,13 @@ export const logWeight = async (
 
   // ✅ Canonical ingestion envelope (single front door)
   // Server is authoritative for day; we still include payload.day when present for back-compat.
+  // API requires timeZone at top level (see services/api/src/routes/events.ts).
   const ingestBody = {
     provider: "manual",
     kind: "weight",
     observedAt: clean.time,
     sourceId: "manual",
+    timeZone: clean.timezone,
     payload: clean,
   };
 
