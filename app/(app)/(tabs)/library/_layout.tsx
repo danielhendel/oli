@@ -7,6 +7,7 @@ export default function LibraryLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="[category]" />
       <Stack.Screen name="lineage/[canonicalEventId]" options={{ title: "Lineage" }} />
+      <Stack.Screen name="replay/day/[dayKey]" options={{ title: "Replay" }} />
     </Stack>
   );
 }
