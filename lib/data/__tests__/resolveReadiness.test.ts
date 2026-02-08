@@ -22,10 +22,21 @@ describe("resolveReadiness", () => {
     expect(r.reason).toBe("network-error");
   });
 
-  it("returns empty when no events exist", () => {
-    const r = resolveReadiness({ ...base, eventsCount: 0 });
+  it("returns empty when no events and no computedAt (truly no data)", () => {
+    const r = resolveReadiness({ ...base, eventsCount: 0, computedAtIso: null, latestCanonicalEventAtIso: null });
     expect(r.state).toBe("empty");
     expect(r.reason).toBe("no-events");
+  });
+
+  it("returns ready when fact-only (eventsCount=0 but derived truth has computedAt)", () => {
+    const r = resolveReadiness({
+      ...base,
+      eventsCount: 0,
+      latestCanonicalEventAtIso: null,
+      computedAtIso: "2025-12-30T10:00:00.000Z",
+    });
+    expect(r.state).toBe("ready");
+    expect(r.reason).toBe("ready");
   });
 
   it("returns partial when payload is not schema-valid", () => {

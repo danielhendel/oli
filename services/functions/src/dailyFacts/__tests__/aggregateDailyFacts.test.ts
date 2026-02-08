@@ -217,4 +217,32 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.recovery).toBeUndefined();
     expect(result.strength).toBeUndefined();
   });
+
+  it('includes body from factOnlyBody when no canonical weight events exist', () => {
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: [],
+      factOnlyBody: { weightKg: 73.5, bodyFatPercent: 18 },
+    });
+
+    expect(result.body).toBeDefined();
+    expect(result.body!.weightKg).toBe(73.5);
+    expect(result.body!.bodyFatPercent).toBe(18);
+  });
+
+  it('prefers canonical weight events over factOnlyBody when both exist', () => {
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: [makeWeight({ weightKg: 80, bodyFatPercent: 15 })],
+      factOnlyBody: { weightKg: 73.5 },
+    });
+
+    expect(result.body).toBeDefined();
+    expect(result.body!.weightKg).toBe(80);
+    expect(result.body!.bodyFatPercent).toBe(15);
+  });
 });

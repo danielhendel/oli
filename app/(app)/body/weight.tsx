@@ -1,7 +1,7 @@
 // app/(app)/body/weight.tsx
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -9,6 +9,7 @@ import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 const LBS_PER_KG = 2.2046226218;
 
@@ -27,6 +28,10 @@ function makeRefreshKey(): string {
 
 export default function BodyWeightScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ day?: string }>();
+  const forcedDay =
+    typeof params.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : null;
+
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
 
@@ -121,15 +126,15 @@ export default function BodyWeightScreen() {
       setStatus({ state: "saved", rawEventId: res.json.rawEventId });
 
       const refreshKey = makeRefreshKey();
+      const day = forcedDay ?? ymdInTimeZoneFromIso(time, timezone);
 
       // ✅ Bus payload: deterministic immediate CC update even if params don't update / screen stays mounted.
       emitRefresh("commandCenter", refreshKey, { optimisticWeightKg: parsed.weightKg });
 
-      // ✅ Keep params as redundancy
-      const ow = parsed.weightKg.toFixed(2);
+      // ✅ Navigate back with params so CC derives dayKey, refreshKey, optimisticWeightKg
       router.replace({
         pathname: "/(app)/command-center",
-        params: { refresh: refreshKey, ow },
+        params: { day, refresh: refreshKey, ow: String(parsed.weightKg) },
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
