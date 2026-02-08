@@ -13,40 +13,40 @@ function makeFacts(overrides: Partial<DailyFactsDto> = {}): DailyFactsDto {
 }
 
 describe("buildRecoveryCommandCenterModel", () => {
-  it("returns loading model", () => {
+  it("returns partial model", () => {
     const m = buildRecoveryCommandCenterModel({
-      dataReadinessState: "loading",
+      dataReadinessState: "partial",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("loading");
-    expect(m.description).toBe("Loading derived recovery summary…");
+    expect(m.state).toBe("partial");
+    expect(m.description).toContain("still building");
     expect(m.summary).toBeNull();
-    expect(m.showReadinessCta).toBe(false);
+    expect(m.showReadinessCta).toBe(true);
     expect(m.showFailuresCta).toBe(false);
   });
 
-  it("returns invalid model and failures CTA when failures exist", () => {
+  it("returns error model and failures CTA when failures exist", () => {
     const m = buildRecoveryCommandCenterModel({
-      dataReadinessState: "invalid",
+      dataReadinessState: "error",
       factsDoc: null,
       hasFailures: true,
     });
 
-    expect(m.state).toBe("invalid");
+    expect(m.state).toBe("error");
     expect(m.showFailuresCta).toBe(true);
     expect(m.showReadinessCta).toBe(true);
   });
 
-  it("returns empty model", () => {
+  it("returns missing model", () => {
     const m = buildRecoveryCommandCenterModel({
-      dataReadinessState: "empty",
+      dataReadinessState: "missing",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("empty");
+    expect(m.state).toBe("missing");
     expect(m.summary).toBeNull();
     expect(m.showReadinessCta).toBe(true);
   });

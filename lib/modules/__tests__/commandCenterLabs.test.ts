@@ -2,42 +2,42 @@
 import { buildLabsCommandCenterModel } from "../commandCenterLabs";
 
 describe("buildLabsCommandCenterModel", () => {
-  it("returns loading model", () => {
+  it("returns partial model", () => {
     const m = buildLabsCommandCenterModel({
-      dataReadinessState: "loading",
+      dataReadinessState: "partial",
       uploads: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("loading");
-    expect(m.description).toBe("Loading lab uploads presence…");
+    expect(m.state).toBe("partial");
+    expect(m.description).toContain("still building");
     expect(m.latestSummary).toBeNull();
     expect(m.showUploadCta).toBe(false);
     expect(m.showViewCta).toBe(false);
     expect(m.showFailuresCta).toBe(false);
   });
 
-  it("returns invalid model and failures CTA when failures exist", () => {
+  it("returns error model and failures CTA when failures exist", () => {
     const m = buildLabsCommandCenterModel({
-      dataReadinessState: "invalid",
+      dataReadinessState: "error",
       uploads: null,
       hasFailures: true,
     });
 
-    expect(m.state).toBe("invalid");
+    expect(m.state).toBe("error");
     expect(m.showFailuresCta).toBe(true);
     expect(m.showUploadCta).toBe(false);
     expect(m.showViewCta).toBe(false);
   });
 
-  it("returns empty model", () => {
+  it("returns missing model", () => {
     const m = buildLabsCommandCenterModel({
-      dataReadinessState: "empty",
+      dataReadinessState: "missing",
       uploads: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("empty");
+    expect(m.state).toBe("missing");
     expect(m.latestSummary).toBeNull();
     expect(m.showUploadCta).toBe(true);
     expect(m.showViewCta).toBe(false);

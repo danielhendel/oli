@@ -1,7 +1,8 @@
 // lib/modules/commandCenterNutrition.ts
+import type { Readiness } from "../contracts/readiness";
 import type { DailyFactsDto } from "../contracts/dailyFacts";
 
-export type ReadinessVocabularyState = "loading" | "empty" | "invalid" | "partial" | "ready";
+export type ReadinessVocabularyState = Readiness;
 
 export type NutritionSummaryUi = {
   totalKcal?: number;
@@ -26,20 +27,9 @@ export function buildNutritionCommandCenterModel(args: {
 }): NutritionCommandCenterModel {
   const { dataReadinessState, factsDoc, hasFailures } = args;
 
-  if (dataReadinessState === "loading") {
+  if (dataReadinessState === "error") {
     return {
-      state: "loading",
-      title: "Nutrition",
-      description: "Loading derived nutrition summary…",
-      summary: null,
-      showLogCta: false,
-      showFailuresCta: false,
-    };
-  }
-
-  if (dataReadinessState === "invalid") {
-    return {
-      state: "invalid",
+      state: "error",
       title: "Nutrition",
       description:
         "Your derived truth is currently invalid (pipeline error). Fix upstream issues or review failures to understand why nutrition cannot be computed.",
@@ -49,9 +39,9 @@ export function buildNutritionCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "empty") {
+  if (dataReadinessState === "missing") {
     return {
-      state: "empty",
+      state: "missing",
       title: "Nutrition",
       description: "No events yet today — log nutrition to generate today's nutrition summary.",
       summary: null,

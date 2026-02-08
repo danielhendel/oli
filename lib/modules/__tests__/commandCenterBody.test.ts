@@ -47,40 +47,40 @@ describe("isLbsFirstLocale", () => {
 });
 
 describe("buildBodyCommandCenterModel", () => {
-  it("returns loading model", () => {
+  it("returns partial model", () => {
     const m = buildBodyCommandCenterModel({
-      dataReadinessState: "loading",
+      dataReadinessState: "partial",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("loading");
-    expect(m.description).toBe("Loading derived body summary…");
+    expect(m.state).toBe("partial");
+    expect(m.description).toContain("still building");
     expect(m.summary).toBeNull();
-    expect(m.showLogWeightCta).toBe(false);
+    expect(m.showLogWeightCta).toBe(true);
     expect(m.showFailuresCta).toBe(false);
   });
 
-  it("returns invalid model and failures CTA when failures exist", () => {
+  it("returns error model and failures CTA when failures exist", () => {
     const m = buildBodyCommandCenterModel({
-      dataReadinessState: "invalid",
+      dataReadinessState: "error",
       factsDoc: null,
       hasFailures: true,
     });
 
-    expect(m.state).toBe("invalid");
+    expect(m.state).toBe("error");
     expect(m.showLogWeightCta).toBe(true);
     expect(m.showFailuresCta).toBe(true);
   });
 
-  it("returns empty model", () => {
+  it("returns missing model", () => {
     const m = buildBodyCommandCenterModel({
-      dataReadinessState: "empty",
+      dataReadinessState: "missing",
       factsDoc: null,
       hasFailures: false,
     });
 
-    expect(m.state).toBe("empty");
+    expect(m.state).toBe("missing");
     expect(m.summary).toBeNull();
     expect(m.showLogWeightCta).toBe(true);
   });

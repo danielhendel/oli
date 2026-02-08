@@ -12,19 +12,19 @@ describe("resolveReadiness", () => {
     expectedPipelineVersion: 1,
   };
 
-  it("returns loading when network is loading", () => {
-    expect(resolveReadiness({ ...base, network: "loading" }).state).toBe("loading");
+  it("returns partial when network is loading", () => {
+    expect(resolveReadiness({ ...base, network: "loading" }).state).toBe("partial");
   });
 
-  it("returns invalid when network is error", () => {
+  it("returns error when network is error", () => {
     const r = resolveReadiness({ ...base, network: "error" });
-    expect(r.state).toBe("invalid");
+    expect(r.state).toBe("error");
     expect(r.reason).toBe("network-error");
   });
 
-  it("returns empty when no events and no computedAt (truly no data)", () => {
+  it("returns missing when no events and no computedAt (truly no data)", () => {
     const r = resolveReadiness({ ...base, eventsCount: 0, computedAtIso: null, latestCanonicalEventAtIso: null });
-    expect(r.state).toBe("empty");
+    expect(r.state).toBe("missing");
     expect(r.reason).toBe("no-events");
   });
 
@@ -50,9 +50,9 @@ describe("resolveReadiness", () => {
     expect(resolveReadiness({ ...base, latestCanonicalEventAtIso: null }).reason).toBe("missing-meta");
   });
 
-  it("returns invalid when pipeline versions mismatch", () => {
+  it("returns error when pipeline versions mismatch", () => {
     const r = resolveReadiness({ ...base, pipelineVersion: 2 });
-    expect(r.state).toBe("invalid");
+    expect(r.state).toBe("error");
     expect(r.reason).toBe("pipeline-version-mismatch");
   });
 

@@ -1,7 +1,8 @@
 // lib/modules/moduleReadiness.ts
 import type { ModuleSectionId } from "@/lib/modules/moduleSectionRoutes";
 
-export type ReadinessStatus = "ready" | "coming_soon";
+/** Phase 1 Lock #3: Canonical readiness. "partial" = not yet available (e.g. coming soon). */
+export type ReadinessStatus = "ready" | "partial";
 
 export type SectionReadiness = {
   status: ReadinessStatus;
@@ -11,7 +12,7 @@ export type SectionReadiness = {
 
 const READY: SectionReadiness = { status: "ready", disabled: false };
 const SOON = (badge = "Soon"): SectionReadiness => ({
-  status: "coming_soon",
+  status: "partial",
   disabled: true,
   badge,
 });

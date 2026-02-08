@@ -1,7 +1,8 @@
 // lib/modules/commandCenterStrength.ts
+import type { Readiness } from "../contracts/readiness";
 import type { DailyFactsDto } from "../contracts/dailyFacts";
 
-export type ReadinessVocabularyState = "loading" | "empty" | "invalid" | "partial" | "ready";
+export type ReadinessVocabularyState = Readiness;
 
 export type StrengthSummaryUi = {
   workoutsCount: number;
@@ -39,20 +40,9 @@ export function buildStrengthCommandCenterModel(args: {
 }): StrengthCommandCenterModel {
   const { dataReadinessState, factsDoc, hasFailures } = args;
 
-  if (dataReadinessState === "loading") {
+  if (dataReadinessState === "error") {
     return {
-      state: "loading",
-      title: "Strength",
-      description: "Loading derived strength summary…",
-      summary: null,
-      showLogCta: false,
-      showFailuresCta: false,
-    };
-  }
-
-  if (dataReadinessState === "invalid") {
-    return {
-      state: "invalid",
+      state: "error",
       title: "Strength",
       description:
         "Your derived truth is currently invalid (pipeline error). Fix upstream issues or review failures to understand why strength cannot be computed.",
@@ -62,9 +52,9 @@ export function buildStrengthCommandCenterModel(args: {
     };
   }
 
-  if (dataReadinessState === "empty") {
+  if (dataReadinessState === "missing") {
     return {
-      state: "empty",
+      state: "missing",
       title: "Strength",
       description: "No events yet today — log a strength workout to generate today’s strength summary.",
       summary: null,

@@ -44,6 +44,7 @@ This file is required by CI and is audited.
 | I-13 | All compute workloads must run under dedicated runtime service accounts | Cloud Run/Functions snapshots + CI | **CHECK 13** | Runtime identity drift |
 | I-14 | Canonical event kinds match ingestion RawEvent kinds (no kind drift) | Contracts + CI drift check | **CHECK 15** | Ingestion can’t produce supported canonical kinds (pipeline break) |
 | I-17 | Derived truth must be historically replayable (append-only ledger captures what was known) | Backend derived writers must emit immutable ledger runs + snapshots | **CHECK 19** + code review | “What was known at the time” cannot be reconstructed |
+| I-18 | Readiness vocabulary is canonical (missing, partial, ready, error) — no drift | CI static scan of app/lib/components for disallowed strings | **CHECK 20** | Readiness semantics fragment; UI/redux drift; downstream bugs |
 
 
 ---
@@ -218,6 +219,7 @@ This file is required by CI and is audited.
   - **CHECK 15** — CanonicalEventKind matches rawEventKindSchema (no kind drift)
   - **CHECK 18** — Canonical events are written immutably (no overwrite)
   - **CHECK 19** — Derived writers emit Derived Ledger runs (append-only historical truth)
+  - **CHECK 20** — Readiness vocabulary is canonical (Phase 1 Lock #3; no loading/empty/invalid/etc.)
 - Firestore emulator tests
 - Manual infra inspection (IAM / Gateway)
 
@@ -272,4 +274,17 @@ Any change to this file requires:
   - `services/functions/src/insights/onInsightsRecomputeScheduled.ts`
   - `services/functions/src/intelligence/onDailyIntelligenceContextRecomputeScheduled.ts`
   - `scripts/ci/check-invariants.mjs` (**CHECK 19**)
+
+### I-18 — Readiness vocabulary is canonical (Phase 1 Lock #3)
+- **Enforced by**: CI static scan of `app`, `lib`, `components` for disallowed readiness strings
+- **Mechanism**:
+  - Canonical vocabulary: `missing` | `partial` | `ready` | `error`
+  - Disallowed: `loading`, `empty`, `invalid`, `not-ready`, `unknown`, `unready`, `pending`, `coming_soon`
+  - Scan matches `status: "X"` or `state: "X"` where X is disallowed (excludes `network: "loading"` in resolveReadiness)
+- **Verified by**:
+  - **CHECK 20** (CI)
+- **Files**:
+  - `lib/contracts/readiness.ts`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 20**)
+  - `scripts/ci/readiness-drift-check.mjs` (extracted logic, testable)
 
