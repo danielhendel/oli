@@ -39,16 +39,22 @@ Phase 1 is **done** when:
 
 ### 4. Run Proof Gates
 
-- See `ci-proof.md` for full list.
+- See `ci-proof.md` for full list; `proof-tests.md` for proof test descriptions.
 - Run: `npm run typecheck`, `npm run lint`, `npm test`, `npm run check:invariants`, `bash scripts/ci/proof-gate.sh`
 - All must pass (exit 0).
 
-### 5. E2E Proof (Log → Recompute → Visible → Replayable)
+### 5. Phase 1 E2E Proof Tests
 
-- Run: `npm test -- --runTestsByPath services/functions/src/pipeline/__tests__/phase1E2E.logRecomputeVisibleReplay.test.ts`
-- Test must pass deterministically (no flake).
+- Run: `bash scripts/ci/proof-gate.sh` (runs all proof tests)
+- Key tests: `phase1E2E.logRecomputeVisibleReplay.test.ts`, `phase1E2E.replayImmutability.test.ts`, `phase1E2E.exportProof.test.ts`
+- See `proof-tests.md` for paths and what each proves.
 
-### 6. Screenshots (Manual)
+### 6. Proof Bundle (CI-equivalent outputs)
+
+- `proof/` contains captured outputs from: `npm ci`, `typecheck`, `lint`, `check-invariants`, `proof-gate`, `npm test -- --ci`, `git rev-parse HEAD`, `git tag --points-at HEAD`, `git status --porcelain=v1`
+- Third-party auditors can compare their local run outputs against these.
+
+### 7. Screenshots (Manual)
 
 - See `screenshots.md` for checklist.
 - Capture required screenshots manually on device/simulator.

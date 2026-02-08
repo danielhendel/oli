@@ -1,0 +1,5 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+
+> oli@1.0.0 lint
+> eslint app components lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern "**/dist/**" --ignore-pattern "**/dist-types/**" --ignore-pattern "**/*.d.ts" --ignore-pattern "services/functions/lib/**"
+

@@ -1,0 +1,75 @@
+ M .github/workflows/ci.yml
+ M app/(app)/(tabs)/__tests__/timeline-fail-closed.test.tsx
+ M app/(app)/(tabs)/dash.tsx
+ M app/(app)/(tabs)/library/[category].tsx
+ M app/(app)/(tabs)/library/index.tsx
+ M app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx
+ M app/(app)/(tabs)/library/lineage/__tests__/lineage-screen-fail-closed.test.tsx
+ M app/(app)/(tabs)/library/replay/day/[dayKey].tsx
+ M app/(app)/(tabs)/library/replay/day/__tests__/replay-day-fail-closed.test.tsx
+ M app/(app)/(tabs)/timeline/[day].tsx
+ M app/(app)/(tabs)/timeline/index.tsx
+ M app/(app)/command-center/index.tsx
+ M app/(app)/event/[id].tsx
+ M app/(app)/failures/index.tsx
+ M app/(app)/labs/biomarkers.tsx
+ M app/(app)/labs/lab-result/[id].tsx
+ M app/(app)/settings/units.tsx
+ M docs/90_audits/INVARIANT_ENFORCEMENT_MAP.md
+ M docs/audit/phase1-completion/README.md
+ M docs/audit/phase1-completion/ci-proof.md
+ M docs/audit/phase1-completion/routes.md
+ M lib/contracts/index.ts
+ M lib/data/__tests__/resolveReadiness.test.ts
+ M lib/data/__tests__/truthOutcome.test.ts
+ M lib/data/resolveReadiness.ts
+ M lib/data/truthOutcome.ts
+ M lib/data/useDailyFacts.ts
+ M lib/data/useDayTruth.ts
+ M lib/data/useDerivedLedgerReplay.ts
+ M lib/data/useDerivedLedgerRuns.ts
+ M lib/data/useDerivedLedgerSnapshot.ts
+ M lib/data/useEvents.ts
+ M lib/data/useFailures.ts
+ M lib/data/useFailuresRange.ts
+ M lib/data/useInsights.ts
+ M lib/data/useIntelligenceContext.ts
+ M lib/data/useLabResult.ts
+ M lib/data/useLabResults.ts
+ M lib/data/useLineage.ts
+ M lib/data/useTimeline.ts
+ M lib/data/useUploadsPresence.ts
+ M lib/modules/__tests__/commandCenterBody.test.ts
+ M lib/modules/__tests__/commandCenterCardio.test.ts
+ M lib/modules/__tests__/commandCenterLabs.test.ts
+ M lib/modules/__tests__/commandCenterNutrition.test.ts
+ M lib/modules/__tests__/commandCenterReadiness.test.ts
+ M lib/modules/__tests__/commandCenterRecovery.test.ts
+ M lib/modules/__tests__/commandCenterStrength.test.ts
+ M lib/modules/commandCenterBody.ts
+ M lib/modules/commandCenterCardio.ts
+ M lib/modules/commandCenterLabs.ts
+ M lib/modules/commandCenterNutrition.ts
+ M lib/modules/commandCenterReadiness.ts
+ M lib/modules/commandCenterRecovery.ts
+ M lib/modules/commandCenterStrength.ts
+ M lib/modules/moduleReadiness.ts
+ M lib/preferences/PreferencesProvider.tsx
+ M package.json
+ M scripts/ci/assert-ui-routes.mjs
+ M scripts/ci/check-invariants.mjs
+ M scripts/ci/proof-gate.sh
+?? app/(app)/failures/__tests__/
+?? docs/90_audits/PHASE1_COMPLETION_AUDIT_REPORT.md
+?? docs/audit/phase1-completion/locks-evidence.md
+?? docs/audit/phase1-completion/proof-tests.md
+?? docs/audit/phase1-completion/proof/
+?? lib/contracts/export.ts
+?? lib/contracts/readiness.ts
+?? lib/ui/FailClosed.tsx
+?? scripts/ci/__tests__/
+?? scripts/ci/assert-client-trust-boundary.mjs
+?? scripts/ci/readiness-drift-check.mjs
+?? services/api/src/routes/__tests__/phase1E2E.exportProof.test.ts
+?? services/api/src/routes/__tests__/phase1E2E.replayImmutability.test.ts
+?? services/functions/src/account/runExportJobForTest.ts

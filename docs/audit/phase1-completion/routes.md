@@ -60,6 +60,17 @@
 
 ---
 
+## Failures (Phase 1 Lock #2)
+
+| Route | File | Purpose |
+|-------|------|---------|
+| Failures | `app/(app)/failures/index.tsx` | Failure memory UI; fail-closed on contract error (ErrorState with `isContractError`) |
+
+**Tests:** `app/(app)/failures/__tests__/failures-screen-renders.test.tsx`, `failures-screen-fail-closed.test.tsx`  
+**Contract:** `lib/contracts/failure.ts` (`failureListResponseDtoSchema`)
+
+---
+
 ## Enforcement
 
 - `node scripts/ci/assert-ui-routes.mjs` fails if any required file is missing.
