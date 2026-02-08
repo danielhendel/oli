@@ -11,7 +11,7 @@ This document records specifications that have been formally superseded by repo-
 **Superseded by:** [PHASE_1_DEFINITION.md](./PHASE_1_DEFINITION.md)
 
 **Effective at:**
-- Commit: `82b5cc7bc531c8864a5153dc8028d3877c3f2a73`
+- Commit: `5ef3870`
 - Tag: `sprint-6-phase1-proof-lock`
 - Date: 2026-02-08
 
