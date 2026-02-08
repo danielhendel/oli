@@ -6,8 +6,12 @@ This document formally declares Phase 1 as constitutionally complete.
 
 ## Commit Information
 
-Commit Hash:
-Date:
+Commit Hash: `5ef3870`
+Date: 2026-02-08
+
+**Tag at HEAD:** `sprint-6-phase1-proof-lock`
+
+**Proof artifacts:** `docs/audit/phase1-completion/proof/` (git-head.txt, git-tags-at-head.txt, proof-gate.txt, check-invariants.txt, etc.)
 
 ---
 

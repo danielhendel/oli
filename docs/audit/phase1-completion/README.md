@@ -5,6 +5,25 @@
 
 ---
 
+## Authoritative Sources (LAW)
+
+The following documents are **binding law** for Phase 1. Auditors must treat them as authoritative.
+
+| Document | Purpose |
+|----------|---------|
+| [docs/00_truth/phase1/PHASE_1_DEFINITION.md](../../00_truth/phase1/PHASE_1_DEFINITION.md) | Authoritative Phase 1 definition (repo-truth; CI-enforced) |
+| [docs/00_truth/phase1/PHASE_1_LOCK_CRITERIA.md](../../00_truth/phase1/PHASE_1_LOCK_CRITERIA.md) | Lock criteria (completion verdict) |
+| [docs/00_truth/phase1/PHASE_1_SCOPE.md](../../00_truth/phase1/PHASE_1_SCOPE.md) | Phase 1 scope and intent |
+| [docs/00_truth/phase1/SUPERSEDED_SPECS.md](../../00_truth/phase1/SUPERSEDED_SPECS.md) | Supersession trail (PDF → repo-truth) |
+
+---
+
+## Superseded Documents
+
+Specifications superseded by repo-truth LAW are listed in [docs/00_truth/phase1/SUPERSEDED_SPECS.md](../../00_truth/phase1/SUPERSEDED_SPECS.md). The Phase 1 Definition PDF is no longer authoritative.
+
+---
+
 ## What "Done" Means
 
 Phase 1 is **done** when:
