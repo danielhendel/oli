@@ -45,6 +45,12 @@ TESTS=(
 
   # Sprint 6: Phase 1 E2E proof — log → recompute → visible → replayable
   "services/api/src/routes/__tests__/phase1E2E.logRecomputeVisibleReplay.test.ts"
+
+  # Phase 1 Lock #5: Replay immutability proof
+  "services/api/src/routes/__tests__/phase1E2E.replayImmutability.test.ts"
+
+  # Phase 1 Lock #6: Export E2E proof — request → job → executor → artifact
+  "services/api/src/routes/__tests__/phase1E2E.exportProof.test.ts"
 )
 
 missing=0
