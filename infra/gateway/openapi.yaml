@@ -216,6 +216,81 @@ paths:
         202:
           description: Accepted
 
+  /users/me/raw-events:
+    options:
+      operationId: rawEventsListOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: rawEventsListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/events:
+    options:
+      operationId: eventsListOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: eventsListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/timeline:
+    options:
+      operationId: timelineOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: timelineGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/lineage:
+    options:
+      operationId: lineageOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: lineageGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/derived-ledger/snapshot:
+    options:
+      operationId: derivedLedgerSnapshotOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: derivedLedgerSnapshotGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
   /users/me/day-truth:
     options:
       operationId: dayTruthOptions

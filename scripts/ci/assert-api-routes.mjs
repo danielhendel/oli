@@ -78,6 +78,12 @@ const routes = collectRoutesFromStack(stack);
 const mustHave = [
   { method: "POST", path: "/export" },
   { method: "POST", path: "/account/delete" },
+  // Sprint 1 — Retrieval Surfaces (paths relative to /users/me router)
+  { method: "GET", path: "/raw-events" },
+  { method: "GET", path: "/events" },
+  { method: "GET", path: "/timeline" },
+  { method: "GET", path: "/lineage" },
+  { method: "GET", path: "/derived-ledger/snapshot" },
 ];
 
 // Hard fail if route table is empty — means we aren’t inspecting the right thing.
@@ -89,7 +95,11 @@ if (routes.length === 0) {
 }
 
 for (const req of mustHave) {
-  const ok = routes.some((r) => r.method === req.method && r.path === req.path);
+  const ok = routes.some(
+    (r) =>
+      r.method === req.method &&
+      (Array.isArray(r.path) ? r.path.includes(req.path) : r.path === req.path),
+  );
   if (!ok) {
     die(`Missing compiled route ${req.method} ${req.path}. Found: ${JSON.stringify(routes)}`);
   }

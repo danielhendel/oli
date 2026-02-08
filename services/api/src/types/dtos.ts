@@ -28,3 +28,27 @@ export type {
   DerivedLedgerRunsResponseDto,
   DerivedLedgerReplayResponseDto,
 } from "@oli/contracts/derivedLedger";
+
+// Sprint 1 — Retrieval Surfaces
+export {
+  rawEventListItemSchema,
+  rawEventsListResponseDtoSchema,
+  canonicalEventListItemSchema,
+  canonicalEventsListResponseDtoSchema,
+  timelineDaySchema,
+  timelineResponseDtoSchema,
+  lineageResponseDtoSchema,
+  rawEventsListQuerySchema,
+  canonicalEventsListQuerySchema,
+  timelineQuerySchema,
+  lineageQuerySchema,
+} from "@oli/contracts/retrieval";
+export type {
+  RawEventListItem,
+  RawEventsListResponseDto,
+  CanonicalEventListItem,
+  CanonicalEventsListResponseDto,
+  TimelineDay,
+  TimelineResponseDto,
+  LineageResponseDto,
+} from "@oli/contracts/retrieval";

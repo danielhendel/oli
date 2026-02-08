@@ -2,9 +2,13 @@
 import {
   getFirestore,
   FieldValue,
+  FieldPath,
   type CollectionReference,
   type DocumentReference,
 } from "firebase-admin/firestore";
+
+/** FieldPath for document ID (stable pagination tiebreaker) */
+export const documentIdPath = FieldPath.documentId();
 
 /**
  * Single Firestore adapter for the Cloud Run API.
