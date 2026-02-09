@@ -37,6 +37,8 @@ export const rawEventKindSchema = z.enum([
   "workout",
   "weight",
   "hrv",
+  "nutrition",
+  "strength_workout",
   "incomplete",
 ]);
 
@@ -97,6 +99,9 @@ export const ingestRawEventSchema = z
     provenance: provenanceSchema.optional(),
     uncertaintyState: uncertaintyStateSchema.optional(),
     contentUnknown: z.boolean().optional(),
+
+    // Phase 2 — correction: references original raw event; original is never overwritten
+    correctionOfRawEventId: z.string().min(1).optional(),
   })
   .superRefine((val, ctx) => {
     const hasObservedAt = typeof val.observedAt === "string";

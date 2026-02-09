@@ -20,6 +20,9 @@ export type UseRawEventsArgs = {
   start?: string;
   end?: string;
   kinds?: string[];
+  provenance?: string[];
+  uncertaintyState?: string[];
+  q?: string;
   cursor?: string;
   limit?: number;
 };
@@ -98,7 +101,19 @@ export function useRawEvents(
 
   useEffect(() => {
     void fetchOnce();
-  }, [fetchOnce, args.start, args.end, args.kinds?.join(","), args.cursor, args.limit, enabled, user?.uid]);
+  }, [
+    fetchOnce,
+    args.start,
+    args.end,
+    args.kinds?.join(","),
+    args.provenance?.join(","),
+    args.uncertaintyState?.join(","),
+    args.q,
+    args.cursor,
+    args.limit,
+    enabled,
+    user?.uid,
+  ]);
 
   return { ...state, refetch: fetchOnce };
 }

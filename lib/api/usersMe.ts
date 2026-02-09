@@ -177,6 +177,9 @@ export const getRawEvents = async (
     start?: string;
     end?: string;
     kinds?: string[];
+    provenance?: string[];
+    uncertaintyState?: string[];
+    q?: string;
     cursor?: string;
     limit?: number;
   } & TruthGetOptions,
@@ -185,6 +188,9 @@ export const getRawEvents = async (
   if (opts?.start) params.set("start", opts.start);
   if (opts?.end) params.set("end", opts.end);
   if (opts?.kinds?.length) params.set("kinds", opts.kinds.join(","));
+  if (opts?.provenance?.length) params.set("provenance", opts.provenance.join(","));
+  if (opts?.uncertaintyState?.length) params.set("uncertaintyState", opts.uncertaintyState.join(","));
+  if (opts?.q) params.set("q", opts.q);
   if (opts?.cursor) params.set("cursor", opts.cursor);
   if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
   const qs = params.toString();

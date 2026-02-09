@@ -14,6 +14,7 @@ type LibraryCategory = {
 };
 
 const LIBRARY_CATEGORIES: LibraryCategory[] = [
+  { id: "search", title: "Search", countLabel: "Filters" },
   { id: "strength", title: "Strength", kinds: ["strength_workout"] },
   { id: "cardio", title: "Cardio", kinds: ["steps", "workout"] },
   { id: "sleep", title: "Sleep", kinds: ["sleep"] },
@@ -44,6 +45,7 @@ export default function LibraryIndexScreen() {
   const uploads = useUploadsPresence();
 
   const getCategoryCount = (cat: LibraryCategory): string => {
+    if (cat.id === "search") return "Filters";
     if (cat.id === "failures") {
       if (failures.status === "partial") return "…";
       if (failures.status === "ready")
@@ -70,10 +72,14 @@ export default function LibraryIndexScreen() {
               key={cat.id}
               style={styles.row}
               onPress={() =>
-                router.push({
-                  pathname: "/(app)/(tabs)/library/[category]",
-                  params: { category: cat.id },
-                })
+                router.push(
+                  cat.id === "search"
+                    ? "/(app)/(tabs)/library/search"
+                    : {
+                        pathname: "/(app)/(tabs)/library/[category]",
+                        params: { category: cat.id },
+                      }
+                )
               }
               accessibilityLabel={`${cat.title}, ${getCategoryCount(cat)}`}
             >

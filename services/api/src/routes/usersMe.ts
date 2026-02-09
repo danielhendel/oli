@@ -515,12 +515,16 @@ router.get(
       return;
     }
 
-    const { start, end, kinds, cursor, limit } = parsed.data;
+    const { start, end, kinds, provenance, uncertaintyState, q: keyword, cursor, limit } = parsed.data;
+
+    // Phase 2 — when provenance/uncertaintyState/keyword filters present, fetch extra then filter (deterministic)
+    const hasPostFilters = !!(provenance?.length || uncertaintyState?.length || keyword);
+    const fetchLimit = hasPostFilters ? Math.min(limit * 5, 200) : limit + 1;
 
     let q = userCollection(uid, "rawEvents")
       .orderBy("observedAt", "desc")
       .orderBy(documentIdPath, "desc")
-      .limit(limit + 1);
+      .limit(fetchLimit);
 
     if (kinds && kinds.length > 0) {
       if (kinds.length === 1) {
@@ -550,7 +554,36 @@ router.get(
     }
 
     const snap = await q.get();
-    const docs = snap.docs;
+    let docs = snap.docs;
+
+    // Phase 2 — deterministic in-memory filters (no new Firestore indexes)
+    if (provenance && provenance.length > 0) {
+      const set = new Set(provenance);
+      docs = docs.filter((d) => {
+        const p = (d.data() as Record<string, unknown>).provenance;
+        return typeof p === "string" && set.has(p);
+      });
+    }
+    if (uncertaintyState && uncertaintyState.length > 0) {
+      const set = new Set(uncertaintyState);
+      docs = docs.filter((d) => {
+        const u = (d.data() as Record<string, unknown>).uncertaintyState;
+        return typeof u === "string" && set.has(u);
+      });
+    }
+    if (keyword) {
+      const k = keyword.toLowerCase();
+      docs = docs.filter((d) => {
+        const raw = d.data() as Record<string, unknown>;
+        const id = String(d.id).toLowerCase();
+        const payload = raw.payload as Record<string, unknown> | undefined;
+        const note = typeof payload?.note === "string" ? payload.note.toLowerCase() : "";
+        return id.includes(k) || note.includes(k);
+      });
+    }
+    if (hasPostFilters) {
+      docs = docs.slice(0, limit);
+    }
 
     const items: unknown[] = [];
     for (const d of docs) {
@@ -580,6 +613,7 @@ router.get(
       if (raw["provenance"]) item.provenance = raw["provenance"];
       if (raw["uncertaintyState"]) item.uncertaintyState = raw["uncertaintyState"];
       if (raw["contentUnknown"] === true) item.contentUnknown = true;
+      if (raw["correctionOfRawEventId"]) item.correctionOfRawEventId = raw["correctionOfRawEventId"] as string;
       const validated = rawEventListItemSchema.safeParse(item);
       if (!validated.success) {
         invalidDoc500(req, res, "rawEvents", {
@@ -591,9 +625,9 @@ router.get(
       items.push(validated.data);
     }
 
-    const hasMore = docs.length > limit;
-    const outItems = hasMore ? items.slice(0, -1) : items;
-    const lastDoc = hasMore ? docs[docs.length - 2] : null;
+    const hasMore = hasPostFilters ? false : docs.length > limit;
+    const outItems = hasPostFilters ? items : hasMore ? items.slice(0, -1) : items;
+    const lastDoc = hasPostFilters ? null : hasMore ? docs[docs.length - 2] : null;
     const nextCursor = lastDoc ? encodeCursor(lastDoc.id) : null;
 
     const out = { items: outItems, nextCursor };
@@ -791,8 +825,20 @@ router.get(
       ]);
 
       const canonicalCount = eventsSnap.size;
-      const incompleteCount = rawEventsDaySnap.docs.filter((d) => (d.data() as { kind?: string }).kind === "incomplete").length;
+      const rawDocs = rawEventsDaySnap.docs;
+      const incompleteCount = rawDocs.filter((d) => (d.data() as { kind?: string }).kind === "incomplete").length;
       const hasIncompleteEvents = incompleteCount > 0;
+
+      // Phase 2 — uncertainty rollup (deterministic from raw + canonical)
+      const rawData = rawDocs.map((d) => d.data() as { kind?: string; uncertaintyState?: string });
+      const uncertaintyStateRollup = {
+        hasComplete:
+          canonicalCount > 0 ||
+          rawData.some((r) => r.uncertaintyState === "complete"),
+        hasIncomplete:
+          rawData.some((r) => r.kind === "incomplete" || r.uncertaintyState === "incomplete"),
+        hasUncertain: rawData.some((r) => r.uncertaintyState === "uncertain"),
+      };
 
       const dailyFactsRaw = dailyFactsSnap.exists ? dailyFactsSnap.data() : undefined;
       const dailyFactsValid = dailyFactsRaw
@@ -852,6 +898,7 @@ router.get(
         incompleteCount,
         hasIncompleteEvents,
         dayCompletenessState,
+        uncertaintyStateRollup,
       });
     }
 

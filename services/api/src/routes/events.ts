@@ -185,6 +185,10 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   if (body.provenance) doc.provenance = body.provenance;
   if (body.uncertaintyState) doc.uncertaintyState = body.uncertaintyState;
   if (body.contentUnknown === true) doc.contentUnknown = true;
+  if (body.correctionOfRawEventId) {
+    doc.correctionOfRawEventId = body.correctionOfRawEventId;
+    doc.provenance = doc.provenance ?? "correction";
+  }
 
   const validated = rawEventDocSchema.safeParse(doc);
   if (!validated.success) {

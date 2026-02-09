@@ -1,12 +1,14 @@
 // app/(app)/(tabs)/timeline/[day].tsx
-import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Pressable, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useEvents } from "@/lib/data/useEvents";
 import { useRawEvents } from "@/lib/data/useRawEvents";
 import { useFailures } from "@/lib/data/useFailures";
-import { useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { ingestRawEventAuthed } from "@/lib/api/ingest";
+import { useMemo, useState, useCallback } from "react";
 import type { CanonicalEventListItem } from "@oli/contracts";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,6 +42,11 @@ export default function TimelineDayScreen() {
   const day = YYYY_MM_DD.test(dayParam) ? dayParam : "";
 
   const [provenanceExpanded, setProvenanceExpanded] = useState(false);
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [resolveTarget, setResolveTarget] = useState<{ id: string; observedAt: string } | null>(null);
+  const [resolveWeight, setResolveWeight] = useState("");
+  const [resolveSubmitting, setResolveSubmitting] = useState(false);
+  const { getIdToken } = useAuth();
 
   const startIso = `${day}T00:00:00.000Z`;
   const endIso = `${day}T23:59:59.999Z`;
@@ -103,6 +110,50 @@ export default function TimelineDayScreen() {
     rawIncomplete.status === "ready" ? rawIncomplete.data.items : [];
   const hasIncomplete = incompleteItems.length > 0;
 
+  const openResolve = useCallback((r: { id: string; observedAt: string }) => {
+    setResolveTarget(r);
+    setResolveWeight("");
+    setResolveModalOpen(true);
+  }, []);
+
+  const submitResolve = useCallback(async () => {
+    if (!resolveTarget || !resolveWeight.trim()) return;
+    const w = parseFloat(resolveWeight.trim());
+    if (Number.isNaN(w) || w <= 0) return;
+
+    setResolveSubmitting(true);
+    const token = await getIdToken(false);
+    if (!token) {
+      setResolveSubmitting(false);
+      return;
+    }
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const idempotencyKey = `correction_${resolveTarget.id}_weight_${Date.now()}`;
+
+    const result = await ingestRawEventAuthed(
+      {
+        provider: "manual",
+        kind: "weight",
+        observedAt: resolveTarget.observedAt,
+        timeZone: tz,
+        payload: { time: resolveTarget.observedAt, timezone: tz, weightKg: w },
+        provenance: "correction",
+        correctionOfRawEventId: resolveTarget.id,
+      },
+      token,
+      { idempotencyKey },
+    );
+
+    setResolveSubmitting(false);
+    if (result.ok) {
+      setResolveModalOpen(false);
+      setResolveTarget(null);
+      events.refetch();
+      rawIncomplete.refetch();
+    }
+  }, [resolveTarget, resolveWeight, getIdToken, events, rawIncomplete]);
+
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -138,11 +189,16 @@ export default function TimelineDayScreen() {
                 <View style={styles.kindGroup}>
                   <Text style={styles.kindHeaderIncomplete}>incomplete</Text>
                   {incompleteItems.map((r) => (
-                    <View key={r.id} style={styles.eventRow}>
+                    <Pressable
+                      key={r.id}
+                      style={styles.eventRow}
+                      onPress={() => openResolve({ id: r.id, observedAt: r.observedAt })}
+                    >
                       <Text style={styles.eventTime}>
                         {formatIsoToShort(r.observedAt)} — something happened
                       </Text>
-                    </View>
+                      <Text style={styles.resolveHint}>Resolve</Text>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -199,6 +255,52 @@ export default function TimelineDayScreen() {
             </Text>
           </View>
         )}
+
+        <Modal
+          visible={resolveModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setResolveModalOpen(false)}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => setResolveModalOpen(false)}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.modalTitle}>Resolve incomplete</Text>
+              <Text style={styles.modalSubtitle}>
+                Add missing details. Original record is preserved.
+              </Text>
+              <TextInput
+                style={styles.resolveInput}
+                placeholder="Weight (kg)"
+                value={resolveWeight}
+                onChangeText={setResolveWeight}
+                keyboardType="decimal-pad"
+              />
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={styles.modalBtn}
+                  onPress={() => setResolveModalOpen(false)}
+                >
+                  <Text style={styles.modalBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalBtn, styles.modalBtnPrimary]}
+                  onPress={submitResolve}
+                  disabled={resolveSubmitting || !resolveWeight.trim()}
+                >
+                  <Text style={styles.modalBtnTextPrimary}>
+                    {resolveSubmitting ? "…" : "Add as weight"}
+                  </Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </ScrollView>
     </ScreenContainer>
   );
@@ -273,4 +375,39 @@ const styles = StyleSheet.create({
   provenanceToggleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   provenanceContent: { marginTop: 8, padding: 12 },
   provenanceText: { fontSize: 14, color: "#8E8E93", lineHeight: 20 },
+  resolveHint: { fontSize: 12, color: "#007AFF", fontWeight: "600", marginTop: 4 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 320,
+  },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E", marginBottom: 4 },
+  modalSubtitle: { fontSize: 14, color: "#8E8E93", marginBottom: 16 },
+  resolveInput: {
+    borderWidth: 1,
+    borderColor: "#C7C7CC",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: { flexDirection: "row", gap: 12, justifyContent: "flex-end" },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: "#F2F2F7",
+  },
+  modalBtnPrimary: { backgroundColor: "#007AFF" },
+  modalBtnText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  modalBtnTextPrimary: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
 });
