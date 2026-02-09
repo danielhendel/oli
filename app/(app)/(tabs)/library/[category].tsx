@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/library/[category].tsx
-import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
+import { FlatList, View, Text, StyleSheet, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -117,41 +117,52 @@ export default function LibraryCategoryScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <View style={styles.scroll}>
         <Text style={styles.title}>{category}</Text>
         <Text style={styles.subtitle}>Day-grouped, reverse chronological</Text>
 
-        {days.map((day) => (
-          <View key={day} style={styles.daySection}>
-            <Text style={styles.dayHeader}>{day}</Text>
-            {(grouped.get(day) ?? []).map((ev) => (
-              <Pressable
-                key={ev.id}
-                style={styles.eventRow}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(app)/event/[id]",
-                    params: { id: ev.id },
-                  })
-                }
-              >
-                <Text style={styles.eventKind}>{ev.kind}</Text>
-                <Text style={styles.eventTime}>{formatIsoToShort(ev.start)}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+        <FlatList
+          data={days}
+          keyExtractor={(day) => day}
+          renderItem={({ item: day }) => (
+            <View style={styles.daySection}>
+              <Text style={styles.dayHeader}>{day}</Text>
+              {(grouped.get(day) ?? []).map((ev) => (
+                <Pressable
+                  key={ev.id}
+                  style={styles.eventRow}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/event/[id]",
+                      params: { id: ev.id },
+                    })
+                  }
+                >
+                  <Text style={styles.eventKind}>{ev.kind}</Text>
+                  <Text style={styles.eventTime}>{formatIsoToShort(ev.start)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.dayGap} />}
+          ListFooterComponent={<View style={styles.listFooter} />}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+        />
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { flex: 1, padding: 16, paddingBottom: 40 },
   placeholder: { flex: 1, padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   daySection: { marginTop: 20 },
+  dayGap: { height: 16 },
+  listFooter: { height: 40 },
   dayHeader: {
     fontSize: 13,
     fontWeight: "700",

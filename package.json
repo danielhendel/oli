@@ -86,6 +86,7 @@
       "node_modules/(?!(jest-)?expo|@expo(nent)?/.*|@expo-google-fonts/.*|react-native|@react-native(-community)?/.*|@react-navigation/.*|firebase/.*)"
     ],
     "moduleNameMapper": {
+      "^@/lib/(.*)$": "<rootDir>/lib/$1",
       "^@/(.*)$": "<rootDir>/app/$1",
       "^@oli/contracts$": "<rootDir>/lib/contracts/index.ts",
       "^@oli/contracts/(.*)$": "<rootDir>/lib/contracts/$1"
