@@ -26,13 +26,14 @@ node scripts/ci/check-invariants.mjs
 echo "→ Phase 2 proof tests"
 
 # Explicit list of tests that represent Phase 2 truth guarantees.
-# Initially minimal: invariants + Phase 2 definition doc check.
-# Add Phase 2-specific proof tests as implementation progresses.
-#
-# Placeholder: Phase 2 definition doc is validated by CHECK 22 in check-invariants.mjs.
-# Unit test for CHECK 22 logic:
+# Phase 2 proof tests:
+# - Definition doc (CHECK 22)
+# - Incomplete event visible in timeline
+# - Backfill preserves occurredAt, recordedAt, provenance
 TESTS=(
   "scripts/ci/__tests__/phase2-definition-invariant.test.ts"
+  "scripts/ci/__tests__/phase2-incomplete-visible.test.ts"
+  "scripts/ci/__tests__/phase2-backfill-provenance.test.ts"
 )
 
 missing=0

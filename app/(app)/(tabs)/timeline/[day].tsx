@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useEvents } from "@/lib/data/useEvents";
+import { useRawEvents } from "@/lib/data/useRawEvents";
 import { useFailures } from "@/lib/data/useFailures";
 import { useMemo, useState } from "react";
 import type { CanonicalEventListItem } from "@oli/contracts";
@@ -45,6 +46,11 @@ export default function TimelineDayScreen() {
 
   const events = useEvents(
     { start: startIso, end: endIso, limit: 100 },
+    { enabled: !!day },
+  );
+
+  const rawIncomplete = useRawEvents(
+    { start: startIso, end: endIso, kinds: ["incomplete"], limit: 50 },
     { enabled: !!day },
   );
 
@@ -93,6 +99,10 @@ export default function TimelineDayScreen() {
   const items = events.data.items;
   const grouped = groupByKind(items);
 
+  const incompleteItems =
+    rawIncomplete.status === "ready" ? rawIncomplete.data.items : [];
+  const hasIncomplete = incompleteItems.length > 0;
+
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -113,30 +123,51 @@ export default function TimelineDayScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Events</Text>
-          {items.length === 0 ? (
+          {hasIncomplete && (
+            <View style={styles.incompleteBanner}>
+              <Text style={styles.incompleteBannerText}>
+                {incompleteItems.length} incomplete (something happened)
+              </Text>
+            </View>
+          )}
+          {items.length === 0 && !hasIncomplete ? (
             <EmptyState title="No events" description="No events for this day." />
           ) : (
-            Array.from(grouped.entries()).map(([kind, evs]) => (
-              <View key={kind} style={styles.kindGroup}>
-                <Text style={styles.kindHeader}>{kind}</Text>
-                {evs.map((ev) => (
-                  <Pressable
-                    key={ev.id}
-                    style={styles.eventRow}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(app)/event/[id]",
-                        params: { id: ev.id },
-                      })
-                    }
-                  >
-                    <Text style={styles.eventTime}>
-                      {formatIsoToShort(ev.start)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))
+            <>
+              {hasIncomplete && (
+                <View style={styles.kindGroup}>
+                  <Text style={styles.kindHeaderIncomplete}>incomplete</Text>
+                  {incompleteItems.map((r) => (
+                    <View key={r.id} style={styles.eventRow}>
+                      <Text style={styles.eventTime}>
+                        {formatIsoToShort(r.observedAt)} — something happened
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {Array.from(grouped.entries()).map(([kind, evs]) => (
+                <View key={kind} style={styles.kindGroup}>
+                  <Text style={styles.kindHeader}>{kind}</Text>
+                  {evs.map((ev) => (
+                    <Pressable
+                      key={ev.id}
+                      style={styles.eventRow}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(app)/event/[id]",
+                          params: { id: ev.id },
+                        })
+                      }
+                    >
+                      <Text style={styles.eventTime}>
+                        {formatIsoToShort(ev.start)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+            </>
           )}
         </View>
 
@@ -195,11 +226,24 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginBottom: 12,
   },
+  incompleteBanner: {
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: "#FFF8E6",
+    borderRadius: 10,
+  },
+  incompleteBannerText: { fontSize: 14, fontWeight: "600", color: "#8B6914" },
   kindGroup: { marginBottom: 16 },
   kindHeader: {
     fontSize: 13,
     fontWeight: "700",
     color: "#8E8E93",
+    marginBottom: 6,
+  },
+  kindHeaderIncomplete: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#8B6914",
     marginBottom: 6,
   },
   eventRow: {

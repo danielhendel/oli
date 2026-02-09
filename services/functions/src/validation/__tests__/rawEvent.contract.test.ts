@@ -50,6 +50,25 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts a valid Phase 2 incomplete RawEvent doc", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "incomplete_1",
+      userId: "user_1",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "incomplete",
+      receivedAt: "2025-02-09T18:00:00.000Z",
+      observedAt: "2025-01-15T12:00:00.000Z",
+      payload: {},
+      uncertaintyState: "incomplete",
+    };
+
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
   test("rejects malformed payload for kind", () => {
     const raw = {
       schemaVersion: 1,

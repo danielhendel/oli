@@ -119,13 +119,16 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const body: IngestRawEventBody = parsed.data;
 
-  // Canonicalize timestamps (observedAt preferred)
-  const observedAt = body.observedAt ?? body.occurredAt;
-  if (!observedAt) {
-    // This should be unreachable because ingestRawEventSchema enforces it,
-    // but we fail closed anyway.
+  // Canonicalize timestamps (observedAt preferred; occurredAt can be exact or range)
+  const occurredAtRaw = body.occurredAt ?? body.observedAt;
+  if (!occurredAtRaw) {
     return res.status(400).json({ ok: false as const, error: "Missing observedAt/occurredAt" });
   }
+
+  const observedAt: string =
+    typeof occurredAtRaw === "string"
+      ? occurredAtRaw
+      : occurredAtRaw.start;
 
   const idempotencyKey = getIdempotencyKey(req);
   if (!idempotencyKey) {
@@ -140,7 +143,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const receivedAt = new Date().toISOString();
 
-  // ✅ Must match canonical dayKey semantics
+  // ✅ Must match canonical dayKey semantics (use observedAt for day derivation)
   const day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
 
   // Phase 1: gateway currently represents manual ingestion
@@ -154,7 +157,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   const docRef = rawEventsCol.doc(idempotencyKey);
   const rawEventId = docRef.id;
 
-  const doc = {
+  const doc: Record<string, unknown> = {
     id: rawEventId,
     userId: uid,
 
@@ -167,14 +170,21 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     receivedAt,
     observedAt,
 
-    // Contract-first: timezone is authoritative at the envelope level.
-    // This MUST validate against @oli/contracts rawEventDocSchema.
-    timeZone,
-
     payload: body.payload,
 
     schemaVersion,
   };
+
+  // Phase 2 — preserve occurredAt (exact or range), recordedAt, provenance, uncertainty
+  if (typeof occurredAtRaw === "object" && occurredAtRaw !== null) {
+    doc.occurredAt = occurredAtRaw;
+  } else if (typeof occurredAtRaw === "string") {
+    doc.occurredAt = occurredAtRaw;
+  }
+  if (body.recordedAt) doc.recordedAt = body.recordedAt;
+  if (body.provenance) doc.provenance = body.provenance;
+  if (body.uncertaintyState) doc.uncertaintyState = body.uncertaintyState;
+  if (body.contentUnknown === true) doc.contentUnknown = true;
 
   const validated = rawEventDocSchema.safeParse(doc);
   if (!validated.success) {

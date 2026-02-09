@@ -20,6 +20,12 @@ export default function ManageScreen() {
         >
           Open Command Center
         </Text>
+        <Text
+          style={styles.link}
+          onPress={() => router.push("/(app)/log")}
+        >
+          Quick log (Phase 2)
+        </Text>
       </ScrollView>
     </ScreenContainer>
   );

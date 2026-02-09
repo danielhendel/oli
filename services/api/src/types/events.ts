@@ -1,5 +1,10 @@
 // services/api/src/types/events.ts
 import { z } from "zod";
+import {
+  occurredAtSchema,
+  provenanceSchema,
+  uncertaintyStateSchema,
+} from "@oli/contracts";
 
 /**
  * ============================================================================
@@ -24,6 +29,7 @@ import { z } from "zod";
  * Supported RawEvent kinds accepted by the ingestion gateway TODAY.
  *
  * Adding a new kind here is a Phase 1–critical change and must be deliberate.
+ * Phase 2: "incomplete" = "something happened, details later".
  */
 export const rawEventKindSchema = z.enum([
   "sleep",
@@ -31,6 +37,7 @@ export const rawEventKindSchema = z.enum([
   "workout",
   "weight",
   "hrv",
+  "incomplete",
 ]);
 
 export type RawEventKind = z.infer<typeof rawEventKindSchema>;
@@ -71,20 +78,30 @@ export const ingestRawEventSchema = z
     provider: rawEventProviderSchema.default("manual"),
     kind: rawEventKindSchema,
 
-    // Preferred canonical time
+    // Phase 1 — preferred canonical time (legacy)
     observedAt: isoDateTimeString.optional(),
 
-    // Legacy compatibility
-    occurredAt: isoDateTimeString.optional(),
+    // Phase 1/2 — occurredAt: exact ISO or range { start, end }
+    occurredAt: occurredAtSchema.optional(),
+
+    // Phase 2 — when logged (exact). For backfill, client sends recordedAt = now.
+    recordedAt: isoDateTimeString.optional(),
 
     // Optional source identifier (defaults to manual)
     sourceId: z.string().min(1).optional().default("manual"),
 
     // Deliberately opaque at ingestion boundary
     payload: z.unknown(),
+
+    // Phase 2 — provenance and uncertainty
+    provenance: provenanceSchema.optional(),
+    uncertaintyState: uncertaintyStateSchema.optional(),
+    contentUnknown: z.boolean().optional(),
   })
   .superRefine((val, ctx) => {
-    if (!val.observedAt && !val.occurredAt) {
+    const hasObservedAt = typeof val.observedAt === "string";
+    const hasOccurredAt = val.occurredAt !== undefined;
+    if (!hasObservedAt && !hasOccurredAt) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Either observedAt or occurredAt is required",

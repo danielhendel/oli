@@ -20,11 +20,51 @@ export const isoDateTimeStringSchema = z
 export const rawEventSchemaVersionSchema = z.literal(1);
 
 /**
+ * Phase 2 — Uncertainty state at event level.
+ * Must be visible at event/day/timeline. Never silently upgraded.
+ */
+export const uncertaintyStateSchema = z.enum(["complete", "incomplete", "uncertain"]);
+export type UncertaintyState = z.infer<typeof uncertaintyStateSchema>;
+
+/**
+ * Phase 2 — Provenance/source of the event.
+ * Backfill = logged after the fact; recordedAt differs from occurredAt.
+ */
+export const provenanceSchema = z.enum(["manual", "device", "upload", "backfill"]);
+export type Provenance = z.infer<typeof provenanceSchema>;
+
+/**
+ * Phase 2 — occurredAt: exact ISO datetime OR time window/range.
+ * Never fake precision. Approximate time remains visible as approximate.
+ */
+export const occurredAtExactSchema = isoDateTimeStringSchema;
+export const occurredAtRangeSchema = z
+  .object({
+    start: isoDateTimeStringSchema,
+    end: isoDateTimeStringSchema,
+  })
+  .strip()
+  .refine((r) => Date.parse(r.start) <= Date.parse(r.end), {
+    message: "Range start must be <= end",
+  });
+export const occurredAtSchema = z.union([occurredAtExactSchema, occurredAtRangeSchema]);
+export type OccurredAt = z.infer<typeof occurredAtSchema>;
+
+/**
+ * Phase 2 — recordedAt: exact ISO datetime when the event was logged.
+ * For backfill: recordedAt = now, occurredAt = past.
+ */
+export const recordedAtSchema = isoDateTimeStringSchema;
+
+/**
  * RawEvent kinds are the ingestion boundary taxonomy.
  *
  * Phase 1 rule:
  * - Canonical kinds exist here (sleep/steps/...)
  * - "file" is memory-only (upload artifact), not canonical, not normalized yet.
+ *
+ * Phase 2:
+ * - "incomplete" is memory-only: "something happened, details later".
  */
 export const rawEventKindSchema = z.enum([
   "sleep",
@@ -35,6 +75,7 @@ export const rawEventKindSchema = z.enum([
   "nutrition",
   "strength_workout",
   "file",
+  "incomplete",
 ]);
 
 /**
@@ -173,6 +214,16 @@ const manualFilePayloadSchema = z
   })
   .strip();
 
+/**
+ * Phase 2 — Incomplete event payload.
+ * "Something happened" — minimal friction, no forced guessing.
+ */
+const manualIncompletePayloadSchema = z
+  .object({
+    note: z.string().max(256).optional(),
+  })
+  .strip();
+
 // Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
@@ -183,6 +234,7 @@ const payloadByKindSchema = {
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
+  incomplete: manualIncompletePayloadSchema,
 } as const;
 
 // -----------------------------
@@ -201,6 +253,12 @@ const rawEventBaseSchema = z
     receivedAt: isoDateTimeStringSchema,
     observedAt: isoDateTimeStringSchema,
     payload: z.unknown(),
+    // Phase 2 — optional; never silently upgrade uncertainty
+    recordedAt: isoDateTimeStringSchema.optional(),
+    occurredAt: occurredAtSchema.optional(),
+    provenance: provenanceSchema.optional(),
+    uncertaintyState: uncertaintyStateSchema.optional(),
+    contentUnknown: z.boolean().optional(),
   })
   .strip();
 
@@ -239,7 +297,8 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualHrvPayloadSchema>
     | z.infer<typeof manualNutritionPayloadSchema>
     | z.infer<typeof manualStrengthWorkoutPayloadSchema>
-    | z.infer<typeof manualFilePayloadSchema>;
+    | z.infer<typeof manualFilePayloadSchema>
+    | z.infer<typeof manualIncompletePayloadSchema>;
 };
 
 /**
@@ -255,4 +314,5 @@ export const rawEventPayloadByKindSchemas = {
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
+  incomplete: manualIncompletePayloadSchema,
 } as const;
