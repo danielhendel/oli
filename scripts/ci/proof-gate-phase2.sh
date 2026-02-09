@@ -31,6 +31,7 @@ echo "→ Phase 2 proof tests"
 # - Incomplete event visible in timeline
 # - Backfill preserves occurredAt, recordedAt, provenance
 # - Sprint 2: Correction preserves original; timeline ordering stable; library filters deterministic
+# - Sprint 3: Completeness determinism; pagination stability
 TESTS=(
   "scripts/ci/__tests__/phase2-definition-invariant.test.ts"
   "scripts/ci/__tests__/phase2-incomplete-visible.test.ts"
@@ -38,6 +39,8 @@ TESTS=(
   "scripts/ci/__tests__/phase2-correction-preserves-original.test.ts"
   "scripts/ci/__tests__/phase2-timeline-ordering-stable.test.ts"
   "scripts/ci/__tests__/phase2-library-filters-deterministic.test.ts"
+  "scripts/ci/__tests__/phase2-completeness-determinism-proof.test.ts"
+  "scripts/ci/__tests__/phase2-pagination-stability-proof.test.ts"
 )
 
 missing=0

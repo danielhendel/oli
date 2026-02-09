@@ -26,8 +26,21 @@ jest.mock("@/lib/data/useRawEvents", () => ({
     status: "error",
     error: "Invalid response shape",
     requestId: "req-456",
+    reason: "contract" as const,
     refetch: jest.fn(),
   }),
+}));
+
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({
+    getIdToken: jest.fn().mockResolvedValue(null),
+    user: null,
+    initializing: false,
+  }),
+}));
+
+jest.mock("@/lib/api/ingest", () => ({
+  ingestRawEventAuthed: jest.fn(),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -45,7 +58,7 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
 }
 
 describe("LibrarySearchScreen fail-closed", () => {
-  it("renders ErrorState when raw-events API returns error", () => {
+  it("renders ErrorState when raw-events API returns error (no partial truth)", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -55,5 +68,17 @@ describe("LibrarySearchScreen fail-closed", () => {
     const text = collectAllText(test);
     expect(text).toContain("Something went wrong");
     expect(text).toContain("Try again");
+  });
+
+  it("renders ErrorState when retrieval contract breaks (fail-closed, no partial list)", () => {
+    let test!: renderer.ReactTestRenderer;
+
+    act(() => {
+      test = renderer.create(<LibrarySearchScreen />);
+    });
+
+    const text = collectAllText(test);
+    expect(text).toContain("Something went wrong");
+    expect(text).not.toMatch(/\d+ result/);
   });
 });

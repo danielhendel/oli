@@ -517,9 +517,22 @@ router.get(
 
     const { start, end, kinds, provenance, uncertaintyState, q: keyword, cursor, limit } = parsed.data;
 
-    // Phase 2 — when provenance/uncertaintyState/keyword filters present, fetch extra then filter (deterministic)
+    // Sprint 3 — keyword search: in-memory only (not indexed). Bounded strategy:
+    // keyword filters within the date window (start/end). When no date range given,
+    // fetches recent events; deterministic and fail-closed.
+    const useServerProvenance =
+      provenance &&
+      provenance.length > 0 &&
+      provenance.length <= 30 &&
+      !keyword;
+    const useServerUncertainty =
+      uncertaintyState &&
+      uncertaintyState.length > 0 &&
+      uncertaintyState.length <= 30 &&
+      !keyword;
     const hasPostFilters = !!(provenance?.length || uncertaintyState?.length || keyword);
-    const fetchLimit = hasPostFilters ? Math.min(limit * 5, 200) : limit + 1;
+    const hasInMemoryFilter = keyword || (hasPostFilters && !useServerProvenance && !useServerUncertainty);
+    const fetchLimit = hasInMemoryFilter ? Math.min(limit * 5, 200) : limit + 1;
 
     let q = userCollection(uid, "rawEvents")
       .orderBy("observedAt", "desc")
@@ -543,6 +556,15 @@ router.get(
       }
     }
 
+    if (useServerProvenance) {
+      const vals = provenance!.length === 1 ? [provenance[0]] : provenance!.slice(0, 30);
+      q = q.where("provenance", vals.length === 1 ? "==" : "in", vals.length === 1 ? vals[0] : vals) as ReturnType<typeof q.where>;
+    }
+    if (useServerUncertainty) {
+      const vals = uncertaintyState!.length === 1 ? [uncertaintyState[0]] : uncertaintyState!.slice(0, 30);
+      q = q.where("uncertaintyState", vals.length === 1 ? "==" : "in", vals.length === 1 ? vals[0] : vals) as ReturnType<typeof q.where>;
+    }
+
     if (cursor) {
       const docId = decodeCursor(cursor);
       if (docId) {
@@ -553,18 +575,41 @@ router.get(
       }
     }
 
-    const snap = await q.get();
+    let snap: FirebaseFirestore.QuerySnapshot;
+    try {
+      snap = await q.get();
+    } catch (err: unknown) {
+      if (isFirestoreIndexError(err)) {
+        const rid = getRid(req);
+        logger.error({
+          msg: "raw_events_list_firestore_index_missing",
+          rid,
+          details: err instanceof Error ? err.message : String(err),
+        });
+        res.status(500).json({
+          ok: false,
+          error: {
+            code: "FIRESTORE_INDEX_MISSING",
+            message: "Raw events list query requires a composite index. Add the index and redeploy.",
+            requestId: rid,
+          },
+        });
+        return;
+      }
+      throw err;
+    }
+
     let docs = snap.docs;
 
-    // Phase 2 — deterministic in-memory filters (no new Firestore indexes)
-    if (provenance && provenance.length > 0) {
+    // Deterministic in-memory filters when server-side not used (keyword, or both filters)
+    if (provenance && provenance.length > 0 && !useServerProvenance) {
       const set = new Set(provenance);
       docs = docs.filter((d) => {
         const p = (d.data() as Record<string, unknown>).provenance;
         return typeof p === "string" && set.has(p);
       });
     }
-    if (uncertaintyState && uncertaintyState.length > 0) {
+    if (uncertaintyState && uncertaintyState.length > 0 && !useServerUncertainty) {
       const set = new Set(uncertaintyState);
       docs = docs.filter((d) => {
         const u = (d.data() as Record<string, unknown>).uncertaintyState;
@@ -888,6 +933,13 @@ router.get(
               ? "incomplete"
               : "empty";
 
+      // Sprint 3 — deterministic missingReasons (human-readable, server-computed, stable order)
+      const missingReasons: string[] = [];
+      if (canonicalCount === 0 && !hasIncompleteEvents) missingReasons.push("No events recorded");
+      if (hasIncompleteEvents) missingReasons.push("Incomplete events need details");
+      if (canonicalCount > 0 && !dailyFactsRaw) missingReasons.push("No daily facts");
+      if (canonicalCount > 0 && insightsDocs.length === 0) missingReasons.push("No insights");
+
       outDays.push({
         day,
         canonicalCount,
@@ -899,6 +951,7 @@ router.get(
         hasIncompleteEvents,
         dayCompletenessState,
         uncertaintyStateRollup,
+        missingReasons,
       });
     }
 

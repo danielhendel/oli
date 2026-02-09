@@ -6,6 +6,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useEvents } from "@/lib/data/useEvents";
 import { useRawEvents } from "@/lib/data/useRawEvents";
 import { useFailures } from "@/lib/data/useFailures";
+import { useTimeline } from "@/lib/data/useTimeline";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ingestRawEventAuthed } from "@/lib/api/ingest";
 import { useMemo, useState, useCallback } from "react";
@@ -44,7 +45,9 @@ export default function TimelineDayScreen() {
   const [provenanceExpanded, setProvenanceExpanded] = useState(false);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<{ id: string; observedAt: string } | null>(null);
+  const [resolveType, setResolveType] = useState<"weight" | "note" | "workout">("weight");
   const [resolveWeight, setResolveWeight] = useState("");
+  const [resolveNote, setResolveNote] = useState("");
   const [resolveSubmitting, setResolveSubmitting] = useState(false);
   const { getIdToken } = useAuth();
 
@@ -62,6 +65,14 @@ export default function TimelineDayScreen() {
   );
 
   const failures = useFailures({ day }, { enabled: !!day });
+
+  const timeline = useTimeline(
+    { start: day, end: day },
+    { enabled: !!day },
+  );
+
+  const dayMeta = timeline.status === "ready" && timeline.data.days.length > 0 ? timeline.data.days[0] : null;
+  const missingReasons = dayMeta?.missingReasons ?? [];
 
   const hasFailures =
     failures.status === "ready" && failures.data.items.length > 0;
@@ -112,14 +123,67 @@ export default function TimelineDayScreen() {
 
   const openResolve = useCallback((r: { id: string; observedAt: string }) => {
     setResolveTarget(r);
+    setResolveType("weight");
     setResolveWeight("");
+    setResolveNote("");
     setResolveModalOpen(true);
   }, []);
 
   const submitResolve = useCallback(async () => {
-    if (!resolveTarget || !resolveWeight.trim()) return;
-    const w = parseFloat(resolveWeight.trim());
-    if (Number.isNaN(w) || w <= 0) return;
+    if (!resolveTarget) return;
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let body: Parameters<typeof ingestRawEventAuthed>[0];
+
+    if (resolveType === "weight") {
+      if (!resolveWeight.trim()) return;
+      const w = parseFloat(resolveWeight.trim());
+      if (Number.isNaN(w) || w <= 0) return;
+      body = {
+        provider: "manual",
+        kind: "weight",
+        observedAt: resolveTarget.observedAt,
+        timeZone: tz,
+        payload: { time: resolveTarget.observedAt, timezone: tz, weightKg: w },
+        provenance: "correction",
+        correctionOfRawEventId: resolveTarget.id,
+      };
+    } else if (resolveType === "note") {
+      if (!resolveNote.trim()) return;
+      body = {
+        provider: "manual",
+        kind: "incomplete",
+        observedAt: resolveTarget.observedAt,
+        timeZone: tz,
+        payload: { note: resolveNote.trim().slice(0, 256) },
+        provenance: "correction",
+        correctionOfRawEventId: resolveTarget.id,
+      };
+    } else {
+      // workout
+      if (!resolveWeight.trim()) return;
+      const mins = parseInt(resolveWeight.trim(), 10);
+      if (Number.isNaN(mins) || mins <= 0) return;
+      const startIso = resolveTarget.observedAt;
+      const endDate = new Date(startIso);
+      endDate.setMinutes(endDate.getMinutes() + mins);
+      const endIso = endDate.toISOString();
+      body = {
+        provider: "manual",
+        kind: "workout",
+        observedAt: startIso,
+        timeZone: tz,
+        payload: {
+          start: startIso,
+          end: endIso,
+          timezone: tz,
+          sport: "general",
+          durationMinutes: mins,
+        },
+        provenance: "correction",
+        correctionOfRawEventId: resolveTarget.id,
+      };
+    }
 
     setResolveSubmitting(true);
     const token = await getIdToken(false);
@@ -128,31 +192,20 @@ export default function TimelineDayScreen() {
       return;
     }
 
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const idempotencyKey = `correction_${resolveTarget.id}_weight_${Date.now()}`;
-
-    const result = await ingestRawEventAuthed(
-      {
-        provider: "manual",
-        kind: "weight",
-        observedAt: resolveTarget.observedAt,
-        timeZone: tz,
-        payload: { time: resolveTarget.observedAt, timezone: tz, weightKg: w },
-        provenance: "correction",
-        correctionOfRawEventId: resolveTarget.id,
-      },
-      token,
-      { idempotencyKey },
-    );
+    const idempotencyKey = `correction_${resolveTarget.id}_${resolveType}_${Date.now()}`;
+    const result = await ingestRawEventAuthed(body, token, { idempotencyKey });
 
     setResolveSubmitting(false);
     if (result.ok) {
       setResolveModalOpen(false);
       setResolveTarget(null);
+      setResolveWeight("");
+      setResolveNote("");
       events.refetch();
       rawIncomplete.refetch();
+      timeline.refetch();
     }
-  }, [resolveTarget, resolveWeight, getIdToken, events, rawIncomplete]);
+  }, [resolveTarget, resolveType, resolveWeight, resolveNote, getIdToken, events, rawIncomplete, timeline]);
 
   return (
     <ScreenContainer>
@@ -161,6 +214,14 @@ export default function TimelineDayScreen() {
         <Text style={styles.subtitle}>
           Canonical events, derived presence, failures
         </Text>
+
+        {missingReasons.length > 0 && (
+          <View style={styles.missingReasonsBanner}>
+            <Text style={styles.missingReasonsText}>
+              What&apos;s missing: {missingReasons.join("; ")}
+            </Text>
+          </View>
+        )}
 
         {hasFailures && (
           <View style={styles.failuresBanner}>
@@ -274,13 +335,53 @@ export default function TimelineDayScreen() {
               <Text style={styles.modalSubtitle}>
                 Add missing details. Original record is preserved.
               </Text>
-              <TextInput
-                style={styles.resolveInput}
-                placeholder="Weight (kg)"
-                value={resolveWeight}
-                onChangeText={setResolveWeight}
-                keyboardType="decimal-pad"
-              />
+              <View style={styles.resolveTypeRow}>
+                {(["weight", "note", "workout"] as const).map((t) => (
+                  <Pressable
+                    key={t}
+                    style={[
+                      styles.resolveTypeChip,
+                      resolveType === t && styles.resolveTypeChipActive,
+                    ]}
+                    onPress={() => setResolveType(t)}
+                  >
+                    <Text
+                      style={[
+                        styles.resolveTypeChipText,
+                        resolveType === t && styles.resolveTypeChipTextActive,
+                      ]}
+                    >
+                      {t}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {resolveType === "weight" && (
+                <TextInput
+                  style={styles.resolveInput}
+                  placeholder="Weight (kg)"
+                  value={resolveWeight}
+                  onChangeText={setResolveWeight}
+                  keyboardType="decimal-pad"
+                />
+              )}
+              {resolveType === "note" && (
+                <TextInput
+                  style={styles.resolveInput}
+                  placeholder="Note (what happened)"
+                  value={resolveNote}
+                  onChangeText={setResolveNote}
+                />
+              )}
+              {resolveType === "workout" && (
+                <TextInput
+                  style={styles.resolveInput}
+                  placeholder="Duration (minutes)"
+                  value={resolveWeight}
+                  onChangeText={setResolveWeight}
+                  keyboardType="number-pad"
+                />
+              )}
               <View style={styles.modalButtons}>
                 <Pressable
                   style={styles.modalBtn}
@@ -291,10 +392,21 @@ export default function TimelineDayScreen() {
                 <Pressable
                   style={[styles.modalBtn, styles.modalBtnPrimary]}
                   onPress={submitResolve}
-                  disabled={resolveSubmitting || !resolveWeight.trim()}
+                  disabled={
+                    resolveSubmitting ||
+                    (resolveType === "weight" && !resolveWeight.trim()) ||
+                    (resolveType === "note" && !resolveNote.trim()) ||
+                    (resolveType === "workout" && !resolveWeight.trim())
+                  }
                 >
                   <Text style={styles.modalBtnTextPrimary}>
-                    {resolveSubmitting ? "…" : "Add as weight"}
+                    {resolveSubmitting
+                      ? "…"
+                      : resolveType === "weight"
+                        ? "Add as weight"
+                        : resolveType === "note"
+                          ? "Add note"
+                          : "Add as workout"}
                   </Text>
                 </Pressable>
               </View>
@@ -310,6 +422,13 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
+  missingReasonsBanner: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+  },
+  missingReasonsText: { fontSize: 14, color: "#8E8E93", fontStyle: "italic" },
   failuresBanner: {
     marginTop: 16,
     padding: 12,
@@ -376,6 +495,16 @@ const styles = StyleSheet.create({
   provenanceContent: { marginTop: 8, padding: 12 },
   provenanceText: { fontSize: 14, color: "#8E8E93", lineHeight: 20 },
   resolveHint: { fontSize: 12, color: "#007AFF", fontWeight: "600", marginTop: 4 },
+  resolveTypeRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  resolveTypeChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#F2F2F7",
+  },
+  resolveTypeChipActive: { backgroundColor: "#007AFF" },
+  resolveTypeChipText: { fontSize: 14, fontWeight: "600", color: "#8E8E93" },
+  resolveTypeChipTextActive: { color: "#FFFFFF" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
