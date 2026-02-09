@@ -20,6 +20,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Build contracts (workspace)
         run: npm run -w @oli/contracts build
 
@@ -48,6 +53,11 @@ jobs:
       # Redundant by design: Phase 1 is "memory, truth, trust"
       - name: Phase 1 proof gate (truth + determinism)
         run: bash scripts/ci/proof-gate.sh
+
+      # 🔒 Phase 2 proof gate (required)
+      # Truthful Capture & Personal Health Memory
+      - name: Phase 2 proof gate (invariants + LAW)
+        run: bash scripts/ci/proof-gate-phase2.sh
 
       # Ensures Expo public config resolves in CI
       - name: Expo config (public)
