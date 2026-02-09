@@ -123,6 +123,13 @@ export const uncertaintyStateRollupSchema = z
 
 export type UncertaintyStateRollup = z.infer<typeof uncertaintyStateRollupSchema>;
 
+/**
+ * Sprint 3 — Deterministic missing reasons ("what's missing") for completeness explanation.
+ * Human-readable strings, deterministic ordering, computed on server.
+ */
+export const missingReasonsSchema = z.array(z.string().min(1)).default([]);
+export type MissingReasons = z.infer<typeof missingReasonsSchema>;
+
 export const timelineDaySchema = z
   .object({
     day: dayKeySchema,
@@ -136,6 +143,8 @@ export const timelineDaySchema = z
     hasIncompleteEvents: z.boolean().optional(),
     dayCompletenessState: dayCompletenessStateSchema.optional(),
     uncertaintyStateRollup: uncertaintyStateRollupSchema.optional(),
+    // Sprint 3 — deterministic "what's missing" (human-readable, server-computed)
+    missingReasons: missingReasonsSchema.optional(),
   })
   .strip();
 

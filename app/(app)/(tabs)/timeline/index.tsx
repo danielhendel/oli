@@ -169,6 +169,11 @@ export default function TimelineIndexScreen() {
                         {d.hasDerivedLedger && (
                           <Text style={styles.badge}>ledger</Text>
                         )}
+                        {d.missingReasons && d.missingReasons.length > 0 && (
+                          <Text style={styles.badgeMissing}>
+                            {d.missingReasons.join(", ")}
+                          </Text>
+                        )}
                       </View>
                     </Pressable>
                   ))}
@@ -278,6 +283,7 @@ const styles = StyleSheet.create({
   badge: { fontSize: 12, color: "#8E8E93", fontWeight: "600" },
   badgeIncomplete: { fontSize: 12, color: "#8B6914", fontWeight: "600" },
   badgeUncertain: { fontSize: 12, color: "#6B4E99", fontWeight: "600" },
+  badgeMissing: { fontSize: 11, color: "#8E8E93", fontStyle: "italic", maxWidth: 120 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
