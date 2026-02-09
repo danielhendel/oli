@@ -26,6 +26,7 @@
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "proof:phase1": "bash scripts/ci/proof-gate.sh",
+    "proof:phase2": "bash scripts/ci/proof-gate-phase2.sh",
 
     "postinstall": "patch-package"
   },

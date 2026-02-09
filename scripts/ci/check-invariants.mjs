@@ -1292,7 +1292,56 @@ function checkPhase1DefinitionDocMatchesEnforcedReality() {
   }
 
   console.log(
-    "✅ CHECK 21 passed: PHASE_1_DEFINITION.md contains canonical readiness + required API/UI routes.", 
+    "✅ CHECK 21 passed: PHASE_1_DEFINITION.md contains canonical readiness + required API/UI routes.",
+  );
+}
+
+/**
+ * CHECK 22 — PHASE_2_DEFINITION.md must exist and contain required sections (Phase 2 LAW)
+ *
+ * Enforces repo-truth LAW for Phase 2: the authoritative Phase 2 definition document must
+ * contain the required sections per Phase 2 invariants.
+ *
+ * Required sections:
+ * - Authority & Truth Contract
+ * - Logging Primitives
+ * - No Proactive Prompts
+ * - Uncertainty Visibility
+ */
+function checkPhase2DefinitionDoc() {
+  const docPath = path.join(ROOT, "docs", "00_truth", "phase2", "PHASE_2_DEFINITION.md");
+  if (!exists(docPath)) {
+    fail(
+      `CHECK 22 (Phase 2 definition doc) failed:\n` +
+        `- Missing required file: docs/00_truth/phase2/PHASE_2_DEFINITION.md\n\n` +
+        `Fix: create PHASE_2_DEFINITION.md as the authoritative Phase 2 repo-truth LAW document.`,
+    );
+  }
+
+  const text = readText(docPath);
+
+  const requiredSections = [
+    "Authority & Truth Contract",
+    "Logging Primitives",
+    "No Proactive Prompts",
+  ];
+
+  const uncertaintyOk =
+    text.includes("Uncertainty Visibility") || text.includes("Uncertainty as First-Class Truth");
+  const missing = requiredSections.filter((section) => !text.includes(section));
+  if (!uncertaintyOk) missing.push("Uncertainty Visibility or Uncertainty as First-Class Truth");
+
+  if (missing.length) {
+    fail(
+      `CHECK 22 (Phase 2 definition doc) failed:\n` +
+        `- docs/00_truth/phase2/PHASE_2_DEFINITION.md is missing required sections:\n` +
+        missing.map((s) => `  - ${s}`).join("\n") +
+        `\n\nFix: add all required sections to PHASE_2_DEFINITION.md per Phase 2 LAW.`,
+    );
+  }
+
+  console.log(
+    "✅ CHECK 22 passed: PHASE_2_DEFINITION.md contains Authority & Truth Contract, Logging Primitives, No Proactive Prompts, Uncertainty (Visibility or First-Class Truth).",
   );
 }
 
@@ -1319,6 +1368,7 @@ const CHECKS = [
   { id: 19, fn: checkDerivedWritersEmitLedgerRuns },
   { id: 20, fn: checkReadinessDrift },
   { id: 21, fn: checkPhase1DefinitionDocMatchesEnforcedReality },
+  { id: 22, fn: checkPhase2DefinitionDoc },
 ];
 
 function main() {

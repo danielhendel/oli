@@ -46,6 +46,7 @@ This file is required by CI and is audited.
 | I-17 | Derived truth must be historically replayable (append-only ledger captures what was known) | Backend derived writers must emit immutable ledger runs + snapshots | **CHECK 19** + code review | “What was known at the time” cannot be reconstructed |
 | I-18 | Readiness vocabulary is canonical (missing, partial, ready, error) — no drift | CI static scan of app/lib/components for disallowed strings | **CHECK 20** | Readiness semantics fragment; UI/redux drift; downstream bugs |
 | I-19 | Phase 1 definition doc must match enforced routes + readiness (repo-truth LAW) | CI reads PHASE_1_DEFINITION.md and asserts content | **CHECK 21** | LAW doc drifts from CI-enforced reality; auditors get wrong contract |
+| I-20 | Phase 2 definition doc must contain Authority & Truth Contract, Logging Primitives, No Proactive Prompts, Uncertainty (Visibility or First-Class Truth) (LAW) | CI reads PHASE_2_DEFINITION.md and asserts required sections | **CHECK 22** | Phase 2 LAW drifts from CI-enforced reality; truthful capture invariants unverified |
 
 
 ---
@@ -222,6 +223,7 @@ This file is required by CI and is audited.
   - **CHECK 19** — Derived writers emit Derived Ledger runs (append-only historical truth)
   - **CHECK 20** — Readiness vocabulary is canonical (Phase 1 Lock #3; no loading/empty/invalid/etc.)
   - **CHECK 21** — PHASE_1_DEFINITION.md must match enforced routes + readiness (repo-truth LAW)
+  - **CHECK 22** — PHASE_2_DEFINITION.md must exist and contain required sections (Authority & Truth Contract, Logging Primitives, No Proactive Prompts, Uncertainty Visibility or Uncertainty as First-Class Truth)
 - Firestore emulator tests
 - Manual infra inspection (IAM / Gateway)
 
@@ -303,4 +305,16 @@ Any change to this file requires:
   - `docs/00_truth/phase1/PHASE_1_DEFINITION.md`
   - `scripts/ci/check-invariants.mjs` (**CHECK 21**)
   - `scripts/ci/__tests__/phase1-definition-invariant.test.ts`
+
+### I-20 — Phase 2 definition doc must contain required LAW sections
+- **Enforced by**: CI invariant tripwire
+- **Mechanism**:
+  - `docs/00_truth/phase2/PHASE_2_DEFINITION.md` must exist
+  - Must contain required sections: Authority & Truth Contract, Logging Primitives, No Proactive Prompts, Uncertainty Visibility or Uncertainty as First-Class Truth
+- **Verified by**:
+  - **CHECK 22** (CI)
+- **Files**:
+  - `docs/00_truth/phase2/PHASE_2_DEFINITION.md`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 22**)
+  - `scripts/ci/__tests__/phase2-definition-invariant.test.ts`
 
