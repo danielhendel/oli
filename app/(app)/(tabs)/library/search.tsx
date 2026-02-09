@@ -3,9 +3,10 @@
 // Sprint 3 — Unresolved items lens (passive filter: incomplete/uncertain)
 
 import { ScrollView, View, Text, StyleSheet, Pressable, TextInput, Modal } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useRawEvents } from "@/lib/data/useRawEvents";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ingestRawEventAuthed } from "@/lib/api/ingest";
 import type { RawEventListItem } from "@oli/contracts";
@@ -20,12 +21,24 @@ function formatIsoToShort(iso: string): string {
 }
 
 export default function LibrarySearchScreen() {
+  const params = useLocalSearchParams<{
+    unresolvedLens?: string;
+    uncertaintyFilter?: string;
+    provenanceFilter?: string;
+  }>();
   const [keyword, setKeyword] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [provenanceFilter, setProvenanceFilter] = useState<string[]>([]);
   const [uncertaintyFilter, setUncertaintyFilter] = useState<string[]>([]);
   const [unresolvedLens, setUnresolvedLens] = useState(false);
+
+  // Sprint 4 — Apply quick lens params from navigation
+  useEffect(() => {
+    if (params.unresolvedLens === "1") setUnresolvedLens(true);
+    if (params.uncertaintyFilter === "uncertain") setUncertaintyFilter(["uncertain"]);
+    if (params.provenanceFilter === "correction") setProvenanceFilter(["correction"]);
+  }, [params.unresolvedLens, params.uncertaintyFilter, params.provenanceFilter]);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<RawEventListItem | null>(null);
   const [resolveNote, setResolveNote] = useState("");

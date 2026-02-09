@@ -6,6 +6,13 @@ import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
 
+/** Sprint 4 — Quick passive lenses (links to Search with filters). */
+const QUICK_LENSES = [
+  { id: "unresolved", label: "Unresolved", path: "/(app)/(tabs)/library/search", params: { unresolvedLens: "1" } },
+  { id: "uncertain", label: "Uncertain", path: "/(app)/(tabs)/library/search", params: { uncertaintyFilter: "uncertain" } },
+  { id: "corrections", label: "Corrections", path: "/(app)/(tabs)/library/search", params: { provenanceFilter: "correction" } },
+] as const;
+
 type LibraryCategory = {
   id: string;
   title: string;
@@ -66,6 +73,23 @@ export default function LibraryIndexScreen() {
         <Text style={styles.title}>Library</Text>
         <Text style={styles.subtitle}>Category list with presence and counts</Text>
 
+        <View style={styles.quickLenses}>
+          {QUICK_LENSES.map((l) => (
+            <Pressable
+              key={l.id}
+              style={styles.lensBtn}
+              onPress={() =>
+                router.push({
+                  pathname: l.path as "/",
+                  params: l.params as Record<string, string>,
+                })
+              }
+            >
+              <Text style={styles.lensBtnText}>{l.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <View style={styles.list}>
           {LIBRARY_CATEGORIES.map((cat) => (
             <Pressable
@@ -97,6 +121,14 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
+  quickLenses: { flexDirection: "row", gap: 8, marginTop: 16, flexWrap: "wrap" },
+  lensBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#F2F2F7",
+  },
+  lensBtnText: { fontSize: 14, fontWeight: "600", color: "#007AFF" },
   list: { marginTop: 24, gap: 1, backgroundColor: "#F2F2F7", borderRadius: 12, overflow: "hidden" },
   row: {
     flexDirection: "row",

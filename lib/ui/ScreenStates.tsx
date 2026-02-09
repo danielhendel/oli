@@ -73,14 +73,19 @@ export function LoadingState({ message = "Loading…" }: LoadingStateProps) {
 export type EmptyStateProps = {
   title: string;
   description?: string;
+  /** Sprint 4 — Optional explanatory text (e.g. "Try a different date range") */
+  explanation?: string;
 };
 
-export function EmptyState({ title, description }: EmptyStateProps) {
+export function EmptyState({ title, description, explanation }: EmptyStateProps) {
   return (
     <View style={styles.stateContainer}>
       <Text style={styles.emptyTitle}>{title}</Text>
       {description ? (
         <Text style={styles.emptyDescription}>{description}</Text>
+      ) : null}
+      {explanation ? (
+        <Text style={styles.emptyExplanation}>{explanation}</Text>
       ) : null}
     </View>
   );
@@ -141,5 +146,13 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     textAlign: "center",
     lineHeight: 22,
+  },
+  emptyExplanation: {
+    fontSize: 14,
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 20,
+    marginTop: 8,
+    fontStyle: "italic",
   },
 });

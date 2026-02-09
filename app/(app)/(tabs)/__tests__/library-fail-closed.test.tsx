@@ -19,6 +19,7 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("@/lib/data/useRawEvents", () => ({

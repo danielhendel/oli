@@ -1,8 +1,10 @@
 // app/(app)/(tabs)/timeline/index.tsx
-import { ScrollView, View, Text, StyleSheet, Pressable, Modal, TextInput } from "react-native";
+import { FlatList, View, Text, StyleSheet, Pressable, Modal, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, EmptyState } from "@/lib/ui/ScreenStates";
 import { FailClosed } from "@/lib/ui/FailClosed";
+import { OfflineBanner } from "@/lib/ui/OfflineBanner";
+import { TruthIndicator } from "@/lib/ui/TruthIndicators";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo, useState, useCallback } from "react";
 import {
@@ -49,6 +51,8 @@ export default function TimelineIndexScreen() {
     [timeline],
   );
 
+  const fromCache = timeline.status === "ready" && timeline.fromCache === true;
+
   const goPrev = useCallback(() => {
     const delta = viewMode === "day" ? 7 : viewMode === "week" ? 14 : 30;
     setAnchorDay((d) => shiftAnchor(d, -delta));
@@ -78,60 +82,64 @@ export default function TimelineIndexScreen() {
         {(data) => {
           const days = data.days;
           return (
-            <ScrollView contentContainerStyle={styles.scroll}>
-              <Text style={styles.title}>Timeline</Text>
-              <Text style={styles.subtitle}>
-                Day list with presence and light counts
-              </Text>
+            <View style={styles.main}>
+              <OfflineBanner isOffline={fromCache} />
+              <View style={styles.scroll}>
+                <Text style={styles.title}>Timeline</Text>
+                <Text style={styles.subtitle}>
+                  Day list with presence and light counts
+                </Text>
 
-              <View style={styles.navRow}>
-                <View style={styles.viewModeRow}>
-                  {VIEW_MODES.map((m) => (
-                    <Pressable
-                      key={m.id}
-                      style={[
-                        styles.viewModeBtn,
-                        viewMode === m.id && styles.viewModeBtnActive,
-                      ]}
-                      onPress={() => setViewMode(m.id)}
-                    >
-                      <Text
+                <View style={styles.navRow}>
+                  <View style={styles.viewModeRow}>
+                    {VIEW_MODES.map((m) => (
+                      <Pressable
+                        key={m.id}
                         style={[
-                          styles.viewModeBtnText,
-                          viewMode === m.id && styles.viewModeBtnTextActive,
+                          styles.viewModeBtn,
+                          viewMode === m.id && styles.viewModeBtnActive,
                         ]}
+                        onPress={() => setViewMode(m.id)}
                       >
-                        {m.label}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.viewModeBtnText,
+                            viewMode === m.id && styles.viewModeBtnTextActive,
+                          ]}
+                        >
+                          {m.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View style={styles.navButtons}>
+                    <Pressable style={styles.navBtn} onPress={goPrev}>
+                      <Text style={styles.navBtnText}>‹</Text>
                     </Pressable>
-                  ))}
+                    <Pressable style={styles.navBtn} onPress={goNext}>
+                      <Text style={styles.navBtnText}>›</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.jumpBtn}
+                      onPress={() => setJumpModalVisible(true)}
+                    >
+                      <Text style={styles.jumpBtnText}>Jump</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={styles.navButtons}>
-                  <Pressable style={styles.navBtn} onPress={goPrev}>
-                    <Text style={styles.navBtnText}>‹</Text>
-                  </Pressable>
-                  <Pressable style={styles.navBtn} onPress={goNext}>
-                    <Text style={styles.navBtnText}>›</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.jumpBtn}
-                    onPress={() => setJumpModalVisible(true)}
-                  >
-                    <Text style={styles.jumpBtnText}>Jump</Text>
-                  </Pressable>
-                </View>
-              </View>
 
               {days.length === 0 ? (
                 <EmptyState
                   title="No days"
                   description="No timeline data for this range."
+                  explanation="Try a different date range or use Jump to go to another date."
                 />
               ) : (
-                <View style={styles.list}>
-                  {days.map((d) => (
+                <FlatList
+                  data={days}
+                  keyExtractor={(d) => d.day}
+                  renderItem={({ item: d }) => (
                     <Pressable
-                      key={d.day}
                       style={styles.row}
                       onPress={() =>
                         router.push({
@@ -147,15 +155,16 @@ export default function TimelineIndexScreen() {
                           {d.canonicalCount} events
                         </Text>
                         {d.hasIncompleteEvents && (
-                          <Text style={styles.badgeIncomplete}>
-                            {d.incompleteCount ?? 0} incomplete
-                          </Text>
+                          <TruthIndicator
+                            type="incomplete"
+                            label={`${d.incompleteCount ?? 0} incomplete`}
+                          />
                         )}
                         {d.dayCompletenessState && (
                           <Text style={styles.badge}>{d.dayCompletenessState}</Text>
                         )}
                         {d.uncertaintyStateRollup?.hasUncertain && (
-                          <Text style={styles.badgeUncertain}>uncertain</Text>
+                          <TruthIndicator type="uncertain" />
                         )}
                         {d.hasDailyFacts && (
                           <Text style={styles.badge}>facts</Text>
@@ -176,8 +185,15 @@ export default function TimelineIndexScreen() {
                         )}
                       </View>
                     </Pressable>
-                  ))}
-                </View>
+                  )}
+                  ItemSeparatorComponent={() => <View style={styles.listGap} />}
+                  ListFooterComponent={<View style={styles.listFooter} />}
+                  initialNumToRender={14}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                  removeClippedSubviews={true}
+                  scrollEventThrottle={16}
+                />
               )}
 
               <Modal
@@ -217,10 +233,11 @@ export default function TimelineIndexScreen() {
                         <Text style={styles.modalBtnTextPrimary}>Go</Text>
                       </Pressable>
                     </View>
-                  </Pressable>
                 </Pressable>
-              </Modal>
-            </ScrollView>
+              </Pressable>
+            </Modal>
+            </View>
+            </View>
           );
         }}
       </FailClosed>
@@ -229,7 +246,11 @@ export default function TimelineIndexScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  main: { flex: 1 },
+  scroll: { flex: 1, padding: 16, paddingBottom: 40 },
+  listHeader: { height: 16 },
+  listFooter: { height: 40 },
+  listGap: { height: 6 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   navRow: {

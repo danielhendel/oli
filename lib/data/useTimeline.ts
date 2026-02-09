@@ -5,11 +5,16 @@ import { getTimeline } from "@/lib/api/usersMe";
 import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { TimelineResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import {
+  timelineCacheKey,
+  getTimelineCached,
+  setTimelineCached,
+} from "@/lib/data/timelineCache";
 
 type State =
   | { status: "partial" }
   | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
-  | { status: "ready"; data: TimelineResponseDto };
+  | { status: "ready"; data: TimelineResponseDto; fromCache?: boolean };
 
 function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOptions | undefined {
   const cb = opts?.cacheBust;
@@ -52,7 +57,7 @@ export function useTimeline(
       };
 
       if (!enabledRef.current) {
-        safeSet({ status: "ready", data: { days: [] } });
+        safeSet({ status: "ready", data: { days: [] }, fromCache: false });
         return;
       }
 
@@ -73,6 +78,7 @@ export function useTimeline(
       if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
+      const cacheKey = timelineCacheKey(argsRef.current.start, argsRef.current.end);
 
       const res = await getTimeline(argsRef.current.start, argsRef.current.end, token, optsUnique);
       if (seq !== reqSeq.current) return;
@@ -80,12 +86,22 @@ export function useTimeline(
       const outcome = truthOutcomeFromApiResult(res);
 
       if (outcome.status === "ready") {
-        safeSet({ status: "ready", data: outcome.data });
+        setTimelineCached(cacheKey, outcome.data);
+        safeSet({ status: "ready", data: outcome.data, fromCache: false });
         return;
       }
 
       if (outcome.status === "missing") {
-        safeSet({ status: "ready", data: { days: [] } });
+        const empty = { days: [] };
+        setTimelineCached(cacheKey, empty);
+        safeSet({ status: "ready", data: empty, fromCache: false });
+        return;
+      }
+
+      // Offline/error: try read-through cache before failing
+      const cached = getTimelineCached(cacheKey);
+      if (cached) {
+        safeSet({ status: "ready", data: cached, fromCache: true });
         return;
       }
 

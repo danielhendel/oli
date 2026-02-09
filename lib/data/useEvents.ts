@@ -5,11 +5,16 @@ import { getEvents } from "@/lib/api/usersMe";
 import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { CanonicalEventsListResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import {
+  eventsCacheKey,
+  getEventsCached,
+  setEventsCached,
+} from "@/lib/data/timelineCache";
 
 type State =
   | { status: "partial" }
   | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
-  | { status: "ready"; data: CanonicalEventsListResponseDto };
+  | { status: "ready"; data: CanonicalEventsListResponseDto; fromCache?: boolean };
 
 function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOptions | undefined {
   const cb = opts?.cacheBust;
@@ -55,7 +60,7 @@ export function useEvents(
       };
 
       if (!enabledRef.current) {
-        safeSet({ status: "ready", data: { items: [], nextCursor: null } });
+        safeSet({ status: "ready", data: { items: [], nextCursor: null }, fromCache: false });
         return;
       }
 
@@ -76,19 +81,31 @@ export function useEvents(
       if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const optsUnique = withUniqueCacheBust(opts, seq);
+      const args = { ...argsRef.current, ...optsUnique };
+      const cacheKey = eventsCacheKey(argsRef.current);
 
-      const res = await getEvents(token, { ...argsRef.current, ...optsUnique });
+      const res = await getEvents(token, args);
       if (seq !== reqSeq.current) return;
 
       const outcome = truthOutcomeFromApiResult(res);
 
       if (outcome.status === "ready") {
-        safeSet({ status: "ready", data: outcome.data });
+        setEventsCached(cacheKey, outcome.data);
+        safeSet({ status: "ready", data: outcome.data, fromCache: false });
         return;
       }
 
       if (outcome.status === "missing") {
-        safeSet({ status: "ready", data: { items: [], nextCursor: null } });
+        const empty = { items: [], nextCursor: null };
+        setEventsCached(cacheKey, empty);
+        safeSet({ status: "ready", data: empty, fromCache: false });
+        return;
+      }
+
+      // Offline/error: try read-through cache before failing
+      const cached = getEventsCached(cacheKey);
+      if (cached) {
+        safeSet({ status: "ready", data: cached, fromCache: true });
         return;
       }
 
