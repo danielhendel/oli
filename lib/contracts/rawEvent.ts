@@ -30,7 +30,7 @@ export type UncertaintyState = z.infer<typeof uncertaintyStateSchema>;
  * Phase 2 — Provenance/source of the event.
  * Backfill = logged after the fact; recordedAt differs from occurredAt.
  */
-export const provenanceSchema = z.enum(["manual", "device", "upload", "backfill"]);
+export const provenanceSchema = z.enum(["manual", "device", "upload", "backfill", "correction"]);
 export type Provenance = z.infer<typeof provenanceSchema>;
 
 /**
@@ -259,6 +259,8 @@ const rawEventBaseSchema = z
     provenance: provenanceSchema.optional(),
     uncertaintyState: uncertaintyStateSchema.optional(),
     contentUnknown: z.boolean().optional(),
+    // Phase 2 — correction provenance; original record is never overwritten
+    correctionOfRawEventId: z.string().min(1).optional(),
   })
   .strip();
 

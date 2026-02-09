@@ -30,10 +30,14 @@ echo "→ Phase 2 proof tests"
 # - Definition doc (CHECK 22)
 # - Incomplete event visible in timeline
 # - Backfill preserves occurredAt, recordedAt, provenance
+# - Sprint 2: Correction preserves original; timeline ordering stable; library filters deterministic
 TESTS=(
   "scripts/ci/__tests__/phase2-definition-invariant.test.ts"
   "scripts/ci/__tests__/phase2-incomplete-visible.test.ts"
   "scripts/ci/__tests__/phase2-backfill-provenance.test.ts"
+  "scripts/ci/__tests__/phase2-correction-preserves-original.test.ts"
+  "scripts/ci/__tests__/phase2-timeline-ordering-stable.test.ts"
+  "scripts/ci/__tests__/phase2-library-filters-deterministic.test.ts"
 )
 
 missing=0

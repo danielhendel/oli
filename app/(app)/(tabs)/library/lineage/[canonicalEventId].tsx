@@ -255,7 +255,7 @@ function buildNarrative(
     parts.push(`Raw event IDs: ${lineage.rawEventIds.join(", ")}.`);
   }
   if (hasDerivedLedgerDay) {
-    const days = lineage.derivedLedgerRuns.map((r) => r.day);
+    const days = lineage.derivedLedgerRuns.map((r: (typeof lineage.derivedLedgerRuns)[number]) => r.day);
     parts.push(`Derived ledger exists for day(s): ${days.join(", ")}.`);
   } else {
     parts.push("No derived ledger runs for this event.");

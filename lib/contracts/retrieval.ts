@@ -40,6 +40,8 @@ export const rawEventListItemSchema = z
     provenance: provenanceSchema.optional(),
     uncertaintyState: uncertaintyStateSchema.optional(),
     contentUnknown: z.boolean().optional(),
+    // Phase 2 — correction provenance
+    correctionOfRawEventId: z.string().min(1).optional(),
   })
   .strip();
 
@@ -110,6 +112,17 @@ export const dayCompletenessStateSchema = z.enum([
 ]);
 export type DayCompletenessState = z.infer<typeof dayCompletenessStateSchema>;
 
+/** Phase 2 — Rollup of uncertainty states present in the day (complete | incomplete | uncertain) */
+export const uncertaintyStateRollupSchema = z
+  .object({
+    hasComplete: z.boolean().optional(),
+    hasIncomplete: z.boolean().optional(),
+    hasUncertain: z.boolean().optional(),
+  })
+  .strip();
+
+export type UncertaintyStateRollup = z.infer<typeof uncertaintyStateRollupSchema>;
+
 export const timelineDaySchema = z
   .object({
     day: dayKeySchema,
@@ -122,6 +135,7 @@ export const timelineDaySchema = z
     incompleteCount: z.number().int().nonnegative().optional(),
     hasIncompleteEvents: z.boolean().optional(),
     dayCompletenessState: dayCompletenessStateSchema.optional(),
+    uncertaintyStateRollup: uncertaintyStateRollupSchema.optional(),
   })
   .strip();
 
@@ -177,6 +191,16 @@ export const rawEventsListQuerySchema = z
       .string()
       .optional()
       .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
+    // Phase 2 — Library search filters (deterministic)
+    provenance: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
+    uncertaintyState: z
+      .string()
+      .optional()
+      .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
+    q: z.string().optional(), // keyword: filters payload.note for incomplete; id substring
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
   })
