@@ -38,6 +38,15 @@ describe("GET /users/me/timeline", () => {
       if (name === "events") {
         return { where: () => ({ get: async () => ({ size: 0, docs: [] }) }) };
       }
+      if (name === "rawEvents") {
+        return {
+          where: () => ({
+            where: () => ({
+              get: async () => ({ docs: [] }),
+            }),
+          }),
+        };
+      }
       if (name === "dailyFacts" || name === "intelligenceContext" || name === "derivedLedger") {
         return { doc: () => ({ get: async () => ({ exists: false }) }) };
       }

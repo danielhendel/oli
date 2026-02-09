@@ -11,7 +11,11 @@
 
 import { z } from "zod";
 import { dayKeySchema } from "./day";
-import { rawEventKindSchema } from "./rawEvent";
+import {
+  rawEventKindSchema,
+  uncertaintyStateSchema,
+  provenanceSchema,
+} from "./rawEvent";
 
 const isoDateTimeSchema = z
   .string()
@@ -31,6 +35,11 @@ export const rawEventListItemSchema = z
     observedAt: isoDateTimeSchema,
     receivedAt: isoDateTimeSchema,
     schemaVersion: z.literal(1),
+    // Phase 2 — uncertainty visibility
+    recordedAt: isoDateTimeSchema.optional(),
+    provenance: provenanceSchema.optional(),
+    uncertaintyState: uncertaintyStateSchema.optional(),
+    contentUnknown: z.boolean().optional(),
   })
   .strip();
 
@@ -92,6 +101,15 @@ export type CanonicalEventsListResponseDto = z.infer<typeof canonicalEventsListR
 // Timeline day summary
 // -----------------------------
 
+/** Phase 2 — Day completeness state for truth visibility */
+export const dayCompletenessStateSchema = z.enum([
+  "complete",
+  "partial",
+  "incomplete",
+  "empty",
+]);
+export type DayCompletenessState = z.infer<typeof dayCompletenessStateSchema>;
+
 export const timelineDaySchema = z
   .object({
     day: dayKeySchema,
@@ -100,6 +118,10 @@ export const timelineDaySchema = z
     hasInsights: z.boolean(),
     hasIntelligenceContext: z.boolean(),
     hasDerivedLedger: z.boolean(),
+    // Phase 2 — uncertainty visibility at day level
+    incompleteCount: z.number().int().nonnegative().optional(),
+    hasIncompleteEvents: z.boolean().optional(),
+    dayCompletenessState: dayCompletenessStateSchema.optional(),
   })
   .strip();
 

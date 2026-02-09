@@ -59,10 +59,10 @@ export type CanonicalEventKind =
  *
  * IMPORTANT:
  * - RawEvent kinds may include "memory-only" artifacts that do NOT normalize into CanonicalEvents
- *   (Phase 1: upload.file with no parsing).
+ *   (Phase 1: file/upload; Phase 2: incomplete).
  * - CanonicalEventKind remains strictly the set of normalized health facts.
  */
-export type RawEventKind = CanonicalEventKind | "upload.file";
+export type RawEventKind = CanonicalEventKind | "upload.file" | "file" | "incomplete";
 
 /**
  * RawEvent is the ingestion boundary type.

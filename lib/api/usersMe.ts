@@ -20,6 +20,7 @@ import {
   createLabResultResponseDtoSchema,
   uploadsPresenceResponseDtoSchema,
   canonicalEventsListResponseDtoSchema,
+  rawEventsListResponseDtoSchema,
   timelineResponseDtoSchema,
   lineageResponseDtoSchema,
   type LogWeightRequestDto,
@@ -35,6 +36,7 @@ import {
   type UploadsPresenceResponseDto,
   type IngestAcceptedResponseDto,
   type CanonicalEventsListResponseDto,
+  type RawEventsListResponseDto,
   type TimelineResponseDto,
   type LineageResponseDto,
 } from "@oli/contracts";
@@ -165,6 +167,31 @@ export const getTimeline = async (
     `/users/me/timeline?${qs}`,
     idToken,
     timelineResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+export const getRawEvents = async (
+  idToken: string,
+  opts?: {
+    start?: string;
+    end?: string;
+    kinds?: string[];
+    cursor?: string;
+    limit?: number;
+  } & TruthGetOptions,
+): Promise<ApiResult<RawEventsListResponseDto>> => {
+  const params = new URLSearchParams();
+  if (opts?.start) params.set("start", opts.start);
+  if (opts?.end) params.set("end", opts.end);
+  if (opts?.kinds?.length) params.set("kinds", opts.kinds.join(","));
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiGetZodAuthed(
+    `/users/me/raw-events${qs ? `?${qs}` : ""}`,
+    idToken,
+    rawEventsListResponseDtoSchema,
     truthGetOpts(opts),
   );
 };

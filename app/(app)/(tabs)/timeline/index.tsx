@@ -82,6 +82,14 @@ export default function TimelineIndexScreen() {
                       <Text style={styles.badge}>
                         {d.canonicalCount} events
                       </Text>
+                      {d.hasIncompleteEvents && (
+                        <Text style={styles.badgeIncomplete}>
+                          {d.incompleteCount ?? 0} incomplete
+                        </Text>
+                      )}
+                      {d.dayCompletenessState && (
+                        <Text style={styles.badge}>{d.dayCompletenessState}</Text>
+                      )}
                       {d.hasDailyFacts && (
                         <Text style={styles.badge}>facts</Text>
                       )}
@@ -125,4 +133,5 @@ const styles = StyleSheet.create({
   rowDay: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
   badges: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   badge: { fontSize: 12, color: "#8E8E93", fontWeight: "600" },
+  badgeIncomplete: { fontSize: 12, color: "#8B6914", fontWeight: "600" },
 });

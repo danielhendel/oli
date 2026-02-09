@@ -460,6 +460,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
+  /**
+   * Phase 2: memory-only incomplete events.
+   * "Something happened, details later" — no canonical normalization.
+   */
+  if (raw.kind === "incomplete") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, memoryOnly: true },
+    };
+  }
+
   if (raw.provider !== "manual") {
     return {
       ok: false,

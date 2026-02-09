@@ -567,7 +567,7 @@ router.get(
         invalidDoc500(req, res, "rawEvents", { docId: d.id, reason: "missing timestamps" });
         return;
       }
-      const item = {
+      const item: Record<string, unknown> = {
         id: d.id,
         userId: raw["userId"],
         sourceId: raw["sourceId"],
@@ -576,6 +576,10 @@ router.get(
         receivedAt,
         schemaVersion: raw["schemaVersion"],
       };
+      if (raw["recordedAt"]) item.recordedAt = typeof raw["recordedAt"] === "string" ? raw["recordedAt"] : toIsoFromTimestampLike(raw["recordedAt"]);
+      if (raw["provenance"]) item.provenance = raw["provenance"];
+      if (raw["uncertaintyState"]) item.uncertaintyState = raw["uncertaintyState"];
+      if (raw["contentUnknown"] === true) item.contentUnknown = true;
       const validated = rawEventListItemSchema.safeParse(item);
       if (!validated.success) {
         invalidDoc500(req, res, "rawEvents", {
@@ -771,8 +775,15 @@ router.get(
     const outDays: unknown[] = [];
 
     for (const day of days) {
-      const [eventsSnap, dailyFactsSnap, insightsSnap, intelSnap, ledgerSnap] = await Promise.all([
+      const dayStart = `${day}T00:00:00.000Z`;
+      const dayEnd = `${day}T23:59:59.999Z`;
+
+      const [eventsSnap, rawEventsDaySnap, dailyFactsSnap, insightsSnap, intelSnap, ledgerSnap] = await Promise.all([
         userCollection(uid, "events").where("day", "==", day).get(),
+        userCollection(uid, "rawEvents")
+          .where("observedAt", ">=", dayStart)
+          .where("observedAt", "<=", dayEnd)
+          .get(),
         userCollection(uid, "dailyFacts").doc(day).get(),
         userCollection(uid, "insights").where("date", "==", day).get(),
         userCollection(uid, "intelligenceContext").doc(day).get(),
@@ -780,6 +791,8 @@ router.get(
       ]);
 
       const canonicalCount = eventsSnap.size;
+      const incompleteCount = rawEventsDaySnap.docs.filter((d) => (d.data() as { kind?: string }).kind === "incomplete").length;
+      const hasIncompleteEvents = incompleteCount > 0;
 
       const dailyFactsRaw = dailyFactsSnap.exists ? dailyFactsSnap.data() : undefined;
       const dailyFactsValid = dailyFactsRaw
@@ -820,6 +833,15 @@ router.get(
 
       const hasDerivedLedger = ledgerSnap.exists;
 
+      const dayCompletenessState =
+        canonicalCount > 0 && !hasIncompleteEvents
+          ? "complete"
+          : canonicalCount > 0 && hasIncompleteEvents
+            ? "partial"
+            : hasIncompleteEvents
+              ? "incomplete"
+              : "empty";
+
       outDays.push({
         day,
         canonicalCount,
@@ -827,6 +849,9 @@ router.get(
         hasInsights,
         hasIntelligenceContext,
         hasDerivedLedger,
+        incompleteCount,
+        hasIncompleteEvents,
+        dayCompletenessState,
       });
     }
 
