@@ -103,7 +103,8 @@ It is locked by **institutional enforcement**.
 ### 4.1 Lock Commit (Authoritative)
 
 > **LOCK COMMIT:**  
-> **REPLACE_WITH_EXACT_GIT_COMMIT_HASH**
+> f2c580dbface0a96353548176ec0cbe712140aea
+
 
 This commit:
 
