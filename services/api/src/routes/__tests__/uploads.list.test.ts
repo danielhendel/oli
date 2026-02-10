@@ -5,6 +5,7 @@ import { AddressInfo } from "net";
 
 import usersMeRoutes from "../usersMe";
 import { userCollection } from "../../db";
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -215,6 +216,7 @@ describe("GET /users/me/uploads", () => {
   });
 
   test("returns 500 with INVALID_DOC when stored rawEvent fails validation", async () => {
+    allowConsoleForThisTest({ error: [/invalid_firestore_doc/] });
     const invalidDoc = {
       schemaVersion: 1,
       id: "idem_bad",
