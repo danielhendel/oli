@@ -1,22 +1,21 @@
 // scripts/test/jest.setup.ts
+//
+// Console discipline: fail tests on unexpected console.error/console.warn.
+// Escape hatch: allowConsoleForThisTest({ error: [/.../], warn: [/.../] }) or
+// withConsoleSpy({ allowError, allowWarn }, fn) — see scripts/test/consoleGuard.ts
 
-const originalWarn = console.warn.bind(console);
+import {
+  clearUnexpected,
+  failIfUnexpected,
+  installConsoleGuard,
+} from "./consoleGuard";
 
-function isExpectedFirestorePermissionDeniedWarning(args: unknown[]): boolean {
-  // Firestore logs typically come through as:
-  // console.warn("[timestamp]  @firebase/firestore: Firestore (...): GrpcConnection RPC 'Write' ... Code: 7 Message: 7 PERMISSION_DENIED: ...")
-  const text = args
-    .map((a) => (typeof a === "string" ? a : ""))
-    .join(" ");
+installConsoleGuard();
 
-  return (
-    text.includes("@firebase/firestore") &&
-    text.includes("GrpcConnection RPC 'Write'") &&
-    text.includes("PERMISSION_DENIED")
-  );
-}
+beforeEach(() => {
+  clearUnexpected();
+});
 
-console.warn = (...args: unknown[]) => {
-  if (isExpectedFirestorePermissionDeniedWarning(args)) return;
-  originalWarn(...args);
-};
+afterEach(() => {
+  failIfUnexpected();
+});

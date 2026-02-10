@@ -69,3 +69,9 @@ jobs:
         run: npm test -- --ci
 
       - run: scripts/ci/guardrails.sh
+
+      # Supply-chain audit (report-only): print HIGH/CRITICAL and exception coverage; does not fail the build
+      - name: Supply-chain audit (report-only)
+        env:
+          REPORT_ONLY: "1"
+        run: bash scripts/ci/audit-production.sh

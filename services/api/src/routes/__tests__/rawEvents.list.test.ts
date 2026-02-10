@@ -5,6 +5,7 @@ import { AddressInfo } from "net";
 
 import usersMeRoutes from "../usersMe";
 import { userCollection } from "../../db";
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -116,6 +117,7 @@ describe("GET /users/me/raw-events", () => {
   });
 
   test("invalid Firestore doc fails closed with 500", async () => {
+    allowConsoleForThisTest({ error: [/invalid_firestore_doc/] });
     const docs: DocSnap[] = [
       {
         exists: true,

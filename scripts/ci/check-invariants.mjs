@@ -1346,6 +1346,36 @@ function checkPhase2DefinitionDoc() {
   );
 }
 
+/**
+ * Console discipline — Jest guard must be enabled in test runs.
+ * Ensures scripts/test/jest.setup.ts wires the console guard so proof-gate and npm test
+ * fail on unexpected console.error/console.warn. Does not duplicate the gate; just verifies
+ * the guard is present so it runs in the proof-gate path.
+ */
+function checkConsoleDisciplineGuardEnabled() {
+  const setupPath = path.join(ROOT, "scripts", "test", "jest.setup.ts");
+  if (!exists(setupPath)) {
+    fail(
+      "Console discipline: scripts/test/jest.setup.ts is missing. Jest must use the console guard (installConsoleGuard / failIfUnexpected).",
+    );
+  }
+  const text = readText(setupPath);
+  if (!text.includes("installConsoleGuard") || !text.includes("failIfUnexpected")) {
+    fail(
+      "Console discipline: scripts/test/jest.setup.ts must import and use installConsoleGuard and failIfUnexpected from ./consoleGuard so tests fail on unexpected console.error/console.warn.",
+    );
+  }
+  const guardPath = path.join(ROOT, "scripts", "test", "consoleGuard.ts");
+  if (!exists(guardPath)) {
+    fail(
+      "Console discipline: scripts/test/consoleGuard.ts is missing. Required for Jest console discipline.",
+    );
+  }
+  console.log(
+    "✅ Console discipline: Jest setup wires console guard (tests fail on unexpected console.error/console.warn).",
+  );
+}
+
 // ---- CHECK registry (single source of truth) ----
 const CHECKS = [
   { id: 1, fn: checkAdminHttpNotPublic },
@@ -1382,6 +1412,9 @@ function main() {
 
   // Run drift/orphan enforcement against the registry
   checkInvariantMapNoDriftAndNoOrphans(expectedCheckIds); // CHECK 6
+
+  // Console discipline: ensure Jest console guard is enabled (runs in proof-gate path)
+  checkConsoleDisciplineGuardEnabled();
 
   // Client trust boundary guard (fetch, apiGetJsonAuthed, Phase 1 screens)
   const boundary = spawnSync("node", ["scripts/ci/assert-client-trust-boundary.mjs"], {
