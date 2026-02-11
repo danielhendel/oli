@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# Deploy API to Cloud Run (Strategy B: build with Cloud Build, then deploy).
+#
+# Local verification (no gcloud):
+#   docker build -f services/api/Dockerfile -t oli-api-local .
+#   docker run --rm -e PORT=8080 -p 8080:8080 oli-api-local
+#   curl http://localhost:8080/healthz
+#
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-oli-staging-fdbba}"
