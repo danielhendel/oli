@@ -38,6 +38,8 @@ jest.mock("../../firebaseAdmin", () => {
     },
   });
 
+  const transactionStore = new Map<string, Record<string, unknown>>();
+
   const db = {
     collection(name: string) {
       return {
@@ -68,6 +70,20 @@ jest.mock("../../firebaseAdmin", () => {
         commit: jest.fn(async () => undefined),
       };
     },
+    async runTransaction<T>(fn: (tx: { get: (ref: { path: string }) => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>; set: (ref: { path: string }, data: Record<string, unknown>) => void }) => Promise<T>): Promise<T> {
+      const tx = {
+        async get(ref: { path: string }) {
+          const data = transactionStore.get(ref.path);
+          return { exists: data !== undefined, data: () => data };
+        },
+        set(ref: { path: string }, data: Record<string, unknown>) {
+          transactionStore.set(ref.path, data);
+          mockSetCalls.push({ path: ref.path, data });
+        },
+      };
+      return fn(tx);
+    },
+    __transactionStore: transactionStore,
   };
 
   return { db };
@@ -85,6 +101,7 @@ import { recomputeDerivedTruthForDay } from "../../pipeline/recomputeForDay";
 describe("fact-only recompute", () => {
   beforeEach(() => {
     mockSetCalls.length = 0;
+    (db as { __transactionStore?: Map<string, Record<string, unknown>> }).__transactionStore?.clear();
   });
 
   it("writes dailyFacts and intelligenceContext with meta.computedAt when given factOnlyBody", async () => {

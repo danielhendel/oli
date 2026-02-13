@@ -24,6 +24,8 @@ import { generateInsightsForDailyFacts } from "../insights/rules";
 import { buildDailyIntelligenceContext } from "../intelligence/buildDailyIntelligenceContext";
 import { buildPipelineMeta } from "./pipelineMeta";
 import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "./derivedLedger";
+import { computeHealthScoreV1 } from "../healthScore/computeHealthScoreV1";
+import { writeHealthScoreImmutable } from "../healthScore/writeHealthScoreImmutable";
 
 const parseIntStrict = (value: string): number | null => {
   if (!/^\d+$/.test(value)) return null;
@@ -154,6 +156,21 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
 
   await userRef.collection("intelligenceContext").doc(dayKey).set(ctxWithMeta);
 
+  const healthScoreDoc = computeHealthScoreV1({
+    userId,
+    date: dayKey,
+    today: enrichedDailyFacts,
+    history: historyFacts,
+    computedAt,
+    pipelineVersion: 1,
+  });
+  await writeHealthScoreImmutable({
+    db,
+    userId,
+    dayKey,
+    doc: healthScoreDoc,
+  });
+
   const runIdSeed =
     trigger.type === "factOnly"
       ? `factOnly_${trigger.rawEventId}_${dayKey}`
@@ -180,5 +197,6 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
     dailyFacts: dailyFactsWithMeta as unknown as object,
     intelligenceContext: ctxWithMeta as unknown as object,
     insights: insights as unknown as object[],
+    healthScore: healthScoreDoc as unknown as object,
   });
 }

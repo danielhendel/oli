@@ -10,7 +10,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 
-const COLLECTIONS = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext"] as const;
+const COLLECTIONS = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "healthScores"] as const;
 
 async function readCollectionAll(
   db: Firestore,

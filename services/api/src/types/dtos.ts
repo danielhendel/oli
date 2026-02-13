@@ -52,3 +52,7 @@ export type {
   TimelineResponseDto,
   LineageResponseDto,
 } from "@oli/contracts/retrieval";
+
+// Phase 1.5 Sprint 1 — Health Score (derived truth read surface)
+export { healthScoreDocSchema } from "@oli/contracts/healthScore";
+export type { HealthScoreDoc } from "@oli/contracts/healthScore";
