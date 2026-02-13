@@ -1,7 +1,9 @@
 // lib/api/usersMe.ts
 import type { ApiResult } from "@/lib/api/http";
+import type { GetOptions } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
 import { apiGetZodAuthed } from "@/lib/api/validate";
+import { z } from "zod";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 import {
   manualStrengthWorkoutIdempotencyKey,
@@ -152,6 +154,24 @@ export const getUploads = async (
   opts?: TruthGetOptions,
 ): Promise<ApiResult<UploadsPresenceResponseDto>> => {
   return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
+};
+
+/** GET /integrations/withings/status — connected flag (Phase 3A). */
+const withingsStatusDtoSchema = z.object({
+  connected: z.boolean(),
+});
+export type WithingsStatusDto = z.infer<typeof withingsStatusDtoSchema>;
+
+export const getWithingsStatus = async (
+  idToken: string,
+  opts?: GetOptions,
+): Promise<ApiResult<WithingsStatusDto>> => {
+  return apiGetZodAuthed(
+    "/integrations/withings/status",
+    idToken,
+    withingsStatusDtoSchema,
+    truthGetOpts(opts),
+  );
 };
 
 // ----------------------------
