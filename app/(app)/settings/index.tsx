@@ -31,19 +31,26 @@ export default function SettingsHomeScreen() {
   const normalizedTitle = (s: { title: string }) => s.title.trim().toLowerCase();
   const hasAccountInSections = sections.some((s) => normalizedTitle(s) === "account");
 
+  const isDev =
+    typeof globalThis !== "undefined" &&
+    (globalThis as { __DEV__?: boolean }).__DEV__ === true;
+
   return (
     <ModuleScreenShell title="Settings" subtitle="Account & privacy">
       <View style={styles.list}>
         {sections.map((s) => {
           const readiness = getSectionReadiness(s.id);
+          const isDevicesRow = s.id === "settings.devices";
+          const disabled = isDevicesRow && isDev ? false : readiness.disabled;
+          const badge = isDevicesRow && isDev ? undefined : readiness.badge;
 
           return (
             <ModuleSectionLinkRow
               key={s.id}
               title={s.title}
-              disabled={readiness.disabled}
+              disabled={disabled}
               onPress={() => router.push(s.href)}
-              {...(readiness.badge ? { badge: readiness.badge } : {})}
+              {...(badge ? { badge } : {})}
             />
           );
         })}
