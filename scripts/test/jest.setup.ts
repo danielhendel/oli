@@ -1,7 +1,8 @@
 // scripts/test/jest.setup.ts
 //
-// Console discipline: fail tests on unexpected console.error/console.warn.
-// Escape hatch: allowConsoleForThisTest({ error: [/.../], warn: [/.../] }) or
+// Console discipline: fail tests on unexpected console.log, console.error, console.warn.
+// console.log: zero tolerance (no escape hatch).
+// Escape hatch for error/warn: allowConsoleForThisTest({ error: [/.../], warn: [/.../] }) or
 // withConsoleSpy({ allowError, allowWarn }, fn) — see scripts/test/consoleGuard.ts
 
 import {

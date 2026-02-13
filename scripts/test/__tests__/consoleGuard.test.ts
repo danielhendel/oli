@@ -4,7 +4,10 @@
 import {
   __testsOnly,
   allowConsoleForThisTest,
+  clearUnexpected,
   expectConsoleError,
+  failIfUnexpected,
+  getUnexpected,
   withConsoleSpy,
 } from "../consoleGuard";
 
@@ -79,5 +82,14 @@ describe("consoleGuard built-in PERMISSION_DENIED allow (narrow)", () => {
     const otherFirestoreMessage =
       "@firebase/firestore: Some other error PERMISSION_DENIED in read";
     expect(isExpectedFirestorePermissionDenied([otherFirestoreMessage])).toBe(false);
+  });
+});
+
+describe("consoleGuard fails on console.log (zero leakage)", () => {
+  it("calling console.log causes failIfUnexpected to throw", () => {
+    console.log("any log output");
+    expect(getUnexpected().logs.length).toBeGreaterThan(0);
+    expect(() => failIfUnexpected()).toThrow("Unexpected console.log");
+    clearUnexpected();
   });
 });

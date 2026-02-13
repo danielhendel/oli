@@ -1,9 +1,10 @@
 /**
  * Console discipline guard for Jest.
  *
- * Fails the test suite when console.error or console.warn is called unexpectedly.
+ * Fails the test suite when console.log, console.error, or console.warn is called unexpectedly.
  * Use allowConsoleForThisTest() or withConsoleSpy() for tests that intentionally
  * trigger or assert on error/warn output (explicit opt-in per test; no global allowlist).
+ * console.log: zero tolerance in tests (no opt-in); any console.log fails the suite.
  *
  * Allowed console.error/warn are silenced by default (still recorded for expectConsoleError).
  * To print allowed logs when debugging, set LOG_ALLOWED_CONSOLE=1 before running tests.
@@ -49,9 +50,11 @@ const DEFAULT_ALLOWED_WARN: Matcher[] = [isExpectedFirestorePermissionDenied];
 
 let originalError: typeof console.error;
 let originalWarn: typeof console.warn;
+let originalLog: typeof console.log;
 
 const unexpectedErrors: { args: unknown[] }[] = [];
 const unexpectedWarns: { args: unknown[] }[] = [];
+const unexpectedLogs: { args: unknown[] }[] = [];
 /** Allowed errors/warns are still recorded here for expectConsoleError / assertions. */
 const recordedAllowedErrors: unknown[][] = [];
 const recordedAllowedWarns: unknown[][] = [];
@@ -84,6 +87,12 @@ function isWarnAllowed(args: unknown[]): boolean {
 export function installConsoleGuard(): void {
   originalError = console.error.bind(console);
   originalWarn = console.warn.bind(console);
+  originalLog = console.log.bind(console);
+
+  console.log = (...args: unknown[]) => {
+    unexpectedLogs.push({ args });
+    // Do not forward to originalLog; zero console output leakage in tests.
+  };
 
   console.error = (...args: unknown[]) => {
     if (isErrorAllowed(args)) {
@@ -107,6 +116,7 @@ export function installConsoleGuard(): void {
 }
 
 export function restoreConsole(): void {
+  if (originalLog) console.log = originalLog;
   if (originalError) console.error = originalError;
   if (originalWarn) console.warn = originalWarn;
 }
@@ -114,6 +124,7 @@ export function restoreConsole(): void {
 export function clearUnexpected(): void {
   unexpectedErrors.length = 0;
   unexpectedWarns.length = 0;
+  unexpectedLogs.length = 0;
   recordedAllowedErrors.length = 0;
   recordedAllowedWarns.length = 0;
   testAllowError = [];
@@ -126,17 +137,24 @@ export function setTestAllow(opts: { error?: Matcher[]; warn?: Matcher[] }): voi
   if (opts.warn) testAllowWarn = [...testAllowWarn, ...opts.warn];
 }
 
-export function getUnexpected(): { errors: unknown[][]; warns: unknown[][] } {
+export function getUnexpected(): { errors: unknown[][]; warns: unknown[][]; logs: unknown[][] } {
   return {
     errors: unexpectedErrors.map((e) => e.args),
     warns: unexpectedWarns.map((w) => w.args),
+    logs: unexpectedLogs.map((l) => l.args),
   };
 }
 
 export function failIfUnexpected(): void {
-  const { errors, warns } = getUnexpected();
-  if (errors.length || warns.length) {
+  const { errors, warns, logs } = getUnexpected();
+  if (errors.length || warns.length || logs.length) {
     const parts: string[] = [];
+    if (logs.length) {
+      parts.push(
+        `Unexpected console.log (${logs.length}):`,
+        ...logs.map((args) => "  " + args.map((a) => String(a)).join(" ")),
+      );
+    }
     if (errors.length) {
       parts.push(
         `Unexpected console.error (${errors.length}):`,
@@ -150,8 +168,8 @@ export function failIfUnexpected(): void {
       );
     }
     throw new Error(
-      "Console discipline: tests must not call console.error/console.warn unless explicitly allowed.\n" +
-        "Use allowConsoleForThisTest({ error: [/pattern/], warn: [/pattern/] }) or withConsoleSpy({ allowError, allowWarn }, fn).\n\n" +
+      "Console discipline: tests must not call console.log/console.error/console.warn unless explicitly allowed.\n" +
+        "console.log is never allowed in tests (zero leakage). For error/warn use allowConsoleForThisTest({ error: [/pattern/], warn: [/pattern/] }) or withConsoleSpy({ allowError, allowWarn }, fn).\n\n" +
         parts.join("\n"),
     );
   }

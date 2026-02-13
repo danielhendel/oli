@@ -4,9 +4,19 @@ import type { Request, Response, NextFunction } from "express";
 
 type LogPayload = Record<string, unknown>;
 
+/** In test, logger must not write to console (zero leakage). Detect Jest/test env once at load. */
+const isTest =
+  process.env.NODE_ENV === "test" || typeof process.env.JEST_WORKER_ID !== "undefined";
+
+// Intentional no-op in test; signature matches logger.info/error so we can swap.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function noop(_payload: LogPayload): void {
+  /* no-op in test; avoids console output leakage */
+}
+
 export const logger = {
-  info: (o: LogPayload) => console.log(JSON.stringify({ level: "info", ...o })),
-  error: (o: LogPayload) => console.error(JSON.stringify({ level: "error", ...o })),
+  info: isTest ? noop : (o: LogPayload) => console.log(JSON.stringify({ level: "info", ...o })),
+  error: isTest ? noop : (o: LogPayload) => console.error(JSON.stringify({ level: "error", ...o })),
 };
 
 export type RequestWithRid = Request & { rid?: string };
