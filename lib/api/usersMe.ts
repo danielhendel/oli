@@ -39,6 +39,8 @@ import {
   type RawEventsListResponseDto,
   type TimelineResponseDto,
   type LineageResponseDto,
+  healthScoreDocSchema,
+  type HealthScoreDoc,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -248,6 +250,23 @@ export const getLineage = async (
     idToken,
     lineageResponseDtoSchema,
     truthGetOpts(truthOpts),
+  );
+};
+
+/**
+ * Phase 1.5 Sprint 2 — Health Score (derived truth, server-computed only).
+ * GET /users/me/health-score?day=YYYY-MM-DD
+ */
+export const getHealthScore = async (
+  day: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<HealthScoreDoc>> => {
+  return apiGetZodAuthed(
+    `/users/me/health-score?day=${encodeURIComponent(day)}`,
+    idToken,
+    healthScoreDocSchema,
+    truthGetOpts(opts),
   );
 };
 
