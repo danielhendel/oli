@@ -1,8 +1,9 @@
 // app/(app)/(tabs)/dash.tsx
 // Phase 1.5 Sprint 2 — Command Center: Health Score surface (read-only, trust-first)
-import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
+import { BaselineDrawer } from "@/lib/ui/BaselineDrawer";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useTimeline } from "@/lib/data/useTimeline";
@@ -13,7 +14,7 @@ import {
   formatMissingList,
 } from "@/lib/format/healthScore";
 import { getTodayDayKey } from "@/lib/time/dayKey";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { HealthScoreDomainScores } from "@/lib/contracts";
 
 function formatIsoToLocal(iso: string | null | undefined): string {
@@ -40,6 +41,7 @@ const DOMAIN_LABELS: Record<keyof HealthScoreDomainScores, string> = {
 function HealthScoreSection() {
   const todayKey = useMemo(() => getTodayDayKey(), []);
   const healthScore = useHealthScore(todayKey);
+  const [baselineDrawerVisible, setBaselineDrawerVisible] = useState(false);
 
   if (healthScore.status === "partial") {
     return (
@@ -120,6 +122,17 @@ function HealthScoreSection() {
           Model {d.modelVersion} · Computed {formatIsoToLocal(d.computedAt)}
         </Text>
       </View>
+      <Pressable
+        style={styles.baselineTrigger}
+        onPress={() => setBaselineDrawerVisible(true)}
+      >
+        <Text style={styles.link}>View baselines</Text>
+      </Pressable>
+      <BaselineDrawer
+        visible={baselineDrawerVisible}
+        onClose={() => setBaselineDrawerVisible(false)}
+        doc={d}
+      />
     </View>
   );
 }
@@ -252,6 +265,7 @@ const styles = StyleSheet.create({
   domainMissing: { fontSize: 12, color: "#8E8E93", marginLeft: 0 },
   metadata: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#C6C6C8" },
   metadataText: { fontSize: 12, color: "#8E8E93" },
+  baselineTrigger: { marginTop: 8 },
   stateContainer: {
     padding: 24,
     gap: 12,
