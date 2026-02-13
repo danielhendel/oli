@@ -12,7 +12,7 @@ type Trigger =
   | { type: "realtime"; name: "onRawEventCreated_factOnly"; eventId: string }
   | { type: "scheduled"; name: string; eventId: string };
 
-type SnapshotKind = "dailyFacts" | "intelligenceContext";
+type SnapshotKind = "dailyFacts" | "intelligenceContext" | "healthScore";
 
 type LedgerRunRecord = {
   schemaVersion: 1;
@@ -32,6 +32,7 @@ type LedgerRunRecord = {
     hasDailyFacts: boolean;
     insightsCount: number;
     hasIntelligenceContext: boolean;
+    hasHealthScore: boolean;
   };
 
   createdAt: Timestamp;
@@ -131,6 +132,7 @@ export async function writeDerivedLedgerRun(args: {
   dailyFacts?: object;
   intelligenceContext?: object;
   insights?: object[];
+  healthScore?: object;
 }): Promise<void> {
   const {
     db,
@@ -144,6 +146,7 @@ export async function writeDerivedLedgerRun(args: {
     dailyFacts,
     intelligenceContext,
     insights,
+    healthScore,
   } = args;
 
   const userRef = db.collection("users").doc(userId);
@@ -171,6 +174,7 @@ export async function writeDerivedLedgerRun(args: {
       hasDailyFacts: Boolean(dailyFacts),
       insightsCount: Array.isArray(insights) ? insights.length : 0,
       hasIntelligenceContext: Boolean(intelligenceContext),
+      hasHealthScore: Boolean(healthScore),
     },
     createdAt: now,
   };
@@ -194,6 +198,7 @@ export async function writeDerivedLedgerRun(args: {
 
   if (dailyFacts) await writeSnapshot("dailyFacts", dailyFacts);
   if (intelligenceContext) await writeSnapshot("intelligenceContext", intelligenceContext);
+  if (healthScore) await writeSnapshot("healthScore", healthScore);
 
   if (Array.isArray(insights) && insights.length > 0) {
     const insightsCol = snapshotsRef.doc("insights").collection("items");

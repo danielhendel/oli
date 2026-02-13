@@ -31,6 +31,7 @@ import {
   canonicalEventsListResponseDtoSchema,
   timelineResponseDtoSchema,
   lineageResponseDtoSchema,
+  healthScoreDocSchema,
   type InsightDto,
 } from "../types/dtos";
 
@@ -1182,6 +1183,38 @@ router.get(
     const parsed = intelligenceContextDtoSchema.safeParse(data);
     if (!parsed.success) {
       invalidDoc500(req, res, "intelligenceContext", parsed.error.flatten());
+      return;
+    }
+
+    res.status(200).json(parsed.data);
+  }),
+);
+
+// ----------------------------
+// Phase 1.5 Sprint 1 — GET /users/me/health-score (derived truth read)
+// ----------------------------
+
+router.get(
+  "/health-score",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const day = parseDay(req, res);
+    if (!day) return;
+
+    const ref = userCollection(uid, "healthScores").doc(day);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "healthScore", day } });
+      return;
+    }
+
+    const data = snap.data();
+    const parsed = healthScoreDocSchema.safeParse(data);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "healthScore", parsed.error.flatten());
       return;
     }
 

@@ -27,3 +27,6 @@ export * from "./readiness";
 
 // Phase 1 Lock #6 — Export job model
 export * from "./export";
+
+// Phase 1.5 Sprint 1 — Health Score v1.0 (derived truth)
+export * from "./healthScore";

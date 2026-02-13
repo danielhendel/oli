@@ -102,6 +102,17 @@ service cloud.firestore {
       }
 
       // ----------------------------------------------------------
+      // HEALTH SCORES (DERIVED TRUTH — Phase 1.5 Sprint 1)
+      //
+      // ❗ Backend-only writes; mobile reads derived truth only
+      // ----------------------------------------------------------
+      match /healthScores/{dateId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+
+      // ----------------------------------------------------------
       // FAILURES (IMMUTABLE FAILURE MEMORY)
       //
       // ❗ Backend-only writes (append-only)

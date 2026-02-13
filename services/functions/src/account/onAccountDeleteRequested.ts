@@ -30,7 +30,7 @@ async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: 
 
   // ✅ Verified: profile exists (functions index writes users/{uid}/profile/general)
   // Keep accountDeletion here to clean up any legacy docs from earlier versions.
-  const collections = ["profile", "rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "accountDeletion"] as const;
+  const collections = ["profile", "rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "healthScores", "accountDeletion"] as const;
 
   for (const col of collections) {
     await db.recursiveDelete(userRef.collection(col));
