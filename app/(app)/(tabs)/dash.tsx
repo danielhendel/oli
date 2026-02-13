@@ -1,18 +1,127 @@
 // app/(app)/(tabs)/dash.tsx
+// Phase 1.5 Sprint 2 — Command Center: Health Score surface (read-only, trust-first)
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { ScreenContainer } from "@/lib/ui/ScreenStates";
+import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useTimeline } from "@/lib/data/useTimeline";
+import { useHealthScore } from "@/lib/data/useHealthScore";
+import {
+  formatHealthScoreTier,
+  formatHealthScoreStatus,
+  formatMissingList,
+} from "@/lib/format/healthScore";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useMemo } from "react";
+import type { HealthScoreDomainScores } from "@/lib/contracts";
 
 function formatIsoToLocal(iso: string | null | undefined): string {
   if (!iso) return "—";
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return "—";
   return new Date(ms).toLocaleDateString();
+}
+
+const DOMAIN_ORDER: (keyof HealthScoreDomainScores)[] = [
+  "recovery",
+  "training",
+  "nutrition",
+  "body",
+];
+
+const DOMAIN_LABELS: Record<keyof HealthScoreDomainScores, string> = {
+  recovery: "Recovery",
+  training: "Training",
+  nutrition: "Nutrition",
+  body: "Body",
+};
+
+function HealthScoreSection() {
+  const todayKey = useMemo(() => getTodayDayKey(), []);
+  const healthScore = useHealthScore(todayKey);
+
+  if (healthScore.status === "partial") {
+    return (
+      <View style={styles.healthScoreSection}>
+        <Text style={styles.healthScoreHeading}>Health Score</Text>
+        <LoadingState message="Loading…" />
+      </View>
+    );
+  }
+
+  if (healthScore.status === "missing") {
+    return (
+      <View style={styles.healthScoreSection}>
+        <Text style={styles.healthScoreHeading}>Health Score</Text>
+        <EmptyState
+          title="Health Score not available"
+          description="No Health Score has been computed for this day."
+          explanation="Health Score is derived server-side from available inputs."
+        />
+      </View>
+    );
+  }
+
+  if (healthScore.status === "error") {
+    const isOffline = healthScore.reason === "network";
+    return (
+      <View style={styles.healthScoreSection}>
+        <Text style={styles.healthScoreHeading}>Health Score</Text>
+        {isOffline ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.offlineTitle}>Offline</Text>
+            <Text style={styles.offlineMessage}>
+              Health Score will load when connection is restored.
+            </Text>
+          </View>
+        ) : (
+          <ErrorState
+            message={healthScore.error}
+            requestId={healthScore.requestId}
+            onRetry={() => healthScore.refetch()}
+            isContractError={healthScore.reason === "contract"}
+          />
+        )}
+      </View>
+    );
+  }
+
+  const d = healthScore.data;
+  return (
+    <View style={styles.healthScoreSection}>
+      <Text style={styles.healthScoreHeading}>Health Score</Text>
+      <View style={styles.compositeBlock}>
+        <Text style={styles.compositeScore}>{d.compositeScore}</Text>
+        <Text style={styles.compositeTier}>{formatHealthScoreTier(d.compositeTier)}</Text>
+      </View>
+      <Text style={styles.statusLine}>Status: {formatHealthScoreStatus(d.status)}</Text>
+      <View style={styles.domainList}>
+        {DOMAIN_ORDER.map((key) => {
+          const domain = d.domainScores[key];
+          const missingStr = formatMissingList(domain.missing);
+          return (
+            <View key={key} style={styles.domainRow}>
+              <View style={styles.domainRowMain}>
+                <Text style={styles.domainLabel}>{DOMAIN_LABELS[key]}</Text>
+                <Text style={styles.domainValue}>
+                  {domain.score} — {formatHealthScoreTier(domain.tier)}
+                </Text>
+              </View>
+              {missingStr ? (
+                <Text style={styles.domainMissing}>{missingStr}</Text>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.metadata}>
+        <Text style={styles.metadataText}>
+          Model {d.modelVersion} · Computed {formatIsoToLocal(d.computedAt)}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function DashScreen() {
@@ -85,6 +194,8 @@ export default function DashScreen() {
           </View>
         </View>
 
+        <HealthScoreSection />
+
         <View style={styles.actions}>
           <Text
             style={styles.link}
@@ -118,6 +229,37 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   label: { fontSize: 15, color: "#3C3C43" },
   value: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  healthScoreSection: {
+    marginTop: 24,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  healthScoreHeading: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
+  compositeBlock: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  compositeScore: { fontSize: 48, fontWeight: "900", color: "#1C1C1E" },
+  compositeTier: { fontSize: 20, fontWeight: "600", color: "#3C3C43", marginTop: 4 },
+  statusLine: { fontSize: 15, color: "#3C3C43" },
+  domainList: { gap: 8 },
+  domainRow: { gap: 2 },
+  domainRowMain: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  domainLabel: { fontSize: 15, color: "#3C3C43" },
+  domainValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  domainMissing: { fontSize: 12, color: "#8E8E93", marginLeft: 0 },
+  metadata: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#C6C6C8" },
+  metadataText: { fontSize: 12, color: "#8E8E93" },
+  stateContainer: {
+    padding: 24,
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  offlineTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
+  offlineMessage: { fontSize: 15, color: "#8E8E93", textAlign: "center" },
   actions: { marginTop: 24, gap: 12 },
   link: { fontSize: 15, color: "#007AFF", fontWeight: "600" },
 });
