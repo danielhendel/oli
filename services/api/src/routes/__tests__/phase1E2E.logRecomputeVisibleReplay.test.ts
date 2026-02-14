@@ -140,6 +140,11 @@ describe("Phase 1 E2E: log → recompute → visible → replayable", () => {
 
       // Non-empty derived content
       expect(data.dailyFacts || data.intelligenceContext || data.insights).toBeDefined();
+
+      // Phase 1.5 Sprint 4 — derived ledger snapshot includes healthSignals
+      expect(data.healthSignals).toBeDefined();
+      expect(typeof (data.healthSignals as { status?: string })?.status).toBe("string");
+      expect(["stable", "attention_required"]).toContain((data.healthSignals as { status: string }).status);
     } finally {
       server.close();
     }

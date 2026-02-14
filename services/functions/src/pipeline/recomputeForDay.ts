@@ -26,6 +26,10 @@ import { buildPipelineMeta } from "./pipelineMeta";
 import { makeLedgerRunIdFromSeed, writeDerivedLedgerRun } from "./derivedLedger";
 import { computeHealthScoreV1 } from "../healthScore/computeHealthScoreV1";
 import { writeHealthScoreImmutable } from "../healthScore/writeHealthScoreImmutable";
+import { BASELINE_WINDOW_DAYS, SIGNAL_THRESHOLDS } from "../healthSignals/constants";
+import { computeHealthSignalsV1 } from "../healthSignals/computeHealthSignalsV1";
+import { writeHealthSignalsImmutable } from "../healthSignals/writeHealthSignalsImmutable";
+import type { HealthScoreDocForSignals } from "../healthSignals/computeHealthSignalsV1";
 
 const parseIntStrict = (value: string): number | null => {
   if (!/^\d+$/.test(value)) return null;
@@ -171,6 +175,39 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
     doc: healthScoreDoc,
   });
 
+  const signalsBaselineStart = addDaysUtc(dayKey, -BASELINE_WINDOW_DAYS);
+  const healthScoreHistorySnap = await userRef
+    .collection("healthScores")
+    .where("date", ">=", signalsBaselineStart)
+    .where("date", "<", dayKey)
+    .get();
+  const healthScoreHistory = healthScoreHistorySnap.docs.map((d) => d.data() as HealthScoreDocForSignals);
+
+  const healthScoreForSignals: HealthScoreDocForSignals = {
+    date: healthScoreDoc.date,
+    compositeScore: healthScoreDoc.compositeScore,
+    domainScores: {
+      recovery: { score: healthScoreDoc.domainScores.recovery.score },
+      training: { score: healthScoreDoc.domainScores.training.score },
+      nutrition: { score: healthScoreDoc.domainScores.nutrition.score },
+      body: { score: healthScoreDoc.domainScores.body.score },
+    },
+  };
+  const healthSignalsDoc = computeHealthSignalsV1({
+    dayKey,
+    healthScoreForDay: healthScoreForSignals,
+    healthScoreHistory,
+    computedAt,
+    pipelineVersion: 1,
+    thresholds: SIGNAL_THRESHOLDS,
+  });
+  await writeHealthSignalsImmutable({
+    db,
+    userId,
+    dayKey,
+    doc: healthSignalsDoc,
+  });
+
   const runIdSeed =
     trigger.type === "factOnly"
       ? `factOnly_${trigger.rawEventId}_${dayKey}`
@@ -198,5 +235,6 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
     intelligenceContext: ctxWithMeta as unknown as object,
     insights: insights as unknown as object[],
     healthScore: healthScoreDoc as unknown as object,
+    healthSignals: healthSignalsDoc as unknown as object,
   });
 }

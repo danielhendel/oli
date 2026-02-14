@@ -30,3 +30,6 @@ export * from "./export";
 
 // Phase 1.5 Sprint 1 — Health Score v1.0 (derived truth)
 export * from "./healthScore";
+
+// Phase 1.5 Sprint 4 — Health Signals v1 (derived truth)
+export * from "./healthSignals";
