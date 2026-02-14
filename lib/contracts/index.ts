@@ -33,3 +33,6 @@ export * from "./healthScore";
 
 // Phase 1.5 Sprint 4 — Health Signals v1 (derived truth)
 export * from "./healthSignals";
+
+// Phase 1.5 Sprint 5 — Epistemic transparency (UI-only view model)
+export * from "./provenance";
