@@ -15,6 +15,10 @@ import net from "node:net";
  * - Fail if rules file is missing (avoid emulator allow-all masking rule regressions).
  * - Disable Emulator UI (no extra port noise; not needed for tests).
  * - Set GCLOUD_PROJECT + FIREBASE_PROJECT_ID defensively.
+ *
+ * Exit code (Sprint 6): Start emulator in background, run Jest, then kill emulator.
+ * We exit with Jest's exit code only. This avoids exit code 2 from firebase emulator
+ * shutdown which can occur after a successful test run.
  */
 
 function findRepoRoot(startDir) {
@@ -93,6 +97,39 @@ function run(cmd, args, env = {}) {
   });
 }
 
+/** Wait until port is accepting connections or timeout. */
+function waitForPort(port, host = "127.0.0.1", timeoutMs = 30_000) {
+  const start = Date.now();
+  return new Promise((resolve, reject) => {
+    function tryConnect() {
+      const socket = net.connect(port, host, () => {
+        socket.destroy();
+        resolve();
+      });
+      socket.on("error", () => {
+        if (Date.now() - start >= timeoutMs) reject(new Error(`Port ${port} not ready within ${timeoutMs}ms`));
+        else setTimeout(tryConnect, 200);
+      });
+    }
+    tryConnect();
+  });
+}
+
+/** Run command and resolve with exit code (0 or non-zero). Does not reject on non-zero. */
+function runAndGetExitCode(cmd, args, env = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      stdio: "inherit",
+      shell: false,
+      env: { ...process.env, ...env },
+    });
+    child.on("error", reject);
+    child.on("exit", (code, signal) => {
+      resolve(code ?? (signal === "SIGTERM" ? 143 : 1));
+    });
+  });
+}
+
 async function main() {
   const repoRoot = findRepoRoot(process.cwd());
   const firebaseJsonPath = path.join(repoRoot, "firebase.json");
@@ -163,23 +200,40 @@ async function main() {
     FIREBASE_PROJECT_ID: projectId,
   };
 
+  let emulatorChild = null;
+
   try {
-    await run(
+    // Start emulator in background so we control exit code (emulator can exit 2 on shutdown).
+    emulatorChild = spawn(
       "npx",
       [
         "firebase",
-        "emulators:exec",
+        "emulators:start",
         "--only",
         "firestore",
         "--config",
         tempFirebaseJsonPath,
-        "jest",
       ],
-      env
+      {
+        stdio: "ignore",
+        shell: false,
+        env: { ...process.env, ...env },
+      }
     );
+    emulatorChild.on("error", (err) => {
+      console.error("[emulator] spawn error", err);
+    });
+
+    await waitForPort(firestorePort, "127.0.0.1");
+
+    const jestExitCode = await runAndGetExitCode("npx", ["jest"], env);
+    return jestExitCode;
   } finally {
-    // Allow opting out (useful when debugging temp config):
-    //   KEEP_FB_TEMP=1 npm test
+    if (emulatorChild?.pid) {
+      process.kill(emulatorChild.pid, "SIGTERM");
+      // Give it a moment to shut down; don't await indefinitely.
+      await new Promise((r) => setTimeout(r, 2000));
+    }
     if (!process.env.KEEP_FB_TEMP) {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     } else {
@@ -188,7 +242,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then((code) => {
+    process.exit(code ?? 0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

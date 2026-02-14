@@ -26,8 +26,14 @@ export function ProvenanceDrawer({ visible, onClose, model }: Props) {
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      accessibilityViewIsModal
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+        accessibilityLabel="Dismiss provenance details"
+        accessibilityRole="button"
+      >
         <Pressable style={styles.drawer} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.heading}>{model.title}</Text>
           <ScrollView
@@ -87,7 +93,12 @@ export function ProvenanceDrawer({ visible, onClose, model }: Props) {
               <Text style={styles.rowValue}>{model.derivedFromLabel}</Text>
             </View>
           </ScrollView>
-          <Pressable style={styles.closeButton} onPress={onClose}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityLabel="Close provenance details"
+            accessibilityRole="button"
+          >
             <Text style={styles.closeButtonText}>Close</Text>
           </Pressable>
         </Pressable>
@@ -128,8 +139,11 @@ const styles = StyleSheet.create({
   closeButton: {
     marginTop: 16,
     alignSelf: "flex-end",
-    paddingVertical: 8,
+    minHeight: 44,
+    minWidth: 44,
+    paddingVertical: 12,
     paddingHorizontal: 16,
+    justifyContent: "center",
     backgroundColor: "#F2F2F7",
     borderRadius: 12,
   },

@@ -4,6 +4,7 @@
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
+import { OfflineState } from "@/lib/ui/StateBlock";
 import { BaselineDrawer } from "@/lib/ui/BaselineDrawer";
 import { ProvenanceDrawer } from "@/lib/ui/ProvenanceDrawer";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
@@ -109,12 +110,10 @@ function HealthScoreSection() {
       <View style={styles.healthScoreSection}>
         <Text style={styles.healthScoreHeading}>Health Score</Text>
         {isOffline ? (
-          <View style={styles.stateContainer}>
-            <Text style={styles.offlineTitle}>Offline</Text>
-            <Text style={styles.offlineMessage}>
-              Health Score will load when connection is restored.
-            </Text>
-          </View>
+          <OfflineState
+            title="Offline"
+            message="Health Score will load when connection is restored."
+          />
         ) : (
           <ErrorState
             message={healthScore.error}
@@ -164,12 +163,16 @@ function HealthScoreSection() {
         <Pressable
           style={styles.baselineTrigger}
           onPress={() => setBaselineDrawerVisible(true)}
+          accessibilityLabel="View baselines"
+          accessibilityRole="button"
         >
           <Text style={styles.link}>View baselines</Text>
         </Pressable>
         <Pressable
           style={styles.baselineTrigger}
           onPress={() => setProvenanceDrawerVisible(true)}
+          accessibilityLabel="Health Score details and provenance"
+          accessibilityRole="button"
         >
           <Text style={styles.link}>Details</Text>
         </Pressable>
@@ -221,12 +224,10 @@ function HealthSignalsSection() {
       <View style={styles.signalsSection}>
         <Text style={styles.signalsHeading}>What matters now</Text>
         {isOffline ? (
-          <View style={styles.stateContainer}>
-            <Text style={styles.offlineTitle}>Offline</Text>
-            <Text style={styles.offlineMessage}>
-              Signals will load when connection is restored.
-            </Text>
-          </View>
+          <OfflineState
+            title="Offline"
+            message="Signals will load when connection is restored."
+          />
         ) : (
           <ErrorState
             message={signals.error}
@@ -253,6 +254,8 @@ function HealthSignalsSection() {
       <Pressable
         style={styles.baselineTrigger}
         onPress={() => setProvenanceDrawerVisible(true)}
+        accessibilityLabel="Analyze signals and view provenance"
+        accessibilityRole="button"
       >
         <Text style={styles.link}>Analyze</Text>
       </Pressable>
@@ -340,18 +343,22 @@ export default function DashScreen() {
         <HealthSignalsSection />
 
         <View style={styles.actions}>
-          <Text
-            style={styles.link}
+          <Pressable
+            style={styles.actionPressable}
             onPress={() => router.push("/(app)/failures")}
+            accessibilityLabel="View failures"
+            accessibilityRole="button"
           >
-            View failures
-          </Text>
-          <Text
-            style={styles.link}
+            <Text style={styles.link}>View failures</Text>
+          </Pressable>
+          <Pressable
+            style={styles.actionPressable}
             onPress={() => router.push("/(app)/command-center")}
+            accessibilityLabel="Command Center (legacy)"
+            accessibilityRole="button"
           >
-            Command Center (legacy)
-          </Text>
+            <Text style={styles.link}>Command Center (legacy)</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -396,7 +403,7 @@ const styles = StyleSheet.create({
   metadata: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#C6C6C8" },
   metadataText: { fontSize: 12, color: "#8E8E93" },
   drawerTriggers: { marginTop: 8, flexDirection: "row", gap: 16 },
-  baselineTrigger: { marginTop: 8 },
+  baselineTrigger: { marginTop: 8, minHeight: 44, justifyContent: "center" },
   signalsSection: {
     marginTop: 24,
     backgroundColor: "#F2F2F7",
@@ -406,14 +413,7 @@ const styles = StyleSheet.create({
   },
   signalsHeading: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
   signalStatusLine: { fontSize: 15, color: "#3C3C43" },
-  stateContainer: {
-    padding: 24,
-    gap: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  offlineTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  offlineMessage: { fontSize: 15, color: "#8E8E93", textAlign: "center" },
   actions: { marginTop: 24, gap: 12 },
+  actionPressable: { minHeight: 44, justifyContent: "center" },
   link: { fontSize: 15, color: "#007AFF", fontWeight: "600" },
 });

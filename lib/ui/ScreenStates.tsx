@@ -49,7 +49,12 @@ export function ErrorState({
         <Text style={styles.requestId}>Request ID: {requestId}</Text>
       ) : null}
       {onRetry ? (
-        <Pressable onPress={onRetry} style={styles.retryBtn}>
+        <Pressable
+          onPress={onRetry}
+          style={styles.retryBtn}
+          accessibilityLabel="Try again"
+          accessibilityRole="button"
+        >
           <Text style={styles.retryBtnText}>Try again</Text>
         </Pressable>
       ) : null}
@@ -121,8 +126,11 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: 8,
+    minHeight: 44,
+    minWidth: 44,
     paddingVertical: 12,
     paddingHorizontal: 24,
+    justifyContent: "center",
     borderRadius: 12,
     backgroundColor: "#F2F2F7",
   },
