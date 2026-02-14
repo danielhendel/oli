@@ -8,6 +8,7 @@ import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useHealthScore } from "@/lib/data/useHealthScore";
+import { useHealthSignals } from "@/lib/data/useHealthSignals";
 import {
   formatHealthScoreTier,
   formatHealthScoreStatus,
@@ -137,6 +138,71 @@ function HealthScoreSection() {
   );
 }
 
+function HealthSignalsSection() {
+  const todayKey = useMemo(() => getTodayDayKey(), []);
+  const signals = useHealthSignals(todayKey);
+
+  if (signals.status === "partial") {
+    return (
+      <View style={styles.signalsSection}>
+        <Text style={styles.signalsHeading}>What matters now</Text>
+        <LoadingState message="Loading…" />
+      </View>
+    );
+  }
+
+  if (signals.status === "missing") {
+    return (
+      <View style={styles.signalsSection}>
+        <Text style={styles.signalsHeading}>What matters now</Text>
+        <EmptyState
+          title="Signals not available"
+          description="No health signals have been computed for this day."
+          explanation="Signals are derived server-side from Health Score and baseline history."
+        />
+      </View>
+    );
+  }
+
+  if (signals.status === "error") {
+    const isOffline = signals.reason === "network";
+    return (
+      <View style={styles.signalsSection}>
+        <Text style={styles.signalsHeading}>What matters now</Text>
+        {isOffline ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.offlineTitle}>Offline</Text>
+            <Text style={styles.offlineMessage}>
+              Signals will load when connection is restored.
+            </Text>
+          </View>
+        ) : (
+          <ErrorState
+            message={signals.error}
+            requestId={signals.requestId}
+            onRetry={() => signals.refetch()}
+            isContractError={signals.reason === "contract"}
+          />
+        )}
+      </View>
+    );
+  }
+
+  const d = signals.data;
+  const statusLabel = d.status === "stable" ? "Stable" : "Attention Required";
+  return (
+    <View style={styles.signalsSection}>
+      <Text style={styles.signalsHeading}>What matters now</Text>
+      <Text style={styles.signalStatusLine}>Status: {statusLabel}</Text>
+      <View style={styles.metadata}>
+        <Text style={styles.metadataText}>
+          Model {d.modelVersion} · Computed {formatIsoToLocal(d.computedAt)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function DashScreen() {
   const router = useRouter();
   const todayKey = useMemo(() => getTodayDayKey(), []);
@@ -209,6 +275,8 @@ export default function DashScreen() {
 
         <HealthScoreSection />
 
+        <HealthSignalsSection />
+
         <View style={styles.actions}>
           <Text
             style={styles.link}
@@ -266,6 +334,15 @@ const styles = StyleSheet.create({
   metadata: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#C6C6C8" },
   metadataText: { fontSize: 12, color: "#8E8E93" },
   baselineTrigger: { marginTop: 8 },
+  signalsSection: {
+    marginTop: 24,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  signalsHeading: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
+  signalStatusLine: { fontSize: 15, color: "#3C3C43" },
   stateContainer: {
     padding: 24,
     gap: 12,

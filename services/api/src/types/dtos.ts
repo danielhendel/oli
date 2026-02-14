@@ -56,3 +56,7 @@ export type {
 // Phase 1.5 Sprint 1 — Health Score (derived truth read surface)
 export { healthScoreDocSchema } from "@oli/contracts/healthScore";
 export type { HealthScoreDoc } from "@oli/contracts/healthScore";
+
+// Phase 1.5 Sprint 4 — Health Signals (derived truth read surface)
+export { healthSignalDocSchema } from "@oli/contracts/healthSignals";
+export type { HealthSignalDoc } from "@oli/contracts/healthSignals";

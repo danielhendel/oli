@@ -32,6 +32,7 @@ import {
   timelineResponseDtoSchema,
   lineageResponseDtoSchema,
   healthScoreDocSchema,
+  healthSignalDocSchema,
   type InsightDto,
 } from "../types/dtos";
 
@@ -1223,6 +1224,38 @@ router.get(
 );
 
 // ----------------------------
+// Phase 1.5 Sprint 4 — GET /users/me/health-signals (derived truth read)
+// ----------------------------
+
+router.get(
+  "/health-signals",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const day = parseDay(req, res);
+    if (!day) return;
+
+    const ref = userCollection(uid, "healthSignals").doc(day);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "healthSignals", day } });
+      return;
+    }
+
+    const data = snap.data();
+    const parsed = healthSignalDocSchema.safeParse(data);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "healthSignals", parsed.error.flatten());
+      return;
+    }
+
+    res.status(200).json(parsed.data);
+  }),
+);
+
+// ----------------------------
 // ✅ Step 4 — Derived Ledger Replay Reader
 // ----------------------------
 
@@ -1362,6 +1395,8 @@ router.get(
     const dailyFactsSnap = await snapsRef.doc("dailyFacts").get();
     const intelligenceSnap = await snapsRef.doc("intelligenceContext").get();
     const insightsItemsSnap = await snapsRef.doc("insights").collection("items").get();
+    const healthScoreSnap = await snapsRef.doc("healthScore").get();
+    const healthSignalsSnap = await snapsRef.doc("healthSignals").get();
 
     const dailyFacts = dailyFactsSnap.exists
       ? ((dailyFactsSnap.data() as Record<string, unknown>)["data"] as unknown)
@@ -1403,6 +1438,33 @@ router.get(
       insightsOut = p.data;
     }
 
+    const healthScoreData = healthScoreSnap.exists
+      ? ((healthScoreSnap.data() as Record<string, unknown>)["data"] as unknown)
+      : undefined;
+    const healthSignalsData = healthSignalsSnap.exists
+      ? ((healthSignalsSnap.data() as Record<string, unknown>)["data"] as unknown)
+      : undefined;
+
+    let healthScoreOut: unknown | undefined = undefined;
+    if (healthScoreData) {
+      const p = healthScoreDocSchema.safeParse(healthScoreData);
+      if (!p.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot.healthScore", p.error.flatten());
+        return;
+      }
+      healthScoreOut = p.data;
+    }
+
+    let healthSignalsOut: unknown | undefined = undefined;
+    if (healthSignalsData) {
+      const p = healthSignalDocSchema.safeParse(healthSignalsData);
+      if (!p.success) {
+        invalidDoc500(req, res, "derivedLedgerSnapshot.healthSignals", p.error.flatten());
+        return;
+      }
+      healthSignalsOut = p.data;
+    }
+
     const response = {
       day,
       runId: runParsed.data.runId,
@@ -1413,6 +1475,8 @@ router.get(
       ...(dailyFacts ? { dailyFacts } : {}),
       ...(intelligenceContext ? { intelligenceContext } : {}),
       ...(insightsOut ? { insights: insightsOut } : {}),
+      ...(healthScoreOut ? { healthScore: healthScoreOut } : {}),
+      ...(healthSignalsOut ? { healthSignals: healthSignalsOut } : {}),
     };
 
     const validated = derivedLedgerReplayResponseDtoSchema.safeParse(response);

@@ -50,6 +50,7 @@ describe("Firestore security rules (I-01 / I-04)", () => {
       await db.doc(`users/${uid}/rawEvents/re_1`).set({ userId: uid, id: "re_1" });
       await db.doc(`users/${uid}/events/ev_1`).set({ userId: uid, id: "ev_1" });
       await db.doc(`users/${uid}/healthScores/${day}`).set({ userId: uid, date: day });
+      await db.doc(`users/${uid}/healthSignals/${day}`).set({ userId: uid, date: day });
     });
 
     const db = userDb({ uid });
@@ -60,6 +61,7 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertSucceeds(db.doc(`users/${uid}/rawEvents/re_1`).get());
     await assertSucceeds(db.doc(`users/${uid}/events/ev_1`).get());
     await assertSucceeds(db.doc(`users/${uid}/healthScores/${day}`).get());
+    await assertSucceeds(db.doc(`users/${uid}/healthSignals/${day}`).get());
   });
 
   it("denies client writes to ingestion + derived truth (I-01 / I-04)", async () => {
@@ -96,6 +98,11 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertFails(db.doc(`users/${uid}/healthScores/2026-01-01`).set({ userId: uid, date: "2026-01-01" }));
     await assertFails(db.doc(`users/${uid}/healthScores/2026-01-01`).update({ any: "field" }));
     await assertFails(db.doc(`users/${uid}/healthScores/2026-01-01`).delete());
+
+    // Derived truth — health signals (Phase 1.5 Sprint 4)
+    await assertFails(db.doc(`users/${uid}/healthSignals/2026-01-01`).set({ userId: uid, date: "2026-01-01" }));
+    await assertFails(db.doc(`users/${uid}/healthSignals/2026-01-01`).update({ any: "field" }));
+    await assertFails(db.doc(`users/${uid}/healthSignals/2026-01-01`).delete());
   });
 
   it("denies cross-user reads (user isolation)", async () => {

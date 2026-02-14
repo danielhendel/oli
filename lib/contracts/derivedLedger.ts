@@ -4,6 +4,8 @@ import { dayKeySchema } from "./day";
 import { dailyFactsDtoSchema } from "./dailyFacts";
 import { intelligenceContextDtoSchema } from "./intelligenceContext";
 import { insightsResponseDtoSchema } from "./insights";
+import { healthScoreDocSchema } from "./healthScore";
+import { healthSignalDocSchema } from "./healthSignals";
 
 const isoString = z.string().min(1);
 
@@ -46,6 +48,8 @@ export const derivedLedgerRunSummaryDtoSchema = z
         hasDailyFacts: z.boolean(),
         insightsCount: z.number().int().nonnegative(),
         hasIntelligenceContext: z.boolean(),
+        hasHealthScore: z.boolean().optional(),
+        hasHealthSignals: z.boolean().optional(),
       })
       .strip(),
     createdAt: isoString, // API-normalized
@@ -77,6 +81,8 @@ export const derivedLedgerReplayResponseDtoSchema = z
     dailyFacts: dailyFactsDtoSchema.optional(),
     intelligenceContext: intelligenceContextDtoSchema.optional(),
     insights: insightsResponseDtoSchema.optional(),
+    healthScore: healthScoreDocSchema.optional(),
+    healthSignals: healthSignalDocSchema.optional(),
   })
   .strip();
 
