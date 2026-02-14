@@ -40,8 +40,14 @@ export function BaselineDrawer({ visible, onClose, doc }: Props) {
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      accessibilityViewIsModal
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+        accessibilityLabel="Dismiss baselines"
+        accessibilityRole="button"
+      >
         <Pressable style={styles.drawer} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.heading}>Baselines</Text>
           <ScrollView
@@ -72,7 +78,12 @@ export function BaselineDrawer({ visible, onClose, doc }: Props) {
               <Text style={styles.rowValue}>{String(optimization.schemaVersion)}</Text>
             </BaselinePanel>
           </ScrollView>
-          <Pressable style={styles.closeButton} onPress={onClose}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityLabel="Close baselines"
+            accessibilityRole="button"
+          >
             <Text style={styles.closeButtonText}>Close</Text>
           </Pressable>
         </Pressable>
@@ -122,8 +133,11 @@ const styles = StyleSheet.create({
   closeButton: {
     marginTop: 16,
     alignSelf: "flex-end",
-    paddingVertical: 8,
+    minHeight: 44,
+    minWidth: 44,
+    paddingVertical: 12,
     paddingHorizontal: 16,
+    justifyContent: "center",
     backgroundColor: "#F2F2F7",
     borderRadius: 12,
   },

@@ -135,4 +135,23 @@ describe("ProvenanceDrawer", () => {
     expect(text).not.toContain("firestore");
     expect(text).not.toContain("projects/");
   });
+
+  it("close button has accessibilityLabel and role for screen readers", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <ProvenanceDrawer visible={true} onClose={noop} model={baseModel} />,
+      );
+    });
+    const pressables = test.root.findAllByType("Pressable");
+    const closeButton = pressables.find(
+      (p) =>
+        (p.props as { accessibilityLabel?: string }).accessibilityLabel ===
+        "Close provenance details"
+    );
+    expect(closeButton).toBeDefined();
+    expect((closeButton!.props as { accessibilityRole?: string }).accessibilityRole).toBe(
+      "button"
+    );
+  });
 });
