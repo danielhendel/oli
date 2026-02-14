@@ -13,21 +13,17 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-
     "build": "npm run -w @oli/contracts build && npm run -w api build",
     "start:api": "npm run -w api start",
-
     "typecheck": "tsc -b",
     "lint": "eslint app components lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "proof:phase1": "bash scripts/ci/proof-gate.sh",
     "proof:phase2": "bash scripts/ci/proof-gate-phase2.sh",
-
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -70,6 +66,7 @@
     "patch-package": "^8.0.1",
     "prettier": "^3.6.2",
     "rate-limiter-flexible": "^5.0.5",
+    "supertest": "^7.2.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.50.1",
     "zod": "^3.23.8"
