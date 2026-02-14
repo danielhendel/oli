@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import express from "express";
+import request from "supertest";
 
 type DocSnap = { exists: boolean; id: string; data: () => unknown };
 
@@ -79,41 +80,30 @@ describe("Phase 2 proof: pagination stability", () => {
     });
     app.use("/users/me", usersMeRoutes);
 
-    const server = app.listen(0);
-    const addr = server.address();
-    if (!addr || typeof addr === "string") {
-      server.close();
-      throw new Error("Failed to bind");
-    }
+    const res = await request(app).get(
+      "/users/me/raw-events?start=2025-01-15&end=2025-01-15&limit=2",
+    );
 
-    try {
-      const res = await fetch(
-        `http://127.0.0.1:${addr.port}/users/me/raw-events?start=2025-01-15&end=2025-01-15&limit=2`,
+    expect(res.status).toBe(200);
+    const json = res.body as { items: { id: string }[]; nextCursor: string | null };
+
+    expect(json.items.length).toBe(2);
+    expect(json.items[0]!.id).toBe("raw_c");
+    expect(json.items[1]!.id).toBe("raw_b");
+    const ids1 = new Set(json.items.map((i) => i.id));
+    expect(ids1.size).toBe(2);
+
+    if (json.nextCursor) {
+      const res2 = await request(app).get(
+        `/users/me/raw-events?start=2025-01-15&end=2025-01-15&limit=2&cursor=${encodeURIComponent(json.nextCursor)}`,
       );
-
-      expect(res.status).toBe(200);
-      const json = (await res.json()) as { items: { id: string }[]; nextCursor: string | null };
-
-      expect(json.items.length).toBe(2);
-      expect(json.items[0]!.id).toBe("raw_c");
-      expect(json.items[1]!.id).toBe("raw_b");
-      const ids1 = new Set(json.items.map((i) => i.id));
-      expect(ids1.size).toBe(2);
-
-      if (json.nextCursor) {
-        const res2 = await fetch(
-          `http://127.0.0.1:${addr.port}/users/me/raw-events?start=2025-01-15&end=2025-01-15&limit=2&cursor=${encodeURIComponent(json.nextCursor)}`,
-        );
-        expect(res2.status).toBe(200);
-        const json2 = (await res2.json()) as { items: { id: string }[]; nextCursor: string | null };
-        expect(json2.items.length).toBe(1);
-        expect(json2.items[0]!.id).toBe("raw_a");
-        const allIds = new Set([...json.items.map((i) => i.id), ...json2.items.map((i) => i.id)]);
-        expect(allIds.size).toBe(3);
-        expect(allIds).toEqual(new Set(["raw_a", "raw_b", "raw_c"]));
-      }
-    } finally {
-      server.close();
+      expect(res2.status).toBe(200);
+      const json2 = res2.body as { items: { id: string }[]; nextCursor: string | null };
+      expect(json2.items.length).toBe(1);
+      expect(json2.items[0]!.id).toBe("raw_a");
+      const allIds = new Set([...json.items.map((i) => i.id), ...json2.items.map((i) => i.id)]);
+      expect(allIds.size).toBe(3);
+      expect(allIds).toEqual(new Set(["raw_a", "raw_b", "raw_c"]));
     }
   });
 });
