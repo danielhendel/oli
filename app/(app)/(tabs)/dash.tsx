@@ -1,9 +1,11 @@
 // app/(app)/(tabs)/dash.tsx
 // Phase 1.5 Sprint 2 — Command Center: Health Score surface (read-only, trust-first)
+// Phase 1.5 Sprint 5 — Epistemic transparency: ProvenanceDrawer for Health Score + Signals
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { BaselineDrawer } from "@/lib/ui/BaselineDrawer";
+import { ProvenanceDrawer } from "@/lib/ui/ProvenanceDrawer";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useTimeline } from "@/lib/data/useTimeline";
@@ -16,7 +18,8 @@ import {
 } from "@/lib/format/healthScore";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useMemo, useState } from "react";
-import type { HealthScoreDomainScores } from "@/lib/contracts";
+import type { HealthScoreDomainScores, HealthScoreDoc, HealthSignalDoc } from "@/lib/contracts";
+import type { ProvenanceViewModel } from "@/lib/contracts/provenance";
 
 function formatIsoToLocal(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -39,10 +42,44 @@ const DOMAIN_LABELS: Record<keyof HealthScoreDomainScores, string> = {
   body: "Body",
 };
 
+const DERIVED_FROM_DAILY_FACTS = "Derived from DailyFacts";
+const DERIVED_FROM_HEALTHSCORE_BASELINE = "Derived from HealthScore + Baseline window";
+
+function healthScoreToProvenanceViewModel(doc: HealthScoreDoc): ProvenanceViewModel {
+  const missing = [
+    ...doc.domainScores.recovery.missing,
+    ...doc.domainScores.training.missing,
+    ...doc.domainScores.nutrition.missing,
+    ...doc.domainScores.body.missing,
+  ];
+  const missingInputs = [...new Set(missing)];
+  return {
+    title: "Health Score provenance",
+    modelVersion: doc.modelVersion,
+    computedAt: doc.computedAt,
+    pipelineVersion: doc.pipelineVersion,
+    missingInputs,
+    derivedFromLabel: DERIVED_FROM_DAILY_FACTS,
+  };
+}
+
+function healthSignalToProvenanceViewModel(doc: HealthSignalDoc): ProvenanceViewModel {
+  return {
+    title: "Signals provenance",
+    modelVersion: doc.modelVersion,
+    computedAt: doc.computedAt,
+    pipelineVersion: doc.pipelineVersion,
+    missingInputs: [...doc.missingInputs],
+    thresholds: doc.inputs.thresholds,
+    derivedFromLabel: DERIVED_FROM_HEALTHSCORE_BASELINE,
+  };
+}
+
 function HealthScoreSection() {
   const todayKey = useMemo(() => getTodayDayKey(), []);
   const healthScore = useHealthScore(todayKey);
   const [baselineDrawerVisible, setBaselineDrawerVisible] = useState(false);
+  const [provenanceDrawerVisible, setProvenanceDrawerVisible] = useState(false);
 
   if (healthScore.status === "partial") {
     return (
@@ -123,16 +160,29 @@ function HealthScoreSection() {
           Model {d.modelVersion} · Computed {formatIsoToLocal(d.computedAt)}
         </Text>
       </View>
-      <Pressable
-        style={styles.baselineTrigger}
-        onPress={() => setBaselineDrawerVisible(true)}
-      >
-        <Text style={styles.link}>View baselines</Text>
-      </Pressable>
+      <View style={styles.drawerTriggers}>
+        <Pressable
+          style={styles.baselineTrigger}
+          onPress={() => setBaselineDrawerVisible(true)}
+        >
+          <Text style={styles.link}>View baselines</Text>
+        </Pressable>
+        <Pressable
+          style={styles.baselineTrigger}
+          onPress={() => setProvenanceDrawerVisible(true)}
+        >
+          <Text style={styles.link}>Details</Text>
+        </Pressable>
+      </View>
       <BaselineDrawer
         visible={baselineDrawerVisible}
         onClose={() => setBaselineDrawerVisible(false)}
         doc={d}
+      />
+      <ProvenanceDrawer
+        visible={provenanceDrawerVisible}
+        onClose={() => setProvenanceDrawerVisible(false)}
+        model={healthScoreToProvenanceViewModel(d)}
       />
     </View>
   );
@@ -141,6 +191,7 @@ function HealthScoreSection() {
 function HealthSignalsSection() {
   const todayKey = useMemo(() => getTodayDayKey(), []);
   const signals = useHealthSignals(todayKey);
+  const [provenanceDrawerVisible, setProvenanceDrawerVisible] = useState(false);
 
   if (signals.status === "partial") {
     return (
@@ -199,6 +250,17 @@ function HealthSignalsSection() {
           Model {d.modelVersion} · Computed {formatIsoToLocal(d.computedAt)}
         </Text>
       </View>
+      <Pressable
+        style={styles.baselineTrigger}
+        onPress={() => setProvenanceDrawerVisible(true)}
+      >
+        <Text style={styles.link}>Analyze</Text>
+      </Pressable>
+      <ProvenanceDrawer
+        visible={provenanceDrawerVisible}
+        onClose={() => setProvenanceDrawerVisible(false)}
+        model={healthSignalToProvenanceViewModel(d)}
+      />
     </View>
   );
 }
@@ -333,6 +395,7 @@ const styles = StyleSheet.create({
   domainMissing: { fontSize: 12, color: "#8E8E93", marginLeft: 0 },
   metadata: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#C6C6C8" },
   metadataText: { fontSize: 12, color: "#8E8E93" },
+  drawerTriggers: { marginTop: 8, flexDirection: "row", gap: 16 },
   baselineTrigger: { marginTop: 8 },
   signalsSection: {
     marginTop: 24,
