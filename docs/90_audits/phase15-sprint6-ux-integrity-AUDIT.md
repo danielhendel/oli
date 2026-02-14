@@ -119,14 +119,16 @@
 
 | Check | Result |
 |-------|--------|
-| npm run typecheck | (run at PR) |
-| npm run lint | (run at PR) |
-| npm test | (run at PR) |
+| npm run typecheck | PASS |
+| npm run lint | PASS |
+| npm test | PASS (87 suites, 337 tests; Jest exit 0) |
 
 ---
 
 ## 7. Verdict
 
-**PASS** (pending typecheck/lint/test run and PR).
+**PASS.**
+
+Branch `phase15/sprint6-ux-integrity` pushed. Open PR: https://github.com/danielhendel/oli/pull/new/phase15/sprint6-ux-integrity
 
 Sprint 6 delivers UX integrity lock: accessibility pass, state unification via StateBlock/OfflineState, console discipline (existing guard), and emulator exit-code stability, with no changes to scoring, signals, thresholds, ledger, or ingestion.
