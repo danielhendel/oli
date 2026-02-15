@@ -229,7 +229,7 @@ describe("Withings integrations (Phase 3A)", () => {
       allowConsoleForThisTest({ error: [/withings_callback_secret_manager_config_missing/] });
       (validateAndConsumeState as jest.Mock).mockResolvedValue({ ok: true, uid: "user_123", stateId: "s1" });
       (withingsSecrets.getClientSecret as jest.Mock).mockRejectedValue(
-        new withingsSecrets.WithingsConfigError("Withings secrets: missing project id env"),
+        new withingsSecrets.WithingsConfigError("Withings secrets: missing project id (env or ADC)"),
       );
 
       const setMock = jest.fn(async () => undefined);
