@@ -68,6 +68,7 @@ describe("Withings integrations (Phase 3A)", () => {
         .get("/integrations/withings/connect")
         .set("Authorization", "Bearer fake")
         .set("Host", "api.example.com")
+        .set("x-forwarded-host", "api.example.com")
         .set("x-forwarded-proto", "https");
       expect(res.status).toBe(200);
       const json = res.body as { ok: boolean; url: string };
@@ -87,6 +88,7 @@ describe("Withings integrations (Phase 3A)", () => {
         .get("/integrations/withings/connect")
         .set("Authorization", "Bearer fake")
         .set("Host", "api.example.com")
+        .set("x-forwarded-host", "api.example.com")
         .set("x-forwarded-proto", "https");
       expect(res.status).toBe(200);
       const json = res.body as { ok: boolean; url: string };
@@ -101,6 +103,7 @@ describe("Withings integrations (Phase 3A)", () => {
         .get("/integrations/withings/connect")
         .set("Authorization", "Bearer fake")
         .set("Host", "api.example.com")
+        .set("x-forwarded-host", "api.example.com")
         .set("x-forwarded-proto", "https");
       expect(res.status).toBe(500);
       const json = res.body as { ok: boolean; error?: { code: string; message: string } };
@@ -111,15 +114,15 @@ describe("Withings integrations (Phase 3A)", () => {
     });
   });
 
-  /** Request mock with host and x-forwarded-proto so getCanonicalRedirectUri returns canonicalRedirectUri. */
+  /** Request mock with x-forwarded-host and x-forwarded-proto so getCanonicalRedirectUri returns canonicalRedirectUri. */
   function callbackReq(overrides: Partial<{ query: object; get: (n: string) => string | undefined; headers: object }> = {}) {
     return {
       query: { code: "code", state: "user_123:s1" },
       get: (name: string) =>
-        name === "host" ? "api.example.com" : name === "x-request-id" ? "req-1" : undefined,
+        name === "host" ? "api.example.com" : name === "x-forwarded-host" ? "api.example.com" : name === "x-request-id" ? "req-1" : undefined,
       getHeader: (name: string) =>
-        name === "host" ? "api.example.com" : name === "x-request-id" ? "req-1" : undefined,
-      headers: { "x-forwarded-proto": "https" },
+        name === "host" ? "api.example.com" : name === "x-forwarded-host" ? "api.example.com" : name === "x-request-id" ? "req-1" : undefined,
+      headers: { "x-forwarded-proto": "https", "x-forwarded-host": "api.example.com" },
       ...overrides,
     } as unknown as express.Request;
   }

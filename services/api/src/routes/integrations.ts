@@ -19,16 +19,33 @@ const SCOPE = "user.metrics";
 const getRequestId = (req: Request, res: Response): string =>
   (req as AuthedRequest).rid ?? res.getHeader("x-request-id")?.toString() ?? "unknown";
 
+function firstHeaderValue(v: string | string[] | undefined): string {
+  if (!v) return "";
+  const s = Array.isArray(v) ? (v[0] ?? "") : v;
+  return (s.split(",")[0] ?? "").trim();
+}
+
+function getForwardedHost(req: Request): string {
+  const xfHost = firstHeaderValue(req.headers["x-forwarded-host"] as string | string[] | undefined);
+  if (xfHost) return xfHost;
+
+  const forwarded = firstHeaderValue(req.headers["forwarded"] as string | string[] | undefined);
+  if (forwarded) {
+    const m = forwarded.match(/host="?([^;"]+)"?/i);
+    if (m?.[1]) return m[1].trim();
+  }
+
+  return req.get("host") ?? "";
+}
+
 /**
- * Canonical redirect URI derived from the incoming request host.
- * Used so Withings redirects to the actual gateway host, not a stale env value.
+ * Canonical redirect URI derived from forwarded host/proto so Withings redirects to gateway host, not backend.
+ * Prefer x-forwarded-host / Forwarded so canonical matches when request is behind API Gateway.
  */
 function getCanonicalRedirectUri(req: Request): string | null {
-  const xfProto = (req.headers["x-forwarded-proto"] as string | undefined)
-    ?.split(",")[0]
-    ?.trim();
-  const proto = xfProto || req.protocol || "https";
-  const host = req.get("host");
+  const xfProto = firstHeaderValue(req.headers["x-forwarded-proto"] as string | string[] | undefined);
+  const proto = xfProto || "https";
+  const host = getForwardedHost(req);
   if (!host) return null;
   return `${proto}://${host}/integrations/withings/callback`;
 }
