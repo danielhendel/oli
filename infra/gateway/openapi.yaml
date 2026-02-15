@@ -403,6 +403,44 @@ paths:
         200:
           description: OK
 
+  # PUBLIC: Withings OAuth callback (no Firebase; Withings must be able to call this)
+  /integrations/withings/callback:
+    options:
+      operationId: withingsCallbackOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsCallbackGet
+      security: []
+      responses:
+        200:
+          description: OK
+        302:
+          description: Redirect
+        400:
+          description: Bad Request
+        500:
+          description: Server Error
+
+  # PUBLIC: Withings completion bridge (HTML) used as WebBrowser returnUrl
+  /integrations/withings/complete:
+    options:
+      operationId: withingsCompleteOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsCompleteGet
+      security: []
+      produces:
+        - text/html
+      responses:
+        200:
+          description: Completion bridge HTML
+
 definitions:
   HealthResponse:
     type: object
