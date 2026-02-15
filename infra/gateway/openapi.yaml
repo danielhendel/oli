@@ -403,6 +403,25 @@ paths:
         200:
           description: OK
 
+  /integrations/withings/connect:
+    options:
+      operationId: withingsConnectOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsConnectGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Authorization URL returned
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
   # PUBLIC: Withings OAuth callback (no Firebase; Withings must be able to call this)
   /integrations/withings/callback:
     options:
