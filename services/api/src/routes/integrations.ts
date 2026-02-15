@@ -38,11 +38,21 @@ function getForwardedHost(req: Request): string {
   return req.get("host") ?? "";
 }
 
+function normalizeBaseUrl(raw: string): string {
+  return raw.trim().replace(/\/+$/, "");
+}
+
 /**
- * Canonical redirect URI derived from forwarded host/proto so Withings redirects to gateway host, not backend.
- * Prefer x-forwarded-host / Forwarded so canonical matches when request is behind API Gateway.
+ * Canonical redirect URI: prefer PUBLIC_BASE_URL (deterministic behind gateway), else forwarded host/proto.
  */
 function getCanonicalRedirectUri(req: Request): string | null {
+  const publicBase = (process.env.PUBLIC_BASE_URL ?? "").trim();
+  if (publicBase) {
+    if (!publicBase.startsWith("https://")) return null; // fail closed (no http)
+    return `${normalizeBaseUrl(publicBase)}/integrations/withings/callback`;
+  }
+
+  // fallback: existing x-forwarded-proto + forwarded host logic
   const xfProto = firstHeaderValue(req.headers["x-forwarded-proto"] as string | string[] | undefined);
   const proto = xfProto || "https";
   const host = getForwardedHost(req);

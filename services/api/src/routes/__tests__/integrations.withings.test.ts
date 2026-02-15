@@ -59,6 +59,17 @@ describe("Withings integrations (Phase 3A)", () => {
   });
 
   describe("GET /integrations/withings/connect", () => {
+    let prevPublicBaseUrl: string | undefined;
+
+    beforeEach(() => {
+      prevPublicBaseUrl = process.env.PUBLIC_BASE_URL;
+      process.env.PUBLIC_BASE_URL = "https://api.example.com";
+    });
+
+    afterEach(() => {
+      process.env.PUBLIC_BASE_URL = prevPublicBaseUrl;
+    });
+
     it("returns authorization URL when state is created", async () => {
       (validateAndConsumeState as unknown as jest.Mock).mockResolvedValue({ ok: false });
       const createStateAsync = require("../../lib/oauthState").createStateAsync as jest.Mock;
@@ -79,7 +90,7 @@ describe("Withings integrations (Phase 3A)", () => {
       expect(json.url).toContain(`redirect_uri=${encodeURIComponent(canonicalRedirectUri)}`);
     });
 
-    it("when WITHINGS_REDIRECT_URI is blank, uses canonical redirect URI from Host and x-forwarded-proto", async () => {
+    it("when WITHINGS_REDIRECT_URI is blank, uses canonical redirect URI from PUBLIC_BASE_URL", async () => {
       process.env.WITHINGS_REDIRECT_URI = "";
       const createStateAsync = require("../../lib/oauthState").createStateAsync as jest.Mock;
       createStateAsync.mockResolvedValue({ stateForRedirect: "user_123:abc123" });
@@ -114,7 +125,7 @@ describe("Withings integrations (Phase 3A)", () => {
     });
   });
 
-  /** Request mock with x-forwarded-host and x-forwarded-proto so getCanonicalRedirectUri returns canonicalRedirectUri. */
+  /** Request mock with x-forwarded-host and x-forwarded-proto so getCanonicalRedirectUri returns canonicalRedirectUri when PUBLIC_BASE_URL is unset. */
   function callbackReq(overrides: Partial<{ query: object; get: (n: string) => string | undefined; headers: object }> = {}) {
     return {
       query: { code: "code", state: "user_123:s1" },
@@ -128,6 +139,17 @@ describe("Withings integrations (Phase 3A)", () => {
   }
 
   describe("GET /integrations/withings/callback (handleWithingsCallback)", () => {
+    let prevPublicBaseUrl: string | undefined;
+
+    beforeEach(() => {
+      prevPublicBaseUrl = process.env.PUBLIC_BASE_URL;
+      process.env.PUBLIC_BASE_URL = "https://api.example.com";
+    });
+
+    afterEach(() => {
+      process.env.PUBLIC_BASE_URL = prevPublicBaseUrl;
+    });
+
     it("returns 400 when state is invalid (no Firestore write — untrusted uid)", async () => {
       (validateAndConsumeState as jest.Mock).mockResolvedValue({ ok: false, reason: "state_expired" });
       const setMock = jest.fn(async () => undefined);
