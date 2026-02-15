@@ -31,19 +31,25 @@ export async function getWithingsStatus(
   return apiGetZodAuthed("/integrations/withings/status", idToken, withingsStatusResponseSchema, truthGetOpts(opts));
 }
 
-/** POST /integrations/withings/connect — returns OAuth URL for client to open. */
+/** GET /integrations/withings/connect — returns OAuth URL for client to open. Requires Authorization. */
 export async function getWithingsConnectUrl(
   idToken: string,
-): Promise<ApiResult<{ authorizationUrl: string }>> {
-  const res = await apiPostZodAuthed(
+): Promise<ApiResult<{ url: string }>> {
+  const res = await apiGetZodAuthed(
     "/integrations/withings/connect",
-    {},
     idToken,
     withingsConnectResponseSchema,
-    { noStore: true },
+    truthGetOpts(),
   );
   if (!res.ok) return res;
-  return { ok: true, status: res.status, requestId: res.requestId, json: { authorizationUrl: res.json.url } };
+  return { ok: true, status: res.status, requestId: res.requestId, json: { url: res.json.url } };
+}
+
+/** Callback URL for Withings OAuth (must match backend WITHINGS_REDIRECT_URI). */
+export function getWithingsRedirectUri(): string {
+  const base = process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "";
+  const normalized = base.endsWith("/") ? base.slice(0, -1) : base;
+  return `${normalized}/integrations/withings/callback`;
 }
 
 /** POST /integrations/withings/pull — admin/dev: pull new measures; requires Idempotency-Key. */

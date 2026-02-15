@@ -9,6 +9,7 @@ import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
+import integrationsRoutes, { handleWithingsCallback } from "./routes/integrations";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
@@ -114,6 +115,35 @@ app.use("/preferences", authMiddleware, preferencesRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
+
+/**
+ * Withings OAuth callback — PUBLIC (no auth) so Withings can redirect here.
+ */
+app.get("/integrations/withings/callback", (req, res) => {
+  void handleWithingsCallback(req, res);
+});
+
+/**
+ * Withings OAuth completion bridge — PUBLIC. Returns HTML that deep-links to oli://withings-connected
+ * so WebBrowser.openAuthSessionAsync reliably auto-closes even when Safari lands on a JSON/wrong host.
+ */
+app.get("/integrations/withings/complete", (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).send(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>` +
+      `<script>window.location.href = "oli://withings-connected";</script>` +
+      `<p>Redirecting…</p>` +
+      `<a id="fallback" href="oli://withings-connected" style="display:none;">Open Oli</a>` +
+      `<script>setTimeout(function(){ document.getElementById("fallback").style.display = "inline"; }, 500);</script>` +
+      `</body></html>`,
+  );
+});
+
+/**
+ * Integrations (authenticated): connect, revoke.
+ */
+app.use("/integrations", authMiddleware, integrationsRoutes);
 
 /**
  * Account operations (authenticated)

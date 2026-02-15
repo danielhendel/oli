@@ -21,6 +21,7 @@
     "format:check": "prettier --check .",
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
+    "check:expo-resolution": "node scripts/ci/check-expo-resolution.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "proof:phase1": "bash scripts/ci/proof-gate.sh",
     "proof:phase2": "bash scripts/ci/proof-gate-phase2.sh",
@@ -29,10 +30,13 @@
   "dependencies": {
     "@firebase/auth": "1.12.0",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "expo": "~53.0.26",
+    "expo": "~53.0.27",
+    "expo-asset": "~11.1.7",
     "expo-clipboard": "~7.1.5",
+    "expo-linking": "~7.1.7",
     "expo-router": "~5.1.11",
     "expo-status-bar": "~2.2.3",
+    "expo-web-browser": "~14.2.0",
     "firebase": "^12.7.0",
     "react": "19.0.0",
     "react-native": "0.79.6",
@@ -72,7 +76,8 @@
     "zod": "^3.23.8"
   },
   "overrides": {
-    "@react-native-async-storage/async-storage": "2.1.2"
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@expo/config-plugins": "~10.1.2"
   },
   "jest": {
     "preset": "jest-expo",
