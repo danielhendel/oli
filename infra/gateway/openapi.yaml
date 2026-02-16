@@ -439,6 +439,8 @@ paths:
       responses:
         200:
           description: Integration status (connected, scopes, no tokens)
+          schema:
+            $ref: "#/definitions/WithingsStatusResponse"
         401:
           description: Unauthorized
         500:
@@ -483,6 +485,34 @@ paths:
           description: Completion bridge HTML
 
 definitions:
+  WithingsStatusResponse:
+    type: object
+    required:
+      - ok
+      - connected
+      - scopes
+      - connectedAt
+      - revoked
+      - failureState
+    properties:
+      ok:
+        type: boolean
+      connected:
+        type: boolean
+      scopes:
+        type: array
+        items:
+          type: string
+      connectedAt:
+        type: string
+        format: date-time
+        description: ISO 8601 or null when not connected
+      revoked:
+        type: boolean
+      failureState:
+        type: object
+        description: null when no failure
+
   HealthResponse:
     type: object
     required:

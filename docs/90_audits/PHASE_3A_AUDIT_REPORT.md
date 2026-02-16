@@ -217,4 +217,60 @@ gcloud secrets list --project oli-staging-fdbba
 
 ---
 
+## Phase 3A Closeout — CLOSED
+
+**Closeout date:** 2026-02-16
+
+### Binary definition: “3A is Closed”
+
+3A is closed only if all of the following are true:
+
+| Criterion | Status |
+|-----------|--------|
+| Runbook exists and is accurate | ✅ `docs/phase3a/RUNBOOK_WITHINGS_PHASE3A_CLOSEOUT.md` |
+| CI route assertion includes /integrations/withings/status | ✅ `scripts/ci/assert-api-routes.mjs` mustHave includes GET /withings/status |
+| OpenAPI contract includes status route and response schema | ✅ `infra/gateway/openapi.yaml`: path + definitions.WithingsStatusResponse |
+| Security custody statement written with log scan command + expected result | ✅ `docs/phase3a/SECURITY_WITHINGS_PHASE3A.md` |
+| Optional: one-button deploy scripts or foolproof manual steps | ✅ `scripts/deploy/phase3a-withings-build-api-image.sh`, `-deploy-cloudrun.sh`, `-deploy-gateway.sh` |
+
+### Authoritative runtime identifiers (verbatim)
+
+| Item | Value |
+|------|--------|
+| Project | oli-staging-fdbba |
+| Cloud Run region | us-central1 |
+| Cloud Run service | oli-api |
+| Cloud Run revision (serving) | oli-api-00106-qts |
+| Cloud Run image | us-central1-docker.pkg.dev/oli-staging-fdbba/cloud-run-source-deploy/oli-api:12aaa43 |
+| Cloud Run service account | oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com |
+| API Gateway base URL | https://oli-gateway-cw04f997.uc.gateway.dev |
+| API Gateway location (gateway resource) | us-central1 |
+| Active Gateway apiConfig | projects/1010034434203/locations/global/apis/oli-api/configs/oli-api-config-20260216-125006 |
+
+### Status route runtime proofs (verbatim)
+
+**401 without JWT:**
+
+```json
+{"code":401,"message":"Jwt is missing"}
+```
+
+**200 with JWT:**
+
+```json
+{"ok":true,"connected":true,"scopes":["user.metrics"],"connectedAt":"2026-02-16T12:30:25.201Z","revoked":false,"failureState":null}
+```
+
+**“No token logging” proof:** The following command produced no matches (empty output):
+
+```bash
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="oli-api"' \
+  --project="oli-staging-fdbba" \
+  --limit=300 \
+  --format="value(textPayload)" | egrep -i "refresh_token|access_token|authorization_code|code=" || true
+```
+
+---
+
 *End of Phase 3A Audit Report. All claims tied to repo evidence or commanded output; no assumptions.*

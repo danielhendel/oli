@@ -85,6 +85,8 @@ const mustHave = [
   { method: "GET", path: "/lineage" },
   { method: "GET", path: "/derived-ledger/snapshot" },
   { method: "GET", path: "/derived-ledger/runs" },
+  // Phase 3A — Withings (path relative to /integrations router)
+  { method: "GET", path: "/withings/status" },
 ];
 
 // Hard fail if route table is empty — means we aren’t inspecting the right thing.
