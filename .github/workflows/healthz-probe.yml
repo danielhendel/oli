@@ -1,4 +1,5 @@
 name: Healthz Probe (OIDC)
+
 on:
   workflow_dispatch: {}
   workflow_run:
@@ -7,11 +8,14 @@ on:
 
 jobs:
   probe:
+    # Only run on manual dispatch or after a successful Cloud Run deploy
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
-      id-token: write  # required for Workload Identity Federation
+      id-token: write  # required for OIDC
+
     env:
       SERVICE_URL: https://healthos-api-zervimbdzq-uc.a.run.app
       SA_EMAIL: oli-ci-invoker@oli-backend.iam.gserviceaccount.com
@@ -19,45 +23,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1) WIF: obtain short-lived SA credentials (ADC is set via env)
+      # Mint an OIDC ID token for the Cloud Run audience using the official auth action.
+      # This avoids manual IAMCredentials API calls.
       - id: auth
-        name: Auth with GCP via WIF (access token flow)
+        name: Auth with GCP via WIF (ID token for Cloud Run)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/391788417686/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: ${{ env.SA_EMAIL }}
-          create_credentials_file: true
-          export_environment_variables: true
+          token_format: 'id_token'
+          audience: ${{ env.SERVICE_URL }}
+          # We do NOT need to export ADC or install gcloud for a simple probe.
 
-      # 2) Install gcloud (to print access token cleanly)
-      - uses: google-github-actions/setup-gcloud@v2
-
-      # 3) Use ACCESS TOKEN to mint an ID token for Cloud Run audience
-      - name: Generate ID token for Cloud Run
-        id: mint
+      # Probe /healthz with the minted ID token
+      - name: Run OIDC health probe
+        env:
+          ID_TOKEN: ${{ steps.auth.outputs.id_token }}
+          SERVICE_URL: ${{ env.SERVICE_URL }}
         run: |
           set -euo pipefail
-          ACCESS_TOKEN="$(gcloud auth print-access-token)"
-          if [[ -z "${ACCESS_TOKEN}" ]]; then
-            echo "Failed to obtain access token from gcloud"; exit 1
-          fi
-          resp="$(curl -sS -X POST \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H "Content-Type: application/json" \
-            "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${SA_EMAIL}:generateIdToken" \
-            -d "{\"audience\":\"${SERVICE_URL}\",\"includeEmail\":false}")"
-          echo "$resp" | jq -e -r .token > /dev/null
-          ID_TOKEN="$(echo "$resp" | jq -r .token)"
-          echo "::add-mask::$ID_TOKEN"
-          echo "id_token=$ID_TOKEN" >> "$GITHUB_OUTPUT"
-
-      # 4) Probe /healthz with the minted ID token
-      - name: Run OIDC health probe (direct)
-        run: |
-          set -euo pipefail
-          echo "Probing ${SERVICE_URL}/healthz with minted ID token..."
+          echo "Probing ${SERVICE_URL}/healthz with OIDC ID token..."
           code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${{ steps.mint.outputs.id_token }}" \
+            -H "Authorization: Bearer ${ID_TOKEN}" \
             -H "Accept: application/json" \
             "${SERVICE_URL}/healthz")"
           echo "HTTP ${code}"

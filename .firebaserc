@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "oli-backend",
+    "prod": "oli-backend"
+  },
+  "targets": {},
+  "etags": {}
+}

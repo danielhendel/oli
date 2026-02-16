@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isYMD(s) {
+      return s is string && s.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    match /users/{uid} {
+      // Profile (the root document)
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if false; // protect against accidental deletions
+
+      // Events: /users/{uid}/events/{eventId}
+      match /events/{eventId} {
+        // Create must include required shape and belong to the owner.
+        allow create: if isOwner(uid) && isValidEventCreate();
+
+        // Read is owner-only.
+        allow read: if isOwner(uid);
+
+        // Updates allowed for corrections, but identity is immutable.
+        allow update: if isOwner(uid)
+                      && isValidEventCreate()
+                      && isSameEventIdentity(resource.data, request.resource.data);
+
+        // Append-only history
+        allow delete: if false;
+
+        function isValidEventCreate() {
+          return request.resource.data.keys().hasAll(['uid', 'type', 'ymd', 'payload'])
+                 && request.resource.data.uid == request.auth.uid
+                 && isYMD(request.resource.data.ymd);
+        }
+
+        // Prevent changing uid/type/ymd after creation.
+        function isSameEventIdentity(old, neu) {
+          return old.uid == neu.uid
+                 && old.type == neu.type
+                 && old.ymd == neu.ymd;
+        }
+      }
+
+      // Facts: /users/{uid}/facts/{factId}
+      match /facts/{factId} {
+        allow read: if isOwner(uid);
+        // Upsert for owner (backend jobs typically run via callable/privileged paths,
+        // but this keeps dev safe and enables user-written facts if needed).
+        allow create: if isOwner(uid) && isValidFactWrite();
+        allow update: if isOwner(uid) && isValidFactWrite();
+        allow delete: if false;
+
+        function isValidFactWrite() {
+          return request.resource.data.keys().hasAll(['uid', 'kind', 'date', 'value'])
+                 && request.resource.data.uid == request.auth.uid
+                 && isYMD(request.resource.data.date);
+        }
+      }
+    }
+  }
+}

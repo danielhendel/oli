@@ -18,7 +18,12 @@ app.use(express.json({ limit: "2mb" }));
 app.use(requestIdMiddleware);
 app.use(morgan("combined"));
 
-// Healthz (public)
+/**
+ * Public health endpoints (no auth)
+ * Expose both "/" and "/healthz" to play nice with different checkers.
+ */
+app.get("/", (_req, res) => res.status(200).json({ ok: true, service: "api" }));
+app.head("/", (_req, res) => res.status(200).end());
 app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
 
 // Authenticated routes
@@ -29,8 +34,10 @@ app.use(limiterMiddleware);
 app.use("/events", eventsRouter);
 app.use("/", accountRouter);
 
-// 404 & error handler
+// 404 handler
 app.use((req, res) => res.status(404).json({ error: "Not Found", route: req.path }));
+
+// Error handler
 app.use((
   err: unknown,
   _req: express.Request,
@@ -43,4 +50,5 @@ app.use((
 
 const port = process.env.PORT || 8080;
 app.listen(port, () => logger.info({ msg: `API listening on :${port}` }));
+
 export default app;

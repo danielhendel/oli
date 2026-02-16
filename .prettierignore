@@ -1,6 +1,43 @@
-node_modules
-.expo
-.expo-shared
-dist
-build
-coverage
+# --- Dependencies ---
+node_modules/
+
+# --- Platform / build outputs ---
+ios/
+android/
+web-build/
+dist/
+build/
+.expo/
+.expo-shared/
+
+# --- Coverage & emulator logs ---
+coverage/
+firebase-debug.log
+npm-debug.log*
+yarn-error.log
+
+# --- CI / artifacts ---
+.artifacts/
+
+# --- Editor / OS cruft ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Lockfiles (don’t reformat diffs) ---
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- Jest snapshots (optional; keep diffs stable) ---
+**/__snapshots__/
+
+# --- Large/binary assets (Prettier can’t usefully format these) ---
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.pdf

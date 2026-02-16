@@ -1,98 +1,44 @@
-import { useState } from "react";
-import { Link } from "expo-router";
-import { SafeAreaView, View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
-import { useAuth } from "../lib/auth/AuthContext";
-import { runFirestoreProbe, type ProbeResult } from "../lib/dev/firebaseProbe";
+// app/index.tsx
+import { useEffect } from "react";
+import { View, SafeAreaView } from "react-native";
+import { Link, useRouter, useRootNavigationState } from "expo-router";
+import { useAuthSession } from "@/lib/auth/session";
+import { Text } from "@/lib/ui/Text";
+import Button from "@/lib/ui/Button";
 
-export default function HomeScreen() {
-  const { user, signIn, signOut } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [probe, setProbe] = useState<ProbeResult | null>(null);
+export default function EntryGate() {
+  const router = useRouter();
+  const nav = useRootNavigationState();       // undefined until root navigator mounts
+  const { user, loading } = useAuthSession(); // { user | null, loading }
 
-  async function handleProbe() {
-    setLoading(true);
-    try {
-      const res = await runFirestoreProbe();
-      setProbe(res);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (loading) return;       // wait for auth
+    if (!nav?.key) return;     // wait for router to mount
+    if (user) {
+      router.replace("/(app)/(tabs)/dash"); // ← new correct path
     }
-  }
+  }, [user, loading, nav?.key, router]);
+
+  // Avoid flashes while deciding
+  if (loading || (user && !nav?.key)) return null;
+  if (user) return null; // redirect just fired
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container} accessible accessibilityLabel="Oli Home Screen">
-        <Text style={styles.title}>Oli</Text>
-        <Text style={styles.subtitle}>Sprint 0 • Router online</Text>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, padding: 24, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: "100%", maxWidth: 480, gap: 12, alignItems: "center" }}>
+          <Text size="2xl" weight="bold" align="center">Oli</Text>
+          <Text tone="muted" align="center">Sign in to get started</Text>
 
-        <View style={{ height: 16 }} />
+          <Link href="/(auth)/signin" asChild>
+            <Button label="Continue" />
+          </Link>
 
-        {user ? (
-          <Pressable accessibilityRole="button" onPress={signOut} style={styles.button}>
-            <Text style={styles.buttonText}>Sign Out</Text>
-          </Pressable>
-        ) : (
-          <Pressable accessibilityRole="button" onPress={signIn} style={styles.button}>
-            <Text style={styles.buttonText}>Sign In (Stub)</Text>
-          </Pressable>
-        )}
-
-        <View style={{ height: 8 }} />
-
-        <Link href="/dashboard" asChild>
-          <Pressable accessibilityRole="button" style={[styles.button, styles.hollow]}>
-            <Text style={styles.buttonText}>Go to Dashboard (Protected)</Text>
-          </Pressable>
-        </Link>
-
-        <View style={{ height: 24 }} />
-
-        <Text style={styles.sectionTitle}>Dev Console</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleProbe}
-          style={[styles.button, styles.devBtn]}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator /> : <Text style={styles.buttonText}>Run Firebase Probe</Text>}
-        </Pressable>
-
-        {probe && (
-          <View style={styles.probeBox} accessibilityLabel="Firebase Probe Result">
-            <Text style={styles.probeText}>
-              {probe.status.toUpperCase()} [{probe.mode}]: {probe.message}
-            </Text>
-            {probe.status !== "success" && (
-              <Text style={styles.probeHelp}>
-                Tip: To use the Emulator Suite, set expo.extra.useEmulators: true in app.json and run
-                <Text style={styles.code}> firebase emulators:start</Text>.
-              </Text>
-            )}
-          </View>
-        )}
+          <Link href="/dev" asChild>
+            <Button variant="ghost" label="Dev Console" />
+          </Link>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  title: { fontSize: 40, fontWeight: "700", letterSpacing: 0.5 },
-  subtitle: { marginTop: 8, fontSize: 16, opacity: 0.7 },
-  sectionTitle: { marginTop: 8, fontSize: 18, fontWeight: "600" },
-  button: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "#111"
-  },
-  hollow: { backgroundColor: "#fff", borderWidth: 1 },
-  devBtn: { backgroundColor: "#0a0a0a" },
-  buttonText: { fontSize: 16, fontWeight: "600" },
-  probeBox: { marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1, maxWidth: 340 },
-  probeText: { fontSize: 14 },
-  probeHelp: { marginTop: 6, fontSize: 12, opacity: 0.7 },
-  code: { fontFamily: "Courier", fontSize: 12 }
-});

@@ -1,0 +1,71 @@
+// app/(app)/(tabs)/nutrition/index.tsx
+import { useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+
+import HubScaffold from "@/components/layout/HubScaffold";
+import WeekHeader from "@/components/calendar/WeekHeader";
+
+import Card from "@/lib/ui/Card";
+import { Text } from "@/lib/ui/Text";
+import { toYMD } from "@/lib/util/date";
+import { addDaysYMD } from "@/lib/logging/selectors";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { useHasLogsMap } from "@/lib/logging/hooks";
+
+/**
+ * Nutrition Hub (tabs)
+ * - Weekly strip with selected day.
+ * - "+" honors the selected day.
+ * - Reads optional focusYmd param to keep the same day highlighted when returning.
+ */
+export default function NutritionHub() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { focusYmd } = useLocalSearchParams<{ focusYmd?: string }>();
+
+  const today = useMemo(() => toYMD(new Date()), []);
+  const [displayBaseYmd, setDisplayBaseYmd] = useState<string>(today);
+  const [selectedYmd, setSelectedYmd] = useState<string>(today);
+
+  // If a screen sends us back with focusYmd, adopt it for both selected & base.
+  useEffect(() => {
+    if (typeof focusYmd === "string" && focusYmd.length === 10) {
+      setSelectedYmd(focusYmd);
+      setDisplayBaseYmd(focusYmd);
+    }
+  }, [focusYmd]);
+
+  const { hasLogsMap } = useHasLogsMap("nutrition", user?.uid ?? null, displayBaseYmd);
+
+  return (
+    <HubScaffold
+      title="Nutrition"
+      onPressPlus={() => {
+        const href = { pathname: "/nutrition/setup", params: { ymd: selectedYmd } } satisfies Href;
+        router.push(href);
+      }}
+      headerChildren={
+        <WeekHeader
+          selectedYmd={selectedYmd}
+          displayBaseYmd={displayBaseYmd}
+          hasLogsMap={hasLogsMap}
+          onSelect={(ymd) => {
+            setSelectedYmd(ymd);
+            const href = { pathname: "/nutrition/day/[ymd]", params: { ymd } } satisfies Href;
+            router.push(href);
+          }}
+          onPrevWeek={() => setDisplayBaseYmd((d) => addDaysYMD(d, -7))}
+          onNextWeek={() => setDisplayBaseYmd((d) => addDaysYMD(d, +7))}
+        />
+      }
+    >
+      <Card variant="elevated" radius="lg" padding="md">
+        <Text weight="bold" size="lg">Welcome to the Nutrition Hub</Text>
+        <Text tone="muted" style={{ marginTop: 6 }}>
+          Rings glow neon green on days with nutrition logs.{'\n'}
+          Tap a day to view details.
+        </Text>
+      </Card>
+    </HubScaffold>
+  );
+}

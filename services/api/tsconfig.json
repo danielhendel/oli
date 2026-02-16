@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "ES2022",
+      "moduleResolution": "Bundler",
+      "outDir": "dist",
+      "rootDir": "src",
+  
+      "strict": true,
+      "exactOptionalPropertyTypes": true,
+      "noUncheckedIndexedAccess": true,
+      "noImplicitOverride": true,
+      "forceConsistentCasingInFileNames": true,
+  
+      "esModuleInterop": true,
+      "resolveJsonModule": true,
+  
+      /* IMPORTANT: keep RN & DOM types out */
+      "lib": ["es2022"],
+      "types": ["node", "jest"],
+      "typeRoots": ["./node_modules/@types"],
+  
+      /* avoid third-party lib type conflicts (e.g., gaxios, RN) */
+      "skipLibCheck": true
+    },
+    "include": ["src/**/*.ts"]
+  }

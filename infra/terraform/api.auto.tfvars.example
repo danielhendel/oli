@@ -1,0 +1,9 @@
+project  = "your-gcp-project-id"
+region   = "us-central1"
+
+api_service_url        = "https://api-xxxxxxxx-uc.a.run.app"
+normalizer_service_url = "https://normalizer-xxxxxxxx-uc.a.run.app"
+exporter_service_url   = "https://exporter-xxxxxxxx-uc.a.run.app"
+deleter_service_url    = "https://deleter-xxxxxxxx-uc.a.run.app"
+
+pubsub_push_sa         = "pubsub-push@your-gcp-project-id.iam.gserviceaccount.com"

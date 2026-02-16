@@ -1,6 +1,6 @@
 # Topics
 resource "google_pubsub_topic" "events_raw_v1" {
-  name = "events.raw.v1"
+  name                       = "events.raw.v1"
   message_retention_duration = "1209600s" # 14 days
 }
 

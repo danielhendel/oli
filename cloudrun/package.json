@@ -1,0 +1,42 @@
+{
+  "name": "oli-cloudrun",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "start": "node --enable-source-maps dist/index.js",
+    "dev:server": "wait-on dist/index.js && cross-env FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 GOOGLE_CLOUD_PROJECT=demo-oli node --watch --enable-source-maps dist/index.js",
+    "dev:emu": "firebase emulators:start --only firestore,auth",
+    "dev": "concurrently -k -n BUILD,API,EMU -c cyan,magenta,gray \"npm:watch\" \"npm:dev:server\" \"npm:dev:emu\"",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.1.0",
+    "firebase-admin": "^12.6.0",
+    "helmet": "^8.1.0",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
+    "dotenv-cli": "^10.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.1",
+    "tsx": "^4.16.2",
+    "typescript": "^5.6.2",
+    "wait-on": "^9.0.0"
+  }
+}
