@@ -1,6 +1,6 @@
 /**
  * Phase 3A Sprint 3A.0 — Withings OAuth + token custody.
- * GET connect (auth), GET callback (public), POST revoke (auth).
+ * GET connect (auth), GET callback (public), GET status (auth), POST revoke (auth).
  */
 
 import { Router, type Request, type Response } from "express";
@@ -110,6 +110,71 @@ const assertAuthedUid = (req: AuthedRequest, res: Response): string | null => {
   }
   return uid;
 };
+
+/** Convert Firestore Timestamp or Date to ISO string; otherwise null. Never expose tokens. */
+function toIsoOrNull(
+  value: FirebaseFirestore.Timestamp | Date | unknown,
+): string | null {
+  if (value == null) return null;
+  if (typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as FirebaseFirestore.Timestamp).toDate().toISOString();
+  }
+  if (value instanceof Date) return value.toISOString();
+  return null;
+}
+
+const STATUS_DEFAULTS = {
+  connected: false,
+  scopes: [] as string[],
+  connectedAt: null as string | null,
+  revoked: false,
+  failureState: null as Record<string, unknown> | null,
+};
+
+/** GET /integrations/withings/status — read integration metadata from Firestore. AUTH REQUIRED. No tokens. */
+router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
+  const uid = assertAuthedUid(req, res);
+  if (!uid) return;
+
+  try {
+    const ref = userCollection(uid, "integrations").doc("withings");
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return res.status(200).json({
+        ok: true as const,
+        ...STATUS_DEFAULTS,
+      });
+    }
+    const data = snap.data() as {
+      connected?: boolean;
+      scopes?: string[];
+      connectedAt?: FirebaseFirestore.Timestamp | Date;
+      revoked?: boolean;
+      failureState?: Record<string, unknown> | null;
+    } | undefined;
+    if (!data) {
+      return res.status(200).json({
+        ok: true as const,
+        ...STATUS_DEFAULTS,
+      });
+    }
+    return res.status(200).json({
+      ok: true as const,
+      connected: Boolean(data.connected),
+      scopes: Array.isArray(data.scopes) ? data.scopes : [],
+      connectedAt: toIsoOrNull(data.connectedAt),
+      revoked: Boolean(data.revoked),
+      failureState: data.failureState ?? null,
+    });
+  } catch (err) {
+    const rid = getRequestId(req, res);
+    logger.error({ msg: "withings_status_error", rid, uid, err: err instanceof Error ? err.message : String(err) });
+    return res.status(500).json({
+      ok: false,
+      error: { code: "INTERNAL", message: "Internal Server Error", requestId: rid },
+    });
+  }
+});
 
 /** GET /integrations/withings/connect — create state, return authorization URL. AUTH REQUIRED. */
 router.get("/withings/connect", async (req: AuthedRequest, res: Response) => {

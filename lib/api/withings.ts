@@ -7,7 +7,14 @@ import { apiGetZodAuthed, apiPostZodAuthed } from "@/lib/api/validate";
 import type { GetOptions } from "@/lib/api/http";
 import { z } from "zod";
 
-const withingsStatusResponseSchema = z.object({ ok: z.literal(true), connected: z.boolean() });
+const withingsStatusResponseSchema = z.object({
+  ok: z.literal(true),
+  connected: z.boolean(),
+  scopes: z.array(z.string()),
+  connectedAt: z.string().nullable(),
+  revoked: z.boolean(),
+  failureState: z.record(z.unknown()).nullable(),
+});
 export type WithingsStatusResponse = z.infer<typeof withingsStatusResponseSchema>;
 
 const withingsConnectResponseSchema = z.object({ ok: z.literal(true), url: z.string().url() });

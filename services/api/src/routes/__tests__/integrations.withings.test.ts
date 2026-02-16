@@ -344,4 +344,67 @@ describe("Withings integrations (Phase 3A)", () => {
       });
     });
   });
+
+  describe("GET /integrations/withings/status", () => {
+    it("returns 401 when not authed (no uid)", async () => {
+      const appNoAuth = express();
+      appNoAuth.use(express.json());
+      appNoAuth.use("/integrations", integrationsRoutes);
+
+      const res = await request(appNoAuth).get("/integrations/withings/status");
+      expect(res.status).toBe(401);
+      expect(res.body?.ok).toBe(false);
+      expect(res.body?.error?.code).toBe("UNAUTHORIZED");
+    });
+
+    it("returns 200 with connected:false defaults when doc missing", async () => {
+      (userCollection as jest.Mock).mockReturnValue({
+        doc: () => ({
+          get: jest.fn().mockResolvedValue({ exists: false }),
+        }),
+      });
+
+      const res = await request(app)
+        .get("/integrations/withings/status")
+        .set("Authorization", "Bearer fake");
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        ok: true,
+        connected: false,
+        scopes: [],
+        connectedAt: null,
+        revoked: false,
+        failureState: null,
+      });
+    });
+
+    it("returns 200 with connected:true when doc has connected true", async () => {
+      const connectedAt = new Date("2026-02-15T12:00:00.000Z");
+      (userCollection as jest.Mock).mockReturnValue({
+        doc: () => ({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({
+              connected: true,
+              scopes: ["user.metrics"],
+              connectedAt: { toDate: () => connectedAt },
+              revoked: false,
+              failureState: null,
+            }),
+          }),
+        }),
+      });
+
+      const res = await request(app)
+        .get("/integrations/withings/status")
+        .set("Authorization", "Bearer fake");
+      expect(res.status).toBe(200);
+      expect(res.body?.ok).toBe(true);
+      expect(res.body?.connected).toBe(true);
+      expect(res.body?.scopes).toEqual(["user.metrics"]);
+      expect(res.body?.connectedAt).toBe("2026-02-15T12:00:00.000Z");
+      expect(res.body?.revoked).toBe(false);
+      expect(res.body?.failureState).toBeNull();
+    });
+  });
 });
