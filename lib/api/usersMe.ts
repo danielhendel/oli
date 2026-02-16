@@ -158,9 +158,14 @@ export const getUploads = async (
   return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
 };
 
-/** GET /integrations/withings/status — connected flag (Phase 3A). */
+/** GET /integrations/withings/status — integration metadata (Phase 3A). No tokens. */
 const withingsStatusDtoSchema = z.object({
+  ok: z.literal(true),
   connected: z.boolean(),
+  scopes: z.array(z.string()),
+  connectedAt: z.string().nullable(),
+  revoked: z.boolean(),
+  failureState: z.record(z.unknown()).nullable(),
 });
 export type WithingsStatusDto = z.infer<typeof withingsStatusDtoSchema>;
 

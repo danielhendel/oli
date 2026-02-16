@@ -403,6 +403,85 @@ paths:
         200:
           description: OK
 
+  /integrations/withings/connect:
+    options:
+      operationId: withingsConnectOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsConnectGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Authorization URL returned
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
+  # Withings integration status (Firebase required)
+  /integrations/withings/status:
+    options:
+      operationId: withingsStatusOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsStatusGet
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Integration status (connected, scopes, no tokens)
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
+  # PUBLIC: Withings OAuth callback (no Firebase; Withings must be able to call this)
+  /integrations/withings/callback:
+    options:
+      operationId: withingsCallbackOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsCallbackGet
+      security: []
+      responses:
+        200:
+          description: OK
+        302:
+          description: Redirect
+        400:
+          description: Bad Request
+        500:
+          description: Server Error
+
+  # PUBLIC: Withings completion bridge (HTML) used as WebBrowser returnUrl
+  /integrations/withings/complete:
+    options:
+      operationId: withingsCompleteOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: withingsCompleteGet
+      security: []
+      produces:
+        - text/html
+      responses:
+        200:
+          description: Completion bridge HTML
+
 definitions:
   HealthResponse:
     type: object
