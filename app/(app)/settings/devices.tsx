@@ -87,19 +87,14 @@ function DevicesScreen() {
       const returnUrl = getWithingsReturnUrl();
       const result = await WebBrowser.openAuthSessionAsync(authUrl, returnUrl);
 
-      if (result.type === "cancel" || result.type === "dismiss") {
+      // With the HTTPS completion bridge, some platforms return "dismiss" even when the flow succeeded.
+      // Fail-closed: always refetch server truth unless the user explicitly cancelled.
+      if (result.type === "cancel") {
         Alert.alert("Cancelled", "Withings connection was cancelled.");
         return;
       }
 
-      if (result.type === "success") {
-        // Success means the session observed the return URL (oli://withings-connected).
-        // Refetch presence to update UI to Connected.
-        await presence.refetch();
-      } else {
-        // Other possible values exist; keep UX deterministic.
-        Alert.alert("Connection incomplete", "Please try connecting Withings again.");
-      }
+      await presence.refetch();
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went wrong";
       Alert.alert("Connection failed", message);
@@ -158,3 +153,4 @@ const styles = StyleSheet.create({
 });
 
 export default DevicesScreen;
+
