@@ -1,0 +1,1 @@
+{"version":3,"file":"healthScore.d.ts","sourceRoot":"","sources":["../../format/healthScore.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,eAAe,EAAE,iBAAiB,EAAE,MAAM,iBAAiB,CAAC;AAE1E,wBAAgB,qBAAqB,CAAC,IAAI,EAAE,eAAe,GAAG,MAAM,CAanE;AAED,wBAAgB,uBAAuB,CAAC,MAAM,EAAE,iBAAiB,GAAG,MAAM,CAWzE;AAED,mEAAmE;AACnE,wBAAgB,iBAAiB,CAAC,OAAO,EAAE,MAAM,EAAE,GAAG,MAAM,CAG3D"}

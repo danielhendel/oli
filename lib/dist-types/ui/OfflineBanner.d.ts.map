@@ -1,0 +1,1 @@
+{"version":3,"file":"OfflineBanner.d.ts","sourceRoot":"","sources":["../../ui/OfflineBanner.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AACH,OAAO,KAAK,MAAM,OAAO,CAAC;AAG1B,MAAM,MAAM,kBAAkB,GAAG;IAC/B,wEAAwE;IACxE,SAAS,CAAC,EAAE,OAAO,CAAC;CACrB,CAAC;AAEF,wBAAgB,aAAa,CAAC,EAAE,SAAS,EAAE,EAAE,kBAAkB,GAAG,KAAK,CAAC,SAAS,CAQhF"}

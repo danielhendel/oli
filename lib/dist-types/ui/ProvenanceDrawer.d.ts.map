@@ -1,0 +1,1 @@
+{"version":3,"file":"ProvenanceDrawer.d.ts","sourceRoot":"","sources":["../../ui/ProvenanceDrawer.tsx"],"names":[],"mappings":"AAIA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,4BAA4B,CAAC;AAEtE,KAAK,KAAK,GAAG;IACX,OAAO,EAAE,OAAO,CAAC;IACjB,OAAO,EAAE,MAAM,IAAI,CAAC;IACpB,KAAK,EAAE,mBAAmB,CAAC;CAC5B,CAAC;AASF,wBAAgB,gBAAgB,CAAC,EAAE,OAAO,EAAE,OAAO,EAAE,KAAK,EAAE,EAAE,KAAK,2CAwFlE"}

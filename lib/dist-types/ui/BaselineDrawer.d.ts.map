@@ -1,0 +1,1 @@
+{"version":3,"file":"BaselineDrawer.d.ts","sourceRoot":"","sources":["../../ui/BaselineDrawer.tsx"],"names":[],"mappings":"AAQA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,iBAAiB,CAAC;AAEtD,KAAK,KAAK,GAAG;IACX,OAAO,EAAE,OAAO,CAAC;IACjB,OAAO,EAAE,MAAM,IAAI,CAAC;IACpB,GAAG,EAAE,cAAc,CAAC;CACrB,CAAC;AAiBF,wBAAgB,cAAc,CAAC,EAAE,OAAO,EAAE,OAAO,EAAE,GAAG,EAAE,EAAE,KAAK,2CA6D9D"}

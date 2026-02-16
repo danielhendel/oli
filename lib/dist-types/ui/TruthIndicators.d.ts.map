@@ -1,0 +1,1 @@
+{"version":3,"file":"TruthIndicators.d.ts","sourceRoot":"","sources":["../../ui/TruthIndicators.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AACH,OAAO,KAAK,MAAM,OAAO,CAAC;AAG1B,MAAM,MAAM,mBAAmB,GAAG;IAChC,IAAI,EAAE,YAAY,GAAG,WAAW,GAAG,WAAW,CAAC;IAC/C,KAAK,CAAC,EAAE,MAAM,CAAC;CAChB,CAAC;AAQF,wBAAgB,cAAc,CAAC,EAAE,IAAI,EAAE,KAAK,EAAE,EAAE,mBAAmB,GAAG,KAAK,CAAC,SAAS,CAUpF"}

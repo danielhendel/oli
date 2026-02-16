@@ -1,0 +1,1 @@
+{"version":3,"file":"ModuleEmptyState.d.ts","sourceRoot":"","sources":["../../ui/ModuleEmptyState.tsx"],"names":[],"mappings":"AAGA,MAAM,MAAM,qBAAqB,GAAG;IAClC,KAAK,EAAE,MAAM,CAAC;IACd,WAAW,EAAE,MAAM,CAAC;IACpB,IAAI,CAAC,EAAE,MAAM,CAAC;CACf,CAAC;AAEF,wBAAgB,gBAAgB,CAAC,EAAE,KAAK,EAAE,WAAW,EAAE,IAAI,EAAE,EAAE,qBAAqB,2CAQnF"}
