@@ -1,12 +1,47 @@
 // app/(app)/(tabs)/_layout.tsx
-import { Tabs } from "expo-router";
+import { Pressable, StyleSheet } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+
+const ICON_SIZE = 24;
+const TOUCH_TARGET = 44;
+
+function SettingsHeaderButton() {
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push("/(app)/settings")}
+      accessibilityRole="button"
+      accessibilityLabel="Settings"
+      hitSlop={10}
+      style={({ pressed }) => [styles.settingsBtn, pressed && styles.settingsBtnPressed]}
+    >
+      <Ionicons name="settings-outline" size={ICON_SIZE} color="#1C1C1E" />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  settingsBtn: {
+    minWidth: TOUCH_TARGET,
+    minHeight: TOUCH_TARGET,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 4,
+  },
+  settingsBtnPressed: {
+    opacity: 0.6,
+  },
+});
 
 export default function TabsLayout() {
   return (
     <Tabs
       initialRouteName="dash"
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerRight: () => <SettingsHeaderButton />,
+        headerTitleStyle: { fontWeight: "700", fontSize: 17 },
         tabBarActiveTintColor: "#1C1C1E",
         tabBarInactiveTintColor: "#8E8E93",
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },

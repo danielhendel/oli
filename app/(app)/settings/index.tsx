@@ -36,14 +36,18 @@ export default function SettingsHomeScreen() {
       <View style={styles.list}>
         {sections.map((s) => {
           const readiness = getSectionReadiness(s.id);
+          // In dev, Devices is tappable and no "Soon" badge so Connect Withings can be used.
+          const isDevicesInDev = __DEV__ && s.id === "settings.devices";
+          const disabled = isDevicesInDev ? false : readiness.disabled;
+          const badge = isDevicesInDev ? undefined : readiness.badge;
 
           return (
             <ModuleSectionLinkRow
               key={s.id}
               title={s.title}
-              disabled={readiness.disabled}
+              disabled={disabled}
               onPress={() => router.push(s.href)}
-              {...(readiness.badge ? { badge: readiness.badge } : {})}
+              {...(badge ? { badge } : {})}
             />
           );
         })}

@@ -75,3 +75,8 @@ jobs:
         env:
           REPORT_ONLY: "1"
         run: bash scripts/ci/audit-production.sh
+
+      # Phase 3A integration proof gate (non-blocking)
+      - name: Phase 3A proof gate (integration strategy)
+        run: bash scripts/ci/proof-gate-phase3a.sh
+        continue-on-error: true

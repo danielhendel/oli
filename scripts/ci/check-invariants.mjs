@@ -901,7 +901,8 @@ function checkCanonicalKindsNoDrift() {
   // Memory-only RawEvent kinds are explicitly allowlisted here.
   // If you add another raw-only kind, it MUST be added to this list and documented.
   // Phase 2: "incomplete" = "something happened, details later" — no canonical normalization.
-  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file", "incomplete"];
+  // Phase 3A: "withings.body_measurement" = fact-only weight from Withings scale (no canonical event, updates dailyFacts).
+  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file", "incomplete", "withings.body_measurement"];
 
   const rawText = readText(rawEventPath);
   const healthText = readText(healthPath);
@@ -1349,7 +1350,7 @@ function checkPhase2DefinitionDoc() {
 /**
  * Console discipline — Jest guard must be enabled in test runs.
  * Ensures scripts/test/jest.setup.ts wires the console guard so proof-gate and npm test
- * fail on unexpected console.error/console.warn. Does not duplicate the gate; just verifies
+ * fail on unexpected console.log/console.error/console.warn. Does not duplicate the gate; just verifies
  * the guard is present so it runs in the proof-gate path.
  */
 function checkConsoleDisciplineGuardEnabled() {
@@ -1362,7 +1363,7 @@ function checkConsoleDisciplineGuardEnabled() {
   const text = readText(setupPath);
   if (!text.includes("installConsoleGuard") || !text.includes("failIfUnexpected")) {
     fail(
-      "Console discipline: scripts/test/jest.setup.ts must import and use installConsoleGuard and failIfUnexpected from ./consoleGuard so tests fail on unexpected console.error/console.warn.",
+      "Console discipline: scripts/test/jest.setup.ts must import and use installConsoleGuard and failIfUnexpected from ./consoleGuard so tests fail on unexpected console.log/console.error/console.warn.",
     );
   }
   const guardPath = path.join(ROOT, "scripts", "test", "consoleGuard.ts");
@@ -1372,7 +1373,7 @@ function checkConsoleDisciplineGuardEnabled() {
     );
   }
   console.log(
-    "✅ Console discipline: Jest setup wires console guard (tests fail on unexpected console.error/console.warn).",
+    "✅ Console discipline: Jest setup wires console guard (tests fail on unexpected console.log/console.error/console.warn).",
   );
 }
 

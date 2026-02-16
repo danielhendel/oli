@@ -1,7 +1,6 @@
 // lib/api/usersMe.ts
 import type { ApiResult } from "@/lib/api/http";
-import { apiPostZodAuthed } from "@/lib/api/validate";
-import { apiGetZodAuthed } from "@/lib/api/validate";
+import { apiPostZodAuthed, apiGetZodAuthed } from "@/lib/api/validate";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 import {
   manualStrengthWorkoutIdempotencyKey,
@@ -151,6 +150,9 @@ export const getUploads = async (
 ): Promise<ApiResult<UploadsPresenceResponseDto>> => {
   return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
 };
+
+/** Phase 3A — Withings integration status (re-exported from withings client). */
+export { getWithingsStatus, type WithingsStatusResponse } from "@/lib/api/withings";
 
 // ----------------------------
 // Sprint 1 — Retrieval Surfaces (timeline, events, lineage)

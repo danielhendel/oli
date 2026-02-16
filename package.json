@@ -13,27 +13,25 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-
     "build": "npm run -w @oli/contracts build && npm run -w api build",
     "start:api": "npm run -w api start",
-
     "typecheck": "tsc -b",
     "lint": "eslint app components lib services --ext .ts,.tsx --max-warnings=0 --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/dist-types/**\" --ignore-pattern \"**/*.d.ts\" --ignore-pattern \"services/functions/lib/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "proof:phase1": "bash scripts/ci/proof-gate.sh",
     "proof:phase2": "bash scripts/ci/proof-gate-phase2.sh",
-
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
     "@firebase/auth": "1.12.0",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "expo": "~53.0.26",
+    "expo": "~53.0.27",
+    "expo-asset": "~11.1.7",
     "expo-clipboard": "~7.1.5",
     "expo-router": "~5.1.11",
     "expo-status-bar": "~2.2.3",

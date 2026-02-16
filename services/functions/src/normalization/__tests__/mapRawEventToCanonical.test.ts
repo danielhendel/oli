@@ -111,6 +111,36 @@ describe("mapRawEventToCanonical", () => {
     );
   });
 
+  it("returns fact-only for withings.body_measurement (deterministic, same semantics as weight)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "withings_grp1_1_73500_0",
+      provider: "withings",
+      kind: "withings.body_measurement",
+      sourceId: "withings",
+      sourceType: "device",
+      payload: {
+        time: "2025-06-15T08:30:00.000Z",
+        timezone: "America/Los_Angeles",
+        weightKg: 73.5,
+        bodyFatPercent: 18,
+        vendor_payload_revision: "1747382400",
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected fact-only (no canonical)");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details).toEqual(
+      expect.objectContaining({
+        kind: "withings.body_measurement",
+        factOnly: true,
+        rawEventId: "withings_grp1_1_73500_0",
+      }),
+    );
+  });
+
   it("returns failure for unsupported provider", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

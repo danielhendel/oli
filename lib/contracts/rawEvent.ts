@@ -76,6 +76,7 @@ export const rawEventKindSchema = z.enum([
   "strength_workout",
   "file",
   "incomplete",
+  "withings.body_measurement",
 ]);
 
 /**
@@ -224,6 +225,18 @@ const manualIncompletePayloadSchema = z
   })
   .strip();
 
+/** Phase 3A — Withings scale body measurement (weight). Same shape as manual weight for dayKey/facts. */
+const withingsBodyMeasurementPayloadSchema = z
+  .object({
+    time: isoDateTimeStringSchema,
+    timezone: z.string().min(1),
+    day: ymdDateStringSchema.optional(),
+    weightKg: z.number().finite().positive(),
+    bodyFatPercent: z.number().finite().min(0).max(100).nullable().optional(),
+    vendor_payload_revision: z.string().optional(),
+  })
+  .strip();
+
 // Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
@@ -235,6 +248,7 @@ const payloadByKindSchema = {
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
+  "withings.body_measurement": withingsBodyMeasurementPayloadSchema,
 } as const;
 
 // -----------------------------
@@ -300,7 +314,8 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualNutritionPayloadSchema>
     | z.infer<typeof manualStrengthWorkoutPayloadSchema>
     | z.infer<typeof manualFilePayloadSchema>
-    | z.infer<typeof manualIncompletePayloadSchema>;
+    | z.infer<typeof manualIncompletePayloadSchema>
+    | z.infer<typeof withingsBodyMeasurementPayloadSchema>;
 };
 
 /**
@@ -317,4 +332,5 @@ export const rawEventPayloadByKindSchemas = {
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
+  "withings.body_measurement": withingsBodyMeasurementPayloadSchema,
 } as const;

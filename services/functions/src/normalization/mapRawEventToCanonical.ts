@@ -33,9 +33,9 @@ import type {
 /**
  * RawEvent kinds that are fact-only: they update derived truth (dailyFacts, intelligenceContext)
  * but do NOT emit canonical events. Constitutional: canonical = "what happened"; weight is a
- * measurement fact, not an event.
+ * measurement fact, not an event. Phase 3A: withings.body_measurement = same semantics as weight.
  */
-export const FACT_ONLY_RAW_EVENT_KINDS = ["weight"] as const;
+export const FACT_ONLY_RAW_EVENT_KINDS = ["weight", "withings.body_measurement"] as const;
 
 export type FactOnlyRawEventKind = (typeof FACT_ONLY_RAW_EVENT_KINDS)[number];
 
@@ -469,6 +469,17 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       ok: false,
       reason: "UNSUPPORTED_KIND",
       details: { kind: raw.kind, rawEventId: raw.id, memoryOnly: true },
+    };
+  }
+
+  /**
+   * Phase 3A — Withings body measurement: fact-only (same as manual weight).
+   */
+  if (raw.kind === "withings.body_measurement") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, factOnly: true },
     };
   }
 

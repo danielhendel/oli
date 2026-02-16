@@ -8,6 +8,9 @@
     },
     "android": {
       "package": "com.olifitness.oli"
-    }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }

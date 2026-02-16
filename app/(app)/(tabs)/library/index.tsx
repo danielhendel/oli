@@ -6,11 +6,12 @@ import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
 
-/** Sprint 4 — Quick passive lenses (links to Search with filters). */
+/** Sprint 4 — Quick passive lenses (links to Search with filters). Phase 3A: Withings. */
 const QUICK_LENSES = [
   { id: "unresolved", label: "Unresolved", path: "/(app)/(tabs)/library/search", params: { unresolvedLens: "1" } },
   { id: "uncertain", label: "Uncertain", path: "/(app)/(tabs)/library/search", params: { uncertaintyFilter: "uncertain" } },
   { id: "corrections", label: "Corrections", path: "/(app)/(tabs)/library/search", params: { provenanceFilter: "correction" } },
+  { id: "withings", label: "Withings", path: "/(app)/(tabs)/library/search", params: { kindsFilter: "withings.body_measurement" } },
 ] as const;
 
 type LibraryCategory = {

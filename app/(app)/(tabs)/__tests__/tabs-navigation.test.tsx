@@ -7,8 +7,11 @@ import renderer, { act } from "react-test-renderer";
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
+  Pressable: "Pressable",
   StyleSheet: { create: (s: unknown) => s },
 }));
+
+jest.mock("@expo/vector-icons/Ionicons", () => "Ionicons");
 
 jest.mock("expo-router", () => {
   const MockTabs = ({ children, initialRouteName }: { children?: React.ReactNode; initialRouteName?: string }) => {
@@ -24,7 +27,10 @@ jest.mock("expo-router", () => {
       "data-tab-name": name,
       "data-tab-title": options?.title ?? name,
     });
-  return { Tabs: MockTabs };
+  return {
+    Tabs: MockTabs,
+    useRouter: () => ({ push: jest.fn() }),
+  };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires

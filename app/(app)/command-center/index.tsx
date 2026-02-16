@@ -33,6 +33,7 @@ import { useIntelligenceContext } from "@/lib/data/useIntelligenceContext";
 import { useDayTruth } from "@/lib/data/useDayTruth";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
+import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 
 import { isCompatiblePipelineVersion } from "@/lib/data/readiness";
 import { resolveReadiness } from "@/lib/data/resolveReadiness";
@@ -737,6 +738,7 @@ export default function CommandCenterScreen(props: Props) {
   );
 
   const uploadsPresence = useUploadsPresence();
+  const withingsPresence = useWithingsPresence();
 
   const failuresPresenceUi: FailuresPresenceUi = useMemo(() => {
     if (failuresPresence.status === "partial") return { status: "partial" };
@@ -898,8 +900,9 @@ export default function CommandCenterScreen(props: Props) {
       // Failure presence must also refresh when Command Center refreshes.
       void failuresPresence.refetch(opts);
       void uploadsPresence.refetch(opts);
+      void withingsPresence.refetch(opts);
     },
-    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch, failuresPresence.refetch, uploadsPresence.refetch],
+    [dayTruth.refetch, facts.refetch, insights.refetch, ctx.refetch, failuresPresence.refetch, uploadsPresence.refetch, withingsPresence.refetch],
   );
 
   useEffect(() => {
@@ -1112,6 +1115,15 @@ export default function CommandCenterScreen(props: Props) {
         {/* Sprint 1: Failure presence is surfaced before readiness/status UI. */}
         <FailurePresenceCard state={failuresPresenceUi} onPress={() => router.push("/(app)/failures")} />
 
+        {/* Phase 3A: Withings expected-but-missing — visible gap, no prompt. */}
+        {withingsPresence.status === "ready" &&
+          withingsPresence.data.connected &&
+          !withingsPresence.data.hasRecentData && (
+            <View style={styles.withingsGap}>
+              <Text style={styles.withingsGapText}>Withings: no data in last 7 days</Text>
+            </View>
+          )}
+
         {replayUi.enabled ? <ReplayPanel state={replayUi} onClose={onCloseReplay} onPickRun={onPickRun} /> : null}
 
         <View style={[styles.statusCard, { backgroundColor: toneBg[tone] }]}>
@@ -1233,6 +1245,18 @@ const styles = StyleSheet.create({
   failuresSubtitle: { fontSize: 13, marginTop: 6, color: "#333", opacity: 0.85 },
   failuresWarningText: { color: "#7A4E00" },
   failuresDangerText: { color: "#B00020" },
+
+  withingsGap: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#F5F5F5",
+  },
+  withingsGapText: {
+    fontSize: 13,
+    color: "#666",
+  },
 
   statusCard: {
     borderRadius: 16,

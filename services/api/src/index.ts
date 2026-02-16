@@ -9,6 +9,7 @@ import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
+import { withingsPublicRoutes, withingsAuthedRoutes } from "./routes/withings";
 import { authMiddleware } from "./middleware/auth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 
@@ -109,6 +110,16 @@ app.use("/uploads", authMiddleware, uploadsRoutes);
  * Phase 1: units + timezone bucketing preferences.
  */
 app.use("/preferences", authMiddleware, preferencesRoutes);
+
+/**
+ * Phase 3A — Withings integration.
+ * Public: callback only (no auth; uid from state). Authed: status, connect, pull.
+ * Mount under canonical and /api alias so registered callback URL works.
+ */
+app.use("/integrations/withings", withingsPublicRoutes);
+app.use("/integrations/withings", authMiddleware, withingsAuthedRoutes);
+app.use("/api/integrations/withings", withingsPublicRoutes);
+app.use("/api/integrations/withings", authMiddleware, withingsAuthedRoutes);
 
 /**
  * AUTHENTICATED READ BOUNDARY

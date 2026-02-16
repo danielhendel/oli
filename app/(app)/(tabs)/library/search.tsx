@@ -25,6 +25,7 @@ export default function LibrarySearchScreen() {
     unresolvedLens?: string;
     uncertaintyFilter?: string;
     provenanceFilter?: string;
+    kindsFilter?: string;
   }>();
   const [keyword, setKeyword] = useState("");
   const [start, setStart] = useState("");
@@ -32,13 +33,15 @@ export default function LibrarySearchScreen() {
   const [provenanceFilter, setProvenanceFilter] = useState<string[]>([]);
   const [uncertaintyFilter, setUncertaintyFilter] = useState<string[]>([]);
   const [unresolvedLens, setUnresolvedLens] = useState(false);
+  const [kindsFilter, setKindsFilter] = useState<string[]>([]);
 
-  // Sprint 4 — Apply quick lens params from navigation
+  // Sprint 4 — Apply quick lens params from navigation. Phase 3A: kindsFilter for Withings.
   useEffect(() => {
     if (params.unresolvedLens === "1") setUnresolvedLens(true);
     if (params.uncertaintyFilter === "uncertain") setUncertaintyFilter(["uncertain"]);
     if (params.provenanceFilter === "correction") setProvenanceFilter(["correction"]);
-  }, [params.unresolvedLens, params.uncertaintyFilter, params.provenanceFilter]);
+    if (params.kindsFilter) setKindsFilter(params.kindsFilter.split(",").map((k) => k.trim()).filter(Boolean));
+  }, [params.unresolvedLens, params.uncertaintyFilter, params.provenanceFilter, params.kindsFilter]);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<RawEventListItem | null>(null);
   const [resolveNote, setResolveNote] = useState("");
@@ -67,6 +70,7 @@ export default function LibrarySearchScreen() {
       ...(keyword.trim() ? { q: keyword.trim() } : {}),
       ...(provenanceFilter.length > 0 ? { provenance: provenanceFilter } : {}),
       ...(effectiveUncertainty.length > 0 ? { uncertaintyState: effectiveUncertainty } : {}),
+      ...(kindsFilter.length > 0 ? { kinds: kindsFilter } : {}),
       limit: 50,
     },
     { enabled: true },
@@ -253,6 +257,9 @@ export default function LibrarySearchScreen() {
                 <Text style={styles.rowTime}>
                   {formatIsoToShort(ev.observedAt)}
                 </Text>
+                {(ev.sourceId && ev.sourceId !== "manual") && (
+                  <Text style={styles.rowMeta}>Source: {ev.sourceId}</Text>
+                )}
                 {ev.provenance && (
                   <Text style={styles.rowMeta}>{ev.provenance}</Text>
                 )}

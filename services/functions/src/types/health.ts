@@ -60,9 +60,10 @@ export type CanonicalEventKind =
  * IMPORTANT:
  * - RawEvent kinds may include "memory-only" artifacts that do NOT normalize into CanonicalEvents
  *   (Phase 1: file/upload; Phase 2: incomplete).
+ * - Phase 3A: withings.body_measurement is fact-only (updates dailyFacts, no canonical event).
  * - CanonicalEventKind remains strictly the set of normalized health facts.
  */
-export type RawEventKind = CanonicalEventKind | "upload.file" | "file" | "incomplete";
+export type RawEventKind = CanonicalEventKind | "upload.file" | "file" | "incomplete" | "withings.body_measurement";
 
 /**
  * RawEvent is the ingestion boundary type.

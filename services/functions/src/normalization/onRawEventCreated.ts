@@ -42,7 +42,7 @@ function extractFactOnlyContext(
 ): { dayKey: YmdDateString; factOnlyBody: DailyBodyFacts } | null {
   if (!isFactOnlyKind(rawEvent.kind)) return null;
 
-  if (rawEvent.kind === "weight") {
+  if (rawEvent.kind === "weight" || rawEvent.kind === "withings.body_measurement") {
     const p = rawEvent.payload as Record<string, unknown> | undefined;
     if (!p || typeof p["time"] !== "string" || typeof p["timezone"] !== "string") return null;
     const weightKg = p["weightKg"];
