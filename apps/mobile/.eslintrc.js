@@ -24,28 +24,40 @@ module.exports = {
     react: { version: 'detect' },
   },
 
-  // ⛔ Block Firestore imports in UI code. Use the typed DAL in lib/db/*.
-  rules: {
-    'no-restricted-imports': [
-      'error',
-      {
-        name: 'firebase/firestore',
-        message:
-          'Do not import Firestore directly in screens/components/hooks. Use typed DAL in lib/db/*.',
-      },
-    ],
-  },
+  // Global JS/TS-neutral rules (none special yet)
+  rules: {},
 
   overrides: [
+    // ✅ Core TypeScript rules (including Firestore guard)
+    {
+      files: ['**/*.ts', '**/*.tsx'],
+      rules: {
+        // ⛔ Block Firestore imports in all TS files by default
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: 'firebase/firestore',
+                message:
+                  'Do not import Firestore directly in screens/components/hooks. Use typed DAL in lib/db/* or "@/lib/firebaseClient".',
+              },
+            ],
+            patterns: ['firebase/firestore*'],
+          },
+        ],
+      },
+    },
+
     // ✅ Allow Firestore imports inside the DAL only
     {
       files: ['lib/db/**/*.ts', 'lib/db/**/*.tsx'],
       rules: {
-        'no-restricted-imports': 'off',
+        '@typescript-eslint/no-restricted-imports': 'off',
       },
     },
 
-    // ✅ Treat our Node startup scripts explicitly as Node (so process/console are defined)
+    // ✅ Treat our Node startup scripts explicitly as Node
     {
       files: ['scripts/expo-start.cjs', 'scripts/prestart.cjs'],
       env: { node: true },
@@ -68,7 +80,7 @@ module.exports = {
       rules: { 'no-undef': 'off' },
     },
 
-    // ✅ Jest mocks (CommonJS)
+    // ✅ Jest mocks
     {
       files: ['**/__mocks__/**/*.[jt]s?(x)'],
       env: { node: true, jest: true },
@@ -92,7 +104,7 @@ module.exports = {
       rules: { 'no-console': 'off' },
     },
 
-    // ✅ Any other helper scripts under scripts/ (both .cjs and .js)
+    // ✅ Other helper scripts under scripts/
     {
       files: ['scripts/**/*.cjs', 'scripts/**/*.js'],
       env: { node: true },

@@ -3,9 +3,13 @@
     "name": "olimobile",
     "slug": "oli-mobile",
     "scheme": "oli",
+    "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "newArchEnabled": true,
-
+    "experiments": {
+      "typedRoutes": true
+    },
     "ios": {
       "bundleIdentifier": "com.olifitness.olimobile",
       "supportsTablet": false,
@@ -14,11 +18,9 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-
     "android": {
       "package": "com.olifitness.olimobile"
     },
-
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
@@ -26,17 +28,15 @@
       "expo-dev-client",
       [
         "expo-build-properties",
-        {
-          "ios": {
-            "deploymentTarget": "15.1",
-            "cocoapodsVersion": "1.15.2"
+          {
+            "ios": {
+              "deploymentTarget": "15.1",
+              "cocoapodsVersion": "1.15.2"
+            }
           }
-        }
       ]
     ],
-
     "assetBundlePatterns": ["**/*"],
-
     "extra": {
       "eas": {
         "projectId": "dd9ba89c-b478-4349-9672-18f7b02e2105"

@@ -1,48 +1,29 @@
-// apps/mobile/__tests__/auth-routing.test.tsx
-/* eslint-env jest */
+// __tests__/auth-routing.test.tsx
+
+import React from 'react';
 import { render } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
-
-const mockReplace = jest.fn();
-
-// Mock expo-router entirely (no ESM import, no JSX in factory)
-jest.mock('expo-router', () => ({
-  useRouter: () => ({
-    replace: mockReplace,
-    push: jest.fn(),
-    back: jest.fn(),
-    canGoBack: jest.fn(() => true),
-  }),
-  // Simulate we're NOT in /auth/*
-  useSegments: () => ['index'],
-  // Simple passthrough "Slot"
-  Slot: ({ children }: { children?: ReactNode }) => (children ?? null),
-}));
-
-// Mock ThemeProvider to a passthrough to avoid pulling real theme module logic
-jest.mock('@/theme', () => ({
-  __esModule: true,
-  // return children without JSX to avoid out-of-scope React in mock factories
-  ThemeProvider: ({ children }: { children?: ReactNode }) => (children ?? null),
-}));
-
-// Mock AuthProvider (default) to passthrough AND provide useAuth (unauthenticated state)
-jest.mock('@/providers/AuthProvider', () => ({
-  __esModule: true,
-  default: ({ children }: { children?: ReactNode }) => (children ?? null),
-  useAuth: () => ({ user: null, initializing: false }),
-}));
-
-// Import after mocks
 import RootLayout from '@/app/_layout';
+import * as ExpoRouter from 'expo-router';
 
 describe('Auth routing guard', () => {
+  // Grab the mock router helpers that jest-setup.ts exposes
+  const { __mockReplace, __mockUsePathname } = ExpoRouter as unknown as {
+    __mockReplace: jest.Mock;
+    __mockPush: jest.Mock;
+    __mockUsePathname: jest.Mock;
+  };
+
   beforeEach(() => {
-    mockReplace.mockClear();
+    __mockReplace.mockClear();
+    __mockUsePathname.mockReset();
   });
 
-  it('redirects unauthenticated users to /auth/sign-in', () => {
+  it('redirects unauthenticated users launched at "/" to /auth/sign-in', () => {
+    // Simulate app launch at root path
+    __mockUsePathname.mockReturnValue('/');
+
     render(<RootLayout />);
-    expect(mockReplace).toHaveBeenCalledWith('/auth/sign-in');
+
+    expect(__mockReplace).toHaveBeenCalledWith('/auth/sign-in');
   });
 });

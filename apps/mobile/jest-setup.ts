@@ -15,7 +15,9 @@ export {};
  * - Pretends we're on a native/dev-client build (not Expo Go)
  * - Provides a virtual `expo-device` so "real device" guards pass
  * - Mocks centralized Firebase client to avoid real initialization
- * - Mocks expo-router (Stack/Slot/useRouter) for routing tests
+ * - Mocks react-native-gesture-handler so Node/Jest doesn't need RN Web
+ * - Mocks react-native-safe-area-context for SafeAreaProvider
+ * - Mocks expo-router (Stack/Slot/useRouter/usePathname/Redirect) for routing tests
  */
 
 /* ---------------------------------- */
@@ -118,14 +120,50 @@ jest.mock(
 );
 
 /* ---------------------------------- */
+/* react-native-gesture-handler mock   */
+/* - Avoid pulling in react-native-web */
+/*   when running in Node/Jest         */
+/* ---------------------------------- */
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const GestureHandlerRootView = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
+
+  return {
+    __esModule: true,
+    GestureHandlerRootView,
+  };
+});
+
+/* ---------------------------------- */
+/* react-native-safe-area-context mock */
+/* - Provide SafeAreaProvider wrapper  */
+/*   without requiring RN Web          */
+/* ---------------------------------- */
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const SafeAreaProvider = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
+
+  return {
+    __esModule: true,
+    SafeAreaProvider,
+    SafeAreaView: SafeAreaProvider,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+/* ---------------------------------- */
 /* expo-router mock (Stack/Slot/router)*/
 /* - Expose __mockReplace/__mockPush   */
-/*   so tests can assert navigations    */
+/*   and __mockUsePathname so tests    */
+/*   can assert navigations/paths      */
 /* ---------------------------------- */
 jest.mock('expo-router', () => {
   const React = require('react');
   const mockReplace = jest.fn();
   const mockPush = jest.fn();
+  const mockUsePathname = jest.fn(() => '/');
 
   const Stack = ({ children }: { children?: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
@@ -133,13 +171,23 @@ jest.mock('expo-router', () => {
   const Slot = ({ children }: { children?: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
 
+  // Mimic expo-router's <Redirect> by calling replace(href) and rendering nothing
+  const Redirect = ({ href }: { href: string }) => {
+    mockReplace(href);
+    return null;
+  };
+
   return {
     __esModule: true,
     Stack,
     Slot,
+    Redirect,
     useRouter: () => ({ replace: mockReplace, push: mockPush }),
+    useSegments: jest.fn(() => []),
+    usePathname: mockUsePathname,
     __mockReplace: mockReplace,
     __mockPush: mockPush,
+    __mockUsePathname: mockUsePathname,
   };
 });
 
