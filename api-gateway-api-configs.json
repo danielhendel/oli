@@ -1,0 +1,97 @@
+[
+  {
+    "apiId": "oli-api",
+    "configs": [
+      {
+        "createTime": "2026-01-08T23:43:27.457590652Z",
+        "displayName": "oli-api-config-v8 (apiKey jwt)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v8",
+        "serviceConfigId": "oli-api-config-v8-3rmzjcnrblpwz",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-08T23:45:05.778011065Z"
+      },
+      {
+        "createTime": "2026-01-09T01:02:33.328345355Z",
+        "displayName": "oli-api-config-v9 (run status.url + jwt_audience)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v9",
+        "serviceConfigId": "oli-api-config-v9-3qksmoyxw2t0s",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-09T01:04:12.297523730Z"
+      },
+      {
+        "createTime": "2026-01-06T13:12:27.705434688Z",
+        "displayName": "oli-api-config-v1",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/1010034434203-compute@developer.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v1",
+        "serviceConfigId": "oli-api-config-v1-368o84vdh8hwi",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-06T13:14:37.130814509Z"
+      },
+      {
+        "createTime": "2026-01-07T00:44:57.577676233Z",
+        "displayName": "oli-api-config-v2 (export+delete)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v2",
+        "serviceConfigId": "oli-api-config-v2-3w1w81nl8qrvc",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-07T00:47:07.680261001Z"
+      },
+      {
+        "createTime": "2026-01-07T01:21:27.983708136Z",
+        "displayName": "oli-api-config-v3 (jwt auth fix)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v3",
+        "serviceConfigId": "oli-api-config-v3-3rnf8japdtref",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-07T01:23:06.006828940Z"
+      },
+      {
+        "createTime": "2026-01-07T01:33:48.138590421Z",
+        "displayName": "oli-api-config-v4 (per-route auth + scopes)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v4",
+        "serviceConfigId": "oli-api-config-v4-1pnmo3u6yuovd",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-07T01:35:26.378644194Z"
+      },
+      {
+        "createTime": "2026-01-08T22:47:02.781417650Z",
+        "displayName": "oli-api-config-v5 (export+delete POST fix)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v5",
+        "serviceConfigId": "oli-api-config-v5-20kzowm7f8ov4",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-08T22:48:42.675375977Z"
+      },
+      {
+        "createTime": "2026-01-08T22:57:03.389860553Z",
+        "displayName": "oli-api-config-v6 (allow OPTIONS unauth)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v6",
+        "serviceConfigId": "oli-api-config-v6-3bk81d9uebfkf",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-08T22:58:41.622917972Z"
+      },
+      {
+        "createTime": "2026-01-08T23:35:03.622526461Z",
+        "displayName": "oli-api-config-v7 (canary)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v7",
+        "serviceConfigId": "oli-api-config-v7-3q831qwwinjz4",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-08T23:36:43.564964116Z"
+      },
+      {
+        "createTime": "2026-01-09T01:18:42.154034294Z",
+        "displayName": "oli-api-config-v10 (jwt locations auth+x-forwarded)",
+        "gatewayServiceAccount": "projects/-/serviceAccounts/oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api/configs/oli-api-config-v10",
+        "serviceConfigId": "oli-api-config-v10-3jdloxyf2qe0r",
+        "state": "ACTIVE",
+        "updateTime": "2026-01-09T01:20:21.527877115Z"
+      }
+    ]
+  }
+]

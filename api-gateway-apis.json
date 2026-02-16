@@ -1,0 +1,10 @@
+[
+  {
+    "createTime": "2026-01-06T13:06:13.738532099Z",
+    "displayName": "oli-api",
+    "managedService": "oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog",
+    "name": "projects/oli-staging-fdbba/locations/global/apis/oli-api",
+    "state": "ACTIVE",
+    "updateTime": "2026-01-06T13:07:54.186713221Z"
+  }
+]

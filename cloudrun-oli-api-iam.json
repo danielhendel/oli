@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+        "serviceAccount:service-1010034434203@gcp-sa-apigateway.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.invoker"
+    }
+  ],
+  "etag": "BwZH6fLl7Jg=",
+  "version": 1
+}

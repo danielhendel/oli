@@ -1,0 +1,9 @@
+{
+  "apiConfig": "projects/1010034434203/locations/global/apis/oli-api/configs/oli-api-config-v10",
+  "createTime": "2026-01-06T13:23:16.157187174Z",
+  "defaultHostname": "oli-gateway-cw04f997.uc.gateway.dev",
+  "displayName": "oli-gateway",
+  "name": "projects/oli-staging-fdbba/locations/us-central1/gateways/oli-gateway",
+  "state": "ACTIVE",
+  "updateTime": "2026-01-09T01:21:27.708602229Z"
+}

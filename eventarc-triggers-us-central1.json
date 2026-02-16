@@ -1,0 +1,138 @@
+[
+  {
+    "createTime": "2026-01-11T15:47:20.158632147Z",
+    "destination": {
+      "cloudFunction": "projects/oli-staging-fdbba/locations/us-central1/functions/onCanonicalEventCreated"
+    },
+    "eventDataContentType": "application/protobuf",
+    "eventFilters": [
+      {
+        "attribute": "type",
+        "value": "google.cloud.firestore.document.v1.created"
+      },
+      {
+        "attribute": "database",
+        "value": "(default)"
+      },
+      {
+        "attribute": "namespace",
+        "value": "(default)"
+      },
+      {
+        "attribute": "document",
+        "operator": "match-path-pattern",
+        "value": "users/{userId}/events/{eventId}"
+      }
+    ],
+    "labels": {
+      "goog-drz-cloudfunctions-id": "oncanonicaleventcreated",
+      "goog-drz-cloudfunctions-location": "us-central1",
+      "goog-managed-by": "cloudfunctions"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/triggers/oncanonicaleventcreated-604581",
+    "serviceAccount": "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    "transport": {
+      "pubsub": {
+        "subscription": "projects/oli-staging-fdbba/subscriptions/eventarc-us-central1-oncanonicaleventcreated-604581-sub-940",
+        "topic": "projects/oli-staging-fdbba/topics/eventarc-us-central1-oncanonicaleventcreated-604581-794"
+      }
+    },
+    "uid": "29e32b38-ac9a-48a1-9d7b-e328b36bce10",
+    "updateTime": "2026-01-11T15:47:28.865826682Z"
+  },
+  {
+    "createTime": "2026-01-09T19:51:27.401330461Z",
+    "destination": {
+      "cloudFunction": "projects/oli-staging-fdbba/locations/us-central1/functions/onAccountExportRequested"
+    },
+    "eventFilters": [
+      {
+        "attribute": "type",
+        "value": "google.cloud.pubsub.topic.v1.messagePublished"
+      }
+    ],
+    "labels": {
+      "goog-drz-cloudfunctions-id": "onaccountexportrequested",
+      "goog-drz-cloudfunctions-location": "us-central1",
+      "goog-managed-by": "cloudfunctions"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/triggers/onaccountexportrequested-904068",
+    "serviceAccount": "1010034434203-compute@developer.gserviceaccount.com",
+    "transport": {
+      "pubsub": {
+        "subscription": "projects/oli-staging-fdbba/subscriptions/eventarc-us-central1-onaccountexportrequested-904068-sub-778",
+        "topic": "projects/oli-staging-fdbba/topics/exports.requests.v1"
+      }
+    },
+    "uid": "4429edea-4e5c-42ec-a625-1d9c1eed145f",
+    "updateTime": "2026-01-09T19:51:32.538250630Z"
+  },
+  {
+    "createTime": "2025-12-30T18:34:59.139306360Z",
+    "destination": {
+      "cloudFunction": "projects/oli-staging-fdbba/locations/us-central1/functions/onRawEventCreated"
+    },
+    "eventDataContentType": "application/protobuf",
+    "eventFilters": [
+      {
+        "attribute": "type",
+        "value": "google.cloud.firestore.document.v1.created"
+      },
+      {
+        "attribute": "database",
+        "value": "(default)"
+      },
+      {
+        "attribute": "namespace",
+        "value": "(default)"
+      },
+      {
+        "attribute": "document",
+        "operator": "match-path-pattern",
+        "value": "users/{userId}/rawEvents/{rawEventId}"
+      }
+    ],
+    "labels": {
+      "goog-drz-cloudfunctions-id": "onraweventcreated",
+      "goog-drz-cloudfunctions-location": "us-central1",
+      "goog-managed-by": "cloudfunctions"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/triggers/onraweventcreated-584757",
+    "serviceAccount": "1010034434203-compute@developer.gserviceaccount.com",
+    "transport": {
+      "pubsub": {
+        "subscription": "projects/oli-staging-fdbba/subscriptions/eventarc-us-central1-onraweventcreated-584757-sub-474",
+        "topic": "projects/oli-staging-fdbba/topics/eventarc-us-central1-onraweventcreated-584757-760"
+      }
+    },
+    "uid": "8c3a862e-1d35-4004-8035-f283f715c371",
+    "updateTime": "2025-12-30T18:35:08.077883156Z"
+  },
+  {
+    "createTime": "2026-01-09T19:03:15.012143030Z",
+    "destination": {
+      "cloudFunction": "projects/oli-staging-fdbba/locations/us-central1/functions/onAccountDeleteRequested"
+    },
+    "eventFilters": [
+      {
+        "attribute": "type",
+        "value": "google.cloud.pubsub.topic.v1.messagePublished"
+      }
+    ],
+    "labels": {
+      "goog-drz-cloudfunctions-id": "onaccountdeleterequested",
+      "goog-drz-cloudfunctions-location": "us-central1",
+      "goog-managed-by": "cloudfunctions"
+    },
+    "name": "projects/oli-staging-fdbba/locations/us-central1/triggers/onaccountdeleterequested-825563",
+    "serviceAccount": "1010034434203-compute@developer.gserviceaccount.com",
+    "transport": {
+      "pubsub": {
+        "subscription": "projects/oli-staging-fdbba/subscriptions/eventarc-us-central1-onaccountdeleterequested-825563-sub-614",
+        "topic": "projects/oli-staging-fdbba/topics/account.delete.v1"
+      }
+    },
+    "uid": "2d7a70bc-24d5-4bd8-9f95-144b5d9ad828",
+    "updateTime": "2026-01-09T19:03:19.918090780Z"
+  }
+]
