@@ -1,4 +1,4 @@
-// apps/mobile/lib/firebaseClient.native.ts
+// apps/mobile/lib/firebase/core.ts
 /**
  * Firebase app & Auth init for React Native (Expo).
  * - Uses Web config (required for RN Firebase Web SDK)

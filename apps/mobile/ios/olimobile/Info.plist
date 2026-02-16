@@ -24,35 +24,27 @@
     <string>0.1.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
-
     <key>CFBundleURLTypes</key>
     <array>
-      <!-- Your app's custom schemes -->
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>oli</string>
-          <string>com.olifitness.olimobile</string>
         </array>
       </dict>
-
-      <!-- Expo Dev Client scheme -->
-      <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>exp+oli-mobile</string>
-        </array>
-      </dict>
-
-      <!-- Google reverse-client scheme (REQUIRED for Google Sign-In) -->
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>com.googleusercontent.apps.391788417686-bkkbgouneck7nm7td9rsdfvt0ej6e3tg</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+oli-mobile</string>
+        </array>
+      </dict>
     </array>
-
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>ITSAppUsesNonExemptEncryption</key>
@@ -68,6 +60,10 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Used to scan barcodes, capture workout photos, or upload profile images.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allows you to upload or select images for workouts, nutrition, and profile customization.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

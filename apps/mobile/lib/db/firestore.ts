@@ -1,4 +1,4 @@
-// File: apps/mobile/lib/db/firestore.ts
+// File: apps/mobile/lib/firebase/core.ts
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getFirebaseApp } from '@/lib/db/app';
 

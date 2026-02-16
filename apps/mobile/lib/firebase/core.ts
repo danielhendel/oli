@@ -1,3 +1,4 @@
+// apps/mobile/lib/firebase/core.ts
 /**
  * Firebase core (Expo SDK 54, RN 0.81, React 19)
  * - Single entry for App/Auth/Firestore/Storage/Functions
@@ -12,24 +13,24 @@ import {
   getAuth,
   initializeAuth,
   type Auth,
-  type Persistence
+  type Persistence,
 } from "firebase/auth";
 import { getReactNativePersistence } from "firebase/auth/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getFirestore,
   connectFirestoreEmulator,
-  type Firestore
+  type Firestore,
 } from "firebase/firestore";
 import {
   getFunctions,
   connectFunctionsEmulator,
-  type Functions
+  type Functions,
 } from "firebase/functions";
 import {
   getStorage,
   connectStorageEmulator,
-  type FirebaseStorage
+  type FirebaseStorage,
 } from "firebase/storage";
 
 // ---------- Env (validated earlier via lib/config/env.ts) ----------
@@ -56,6 +57,7 @@ let _db: Firestore | undefined;
 let _storage: FirebaseStorage | undefined;
 let _functions: Functions | undefined;
 let _authInitPromise: Promise<Auth> | null = null;
+let _emulatorsConnected = false;
 
 export function app(): FirebaseApp {
   if (_app) return _app;
@@ -74,10 +76,13 @@ async function initAuthOnce(): Promise<Auth> {
       return _auth;
     }
     try {
-      const persistence = getReactNativePersistence(AsyncStorage) as unknown as Persistence;
+      const persistence = getReactNativePersistence(
+        AsyncStorage
+      ) as unknown as Persistence;
       _auth = initializeAuth(a, { persistence });
     } catch {
-      _auth = getAuth(a); // already initialized (Fast Refresh)
+      // Already initialized (e.g., Fast Refresh)
+      _auth = getAuth(a);
     }
     return _auth!;
   })();
@@ -87,27 +92,31 @@ async function initAuthOnce(): Promise<Auth> {
 
 export async function ready(): Promise<void> {
   await initAuthOnce();
-  // Lazily create other surfaces after auth warms, so callers can use db()/storage()/functions()
+
+  // Lazily create other surfaces after auth warms
   if (!_db) _db = getFirestore(app());
   if (!_storage) _storage = getStorage(app());
   if (!_functions) _functions = getFunctions(app());
 
-  // Auto-connect emulators when present (dev & tests)
-  // Supported sources:
-  //  - FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
-  //  - FUNCTIONS_EMULATOR="1" + FUNCTIONS_EMULATOR_HOST="127.0.0.1:5001"
-  //  - STORAGE_EMULATOR_HOST="127.0.0.1:9199"
-  if (process.env.FIRESTORE_EMULATOR_HOST) {
-    const [host, portStr] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
-    connectFirestoreEmulator(_db!, host, Number(portStr));
-  }
-  if (process.env.FUNCTIONS_EMULATOR && process.env.FUNCTIONS_EMULATOR_HOST) {
-    const [fh, fp] = process.env.FUNCTIONS_EMULATOR_HOST.split(":");
-    connectFunctionsEmulator(_functions!, fh, Number(fp));
-  }
-  if (process.env.STORAGE_EMULATOR_HOST) {
-    const [sh, sp] = process.env.STORAGE_EMULATOR_HOST.split(":");
-    connectStorageEmulator(_storage!, sh, Number(sp));
+  // Connect emulators exactly once when env vars are present
+  if (!_emulatorsConnected) {
+    // Supported sources:
+    //  - FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
+    //  - FUNCTIONS_EMULATOR="1" + FUNCTIONS_EMULATOR_HOST="127.0.0.1:5001"
+    //  - STORAGE_EMULATOR_HOST="127.0.0.1:9199"
+    if (process.env.FIRESTORE_EMULATOR_HOST) {
+      const [host, portStr] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
+      connectFirestoreEmulator(_db!, host, Number(portStr));
+    }
+    if (process.env.FUNCTIONS_EMULATOR && process.env.FUNCTIONS_EMULATOR_HOST) {
+      const [fh, fp] = process.env.FUNCTIONS_EMULATOR_HOST.split(":");
+      connectFunctionsEmulator(_functions!, fh, Number(fp));
+    }
+    if (process.env.STORAGE_EMULATOR_HOST) {
+      const [sh, sp] = process.env.STORAGE_EMULATOR_HOST.split(":");
+      connectStorageEmulator(_storage!, sh, Number(sp));
+    }
+    _emulatorsConnected = true;
   }
 }
 
@@ -121,11 +130,13 @@ export function db(): Firestore {
   _db = getFirestore(app());
   return _db;
 }
+
 export function storage(): FirebaseStorage {
   if (_storage) return _storage;
   _storage = getStorage(app());
   return _storage;
 }
+
 export function functions(): Functions {
   if (_functions) return _functions;
   _functions = getFunctions(app());
@@ -135,5 +146,8 @@ export function functions(): Functions {
 // Optional: quick probe for Dev Console / tests
 export async function probe(): Promise<{ appId: string; uid?: string }> {
   await ready();
-  return { appId: app().options.appId!, uid: auth().currentUser?.uid ?? undefined };
+  const appId = app().options.appId!;
+  const uid = auth().currentUser?.uid;
+  // Respect exactOptionalPropertyTypes by omitting uid when undefined
+  return uid ? { appId, uid } : { appId };
 }

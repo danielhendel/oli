@@ -1,4 +1,4 @@
-// apps/mobile/lib/firebaseClient.ts
+// apps/mobile/lib/firebase/core.ts
 /**
  * Canonical, race-safe Firebase app & Auth initialization for Expo (web + native).
  * - NO imports from 'firebase/auth/react-native' (Metro-safe)

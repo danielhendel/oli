@@ -1,13 +1,13 @@
 // apps/mobile/__tests__/auth-actions.test.ts
 import { signInEmailPassword, signUpEmailPassword, signOutUser } from '@/lib/auth/actions';
-import { ensureAuthInitialized, getFirebaseAuth } from '@/lib/firebaseClient';
+import { ensureAuthInitialized, getFirebaseAuth } from '@/lib/firebase/core';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
 } from 'firebase/auth';
 
-jest.mock('@/lib/firebaseClient', () => ({
+jest.mock('@/lib/firebase/core', () => ({
   ensureAuthInitialized: jest.fn(async () => ({})),
   getFirebaseAuth: jest.fn(() => ({})),
 }));
