@@ -129,16 +129,34 @@ function checkClientNoDerivedWrites() {
 
 /**
  * CHECK 3 — Ingestion routes must enforce idempotency
+ *
+ * Exemption: invoker-only scheduled job routes (e.g. POST /integrations/withings/pull) are
+ * system-initiated, use deterministic internal doc IDs (rawEvent doc id = idempotencyKey), are
+ * not callable by clients, and therefore do not require Idempotency-Key header. Exempt list
+ * must stay minimal; any new exempt file must be invoker-only and use deterministic internal ids.
  */
 function checkApiIdempotency() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
   if (!exists(routesDir)) return;
+
+  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts"]);
+  const EXEMPT_FILE_TO_MOUNT_PATH = new Map([["withingsPull.ts", "/integrations/withings/pull"]]);
+  for (const basename of IDEMPOTENCY_POST_EXEMPT_FILES) {
+    const mountPath = EXEMPT_FILE_TO_MOUNT_PATH.get(basename);
+    if (!mountPath || !mountPath.startsWith("/integrations/") || !mountPath.includes("withings")) {
+      fail(
+        `CHECK 3 (API idempotency): exempt file "${basename}" must have a mount path in EXEMPT_FILE_TO_MOUNT_PATH starting with /integrations/ and including "withings".`,
+      );
+    }
+  }
 
   const files = walk(routesDir, { includeExts: [".ts"], ignoreDirs: ["__tests__", "dist", "lib"] });
 
   const offenders = [];
 
   for (const f of files) {
+    if (IDEMPOTENCY_POST_EXEMPT_FILES.has(path.basename(f))) continue;
+
     const text = readText(f);
 
     if (!/\brouter\.post\s*\(/.test(text)) continue;
