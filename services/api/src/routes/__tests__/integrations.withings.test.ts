@@ -11,10 +11,17 @@ import * as withingsSecrets from "../../lib/withingsSecrets";
 import { validateAndConsumeState } from "../../lib/oauthState";
 import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
-jest.mock("../../db", () => ({
-  userCollection: jest.fn(),
-  FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
-}));
+jest.mock("../../db", () => {
+  const setFn = jest.fn().mockResolvedValue(undefined);
+  const deleteFn = jest.fn().mockResolvedValue(undefined);
+  const docMock = { set: setFn, delete: deleteFn };
+  return {
+    userCollection: jest.fn(),
+    FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
+    withingsConnectedRegistryDoc: jest.fn(() => docMock),
+    __registryDocMock: docMock,
+  };
+});
 
 jest.mock("../../lib/withingsSecrets", () => {
   class WithingsConfigError extends Error {
@@ -56,6 +63,8 @@ describe("Withings integrations (Phase 3A)", () => {
     jest.resetAllMocks();
     process.env.WITHINGS_CLIENT_ID = "test-client";
     process.env.WITHINGS_REDIRECT_URI = "";
+    const db = require("../../db") as { withingsConnectedRegistryDoc: jest.Mock; __registryDocMock: { set: jest.Mock; delete: jest.Mock } };
+    db.withingsConnectedRegistryDoc.mockImplementation(() => db.__registryDocMock);
   });
 
   describe("GET /integrations/withings/connect", () => {
@@ -342,6 +351,34 @@ describe("Withings integrations (Phase 3A)", () => {
         revoked: false,
         failureState: null,
       });
+      const db = require("../../db") as { __registryDocMock: { set: jest.Mock } };
+      expect(db.__registryDocMock.set).toHaveBeenCalledWith(
+        expect.objectContaining({ connected: true }),
+        { merge: true },
+      );
+    });
+  });
+
+  describe("POST /integrations/withings/revoke", () => {
+    it("deletes registry doc and sets integration revoked", async () => {
+      (withingsSecrets.deleteRefreshToken as jest.Mock).mockResolvedValue(undefined);
+      const setMock = jest.fn().mockResolvedValue(undefined);
+      (userCollection as jest.Mock).mockReturnValue({
+        doc: () => ({ set: setMock }),
+      });
+
+      const res = await request(app)
+        .post("/integrations/withings/revoke")
+        .set("Authorization", "Bearer fake");
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true });
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ connected: false, revoked: true, failureState: null }),
+        { merge: true },
+      );
+      const db = require("../../db") as { __registryDocMock: { delete: jest.Mock } };
+      expect(db.__registryDocMock.delete).toHaveBeenCalled();
     });
   });
 
@@ -380,18 +417,44 @@ describe("Withings integrations (Phase 3A)", () => {
 
     it("returns 200 with connected:true when doc has connected true", async () => {
       const connectedAt = new Date("2026-02-15T12:00:00.000Z");
+      const setMock = jest.fn().mockResolvedValue(undefined);
+      const dataWithBackfill = () => ({
+        connected: true,
+        scopes: ["user.metrics"],
+        connectedAt: { toDate: () => connectedAt },
+        revoked: false,
+        failureState: null,
+        backfill: {
+          status: "running",
+          yearsBack: 10,
+          chunkDays: 90,
+          maxChunksPerRun: 5,
+          cursorStartSec: 1,
+          cursorEndSec: 2,
+          processedCount: 0,
+          lastError: null,
+          updatedAt: { toDate: () => new Date() },
+        },
+      });
       (userCollection as jest.Mock).mockReturnValue({
         doc: () => ({
-          get: jest.fn().mockResolvedValue({
-            exists: true,
-            data: () => ({
-              connected: true,
-              scopes: ["user.metrics"],
-              connectedAt: { toDate: () => connectedAt },
-              revoked: false,
-              failureState: null,
+          get: jest.fn()
+            .mockResolvedValueOnce({
+              exists: true,
+              data: () => ({
+                connected: true,
+                scopes: ["user.metrics"],
+                connectedAt: { toDate: () => connectedAt },
+                revoked: false,
+                failureState: null,
+                backfill: undefined,
+              }),
+            })
+            .mockResolvedValueOnce({
+              exists: true,
+              data: dataWithBackfill,
             }),
-          }),
+          set: setMock,
         }),
       });
 
@@ -405,6 +468,8 @@ describe("Withings integrations (Phase 3A)", () => {
       expect(res.body?.connectedAt).toBe("2026-02-15T12:00:00.000Z");
       expect(res.body?.revoked).toBe(false);
       expect(res.body?.failureState).toBeNull();
+      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(res.body?.backfill?.status).toBe("running");
     });
   });
 });

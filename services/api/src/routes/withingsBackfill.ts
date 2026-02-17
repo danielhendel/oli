@@ -9,7 +9,7 @@
 
 import { Router, type Request, type Response } from "express";
 import { rawEventDocSchema } from "@oli/contracts";
-import { db, userCollection, FieldValue } from "../db";
+import { userCollection, FieldValue, withingsConnectedRegistryCollection } from "../db";
 import { fetchWithingsMeasures, WithingsMeasureError } from "../lib/withingsMeasures";
 import { writeFailure } from "../lib/writeFailure";
 import { logger } from "../lib/logger";
@@ -54,13 +54,16 @@ function parseBody(
   return { mode, yearsBack, chunkDays, maxChunks };
 }
 
+/**
+ * Get UIDs with connected Withings from deterministic registry (no collectionGroup).
+ * Path: system/integrations/withings_connected/{uid}; doc has { connected: true, updatedAt }.
+ */
 async function getConnectedWithingsUids(): Promise<string[]> {
-  const snap = await db.collectionGroup("integrations").where("connected", "==", true).get();
+  const snap = await withingsConnectedRegistryCollection().get();
   const uids: string[] = [];
   for (const doc of snap.docs) {
-    if (doc.id !== "withings") continue;
-    const parent = doc.ref.parent.parent;
-    if (parent) uids.push(parent.id);
+    const data = doc.data();
+    if (data?.connected === true) uids.push(doc.id);
   }
   return uids;
 }
@@ -101,10 +104,16 @@ router.post("/", async (req: Request, res: Response) => {
     uids = await getConnectedWithingsUids();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ msg: "withings_backfill_query_error", err: msg });
-    return res.status(500).json({
+    logger.error({ msg: "withings_backfill_registry_error", err: msg });
+    return res.status(200).json({
       ok: false as const,
-      error: { code: "INTERNAL" as const, message: "Failed to query connected users" },
+      usersProcessed: 0,
+      eventsCreated: 0,
+      eventsAlreadyExists: 0,
+      failuresWritten: 0,
+      failureWriteErrors: 0,
+      backfillUpdated: 0,
+      error: { code: "REGISTRY_ERROR" as const, message: "Registry read failed; no users processed" },
     });
   }
 

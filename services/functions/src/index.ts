@@ -35,6 +35,7 @@ import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
 import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
 import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
 import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
+import { onWithingsBackfillScheduled } from "./withings/onWithingsBackfillScheduled";
 
 // Account executors (Pub/Sub)
 import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
@@ -101,6 +102,7 @@ export { onCanonicalEventCreated };
 export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
+export { onWithingsBackfillScheduled };
 
 // Account executors (Pub/Sub)
 export { onAccountDeleteRequested };

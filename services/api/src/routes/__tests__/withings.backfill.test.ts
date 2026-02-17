@@ -14,14 +14,12 @@ const mockIntegrationRef = {
 };
 const mockRawEventsDocRef = { get: jest.fn(), create: jest.fn(), id: "withings:weight:u1:123" };
 const mockUserCollection = jest.fn();
-const mockCollectionGroup = jest.fn();
+const mockRegistryGet = jest.fn();
 
 jest.mock("../../db", () => ({
-  db: {
-    collectionGroup: (...args: unknown[]) => mockCollectionGroup(...args),
-  },
   userCollection: (...args: unknown[]) => mockUserCollection(...args),
   FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
+  withingsConnectedRegistryCollection: () => ({ get: mockRegistryGet }),
 }));
 
 jest.mock("../../lib/withingsMeasures", () => ({
@@ -51,9 +49,12 @@ describe("POST /integrations/withings/backfill", () => {
     app.use("/integrations/withings/backfill", requireInvokerAuth, withingsBackfillRouter);
   });
 
+  const registryDoc = (id: string) => ({ id, data: () => ({ connected: true }) });
+
   beforeEach(() => {
     jest.resetAllMocks();
     process.env.WITHINGS_PULL_INVOKER_EMAILS = "";
+    mockRegistryGet.mockResolvedValue({ docs: [registryDoc("uid1")] });
     mockIntegrationRef.get.mockResolvedValue({ exists: false });
     mockIntegrationRef.set.mockResolvedValue(undefined);
     mockRawEventsDocRef.get.mockResolvedValue({ exists: false });
@@ -79,11 +80,7 @@ describe("POST /integrations/withings/backfill", () => {
     });
 
     it("returns 400 when body is invalid (missing mode)", async () => {
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ docs: [] }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [] });
       const res = await request(app)
         .post("/integrations/withings/backfill")
         .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
@@ -95,13 +92,7 @@ describe("POST /integrations/withings/backfill", () => {
 
   describe("start initializes state", () => {
     it("writes backfill state with status running and cursor range", async () => {
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       const res = await request(app)
         .post("/integrations/withings/backfill")
         .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
@@ -131,13 +122,7 @@ describe("POST /integrations/withings/backfill", () => {
       const ninetyDays = 90 * 86400;
       const cursorStartSec = nowSec - ninetyDays;
       const cursorEndSec = nowSec - ninetyDays + 86400;
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       mockIntegrationRef.get
         .mockResolvedValueOnce({
           exists: true,
@@ -203,13 +188,7 @@ describe("POST /integrations/withings/backfill", () => {
       const docIds: string[] = [];
       const nowSec = Math.floor(Date.now() / 1000);
       const ninetyDays = 90 * 86400;
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       mockIntegrationRef.get.mockResolvedValue({
         exists: true,
         data: () => ({
@@ -263,13 +242,7 @@ describe("POST /integrations/withings/backfill", () => {
       const idempotencyKey = "withings:weight:uid1:888";
       const nowSec = Math.floor(Date.now() / 1000);
       const ninetyDays = 90 * 86400;
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       mockIntegrationRef.get.mockResolvedValue({
         exists: true,
         data: () => ({
@@ -318,15 +291,25 @@ describe("POST /integrations/withings/backfill", () => {
     });
   });
 
+  describe("registry read failure", () => {
+    it("returns 200 ok:false with REGISTRY_ERROR when registry get fails", async () => {
+      mockRegistryGet.mockRejectedValueOnce(new Error("FAILED_PRECONDITION"));
+      const { allowConsoleForThisTest } = require("../../../../../scripts/test/consoleGuard");
+      allowConsoleForThisTest({ error: [/withings_backfill_registry_error/] });
+      const res = await request(app)
+        .post("/integrations/withings/backfill")
+        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .send({ mode: "resume" });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.error?.code).toBe("REGISTRY_ERROR");
+      expect(res.body.usersProcessed).toBe(0);
+    });
+  });
+
   describe("FailureEntry written on fetch error", () => {
     it("writes FailureEntry and sets backfill status error when fetchWithingsMeasures throws", async () => {
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       mockIntegrationRef.get.mockResolvedValue({
         exists: true,
         data: () => ({

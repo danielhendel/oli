@@ -12,7 +12,7 @@
 
 import { Router, type Response } from "express";
 import { rawEventDocSchema } from "@oli/contracts";
-import { db, userCollection } from "../db";
+import { userCollection, withingsConnectedRegistryCollection } from "../db";
 import { fetchWithingsMeasures, WithingsMeasureError } from "../lib/withingsMeasures";
 import { writeFailure } from "../lib/writeFailure";
 import { logger } from "../lib/logger";
@@ -22,16 +22,15 @@ const router = Router();
 const WINDOW_MS = 72 * 60 * 60 * 1000;
 
 /**
- * Get UIDs that have Withings connected (users/{uid}/integrations/withings, connected == true).
- * Uses collectionGroup query and filters doc.id to "withings" to avoid schema drift.
+ * Get UIDs with connected Withings from deterministic registry (no collectionGroup).
+ * Path: system/integrations/withings_connected/{uid}; doc has { connected: true, updatedAt }.
  */
 async function getConnectedWithingsUids(): Promise<string[]> {
-  const snap = await db.collectionGroup("integrations").where("connected", "==", true).get();
+  const snap = await withingsConnectedRegistryCollection().get();
   const uids: string[] = [];
   for (const doc of snap.docs) {
-    if (doc.id !== "withings") continue;
-    const parent = doc.ref.parent.parent;
-    if (parent) uids.push(parent.id);
+    const data = doc.data();
+    if (data?.connected === true) uids.push(doc.id);
   }
   return uids;
 }

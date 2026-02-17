@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from "express";
 import type { AuthedRequest } from "../middleware/auth";
-import { FieldValue, userCollection } from "../db";
+import { FieldValue, userCollection, withingsConnectedRegistryDoc } from "../db";
 import { createStateAsync, validateAndConsumeState } from "../lib/oauthState";
 import * as withingsSecrets from "../lib/withingsSecrets";
 import { logger } from "../lib/logger";
@@ -15,6 +15,15 @@ const router = Router();
 const WITHINGS_AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2";
 const WITHINGS_TOKEN_URL = "https://wbsapi.withings.net/v2/oauth2";
 const SCOPE = "user.metrics";
+
+/** Defaults for auto-start backfill (must match withingsBackfill semantics). */
+const BACKFILL_AUTO_START = {
+  yearsBack: 10,
+  chunkDays: 90,
+  maxChunksPerRun: 5,
+};
+const SECONDS_PER_DAY = 86400;
+const SECONDS_PER_YEAR = 365 * SECONDS_PER_DAY;
 
 const getRequestId = (req: Request, res: Response): string =>
   (req as AuthedRequest).rid ?? res.getHeader("x-request-id")?.toString() ?? "unknown";
@@ -169,7 +178,42 @@ router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
         ...STATUS_DEFAULTS,
       });
     }
-    const backfill = data.backfill;
+
+    // Auto-start backfill once when connected and backfill never started (idempotent; no endless writes).
+    let snapToUse = snap;
+    if (data.connected && !data.backfill) {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const cursorStartSec = nowSec - BACKFILL_AUTO_START.yearsBack * SECONDS_PER_YEAR;
+      try {
+        await ref.set(
+          {
+            backfill: {
+              status: "running" as const,
+              yearsBack: BACKFILL_AUTO_START.yearsBack,
+              chunkDays: BACKFILL_AUTO_START.chunkDays,
+              maxChunksPerRun: BACKFILL_AUTO_START.maxChunksPerRun,
+              cursorStartSec,
+              cursorEndSec: nowSec,
+              processedCount: 0,
+              lastError: null,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+          },
+          { merge: true },
+        );
+        snapToUse = await ref.get();
+      } catch (err) {
+        logger.error({
+          msg: "withings_status_autostart_error",
+          rid: getRequestId(req, res),
+          uid,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    const dataToUse = snapToUse.exists ? (snapToUse.data() as typeof data) : data;
+    const backfill = dataToUse?.backfill;
     const backfillPayload =
       backfill && typeof backfill.status === "string"
         ? {
@@ -186,11 +230,11 @@ router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
         : undefined;
     return res.status(200).json({
       ok: true as const,
-      connected: Boolean(data.connected),
-      scopes: Array.isArray(data.scopes) ? data.scopes : [],
-      connectedAt: toIsoOrNull(data.connectedAt),
-      revoked: Boolean(data.revoked),
-      failureState: data.failureState ?? null,
+      connected: Boolean(dataToUse?.connected),
+      scopes: Array.isArray(dataToUse?.scopes) ? dataToUse.scopes : [],
+      connectedAt: toIsoOrNull(dataToUse?.connectedAt),
+      revoked: Boolean(dataToUse?.revoked),
+      failureState: dataToUse?.failureState ?? null,
       backfill: backfillPayload ?? undefined,
     });
   } catch (err) {
@@ -362,6 +406,8 @@ export async function handleWithingsCallback(req: Request, res: Response): Promi
 
     await withingsSecrets.setRefreshToken(uid, refreshToken);
 
+    const nowSec = Math.floor(Date.now() / 1000);
+    const cursorStartSec = nowSec - BACKFILL_AUTO_START.yearsBack * SECONDS_PER_YEAR;
     const integrationRef = userCollection(uid, "integrations").doc("withings");
     await integrationRef.set(
       {
@@ -371,9 +417,30 @@ export async function handleWithingsCallback(req: Request, res: Response): Promi
         lastSyncAt: null,
         revoked: false,
         failureState: null,
+        backfill: {
+          status: "running" as const,
+          yearsBack: BACKFILL_AUTO_START.yearsBack,
+          chunkDays: BACKFILL_AUTO_START.chunkDays,
+          maxChunksPerRun: BACKFILL_AUTO_START.maxChunksPerRun,
+          cursorStartSec,
+          cursorEndSec: nowSec,
+          processedCount: 0,
+          lastError: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
       },
       { merge: true },
     );
+
+    try {
+      await withingsConnectedRegistryDoc(uid).set(
+        { connected: true, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+    } catch (registryErr) {
+      const msg = registryErr instanceof Error ? registryErr.message : String(registryErr);
+      logger.error({ msg: "withings_registry_write_error", rid, uid, err: msg });
+    }
 
     const xfProto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim();
     const proto = xfProto || "https";
@@ -434,6 +501,12 @@ router.post("/withings/revoke", async (req: AuthedRequest, res: Response) => {
       },
       { merge: true },
     );
+    try {
+      await withingsConnectedRegistryDoc(uid).delete();
+    } catch (registryErr) {
+      const msg = registryErr instanceof Error ? registryErr.message : String(registryErr);
+      logger.error({ msg: "withings_registry_delete_error", rid, uid, err: msg });
+    }
     return res.status(200).json({ ok: true as const });
   } catch (err) {
     logger.error({ msg: "withings_revoke_metadata_error", rid, uid, err: err instanceof Error ? err.message : String(err) });

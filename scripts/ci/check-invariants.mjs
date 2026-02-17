@@ -212,16 +212,18 @@ function checkApiNoGlobalFirestoreRootCollections() {
       // eslint-disable-next-line no-cond-assign
       while ((m = rx.exec(text)) !== null) {
         const col = m[1];
-        if (col !== "users") offenders.push({ file: rel(f), col });
+        // users = per-uid data; system = deterministic registry (e.g. withings connected) only in db.ts
+        if (col !== "users" && col !== "system") offenders.push({ file: rel(f), col });
+        if (col === "system" && !f.includes("db.ts")) offenders.push({ file: rel(f), col });
       }
     }
   }
 
   if (offenders.length) {
     fail(
-      `CHECK 4 (API root collection must be users) failed:\n` +
+      `CHECK 4 (API root collection must be users or system in db.ts only) failed:\n` +
         offenders.map((o) => `- ${o.file} — root collection "${o.col}"`).join("\n") +
-        `\n\nFix: API must only start Firestore paths at collection("users"), then scope by uid.`,
+        `\n\nFix: API must only start Firestore paths at collection("users"), or collection("system") in db.ts for registry only.`,
     );
   }
 
@@ -1444,6 +1446,14 @@ function main() {
   });
   if (boundary.status !== 0) {
     process.exit(boundary.status ?? 1);
+  }
+
+  const phase3Specs = spawnSync("node", ["scripts/ci/assert-phase3-specs.mjs"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (phase3Specs.status !== 0) {
+    process.exit(phase3Specs.status ?? 1);
   }
 
   console.log("\n✅ All invariant checks passed.");

@@ -133,6 +133,8 @@ function DevicesScreen() {
             <Text style={styles.backfillErrorText}>{backfill.lastError.message}</Text>
             <Text style={styles.backfillHint}>Retry is run by the system; you can refetch status.</Text>
           </View>
+        ) : presence.status === "ready" && presence.data.connected && !presence.data.hasRecentData ? (
+          <Text style={styles.backfillLine}>No weight data from device yet. Import runs automatically.</Text>
         ) : null}
 
         {DEBUG_WITHINGS_OAUTH ? (

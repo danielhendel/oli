@@ -3,7 +3,7 @@
 **Date:** 2026-02-17  
 **Branch:** feat/phase3b1-weight-backfill (from git status)  
 **Authority:** Repo-only; no web search; no production code changes.  
-**Binding governance:** Phase 3A and Phase 3B.1 Sprint Spec (Weight Magic) were referenced as external; not found in repo. Criteria inferred from existing `docs/90_audits/PHASE_3A_AUDIT_REPORT.md`, `docs/00_truth/CONSTITUTION.md`, `docs/00_truth/phase1/INGESTION_POLICY.md`, and code.
+**Binding governance:** Phase 3A and Phase 3B.1 specs are in repo: `docs/00_truth/phase3/PHASE_3A_PASSIVE_DEVICE_INGESTION.md`, `docs/00_truth/phase3/PHASE_3B1_WEIGHT_MAGIC.md`. CI enforces presence via `scripts/ci/assert-phase3-specs.mjs`.
 
 ---
 

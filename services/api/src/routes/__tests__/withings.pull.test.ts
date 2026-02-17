@@ -8,22 +8,14 @@ import { requireInvokerAuth } from "../../middleware/invokerAuth";
 import withingsPullRouter from "../withingsPull";
 
 
-const mockTx = {
-  get: jest.fn(),
-  create: jest.fn(),
-};
-
 const mockDocRef = { get: jest.fn(), id: "withings:weight:u1:123" };
 const mockUserCollection = jest.fn();
-const mockCollectionGroup = jest.fn();
+const mockRegistryGet = jest.fn();
 
 jest.mock("../../db", () => ({
-  db: {
-    collectionGroup: (...args: unknown[]) => mockCollectionGroup(...args),
-    runTransaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
-  },
   userCollection: (...args: unknown[]) => mockUserCollection(...args),
   FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
+  withingsConnectedRegistryCollection: () => ({ get: mockRegistryGet }),
 }));
 
 jest.mock("../../lib/withingsMeasures", () => ({
@@ -53,9 +45,12 @@ describe("POST /integrations/withings/pull", () => {
     app.use("/integrations/withings/pull", requireInvokerAuth, withingsPullRouter);
   });
 
+  const registryDoc = (id: string) => ({ id, data: () => ({ connected: true }) });
+
   beforeEach(() => {
     jest.resetAllMocks();
     process.env.WITHINGS_PULL_INVOKER_EMAILS = "";
+    mockRegistryGet.mockResolvedValue({ docs: [] });
     mockUserCollection.mockReturnValue({
       doc: jest.fn(() => mockDocRef),
     });
@@ -70,11 +65,7 @@ describe("POST /integrations/withings/pull", () => {
     });
 
     it("returns 200 when header is present (no allowlist)", async () => {
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ docs: [] }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [] });
       const res = await request(app)
         .post("/integrations/withings/pull")
         .set("x-goog-authenticated-user-email", "accounts.google.com:scheduler@project.iam.gserviceaccount.com");
@@ -92,18 +83,7 @@ describe("POST /integrations/withings/pull", () => {
 
   describe("FailureEntry on Withings API error", () => {
     it("writes FailureEntry and continues when fetchWithingsMeasures throws", async () => {
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [
-              {
-                id: "withings",
-                ref: { parent: { parent: { id: "uid1" } } },
-              },
-            ],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       withingsMeasures.fetchWithingsMeasures.mockRejectedValue(
         new withingsMeasures.WithingsMeasureError("API error", "WITHINGS_MEASURE_API_ERROR"),
       );
@@ -130,18 +110,7 @@ describe("POST /integrations/withings/pull", () => {
     it("writes RawEvent with doc ID = sample idempotencyKey", async () => {
       const idempotencyKey = "withings:weight:uid1:999";
       const docIds: string[] = [];
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [
-              {
-                id: "withings",
-                ref: { parent: { parent: { id: "uid1" } } },
-              },
-            ],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       mockUserCollection.mockReturnValue({
         doc: (id: string) => {
           docIds.push(id);
@@ -176,13 +145,7 @@ describe("POST /integrations/withings/pull", () => {
   describe("no duplicate writes on replay", () => {
     it("when doc already exists, counts as idempotent replay and does not write FailureEntry", async () => {
       const idempotencyKey = "withings:weight:uid1:888";
-      mockCollectionGroup.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({
-            docs: [{ id: "withings", ref: { parent: { parent: { id: "uid1" } } } }],
-          }),
-        }),
-      });
+      mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       const createMock = jest.fn().mockRejectedValue(new Error("already exists"));
       mockUserCollection.mockReturnValue({
         doc: () => ({
