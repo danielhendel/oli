@@ -158,7 +158,23 @@ export const getUploads = async (
   return apiGetZodAuthed("/users/me/uploads", idToken, uploadsPresenceResponseDtoSchema, truthGetOpts(opts));
 };
 
-/** GET /integrations/withings/status — integration metadata (Phase 3A). No tokens. */
+/** GET /integrations/withings/status — integration metadata (Phase 3A). No tokens. Phase 3B.1: backfill. */
+const withingsBackfillDtoSchema = z
+  .object({
+    status: z.enum(["idle", "running", "complete", "error"]),
+    yearsBack: z.number().optional(),
+    chunkDays: z.number().optional(),
+    maxChunksPerRun: z.number().optional(),
+    cursorStartSec: z.number().optional(),
+    cursorEndSec: z.number().optional(),
+    processedCount: z.number().optional(),
+    lastError: z
+      .object({ code: z.string(), message: z.string(), atIso: z.string() })
+      .nullable()
+      .optional(),
+    updatedAt: z.string().nullable().optional(),
+  })
+  .optional();
 const withingsStatusDtoSchema = z.object({
   ok: z.literal(true),
   connected: z.boolean(),
@@ -166,6 +182,7 @@ const withingsStatusDtoSchema = z.object({
   connectedAt: z.string().nullable(),
   revoked: z.boolean(),
   failureState: z.record(z.unknown()).nullable(),
+  backfill: withingsBackfillDtoSchema,
 });
 export type WithingsStatusDto = z.infer<typeof withingsStatusDtoSchema>;
 

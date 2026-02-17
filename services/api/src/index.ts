@@ -11,6 +11,7 @@ import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
 import integrationsRoutes, { handleWithingsCallback } from "./routes/integrations";
 import withingsPullRouter from "./routes/withingsPull";
+import withingsBackfillRouter from "./routes/withingsBackfill";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
@@ -146,6 +147,11 @@ app.get("/integrations/withings/complete", (_req: Request, res: Response) => {
  * Withings pull — invoker-only (Cloud Scheduler / IAM). Not under user auth.
  */
 app.use("/integrations/withings/pull", requireInvokerAuth, withingsPullRouter);
+
+/**
+ * Withings backfill — invoker-only. Chunked historical import; job-only, not callable by client.
+ */
+app.use("/integrations/withings/backfill", requireInvokerAuth, withingsBackfillRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.

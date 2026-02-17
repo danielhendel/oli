@@ -26,6 +26,7 @@ function DevicesScreen() {
   const { getIdToken } = useAuth();
   const [connecting, setConnecting] = useState(false);
 
+  const backfill = presence.status === "ready" ? presence.data.backfill : undefined;
   const statusLine =
     presence.status === "error"
       ? "Error loading status"
@@ -121,6 +122,21 @@ function DevicesScreen() {
           </Text>
         </Pressable>
 
+        {backfill?.status === "running" ? (
+          <Text style={styles.backfillLine}>
+            Importing history… {typeof backfill.processedCount === "number" ? `(${backfill.processedCount} events)` : ""}
+          </Text>
+        ) : backfill?.status === "complete" ? (
+          <Text style={styles.backfillLine}>History imported.</Text>
+        ) : backfill?.status === "error" && backfill?.lastError ? (
+          <View style={styles.backfillErrorBlock}>
+            <Text style={styles.backfillErrorText}>{backfill.lastError.message}</Text>
+            <Text style={styles.backfillHint}>Retry is run by the system; you can refetch status.</Text>
+          </View>
+        ) : presence.status === "ready" && presence.data.connected && !presence.data.hasRecentData ? (
+          <Text style={styles.backfillLine}>No weight data from device yet. Import runs automatically.</Text>
+        ) : null}
+
         {DEBUG_WITHINGS_OAUTH ? (
           <Text style={styles.debugHint}>
             Debug on: check Metro logs for WITHINGS_OAUTH_DEBUG.
@@ -149,6 +165,10 @@ const styles = StyleSheet.create({
   },
   connectButtonDisabled: { opacity: 0.7 },
   connectButtonText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
+  backfillLine: { fontSize: 14, color: "#3C3C43" },
+  backfillErrorBlock: { gap: 4 },
+  backfillErrorText: { fontSize: 14, color: "#B00020", fontWeight: "600" },
+  backfillHint: { fontSize: 12, color: "#6B7280" },
   debugHint: { fontSize: 12, color: "#6B7280" },
 });
 

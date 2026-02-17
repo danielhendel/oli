@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
@@ -34,6 +35,8 @@ export default function BodyWeightScreen() {
 
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
+  const withingsPresence = useWithingsPresence();
+  const backfillRunning = withingsPresence.status === "ready" && withingsPresence.data?.backfill?.status === "running";
 
   // Default unit comes from preferences, but we must never override user toggles on this screen.
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
@@ -149,6 +152,11 @@ export default function BodyWeightScreen() {
 
   return (
     <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
+      {backfillRunning ? (
+        <View style={styles.importBanner}>
+          <Text style={styles.importBannerText}>Importing weight history…</Text>
+        </View>
+      ) : null}
       <View style={styles.card}>
         <Text style={styles.label}>Weight</Text>
 
@@ -227,6 +235,14 @@ export default function BodyWeightScreen() {
 }
 
 const styles = StyleSheet.create({
+  importBanner: {
+    backgroundColor: "#E3F2FD",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
+  importBannerText: { fontSize: 14, fontWeight: "600", color: "#1565C0" },
   card: { backgroundColor: "#F2F2F7", borderRadius: 16, padding: 14, gap: 8 },
   label: { fontSize: 13, fontWeight: "700", color: "#111827" },
   row: { flexDirection: "row", alignItems: "center", gap: 10 },

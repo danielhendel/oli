@@ -6,12 +6,25 @@ import { getWithingsStatus, getRawEvents } from "@/lib/api/usersMe";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
+import { WITHINGS_WEIGHT_KIND, WITHINGS_SOURCE_ID } from "./withingsPresenceContract";
+
 const RECENT_DAYS = 7;
+
+export { WITHINGS_WEIGHT_KIND, WITHINGS_SOURCE_ID };
+
+/** Backfill state from GET /integrations/withings/status (Phase 3B.1). */
+export type WithingsBackfillState = {
+  status: "idle" | "running" | "complete" | "error";
+  processedCount?: number;
+  lastError?: { code: string; message: string; atIso: string } | null;
+};
 
 export type WithingsPresence = {
   connected: boolean;
   lastMeasurementAt: string | null;
   hasRecentData: boolean;
+  /** Present when status returns backfill (Phase 3B.1). */
+  backfill?: WithingsBackfillState;
 };
 
 type State =
@@ -70,21 +83,36 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
       }
 
       const connected = statusOutcome.data.connected;
+      const backfill = statusOutcome.data.backfill;
+      const backfillState: WithingsBackfillState | undefined = backfill
+        ? {
+            status: backfill.status as "idle" | "running" | "complete" | "error",
+            ...(backfill.processedCount !== undefined ? { processedCount: backfill.processedCount } : {}),
+            ...(backfill.lastError != null ? { lastError: backfill.lastError } : {}),
+          }
+        : undefined;
       if (!connected) {
         safeSet({
           status: "ready",
-          data: { connected: false, lastMeasurementAt: null, hasRecentData: false },
+          data: {
+            connected: false,
+            lastMeasurementAt: null,
+            hasRecentData: false,
+            ...(backfillState !== undefined ? { backfill: backfillState } : {}),
+          },
         });
         return;
       }
 
+      // Constitutional: Withings weight is stored as kind "weight" with sourceId "withings".
+      // Query weight events and filter to Withings-only so hasRecentData/lastMeasurementAt reflect device data, not manual.
       const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - RECENT_DAYS);
       const rawRes = await getRawEvents(token, {
         start: start.toISOString().slice(0, 10),
         end: end.toISOString().slice(0, 10),
-        kinds: ["withings.body_measurement"],
+        kinds: [WITHINGS_WEIGHT_KIND],
         limit: 50,
         ...optsUnique,
       });
@@ -94,21 +122,29 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
       if (rawOutcome.status !== "ready") {
         safeSet({
           status: "ready",
-          data: { connected: true, lastMeasurementAt: null, hasRecentData: false },
+          data: {
+            connected: true,
+            lastMeasurementAt: null,
+            hasRecentData: false,
+            ...(backfillState !== undefined ? { backfill: backfillState } : {}),
+          },
         });
         return;
       }
 
-      const items = rawOutcome.data.items;
-      const latest = items.length > 0
-        ? items.reduce((a, b) => (a.observedAt > b.observedAt ? a : b)).observedAt
+      const withingsOnly = rawOutcome.data.items.filter(
+        (item) => item.sourceId === WITHINGS_SOURCE_ID,
+      );
+      const latest = withingsOnly.length > 0
+        ? withingsOnly.reduce((a, b) => (a.observedAt > b.observedAt ? a : b)).observedAt
         : null;
       safeSet({
         status: "ready",
         data: {
           connected: true,
           lastMeasurementAt: latest,
-          hasRecentData: items.length > 0,
+          hasRecentData: withingsOnly.length > 0,
+          ...(backfillState !== undefined ? { backfill: backfillState } : {}),
         },
       });
     },

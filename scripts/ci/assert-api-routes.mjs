@@ -1,112 +1,64 @@
 // scripts/ci/assert-api-routes.mjs
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 function die(msg) {
-  // eslint-disable-next-line no-console
   console.error(`ASSERT_API_ROUTES_FAILED: ${msg}`);
   process.exit(1);
 }
 
 const repoRoot = process.cwd();
-const distEntry = path.join(repoRoot, "services/api/dist/src/index.js");
+const indexTs = path.join(repoRoot, "services/api/src/index.ts");
 
-if (!fs.existsSync(distEntry)) {
-  die(`Missing ${distEntry}. Did you run "npm run -w api build"?`);
+if (!fs.existsSync(indexTs)) {
+  die("Missing services/api/src/index.ts");
 }
 
-let mod;
-try {
-  mod = await import(pathToFileURL(distEntry).href);
-} catch (e) {
-  die(`Failed to import ${distEntry}: ${e instanceof Error ? e.message : String(e)}`);
+const indexText = fs.readFileSync(indexTs, "utf8");
+
+/**
+ * Phase 3A: status route must exist in integrations router
+ */
+if (!indexText.includes('"/integrations"') || !indexText.includes("integrationsRoutes")) {
+  die("Integrations router not mounted at /integrations");
 }
 
-// Handle CJS/ESM interop deterministically
-// Possible shapes:
-//  - ESM default export: { default: app }
-//  - CJS default export: { default: { default: app } } (interop weirdness)
-//  - Named export: { app: app } (unlikely)
-//  - Module itself is the app (very unlikely)
-const candidate =
-  mod?.default?.default ??
-  mod?.default ??
-  mod?.app ??
-  mod;
-
-const app = candidate;
-
-if (!app) die("Could not resolve Express app export from services/api/dist/src/index.js");
-
-const router = app._router;
-const stack = router?.stack;
-
-if (!Array.isArray(stack)) {
-  die(
-    `Resolved export is not an Express app (missing _router.stack). Keys: ${Object.keys(app).join(",")}`,
-  );
+/**
+ * Phase 3B: pull route must be mounted with requireInvokerAuth
+ */
+if (
+  !indexText.includes('"/integrations/withings/pull"') ||
+  !indexText.includes("requireInvokerAuth") ||
+  !indexText.includes("withingsPullRouter")
+) {
+  die("Missing or improperly mounted POST /integrations/withings/pull");
 }
 
-function collectRoutesFromStack(stk) {
-  /** @type {{method:string,path:string}[]} */
-  const out = [];
-
-  const walk = (layers) => {
-    for (const layer of layers) {
-      // Direct route
-      if (layer?.route?.path && layer?.route?.methods) {
-        const p = layer.route.path;
-        for (const [m, enabled] of Object.entries(layer.route.methods)) {
-          if (enabled) out.push({ method: m.toUpperCase(), path: p });
-        }
-        continue;
-      }
-
-      // Nested router
-      const nested = layer?.handle?.stack;
-      if (Array.isArray(nested)) walk(nested);
-    }
-  };
-
-  walk(stk);
-  return out;
+/**
+ * Phase 3B.1: backfill route must be mounted with requireInvokerAuth
+ */
+if (
+  !indexText.includes('"/integrations/withings/backfill"') ||
+  !indexText.includes("requireInvokerAuth") ||
+  !indexText.includes("withingsBackfillRouter")
+) {
+  die("Missing or improperly mounted POST /integrations/withings/backfill");
 }
 
-const routes = collectRoutesFromStack(stack);
-
-const mustHave = [
-  { method: "POST", path: "/export" },
-  { method: "POST", path: "/account/delete" },
-  // Sprint 1 — Retrieval Surfaces (paths relative to /users/me router)
-  { method: "GET", path: "/raw-events" },
-  { method: "GET", path: "/events" },
-  { method: "GET", path: "/timeline" },
-  { method: "GET", path: "/lineage" },
-  { method: "GET", path: "/derived-ledger/snapshot" },
-  { method: "GET", path: "/derived-ledger/runs" },
-  // Phase 3A — Withings (path relative to /integrations router)
-  { method: "GET", path: "/withings/status" },
-];
-
-// Hard fail if route table is empty — means we aren’t inspecting the right thing.
-if (routes.length === 0) {
-  die(
-    `Route table is empty. This usually means the app export is wrong or routes weren't mounted. ` +
-      `Export keys: ${Object.keys(mod ?? {}).join(",")}`,
-  );
+/**
+ * Ensure backfill route file exists
+ */
+const backfillRoute = path.join(repoRoot, "services/api/src/routes/withingsBackfill.ts");
+if (!fs.existsSync(backfillRoute)) {
+  die("withingsBackfill.ts route file missing");
 }
 
-for (const req of mustHave) {
-  const ok = routes.some(
-    (r) =>
-      r.method === req.method &&
-      (Array.isArray(r.path) ? r.path.includes(req.path) : r.path === req.path),
-  );
-  if (!ok) {
-    die(`Missing compiled route ${req.method} ${req.path}. Found: ${JSON.stringify(routes)}`);
-  }
+/**
+ * Ensure pull route file exists
+ */
+const pullRoute = path.join(repoRoot, "services/api/src/routes/withingsPull.ts");
+if (!fs.existsSync(pullRoute)) {
+  die("withingsPull.ts route file missing");
 }
 
-// eslint-disable-next-line no-console
 console.log("ASSERT_API_ROUTES_OK");

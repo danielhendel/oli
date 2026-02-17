@@ -1,17 +1,18 @@
 # services/api/Dockerfile
 # Multi-stage build for oli-api from monorepo root.
-# Cloud Build context is repo root (.), per scripts/deploy-api-strategy-b.sh.
+# Cloud Build context MUST be repo root (.), because we rely on the workspace lockfile.
 
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
-# Root manifests (workspace install)
+# Root manifests (workspace install) — REQUIRED for deterministic builds.
 COPY package.json package-lock.json ./
 
 # Workspace manifests that influence dependency graph
 COPY services/api/package.json ./services/api/package.json
 COPY lib/contracts/package.json ./lib/contracts/package.json
 
+# Deterministic install (fail-closed if lockfile is missing or inconsistent)
 RUN npm ci
 
 FROM node:20-bookworm-slim AS build
