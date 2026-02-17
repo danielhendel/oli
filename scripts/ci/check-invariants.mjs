@@ -139,8 +139,11 @@ function checkApiIdempotency() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
   if (!exists(routesDir)) return;
 
-  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts"]);
-  const EXEMPT_FILE_TO_MOUNT_PATH = new Map([["withingsPull.ts", "/integrations/withings/pull"]]);
+  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts", "withingsBackfill.ts"]);
+  const EXEMPT_FILE_TO_MOUNT_PATH = new Map([
+    ["withingsPull.ts", "/integrations/withings/pull"],
+    ["withingsBackfill.ts", "/integrations/withings/backfill"],
+  ]);
   for (const basename of IDEMPOTENCY_POST_EXEMPT_FILES) {
     const mountPath = EXEMPT_FILE_TO_MOUNT_PATH.get(basename);
     if (!mountPath || !mountPath.startsWith("/integrations/") || !mountPath.includes("withings")) {

@@ -151,6 +151,17 @@ router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
       connectedAt?: FirebaseFirestore.Timestamp | Date;
       revoked?: boolean;
       failureState?: Record<string, unknown> | null;
+      backfill?: {
+        status?: string;
+        yearsBack?: number;
+        chunkDays?: number;
+        maxChunksPerRun?: number;
+        cursorStartSec?: number;
+        cursorEndSec?: number;
+        processedCount?: number;
+        lastError?: { code: string; message: string; atIso: string } | null;
+        updatedAt?: FirebaseFirestore.Timestamp | Date;
+      };
     } | undefined;
     if (!data) {
       return res.status(200).json({
@@ -158,6 +169,21 @@ router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
         ...STATUS_DEFAULTS,
       });
     }
+    const backfill = data.backfill;
+    const backfillPayload =
+      backfill && typeof backfill.status === "string"
+        ? {
+            status: backfill.status,
+            yearsBack: backfill.yearsBack,
+            chunkDays: backfill.chunkDays,
+            maxChunksPerRun: backfill.maxChunksPerRun,
+            cursorStartSec: backfill.cursorStartSec,
+            cursorEndSec: backfill.cursorEndSec,
+            processedCount: backfill.processedCount,
+            lastError: backfill.lastError ?? null,
+            updatedAt: toIsoOrNull(backfill.updatedAt),
+          }
+        : undefined;
     return res.status(200).json({
       ok: true as const,
       connected: Boolean(data.connected),
@@ -165,6 +191,7 @@ router.get("/withings/status", async (req: AuthedRequest, res: Response) => {
       connectedAt: toIsoOrNull(data.connectedAt),
       revoked: Boolean(data.revoked),
       failureState: data.failureState ?? null,
+      backfill: backfillPayload ?? undefined,
     });
   } catch (err) {
     const rid = getRequestId(req, res);

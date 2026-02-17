@@ -8,10 +8,19 @@ import type { GetOptions } from "@/lib/api/http";
 
 const RECENT_DAYS = 7;
 
+/** Backfill state from GET /integrations/withings/status (Phase 3B.1). */
+export type WithingsBackfillState = {
+  status: "idle" | "running" | "complete" | "error";
+  processedCount?: number;
+  lastError?: { code: string; message: string; atIso: string } | null;
+};
+
 export type WithingsPresence = {
   connected: boolean;
   lastMeasurementAt: string | null;
   hasRecentData: boolean;
+  /** Present when status returns backfill (Phase 3B.1). */
+  backfill?: WithingsBackfillState;
 };
 
 type State =
@@ -70,10 +79,23 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
       }
 
       const connected = statusOutcome.data.connected;
+      const backfill = statusOutcome.data.backfill;
+      const backfillState: WithingsBackfillState | undefined = backfill
+        ? {
+            status: backfill.status as "idle" | "running" | "complete" | "error",
+            ...(backfill.processedCount !== undefined ? { processedCount: backfill.processedCount } : {}),
+            ...(backfill.lastError != null ? { lastError: backfill.lastError } : {}),
+          }
+        : undefined;
       if (!connected) {
         safeSet({
           status: "ready",
-          data: { connected: false, lastMeasurementAt: null, hasRecentData: false },
+          data: {
+            connected: false,
+            lastMeasurementAt: null,
+            hasRecentData: false,
+            ...(backfillState !== undefined ? { backfill: backfillState } : {}),
+          },
         });
         return;
       }
@@ -94,7 +116,12 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
       if (rawOutcome.status !== "ready") {
         safeSet({
           status: "ready",
-          data: { connected: true, lastMeasurementAt: null, hasRecentData: false },
+          data: {
+            connected: true,
+            lastMeasurementAt: null,
+            hasRecentData: false,
+            ...(backfillState !== undefined ? { backfill: backfillState } : {}),
+          },
         });
         return;
       }
@@ -109,6 +136,7 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
           connected: true,
           lastMeasurementAt: latest,
           hasRecentData: items.length > 0,
+          ...(backfillState !== undefined ? { backfill: backfillState } : {}),
         },
       });
     },
