@@ -2,7 +2,7 @@
   "expo": {
     "name": "Oli",
     "slug": "oli",
-    "scheme": "oli",
+    "scheme": "com.olifitness.oli",
     "ios": {
       "bundleIdentifier": "com.olifitness.oli"
     },
