@@ -1,5 +1,5 @@
 // app/(app)/settings/index.tsx
-import { View, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -55,6 +55,13 @@ export default function SettingsHomeScreen() {
           );
         })}
 
+        <Text style={styles.sectionTitle}>Data integrity</Text>
+        <ModuleSectionLinkRow
+          title="Failures"
+          disabled={false}
+          onPress={() => router.push("/(app)/failures")}
+        />
+
         {!hasAccountInSections ? (
           <ModuleSectionLinkRow
             title="Account"
@@ -92,4 +99,12 @@ export default function SettingsHomeScreen() {
 
 const styles = StyleSheet.create({
   list: { gap: 10 },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8E8E93",
+    marginTop: 16,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
 });

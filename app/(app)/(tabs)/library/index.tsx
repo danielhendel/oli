@@ -2,6 +2,8 @@
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
+import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
@@ -26,6 +28,7 @@ const LIBRARY_CATEGORIES: LibraryCategory[] = [
   { id: "cardio", title: "Cardio", kinds: ["steps", "workout"] },
   { id: "sleep", title: "Sleep", kinds: ["sleep"] },
   { id: "hrv", title: "HRV", kinds: ["hrv"] },
+  { id: "weight", title: "Body Composition", countLabel: "Available" },
   { id: "labs", title: "Labs", countLabel: "Available" },
   { id: "uploads", title: "Uploads", countLabel: "Available" },
   { id: "failures", title: "Failures", countLabel: "Available" },
@@ -53,6 +56,7 @@ export default function LibraryIndexScreen() {
 
   const getCategoryCount = (cat: LibraryCategory): string => {
     if (cat.id === "search") return "Filters";
+    if (cat.id === "weight") return "Available";
     if (cat.id === "failures") {
       if (failures.status === "partial") return "…";
       if (failures.status === "ready")
@@ -70,8 +74,11 @@ export default function LibraryIndexScreen() {
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Library</Text>
-        <Text style={styles.subtitle}>Category list with presence and counts</Text>
+        <PageTitleRow
+          title="Library"
+          subtitle="Category list with presence and counts"
+          rightSlot={<SettingsGearButton />}
+        />
 
         <View style={styles.quickLenses}>
           {QUICK_LENSES.map((l) => (
@@ -95,16 +102,18 @@ export default function LibraryIndexScreen() {
             <Pressable
               key={cat.id}
               style={styles.row}
-              onPress={() =>
-                router.push(
-                  cat.id === "search"
-                    ? "/(app)/(tabs)/library/search"
-                    : {
-                        pathname: "/(app)/(tabs)/library/[category]",
-                        params: { category: cat.id },
-                      }
-                )
-              }
+              onPress={() => {
+                if (cat.id === "search") {
+                  router.push("/(app)/(tabs)/library/search");
+                } else if (cat.id === "weight") {
+                  router.push("/(app)/body/weight");
+                } else {
+                  router.push({
+                    pathname: "/(app)/(tabs)/library/[category]",
+                    params: { category: cat.id },
+                  });
+                }
+              }}
               accessibilityLabel={`${cat.title}, ${getCategoryCount(cat)}`}
             >
               <Text style={styles.rowTitle}>{cat.title}</Text>
@@ -119,8 +128,6 @@ export default function LibraryIndexScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
-  subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   quickLenses: { flexDirection: "row", gap: 8, marginTop: 16, flexWrap: "wrap" },
   lensBtn: {
     paddingVertical: 8,

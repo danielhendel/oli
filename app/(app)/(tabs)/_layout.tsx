@@ -1,5 +1,6 @@
 // app/(app)/(tabs)/_layout.tsx
 import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TabsLayout() {
   return (
@@ -18,6 +19,9 @@ export default function TabsLayout() {
         options={{
           title: "Dash",
           tabBarAccessibilityLabel: "Dash",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size ?? 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -25,6 +29,9 @@ export default function TabsLayout() {
         options={{
           title: "Timeline",
           tabBarAccessibilityLabel: "Timeline",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="time-outline" size={size ?? 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -32,6 +39,9 @@ export default function TabsLayout() {
         options={{
           title: "Manage",
           tabBarAccessibilityLabel: "Manage",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add-circle-outline" size={size ?? 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -39,6 +49,9 @@ export default function TabsLayout() {
         options={{
           title: "Library",
           tabBarAccessibilityLabel: "Library",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" size={size ?? 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -46,6 +59,9 @@ export default function TabsLayout() {
         options={{
           title: "Stats",
           tabBarAccessibilityLabel: "Stats",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart-outline" size={size ?? 24} color={color} />
+          ),
         }}
       />
 

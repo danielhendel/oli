@@ -2,6 +2,8 @@
 import { ScrollView, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
+import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 
 export default function ManageScreen() {
   const router = useRouter();
@@ -9,11 +11,11 @@ export default function ManageScreen() {
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Manage</Text>
-        <Text style={styles.subtitle}>
-          Entry point for logging and management. Destructive actions require
-          auth friction (Sprint 4+).
-        </Text>
+        <PageTitleRow
+          title="Manage"
+          subtitle="Entry point for logging and management. Destructive actions require auth friction (Sprint 4+)."
+          rightSlot={<SettingsGearButton />}
+        />
         <Text
           style={styles.link}
           onPress={() => router.push("/(app)/command-center")}
@@ -33,7 +35,5 @@ export default function ManageScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
-  subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4, lineHeight: 22 },
   link: { marginTop: 24, fontSize: 15, color: "#007AFF", fontWeight: "600" },
 });
