@@ -20,11 +20,18 @@ export function ScreenContainer({ children, edges = ["top"] }: ScreenContainerPr
   );
 }
 
+export type ErrorStateSecondaryAction = {
+  label: string;
+  onPress: () => void;
+};
+
 export type ErrorStateProps = {
   title?: string;
   message: string;
   requestId?: string | null;
   onRetry?: () => void;
+  /** Optional second action (e.g. "Open Settings") */
+  secondaryAction?: ErrorStateSecondaryAction;
   /** Set when kind:"contract" for user-friendly data validation message */
   isContractError?: boolean;
 };
@@ -34,6 +41,7 @@ export function ErrorState({
   message,
   requestId,
   onRetry,
+  secondaryAction,
   isContractError = false,
 }: ErrorStateProps) {
   const displayTitle = isContractError ? "Data validation failed" : title;
@@ -56,6 +64,16 @@ export function ErrorState({
           accessibilityRole="button"
         >
           <Text style={styles.retryBtnText}>Try again</Text>
+        </Pressable>
+      ) : null}
+      {secondaryAction ? (
+        <Pressable
+          onPress={secondaryAction.onPress}
+          style={styles.retryBtn}
+          accessibilityLabel={secondaryAction.label}
+          accessibilityRole="button"
+        >
+          <Text style={styles.retryBtnText}>{secondaryAction.label}</Text>
         </Pressable>
       ) : null}
     </View>

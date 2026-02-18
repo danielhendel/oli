@@ -20,6 +20,10 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
+}));
+
 jest.mock("@/lib/data/useTimeline", () => ({
   useTimeline: () => ({
     status: "error",
@@ -55,6 +59,13 @@ describe("TimelineIndexScreen fail-closed", () => {
     const text = collectAllText(test);
     expect(text).toContain("Data validation failed");
     expect(text).toContain("Try again");
+    expect(text).toContain("Open Settings");
     expect(text).not.toContain("2025-01-01");
+
+    const pressables = test.root.findAllByType("Pressable");
+    const openSettings = pressables.find(
+      (p) => (p.props as { accessibilityLabel?: string }).accessibilityLabel === "Open Settings"
+    );
+    expect(openSettings).toBeDefined();
   });
 });

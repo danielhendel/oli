@@ -68,6 +68,16 @@ function snippet(text: string, max = 300): string {
   return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
 }
 
+/** Human-friendly message for 401/403 when body is HTML (e.g. Cloud Run / gateway error page). */
+function authErrorFriendlyMessage(status: number, bodyText: string): string {
+  if (status !== 401 && status !== 403) return "";
+  const looksLikeHtml =
+    /^\s*</.test(bodyText) ||
+    bodyText.toLowerCase().includes("<!doctype") ||
+    bodyText.toLowerCase().includes("<html");
+  return looksLikeHtml ? "Not authorized — please sign in again" : "";
+}
+
 async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
   const controller = new AbortController();
   const t = timeoutMs ?? 15000;
@@ -99,12 +109,16 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
         parsedJson = parsedUnknown !== null && isJsonValue(parsedUnknown) ? parsedUnknown : undefined;
       } catch {
         if (!res.ok) {
+          const friendly = authErrorFriendlyMessage(status, text);
           const bodySnippet = snippet(text);
+          const error =
+            friendly ||
+            (bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`);
           return {
             ok: false,
             status,
             kind: "http",
-            error: bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`,
+            error,
             requestId: rid,
           };
         }
@@ -119,13 +133,14 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
     }
 
     if (!res.ok) {
-      // Prefer structured JSON error if present, otherwise fall back to HTTP status only.
-      // (If body was non-JSON, we already returned above with a snippet.)
+      // 401/403 with HTML body: show friendly auth message (e.g. gateway/Cloud Run error page).
+      const friendly = authErrorFriendlyMessage(status, text);
+      const error = friendly || `HTTP ${status}`;
       return {
         ok: false,
         status,
         kind: "http",
-        error: `HTTP ${status}`,
+        error,
         requestId: rid,
         ...(parsedJson !== undefined ? { json: parsedJson } : {}),
       };

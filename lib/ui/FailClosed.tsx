@@ -4,6 +4,7 @@
  */
 import React from "react";
 import type { FailureKind } from "@/lib/api/http";
+import type { ErrorStateSecondaryAction } from "./ScreenStates";
 import { ErrorState, LoadingState, EmptyState } from "./ScreenStates";
 
 /** Phase 1 Lock #3: Canonical readiness vocabulary. */
@@ -16,6 +17,8 @@ export type FailClosedOutcome<T> =
 export type FailClosedProps<T> = {
   outcome: FailClosedOutcome<T>;
   onRetry?: () => void;
+  /** Optional second action on error (e.g. Open Settings) */
+  secondaryAction?: ErrorStateSecondaryAction;
   loadingMessage?: string;
   missingMessage?: string;
   children: (data: T) => React.ReactNode;
@@ -24,6 +27,7 @@ export type FailClosedProps<T> = {
 export function FailClosed<T>({
   outcome,
   onRetry,
+  secondaryAction,
   loadingMessage = "Loading…",
   missingMessage = "No data",
   children,
@@ -38,6 +42,7 @@ export function FailClosed<T>({
         message={outcome.error}
         requestId={outcome.requestId}
         {...(onRetry ? { onRetry } : {})}
+        {...(secondaryAction ? { secondaryAction } : {})}
         isContractError={outcome.reason === "contract"}
       />
     );

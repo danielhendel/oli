@@ -5,6 +5,8 @@ import { ScreenContainer, EmptyState } from "@/lib/ui/ScreenStates";
 import { FailClosed } from "@/lib/ui/FailClosed";
 import { OfflineBanner } from "@/lib/ui/OfflineBanner";
 import { TruthIndicator } from "@/lib/ui/TruthIndicators";
+import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo, useState, useCallback } from "react";
 import {
@@ -74,23 +76,30 @@ export default function TimelineIndexScreen() {
 
   return (
     <ScreenContainer>
-      <FailClosed
-        outcome={outcome}
-        onRetry={() => timeline.refetch()}
-        loadingMessage="Loading timeline…"
-      >
-        {(data) => {
-          const days = data.days;
-          return (
-            <View style={styles.main}>
-              <OfflineBanner isOffline={fromCache} />
-              <View style={styles.scroll}>
-                <Text style={styles.title}>Timeline</Text>
-                <Text style={styles.subtitle}>
-                  Day list with presence and light counts
-                </Text>
-
-                <View style={styles.navRow}>
+      <View style={styles.main}>
+        <View style={styles.header}>
+          <PageTitleRow
+            title="Timeline"
+            subtitle="Day list with presence and light counts"
+            rightSlot={<SettingsGearButton />}
+          />
+        </View>
+        <FailClosed
+          outcome={outcome}
+          onRetry={() => timeline.refetch()}
+          secondaryAction={{
+            label: "Open Settings",
+            onPress: () => router.push("/(app)/settings"),
+          }}
+          loadingMessage="Loading timeline…"
+        >
+          {(data) => {
+            const days = data.days;
+            return (
+              <>
+                <OfflineBanner isOffline={fromCache} />
+                <View style={styles.scroll}>
+                  <View style={styles.navRow}>
                   <View style={styles.viewModeRow}>
                     {VIEW_MODES.map((m) => (
                       <Pressable
@@ -236,23 +245,23 @@ export default function TimelineIndexScreen() {
                 </Pressable>
               </Pressable>
             </Modal>
-            </View>
-            </View>
-          );
-        }}
-      </FailClosed>
+                </View>
+              </>
+            );
+          }}
+        </FailClosed>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   main: { flex: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   scroll: { flex: 1, padding: 16, paddingBottom: 40 },
   listHeader: { height: 16 },
   listFooter: { height: 40 },
   listGap: { height: 6 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
-  subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
