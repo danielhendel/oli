@@ -56,8 +56,9 @@ securityDefinitions:
       - header: "X-Forwarded-Authorization"
         value_prefix: "Bearer "
 
-# No auth by default; each operation declares security: [] (public) or security: [ firebase: [] ]
-security: []
+# Require Firebase by default (fail-closed)
+security:
+  - firebase: []
 
 paths:
   /health:
