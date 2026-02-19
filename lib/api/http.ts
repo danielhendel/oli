@@ -189,6 +189,7 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
 
 export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
   if (!baseRaw) {
     return {
       ok: false,
@@ -218,6 +219,7 @@ export async function apiPostJsonAuthed<T>(
   opts?: PostOptions,
 ): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
   if (!baseRaw) {
     return {
       ok: false,
@@ -250,6 +252,7 @@ export async function apiPutJsonAuthed<T>(
   opts?: PutOptions,
 ): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
   if (!baseRaw) {
     return {
       ok: false,

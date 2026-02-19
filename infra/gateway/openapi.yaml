@@ -36,8 +36,6 @@ securityDefinitions:
     authorizationUrl: ""
     flow: implicit
     type: oauth2
-    scopes:
-      openid: "OpenID"
     x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "oli-staging-fdbba"
@@ -48,9 +46,8 @@ securityDefinitions:
         value_prefix: "Bearer "
 
 
-# Default: require Firebase for all operations unless explicitly opened with security: []
-security:
-  - firebase: []
+# No auth by default; each operation declares security: [] (public) or security: [ firebase: [] ]
+security: []
 
 paths:
   /health:
@@ -106,7 +103,7 @@ paths:
           description: No Content
     get:
       operationId: _healthzGet
-      security: []   # PUBLIC (bypasses top-level firebase requirement)
+      security: []   # PUBLIC
       produces:
         - application/json
       responses:
