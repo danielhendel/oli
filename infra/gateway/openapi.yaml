@@ -36,6 +36,14 @@ securityDefinitions:
     authorizationUrl: ""
     flow: implicit
     type: oauth2
+
+    # ESPv2 compatibility:
+    # Define at least one scope so that route-level `security: []` (public)
+    # is honored correctly. Protected operations use `firebase: []` which requires
+    # a valid Firebase JWT but does NOT require any specific OAuth scope.
+    scopes:
+      openid: "ESPv2 compatibility"
+
     x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "oli-staging-fdbba"
@@ -44,7 +52,6 @@ securityDefinitions:
         value_prefix: "Bearer "
       - header: "X-Forwarded-Authorization"
         value_prefix: "Bearer "
-
 
 # No auth by default; each operation declares security: [] (public) or security: [ firebase: [] ]
 security: []
