@@ -23,6 +23,9 @@ x-google-endpoints:
 x-google-backend:
   address: https://oli-api-1010034434203.us-central1.run.app
   path_translation: APPEND_PATH_TO_ADDRESS
+  # Required when Cloud Run requires IAM auth (invoker).
+  # ESPv2 will mint a Google ID token for this audience when calling the backend.
+  jwt_audience: https://oli-api-1010034434203.us-central1.run.app
 
 securityDefinitions:
   # Satisfies API Gateway "API-consuming project" requirements.
