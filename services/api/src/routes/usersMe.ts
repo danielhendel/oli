@@ -560,7 +560,7 @@ router.get(
 
     if (useServerProvenance) {
       const vals = provenance!.length === 1 ? [provenance[0]] : provenance!.slice(0, 30);
-      q = q.where("provenance", vals.length === 1 ? "==" : "in", vals.length === 1 ? vals[0] : vals) as ReturnType<typeof q.where>;
+      q = q.where("sourceId", vals.length === 1 ? "==" : "in", vals.length === 1 ? vals[0] : vals) as ReturnType<typeof q.where>;
     }
     if (useServerUncertainty) {
       const vals = uncertaintyState!.length === 1 ? [uncertaintyState[0]] : uncertaintyState!.slice(0, 30);
@@ -607,7 +607,7 @@ router.get(
     if (provenance && provenance.length > 0 && !useServerProvenance) {
       const set = new Set(provenance);
       docs = docs.filter((d) => {
-        const p = (d.data() as Record<string, unknown>).provenance;
+        const p = (d.data() as Record<string, unknown>).sourceId;
         return typeof p === "string" && set.has(p);
       });
     }
