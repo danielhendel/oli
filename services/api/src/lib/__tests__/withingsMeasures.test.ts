@@ -2,7 +2,11 @@
  * Phase 3B — withingsMeasures: deterministic idempotency, parser correctness.
  */
 
-import { fetchWithingsMeasures, WithingsMeasureError } from "../withingsMeasures";
+import {
+  __resetWithingsTokenCacheForTests,
+  fetchWithingsMeasures,
+  WithingsMeasureError,
+} from "../withingsMeasures";
 
 const mockGetRefreshToken = jest.fn();
 const mockGetClientSecret = jest.fn();
@@ -33,6 +37,8 @@ describe("withingsMeasures", () => {
   const endMs = 1000000000000 + 7200000;
 
   beforeEach(() => {
+    __resetWithingsTokenCacheForTests();
+    jest.clearAllMocks();
     jest.resetAllMocks();
     mockGetRefreshToken.mockResolvedValue("fake_refresh");
     mockGetClientSecret.mockResolvedValue("fake_secret");
@@ -119,6 +125,7 @@ describe("withingsMeasures", () => {
         .mockResolvedValueOnce(measureRes);
 
       const s1 = await fetchWithingsMeasures(uid, startMs, endMs);
+      __resetWithingsTokenCacheForTests();
       const s2 = await fetchWithingsMeasures(uid, startMs, endMs);
       expect(s1[0].idempotencyKey).toBe(s2[0].idempotencyKey);
       expect(s1[0].idempotencyKey).toBe("withings:weight:user_abc:999");
@@ -194,6 +201,7 @@ describe("withingsMeasures", () => {
     it("throws WithingsMeasureError when refresh token missing", async () => {
       mockGetRefreshToken.mockResolvedValue(null);
       await expect(fetchWithingsMeasures(uid, startMs, endMs)).rejects.toThrow(WithingsMeasureError);
+      __resetWithingsTokenCacheForTests();
       await expect(fetchWithingsMeasures(uid, startMs, endMs)).rejects.toMatchObject({
         code: "WITHINGS_REFRESH_TOKEN_MISSING",
       });
