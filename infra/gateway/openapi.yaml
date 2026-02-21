@@ -28,49 +28,28 @@ x-google-backend:
   jwt_audience: https://oli-api-1010034434203.us-central1.run.app
 
 securityDefinitions:
-  # Satisfies API Gateway "API-consuming project" requirements.
-  # This does NOT change auth behavior unless referenced in "security".
   api_key:
     type: apiKey
     name: key
     in: query
 
-  firebase:
-    authorizationUrl: ""
-    flow: implicit
-    type: oauth2
-
-    # ESPv2 compatibility:
-    # Define at least one scope so that route-level `security: []` (public)
-    # is honored correctly. Protected operations use `firebase: []` which requires
-    # a valid Firebase JWT but does NOT require any specific OAuth scope.
-    scopes:
-      openid: "ESPv2 compatibility"
-
-    x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
-    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
-    x-google-audiences: "oli-staging-fdbba"
-    x-google-jwt-locations:
-      - header: "Authorization"
-        value_prefix: "Bearer "
-      - header: "X-Forwarded-Authorization"
-        value_prefix: "Bearer "
-
-# Require Firebase by default (fail-closed)
+# Require API key at gateway; backend enforces Firebase via Authorization header
 security:
-  - firebase: []
+  - api_key: []
 
 paths:
   /health:
     options:
       operationId: healthOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: healthGet
-      security: []
+      security:
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -87,13 +66,15 @@ paths:
   /healthz:
     options:
       operationId: healthzOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: healthzGet
-      security: []
+      security:
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -108,13 +89,15 @@ paths:
   /_healthz:
     options:
       operationId: _healthzOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: _healthzGet
-      security: []   # PUBLIC
+      security:
+        - api_key: []   # PUBLIC
       produces:
         - application/json
       responses:
@@ -126,13 +109,15 @@ paths:
   /ready:
     options:
       operationId: readyOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: readyGet
-      security: []
+      security:
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -144,13 +129,15 @@ paths:
   /live:
     options:
       operationId: liveOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: liveGet
-      security: []
+      security:
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -163,16 +150,15 @@ paths:
   /health/auth:
     options:
       operationId: healthAuthOptions
-      # Browsers preflight should be unauthenticated
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: healthAuthGet
-      # Inherits top-level firebase requirement, but keeping explicit is fine too:
       security:
-        - firebase: []
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -184,14 +170,15 @@ paths:
   /ingest:
     options:
       operationId: ingestOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     post:
       operationId: ingestPost
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -199,14 +186,15 @@ paths:
   /export:
     options:
       operationId: exportOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     post:
       operationId: exportPost
       security:
-        - firebase: []
+        - api_key: []
       responses:
         202:
           description: Accepted
@@ -214,14 +202,15 @@ paths:
   /account/delete:
     options:
       operationId: accountDeleteOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     post:
       operationId: accountDeletePost
       security:
-        - firebase: []
+        - api_key: []
       responses:
         202:
           description: Accepted
@@ -229,14 +218,57 @@ paths:
   /users/me/raw-events:
     options:
       operationId: rawEventsListOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: rawEventsListGet
       security:
-        - firebase: []
+        - api_key: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/raw-events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: rawEventGetOptions
+      security:
+        - api_key: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: rawEventGet
+      security:
+        - api_key: []
+      responses:
+        200:
+          description: OK
+
+  /users/me/rawEvents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: rawEventGetCamelOptions
+      security:
+        - api_key: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: rawEventGetCamel
+      security:
+        - api_key: []
       responses:
         200:
           description: OK
@@ -244,14 +276,15 @@ paths:
   /users/me/events:
     options:
       operationId: eventsListOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: eventsListGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -259,14 +292,15 @@ paths:
   /users/me/timeline:
     options:
       operationId: timelineOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: timelineGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -274,14 +308,15 @@ paths:
   /users/me/lineage:
     options:
       operationId: lineageOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: lineageGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -289,14 +324,15 @@ paths:
   /users/me/derived-ledger/snapshot:
     options:
       operationId: derivedLedgerSnapshotOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: derivedLedgerSnapshotGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -304,14 +340,15 @@ paths:
   /users/me/day-truth:
     options:
       operationId: dayTruthOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: dayTruthGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -319,14 +356,15 @@ paths:
   /users/me/daily-facts:
     options:
       operationId: dailyFactsOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: dailyFactsGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -334,14 +372,15 @@ paths:
   /users/me/insights:
     options:
       operationId: insightsOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: insightsGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -349,14 +388,15 @@ paths:
   /users/me/intelligence-context:
     options:
       operationId: intelligenceContextOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: intelligenceContextGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -364,14 +404,15 @@ paths:
   /users/me/derived-ledger/runs:
     options:
       operationId: derivedLedgerRunsOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: derivedLedgerRunsGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -379,14 +420,15 @@ paths:
   /users/me/derived-ledger/replay:
     options:
       operationId: derivedLedgerReplayOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: derivedLedgerReplayGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -394,21 +436,22 @@ paths:
   /preferences:
     options:
       operationId: preferencesOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: preferencesGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
     put:
       operationId: preferencesPut
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: OK
@@ -416,14 +459,15 @@ paths:
   /integrations/withings/connect:
     options:
       operationId: withingsConnectOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: withingsConnectGet
       security:
-        - firebase: []
+        - api_key: []
       responses:
         200:
           description: Authorization URL returned
@@ -436,14 +480,15 @@ paths:
   /integrations/withings/status:
     options:
       operationId: withingsStatusOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: withingsStatusGet
       security:
-        - firebase: []
+        - api_key: []
       produces:
         - application/json
       responses:
@@ -460,13 +505,15 @@ paths:
   /integrations/withings/callback:
     options:
       operationId: withingsCallbackOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: withingsCallbackGet
-      security: []
+      security:
+        - api_key: []
       responses:
         200:
           description: OK
@@ -481,13 +528,15 @@ paths:
   /integrations/withings/complete:
     options:
       operationId: withingsCompleteOptions
-      security: []
+      security:
+        - api_key: []
       responses:
         204:
           description: No Content
     get:
       operationId: withingsCompleteGet
-      security: []
+      security:
+        - api_key: []
       produces:
         - text/html
       responses:

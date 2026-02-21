@@ -100,6 +100,42 @@ describe("GET /users/me/rawEvents/:id", () => {
     });
   });
 
+  test("returns 200 via kebab path GET /users/me/raw-events/:id", async () => {
+    const rawEventId = "idem_key_1";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "upload",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "file",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        storageBucket: "bucket_1",
+        storagePath: "uploads/user_123/sha256/test.pdf",
+        sha256: "abc",
+        mimeType: "application/pdf",
+        originalFilename: "test.pdf",
+        sizeBytes: 123,
+      },
+    };
+    (userCollection as jest.Mock).mockReturnValue({
+      doc: () => ({
+        get: async () =>
+          ({
+            exists: true,
+            data: () => rawEvent,
+          }) satisfies DocSnap,
+      }),
+    } satisfies CollectionRef);
+    const res = await fetch(`${baseUrl}/users/me/raw-events/${rawEventId}`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ id: rawEventId, kind: "file" });
+  });
+
   test("returns 404 when rawEvent does not exist", async () => {
     const rawEventId = "missing_1";
 

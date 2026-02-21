@@ -82,13 +82,26 @@ jest.mock("../../../services/api/src/db", () => ({
   userCollection: (...args: unknown[]) => mockUserCollection(...args),
 }));
 
+const nativeFetch = globalThis.fetch;
+
 describe("Phase 2 proof: timeline ordering stable with fuzzy time", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.fetch = jest.fn((url: string | URL | Request, init?: RequestInit) => {
+      const u = typeof url === "string" ? new URL(url) : url instanceof Request ? new URL(url.url) : url;
+      if (u.hostname === "127.0.0.1" && u.pathname === "/users/me/events") {
+        const start = u.searchParams.get("start");
+        const end = u.searchParams.get("end");
+        const limit = u.searchParams.get("limit");
+        if (start && end && limit) return nativeFetch(url, init);
+      }
+      throw new Error(`Unexpected fetch URL: ${u.toString()}`);
+    }) as typeof fetch;
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    globalThis.fetch = nativeFetch;
   });
 
   it("events endpoint returns deterministic order (start desc, documentId desc)", async () => {
@@ -101,6 +114,10 @@ describe("Phase 2 proof: timeline ordering stable with fuzzy time", () => {
     app.use("/users/me", usersMeRoutes);
 
     const server = app.listen(0);
+    await new Promise<void>((resolve, reject) => {
+      server.on("listening", () => resolve());
+      server.on("error", reject);
+    });
     const addr = server.address();
     if (!addr || typeof addr === "string") {
       server.close();

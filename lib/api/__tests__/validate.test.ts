@@ -2,18 +2,18 @@
  * Sprint 2 — Client Trust Layer tests.
  * Proves: valid payload → ready; invalid payload → error (fail-closed) with kind:"contract"
  */
+import { __setApiBaseUrlForTests } from "../http";
 import { apiGetZodAuthed, apiPostZodAuthed } from "../validate";
 import { dailyFactsDtoSchema, logWeightResponseDtoSchema } from "@oli/contracts";
 
 const originalFetch = global.fetch;
-const originalEnv = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 
 beforeEach(() => {
-  process.env.EXPO_PUBLIC_BACKEND_BASE_URL = "https://api.test.example";
+  __setApiBaseUrlForTests("https://api.test.example");
 });
 
 afterEach(() => {
-  process.env.EXPO_PUBLIC_BACKEND_BASE_URL = originalEnv;
+  __setApiBaseUrlForTests(null);
   global.fetch = originalFetch;
 });
 

@@ -124,6 +124,24 @@ describe("GET /users/me/raw-events", () => {
     expect(json.error?.code).toBe("INVALID_QUERY");
   });
 
+  test("query with benign cache-bust param _ returns 200", async () => {
+    const docs: DocSnap[] = [];
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockReturnValue({
+      orderBy: q.orderBy,
+      where: q.where,
+      limit: q.limit,
+      startAfter: q.startAfter,
+      get: q.get,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+    const res = await fetch(`${baseUrl}/users/me/raw-events?kinds=weight&limit=50&_=123`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveProperty("items");
+    expect(Array.isArray(json.items)).toBe(true);
+  });
+
   test("alias kind and sourceId filter results (only matching items returned)", async () => {
     const docs: DocSnap[] = [
       {

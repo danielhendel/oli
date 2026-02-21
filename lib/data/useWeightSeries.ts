@@ -63,15 +63,12 @@ export type WeightSeriesViewModel = {
   };
 };
 
-function computeRolling7(
-  points: WeightPoint[],
-): { dayKey: string; valueKg: number }[] {
+function computeRolling7(points: WeightPoint[]) {
   if (points.length === 0) return [];
   const byDay = new Map<string, number[]>();
   for (const p of points) {
-    const d = p.dayKey;
-    if (!byDay.has(d)) byDay.set(d, []);
-    byDay.get(d)!.push(p.weightKg);
+    if (!byDay.has(p.dayKey)) byDay.set(p.dayKey, []);
+    byDay.get(p.dayKey)!.push(p.weightKg);
   }
   const dayKeys = Array.from(byDay.keys()).sort();
   const result: { dayKey: string; valueKg: number }[] = [];
@@ -167,13 +164,11 @@ function computeInsights(
   };
 }
 
-function buildViewModel(
-  points: WeightPoint[],
-  timeZone: string,
-): WeightSeriesViewModel {
+function buildViewModel(points: WeightPoint[], timeZone: string): WeightSeriesViewModel {
   const sorted = [...points].sort(
     (a, b) => new Date(a.observedAt).getTime() - new Date(b.observedAt).getTime(),
   );
+
   const latest =
     sorted.length > 0
       ? {
@@ -184,6 +179,7 @@ function buildViewModel(
       : null;
 
   const dayKeys = [...new Set(sorted.map((p) => p.dayKey))].sort();
+
   let avg7Kg: number | null = null;
   if (dayKeys.length > 0) {
     const last7 = dayKeys.slice(-7);
@@ -205,43 +201,27 @@ function buildViewModel(
     }
   }
 
-  const rolling7 = computeRolling7(sorted);
-  const insights = computeInsights(sorted, latest, timeZone);
-
   return {
     points: sorted,
     latest,
     avg7Kg,
     weeklyDeltaKg,
-    rolling7,
-    insights,
+    rolling7: computeRolling7(sorted),
+    insights: computeInsights(sorted, latest, timeZone),
   };
 }
 
-function rangeToStartEnd(
-  range: WeightRangeKey,
-): { start: string; end: string } {
+function rangeToStartEnd(range: WeightRangeKey) {
   const today = getTodayDayKey();
   const end = today;
   let start: string;
   switch (range) {
-    case "7D":
-      start = addDays(today, -7);
-      break;
-    case "30D":
-      start = addDays(today, -30);
-      break;
-    case "90D":
-      start = addDays(today, -90);
-      break;
-    case "1Y":
-      start = addDays(today, -365);
-      break;
-    case "All":
-      start = addDays(today, -400);
-      break;
-    default:
-      start = addDays(today, -30);
+    case "7D": start = addDays(today, -7); break;
+    case "30D": start = addDays(today, -30); break;
+    case "90D": start = addDays(today, -90); break;
+    case "1Y": start = addDays(today, -365); break;
+    case "All": start = addDays(today, -400); break;
+    default: start = addDays(today, -30);
   }
   return { start, end };
 }
@@ -251,19 +231,20 @@ type State =
   | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "ready"; data: WeightSeriesViewModel };
 
-function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOptions | undefined {
+function withUniqueCacheBust(opts: GetOptions | undefined, seq: number) {
   const cb = opts?.cacheBust;
   if (!cb) return opts;
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
-export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts?: GetOptions) => void } {
+export function useWeightSeries(range: WeightRangeKey) {
   const { user, initializing, getIdToken } = useAuth();
   const rangeRef = useRef(range);
   rangeRef.current = range;
   const reqSeq = useRef(0);
   const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef(state);
+
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -276,29 +257,36 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
       };
 
       if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
+        if (stateRef.current.status !== "ready")
+          safeSet({ status: "partial" });
         return;
       }
 
       const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
+
       if (!token) {
-        if (stateRef.current.status === "ready") return;
-        safeSet({ status: "error", error: "No auth token", requestId: null, reason: "unknown" });
+        safeSet({
+          status: "error",
+          error: "No auth token",
+          requestId: null,
+          reason: "unknown",
+        });
         return;
       }
 
       safeSet({ status: "partial" });
+
       const { start, end } = rangeToStartEnd(rangeRef.current);
       const optsUnique = withUniqueCacheBust(opts, seq);
 
+      // 🔒 Strict backend: only allowed query params (kinds, limit). Pass cacheBust only for header.
       const listRes = await getRawEvents(token, {
-        start,
-        end,
         kinds: ["weight"],
         limit: MAX_WEIGHT_ITEMS_FETCH,
-        ...optsUnique,
+        ...(optsUnique?.cacheBust != null ? { cacheBust: optsUnique.cacheBust } : {}),
       });
+
       if (seq !== reqSeq.current) return;
 
       const listOutcome = truthOutcomeFromApiResult(listRes);
@@ -328,7 +316,9 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
         const results = await Promise.all(
           batch.map((item) => getRawEvent(item.id, token, optsUnique)),
         );
+
         if (seq !== reqSeq.current) return;
+
         for (let j = 0; j < results.length; j++) {
           const res = results[j]!;
           const raw = items[i + j]!;
@@ -341,13 +331,20 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
             });
             return;
           }
+
           const doc = res.json;
           if (doc.kind !== "weight") continue;
-          const payload = doc.payload as { weightKg?: number; time?: string };
-          const weightKg = typeof payload?.weightKg === "number" && payload.weightKg > 0 ? payload.weightKg : null;
+
+          const payload = doc.payload as { weightKg?: number };
+          const weightKg =
+            typeof payload?.weightKg === "number" && payload.weightKg > 0
+              ? payload.weightKg
+              : null;
           if (weightKg == null) continue;
+
           const observedAt = raw.observedAt;
           const dayKey = ymdInTimeZoneFromIso(observedAt, tz);
+
           points.push({
             observedAt,
             dayKey,
@@ -357,8 +354,15 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
         }
       }
 
-      const viewModel = buildViewModel(points, tz);
-      safeSet({ status: "ready", data: viewModel });
+      // ✅ Filter locally by requested range
+      const filtered = points.filter(
+        (p) => p.dayKey >= start && p.dayKey <= end,
+      );
+
+      safeSet({
+        status: "ready",
+        data: buildViewModel(filtered, tz),
+      });
     },
     [getIdToken, initializing, user, range],
   );
