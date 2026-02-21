@@ -216,6 +216,10 @@ export const rawEventsListQuerySchema = z
     q: z.string().optional(), // keyword: filters payload.note for incomplete; id substring
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
+    /** Benign cache-bust param from clients; accepted and ignored (not passed downstream). */
+    _: z.string().optional(),
+    /** API Gateway forwards API key as ?key=...; accepted only so gateway requests pass validation; ignored (not passed downstream). */
+    key: z.string().min(1).optional(),
   })
   .strict()
   .transform((data) => {
@@ -236,6 +240,7 @@ export const rawEventsListQuerySchema = z
       q: data.q,
       cursor: data.cursor,
       limit: data.limit,
+      // "_" is not included; accepted only to avoid 400 from client cache-bust
     };
   });
 
