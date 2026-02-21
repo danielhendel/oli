@@ -2,7 +2,15 @@
   "expo": {
     "name": "Oli",
     "slug": "oli",
+    "owner": "olifitness",
+    "version": "1.0.0",
     "scheme": "com.olifitness.oli",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c7719da7-49dd-439f-bc64-826ce5f789d2"
+    },
     "ios": {
       "bundleIdentifier": "com.olifitness.oli"
     },
@@ -11,6 +19,11 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c7719da7-49dd-439f-bc64-826ce5f789d2"
+      }
+    }
   }
 }
