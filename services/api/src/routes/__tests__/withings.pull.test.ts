@@ -36,8 +36,6 @@ jest.mock("../../lib/writeFailure", () => ({
 const withingsMeasures = require("../../lib/withingsMeasures");
 const writeFailure = require("../../lib/writeFailure");
 
-const nativeFetch = globalThis.fetch;
-
 describe("POST /integrations/withings/pull", () => {
   let app: express.Express;
 
@@ -47,6 +45,8 @@ describe("POST /integrations/withings/pull", () => {
     app.use("/integrations/withings/pull", requireInvokerAuth, withingsPullRouter);
   });
 
+  const registryDoc = (id: string) => ({ id, data: () => ({ connected: true }) });
+
   beforeEach(() => {
     jest.resetAllMocks();
     process.env.WITHINGS_PULL_INVOKER_EMAILS = "";
@@ -55,30 +55,7 @@ describe("POST /integrations/withings/pull", () => {
       doc: jest.fn(() => mockDocRef),
     });
     mockDocRef.get.mockResolvedValue({ exists: false });
-    globalThis.fetch = jest.fn((url: string | URL | Request) => {
-      const u = typeof url === "string" ? new URL(url) : url instanceof Request ? new URL(url.url) : url;
-      const pathname = u.pathname;
-      if (pathname === "/v2/oauth2" || pathname.endsWith("/v2/oauth2")) {
-        return Promise.resolve({
-          status: 200,
-          json: async () => ({ status: 0, body: { access_token: "at", expires_in: 3600 } }),
-        } as Response);
-      }
-      if (pathname === "/measure" || pathname.endsWith("/measure")) {
-        return Promise.resolve({
-          status: 200,
-          json: async () => ({ status: 0, body: { measuregrps: [] } }),
-        } as Response);
-      }
-      throw new Error(`Unexpected fetch URL: ${u.toString()}`);
-    }) as typeof fetch;
   });
-
-  afterEach(() => {
-    globalThis.fetch = nativeFetch;
-  });
-
-  const registryDoc = (id: string) => ({ id, data: () => ({ connected: true }) });
 
   describe("invoker auth enforced", () => {
     it("returns 403 when X-Goog-Authenticated-User-Email is missing", async () => {

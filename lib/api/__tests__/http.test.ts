@@ -1,16 +1,17 @@
 /**
  * Unit tests for http layer: 403/401 with HTML body returns human-friendly message.
  */
-import { apiGetJsonAuthed, __setApiBaseUrlForTests } from "../http";
+import { apiGetJsonAuthed } from "../http";
 
 const originalFetch = global.fetch;
+const originalEnv = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 
 beforeEach(() => {
-  __setApiBaseUrlForTests("https://api.test.example");
+  process.env.EXPO_PUBLIC_BACKEND_BASE_URL = "https://api.test.example";
 });
 
 afterEach(() => {
-  __setApiBaseUrlForTests(null);
+  process.env.EXPO_PUBLIC_BACKEND_BASE_URL = originalEnv;
   global.fetch = originalFetch;
 });
 

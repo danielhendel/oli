@@ -232,26 +232,15 @@ export const getRawEvents = async (
     limit?: number;
   } & TruthGetOptions,
 ): Promise<ApiResult<RawEventsListResponseDto>> => {
-  // Fail-closed: only these query keys are allowed by backend rawEventsListQuerySchema (.strict()).
-  const {
-    start,
-    end,
-    kinds,
-    provenance,
-    uncertaintyState,
-    q,
-    cursor,
-    limit,
-  } = opts ?? {};
   const params = new URLSearchParams();
-  if (start) params.set("start", start);
-  if (end) params.set("end", end);
-  if (kinds?.length) params.set("kinds", kinds.join(","));
-  if (provenance?.length) params.set("provenance", provenance.join(","));
-  if (uncertaintyState?.length) params.set("uncertaintyState", uncertaintyState.join(","));
-  if (q) params.set("q", q);
-  if (cursor) params.set("cursor", cursor);
-  if (typeof limit === "number") params.set("limit", String(limit));
+  if (opts?.start) params.set("start", opts.start);
+  if (opts?.end) params.set("end", opts.end);
+  if (opts?.kinds?.length) params.set("kinds", opts.kinds.join(","));
+  if (opts?.provenance?.length) params.set("provenance", opts.provenance.join(","));
+  if (opts?.uncertaintyState?.length) params.set("uncertaintyState", opts.uncertaintyState.join(","));
+  if (opts?.q) params.set("q", opts.q);
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
   const qs = params.toString();
   return apiGetZodAuthed(
     `/users/me/raw-events${qs ? `?${qs}` : ""}`,
@@ -270,7 +259,7 @@ export const getRawEvent = async (
   opts?: TruthGetOptions,
 ): Promise<ApiResult<RawEventDoc>> => {
   const res = await apiGetZodAuthed(
-    `/users/me/raw-events/${encodeURIComponent(id)}`,
+    `/users/me/rawEvents/${encodeURIComponent(id)}`,
     idToken,
     rawEventDocSchema,
     truthGetOpts(opts),

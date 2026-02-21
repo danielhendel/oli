@@ -8,28 +8,18 @@ import { getWithingsConnectUrl } from "@/lib/api/withings";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 const WITHINGS_AUTHORIZE_PREFIX = "https://account.withings.com/oauth2_user/authorize2";
-const OLI_GATEWAY_BASE_URL = "https://oli-gateway-cw04f997.uc.gateway.dev" as const;
+
+/** Completion bridge URL (HTTPS) so auth session auto-closes; fallback to deep link if no backend URL. */
+function getWithingsReturnUrl(): string {
+  const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
+  if (base && base.startsWith("https://")) {
+    return `${base.replace(/\/$/, "")}/integrations/withings/complete`;
+  }
+  return "com.olifitness.oli://withings-connected";
+}
 
 // Debug switch (set to true only when capturing logs)
 const DEBUG_WITHINGS_OAUTH = false;
-
-/** Completion bridge URL (HTTPS) so auth session auto-closes.
- * Fail-closed: ALWAYS gateway host; never Cloud Run direct; never env fallback.
- */
-function getWithingsReturnUrl(): string {
-  const url = `${OLI_GATEWAY_BASE_URL}/integrations/withings/complete`;
-
-  try {
-    const u = new URL(url);
-    if (u.host !== "oli-gateway-cw04f997.uc.gateway.dev") {
-      throw new Error("INVALID_WITHINGS_RETURN_URL_HOST");
-    }
-    return u.toString();
-  } catch {
-    // If this ever triggers, we want an explicit failure, not a silent deep-link fallback.
-    throw new Error("INVALID_WITHINGS_RETURN_URL");
-  }
-}
 
 function DevicesScreen() {
   const presence = useWithingsPresence();
@@ -134,8 +124,7 @@ function DevicesScreen() {
 
         {backfill?.status === "running" ? (
           <Text style={styles.backfillLine}>
-            Importing history…{" "}
-            {typeof backfill.processedCount === "number" ? `(${backfill.processedCount} events)` : ""}
+            Importing history… {typeof backfill.processedCount === "number" ? `(${backfill.processedCount} events)` : ""}
           </Text>
         ) : backfill?.status === "complete" ? (
           <Text style={styles.backfillLine}>History imported.</Text>
@@ -149,7 +138,9 @@ function DevicesScreen() {
         ) : null}
 
         {DEBUG_WITHINGS_OAUTH ? (
-          <Text style={styles.debugHint}>Debug on: check Metro logs for WITHINGS_OAUTH_DEBUG.</Text>
+          <Text style={styles.debugHint}>
+            Debug on: check Metro logs for WITHINGS_OAUTH_DEBUG.
+          </Text>
         ) : null}
       </View>
     </ModuleScreenShell>
@@ -182,3 +173,4 @@ const styles = StyleSheet.create({
 });
 
 export default DevicesScreen;
+

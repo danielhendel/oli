@@ -17,7 +17,7 @@ export type ApiFailure = {
   kind: FailureKind;
   error: string;
   requestId: string | null;
-  json?: JsonValue;
+  json?: JsonValue; // optional, only present when we actually have one
 };
 
 export type ApiResult<T> = ApiOk<T> | ApiFailure;
@@ -39,23 +39,6 @@ export type PutOptions = {
   noStore?: boolean;
 };
 
-const REQUIRED_GATEWAY_BASE_URL = "https://oli-gateway-cw04f997.uc.gateway.dev" as const;
-const REQUIRED_GATEWAY_HOST = "oli-gateway-cw04f997.uc.gateway.dev" as const;
-
-// ===== Test-only override (must be explicitly set by tests) =====
-let __testBaseUrlOverride: string | null = null;
-
-/**
- * Test hook: set API base URL override for unit tests only.
- * Fail-closed: throws if used outside NODE_ENV==="test".
- */
-export function __setApiBaseUrlForTests(base: string | null): void {
-  if (process.env.NODE_ENV !== "test") {
-    throw new Error("__setApiBaseUrlForTests may only be used in tests");
-  }
-  __testBaseUrlOverride = base ? base.trim() : null;
-}
-
 function isJsonValue(v: unknown): v is JsonValue {
   if (v === null) return true;
   const t = typeof v;
@@ -68,7 +51,14 @@ function isJsonValue(v: unknown): v is JsonValue {
   return false;
 }
 
+function appendCacheBust(url: string, cacheBust?: string): string {
+  if (!cacheBust) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}t=${encodeURIComponent(cacheBust)}`;
+}
+
 function normalizeBaseUrl(base: string): string {
+  // Avoid accidental double slashes when callers pass "/path"
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 
@@ -78,6 +68,7 @@ function snippet(text: string, max = 300): string {
   return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
 }
 
+/** Human-friendly message for 401/403 when body is HTML (e.g. Cloud Run / gateway error page). */
 function authErrorFriendlyMessage(status: number, bodyText: string): string {
   if (status !== 401 && status !== 403) return "";
   const looksLikeHtml =
@@ -85,79 +76,6 @@ function authErrorFriendlyMessage(status: number, bodyText: string): string {
     bodyText.toLowerCase().includes("<!doctype") ||
     bodyText.toLowerCase().includes("<html");
   return looksLikeHtml ? "Not authorized — please sign in again" : "";
-}
-
-/**
- * Fail-closed base URL resolution.
- * - In prod/dev: ONLY the API Gateway base URL is allowed.
- * - In tests: base URL must be explicitly set via __setApiBaseUrlForTests().
- */
-function getRequiredApiBaseUrl(): ApiResult<string> {
-  if (process.env.NODE_ENV === "test") {
-    if (!__testBaseUrlOverride) {
-      return {
-        ok: false,
-        status: 0,
-        kind: "contract",
-        error: "Test misconfigured: API base URL override not set. Call __setApiBaseUrlForTests(baseUrl).",
-        requestId: null,
-      };
-    }
-    const base = normalizeBaseUrl(__testBaseUrlOverride);
-    try {
-      // eslint-disable-next-line no-new
-      new URL(base);
-    } catch {
-      return {
-        ok: false,
-        status: 0,
-        kind: "contract",
-        error: "Test misconfigured: invalid API base URL override.",
-        requestId: null,
-      };
-    }
-    return { ok: true, status: 200, requestId: null, json: base };
-  }
-
-  const baseRaw = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
-  if (!baseRaw) {
-    return {
-      ok: false,
-      status: 0,
-      kind: "contract",
-      error: "Client misconfigured: missing EXPO_PUBLIC_BACKEND_BASE_URL (must be API Gateway).",
-      requestId: null,
-    };
-  }
-
-  const base = normalizeBaseUrl(baseRaw);
-
-  let host: string;
-  try {
-    host = new URL(base).host;
-  } catch {
-    return {
-      ok: false,
-      status: 0,
-      kind: "contract",
-      error: "Client misconfigured: invalid EXPO_PUBLIC_BACKEND_BASE_URL (must be API Gateway).",
-      requestId: null,
-    };
-  }
-
-  if (host !== REQUIRED_GATEWAY_HOST || base !== REQUIRED_GATEWAY_BASE_URL) {
-    return {
-      ok: false,
-      status: 0,
-      kind: "contract",
-      error:
-        `Client misconfigured: EXPO_PUBLIC_BACKEND_BASE_URL must equal ` +
-        `${REQUIRED_GATEWAY_BASE_URL} (got host=${host}).`,
-      requestId: null,
-    };
-  }
-
-  return { ok: true, status: 200, requestId: null, json: base };
 }
 
 async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
@@ -169,6 +87,7 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
     const res = await fetch(url, {
       ...init,
       signal: controller.signal,
+      // defensive: helps some fetch implementations avoid caching
       cache: "no-store",
     });
 
@@ -177,6 +96,10 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
 
     const text = await res.text();
 
+    // Attempt to parse JSON if there is a body.
+    // Important behavior:
+    // - If res.ok === false and body is NOT JSON, return kind:"http" with a body snippet (don't mask as parse error).
+    // - If res.ok === true and body is NOT JSON, that's a real API bug; return kind:"parse".
     let parsedUnknown: unknown = null;
     let parsedJson: JsonValue | undefined;
 
@@ -188,14 +111,29 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
         if (!res.ok) {
           const friendly = authErrorFriendlyMessage(status, text);
           const bodySnippet = snippet(text);
-          const error = friendly || (bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`);
-          return { ok: false, status, kind: "http", error, requestId: rid };
+          const error =
+            friendly ||
+            (bodySnippet ? `HTTP ${status}: ${bodySnippet}` : `HTTP ${status}`);
+          return {
+            ok: false,
+            status,
+            kind: "http",
+            error,
+            requestId: rid,
+          };
         }
-        return { ok: false, status, kind: "parse", error: "Invalid JSON response", requestId: rid };
+        return {
+          ok: false,
+          status,
+          kind: "parse",
+          error: "Invalid JSON response",
+          requestId: rid,
+        };
       }
     }
 
     if (!res.ok) {
+      // 401/403 with HTML body: show friendly auth message (e.g. gateway/Cloud Run error page).
       const friendly = authErrorFriendlyMessage(status, text);
       const error = friendly || `HTTP ${status}`;
       return {
@@ -208,12 +146,14 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
       };
     }
 
+    // Success: if no body, return null as T.
     if (parsedUnknown === null) {
       return { ok: true, status, requestId: rid, json: null as unknown as T };
     }
 
     return { ok: true, status, requestId: rid, json: parsedUnknown as T };
   } catch (e: unknown) {
+    // Make aborts/timeouts explicit (fetch throws AbortError in most environments)
     const isAbort =
       typeof e === "object" &&
       e !== null &&
@@ -228,7 +168,7 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
   }
 }
 
-type HeaderOptions = { noStore?: true; idempotencyKey?: string; cacheBust?: string };
+type HeaderOptions = { noStore?: true; idempotencyKey?: string };
 
 function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   const headers: Record<string, string> = {
@@ -243,25 +183,28 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   if (opts?.idempotencyKey) {
     headers["Idempotency-Key"] = opts.idempotencyKey;
   }
-  if (opts?.cacheBust) {
-    // IMPORTANT: strict backend rejects unknown query params.
-    // Cache-bust MUST be out-of-band (header), not `?t=...`.
-    headers["X-Cache-Bust"] = opts.cacheBust;
-  }
 
   return headers;
 }
 
 export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
-  const baseRes = getRequiredApiBaseUrl();
-  if (!baseRes.ok) return baseRes;
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
 
-  // Do NOT append cache-bust as query param (strict backend).
-  const url = `${baseRes.json}${path}`;
+  const base = normalizeBaseUrl(baseRaw);
+  const url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
 
   const headerOpts: HeaderOptions = {};
   if (opts?.noStore) headerOpts.noStore = true;
-  if (opts?.cacheBust) headerOpts.cacheBust = opts.cacheBust;
 
   const headers = buildHeaders(headerOpts);
   headers.Authorization = `Bearer ${idToken}`;
@@ -275,10 +218,20 @@ export async function apiPostJsonAuthed<T>(
   idToken: string,
   opts?: PostOptions,
 ): Promise<ApiResult<T>> {
-  const baseRes = getRequiredApiBaseUrl();
-  if (!baseRes.ok) return baseRes;
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
 
-  const url = `${baseRes.json}${path}`;
+  const base = normalizeBaseUrl(baseRaw);
+  const url = `${base}${path}`;
 
   const headerOpts: HeaderOptions = {};
   if (opts?.noStore) headerOpts.noStore = true;
@@ -298,10 +251,20 @@ export async function apiPutJsonAuthed<T>(
   idToken: string,
   opts?: PutOptions,
 ): Promise<ApiResult<T>> {
-  const baseRes = getRequiredApiBaseUrl();
-  if (!baseRes.ok) return baseRes;
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
 
-  const url = `${baseRes.json}${path}`;
+  const base = normalizeBaseUrl(baseRaw);
+  const url = `${base}${path}`;
 
   const headerOpts: HeaderOptions = {};
   if (opts?.noStore) headerOpts.noStore = true;
