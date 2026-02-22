@@ -14,13 +14,25 @@ jest.mock("react-native", () => ({
   StyleSheet: { create: (s: unknown) => s },
 }));
 
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useNavigation: () => ({ setOptions: jest.fn() }),
+}));
+
+jest.mock("react-native-svg", () => ({
+  default: "Svg",
+  Path: "Path",
+  Circle: "Circle",
+}));
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
 }));
 
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-}));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -39,38 +51,54 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+let mockWithingsConnected = false;
 jest.mock("@/lib/data/useWithingsPresence", () => ({
   useWithingsPresence: () => ({
     status: "ready",
     data: {
-      connected: false,
-      lastMeasurementAt: null,
-      hasRecentData: false,
+      connected: mockWithingsConnected,
+      lastMeasurementAt: mockWithingsConnected ? "2025-02-20T08:00:00.000Z" : null,
+      hasRecentData: mockWithingsConnected,
     },
     refetch: jest.fn(),
   }),
 }));
 
 const emptyViewModel = {
-  points: [],
-  latest: null,
-  avg7Kg: null,
-  weeklyDeltaKg: null,
-  rolling7: [],
+  points: [] as { observedAt: string; dayKey: string; weightKg: number; sourceId: string }[],
+  latest: null as { weightKg: number; observedAt: string; sourceId: string } | null,
+  avg7Kg: null as number | null,
+  weeklyDeltaKg: null as number | null,
+  rolling7: [] as { dayKey: string; valueKg: number }[],
   insights: {
-    change30dKg: null,
-    weeklyRateKg: null,
+    change30dKg: null as number | null,
+    weeklyRateKg: null as number | null,
     consistency: "medium" as const,
-    volatilityKg: null,
+    volatilityKg: null as number | null,
     streakDays: 0,
     trendNote: "Not enough data",
   },
 };
 
+const viewModelWithPoints = {
+  ...emptyViewModel,
+  points: [
+    {
+      observedAt: "2025-02-20T10:00:00.000Z",
+      dayKey: "2025-02-20",
+      weightKg: 75,
+      sourceId: "manual",
+    },
+  ],
+  latest: { weightKg: 75, observedAt: "2025-02-20T10:00:00.000Z", sourceId: "manual" },
+};
+
+let mockWeightSeriesData = emptyViewModel;
+
 jest.mock("@/lib/data/useWeightSeries", () => ({
   useWeightSeries: () => ({
     status: "ready",
-    data: emptyViewModel,
+    data: mockWeightSeriesData,
     refetch: jest.fn(),
   }),
 }));
@@ -101,15 +129,24 @@ function findPressableWithLabel(
 }
 
 describe("Weight screen", () => {
-  it("renders in no-data state without crashing", () => {
+  it("renders with Weight metric label in body (header title is in nav, not in-page)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<BodyWeightScreen />);
     });
     const text = collectAllText(test);
     expect(text).toContain("Weight");
-    expect(text).toContain("Daily weigh-ins & trends");
-    expect(text).toContain("No recent trend yet");
+  });
+
+  it("renders in no-data state with EmptyState and hero without numeric weight", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("No weight data yet");
+    expect(text).toContain("Last logged");
+    expect(text).toContain("Your chart will appear after your first weigh-in.");
   });
 
   it("renders range selector with 7D, 30D, 90D, 1Y, All", () => {
@@ -134,15 +171,91 @@ describe("Weight screen", () => {
     expect(btn).not.toBeNull();
   });
 
-  it("shows No scale connected and Connect Withings when not connected", () => {
+  it("shows Withings card with Not connected and Connect Withings when not connected", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<BodyWeightScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("No scale connected");
+    expect(text).toContain("Withings");
+    expect(text).toContain("Not connected");
     expect(text).toContain("Connect a device to auto-sync weight.");
     const connectBtn = findPressableWithLabel(test.root, "Connect Withings");
     expect(connectBtn).not.toBeNull();
+  });
+
+  it("renders chart when points.length > 0 and does not show placeholder text", () => {
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).not.toContain("Chart will appear once data is available");
+    const chart = test.root.findByProps({ testID: "weight-trend-chart" });
+    expect(chart).toBeTruthy();
+    mockWeightSeriesData = emptyViewModel;
+  });
+
+  it("shows Last logged in hero when points exist", () => {
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("Last logged");
+    expect(text).toContain("Manual");
+    mockWeightSeriesData = emptyViewModel;
+  });
+
+  it("shows stat tiles (Change, Avg, High, Low) when points exist", () => {
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("High");
+    expect(text).toContain("Low");
+    mockWeightSeriesData = emptyViewModel;
+  });
+
+  it("chart container has testID when points exist and placeholder text never appears", () => {
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).not.toContain("Chart will appear once data is available");
+    const chartContainer = test.root.findByProps({ testID: "weight-trend-chart" });
+    expect(chartContainer).toBeTruthy();
+    mockWeightSeriesData = emptyViewModel;
+  });
+
+  it("hides Add manual entry when Withings connected", () => {
+    mockWithingsConnected = true;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const addManualBtn = findPressableWithLabel(test.root, "Add manual entry");
+    expect(addManualBtn).toBeNull();
+    mockWithingsConnected = false;
+  });
+
+  it("Sources summary does not show Manual when connected", () => {
+    mockWithingsConnected = true;
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("Sources & Devices");
+    expect(text).not.toMatch(/Sources:\s*Manual/);
+    mockWithingsConnected = false;
+    mockWeightSeriesData = emptyViewModel;
   });
 });

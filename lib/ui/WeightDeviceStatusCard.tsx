@@ -1,7 +1,8 @@
-// lib/ui/WeightDeviceStatusCard.tsx — Device trust layer for Weight page.
+// lib/ui/WeightDeviceStatusCard.tsx — Device card: icon, title, status pill, manage, last sync.
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import type { WithingsBackfillState } from "@/lib/data/useWithingsPresence";
 
 export type WeightDeviceStatusCardProps = {
@@ -40,10 +41,15 @@ export function WeightDeviceStatusCard({
     const count = backfill.processedCount;
     return (
       <View style={styles.card}>
-        <Text style={styles.title}>Importing history…</Text>
-        {count != null ? (
-          <Text style={styles.sub}>{count} entries processed</Text>
-        ) : null}
+        <View style={styles.row}>
+          <Ionicons name="scale-outline" size={24} color="#3C3C43" style={styles.icon} />
+          <View style={styles.left}>
+            <Text style={styles.cardTitle}>Withings</Text>
+            <Text style={styles.sub}>
+              Importing history…{count != null ? ` ${count} entries processed` : ""}
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -52,21 +58,27 @@ export function WeightDeviceStatusCard({
     return (
       <View style={styles.card}>
         <View style={styles.row}>
+          <Ionicons name="scale-outline" size={24} color="#3C3C43" style={styles.icon} />
           <View style={styles.left}>
-            <Text style={styles.title}>Withings connected</Text>
-            {lastMeasurementAt ? (
-              <Text style={styles.sub}>Last sync: {formatLastSync(lastMeasurementAt)}</Text>
-            ) : (
-              <Text style={styles.sub}>No recent sync</Text>
-            )}
+            <View style={styles.titleRow}>
+              <Text style={styles.cardTitle}>Withings</Text>
+              <View style={styles.pillConnected}>
+                <Text style={[styles.pillText, styles.pillTextConnected]}>Connected</Text>
+              </View>
+            </View>
+            <Text style={styles.sub}>
+              {lastMeasurementAt
+                ? `Last sync: ${formatLastSync(lastMeasurementAt)}`
+                : "No recent sync"}
+            </Text>
           </View>
           <Pressable
             onPress={() => router.push("/(app)/settings/devices")}
-            style={styles.link}
+            style={styles.manageBtn}
             accessibilityRole="button"
             accessibilityLabel="Manage devices"
           >
-            <Text style={styles.linkText}>Manage</Text>
+            <Text style={styles.manageBtnText}>Manage</Text>
           </Pressable>
         </View>
       </View>
@@ -75,8 +87,18 @@ export function WeightDeviceStatusCard({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>No scale connected</Text>
-      <Text style={styles.sub}>Connect a device to auto-sync weight.</Text>
+      <View style={styles.row}>
+        <Ionicons name="scale-outline" size={24} color="#8E8E93" style={styles.icon} />
+        <View style={styles.left}>
+          <View style={styles.titleRow}>
+            <Text style={styles.cardTitle}>Withings</Text>
+<View style={styles.pillDisconnected}>
+            <Text style={[styles.pillText, styles.pillTextDisconnected]}>Not connected</Text>
+            </View>
+          </View>
+          <Text style={styles.sub}>Connect a device to auto-sync weight.</Text>
+        </View>
+      </View>
       <View style={styles.actions}>
         <Pressable
           onPress={() => router.push("/(app)/settings/devices")}
@@ -99,20 +121,40 @@ export function WeightDeviceStatusCard({
   );
 }
 
+const CARD_SURFACE = "#E5E5EA";
+const CARD_RADIUS = 14;
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#F2F2F7",
-    borderRadius: 16,
+    backgroundColor: CARD_SURFACE,
+    borderRadius: CARD_RADIUS,
     padding: 16,
     gap: 8,
   },
-  title: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
+  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  icon: { marginRight: 4 },
+  left: { flex: 1, minWidth: 0, gap: 4 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
+  pillConnected: {
+    backgroundColor: "#34C759",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  pillDisconnected: {
+    backgroundColor: "#E5E5EA",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  pillText: { fontSize: 12, fontWeight: "600" },
+  pillTextConnected: { color: "#FFFFFF" },
+  pillTextDisconnected: { color: "#3C3C43" },
   sub: { fontSize: 13, color: "#6E6E73", lineHeight: 18 },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  left: { flex: 1, minWidth: 0 },
-  link: { paddingVertical: 8, paddingHorizontal: 12 },
-  linkText: { fontSize: 15, fontWeight: "600", color: "#007AFF" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  manageBtn: { paddingVertical: 8, paddingHorizontal: 12 },
+  manageBtnText: { fontSize: 15, fontWeight: "600", color: "#007AFF" },
+  actions: { flexDirection: "row", gap: 10, marginTop: 12 },
   primaryBtn: {
     backgroundColor: "#1C1C1E",
     borderRadius: 12,
