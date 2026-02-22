@@ -16,13 +16,13 @@ function optionalEnv(key: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-/** Throws if missing or empty. */
-function requiredEnv(key: string): string {
-  const v = optionalEnv(key);
+/** Validates a value at module load; use with static process.env.X so EAS Update inlines it. */
+function requiredValue(name: string, value: string | undefined): string {
+  const v = (value ?? "").trim();
   if (!v) {
     throw new Error(
-      `❌ Missing required environment variable: ${key}\n\n` +
-        `This repo is staging-only. Add ${key} to your .env.* file (or EAS env) and restart Expo.`
+      `❌ Missing required environment variable: ${name}\n\n` +
+        `This repo is staging-only. Add ${name} to your .env.* file (or EAS env) and restart Expo.`
     );
   }
   return v;
@@ -56,18 +56,37 @@ function assertStagingOnly(env: string): asserts env is AppEnvironment {
 const environment = readEnvironment();
 assertStagingOnly(environment);
 
-// Required for app to function in staging
-const backendBaseUrl = requiredEnv("EXPO_PUBLIC_BACKEND_BASE_URL");
-
-// Required Firebase Web App config (staging)
-const firebaseApiKey = requiredEnv("EXPO_PUBLIC_FIREBASE_API_KEY");
-const firebaseAuthDomain = requiredEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN");
-const firebaseProjectId = requiredEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
-const firebaseStorageBucket = requiredEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET");
-const firebaseMessagingSenderId = requiredEnv(
-  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+// Required for app to function in staging (static reads so EAS Update inlines)
+const backendBaseUrl = requiredValue(
+  "EXPO_PUBLIC_BACKEND_BASE_URL",
+  process.env.EXPO_PUBLIC_BACKEND_BASE_URL
 );
-const firebaseAppId = requiredEnv("EXPO_PUBLIC_FIREBASE_APP_ID");
+
+// Required Firebase Web App config (staging) (static reads so EAS Update inlines)
+const firebaseApiKey = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_API_KEY",
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY
+);
+const firebaseAuthDomain = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN
+);
+const firebaseProjectId = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+  process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
+);
+const firebaseStorageBucket = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET
+);
+const firebaseMessagingSenderId = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+);
+const firebaseAppId = requiredValue(
+  "EXPO_PUBLIC_FIREBASE_APP_ID",
+  process.env.EXPO_PUBLIC_FIREBASE_APP_ID
+);
 
 // ---- Canonical Env object ----
 

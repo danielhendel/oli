@@ -116,6 +116,55 @@ describe("GET /users/me/raw-events", () => {
     expect(json.error?.code).toBe("INVALID_QUERY");
   });
 
+  test("unknown query param fails with 400 INVALID_QUERY", async () => {
+    const res = await fetch(`${baseUrl}/users/me/raw-events?foo=bar`);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error?.code).toBe("INVALID_QUERY");
+  });
+
+  test("alias kind and sourceId filter results (only matching items returned)", async () => {
+    const docs: DocSnap[] = [
+      {
+        exists: true,
+        id: "raw_weight_manual",
+        data: () => ({
+          schemaVersion: 1,
+          id: "raw_weight_manual",
+          userId: "user_123",
+          sourceId: "manual",
+          kind: "weight",
+          observedAt: "2025-01-02T12:00:00.000Z",
+          receivedAt: "2025-01-02T12:01:00.000Z",
+        }),
+      },
+    ];
+
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockReturnValue({
+      orderBy: q.orderBy,
+      where: q.where,
+      limit: q.limit,
+      startAfter: q.startAfter,
+      get: q.get,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+
+    const res = await fetch(
+      `${baseUrl}/users/me/raw-events?kind=weight&sourceId=manual`,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveProperty("items");
+    expect(Array.isArray(json.items)).toBe(true);
+    for (const item of json.items) {
+      expect(item.kind).toBe("weight");
+      expect(item.sourceId).toBe("manual");
+    }
+    expect(q.where).toHaveBeenCalledWith("kind", "==", "weight");
+  });
+
   test("invalid Firestore doc fails closed with 500", async () => {
     allowConsoleForThisTest({ error: [/invalid_firestore_doc/] });
     const docs: DocSnap[] = [

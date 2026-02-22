@@ -23,6 +23,7 @@ import {
   uploadsPresenceResponseDtoSchema,
   canonicalEventsListResponseDtoSchema,
   rawEventsListResponseDtoSchema,
+  rawEventDocSchema,
   timelineResponseDtoSchema,
   lineageResponseDtoSchema,
   type LogWeightRequestDto,
@@ -39,6 +40,7 @@ import {
   type IngestAcceptedResponseDto,
   type CanonicalEventsListResponseDto,
   type RawEventsListResponseDto,
+  type RawEventDoc,
   type TimelineResponseDto,
   type LineageResponseDto,
   healthScoreDocSchema,
@@ -246,6 +248,23 @@ export const getRawEvents = async (
     rawEventsListResponseDtoSchema,
     truthGetOpts(opts),
   );
+};
+
+/**
+ * GET /users/me/rawEvents/:id — single RawEvent with full payload (for weight series etc.).
+ */
+export const getRawEvent = async (
+  id: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<RawEventDoc>> => {
+  const res = await apiGetZodAuthed(
+    `/users/me/rawEvents/${encodeURIComponent(id)}`,
+    idToken,
+    rawEventDocSchema,
+    truthGetOpts(opts),
+  );
+  return res as ApiResult<RawEventDoc>;
 };
 
 export const getEvents = async (

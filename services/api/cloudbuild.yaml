@@ -1,0 +1,12 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["build", "-f", "services/api/Dockerfile", "-t", "${_IMAGE}", "."]
+
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_IMAGE}"]
+
+substitutions:
+  _IMAGE: "us-central1-docker.pkg.dev/oli-staging-fdbba/gcf-artifacts/oli-api:dev"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

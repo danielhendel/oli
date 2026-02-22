@@ -2,6 +2,12 @@
  * Phase 3B — Withings measure fetch (weight + body fat %).
  * Token custody: refresh token read only via withingsSecrets.getRefreshToken.
  * Never log secrets or access tokens.
+ *
+ * Hard requirements:
+ * - fail-closed (throw typed WithingsMeasureError)
+ * - no token logging
+ * - no stale tokens (refresh early; cache w/ expiry; singleflight refresh)
+ * - prevent refresh thrash (cooldown > Withings 10s guard)
  */
 
 import * as withingsSecrets from "./withingsSecrets";
@@ -30,52 +36,115 @@ export class WithingsMeasureError extends Error {
 }
 
 /**
+ * In-memory token cache + singleflight refresh.
+ * Note: Cloud Run instances are ephemeral; cache is best-effort.
+ */
+type CachedToken = { token: string; expiresAtMs: number };
+const tokenCache = new Map<string, CachedToken>();
+const refreshInFlight = new Map<string, Promise<string>>();
+const refreshCooldownUntilMs = new Map<string, number>();
+
+// Must be > Withings “Same arguments in less than 10 seconds” guard.
+const REFRESH_COOLDOWN_MS = 12_000;
+// Refresh 60s before expiry to avoid edge expiry during request.
+const EARLY_REFRESH_SKEW_MS = 60_000;
+
+/**
  * Refresh access token using refresh_token from Secret Manager.
  * Never logs refresh_token or access_token.
+ *
+ * Behavior:
+ * - returns cached token if still valid
+ * - singleflight per uid for refresh
+ * - cooldown to prevent rapid repeated refresh calls
+ * - fail-closed if cooldown active AND no usable cached token exists
  */
 async function refreshAccessToken(uid: string): Promise<string> {
-  const refreshToken = await withingsSecrets.getRefreshToken(uid);
-  if (!refreshToken || typeof refreshToken !== "string") {
-    throw new WithingsMeasureError("Refresh token missing", "WITHINGS_REFRESH_TOKEN_MISSING");
+  const now = Date.now();
+
+  // 1) Use cached token if valid (with early-refresh skew).
+  const cached = tokenCache.get(uid);
+  if (cached && cached.expiresAtMs - EARLY_REFRESH_SKEW_MS > now) {
+    return cached.token;
   }
 
-  const clientId = process.env.WITHINGS_CLIENT_ID?.trim();
-  const clientSecret = await withingsSecrets.getClientSecret();
-  if (!clientId || !clientSecret) {
-    throw new WithingsMeasureError("Withings OAuth not configured", "WITHINGS_OAUTH_MISCONFIG");
+  // 2) If refresh is already in-flight for this uid, await it.
+  const inflight = refreshInFlight.get(uid);
+  if (inflight) return inflight;
+
+  // 3) Cooldown: prevent hammering refresh endpoint.
+  const cooldownUntil = refreshCooldownUntilMs.get(uid) ?? 0;
+  if (cooldownUntil > now) {
+    // If we still have a token (even if close to expiry), use it as a last resort.
+    if (cached && cached.expiresAtMs > now) return cached.token;
+
+    throw new WithingsMeasureError(
+      `Refresh cooldown active (${cooldownUntil - now}ms remaining)`,
+      "WITHINGS_TOKEN_REFRESH_COOLDOWN",
+    );
   }
 
-  const body = new URLSearchParams({
-    action: "requesttoken",
-    grant_type: "refresh_token",
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-  });
+  const p = (async () => {
+    // Start cooldown immediately to prevent concurrent callers from thrashing.
+    refreshCooldownUntilMs.set(uid, now + REFRESH_COOLDOWN_MS);
 
-  const res = await fetch(WITHINGS_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+    const refreshToken = await withingsSecrets.getRefreshToken(uid);
+    if (!refreshToken || typeof refreshToken !== "string") {
+      throw new WithingsMeasureError("Refresh token missing", "WITHINGS_REFRESH_TOKEN_MISSING");
+    }
 
-  const json = (await res.json()) as {
-    status?: number;
-    body?: { access_token?: string; expires_in?: number; error?: string };
-    error?: string;
-  };
+    const clientId = process.env.WITHINGS_CLIENT_ID?.trim();
+    const clientSecret = await withingsSecrets.getClientSecret();
+    if (!clientId || !clientSecret) {
+      throw new WithingsMeasureError("Withings OAuth not configured", "WITHINGS_OAUTH_MISCONFIG");
+    }
 
-  if (res.status !== 200 || json.status !== 0) {
-    const errMsg = json.body?.error ?? json.error ?? `HTTP ${res.status} (status=${String(json.status)})`;
-    throw new WithingsMeasureError(errMsg, "WITHINGS_TOKEN_REFRESH_FAILED");
+    const body = new URLSearchParams({
+      action: "requesttoken",
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    });
+
+    const res = await fetch(WITHINGS_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const json = (await res.json()) as {
+      status?: number;
+      body?: { access_token?: string; expires_in?: number; error?: string };
+      error?: string;
+    };
+
+    if (res.status !== 200 || json.status !== 0) {
+      const errMsg =
+        json.body?.error ?? json.error ?? `HTTP ${res.status} (status=${String(json.status)})`;
+      throw new WithingsMeasureError(errMsg, "WITHINGS_TOKEN_REFRESH_FAILED");
+    }
+
+    const accessToken = json.body?.access_token;
+    if (!accessToken || typeof accessToken !== "string") {
+      throw new WithingsMeasureError("No access_token in response", "WITHINGS_TOKEN_REFRESH_FAILED");
+    }
+
+    // Withings usually returns expires_in; default to 1h if absent.
+    const expiresInSec = typeof json.body?.expires_in === "number" ? json.body.expires_in : 3600;
+    const safeExpiresInSec = Math.max(60, expiresInSec);
+    const expiresAtMs = Date.now() + safeExpiresInSec * 1000;
+
+    tokenCache.set(uid, { token: accessToken, expiresAtMs });
+    return accessToken;
+  })();
+
+  refreshInFlight.set(uid, p);
+  try {
+    return await p;
+  } finally {
+    refreshInFlight.delete(uid);
   }
-
-  const accessToken = json.body?.access_token;
-  if (!accessToken || typeof accessToken !== "string") {
-    throw new WithingsMeasureError("No access_token in response", "WITHINGS_TOKEN_REFRESH_FAILED");
-  }
-
-  return accessToken;
 }
 
 /** Normalize numeric formatting for deterministic idempotency keys. */
@@ -168,7 +237,8 @@ export async function fetchWithingsMeasures(
   };
 
   if (res.status !== 200 || json.status !== 0) {
-    const errMsg = json.body?.error ?? json.error ?? `HTTP ${res.status} (status=${String(json.status)})`;
+    const errMsg =
+      json.body?.error ?? json.error ?? `HTTP ${res.status} (status=${String(json.status)})`;
     throw new WithingsMeasureError(errMsg, "WITHINGS_MEASURE_API_ERROR");
   }
 
@@ -219,7 +289,20 @@ export async function fetchWithingsMeasures(
   }
 
   // Deterministic ordering: same inputs => same output ordering.
-  out.sort((a, b) => (a.measuredAtIso < b.measuredAtIso ? -1 : a.measuredAtIso > b.measuredAtIso ? 1 : a.idempotencyKey.localeCompare(b.idempotencyKey)));
+  out.sort((a, b) =>
+    a.measuredAtIso < b.measuredAtIso
+      ? -1
+      : a.measuredAtIso > b.measuredAtIso
+        ? 1
+        : a.idempotencyKey.localeCompare(b.idempotencyKey),
+  );
 
   return out;
+}
+
+/** Test-only: resets in-memory caches to prevent cache/cooldown/singleflight leakage between Jest tests. */
+export function __resetWithingsTokenCacheForTests(): void {
+  tokenCache.clear();
+  refreshInFlight.clear();
+  refreshCooldownUntilMs.clear();
 }

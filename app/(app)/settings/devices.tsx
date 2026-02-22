@@ -15,7 +15,7 @@ function getWithingsReturnUrl(): string {
   if (base && base.startsWith("https://")) {
     return `${base.replace(/\/$/, "")}/integrations/withings/complete`;
   }
-  return "oli://withings-connected";
+  return "com.olifitness.oli://withings-connected";
 }
 
 // Debug switch (set to true only when capturing logs)

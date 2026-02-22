@@ -447,7 +447,7 @@ export async function handleWithingsCallback(req: Request, res: Response): Promi
     const host = req.get("host");
     const completionUrl = host
       ? `${proto}://${host}/integrations/withings/complete`
-      : "oli://withings-connected";
+      : "com.olifitness.oli://withings-connected";
     res.redirect(302, completionUrl);
   } catch (err) {
     if (err instanceof withingsSecrets.WithingsConfigError) {

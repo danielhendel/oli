@@ -23,6 +23,9 @@ x-google-endpoints:
 x-google-backend:
   address: https://oli-api-1010034434203.us-central1.run.app
   path_translation: APPEND_PATH_TO_ADDRESS
+  # Required when Cloud Run requires IAM auth (invoker).
+  # ESPv2 will mint a Google ID token for this audience when calling the backend.
+  jwt_audience: https://oli-api-1010034434203.us-central1.run.app
 
 securityDefinitions:
   # Satisfies API Gateway "API-consuming project" requirements.
@@ -36,7 +39,14 @@ securityDefinitions:
     authorizationUrl: ""
     flow: implicit
     type: oauth2
-    scopes: {}
+
+    # ESPv2 compatibility:
+    # Define at least one scope so that route-level `security: []` (public)
+    # is honored correctly. Protected operations use `firebase: []` which requires
+    # a valid Firebase JWT but does NOT require any specific OAuth scope.
+    scopes:
+      openid: "ESPv2 compatibility"
+
     x-google-issuer: "https://securetoken.google.com/oli-staging-fdbba"
     x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
     x-google-audiences: "oli-staging-fdbba"
@@ -46,7 +56,7 @@ securityDefinitions:
       - header: "X-Forwarded-Authorization"
         value_prefix: "Bearer "
 
-# Default: require Firebase for all operations unless explicitly opened with security: []
+# Require Firebase by default (fail-closed)
 security:
   - firebase: []
 
@@ -104,7 +114,7 @@ paths:
           description: No Content
     get:
       operationId: _healthzGet
-      security: []   # PUBLIC (bypasses top-level firebase requirement)
+      security: []   # PUBLIC
       produces:
         - application/json
       responses:

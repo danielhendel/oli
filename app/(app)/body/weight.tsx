@@ -1,282 +1,334 @@
-// app/(app)/body/weight.tsx
-import { useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+// app/(app)/body/weight.tsx — Weight Page v1: Hybrid (C), meaning first, logging second.
+import React, { useState } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { ErrorState, EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
+import { WeightDeviceStatusCard } from "@/lib/ui/WeightDeviceStatusCard";
+import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
+import { WeightInsightCard } from "@/lib/ui/WeightInsightCard";
+import { WeightLogModal } from "@/lib/ui/WeightLogModal";
+
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
-import { logWeight } from "@/lib/api/usersMe";
-import { buildManualWeightPayload } from "@/lib/events/manualWeight";
-import { emitRefresh } from "@/lib/navigation/refreshBus";
+import { useWeightSeries, type WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 const LBS_PER_KG = 2.2046226218;
 
-const getDeviceTimeZone = (): string => {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return typeof tz === "string" && tz.length ? tz : "UTC";
-  } catch {
-    return "UTC";
-  }
-};
+function formatWeight(kg: number, unit: "kg" | "lb"): string {
+  const v = unit === "lb" ? kg * LBS_PER_KG : kg;
+  return unit === "lb" ? v.toFixed(1) : v.toFixed(1);
+}
 
-function makeRefreshKey(): string {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function formatDelta(kg: number): string {
+  const abs = Math.abs(kg);
+  const dir = kg < 0 ? "↓" : "↑";
+  return `${dir} ${abs.toFixed(1)} this week`;
 }
 
 export default function BodyWeightScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ day?: string }>();
-  const forcedDay =
-    typeof params.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.day) ? params.day : null;
-
-  const { user, initializing, getIdToken } = useAuth();
+  const { user, initializing } = useAuth();
   const { state: prefState } = usePreferences();
   const withingsPresence = useWithingsPresence();
-  const backfillRunning = withingsPresence.status === "ready" && withingsPresence.data?.backfill?.status === "running";
+  const [range, setRange] = useState<WeightRangeKey>("30D");
+  const weightSeries = useWeightSeries(range);
+  const [logModalVisible, setLogModalVisible] = useState(false);
 
-  // Default unit comes from preferences, but we must never override user toggles on this screen.
-  const [unit, setUnit] = useState<"lb" | "kg">("lb");
-  const [unitTouched, setUnitTouched] = useState(false);
+  const unit = prefState.preferences?.units?.mass ?? "lb";
+  const connected =
+    withingsPresence.status === "ready" && withingsPresence.data?.connected;
 
-  const [weightText, setWeightText] = useState("");
-  const [bodyFatText, setBodyFatText] = useState("");
-  const [status, setStatus] = useState<
-    | { state: "idle" }
-    | { state: "saving" }
-    | { state: "error"; message: string }
-    | { state: "saved"; rawEventId: string }
-  >({ state: "idle" });
+  // Fail closed: auth
+  if (initializing) {
+    return (
+      <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
+        <LoadingState message="Loading…" />
+      </ModuleScreenShell>
+    );
+  }
 
-  // Apply preferred unit once (or whenever prefs change) ONLY if user hasn't touched unit toggle here.
-  useEffect(() => {
-    if (unitTouched) return;
-    const preferred = prefState.preferences.units.mass; // "lb" | "kg"
-    setUnit(preferred);
-  }, [prefState.preferences.units.mass, unitTouched]);
+  if (!user) {
+    return (
+      <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
+        <EmptyState
+          title="Sign in to view weight"
+          description="Sign in to see your weight data and trends."
+        />
+      </ModuleScreenShell>
+    );
+  }
 
-  const parsed = useMemo(() => {
-    const w = Number(weightText);
-    const bfRaw = bodyFatText.trim() === "" ? null : Number(bodyFatText);
+  // Weight series error (contract / network)
+  if (weightSeries.status === "error") {
+    return (
+      <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
+        <ErrorState
+          message={weightSeries.error}
+          requestId={weightSeries.requestId}
+          onRetry={() => weightSeries.refetch()}
+          isContractError={weightSeries.reason === "contract"}
+        />
+      </ModuleScreenShell>
+    );
+  }
 
-    const weightOk = Number.isFinite(w) && w > 0;
-    const bfOk = bfRaw === null || (Number.isFinite(bfRaw) && bfRaw >= 0 && bfRaw <= 100);
-
-    const weightLbs = weightOk ? (unit === "lb" ? w : w * LBS_PER_KG) : null;
-    const weightKg = weightOk ? (unit === "kg" ? w : w / LBS_PER_KG) : null;
-
-    return {
-      weightOk,
-      bfOk,
-      weightLbs,
-      weightKg,
-      bodyFatPercent: bfRaw === null ? null : bfRaw,
-    };
-  }, [weightText, bodyFatText, unit]);
-
-  const canSave =
-    !initializing &&
-    Boolean(user) &&
-    parsed.weightOk &&
-    parsed.bfOk &&
-    parsed.weightLbs !== null &&
-    parsed.weightKg !== null &&
-    status.state !== "saving";
-
-  const onSave = async (): Promise<void> => {
-    if (!canSave || parsed.weightLbs === null || parsed.weightKg === null) return;
-    setStatus({ state: "saving" });
-
-    try {
-      if (initializing) {
-        setStatus({ state: "error", message: "Auth still initializing. Try again." });
-        return;
-      }
-      if (!user) {
-        setStatus({ state: "error", message: "Not signed in." });
-        return;
-      }
-
-      const token = await getIdToken(false);
-      if (!token) {
-        setStatus({ state: "error", message: "No auth token (try Debug → Re-auth)" });
-        return;
-      }
-
-      const time = new Date().toISOString();
-      const timezone = getDeviceTimeZone();
-
-      const payload = buildManualWeightPayload({
-        time,
-        timezone,
-        weightLbs: parsed.weightLbs,
-        ...(parsed.bodyFatPercent !== null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
-      });
-
-      const res = await logWeight(payload, token);
-
-      if (!res.ok) {
-        setStatus({
-          state: "error",
-          message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
-        });
-        return;
-      }
-
-      setStatus({ state: "saved", rawEventId: res.json.rawEventId });
-
-      const refreshKey = makeRefreshKey();
-      const day = forcedDay ?? ymdInTimeZoneFromIso(time, timezone);
-
-      // ✅ Bus payload: deterministic immediate CC update even if params don't update / screen stays mounted.
-      emitRefresh("commandCenter", refreshKey, { optimisticWeightKg: parsed.weightKg });
-
-      // ✅ Navigate back with params so CC derives dayKey, refreshKey, optimisticWeightKg
-      router.replace({
-        pathname: "/(app)/command-center",
-        params: { day, refresh: refreshKey, ow: String(parsed.weightKg) },
-      });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      setStatus({ state: "error", message: msg });
-    }
-  };
-
-  const onSelectUnit = (next: "lb" | "kg") => {
-    setUnitTouched(true);
-    setUnit(next);
-  };
+  const data = weightSeries.status === "ready" ? weightSeries.data : null;
+  const points = data?.points ?? [];
+  const latest = data?.latest ?? null;
+  const avg7Kg = data?.avg7Kg ?? null;
+  const weeklyDeltaKg = data?.weeklyDeltaKg ?? null;
+  const insights = data?.insights;
 
   return (
     <ModuleScreenShell title="Weight" subtitle="Daily weigh-ins & trends">
-      {backfillRunning ? (
-        <View style={styles.importBanner}>
-          <Text style={styles.importBannerText}>Importing weight history…</Text>
-        </View>
-      ) : null}
-      <View style={styles.card}>
-        <Text style={styles.label}>Weight</Text>
+      {/* 1) Header: title + subtitle in shell */}
 
-        <View style={styles.row}>
-          <TextInput
-            value={weightText}
-            onChangeText={setWeightText}
-            keyboardType="decimal-pad"
-            placeholder={unit === "lb" ? "e.g. 185.2" : "e.g. 84.0"}
-            style={[styles.input, { flex: 1 }]}
-            accessibilityLabel="Weight input"
-          />
+      {/* 2) Device Status Block */}
+      <WeightDeviceStatusCard
+        connected={connected}
+        lastMeasurementAt={
+          withingsPresence.status === "ready"
+            ? withingsPresence.data?.lastMeasurementAt ?? null
+            : null
+        }
+        {...(withingsPresence.status === "ready" && withingsPresence.data?.backfill != null
+          ? { backfill: withingsPresence.data.backfill }
+          : {})}
+        onLogManually={() => setLogModalVisible(true)}
+      />
 
-          <View style={styles.unitGroup}>
-            <Pressable
-              onPress={() => onSelectUnit("lb")}
-              accessibilityRole="button"
-              accessibilityLabel="Use pounds"
-              style={[styles.unitButton, unit === "lb" && styles.unitActive]}
-            >
-              <Text style={[styles.unitText, unit === "lb" && styles.unitTextActive]}>lb</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => onSelectUnit("kg")}
-              accessibilityRole="button"
-              accessibilityLabel="Use kilograms"
-              style={[styles.unitButton, unit === "kg" && styles.unitActive]}
-            >
-              <Text style={[styles.unitText, unit === "kg" && styles.unitTextActive]}>kg</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {!parsed.weightOk && weightText.trim() !== "" ? (
-          <Text style={styles.helperError}>Enter a valid number greater than 0.</Text>
-        ) : null}
-
-        <Text style={[styles.label, { marginTop: 14 }]}>Body fat % (optional)</Text>
-        <TextInput
-          value={bodyFatText}
-          onChangeText={setBodyFatText}
-          keyboardType="decimal-pad"
-          placeholder="e.g. 18.5"
-          style={styles.input}
-          accessibilityLabel="Body fat percentage input"
-        />
-
-        {!parsed.bfOk ? <Text style={styles.helperError}>Body fat must be between 0 and 100.</Text> : null}
-
-        <Pressable
-          onPress={() => void onSave()}
-          disabled={!canSave}
-          accessibilityRole="button"
-          accessibilityLabel="Save weight"
-          style={({ pressed }) => [
-            styles.saveButton,
-            !canSave && styles.saveDisabled,
-            pressed && canSave && { opacity: 0.9 },
-          ]}
-        >
-          <Text style={styles.saveText}>{status.state === "saving" ? "Saving…" : "Save"}</Text>
-        </Pressable>
-
-        {status.state === "error" ? <Text style={styles.helperError}>{status.message}</Text> : null}
-        {status.state === "saved" ? (
-          <Text style={styles.helperSuccess}>Saved (rawEventId: {status.rawEventId})</Text>
-        ) : null}
-
-        <Text style={styles.helperNote}>
-          Daily facts may take a moment to update while the pipeline processes your raw event.
-        </Text>
+      {/* 3) Current Snapshot */}
+      <View style={styles.snapshotCard}>
+        {latest ? (
+          <>
+            <Text style={styles.bigNumber}>
+              {formatWeight(latest.weightKg, unit)}{" "}
+              <Text style={styles.unitLabel}>{unit}</Text>
+            </Text>
+            {weeklyDeltaKg != null && (
+              <Text style={styles.deltaLine}>{formatDelta(weeklyDeltaKg)}</Text>
+            )}
+            {avg7Kg != null && (
+              <Text style={styles.avgLine}>
+                7-day average: {formatWeight(avg7Kg, unit)} {unit}
+              </Text>
+            )}
+            {weeklyDeltaKg == null && avg7Kg == null && (
+              <Text style={styles.noTrend}>No recent trend yet</Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.noTrend}>No recent trend yet</Text>
+        )}
       </View>
+
+      {/* 4) Trend Chart — placeholder (no chart lib in package.json) */}
+      <View style={styles.chartCard}>
+        <WeightRangeSelector value={range} onChange={setRange} />
+        {weightSeries.status === "partial" ? (
+          <View style={styles.chartSkeleton}>
+            <View style={styles.skeletonBar} />
+            <View style={styles.skeletonBar} />
+            <View style={styles.skeletonBar} />
+          </View>
+        ) : points.length === 0 ? (
+          <EmptyState
+            title="No weight data yet"
+            description="Connect a scale or log your weight to see your trend."
+            explanation="Chart will appear once data is available."
+          />
+        ) : (
+          <View style={styles.chartPlaceholder}>
+            <Text style={styles.chartPlaceholderText}>
+              Chart will appear once data is available
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* 5) Trend Insights (collapsed by default) */}
+      {insights && (
+        <WeightInsightCard
+          change30dKg={insights.change30dKg}
+          weeklyRateKg={insights.weeklyRateKg}
+          consistency={insights.consistency}
+          volatilityKg={insights.volatilityKg}
+          streakDays={insights.streakDays}
+          trendNote={insights.trendNote}
+        />
+      )}
+
+      {/* 6) Manual Log — contextual CTA */}
+      <View style={styles.actions}>
+        {connected ? (
+          <Pressable
+            onPress={() => setLogModalVisible(true)}
+            style={styles.secondaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Add manual entry"
+          >
+            <Text style={styles.secondaryButtonText}>Add manual entry</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => setLogModalVisible(true)}
+            style={styles.primaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Log your weight"
+          >
+            <Text style={styles.primaryButtonText}>Log your weight</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* 7) Sources + Provenance (collapsed) */}
+      {data && (
+        <SourcesSection points={data.points} />
+      )}
+
+      <WeightLogModal
+        visible={logModalVisible}
+        onClose={() => setLogModalVisible(false)}
+        onSaved={() => {
+          weightSeries.refetch();
+          withingsPresence.refetch();
+        }}
+      />
     </ModuleScreenShell>
   );
 }
 
+function SourcesSection({
+  points,
+}: {
+  points: { observedAt: string; weightKg: number; sourceId: string }[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const sources = [...new Set(points.map((p) => p.sourceId))].filter(Boolean);
+  const last5 = [...points]
+    .sort(
+      (a, b) =>
+        new Date(b.observedAt).getTime() - new Date(a.observedAt).getTime(),
+    )
+    .slice(0, 5);
+
+  const sourceLabel = (id: string) =>
+    id === "withings" ? "Withings" : id === "manual" ? "Manual" : id;
+
+  return (
+    <View style={styles.sourcesCard}>
+      <Pressable
+        onPress={() => setExpanded((e) => !e)}
+        style={styles.sourcesHeader}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel="Data sources"
+      >
+        <Text style={styles.sourcesTitle}>
+          Sources: {sources.map(sourceLabel).join(", ") || "—"}
+        </Text>
+        <Text style={styles.chevron}>{expanded ? "▼" : "▶"}</Text>
+      </Pressable>
+      {expanded && (
+        <View style={styles.sourcesBody}>
+          {last5.map((p, i) => (
+            <View key={i} style={styles.sourceRow}>
+              <Text style={styles.sourceDate}>
+                {new Date(p.observedAt).toLocaleString()}
+              </Text>
+              <Text style={styles.sourceValue}>{p.weightKg.toFixed(1)} kg</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{sourceLabel(p.sourceId)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  importBanner: {
-    backgroundColor: "#E3F2FD",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-    borderRadius: 12,
+  snapshotCard: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 20,
+    gap: 6,
   },
-  importBannerText: { fontSize: 14, fontWeight: "600", color: "#1565C0" },
-  card: { backgroundColor: "#F2F2F7", borderRadius: 16, padding: 14, gap: 8 },
-  label: { fontSize: 13, fontWeight: "700", color: "#111827" },
-  row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+  bigNumber: { fontSize: 36, fontWeight: "800", color: "#1C1C1E" },
+  unitLabel: { fontSize: 18, fontWeight: "600", color: "#6E6E73" },
+  deltaLine: { fontSize: 14, color: "#3C3C43" },
+  avgLine: { fontSize: 13, color: "#6E6E73" },
+  noTrend: { fontSize: 13, color: "#6E6E73", fontStyle: "italic" },
+  chartCard: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
   },
-  unitGroup: {
+  chartSkeleton: {
+    height: 120,
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    overflow: "hidden",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingVertical: 12,
   },
-  unitButton: { paddingHorizontal: 12, paddingVertical: 12 },
-  unitActive: { backgroundColor: "#111827" },
-  unitText: { fontSize: 14, fontWeight: "800", color: "#111827" },
-  unitTextActive: { color: "#FFFFFF" },
-  saveButton: {
-    marginTop: 10,
-    backgroundColor: "#111827",
+  skeletonBar: {
+    flex: 1,
+    height: 40,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 6,
+  },
+  chartPlaceholder: {
+    minHeight: 100,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  chartPlaceholderText: { fontSize: 13, color: "#6E6E73" },
+  actions: { gap: 10 },
+  primaryButton: {
+    backgroundColor: "#1C1C1E",
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
   },
-  saveDisabled: { opacity: 0.35 },
-  saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  helperError: { color: "#B00020", fontSize: 12, fontWeight: "600" },
-  helperSuccess: { color: "#1B5E20", fontSize: 12, fontWeight: "700" },
-  helperNote: { marginTop: 8, color: "#6B7280", fontSize: 12, fontWeight: "600" },
+  primaryButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  secondaryButton: {
+    backgroundColor: "#E5E5EA",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  secondaryButtonText: { color: "#1C1C1E", fontSize: 15, fontWeight: "600" },
+  sourcesCard: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+  },
+  sourcesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sourcesTitle: { fontSize: 14, fontWeight: "600", color: "#3C3C43" },
+  chevron: { fontSize: 12, color: "#6E6E73" },
+  sourcesBody: { gap: 8, marginTop: 4 },
+  sourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  sourceDate: { fontSize: 12, color: "#6E6E73", flex: 1 },
+  sourceValue: { fontSize: 13, fontWeight: "600", color: "#1C1C1E" },
+  badge: {
+    backgroundColor: "#E5E5EA",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: { fontSize: 11, fontWeight: "600", color: "#3C3C43" },
 });

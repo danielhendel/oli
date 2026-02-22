@@ -200,11 +200,15 @@ export const rawEventsListQuerySchema = z
       .string()
       .optional()
       .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
+    /** Alias: single kind; ignored when kinds is provided and non-empty */
+    kind: z.string().min(1).optional(),
     // Phase 2 — Library search filters (deterministic)
     provenance: z
       .string()
       .optional()
       .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
+    /** Alias: single provenance/sourceId; ignored when provenance is provided and non-empty */
+    sourceId: z.string().min(1).optional(),
     uncertaintyState: z
       .string()
       .optional()
@@ -212,8 +216,33 @@ export const rawEventsListQuerySchema = z
     q: z.string().optional(), // keyword: filters payload.note for incomplete; id substring
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
+    /** Benign cache-bust param from clients; accepted and ignored (not passed downstream). */
+    _: z.string().optional(),
+    /** API Gateway forwards API key as ?key=...; accepted only so gateway requests pass validation; ignored (not passed downstream). */
+    key: z.string().min(1).optional(),
   })
-  .strip();
+  .strict()
+  .transform((data) => {
+    const kinds =
+      data.kinds && data.kinds.length > 0 ? data.kinds : data.kind ? [data.kind] : undefined;
+    const provenance =
+      data.provenance && data.provenance.length > 0
+        ? data.provenance
+        : data.sourceId
+          ? [data.sourceId]
+          : undefined;
+    return {
+      start: data.start,
+      end: data.end,
+      kinds,
+      provenance,
+      uncertaintyState: data.uncertaintyState,
+      q: data.q,
+      cursor: data.cursor,
+      limit: data.limit,
+      // "_" is not included; accepted only to avoid 400 from client cache-bust
+    };
+  });
 
 export const canonicalEventsListQuerySchema = z
   .object({
