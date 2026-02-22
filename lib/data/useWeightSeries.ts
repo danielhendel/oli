@@ -40,7 +40,9 @@ function addDays(dayKey: string, delta: number): string {
 
 export type WeightRangeKey = "7D" | "30D" | "90D" | "1Y" | "All";
 
+/** One weight entry; observedAt must come from raw event (no derived/fake timestamps). */
 export type WeightPoint = {
+  /** ISO timestamp from raw event observedAt; required for chart X-axis and ordering. */
   observedAt: string;
   dayKey: string;
   weightKg: number;
@@ -346,7 +348,14 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
           const payload = doc.payload as { weightKg?: number; time?: string };
           const weightKg = typeof payload?.weightKg === "number" && payload.weightKg > 0 ? payload.weightKg : null;
           if (weightKg == null) continue;
+          // Fail-closed: observedAt must come from raw event; do not derive fake timestamps.
           const observedAt = raw.observedAt;
+          if (typeof observedAt !== "string" || observedAt.length === 0) {
+            if (__DEV__) {
+              console.warn("useWeightSeries: skipped raw event missing observedAt");
+            }
+            continue;
+          }
           const dayKey = ymdInTimeZoneFromIso(observedAt, tz);
           points.push({
             observedAt,

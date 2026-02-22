@@ -4,16 +4,25 @@ import { ScrollView, View, Text, StyleSheet } from "react-native";
 export type ModuleScreenShellProps = {
   title: string;
   subtitle?: string;
+  /** When true, do not render the in-page title/subtitle block (e.g. when title is in nav header). */
+  hideTitleChrome?: boolean;
   children: React.ReactNode;
 };
 
-export function ModuleScreenShell({ title, subtitle, children }: ModuleScreenShellProps) {
+export function ModuleScreenShell({
+  title,
+  subtitle,
+  hideTitleChrome = false,
+  children,
+}: ModuleScreenShellProps) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
+      {!hideTitleChrome && (
+        <View style={styles.header}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+      )}
 
       <View style={styles.content}>{children}</View>
     </ScrollView>

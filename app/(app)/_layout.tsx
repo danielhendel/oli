@@ -18,8 +18,8 @@ export default function AppLayout() {
       {/* Hide native header on Command Center (we render our own large header) */}
       <Stack.Screen name="command-center/index" options={{ headerShown: false }} />
 
-      {/* Body: back chevron only, no center title (in-screen H1 is the title) */}
-      <Stack.Screen name="body/weight" options={{ headerTitle: "" }} />
+      {/* Body Composition: title in nav header; weight screen sets headerRight (•••) via setOptions */}
+      <Stack.Screen name="body/weight" options={{ title: "Body Composition" }} />
       <Stack.Screen name="body/index" options={{ headerTitle: "" }} />
       <Stack.Screen name="body/overview" options={{ headerTitle: "" }} />
       <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
