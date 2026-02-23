@@ -6,7 +6,7 @@
 
 import { Router, type Response } from "express";
 import type { AuthedRequest } from "../../middleware/auth";
-import type { RequestWithRid } from "../../lib/logger";
+import { logger, type RequestWithRid } from "../../lib/logger";
 import { writeFailure } from "../../lib/writeFailure";
 import { userCollection } from "../../db";
 
@@ -52,6 +52,12 @@ router.get("/", async (req: AuthedRequest, res: Response) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    logger.info({
+      msg: "apple_health_status_failed",
+      rid: requestId,
+      uid,
+      error: message,
+    });
     const day = dayUtcNow();
     try {
       await writeFailure({
