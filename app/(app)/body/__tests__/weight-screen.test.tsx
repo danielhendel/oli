@@ -149,7 +149,7 @@ describe("Weight screen", () => {
     expect(text).toContain("Your chart will appear after your first weigh-in.");
   });
 
-  it("renders range selector with 7D, 30D, 90D, 1Y, All", () => {
+  it("renders range selector with 7D, 30D, 90D, 6M, 1Y, 3Y, 5Y, All", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<BodyWeightScreen />);
@@ -158,7 +158,10 @@ describe("Weight screen", () => {
     expect(text).toContain("7D");
     expect(text).toContain("30D");
     expect(text).toContain("90D");
+    expect(text).toContain("6M");
     expect(text).toContain("1Y");
+    expect(text).toContain("3Y");
+    expect(text).toContain("5Y");
     expect(text).toContain("All");
   });
 
@@ -245,7 +248,7 @@ describe("Weight screen", () => {
     mockWithingsConnected = false;
   });
 
-  it("Sources summary does not show Manual when connected", () => {
+  it("Devices & History section shows History when data exists", () => {
     mockWithingsConnected = true;
     mockWeightSeriesData = viewModelWithPoints;
     let test!: renderer.ReactTestRenderer;
@@ -253,8 +256,8 @@ describe("Weight screen", () => {
       test = renderer.create(<BodyWeightScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Sources & Devices");
-    expect(text).not.toMatch(/Sources:\s*Manual/);
+    expect(text).toContain("Devices & History");
+    expect(text).toContain("History");
     mockWithingsConnected = false;
     mockWeightSeriesData = emptyViewModel;
   });

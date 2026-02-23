@@ -2,19 +2,33 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
-import type { WeightPoint } from "@/lib/data/useWeightSeries";
+import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
+import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 
-const PADDING = { left: 8, right: 8, top: 8, bottom: 24 };
+const PADDING = { left: 44, right: 8, top: 8, bottom: 44 };
+const Y_LABEL_FONT_SIZE = 11;
+const Y_LABEL_COLOR = "#4A4A4F";
+/** Minimum vertical gap (px) between High and Low labels to avoid overlap. */
+const Y_LABEL_MIN_GAP_PX = 16;
+const X_LABEL_FONT_SIZE = 11;
 const CHART_HEIGHT = 180;
 const DOT_R = 5;
 const CROSSHAIR_COLOR = "#8E8E93";
-const LINE_COLOR = "#3C3C43";
+const ACCENT_BLUE = "#007AFF";
 const LINE_WIDTH = 2;
-const DOT_FILL = "#3C3C43";
 const GRID_COLOR = "#E5E5EA";
-const AREA_FILL = "#3C3C43";
-const AREA_OPACITY = 0.1;
+const AREA_OPACITY = 0.25;
+/** Lighter fill below actual low line (same hue as area, lower opacity). */
+const BASE_FILL_OPACITY = 0.08;
+/** Minimum Y-axis span to reduce visual exaggeration (in user units, converted to kg for domain). */
+const MIN_SPAN_LB = 12;
+const MIN_SPAN_KG = 5.5;
+const MIN_PAD_LB = 2;
+const MIN_PAD_KG = 0.9;
+const LBS_PER_KG = 2.2046226218;
+/** Soft floor: extend baseline down so blue fill reaches ~145 lb (or equivalent kg). */
+const DISPLAY_FLOOR_LB = 145;
+const DISPLAY_FLOOR_KG = DISPLAY_FLOOR_LB / LBS_PER_KG;
 /** Max points used to draw path/area/dots; touch and tooltip still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -68,23 +82,56 @@ function downsampleLTTB<T extends { x: number; cy: number }>(
   return result;
 }
 
-/** Build smooth SVG path through points using cubic Bezier (Catmull-Rom style). */
-function smoothPathD(points: { cx: number; cy: number }[]): string {
+/** Monotone cubic interpolation (Fritsch–Carlson / d3 curveMonotoneX). No overshoot between points. */
+function monotonePathD(points: { cx: number; cy: number }[]): string {
   if (points.length < 2) return "";
-  const p = (i: number) => points[Math.max(0, Math.min(i, points.length - 1))]!;
-  let d = `M ${p(0).cx} ${p(0).cy}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = p(i - 1);
-    const p1 = p(i);
-    const p2 = p(i + 1);
-    const p3 = p(i + 2);
-    const cp1x = p1.cx + (p2.cx - p0.cx) / 6;
-    const cp1y = p1.cy + (p2.cy - p0.cy) / 6;
-    const cp2x = p2.cx - (p3.cx - p1.cx) / 6;
-    const cp2y = p2.cy - (p3.cy - p1.cy) / 6;
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.cx} ${p2.cy}`;
+  const m = points.length;
+  const x = points.map((p) => p.cx);
+  const y = points.map((p) => p.cy);
+
+  const d: number[] = [];
+  for (let i = 0; i < m - 1; i++) {
+    const dx = x[i + 1]! - x[i]!;
+    if (Math.abs(dx) < 1e-10) d.push(0);
+    else d.push((y[i + 1]! - y[i]!) / dx);
   }
-  return d;
+
+  const tangents = new Array<number>(m);
+  tangents[0] = d[0] ?? 0;
+  tangents[m - 1] = d[m - 2] ?? 0;
+  for (let i = 1; i < m - 1; i++) {
+    const dPrev = d[i - 1] ?? 0;
+    const dCur = d[i] ?? 0;
+    tangents[i] = dPrev * dCur <= 0 ? 0 : (dPrev + dCur) / 2;
+  }
+
+  for (let i = 0; i < m - 1; i++) {
+    const di = d[i] ?? 0;
+    if (di === 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+    } else {
+      const a = tangents[i]! / di;
+      const b = tangents[i + 1]! / di;
+      const h = a * a + b * b;
+      if (h > 9) {
+        const t = 3 / Math.sqrt(h);
+        tangents[i] = t * a * di;
+        tangents[i + 1] = t * b * di;
+      }
+    }
+  }
+
+  let path = `M ${x[0]} ${y[0]}`;
+  for (let i = 0; i < m - 1; i++) {
+    const dx = x[i + 1]! - x[i]!;
+    const cp1x = x[i]! + dx / 3;
+    const cp1y = y[i]! + (tangents[i] ?? 0) * (dx / 3);
+    const cp2x = x[i + 1]! - dx / 3;
+    const cp2y = y[i + 1]! - (tangents[i + 1] ?? 0) * (dx / 3);
+    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x[i + 1]} ${y[i + 1]}`;
+  }
+  return path;
 }
 
 /** Safe, display-only source labels. Never show tokens or secrets. */
@@ -102,10 +149,133 @@ function parseTimestampMs(iso: string): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+type XTick = { tMs: number; label: string; anchor: "start" | "middle" | "end" };
+
+/** X-axis ticks from actual data extents only (trust-first; no labels where there is no data). */
+function ticksForRangeUsingData(
+  range: WeightRangeKey,
+  dataStartMs: number,
+  dataEndMs: number,
+  processedLength: number,
+): XTick[] {
+  if (processedLength < 2) return [];
+  const ticks: XTick[] = [];
+
+  if (range === "3Y" || range === "5Y" || range === "All") {
+    ticks.push(
+      {
+        tMs: dataStartMs,
+        label: new Date(dataStartMs).toLocaleDateString(undefined, { year: "numeric" }),
+        anchor: "start",
+      },
+      {
+        tMs: dataEndMs,
+        label: new Date(dataEndMs).toLocaleDateString(undefined, { year: "numeric" }),
+        anchor: "end",
+      },
+    );
+    return ticks;
+  }
+
+  if (range === "1Y") {
+    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
+    const triple = [dataStartMs, midT, dataEndMs] as const;
+    triple.forEach((tMs, i) => {
+      ticks.push({
+        tMs,
+        label: new Date(tMs).toLocaleDateString(undefined, { month: "short" }),
+        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
+      });
+    });
+    return ticks;
+  }
+
+  if (range === "6M") {
+    const start = new Date(dataStartMs);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    let t = start.getTime();
+    if (t < dataStartMs) {
+      start.setMonth(start.getMonth() + 1);
+      t = start.getTime();
+    }
+    const monthTicks: { tMs: number; label: string }[] = [];
+    while (t <= dataEndMs) {
+      monthTicks.push({
+        tMs: t,
+        label: new Date(t).toLocaleDateString(undefined, { month: "short" }),
+      });
+      start.setMonth(start.getMonth() + 1);
+      t = start.getTime();
+    }
+    if (monthTicks.length === 0) return [];
+    let toShow = monthTicks;
+    if (monthTicks.length > 6) {
+      const step = Math.max(1, Math.floor((monthTicks.length - 1) / 4));
+      toShow = [monthTicks[0]!];
+      for (let i = step; i < monthTicks.length - 1; i += step) toShow.push(monthTicks[i]!);
+      toShow.push(monthTicks[monthTicks.length - 1]!);
+    }
+    toShow.forEach(({ tMs, label }, i) => {
+      ticks.push({
+        tMs,
+        label,
+        anchor: i === 0 ? "start" : i === toShow.length - 1 ? "end" : "middle",
+      });
+    });
+    return ticks;
+  }
+
+  if (range === "30D" || range === "90D") {
+    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
+    const triple = [dataStartMs, midT, dataEndMs] as const;
+    triple.forEach((tMs, i) => {
+      ticks.push({
+        tMs,
+        label: new Date(tMs).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        }),
+        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
+      });
+    });
+    return ticks;
+  }
+
+  if (range === "7D") {
+    const spanDays = (dataEndMs - dataStartMs) / MS_PER_DAY;
+    if (spanDays > 8) return [];
+    const dStart = new Date(dataStartMs);
+    dStart.setHours(0, 0, 0, 0);
+    const startDayMs = dStart.getTime();
+    const dEnd = new Date(dataEndMs);
+    dEnd.setHours(0, 0, 0, 0);
+    const endDayMs = dEnd.getTime();
+    const dayTicks: XTick[] = [];
+    let t = startDayMs;
+    while (t <= endDayMs) {
+      dayTicks.push({
+        tMs: t,
+        label: new Date(t).toLocaleDateString(undefined, { weekday: "short" }),
+        anchor: dayTicks.length === 0 ? "start" : "middle",
+      });
+      t += MS_PER_DAY;
+    }
+    if (dayTicks.length > 0) dayTicks[dayTicks.length - 1]!.anchor = "end";
+    if (dayTicks.length < 4) return [];
+    return dayTicks;
+  }
+
+  return ticks;
+}
+
 export type WeightTrendChartProps = {
   points: WeightPoint[];
   unitLabel: "kg" | "lb";
   formatValue: (weightKg: number) => string;
+  range: WeightRangeKey;
   onChartError?: (message: string) => void;
 };
 
@@ -121,6 +291,7 @@ export function WeightTrendChart({
   points,
   unitLabel,
   formatValue,
+  range,
   onChartError,
 }: WeightTrendChartProps) {
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -173,23 +344,41 @@ export function WeightTrendChart({
   const minW = Math.min(...processed.map((p) => p.weightKg));
   const maxW = Math.max(...processed.map((p) => p.weightKg));
 
-  /** Robust Y-domain: p05–p95 with 2% padding to avoid edge clipping; fall back to min/max if <3 points. */
+  /** Robust Y-domain: p05–p95 with 2% padding; then enforce minimum span/padding to reduce visual exaggeration. */
   const { displayMin, displayMax, outlierCount } = (() => {
     const n = processed.length;
+    let dMin: number;
+    let dMax: number;
     if (n < 3) {
-      return {
-        displayMin: minW,
-        displayMax: maxW,
-        outlierCount: 0,
-      };
+      dMin = Math.max(0, minW);
+      dMax = maxW;
+    } else {
+      const sorted = [...processed.map((p) => p.weightKg)].sort((a, b) => a - b);
+      const p05 = sorted[Math.floor((n - 1) * 0.05)] ?? minW;
+      const p95 = sorted[Math.floor((n - 1) * 0.95)] ?? maxW;
+      const range = p95 - p05 || 0.1;
+      const padding = 0.02 * range;
+      dMin = p05 - padding;
+      dMax = p95 + padding;
+
+      const spanMinKg = unitLabel === "lb" ? MIN_SPAN_LB / LBS_PER_KG : MIN_SPAN_KG;
+      const padMinKg = unitLabel === "lb" ? MIN_PAD_LB / LBS_PER_KG : MIN_PAD_KG;
+      const currentSpanKg = dMax - dMin;
+      const midKg = (dMin + dMax) / 2;
+      if (currentSpanKg < spanMinKg) {
+        dMin = midKg - spanMinKg / 2;
+        dMax = midKg + spanMinKg / 2;
+      } else {
+        const padBottom = midKg - dMin;
+        const padTop = dMax - midKg;
+        if (padBottom < padMinKg) dMin = midKg - padMinKg;
+        if (padTop < padMinKg) dMax = midKg + padMinKg;
+      }
+      dMin = Math.max(0, dMin);
     }
-    const sorted = [...processed.map((p) => p.weightKg)].sort((a, b) => a - b);
-    const p05 = sorted[Math.floor((n - 1) * 0.05)] ?? minW;
-    const p95 = sorted[Math.floor((n - 1) * 0.95)] ?? maxW;
-    const range = p95 - p05 || 0.1;
-    const padding = 0.02 * range;
-    const dMin = p05 - padding;
-    const dMax = p95 + padding;
+    if (unitLabel === "lb" && dMin * LBS_PER_KG > DISPLAY_FLOOR_LB) dMin = DISPLAY_FLOOR_LB / LBS_PER_KG;
+    if (unitLabel === "kg" && dMin > DISPLAY_FLOOR_KG) dMin = DISPLAY_FLOOR_KG;
+    dMin = Math.max(0, dMin);
     const count = processed.filter((p) => p.weightKg < dMin || p.weightKg > dMax).length;
     return { displayMin: dMin, displayMax: dMax, outlierCount: count };
   })();
@@ -218,13 +407,61 @@ export function WeightTrendChart({
   /** Downsample for rendering only; touch/tooltip still use full pointsWithCoords. */
   const renderPoints = downsampleLTTB(pointsWithCoords, MAX_RENDER_POINTS);
 
-  /** Smooth cubic Bezier path through (possibly downsampled) render points. */
-  const pathD = smoothPathD(renderPoints);
+  const n = processed.length;
+  const isSparse = n < 3;
+
+  /** Line path: sparse (1–2 points) uses straight segment or none; else monotone cubic (no overshoot). */
+  const pathD = (() => {
+    if (isSparse) {
+      if (n === 1) return "";
+      if (n === 2 && renderPoints.length >= 2) {
+        const p0 = renderPoints[0]!;
+        const p1 = renderPoints[1]!;
+        return `M ${p0.cx} ${p0.cy} L ${p1.cx} ${p1.cy}`;
+      }
+      return "";
+    }
+    return monotonePathD(renderPoints);
+  })();
 
   const baselineY = PADDING.top + chartHeight;
-  /** Adaptive fill: area under the same smooth path, closed to baseline. */
+
+  /** Actual data min/max (kg) from current points; used for Y labels and dashed guide lines. */
+  const actualMinW =
+    processed.length > 0 ? Math.min(...processed.map((p) => p.weightKg)) : displayMin;
+  const actualMaxW =
+    processed.length > 0 ? Math.max(...processed.map((p) => p.weightKg)) : displayMax;
+  const clampedHigh = Math.max(displayMin, Math.min(displayMax, actualMaxW));
+  const clampedLow = Math.max(displayMin, Math.min(displayMax, actualMinW));
+  const yHigh = toChartY(clampedHigh);
+  const yLow = toChartY(clampedLow);
+  /** Exact values, one decimal; no unit suffix. */
+  const highLabel =
+    unitLabel === "lb"
+      ? (actualMaxW * LBS_PER_KG).toFixed(1)
+      : actualMaxW.toFixed(1);
+  const lowLabel =
+    unitLabel === "lb"
+      ? (actualMinW * LBS_PER_KG).toFixed(1)
+      : actualMinW.toFixed(1);
+  const isSparseLabels = processed.length < 2;
+  const singleValueLabel = isSparseLabels ? highLabel : null;
+  const labelsTooClose = Math.abs(yHigh - yLow) < Y_LABEL_MIN_GAP_PX;
+
+  /** X-axis: data extents only (trust-first). */
+  const dataStartMs = minT;
+  const dataEndMs = maxT;
+
+  /** X-axis ticks from actual data extents; no labels if insufficient data. */
+  const xAxisTicks = useMemo(
+    () => ticksForRangeUsingData(range, dataStartMs, dataEndMs, processed.length),
+    [range, dataStartMs, dataEndMs, processed.length],
+  );
+  const xAxisY = PADDING.top + chartHeight + 18;
+
+  /** Area fill only when >= 3 points; sparse windows must not show filled triangle. */
   const areaD =
-    renderPoints.length >= 2
+    !isSparse && renderPoints.length >= 2
       ? `${pathD} L ${renderPoints[renderPoints.length - 1]!.cx} ${baselineY} L ${renderPoints[0]!.cx} ${baselineY} Z`
       : "";
 
@@ -281,11 +518,89 @@ export function WeightTrendChart({
               />
             );
           })}
-          {/* Area fill under line (graphite, subtle) — render before line so line stays on top */}
+          {/* Dashed horizontal guide lines at actual data High/Low (behind area/line) */}
+          {!isSparseLabels && (
+            <>
+              <Path
+                d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
+                stroke="#C7C7CC"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+                fill="none"
+              />
+              <Path
+                d={`M ${PADDING.left} ${yLow} L ${layout.width - PADDING.right} ${yLow}`}
+                stroke="#C7C7CC"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+                fill="none"
+              />
+            </>
+          )}
+          {isSparseLabels && (
+            <Path
+              d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
+              stroke="#C7C7CC"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+              fill="none"
+            />
+          )}
+          {/* Y-axis labels: exact actual values (one decimal); hide Low if too close to High */}
+          {!isSparseLabels && (
+            <>
+              <SvgText
+                x={4}
+                y={yHigh}
+                fontSize={Y_LABEL_FONT_SIZE}
+                fill={Y_LABEL_COLOR}
+                textAnchor="start"
+                alignmentBaseline="middle"
+              >
+                {highLabel}
+              </SvgText>
+              {!labelsTooClose && (
+                <SvgText
+                  x={4}
+                  y={yLow}
+                  fontSize={Y_LABEL_FONT_SIZE}
+                  fill={Y_LABEL_COLOR}
+                  textAnchor="start"
+                  alignmentBaseline="middle"
+                >
+                  {lowLabel}
+                </SvgText>
+              )}
+            </>
+          )}
+          {isSparseLabels && singleValueLabel != null && (
+            <SvgText
+              x={4}
+              y={yHigh}
+              fontSize={Y_LABEL_FONT_SIZE}
+              fill={Y_LABEL_COLOR}
+              textAnchor="start"
+              alignmentBaseline="middle"
+            >
+              {singleValueLabel}
+            </SvgText>
+          )}
+          {/* Base tint below low dashed line (lighter blue) */}
+          {processed.length > 0 && (
+            <Rect
+              x={PADDING.left}
+              y={yLow}
+              width={layout.width - PADDING.left - PADDING.right}
+              height={Math.max(0, baselineY - yLow)}
+              fill={ACCENT_BLUE}
+              fillOpacity={BASE_FILL_OPACITY}
+            />
+          )}
+          {/* Area fill under line — render before line so line stays on top */}
           {areaD ? (
             <Path
               d={areaD}
-              fill={AREA_FILL}
+              fill={ACCENT_BLUE}
               fillOpacity={AREA_OPACITY}
               stroke="none"
             />
@@ -294,54 +609,28 @@ export function WeightTrendChart({
           {pathD ? (
             <Path
               d={pathD}
-              stroke={LINE_COLOR}
+              stroke={ACCENT_BLUE}
               strokeWidth={LINE_WIDTH}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Dots: from render points (downsampled); selected point drawn again if not in set so crosshair has a dot */}
-          {renderPoints.map((p, i) => {
-            const isSelected = selected != null && p.cx === selected.cx && p.cy === selected.cy;
-            return p.isClipped ? (
+          {/* Dot marker: only while touching (selection active); no persistent dots */}
+          {touchX != null && selected != null &&
+            (selected.isClipped ? (
               <Circle
-                key={`r-${i}`}
-                cx={p.cx}
-                cy={p.cy}
-                r={DOT_R}
-                fill="none"
-                stroke={DOT_FILL}
-                strokeWidth={2}
-                opacity={isSelected ? 1 : 0.8}
-              />
-            ) : (
-              <Circle
-                key={`r-${i}`}
-                cx={p.cx}
-                cy={p.cy}
-                r={DOT_R}
-                fill={DOT_FILL}
-                opacity={isSelected ? 1 : renderPoints.length === 1 ? 1 : 0.8}
-              />
-            );
-          })}
-          {selected != null && !renderPoints.some((p) => p.cx === selected.cx && p.cy === selected.cy) ? (
-            selected.isClipped ? (
-              <Circle
-                key="selected"
                 cx={selected.cx}
                 cy={selected.cy}
                 r={DOT_R}
                 fill="none"
-                stroke={DOT_FILL}
+                stroke={ACCENT_BLUE}
                 strokeWidth={2}
                 opacity={1}
               />
             ) : (
-              <Circle key="selected" cx={selected.cx} cy={selected.cy} r={DOT_R} fill={DOT_FILL} opacity={1} />
-            )
-          ) : null}
+              <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={ACCENT_BLUE} opacity={1} />
+            ))}
           {/* Crosshair at selected x */}
           {touchX != null && selected != null && (
             <Path
@@ -352,11 +641,40 @@ export function WeightTrendChart({
               fill="none"
             />
           )}
+          {/* X-axis time labels (data-extent only; first/last at plot edges so no clipping) */}
+          {layout &&
+            xAxisTicks.map((tick, i) => {
+              const isFirst = i === 0;
+              const isLast = i === xAxisTicks.length - 1;
+              const x =
+                isFirst
+                  ? PADDING.left
+                  : isLast
+                    ? layout.width - PADDING.right
+                    : toChartX(tick.tMs);
+              return (
+                <SvgText
+                  key={`${tick.tMs}-${i}`}
+                  x={x}
+                  y={xAxisY}
+                  fontSize={X_LABEL_FONT_SIZE}
+                  fill={Y_LABEL_COLOR}
+                  textAnchor={tick.anchor}
+                >
+                  {tick.label}
+                </SvgText>
+              );
+            })}
         </Svg>
       )}
       {outlierCount > 0 && (
         <Text style={styles.outlierNote} accessibilityLabel={`${outlierCount} outlier(s) clipped for readability`}>
           {outlierCount} outlier(s) clipped for readability
+        </Text>
+      )}
+      {isSparse && (
+        <Text style={styles.sparseNote} accessibilityLabel="Not enough weigh-ins in this range">
+          Not enough weigh-ins in this range
         </Text>
       )}
       {/* Tooltip card (View over SVG) — never block the selected point; position above or below */}
@@ -433,5 +751,10 @@ const styles = StyleSheet.create({
     color: "#6E6E73",
     marginTop: 6,
     fontStyle: "italic",
+  },
+  sparseNote: {
+    fontSize: 11,
+    color: "#6E6E73",
+    marginTop: 6,
   },
 });
