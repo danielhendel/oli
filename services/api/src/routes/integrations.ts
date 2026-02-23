@@ -442,12 +442,12 @@ export async function handleWithingsCallback(req: Request, res: Response): Promi
       logger.error({ msg: "withings_registry_write_error", rid, uid, err: msg });
     }
 
-    const xfProto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim();
-    const proto = xfProto || "https";
-    const host = req.get("host");
-    const completionUrl = host
-      ? `${proto}://${host}/integrations/withings/complete`
-      : "com.olifitness.oli://withings-connected";
+    // Prefer PUBLIC_BASE_URL so redirect lands on gateway, never on invoker-only run.app
+    const publicBase = (process.env.PUBLIC_BASE_URL ?? "").trim();
+    const completionUrl =
+      publicBase && publicBase.startsWith("https://")
+        ? `${normalizeBaseUrl(publicBase)}/integrations/withings/complete`
+        : "com.olifitness.oli://withings-connected";
     res.redirect(302, completionUrl);
   } catch (err) {
     if (err instanceof withingsSecrets.WithingsConfigError) {

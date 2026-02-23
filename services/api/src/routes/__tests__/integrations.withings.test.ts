@@ -357,6 +357,67 @@ describe("Withings integrations (Phase 3A)", () => {
         { merge: true },
       );
     });
+
+    it("redirects to PUBLIC_BASE_URL completion URL when Host is run.app (gateway proxy)", async () => {
+      const gatewayBase = "https://oli-gateway-cw04f997.uc.gateway.dev";
+      const runAppHost = "10034434203.us-central1.run.app";
+      const prevPublicBaseUrl = process.env.PUBLIC_BASE_URL;
+      const prevWithingsRedirectUri = process.env.WITHINGS_REDIRECT_URI;
+      process.env.PUBLIC_BASE_URL = gatewayBase;
+      process.env.WITHINGS_REDIRECT_URI = `${gatewayBase}/integrations/withings/callback`;
+
+      const originalFetch = globalThis.fetch;
+      try {
+        (validateAndConsumeState as jest.Mock).mockResolvedValue({ ok: true, uid: "user_123", stateId: "s1" });
+        (withingsSecrets.getClientSecret as jest.Mock).mockResolvedValue("client_secret");
+        (withingsSecrets.setRefreshToken as jest.Mock).mockResolvedValue(undefined);
+
+        const setMock = jest.fn(async () => undefined);
+        (userCollection as jest.Mock).mockReturnValue({
+          doc: () => ({ set: setMock }),
+        });
+
+        globalThis.fetch = jest.fn(() =>
+          Promise.resolve({
+            status: 200,
+            json: async () => ({ status: 0, body: { refresh_token: "rt_xyz", access_token: "at_xyz" } }),
+          } as Response),
+        ) as unknown as typeof fetch;
+
+        const req = {
+          query: { code: "valid_code", state: "user_123:s1" },
+          get: (name: string) =>
+            name === "host"
+              ? runAppHost
+              : name === "x-request-id"
+                ? "req-1"
+                : undefined,
+          getHeader: (name: string) =>
+            name === "host" ? runAppHost : name === "x-request-id" ? "req-1" : undefined,
+          headers: { "x-forwarded-proto": "https", host: runAppHost },
+        } as unknown as express.Request;
+
+        const res = {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn().mockReturnThis(),
+          redirect: jest.fn().mockReturnThis(),
+          getHeader: () => "req-1",
+        } as unknown as express.Response;
+
+        await handleWithingsCallback(req, res);
+
+        const expectedCompletionUrl = `${gatewayBase}/integrations/withings/complete`;
+        expect(res.redirect).toHaveBeenCalledWith(302, expectedCompletionUrl);
+        expect(res.redirect).not.toHaveBeenCalledWith(
+          expect.anything(),
+          expect.stringContaining("run.app"),
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+        process.env.PUBLIC_BASE_URL = prevPublicBaseUrl;
+        process.env.WITHINGS_REDIRECT_URI = prevWithingsRedirectUri;
+      }
+    });
   });
 
   describe("POST /integrations/withings/revoke", () => {
