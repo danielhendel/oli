@@ -3,6 +3,7 @@
  * Triggers an immediate Withings pull for the authed user only: last 72h of measures,
  * idempotent RawEvent writes, deterministic summary. Fail-closed; requestId in all error responses.
  * Does NOT use requireInvokerAuth (user-initiated, authMiddleware).
+ * Requires Idempotency-Key header; uses users/{uid}/requestRecords for replay-safe behavior.
  */
 
 import { Router, type Request, type Response } from "express";
@@ -21,6 +22,23 @@ const WINDOW_HOURS = 72;
 
 function getRequestId(req: Request): string {
   return (req as AuthedRequest).rid ?? (req.header("x-request-id") ?? "unknown").toString();
+}
+
+/**
+ * Prefer header-based idempotency. Allow middleware injection if present.
+ * Matches services/api/src/routes/events.ts and uploads.ts.
+ */
+function getIdempotencyKey(req: Request): string | undefined {
+  const fromHeader =
+    (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
+    (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
+
+  if (fromHeader) return fromHeader;
+
+  const anyReq = req as unknown as { idempotencyKey?: unknown };
+  const fromMiddleware = typeof anyReq.idempotencyKey === "string" ? anyReq.idempotencyKey : undefined;
+
+  return fromMiddleware ?? undefined;
 }
 
 function isInvalidRefreshToken(code: string, message: string): boolean {
@@ -72,6 +90,7 @@ function toYmdUtc(iso: string): string {
 /**
  * POST /integrations/withings/pull-now
  * User-authenticated. Pulls last 72h for req.uid only; writes RawEvents or FailureEntry.
+ * Requires Idempotency-Key; uses request record for replay-safe behavior.
  */
 router.post("/", async (req: Request, res: Response) => {
   const requestId = getRequestId(req);
@@ -88,6 +107,60 @@ router.post("/", async (req: Request, res: Response) => {
     });
   }
 
+  const idempotencyKey = getIdempotencyKey(req);
+  if (!idempotencyKey) {
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "BAD_REQUEST" as const,
+        message: "Idempotency-Key header is required for pull-now",
+        requestId,
+      },
+    });
+  }
+
+  const recordRef = userCollection(uid, "requestRecords").doc(idempotencyKey);
+
+  try {
+    await recordRef.create({
+      kind: "withings.pullNow",
+      windowHours: WINDOW_HOURS,
+      status: "in_progress",
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (createErr: unknown) {
+    const isAlreadyExists =
+      createErr &&
+      typeof createErr === "object" &&
+      "code" in createErr &&
+      (createErr as { code?: number }).code === 6;
+
+    if (!isAlreadyExists) throw createErr;
+
+    const existing = await recordRef.get();
+    const data = existing.exists ? existing.data() : undefined;
+    const status = data?.status;
+    const statusCode = data?.statusCode as number | undefined;
+    const result = data?.result as Record<string, unknown> | undefined;
+
+    if (status === "complete" && typeof statusCode === "number" && result && typeof result === "object") {
+      const body = { ...result, requestId } as Record<string, unknown>;
+      if (body.error && typeof body.error === "object" && body.error !== null) {
+        body.error = { ...(body.error as Record<string, unknown>), requestId };
+      }
+      return res.status(statusCode).json(body);
+    }
+
+    return res.status(409).json({
+      ok: false as const,
+      error: {
+        code: "CONFLICT" as const,
+        message: "Request already in progress",
+        requestId,
+      },
+    });
+  }
+
   let eventsCreated = 0;
   let eventsAlreadyExists = 0;
   let failuresWritten = 0;
@@ -95,6 +168,9 @@ router.post("/", async (req: Request, res: Response) => {
 
   const endMs = Date.now();
   const startMs = endMs - WINDOW_MS;
+
+  let statusCode: number;
+  let resultBody: Record<string, unknown>;
 
   let samples;
   try {
@@ -133,14 +209,25 @@ router.post("/", async (req: Request, res: Response) => {
         err: writeErr instanceof Error ? writeErr.message : String(writeErr),
       });
     }
-    return res.status(502).json({
+    statusCode = 502;
+    resultBody = {
       ok: false as const,
       error: {
         code: "WITHINGS_FETCH_FAILED" as const,
         message: "Withings measure fetch failed",
         requestId,
       },
-    });
+    };
+    await recordRef.set(
+      {
+        status: "complete",
+        statusCode,
+        result: resultBody,
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return res.status(statusCode).json(resultBody);
   }
 
   const rawEventsCol = userCollection(uid, "rawEvents");
@@ -247,17 +334,29 @@ router.post("/", async (req: Request, res: Response) => {
       requestId,
       err: metaErr instanceof Error ? metaErr.message : String(metaErr),
     });
-    return res.status(500).json({
+    statusCode = 500;
+    resultBody = {
       ok: false as const,
       error: {
         code: "INTERNAL" as const,
         message: "Failed to update lastSyncAt",
         requestId,
       },
-    });
+    };
+    await recordRef.set(
+      {
+        status: "complete",
+        statusCode,
+        result: resultBody,
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return res.status(statusCode).json(resultBody);
   }
 
-  return res.status(200).json({
+  statusCode = 200;
+  resultBody = {
     ok: true as const,
     requestId,
     windowHours: WINDOW_HOURS,
@@ -265,7 +364,17 @@ router.post("/", async (req: Request, res: Response) => {
     eventsAlreadyExists,
     failuresWritten,
     failureWriteErrors,
-  });
+  };
+  await recordRef.set(
+    {
+      status: "complete",
+      statusCode,
+      result: resultBody,
+      completedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return res.status(statusCode).json(resultBody);
 });
 
 export default router;

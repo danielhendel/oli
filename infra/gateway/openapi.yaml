@@ -538,6 +538,12 @@ paths:
       description: Pull last 72h of Withings measures for the authed user and write rawEvents idempotently.
       security:
         - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+          description: Required for idempotent pull-now; replay returns same result.
       produces:
         - application/json
       responses:
@@ -545,8 +551,12 @@ paths:
           description: Success; ok true with requestId and counts
           schema:
             $ref: "#/definitions/WithingsPullNowResponse"
+        400:
+          description: Missing Idempotency-Key header (BAD_REQUEST)
         401:
           description: Unauthorized
+        409:
+          description: Request already in progress (CONFLICT)
         502:
           description: Withings fetch failed (e.g. WITHINGS_FETCH_FAILED)
         500:

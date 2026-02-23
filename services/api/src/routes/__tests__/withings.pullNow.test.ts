@@ -1,5 +1,6 @@
 /**
  * W4A — POST /integrations/withings/pull-now: user auth, 72h pull, idempotent RawEvent writes.
+ * Requires Idempotency-Key; uses requestRecords for replay-safe behavior.
  */
 
 import express from "express";
@@ -13,6 +14,34 @@ const mockDocRefs: Record<
   { get: jest.Mock; create: jest.Mock; id: string }
 > = {};
 const mockRegistryDelete = jest.fn().mockResolvedValue(undefined);
+
+/** In-memory state for requestRecords/{idempotencyKey} to simulate create/get/set. */
+const requestRecordState: Record<
+  string,
+  { status: string; statusCode?: number; result?: Record<string, unknown>; createdAt?: unknown; completedAt?: unknown }
+> = {};
+
+function makeRequestRecordRef(id: string) {
+  return {
+    id,
+    create: jest.fn().mockImplementation(async (data: Record<string, unknown>) => {
+      if (requestRecordState[id]) {
+        const err = new Error("ALREADY_EXISTS") as Error & { code?: number };
+        err.code = 6;
+        throw err;
+      }
+      requestRecordState[id] = { ...data as { status: string }, status: "in_progress" };
+    }),
+    get: jest.fn().mockImplementation(async () => ({
+      exists: !!requestRecordState[id],
+      data: () => requestRecordState[id],
+    })),
+    set: jest.fn().mockImplementation(async (data: Record<string, unknown>, opts?: { merge?: boolean }) => {
+      const existing = requestRecordState[id] ?? {};
+      requestRecordState[id] = opts?.merge ? { ...existing, ...data } : { ...data } as typeof requestRecordState[string];
+    }),
+  };
+}
 
 jest.mock("../../db", () => ({
   userCollection: (...args: unknown[]) => mockUserCollection(...args),
@@ -75,7 +104,13 @@ describe("POST /integrations/withings/pull-now", () => {
       delete: mockRegistryDelete,
     }));
     Object.keys(mockDocRefs).forEach((k) => delete mockDocRefs[k]);
+    Object.keys(requestRecordState).forEach((k) => delete requestRecordState[k]);
     mockUserCollection.mockImplementation((uid: string, col: string) => {
+      if (col === "requestRecords") {
+        return {
+          doc: (id: string) => makeRequestRecordRef(id),
+        };
+      }
       if (col !== "rawEvents") return { doc: jest.fn() };
       return {
         doc: (id: string) => {
@@ -95,11 +130,24 @@ describe("POST /integrations/withings/pull-now", () => {
   describe("rejects unauth", () => {
     it("returns 401 and includes requestId when no uid", async () => {
       const res = await request(appWithoutAuth)
-        .post("/integrations/withings/pull-now");
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", "idem_unauth_1");
       expect(res.status).toBe(401);
       expect(res.body?.ok).toBe(false);
       expect(res.body?.error?.code).toBe("UNAUTHORIZED");
       expect(res.body?.error?.requestId).toBe("req-unauth");
+    });
+  });
+
+  describe("Idempotency-Key required", () => {
+    it("returns 400 BAD_REQUEST when Idempotency-Key header is missing and does not call fetchWithingsMeasures", async () => {
+      const res = await request(appWithAuth).post("/integrations/withings/pull-now");
+      expect(res.status).toBe(400);
+      expect(res.body?.ok).toBe(false);
+      expect(res.body?.error?.code).toBe("BAD_REQUEST");
+      expect(res.body?.error?.message).toContain("Idempotency-Key");
+      expect(res.body?.error?.requestId).toBe("req-pull-now");
+      expect(withingsMeasures.fetchWithingsMeasures).not.toHaveBeenCalled();
     });
   });
 
@@ -108,6 +156,9 @@ describe("POST /integrations/withings/pull-now", () => {
       const key1 = "withings:weight:user_123:111";
       const key2 = "withings:weight:user_123:222";
       mockUserCollection.mockImplementation((uid: string, col: string) => {
+        if (col === "requestRecords") {
+          return { doc: (id: string) => makeRequestRecordRef(id) };
+        }
         if (col === "integrations") {
           return { doc: () => ({ set: jest.fn().mockResolvedValue(undefined) }) };
         }
@@ -141,7 +192,9 @@ describe("POST /integrations/withings/pull-now", () => {
         },
       ]);
 
-      const res = await request(appWithAuth).post("/integrations/withings/pull-now");
+      const res = await request(appWithAuth)
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", "idem_pull_now_1");
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
         ok: true,
@@ -153,6 +206,78 @@ describe("POST /integrations/withings/pull-now", () => {
         failureWriteErrors: 0,
       });
     });
+
+    it("replay returns recorded result and does not refetch", async () => {
+      const key1 = "withings:weight:user_123:111";
+      const key2 = "withings:weight:user_123:222";
+      const idemKey = "idem_replay_1";
+
+      const appReplay = express();
+      appReplay.use(express.json());
+      appReplay.use((req, _res, next) => {
+        (req as unknown as { uid: string; rid: string }).uid = "user_123";
+        (req as unknown as { rid: string }).rid = "req-pull-now-2";
+        next();
+      });
+      appReplay.use("/integrations/withings/pull-now", withingsPullNowRouter);
+
+      mockUserCollection.mockImplementation((uid: string, col: string) => {
+        if (col === "requestRecords") {
+          return { doc: (id: string) => makeRequestRecordRef(id) };
+        }
+        if (col === "integrations") {
+          return { doc: () => ({ set: jest.fn().mockResolvedValue(undefined) }) };
+        }
+        if (col !== "rawEvents") return { doc: jest.fn() };
+        return {
+          doc: (id: string) => {
+            const isSecond = id === key2;
+            return {
+              id,
+              get: jest.fn().mockResolvedValue({ exists: isSecond }),
+              create: jest.fn().mockImplementation(() =>
+                isSecond ? Promise.reject(new Error("already exists")) : Promise.resolve(),
+              ),
+            };
+          },
+        };
+      });
+
+      withingsMeasures.fetchWithingsMeasures.mockResolvedValue([
+        { measuredAtIso: "2025-01-15T12:00:00.000Z", weightKg: 75, bodyFatPercent: null, idempotencyKey: key1 },
+        { measuredAtIso: "2025-01-15T14:00:00.000Z", weightKg: 76, bodyFatPercent: 20, idempotencyKey: key2 },
+      ]);
+
+      const firstRes = await request(appWithAuth)
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", idemKey);
+      expect(firstRes.status).toBe(200);
+      expect(firstRes.body).toMatchObject({
+        ok: true,
+        requestId: "req-pull-now",
+        windowHours: 72,
+        eventsCreated: 1,
+        eventsAlreadyExists: 1,
+      });
+      const fetchCountAfterFirst = withingsMeasures.fetchWithingsMeasures.mock.calls.length;
+      expect(fetchCountAfterFirst).toBe(1);
+
+      const replayRes = await request(appReplay)
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", idemKey);
+      expect(replayRes.status).toBe(200);
+      expect(replayRes.body.requestId).toBe("req-pull-now-2");
+      expect(replayRes.body).toMatchObject({
+        ok: true,
+        windowHours: 72,
+        eventsCreated: 1,
+        eventsAlreadyExists: 1,
+        failuresWritten: 0,
+        failureWriteErrors: 0,
+      });
+      expect(withingsMeasures.fetchWithingsMeasures).toHaveBeenCalledTimes(fetchCountAfterFirst);
+      expect(writeFailure.writeFailure).not.toHaveBeenCalled();
+    });
   });
 
   describe("Withings fetch error", () => {
@@ -162,7 +287,9 @@ describe("POST /integrations/withings/pull-now", () => {
         new withingsMeasures.WithingsMeasureError("API error", "WITHINGS_MEASURE_API_ERROR"),
       );
 
-      const res = await request(appWithAuth).post("/integrations/withings/pull-now");
+      const res = await request(appWithAuth)
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", "idem_fetch_error_1");
       expect(res.status).toBe(502);
       expect(res.body?.ok).toBe(false);
       expect(res.body?.error?.code).toBe("WITHINGS_FETCH_FAILED");
@@ -192,6 +319,9 @@ describe("POST /integrations/withings/pull-now", () => {
 
       const mockIntegrationsSet = jest.fn().mockResolvedValue(undefined);
       mockUserCollection.mockImplementation((_uid: string, col: string) => {
+        if (col === "requestRecords") {
+          return { doc: (id: string) => makeRequestRecordRef(id) };
+        }
         if (col === "integrations") {
           return {
             doc: (docId: string) =>
@@ -213,7 +343,9 @@ describe("POST /integrations/withings/pull-now", () => {
         };
       });
 
-      const res = await request(appWithAuth).post("/integrations/withings/pull-now");
+      const res = await request(appWithAuth)
+        .post("/integrations/withings/pull-now")
+        .set("Idempotency-Key", "idem_refresh_invalid_1");
 
       expect(res.status).toBe(502);
       expect(res.body?.ok).toBe(false);

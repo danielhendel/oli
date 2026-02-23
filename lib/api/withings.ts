@@ -98,7 +98,7 @@ const withingsPullNowDtoSchema = z.object({
   failureWriteErrors: z.number(),
 });
 
-/** POST /integrations/withings/pull-now — pull last 72h for authed user; gateway-compatible. */
+/** POST /integrations/withings/pull-now — pull last 72h for authed user; requires Idempotency-Key. */
 export async function postWithingsPullNow(
   idToken: string,
   opts?: PostOptions,
@@ -112,6 +112,7 @@ export async function postWithingsPullNow(
       timeoutMs: 20000,
       noStore: true,
       ...(opts?.cacheBust ? { cacheBust: opts.cacheBust } : {}),
+      ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
     },
   );
 }

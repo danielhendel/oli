@@ -205,11 +205,12 @@ export default function BodyWeightScreen() {
 
   type UpdateState =
     | { status: "idle" }
-    | { status: "loading" }
+    | { status: "busy" }
     | { status: "success"; atMs: number; created: number; already: number }
     | { status: "error"; message: string; requestId: string | null };
   const [updateState, setUpdateState] = useState<UpdateState>({ status: "idle" });
   const lastUpdateTapMs = useRef(0);
+  const pullNowIdemRef = useRef<string | null>(null);
   const UPDATE_COOLDOWN_MS = 15000;
 
   useEffect(() => {
@@ -258,7 +259,12 @@ export default function BodyWeightScreen() {
     if (now - lastUpdateTapMs.current < UPDATE_COOLDOWN_MS) return;
     lastUpdateTapMs.current = now;
 
-    setUpdateState({ status: "loading" });
+    if (pullNowIdemRef.current === null) {
+      pullNowIdemRef.current = `withingsPullNow:${Date.now()}`;
+    }
+    const idempotencyKey = pullNowIdemRef.current;
+
+    setUpdateState({ status: "busy" });
 
     const token = await getIdToken(false);
     if (!token) {
@@ -266,7 +272,10 @@ export default function BodyWeightScreen() {
       return;
     }
 
-    const res = await postWithingsPullNow(token, { cacheBust: `pullNow:${now}` });
+    const res = await postWithingsPullNow(token, {
+      cacheBust: `pullNow:${now}`,
+      idempotencyKey,
+    });
 
     if (!res.ok) {
       setUpdateState({
@@ -277,6 +286,7 @@ export default function BodyWeightScreen() {
       return;
     }
 
+    pullNowIdemRef.current = null;
     weightSeries.refetch({ cacheBust: `pullNow:${now}` });
     withingsPresence.refetch();
 
@@ -366,16 +376,16 @@ export default function BodyWeightScreen() {
             </Text>
             <Pressable
               onPress={onPressUpdate}
-              disabled={updateState.status === "loading"}
+              disabled={updateState.status === "busy"}
               style={[
                 styles.updatePill,
-                updateState.status === "loading" && styles.updatePillDisabled,
+                updateState.status === "busy" && styles.updatePillDisabled,
               ]}
               accessibilityRole="button"
               accessibilityLabel={
                 !connected
                   ? "Connect to update"
-                  : updateState.status === "loading"
+                  : updateState.status === "busy"
                     ? "Updating…"
                     : updateState.status === "success"
                       ? "Updated"
@@ -387,7 +397,7 @@ export default function BodyWeightScreen() {
               <Text style={styles.updatePillText}>
                 {!connected
                   ? "Connect to update"
-                  : updateState.status === "loading"
+                  : updateState.status === "busy"
                     ? "Updating…"
                     : updateState.status === "success"
                       ? "Updated"
