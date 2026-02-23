@@ -11,7 +11,7 @@ import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 /** Per-page limit for getRawEvents (API max 100). */
 const MAX_WEIGHT_ITEMS_FETCH = 100;
-/** Hard cap for all-time fetch; if exceeded, fail-closed with explicit error. */
+/** Hard cap for all-time load; if exceeded, fail-closed with explicit error. */
 const MAX_TOTAL_WEIGHT_ITEMS = 5000;
 const CONCURRENCY = 8;
 
@@ -225,7 +225,7 @@ function buildViewModel(
 
 /**
  * Returns start/end dayKeys for bounded ranges. For "All", callers must use
- * all-time fetch (pagination without start/end), not this.
+ * all-time load (pagination without start/end), not this.
  */
 function rangeToStartEnd(
   range: WeightRangeKey,
@@ -284,7 +284,7 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
     stateRef.current = state;
   }, [state]);
 
-  const fetchOnce = useCallback(
+  const loadOnce = useCallback(
     async (opts?: GetOptions) => {
       const seq = ++reqSeq.current;
       const safeSet = (next: State) => {
@@ -444,8 +444,8 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
   );
 
   useEffect(() => {
-    void fetchOnce();
-  }, [fetchOnce, range, user?.uid]);
+    void loadOnce();
+  }, [loadOnce, range, user?.uid]);
 
-  return { ...state, refetch: fetchOnce };
+  return { ...state, refetch: loadOnce };
 }
