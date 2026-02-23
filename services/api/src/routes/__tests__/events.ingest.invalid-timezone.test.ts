@@ -13,6 +13,12 @@ jest.mock("../../db", () => {
   };
 });
 
+// Failure paths now write FailureEntry via writeFailure (which uses userCollection).
+// Mock so we only assert no rawEvents write.
+jest.mock("../../lib/writeFailure", () => ({
+  writeFailure: jest.fn().mockResolvedValue({ id: "mock-failure-id" }),
+}));
+
 describe("POST /ingest - invalid/missing timezone", () => {
   beforeEach(() => {
     mockUserCollection.mockReset();
@@ -79,6 +85,7 @@ describe("POST /ingest - invalid/missing timezone", () => {
           error: expect.objectContaining({
             code: "TIMEZONE_INVALID",
           }),
+          requestId: expect.any(String),
         }),
       );
 
@@ -142,6 +149,7 @@ describe("POST /ingest - invalid/missing timezone", () => {
           error: expect.objectContaining({
             code: "TIMEZONE_REQUIRED",
           }),
+          requestId: expect.any(String),
         }),
       );
 
