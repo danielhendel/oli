@@ -10,6 +10,7 @@ import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { postWithingsPullNow } from "@/lib/api/withings";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useWeightSeries, type WeightRangeKey, type WeightPoint } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -188,7 +189,7 @@ function StatTile({
 }
 
 export default function BodyWeightScreen() {
-  const { user, initializing } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
   const withingsPresence = useWithingsPresence();
   const [range, setRange] = useState<WeightRangeKey>("1Y");
@@ -201,6 +202,15 @@ export default function BodyWeightScreen() {
   const [withingsModalVisible, setWithingsModalVisible] = useState(false);
   const navigation = useNavigation();
   const auditKeyRef = useRef<string>("");
+
+  type UpdateState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "success"; atMs: number; created: number; already: number }
+    | { status: "error"; message: string; requestId: string | null };
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: "idle" });
+  const lastUpdateTapMs = useRef(0);
+  const UPDATE_COOLDOWN_MS = 15000;
 
   useEffect(() => {
     navigation.setOptions({
@@ -220,6 +230,65 @@ export default function BodyWeightScreen() {
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const connected =
     withingsPresence.status === "ready" && withingsPresence.data?.connected;
+
+  // Compute before any early return so hooks below can depend on them and run unconditionally.
+  const data = weightSeries.status === "ready" ? weightSeries.data : null;
+  const points = data?.points ?? [];
+  const latest = data?.latest ?? null;
+
+  useEffect(() => {
+    if (points.length > 0) setChartError(null);
+  }, [points.length]);
+
+  // Dev-only: one [WEIGHT_RANGE_AUDIT] per range selection when data is ready; deduplicated by ref key.
+  useEffect(() => {
+    if (!__DEV__ || weightSeries.status !== "ready" || points.length === 0) return;
+    const key = `${range}:${unit}:${points.length}:${points[0]?.observedAt ?? "none"}:${points[points.length - 1]?.observedAt ?? "none"}`;
+    if (auditKeyRef.current === key) return;
+    auditKeyRef.current = key;
+    auditWeightWindowDevOnly({ range, unit, points });
+  }, [weightSeries.status, range, unit, points]);
+
+  const onPressUpdate = async () => {
+    if (!connected) {
+      setWithingsModalVisible(true);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastUpdateTapMs.current < UPDATE_COOLDOWN_MS) return;
+    lastUpdateTapMs.current = now;
+
+    setUpdateState({ status: "loading" });
+
+    const token = await getIdToken(false);
+    if (!token) {
+      setUpdateState({ status: "error", message: "No auth token", requestId: null });
+      return;
+    }
+
+    const res = await postWithingsPullNow(token, { cacheBust: `pullNow:${now}` });
+
+    if (!res.ok) {
+      setUpdateState({
+        status: "error",
+        message: res.error,
+        requestId: res.requestId ?? null,
+      });
+      return;
+    }
+
+    weightSeries.refetch({ cacheBust: `pullNow:${now}` });
+    withingsPresence.refetch();
+
+    setUpdateState({
+      status: "success",
+      atMs: Date.now(),
+      created: res.json.eventsCreated,
+      already: res.json.eventsAlreadyExists,
+    });
+
+    setTimeout(() => setUpdateState({ status: "idle" }), 6000);
+  };
 
   // Fail closed: auth
   if (initializing) {
@@ -254,23 +323,6 @@ export default function BodyWeightScreen() {
       </ModuleScreenShell>
     );
   }
-
-  const data = weightSeries.status === "ready" ? weightSeries.data : null;
-  const points = data?.points ?? [];
-  const latest = data?.latest ?? null;
-
-  useEffect(() => {
-    if (points.length > 0) setChartError(null);
-  }, [points.length]);
-
-  // Dev-only: one [WEIGHT_RANGE_AUDIT] per range selection when data is ready; deduplicated by ref key.
-  useEffect(() => {
-    if (!__DEV__ || weightSeries.status !== "ready" || points.length === 0) return;
-    const key = `${range}:${unit}:${points.length}:${points[0]?.observedAt ?? "none"}:${points[points.length - 1]?.observedAt ?? "none"}`;
-    if (auditKeyRef.current === key) return;
-    auditKeyRef.current = key;
-    auditWeightWindowDevOnly({ range, unit, points });
-  }, [weightSeries.status, range, unit, points]);
 
   // Fail closed: contract violation (latest without points)
   if (latest != null && points.length === 0) {
@@ -312,6 +364,57 @@ export default function BodyWeightScreen() {
                 : "— "}
               <Text style={styles.unitLabel}>{unit}</Text>
             </Text>
+            <Pressable
+              onPress={onPressUpdate}
+              disabled={updateState.status === "loading"}
+              style={[
+                styles.updatePill,
+                updateState.status === "loading" && styles.updatePillDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                !connected
+                  ? "Connect to update"
+                  : updateState.status === "loading"
+                    ? "Updating…"
+                    : updateState.status === "success"
+                      ? "Updated"
+                      : updateState.status === "error"
+                        ? "Retry"
+                        : "Update"
+              }
+            >
+              <Text style={styles.updatePillText}>
+                {!connected
+                  ? "Connect to update"
+                  : updateState.status === "loading"
+                    ? "Updating…"
+                    : updateState.status === "success"
+                      ? "Updated"
+                      : updateState.status === "error"
+                        ? "Retry"
+                        : "Update"}
+              </Text>
+            </Pressable>
+            {updateState.status === "success" && (
+              <Text style={styles.updateStatusText}>
+                Updated just now
+                {updateState.created > 0 ? ` (+${updateState.created} new)` : ""}
+              </Text>
+            )}
+            {updateState.status === "error" && (
+              <Text
+                style={styles.updateStatusError}
+                accessibilityLabel={
+                  updateState.requestId
+                    ? `Update failed. Request ID: ${updateState.requestId}`
+                    : "Update failed"
+                }
+              >
+                Update failed
+                {updateState.requestId ? ` · Request ID: ${updateState.requestId.slice(0, 8)}` : ""}
+              </Text>
+            )}
           </View>
           <View style={styles.heroRight}>
             <Text style={styles.lastLoggedLabel}>Last logged</Text>
@@ -697,6 +800,20 @@ const styles = StyleSheet.create({
   unitLabel: { fontSize: 18, fontWeight: "600", color: "#6E6E73" },
   lastLoggedLabel: { fontSize: 12, fontWeight: "600", color: "#6E6E73" },
   lastLoggedValue: { fontSize: 13, color: "#3C3C43" },
+  updatePill: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    backgroundColor: "#F2F2F7",
+  },
+  updatePillDisabled: { opacity: 0.6 },
+  updatePillText: { fontSize: 13, fontWeight: "600", color: "#007AFF" },
+  updateStatusText: { fontSize: 12, color: "#6E6E73", marginTop: 4 },
+  updateStatusError: { fontSize: 12, color: "#FF3B30", marginTop: 4 },
   sourceLink: { alignSelf: "flex-end", paddingVertical: 4, paddingRight: 0 },
   sourceLinkText: { fontSize: 13, fontWeight: "600", color: "#007AFF" },
   headerMenuBtn: { padding: 12 },

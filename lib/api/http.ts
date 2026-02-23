@@ -32,6 +32,7 @@ export type PostOptions = {
   idempotencyKey?: string;
   timeoutMs?: number;
   noStore?: boolean;
+  cacheBust?: string;
 };
 
 export type PutOptions = {
@@ -357,7 +358,7 @@ export async function apiPostJsonAuthed<T>(
   }
 
   const base = normalizeBaseUrl(baseRaw);
-  let url = `${base}${path}`;
+  let url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
 
   // Fail-closed: gateway requires API key (consumer identity).
   if (isGatewayBaseUrl(base)) {

@@ -115,7 +115,12 @@ async function refreshAccessToken(uid: string): Promise<string> {
 
     const json = (await res.json()) as {
       status?: number;
-      body?: { access_token?: string; expires_in?: number; error?: string };
+      body?: {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        error?: string;
+      };
       error?: string;
     };
 
@@ -128,6 +133,16 @@ async function refreshAccessToken(uid: string): Promise<string> {
     const accessToken = json.body?.access_token;
     if (!accessToken || typeof accessToken !== "string") {
       throw new WithingsMeasureError("No access_token in response", "WITHINGS_TOKEN_REFRESH_FAILED");
+    }
+
+    // Best-effort rotation: persist new refresh_token if Withings returned one.
+    const rotated = json.body?.refresh_token;
+    if (typeof rotated === "string" && rotated.trim() !== "") {
+      try {
+        await withingsSecrets.setRefreshToken(uid, rotated.trim());
+      } catch {
+        // Swallow; do not fail the refresh or log (avoid side-effects and token exposure).
+      }
     }
 
     // Withings usually returns expires_in; default to 1h if absent.

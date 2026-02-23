@@ -494,6 +494,65 @@ router.get(
 );
 
 // ----------------------------
+// GET /users/me/raw-event?id= — gateway-compatible single RawEvent read (query param)
+// Same contract as /rawEvents/:id; use this when calling via API Gateway.
+// ----------------------------
+
+const rawEventByIdQuerySchema = z
+  .object({
+    id: z.string().min(1),
+  })
+  .strip();
+
+router.get(
+  "/raw-event",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = rawEventByIdQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Missing id",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { id } = parsed.data;
+
+    const ref = userCollection(uid, "rawEvents").doc(id);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      res.status(404).json({
+        ok: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "RawEvent not found",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const data = snap.data();
+    const docParsed = rawEventDocSchema.safeParse(data);
+    if (!docParsed.success) {
+      invalidDoc500(req, res, "rawEvents", docParsed.error.flatten());
+      return;
+    }
+
+    res.status(200).json(docParsed.data);
+  }),
+);
+
+// ----------------------------
 // Sprint 1 — GET /users/me/raw-events (list/query)
 // ----------------------------
 
