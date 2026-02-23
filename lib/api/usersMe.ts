@@ -251,15 +251,17 @@ export const getRawEvents = async (
 };
 
 /**
- * GET /users/me/rawEvents/:id — single RawEvent with full payload (for weight series etc.).
+ * GET /users/me/raw-event?id= — single RawEvent (gateway-compatible query param).
  */
 export const getRawEvent = async (
   id: string,
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<RawEventDoc>> => {
+  const params = new URLSearchParams();
+  params.set("id", id);
   const res = await apiGetZodAuthed(
-    `/users/me/rawEvents/${encodeURIComponent(id)}`,
+    `/users/me/raw-event?${params.toString()}`,
     idToken,
     rawEventDocSchema,
     truthGetOpts(opts),

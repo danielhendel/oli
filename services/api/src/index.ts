@@ -12,6 +12,7 @@ import preferencesRoutes from "./routes/preferences";
 import integrationsRoutes, { handleWithingsCallback } from "./routes/integrations";
 import withingsPullRouter from "./routes/withingsPull";
 import withingsBackfillRouter from "./routes/withingsBackfill";
+import withingsPullNowRouter from "./routes/integrations/withingsPullNow";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
@@ -152,6 +153,11 @@ app.use("/integrations/withings/pull", requireInvokerAuth, withingsPullRouter);
  * Withings backfill — invoker-only. Chunked historical import; job-only, not callable by client.
  */
 app.use("/integrations/withings/backfill", requireInvokerAuth, withingsBackfillRouter);
+
+/**
+ * Withings pull-now — user-authenticated. Immediate pull for authed user only (last 72h).
+ */
+app.use("/integrations/withings/pull-now", authMiddleware, withingsPullNowRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.

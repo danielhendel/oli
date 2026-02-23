@@ -241,6 +241,36 @@ paths:
         200:
           description: OK
 
+  /users/me/raw-event:
+    options:
+      operationId: rawEventByIdOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: rawEventByIdGet
+      security:
+        - firebase: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+        500:
+          description: Server Error
+
   /users/me/events:
     options:
       operationId: eventsListOptions
@@ -494,7 +524,66 @@ paths:
         200:
           description: Completion bridge HTML
 
+  # Withings pull-now — user-authenticated. Pull last 72h for authed user; idempotent RawEvent writes.
+  /integrations/withings/pull-now:
+    options:
+      operationId: withingsPullNowOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: withingsPullNow
+      summary: Withings pull-now (user scoped)
+      description: Pull last 72h of Withings measures for the authed user and write rawEvents idempotently.
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+          description: Required for idempotent pull-now; replay returns same result.
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Success; ok true with requestId and counts
+          schema:
+            $ref: "#/definitions/WithingsPullNowResponse"
+        400:
+          description: Missing Idempotency-Key header (BAD_REQUEST)
+        401:
+          description: Unauthorized
+        409:
+          description: Request already in progress (CONFLICT)
+        502:
+          description: Withings fetch failed (e.g. WITHINGS_FETCH_FAILED)
+        500:
+          description: Server Error
+
 definitions:
+  WithingsPullNowResponse:
+    type: object
+    required:
+      - ok
+      - requestId
+    properties:
+      ok:
+        type: boolean
+      requestId:
+        type: string
+      windowHours:
+        type: integer
+      eventsCreated:
+        type: integer
+      eventsAlreadyExists:
+        type: integer
+      failuresWritten:
+        type: integer
+      failureWriteErrors:
+        type: integer
+
   WithingsStatusResponse:
     type: object
     required:

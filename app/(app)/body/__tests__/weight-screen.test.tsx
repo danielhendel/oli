@@ -258,4 +258,27 @@ describe("Weight screen", () => {
     mockWithingsConnected = false;
     mockWeightSeriesData = emptyViewModel;
   });
+
+  it("shows Update button when Withings connected", () => {
+    mockWithingsConnected = true;
+    mockWeightSeriesData = viewModelWithPoints;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const updateBtn = findPressableWithLabel(test.root, "Update");
+    expect(updateBtn).not.toBeNull();
+    mockWithingsConnected = false;
+    mockWeightSeriesData = emptyViewModel;
+  });
+
+  it("shows Connect to update when Withings not connected", () => {
+    mockWithingsConnected = false;
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<BodyWeightScreen />);
+    });
+    const connectToUpdateBtn = findPressableWithLabel(test.root, "Connect to update");
+    expect(connectToUpdateBtn).not.toBeNull();
+  });
 });

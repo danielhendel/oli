@@ -4,7 +4,7 @@
  */
 import type { ApiResult } from "@/lib/api/http";
 import { apiGetZodAuthed, apiPostZodAuthed } from "@/lib/api/validate";
-import type { GetOptions } from "@/lib/api/http";
+import type { GetOptions, PostOptions } from "@/lib/api/http";
 import { z } from "zod";
 
 const withingsStatusResponseSchema = z.object({
@@ -71,5 +71,48 @@ export async function pullWithings(
     idToken,
     withingsPullResponseSchema,
     { idempotencyKey, noStore: true },
+  );
+}
+
+// ----------------------------
+// W4B — POST /integrations/withings/pull-now (user-initiated, gateway)
+// ----------------------------
+
+export type WithingsPullNowResponse = {
+  ok: true;
+  requestId: string;
+  windowHours: number;
+  eventsCreated: number;
+  eventsAlreadyExists: number;
+  failuresWritten: number;
+  failureWriteErrors: number;
+};
+
+const withingsPullNowDtoSchema = z.object({
+  ok: z.literal(true),
+  requestId: z.string(),
+  windowHours: z.number(),
+  eventsCreated: z.number(),
+  eventsAlreadyExists: z.number(),
+  failuresWritten: z.number(),
+  failureWriteErrors: z.number(),
+});
+
+/** POST /integrations/withings/pull-now — pull last 72h for authed user; requires Idempotency-Key. */
+export async function postWithingsPullNow(
+  idToken: string,
+  opts?: PostOptions,
+): Promise<ApiResult<WithingsPullNowResponse>> {
+  return apiPostZodAuthed(
+    "/integrations/withings/pull-now",
+    {},
+    idToken,
+    withingsPullNowDtoSchema,
+    {
+      timeoutMs: 20000,
+      noStore: true,
+      ...(opts?.cacheBust ? { cacheBust: opts.cacheBust } : {}),
+      ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
+    },
   );
 }
