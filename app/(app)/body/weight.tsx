@@ -1,5 +1,5 @@
 // app/(app)/body/weight.tsx — Body Composition: nav header, hero, stat tiles, chart (fail-closed).
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Modal, ScrollView } from "react-native";
 import { useNavigation } from "expo-router";
 
@@ -14,6 +14,85 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useWeightSeries, type WeightRangeKey, type WeightPoint } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+
+/** Dev-only: audit weight window for range; mirrors chart robust Y-domain. No PII; bounded first/last 10. */
+function auditWeightWindowDevOnly(params: {
+  range: WeightRangeKey;
+  unit: "kg" | "lb";
+  points: WeightPoint[];
+}): void {
+  if (!__DEV__ || process.env.NODE_ENV === "test") return;
+  const { range, unit, points } = params;
+  const sorted = [...points].sort(
+    (a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt),
+  );
+  const n = sorted.length;
+  if (n === 0) return;
+  const minKg = Math.min(...sorted.map((p) => p.weightKg));
+  const maxKg = Math.max(...sorted.map((p) => p.weightKg));
+  const min = unit === "lb" ? minKg * LBS_PER_KG : minKg;
+  const max = unit === "lb" ? maxKg * LBS_PER_KG : maxKg;
+
+  let displayMinKg: number;
+  let displayMaxKg: number;
+  let outlierCount: number;
+  let outliersBySource: Record<string, number>;
+
+  if (n < 3) {
+    displayMinKg = minKg;
+    displayMaxKg = maxKg;
+    outlierCount = 0;
+    outliersBySource = {};
+  } else {
+    const weights = sorted.map((p) => p.weightKg).sort((a, b) => a - b);
+    const p05 = weights[Math.floor((n - 1) * 0.05)] ?? minKg;
+    const p95 = weights[Math.floor((n - 1) * 0.95)] ?? maxKg;
+    const rangeW = p95 - p05 || 0.1;
+    const padding = 0.02 * rangeW;
+    displayMinKg = p05 - padding;
+    displayMaxKg = p95 + padding;
+    const outliers = sorted.filter(
+      (p) => p.weightKg < displayMinKg || p.weightKg > displayMaxKg,
+    );
+    outlierCount = outliers.length;
+    outliersBySource = {};
+    for (const p of outliers) {
+      const sid = p.sourceId?.trim() ? p.sourceId : "—";
+      outliersBySource[sid] = (outliersBySource[sid] ?? 0) + 1;
+    }
+  }
+
+  const round3 = (v: number) => Math.round(v * 1000) / 1000;
+  const first10 = sorted.slice(0, 10).map((p) => ({
+    observedAt: p.observedAt,
+    weightKg: round3(p.weightKg),
+    sourceId: p.sourceId?.trim() ? p.sourceId : "—",
+  }));
+  const last10 = sorted.slice(-10).map((p) => ({
+    observedAt: p.observedAt,
+    weightKg: round3(p.weightKg),
+    sourceId: p.sourceId?.trim() ? p.sourceId : "—",
+  }));
+
+  console.log(
+    "[WEIGHT_RANGE_AUDIT]",
+    JSON.stringify({
+      range,
+      unit,
+      points: n,
+      min: round3(min),
+      max: round3(max),
+      robustDomain: {
+        min: round3(displayMinKg),
+        max: round3(displayMaxKg),
+        outlierCount,
+        outliersBySource,
+      },
+      first10,
+      last10,
+    }),
+  );
+}
 
 const CHART_CONTAINER_HEIGHT = 200;
 const SURFACE_FILL = "#E5E5EA";
@@ -36,8 +115,14 @@ function getRangeLabel(range: WeightRangeKey): string {
       return "30-day";
     case "90D":
       return "90-day";
+    case "6M":
+      return "6-month";
     case "1Y":
       return "12-month";
+    case "3Y":
+      return "3-year";
+    case "5Y":
+      return "5-year";
     case "All":
       return "all-time";
     default:
@@ -107,13 +192,15 @@ export default function BodyWeightScreen() {
   const { user, initializing } = useAuth();
   const { state: prefState } = usePreferences();
   const withingsPresence = useWithingsPresence();
-  const [range, setRange] = useState<WeightRangeKey>("30D");
+  const [range, setRange] = useState<WeightRangeKey>("1Y");
   const weightSeries = useWeightSeries(range);
   const [logModalVisible, setLogModalVisible] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const navigation = useNavigation();
+  const auditKeyRef = useRef<string>("");
 
   useEffect(() => {
     navigation.setOptions({
@@ -175,6 +262,15 @@ export default function BodyWeightScreen() {
   useEffect(() => {
     if (points.length > 0) setChartError(null);
   }, [points.length]);
+
+  // Dev-only: one [WEIGHT_RANGE_AUDIT] per range selection when data is ready; deduplicated by ref key.
+  useEffect(() => {
+    if (!__DEV__ || weightSeries.status !== "ready" || points.length === 0) return;
+    const key = `${range}:${unit}:${points.length}:${points[0]?.observedAt ?? "none"}:${points[points.length - 1]?.observedAt ?? "none"}`;
+    if (auditKeyRef.current === key) return;
+    auditKeyRef.current = key;
+    auditWeightWindowDevOnly({ range, unit, points });
+  }, [weightSeries.status, range, unit, points]);
 
   // Fail closed: contract violation (latest without points)
   if (latest != null && points.length === 0) {
@@ -261,6 +357,7 @@ export default function BodyWeightScreen() {
               points={points}
               unitLabel={unit}
               formatValue={(kg) => formatWeight(kg, unit)}
+              range={range}
               onChartError={setChartError}
             />
           </View>
@@ -314,8 +411,8 @@ export default function BodyWeightScreen() {
         </View>
       )}
 
-      {/* 5) Sources & Devices (grouped at bottom) */}
-      <Text style={styles.sectionLabel}>Sources & Devices</Text>
+      {/* 5) Devices & History (grouped at bottom) */}
+      <Text style={styles.sectionLabel}>Devices & History</Text>
       <WeightDeviceStatusCard
         connected={connected}
         lastMeasurementAt={
@@ -329,7 +426,7 @@ export default function BodyWeightScreen() {
         onLogManually={() => setLogModalVisible(true)}
       />
       {data && (
-        <SourcesSection points={data.points} hideManualInSummary={connected} />
+        <HistorySection points={data.points} unit={unit} onViewMore={() => setHistoryModalVisible(true)} />
       )}
 
       <WeightLogModal
@@ -411,27 +508,52 @@ export default function BodyWeightScreen() {
           )}
         </View>
       </Modal>
+
+      <Modal
+        visible={historyModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setHistoryModalVisible(false)}
+        accessibilityLabel="Full history"
+      >
+        <Pressable
+          style={styles.settingsModalBackdrop}
+          onPress={() => setHistoryModalVisible(false)}
+          accessibilityLabel="Close"
+        >
+          <View style={styles.settingsModalContent}>
+            <Text style={styles.settingsModalTitle}>Full history coming soon</Text>
+            <Pressable
+              onPress={() => setHistoryModalVisible(false)}
+              style={styles.detailsCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={styles.detailsCloseText}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </ModuleScreenShell>
   );
 }
 
-function SourcesSection({
+function HistorySection({
   points,
-  hideManualInSummary = false,
+  unit,
+  onViewMore,
 }: {
   points: { observedAt: string; weightKg: number; sourceId: string }[];
-  /** When true (e.g. Withings connected), show only Withings in summary row (UI-only). */
-  hideManualInSummary?: boolean;
+  unit: "kg" | "lb";
+  onViewMore: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sources = [...new Set(points.map((p) => p.sourceId))].filter(Boolean);
-  const displaySources = hideManualInSummary ? sources.filter((id) => id === "withings") : sources;
-  const last5 = [...points]
+  const last7 = [...points]
     .sort(
       (a, b) =>
         new Date(b.observedAt).getTime() - new Date(a.observedAt).getTime(),
     )
-    .slice(0, 5);
+    .slice(0, 7);
 
   const sourceLabel = (id: string) =>
     id === "withings" ? "Withings" : id === "manual" ? "Manual" : id;
@@ -443,26 +565,34 @@ function SourcesSection({
         style={styles.sourcesHeader}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel="Data sources"
+        accessibilityLabel="History"
       >
-        <Text style={styles.sourcesTitle}>
-          Sources: {displaySources.map(sourceLabel).join(", ") || "—"}
-        </Text>
+        <Text style={styles.sourcesTitle}>History</Text>
         <Text style={styles.chevron}>{expanded ? "▼" : "▶"}</Text>
       </Pressable>
       {expanded && (
         <View style={styles.sourcesBody}>
-          {last5.map((p, i) => (
+          {last7.map((p, i) => (
             <View key={i} style={styles.sourceRow}>
               <Text style={styles.sourceDate}>
                 {new Date(p.observedAt).toLocaleString()}
               </Text>
-              <Text style={styles.sourceValue}>{p.weightKg.toFixed(1)} kg</Text>
+              <Text style={styles.sourceValue}>
+                {formatWeight(p.weightKg, unit)} {unit}
+              </Text>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{sourceLabel(p.sourceId)}</Text>
               </View>
             </View>
           ))}
+          <Pressable
+            onPress={onViewMore}
+            style={styles.viewMoreLink}
+            accessibilityRole="button"
+            accessibilityLabel="View more"
+          >
+            <Text style={styles.viewMoreLinkText}>View more</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -584,6 +714,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeText: { fontSize: 11, fontWeight: "600", color: "#3C3C43" },
+  viewMoreLink: { marginTop: 8, paddingVertical: 4, alignSelf: "flex-start" },
+  viewMoreLinkText: { fontSize: 14, fontWeight: "600", color: "#007AFF" },
   detailsSheet: {
     flex: 1,
     backgroundColor: "#FFFFFF",

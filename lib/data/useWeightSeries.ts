@@ -9,7 +9,10 @@ import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
+/** Per-page limit for getRawEvents (API max 100). */
 const MAX_WEIGHT_ITEMS_FETCH = 100;
+/** Hard cap for all-time load; if exceeded, fail-closed with explicit error. */
+const MAX_TOTAL_WEIGHT_ITEMS = 5000;
 const CONCURRENCY = 8;
 
 function getDeviceTimeZone(): string {
@@ -38,7 +41,7 @@ function addDays(dayKey: string, delta: number): string {
   return `${y}-${m}-${dd}`;
 }
 
-export type WeightRangeKey = "7D" | "30D" | "90D" | "1Y" | "All";
+export type WeightRangeKey = "7D" | "30D" | "90D" | "6M" | "1Y" | "3Y" | "5Y" | "All";
 
 /** One weight entry; observedAt must come from raw event (no derived/fake timestamps). */
 export type WeightPoint = {
@@ -220,9 +223,14 @@ function buildViewModel(
   };
 }
 
+/**
+ * Returns start/end dayKeys for bounded ranges. For "All", callers must use
+ * all-time load (pagination without start/end), not this.
+ */
 function rangeToStartEnd(
   range: WeightRangeKey,
-): { start: string; end: string } {
+): { start: string; end: string } | "all" {
+  if (range === "All") return "all";
   const today = getTodayDayKey();
   const end = today;
   let start: string;
@@ -236,11 +244,17 @@ function rangeToStartEnd(
     case "90D":
       start = addDays(today, -90);
       break;
+    case "6M":
+      start = addDays(today, -182);
+      break;
     case "1Y":
       start = addDays(today, -365);
       break;
-    case "All":
-      start = addDays(today, -400);
+    case "3Y":
+      start = addDays(today, -1095);
+      break;
+    case "5Y":
+      start = addDays(today, -1825);
       break;
     default:
       start = addDays(today, -30);
@@ -270,7 +284,7 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
     stateRef.current = state;
   }, [state]);
 
-  const fetchOnce = useCallback(
+  const loadOnce = useCallback(
     async (opts?: GetOptions) => {
       const seq = ++reqSeq.current;
       const safeSet = (next: State) => {
@@ -291,39 +305,96 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
       }
 
       safeSet({ status: "partial" });
-      const { start, end } = rangeToStartEnd(rangeRef.current);
+      const rangeNow = rangeRef.current;
       const optsUnique = withUniqueCacheBust(opts, seq);
+      const tz = getDeviceTimeZone();
 
-      const listRes = await getRawEvents(token, {
-        start,
-        end,
-        kinds: ["weight"],
-        limit: MAX_WEIGHT_ITEMS_FETCH,
-        ...optsUnique,
-      });
-      if (seq !== reqSeq.current) return;
+      let items: { id: string; observedAt: string; sourceId: string }[];
+      let lastRequestId: string | null = null;
 
-      const listOutcome = truthOutcomeFromApiResult(listRes);
-      if (listOutcome.status !== "ready") {
-        if (listOutcome.status === "missing") {
+      if (rangeToStartEnd(rangeNow) === "all") {
+        // All-time: paginate without start/end until exhaustion or safety cap.
+        const accumulated: { id: string; observedAt: string; sourceId: string }[] = [];
+        let cursor: string | null = null;
+        let done = false;
+        while (!done) {
+          if (seq !== reqSeq.current) return;
+          const listRes = await getRawEvents(token, {
+            kinds: ["weight"],
+            limit: MAX_WEIGHT_ITEMS_FETCH,
+            ...(cursor ? { cursor } : {}),
+            ...optsUnique,
+          });
+          if (seq !== reqSeq.current) return;
+          lastRequestId = listRes.requestId ?? null;
+          const listOutcome = truthOutcomeFromApiResult(listRes);
+          if (listOutcome.status !== "ready") {
+            if (listOutcome.status === "missing") {
+              done = true;
+              break;
+            }
+            safeSet({
+              status: "error",
+              error: listOutcome.error,
+              requestId: listOutcome.requestId,
+              reason: listOutcome.reason,
+            });
+            return;
+          }
+          const page = listOutcome.data.items;
+          for (const it of page) {
+            accumulated.push({
+              id: it.id,
+              observedAt: it.observedAt,
+              sourceId: it.sourceId,
+            });
+          }
+          if (accumulated.length >= MAX_TOTAL_WEIGHT_ITEMS && listOutcome.data.nextCursor) {
+            safeSet({
+              status: "error",
+              error: `Weight history exceeds ${MAX_TOTAL_WEIGHT_ITEMS} entries. All-time view is limited; please use a shorter range.`,
+              requestId: lastRequestId,
+              reason: "contract",
+            });
+            return;
+          }
+          cursor = listOutcome.data.nextCursor;
+          done = cursor == null;
+        }
+        items = accumulated;
+      } else {
+        const { start, end } = rangeToStartEnd(rangeNow) as { start: string; end: string };
+        const listRes = await getRawEvents(token, {
+          start,
+          end,
+          kinds: ["weight"],
+          limit: MAX_WEIGHT_ITEMS_FETCH,
+          ...optsUnique,
+        });
+        if (seq !== reqSeq.current) return;
+        lastRequestId = listRes.requestId ?? null;
+        const listOutcome = truthOutcomeFromApiResult(listRes);
+        if (listOutcome.status !== "ready") {
+          if (listOutcome.status === "missing") {
+            safeSet({
+              status: "ready",
+              data: buildViewModel([], tz),
+            });
+            return;
+          }
           safeSet({
-            status: "ready",
-            data: buildViewModel([], getDeviceTimeZone()),
+            status: "error",
+            error: listOutcome.error,
+            requestId: listOutcome.requestId,
+            reason: listOutcome.reason,
           });
           return;
         }
-        safeSet({
-          status: "error",
-          error: listOutcome.error,
-          requestId: listOutcome.requestId,
-          reason: listOutcome.reason,
-        });
-        return;
+        items = listOutcome.data.items;
       }
 
-      const items = listOutcome.data.items;
+      if (seq !== reqSeq.current) return;
       const points: WeightPoint[] = [];
-      const tz = getDeviceTimeZone();
 
       for (let i = 0; i < items.length; i += CONCURRENCY) {
         const batch = items.slice(i, i + CONCURRENCY);
@@ -373,8 +444,8 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
   );
 
   useEffect(() => {
-    void fetchOnce();
-  }, [fetchOnce, range, user?.uid]);
+    void loadOnce();
+  }, [loadOnce, range, user?.uid]);
 
-  return { ...state, refetch: fetchOnce };
+  return { ...state, refetch: loadOnce };
 }

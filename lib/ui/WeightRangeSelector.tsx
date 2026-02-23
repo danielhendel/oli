@@ -7,7 +7,10 @@ const RANGES: { key: WeightRangeKey; label: string }[] = [
   { key: "7D", label: "7D" },
   { key: "30D", label: "30D" },
   { key: "90D", label: "90D" },
+  { key: "6M", label: "6M" },
   { key: "1Y", label: "1Y" },
+  { key: "3Y", label: "3Y" },
+  { key: "5Y", label: "5Y" },
   { key: "All", label: "All" },
 ];
 
