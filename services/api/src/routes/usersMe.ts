@@ -556,13 +556,32 @@ router.get(
 // Sprint 1 — GET /users/me/raw-events (list/query)
 // ----------------------------
 
+const RAW_EVENTS_LIST_QUERY_KEYS = [
+  "start",
+  "end",
+  "kinds",
+  "kind",
+  "provenance",
+  "sourceId",
+  "uncertaintyState",
+  "q",
+  "cursor",
+  "limit",
+  "_",
+  "key",
+] as const;
+
 router.get(
   "/raw-events",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
     const uid = requireUid(req, res);
     if (!uid) return;
 
-    const parsed = rawEventsListQuerySchema.safeParse(req.query);
+    const allowedQuery: Record<string, unknown> = {};
+    for (const k of RAW_EVENTS_LIST_QUERY_KEYS) {
+      if (k in req.query) allowedQuery[k] = req.query[k];
+    }
+    const parsed = rawEventsListQuerySchema.safeParse(allowedQuery);
     if (!parsed.success) {
       res.status(400).json({
         ok: false,

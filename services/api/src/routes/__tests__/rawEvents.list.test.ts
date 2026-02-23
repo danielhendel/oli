@@ -116,12 +116,39 @@ describe("GET /users/me/raw-events", () => {
     expect(json.error?.code).toBe("INVALID_QUERY");
   });
 
-  test("unknown query param fails with 400 INVALID_QUERY", async () => {
-    const res = await fetch(`${baseUrl}/users/me/raw-events?foo=bar`);
-    expect(res.status).toBe(400);
+  test("ignores unknown query params (t and _)", async () => {
+    const docs: DocSnap[] = [
+      {
+        exists: true,
+        id: "raw_1",
+        data: () => ({
+          schemaVersion: 1,
+          id: "raw_1",
+          userId: "user_123",
+          sourceId: "manual",
+          kind: "weight",
+          observedAt: "2025-01-02T12:00:00.000Z",
+          receivedAt: "2025-01-02T12:01:00.000Z",
+        }),
+      },
+    ];
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockReturnValue({
+      orderBy: q.orderBy,
+      where: q.where,
+      limit: q.limit,
+      startAfter: q.startAfter,
+      get: q.get,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+    const res = await fetch(
+      `${baseUrl}/users/me/raw-events?limit=10&t=pullNow:abc&_=123`,
+    );
+    expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.ok).toBe(false);
-    expect(json.error?.code).toBe("INVALID_QUERY");
+    expect(json).toHaveProperty("items");
+    expect(json).toHaveProperty("nextCursor");
+    expect(Array.isArray(json.items)).toBe(true);
   });
 
   test("alias kind and sourceId filter results (only matching items returned)", async () => {
