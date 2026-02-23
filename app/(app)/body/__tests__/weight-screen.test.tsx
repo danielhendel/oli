@@ -174,15 +174,14 @@ describe("Weight screen", () => {
     expect(btn).not.toBeNull();
   });
 
-  it("shows Withings card with Not connected and Connect Withings when not connected", () => {
+  it("shows Withings chip with Connect when not connected", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<BodyWeightScreen />);
     });
     const text = collectAllText(test);
     expect(text).toContain("Withings");
-    expect(text).toContain("Not connected");
-    expect(text).toContain("Connect a device to auto-sync weight.");
+    expect(text).toContain("Connect");
     const connectBtn = findPressableWithLabel(test.root, "Connect Withings");
     expect(connectBtn).not.toBeNull();
   });
@@ -208,7 +207,6 @@ describe("Weight screen", () => {
     });
     const text = collectAllText(test);
     expect(text).toContain("Last logged");
-    expect(text).toContain("Manual");
     mockWeightSeriesData = emptyViewModel;
   });
 
@@ -248,7 +246,7 @@ describe("Weight screen", () => {
     mockWithingsConnected = false;
   });
 
-  it("Devices & History section shows History when data exists", () => {
+  it("History section shows when data exists", () => {
     mockWithingsConnected = true;
     mockWeightSeriesData = viewModelWithPoints;
     let test!: renderer.ReactTestRenderer;
@@ -256,7 +254,6 @@ describe("Weight screen", () => {
       test = renderer.create(<BodyWeightScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Devices & History");
     expect(text).toContain("History");
     mockWithingsConnected = false;
     mockWeightSeriesData = emptyViewModel;
