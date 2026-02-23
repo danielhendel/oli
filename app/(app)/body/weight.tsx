@@ -5,7 +5,6 @@ import { useNavigation } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
-import { WeightDeviceStatusCard } from "@/lib/ui/WeightDeviceStatusCard";
 import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
 import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
@@ -199,6 +198,7 @@ export default function BodyWeightScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [withingsModalVisible, setWithingsModalVisible] = useState(false);
   const navigation = useNavigation();
   const auditKeyRef = useRef<string>("");
 
@@ -290,8 +290,19 @@ export default function BodyWeightScreen() {
 
   return (
     <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
-      {/* 1) Metric label + Hero */}
-      <Text style={styles.metricLabel}>Weight</Text>
+      {/* 1) Metric label + Withings chip + Hero */}
+      <View style={styles.metricHeaderRow}>
+        <Text style={styles.metricLabel}>Weight</Text>
+        <Pressable
+          onPress={() => setWithingsModalVisible(true)}
+          style={styles.withingsChip}
+          accessibilityRole="button"
+          accessibilityLabel={connected ? "Withings connected" : "Connect Withings"}
+        >
+          <Text style={styles.withingsChipText}>Withings</Text>
+          <Text style={styles.withingsChipStatus}>{connected ? "Connected" : "Connect"}</Text>
+        </Pressable>
+      </View>
       <View style={styles.heroCard}>
         <View style={styles.heroGrid}>
           <View style={styles.heroLeft}>
@@ -307,18 +318,14 @@ export default function BodyWeightScreen() {
             {latest != null ? (
               <>
                 <Text style={styles.lastLoggedValue}>
-                  {new Date(latest.observedAt).toLocaleString()}
+                  {new Date(latest.observedAt).toLocaleDateString()}
                 </Text>
-                <Pressable
-                  onPress={() => setDetailsModalVisible(true)}
-                  style={styles.sourceLink}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Source: ${sourceLabel(latest.sourceId)}`}
-                >
-                  <Text style={styles.sourceLinkText}>
-                    {sourceLabel(latest.sourceId)}
-                  </Text>
-                </Pressable>
+                <Text style={styles.lastLoggedValue}>
+                  {new Date(latest.observedAt).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </Text>
               </>
             ) : (
               <Text style={styles.lastLoggedValue}>—</Text>
@@ -411,20 +418,7 @@ export default function BodyWeightScreen() {
         </View>
       )}
 
-      {/* 5) Devices & History (grouped at bottom) */}
-      <Text style={styles.sectionLabel}>Devices & History</Text>
-      <WeightDeviceStatusCard
-        connected={connected}
-        lastMeasurementAt={
-          withingsPresence.status === "ready"
-            ? withingsPresence.data?.lastMeasurementAt ?? null
-            : null
-        }
-        {...(withingsPresence.status === "ready" && withingsPresence.data?.backfill != null
-          ? { backfill: withingsPresence.data.backfill }
-          : {})}
-        onLogManually={() => setLogModalVisible(true)}
-      />
+      {/* 5) History (unchanged) */}
       {data && (
         <HistorySection points={data.points} unit={unit} onViewMore={() => setHistoryModalVisible(true)} />
       )}
@@ -534,6 +528,47 @@ export default function BodyWeightScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={withingsModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setWithingsModalVisible(false)}
+        accessibilityLabel="Withings"
+      >
+        <Pressable
+          style={styles.settingsModalBackdrop}
+          onPress={() => setWithingsModalVisible(false)}
+          accessibilityLabel="Close"
+        >
+          <View style={styles.settingsModalContent} accessibilityLabel="Withings">
+            <Text style={styles.settingsModalTitle}>Withings</Text>
+            {connected ? (
+              <>
+                <Text style={styles.withingsModalStatus}>Connected</Text>
+                <Pressable
+                  onPress={() => setWithingsModalVisible(false)}
+                  style={styles.detailsCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage"
+                >
+                  <Text style={styles.detailsCloseText}>Manage</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.withingsModalBody}>Connect coming soon</Text>
+            )}
+            <Pressable
+              onPress={() => setWithingsModalVisible(false)}
+              style={[styles.detailsCloseBtn, { marginTop: 12 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={styles.detailsCloseText}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </ModuleScreenShell>
   );
 }
@@ -600,20 +635,49 @@ function HistorySection({
 }
 
 const styles = StyleSheet.create({
+  metricHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
   metricLabel: {
     fontSize: 13,
     fontWeight: "600",
     color: "#6E6E73",
-    marginBottom: 4,
     textTransform: "uppercase",
   },
-  sectionLabel: {
+  withingsChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    backgroundColor: "#F2F2F7",
+  },
+  withingsChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#3C3C43",
+  },
+  withingsChipStatus: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6E6E73",
-    marginTop: 20,
-    marginBottom: 6,
-    textTransform: "uppercase",
+    color: "#007AFF",
+  },
+  withingsModalStatus: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#3C3C43",
+    marginTop: 8,
+  },
+  withingsModalBody: {
+    fontSize: 15,
+    color: "#3C3C43",
+    marginTop: 8,
   },
   heroCard: {
     backgroundColor: SURFACE_FILL,
