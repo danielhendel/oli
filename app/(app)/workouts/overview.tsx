@@ -30,6 +30,7 @@ import {
   setAppleHealthNotAvailable,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
+import * as Clipboard from "expo-clipboard";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -368,6 +369,16 @@ export default function TrainingOverviewScreen() {
     }
   }, [connectionStatus, user, getIdToken, refetchSnapshot]);
 
+  const handleCopyIdToken = useCallback(async () => {
+    const token = await getIdToken(false);
+    if (!token) {
+      setSyncError({ message: "No ID token", requestId: null });
+      return;
+    }
+    await Clipboard.setStringAsync(token);
+    setSyncError({ message: "ID token copied to clipboard", requestId: null });
+  }, [getIdToken]);
+
   if (initializing) {
     return (
       <ModuleScreenShell title="Training Overview" subtitle="Workload & performance">
@@ -414,6 +425,15 @@ export default function TrainingOverviewScreen() {
             </Pressable>
           )}
         </View>
+
+        <Pressable
+          onPress={handleCopyIdToken}
+          style={styles.primaryBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Copy ID token (debug)"
+        >
+          <Text style={styles.primaryBtnText}>Copy ID token (debug)</Text>
+        </Pressable>
 
         {syncError && (
           <View style={styles.errorCard}>
