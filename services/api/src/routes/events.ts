@@ -3,10 +3,24 @@ import { Router, type Response } from "express";
 
 import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
+import type { RequestWithRid } from "../lib/logger";
+import { writeFailure } from "../lib/writeFailure";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
 const router = Router();
+
+/**
+ * Request id from middleware (same source as other routes).
+ */
+function getRid(req: AuthedRequest): string {
+  return (req as RequestWithRid).rid ?? (req.header("x-request-id") ?? "unknown").toString();
+}
+
+/** Day key YYYY-MM-DD in UTC (for failure entries when event day is not available). */
+function dayUtcNow(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 /**
  * Prefer header-based idempotency. Allow middleware injection if present.
@@ -26,26 +40,6 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
 
   return fromMiddleware ?? undefined;
 };
-
-type StableApiErrorCode = "TIMEZONE_REQUIRED" | "TIMEZONE_INVALID" | "MISSING_IDEMPOTENCY_KEY" | "INGEST_WRITE_FAILED";
-
-const badRequest = (res: Response, code: StableApiErrorCode, message: string) =>
-  res.status(400).json({
-    ok: false as const,
-    error: {
-      code,
-      message,
-    },
-  });
-
-const internalError = (res: Response, code: StableApiErrorCode, message: string) =>
-  res.status(500).json({
-    ok: false as const,
-    error: {
-      code,
-      message,
-    },
-  });
 
 /**
  * Extract + validate an IANA timezone string.
@@ -89,11 +83,33 @@ const canonicalDayKeyFromObservedAt = (observedAtIso: string, timeZone: string):
  * IDENTITY + INTEGRITY:
  * - Requires Idempotency-Key (or X-Idempotency-Key)
  * - Uses that key as the Firestore doc id to guarantee idempotency
+ *
+ * CONSTITUTION: All responses include requestId in JSON body; all failure paths write FailureEntry.
  */
 router.post("/", async (req: AuthedRequest, res: Response) => {
+  const requestId = getRid(req);
   const uid = req.uid;
+
   if (!uid) {
-    return res.status(401).json({ ok: false as const, error: "Unauthorized" });
+    try {
+      await writeFailure({
+        userId: "unknown",
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "UNAUTHORIZED",
+        message: "Unauthorized",
+        day: dayUtcNow(),
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw; response still returned
+    }
+    return res.status(401).json({
+      ok: false as const,
+      error: "Unauthorized",
+      requestId,
+    });
   }
 
   // Contract-first: timeZone is authoritative + required.
@@ -102,18 +118,76 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   try {
     timeZone = requireValidTimeZone(req.body);
   } catch {
-    return badRequest(res, "TIMEZONE_INVALID", "Invalid timeZone (must be an IANA timezone, e.g. America/New_York)");
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "TIMEZONE_INVALID",
+        message: "Invalid timeZone (must be an IANA timezone, e.g. America/New_York)",
+        day: dayUtcNow(),
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "TIMEZONE_INVALID" as const,
+        message: "Invalid timeZone (must be an IANA timezone, e.g. America/New_York)",
+      },
+      requestId,
+    });
   }
   if (!timeZone) {
-    return badRequest(res, "TIMEZONE_REQUIRED", "timeZone is required (IANA timezone, e.g. America/New_York)");
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "TIMEZONE_REQUIRED",
+        message: "timeZone is required (IANA timezone, e.g. America/New_York)",
+        day: dayUtcNow(),
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "TIMEZONE_REQUIRED" as const,
+        message: "timeZone is required (IANA timezone, e.g. America/New_York)",
+      },
+      requestId,
+    });
   }
 
   const parsed = ingestRawEventSchema.safeParse(req.body);
   if (!parsed.success) {
+    const details = parsed.error.flatten();
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "INVALID_RAW_EVENT",
+        message: "Invalid raw event",
+        day: dayUtcNow(),
+        requestId,
+        details: { validation: details },
+      });
+    } catch {
+      // do not throw
+    }
     return res.status(400).json({
       ok: false as const,
       error: "Invalid raw event",
-      details: parsed.error.flatten(),
+      details,
+      requestId,
     });
   }
 
@@ -122,7 +196,25 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   // Canonicalize timestamps (observedAt preferred; occurredAt can be exact or range)
   const occurredAtRaw = body.occurredAt ?? body.observedAt;
   if (!occurredAtRaw) {
-    return res.status(400).json({ ok: false as const, error: "Missing observedAt/occurredAt" });
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "MISSING_OBSERVED_AT",
+        message: "Missing observedAt/occurredAt",
+        day: dayUtcNow(),
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(400).json({
+      ok: false as const,
+      error: "Missing observedAt/occurredAt",
+      requestId,
+    });
   }
 
   const observedAt: string =
@@ -132,12 +224,27 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const idempotencyKey = getIdempotencyKey(req);
   if (!idempotencyKey) {
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "MISSING_IDEMPOTENCY_KEY",
+        message: "Idempotency-Key header is required for ingestion",
+        day: dayUtcNow(),
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw
+    }
     return res.status(400).json({
       ok: false as const,
       error: {
         code: "MISSING_IDEMPOTENCY_KEY" as const,
         message: "Idempotency-Key header is required for ingestion",
       },
+      requestId,
     });
   }
 
@@ -192,16 +299,32 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const validated = rawEventDocSchema.safeParse(doc);
   if (!validated.success) {
+    const details = validated.error.flatten();
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "INVALID_RAW_EVENT_CONTRACT",
+        message: "Invalid raw event (contract)",
+        day,
+        requestId,
+        details: { validation: details },
+      });
+    } catch {
+      // do not throw
+    }
     return res.status(400).json({
       ok: false as const,
       error: "Invalid raw event (contract)",
-      details: validated.error.flatten(),
+      details,
+      requestId,
     });
   }
 
   try {
     await docRef.create(validated.data);
-    return res.status(202).json({ ok: true as const, rawEventId, day });
+    return res.status(202).json({ ok: true as const, rawEventId, day, requestId });
   } catch {
     // If create() failed because the doc already exists, treat as an idempotent replay.
     // We avoid assuming error codes and instead check existence (fail closed).
@@ -213,13 +336,36 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
           rawEventId,
           day,
           idempotentReplay: true as const,
+          requestId,
         });
       }
     } catch {
       // Firestore read failed — fall through to internal error.
     }
 
-    return internalError(res, "INGEST_WRITE_FAILED", "Failed to write RawEvent");
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest",
+        reasonCode: "INGEST_WRITE_FAILED",
+        message: "Failed to write RawEvent",
+        day,
+        rawEventId,
+        requestId,
+        details: {},
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(500).json({
+      ok: false as const,
+      error: {
+        code: "INGEST_WRITE_FAILED" as const,
+        message: "Failed to write RawEvent",
+      },
+      requestId,
+    });
   }
 });
 

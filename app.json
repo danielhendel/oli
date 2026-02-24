@@ -21,7 +21,14 @@
     },
 
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Oli reads steps, workouts, resting heart rate, exercise time, and active energy for your workouts overview.",
+          "healthUpdatePermission": "Oli does not write health data."
+        }
+      ]
     ],
 
     "extra": {

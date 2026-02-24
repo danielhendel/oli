@@ -13,6 +13,7 @@ import integrationsRoutes, { handleWithingsCallback } from "./routes/integration
 import withingsPullRouter from "./routes/withingsPull";
 import withingsBackfillRouter from "./routes/withingsBackfill";
 import withingsPullNowRouter from "./routes/integrations/withingsPullNow";
+import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
@@ -158,6 +159,11 @@ app.use("/integrations/withings/backfill", requireInvokerAuth, withingsBackfillR
  * Withings pull-now — user-authenticated. Immediate pull for authed user only (last 72h).
  */
 app.use("/integrations/withings/pull-now", authMiddleware, withingsPullNowRouter);
+
+/**
+ * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).
+ */
+app.use("/integrations/apple-health/status", authMiddleware, appleHealthStatusRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.
