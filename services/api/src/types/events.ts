@@ -48,7 +48,7 @@ export type RawEventKind = z.infer<typeof rawEventKindSchema>;
  * Supported providers at the ingestion boundary.
  * Phase 1 accepts only manual ingestion.
  */
-export const rawEventProviderSchema = z.enum(["manual"]);
+export const rawEventProviderSchema = z.enum(["manual", "apple_health"]);
 export type RawEventProvider = z.infer<typeof rawEventProviderSchema>;
 
 /**
