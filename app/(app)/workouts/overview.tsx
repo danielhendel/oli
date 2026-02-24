@@ -145,17 +145,14 @@ export default function TrainingOverviewScreen() {
 
       // iOS: always run checkAvailability(); do not use stored notAvailable to force Not available
       console.log("[AH] checkAvailability start");
-      const mod = await import("react-native-health")
-        .then((m) => m)
-        .catch(() => null);
-      if (cancelled) return;
-      type HealthModule = { isAvailable: (cb: (err: unknown, available: boolean) => void) => void };
-      const AppleHealthKit = (mod != null ? (mod as { default?: HealthModule }).default ?? mod : null) as HealthModule | null;
-      if (!AppleHealthKit || typeof AppleHealthKit.isAvailable !== "function") {
+      const nm = NativeModules as Record<string, unknown>;
+      const candidate = nm["AppleHealthKit"] ?? null;
+      const isAvail = getIsAvailableFn(candidate);
+      if (!candidate || !isAvail) {
         setConnectionStatus("not_available");
         return;
       }
-      AppleHealthKit.isAvailable((err: unknown, available: boolean) => {
+      isAvail((err: unknown, available: boolean) => {
         if (cancelled) return;
         if (err || !available) {
           setConnectionStatus("not_available");

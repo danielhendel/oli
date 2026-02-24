@@ -4,6 +4,7 @@
  * Uses react-native-health; iOS only.
  */
 
+import { NativeModules, Platform } from "react-native";
 import type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";
 
 type HealthPermission = string;
@@ -31,13 +32,66 @@ type HealthKitInstance = {
   getAnchoredWorkouts: (o: HealthInputOptions & { type?: string }, cb: (err: unknown, r: AnchoredQueryResults) => void) => void;
 };
 
+type MaybeNativeHK = {
+  isAvailable?: unknown;
+  initHealthKit?: unknown;
+  getStepCount?: unknown;
+  getAppleExerciseTime?: unknown;
+  getActiveEnergyBurned?: unknown;
+  getRestingHeartRateSamples?: unknown;
+  getAnchoredWorkouts?: unknown;
+};
+
+function isFn(v: unknown): v is (...args: unknown[]) => unknown {
+  return typeof v === "function";
+}
+
+function getNativeAppleHealthKit(): HealthKitInstance | null {
+  if (Platform.OS !== "ios") return null;
+  const nm = NativeModules as unknown as Record<string, unknown>;
+  const raw = nm["AppleHealthKit"] as unknown;
+  const hk = raw as MaybeNativeHK | null;
+
+  if (!hk) return null;
+
+  const ok =
+    isFn(hk.isAvailable) &&
+    isFn(hk.initHealthKit) &&
+    isFn(hk.getStepCount) &&
+    isFn(hk.getAnchoredWorkouts);
+
+  if (!ok) {
+    console.log("[AH] NativeModules.AppleHealthKit missing required methods", {
+      hasIsAvailable: isFn(hk.isAvailable),
+      hasInitHealthKit: isFn(hk.initHealthKit),
+      hasGetStepCount: isFn(hk.getStepCount),
+      hasGetAnchoredWorkouts: isFn(hk.getAnchoredWorkouts),
+    });
+    return null;
+  }
+
+  return raw as HealthKitInstance;
+}
+
 let healthKitModule: HealthKitInstance | null | undefined = undefined;
 
 async function getHealthKit(): Promise<HealthKitInstance | null> {
   if (healthKitModule !== undefined) return healthKitModule;
+
+  // Prefer direct native module (avoids react-native-health Object.assign losing methods)
+  const nativeHK = getNativeAppleHealthKit();
+  if (nativeHK) {
+    console.log("[AH] using NativeModules.AppleHealthKit");
+    healthKitModule = nativeHK;
+    return healthKitModule;
+  }
+
+  // Fallback: dynamic import (kept for completeness; may be broken under TurboModules)
   try {
-    const m = await import("react-native-health");
-    healthKitModule = (m.default ?? null) as HealthKitInstance | null;
+    const mod = await import("react-native-health");
+    const AppleHealthKit = ((mod as { default?: HealthKitInstance }).default ?? mod) as HealthKitInstance;
+    console.log("[AH] module has isAvailable", typeof AppleHealthKit.isAvailable);
+    healthKitModule = AppleHealthKit;
   } catch {
     healthKitModule = null;
   }
@@ -72,6 +126,8 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
 
   return promiseFromInit((resolve) => {
     HK.isAvailable((err: unknown, available: boolean) => {
+      if (err) console.log("[AH] isAvailable error", String(err));
+      console.log("[AH] isAvailable available", available);
       if (err || !available) {
         resolve({ ok: false, error: err != null ? String(err) : "HealthKit is not available on this device." });
         return;
