@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules } from "react-native";
 // TEMP DEBUG (W1): remove after HealthKit availability is deterministic.
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -176,6 +176,19 @@ export default function TrainingOverviewScreen() {
     let watchdog: ReturnType<typeof setTimeout> | null = null;
 
     (async () => {
+      const nm = NativeModules as Record<string, unknown>;
+      const apple = nm["AppleHealthKit"];
+      const rnApple = nm["RNAppleHealthKit"];
+      const healthKeys = Object.keys(nm).filter((k) => k.toLowerCase().includes("health")).slice(0, 50);
+
+      console.log("[AHDBG] NativeModules health presence", {
+        hasAppleHealthKit: apple != null,
+        hasRNAppleHealthKit: rnApple != null,
+        healthKeys,
+      });
+      console.log("[AHDBG] NativeModules AppleHealthKit typeof", { t: apple === null ? "null" : typeof apple });
+      console.log("[AHDBG] NativeModules RNAppleHealthKit typeof", { t: rnApple === null ? "null" : typeof rnApple });
+
       console.log("[AHDBG] import react-native-health: start");
       const mod = await import("react-native-health")
         .then((m) => m)
