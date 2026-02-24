@@ -305,7 +305,7 @@ export default function TrainingOverviewScreen() {
 
       if (data.steps != null && data.steps >= 0) {
         const body = {
-          provider: "manual" as const,
+          provider: "apple_health" as const,
           sourceId: "healthkit",
           kind: "steps" as const,
           observedAt: start,
@@ -338,7 +338,7 @@ export default function TrainingOverviewScreen() {
           durationMinutes: Math.max(1, w.durationMinutes),
         };
         const body = {
-          provider: "manual" as const,
+          provider: "apple_health" as const,
           sourceId: "healthkit",
           kind: "workout" as const,
           observedAt: w.start,
