@@ -9,7 +9,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules } from "react-native";
-// TEMP DEBUG (W1): remove after HealthKit availability is deterministic.
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -30,7 +29,6 @@ import {
   setAppleHealthNotAvailable,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
-import * as Clipboard from "expo-clipboard";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -104,20 +102,6 @@ export default function TrainingOverviewScreen() {
     setConnectionStatus("not_connected");
   }, []);
 
-  function safeKeys(v: unknown): string[] {
-    try {
-      if (v == null) return [];
-      return Object.keys(v as Record<string, unknown>).slice(0, 30);
-    } catch {
-      return [];
-    }
-  }
-
-  function asType(v: unknown): string {
-    if (v === null) return "null";
-    return typeof v;
-  }
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -166,88 +150,6 @@ export default function TrainingOverviewScreen() {
       cancelled = true;
     };
   }, [loadStored]);
-
-  useEffect(() => {
-    // TEMP DEBUG (W1): instrument iOS module shape + isAvailable callback behavior
-    if (Platform.OS !== "ios") return;
-    let cancelled = false;
-    let watchdog: ReturnType<typeof setTimeout> | null = null;
-
-    (async () => {
-      const nm = NativeModules as Record<string, unknown>;
-      const apple = nm["AppleHealthKit"];
-      const rnApple = nm["RNAppleHealthKit"];
-      const healthKeys = Object.keys(nm).filter((k) => k.toLowerCase().includes("health")).slice(0, 50);
-
-      console.log("[AHDBG] NativeModules health presence", {
-        hasAppleHealthKit: apple != null,
-        hasRNAppleHealthKit: rnApple != null,
-        healthKeys,
-      });
-      console.log("[AHDBG] NativeModules AppleHealthKit typeof", { t: apple === null ? "null" : typeof apple });
-      console.log("[AHDBG] NativeModules RNAppleHealthKit typeof", { t: rnApple === null ? "null" : typeof rnApple });
-
-      console.log("[AHDBG] import react-native-health: start");
-      const mod = await import("react-native-health")
-        .then((m) => m)
-        .catch((e) => {
-          console.log("[AHDBG] import react-native-health: failed", { type: asType(e) });
-          return null;
-        });
-
-      if (cancelled) return;
-
-      const modAny = mod as unknown as { default?: unknown } | null;
-      const def = modAny?.default;
-
-      console.log("[AHDBG] module", {
-        modType: asType(mod),
-        modKeys: safeKeys(mod),
-        hasDefault: def != null,
-        defaultType: asType(def),
-        defaultKeys: safeKeys(def),
-      });
-
-      const isAvailDef = getIsAvailableFn(def);
-      const isAvailMod = getIsAvailableFn(mod);
-
-      console.log("[AHDBG] isAvailable typeof", {
-        fromMod: typeof isAvailMod,
-        fromDefault: typeof isAvailDef,
-      });
-
-      const candidate = isAvailDef ? def : isAvailMod ? mod : null;
-      const isAvail = isAvailDef ?? isAvailMod;
-
-      if (!candidate || !isAvail) {
-        console.log("[AHDBG] no isAvailable function found -> set not_available");
-        setConnectionStatus("not_available");
-        return;
-      }
-
-      console.log("[AHDBG] calling isAvailable");
-
-      watchdog = setTimeout(() => {
-        console.log("[AHDBG] isAvailable watchdog timeout (callback not invoked within 3000ms)");
-      }, 3000);
-
-      isAvail((err: unknown, available: boolean) => {
-        if (watchdog) clearTimeout(watchdog);
-        watchdog = null;
-
-        console.log("[AHDBG] isAvailable callback", {
-          errType: asType(err),
-          errStr: err != null ? String(err) : null,
-          available,
-        });
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      if (watchdog) clearTimeout(watchdog);
-    };
-  }, []);
 
   const refetchSnapshot = useCallback(async () => {
     const result = await pullTodaySnapshot();
@@ -369,16 +271,6 @@ export default function TrainingOverviewScreen() {
     }
   }, [connectionStatus, user, getIdToken, refetchSnapshot]);
 
-  const handleCopyIdToken = useCallback(async () => {
-    const token = await getIdToken(false);
-    if (!token) {
-      setSyncError({ message: "No ID token", requestId: null });
-      return;
-    }
-    await Clipboard.setStringAsync(token);
-    setSyncError({ message: "ID token copied to clipboard", requestId: null });
-  }, [getIdToken]);
-
   if (initializing) {
     return (
       <ModuleScreenShell title="Training Overview" subtitle="Workload & performance">
@@ -425,15 +317,6 @@ export default function TrainingOverviewScreen() {
             </Pressable>
           )}
         </View>
-
-        <Pressable
-          onPress={handleCopyIdToken}
-          style={styles.primaryBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Copy ID token (debug)"
-        >
-          <Text style={styles.primaryBtnText}>Copy ID token (debug)</Text>
-        </Pressable>
 
         {syncError && (
           <View style={styles.errorCard}>
