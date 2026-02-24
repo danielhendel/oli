@@ -8,7 +8,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from "react-native";
+// TEMP DEBUG (W1): remove after HealthKit availability is deterministic.
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -31,6 +32,15 @@ import {
 import { ingestRawEvent } from "@/lib/api/ingest";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
+
+type MaybeIsAvailable = { isAvailable?: unknown };
+function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) => void) => void) | null {
+  if (v == null) return null;
+  const cand = (v as MaybeIsAvailable).isAvailable;
+  return typeof cand === "function"
+    ? (cand as (cb: (err: unknown, available: boolean) => void) => void)
+    : null;
+}
 
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
@@ -74,14 +84,15 @@ export default function TrainingOverviewScreen() {
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
-  const loadStored = useCallback(async () => {
+  const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
     const [sync, connected, notAvailable] = await Promise.all([
       getLastSyncAt(),
       getAppleHealthConnected(),
       getAppleHealthNotAvailable(),
     ]);
     setLastSyncAtState(sync);
-    if (notAvailable) {
+    if (!skipNotAvailableCheck && notAvailable) {
+      console.log("[AH] status set Not available", { platform: Platform.OS });
       setConnectionStatus("not_available");
       return;
     }
@@ -92,29 +103,140 @@ export default function TrainingOverviewScreen() {
     setConnectionStatus("not_connected");
   }, []);
 
+  function safeKeys(v: unknown): string[] {
+    try {
+      if (v == null) return [];
+      return Object.keys(v as Record<string, unknown>).slice(0, 30);
+    } catch {
+      return [];
+    }
+  }
+
+  function asType(v: unknown): string {
+    if (v === null) return "null";
+    return typeof v;
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const mod = await import("react-native-health").then((m) => m.default).catch(() => null);
+      if (Platform.OS !== "ios") {
+        const mod = await import("react-native-health")
+          .then((m) => m.default)
+          .catch(() => null);
+        if (cancelled) return;
+        if (!mod || typeof mod.isAvailable !== "function") {
+          console.log("[AH] status set Not available", { platform: Platform.OS });
+          await setAppleHealthNotAvailable(true);
+          setConnectionStatus("not_available");
+          return;
+        }
+        mod.isAvailable((err: unknown, available: boolean) => {
+          if (cancelled) return;
+          if (err || !available) {
+            console.log("[AH] status set Not available", { platform: Platform.OS });
+            setAppleHealthNotAvailable(true).then(() => setConnectionStatus("not_available"));
+            return;
+          }
+          loadStored();
+        });
+        return;
+      }
+
+      // iOS: always run checkAvailability(); do not use stored notAvailable to force Not available
+      console.log("[AH] checkAvailability start");
+      const mod = await import("react-native-health")
+        .then((m) => m)
+        .catch(() => null);
       if (cancelled) return;
-      if (!mod || typeof mod.isAvailable !== "function") {
-        await setAppleHealthNotAvailable(true);
+      type HealthModule = { isAvailable: (cb: (err: unknown, available: boolean) => void) => void };
+      const AppleHealthKit = (mod != null ? (mod as { default?: HealthModule }).default ?? mod : null) as HealthModule | null;
+      if (!AppleHealthKit || typeof AppleHealthKit.isAvailable !== "function") {
         setConnectionStatus("not_available");
         return;
       }
-      mod.isAvailable((err: unknown, available: boolean) => {
+      AppleHealthKit.isAvailable((err: unknown, available: boolean) => {
         if (cancelled) return;
         if (err || !available) {
-          setAppleHealthNotAvailable(true).then(() => setConnectionStatus("not_available"));
+          setConnectionStatus("not_available");
           return;
         }
-        loadStored();
+        loadStored(true);
       });
     })();
     return () => {
       cancelled = true;
     };
   }, [loadStored]);
+
+  useEffect(() => {
+    // TEMP DEBUG (W1): instrument iOS module shape + isAvailable callback behavior
+    if (Platform.OS !== "ios") return;
+    let cancelled = false;
+    let watchdog: ReturnType<typeof setTimeout> | null = null;
+
+    (async () => {
+      console.log("[AHDBG] import react-native-health: start");
+      const mod = await import("react-native-health")
+        .then((m) => m)
+        .catch((e) => {
+          console.log("[AHDBG] import react-native-health: failed", { type: asType(e) });
+          return null;
+        });
+
+      if (cancelled) return;
+
+      const modAny = mod as unknown as { default?: unknown } | null;
+      const def = modAny?.default;
+
+      console.log("[AHDBG] module", {
+        modType: asType(mod),
+        modKeys: safeKeys(mod),
+        hasDefault: def != null,
+        defaultType: asType(def),
+        defaultKeys: safeKeys(def),
+      });
+
+      const isAvailDef = getIsAvailableFn(def);
+      const isAvailMod = getIsAvailableFn(mod);
+
+      console.log("[AHDBG] isAvailable typeof", {
+        fromMod: typeof isAvailMod,
+        fromDefault: typeof isAvailDef,
+      });
+
+      const candidate = isAvailDef ? def : isAvailMod ? mod : null;
+      const isAvail = isAvailDef ?? isAvailMod;
+
+      if (!candidate || !isAvail) {
+        console.log("[AHDBG] no isAvailable function found -> set not_available");
+        setConnectionStatus("not_available");
+        return;
+      }
+
+      console.log("[AHDBG] calling isAvailable");
+
+      watchdog = setTimeout(() => {
+        console.log("[AHDBG] isAvailable watchdog timeout (callback not invoked within 3000ms)");
+      }, 3000);
+
+      isAvail((err: unknown, available: boolean) => {
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = null;
+
+        console.log("[AHDBG] isAvailable callback", {
+          errType: asType(err),
+          errStr: err != null ? String(err) : null,
+          available,
+        });
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (watchdog) clearTimeout(watchdog);
+    };
+  }, []);
 
   const refetchSnapshot = useCallback(async () => {
     const result = await pullTodaySnapshot();
@@ -139,6 +261,7 @@ export default function TrainingOverviewScreen() {
       } else {
         await setAppleHealthConnected(false);
         if (result.error.toLowerCase().includes("not available")) {
+          console.log("[AH] status set Not available", { platform: Platform.OS });
           await setAppleHealthNotAvailable(true);
           setConnectionStatus("not_available");
         } else {
@@ -284,11 +407,7 @@ export default function TrainingOverviewScreen() {
 
         {syncError && (
           <View style={styles.errorCard}>
-            <ErrorState
-              message={syncError.message}
-              requestId={syncError.requestId}
-              onRetry={() => setSyncError(null)}
-            />
+            <ErrorState message={syncError.message} requestId={syncError.requestId} onRetry={() => setSyncError(null)} />
             <Text style={styles.requestIdLine}>
               Request ID: {syncError.requestId != null ? syncError.requestId : "null"}
             </Text>
