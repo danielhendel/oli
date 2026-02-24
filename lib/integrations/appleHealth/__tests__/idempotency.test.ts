@@ -15,7 +15,7 @@ describe("appleHealth idempotency", () => {
   describe("stepsIdempotencyKey", () => {
     it("is deterministic for same day", () => {
       expect(stepsIdempotencyKey("2025-02-23")).toBe(stepsIdempotencyKey("2025-02-23"));
-      expect(stepsIdempotencyKey("2025-02-23")).toBe("appleHealth:steps:2025-02-23");
+      expect(stepsIdempotencyKey("2025-02-23")).toBe("appleHealth:v2:steps:2025-02-23");
     });
 
     it("produces different keys for different days", () => {
@@ -52,7 +52,7 @@ describe("appleHealth idempotency", () => {
         activityId: 13,
         sourceId: "Watch",
       });
-      expect(key).toMatch(/^appleHealth:workout:/);
+      expect(key).toMatch(/^appleHealth:v2:workout:/);
       expect(key).not.toContain("/");
       expect(key).toContain("2025-02-23T10:00:00.000Z");
       expect(key).toContain("2025-02-23T11:00:00.000Z");
@@ -110,7 +110,7 @@ describe("appleHealth idempotency", () => {
 
     it("works without sampleId", () => {
       const key = restingHeartRateIdempotencyKey({ timestampIso: "2025-02-23T08:00:00.000Z" });
-      expect(key).toMatch(/^appleHealth:restingHr:/);
+      expect(key).toMatch(/^appleHealth:v2:restingHr:/);
       expect(key).not.toContain("/");
     });
 
@@ -124,7 +124,7 @@ describe("appleHealth idempotency", () => {
       expect(appleExerciseTimeIdempotencyKey("2025-02-23")).toBe(
         appleExerciseTimeIdempotencyKey("2025-02-23"),
       );
-      expect(appleExerciseTimeIdempotencyKey("2025-02-23")).toBe("appleHealth:appleExerciseTime:2025-02-23");
+      expect(appleExerciseTimeIdempotencyKey("2025-02-23")).toBe("appleHealth:v2:appleExerciseTime:2025-02-23");
     });
 
     it("no slash in output", () => {
@@ -135,7 +135,7 @@ describe("appleHealth idempotency", () => {
   describe("activeEnergyIdempotencyKey", () => {
     it("is deterministic for same day", () => {
       expect(activeEnergyIdempotencyKey("2025-02-23")).toBe(activeEnergyIdempotencyKey("2025-02-23"));
-      expect(activeEnergyIdempotencyKey("2025-02-23")).toBe("appleHealth:activeEnergy:2025-02-23");
+      expect(activeEnergyIdempotencyKey("2025-02-23")).toBe("appleHealth:v2:activeEnergy:2025-02-23");
     });
 
     it("no slash in output", () => {

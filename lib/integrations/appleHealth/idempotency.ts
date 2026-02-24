@@ -4,7 +4,7 @@
  * No Date.now() or randomness.
  */
 
-const PREFIX = "appleHealth";
+const PREFIX = "appleHealth:v2";
 
 /** Firestore doc id safe: no '/'. Replace with underscore. */
 function sanitizeForDocId(s: string): string {
