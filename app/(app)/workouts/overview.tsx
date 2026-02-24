@@ -333,24 +333,24 @@ export default function TrainingOverviewScreen() {
               <Text style={styles.cardTitle}>Today</Text>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>Steps</Text>
-                <Text style={styles.metricValue}>{snapshot?.steps != null ? snapshot.steps : "—"}</Text>
+                <Text style={styles.metricValue}>{snapshot?.steps != null ? Math.round(snapshot.steps) : "—"}</Text>
               </View>
               <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Active minutes</Text>
+                <Text style={styles.metricLabel}>Exercise time</Text>
                 <Text style={styles.metricValue}>
-                  {snapshot?.exerciseMinutes != null ? snapshot.exerciseMinutes : "—"}
+                  {snapshot?.exerciseMinutes != null ? Math.round(snapshot.exerciseMinutes) : "—"}
                 </Text>
               </View>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>Active energy (kcal)</Text>
                 <Text style={styles.metricValue}>
-                  {snapshot?.activeEnergyKcal != null ? snapshot.activeEnergyKcal : "—"}
+                  {snapshot?.activeEnergyKcal != null ? Math.round(snapshot.activeEnergyKcal) : "—"}
                 </Text>
               </View>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>Resting HR (bpm)</Text>
                 <Text style={styles.metricValue}>
-                  {snapshot?.restingHeartRateBpm != null ? snapshot.restingHeartRateBpm : "—"}
+                  {snapshot?.restingHeartRateBpm != null ? Math.round(snapshot.restingHeartRateBpm) : "—"}
                 </Text>
               </View>
             </View>
@@ -362,7 +362,7 @@ export default function TrainingOverviewScreen() {
                   <View key={w.id || i} style={styles.workoutRow}>
                     <Text style={styles.workoutName}>{w.activityName}</Text>
                     <Text style={styles.workoutMeta}>
-                      {w.durationMinutes} min · {w.calories} kcal
+                      {w.durationMinutes} min · {Math.round(w.calories)} kcal
                     </Text>
                   </View>
                 ))
