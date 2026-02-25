@@ -65,6 +65,40 @@ Expected:
 
 pull-now → gateway route
 
+---
+
+## Invoker ID token audience (INVOKER_TOKEN_AUDIENCE)
+
+- Invoker-only routes (e.g. POST /integrations/withings/pull) are protected by requireInvokerAuth.
+- requireInvokerAuth validates the ID token audience against INVOKER_TOKEN_AUDIENCE.
+- Scheduled Functions Gen2 jobs mint an ID token with audience = the Cloud Run service URL they call (typically the current status.url for the service).
+
+Canonical audience:
+- Use the current Cloud Run service URL:
+  ```bash
+  gcloud run services describe oli-api --region us-central1 --project oli-staging-fdbba --format="value(status.url)"
+  ```
+
+If you see 403 with invoker_auth_rejected and verifyReason similar to:
+- "Wrong recipient, payload audience != requiredAudience"
+then INVOKER_TOKEN_AUDIENCE does not match the service URL being used as the ID token audience.
+
+Fix (staging example):
+- Set INVOKER_TOKEN_AUDIENCE to the same URL returned by status.url:
+  ```bash
+  gcloud run services update oli-api --region us-central1 --project oli-staging-fdbba --update-env-vars INVOKER_TOKEN_AUDIENCE=<status.url>
+  ```
+
+Verification:
+- Force-run scheduler job and confirm:
+  - oli-api receives POST /integrations/withings/pull with HTTP 200
+  - onwithingspullscheduled logs show withings_pull_scheduled_start and a 200 completion
+
+IMPORTANT:
+- Do not expose invoker-only routes in API Gateway OpenAPI.
+
+---
+
 5. Route Drift Detection
 
 If Gateway returns:
