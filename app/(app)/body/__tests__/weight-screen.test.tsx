@@ -12,6 +12,15 @@ jest.mock("react-native", () => ({
   ScrollView: "ScrollView",
   Modal: "Modal",
   StyleSheet: { create: (s: unknown) => s },
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
+}));
+
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void) => {
+    if (typeof cb === "function") cb();
+  },
 }));
 
 jest.mock("expo-router", () => ({

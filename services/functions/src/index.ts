@@ -36,6 +36,7 @@ import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecompu
 import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
 import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
 import { onWithingsBackfillScheduled } from "./withings/onWithingsBackfillScheduled";
+import { onWithingsPullScheduled } from "./withings/onWithingsPullScheduled";
 
 // Account executors (Pub/Sub)
 import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
@@ -103,6 +104,7 @@ export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
 export { onWithingsBackfillScheduled };
+export { onWithingsPullScheduled };
 
 // Account executors (Pub/Sub)
 export { onAccountDeleteRequested };
