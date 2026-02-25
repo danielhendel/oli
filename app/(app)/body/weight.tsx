@@ -1,6 +1,7 @@
 // app/(app)/body/weight.tsx — Body Composition: nav header, hero, stat tiles, chart (fail-closed).
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, Modal, ScrollView } from "react-native";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { View, Text, Pressable, StyleSheet, Modal, ScrollView, AppState } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -211,7 +212,32 @@ export default function BodyWeightScreen() {
   const [updateState, setUpdateState] = useState<UpdateState>({ status: "idle" });
   const lastUpdateTapMs = useRef(0);
   const pullNowIdemRef = useRef<string | null>(null);
+  const lastAutoRefetchMsRef = useRef<number>(0);
   const UPDATE_COOLDOWN_MS = 15000;
+
+  const maybeAutoRefetch = useCallback(
+    (reason: "focus" | "foreground") => {
+      const now = Date.now();
+      if (now - lastAutoRefetchMsRef.current < 60_000) return;
+      lastAutoRefetchMsRef.current = now;
+      void weightSeries.refetch({ cacheBust: `auto:${reason}:${now}` });
+      void withingsPresence.refetch({ cacheBust: `auto:${reason}:${now}` });
+    },
+    [weightSeries, withingsPresence],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeAutoRefetch("focus");
+    }, [maybeAutoRefetch]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") maybeAutoRefetch("foreground");
+    });
+    return () => sub.remove();
+  }, [maybeAutoRefetch]);
 
   useEffect(() => {
     navigation.setOptions({
