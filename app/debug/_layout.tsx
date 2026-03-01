@@ -8,6 +8,8 @@ export default function DebugLayout() {
       <Stack.Screen name="index" options={{ title: "Debug" }} />
       <Stack.Screen name="token" options={{ title: "Token" }} />
       <Stack.Screen name="api-smoke" options={{ title: "API Smoke" }} />
+      <Stack.Screen name="integrations" options={{ title: "Integrations Probe" }} />
+      <Stack.Screen name="health" options={{ title: "Health" }} />
     </Stack>
   );
 }
