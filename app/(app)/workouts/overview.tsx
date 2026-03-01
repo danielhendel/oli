@@ -23,6 +23,7 @@ import {
   type TodayWorkout,
 } from "@/lib/integrations/appleHealth";
 import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
+import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
 import {
   getLastSyncAt,
   setLastSyncAt,
@@ -265,94 +266,24 @@ export default function TrainingOverviewScreen() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const anchor = await getWorkoutsAnchor(user.uid);
-      const anchored = await pullAnchoredWorkouts({ anchor, limit: ANCHOR_LIMIT });
-      if (!anchored.ok) {
-        setSyncError({ message: anchored.error, requestId: null });
+      const result = await runAnchoredWorkoutsSync(
+        { uid: user.uid, token, limit: ANCHOR_LIMIT },
+        {
+          getWorkoutsAnchor,
+          setWorkoutsAnchor,
+          pullAnchoredWorkouts,
+          pullTodaySnapshot,
+          ingestRawEvent,
+          getTodayBounds,
+          getDeviceTimezone,
+          stepsIdempotencyKey,
+          workoutIdempotencyKey,
+        },
+      );
+      if (!result.ok) {
+        setSyncError({ message: result.error, requestId: result.requestId });
         return;
       }
-      if (anchored.data.workouts.length >= ANCHOR_LIMIT) {
-        setSyncError({
-          message: "Workout sync reached limit (500). Run Sync again to continue.",
-          requestId: null,
-        });
-        return;
-      }
-
-      const pull = await pullTodaySnapshot();
-      if (!pull.ok) {
-        setSyncError({ message: pull.error, requestId: null });
-        return;
-      }
-      const data = pull.data;
-      const timezone = getDeviceTimezone();
-      const { start, end, day } = getTodayBounds();
-
-      if (data.steps != null && data.steps >= 0) {
-        const body = {
-          provider: "apple_health" as const,
-          sourceId: "healthkit",
-          kind: "steps" as const,
-          observedAt: start,
-          timeZone: timezone,
-          payload: {
-            start,
-            end,
-            timezone,
-            day,
-            steps: data.steps,
-            sync: { mode: "range" as const, anchorVersion: 1, anchorUsed: false },
-          },
-        };
-        const res = await ingestRawEvent(body, token, {
-          idempotencyKey: stepsIdempotencyKey(day),
-          timeoutMs: 15000,
-        });
-        if (!res.ok) {
-          setSyncError({ message: res.error, requestId: res.requestId });
-          return;
-        }
-      }
-
-      for (const w of anchored.data.workouts) {
-        const payload = {
-          start: w.start,
-          end: w.end,
-          timezone,
-          day,
-          sport: w.activityName || "Workout",
-          durationMinutes: Math.max(1, w.durationMinutes),
-          hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
-          sync: {
-            mode: "anchored" as const,
-            anchorVersion: 1,
-            anchorUsed: anchor != null,
-          },
-        };
-        const body = {
-          provider: "apple_health" as const,
-          sourceId: "healthkit",
-          kind: "workout" as const,
-          observedAt: w.start,
-          timeZone: timezone,
-          payload,
-        };
-        const res = await ingestRawEvent(body, token, {
-          idempotencyKey: workoutIdempotencyKey({
-            startIso: w.start,
-            endIso: w.end,
-            activityId: w.activityId,
-            sourceId: w.sourceId,
-          }),
-          timeoutMs: 15000,
-        });
-        if (!res.ok) {
-          setSyncError({ message: res.error, requestId: res.requestId });
-          return;
-        }
-      }
-
-      await setWorkoutsAnchor(user.uid, anchored.data.anchor);
       const nowIso = new Date().toISOString();
       await setLastSyncAt(nowIso);
       setLastSyncAtState(nowIso);
