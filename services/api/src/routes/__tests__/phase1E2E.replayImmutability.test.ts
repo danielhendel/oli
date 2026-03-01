@@ -17,6 +17,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import express from "express";
+import request from "supertest";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { recomputeDerivedTruthForDay } from "../../../../functions/src/pipeline/recomputeForDay";
 import { derivedLedgerReplayResponseDtoSchema } from "@oli/contracts";
@@ -96,133 +97,116 @@ describe("Phase 1 E2E: replay immutability — past views never change", () => {
     await cleanupDerivedLedgerForDay();
 
     const app = buildTestApp();
-    const server = app.listen(0);
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      server.close();
-      throw new Error("Failed to bind test server");
-    }
-    const base = `http://127.0.0.1:${address.port}`;
 
-    try {
-      // A) Create Run A
-      const ingestARes = await fetch(`${base}/ingest`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": IDEMPOTENCY_A,
+    // A) Create Run A
+    const ingestARes = await request(app)
+      .post("/ingest")
+      .set("Content-Type", "application/json")
+      .set("Idempotency-Key", IDEMPOTENCY_A)
+      .send({
+        provider: "manual",
+        kind: "weight",
+        observedAt: `${DAY_KEY}T14:30:00.000Z`,
+        sourceId: "manual",
+        timeZone: "America/New_York",
+        payload: {
+          time: `${DAY_KEY}T14:30:00.000Z`,
+          timezone: "America/New_York",
+          weightKg: 80,
         },
-        body: JSON.stringify({
-          provider: "manual",
-          kind: "weight",
-          observedAt: `${DAY_KEY}T14:30:00.000Z`,
-          sourceId: "manual",
-          timeZone: "America/New_York",
-          payload: {
-            time: `${DAY_KEY}T14:30:00.000Z`,
-            timezone: "America/New_York",
-            weightKg: 80,
-          },
-        }),
       });
 
-      expect(ingestARes.status).toBe(202);
+    expect(ingestARes.status).toBe(202);
 
-      await recomputeDerivedTruthForDay({
-        db,
-        userId: TEST_UID,
-        dayKey: DAY_KEY,
-        factOnlyBody: { weightKg: 80 },
-        trigger: { type: "factOnly", rawEventId: IDEMPOTENCY_A },
-      });
+    await recomputeDerivedTruthForDay({
+      db,
+      userId: TEST_UID,
+      dayKey: DAY_KEY,
+      factOnlyBody: { weightKg: 80 },
+      trigger: { type: "factOnly", rawEventId: IDEMPOTENCY_A },
+    });
 
-      const runsARes = await fetch(`${base}/users/me/derived-ledger/runs?day=${DAY_KEY}`);
-      expect(runsARes.status).toBe(200);
-      const runsABody = (await runsARes.json()) as { runs: { runId: string }[] };
-      expect(runsABody.runs.length).toBeGreaterThanOrEqual(1);
-      const runIdA = runsABody.runs[0]!.runId;
+    const runsARes = await request(app).get(`/users/me/derived-ledger/runs?day=${DAY_KEY}`);
+    expect(runsARes.status).toBe(200);
+    const runsABody = runsARes.body as { runs: { runId: string }[] };
+    expect(runsABody.runs.length).toBeGreaterThanOrEqual(1);
+    const runIdA = runsABody.runs[0]!.runId;
 
-      // B) Fetch Snapshot A
-      const snapshotARes = await fetch(
-        `${base}/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdA}`
-      );
-      expect(snapshotARes.status).toBe(200);
-      const snapshotARaw = (await snapshotARes.json()) as unknown;
-      const parsedA = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotARaw);
-      expect(parsedA.success).toBe(true);
-      if (!parsedA.success) return;
+    // B) Fetch Snapshot A
+    const snapshotARes = await request(app).get(
+      `/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdA}`
+    );
+    expect(snapshotARes.status).toBe(200);
+    const snapshotARaw = snapshotARes.body as unknown;
+    const parsedA = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotARaw);
+    expect(parsedA.success).toBe(true);
+    if (!parsedA.success) return;
 
-      const snapshotA = parsedA.data;
-      expect(snapshotA.dailyFacts?.body?.weightKg).toBe(80);
+    const snapshotA = parsedA.data;
+    expect(snapshotA.dailyFacts?.body?.weightKg).toBe(80);
 
-      const snapshotA_fingerprint = snapshotFingerprint(snapshotA);
+    const snapshotA_fingerprint = snapshotFingerprint(snapshotA);
 
-      // C) Create Run B
-      const ingestBRes = await fetch(`${base}/ingest`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": IDEMPOTENCY_B,
+    // C) Create Run B
+    const ingestBRes = await request(app)
+      .post("/ingest")
+      .set("Content-Type", "application/json")
+      .set("Idempotency-Key", IDEMPOTENCY_B)
+      .send({
+        provider: "manual",
+        kind: "weight",
+        observedAt: `${DAY_KEY}T15:00:00.000Z`,
+        sourceId: "manual",
+        timeZone: "America/New_York",
+        payload: {
+          time: `${DAY_KEY}T15:00:00.000Z`,
+          timezone: "America/New_York",
+          weightKg: 81,
         },
-        body: JSON.stringify({
-          provider: "manual",
-          kind: "weight",
-          observedAt: `${DAY_KEY}T15:00:00.000Z`,
-          sourceId: "manual",
-          timeZone: "America/New_York",
-          payload: {
-            time: `${DAY_KEY}T15:00:00.000Z`,
-            timezone: "America/New_York",
-            weightKg: 81,
-          },
-        }),
       });
 
-      expect(ingestBRes.status).toBe(202);
+    expect(ingestBRes.status).toBe(202);
 
-      await recomputeDerivedTruthForDay({
-        db,
-        userId: TEST_UID,
-        dayKey: DAY_KEY,
-        factOnlyBody: { weightKg: 81 },
-        trigger: { type: "factOnly", rawEventId: IDEMPOTENCY_B },
-      });
+    await recomputeDerivedTruthForDay({
+      db,
+      userId: TEST_UID,
+      dayKey: DAY_KEY,
+      factOnlyBody: { weightKg: 81 },
+      trigger: { type: "factOnly", rawEventId: IDEMPOTENCY_B },
+    });
 
-      const runsBRes = await fetch(`${base}/users/me/derived-ledger/runs?day=${DAY_KEY}`);
-      expect(runsBRes.status).toBe(200);
-      const runsBBody = (await runsBRes.json()) as { runs: { runId: string }[] };
-      expect(runsBBody.runs.length).toBeGreaterThanOrEqual(2);
-      const runIdB = runsBBody.runs[0]!.runId;
-      expect(runIdB).not.toBe(runIdA);
+    const runsBRes = await request(app).get(`/users/me/derived-ledger/runs?day=${DAY_KEY}`);
+    expect(runsBRes.status).toBe(200);
+    const runsBBody = runsBRes.body as { runs: { runId: string }[] };
+    expect(runsBBody.runs.length).toBeGreaterThanOrEqual(2);
+    const runIdB = runsBBody.runs[0]!.runId;
+    expect(runIdB).not.toBe(runIdA);
 
-      // D) Re-fetch Snapshot for Run A
-      const snapshotA2Res = await fetch(
-        `${base}/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdA}`
-      );
-      expect(snapshotA2Res.status).toBe(200);
-      const snapshotA2Raw = (await snapshotA2Res.json()) as unknown;
-      const parsedA2 = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotA2Raw);
-      expect(parsedA2.success).toBe(true);
-      if (!parsedA2.success) return;
+    // D) Re-fetch Snapshot for Run A
+    const snapshotA2Res = await request(app).get(
+      `/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdA}`
+    );
+    expect(snapshotA2Res.status).toBe(200);
+    const snapshotA2Raw = snapshotA2Res.body as unknown;
+    const parsedA2 = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotA2Raw);
+    expect(parsedA2.success).toBe(true);
+    if (!parsedA2.success) return;
 
-      const snapshotA2_fingerprint = snapshotFingerprint(parsedA2.data);
+    const snapshotA2_fingerprint = snapshotFingerprint(parsedA2.data);
 
-      expect(snapshotA2_fingerprint).toEqual(snapshotA_fingerprint);
+    expect(snapshotA2_fingerprint).toEqual(snapshotA_fingerprint);
 
-      // E) Sanity: Run B is different
-      const snapshotBRes = await fetch(
-        `${base}/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdB}`
-      );
-      expect(snapshotBRes.status).toBe(200);
-      const snapshotBRaw = (await snapshotBRes.json()) as unknown;
-      const parsedB = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotBRaw);
-      expect(parsedB.success).toBe(true);
-      if (!parsedB.success) return;
+    // E) Sanity: Run B is different
+    const snapshotBRes = await request(app).get(
+      `/users/me/derived-ledger/snapshot?day=${DAY_KEY}&runId=${runIdB}`
+    );
+    expect(snapshotBRes.status).toBe(200);
+    const snapshotBRaw = snapshotBRes.body as unknown;
+    const parsedB = derivedLedgerReplayResponseDtoSchema.safeParse(snapshotBRaw);
+    expect(parsedB.success).toBe(true);
+    if (!parsedB.success) return;
 
-      expect(parsedB.data.dailyFacts?.body?.weightKg).toBe(81);
-      expect(snapshotFingerprint(parsedB.data)).not.toEqual(snapshotA_fingerprint);
-    } finally {
-      server.close();
-    }
+    expect(parsedB.data.dailyFacts?.body?.weightKg).toBe(81);
+    expect(snapshotFingerprint(parsedB.data)).not.toEqual(snapshotA_fingerprint);
   });
 });
