@@ -16,6 +16,7 @@ import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useWeightSeries, type WeightRangeKey, type WeightPoint } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { getWithingsLastCheckedAt, setWithingsLastCheckedAt } from "@/lib/integrations/withings/storage";
+import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
 /** Dev-only: audit weight window for range; mirrors chart robust Y-domain. No PII; bounded first/last 10. */
 function auditWeightWindowDevOnly(params: {
@@ -102,6 +103,7 @@ const SURFACE_RADIUS = 14;
 
 const LBS_PER_KG = 2.2046226218;
 const SHELL_TITLE = "Body Composition";
+const WITHINGS_AUTO_MIN_MS = 5 * 60_000;
 const SHELL_SUBTITLE = "Daily weigh-ins & trends";
 
 function formatWeight(kg: number, unit: "kg" | "lb"): string {
@@ -211,6 +213,12 @@ export default function BodyWeightScreen() {
     | { status: "success"; atMs: number; created: number; already: number }
     | { status: "error"; message: string; requestId: string | null };
   const [updateState, setUpdateState] = useState<UpdateState>({ status: "idle" });
+  type WithingsAutoState =
+    | { status: "idle" }
+    | { status: "checking" }
+    | { status: "ok"; atIso: string; created: number; already: number; note: "updated" | "no_new" }
+    | { status: "error"; message: string; requestId: string | null };
+  const [withingsAuto, setWithingsAuto] = useState<WithingsAutoState>({ status: "idle" });
   const lastUpdateTapMs = useRef(0);
   const pullNowIdemRef = useRef<string | null>(null);
   const lastAutoRefetchMsRef = useRef<number>(0);
@@ -226,6 +234,50 @@ export default function BodyWeightScreen() {
     }
   }, []);
 
+  const maybeAutoWithingsPullNow = useCallback(
+    async (reason: "focus" | "foreground") => {
+      if (!user) return;
+      if (!(withingsPresence.status === "ready" && withingsPresence.data?.connected)) return;
+
+      const last = await getWithingsLastCheckedAt().catch(() => null);
+      if (!shouldRun(last, WITHINGS_AUTO_MIN_MS)) return;
+
+      const token = await getIdToken(false);
+      if (!token) return;
+
+      setWithingsAuto({ status: "checking" });
+
+      const atIso = nowIso();
+      const idempotencyKey = `withingsPullNow:auto:${reason}:${Date.now()}`;
+      const res = await postWithingsPullNow(token, {
+        idempotencyKey,
+        cacheBust: `autoPull:${reason}:${Date.now()}`,
+      });
+
+      if (!res.ok) {
+        setWithingsAuto({ status: "error", message: res.error, requestId: res.requestId ?? null });
+        return;
+      }
+
+      await setWithingsLastCheckedAt(atIso);
+      setWithingsLastCheckedAtState(atIso);
+
+      const created = res.json.eventsCreated;
+      const already = res.json.eventsAlreadyExists;
+      setWithingsAuto({
+        status: "ok",
+        atIso,
+        created,
+        already,
+        note: created === 0 && already === 0 ? "no_new" : "updated",
+      });
+
+      void weightSeries.refetch({ cacheBust: `autoPull:${reason}:${Date.now()}` });
+      void withingsPresence.refetch({ cacheBust: `autoPull:${reason}:${Date.now()}` });
+    },
+    [user, withingsPresence, getIdToken, weightSeries],
+  );
+
   const maybeAutoRefetch = useCallback(
     (reason: "focus" | "foreground") => {
       const now = Date.now();
@@ -234,8 +286,9 @@ export default function BodyWeightScreen() {
       void weightSeries.refetch({ cacheBust: `auto:${reason}:${now}` });
       void withingsPresence.refetch({ cacheBust: `auto:${reason}:${now}` });
       void loadWithingsLastCheckedAt();
+      void maybeAutoWithingsPullNow(reason);
     },
-    [weightSeries, withingsPresence, loadWithingsLastCheckedAt],
+    [weightSeries, withingsPresence, loadWithingsLastCheckedAt, maybeAutoWithingsPullNow],
   );
 
   useEffect(() => {
@@ -480,6 +533,27 @@ export default function BodyWeightScreen() {
               >
                 Update failed
                 {updateState.requestId ? ` · Request ID: ${updateState.requestId.slice(0, 8)}` : ""}
+              </Text>
+            )}
+            {withingsAuto.status === "checking" && (
+              <Text style={styles.updateStatusText}>Checking Withings…</Text>
+            )}
+            {withingsAuto.status === "ok" && withingsAuto.note === "no_new" && (
+              <Text style={styles.updateStatusText}>No new Withings measurements available.</Text>
+            )}
+            {withingsAuto.status === "error" && (
+              <Text
+                style={styles.updateStatusError}
+                accessibilityLabel={
+                  withingsAuto.requestId
+                    ? `Auto-check failed. Request ID: ${withingsAuto.requestId}`
+                    : "Auto-check failed"
+                }
+              >
+                Auto-check failed
+                {withingsAuto.requestId
+                  ? ` · Request ID: ${withingsAuto.requestId.length <= 8 ? withingsAuto.requestId : withingsAuto.requestId.slice(0, 8)}`
+                  : ""}
               </Text>
             )}
           </View>

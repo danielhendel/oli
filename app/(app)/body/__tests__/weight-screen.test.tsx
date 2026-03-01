@@ -3,6 +3,7 @@
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -63,6 +64,14 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 jest.mock("@/lib/integrations/withings/storage", () => ({
   getWithingsLastCheckedAt: jest.fn().mockResolvedValue(null),
   setWithingsLastCheckedAt: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/lib/api/withings", () => ({
+  postWithingsPullNow: jest.fn().mockResolvedValue({
+    ok: true,
+    json: { eventsCreated: 0, eventsAlreadyExists: 0 },
+    requestId: "test-req",
+  }),
 }));
 
 let mockWithingsConnected = false;
@@ -143,6 +152,10 @@ function findPressableWithLabel(
 }
 
 describe("Weight screen", () => {
+  beforeEach(() => {
+    allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+  });
+
   it("renders with Weight metric label in body (header title is in nav, not in-page)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
