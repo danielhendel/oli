@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules } from "react-native";
+import { useNavigation } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -43,6 +44,9 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
+const SHELL_TITLE = "Workouts";
+const SHELL_SUBTITLE = "Strength & cardio";
+const METRIC_LABEL = "Training Overview";
 
 function getDeviceTimezone(): string {
   try {
@@ -74,7 +78,61 @@ function formatSyncTime(iso: string | null): string {
   }
 }
 
+function OverflowMenuButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.headerMenuBtn}
+      accessibilityRole="button"
+      accessibilityLabel="Workouts menu"
+    >
+      <Text style={styles.headerMenuText}>•••</Text>
+    </Pressable>
+  );
+}
+
+function StatusChip({
+  title,
+  status,
+  onPress,
+  disabled,
+}: {
+  title: string;
+  status: string;
+  onPress?: () => void;
+  disabled?: boolean;
+}) {
+  const pressable = typeof onPress === "function";
+  const Comp = pressable ? Pressable : View;
+  return (
+    <Comp
+      {...(pressable
+        ? {
+            onPress,
+            disabled,
+            accessibilityRole: "button" as const,
+            accessibilityLabel: `${title} ${status}`,
+          }
+        : {})}
+      style={[styles.chip, disabled && styles.chipDisabled]}
+    >
+      <Text style={styles.chipTitle}>{title}</Text>
+      <Text style={styles.chipStatus}>{status}</Text>
+    </Comp>
+  );
+}
+
+function PlaceholderTile({ label }: { label: string }) {
+  return (
+    <View style={styles.insightTile}>
+      <Text style={styles.insightLabel}>{label}</Text>
+      <Text style={styles.insightValue}>Coming soon</Text>
+    </View>
+  );
+}
+
 export default function TrainingOverviewScreen() {
+  const navigation = useNavigation();
   const { user, initializing, getIdToken } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
@@ -82,6 +140,14 @@ export default function TrainingOverviewScreen() {
   const [syncError, setSyncError] = useState<{ message: string; requestId: string | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <OverflowMenuButton onPress={() => setMenuOpen(true)} />,
+      title: SHELL_TITLE,
+    });
+  }, [navigation]);
 
   const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
     const [sync, connected, notAvailable] = await Promise.all([
@@ -273,7 +339,7 @@ export default function TrainingOverviewScreen() {
 
   if (initializing) {
     return (
-      <ModuleScreenShell title="Training Overview" subtitle="Workload & performance">
+      <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
         <LoadingState message="Loading…" />
       </ModuleScreenShell>
     );
@@ -281,7 +347,7 @@ export default function TrainingOverviewScreen() {
 
   if (!user) {
     return (
-      <ModuleScreenShell title="Training Overview" subtitle="Workload & performance">
+      <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
         <EmptyState
           title="Sign in to view workouts"
           description="Sign in to see your Apple Health data and sync workouts."
@@ -291,19 +357,37 @@ export default function TrainingOverviewScreen() {
   }
 
   return (
-    <ModuleScreenShell title="Training Overview" subtitle="Workload & performance">
+    <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
+      <View style={{ flex: 1 }}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.metricHeaderRow}>
+          <Text style={styles.metricHeaderLabel}>{METRIC_LABEL}</Text>
+          <StatusChip
+            title="Apple Health"
+            status={
+              connectionStatus === "loading"
+                ? "Loading…"
+                : connectionStatus === "not_available"
+                  ? "Not available"
+                  : connectionStatus === "not_connected"
+                    ? "Not connected"
+                    : "Connected"
+            }
+            {...(connectionStatus === "not_connected"
+              ? { onPress: () => { void handleConnect(); }, disabled: connecting }
+              : {})}
+          />
+        </View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Apple Health</Text>
+          <Text style={styles.cardTitle}>Connection</Text>
           <Text style={styles.statusText}>
-            Status:{" "}
             {connectionStatus === "loading"
-              ? "Loading…"
+              ? "Checking Apple Health…"
               : connectionStatus === "not_available"
-                ? "Not available"
+                ? "Apple Health is not available on this device (e.g. not iOS)."
                 : connectionStatus === "not_connected"
-                  ? "Not connected"
-                  : "Connected"}
+                  ? "Connect to sync steps and workouts from Apple Health."
+                  : "Connected. Today's data can be synced below."}
           </Text>
           {connectionStatus === "not_connected" && (
             <Pressable
@@ -356,6 +440,20 @@ export default function TrainingOverviewScreen() {
             </View>
 
             <View style={styles.card}>
+              <Text style={styles.cardTitle}>Trends</Text>
+              <Text style={styles.placeholder}>Coming soon…</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Insights</Text>
+              <View style={styles.insightsRow}>
+                <PlaceholderTile label="Load" />
+                <PlaceholderTile label="Recovery" />
+                <PlaceholderTile label="Volume" />
+              </View>
+            </View>
+
+            <View style={styles.card}>
               <Text style={styles.cardTitle}>Recent workouts</Text>
               {snapshot?.workouts && snapshot.workouts.length > 0 ? (
                 snapshot.workouts.map((w: TodayWorkout, i: number) => (
@@ -369,6 +467,20 @@ export default function TrainingOverviewScreen() {
               ) : (
                 <Text style={styles.placeholder}>No workouts today</Text>
               )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>History</Text>
+              <Text style={styles.placeholder}>Coming soon.</Text>
+              <Pressable
+                onPress={() => { /* disabled */ }}
+                disabled
+                style={[styles.secondaryBtn, styles.secondaryBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="View history"
+              >
+                <Text style={styles.secondaryBtnText}>View history</Text>
+              </Pressable>
             </View>
 
             <View style={styles.card}>
@@ -391,6 +503,27 @@ export default function TrainingOverviewScreen() {
           <Text style={styles.hint}>Apple Health is not available on this device (e.g. not iOS).</Text>
         )}
       </ScrollView>
+      {menuOpen && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuOpen(false)}
+          accessibilityLabel="Close menu"
+        >
+          <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
+            <Text style={styles.menuTitle}>Workouts</Text>
+            <Text style={styles.placeholder}>Menu options coming soon.</Text>
+            <Pressable
+              onPress={() => setMenuOpen(false)}
+              style={styles.primaryBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={styles.primaryBtnText}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
+      </View>
     </ModuleScreenShell>
   );
 }
@@ -426,4 +559,67 @@ const styles = StyleSheet.create({
   placeholder: { fontSize: 15, color: "#8E8E93" },
   syncTime: { fontSize: 15, color: "#3C3C43" },
   hint: { fontSize: 14, color: "#8E8E93", fontStyle: "italic" },
+  metricHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  metricHeaderLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6E6E73",
+    textTransform: "uppercase",
+  },
+  headerMenuBtn: { padding: 12 },
+  headerMenuText: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    backgroundColor: "#F2F2F7",
+  },
+  chipDisabled: { opacity: 0.6 },
+  chipTitle: { fontSize: 13, fontWeight: "600", color: "#3C3C43" },
+  chipStatus: { fontSize: 12, fontWeight: "600", color: "#007AFF" },
+  insightsRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  insightTile: {
+    backgroundColor: "#E5E5EA",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 80,
+  },
+  insightLabel: { fontSize: 12, color: "#6E6E73", marginBottom: 4 },
+  insightValue: { fontSize: 13, fontWeight: "600", color: "#8E8E93" },
+  secondaryBtn: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    backgroundColor: "#F2F2F7",
+  },
+  secondaryBtnDisabled: { opacity: 0.55 },
+  secondaryBtnText: { fontSize: 15, fontWeight: "600", color: "#3C3C43" },
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+    padding: 24,
+  },
+  menuCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    gap: 12,
+  },
+  menuTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
 });
