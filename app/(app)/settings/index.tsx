@@ -88,7 +88,13 @@ export default function SettingsHomeScreen() {
               title="Debug Backend Health"
               badge="Dev"
               disabled={false}
-              onPress={() => router.push("/debug/health")}
+              onPress={() => router.push("/debug")}
+            />
+            <ModuleSectionLinkRow
+              title="Integrations Probe"
+              badge="Dev"
+              disabled={false}
+              onPress={() => router.push("/debug/integrations")}
             />
           </>
         ) : null}
