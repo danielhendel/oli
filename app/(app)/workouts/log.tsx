@@ -3,6 +3,9 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
+import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
+import { searchExercises } from "@/lib/workouts/exercises/search";
+import { buildExerciseMemory, type ExerciseMemoryMap } from "@/lib/workouts/memory/exerciseMemory";
 import {
   addExercise,
   completeSession,
@@ -17,6 +20,9 @@ import {
   setActiveWorkoutSessionId,
 } from "@/lib/workouts/sessionEngine/activeSessionStorage";
 
+const KG_PER_LB = 0.45359237;
+const LB_PER_KG = 1 / KG_PER_LB;
+
 export default function WorkoutLogScreen() {
   const { user, initializing } = useAuth();
 
@@ -28,8 +34,9 @@ export default function WorkoutLogScreen() {
     | { status: "error"; message: string };
 
   const [ui, setUi] = useState<UiState>({ status: "idle" });
-  const [exerciseName, setExerciseName] = useState("");
+  const [exerciseQuery, setExerciseQuery] = useState("");
   const [drafts, setDrafts] = useState<Record<string, { repsText: string; loadText: string }>>({});
+  const [memory, setMemory] = useState<ExerciseMemoryMap>({});
 
   const isSignedIn = Boolean(user) && !initializing;
 
@@ -51,6 +58,12 @@ export default function WorkoutLogScreen() {
     if (slug.length > 64) return slug.slice(0, 64);
     return slug;
   };
+
+  const exerciseResults = useMemo(
+    () => searchExercises(EXERCISE_CATALOG_V1, exerciseQuery, 8),
+    [exerciseQuery],
+  );
+  const customExerciseId = useMemo(() => sanitizeExerciseId(exerciseQuery), [exerciseQuery]);
 
   const refreshReduced = useCallback(async (uid: string, sid: string) => {
     const next = await loadReducedSession(uid, sid);
@@ -108,23 +121,21 @@ export default function WorkoutLogScreen() {
     }
   }, [user]);
 
-  const onAddExercise = useCallback(async () => {
-    if (!user || !sessionId) return;
-    const exId = sanitizeExerciseId(exerciseName);
-    if (!exId) {
-      setUi({ status: "error", message: "Exercise name required (letters/numbers only)." });
-      return;
-    }
-    try {
-      const pos = reduced?.exercises ? reduced.exercises.filter((e) => !e.removed).length : 0;
-      await addExercise(user.uid, sessionId, { exerciseId: exId, position: pos });
-      setExerciseName("");
-      await refreshReduced(user.uid, sessionId);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      setUi({ status: "error", message: msg });
-    }
-  }, [user, sessionId, exerciseName, reduced?.exercises, refreshReduced]);
+  const onPickExercise = useCallback(
+    async (exerciseId: string) => {
+      if (!user || !sessionId) return;
+      try {
+        const pos = reduced?.exercises ? reduced.exercises.filter((e) => !e.removed).length : 0;
+        await addExercise(user.uid, sessionId, { exerciseId, position: pos });
+        setExerciseQuery("");
+        await refreshReduced(user.uid, sessionId);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        setUi({ status: "error", message: msg });
+      }
+    },
+    [user, sessionId, reduced?.exercises, refreshReduced],
+  );
 
   const parsePositiveInt = (s: string): number | null => {
     const n = parseInt(s.trim(), 10);
@@ -146,11 +157,12 @@ export default function WorkoutLogScreen() {
       if (!user || !sessionId || !reduced) return;
       const d = drafts[slotId] ?? { repsText: "", loadText: "" };
       const reps = parsePositiveInt(d.repsText);
-      const loadKg = parsePositiveFloat(d.loadText);
-      if (reps == null || loadKg == null) {
-        setUi({ status: "error", message: "Set requires reps (int) and loadKg (number), both > 0." });
+      const loadLb = parsePositiveFloat(d.loadText);
+      if (reps == null || loadLb == null) {
+        setUi({ status: "error", message: "Set requires reps (int) and load (lb), both > 0." });
         return;
       }
+      const loadKg = loadLb * KG_PER_LB;
 
       const ex = reduced.exercises.find((e) => e.slotId === slotId) ?? null;
       if (!ex || ex.removed) {
@@ -193,6 +205,13 @@ export default function WorkoutLogScreen() {
   useEffect(() => {
     if (!initializing && !user) setUi({ status: "idle" });
   }, [initializing, user]);
+
+  useEffect(() => {
+    if (!user || initializing) return;
+    buildExerciseMemory(user.uid)
+      .then(setMemory)
+      .catch(() => setMemory({}));
+  }, [user, initializing]);
 
   const title = ui.status === "active" ? "Log Workout" : ui.status === "completed" ? "Workout Complete" : "Log Workout";
   const subtitle =
@@ -260,24 +279,39 @@ export default function WorkoutLogScreen() {
         <>
           <View style={styles.card}>
             <Text style={styles.title}>Exercises</Text>
-            <View style={styles.row}>
-              <TextInput
-                value={exerciseName}
-                onChangeText={setExerciseName}
-                placeholder="Add exercise (e.g. bench press)"
-                style={styles.input}
-                accessibilityLabel="Exercise name"
-              />
-              <Pressable
-                onPress={onAddExercise}
-                disabled={!exerciseName.trim()}
-                style={[styles.smallBtn, !exerciseName.trim() && styles.primaryBtnDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel="Add exercise"
-              >
-                <Text style={styles.smallBtnText}>Add</Text>
-              </Pressable>
-            </View>
+            <TextInput
+              value={exerciseQuery}
+              onChangeText={setExerciseQuery}
+              placeholder="Search exercises (e.g. bench, squat, ohp)"
+              style={styles.input}
+              accessibilityLabel="Exercise search"
+            />
+            {exerciseQuery.trim() !== "" ? (
+              <View style={styles.resultsCard}>
+                {exerciseResults.map((e) => (
+                  <Pressable
+                    key={e.exerciseId}
+                    onPress={() => void onPickExercise(e.exerciseId)}
+                    style={styles.resultRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pick ${e.name}`}
+                  >
+                    <Text style={styles.resultTitle}>{e.name}</Text>
+                    <Text style={styles.resultMeta}>{e.exerciseId}</Text>
+                  </Pressable>
+                ))}
+                {exerciseResults.length === 0 && customExerciseId ? (
+                  <Pressable
+                    onPress={() => void onPickExercise(customExerciseId)}
+                    style={styles.resultRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add custom ${customExerciseId}`}
+                  >
+                    <Text style={styles.resultTitle}>Add custom {customExerciseId}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             <Text style={styles.mutedSmall}>Session ID: {sessionId}</Text>
           </View>
 
@@ -289,14 +323,30 @@ export default function WorkoutLogScreen() {
 
           {visibleExercises.map((ex) => {
             const d = drafts[ex.slotId] ?? { repsText: "", loadText: "" };
+            const mem = memory[ex.exerciseId];
+            const lastStr =
+              mem?.last != null
+                ? `${mem.last.reps} × ${(mem.last.loadKg * LB_PER_KG).toFixed(1)} lb`
+                : "—";
+            const bestStr =
+              mem?.best != null
+                ? `${mem.best.reps} × ${(mem.best.loadKg * LB_PER_KG).toFixed(1)} lb`
+                : "—";
+            const showMemory = mem?.last != null || mem?.best != null;
             return (
               <View key={ex.slotId} style={styles.exerciseCard} accessibilityLabel={`exercise:${ex.exerciseId}`}>
                 <Text style={styles.exerciseTitle}>{ex.exerciseId}</Text>
+                {showMemory ? (
+                  <Text style={styles.mutedSmall}>
+                    Last: {lastStr}   Best: {bestStr}
+                  </Text>
+                ) : null}
                 {ex.sets.length > 0 ? (
                   <View style={styles.setList}>
                     {ex.sets.map((s) => (
                       <Text key={s.setId} style={styles.setRow}>
-                        Set {s.ordinal}: {s.reps} reps · {s.loadKg ?? "—"} kg
+                        Set {s.ordinal}: {s.reps} reps ·{" "}
+                        {s.loadKg != null ? (s.loadKg * LB_PER_KG).toFixed(1) : "—"} lb
                       </Text>
                     ))}
                   </View>
@@ -316,7 +366,7 @@ export default function WorkoutLogScreen() {
                   <TextInput
                     value={d.loadText}
                     onChangeText={(t) => setDrafts((prev) => ({ ...prev, [ex.slotId]: { ...d, loadText: t } }))}
-                    placeholder="Load (kg)"
+                    placeholder="Load (lb)"
                     keyboardType="decimal-pad"
                     style={[styles.input, styles.inputSmall]}
                     accessibilityLabel={`Load input ${ex.exerciseId}`}
@@ -422,6 +472,22 @@ const styles = StyleSheet.create({
   secondaryBtnText: { fontSize: 14, fontWeight: "700", color: "#3C3C43" },
   setList: { gap: 4 },
   setRow: { fontSize: 13, color: "#3C3C43" },
+  resultsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    gap: 0,
+    maxHeight: 280,
+  },
+  resultRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5EA",
+  },
+  resultTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  resultMeta: { fontSize: 12, color: "#6E6E73", fontFamily: "monospace", marginTop: 2 },
   errorCard: {
     backgroundColor: "#FFF5F5",
     borderRadius: 12,
