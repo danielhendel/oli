@@ -50,8 +50,8 @@ export default function RootLayout() {
           {/* Root index exists (can be used for deep-links / legacy) */}
           <Stack.Screen name="index" />
 
-          {/* Debug area */}
-          <Stack.Screen name="debug" />
+          {/* Debug area — development only */}
+          {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
         </Stack>
       </PreferencesProvider>
     </AuthProvider>
