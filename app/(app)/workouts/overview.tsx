@@ -16,11 +16,13 @@ import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import {
   requestPermissions,
   pullTodaySnapshot,
+  pullAnchoredWorkouts,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   type TodaySnapshot,
   type TodayWorkout,
 } from "@/lib/integrations/appleHealth";
+import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
 import {
   getLastSyncAt,
   setLastSyncAt,
@@ -42,6 +44,7 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
     : null;
 }
 
+const ANCHOR_LIMIT = 500;
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -262,6 +265,20 @@ export default function TrainingOverviewScreen() {
     setSyncing(true);
     setSyncError(null);
     try {
+      const anchor = await getWorkoutsAnchor(user.uid);
+      const anchored = await pullAnchoredWorkouts({ anchor, limit: ANCHOR_LIMIT });
+      if (!anchored.ok) {
+        setSyncError({ message: anchored.error, requestId: null });
+        return;
+      }
+      if (anchored.data.workouts.length >= ANCHOR_LIMIT) {
+        setSyncError({
+          message: "Workout sync reached limit (500). Run Sync again to continue.",
+          requestId: null,
+        });
+        return;
+      }
+
       const pull = await pullTodaySnapshot();
       if (!pull.ok) {
         setSyncError({ message: pull.error, requestId: null });
@@ -284,6 +301,7 @@ export default function TrainingOverviewScreen() {
             timezone,
             day,
             steps: data.steps,
+            sync: { mode: "range" as const, anchorVersion: 1, anchorUsed: false },
           },
         };
         const res = await ingestRawEvent(body, token, {
@@ -296,14 +314,20 @@ export default function TrainingOverviewScreen() {
         }
       }
 
-      for (const w of data.workouts) {
+      for (const w of anchored.data.workouts) {
         const payload = {
           start: w.start,
           end: w.end,
           timezone,
-          day: day,
+          day,
           sport: w.activityName || "Workout",
           durationMinutes: Math.max(1, w.durationMinutes),
+          hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
+          sync: {
+            mode: "anchored" as const,
+            anchorVersion: 1,
+            anchorUsed: anchor != null,
+          },
         };
         const body = {
           provider: "apple_health" as const,
@@ -328,6 +352,7 @@ export default function TrainingOverviewScreen() {
         }
       }
 
+      await setWorkoutsAnchor(user.uid, anchored.data.anchor);
       const nowIso = new Date().toISOString();
       await setLastSyncAt(nowIso);
       setLastSyncAtState(nowIso);
