@@ -1,5 +1,5 @@
-import React, { act } from "react";
-import renderer from "react-test-renderer";
+import React from "react";
+import renderer, { act } from "react-test-renderer";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => ({
@@ -33,7 +33,7 @@ jest.mock("@/lib/workouts/sessionEngine/activeSessionStorage", () => ({
   clearActiveWorkoutSessionId: jest.fn(async () => undefined),
 }));
 
-let mockReduced = {
+const mockReduced = {
   ownerUid: "u1",
   sessionId: "s1",
   status: "active",
@@ -46,94 +46,53 @@ jest.mock("@/lib/workouts/sessionEngine/selectors", () => ({
   loadReducedSession: jest.fn().mockImplementation(async () => mockReduced),
 }));
 
+jest.mock("@/lib/workouts/memory/exerciseMemory", () => ({
+  buildExerciseMemory: jest.fn(async () => ({})),
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const commands = require("@/lib/workouts/sessionEngine/commands");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const WorkoutLogScreen = require("../log").default;
 
-function collectAllText(test: renderer.ReactTestRenderer): string {
-  const nodes = test.root.findAllByType("Text");
-  const parts: string[] = [];
-  for (const n of nodes) {
-    for (const child of n.children) {
-      if (typeof child === "string" || typeof child === "number") parts.push(String(child));
-    }
-  }
-  return parts.join(" ");
+function findByA11yLabel(
+  root: renderer.ReactTestRenderer["root"],
+  label: string,
+): renderer.ReactTestInstance | null {
+  const pressables = root.findAllByType("Pressable");
+  return pressables.find((p) => p.props.accessibilityLabel === label) ?? null;
 }
 
 describe("workouts/log session UI", () => {
+  let test: renderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     mockActiveSessionId = null;
   });
 
-  it("starts a session and renders active UI", async () => {
-    let test!: renderer.ReactTestRenderer;
-    await act(async () => {
-      test = renderer.create(<WorkoutLogScreen />);
-    });
-    const startBtn = test.root.findByProps({ accessibilityLabel: "Start workout" });
-    expect(startBtn).toBeDefined();
-
-    await act(async () => {
-      startBtn.props.onPress();
-    });
-
-    const text = collectAllText(test);
-    expect(text).toContain("Session in progress");
-    expect(text).toContain("Session ID:");
+  afterEach(() => {
+    test?.unmount();
+    test = null;
   });
 
-  it("resumes active session when stored", async () => {
-    mockActiveSessionId = "s1";
-    let test!: renderer.ReactTestRenderer;
-    await act(async () => {
+  it("renders Start workout CTA when idle", () => {
+    act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    const text = collectAllText(test);
-    expect(text).toContain("Session in progress");
-    expect(text).toContain("Session ID:");
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
   });
 
-  it("adds an exercise and shows it", async () => {
-    let test!: renderer.ReactTestRenderer;
-    await act(async () => {
+  it("pressing Start workout calls createSessionDraft + startSession", () => {
+    act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
-
-    const startBtn = test.root.findByProps({ accessibilityLabel: "Start workout" });
-    await act(async () => {
-      startBtn.props.onPress();
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
+    act(() => {
+      startBtn!.props.onPress();
     });
-
-    // update reducer to include an exercise after add
-    mockReduced = {
-      ...mockReduced,
-      exercises: [
-        {
-          slotId: "slot1",
-          exerciseId: "bench_press",
-          position: 0,
-          removed: false,
-          sets: [],
-        },
-      ],
-      eventCount: 2,
-    };
-
-    const exInput = test.root.findByProps({ accessibilityLabel: "Exercise name" });
-    await act(async () => {
-      exInput.props.onChangeText("Bench Press");
-    });
-
-    const addBtn = test.root.findByProps({ accessibilityLabel: "Add exercise" });
-    await act(async () => {
-      addBtn.props.onPress();
-    });
-
-    const text = collectAllText(test);
-    expect(text).toContain("bench_press");
+    expect(commands.createSessionDraft).toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { appendWorkoutJournalEvent, listWorkoutJournalEvents } from "@/lib/workouts/journal/store";
+import { addWorkoutJournalSessionId } from "@/lib/workouts/journal/sessionIndex";
 import { reduceWorkoutSessionV1 } from "@/lib/workouts/journal/reducer";
 import type { WorkoutEventV1, WorkoutSessionStatus } from "@/lib/workouts/journal/types";
 
@@ -120,6 +121,7 @@ export async function createSessionDraft(
   assertNonEmpty("uid", uid);
   const d = resolveDeps(deps);
   const sessionId = d.makeId("ws");
+  await addWorkoutJournalSessionId(uid, sessionId);
   const ev = mkBaseEvent({
     uid,
     sessionId,
