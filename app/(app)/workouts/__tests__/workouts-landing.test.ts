@@ -1,6 +1,12 @@
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: null, initializing: false, getIdToken: async () => null }),
 }));
+jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
+  getWorkoutsAnchor: async () => null,
+  setWorkoutsAnchor: async () => {
+    return;
+  },
+}));
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: async () => null,
   setLastSyncAt: async () => { return; },
@@ -12,6 +18,7 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
 jest.mock("@/lib/integrations/appleHealth", () => ({
   requestPermissions: async () => ({ ok: false, error: "" }),
   pullTodaySnapshot: async () => ({ ok: true, data: { steps: 0, workouts: [] } }),
+  pullAnchoredWorkouts: async () => ({ ok: true, data: { workouts: [], anchor: "mock" } }),
   stepsIdempotencyKey: () => "",
   workoutIdempotencyKey: () => "",
 }));

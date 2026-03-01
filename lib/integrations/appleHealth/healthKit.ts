@@ -8,7 +8,7 @@ import { NativeModules, Platform } from "react-native";
 import type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";
 
 type HealthPermission = string;
-type HealthInputOptions = { startDate?: string; endDate?: string; date?: string; limit?: number };
+type HealthInputOptions = { startDate?: string; endDate?: string; date?: string; limit?: number; anchor?: string };
 type HealthValue = { value: number; startDate?: string; endDate?: string; id?: string };
 type HKWorkoutQueriedSampleType = {
   id?: string;
@@ -246,6 +246,53 @@ function pAnchoredWorkouts(HK: HealthKitInstance, startDate: string, endDate: st
 }
 
 const TODAY_WORKOUTS_LIMIT = 10;
+
+/**
+ * Pull workouts using anchored query (incremental sync). Call with anchor from previous run or null for first run.
+ * Returns new anchor to persist only after successful ingest (caller responsibility).
+ */
+export async function pullAnchoredWorkouts(opts: {
+  anchor?: string | null;
+  limit: number;
+}): Promise<
+  | { ok: true; data: { workouts: TodayWorkout[]; anchor: string } }
+  | { ok: false; error: string }
+> {
+  const HK = await getHealthKit();
+  if (!HK) {
+    return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
+  }
+  return new Promise((resolve) => {
+    const options: HealthInputOptions & { type?: string } = {
+      limit: opts.limit,
+      type: "Workout",
+    };
+    if (opts.anchor != null && opts.anchor !== "") {
+      options.anchor = opts.anchor;
+    }
+    HK.getAnchoredWorkouts(options, (err: unknown, result: AnchoredQueryResults) => {
+      if (err) {
+        resolve({ ok: false, error: err != null ? String(err) : "Anchored workouts query failed." });
+        return;
+      }
+      if (!result?.anchor || typeof result.anchor !== "string") {
+        resolve({ ok: false, error: "Anchored workouts response missing anchor." });
+        return;
+      }
+      const list = (result.data ?? []).slice(0, opts.limit).map((w: HKWorkoutQueriedSampleType) => ({
+        id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
+        start: w.start,
+        end: w.end,
+        activityId: w.activityId,
+        activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
+        sourceId: w.sourceId ?? null,
+        durationMinutes: Math.round((w.duration ?? 0) / 60),
+        calories: typeof w.calories === "number" ? w.calories : 0,
+      }));
+      resolve({ ok: true, data: { workouts: list, anchor: result.anchor } });
+    });
+  });
+}
 
 /**
  * Pull today snapshot: steps, exercise minutes, active energy, resting HR, recent workouts.

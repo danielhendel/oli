@@ -16,11 +16,14 @@ import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import {
   requestPermissions,
   pullTodaySnapshot,
+  pullAnchoredWorkouts,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   type TodaySnapshot,
   type TodayWorkout,
 } from "@/lib/integrations/appleHealth";
+import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
+import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
 import {
   getLastSyncAt,
   setLastSyncAt,
@@ -42,6 +45,7 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
     : null;
 }
 
+const ANCHOR_LIMIT = 500;
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -262,72 +266,24 @@ export default function TrainingOverviewScreen() {
     setSyncing(true);
     setSyncError(null);
     try {
-      const pull = await pullTodaySnapshot();
-      if (!pull.ok) {
-        setSyncError({ message: pull.error, requestId: null });
+      const result = await runAnchoredWorkoutsSync(
+        { uid: user.uid, token, limit: ANCHOR_LIMIT },
+        {
+          getWorkoutsAnchor,
+          setWorkoutsAnchor,
+          pullAnchoredWorkouts,
+          pullTodaySnapshot,
+          ingestRawEvent,
+          getTodayBounds,
+          getDeviceTimezone,
+          stepsIdempotencyKey,
+          workoutIdempotencyKey,
+        },
+      );
+      if (!result.ok) {
+        setSyncError({ message: result.error, requestId: result.requestId });
         return;
       }
-      const data = pull.data;
-      const timezone = getDeviceTimezone();
-      const { start, end, day } = getTodayBounds();
-
-      if (data.steps != null && data.steps >= 0) {
-        const body = {
-          provider: "apple_health" as const,
-          sourceId: "healthkit",
-          kind: "steps" as const,
-          observedAt: start,
-          timeZone: timezone,
-          payload: {
-            start,
-            end,
-            timezone,
-            day,
-            steps: data.steps,
-          },
-        };
-        const res = await ingestRawEvent(body, token, {
-          idempotencyKey: stepsIdempotencyKey(day),
-          timeoutMs: 15000,
-        });
-        if (!res.ok) {
-          setSyncError({ message: res.error, requestId: res.requestId });
-          return;
-        }
-      }
-
-      for (const w of data.workouts) {
-        const payload = {
-          start: w.start,
-          end: w.end,
-          timezone,
-          day: day,
-          sport: w.activityName || "Workout",
-          durationMinutes: Math.max(1, w.durationMinutes),
-        };
-        const body = {
-          provider: "apple_health" as const,
-          sourceId: "healthkit",
-          kind: "workout" as const,
-          observedAt: w.start,
-          timeZone: timezone,
-          payload,
-        };
-        const res = await ingestRawEvent(body, token, {
-          idempotencyKey: workoutIdempotencyKey({
-            startIso: w.start,
-            endIso: w.end,
-            activityId: w.activityId,
-            sourceId: w.sourceId,
-          }),
-          timeoutMs: 15000,
-        });
-        if (!res.ok) {
-          setSyncError({ message: res.error, requestId: res.requestId });
-          return;
-        }
-      }
-
       const nowIso = new Date().toISOString();
       await setLastSyncAt(nowIso);
       setLastSyncAtState(nowIso);
