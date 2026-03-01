@@ -8,8 +8,9 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules, AppState } from "react-native";
 import { useNavigation } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -49,6 +51,7 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 }
 
 const ANCHOR_LIMIT = 500;
+const APPLE_AUTO_MIN_MS = 2 * 60_000;
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -280,6 +283,53 @@ export default function TrainingOverviewScreen() {
     }
   }, [refetchSnapshot]);
 
+  const maybeAutoAppleSync = useCallback(
+    async (reason: "focus" | "foreground") => {
+      void reason; // reserved for future idempotency / logging
+      if (connectionStatus !== "connected" || !user) return;
+      const token = await getIdToken(false);
+      if (!token) return;
+
+      const last = await getAppleHealthLastCheckedAt().catch(() => null);
+      if (!shouldRun(last, APPLE_AUTO_MIN_MS)) return;
+
+      const result = await runAnchoredWorkoutsSync(
+        { uid: user.uid, token, limit: ANCHOR_LIMIT },
+        {
+          getWorkoutsAnchor,
+          setWorkoutsAnchor,
+          pullAnchoredWorkouts,
+          pullTodaySnapshot,
+          ingestRawEvent,
+          getTodayBounds,
+          getDeviceTimezone,
+          stepsIdempotencyKey,
+          workoutIdempotencyKey,
+        },
+      );
+
+      if (!result.ok) {
+        setSyncError({ message: result.error, requestId: result.requestId });
+        return;
+      }
+
+      const atIso = nowIso();
+      await setAppleHealthLastCheckedAt(atIso);
+      setLastCheckedAtState(atIso);
+      await setLastSyncAt(atIso);
+      setLastSyncAtState(atIso);
+      await refetchSnapshot();
+      await fetchServerStatus();
+    },
+    [
+      connectionStatus,
+      user,
+      getIdToken,
+      refetchSnapshot,
+      fetchServerStatus,
+    ],
+  );
+
   const handleSyncNow = useCallback(async () => {
     if (connectionStatus !== "connected" || !user) return;
     const token = await getIdToken(false);
@@ -308,21 +358,34 @@ export default function TrainingOverviewScreen() {
         setSyncError({ message: result.error, requestId: result.requestId });
         return;
       }
-      const nowIso = new Date().toISOString();
+      const nowIsoStr = new Date().toISOString();
       try {
-        await setAppleHealthLastCheckedAt(nowIso);
+        await setAppleHealthLastCheckedAt(nowIsoStr);
       } catch {
         // Best-effort; do not throw.
       }
-      setLastCheckedAtState(nowIso);
-      await setLastSyncAt(nowIso);
-      setLastSyncAtState(nowIso);
-      setServerLastSyncAt(nowIso);
+      setLastCheckedAtState(nowIsoStr);
+      await setLastSyncAt(nowIsoStr);
+      setLastSyncAtState(nowIsoStr);
+      setServerLastSyncAt(nowIsoStr);
       await refetchSnapshot();
     } finally {
       setSyncing(false);
     }
   }, [connectionStatus, user, getIdToken, refetchSnapshot]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void maybeAutoAppleSync("focus");
+    }, [maybeAutoAppleSync]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void maybeAutoAppleSync("foreground");
+    });
+    return () => sub.remove();
+  }, [maybeAutoAppleSync]);
 
   if (initializing) {
     return (

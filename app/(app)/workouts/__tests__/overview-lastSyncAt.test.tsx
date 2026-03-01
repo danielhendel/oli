@@ -29,7 +29,7 @@ jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: jest.fn(),
   setLastSyncAt: jest.fn().mockResolvedValue(undefined),
-  getAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(null),
+  getAppleHealthLastCheckedAt: jest.fn().mockImplementation(() => Promise.resolve(new Date().toISOString())),
   setAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(undefined),
   getAppleHealthConnected: jest.fn(),
   setAppleHealthConnected: jest.fn(),
@@ -85,11 +85,18 @@ jest.mock("react-native", () => ({
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: { create: (s: unknown) => s },
-  Platform: { OS: "ios" },
+  Platform: { OS: "ios", select: (obj: Record<string, unknown>) => obj.ios ?? obj.default },
   NativeModules: {
     AppleHealthKit: {
       isAvailable: (cb: (err: unknown, ok: boolean) => void) => cb(null, true),
     },
+  },
+  AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
+}));
+
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void) => {
+    if (typeof cb === "function") cb();
   },
 }));
 
