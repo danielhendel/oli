@@ -226,8 +226,25 @@ async function main() {
 
     await waitForPort(firestorePort, "127.0.0.1");
 
-    const jestExitCode = await runAndGetExitCode("npx", ["jest"], env);
-    return jestExitCode;
+    // Determinism hardening:
+    // API route tests spin up ephemeral HTTP servers and use global fetch.
+    // Running them in parallel can trigger nondeterministic socket/protocol failures on some machines.
+    // Run that subset in-band, then run the rest normally.
+    const apiRoutesDir = "services/api/src/routes/__tests__";
+
+    const apiExit = await runAndGetExitCode(
+      "npx",
+      ["jest", apiRoutesDir, "--runInBand", "--detectOpenHandles"],
+      env
+    );
+    if (apiExit !== 0) return apiExit;
+
+    const restExit = await runAndGetExitCode(
+      "npx",
+      ["jest", "--testPathIgnorePatterns", apiRoutesDir],
+      env
+    );
+    return restExit;
   } finally {
     if (emulatorChild?.pid) {
       process.kill(emulatorChild.pid, "SIGTERM");
