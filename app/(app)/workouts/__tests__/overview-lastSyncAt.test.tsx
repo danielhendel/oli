@@ -102,12 +102,47 @@ jest.mock("@react-navigation/native", () => ({
 
 const mockRunAnchoredWorkoutsSync = runAnchoredWorkoutsSync as jest.MockedFunction<typeof runAnchoredWorkoutsSync>;
 const mockSetLastSyncAt = storage.setLastSyncAt as jest.MockedFunction<typeof storage.setLastSyncAt>;
+const mockSetAppleHealthLastCheckedAt = storage.setAppleHealthLastCheckedAt as jest.MockedFunction<
+  typeof storage.setAppleHealthLastCheckedAt
+>;
 
 beforeEach(() => {
   jest.clearAllMocks();
   (storage.getLastSyncAt as jest.Mock).mockResolvedValue(null);
+  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
   (storage.getAppleHealthConnected as jest.Mock).mockResolvedValue(true);
   mockRunAnchoredWorkoutsSync.mockResolvedValue({ ok: true });
+});
+
+it("smart foreground sync: when lastCheckedAt is recent, runner is not called on focus", async () => {
+  allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
+  await act(async () => {
+    renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(mockRunAnchoredWorkoutsSync).not.toHaveBeenCalled();
+});
+
+it("smart foreground sync: when lastCheckedAt is old, runner is called and setAppleHealthLastCheckedAt is called", async () => {
+  allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(null);
+  await act(async () => {
+    renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(mockRunAnchoredWorkoutsSync).toHaveBeenCalled();
+  expect(mockSetAppleHealthLastCheckedAt).toHaveBeenCalled();
 });
 
 it("on successful sync calls setLastSyncAt with ISO string", async () => {
