@@ -1,0 +1,133 @@
+/**
+ * Invariant: when runAnchoredWorkoutsSync returns ok: true, lastSyncAt must be updated.
+ * Overview calls setLastSyncAt(nowIso) after successful sync.
+ */
+import React, { act } from "react";
+import renderer from "react-test-renderer";
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
+import TrainingOverviewScreen from "../overview";
+import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
+import * as storage from "@/lib/integrations/appleHealth/storage";
+
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({
+    user: { uid: "test-uid" },
+    initializing: false,
+    getIdToken: jest.fn().mockResolvedValue("id-token"),
+  }),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/runAnchoredWorkoutsSync", () => ({
+  runAnchoredWorkoutsSync: jest.fn(),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
+  getWorkoutsAnchor: jest.fn().mockResolvedValue(null),
+  setWorkoutsAnchor: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/storage", () => ({
+  getLastSyncAt: jest.fn(),
+  setLastSyncAt: jest.fn().mockResolvedValue(undefined),
+  getAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(null),
+  setAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(undefined),
+  getAppleHealthConnected: jest.fn(),
+  setAppleHealthConnected: jest.fn(),
+  setAppleHealthNotAvailable: jest.fn(),
+  getAppleHealthNotAvailable: jest.fn().mockResolvedValue(false),
+}));
+
+jest.mock("@/lib/integrations/appleHealth", () => ({
+  requestPermissions: jest.fn().mockResolvedValue({ ok: true }),
+  pullTodaySnapshot: jest.fn().mockResolvedValue({
+    ok: true,
+    data: {
+      day: "2026-03-01",
+      steps: 1000,
+      exerciseMinutes: 30,
+      activeEnergyKcal: 200,
+      restingHeartRateBpm: 60,
+      workouts: [],
+    },
+  }),
+  pullAnchoredWorkouts: jest.fn().mockResolvedValue({
+    ok: true,
+    data: { workouts: [], anchor: "anchor-1" },
+  }),
+  stepsIdempotencyKey: (day: string) => `steps:${day}`,
+  workoutIdempotencyKey: () => "workout:key",
+}));
+
+jest.mock("@/lib/api/ingest", () => ({
+  ingestRawEvent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
+jest.mock("@/lib/api/appleHealth", () => ({
+  getAppleHealthStatus: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: "req-1",
+    json: { ok: true, requestId: "req-1", connected: true, lastSyncAt: null },
+  }),
+}));
+
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({ setOptions: jest.fn() }),
+}));
+
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaView: "SafeAreaView",
+}));
+
+jest.mock("react-native", () => ({
+  View: "View",
+  Text: "Text",
+  Pressable: "Pressable",
+  ScrollView: "ScrollView",
+  StyleSheet: { create: (s: unknown) => s },
+  Platform: { OS: "ios" },
+  NativeModules: {
+    AppleHealthKit: {
+      isAvailable: (cb: (err: unknown, ok: boolean) => void) => cb(null, true),
+    },
+  },
+}));
+
+const mockRunAnchoredWorkoutsSync = runAnchoredWorkoutsSync as jest.MockedFunction<typeof runAnchoredWorkoutsSync>;
+const mockSetLastSyncAt = storage.setLastSyncAt as jest.MockedFunction<typeof storage.setLastSyncAt>;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (storage.getLastSyncAt as jest.Mock).mockResolvedValue(null);
+  (storage.getAppleHealthConnected as jest.Mock).mockResolvedValue(true);
+  mockRunAnchoredWorkoutsSync.mockResolvedValue({ ok: true });
+});
+
+it("on successful sync calls setLastSyncAt with ISO string", async () => {
+  allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+  let root: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    root = renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  const syncButton = root!.root.findByProps({ accessibilityLabel: "Sync now" });
+  expect(syncButton).toBeDefined();
+  await act(async () => {
+    syncButton.props.onPress();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(mockRunAnchoredWorkoutsSync).toHaveBeenCalled();
+  expect(mockSetLastSyncAt).toHaveBeenCalledTimes(1);
+  const [iso] = mockSetLastSyncAt.mock.calls[0]!;
+  expect(typeof iso).toBe("string");
+  expect(() => new Date(iso).toISOString()).not.toThrow();
+});

@@ -53,7 +53,7 @@ describe("POST /integrations/withings/backfill", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env.WITHINGS_PULL_INVOKER_EMAILS = "";
+    process.env.WITHINGS_PULL_INVOKER_EMAILS = "invoker@proj.iam.gserviceaccount.com";
     mockRegistryGet.mockResolvedValue({ docs: [registryDoc("uid1")] });
     mockIntegrationRef.get.mockResolvedValue({ exists: false });
     mockIntegrationRef.set.mockResolvedValue(undefined);
@@ -83,7 +83,7 @@ describe("POST /integrations/withings/backfill", () => {
       mockRegistryGet.mockResolvedValueOnce({ docs: [] });
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({});
       expect(res.status).toBe(400);
       expect(res.body?.ok).toBe(false);
@@ -95,7 +95,7 @@ describe("POST /integrations/withings/backfill", () => {
       mockRegistryGet.mockResolvedValueOnce({ docs: [registryDoc("uid1")] });
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "start", yearsBack: 5, chunkDays: 30, maxChunks: 3 });
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
@@ -162,7 +162,7 @@ describe("POST /integrations/withings/backfill", () => {
 
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "resume", yearsBack: 10, chunkDays: 90, maxChunks: 5 });
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
@@ -229,7 +229,7 @@ describe("POST /integrations/withings/backfill", () => {
 
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "resume" });
       expect(res.status).toBe(200);
       expect(res.body.eventsCreated).toBe(1);
@@ -281,7 +281,7 @@ describe("POST /integrations/withings/backfill", () => {
 
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "resume" });
       expect(res.status).toBe(200);
       expect(createMock).toHaveBeenCalled();
@@ -298,7 +298,7 @@ describe("POST /integrations/withings/backfill", () => {
       allowConsoleForThisTest({ error: [/withings_backfill_registry_error/] });
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "resume" });
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(false);
@@ -329,7 +329,7 @@ describe("POST /integrations/withings/backfill", () => {
 
       const res = await request(app)
         .post("/integrations/withings/backfill")
-        .set("x-goog-authenticated-user-email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
+        .set("X-Goog-Authenticated-User-Email", "accounts.google.com:invoker@proj.iam.gserviceaccount.com")
         .send({ mode: "resume" });
       expect(res.status).toBe(200);
       expect(writeFailure.writeFailure).toHaveBeenCalledWith(

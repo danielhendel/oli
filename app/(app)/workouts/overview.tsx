@@ -27,12 +27,15 @@ import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAncho
 import {
   getLastSyncAt,
   setLastSyncAt,
+  getAppleHealthLastCheckedAt,
+  setAppleHealthLastCheckedAt,
   getAppleHealthConnected,
   setAppleHealthConnected,
   getAppleHealthNotAvailable,
   setAppleHealthNotAvailable,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
+import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -141,6 +144,9 @@ export default function TrainingOverviewScreen() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [lastSyncAt, setLastSyncAtState] = useState<string | null>(null);
+  const [lastCheckedAt, setLastCheckedAtState] = useState<string | null>(null);
+  const [serverLastSyncAt, setServerLastSyncAt] = useState<string | null>(null);
+  const [statusFetchError, setStatusFetchError] = useState<{ message: string; requestId: string | null } | null>(null);
   const [syncError, setSyncError] = useState<{ message: string; requestId: string | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -154,12 +160,14 @@ export default function TrainingOverviewScreen() {
   }, [navigation]);
 
   const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
-    const [sync, connected, notAvailable] = await Promise.all([
+    const [sync, checked, connected, notAvailable] = await Promise.all([
       getLastSyncAt(),
+      getAppleHealthLastCheckedAt(),
       getAppleHealthConnected(),
       getAppleHealthNotAvailable(),
     ]);
     setLastSyncAtState(sync);
+    setLastCheckedAtState(checked);
     if (!skipNotAvailableCheck && notAvailable) {
       console.log("[AH] status set Not available", { platform: Platform.OS });
       setConnectionStatus("not_available");
@@ -231,6 +239,22 @@ export default function TrainingOverviewScreen() {
     if (connectionStatus === "connected") refetchSnapshot();
   }, [connectionStatus, refetchSnapshot]);
 
+  const fetchServerStatus = useCallback(async () => {
+    const token = await getIdToken(false);
+    if (!token) return;
+    setStatusFetchError(null);
+    const res = await getAppleHealthStatus(token, { cacheBust: `status:${Date.now()}` });
+    if (res.ok) {
+      setServerLastSyncAt(res.json.lastSyncAt);
+    } else {
+      setStatusFetchError({ message: res.error, requestId: res.requestId ?? null });
+    }
+  }, [getIdToken]);
+
+  useEffect(() => {
+    if (connectionStatus === "connected" && user) void fetchServerStatus();
+  }, [connectionStatus, user, fetchServerStatus]);
+
   const handleConnect = useCallback(async () => {
     setConnecting(true);
     setSyncError(null);
@@ -285,8 +309,15 @@ export default function TrainingOverviewScreen() {
         return;
       }
       const nowIso = new Date().toISOString();
+      try {
+        await setAppleHealthLastCheckedAt(nowIso);
+      } catch {
+        // Best-effort; do not throw.
+      }
+      setLastCheckedAtState(nowIso);
       await setLastSyncAt(nowIso);
       setLastSyncAtState(nowIso);
+      setServerLastSyncAt(nowIso);
       await refetchSnapshot();
     } finally {
       setSyncing(false);
@@ -441,7 +472,17 @@ export default function TrainingOverviewScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Last sync</Text>
+              <Text style={styles.metricLabel}>Last sync (local)</Text>
               <Text style={styles.syncTime}>{formatSyncTime(lastSyncAt)}</Text>
+              <Text style={styles.metricLabel}>Last checked</Text>
+              <Text style={styles.syncTime}>{formatSyncTime(lastCheckedAt)}</Text>
+              <Text style={styles.metricLabel}>Last new data</Text>
+              <Text style={styles.syncTime}>{formatSyncTime(serverLastSyncAt)}</Text>
+              {statusFetchError && (
+                <Text style={styles.requestIdLine}>
+                  Status unavailable · Request ID: {statusFetchError.requestId ?? "—"}
+                </Text>
+              )}
               <Pressable
                 onPress={handleSyncNow}
                 disabled={syncing}

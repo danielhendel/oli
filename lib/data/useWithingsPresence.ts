@@ -7,6 +7,7 @@ import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
 import { WITHINGS_WEIGHT_KIND, WITHINGS_SOURCE_ID } from "./withingsPresenceContract";
+import { setWithingsLastCheckedAt } from "@/lib/integrations/withings/storage";
 
 const RECENT_DAYS = 7;
 
@@ -80,6 +81,13 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
           data: { connected: false, lastMeasurementAt: null, hasRecentData: false },
         });
         return;
+      }
+
+      // Successful status fetch: update lastCheckedAt (never on failure).
+      try {
+        await setWithingsLastCheckedAt(new Date().toISOString());
+      } catch {
+        // Best-effort; do not throw.
       }
 
       const connected = statusOutcome.data.connected;
