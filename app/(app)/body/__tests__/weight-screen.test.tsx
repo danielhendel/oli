@@ -3,6 +3,7 @@
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -65,6 +66,14 @@ jest.mock("@/lib/integrations/withings/storage", () => ({
   setWithingsLastCheckedAt: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("@/lib/api/withings", () => ({
+  postWithingsPullNow: jest.fn().mockResolvedValue({
+    ok: true,
+    json: { eventsCreated: 0, eventsAlreadyExists: 0 },
+    requestId: "test-req",
+  }),
+}));
+
 let mockWithingsConnected = false;
 jest.mock("@/lib/data/useWithingsPresence", () => ({
   useWithingsPresence: () => ({
@@ -119,6 +128,10 @@ jest.mock("@/lib/data/useWeightSeries", () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const BodyWeightScreen = require("../weight").default;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withingsStorage = require("@/lib/integrations/withings/storage");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withingsApi = require("@/lib/api/withings");
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
   const nodes = test.root.findAllByType("Text");
@@ -143,6 +156,10 @@ function findPressableWithLabel(
 }
 
 describe("Weight screen", () => {
+  beforeEach(() => {
+    allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+  });
+
   it("renders with Weight metric label in body (header title is in nav, not in-page)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -294,5 +311,42 @@ describe("Weight screen", () => {
     });
     const connectToUpdateBtn = findPressableWithLabel(test.root, "Connect to update");
     expect(connectToUpdateBtn).not.toBeNull();
+  });
+
+  describe("smart foreground sync throttle", () => {
+    it("does not call postWithingsPullNow when lastCheckedAt is recent", async () => {
+      mockWithingsConnected = true;
+      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
+      (withingsApi.postWithingsPullNow as jest.Mock).mockClear();
+      await act(async () => {
+        renderer.create(<BodyWeightScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(withingsApi.postWithingsPullNow).not.toHaveBeenCalled();
+      mockWithingsConnected = false;
+      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValue(null);
+    });
+
+    it("calls postWithingsPullNow when lastCheckedAt is null", async () => {
+      mockWithingsConnected = true;
+      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValueOnce(null);
+      (withingsApi.postWithingsPullNow as jest.Mock).mockClear();
+      await act(async () => {
+        renderer.create(<BodyWeightScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(withingsApi.postWithingsPullNow).toHaveBeenCalled();
+      mockWithingsConnected = false;
+    });
   });
 });

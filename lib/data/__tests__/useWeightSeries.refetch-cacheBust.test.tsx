@@ -5,7 +5,6 @@
 import React, { useEffect, useRef } from "react";
 import { act } from "react";
 import renderer from "react-test-renderer";
-import { allowConsoleForThisTest } from "../../../scripts/test/consoleGuard";
 import { useWeightSeries } from "../useWeightSeries";
 import { getRawEvents, getRawEvent } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -71,13 +70,12 @@ beforeEach(() => {
 });
 
 it("refetch with cacheBust calls getRawEvents with cacheBust in options", async () => {
-  allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
   let refetchFn: RefetchFn | null = null;
   const onRefetch = jest.fn((fn: RefetchFn) => {
     refetchFn = fn;
   });
 
-  await act(async () => {
+  act(() => {
     renderer.create(<Harness onRefetch={onRefetch} />);
   });
   await act(async () => {

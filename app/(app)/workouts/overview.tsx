@@ -8,8 +8,9 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules } from "react-native";
-import { useNavigation } from "expo-router";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules, AppState } from "react-native";
+import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -49,6 +51,7 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 }
 
 const ANCHOR_LIMIT = 500;
+const APPLE_AUTO_MIN_MS = 2 * 60_000;
 const CARD_BG = "#F2F2F7";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -140,6 +143,7 @@ function PlaceholderTile({ label }: { label: string }) {
 
 export default function TrainingOverviewScreen() {
   const navigation = useNavigation();
+  const router = useRouter();
   const { user, initializing, getIdToken } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
@@ -280,6 +284,53 @@ export default function TrainingOverviewScreen() {
     }
   }, [refetchSnapshot]);
 
+  const maybeAutoAppleSync = useCallback(
+    async (reason: "focus" | "foreground") => {
+      void reason; // reserved for future idempotency / logging
+      if (connectionStatus !== "connected" || !user) return;
+      const token = await getIdToken(false);
+      if (!token) return;
+
+      const last = await getAppleHealthLastCheckedAt().catch(() => null);
+      if (!shouldRun(last, APPLE_AUTO_MIN_MS)) return;
+
+      const result = await runAnchoredWorkoutsSync(
+        { uid: user.uid, token, limit: ANCHOR_LIMIT },
+        {
+          getWorkoutsAnchor,
+          setWorkoutsAnchor,
+          pullAnchoredWorkouts,
+          pullTodaySnapshot,
+          ingestRawEvent,
+          getTodayBounds,
+          getDeviceTimezone,
+          stepsIdempotencyKey,
+          workoutIdempotencyKey,
+        },
+      );
+
+      if (!result.ok) {
+        setSyncError({ message: result.error, requestId: result.requestId });
+        return;
+      }
+
+      const atIso = nowIso();
+      await setAppleHealthLastCheckedAt(atIso);
+      setLastCheckedAtState(atIso);
+      await setLastSyncAt(atIso);
+      setLastSyncAtState(atIso);
+      await refetchSnapshot();
+      await fetchServerStatus();
+    },
+    [
+      connectionStatus,
+      user,
+      getIdToken,
+      refetchSnapshot,
+      fetchServerStatus,
+    ],
+  );
+
   const handleSyncNow = useCallback(async () => {
     if (connectionStatus !== "connected" || !user) return;
     const token = await getIdToken(false);
@@ -308,21 +359,34 @@ export default function TrainingOverviewScreen() {
         setSyncError({ message: result.error, requestId: result.requestId });
         return;
       }
-      const nowIso = new Date().toISOString();
+      const nowIsoStr = new Date().toISOString();
       try {
-        await setAppleHealthLastCheckedAt(nowIso);
+        await setAppleHealthLastCheckedAt(nowIsoStr);
       } catch {
         // Best-effort; do not throw.
       }
-      setLastCheckedAtState(nowIso);
-      await setLastSyncAt(nowIso);
-      setLastSyncAtState(nowIso);
-      setServerLastSyncAt(nowIso);
+      setLastCheckedAtState(nowIsoStr);
+      await setLastSyncAt(nowIsoStr);
+      setLastSyncAtState(nowIsoStr);
+      setServerLastSyncAt(nowIsoStr);
       await refetchSnapshot();
     } finally {
       setSyncing(false);
     }
   }, [connectionStatus, user, getIdToken, refetchSnapshot]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void maybeAutoAppleSync("focus");
+    }, [maybeAutoAppleSync]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void maybeAutoAppleSync("foreground");
+    });
+    return () => sub.remove();
+  }, [maybeAutoAppleSync]);
 
   if (initializing) {
     return (
@@ -366,26 +430,22 @@ export default function TrainingOverviewScreen() {
           />
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Connection</Text>
+          <Text style={styles.cardTitle}>Workout log</Text>
           <Text style={styles.statusText}>
-            {connectionStatus === "loading"
-              ? "Checking Apple Health…"
-              : connectionStatus === "not_available"
-                ? "Apple Health is not available on this device (e.g. not iOS)."
-                : connectionStatus === "not_connected"
-                  ? "Connect to sync steps and workouts from Apple Health."
-                  : "Connected. Today's data can be synced below."}
+            Log sets as you train. Offline-first, append-only session journal.
           </Text>
-          {connectionStatus === "not_connected" && (
-            <Pressable
-              onPress={handleConnect}
-              disabled={connecting}
-              style={[styles.primaryBtn, connecting && styles.primaryBtnDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Connect Apple Health"
-            >
-              <Text style={styles.primaryBtnText}>{connecting ? "Connecting…" : "Connect Apple Health"}</Text>
-            </Pressable>
+          <Pressable
+            onPress={() => router.push("/(app)/workouts/log")}
+            style={styles.primaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Log workout"
+          >
+            <Text style={styles.primaryBtnText}>Log workout</Text>
+          </Pressable>
+          {connectionStatus !== "connected" && (
+            <Text style={styles.hint}>
+              Apple Health sync is separate. Use the chip above to connect if you want automatic steps/workouts sync.
+            </Text>
           )}
         </View>
 
