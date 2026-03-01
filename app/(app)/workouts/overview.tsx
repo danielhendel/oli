@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules, AppState } from "react-native";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -143,6 +143,7 @@ function PlaceholderTile({ label }: { label: string }) {
 
 export default function TrainingOverviewScreen() {
   const navigation = useNavigation();
+  const router = useRouter();
   const { user, initializing, getIdToken } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
@@ -429,26 +430,22 @@ export default function TrainingOverviewScreen() {
           />
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Connection</Text>
+          <Text style={styles.cardTitle}>Workout log</Text>
           <Text style={styles.statusText}>
-            {connectionStatus === "loading"
-              ? "Checking Apple Health…"
-              : connectionStatus === "not_available"
-                ? "Apple Health is not available on this device (e.g. not iOS)."
-                : connectionStatus === "not_connected"
-                  ? "Connect to sync steps and workouts from Apple Health."
-                  : "Connected. Today's data can be synced below."}
+            Log sets as you train. Offline-first, append-only session journal.
           </Text>
-          {connectionStatus === "not_connected" && (
-            <Pressable
-              onPress={handleConnect}
-              disabled={connecting}
-              style={[styles.primaryBtn, connecting && styles.primaryBtnDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Connect Apple Health"
-            >
-              <Text style={styles.primaryBtnText}>{connecting ? "Connecting…" : "Connect Apple Health"}</Text>
-            </Pressable>
+          <Pressable
+            onPress={() => router.push("/(app)/workouts/log")}
+            style={styles.primaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Log workout"
+          >
+            <Text style={styles.primaryBtnText}>Log workout</Text>
+          </Pressable>
+          {connectionStatus !== "connected" && (
+            <Text style={styles.hint}>
+              Apple Health sync is separate. Use the chip above to connect if you want automatic steps/workouts sync.
+            </Text>
           )}
         </View>
 

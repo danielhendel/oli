@@ -73,6 +73,7 @@ jest.mock("@/lib/api/appleHealth", () => ({
 
 jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn() }),
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
