@@ -60,6 +60,11 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/integrations/withings/storage", () => ({
+  getWithingsLastCheckedAt: jest.fn().mockResolvedValue(null),
+  setWithingsLastCheckedAt: jest.fn().mockResolvedValue(undefined),
+}));
+
 let mockWithingsConnected = false;
 jest.mock("@/lib/data/useWithingsPresence", () => ({
   useWithingsPresence: () => ({

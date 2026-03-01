@@ -15,6 +15,7 @@ import { postWithingsPullNow } from "@/lib/api/withings";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useWeightSeries, type WeightRangeKey, type WeightPoint } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { getWithingsLastCheckedAt, setWithingsLastCheckedAt } from "@/lib/integrations/withings/storage";
 
 /** Dev-only: audit weight window for range; mirrors chart robust Y-domain. No PII; bounded first/last 10. */
 function auditWeightWindowDevOnly(params: {
@@ -214,6 +215,16 @@ export default function BodyWeightScreen() {
   const pullNowIdemRef = useRef<string | null>(null);
   const lastAutoRefetchMsRef = useRef<number>(0);
   const UPDATE_COOLDOWN_MS = 15000;
+  const [withingsLastCheckedAt, setWithingsLastCheckedAtState] = useState<string | null>(null);
+
+  const loadWithingsLastCheckedAt = useCallback(async () => {
+    try {
+      const iso = await getWithingsLastCheckedAt();
+      setWithingsLastCheckedAtState(iso);
+    } catch {
+      setWithingsLastCheckedAtState(null);
+    }
+  }, []);
 
   const maybeAutoRefetch = useCallback(
     (reason: "focus" | "foreground") => {
@@ -222,9 +233,14 @@ export default function BodyWeightScreen() {
       lastAutoRefetchMsRef.current = now;
       void weightSeries.refetch({ cacheBust: `auto:${reason}:${now}` });
       void withingsPresence.refetch({ cacheBust: `auto:${reason}:${now}` });
+      void loadWithingsLastCheckedAt();
     },
-    [weightSeries, withingsPresence],
+    [weightSeries, withingsPresence, loadWithingsLastCheckedAt],
   );
+
+  useEffect(() => {
+    void loadWithingsLastCheckedAt();
+  }, [loadWithingsLastCheckedAt]);
 
   useFocusEffect(
     useCallback(() => {
@@ -311,6 +327,14 @@ export default function BodyWeightScreen() {
       });
       return;
     }
+
+    const nowIso = new Date().toISOString();
+    try {
+      await setWithingsLastCheckedAt(nowIso);
+    } catch {
+      // Best-effort; do not throw.
+    }
+    setWithingsLastCheckedAtState(nowIso);
 
     pullNowIdemRef.current = null;
     weightSeries.refetch({ cacheBust: `pullNow:${now}` });
@@ -433,10 +457,17 @@ export default function BodyWeightScreen() {
               </Text>
             </Pressable>
             {updateState.status === "success" && (
-              <Text style={styles.updateStatusText}>
-                Updated just now
-                {updateState.created > 0 ? ` (+${updateState.created} new)` : ""}
-              </Text>
+              <>
+                <Text style={styles.updateStatusText}>
+                  Updated just now
+                  {updateState.created > 0 ? ` (+${updateState.created} new)` : ""}
+                </Text>
+                {updateState.created === 0 && updateState.already === 0 && (
+                  <Text style={styles.updateStatusText}>
+                    No new Withings measurements available.
+                  </Text>
+                )}
+              </>
             )}
             {updateState.status === "error" && (
               <Text
@@ -469,6 +500,12 @@ export default function BodyWeightScreen() {
             ) : (
               <Text style={styles.lastLoggedValue}>—</Text>
             )}
+            <Text style={styles.lastLoggedLabel}>Last checked</Text>
+            <Text style={styles.lastLoggedValue}>
+              {withingsLastCheckedAt
+                ? new Date(withingsLastCheckedAt).toLocaleString()
+                : "—"}
+            </Text>
           </View>
         </View>
       </View>
