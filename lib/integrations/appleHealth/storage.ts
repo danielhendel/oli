@@ -6,6 +6,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const APPLE_HEALTH_LAST_SYNC_AT = "appleHealth:lastSyncAt";
+export const APPLE_HEALTH_LAST_CHECKED_AT = "appleHealth:lastCheckedAt";
 export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 
@@ -15,6 +16,14 @@ export async function getLastSyncAt(): Promise<string | null> {
 
 export async function setLastSyncAt(iso: string): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_LAST_SYNC_AT, iso);
+}
+
+export async function getAppleHealthLastCheckedAt(): Promise<string | null> {
+  return AsyncStorage.getItem(APPLE_HEALTH_LAST_CHECKED_AT);
+}
+
+export async function setAppleHealthLastCheckedAt(iso: string): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_LAST_CHECKED_AT, iso);
 }
 
 export async function getAppleHealthConnected(): Promise<boolean> {
