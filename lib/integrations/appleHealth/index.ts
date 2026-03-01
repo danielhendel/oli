@@ -3,7 +3,7 @@
  * Permission request on explicit action; manual sync; deterministic idempotency keys.
  */
 
-export { requestPermissions, pullTodaySnapshot } from "./healthKit";
+export { requestPermissions, pullTodaySnapshot, pullAnchoredWorkouts } from "./healthKit";
 export {
   stepsIdempotencyKey,
   workoutIdempotencyKey,
