@@ -359,7 +359,9 @@ router.get(
     const uid = requireUid(req, res);
     if (!uid) return;
 
-    const parsed = uploadsListQuerySchema.safeParse(req.query);
+    const allowedQuery: Record<string, unknown> = {};
+    if ("limit" in req.query) allowedQuery.limit = req.query["limit"];
+    const parsed = uploadsListQuerySchema.safeParse(allowedQuery);
     if (!parsed.success) {
       res.status(400).json({
         ok: false,

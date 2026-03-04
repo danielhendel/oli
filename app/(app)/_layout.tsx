@@ -27,6 +27,8 @@ export default function AppLayout() {
       {/* Keep native headers for the rest */}
       <Stack.Screen name="nutrition/index" options={{ title: "Nutrition" }} />
       <Stack.Screen name="workouts/index" options={{ title: "Workouts" }} />
+      <Stack.Screen name="workouts/log" options={{ headerShown: false }} />
+      <Stack.Screen name="workouts/exercise-picker" options={{ title: "Add exercise" }} />
       <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
       <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings" }} />

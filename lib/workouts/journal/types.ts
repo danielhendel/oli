@@ -106,6 +106,50 @@ export const strengthSetCorrectedSchema = baseWorkoutEventSchema.extend({
 });
 export type StrengthSetCorrected = z.infer<typeof strengthSetCorrectedSchema>;
 
+export const strengthSetRemovedSchema = baseWorkoutEventSchema.extend({
+  kind: z.literal("strength_set_removed"),
+  payload: z.object({
+    setId: z.string().min(1),
+    reason: z.enum(["user", "template_change"]).optional(),
+  }),
+});
+export type StrengthSetRemoved = z.infer<typeof strengthSetRemovedSchema>;
+
+export const workoutBlockCreatedSchema = baseWorkoutEventSchema.extend({
+  kind: z.literal("workout_block_created"),
+  payload: z.object({
+    blockId: z.string().min(1),
+    blockType: z.enum(["warmup", "sets", "superset", "circuit", "cooldown", "cardio"]),
+    position: z.number().int().nonnegative(),
+    title: z.string().max(500).optional(),
+  }),
+});
+export type WorkoutBlockCreated = z.infer<typeof workoutBlockCreatedSchema>;
+
+export const workoutBlockUpdatedSchema = baseWorkoutEventSchema.extend({
+  kind: z.literal("workout_block_updated"),
+  payload: z.object({
+    blockId: z.string().min(1),
+    patch: z
+      .object({
+        blockType: z.enum(["warmup", "sets", "superset", "circuit", "cooldown", "cardio"]).optional(),
+        title: z.string().max(500).optional(),
+      })
+      .strict(),
+    reason: z.enum(["user", "template_change"]).optional(),
+  }),
+});
+export type WorkoutBlockUpdated = z.infer<typeof workoutBlockUpdatedSchema>;
+
+export const workoutBlockRemovedSchema = baseWorkoutEventSchema.extend({
+  kind: z.literal("workout_block_removed"),
+  payload: z.object({
+    blockId: z.string().min(1),
+    reason: z.enum(["user", "template_change"]).optional(),
+  }),
+});
+export type WorkoutBlockRemoved = z.infer<typeof workoutBlockRemovedSchema>;
+
 export const workoutNoteAddedSchema = baseWorkoutEventSchema.extend({
   kind: z.literal("workout_note_added"),
   payload: z.object({
@@ -118,8 +162,12 @@ export const workoutEventV1Schema = z.discriminatedUnion("kind", [
   workoutSessionStateChangedSchema,
   workoutExerciseAddedSchema,
   workoutExerciseRemovedSchema,
+  workoutBlockCreatedSchema,
+  workoutBlockUpdatedSchema,
+  workoutBlockRemovedSchema,
   strengthSetLoggedSchema,
   strengthSetCorrectedSchema,
+  strengthSetRemovedSchema,
   workoutNoteAddedSchema,
 ]);
 export type WorkoutEventV1 = z.infer<typeof workoutEventV1Schema>;
@@ -142,8 +190,12 @@ export type ReducedSessionV1 = {
   ownerUid: string;
   sessionId: string;
   status: WorkoutSessionStatus;
+  /** ISO string when session transitioned to active (first workout_session_state_changed to "active"), or earliest event occurredAt; null if no events */
+  startedAt: string | null;
+  blocks: { blockId: string; blockType: string; position: number; title: string; removed: boolean }[];
   exercises: {
     slotId: string;
+    blockId: string | null;
     exerciseId: string;
     position: number;
     removed: boolean;

@@ -234,13 +234,15 @@ describe("GET /users/me/raw-events", () => {
     });
     app.use("/users/me", usersMeRoutes);
     const srv = require("http").createServer(app);
-    srv.listen(0);
+    await new Promise<void>((resolve) => srv.listen(0, () => resolve()));
     const addr = srv.address() as AddressInfo;
     const url = `http://127.0.0.1:${addr.port}`;
-
-    const res = await fetch(`${url}/users/me/raw-events`);
-    expect(res.status).toBe(401);
-    await new Promise<void>((r) => srv.close(() => r()));
+    try {
+      const res = await fetch(`${url}/users/me/raw-events`);
+      expect(res.status).toBe(401);
+    } finally {
+      await new Promise<void>((r) => srv.close(() => r()));
+    }
   });
 
   test("stable ordering: observedAt desc then id", async () => {
