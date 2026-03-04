@@ -1,0 +1,34 @@
+--- app/(app)/workouts/log.tsx
++++ app/(app)/workouts/log.tsx
+@@ -257,7 +257,6 @@
+   const [ui, setUi] = useState<UiState>({ status: "idle" });
+   const [drafts, setDrafts] = useState<
+     Record<string, { repsText: string; loadText: string; intensityText: string }>
+-  >({});
+   >({});
+   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+   const [addBlockModalVisible, setAddBlockModalVisible] = useState(false);
+@@ -518,7 +517,6 @@
+   // Apply picked exercise from picker exactly once, then clear param.
+   useEffect(() => {
+     if (!pickedExerciseIdParam) {
+-      appliedPickRef.current = null;
+       appliedPickRef.current = null;
+       return;
+     }
+@@ -619,7 +617,6 @@
+             onPress={() => setAddBlockModalVisible(true)}
+             style={styles.addBlockHeaderBtn}
+             accessibilityRole="button"
+-            accessibilityLabel="Add block"
+             accessibilityLabel="Add block"
+           >
+             <Text style={styles.addBlockHeaderBtnText}>+</Text>
+@@ -981,7 +978,6 @@
+               </Pressable>
+             </Pressable>
+           </Modal>
+-          </Modal>
+         </>
+         </Pressable>
+       ) : null}

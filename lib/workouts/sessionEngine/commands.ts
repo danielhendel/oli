@@ -195,14 +195,132 @@ export async function archiveSession(
   await setSessionStatus(uid, sessionId, "archived", deps);
 }
 
+const BLOCK_TYPES = ["warmup", "sets", "superset", "circuit", "cooldown", "cardio"] as const;
+
+/**
+ * Creates an empty block (append workout_block_created).
+ */
+export async function createBlock(
+  uid: string,
+  sessionId: string,
+  params: {
+    blockId: string;
+    blockType: (typeof BLOCK_TYPES)[number];
+    position: number;
+    title?: string;
+  },
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("blockId", params.blockId);
+  if (!BLOCK_TYPES.includes(params.blockType)) {
+    throw new SessionEngineError("INVALID_INPUT", "blockType must be one of: warmup, sets, superset, circuit, cooldown, cardio");
+  }
+  if (!Number.isFinite(params.position) || params.position < 0) {
+    throw new SessionEngineError("INVALID_INPUT", "position must be non-negative");
+  }
+
+  void (await loadStatusOrThrow(uid, sessionId));
+
+  const d = resolveDeps(deps);
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "workout_block_created",
+    payload: {
+      blockId: params.blockId,
+      blockType: params.blockType,
+      position: Math.floor(params.position),
+      title: params.title,
+    },
+    idempotencyKey: `session:createBlock:${sessionId}:${params.blockId}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
+}
+
+/**
+ * Updates a block (append workout_block_updated). Patch may include blockType and/or title.
+ */
+export async function updateBlock(
+  uid: string,
+  sessionId: string,
+  params: {
+    blockId: string;
+    patch: Partial<{ blockType: (typeof BLOCK_TYPES)[number]; title: string }>;
+  },
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("blockId", params.blockId);
+  const patch = params.patch;
+  const keys = patch && Object.keys(patch);
+  if (!keys || keys.length === 0) {
+    throw new SessionEngineError("INVALID_INPUT", "patch must have at least one key");
+  }
+  if (patch.blockType != null && !BLOCK_TYPES.includes(patch.blockType)) {
+    throw new SessionEngineError("INVALID_INPUT", "blockType must be one of: warmup, sets, superset, circuit, cooldown, cardio");
+  }
+  if (patch.title != null && patch.title.length > 500) {
+    throw new SessionEngineError("INVALID_INPUT", "title must be at most 500 characters");
+  }
+
+  void (await loadStatusOrThrow(uid, sessionId));
+
+  const d = resolveDeps(deps);
+  const patchPayload: { blockType?: (typeof BLOCK_TYPES)[number]; title?: string } = {};
+  if (patch.blockType != null) patchPayload.blockType = patch.blockType;
+  if (patch.title != null) patchPayload.title = patch.title;
+
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "workout_block_updated",
+    payload: { blockId: params.blockId, patch: patchPayload, reason: "user" },
+    idempotencyKey: `session:updateBlock:${sessionId}:${params.blockId}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
+}
+
+/**
+ * Removes a block from the session (append workout_block_removed).
+ */
+export async function removeBlock(
+  uid: string,
+  sessionId: string,
+  blockId: string,
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("blockId", blockId);
+
+  void (await loadStatusOrThrow(uid, sessionId));
+
+  const d = resolveDeps(deps);
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "workout_block_removed",
+    payload: { blockId, reason: "user" },
+    idempotencyKey: `session:removeBlock:${sessionId}:${blockId}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
+}
+
 /**
  * Adds an exercise slot to the session (log-as-you-go).
  * Returns slotId for subsequent set logging.
+ * blockId is optional; when provided (e.g. block:warmup, block:work, block:cooldown) it is stored in the payload.
  */
 export async function addExercise(
   uid: string,
   sessionId: string,
-  params: { exerciseId: string; position: number; slotId?: string },
+  params: { exerciseId: string; position: number; slotId?: string; blockId?: string },
   deps?: Partial<SessionEngineDeps>,
 ): Promise<{ slotId: string }> {
   assertNonEmpty("uid", uid);
@@ -226,11 +344,39 @@ export async function addExercise(
       slotId,
       exerciseId: params.exerciseId,
       position: Math.floor(params.position),
+      blockId: params.blockId,
     },
     idempotencyKey: `session:addExercise:${sessionId}:${slotId}`,
   });
   await appendWorkoutJournalEvent(uid, sessionId, ev);
   return { slotId };
+}
+
+/**
+ * Removes an exercise slot from the session (append workout_exercise_removed).
+ */
+export async function removeExercise(
+  uid: string,
+  sessionId: string,
+  slotId: string,
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("slotId", slotId);
+
+  void (await loadStatusOrThrow(uid, sessionId));
+
+  const d = resolveDeps(deps);
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "workout_exercise_removed",
+    payload: { slotId, reason: "user" },
+    idempotencyKey: `session:removeExercise:${sessionId}:${slotId}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
 }
 
 export async function logStrengthSet(
@@ -258,6 +404,7 @@ export async function logStrengthSet(
   if (!Number.isFinite(params.reps) || params.reps <= 0) {
     throw new SessionEngineError("INVALID_INPUT", "reps must be >= 1");
   }
+  // loadKg optional: undefined/blank => bodyweight
   if (params.loadKg != null && (!Number.isFinite(params.loadKg) || params.loadKg <= 0)) {
     throw new SessionEngineError("INVALID_INPUT", "loadKg must be > 0 when provided");
   }
@@ -288,6 +435,33 @@ export async function logStrengthSet(
   });
   await appendWorkoutJournalEvent(uid, sessionId, ev);
   return { setId };
+}
+
+/**
+ * Removes a logged set (append strength_set_removed).
+ */
+export async function removeStrengthSet(
+  uid: string,
+  sessionId: string,
+  setId: string,
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("setId", setId);
+
+  void (await loadStatusOrThrow(uid, sessionId));
+
+  const d = resolveDeps(deps);
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "strength_set_removed",
+    payload: { setId, reason: "user" },
+    idempotencyKey: `session:removeSet:${sessionId}:${setId}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
 }
 
 export async function correctStrengthSet(
