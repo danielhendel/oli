@@ -9,6 +9,7 @@ jest.mock("react-native", () => {
     Text: "Text",
     TextInput: "TextInput",
     Pressable: "Pressable",
+    Image: "Image",
     ScrollView: "ScrollView",
     FlatList: function FlatList({
       data,
@@ -65,6 +66,14 @@ jest.mock("@/lib/workouts/exercises/librarySections", () => ({
     recentIds: ["bench_press"],
     popularIds: ["squat"],
   }),
+}));
+
+jest.mock("expo-video");
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: function MockIonicons() {
+    return require("react").createElement("View", { testID: "mock-icon" });
+  },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
