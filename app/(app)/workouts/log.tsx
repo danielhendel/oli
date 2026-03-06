@@ -11,6 +11,9 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Image,
+  Animated,
+  PanResponder,
 } from "react-native";
 
 if (
@@ -23,7 +26,11 @@ if (
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
-import { buildExerciseMemory, type ExerciseMemoryMap } from "@/lib/workouts/memory/exerciseMemory";
+import {
+  buildExerciseMemory,
+  type ExerciseMemoryMap,
+  type ExerciseSetSummary,
+} from "@/lib/workouts/memory/exerciseMemory";
 import {
   addExercise,
   abandonSession,
@@ -46,9 +53,33 @@ import {
 } from "@/lib/workouts/sessionEngine/activeSessionStorage";
 import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
+import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
+import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
+import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
+
+/** Precomputed list of weights in lb (0 to 600 in 2.5 lb steps) for single-wheel picker. Exported for tests. */
+export function getPrecomputedWeightListLb(): number[] {
+  const list: number[] = [];
+  for (let w = 0; w <= 600; w += 2.5) {
+    list.push(w);
+  }
+  return list;
+}
+
+const PRECOMPUTED_WEIGHTS_LB = getPrecomputedWeightListLb();
+
+/** Format draft loadText for display in active row (e.g. "185 lb", "17.5 lb"). */
+function formatActiveWeightDisplay(loadText: string): string {
+  const t = loadText.trim();
+  if (!t) return "";
+  const n = parseFloat(t);
+  if (Number.isNaN(n)) return t;
+  const s = Number.isInteger(n) ? String(n) : t;
+  return `${s} lb`;
+}
 
 /** UI-only draft set before logging via logStrengthSet. */
 type DraftSet = { id: string; repsText: string; loadText: string; rpeText: string };
@@ -96,6 +127,75 @@ function blockHeaderLabel(type: BlockTypeId | null): string {
   return "Block";
 }
 
+/** Format exercise "last" set for display. Read-only display helper. */
+function formatLastSetSummary(summary: ExerciseSetSummary | null | undefined): string {
+  if (!summary) return "No previous workout";
+  const loadStr = summary.loadKg != null && summary.loadKg > 0 ? `${(summary.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
+  return `${summary.reps} @ ${loadStr}`;
+}
+
+const SWIPE_REVEAL_WIDTH = 72;
+
+function SwipeableSetRow({
+  setId,
+  onDelete,
+  rowContent,
+}: {
+  setId: string;
+  onDelete: () => void;
+  rowContent: React.ReactNode;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8,
+        onPanResponderGrant: () => {
+          /* no-op; gesture position tracked in onPanResponderMove */
+        },
+        onPanResponderMove: (_, g) => {
+          const maxDrag = SWIPE_REVEAL_WIDTH;
+          const x = Math.min(0, Math.max(-maxDrag, g.dx));
+          translateX.setValue(x);
+        },
+        onPanResponderRelease: (_, g) => {
+          const threshold = SWIPE_REVEAL_WIDTH / 2;
+          const toValue = g.dx < -threshold ? -SWIPE_REVEAL_WIDTH : 0;
+          Animated.spring(translateX, {
+            toValue,
+            useNativeDriver: true,
+            speed: 20,
+            bounciness: 0,
+          }).start();
+        },
+      }),
+    [translateX],
+  );
+
+  return (
+    <View style={styles.swipeableRowWrap}>
+      <View style={styles.swipeableRowDeleteBg}>
+        <Pressable
+          onPress={onDelete}
+          style={styles.swipeableRowDeleteBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete set ${setId}`}
+        >
+          <Text style={styles.swipeableRowDeleteText}>Delete</Text>
+        </Pressable>
+      </View>
+      <Animated.View
+        style={[styles.setRowCompleted, { transform: [{ translateX }] }]}
+        {...pan.panHandlers}
+      >
+        {rowContent}
+      </Animated.View>
+    </View>
+  );
+}
+
 function ExerciseListRow({
   ex,
   displayName,
@@ -117,7 +217,18 @@ function ExerciseListRow({
         accessibilityRole="button"
         accessibilityLabel={`Open exercise ${displayName}`}
       >
-        <View style={styles.thumbnailPlaceholder} />
+        {hasBundledExerciseAsset(ex.exerciseId) ? (
+          <View style={styles.exerciseListRowThumbnailContainer}>
+            <Image
+              source={getBundledExerciseAsset(ex.exerciseId)}
+              style={styles.exerciseListRowThumbnailImage}
+              resizeMode="contain"
+              accessibilityLabel={`${displayName} thumbnail`}
+            />
+          </View>
+        ) : (
+          <ThumbnailPlaceholderView width={120} height={68} />
+        )}
         <View style={styles.exerciseListRowCenter}>
           <Text style={styles.exerciseListRowName}>{displayName}</Text>
           <Text style={styles.exerciseListRowSets}>
@@ -211,6 +322,16 @@ export default function WorkoutLogScreen() {
     repsText: string;
     loadText: string;
     intensityText: string;
+  } | null>(null);
+  const [draftFieldPicker, setDraftFieldPicker] = useState<{
+    slotId: string;
+    draftId: string;
+    field: "reps" | "load" | "rpe";
+  } | null>(null);
+  const [completedSetPicker, setCompletedSetPicker] = useState<{
+    slotId: string;
+    setId: string;
+    field: "reps" | "load" | "rpe";
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
@@ -364,6 +485,33 @@ export default function WorkoutLogScreen() {
       setUi({ status: "error", message: msg });
     }
   }, [user, sessionId, editSetDraft, refreshReduced]);
+
+  const onCompletedSetFieldSelect = useCallback(
+    async (
+      setId: string,
+      field: "reps" | "load" | "rpe",
+      value: { reps?: number; loadKg?: number; rpe?: number },
+    ) => {
+      if (!user || !sessionId) return;
+      const patch: Partial<{ reps: number; loadKg: number; rpe: number }> = {};
+      if (field === "reps" && value.reps != null) patch.reps = value.reps;
+      if (field === "load" && value.loadKg !== undefined) patch.loadKg = value.loadKg;
+      if (field === "rpe" && value.rpe !== undefined) patch.rpe = value.rpe;
+      if (Object.keys(patch).length === 0) {
+        setCompletedSetPicker(null);
+        return;
+      }
+      try {
+        await correctStrengthSet(user.uid, sessionId, { setId, patch });
+        setCompletedSetPicker(null);
+        await refreshReduced(user.uid, sessionId);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        setUi({ status: "error", message: msg });
+      }
+    },
+    [user, sessionId, refreshReduced],
+  );
 
   const onLogDraftSet = useCallback(
     async (slotId: string, draft: DraftSet) => {
@@ -681,8 +829,6 @@ export default function WorkoutLogScreen() {
                   {blockExercises.map((ex) => {
                     const slotId = ex.slotId;
                     const isExpanded = expandedSlotId === slotId;
-                    const block = ex.blockId != null ? displayBlocks.find((b) => b.blockId === ex.blockId) : null;
-                    const blockTitle = block?.title ?? "Block";
                     const displayName = catalogNameById.get(ex.exerciseId) ?? ex.exerciseId;
                     void getExerciseMeta(ex.exerciseId); // reserved for future metadata use
                     const drafts = draftSetsBySlotId[slotId] ?? [];
@@ -699,143 +845,206 @@ export default function WorkoutLogScreen() {
                       return (
                         <View key={ex.slotId} style={styles.exerciseCardWrap}>
                           <View style={styles.loggerInlinePanel} accessibilityLabel={`Exercise logger inline ${slotId}`}>
-                            <View style={styles.heroContainer}>
+                            <Pressable
+                              style={styles.exerciseCardHeaderRow}
+                              onPress={onCollapse}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Collapse ${displayName}`}
+                            >
+                              <Text style={styles.exerciseCardHeaderTitle} numberOfLines={1}>
+                                {displayName}
+                              </Text>
                               <Pressable
-                                style={styles.heroPressable}
-                                onPress={onCollapse}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  setExerciseMenuSlotId(slotId);
+                                }}
+                                style={styles.exerciseCardHeaderMenuBtn}
                                 accessibilityRole="button"
-                                accessibilityLabel={`Collapse ${displayName}`}
+                                accessibilityLabel={`Exercise options ${displayName}`}
                               >
-                                <View style={styles.heroPlaceholder} />
-                                <View style={styles.heroOverlay}>
-                                  <Text style={styles.heroNameOverlay} numberOfLines={2}>
-                                    {displayName}
-                                  </Text>
-                                  <Pressable
-                                    onPress={(e) => {
-                                      e.stopPropagation();
-                                      setExerciseMenuSlotId(slotId);
-                                    }}
-                                    style={styles.heroMenuBtn}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Exercise options ${displayName}`}
-                                  >
-                                    <Text style={styles.heroMenuBtnText}>•••</Text>
-                                  </Pressable>
-                                </View>
+                                <Text style={styles.exerciseCardHeaderMenuBtnText}>•••</Text>
                               </Pressable>
+                            </Pressable>
+                            <View style={styles.heroContainerWithSpacing}>
+                              <View style={styles.heroMediaContainer}>
+                                <ExerciseMediaPreview
+                                  exerciseId={ex.exerciseId}
+                                  style={styles.heroMediaFill}
+                                  containerBackgroundColor="#FFFFFF"
+                                />
+                              </View>
                             </View>
                             <View style={styles.loggerInlineContent}>
-                              <View style={styles.addSetRow}>
-                                <Text style={styles.exerciseLoggerBlockLabel}>{blockTitle}</Text>
-                                <Pressable
-                                  onPress={() => {
-                                    setDraftSetsBySlotId((prev) => {
-                                      const list = prev[slotId] ?? [];
-                                      const id = `${slotId}:draft:${list.length}`;
-                                      return { ...prev, [slotId]: [...list, { id, repsText: "", loadText: "", rpeText: "" }] };
-                                    });
-                                  }}
-                                  style={styles.addSetSmallBtn}
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Add draft set"
+                              <View style={styles.lastSummaryRow}>
+                                <Text
+                                  style={styles.lastSummaryLabel}
+                                  accessibilityLabel={
+                                    (() => {
+                                      const last = memory[ex.exerciseId]?.last;
+                                      return last
+                                        ? `Last workout ${formatLastSetSummary(last)}`
+                                        : "No previous workout";
+                                    })()
+                                  }
                                 >
-                                  <Text style={styles.addSetSmallBtnText}>+ Add set</Text>
-                                </Pressable>
+                                  Last: {formatLastSetSummary(memory[ex.exerciseId]?.last)}
+                                </Text>
                               </View>
                               <View style={styles.setListInModal}>
-                              {loggedSets.map((s) => {
-                                const lbDisplay = s.loadKg != null ? (s.loadKg * LB_PER_KG).toFixed(1) : "BW";
-                                const rpePart = s.rpe != null ? ` @${s.rpe}` : "";
-                                return (
-                                  <View key={s.setId} style={styles.setRowInModal}>
-                                    <Text style={styles.setOrdinal}>{s.ordinal}</Text>
-                                    <Text style={styles.setRowMiddle}>
-                                      {s.reps} reps · {lbDisplay} lb{rpePart}
+                              <View style={styles.setGridHeader}>
+                                <Text style={[styles.setGridHeaderCell, styles.setColSet]}>Set</Text>
+                                <Text style={[styles.setGridHeaderCell, styles.setColReps]}>Reps</Text>
+                                <Text style={[styles.setGridHeaderCell, styles.setColWeight]}>Weight</Text>
+                                <Text style={[styles.setGridHeaderCell, styles.setColRpe]}>RPE</Text>
+                                <View style={[styles.setColAction, styles.setGridHeaderActionWrap]}>
+                                  <View style={styles.setColActionSpacer} />
+                                  <Pressable
+                                    onPress={() => {
+                                      setDraftSetsBySlotId((prev) => {
+                                        const list = prev[slotId] ?? [];
+                                        const id = `${slotId}:draft:${list.length}`;
+                                        return { ...prev, [slotId]: [...list, { id, repsText: "", loadText: "", rpeText: "" }] };
+                                      });
+                                    }}
+                                    style={styles.addSetInHeaderBtn}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Add draft set"
+                                  >
+                                    <Text style={styles.addSetHeaderLinkText} numberOfLines={1}>
+                                      + Add Set
                                     </Text>
-                                    <View style={styles.setRowRight}>
-                                      <Text style={styles.donePill}>✓ Done</Text>
-                                      <Pressable
-                                        onPress={() => {
-                                          if (!reduced) return;
-                                          const exercise = reduced.exercises.find((e) => e.slotId === slotId);
-                                          const set = exercise?.sets.find((t) => t.setId === s.setId);
-                                          if (!exercise || !set) {
-                                            setUi({ status: "error", message: "Set not found." });
-                                            return;
+                                  </Pressable>
+                                </View>
+                              </View>
+                              {loggedSets.map((s) => {
+                                const lbDisplay =
+                                  s.loadKg != null ? `${(s.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
+                                return (
+                                  <SwipeableSetRow
+                                    key={s.setId}
+                                    setId={s.setId}
+                                    onDelete={() => void onRemoveSet(s.setId)}
+                                    rowContent={
+                                      <>
+                                        <Text style={[styles.setOrdinalCell, styles.setColSet]}>{s.ordinal}</Text>
+                                        <Pressable
+                                          style={[styles.setDataCellTouchable, styles.setColReps]}
+                                          onPress={() =>
+                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "reps" })
                                           }
-                                          setEditSetDraft({
-                                            setId: set.setId,
-                                            slotId: exercise.slotId,
-                                            repsText: String(set.reps),
-                                            loadText: set.loadKg != null ? (set.loadKg * LB_PER_KG).toFixed(1) : "",
-                                            intensityText: set.rpe != null ? String(set.rpe) : "",
-                                          });
-                                        }}
-                                        style={styles.setOptionsInModal}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={`Set options ${s.setId}`}
-                                      >
-                                        <Text style={styles.moreDots}>•••</Text>
-                                      </Pressable>
-                                    </View>
-                                  </View>
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`Edit set ${s.setId} reps`}
+                                        >
+                                          <Text style={styles.setDataCell} numberOfLines={1}>
+                                            {s.reps}
+                                          </Text>
+                                        </Pressable>
+                                        <Pressable
+                                          style={[styles.setDataCellTouchable, styles.setColWeight]}
+                                          onPress={() =>
+                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "load" })
+                                          }
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`Edit set ${s.setId} weight`}
+                                        >
+                                          <Text style={styles.setDataCell} numberOfLines={1}>
+                                            {lbDisplay}
+                                          </Text>
+                                        </Pressable>
+                                        <Pressable
+                                          style={[styles.setDataCellTouchable, styles.setColRpe]}
+                                          onPress={() =>
+                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "rpe" })
+                                          }
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`Edit set ${s.setId} RPE`}
+                                        >
+                                          <Text style={styles.setDataCell} numberOfLines={1}>
+                                            {s.rpe != null ? String(s.rpe) : ""}
+                                          </Text>
+                                        </Pressable>
+                                        <View style={[styles.setActionCell, styles.setColAction]}>
+                                          <Text style={styles.setActionCellCheckmark}>✓</Text>
+                                        </View>
+                                      </>
+                                    }
+                                  />
                                 );
                               })}
                               {drafts.map((d, idx) => (
-                                <View key={d.id} style={styles.setRowInModal}>
-                                  <Text style={styles.setOrdinal}>{loggedSets.length + idx + 1}</Text>
-                                  <View style={styles.draftInputsRow}>
-                                    <TextInput
-                                      value={d.repsText}
-                                      onChangeText={(t) =>
-                                        setDraftSetsBySlotId((prev) => {
-                                          const list = prev[slotId] ?? [];
-                                          const next = list.map((x) => (x.id === d.id ? { ...x, repsText: t } : x));
-                                          return { ...prev, [slotId]: next };
-                                        })
-                                      }
-                                      placeholder="Reps"
-                                      keyboardType="number-pad"
-                                      style={[styles.input, styles.draftInput]}
-                                      accessibilityLabel="Draft set reps"
-                                    />
-                                    <TextInput
-                                      value={d.loadText}
-                                      onChangeText={(t) =>
-                                        setDraftSetsBySlotId((prev) => {
-                                          const list = prev[slotId] ?? [];
-                                          const next = list.map((x) => (x.id === d.id ? { ...x, loadText: t } : x));
-                                          return { ...prev, [slotId]: next };
-                                        })
-                                      }
-                                      placeholder="lb"
-                                      keyboardType="decimal-pad"
-                                      style={[styles.input, styles.draftInput]}
-                                      accessibilityLabel="Draft set load"
-                                    />
-                                    <TextInput
-                                      value={d.rpeText}
-                                      onChangeText={(t) =>
-                                        setDraftSetsBySlotId((prev) => {
-                                          const list = prev[slotId] ?? [];
-                                          const next = list.map((x) => (x.id === d.id ? { ...x, rpeText: t } : x));
-                                          return { ...prev, [slotId]: next };
-                                        })
-                                      }
-                                      placeholder="RPE"
-                                      keyboardType="number-pad"
-                                      style={[styles.input, styles.draftInputSmall]}
-                                      accessibilityLabel="Draft set RPE"
-                                    />
-                                  </View>
+                                <View key={d.id} style={styles.setRowActive}>
+                                  <Text style={[styles.setOrdinalCell, styles.setColSet]}>
+                                    {loggedSets.length + idx + 1}
+                                  </Text>
+                                  <Pressable
+                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "reps" })}
+                                    style={({ pressed }) => [
+                                      styles.draftTapTarget,
+                                      styles.setColReps,
+                                      pressed && styles.draftTapTargetPressed,
+                                    ]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Draft set reps"
+                                  >
+                                    {d.repsText.trim() ? (
+                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                        {d.repsText.trim()}
+                                      </Text>
+                                    ) : (
+                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                        Reps
+                                      </Text>
+                                    )}
+                                  </Pressable>
+                                  <Pressable
+                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
+                                    style={({ pressed }) => [
+                                      styles.draftTapTarget,
+                                      styles.setColWeight,
+                                      pressed && styles.draftTapTargetPressed,
+                                    ]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Draft set load"
+                                  >
+                                    {d.loadText.trim() ? (
+                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                        {formatActiveWeightDisplay(d.loadText)}
+                                      </Text>
+                                    ) : (
+                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                        Weight
+                                      </Text>
+                                    )}
+                                  </Pressable>
+                                  <Pressable
+                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "rpe" })}
+                                    style={({ pressed }) => [
+                                      styles.draftTapTarget,
+                                      styles.setColRpe,
+                                      pressed && styles.draftTapTargetPressed,
+                                    ]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Draft set RPE"
+                                  >
+                                    {d.rpeText.trim() ? (
+                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                        {d.rpeText.trim()}
+                                      </Text>
+                                    ) : (
+                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                        RPE
+                                      </Text>
+                                    )}
+                                  </Pressable>
                                   <Pressable
                                     onPress={() => void onLogDraftSet(slotId, d)}
-                                    style={styles.logDraftBtn}
+                                    style={[styles.logDraftBtn, styles.setColAction]}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                     accessibilityRole="button"
                                     accessibilityLabel={`Log draft set ${d.id}`}
                                   >
-                                    <Text style={styles.primaryBtnText}>Log</Text>
+                                    <Text style={styles.logDraftBtnText}>Log</Text>
                                   </Pressable>
                                 </View>
                               ))}
@@ -859,6 +1068,180 @@ export default function WorkoutLogScreen() {
                 </View>
               );
             })
+          )}
+
+          {(draftFieldPicker || completedSetPicker) && (
+            <Modal
+              visible
+              transparent
+              animationType="slide"
+              onRequestClose={() => {
+        setDraftFieldPicker(null);
+        setCompletedSetPicker(null);
+      }}
+      presentationStyle="pageSheet"
+    >
+      <Pressable
+        style={styles.sheetBackdrop}
+        onPress={() => {
+          setDraftFieldPicker(null);
+          setCompletedSetPicker(null);
+        }}
+              >
+                <Pressable style={styles.draftPickerSheet} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.sheetGrabber} />
+                  <Text style={styles.draftPickerSheetTitle}>
+                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "reps"
+                      ? "Reps"
+                      : (draftFieldPicker?.field ?? completedSetPicker?.field) === "load"
+                        ? "Weight (lb)"
+                        : "RPE"}
+                  </Text>
+                  <ScrollView
+                    style={styles.draftPickerScroll}
+                    contentContainerStyle={styles.draftPickerScrollContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "reps" &&
+                      Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+                        <Pressable
+                          key={n}
+                          style={styles.draftPickerOption}
+                          onPress={() => {
+                            if (draftFieldPicker) {
+                              setDraftSetsBySlotId((prev) => {
+                                const list = prev[draftFieldPicker.slotId] ?? [];
+                                const next = list.map((x) =>
+                                  x.id === draftFieldPicker.draftId ? { ...x, repsText: String(n) } : x,
+                                );
+                                return { ...prev, [draftFieldPicker.slotId]: next };
+                              });
+                              setDraftFieldPicker(null);
+                            } else if (completedSetPicker) {
+                              void onCompletedSetFieldSelect(completedSetPicker.setId, "reps", {
+                                reps: n,
+                              });
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${n} reps`}
+                        >
+                          <Text style={styles.draftPickerOptionText}>{n}</Text>
+                        </Pressable>
+                      ))}
+                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "load" && (
+                      <>
+                        <Pressable
+                          style={styles.draftPickerOption}
+                          onPress={() => {
+                            if (draftFieldPicker) {
+                              setDraftSetsBySlotId((prev) => {
+                                const list = prev[draftFieldPicker.slotId] ?? [];
+                                const next = list.map((x) =>
+                                  x.id === draftFieldPicker.draftId ? { ...x, loadText: "" } : x,
+                                );
+                                return { ...prev, [draftFieldPicker.slotId]: next };
+                              });
+                              setDraftFieldPicker(null);
+                            } else if (completedSetPicker) {
+                              void onCompletedSetFieldSelect(completedSetPicker.setId, "load", {
+                                loadKg: 0,
+                              });
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Body weight"
+                        >
+                          <Text style={styles.draftPickerOptionText}>BW</Text>
+                        </Pressable>
+                        {PRECOMPUTED_WEIGHTS_LB.map((w) => (
+                          <Pressable
+                            key={w}
+                            style={styles.draftPickerOption}
+                            onPress={() => {
+                              const loadKg = w * KG_PER_LB;
+                              if (draftFieldPicker) {
+                                setDraftSetsBySlotId((prev) => {
+                                  const list = prev[draftFieldPicker.slotId] ?? [];
+                                  const next = list.map((x) =>
+                                    x.id === draftFieldPicker.draftId
+                                      ? { ...x, loadText: Number.isInteger(w) ? String(w) : String(w) }
+                                      : x,
+                                  );
+                                  return { ...prev, [draftFieldPicker.slotId]: next };
+                                });
+                                setDraftFieldPicker(null);
+                              } else if (completedSetPicker) {
+                                void onCompletedSetFieldSelect(completedSetPicker.setId, "load", {
+                                  loadKg,
+                                });
+                              }
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={w === 0 ? "0 lb" : `${w} lb`}
+                          >
+                            <Text style={styles.draftPickerOptionText}>
+                              {w === 0 ? "0" : Number.isInteger(w) ? String(w) : String(w)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </>
+                    )}
+                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "rpe" && (
+                      <>
+                        <Pressable
+                          style={styles.draftPickerOption}
+                          onPress={() => {
+                            if (draftFieldPicker) {
+                              setDraftSetsBySlotId((prev) => {
+                                const list = prev[draftFieldPicker.slotId] ?? [];
+                                const next = list.map((x) =>
+                                  x.id === draftFieldPicker.draftId ? { ...x, rpeText: "" } : x,
+                                );
+                                return { ...prev, [draftFieldPicker.slotId]: next };
+                              });
+                              setDraftFieldPicker(null);
+                            } else if (completedSetPicker) {
+                              setCompletedSetPicker(null);
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="No RPE"
+                        >
+                          <Text style={styles.draftPickerOptionText}>—</Text>
+                        </Pressable>
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                          <Pressable
+                            key={n}
+                            style={styles.draftPickerOption}
+                            onPress={() => {
+                              if (draftFieldPicker) {
+                                setDraftSetsBySlotId((prev) => {
+                                  const list = prev[draftFieldPicker.slotId] ?? [];
+                                  const next = list.map((x) =>
+                                    x.id === draftFieldPicker.draftId ? { ...x, rpeText: String(n) } : x,
+                                  );
+                                  return { ...prev, [draftFieldPicker.slotId]: next };
+                                });
+                                setDraftFieldPicker(null);
+                              } else if (completedSetPicker) {
+                                void onCompletedSetFieldSelect(completedSetPicker.setId, "rpe", {
+                                  rpe: n,
+                                });
+                              }
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`RPE ${n}`}
+                          >
+                            <Text style={styles.draftPickerOptionText}>{n}</Text>
+                          </Pressable>
+                        ))}
+                      </>
+                    )}
+                  </ScrollView>
+                </Pressable>
+              </Pressable>
+            </Modal>
           )}
 
           <Modal
@@ -1342,6 +1725,12 @@ export default function WorkoutLogScreen() {
   );
 }
 
+const GRID_COL_SET = 40;
+const GRID_COL_REPS = 72;
+const GRID_COL_WEIGHT = 96;
+const GRID_COL_RPE = 64;
+const GRID_COL_ACTION = 88;
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F2F2F7" },
   headerTimerWrap: {
@@ -1651,12 +2040,19 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
   },
-  thumbnailPlaceholder: {
-    width: 44,
-    height: 44,
+  exerciseListRowThumbnailContainer: {
+    width: 120,
+    height: 68,
     borderRadius: 6,
-    backgroundColor: "#E5E5EA",
     marginRight: 12,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  exerciseListRowThumbnailImage: {
+    width: "100%",
+    height: "100%",
   },
   exerciseListRowCenter: { flex: 1 },
   exerciseListRowName: { fontSize: 16, fontWeight: "600", color: "#1C1C1E" },
@@ -1671,70 +2067,232 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
   },
-  heroContainer: {
-    position: "relative",
-    width: "100%",
+  exerciseCardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 44,
   },
-  heroPressable: { position: "relative", width: "100%" },
-  heroOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+  exerciseCardHeaderTitle: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    marginRight: 8,
   },
-  heroPlaceholder: {
-    height: 160,
-    width: "100%",
-    backgroundColor: "#E5E5EA",
-  },
-  heroNameOverlay: {
-    position: "absolute",
-    left: 12,
-    bottom: 12,
-    right: 48,
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  heroMenuBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
+  exerciseCardHeaderMenuBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 10,
-    borderRadius: 8,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    zIndex: 1,
   },
-  heroMenuBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
-  loggerInlineContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
+  exerciseCardHeaderMenuBtnText: { fontSize: 20, fontWeight: "600", color: "#8E8E93" },
+  heroContainer: {
+    width: "100%",
+  },
+  heroContainerWithSpacing: {
+    width: "100%",
+    marginTop: 16,
+  },
+  heroMediaContainer: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+  },
+  heroMediaFill: {
+    width: "100%",
+    height: "100%",
+  },
+  loggerInlineContent: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 16 },
   exerciseLoggerBackBtn: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 0 },
   exerciseLoggerScroll: { flex: 1 },
   exerciseLoggerScrollContent: { padding: 16, paddingBottom: 32 },
   exerciseLoggerName: { fontSize: 22, fontWeight: "800", color: "#1C1C1E", marginBottom: 4 },
-  exerciseLoggerBlockLabel: { fontSize: 13, color: "#6E6E73", marginBottom: 16 },
-  setListInModal: { gap: 10, marginBottom: 16 },
-  setRowInModal: {
+  exerciseLoggerBlockLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  lastSummaryRow: { marginTop: 20, marginBottom: 20 },
+  lastSummaryLabel: { fontSize: 14, color: "#6E6E73" },
+  setListInModal: { gap: 2, marginBottom: 12 },
+  setGridHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 0,
     paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  setGridHeaderCell: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8A8A8F",
+    letterSpacing: 0.5,
+  },
+  setColSet: { width: GRID_COL_SET },
+  setColReps: { width: GRID_COL_REPS },
+  setColWeight: { width: GRID_COL_WEIGHT },
+  setColRpe: { width: GRID_COL_RPE },
+  setColAction: { width: GRID_COL_ACTION, minWidth: GRID_COL_ACTION },
+  setGridHeaderActionWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  setColActionSpacer: { flex: 1 },
+  addSetInHeaderBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    minHeight: 44,
+    minWidth: 72,
+    justifyContent: "center",
+  },
+  addSetHeaderLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#007AFF",
+    letterSpacing: 0.5,
+  },
+  swipeableRowWrap: {
+    minHeight: 40,
+    overflow: "hidden",
+    marginBottom: 4,
+    borderRadius: 10,
+  },
+  swipeableRowDeleteBg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    backgroundColor: "#FF3B30",
+  },
+  swipeableRowDeleteBtn: {
+    width: SWIPE_REVEAL_WIDTH,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  swipeableRowDeleteText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  setRowCompleted: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 40,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 0,
+    backgroundColor: "#F7F7F8",
+    borderRadius: 10,
+  },
+  setDataCellTouchable: {
+    justifyContent: "center",
+    paddingVertical: 2,
+  },
+  setActionCell: {
+    width: GRID_COL_ACTION,
+    minHeight: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  setActionCellCheckmark: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#34C759",
+  },
+  setOrdinalCell: { fontSize: 16, fontWeight: "600", color: "#6B7280" },
+  setDataCell: { fontSize: 17, fontWeight: "600", color: "#6B7280" },
+  setRowActive: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 42,
+    paddingVertical: 0,
+    paddingHorizontal: 12,
+    gap: 0,
+    marginTop: 4,
+  },
+  draftInput: {
+    flex: 0,
+    height: 50,
+    minWidth: 64,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1C1C1E",
     backgroundColor: "#F2F2F7",
     borderRadius: 10,
-    gap: 12,
   },
-  setOrdinal: { fontSize: 15, fontWeight: "700", color: "#1C1C1E", width: 24 },
-  setRowMiddle: { flex: 1, fontSize: 14, color: "#3C3C43" },
-  setRowRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  donePill: { fontSize: 13, fontWeight: "600", color: "#34C759" },
-  setOptionsInModal: { padding: 4 },
-  draftInputsRow: { flex: 1, flexDirection: "row", gap: 8, alignItems: "center" },
-  draftInput: { flex: 0, width: 56, paddingVertical: 8, paddingHorizontal: 8, fontSize: 14 },
-  draftInputSmall: { flex: 0, width: 40, paddingVertical: 8, paddingHorizontal: 6, fontSize: 14 },
-  logDraftBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#007AFF", borderRadius: 8 },
+  draftInputSmall: {
+    flex: 0,
+    height: 50,
+    minWidth: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 10,
+  },
+  draftTapTarget: {
+    minHeight: 42,
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  draftTapTargetPressed: {
+    opacity: 0.7,
+  },
+  draftTapFieldLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#007AFF",
+    textAlign: "left",
+  },
+  draftTapFieldValue: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    textAlign: "left",
+  },
+  draftPickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+    maxHeight: "70%",
+  },
+  draftPickerScroll: { maxHeight: 400 },
+  draftPickerScrollContent: { paddingBottom: 24, alignItems: "center" },
+  draftPickerOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "stretch",
+  },
+  draftPickerOptionText: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
+  logDraftBtn: {
+    width: 56,
+    height: 42,
+    minWidth: 56,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1677FF",
+    borderRadius: 10,
+  },
+  logDraftBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
   addSetRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1742,12 +2300,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   addSetSmallBtn: {
-    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#E5E5EA",
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center",
   },
-  addSetSmallBtnText: { fontSize: 14, fontWeight: "600", color: "#1C1C1E" },
+  addSetSmallBtnText: { fontSize: 16, fontWeight: "600", color: "#007AFF" },
   sheetBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -1795,6 +2353,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sheetTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 12 },
+  draftPickerSheetTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    marginBottom: 12,
+    textAlign: "center",
+  },
   sheetSub: { fontSize: 14, color: "#6E6E73", marginBottom: 12 },
   sheetDivider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 12 },
   blockTypeOption: {

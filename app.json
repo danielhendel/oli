@@ -5,21 +5,16 @@
     "owner": "olifitness",
     "version": "1.0.0",
     "scheme": "com.olifitness.oli",
-
     "runtimeVersion": "1.0.0",
-
     "updates": {
       "url": "https://u.expo.dev/c7719da7-49dd-439f-bc64-826ce5f789d2"
     },
-
     "ios": {
       "bundleIdentifier": "com.olifitness.oli"
     },
-
     "android": {
       "package": "com.olifitness.oli"
     },
-
     "plugins": [
       "expo-font",
       [
@@ -28,9 +23,9 @@
           "healthSharePermission": "Oli reads steps, workouts, resting heart rate, exercise time, and active energy for your workouts overview.",
           "healthUpdatePermission": "Oli does not write health data."
         }
-      ]
+      ],
+      "expo-video"
     ],
-
     "extra": {
       "eas": {
         "projectId": "c7719da7-49dd-439f-bc64-826ce5f789d2"

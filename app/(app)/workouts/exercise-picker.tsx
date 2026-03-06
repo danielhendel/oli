@@ -13,6 +13,7 @@ import {
   FlatList,
   Modal,
   ListRenderItem,
+  Image,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { EmptyState } from "@/lib/ui/ScreenStates";
@@ -21,6 +22,9 @@ import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { searchExercises } from "@/lib/workouts/exercises/search";
 import { buildExerciseLibrarySections } from "@/lib/workouts/exercises/librarySections";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
+import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
+import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
+import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
 
 type Equipment = "any" | "barbell" | "dumbbell" | "machine" | "bodyweight";
 type Muscle = "any" | "chest" | "back" | "legs" | "shoulders" | "biceps" | "triceps" | "core";
@@ -427,6 +431,7 @@ export default function ExercisePickerScreen() {
       const name = getRowName(exerciseId, isCustom);
       const meta = getExerciseMeta(exerciseId);
       const subtitle = `${meta.equipment} · ${meta.primary}`;
+      const hasThumbnail = hasBundledExerciseAsset(exerciseId);
 
       const showHighlight = query.trim() !== "" && entry.type === "row";
       const titleNode = showHighlight
@@ -443,8 +448,22 @@ export default function ExercisePickerScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Pick ${name}`}
         >
-          {titleNode}
-          <Text style={styles.rowMeta}>{subtitle}</Text>
+          {hasThumbnail ? (
+            <View style={styles.rowThumbnailContainer}>
+              <Image
+                source={getBundledExerciseAsset(exerciseId)}
+                style={styles.rowThumbnailImage}
+                resizeMode="contain"
+                accessibilityLabel={`${name} image`}
+              />
+            </View>
+          ) : (
+            <ThumbnailPlaceholderView width={120} height={68} />
+          )}
+          <View style={styles.rowContent}>
+            {titleNode}
+            <Text style={styles.rowMeta}>{subtitle}</Text>
+          </View>
         </Pressable>
       );
     },
@@ -621,8 +640,12 @@ export default function ExercisePickerScreen() {
                 <Text style={styles.modalMeta}>
                   {selectedMeta.equipment} · {selectedMeta.primary}
                 </Text>
-                <View style={styles.diagramPlaceholder}>
-                  <Text style={styles.diagramPlaceholderText}>Diagram</Text>
+                <View style={styles.modalMediaContainer}>
+                  <ExerciseMediaPreview
+                    exerciseId={selectedExerciseId}
+                    style={styles.modalMediaFill}
+                    containerBackgroundColor="#FFFFFF"
+                  />
                 </View>
                 <Text style={styles.modalDescription}>{selectedMeta.description}</Text>
                 <View style={styles.cuesBlock}>
@@ -772,11 +795,28 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
   },
   row: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#C6C6C8",
   },
+  rowThumbnailContainer: {
+    width: 120,
+    height: 68,
+    borderRadius: 10,
+    marginRight: 12,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  rowThumbnailImage: {
+    width: "100%",
+    height: "100%",
+  },
+  rowContent: { flex: 1 },
   rowTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   rowTitleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   rowTitleHit: { fontSize: 15, fontWeight: "800", color: "#1C1C1E" },
@@ -804,18 +844,17 @@ const styles = StyleSheet.create({
     color: "#6E6E73",
     marginBottom: 12,
   },
-  diagramPlaceholder: {
-    height: 120,
-    borderWidth: 1,
-    borderColor: "#C6C6C8",
+  modalMediaContainer: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    overflow: "hidden",
     borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     marginBottom: 12,
   },
-  diagramPlaceholderText: {
-    fontSize: 13,
-    color: "#8E8E93",
+  modalMediaFill: {
+    width: "100%",
+    height: "100%",
   },
   modalDescription: {
     fontSize: 14,
