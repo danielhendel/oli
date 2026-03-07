@@ -32,6 +32,10 @@ import {
   type ExerciseSetSummary,
 } from "@/lib/workouts/memory/exerciseMemory";
 import {
+  getPreviousExerciseComparison,
+  type PreviousExerciseComparison,
+} from "@/lib/workouts/memory/previousWorkout";
+import {
   addExercise,
   abandonSession,
   completeSession,
@@ -132,6 +136,19 @@ function formatLastSetSummary(summary: ExerciseSetSummary | null | undefined): s
   if (!summary) return "No previous workout";
   const loadStr = summary.loadKg != null && summary.loadKg > 0 ? `${(summary.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
   return `${summary.reps} @ ${loadStr}`;
+}
+
+/** Format Last summary line above grid: "N × reps @ weight lb" with optional " · RPE n". */
+function formatLastSummaryWithRpe(
+  prev: PreviousExerciseComparison | null | undefined,
+  memoryLast: ExerciseSetSummary | null | undefined,
+): string {
+  const base =
+    prev?.summaryText ?? formatLastSetSummary(memoryLast);
+  if (base === "No previous workout") return base;
+  const firstSetRpe = prev?.setsByOrdinal?.[1]?.rpe;
+  if (firstSetRpe != null) return `${base} · RPE ${firstSetRpe}`;
+  return base;
 }
 
 const SWIPE_REVEAL_WIDTH = 72;
@@ -334,6 +351,9 @@ export default function WorkoutLogScreen() {
     field: "reps" | "load" | "rpe";
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
+  const [previousComparisonByExerciseId, setPreviousComparisonByExerciseId] = useState<
+    Record<string, PreviousExerciseComparison | null>
+  >({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
 
   const isSignedIn = Boolean(user) && !initializing;
@@ -636,6 +656,35 @@ export default function WorkoutLogScreen() {
     };
   }, [user, initializing]);
 
+  const previousComparisonRequestedRef = useRef<Set<string>>(new Set());
+
+  // Load previous workout comparison when user expands an exercise (read-only).
+  useEffect(() => {
+    if (!user || !expandedSlotId || !reduced) return;
+    const ex = reduced.exercises.find((e) => e.slotId === expandedSlotId && !e.removed);
+    if (!ex || previousComparisonRequestedRef.current.has(ex.exerciseId)) return;
+    previousComparisonRequestedRef.current.add(ex.exerciseId);
+    let cancelled = false;
+    getPreviousExerciseComparison(user.uid, ex.exerciseId)
+      .then((comp) => {
+        if (!cancelled)
+          setPreviousComparisonByExerciseId((prev) => ({
+            ...prev,
+            [ex.exerciseId]: comp,
+          }));
+      })
+      .catch(() => {
+        if (!cancelled)
+          setPreviousComparisonByExerciseId((prev) => ({
+            ...prev,
+            [ex.exerciseId]: null,
+          }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, expandedSlotId, reduced]);
+
   useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
@@ -876,29 +925,42 @@ export default function WorkoutLogScreen() {
                               </View>
                             </View>
                             <View style={styles.loggerInlineContent}>
-                              <View style={styles.lastSummaryRow}>
-                                <Text
-                                  style={styles.lastSummaryLabel}
-                                  accessibilityLabel={
-                                    (() => {
-                                      const last = memory[ex.exerciseId]?.last;
-                                      return last
-                                        ? `Last workout ${formatLastSetSummary(last)}`
-                                        : "No previous workout";
-                                    })()
-                                  }
-                                >
-                                  Last: {formatLastSetSummary(memory[ex.exerciseId]?.last)}
+                              <Pressable
+                                style={styles.lastSummaryRow}
+                                onPress={() => {
+                                  router.push({
+                                    pathname: "/(app)/workouts/exercise-history",
+                                    params: { exerciseId: ex.exerciseId },
+                                  });
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                  (() => {
+                                    const summary = formatLastSummaryWithRpe(
+                                      previousComparisonByExerciseId[ex.exerciseId],
+                                      memory[ex.exerciseId]?.last,
+                                    );
+                                    return summary === "No previous workout"
+                                      ? "No previous workout"
+                                      : `Last workout ${summary}. Tap for exercise history.`;
+                                  })()
+                                }
+                              >
+                                <Text style={styles.lastSummaryLabel}>
+                                  Last:{" "}
+                                  {formatLastSummaryWithRpe(
+                                    previousComparisonByExerciseId[ex.exerciseId],
+                                    memory[ex.exerciseId]?.last,
+                                  )}
                                 </Text>
-                              </View>
+                              </Pressable>
                               <View style={styles.setListInModal}>
                               <View style={styles.setGridHeader}>
                                 <Text style={[styles.setGridHeaderCell, styles.setColSet]}>Set</Text>
                                 <Text style={[styles.setGridHeaderCell, styles.setColReps]}>Reps</Text>
                                 <Text style={[styles.setGridHeaderCell, styles.setColWeight]}>Weight</Text>
                                 <Text style={[styles.setGridHeaderCell, styles.setColRpe]}>RPE</Text>
-                                <View style={[styles.setColAction, styles.setGridHeaderActionWrap]}>
-                                  <View style={styles.setColActionSpacer} />
+                                <View style={[styles.setColAction, styles.setGridHeaderActionCell]}>
                                   <Pressable
                                     onPress={() => {
                                       setDraftSetsBySlotId((prev) => {
@@ -972,82 +1034,87 @@ export default function WorkoutLogScreen() {
                                   />
                                 );
                               })}
-                              {drafts.map((d, idx) => (
-                                <View key={d.id} style={styles.setRowActive}>
-                                  <Text style={[styles.setOrdinalCell, styles.setColSet]}>
-                                    {loggedSets.length + idx + 1}
-                                  </Text>
-                                  <Pressable
-                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "reps" })}
-                                    style={({ pressed }) => [
-                                      styles.draftTapTarget,
-                                      styles.setColReps,
-                                      pressed && styles.draftTapTargetPressed,
-                                    ]}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Draft set reps"
-                                  >
-                                    {d.repsText.trim() ? (
-                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                        {d.repsText.trim()}
-                                      </Text>
-                                    ) : (
-                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                        Reps
-                                      </Text>
-                                    )}
-                                  </Pressable>
-                                  <Pressable
-                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
-                                    style={({ pressed }) => [
-                                      styles.draftTapTarget,
-                                      styles.setColWeight,
-                                      pressed && styles.draftTapTargetPressed,
-                                    ]}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Draft set load"
-                                  >
-                                    {d.loadText.trim() ? (
-                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                        {formatActiveWeightDisplay(d.loadText)}
-                                      </Text>
-                                    ) : (
-                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                        Weight
-                                      </Text>
-                                    )}
-                                  </Pressable>
-                                  <Pressable
-                                    onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "rpe" })}
-                                    style={({ pressed }) => [
-                                      styles.draftTapTarget,
-                                      styles.setColRpe,
-                                      pressed && styles.draftTapTargetPressed,
-                                    ]}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Draft set RPE"
-                                  >
-                                    {d.rpeText.trim() ? (
-                                      <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                        {d.rpeText.trim()}
-                                      </Text>
-                                    ) : (
-                                      <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                        RPE
-                                      </Text>
-                                    )}
-                                  </Pressable>
-                                  <Pressable
-                                    onPress={() => void onLogDraftSet(slotId, d)}
-                                    style={[styles.logDraftBtn, styles.setColAction]}
-                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Log draft set ${d.id}`}
-                                  >
-                                    <Text style={styles.logDraftBtnText}>Log</Text>
-                                  </Pressable>
-                                </View>
-                              ))}
+                              {drafts.map((d, idx) => {
+                                const activeOrdinal = loggedSets.length + idx + 1;
+                                return (
+                                  <View key={d.id} style={styles.setRowActive}>
+                                    <Text style={[styles.setOrdinalCell, styles.setColSet]}>
+                                      {activeOrdinal}
+                                    </Text>
+                                    <Pressable
+                                      onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "reps" })}
+                                      style={({ pressed }) => [
+                                        styles.draftTapTarget,
+                                        styles.setColReps,
+                                        pressed && styles.draftTapTargetPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                      accessibilityLabel="Draft set reps"
+                                    >
+                                      {d.repsText.trim() ? (
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                          {d.repsText.trim()}
+                                        </Text>
+                                      ) : (
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                          Reps
+                                        </Text>
+                                      )}
+                                    </Pressable>
+                                    <Pressable
+                                      onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
+                                      style={({ pressed }) => [
+                                        styles.draftTapTarget,
+                                        styles.setColWeight,
+                                        pressed && styles.draftTapTargetPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                      accessibilityLabel="Draft set load"
+                                    >
+                                      {d.loadText.trim() ? (
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                          {formatActiveWeightDisplay(d.loadText)}
+                                        </Text>
+                                      ) : (
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                          Weight
+                                        </Text>
+                                      )}
+                                    </Pressable>
+                                    <Pressable
+                                      onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "rpe" })}
+                                      style={({ pressed }) => [
+                                        styles.draftTapTarget,
+                                        styles.setColRpe,
+                                        pressed && styles.draftTapTargetPressed,
+                                      ]}
+                                      accessibilityRole="button"
+                                      accessibilityLabel="Draft set RPE"
+                                    >
+                                      {d.rpeText.trim() ? (
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
+                                          {d.rpeText.trim()}
+                                        </Text>
+                                      ) : (
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
+                                          RPE
+                                        </Text>
+                                      )}
+                                    </Pressable>
+                                    <View style={styles.setColActionWrap}>
+                                      <Pressable
+                                        onPress={() => void onLogDraftSet(slotId, d)}
+                                        style={styles.logDraftBtn}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Log draft set ${d.id}`}
+                                      >
+                                        <Text style={styles.logDraftBtnText}>Log</Text>
+                                      </Pressable>
+                                    </View>
+                                  </View>
+                                );
+                              })}
                             </View>
                             </View>
                           </View>
@@ -1725,11 +1792,12 @@ export default function WorkoutLogScreen() {
   );
 }
 
-const GRID_COL_SET = 40;
-const GRID_COL_REPS = 72;
-const GRID_COL_WEIGHT = 96;
-const GRID_COL_RPE = 64;
-const GRID_COL_ACTION = 88;
+/** Shared 5-column layout: Set | Reps | Weight | RPE | Action. Data columns fixed; Action takes remaining width. */
+const GRID_COL_SET = 36;
+const GRID_COL_REPS = 64;
+const GRID_COL_WEIGHT = 92;
+const GRID_COL_RPE = 56;
+const GRID_COL_ACTION_MIN = 72;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F2F2F7" },
@@ -2113,46 +2181,47 @@ const styles = StyleSheet.create({
   exerciseLoggerScrollContent: { padding: 16, paddingBottom: 32 },
   exerciseLoggerName: { fontSize: 22, fontWeight: "800", color: "#1C1C1E", marginBottom: 4 },
   exerciseLoggerBlockLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  lastSummaryRow: { marginTop: 20, marginBottom: 20 },
+  lastSummaryRow: { marginTop: 16, marginBottom: 16 },
   lastSummaryLabel: { fontSize: 14, color: "#6E6E73" },
-  setListInModal: { gap: 2, marginBottom: 12 },
+  setListInModal: { gap: 4, marginBottom: 12 },
   setGridHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 0,
-    paddingHorizontal: 12,
-    marginBottom: 4,
+    paddingHorizontal: 8,
+    marginBottom: 6,
   },
   setGridHeaderCell: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: "#8A8A8F",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
-  setColSet: { width: GRID_COL_SET },
-  setColReps: { width: GRID_COL_REPS },
-  setColWeight: { width: GRID_COL_WEIGHT },
-  setColRpe: { width: GRID_COL_RPE },
-  setColAction: { width: GRID_COL_ACTION, minWidth: GRID_COL_ACTION },
-  setGridHeaderActionWrap: {
+  setGridHeaderActionCell: {
+    minWidth: GRID_COL_ACTION_MIN,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
   },
-  setColActionSpacer: { flex: 1 },
   addSetInHeaderBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    minHeight: 44,
-    minWidth: 72,
+    paddingHorizontal: 8,
+    minHeight: 36,
     justifyContent: "center",
+    alignItems: "center",
   },
   addSetHeaderLinkText: {
     fontSize: 13,
     fontWeight: "600",
     color: "#007AFF",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
+  setColSet: { width: GRID_COL_SET },
+  setColReps: { width: GRID_COL_REPS },
+  setColWeight: { width: GRID_COL_WEIGHT },
+  setColRpe: { width: GRID_COL_RPE },
+  setColAction: { minWidth: GRID_COL_ACTION_MIN, flex: 1 },
   swipeableRowWrap: {
     minHeight: 40,
     overflow: "hidden",
@@ -2186,7 +2255,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 40,
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     gap: 0,
     backgroundColor: "#F7F7F8",
     borderRadius: 10,
@@ -2196,7 +2265,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   setActionCell: {
-    width: GRID_COL_ACTION,
+    minWidth: GRID_COL_ACTION_MIN,
+    flex: 1,
     minHeight: 40,
     justifyContent: "center",
     alignItems: "center",
@@ -2213,7 +2283,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 42,
     paddingVertical: 0,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     gap: 0,
     marginTop: 4,
   },
@@ -2284,13 +2354,19 @@ const styles = StyleSheet.create({
   logDraftBtn: {
     width: 56,
     height: 42,
-    minWidth: 56,
     paddingVertical: 0,
     paddingHorizontal: 0,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#1677FF",
     borderRadius: 10,
+  },
+  setColActionWrap: {
+    minWidth: GRID_COL_ACTION_MIN,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   logDraftBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
   addSetRow: {
