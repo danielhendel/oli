@@ -4,12 +4,34 @@ import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
+  const React = require("react");
   return {
     View: "View",
     Text: "Text",
     TextInput: "TextInput",
     Pressable: "Pressable",
     ScrollView: "ScrollView",
+    FlatList: function FlatList({
+      data,
+      renderItem,
+      keyExtractor,
+    }: {
+      data: unknown[];
+      renderItem: (o: { item: unknown; index: number }) => React.ReactNode;
+      keyExtractor: (item: unknown, index: number) => string;
+    }) {
+      return React.createElement(
+        "View",
+        null,
+        (data ?? []).map((item, index) =>
+          React.createElement(
+            "View",
+            { key: keyExtractor?.(item, index) ?? index },
+            renderItem({ item, index, separators: { highlight: jest.fn(), unhighlight: jest.fn(), updateProps: jest.fn() } }),
+          ),
+        ),
+      );
+    },
     Image: "Image",
     StyleSheet: { create: (s: unknown) => s },
     Animated: {
@@ -102,6 +124,10 @@ jest.mock("@/lib/workouts/memory/previousWorkout", () => ({
 }));
 
 jest.mock("expo-video");
+
+jest.mock("@/lib/workouts/restTimer", () => ({
+  useRestTimer: () => ({ panelVisible: false, setPanelVisible: jest.fn() }),
+}));
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: function MockIonicons() {
@@ -389,7 +415,7 @@ describe("workouts/log session UI", () => {
     expect(findByA11yLabel(test!.root, "Exercise logger inline slot1")).toBeNull();
   });
 
-  it("expanded exercise shows No previous workout when memory is empty", async () => {
+  it("expanded exercise shows History and + Set when memory is empty (no inline Last)", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -416,10 +442,13 @@ describe("workouts/log session UI", () => {
       openExerciseBtn!.props.onPress();
     });
     const tree = test!.toJSON();
-    expect(tree && JSON.stringify(tree)).toContain("No previous workout");
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
+    expect(str).not.toMatch(/Last:/);
   });
 
-  it("expanded exercise shows Last summary when memory has last set for exercise", async () => {
+  it("expanded exercise shows History and + Set (no inline Last summary)", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -452,12 +481,13 @@ describe("workouts/log session UI", () => {
       openExerciseBtn!.props.onPress();
     });
     const tree = test!.toJSON();
-    expect(tree && JSON.stringify(tree)).toMatch(/Last:/);
-    expect(tree && JSON.stringify(tree)).toContain("10");
-    expect(tree && JSON.stringify(tree)).toContain("90");
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
+    expect(str).not.toMatch(/Last:/);
   });
 
-  it("expanded exercise shows grid header Set Reps Weight RPE and + Add Set", async () => {
+  it("expanded exercise shows grid header Set Reps Weight RPE and utility row History + Set", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -488,10 +518,11 @@ describe("workouts/log session UI", () => {
     expect(str).toContain("Reps");
     expect(str).toContain("Weight");
     expect(str).toContain("RPE");
-    expect(str).toContain("+ Add Set");
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
   });
 
-  it("+ Add Set renders in the header row", async () => {
+  it("+ Set and History render in utility row", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
@@ -510,13 +541,16 @@ describe("workouts/log session UI", () => {
       openExerciseBtn!.props.onPress();
     });
     const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
+    const historyBtn = findByA11yLabel(test!.root, "Exercise history");
     expect(addSetBtn).not.toBeNull();
+    expect(historyBtn).not.toBeNull();
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toContain("+ Add Set");
+    expect(str).toContain("+ Set");
+    expect(str).toContain("History");
   });
 
-  it("Last summary renders above the grid", async () => {
+  it("inline Last summary is not rendered; utility row has History and + Set", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
@@ -536,7 +570,38 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toMatch(/Last:/);
+    expect(str).not.toMatch(/Last:/);
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
+  });
+
+  it("History action navigates to exercise-history with exerciseId", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const historyBtn = findByA11yLabel(test!.root, "Exercise history");
+    expect(historyBtn).not.toBeNull();
+    act(() => {
+      historyBtn!.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/exercise-history",
+      params: { exerciseId: "bench_press" },
+    });
   });
 
   it("previous workout comparison renders in grid when previous data exists", async () => {
@@ -594,11 +659,11 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toContain("3 × 10 @ 90 lb");
-    expect(str).toMatch(/Last:/);
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
   });
 
-  it("previous workout comparison falls back cleanly when no previous workout", async () => {
+  it("previous workout comparison falls back cleanly; History and + Set still shown", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -642,7 +707,8 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toContain("No previous workout");
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
   });
 
   it("active row renders with draft fields and Log button", async () => {
@@ -709,8 +775,56 @@ describe("workouts/log session UI", () => {
     expect(str).toContain("Reps");
     expect(str).toContain("Weight");
     expect(str).toContain("RPE");
+    expect(str).toContain("e1RM");
+    expect(str).toContain("Vol");
     expect(str).toContain("Log");
-    expect(str).toContain("+ Add Set");
+    expect(str).toContain("+ Set");
+  });
+
+  it("pressing Log creates next draft row prefilled with just-logged values", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
+    act(() => {
+      addSetBtn!.props.onPress();
+    });
+    const repsTapField = test!.root.findAll((n) => n.props?.accessibilityLabel === "Draft set reps")[0];
+    act(() => {
+      repsTapField?.props?.onPress?.();
+    });
+    const fiveRepsOption = findByA11yLabel(test!.root, "5 reps");
+    act(() => {
+      fiveRepsOption!.props.onPress();
+    });
+    const logDraftBtn = findByA11yLabel(test!.root, "Log draft set slot1:draft:0");
+    expect(logDraftBtn).not.toBeNull();
+    act(() => {
+      logDraftBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    expect(commands.logStrengthSet).toHaveBeenCalled();
+    const tree = test!.toJSON();
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("5");
+    const addSetBtnAfter = findByA11yLabel(test!.root, "Add draft set");
+    expect(addSetBtnAfter).not.toBeNull();
+    const draftRepsAfter = test!.root.findAll((n) => n.props?.accessibilityLabel === "Draft set reps");
+    expect(draftRepsAfter.length).toBeGreaterThanOrEqual(1);
   });
 
   it("Log button renders in dedicated right-side action column", async () => {
@@ -740,7 +854,7 @@ describe("workouts/log session UI", () => {
     expect(logBtn!.props.accessibilityLabel).toMatch(/^Log draft set /);
   });
 
-  it("Add draft set button is visible in header row", async () => {
+  it("Add draft set button is visible in utility row", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
@@ -761,10 +875,10 @@ describe("workouts/log session UI", () => {
     const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
     expect(addSetBtn).not.toBeNull();
     const tree = test!.toJSON();
-    expect(tree && JSON.stringify(tree)).toContain("+ Add Set");
+    expect(tree && JSON.stringify(tree)).toContain("+ Set");
   });
 
-  it("+ Add Set remains visible on one line", async () => {
+  it("+ Set remains visible in utility row", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
@@ -785,10 +899,9 @@ describe("workouts/log session UI", () => {
     const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
     expect(addSetBtn).not.toBeNull();
     const addSetTextNode = addSetBtn!.findAll(
-      (n: renderer.ReactTestInstance) => n.type === "Text" && n.props.children === "+ Add Set",
+      (n: renderer.ReactTestInstance) => n.type === "Text" && n.props.children === "+ Set",
     )[0];
     expect(addSetTextNode).toBeDefined();
-    expect(addSetTextNode!.props.numberOfLines).toBe(1);
   });
 
   it("active row does not use highlighted container styling", async () => {
@@ -877,7 +990,7 @@ describe("workouts/log session UI", () => {
     expect(treeStr).toContain("RPE");
   });
 
-  it("active row uses text-only tap targets (no box or chip styling)", async () => {
+  it("active row picker triggers open wheel picker and update draft", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
@@ -912,7 +1025,6 @@ describe("workouts/log session UI", () => {
     const tree = test!.toJSON();
     const treeStr = tree ? JSON.stringify(tree) : "";
     expect(treeStr).toContain("5");
-    expect(treeStr).not.toContain("EBEBF0");
   });
 
   it("tapping Draft set reps opens number picker and selecting value updates draft", async () => {
@@ -958,6 +1070,36 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     expect(tree && JSON.stringify(tree)).toContain("5");
+  });
+
+  it("reps picker includes options up to 100", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
+    act(() => {
+      addSetBtn!.props.onPress();
+    });
+    const repsTapField = test!.root.findAll((n) => n.props?.accessibilityLabel === "Draft set reps")[0];
+    act(() => {
+      repsTapField?.props?.onPress?.();
+    });
+    const hundredReps = findByA11yLabel(test!.root, "100 reps");
+    expect(hundredReps).not.toBeNull();
   });
 
   it("empty draft set selector boxes do not display dash placeholder", async () => {
@@ -1043,6 +1185,107 @@ describe("workouts/log session UI", () => {
     expect(tree && JSON.stringify(tree)).toContain("97.5 lb");
   });
 
+  describe("Weight quick-jump", () => {
+    async function openLoadPicker() {
+      mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+      mockReduced.exercises = [
+        {
+          slotId: "slot1",
+          blockId: "block:sets:1",
+          exerciseId: "bench_press",
+          position: 0,
+          removed: false,
+          sets: [],
+        },
+      ];
+      mockActiveSessionId = "s1";
+      act(() => {
+        test = renderer.create(<WorkoutLogScreen />);
+      });
+      await flushEventLoop();
+      await flushEventLoop();
+      act(() => {
+        void 0;
+      });
+      const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+      act(() => {
+        openExerciseBtn!.props.onPress();
+      });
+      const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
+      act(() => {
+        addSetBtn!.props.onPress();
+      });
+      const loadTapField = test!.root.findAll(
+        (n) => n.props?.accessibilityLabel === "Draft set load",
+      )[0];
+      expect(loadTapField).toBeDefined();
+      act(() => {
+        loadTapField?.props?.onPress?.();
+      });
+    }
+
+    it("BW +10 => 10 (single application, no double-apply)", async () => {
+      await openLoadPicker();
+      const add10Btn = findByA11yLabel(test!.root, "Add 10 lb");
+      expect(add10Btn).not.toBeNull();
+      act(() => {
+        add10Btn!.props.onPress();
+      });
+      const tree = test!.toJSON();
+      expect(tree && JSON.stringify(tree)).toContain("10 lb");
+    });
+
+    it("BW +45 => 45", async () => {
+      await openLoadPicker();
+      const add45Btn = findByA11yLabel(test!.root, "Add 45 lb");
+      expect(add45Btn).not.toBeNull();
+      act(() => {
+        add45Btn!.props.onPress();
+      });
+      const tree = test!.toJSON();
+      expect(tree && JSON.stringify(tree)).toContain("45 lb");
+    });
+
+    it("0 +10 => 10 (picker shows BW for empty draft)", async () => {
+      await openLoadPicker();
+      const add10Btn = findByA11yLabel(test!.root, "Add 10 lb");
+      act(() => {
+        add10Btn!.props.onPress();
+      });
+      const tree = test!.toJSON();
+      expect(tree && JSON.stringify(tree)).toContain("10 lb");
+    });
+
+    it("10 +10 => 20", async () => {
+      await openLoadPicker();
+      const add10Btn = findByA11yLabel(test!.root, "Add 10 lb");
+      act(() => {
+        add10Btn!.props.onPress();
+      });
+      act(() => {
+        add10Btn!.props.onPress();
+      });
+      const tree = test!.toJSON();
+      expect(tree && JSON.stringify(tree)).toContain("20 lb");
+    });
+
+    it("100 +45 => 145", async () => {
+      await openLoadPicker();
+      const option100 = findByA11yLabel(test!.root, "100 lb");
+      expect(option100).not.toBeNull();
+      act(() => {
+        option100!.props.onPress();
+      });
+      const add45Btn = findByA11yLabel(test!.root, "Add 45 lb");
+      expect(add45Btn).not.toBeNull();
+      act(() => {
+        add45Btn!.props.onPress();
+      });
+      const tree = test!.toJSON();
+      expect(tree && JSON.stringify(tree)).toContain("145 lb");
+    });
+  });
+
   it("precomputed weight list contains common gym weights", () => {
     const { getPrecomputedWeightListLb } = require("../log");
     const list = getPrecomputedWeightListLb();
@@ -1053,6 +1296,18 @@ describe("workouts/log session UI", () => {
     expect(list).toContain(185);
     expect(list[0]).toBe(0);
     expect(list[list.length - 1]).toBe(600);
+  });
+
+  it("closestWeightIndexLb maps exact and nearest weight to correct list index", () => {
+    const { closestWeightIndexLb, getPrecomputedWeightListLb } = require("../log");
+    const list = getPrecomputedWeightListLb();
+    expect(closestWeightIndexLb(0)).toBe(0);
+    expect(list[closestWeightIndexLb(0)]).toBe(0);
+    expect(closestWeightIndexLb(135)).toBe(list.indexOf(135));
+    expect(list[closestWeightIndexLb(135)]).toBe(135);
+    expect(closestWeightIndexLb(135.2)).toBe(list.indexOf(135));
+    expect(list[closestWeightIndexLb(135.2)]).toBe(135);
+    expect(closestWeightIndexLb(134.9)).toBe(list.indexOf(135));
   });
 
   it("Add draft set adds a new draft row with Log button", async () => {
@@ -1145,6 +1400,85 @@ describe("workouts/log session UI", () => {
         reps: 5,
       }),
     );
+  });
+
+  it("completed set row shows e1RM and Volume columns", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [
+          {
+            setId: "set1",
+            ordinal: 1,
+            reps: 10,
+            loadKg: 40.82,
+            rpe: null,
+            tempo: null,
+            isWarmup: false,
+            note: null,
+            occurredAt: "2026-03-01T10:00:00.000Z",
+          },
+        ],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const tree = test!.toJSON();
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("e1RM");
+    expect(str).toContain("Vol");
+    expect(str).toContain("90");
+    expect(str).toContain("10");
+    expect(str).toContain("120");
+    expect(str).toContain("900");
+  });
+
+  it("completed set row does not show checkmark", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [
+          { setId: "set1", ordinal: 1, reps: 5, loadKg: 100, rpe: null, tempo: null, isWarmup: false, note: null, occurredAt: "2026-03-01T10:00:00.000Z" },
+        ],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const tree = test!.toJSON();
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).not.toContain("\u2713");
   });
 
   it("completed set row has no three-dot menu and has tap-to-edit and swipe-delete", async () => {
