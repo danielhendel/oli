@@ -15,6 +15,7 @@ import {
   Animated,
   PanResponder,
 } from "react-native";
+import { WheelPicker } from "@/components/workouts/WheelPicker";
 
 if (
   typeof Platform !== "undefined" &&
@@ -29,12 +30,7 @@ import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
 import {
   buildExerciseMemory,
   type ExerciseMemoryMap,
-  type ExerciseSetSummary,
 } from "@/lib/workouts/memory/exerciseMemory";
-import {
-  getPreviousExerciseComparison,
-  type PreviousExerciseComparison,
-} from "@/lib/workouts/memory/previousWorkout";
 import {
   addExercise,
   abandonSession,
@@ -57,12 +53,18 @@ import {
 } from "@/lib/workouts/sessionEngine/activeSessionStorage";
 import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
+import { useRestTimer } from "@/lib/workouts/restTimer";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
+
+/** Epley e1RM = loadKg * (1 + reps/30). Same as lib/workouts/memory/exerciseHistory. */
+function epleyE1RmKg(loadKg: number, reps: number): number {
+  return loadKg * (1 + reps / 30);
+}
 
 /** Precomputed list of weights in lb (0 to 600 in 2.5 lb steps) for single-wheel picker. Exported for tests. */
 export function getPrecomputedWeightListLb(): number[] {
@@ -74,6 +76,32 @@ export function getPrecomputedWeightListLb(): number[] {
 }
 
 const PRECOMPUTED_WEIGHTS_LB = getPrecomputedWeightListLb();
+
+/** Reps 1–100 for wheel picker. */
+const REP_OPTIONS = Array.from({ length: 100 }, (_, i) => i + 1);
+/** "bw" plus 0–600 lb in 2.5 lb steps for wheel picker. */
+const LOAD_OPTIONS: (string | number)[] = ["bw", ...PRECOMPUTED_WEIGHTS_LB];
+/** Empty plus RPE 1–10 for wheel picker. */
+const RPE_OPTIONS: (number | "")[] = ["", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/** Return the index in PRECOMPUTED_WEIGHTS_LB of the weight closest to lb (for resolved display/selection). Exported for tests. */
+export function closestWeightIndexLb(lb: number): number {
+  let best = 0;
+  let bestDist = Math.abs(PRECOMPUTED_WEIGHTS_LB[0]! - lb);
+  for (let i = 1; i < PRECOMPUTED_WEIGHTS_LB.length; i++) {
+    const d = Math.abs(PRECOMPUTED_WEIGHTS_LB[i]! - lb);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** Nearest weight option in lb from precomputed list (for quick-jump). */
+function nearestWeightOptionLb(lb: number): number {
+  return PRECOMPUTED_WEIGHTS_LB[closestWeightIndexLb(lb)]!;
+}
 
 /** Format draft loadText for display in active row (e.g. "185 lb", "17.5 lb"). */
 function formatActiveWeightDisplay(loadText: string): string {
@@ -129,26 +157,6 @@ function blockHeaderLabel(type: BlockTypeId | null): string {
   if (type === "cooldown") return "Cool down";
   if (type === "cardio") return "Cardio";
   return "Block";
-}
-
-/** Format exercise "last" set for display. Read-only display helper. */
-function formatLastSetSummary(summary: ExerciseSetSummary | null | undefined): string {
-  if (!summary) return "No previous workout";
-  const loadStr = summary.loadKg != null && summary.loadKg > 0 ? `${(summary.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
-  return `${summary.reps} @ ${loadStr}`;
-}
-
-/** Format Last summary line above grid: "N × reps @ weight lb" with optional " · RPE n". */
-function formatLastSummaryWithRpe(
-  prev: PreviousExerciseComparison | null | undefined,
-  memoryLast: ExerciseSetSummary | null | undefined,
-): string {
-  const base =
-    prev?.summaryText ?? formatLastSetSummary(memoryLast);
-  if (base === "No previous workout") return base;
-  const firstSetRpe = prev?.setsByOrdinal?.[1]?.rpe;
-  if (firstSetRpe != null) return `${base} · RPE ${firstSetRpe}`;
-  return base;
 }
 
 const SWIPE_REVEAL_WIDTH = 72;
@@ -329,7 +337,7 @@ export default function WorkoutLogScreen() {
   const [confirmDeleteBlock, setConfirmDeleteBlock] = useState<{ blockId: string; title: string } | null>(null);
   const [finishModalVisible, setFinishModalVisible] = useState(false);
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
-  const [timerStubModalVisible, setTimerStubModalVisible] = useState(false);
+  const { panelVisible: restTimerPanelVisible, setPanelVisible: setRestTimerPanelVisible } = useRestTimer();
   const [expandedSlotId, setExpandedSlotId] = useState<string | null>(null);
   const [exerciseMenuSlotId, setExerciseMenuSlotId] = useState<string | null>(null);
   const [draftSetsBySlotId, setDraftSetsBySlotId] = useState<Record<string, DraftSet[]>>({});
@@ -351,9 +359,6 @@ export default function WorkoutLogScreen() {
     field: "reps" | "load" | "rpe";
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
-  const [previousComparisonByExerciseId, setPreviousComparisonByExerciseId] = useState<
-    Record<string, PreviousExerciseComparison | null>
-  >({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
 
   const isSignedIn = Boolean(user) && !initializing;
@@ -364,6 +369,49 @@ export default function WorkoutLogScreen() {
       : null;
   const reduced = sessionState?.reduced ?? null;
   const sessionId = sessionState?.sessionId ?? null;
+
+  /** Current value for the open Reps/Weight/RPE picker (draft or completed set); used as native Picker selectedValue. */
+  const currentPickerValue = useMemo(() => {
+    const open = draftFieldPicker ?? completedSetPicker;
+    if (!open) return null;
+    const field = open.field;
+    let currentReps: number | null = null;
+    let currentLoadLb: number | null = null;
+    let currentRpe: number | null = null;
+    if (draftFieldPicker) {
+      const draft = draftSetsBySlotId[draftFieldPicker.slotId]?.find((d) => d.id === draftFieldPicker.draftId);
+      if (draft) {
+        const r = parseInt(draft.repsText.trim(), 10);
+        currentReps = Number.isNaN(r) || r < 1 || r > 100 ? null : r;
+        const loadTrim = draft.loadText.trim();
+        currentLoadLb = loadTrim === "" ? null : parseFloat(loadTrim);
+        if (currentLoadLb !== null && Number.isNaN(currentLoadLb)) currentLoadLb = null;
+        const rpeNum = parseInt(draft.rpeText.trim(), 10);
+        currentRpe = Number.isNaN(rpeNum) || rpeNum < 1 || rpeNum > 10 ? null : rpeNum;
+      }
+    } else if (completedSetPicker && reduced?.exercises) {
+      const ex = reduced.exercises.find((e) => e.slotId === completedSetPicker.slotId);
+      const set = ex?.sets?.find((s) => s.setId === completedSetPicker.setId);
+      if (set) {
+        currentReps = set.reps >= 1 && set.reps <= 100 ? set.reps : null;
+        currentLoadLb = set.loadKg != null ? set.loadKg * LB_PER_KG : null;
+        currentRpe = set.rpe != null && set.rpe >= 1 && set.rpe <= 10 ? set.rpe : null;
+      }
+    }
+    /** For load: resolved list value in lb (BW = null/0); matches PRECOMPUTED_WEIGHTS_LB option. */
+    let resolvedWeightLb: number | null = null;
+    if (field === "load" && currentLoadLb != null && currentLoadLb > 0) {
+      const i = closestWeightIndexLb(currentLoadLb);
+      resolvedWeightLb = PRECOMPUTED_WEIGHTS_LB[i] ?? null;
+    }
+    return {
+      field,
+      currentReps,
+      currentLoadLb,
+      resolvedWeightLb,
+      currentRpe,
+    };
+  }, [draftFieldPicker, completedSetPicker, draftSetsBySlotId, reduced]);
 
   const canInteract = isSignedIn && ui.status !== "starting";
 
@@ -565,7 +613,14 @@ export default function WorkoutLogScreen() {
         });
         setDraftSetsBySlotId((prev) => {
           const list = prev[slotId] ?? [];
-          return { ...prev, [slotId]: list.filter((d) => d.id !== draft.id) };
+          const nextList = list.filter((d) => d.id !== draft.id);
+          const newDraft: DraftSet = {
+            id: `${slotId}:draft:${nextList.length}`,
+            repsText: String(reps),
+            loadText: draft.loadText.trim() !== "" ? draft.loadText.trim() : "",
+            rpeText: rpeVal != null ? String(rpeVal) : "",
+          };
+          return { ...prev, [slotId]: [...nextList, newDraft] };
         });
         await refreshReduced(user.uid, sessionId);
       } catch (e: unknown) {
@@ -655,35 +710,6 @@ export default function WorkoutLogScreen() {
       cancelled = true;
     };
   }, [user, initializing]);
-
-  const previousComparisonRequestedRef = useRef<Set<string>>(new Set());
-
-  // Load previous workout comparison when user expands an exercise (read-only).
-  useEffect(() => {
-    if (!user || !expandedSlotId || !reduced) return;
-    const ex = reduced.exercises.find((e) => e.slotId === expandedSlotId && !e.removed);
-    if (!ex || previousComparisonRequestedRef.current.has(ex.exerciseId)) return;
-    previousComparisonRequestedRef.current.add(ex.exerciseId);
-    let cancelled = false;
-    getPreviousExerciseComparison(user.uid, ex.exerciseId)
-      .then((comp) => {
-        if (!cancelled)
-          setPreviousComparisonByExerciseId((prev) => ({
-            ...prev,
-            [ex.exerciseId]: comp,
-          }));
-      })
-      .catch(() => {
-        if (!cancelled)
-          setPreviousComparisonByExerciseId((prev) => ({
-            ...prev,
-            [ex.exerciseId]: null,
-          }));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, expandedSlotId, reduced]);
 
   useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
@@ -925,63 +951,64 @@ export default function WorkoutLogScreen() {
                               </View>
                             </View>
                             <View style={styles.loggerInlineContent}>
-                              <Pressable
-                                style={styles.lastSummaryRow}
-                                onPress={() => {
-                                  router.push({
-                                    pathname: "/(app)/workouts/exercise-history",
-                                    params: { exerciseId: ex.exerciseId },
-                                  });
-                                }}
-                                accessibilityRole="button"
-                                accessibilityLabel={
-                                  (() => {
-                                    const summary = formatLastSummaryWithRpe(
-                                      previousComparisonByExerciseId[ex.exerciseId],
-                                      memory[ex.exerciseId]?.last,
-                                    );
-                                    return summary === "No previous workout"
-                                      ? "No previous workout"
-                                      : `Last workout ${summary}. Tap for exercise history.`;
-                                  })()
-                                }
-                              >
-                                <Text style={styles.lastSummaryLabel}>
-                                  Last:{" "}
-                                  {formatLastSummaryWithRpe(
-                                    previousComparisonByExerciseId[ex.exerciseId],
-                                    memory[ex.exerciseId]?.last,
-                                  )}
-                                </Text>
-                              </Pressable>
+                              <View style={styles.loggerUtilityRow}>
+                                <Pressable
+                                  onPress={() => {
+                                    setDraftSetsBySlotId((prev) => {
+                                      const list = prev[slotId] ?? [];
+                                      const id = `${slotId}:draft:${list.length}`;
+                                      return { ...prev, [slotId]: [...list, { id, repsText: "", loadText: "", rpeText: "" }] };
+                                    });
+                                  }}
+                                  style={styles.loggerUtilityAction}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Add draft set"
+                                >
+                                  <Text style={styles.loggerUtilityActionText}>+ Set</Text>
+                                </Pressable>
+                                <Pressable
+                                  onPress={() => {
+                                    router.push({
+                                      pathname: "/(app)/workouts/exercise-history",
+                                      params: { exerciseId: ex.exerciseId },
+                                    });
+                                  }}
+                                  style={styles.loggerUtilityAction}
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Exercise history"
+                                >
+                                  <Text style={styles.loggerUtilityActionText}>History</Text>
+                                </Pressable>
+                              </View>
                               <View style={styles.setListInModal}>
                               <View style={styles.setGridHeader}>
-                                <Text style={[styles.setGridHeaderCell, styles.setColSet]}>Set</Text>
-                                <Text style={[styles.setGridHeaderCell, styles.setColReps]}>Reps</Text>
-                                <Text style={[styles.setGridHeaderCell, styles.setColWeight]}>Weight</Text>
-                                <Text style={[styles.setGridHeaderCell, styles.setColRpe]}>RPE</Text>
-                                <View style={[styles.setColAction, styles.setGridHeaderActionCell]}>
-                                  <Pressable
-                                    onPress={() => {
-                                      setDraftSetsBySlotId((prev) => {
-                                        const list = prev[slotId] ?? [];
-                                        const id = `${slotId}:draft:${list.length}`;
-                                        return { ...prev, [slotId]: [...list, { id, repsText: "", loadText: "", rpeText: "" }] };
-                                      });
-                                    }}
-                                    style={styles.addSetInHeaderBtn}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Add draft set"
-                                  >
-                                    <Text style={styles.addSetHeaderLinkText} numberOfLines={1}>
-                                      + Add Set
-                                    </Text>
-                                  </Pressable>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setGridHeaderCellWrapSet, styles.setColSet]}>
+                                  <Text style={[styles.setGridHeaderCell, styles.setGridHeaderCellSet]}>Set</Text>
+                                </View>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setColReps]}>
+                                  <Text style={styles.setGridHeaderCell}>Reps</Text>
+                                </View>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setColWeight]}>
+                                  <Text style={styles.setGridHeaderCell}>Weight</Text>
+                                </View>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setColRpe]}>
+                                  <Text style={styles.setGridHeaderCell}>RPE</Text>
+                                </View>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setColE1rm]}>
+                                  <Text style={styles.setGridHeaderCell}>e1RM</Text>
+                                </View>
+                                <View style={[styles.setGridHeaderCellWrap, styles.setColVol]}>
+                                  <Text style={styles.setGridHeaderCell}>Vol</Text>
                                 </View>
                               </View>
                               {loggedSets.map((s) => {
                                 const lbDisplay =
                                   s.loadKg != null ? `${(s.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
+                                const hasLoad = s.loadKg != null && s.loadKg > 0;
+                                const e1RmKg = hasLoad ? epleyE1RmKg(s.loadKg!, s.reps) : null;
+                                const e1RmStr = e1RmKg != null ? `${Math.round(e1RmKg * LB_PER_KG)}` : "—";
+                                const volumeKg = hasLoad ? s.reps * s.loadKg! : 0;
+                                const volStr = volumeKg > 0 ? `${Math.round(volumeKg * LB_PER_KG)}` : "—";
                                 return (
                                   <SwipeableSetRow
                                     key={s.setId}
@@ -1026,9 +1053,12 @@ export default function WorkoutLogScreen() {
                                             {s.rpe != null ? String(s.rpe) : ""}
                                           </Text>
                                         </Pressable>
-                                        <View style={[styles.setActionCell, styles.setColAction]}>
-                                          <Text style={styles.setActionCellCheckmark}>✓</Text>
-                                        </View>
+                                        <Text style={[styles.setDataCell, styles.setDataCellE1rm, styles.setColE1rm]} numberOfLines={1}>
+                                          {e1RmStr}
+                                        </Text>
+                                        <Text style={[styles.setDataCell, styles.setDataCellVol, styles.setColVol]} numberOfLines={1}>
+                                          {volStr}
+                                        </Text>
                                       </>
                                     }
                                   />
@@ -1045,60 +1075,45 @@ export default function WorkoutLogScreen() {
                                       onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "reps" })}
                                       style={({ pressed }) => [
                                         styles.draftTapTarget,
-                                        styles.setColReps,
                                         pressed && styles.draftTapTargetPressed,
                                       ]}
                                       accessibilityRole="button"
                                       accessibilityLabel="Draft set reps"
                                     >
                                       {d.repsText.trim() ? (
-                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                          {d.repsText.trim()}
-                                        </Text>
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>{d.repsText.trim()}</Text>
                                       ) : (
-                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                          Reps
-                                        </Text>
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>Reps</Text>
                                       )}
                                     </Pressable>
                                     <Pressable
                                       onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
                                       style={({ pressed }) => [
                                         styles.draftTapTarget,
-                                        styles.setColWeight,
                                         pressed && styles.draftTapTargetPressed,
                                       ]}
                                       accessibilityRole="button"
                                       accessibilityLabel="Draft set load"
                                     >
                                       {d.loadText.trim() ? (
-                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                          {formatActiveWeightDisplay(d.loadText)}
-                                        </Text>
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>{formatActiveWeightDisplay(d.loadText)}</Text>
                                       ) : (
-                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                          Weight
-                                        </Text>
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>Weight</Text>
                                       )}
                                     </Pressable>
                                     <Pressable
                                       onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "rpe" })}
                                       style={({ pressed }) => [
                                         styles.draftTapTarget,
-                                        styles.setColRpe,
                                         pressed && styles.draftTapTargetPressed,
                                       ]}
                                       accessibilityRole="button"
                                       accessibilityLabel="Draft set RPE"
                                     >
                                       {d.rpeText.trim() ? (
-                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>
-                                          {d.rpeText.trim()}
-                                        </Text>
+                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>{d.rpeText.trim()}</Text>
                                       ) : (
-                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>
-                                          RPE
-                                        </Text>
+                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>RPE</Text>
                                       )}
                                     </Pressable>
                                     <View style={styles.setColActionWrap}>
@@ -1164,43 +1179,40 @@ export default function WorkoutLogScreen() {
                         ? "Weight (lb)"
                         : "RPE"}
                   </Text>
-                  <ScrollView
-                    style={styles.draftPickerScroll}
-                    contentContainerStyle={styles.draftPickerScrollContent}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "reps" &&
-                      Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
-                        <Pressable
-                          key={n}
-                          style={styles.draftPickerOption}
-                          onPress={() => {
-                            if (draftFieldPicker) {
-                              setDraftSetsBySlotId((prev) => {
-                                const list = prev[draftFieldPicker.slotId] ?? [];
-                                const next = list.map((x) =>
-                                  x.id === draftFieldPicker.draftId ? { ...x, repsText: String(n) } : x,
-                                );
-                                return { ...prev, [draftFieldPicker.slotId]: next };
-                              });
-                              setDraftFieldPicker(null);
-                            } else if (completedSetPicker) {
-                              void onCompletedSetFieldSelect(completedSetPicker.setId, "reps", {
-                                reps: n,
-                              });
-                            }
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${n} reps`}
-                        >
-                          <Text style={styles.draftPickerOptionText}>{n}</Text>
-                        </Pressable>
-                      ))}
+                  <View style={styles.draftPickerNativeContainer}>
+                    {(draftFieldPicker?.field ?? completedSetPicker?.field) === "reps" && (
+                      <WheelPicker<number>
+                        testID="reps-picker"
+                        data={REP_OPTIONS}
+                        value={currentPickerValue?.currentReps ?? 1}
+                        onValueChange={(n) => {
+                          if (draftFieldPicker) {
+                            setDraftSetsBySlotId((prev) => {
+                              const list = prev[draftFieldPicker.slotId] ?? [];
+                              const next = list.map((x) =>
+                                x.id === draftFieldPicker.draftId ? { ...x, repsText: String(n) } : x,
+                              );
+                              return { ...prev, [draftFieldPicker.slotId]: next };
+                            });
+                          } else if (completedSetPicker) {
+                            void onCompletedSetFieldSelect(completedSetPicker.setId, "reps", { reps: n });
+                          }
+                        }}
+                        getOptionLabel={(n) => `${n} reps`}
+                        getDisplayLabel={(n) => String(n)}
+                      />
+                    )}
                     {(draftFieldPicker?.field ?? completedSetPicker?.field) === "load" && (
-                      <>
-                        <Pressable
-                          style={styles.draftPickerOption}
-                          onPress={() => {
+                      <WheelPicker<string | number>
+                        testID="load-picker"
+                        data={LOAD_OPTIONS}
+                        value={
+                          currentPickerValue?.resolvedWeightLb == null || currentPickerValue?.resolvedWeightLb === 0
+                            ? "bw"
+                            : currentPickerValue!.resolvedWeightLb
+                        }
+                        onValueChange={(v) => {
+                          if (v === "bw") {
                             if (draftFieldPicker) {
                               setDraftSetsBySlotId((prev) => {
                                 const list = prev[draftFieldPicker.slotId] ?? [];
@@ -1209,56 +1221,76 @@ export default function WorkoutLogScreen() {
                                 );
                                 return { ...prev, [draftFieldPicker.slotId]: next };
                               });
-                              setDraftFieldPicker(null);
                             } else if (completedSetPicker) {
-                              void onCompletedSetFieldSelect(completedSetPicker.setId, "load", {
-                                loadKg: 0,
-                              });
+                              void onCompletedSetFieldSelect(completedSetPicker.setId, "load", { loadKg: 0 });
                             }
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel="Body weight"
-                        >
-                          <Text style={styles.draftPickerOptionText}>BW</Text>
-                        </Pressable>
-                        {PRECOMPUTED_WEIGHTS_LB.map((w) => (
-                          <Pressable
-                            key={w}
-                            style={styles.draftPickerOption}
-                            onPress={() => {
-                              const loadKg = w * KG_PER_LB;
-                              if (draftFieldPicker) {
-                                setDraftSetsBySlotId((prev) => {
-                                  const list = prev[draftFieldPicker.slotId] ?? [];
-                                  const next = list.map((x) =>
-                                    x.id === draftFieldPicker.draftId
-                                      ? { ...x, loadText: Number.isInteger(w) ? String(w) : String(w) }
-                                      : x,
-                                  );
-                                  return { ...prev, [draftFieldPicker.slotId]: next };
-                                });
-                                setDraftFieldPicker(null);
-                              } else if (completedSetPicker) {
-                                void onCompletedSetFieldSelect(completedSetPicker.setId, "load", {
-                                  loadKg,
-                                });
-                              }
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel={w === 0 ? "0 lb" : `${w} lb`}
-                          >
-                            <Text style={styles.draftPickerOptionText}>
-                              {w === 0 ? "0" : Number.isInteger(w) ? String(w) : String(w)}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </>
+                          } else {
+                            const lb = typeof v === "number" ? v : parseFloat(String(v));
+                            const loadKg = lb * KG_PER_LB;
+                            if (draftFieldPicker) {
+                              setDraftSetsBySlotId((prev) => {
+                                const list = prev[draftFieldPicker.slotId] ?? [];
+                                const next = list.map((x) =>
+                                  x.id === draftFieldPicker.draftId ? { ...x, loadText: String(lb) } : x,
+                                );
+                                return { ...prev, [draftFieldPicker.slotId]: next };
+                              });
+                            } else if (completedSetPicker) {
+                              void onCompletedSetFieldSelect(completedSetPicker.setId, "load", { loadKg });
+                            }
+                          }
+                        }}
+                        getOptionLabel={(v) => (v === "bw" ? "Body weight" : `${v} lb`)}
+                        getDisplayLabel={(v) => (v === "bw" ? "BW" : String(v))}
+                        quickJumpLeft={[
+                          {
+                            label: "+5",
+                            accessibilityLabel: "Add 5 lb",
+                            resolve: (v) => {
+                              const baseLb = v === "bw" ? 0 : typeof v === "number" ? v : parseFloat(String(v));
+                              if (v !== "bw" && typeof v !== "number" && !Number.isFinite(baseLb)) return null;
+                              return nearestWeightOptionLb(baseLb + 5);
+                            },
+                          },
+                          {
+                            label: "+10",
+                            accessibilityLabel: "Add 10 lb",
+                            resolve: (v) => {
+                              const baseLb = v === "bw" ? 0 : typeof v === "number" ? v : parseFloat(String(v));
+                              if (v !== "bw" && typeof v !== "number" && !Number.isFinite(baseLb)) return null;
+                              return nearestWeightOptionLb(baseLb + 10);
+                            },
+                          },
+                        ]}
+                        quickJumpRight={[
+                          {
+                            label: "+25",
+                            accessibilityLabel: "Add 25 lb",
+                            resolve: (v) => {
+                              const baseLb = v === "bw" ? 0 : typeof v === "number" ? v : parseFloat(String(v));
+                              if (v !== "bw" && typeof v !== "number" && !Number.isFinite(baseLb)) return null;
+                              return nearestWeightOptionLb(baseLb + 25);
+                            },
+                          },
+                          {
+                            label: "+45",
+                            accessibilityLabel: "Add 45 lb",
+                            resolve: (v) => {
+                              const baseLb = v === "bw" ? 0 : typeof v === "number" ? v : parseFloat(String(v));
+                              if (v !== "bw" && typeof v !== "number" && !Number.isFinite(baseLb)) return null;
+                              return nearestWeightOptionLb(baseLb + 45);
+                            },
+                          },
+                        ]}
+                      />
                     )}
                     {(draftFieldPicker?.field ?? completedSetPicker?.field) === "rpe" && (
-                      <>
-                        <Pressable
-                          style={styles.draftPickerOption}
-                          onPress={() => {
+                      <WheelPicker<number | "">
+                        testID="rpe-picker"
+                        data={RPE_OPTIONS}
+                        value={currentPickerValue?.currentRpe ?? 1}
+                        onValueChange={(v) => {
+                          if (v === "") {
                             if (draftFieldPicker) {
                               setDraftSetsBySlotId((prev) => {
                                 const list = prev[draftFieldPicker.slotId] ?? [];
@@ -1267,45 +1299,40 @@ export default function WorkoutLogScreen() {
                                 );
                                 return { ...prev, [draftFieldPicker.slotId]: next };
                               });
-                              setDraftFieldPicker(null);
                             } else if (completedSetPicker) {
                               setCompletedSetPicker(null);
                             }
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel="No RPE"
-                        >
-                          <Text style={styles.draftPickerOptionText}>—</Text>
-                        </Pressable>
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                          <Pressable
-                            key={n}
-                            style={styles.draftPickerOption}
-                            onPress={() => {
-                              if (draftFieldPicker) {
-                                setDraftSetsBySlotId((prev) => {
-                                  const list = prev[draftFieldPicker.slotId] ?? [];
-                                  const next = list.map((x) =>
-                                    x.id === draftFieldPicker.draftId ? { ...x, rpeText: String(n) } : x,
-                                  );
-                                  return { ...prev, [draftFieldPicker.slotId]: next };
-                                });
-                                setDraftFieldPicker(null);
-                              } else if (completedSetPicker) {
-                                void onCompletedSetFieldSelect(completedSetPicker.setId, "rpe", {
-                                  rpe: n,
-                                });
-                              }
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel={`RPE ${n}`}
-                          >
-                            <Text style={styles.draftPickerOptionText}>{n}</Text>
-                          </Pressable>
-                        ))}
-                      </>
+                          } else {
+                            const rpe = typeof v === "number" ? v : parseInt(String(v), 10);
+                            if (draftFieldPicker) {
+                              setDraftSetsBySlotId((prev) => {
+                                const list = prev[draftFieldPicker.slotId] ?? [];
+                                const next = list.map((x) =>
+                                  x.id === draftFieldPicker.draftId ? { ...x, rpeText: String(rpe) } : x,
+                                );
+                                return { ...prev, [draftFieldPicker.slotId]: next };
+                              });
+                            } else if (completedSetPicker) {
+                              void onCompletedSetFieldSelect(completedSetPicker.setId, "rpe", { rpe });
+                            }
+                          }
+                        }}
+                        getOptionLabel={(v) => (v === "" ? "No RPE" : `RPE ${v}`)}
+                        getDisplayLabel={(v) => (v === "" ? "—" : String(v))}
+                      />
                     )}
-                  </ScrollView>
+                  </View>
+                  <Pressable
+                    style={styles.draftPickerDoneBtn}
+                    onPress={() => {
+                      setDraftFieldPicker(null);
+                      setCompletedSetPicker(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                  >
+                    <Text style={styles.draftPickerDoneBtnText}>Done</Text>
+                  </Pressable>
                 </Pressable>
               </Pressable>
             </Modal>
@@ -1544,7 +1571,7 @@ export default function WorkoutLogScreen() {
               <Text style={styles.finishBtnText}>Finish</Text>
             </Pressable>
             <Pressable
-              onPress={() => setTimerStubModalVisible(true)}
+              onPress={() => setRestTimerPanelVisible(!restTimerPanelVisible)}
               style={styles.circleBtn}
               accessibilityRole="button"
               accessibilityLabel="Timer"
@@ -1768,36 +1795,15 @@ export default function WorkoutLogScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
-        visible={timerStubModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setTimerStubModalVisible(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setTimerStubModalVisible(false)}>
-          <Pressable style={styles.confirmModalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.confirmModalTitle}>Timer coming next</Text>
-            <Pressable
-              onPress={() => setTimerStubModalVisible(false)}
-              style={styles.secondaryBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text style={styles.secondaryBtnText}>Close</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
 
-/** Shared 5-column layout: Set | Reps | Weight | RPE | Action. Data columns fixed; Action takes remaining width. */
-const GRID_COL_SET = 36;
-const GRID_COL_REPS = 64;
-const GRID_COL_WEIGHT = 92;
-const GRID_COL_RPE = 56;
-const GRID_COL_ACTION_MIN = 72;
+/** Set grid: Set | Reps | Weight | RPE | e1RM | Vol. Active row adds Log column. Weight/e1RM/Vol flex to fill. */
+const GRID_COL_SET = 26;
+const GRID_COL_REPS = 42;
+const GRID_COL_RPE = 38;
+const GRID_COL_ACTION_MIN = 64;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F2F2F7" },
@@ -2181,47 +2187,61 @@ const styles = StyleSheet.create({
   exerciseLoggerScrollContent: { padding: 16, paddingBottom: 32 },
   exerciseLoggerName: { fontSize: 22, fontWeight: "800", color: "#1C1C1E", marginBottom: 4 },
   exerciseLoggerBlockLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  lastSummaryRow: { marginTop: 16, marginBottom: 16 },
-  lastSummaryLabel: { fontSize: 14, color: "#6E6E73" },
+  loggerUtilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 12,
+    marginBottom: 14,
+    paddingVertical: 8,
+  },
+  loggerUtilityAction: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loggerUtilityActionText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#FF3B30",
+  },
   setListInModal: { gap: 4, marginBottom: 12 },
   setGridHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 0,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     marginBottom: 6,
+  },
+  setGridHeaderCellWrap: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  setGridHeaderCellWrapSet: {
+    alignItems: "flex-start",
   },
   setGridHeaderCell: {
     fontSize: 12,
     fontWeight: "600",
     color: "#8A8A8F",
     letterSpacing: 0.3,
+    textAlign: "center",
   },
-  setGridHeaderActionCell: {
-    minWidth: GRID_COL_ACTION_MIN,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  addSetInHeaderBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    minHeight: 36,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addSetHeaderLinkText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#007AFF",
-    letterSpacing: 0.3,
+  setGridHeaderCellSet: {
+    textAlign: "left",
   },
   setColSet: { width: GRID_COL_SET },
   setColReps: { width: GRID_COL_REPS },
-  setColWeight: { width: GRID_COL_WEIGHT },
+  setColWeight: { flex: 1, minWidth: 68 },
   setColRpe: { width: GRID_COL_RPE },
+  setColE1rm: { flex: 1, minWidth: 48 },
+  setColVol: { flex: 1, minWidth: 44 },
   setColAction: { minWidth: GRID_COL_ACTION_MIN, flex: 1 },
+  setDataCellE1rm: { fontWeight: "600" },
+  setDataCellVol: { fontWeight: "600" },
+  setPlaceholderCell: { minHeight: 40, justifyContent: "center" },
   swipeableRowWrap: {
     minHeight: 40,
     overflow: "hidden",
@@ -2255,37 +2275,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 40,
     paddingVertical: 6,
-    paddingHorizontal: 8,
-    gap: 0,
+    paddingHorizontal: 10,
+    gap: 6,
     backgroundColor: "#F7F7F8",
     borderRadius: 10,
   },
   setDataCellTouchable: {
     justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 2,
   },
-  setActionCell: {
-    minWidth: GRID_COL_ACTION_MIN,
-    flex: 1,
-    minHeight: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  setActionCellCheckmark: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#34C759",
-  },
-  setOrdinalCell: { fontSize: 16, fontWeight: "600", color: "#6B7280" },
-  setDataCell: { fontSize: 17, fontWeight: "600", color: "#6B7280" },
+  setOrdinalCell: { fontSize: 15, fontWeight: "500", color: "#6B7280", textAlign: "left" },
+  setDataCell: { fontSize: 15, fontWeight: "500", color: "#6B7280", textAlign: "center" },
   setRowActive: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 42,
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    gap: 0,
-    marginTop: 4,
+    minHeight: 48,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 6,
+    marginTop: 8,
   },
   draftInput: {
     flex: 0,
@@ -2312,24 +2321,38 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   draftTapTarget: {
-    minHeight: 42,
+    flex: 1,
+    minWidth: 52,
+    minHeight: 44,
     justifyContent: "center",
-    alignItems: "flex-start",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E5E5EA",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    ...(Platform.OS === "android" ? { elevation: 2 } : {}),
   },
   draftTapTargetPressed: {
-    opacity: 0.7,
+    opacity: 0.92,
+    backgroundColor: "#F5F5F7",
   },
   draftTapFieldLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#007AFF",
-    textAlign: "left",
-  },
-  draftTapFieldValue: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: "600",
     color: "#1C1C1E",
-    textAlign: "left",
+    textAlign: "center",
+  },
+  draftTapFieldValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    textAlign: "center",
   },
   draftPickerSheet: {
     backgroundColor: "#FFFFFF",
@@ -2340,20 +2363,33 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     maxHeight: "70%",
   },
-  draftPickerScroll: { maxHeight: 400 },
-  draftPickerScrollContent: { paddingBottom: 24, alignItems: "center" },
-  draftPickerOption: {
+  draftPickerNativeContainer: {
+    minHeight: 220,
+    marginVertical: 8,
+  },
+  draftPickerNative: {
+    flex: 1,
+  },
+  draftPickerNativeItem: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
+  draftPickerDoneBtn: {
+    alignSelf: "stretch",
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
-    alignSelf: "stretch",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 10,
+    marginTop: 8,
   },
-  draftPickerOptionText: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
+  draftPickerDoneBtnText: { fontSize: 17, fontWeight: "600", color: "#007AFF" },
   logDraftBtn: {
     width: 56,
-    height: 42,
+    minHeight: 44,
     paddingVertical: 0,
     paddingHorizontal: 0,
     justifyContent: "center",
@@ -2362,11 +2398,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   setColActionWrap: {
-    minWidth: GRID_COL_ACTION_MIN,
-    flex: 1,
+    width: 56,
+    flex: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
   },
   logDraftBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
   addSetRow: {

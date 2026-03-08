@@ -35,7 +35,7 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     case "workouts.overview":
       return READY;
     case "workouts.log":
-      return SOON("Soon");
+      return READY;
     case "workouts.history":
       return SOON("Soon");
 

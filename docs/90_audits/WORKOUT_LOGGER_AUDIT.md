@@ -5,6 +5,10 @@
 **Rules:** Repo-truth only; code over docs; no invented schemas; Oli boundaries respected.  
 **No implementation:** Audit only.
 
+**Update (Sprint 13.1):** Canonical strength logging path set to workouts/log; Command Center Strength "Log" redirects there. See `docs/90_audits/SPRINT_13_1_CANONICAL_LOG_DECISION.md`.
+
+**Update (Sprint 13.2):** Exercise history/details implemented: `lib/workouts/memory/exerciseHistory.ts`, `lib/workouts/hooks/useExerciseHistory.ts`, and real `app/(app)/workouts/exercise-history.tsx` (journal-only; no charts).
+
 ---
 
 ## A. Sprint / module truth

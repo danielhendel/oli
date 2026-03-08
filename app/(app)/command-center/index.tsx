@@ -1167,11 +1167,10 @@ export default function CommandCenterScreen(props: Props) {
           onPressFailures={() => router.push("/(app)/failures")}
         />
 
+        {/* Canonical strength logging: workouts/log (journal + catalog). */}
         <StrengthSection
           model={strengthModel}
-          onPressLog={() =>
-            router.push({ pathname: "/(app)/training/strength/log", params: { day: dayKey } })
-          }
+          onPressLog={() => router.push("/(app)/workouts/log")}
           onPressFailures={() => router.push("/(app)/failures")}
         />
 

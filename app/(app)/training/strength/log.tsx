@@ -1,4 +1,7 @@
 // app/(app)/training/strength/log.tsx
+// Secondary path: API-ingest form (free-text exercise names, POST /ingest strength_workout).
+// Primary strength logging is workouts/log (journal + catalog). Keep this screen for
+// backfill/specialized entry; no main nav entry after Sprint 13.1.
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
