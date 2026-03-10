@@ -66,6 +66,43 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
+let mockSelectedGymId: string | null = null;
+let mockNextGymSaveShouldFail = false;
+let mockPrefStatus: "ready" | "error" = "ready";
+let mockPrefMessage = "";
+jest.mock("@/lib/preferences/PreferencesProvider", () => ({
+  usePreferences: () => ({
+    state:
+      mockPrefStatus === "error"
+        ? {
+            status: "error" as const,
+            preferences: {
+              units: { mass: "lb" as const },
+              timezone: { mode: "recorded" as const },
+              selectedGymId: null,
+            },
+            message: mockPrefMessage,
+          }
+        : {
+            status: "ready" as const,
+            preferences: {
+              units: { mass: "lb" as const },
+              timezone: { mode: "recorded" as const },
+              selectedGymId: mockSelectedGymId,
+            },
+          },
+    refresh: jest.fn(),
+    setMassUnit: jest.fn(),
+    setSelectedGymId: jest.fn(async (id: string | null) => {
+      if (mockNextGymSaveShouldFail) {
+        mockNextGymSaveShouldFail = false;
+        throw new Error("mock save failed");
+      }
+      mockSelectedGymId = id;
+    }),
+  }),
+}));
+
 jest.mock("@/lib/workouts/sessionEngine/commands", () => ({
   createSessionDraft: jest.fn().mockResolvedValue({ sessionId: "s1" }),
   startSession: jest.fn().mockResolvedValue(undefined),
@@ -134,6 +171,10 @@ jest.mock("@/lib/workouts/restTimer", () => ({
   useRestTimer: () => ({ panelVisible: false, setPanelVisible: jest.fn() }),
 }));
 
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaView: "SafeAreaView",
+}));
+
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: function MockIonicons() {
     return require("react").createElement("View", { testID: "mock-icon" });
@@ -181,6 +222,11 @@ describe("workouts/log session UI", () => {
     mockReduced.exercises = [];
     mockExerciseMemory = {};
     mockPreviousComparison = {};
+    mockSelectedGymId = null;
+    mockNextGymSaveShouldFail = false;
+    mockSelectedGymId = null;
+    mockPrefStatus = "ready";
+    mockPrefMessage = "";
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
     mockScrollTo.mockClear();
@@ -199,11 +245,125 @@ describe("workouts/log session UI", () => {
     expect(startBtn).not.toBeNull();
   });
 
+  it("idle start screen shows gym selector area", () => {
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    expect(gymSelector).not.toBeNull();
+  });
+
+  it("idle start screen shows workout name input", () => {
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const nameInput = findByA11yLabel(test!.root, "Workout name (optional)");
+    expect(nameInput).not.toBeNull();
+  });
+
+  it("idle start screen back control renders", () => {
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const backBtn = findByA11yLabel(test!.root, "Back");
+    expect(backBtn).not.toBeNull();
+  });
+
+  it("selecting Edge Fitness gym updates visible gym label", async () => {
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    expect(gymSelector).not.toBeNull();
+
+    act(() => {
+      gymSelector!.props.onPress();
+    });
+
+    const edgeOption = findByA11yLabel(test!.root, "Gym: Edge Fitness Manchester CT");
+    expect(edgeOption).not.toBeNull();
+
+    act(() => {
+      edgeOption!.props.onPress();
+    });
+    await flushEventLoop();
+
+    const updatedGymSelector = findByA11yLabelPrefix(test!.root, "Gym: Edge Fitness Manchester CT");
+    expect(updatedGymSelector).not.toBeNull();
+  });
+
+  it("when gym save fails, error message is shown and Start Workout visible gym label does not revert", async () => {
+    mockNextGymSaveShouldFail = true;
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    expect(gymSelector).not.toBeNull();
+
+    act(() => {
+      gymSelector!.props.onPress();
+    });
+
+    const edgeOption = findByA11yLabel(test!.root, "Gym: Edge Fitness Manchester CT");
+    expect(edgeOption).not.toBeNull();
+
+    act(() => {
+      edgeOption!.props.onPress();
+    });
+    await flushEventLoop();
+
+    const errorNode = findByA11yLabel(test!.root, "Gym save error");
+    expect(errorNode).not.toBeNull();
+    const gymRowAfter = findByA11yLabelPrefix(test!.root, "Gym: Edge Fitness Manchester CT");
+    expect(gymRowAfter).not.toBeNull();
+  });
+
+  it("when preferences state is error, Start Workout shows gym save error with generic message", () => {
+    mockPrefStatus = "error";
+    mockPrefMessage = "No auth token (try Debug → Re-auth)";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const errorNode = findByA11yLabel(test!.root, "Gym save error");
+    expect(errorNode).not.toBeNull();
+    const content = errorNode!.props.children;
+    expect(String(content)).toContain("Gym preference couldn't be saved. You can still start your workout.");
+  });
+
+  it("after gym save fails, Start workout remains usable and starts session", async () => {
+    mockNextGymSaveShouldFail = true;
+    commands.createSessionDraft.mockClear();
+    commands.startSession.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    act(() => {
+      gymSelector!.props.onPress();
+    });
+    const edgeOption = findByA11yLabel(test!.root, "Gym: Edge Fitness Manchester CT");
+    act(() => {
+      edgeOption!.props.onPress();
+    });
+    await flushEventLoop();
+    expect(findByA11yLabel(test!.root, "Gym save error")).not.toBeNull();
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
+    expect(startBtn!.props.disabled).not.toBe(true);
+    act(() => {
+      startBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.createSessionDraft).toHaveBeenCalled();
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1");
+  });
+
   it("renders Active set card when active session has one block and one exercise", async () => {
     // Active set card UI has been removed in WL-UX2-clean; this test is no longer applicable.
   });
 
-  it("pressing Start workout calls createSessionDraft + startSession", () => {
+  it("pressing Start workout calls createSessionDraft + startSession", async () => {
     act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
@@ -212,7 +372,10 @@ describe("workouts/log session UI", () => {
     act(() => {
       startBtn!.props.onPress();
     });
+    await flushEventLoop();
+    await flushEventLoop();
     expect(commands.createSessionDraft).toHaveBeenCalled();
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1");
   });
 
   it("shows Add block when active with zero blocks (empty exercises)", async () => {
@@ -292,6 +455,43 @@ describe("workouts/log session UI", () => {
     });
     const addExerciseSets = findByA11yLabel(test!.root, "Add exercise Sets");
     expect(addExerciseSets).not.toBeNull();
+  });
+
+  it("navigation to exercise picker includes workout-flow gym when gym was selected on Start Workout", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockRouterPush.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    act(() => {
+      gymSelector!.props.onPress();
+    });
+    const edgeOption = findByA11yLabel(test!.root, "Gym: Edge Fitness Manchester CT");
+    act(() => {
+      edgeOption!.props.onPress();
+    });
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    act(() => {
+      startBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const addExerciseSets = findByA11yLabel(test!.root, "Add exercise Sets");
+    expect(addExerciseSets).not.toBeNull();
+    act(() => {
+      addExerciseSets!.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: "/(app)/workouts/exercise-picker",
+        params: expect.objectContaining({
+          sessionId: "s1",
+          blockId: "block:sets:1",
+          gymId: "edge_fitness_manchester_ct",
+        }),
+      }),
+    );
   });
 
   it("renders block header and exercise row with N sets summary when sets exist", async () => {

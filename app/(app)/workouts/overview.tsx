@@ -12,6 +12,8 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules,
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import {
@@ -145,6 +147,7 @@ export default function TrainingOverviewScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const { user, initializing, getIdToken } = useAuth();
+  const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [lastSyncAt, setLastSyncAtState] = useState<string | null>(null);
@@ -431,6 +434,10 @@ export default function TrainingOverviewScreen() {
         </View>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Workout log</Text>
+          <View style={styles.gymRow}>
+            <Text style={styles.metricLabel}>Gym</Text>
+            <Text style={styles.gymLabel}>{getGymLabel(prefState.preferences?.selectedGymId ?? null)}</Text>
+          </View>
           <Text style={styles.statusText}>
             Log sets as you train. Offline-first, append-only session journal.
           </Text>
@@ -568,7 +575,26 @@ export default function TrainingOverviewScreen() {
         >
           <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
             <Text style={styles.menuTitle}>Workouts</Text>
-            <Text style={styles.placeholder}>Menu options coming soon.</Text>
+            <Text style={styles.menuSectionLabel}>Gym</Text>
+            {getGymMenuOptions().map((opt) => {
+              const selected =
+                (opt.value === null && prefState.preferences.selectedGymId === null) ||
+                (opt.value !== null && prefState.preferences.selectedGymId === opt.value);
+              return (
+                <Pressable
+                  key={opt.value ?? "none"}
+                  onPress={() => {
+                    setSelectedGymId(opt.value);
+                  }}
+                  style={[styles.menuOptionRow, selected && styles.menuOptionRowSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Gym: ${opt.label}${selected ? ", selected" : ""}`}
+                >
+                  <Text style={styles.menuOptionLabel}>{opt.label}</Text>
+                  {selected ? <Text style={styles.menuOptionCheck}>✓</Text> : null}
+                </Pressable>
+              );
+            })}
             <Pressable
               onPress={() => setMenuOpen(false)}
               style={styles.primaryBtn}
@@ -628,6 +654,8 @@ const styles = StyleSheet.create({
     color: "#6E6E73",
     textTransform: "uppercase",
   },
+  gymRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  gymLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   headerMenuBtn: { padding: 12 },
   headerMenuText: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
   chip: {
@@ -679,4 +707,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
+  menuSectionLabel: { fontSize: 13, fontWeight: "600", color: "#6E6E73", marginTop: 4, marginBottom: 6 },
+  menuOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.2)",
+  },
+  menuOptionRowSelected: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)" },
+  menuOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
+  menuOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
 });

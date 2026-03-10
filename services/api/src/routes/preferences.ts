@@ -59,6 +59,7 @@ const preferencesPatchSchema = z
         explicitIana: z.string().min(1).optional(),
       })
       .optional(),
+    selectedGymId: z.string().nullable().optional(),
   })
   .strip();
 
@@ -110,7 +111,9 @@ router.get(
       return;
     }
 
-    const parsed = preferencesSchema.safeParse(rawPrefs);
+    // Merge with defaults so older docs missing new keys (e.g. selectedGymId) still validate.
+    const merged = { ...defaultPreferences(), ...(rawPrefs as Record<string, unknown>) };
+    const parsed = preferencesSchema.safeParse(merged);
     if (!parsed.success) {
       invalidDoc500(req, res, "preferences", parsed.error.flatten());
       return;
@@ -158,7 +161,10 @@ router.put(
     const existingRaw =
       snap.exists ? ((snap.data() as Record<string, unknown> | undefined)?.["preferences"] ?? null) : null;
 
-    const existingParsed = existingRaw ? preferencesSchema.safeParse(existingRaw) : null;
+    const existingMerged = existingRaw
+      ? { ...defaultPreferences(), ...(existingRaw as Record<string, unknown>) }
+      : null;
+    const existingParsed = existingMerged ? preferencesSchema.safeParse(existingMerged) : null;
 
     // If existing is missing, start from defaults. If it exists but is invalid, fail closed.
     if (existingRaw && existingParsed && !existingParsed.success) {
@@ -185,6 +191,7 @@ router.put(
             }
           : {}),
       },
+      selectedGymId: patch.selectedGymId !== undefined ? patch.selectedGymId : base.selectedGymId,
     };
 
     const next = preferencesSchema.safeParse(candidate);

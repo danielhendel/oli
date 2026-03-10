@@ -18,7 +18,9 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
+import { getGymLabel, isExerciseAvailableAtGym } from "@/lib/workouts/gymRegistry";
 import { searchExercises } from "@/lib/workouts/exercises/search";
 import { buildExerciseLibrarySections } from "@/lib/workouts/exercises/librarySections";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
@@ -52,7 +54,7 @@ const DEFAULT_FILTERS: ExerciseFilters = {
   trainingType: "any",
 };
 
-type TabId = "all" | "recent" | "popular";
+type TabId = "all" | "recent" | "myGym";
 
 type ListEntry =
   | { type: "header" }
@@ -215,10 +217,16 @@ const TRAINING_TYPE_OPTIONS: { value: TrainingType; label: string }[] = [
 
 export default function ExercisePickerScreen() {
   const { user, initializing } = useAuth();
+  const { state: prefState } = usePreferences();
   const router = useRouter();
-  const params = useLocalSearchParams<{ sessionId?: string; blockId?: string }>();
+  const params = useLocalSearchParams<{ sessionId?: string; blockId?: string; gymId?: string }>();
   const sessionId = typeof params.sessionId === "string" ? params.sessionId : undefined;
   const blockId = typeof params.blockId === "string" ? params.blockId : undefined;
+  const workoutFlowGymId = typeof params.gymId === "string" ? params.gymId : null;
+
+  /** My Gym tab: workout-flow gym (from log screen) first, then persisted preference. */
+  const effectiveGymId =
+    workoutFlowGymId ?? prefState.preferences?.selectedGymId ?? null;
 
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ExerciseFilters>(DEFAULT_FILTERS);
@@ -259,14 +267,28 @@ export default function ExercisePickerScreen() {
     () => (query.trim() ? searchExercises(EXERCISE_CATALOG_V1, query, 20) : []),
     [query],
   );
-  const filteredSearchResults = useMemo(
-    () => searchResults.filter((e) => passesFilters(e.exerciseId, filters)),
-    [searchResults, filters],
-  );
+  /** All / Recent: search filtered by equipment/muscle/etc only. My Gym: also filtered by gym. */
+  const displaySearchResults = useMemo(() => {
+    const byFilters = searchResults.filter((e) => passesFilters(e.exerciseId, filters));
+    if (activeTab === "myGym" && effectiveGymId != null) {
+      return byFilters.filter((e) => isExerciseAvailableAtGym(effectiveGymId, e.exerciseId));
+    }
+    return byFilters;
+  }, [searchResults, filters, activeTab, effectiveGymId]);
 
-  const filteredAllSorted = useMemo(
+  /** All tab: full catalog, filters only. No gym restriction. */
+  const allDisplaySorted = useMemo(
     () => allSorted.filter((e) => passesFilters(e.exerciseId, filters)),
     [allSorted, filters],
+  );
+
+  /** My Gym tab only: catalog filtered by gym + filters. */
+  const myGymFilteredAll = useMemo(
+    () =>
+      allSorted.filter(
+        (e) => passesFilters(e.exerciseId, filters) && isExerciseAvailableAtGym(effectiveGymId, e.exerciseId),
+      ),
+    [allSorted, filters, effectiveGymId],
   );
 
   const activeFilterCountNum = activeFilterCount(filters);
@@ -279,11 +301,8 @@ export default function ExercisePickerScreen() {
     return m;
   }, []);
 
+  /** Recent tab: recent IDs only. No gym restriction. */
   const recentDisplayIds = sections.recentIds;
-  const popularDisplayIds = useMemo(
-    () => sections.popularIds.filter((id) => !sections.recentIds.includes(id)),
-    [sections.popularIds, sections.recentIds],
-  );
 
   const onAddToWorkout = useCallback(
     (exerciseId: string) => {
@@ -304,15 +323,15 @@ export default function ExercisePickerScreen() {
     const entries: ListEntry[] = [{ type: "header" }];
 
     if (hasQuery) {
-      for (const e of filteredSearchResults) {
+      for (const e of displaySearchResults) {
         entries.push({ type: "row", exerciseId: e.exerciseId });
       }
-      if (filteredSearchResults.length === 0 && customExerciseId) {
+      if (displaySearchResults.length === 0 && customExerciseId) {
         entries.push({ type: "custom", exerciseId: customExerciseId });
       }
     } else {
       if (activeTab === "all") {
-        for (const e of filteredAllSorted) {
+        for (const e of allDisplaySorted) {
           entries.push({ type: "row", exerciseId: e.exerciseId });
         }
       } else if (activeTab === "recent") {
@@ -320,8 +339,11 @@ export default function ExercisePickerScreen() {
           entries.push({ type: "row", exerciseId: id });
         }
       } else {
-        for (const id of popularDisplayIds) {
-          entries.push({ type: "row", exerciseId: id });
+        // My Gym tab
+        if (effectiveGymId != null) {
+          for (const e of myGymFilteredAll) {
+            entries.push({ type: "row", exerciseId: e.exerciseId });
+          }
         }
       }
     }
@@ -329,11 +351,12 @@ export default function ExercisePickerScreen() {
   }, [
     query,
     activeTab,
-    filteredSearchResults,
+    displaySearchResults,
     customExerciseId,
     recentDisplayIds,
-    popularDisplayIds,
-    filteredAllSorted,
+    allDisplaySorted,
+    myGymFilteredAll,
+    effectiveGymId,
   ]);
 
   const listRowCount = listData.length - 1;
@@ -392,26 +415,46 @@ export default function ExercisePickerScreen() {
           </Pressable>
         </View>
         <View style={styles.tabRow}>
-          {(["all", "recent", "popular"] as const).map((tab) => (
+          {(["all", "recent", "myGym"] as const).map((tab) => (
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
               style={[styles.chip, activeTab === tab && styles.chipSelected]}
               accessibilityRole="button"
-              accessibilityLabel={`Tab ${tab.charAt(0).toUpperCase() + tab.slice(1)}`}
+              accessibilityLabel={`Tab ${tab === "myGym" ? "My Gym" : tab.charAt(0).toUpperCase() + tab.slice(1)}`}
             >
               <Text style={[styles.chipText, activeTab === tab && styles.chipTextSelected]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === "myGym" ? "My Gym" : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Text>
             </Pressable>
           ))}
         </View>
+        {activeTab === "myGym" ? (
+          effectiveGymId != null ? (
+            <>
+              <Text style={styles.gymStatus} accessibilityLabel="Exercise library scope">
+                {`Filtered for ${getGymLabel(effectiveGymId)}`}
+              </Text>
+              <Text style={styles.gymExplanation} accessibilityLabel="Gym filtering explanation">
+                Showing exercises for your selected gym. Exercises that require equipment not available there are hidden.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.gymStatus} accessibilityLabel="My Gym tab hint">
+              Select a gym in Start Workout to see exercises available at your location.
+            </Text>
+          )
+        ) : (
+          <Text style={styles.gymStatus} accessibilityLabel="Exercise library scope">
+            Full library
+          </Text>
+        )}
         {showMicroline && microlineText ? (
           <Text style={styles.microline}>{microlineText}</Text>
         ) : null}
       </View>
     ),
-    [query, activeTab, showMicroline, microlineText, activeFilterCountNum],
+    [query, activeTab, showMicroline, microlineText, activeFilterCountNum, effectiveGymId],
   );
 
   const renderItem: ListRenderItem<ListEntry> = useCallback(
@@ -488,6 +531,14 @@ export default function ExercisePickerScreen() {
     ? (catalogNameById[selectedExerciseId] ?? `Add custom ${selectedExerciseId}`)
     : "";
 
+  const showGymAwareEmptyHint =
+    activeTab === "myGym" &&
+    effectiveGymId != null &&
+    listRowCount === 0 &&
+    query.trim() !== "";
+  const showMyGymNoGymHint =
+    activeTab === "myGym" && effectiveGymId == null && listRowCount === 0;
+
   return (
     <View style={styles.screen}>
       <FlatList
@@ -499,8 +550,27 @@ export default function ExercisePickerScreen() {
         keyboardShouldPersistTaps="handled"
         ListFooterComponent={
           listRowCount === 0 ? (
-            <View style={styles.row}>
-              <Text style={styles.rowTitle}>No results</Text>
+            <View style={styles.emptyStateFooter}>
+              {showMyGymNoGymHint ? (
+                <Text
+                  style={styles.emptyStateGymHint}
+                  accessibilityLabel="My Gym tab no gym selected hint"
+                >
+                  Select a gym in Start Workout to see exercises available at your location.
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.rowTitle}>No results</Text>
+                  {showGymAwareEmptyHint ? (
+                    <Text
+                      style={styles.emptyStateGymHint}
+                      accessibilityLabel="Gym filtering empty state hint"
+                    >
+                      Some exercises may be hidden because your gym doesn't have the required equipment.
+                    </Text>
+                  ) : null}
+                </>
+              )}
             </View>
           ) : null
         }
@@ -761,6 +831,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  gymStatus: {
+    fontSize: 12,
+    color: "#6E6E73",
+    marginTop: 4,
+  },
+  gymExplanation: {
+    fontSize: 12,
+    color: "#8E8E93",
+    marginTop: 2,
+  },
   microline: {
     fontSize: 12,
     color: "#6E6E73",
@@ -821,6 +901,15 @@ const styles = StyleSheet.create({
   rowTitleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   rowTitleHit: { fontSize: 15, fontWeight: "800", color: "#1C1C1E" },
   rowMeta: { fontSize: 12, color: "#6E6E73", marginTop: 2 },
+  emptyStateFooter: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  emptyStateGymHint: {
+    fontSize: 12,
+    color: "#8E8E93",
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

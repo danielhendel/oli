@@ -9,7 +9,7 @@ import React, {
   
   import { defaultPreferences, type Preferences, type MassUnit } from "@oli/contracts";
   import { useAuth } from "@/lib/auth/AuthProvider";
-  import { getPreferences, updateMassUnit } from "@/lib/api/preferences";
+  import { getPreferences, updateMassUnit, updateSelectedGymId } from "@/lib/api/preferences";
   
   type PreferencesState =
     | { status: "partial"; preferences: Preferences }
@@ -20,6 +20,7 @@ import React, {
     state: PreferencesState;
     refresh: () => Promise<void>;
     setMassUnit: (mass: MassUnit) => Promise<void>;
+    setSelectedGymId: (selectedGymId: string | null) => Promise<void>;
   };
   
   const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -109,6 +110,44 @@ import React, {
       setState({ status: "ready", preferences: res.json });
     };
   
+    const setSelectedGymIdFn = async (selectedGymId: string | null): Promise<void> => {
+      if (initializing || !user) {
+        setState((s) => ({
+          status: "ready",
+          preferences: { ...s.preferences, selectedGymId },
+        }));
+        return;
+      }
+  
+      const prev = state.preferences;
+      setState({
+        status: "ready",
+        preferences: { ...prev, selectedGymId },
+      });
+  
+      const token = await getIdToken(false);
+      if (!token) {
+        setState({
+          status: "error",
+          preferences: prev,
+          message: "No auth token (try Debug → Re-auth)",
+        });
+        return;
+      }
+  
+      const res = await updateSelectedGymId(token, selectedGymId);
+      if (!res.ok) {
+        setState({
+          status: "error",
+          preferences: prev,
+          message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
+        });
+        return;
+      }
+  
+      setState({ status: "ready", preferences: res.json });
+    };
+  
     // ✅ Auto-refresh on auth lifecycle changes
     useEffect(() => {
       void refresh();
@@ -119,6 +158,7 @@ import React, {
         state,
         refresh,
         setMassUnit,
+        setSelectedGymId: setSelectedGymIdFn,
       }),
       [state],
     );

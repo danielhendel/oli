@@ -17,6 +17,18 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/preferences/PreferencesProvider", () => ({
+  usePreferences: () => ({
+    state: {
+      status: "ready" as const,
+      preferences: { units: { mass: "lb" as const }, timezone: { mode: "recorded" as const }, selectedGymId: null },
+    },
+    refresh: jest.fn(),
+    setMassUnit: jest.fn(),
+    setSelectedGymId: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/integrations/appleHealth/runAnchoredWorkoutsSync", () => ({
   runAnchoredWorkoutsSync: jest.fn(),
 }));
@@ -173,4 +185,20 @@ it("on successful sync calls setLastSyncAt with ISO string", async () => {
   const [iso] = mockSetLastSyncAt.mock.calls[0]!;
   expect(typeof iso).toBe("string");
   expect(() => new Date(iso).toISOString()).not.toThrow();
+});
+
+it("renders current gym label on overview (No gym when selectedGymId null)", async () => {
+  let root: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    root = renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const treeStr = JSON.stringify(root!.toJSON());
+  expect(treeStr).toContain("Gym");
+  expect(treeStr).toContain("No gym");
 });

@@ -11,3 +11,11 @@ export async function updateMassUnit(idToken: string, mass: MassUnit): Promise<A
   const body = { units: { mass } } as const;
   return apiPutZodAuthed("/preferences", body, idToken, preferencesSchema);
 }
+
+export async function updateSelectedGymId(
+  idToken: string,
+  selectedGymId: string | null,
+): Promise<ApiResult<Preferences>> {
+  const body = { selectedGymId };
+  return apiPutZodAuthed("/preferences", body, idToken, preferencesSchema);
+}

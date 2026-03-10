@@ -16,6 +16,8 @@ import {
   PanResponder,
   findNodeHandle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { WheelPicker } from "@/components/workouts/WheelPicker";
 
 if (
@@ -27,6 +29,8 @@ if (
 }
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
 import {
   buildExerciseMemory,
@@ -361,6 +365,26 @@ export default function WorkoutLogScreen() {
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
+  const [workoutName, setWorkoutName] = useState("");
+  const [gymPickerVisible, setGymPickerVisible] = useState(false);
+  const [gymSaveError, setGymSaveError] = useState<string | null>(null);
+  /** Workout-flow gym for Start screen: sticks even when preference save fails. */
+  const [startScreenGymId, setStartScreenGymId] = useState<string | null>(null);
+  /** Gym for the current session; set when user presses Start workout. Passed to exercise picker. */
+  const [sessionGymId, setSessionGymId] = useState<string | null>(null);
+
+  const { state: prefState, setSelectedGymId } = usePreferences();
+  const selectedGymIdFromPref = prefState.preferences?.selectedGymId ?? null;
+  const startScreenGymIdSyncedRef = useRef(false);
+  useEffect(() => {
+    if (ui.status !== "idle") {
+      startScreenGymIdSyncedRef.current = false;
+      return;
+    }
+    if (prefState.status !== "ready" || startScreenGymIdSyncedRef.current) return;
+    startScreenGymIdSyncedRef.current = true;
+    setStartScreenGymId(selectedGymIdFromPref);
+  }, [ui.status, prefState.status, selectedGymIdFromPref]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const expandedCardRef = useRef<View>(null);
@@ -463,6 +487,7 @@ export default function WorkoutLogScreen() {
       setUi({ status: "error", message: "Not signed in." });
       return;
     }
+    const effectiveGymAtStart = startScreenGymId ?? selectedGymIdFromPref ?? null;
     setUi({ status: "starting" });
     try {
       const { sessionId } = await createSessionDraft(user.uid);
@@ -470,11 +495,12 @@ export default function WorkoutLogScreen() {
       await setActiveWorkoutSessionId(user.uid, sessionId);
       const reduced = await loadReducedSession(user.uid, sessionId);
       setUi({ status: "active", sessionId, reduced });
+      setSessionGymId(effectiveGymAtStart);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user]);
+  }, [user, startScreenGymId, selectedGymIdFromPref]);
 
   const onPickExercise = useCallback(
     async (exerciseId: string, blockId?: string) => {
@@ -730,6 +756,17 @@ export default function WorkoutLogScreen() {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }, [reduced?.startedAt, nowTick]);
 
+  useEffect(() => {
+    if (prefState.status === "error") {
+      const base = "Gym preference couldn't be saved. You can still start your workout.";
+      const devDetail =
+        __DEV__ && "message" in prefState && prefState.message
+          ? ` (${prefState.message})`
+          : "";
+      setGymSaveError(base + devDetail);
+    }
+  }, [prefState]);
+
   const topInset =
     Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 8 : 12;
 
@@ -790,20 +827,24 @@ export default function WorkoutLogScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={styles.screen}>
       {ui.status === "active" ? (
-        <View style={[styles.headerTimerWrap, { paddingTop: topInset }]}>
+        <View style={styles.headerTimerWrap}>
           <Text style={styles.headerTimer}>{timerLabel}</Text>
         </View>
       ) : ui.status === "idle" && isSignedIn ? (
-        <View style={[styles.startScreenHeader, { paddingTop: topInset }]}>
+        <View style={styles.startScreenHeader}>
           <Pressable
             onPress={() => router.back()}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <Text style={styles.backBtnText}>Back</Text>
+            <View style={styles.backBtnInner}>
+              <Ionicons name="chevron-back" size={20} color="#007AFF" />
+              <Text style={styles.backBtnText}>Back</Text>
+            </View>
           </Pressable>
         </View>
       ) : null}
@@ -839,21 +880,101 @@ export default function WorkoutLogScreen() {
       ) : null}
 
       {ui.status === "idle" ? (
-        <View style={styles.startCtaBlock}>
-          <Text style={styles.title}>Start an empty workout</Text>
-          <Text style={styles.muted}>
-            Offline-first: everything is recorded to a local append-only journal, then can be synced later.
-          </Text>
-          <Pressable
-            onPress={onStart}
-            disabled={!canInteract}
-            style={[styles.primaryBtn, !canInteract && styles.primaryBtnDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Start workout"
-          >
-            <Text style={styles.primaryBtnText}>Start workout</Text>
-          </Pressable>
-        </View>
+        <>
+          <View style={styles.startSetupCard} accessibilityLabel="Start workout setup">
+            <Text style={styles.startSetupTitle}>Start Workout</Text>
+            <Text style={styles.startSetupSubtitle}>
+              Set your gym and optional name, then start logging.
+            </Text>
+            <Text style={styles.startSetupSectionLabel}>Workout name (optional)</Text>
+            <TextInput
+              value={workoutName}
+              onChangeText={setWorkoutName}
+              placeholder="Chest Day"
+              placeholderTextColor="#8E8E93"
+              style={styles.startSetupNameInput}
+              accessibilityLabel="Workout name (optional)"
+              accessibilityHint="Optional label for this workout"
+            />
+            <Text style={styles.startSetupSectionLabel}>Gym</Text>
+            <Pressable
+              onPress={() => setGymPickerVisible(true)}
+              style={styles.startSetupGymRow}
+              accessibilityRole="button"
+              accessibilityLabel={`Gym: ${getGymLabel(startScreenGymId ?? null)}. Tap to change.`}
+            >
+              <Text style={styles.startSetupGymValue}>{getGymLabel(startScreenGymId ?? null)}</Text>
+              <Text style={styles.startSetupGymChevron}>›</Text>
+            </Pressable>
+            {gymSaveError ? (
+              <Text style={styles.startSetupErrorText} accessibilityLabel="Gym save error">
+                {gymSaveError}
+              </Text>
+            ) : null}
+            <Pressable
+              onPress={onStart}
+              disabled={!canInteract}
+              style={[styles.startSetupPrimaryBtn, !canInteract && styles.primaryBtnDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel="Start workout"
+            >
+              <Text style={styles.primaryBtnText}>Start workout</Text>
+            </Pressable>
+          </View>
+          {gymPickerVisible && (
+            <Modal
+              visible
+              transparent
+              animationType="fade"
+              onRequestClose={() => setGymPickerVisible(false)}
+            >
+              <Pressable
+                style={styles.startGymPickerBackdrop}
+                onPress={() => setGymPickerVisible(false)}
+                accessibilityLabel="Close gym picker"
+              >
+                <View style={styles.startGymPickerCard} onStartShouldSetResponder={() => true}>
+                  <Text style={styles.startGymPickerTitle}>Gym</Text>
+                  <Text style={styles.startSetupSectionLabel}>Choose your location</Text>
+                  {getGymMenuOptions().map((opt) => {
+                    const selected =
+                      (opt.value === null && startScreenGymId === null) ||
+                      (opt.value !== null && startScreenGymId === opt.value);
+                    return (
+                      <Pressable
+                        key={opt.value ?? "none"}
+                        onPress={async () => {
+                          setStartScreenGymId(opt.value);
+                          setGymSaveError(null);
+                          setGymPickerVisible(false);
+                          try {
+                            await setSelectedGymId(opt.value);
+                          } catch {
+                            setGymSaveError("Gym preference couldn't be saved. You can still start your workout.");
+                          }
+                        }}
+                        style={[styles.startGymOptionRow, selected && styles.startGymOptionRowSelected]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Gym: ${opt.label}${selected ? ", selected" : ""}`}
+                      >
+                        <Text style={styles.startGymOptionLabel}>{opt.label}</Text>
+                        {selected ? <Text style={styles.startGymOptionCheck}>✓</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    onPress={() => setGymPickerVisible(false)}
+                    style={styles.primaryBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                  >
+                    <Text style={styles.primaryBtnText}>Close</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Modal>
+          )}
+        </>
       ) : null}
 
       {ui.status === "starting" ? (
@@ -904,7 +1025,11 @@ export default function WorkoutLogScreen() {
                       onPress={() =>
                         router.push({
                           pathname: "/(app)/workouts/exercise-picker",
-                          params: { sessionId, blockId: bid },
+                          params: {
+                            sessionId,
+                            blockId: bid,
+                            ...(sessionGymId != null ? { gymId: sessionGymId } : {}),
+                          },
                         })
                       }
                       style={styles.addExercisePill}
@@ -1843,6 +1968,7 @@ export default function WorkoutLogScreen() {
       </Modal>
 
     </View>
+    </SafeAreaView>
   );
 }
 
@@ -1853,6 +1979,7 @@ const GRID_COL_RPE = 38;
 const GRID_COL_ACTION_MIN = 64;
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#F2F2F7" },
   screen: { flex: 1, backgroundColor: "#F2F2F7" },
   headerTimerWrap: {
     alignItems: "center",
@@ -1868,7 +1995,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
   },
-  backBtn: { paddingVertical: 10, paddingRight: 16 },
+  backBtn: { paddingVertical: 8, paddingRight: 16 },
+  backBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
   backBtnText: { fontSize: 17, fontWeight: "600", color: "#007AFF" },
   startCtaBlock: {
     marginTop: 100,
@@ -1877,6 +2009,90 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
+  startSetupCard: {
+    marginTop: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+    ...(Platform.OS === "ios"
+      ? { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12 }
+      : { elevation: 3 }),
+  },
+  startSetupTitle: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
+  startSetupSubtitle: { fontSize: 15, color: "#6E6E73", lineHeight: 20 },
+  startSetupSectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6E6E73",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  startSetupNameInput: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+    fontSize: 17,
+    color: "#1C1C1E",
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  startSetupGymRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  startSetupGymValue: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
+  startSetupGymChevron: { fontSize: 20, fontWeight: "600", color: "#8E8E93" },
+  startSetupPrimaryBtn: {
+    alignSelf: "stretch",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  startSetupErrorText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#B00020",
+  },
+  startGymPickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+    padding: 24,
+  },
+  startGymPickerCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    gap: 12,
+  },
+  startGymPickerTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
+  startGymOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.2)",
+  },
+  startGymOptionRowSelected: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)" },
+  startGymOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
+  startGymOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
   content: { padding: 16, paddingBottom: 110, gap: 16 },
   bottomNav: {
     position: "absolute",
