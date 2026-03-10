@@ -390,10 +390,6 @@ export default function WorkoutLogScreen() {
   const expandedCardRef = useRef<View>(null);
   const scrollContentOffsetY = useRef(0);
 
-  const scrollViewRef = useRef<ScrollView>(null);
-  const expandedCardRef = useRef<View>(null);
-  const scrollContentOffsetY = useRef(0);
-
   const isSignedIn = Boolean(user) && !initializing;
 
   const sessionState =
