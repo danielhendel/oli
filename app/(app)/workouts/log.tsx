@@ -14,6 +14,7 @@ import {
   Image,
   Animated,
   PanResponder,
+  findNodeHandle,
 } from "react-native";
 import { WheelPicker } from "@/components/workouts/WheelPicker";
 
@@ -360,6 +361,10 @@ export default function WorkoutLogScreen() {
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const expandedCardRef = useRef<View>(null);
+  const scrollContentOffsetY = useRef(0);
 
   const isSignedIn = Boolean(user) && !initializing;
 
@@ -802,7 +807,15 @@ export default function WorkoutLogScreen() {
           </Pressable>
         </View>
       ) : null}
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          scrollContentOffsetY.current = e.nativeEvent.contentOffset.y;
+        }}
+      >
       {!isSignedIn ? (
         <View style={styles.card}>
           <Text style={styles.title}>Sign in required</Text>
@@ -918,7 +931,39 @@ export default function WorkoutLogScreen() {
                     };
                     if (isExpanded) {
                       return (
-                        <View key={ex.slotId} style={styles.exerciseCardWrap}>
+                        <View
+                          key={ex.slotId}
+                          ref={expandedCardRef}
+                          style={styles.exerciseCardWrap}
+                          onLayout={() => {
+                            if (expandedSlotId !== slotId) return;
+                            const cardTag = expandedCardRef.current
+                              ? findNodeHandle(expandedCardRef.current)
+                              : null;
+                            const scrollTag = scrollViewRef.current
+                              ? findNodeHandle(scrollViewRef.current)
+                              : null;
+                            if (cardTag != null && scrollTag != null) {
+                              UIManager.measureLayout(
+                                cardTag,
+                                scrollTag,
+                                () => {
+                                  /* measureLayout failed; skip scroll */
+                                },
+                                (_x, y) => {
+                                  const nextY = Math.max(
+                                    0,
+                                    scrollContentOffsetY.current + y - topInset,
+                                  );
+                                  scrollViewRef.current?.scrollTo({
+                                    y: nextY,
+                                    animated: true,
+                                  });
+                                },
+                              );
+                            }
+                          }}
+                        >
                           <View style={styles.loggerInlinePanel} accessibilityLabel={`Exercise logger inline ${slotId}`}>
                             <Pressable
                               style={styles.exerciseCardHeaderRow}
@@ -981,26 +1026,28 @@ export default function WorkoutLogScreen() {
                                 </Pressable>
                               </View>
                               <View style={styles.setListInModal}>
-                              <View style={styles.setGridHeader}>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setGridHeaderCellWrapSet, styles.setColSet]}>
-                                  <Text style={[styles.setGridHeaderCell, styles.setGridHeaderCellSet]}>Set</Text>
+                              {loggedSets.length > 0 ? (
+                                <View style={styles.setGridHeader}>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setGridHeaderCellWrapSet, styles.setColSet]}>
+                                    <Text style={[styles.setGridHeaderCell, styles.setGridHeaderCellSet]}>Set</Text>
+                                  </View>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setColReps]}>
+                                    <Text style={styles.setGridHeaderCell}>Reps</Text>
+                                  </View>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setColWeight]}>
+                                    <Text style={styles.setGridHeaderCell}>Weight</Text>
+                                  </View>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setColRpe]}>
+                                    <Text style={styles.setGridHeaderCell}>RPE</Text>
+                                  </View>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setColE1rm]}>
+                                    <Text style={styles.setGridHeaderCell}>e1RM</Text>
+                                  </View>
+                                  <View style={[styles.setGridHeaderCellWrap, styles.setColVol]}>
+                                    <Text style={styles.setGridHeaderCell}>Vol</Text>
+                                  </View>
                                 </View>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setColReps]}>
-                                  <Text style={styles.setGridHeaderCell}>Reps</Text>
-                                </View>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setColWeight]}>
-                                  <Text style={styles.setGridHeaderCell}>Weight</Text>
-                                </View>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setColRpe]}>
-                                  <Text style={styles.setGridHeaderCell}>RPE</Text>
-                                </View>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setColE1rm]}>
-                                  <Text style={styles.setGridHeaderCell}>e1RM</Text>
-                                </View>
-                                <View style={[styles.setGridHeaderCellWrap, styles.setColVol]}>
-                                  <Text style={styles.setGridHeaderCell}>Vol</Text>
-                                </View>
-                              </View>
+                              ) : null}
                               {loggedSets.map((s) => {
                                 const lbDisplay =
                                   s.loadKg != null ? `${(s.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
@@ -2036,7 +2083,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
     marginBottom: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#E8E8ED",
+    borderRadius: 12,
   },
   blockTitlePill: {
     backgroundColor: "#FFFFFF",

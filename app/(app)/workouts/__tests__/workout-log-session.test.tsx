@@ -2,15 +2,20 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
+const mockScrollTo = jest.fn();
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
   const React = require("react");
+  const ScrollViewMock = React.forwardRef(function ScrollViewMock(props: Record<string, unknown>, ref) {
+    React.useImperativeHandle(ref, () => ({ scrollTo: mockScrollTo }));
+    return React.createElement("ScrollView", props, props.children);
+  });
   return {
     View: "View",
     Text: "Text",
     TextInput: "TextInput",
     Pressable: "Pressable",
-    ScrollView: "ScrollView",
+    ScrollView: ScrollViewMock,
     FlatList: function FlatList({
       data,
       renderItem,
@@ -178,6 +183,7 @@ describe("workouts/log session UI", () => {
     mockPreviousComparison = {};
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
+    mockScrollTo.mockClear();
   });
 
   afterEach(() => {
@@ -487,7 +493,7 @@ describe("workouts/log session UI", () => {
     expect(str).not.toMatch(/Last:/);
   });
 
-  it("expanded exercise shows grid header Set Reps Weight RPE and utility row History + Set", async () => {
+  it("expanded exercise with no logged sets shows utility row History and + Set (grid header hidden)", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -514,12 +520,91 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("History");
+    expect(str).toContain("+ Set");
+    expect(str).not.toContain("e1RM");
+    expect(str).not.toContain("Vol");
+  });
+
+  it("expanded exercise with at least one logged set shows set grid header", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [
+          {
+            setId: "set1",
+            ordinal: 1,
+            reps: 5,
+            loadKg: 100,
+            rpe: null,
+            tempo: null,
+            isWarmup: false,
+            note: null,
+            occurredAt: "2026-03-01T10:00:00.000Z",
+          },
+        ],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const tree = test!.toJSON();
+    const str = tree ? JSON.stringify(tree) : "";
     expect(str).toContain("Set");
     expect(str).toContain("Reps");
     expect(str).toContain("Weight");
     expect(str).toContain("RPE");
+    expect(str).toContain("e1RM");
+    expect(str).toContain("Vol");
     expect(str).toContain("History");
     expect(str).toContain("+ Set");
+  });
+
+  it("opening an exercise for logging shows expanded logger and scroll-to-top is wired (scrollTo called in real env after layout)", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const inlineLogger = findByA11yLabel(test!.root, "Exercise logger inline slot1");
+    expect(inlineLogger).not.toBeNull();
+    if (mockScrollTo.mock.calls.length > 0) {
+      expect(mockScrollTo).toHaveBeenCalledWith(expect.objectContaining({ animated: true }));
+    }
   });
 
   it("+ Set and History render in utility row", async () => {
@@ -775,8 +860,6 @@ describe("workouts/log session UI", () => {
     expect(str).toContain("Reps");
     expect(str).toContain("Weight");
     expect(str).toContain("RPE");
-    expect(str).toContain("e1RM");
-    expect(str).toContain("Vol");
     expect(str).toContain("Log");
     expect(str).toContain("+ Set");
   });
