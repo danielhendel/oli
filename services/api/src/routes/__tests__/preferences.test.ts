@@ -68,6 +68,7 @@ describe("GET/PUT /preferences", () => {
     expect(json).toMatchObject({
       units: { mass: "lb" },
       timezone: { mode: "recorded" },
+      selectedGymId: null,
     });
 
     expect(setMock).toHaveBeenCalledTimes(1);
@@ -97,8 +98,71 @@ describe("GET/PUT /preferences", () => {
     expect(json).toMatchObject({
       units: { mass: "kg" },
       timezone: { mode: "recorded" },
+      selectedGymId: null,
     });
 
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("PUT updates selectedGymId and returns validated prefs", async () => {
+    const setMock = jest.fn(async () => undefined);
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ selectedGymId: "edge_fitness_manchester_ct" }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.selectedGymId).toBe("edge_fitness_manchester_ct");
+    expect(json.units).toEqual({ mass: "lb" });
+    expect(json.timezone).toEqual({ mode: "recorded" });
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("PUT can set selectedGymId to null", async () => {
+    const setMock = jest.fn(async () => undefined);
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "kg" },
+              timezone: { mode: "recorded" },
+              selectedGymId: "edge_fitness_manchester_ct",
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ selectedGymId: null }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.selectedGymId).toBe(null);
     expect(setMock).toHaveBeenCalledTimes(1);
   });
 });

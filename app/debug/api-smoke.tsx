@@ -1,7 +1,13 @@
 // app/debug/api-smoke.tsx
 import React, { useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { apiGetJsonAuthed, apiPostJsonAuthed, type ApiResult, type JsonValue } from "../../lib/api/http";
+import {
+  apiGetJsonAuthed,
+  apiPostJsonAuthed,
+  apiPutJsonAuthed,
+  type ApiResult,
+  type JsonValue,
+} from "../../lib/api/http";
 import { getIdToken } from "../../lib/auth/getIdToken";
 
 const getDeviceTimeZone = (): string => {
@@ -47,6 +53,17 @@ export default function ApiSmoke() {
     setResult(r);
   };
 
+  const runPutPreferencesRaw = async () => {
+    const token = await getIdToken();
+    const r = await apiPutJsonAuthed<JsonValue>(
+      "/preferences",
+      { selectedGymId: "edge_fitness_manchester_ct" },
+      token,
+      { noStore: true },
+    );
+    setResult(r);
+  };
+
   return (
     <View style={{ padding: 16, gap: 12 }}>
       <Text style={{ fontSize: 18, fontWeight: "600" }}>API Smoke</Text>
@@ -57,6 +74,10 @@ export default function ApiSmoke() {
 
       <Pressable onPress={runPost} style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
         <Text>POST /ingest (weight)</Text>
+      </Pressable>
+
+      <Pressable onPress={runPutPreferencesRaw} style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>PUT /preferences (raw)</Text>
       </Pressable>
 
       <View style={{ paddingTop: 12 }}>

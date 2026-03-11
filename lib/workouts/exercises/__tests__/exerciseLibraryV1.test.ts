@@ -31,4 +31,12 @@ describe("exercise library v1", () => {
       expect(meta.description.length).toBeGreaterThan(0);
     }
   });
+
+  it("equipmentSubtype flows from library to metadata for Machine/CardioMachine", () => {
+    expect(getExerciseMeta("machine_chest_press").equipmentSubtype).toBe("ChestPress");
+    expect(getExerciseMeta("machine_leg_press_vertical").equipmentSubtype).toBe("LegPress");
+    expect(getExerciseMeta("treadmill_run").equipmentSubtype).toBe("Treadmill");
+    expect(getExerciseMeta("rower").equipmentSubtype).toBe("Rower");
+    expect(getExerciseMeta("bench_press").equipmentSubtype).toBeUndefined();
+  });
 });

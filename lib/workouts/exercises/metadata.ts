@@ -5,6 +5,7 @@
 
 import type {
   Equipment,
+  EquipmentSubtype,
   PrimaryBucket,
   MuscleGroupCoarse,
   MuscleGroupDetailed,
@@ -33,6 +34,8 @@ export type TrainingType =
 
 export type ExerciseMeta = {
   equipment: Equipment;
+  /** Optional refinement for Machine/CardioMachine; used for gym-aware availability. */
+  equipmentSubtype?: EquipmentSubtype;
   primary: PrimaryBucket;
   movement: MovementPattern;
   trainingType: TrainingType;
@@ -123,6 +126,7 @@ const META_BY_ID: Record<string, ExerciseMeta> = Object.fromEntries(
     x.exerciseId,
     {
       equipment: x.equipment,
+      ...(x.equipmentSubtype != null && { equipmentSubtype: x.equipmentSubtype }),
       primary: x.primaryBucket,
       movement: x.movement,
       trainingType: x.trainingType,

@@ -55,10 +55,30 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
+let mockSelectedGymId: string | null = null;
+jest.mock("@/lib/preferences/PreferencesProvider", () => ({
+  usePreferences: () => ({
+    state: {
+      status: "ready",
+      preferences: {
+        units: { mass: "lb" },
+        timezone: { mode: "recorded" },
+        get selectedGymId() {
+          return mockSelectedGymId;
+        },
+      },
+    },
+    refresh: jest.fn(),
+    setMassUnit: jest.fn(),
+    setSelectedGymId: jest.fn(),
+  }),
+}));
+
 const mockReplace = jest.fn();
+let mockPickerParams: { sessionId?: string; blockId?: string; gymId?: string } = { sessionId: "s1" };
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
-  useLocalSearchParams: () => ({ sessionId: "s1" }),
+  useLocalSearchParams: () => mockPickerParams,
 }));
 
 jest.mock("@/lib/workouts/exercises/librarySections", () => ({
@@ -97,6 +117,8 @@ describe("workouts/exercise-picker", () => {
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     mockReplace.mockClear();
+    mockSelectedGymId = null;
+    mockPickerParams = { sessionId: "s1" };
   });
 
   afterEach(() => {
@@ -127,16 +149,20 @@ describe("workouts/exercise-picker", () => {
       /* flush React state after async effects */
     });
     const tabRecent = findByA11yLabel(test!.root, "Tab Recent");
-    const tabPopular = findByA11yLabel(test!.root, "Tab Popular");
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
     expect(tabRecent).not.toBeNull();
-    expect(tabPopular).not.toBeNull();
+    expect(tabMyGym).not.toBeNull();
     act(() => {
       tabRecent!.props.onPress();
     });
     const pickBenchRecent = findByA11yLabel(test!.root, "Pick Bench Press");
     expect(pickBenchRecent).not.toBeNull();
+    mockSelectedGymId = "edge_fitness_manchester_ct";
     act(() => {
-      tabPopular!.props.onPress();
+      tabMyGym!.props.onPress();
+    });
+    act(() => {
+      test!.update(<ExercisePickerScreen />);
     });
     const pickSquat = findByA11yLabel(test!.root, "Pick Back Squat");
     expect(pickSquat).not.toBeNull();
@@ -298,5 +324,177 @@ describe("workouts/exercise-picker", () => {
       pathname: "/(app)/workouts/log",
       params: { sessionId: "s1", pickedExerciseId: "bench_press" },
     });
+  });
+
+  it("no gym (selectedGymId null): full library visible, status shows Full library", async () => {
+    mockSelectedGymId = null;
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+    const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
+    expect(scopeLabel.props.children).toBe("Full library");
+  });
+
+  it("My Gym tab with bodyweight_only_home: filtered status and only bodyweight exercises visible", async () => {
+    mockSelectedGymId = "bodyweight_only_home";
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
+    act(() => {
+      tabMyGym!.props.onPress();
+    });
+    const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
+    expect(scopeLabel.props.children).toContain("Filtered for");
+    expect(scopeLabel.props.children).toContain("Bodyweight only (home)");
+    expect(findByA11yLabel(test!.root, "Pick Bench Press")).toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+  });
+
+  it("no gym selected: does not show gym filtering explanation", async () => {
+    mockSelectedGymId = null;
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const explanationNodes = test!.root.findAllByProps({ accessibilityLabel: "Gym filtering explanation" });
+    expect(explanationNodes.length).toBe(0);
+  });
+
+  it("My Gym tab with selected gym: shows gym filtering explanation", async () => {
+    mockSelectedGymId = "edge_fitness_manchester_ct";
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
+    act(() => {
+      tabMyGym!.props.onPress();
+    });
+    const explanationNodes = test!.root.findAllByProps({ accessibilityLabel: "Gym filtering explanation" });
+    expect(explanationNodes.length).toBeGreaterThan(0);
+  });
+
+  it("no gym + search with no results: empty state without gym-aware hint", async () => {
+    mockSelectedGymId = null;
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const searchInput = test!.root.findByProps({ accessibilityLabel: "Exercise search" });
+    act(() => {
+      searchInput.props.onChangeText("xyznonexistentquery");
+    });
+    await flushEventLoop();
+    act(() => {
+      /* flush after search state */
+    });
+    const hintNodes = test!.root.findAllByProps({ accessibilityLabel: "Gym filtering empty state hint" });
+    expect(hintNodes.length).toBe(0);
+  });
+
+  it("My Gym tab + gym selected + search with no visible results: shows gym-aware empty state hint", async () => {
+    mockSelectedGymId = "bodyweight_only_home";
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
+    act(() => {
+      tabMyGym!.props.onPress();
+    });
+    const searchInput = test!.root.findByProps({ accessibilityLabel: "Exercise search" });
+    act(() => {
+      searchInput.props.onChangeText("---");
+    });
+    await flushEventLoop();
+    act(() => {
+      /* flush after search state */
+    });
+    const hintNodes = test!.root.findAllByProps({ accessibilityLabel: "Gym filtering empty state hint" });
+    expect(hintNodes.length).toBeGreaterThan(0);
+  });
+
+  it("All tab is not gym-restricted: full library visible with gym selected", async () => {
+    mockSelectedGymId = "bodyweight_only_home";
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
+    expect(scopeLabel.props.children).toBe("Full library");
+    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+  });
+
+  it("My Gym tab with no gym selected: shows hint to select gym", async () => {
+    mockSelectedGymId = null;
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
+    act(() => {
+      tabMyGym!.props.onPress();
+    });
+    const hintNode = test!.root.findByProps({ accessibilityLabel: "My Gym tab no gym selected hint" });
+    expect(hintNode).not.toBeNull();
+  });
+
+  it("My Gym tab uses workout-flow gym from gymId param when present even if preferences have no gym", async () => {
+    mockSelectedGymId = null;
+    mockPickerParams = { sessionId: "s1", gymId: "edge_fitness_manchester_ct" };
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const tabMyGym = findByA11yLabel(test!.root, "Tab My Gym");
+    act(() => {
+      tabMyGym!.props.onPress();
+    });
+    const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
+    expect(scopeLabel.props.children).toContain("Filtered for");
+    expect(scopeLabel.props.children).toContain("Edge Fitness Manchester CT");
+    expect(findByA11yLabel(test!.root, "Pick Back Squat")).not.toBeNull();
   });
 });

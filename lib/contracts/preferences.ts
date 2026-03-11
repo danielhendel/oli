@@ -29,6 +29,9 @@ export const preferencesSchema = z
         explicitIana: z.string().min(1).optional(),
       })
       .strip(),
+
+    /** Workout-scoped: selected gym id for exercise library filtering. null = no gym selected. */
+    selectedGymId: z.string().nullable(),
   })
   .strip()
   .superRefine((val, ctx) => {
@@ -52,4 +55,5 @@ export type Preferences = z.infer<typeof preferencesSchema>;
 export const defaultPreferences = (): Preferences => ({
   units: { mass: "lb" },
   timezone: { mode: "recorded" },
+  selectedGymId: null,
 });
