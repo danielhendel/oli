@@ -7,10 +7,12 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
+import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import { getWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
+import { getOuraLastKnownConnected } from "@/lib/integrations/oura/storage";
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
 
@@ -22,6 +24,8 @@ function DevicesScreen() {
   const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
   const appleFetchSeq = useRef(0);
   const [withingsHydrated, setWithingsHydrated] = useState<boolean | null>(null);
+  const ouraPresence = useOuraPresence();
+  const [ouraHydrated, setOuraHydrated] = useState<boolean | null>(null);
 
   const backfill = presence.status === "ready" ? presence.data.backfill : undefined;
   const withingsConnected =
@@ -57,9 +61,13 @@ function DevicesScreen() {
       getWithingsLastKnownConnected().then((connected) => {
         setWithingsHydrated(connected);
       });
+      getOuraLastKnownConnected().then((connected) => {
+        setOuraHydrated(connected);
+      });
       presence.refetch();
+      ouraPresence.refetch();
       void fetchAppleStatus();
-    }, [presence, fetchAppleStatus]),
+    }, [presence, ouraPresence, fetchAppleStatus]),
   );
 
   useEffect(() => {
@@ -75,6 +83,9 @@ function DevicesScreen() {
   useEffect(() => {
     getWithingsLastKnownConnected().then((connected) => {
       setWithingsHydrated(connected);
+    });
+    getOuraLastKnownConnected().then((connected) => {
+      setOuraHydrated(connected);
     });
   }, []);
 
@@ -96,6 +107,20 @@ function DevicesScreen() {
           : "Off"
         : withingsHydrated !== null
           ? withingsHydrated
+            ? "On"
+            : "Off"
+          : "Loading…";
+
+  const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
+  const ouraStatusSummary =
+    ouraPresence.status === "error"
+      ? "Error"
+      : ouraPresence.status === "ready"
+        ? ouraConnected
+          ? "On"
+          : "Off"
+        : ouraHydrated !== null
+          ? ouraHydrated
             ? "On"
             : "Off"
           : "Loading…";
@@ -134,6 +159,22 @@ function DevicesScreen() {
               <Text style={styles.rowStatus}>
                 {appleStatusLine}
               </Text>
+              <Text style={styles.rowChevron}>›</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={styles.row}
+            onPress={() => router.push("/(app)/settings/devices/oura")}
+            accessibilityRole="button"
+            accessibilityLabel="Oura device settings"
+          >
+            <View style={styles.rowLeft}>
+              <Ionicons name="moon-outline" size={22} color="#3C3C43" style={styles.rowIcon} />
+              <Text style={styles.rowTitle}>Oura</Text>
+            </View>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowStatus}>{ouraStatusSummary}</Text>
               <Text style={styles.rowChevron}>›</Text>
             </View>
           </Pressable>

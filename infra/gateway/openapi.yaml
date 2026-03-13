@@ -544,6 +544,133 @@ paths:
         200:
           description: Completion bridge HTML
 
+  # Oura integration status (Firebase required)
+  /integrations/oura/status:
+    options:
+      operationId: ouraStatusOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraStatusGet
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Oura integration status (connected, lastSyncAt)
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
+  # Oura OAuth connect — returns authorization URL (Firebase required)
+  /integrations/oura/connect:
+    options:
+      operationId: ouraConnectOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraConnectGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Authorization URL returned
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
+  # Oura revoke — disconnect Oura (Firebase required)
+  /integrations/oura/revoke:
+    options:
+      operationId: ouraRevokeOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: ouraRevokePost
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
+  # PUBLIC: Oura OAuth callback (no Firebase; Oura must be able to call this)
+  /integrations/oura/callback:
+    options:
+      operationId: ouraCallbackOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraCallbackGet
+      security: []
+      responses:
+        200:
+          description: OK
+        302:
+          description: Redirect
+        400:
+          description: Bad Request
+        500:
+          description: Server Error
+
+  # PUBLIC: Oura completion bridge (HTML) used as WebBrowser returnUrl
+  /integrations/oura/complete:
+    options:
+      operationId: ouraCompleteOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraCompleteGet
+      security: []
+      produces:
+        - text/html
+      responses:
+        200:
+          description: Completion bridge HTML
+
+  # Oura ingest — user-authenticated. POST sleep/HRV raw events (Idempotency-Key required).
+  /integrations/oura/ingest:
+    options:
+      operationId: ouraIngestOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: ouraIngestPost
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+      responses:
+        200:
+          description: OK
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
   # Withings pull-now — user-authenticated. Pull last 72h for authed user; idempotent RawEvent writes.
   /integrations/withings/pull-now:
     options:

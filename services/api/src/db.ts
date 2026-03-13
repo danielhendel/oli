@@ -34,6 +34,19 @@ export function withingsConnectedRegistryDoc(uid: string): DocumentReference {
   return withingsConnectedRegistryCollection().doc(uid);
 }
 
+/**
+ * Registry of connected Oura users (no collectionGroup; no composite index).
+ * Path: system/integrations/oura_connected/{uid}
+ * Fields: { connected: true, updatedAt: serverTimestamp() }. On revoke, doc is deleted.
+ */
+export function ouraConnectedRegistryCollection(): CollectionReference {
+  return db.collection("system").doc("integrations").collection("oura_connected") as CollectionReference;
+}
+
+export function ouraConnectedRegistryDoc(uid: string): DocumentReference {
+  return ouraConnectedRegistryCollection().doc(uid);
+}
+
 // Re-export FieldValue so routes can use serverTimestamp without importing firestore directly.
 export { FieldValue };
 

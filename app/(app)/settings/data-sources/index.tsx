@@ -13,6 +13,7 @@ import {
 } from "@/lib/metrics/dataSourcesConfig";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
+import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 
@@ -47,7 +48,13 @@ function useAppleHealthStatusForDataSources(): AppleHealthStatus {
   return status;
 }
 
-function getSourceStatus(sourceId: Slice1SourceId, withingsConnected: boolean, appleHealth: AppleHealthStatus): string {
+function getSourceStatus(
+  sourceId: Slice1SourceId,
+  withingsConnected: boolean,
+  appleHealth: AppleHealthStatus,
+  ouraConnected: boolean,
+  ouraStatus: "loading" | "ready" | "error",
+): string {
   switch (sourceId) {
     case "withings":
       if (withingsConnected) return "Connected";
@@ -57,6 +64,10 @@ function getSourceStatus(sourceId: Slice1SourceId, withingsConnected: boolean, a
       if (appleHealth === "connected") return "Connected";
       if (appleHealth === "error") return "Error";
       return "Not connected";
+    case "oura":
+      if (ouraStatus === "loading") return "Loading…";
+      if (ouraStatus === "error") return "Error";
+      return ouraConnected ? "Connected" : "Not connected";
     case "manual":
       return "Enabled";
     case "upload":
@@ -71,10 +82,13 @@ export default function DataSourcesHomeScreen() {
   const router = useRouter();
   const { state } = usePreferences();
   const withingsPresence = useWithingsPresence();
+  const ouraPresence = useOuraPresence();
   const appleHealthStatus = useAppleHealthStatusForDataSources();
 
   const metricSources = state.preferences.metricSources ?? {};
   const withingsConnected = withingsPresence.status === "ready" && withingsPresence.data.connected;
+  const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
+  const ouraStatus = ouraPresence.status === "error" ? "error" : ouraPresence.status === "ready" ? "ready" : "loading";
 
   const currentSourceForMetric = useCallback(
     (metricId: string) => {
@@ -108,7 +122,7 @@ export default function DataSourcesHomeScreen() {
             <ModuleSectionLinkRow
               key={sourceId}
               title={SOURCE_DISPLAY_NAMES[sourceId]}
-              subtitle={getSourceStatus(sourceId, withingsConnected, appleHealthStatus)}
+              subtitle={getSourceStatus(sourceId, withingsConnected, appleHealthStatus, ouraConnected, ouraStatus)}
               onPress={() => router.push(`/(app)/settings/data-sources/source/${sourceId}`)}
             />
           ))}

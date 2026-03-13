@@ -1,4 +1,4 @@
-// app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Withings, Apple Health)
+// app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Withings, Apple Health, Oura)
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
@@ -7,10 +7,13 @@ import * as WebBrowser from "expo-web-browser";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
+import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { getWithingsConnectUrl, postWithingsRevoke } from "@/lib/api/withings";
+import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 
 const WITHINGS_AUTHORIZE_PREFIX = "https://account.withings.com/oauth2_user/authorize2";
+const OURA_AUTHORIZE_PREFIX = "https://cloud.ouraring.com/oauth/authorize";
 
 function getWithingsReturnUrl(): string {
   const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
@@ -20,7 +23,15 @@ function getWithingsReturnUrl(): string {
   return "com.olifitness.oli://withings-connected";
 }
 
-type DeviceId = "withings" | "apple_health";
+function getOuraReturnUrl(): string {
+  const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
+  if (base && base.startsWith("https://")) {
+    return `${base.replace(/\/$/, "")}/integrations/oura/complete`;
+  }
+  return "com.olifitness.oli://oura-connected";
+}
+
+type DeviceId = "withings" | "apple_health" | "oura";
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
 
@@ -29,18 +40,22 @@ function DeviceDetailScreen() {
   const navigation = useNavigation();
   const { user, getIdToken } = useAuth();
   const withingsPresence = useWithingsPresence();
+  const ouraPresence = useOuraPresence();
 
   const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
   const [appleLastSyncAt, setAppleLastSyncAt] = useState<string | null>(null);
 
   const [withingsConnecting, setWithingsConnecting] = useState(false);
   const [withingsRevoking, setWithingsRevoking] = useState(false);
+  const [ouraConnecting, setOuraConnecting] = useState(false);
+  const [ouraRevoking, setOuraRevoking] = useState(false);
 
   const id = (deviceId ?? "") as DeviceId;
   const isWithings = id === "withings";
   const isAppleHealth = id === "apple_health";
+  const isOura = id === "oura";
 
-  const title = isWithings ? "Withings" : isAppleHealth ? "Apple Health" : "Device";
+  const title = isWithings ? "Withings" : isAppleHealth ? "Apple Health" : isOura ? "Oura" : "Device";
 
   useEffect(() => {
     navigation.setOptions({ title });
@@ -150,7 +165,73 @@ function DeviceDetailScreen() {
     );
   }, [getIdToken, withingsPresence]);
 
-  if (!isWithings && !isAppleHealth) {
+  const handleConnectOura = useCallback(async () => {
+    const token = await getIdToken(true);
+    if (!token) {
+      Alert.alert("Sign in required", "Please sign in to connect Oura.");
+      return;
+    }
+    setOuraConnecting(true);
+    try {
+      const res = await getOuraConnectUrl(token);
+      if (!res.ok) {
+        const message = res.error ?? `Request failed (${res.status})`;
+        Alert.alert("Connection failed", message);
+        return;
+      }
+      if (!res.json?.url) {
+        Alert.alert("Connection failed", "No authorization URL returned.");
+        return;
+      }
+      const authUrl = res.json.url;
+      if (!authUrl.startsWith(OURA_AUTHORIZE_PREFIX)) {
+        Alert.alert("Connection failed", "Invalid authorization URL host.");
+        return;
+      }
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, getOuraReturnUrl());
+      if (result.type === "cancel") {
+        Alert.alert("Cancelled", "Oura connection was cancelled.");
+        return;
+      }
+      await ouraPresence.refetch();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      Alert.alert("Connection failed", message);
+    } finally {
+      setOuraConnecting(false);
+    }
+  }, [getIdToken, ouraPresence]);
+
+  const handleDisconnectOura = useCallback(() => {
+    Alert.alert(
+      "Disconnect Oura?",
+      "Your existing sleep and HRV data from Oura will remain. You can connect again later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: async () => {
+            const token = await getIdToken(false);
+            if (!token) return;
+            setOuraRevoking(true);
+            try {
+              const res = await postOuraRevoke(token);
+              if (!res.ok) {
+                Alert.alert("Disconnect failed", res.error ?? "Could not disconnect Oura.");
+                return;
+              }
+              await ouraPresence.refetch({ cacheBust: `ouraRevoke:devices-detail:${Date.now()}` });
+            } finally {
+              setOuraRevoking(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [getIdToken, ouraPresence]);
+
+  if (!isWithings && !isAppleHealth && !isOura) {
     return (
       <ModuleScreenShell title="Device" subtitle="Unknown device">
         <View style={styles.body}>
@@ -163,6 +244,7 @@ function DeviceDetailScreen() {
   const withingsConnected =
     withingsPresence.status === "ready" && withingsPresence.data.connected;
 
+  const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
   const mainStatus =
     isWithings && withingsPresence.status === "error"
       ? "Error"
@@ -170,13 +252,21 @@ function DeviceDetailScreen() {
         ? withingsConnected
           ? "Connected"
           : "Not connected"
-        : appleStatus === "loading"
-          ? "Loading…"
-          : appleStatus === "connected"
-            ? "Connected"
-            : appleStatus === "error"
-              ? "Error"
-              : "Not connected";
+        : isOura
+          ? ouraPresence.status === "error"
+            ? "Error"
+            : ouraPresence.status === "ready"
+              ? ouraConnected
+                ? "Connected"
+                : "Not connected"
+              : "Loading…"
+          : appleStatus === "loading"
+            ? "Loading…"
+            : appleStatus === "connected"
+              ? "Connected"
+              : appleStatus === "error"
+                ? "Error"
+                : "Not connected";
 
   const withingsCopy =
     "Connect your Withings scale to sync weight and body composition into Oli. When connected, Oli can import new readings and historical data.";
@@ -184,8 +274,12 @@ function DeviceDetailScreen() {
   const appleCopy =
     "Apple Health can provide workouts, steps, activity, HRV, and sleep from your iPhone and Apple Watch. Manage Apple Health permissions and sync from Workouts.";
 
+  const ouraCopy =
+    "Oura can provide sleep and HRV data. When connected and synced, Oli uses Oura for sleep duration and heart rate variability in your record.";
+
   const metricsForWithings = ["Weight", "Body fat"];
   const metricsForAppleHealth = ["Steps", "Activity minutes", "HRV", "Sleep duration"];
+  const metricsForOura = ["Sleep duration", "HRV"];
 
   return (
     <ModuleScreenShell title={title} hideTitleChrome>
@@ -222,6 +316,35 @@ function DeviceDetailScreen() {
                   {withingsConnected ? "On" : "Off"}
                 </Text>
               </Pressable>
+            ) : isOura ? (
+              <Pressable
+                style={[
+                  styles.togglePill,
+                  ouraConnected ? styles.togglePillOn : styles.togglePillOff,
+                  ouraConnecting || ouraRevoking ? styles.togglePillDisabled : null,
+                ]}
+                disabled={ouraConnecting || ouraRevoking}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  ouraConnected
+                    ? ouraRevoking
+                      ? "Disconnecting Oura…"
+                      : "Turn off Oura"
+                    : ouraConnecting
+                      ? "Connecting Oura…"
+                      : "Turn on Oura"
+                }
+                onPress={ouraConnected ? handleDisconnectOura : handleConnectOura}
+              >
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    ouraConnected ? styles.toggleLabelOn : styles.toggleLabelOff,
+                  ]}
+                >
+                  {ouraConnected ? "On" : "Off"}
+                </Text>
+              </Pressable>
             ) : (
               <Text style={styles.rowStatus}>{mainStatus}</Text>
             )}
@@ -231,14 +354,16 @@ function DeviceDetailScreen() {
         {/* No separate Withings action box; main toggle above is the primary control. */}
 
         <View style={styles.body}>
-          <Text style={styles.description}>{isWithings ? withingsCopy : appleCopy}</Text>
+          <Text style={styles.description}>
+            {isWithings ? withingsCopy : isOura ? ouraCopy : appleCopy}
+          </Text>
         </View>
 
         <View style={styles.group}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Metrics this device provides</Text>
           </View>
-          {(isWithings ? metricsForWithings : metricsForAppleHealth).map((m) => (
+          {(isWithings ? metricsForWithings : isOura ? metricsForOura : metricsForAppleHealth).map((m) => (
             <View key={m} style={styles.metricRow}>
               <Text style={styles.metricText}>{m}</Text>
             </View>
@@ -254,6 +379,12 @@ function DeviceDetailScreen() {
         {isAppleHealth && appleLastSyncAt && (
           <Text style={styles.footerHint}>
             Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
+          </Text>
+        )}
+
+        {isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt && (
+          <Text style={styles.footerHint}>
+            Last sync: {new Date(ouraPresence.data.lastSyncAt).toLocaleString()}
           </Text>
         )}
       </ScrollView>

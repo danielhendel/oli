@@ -52,6 +52,14 @@
         { "fieldPath": "provider", "order": "ASCENDING" },
         { "fieldPath": "receivedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "rawEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sourceId", "order": "ASCENDING" },
+        { "fieldPath": "receivedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
