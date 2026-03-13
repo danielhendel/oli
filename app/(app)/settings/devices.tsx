@@ -1,175 +1,209 @@
 // app/(app)/settings/devices.tsx
-import { useState, useCallback } from "react";
-import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
-import * as WebBrowser from "expo-web-browser";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
-import { getWithingsConnectUrl } from "@/lib/api/withings";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
+import { getWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
 
-const WITHINGS_AUTHORIZE_PREFIX = "https://account.withings.com/oauth2_user/authorize2";
-
-/** Completion bridge URL (HTTPS) so auth session auto-closes; fallback to deep link if no backend URL. */
-function getWithingsReturnUrl(): string {
-  const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
-  if (base && base.startsWith("https://")) {
-    return `${base.replace(/\/$/, "")}/integrations/withings/complete`;
-  }
-  return "com.olifitness.oli://withings-connected";
-}
-
-// Debug switch (set to true only when capturing logs)
-const DEBUG_WITHINGS_OAUTH = false;
+type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
 
 function DevicesScreen() {
+  const router = useRouter();
   const presence = useWithingsPresence();
-  const { getIdToken } = useAuth();
-  const [connecting, setConnecting] = useState(false);
+  const { user, getIdToken } = useAuth();
+
+  const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
+  const appleFetchSeq = useRef(0);
+  const [withingsHydrated, setWithingsHydrated] = useState<boolean | null>(null);
 
   const backfill = presence.status === "ready" ? presence.data.backfill : undefined;
-  const statusLine =
-    presence.status === "error"
-      ? "Error loading status"
-      : presence.status === "ready"
-        ? presence.data.connected
-          ? "Status: Connected"
-          : "Status: Not connected"
-        : "Status: Loading…";
+  const withingsConnected =
+    presence.status === "ready" && presence.data.connected;
 
-  const handleConnectWithings = useCallback(async () => {
-    const token = await getIdToken(true);
-    if (!token) {
-      Alert.alert("Sign in required", "Please sign in to connect Withings.");
+  const fetchAppleStatus = useCallback(async () => {
+    const seq = ++appleFetchSeq.current;
+    if (!user) {
+      if (seq === appleFetchSeq.current) setAppleStatus("not_connected");
       return;
     }
-
-    setConnecting(true);
     try {
-      const res = await getWithingsConnectUrl(token);
+      const token = await getIdToken(false);
+      if (seq !== appleFetchSeq.current) return;
+      if (!token) {
+        setAppleStatus("not_connected");
+        return;
+      }
+      const res = await getAppleHealthStatus(token, { cacheBust: `devices:${Date.now()}` });
+      if (seq !== appleFetchSeq.current) return;
       if (!res.ok) {
-        const message = res.error ?? `Request failed (${res.status})`;
-        Alert.alert("Connection failed", message);
+        setAppleStatus("error");
         return;
       }
-      if (!res.json?.url) {
-        Alert.alert("Connection failed", "No authorization URL returned.");
-        return;
-      }
-
-      const authUrl = res.json.url;
-
-      // Host/prefix guard: fail closed if auth URL is not the expected Withings authorize endpoint
-      if (!authUrl.startsWith(WITHINGS_AUTHORIZE_PREFIX)) {
-        Alert.alert("Connection failed", "Invalid authorization URL host.");
-        return;
-      }
-
-      // Debug: prove what redirect_uri is actually being used (do NOT log tokens)
-      if (DEBUG_WITHINGS_OAUTH) {
-        try {
-          const u = new URL(authUrl);
-          const redirectUri = u.searchParams.get("redirect_uri");
-          const clientId = u.searchParams.get("client_id");
-          const scope = u.searchParams.get("scope");
-          console.log("WITHINGS_OAUTH_DEBUG", {
-            authorizeHost: u.host,
-            redirectUri,
-            redirectHost: redirectUri ? new URL(redirectUri).host : null,
-            redirectPath: redirectUri ? new URL(redirectUri).pathname : null,
-            scope,
-            // client_id is not a secret, but still keep logs minimal
-            clientIdPrefix: clientId ? clientId.slice(0, 6) : null,
-          });
-        } catch (e) {
-          console.log("WITHINGS_OAUTH_DEBUG_PARSE_ERROR", e instanceof Error ? e.message : String(e));
-        }
-      }
-
-      const returnUrl = getWithingsReturnUrl();
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, returnUrl);
-
-      // With the HTTPS completion bridge, some platforms return "dismiss" even when the flow succeeded.
-      // Fail-closed: always refetch server truth unless the user explicitly cancelled.
-      if (result.type === "cancel") {
-        Alert.alert("Cancelled", "Withings connection was cancelled.");
-        return;
-      }
-
-      await presence.refetch();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong";
-      Alert.alert("Connection failed", message);
-    } finally {
-      setConnecting(false);
+      setAppleStatus(res.json.connected ? "connected" : "not_connected");
+    } catch {
+      if (seq === appleFetchSeq.current) setAppleStatus("error");
     }
-  }, [getIdToken, presence]);
+  }, [user, getIdToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getWithingsLastKnownConnected().then((connected) => {
+        setWithingsHydrated(connected);
+      });
+      presence.refetch();
+      void fetchAppleStatus();
+    }, [presence, fetchAppleStatus]),
+  );
+
+  useEffect(() => {
+    void fetchAppleStatus();
+  }, [fetchAppleStatus]);
+
+  useEffect(() => {
+    getAppleHealthConnected().then((connected) => {
+      setAppleStatus((prev) => (prev === "loading" ? (connected ? "connected" : "not_connected") : prev));
+    });
+  }, []);
+
+  useEffect(() => {
+    getWithingsLastKnownConnected().then((connected) => {
+      setWithingsHydrated(connected);
+    });
+  }, []);
+
+  const appleStatusLine =
+    appleStatus === "loading"
+      ? "Loading…"
+      : appleStatus === "connected"
+        ? "On"
+        : appleStatus === "error"
+          ? "Error"
+          : "Off";
+
+  const withingsStatusSummary =
+    presence.status === "error"
+      ? "Error"
+      : presence.status === "ready"
+        ? withingsConnected
+          ? "On"
+          : "Off"
+        : withingsHydrated !== null
+          ? withingsHydrated
+            ? "On"
+            : "Off"
+          : "Loading…";
 
   return (
-    <ModuleScreenShell title="Devices" subtitle="Wearables & integrations">
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Withings</Text>
-        <Text style={styles.statusLine}>{statusLine}</Text>
+    <ModuleScreenShell title="Devices" hideTitleChrome>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.listGroup}>
+          <Pressable
+            style={styles.row}
+            onPress={() => router.push("/(app)/settings/devices/withings")}
+            accessibilityRole="button"
+            accessibilityLabel="Withings device settings"
+          >
+            <View style={styles.rowLeft}>
+              <Ionicons name="scale-outline" size={22} color="#3C3C43" style={styles.rowIcon} />
+              <Text style={styles.rowTitle}>Withings</Text>
+            </View>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowStatus}>{withingsStatusSummary}</Text>
+              <Text style={styles.rowChevron}>›</Text>
+            </View>
+          </Pressable>
 
-        <Pressable
-          style={[styles.connectButton, connecting && styles.connectButtonDisabled]}
-          onPress={handleConnectWithings}
-          disabled={connecting}
-          accessibilityState={{ busy: connecting }}
-          accessibilityLabel="Connect Withings"
-        >
-          <Text style={styles.connectButtonText}>
-            {connecting ? "Connecting…" : "Connect Withings"}
-          </Text>
-        </Pressable>
+          <Pressable
+            style={styles.row}
+            onPress={() => router.push("/(app)/settings/devices/apple_health")}
+            accessibilityRole="button"
+            accessibilityLabel="Apple Health settings"
+          >
+            <View style={styles.rowLeft}>
+              <Ionicons name="heart-outline" size={22} color="#FF2D55" style={styles.rowIcon} />
+              <Text style={styles.rowTitle}>Apple Health</Text>
+            </View>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowStatus}>
+                {appleStatusLine}
+              </Text>
+              <Text style={styles.rowChevron}>›</Text>
+            </View>
+          </Pressable>
+        </View>
 
-        {backfill?.status === "running" ? (
-          <Text style={styles.backfillLine}>
-            Importing history… {typeof backfill.processedCount === "number" ? `(${backfill.processedCount} events)` : ""}
+        {backfill?.status === "running" && (
+          <Text style={styles.footerHint}>
+            Withings is importing history in the background.
           </Text>
-        ) : backfill?.status === "complete" ? (
-          <Text style={styles.backfillLine}>History imported.</Text>
-        ) : backfill?.status === "error" && backfill?.lastError ? (
-          <View style={styles.backfillErrorBlock}>
-            <Text style={styles.backfillErrorText}>{backfill.lastError.message}</Text>
-            <Text style={styles.backfillHint}>Retry is run by the system; you can refetch status.</Text>
-          </View>
-        ) : presence.status === "ready" && presence.data.connected && !presence.data.hasRecentData ? (
-          <Text style={styles.backfillLine}>No weight data from device yet. Import runs automatically.</Text>
-        ) : null}
-
-        {DEBUG_WITHINGS_OAUTH ? (
-          <Text style={styles.debugHint}>
-            Debug on: check Metro logs for WITHINGS_OAUTH_DEBUG.
-          </Text>
-        ) : null}
-      </View>
+        )}
+      </ScrollView>
     </ModuleScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#F2F2F7",
-    borderRadius: 12,
+  content: {
     padding: 16,
-    gap: 10,
+    paddingBottom: 32,
+    gap: 8,
   },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  statusLine: { fontSize: 15, color: "#3C3C43" },
-  connectButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 10,
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6E6E73",
+  },
+  listGroup: {
+    marginTop: 8,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
-    borderRadius: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
   },
-  connectButtonDisabled: { opacity: 0.7 },
-  connectButtonText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
-  backfillLine: { fontSize: 14, color: "#3C3C43" },
-  backfillErrorBlock: { gap: 4 },
-  backfillErrorText: { fontSize: 14, color: "#B00020", fontWeight: "600" },
-  backfillHint: { fontSize: 12, color: "#6B7280" },
-  debugHint: { fontSize: 12, color: "#6B7280" },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    minWidth: 0,
+  },
+  rowIcon: {
+    marginRight: 12,
+  },
+  rowTitle: {
+    fontSize: 16,
+    color: "#1C1C1E",
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  rowStatus: {
+    fontSize: 15,
+    color: "#8E8E93",
+  },
+  rowChevron: {
+    fontSize: 20,
+    color: "#C7C7CC",
+  },
+  footerHint: {
+    marginTop: 16,
+    fontSize: 13,
+    color: "#6E6E73",
+  },
 });
 
 export default DevicesScreen;

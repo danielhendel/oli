@@ -37,6 +37,8 @@ export default function AppLayout() {
           <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+          <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
+          <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
           {/* Secondary: API-ingest strength form. Primary strength log is workouts/log. */}
           <Stack.Screen name="training/strength/log" options={{ title: "Log Strength" }} />
           <Stack.Screen name="log/index" options={{ title: "Quick log" }} />

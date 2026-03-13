@@ -116,3 +116,10 @@ export async function postWithingsPullNow(
     },
   );
 }
+
+const withingsRevokeResponseSchema = z.object({ ok: z.literal(true) });
+
+/** POST /integrations/withings/revoke — disconnect Withings. AUTH REQUIRED. */
+export async function postWithingsRevoke(idToken: string): Promise<ApiResult<{ ok: true }>> {
+  return apiPostZodAuthed("/integrations/withings/revoke", {}, idToken, withingsRevokeResponseSchema, { noStore: true });
+}

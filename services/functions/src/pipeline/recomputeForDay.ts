@@ -20,6 +20,7 @@ import type {
 } from "../types/health";
 import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
+import { loadBodyFactsFromRawForDay } from "../dailyFacts/loadBodyFactsFromRawForDay";
 import { generateInsightsForDailyFacts } from "../insights/rules";
 import { buildDailyIntelligenceContext } from "../intelligence/buildDailyIntelligenceContext";
 import { buildPipelineMeta } from "./pipelineMeta";
@@ -70,7 +71,7 @@ export interface RecomputeForDayInput {
  * Idempotent; overwrites are allowed.
  */
 export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): Promise<void> {
-  const { db, userId, dayKey, factOnlyBody, trigger } = input;
+  const { db, userId, dayKey, trigger } = input;
   const computedAt: IsoDateTimeString = new Date().toISOString();
 
   const userRef = db.collection("users").doc(userId);
@@ -90,12 +91,15 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
   // Truth anchor for readiness (fact-only may have no canonical events)
   const truthAnchor = latestCanonicalEventAt ?? computedAt;
 
+  // Source-aware body facts from raw weight events + preferences.metricSources (Slice 2)
+  const resolvedBody = await loadBodyFactsFromRawForDay(db, userId, dayKey);
+
   const baseDailyFacts = aggregateDailyFactsForDay({
     userId,
     date: dayKey,
     computedAt,
     events: eventsForDay,
-    ...(factOnlyBody ? { factOnlyBody } : {}),
+    ...(resolvedBody ? { factOnlyBody: resolvedBody } : {}),
   });
 
   const startHistoryDate = addDaysUtc(dayKey, -6);
@@ -119,7 +123,7 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
       source: {
         eventsForDay: eventsForDay.length,
         ...(latestCanonicalEventAt ? { latestCanonicalEventAt } : {}),
-        ...(factOnlyBody ? { factOnlyBody: true } : {}),
+        ...(resolvedBody ? { bodyFromRawAndPreferences: true } : {}),
       },
     }),
   };

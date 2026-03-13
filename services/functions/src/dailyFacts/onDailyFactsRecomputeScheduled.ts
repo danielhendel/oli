@@ -9,6 +9,7 @@ import type { CanonicalEvent, DailyFacts, IsoDateTimeString, YmdDateString } fro
 
 import { aggregateDailyFactsForDay } from "./aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "./enrichDailyFacts";
+import { loadBodyFactsFromRawForDay } from "./loadBodyFactsFromRawForDay";
 
 import { buildPipelineMeta } from "../pipeline/pipelineMeta";
 import { computeLatencyMs, shouldWarnLatency } from "../pipeline/pipelineLatency";
@@ -112,11 +113,14 @@ export const onDailyFactsRecomputeScheduled = onSchedule(
             return t > max ? t : max;
           }, undefined) ?? undefined;
 
+        const resolvedBody = await loadBodyFactsFromRawForDay(db, userId, targetDate);
+
         const baseDailyFacts: DailyFacts = aggregateDailyFactsForDay({
           userId,
           date: targetDate,
           computedAt,
           events: eventsForDay,
+          ...(resolvedBody ? { factOnlyBody: resolvedBody } : {}),
         });
 
         const historySnap = await userRef

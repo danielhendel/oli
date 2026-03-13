@@ -32,6 +32,13 @@ export const preferencesSchema = z
 
     /** Workout-scoped: selected gym id for exercise library filtering. null = no gym selected. */
     selectedGymId: z.string().nullable(),
+
+    /**
+     * Data Sources — one preferred source per metric.
+     * Keys: metric IDs (e.g. weight, steps). Values: sourceId (e.g. withings, manual).
+     * Absent key = use default / not set.
+     */
+    metricSources: z.record(z.string().min(1), z.string().min(1)).optional(),
   })
   .strip()
   .superRefine((val, ctx) => {
@@ -56,4 +63,5 @@ export const defaultPreferences = (): Preferences => ({
   units: { mass: "lb" },
   timezone: { mode: "recorded" },
   selectedGymId: null,
+  metricSources: {},
 });

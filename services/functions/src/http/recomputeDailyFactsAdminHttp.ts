@@ -12,6 +12,7 @@ import type {
 } from "../types/health";
 import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
+import { loadBodyFactsFromRawForDay } from "../dailyFacts/loadBodyFactsFromRawForDay";
 import { requireAdmin } from "./adminAuth";
 
 // ✅ Data Readiness Contract
@@ -121,6 +122,9 @@ export const recomputeDailyFactsAdminHttp = onRequest(
 
       const events: CanonicalEvent[] = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
 
+      // Source-aware body facts from raw weight events + preferences (Slice 2)
+      const resolvedBody = await loadBodyFactsFromRawForDay(db, userId, date);
+
       // Truth anchor for readiness
       const latestCanonicalEventAt: IsoDateTimeString =
         events.reduce<IsoDateTimeString | null>((max, ev) => {
@@ -135,6 +139,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
         date,
         computedAt,
         events,
+        ...(resolvedBody ? { factOnlyBody: resolvedBody } : {}),
       });
 
       /**

@@ -71,7 +71,9 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     case "settings.units":
       return READY;
     case "settings.devices":
-      return SOON("Soon");
+      return READY;
+    case "settings.dataSources":
+      return READY;
     case "settings.privacy":
       return READY;
 
