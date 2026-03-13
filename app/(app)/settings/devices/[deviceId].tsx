@@ -1,0 +1,384 @@
+// app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Withings, Apple Health)
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
+import { useLocalSearchParams, useNavigation } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+
+import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
+import { getWithingsConnectUrl, postWithingsRevoke } from "@/lib/api/withings";
+import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+
+const WITHINGS_AUTHORIZE_PREFIX = "https://account.withings.com/oauth2_user/authorize2";
+
+function getWithingsReturnUrl(): string {
+  const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
+  if (base && base.startsWith("https://")) {
+    return `${base.replace(/\/$/, "")}/integrations/withings/complete`;
+  }
+  return "com.olifitness.oli://withings-connected";
+}
+
+type DeviceId = "withings" | "apple_health";
+
+type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
+
+function DeviceDetailScreen() {
+  const { deviceId } = useLocalSearchParams<{ deviceId: string }>();
+  const navigation = useNavigation();
+  const { user, getIdToken } = useAuth();
+  const withingsPresence = useWithingsPresence();
+
+  const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
+  const [appleLastSyncAt, setAppleLastSyncAt] = useState<string | null>(null);
+
+  const [withingsConnecting, setWithingsConnecting] = useState(false);
+  const [withingsRevoking, setWithingsRevoking] = useState(false);
+
+  const id = (deviceId ?? "") as DeviceId;
+  const isWithings = id === "withings";
+  const isAppleHealth = id === "apple_health";
+
+  const title = isWithings ? "Withings" : isAppleHealth ? "Apple Health" : "Device";
+
+  useEffect(() => {
+    navigation.setOptions({ title });
+  }, [navigation, title]);
+
+  useEffect(() => {
+    if (!isAppleHealth) return;
+    let cancelled = false;
+    (async () => {
+      if (!user) {
+        setAppleStatus("not_connected");
+        setAppleLastSyncAt(null);
+        return;
+      }
+      try {
+        const token = await getIdToken(false);
+        if (cancelled) return;
+        if (!token) {
+          setAppleStatus("not_connected");
+          setAppleLastSyncAt(null);
+          return;
+        }
+        const res = await getAppleHealthStatus(token, { cacheBust: `devices-detail:${Date.now()}` });
+        if (cancelled) return;
+        if (!res.ok) {
+          setAppleStatus("error");
+          setAppleLastSyncAt(null);
+          return;
+        }
+        setAppleStatus(res.json.connected ? "connected" : "not_connected");
+        setAppleLastSyncAt(res.json.lastSyncAt);
+      } catch {
+        if (!cancelled) {
+          setAppleStatus("error");
+          setAppleLastSyncAt(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAppleHealth, user, getIdToken]);
+
+  const handleConnectWithings = useCallback(async () => {
+    const token = await getIdToken(true);
+    if (!token) {
+      Alert.alert("Sign in required", "Please sign in to connect Withings.");
+      return;
+    }
+    setWithingsConnecting(true);
+    try {
+      const res = await getWithingsConnectUrl(token);
+      if (!res.ok) {
+        const message = res.error ?? `Request failed (${res.status})`;
+        Alert.alert("Connection failed", message);
+        return;
+      }
+      if (!res.json?.url) {
+        Alert.alert("Connection failed", "No authorization URL returned.");
+        return;
+      }
+      const authUrl = res.json.url;
+      if (!authUrl.startsWith(WITHINGS_AUTHORIZE_PREFIX)) {
+        Alert.alert("Connection failed", "Invalid authorization URL host.");
+        return;
+      }
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, getWithingsReturnUrl());
+      if (result.type === "cancel") {
+        Alert.alert("Cancelled", "Withings connection was cancelled.");
+        return;
+      }
+      await withingsPresence.refetch();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      Alert.alert("Connection failed", message);
+    } finally {
+      setWithingsConnecting(false);
+    }
+  }, [getIdToken, withingsPresence]);
+
+  const handleDisconnectWithings = useCallback(() => {
+    Alert.alert(
+      "Disconnect Withings?",
+      "Your existing weight and body composition data from Withings will remain. You can connect again later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: async () => {
+            const token = await getIdToken(false);
+            if (!token) return;
+            setWithingsRevoking(true);
+            try {
+              const res = await postWithingsRevoke(token);
+              if (!res.ok) {
+                Alert.alert("Disconnect failed", res.error ?? "Could not disconnect Withings.");
+                return;
+              }
+              await withingsPresence.refetch({ cacheBust: `withingsRevoke:devices-detail:${Date.now()}` });
+            } finally {
+              setWithingsRevoking(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [getIdToken, withingsPresence]);
+
+  if (!isWithings && !isAppleHealth) {
+    return (
+      <ModuleScreenShell title="Device" subtitle="Unknown device">
+        <View style={styles.body}>
+          <Text style={styles.description}>Unknown device.</Text>
+        </View>
+      </ModuleScreenShell>
+    );
+  }
+
+  const withingsConnected =
+    withingsPresence.status === "ready" && withingsPresence.data.connected;
+
+  const mainStatus =
+    isWithings && withingsPresence.status === "error"
+      ? "Error"
+      : isWithings
+        ? withingsConnected
+          ? "Connected"
+          : "Not connected"
+        : appleStatus === "loading"
+          ? "Loading…"
+          : appleStatus === "connected"
+            ? "Connected"
+            : appleStatus === "error"
+              ? "Error"
+              : "Not connected";
+
+  const withingsCopy =
+    "Connect your Withings scale to sync weight and body composition into Oli. When connected, Oli can import new readings and historical data.";
+
+  const appleCopy =
+    "Apple Health can provide workouts, steps, activity, HRV, and sleep from your iPhone and Apple Watch. Manage Apple Health permissions and sync from Workouts.";
+
+  const metricsForWithings = ["Weight", "Body fat"];
+  const metricsForAppleHealth = ["Steps", "Activity minutes", "HRV", "Sleep duration"];
+
+  return (
+    <ModuleScreenShell title={title} hideTitleChrome>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <View style={styles.group}>
+          <View style={styles.row}>
+            <Text style={styles.rowTitle}>{title}</Text>
+            {isWithings ? (
+              <Pressable
+                style={[
+                  styles.togglePill,
+                  withingsConnected ? styles.togglePillOn : styles.togglePillOff,
+                  withingsConnecting || withingsRevoking ? styles.togglePillDisabled : null,
+                ]}
+                disabled={withingsConnecting || withingsRevoking}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  withingsConnected
+                    ? withingsRevoking
+                      ? "Disconnecting Withings…"
+                      : "Turn off Withings"
+                    : withingsConnecting
+                      ? "Connecting Withings…"
+                      : "Turn on Withings"
+                }
+                onPress={withingsConnected ? handleDisconnectWithings : handleConnectWithings}
+              >
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    withingsConnected ? styles.toggleLabelOn : styles.toggleLabelOff,
+                  ]}
+                >
+                  {withingsConnected ? "On" : "Off"}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.rowStatus}>{mainStatus}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* No separate Withings action box; main toggle above is the primary control. */}
+
+        <View style={styles.body}>
+          <Text style={styles.description}>{isWithings ? withingsCopy : appleCopy}</Text>
+        </View>
+
+        <View style={styles.group}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Metrics this device provides</Text>
+          </View>
+          {(isWithings ? metricsForWithings : metricsForAppleHealth).map((m) => (
+            <View key={m} style={styles.metricRow}>
+              <Text style={styles.metricText}>{m}</Text>
+            </View>
+          ))}
+        </View>
+
+        {isWithings &&
+          withingsPresence.status === "ready" &&
+          withingsPresence.data.backfill?.status === "running" && (
+            <Text style={styles.footerHint}>Importing history from Withings…</Text>
+          )}
+
+        {isAppleHealth && appleLastSyncAt && (
+          <Text style={styles.footerHint}>
+            Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
+          </Text>
+        )}
+      </ScrollView>
+    </ModuleScreenShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+    gap: 16,
+  },
+  group: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
+  rowStatus: {
+    fontSize: 15,
+    color: "#8E8E93",
+  },
+  togglePill: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  togglePillOn: {
+    backgroundColor: "rgba(52,199,89,0.12)",
+    borderColor: "#34C759",
+  },
+  togglePillOff: {
+    backgroundColor: "#F2F2F7",
+    borderColor: "#D1D1D6",
+  },
+  togglePillDisabled: {
+    opacity: 0.7,
+  },
+  toggleLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  toggleLabelOn: {
+    color: "#34C759",
+  },
+  toggleLabelOff: {
+    color: "#3C3C43",
+  },
+  primaryButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "#007AFF",
+    borderRadius: 10,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  primaryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  secondaryButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#8E8E93",
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#3C3C43",
+  },
+  body: {
+    paddingHorizontal: 4,
+  },
+  description: {
+    fontSize: 14,
+    color: "#3C3C43",
+    lineHeight: 20,
+  },
+  sectionHeader: {
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8E8E93",
+    textTransform: "uppercase",
+  },
+  metricRow: {
+    paddingVertical: 6,
+  },
+  metricText: {
+    fontSize: 15,
+    color: "#1C1C1E",
+  },
+  footerHint: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#6E6E73",
+  },
+});
+
+export default DeviceDetailScreen;
+

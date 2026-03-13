@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { View, Text, Pressable, StyleSheet, Modal, ScrollView, AppState } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ErrorState, EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -205,6 +205,7 @@ export default function BodyWeightScreen() {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [withingsModalVisible, setWithingsModalVisible] = useState(false);
   const navigation = useNavigation();
+  const router = useRouter();
   const auditKeyRef = useRef<string>("");
 
   type UpdateState =
@@ -462,10 +463,10 @@ export default function BodyWeightScreen() {
           onPress={() => setWithingsModalVisible(true)}
           style={styles.withingsChip}
           accessibilityRole="button"
-          accessibilityLabel={connected ? "Withings connected" : "Connect Withings"}
+          accessibilityLabel={connected ? "Withings connected" : "Manage Withings in Devices"}
         >
           <Text style={styles.withingsChipText}>Withings</Text>
-          <Text style={styles.withingsChipStatus}>{connected ? "Connected" : "Connect"}</Text>
+          <Text style={styles.withingsChipStatus}>{connected ? "Connected" : "Manage"}</Text>
         </Pressable>
       </View>
       <View style={styles.heroCard}>
@@ -795,18 +796,38 @@ export default function BodyWeightScreen() {
             <Text style={styles.settingsModalTitle}>Withings</Text>
             {connected ? (
               <>
-                <Text style={styles.withingsModalStatus}>Connected</Text>
+                <Text style={styles.withingsModalStatus}>
+                  Connected. Manage connection and sync in Devices.
+                </Text>
                 <Pressable
-                  onPress={() => setWithingsModalVisible(false)}
+                  onPress={() => {
+                    setWithingsModalVisible(false);
+                    router.push("/(app)/settings/devices");
+                  }}
                   style={styles.detailsCloseBtn}
                   accessibilityRole="button"
-                  accessibilityLabel="Manage"
+                  accessibilityLabel="Go to Devices"
                 >
-                  <Text style={styles.detailsCloseText}>Manage</Text>
+                  <Text style={styles.detailsCloseText}>Open Devices</Text>
                 </Pressable>
               </>
             ) : (
-              <Text style={styles.withingsModalBody}>Connect coming soon</Text>
+              <>
+                <Text style={styles.withingsModalBody}>
+                  Connect your Withings scale in Devices. Devices is the home for integrations.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setWithingsModalVisible(false);
+                    router.push("/(app)/settings/devices");
+                  }}
+                  style={styles.detailsCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to Devices"
+                >
+                  <Text style={styles.detailsCloseText}>Open Devices</Text>
+                </Pressable>
+              </>
             )}
             <Pressable
               onPress={() => setWithingsModalVisible(false)}

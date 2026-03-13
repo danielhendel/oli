@@ -262,7 +262,6 @@ export const onRawEventCreated = onDocumentCreated(
             db,
             userId: rawEvent.userId,
             dayKey: ctx.dayKey,
-            factOnlyBody: ctx.factOnlyBody,
             trigger: { type: "factOnly", rawEventId: rawEvent.id },
           });
           logger.info("FACT_ONLY_RECOMPUTE_DONE", {

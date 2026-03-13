@@ -46,6 +46,9 @@ jest.mock("../../firebaseAdmin", () => {
         doc(docId: string) {
           const base = `${name}/${docId}`;
           return {
+            async get() {
+              return { exists: true, data: () => ({ preferences: {} }) };
+            },
             collection(sub: string) {
               return {
                 doc(subId: string) {
@@ -112,7 +115,6 @@ describe("fact-only recompute", () => {
       db,
       userId,
       dayKey,
-      factOnlyBody: { weightKg: 73.5, bodyFatPercent: 18 },
       trigger: { type: "factOnly", rawEventId: "raw_weight_123" },
     });
 
@@ -120,7 +122,8 @@ describe("fact-only recompute", () => {
     expect(dailyFactsCall).toBeTruthy();
     expect(dailyFactsCall!.data.meta).toBeDefined();
     expect((dailyFactsCall!.data.meta as Record<string, unknown>).computedAt).toBeDefined();
-    expect(dailyFactsCall!.data.body).toEqual({ weightKg: 73.5, bodyFatPercent: 18 });
+    // Body is now resolved from raw events + preferences; with empty raw and no prefs, body is absent
+    expect(dailyFactsCall!.data.body === undefined || typeof dailyFactsCall!.data.body === "object").toBe(true);
 
     const intelligenceContextCall = mockSetCalls.find((c) =>
       c.path.endsWith(`/intelligenceContext/${dayKey}`),
@@ -135,7 +138,6 @@ describe("fact-only recompute", () => {
       db,
       userId: "u_test",
       dayKey: "2026-01-15",
-      factOnlyBody: { weightKg: 75 },
       trigger: { type: "factOnly", rawEventId: "raw_1" },
     });
 

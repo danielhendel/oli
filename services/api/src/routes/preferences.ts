@@ -60,6 +60,8 @@ const preferencesPatchSchema = z
       })
       .optional(),
     selectedGymId: z.string().nullable().optional(),
+    /** Data Sources: metricId -> sourceId; null value means clear that metric's preference. */
+    metricSources: z.record(z.string().min(1), z.string().min(1).nullable()).optional(),
   })
   .strip();
 
@@ -178,6 +180,17 @@ router.put(
     const nextMode = patch.timezone?.mode ?? base.timezone.mode;
 
     // Build candidate preferences WITHOUT ever placing explicitIana: undefined into the object
+    const nextMetricSources: Record<string, string> = { ...(base.metricSources ?? {}) };
+    if (patch.metricSources !== undefined) {
+      for (const [k, v] of Object.entries(patch.metricSources)) {
+        if (v === null || v === "") {
+          delete nextMetricSources[k];
+        } else {
+          nextMetricSources[k] = v;
+        }
+      }
+    }
+
     const candidate = {
       units: {
         mass: patch.units?.mass ?? base.units.mass,
@@ -192,6 +205,7 @@ router.put(
           : {}),
       },
       selectedGymId: patch.selectedGymId !== undefined ? patch.selectedGymId : base.selectedGymId,
+      metricSources: nextMetricSources,
     };
 
     const next = preferencesSchema.safeParse(candidate);

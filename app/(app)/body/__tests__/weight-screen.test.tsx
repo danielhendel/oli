@@ -212,9 +212,9 @@ describe("Weight screen", () => {
     });
     const text = collectAllText(test);
     expect(text).toContain("Withings");
-    expect(text).toContain("Connect");
-    const connectBtn = findPressableWithLabel(test.root, "Connect Withings");
-    expect(connectBtn).not.toBeNull();
+    expect(text).toContain("Manage");
+    const manageBtn = findPressableWithLabel(test.root, "Manage Withings in Devices");
+    expect(manageBtn).not.toBeNull();
   });
 
   it("renders chart when points.length > 0 and does not show placeholder text", () => {

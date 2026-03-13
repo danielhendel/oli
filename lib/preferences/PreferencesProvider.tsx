@@ -9,7 +9,7 @@ import React, {
   
   import { defaultPreferences, type Preferences, type MassUnit } from "@oli/contracts";
   import { useAuth } from "@/lib/auth/AuthProvider";
-  import { getPreferences, updateMassUnit, updateSelectedGymId } from "@/lib/api/preferences";
+  import { getPreferences, updateMassUnit, updateSelectedGymId, updateMetricSourcePreference } from "@/lib/api/preferences";
   
   type PreferencesState =
     | { status: "partial"; preferences: Preferences }
@@ -21,6 +21,7 @@ import React, {
     refresh: () => Promise<void>;
     setMassUnit: (mass: MassUnit) => Promise<void>;
     setSelectedGymId: (selectedGymId: string | null) => Promise<void>;
+    setMetricSourcePreference: (metricId: string, sourceId: string | null) => Promise<void>;
   };
   
   const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -148,6 +149,35 @@ import React, {
       setState({ status: "ready", preferences: res.json });
     };
   
+    const setMetricSourcePreferenceFn = async (metricId: string, sourceId: string | null): Promise<void> => {
+      if (initializing || !user) {
+        const m = { ...(state.preferences.metricSources ?? {}) };
+        if (sourceId === null) delete m[metricId];
+        else m[metricId] = sourceId;
+        setState((s) => ({ ...s, status: "ready", preferences: { ...s.preferences, metricSources: m } }));
+        return;
+      }
+  
+      const prev = state.preferences;
+      const nextMetricSources = { ...(prev.metricSources ?? {}) };
+      if (sourceId === null) delete nextMetricSources[metricId];
+      else nextMetricSources[metricId] = sourceId;
+      setState({ status: "ready", preferences: { ...prev, metricSources: nextMetricSources } });
+  
+      const token = await getIdToken(false);
+      if (!token) {
+        setState({ status: "error", preferences: prev, message: "No auth token" });
+        return;
+      }
+  
+      const res = await updateMetricSourcePreference(token, metricId, sourceId);
+      if (!res.ok) {
+        setState({ status: "error", preferences: prev, message: res.error ?? "Failed to save" });
+        return;
+      }
+      setState({ status: "ready", preferences: res.json });
+    };
+  
     // ✅ Auto-refresh on auth lifecycle changes
     useEffect(() => {
       void refresh();
@@ -159,6 +189,7 @@ import React, {
         refresh,
         setMassUnit,
         setSelectedGymId: setSelectedGymIdFn,
+        setMetricSourcePreference: setMetricSourcePreferenceFn,
       }),
       [state],
     );

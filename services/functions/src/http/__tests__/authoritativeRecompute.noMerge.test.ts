@@ -64,6 +64,9 @@ jest.mock("firebase-functions/logger", () => ({
           doc(docId: string) {
             const base = `${name}/${docId}`;
             return {
+              async get() {
+                return { exists: true, data: () => ({ preferences: {} }) };
+              },
               collection(sub: string) {
                 return {
                   doc(id: string) {

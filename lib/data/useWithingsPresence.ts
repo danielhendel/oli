@@ -7,7 +7,7 @@ import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
 import { WITHINGS_WEIGHT_KIND, WITHINGS_SOURCE_ID } from "./withingsPresenceContract";
-import { setWithingsLastCheckedAt } from "@/lib/integrations/withings/storage";
+import { setWithingsLastCheckedAt, setWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
 
 const RECENT_DAYS = 7;
 
@@ -55,31 +55,52 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
         if (seq === reqSeq.current) setState(next);
       };
 
-      if (initializing || !user) {
-        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
+      if (!user) {
+        safeSet({
+          status: "ready",
+          data: { connected: false, lastMeasurementAt: null, hasRecentData: false },
+        });
+        void setWithingsLastKnownConnected(false).catch(() => undefined);
+        return;
+      }
+
+      if (initializing) {
+        if (stateRef.current.status !== "ready" && stateRef.current.status !== "error") {
+          safeSet({ status: "partial" });
+        }
         return;
       }
 
       const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
       if (!token) {
-        if (stateRef.current.status === "ready") return;
         safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
+      if (stateRef.current.status !== "ready" && stateRef.current.status !== "error") {
+        safeSet({ status: "partial" });
+      }
       const optsUnique = withUniqueCacheBust(opts, seq);
 
       const statusRes = await getWithingsStatus(token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       const statusOutcome = truthOutcomeFromApiResult(statusRes);
+      if (statusOutcome.status === "error") {
+        safeSet({
+          status: "error",
+          error: statusOutcome.error,
+          requestId: statusOutcome.requestId,
+        });
+        return;
+      }
       if (statusOutcome.status !== "ready") {
         safeSet({
           status: "ready",
           data: { connected: false, lastMeasurementAt: null, hasRecentData: false },
         });
+        void setWithingsLastKnownConnected(false).catch(() => undefined);
         return;
       }
 
@@ -109,6 +130,7 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
             ...(backfillState !== undefined ? { backfill: backfillState } : {}),
           },
         });
+        void setWithingsLastKnownConnected(false).catch(() => undefined);
         return;
       }
 
@@ -137,6 +159,7 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
             ...(backfillState !== undefined ? { backfill: backfillState } : {}),
           },
         });
+        void setWithingsLastKnownConnected(true).catch(() => undefined);
         return;
       }
 
@@ -155,6 +178,7 @@ export function useWithingsPresence(): State & { refetch: (opts?: GetOptions) =>
           ...(backfillState !== undefined ? { backfill: backfillState } : {}),
         },
       });
+      void setWithingsLastKnownConnected(true).catch(() => undefined);
     },
     [getIdToken, initializing, user],
   );

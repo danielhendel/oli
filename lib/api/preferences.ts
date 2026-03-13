@@ -19,3 +19,13 @@ export async function updateSelectedGymId(
   const body = { selectedGymId };
   return apiPutZodAuthed("/preferences", body, idToken, preferencesSchema);
 }
+
+/** Data Sources: set or clear preferred source for one metric. Pass null to clear. */
+export async function updateMetricSourcePreference(
+  idToken: string,
+  metricId: string,
+  sourceId: string | null,
+): Promise<ApiResult<Preferences>> {
+  const body = { metricSources: { [metricId]: sourceId } };
+  return apiPutZodAuthed("/preferences", body, idToken, preferencesSchema);
+}
