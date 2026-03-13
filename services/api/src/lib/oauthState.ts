@@ -6,11 +6,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import { FieldValue, userCollection } from "../db";
 
-const PURPOSE = "withings_oauth";
+const DEFAULT_PURPOSE = "withings_oauth";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function createStateAsync(
   uid: string,
+  purpose: string = DEFAULT_PURPOSE,
 ): Promise<{ stateId: string; stateForRedirect: string }> {
   const stateId = randomBytes(16).toString("hex");
   const stateForRedirect = `${uid}:${stateId}`;
@@ -18,7 +19,7 @@ export async function createStateAsync(
   const now = Date.now();
   const ref = userCollection(uid, "oauthStates").doc(stateId);
   await ref.set({
-    purpose: PURPOSE,
+    purpose,
     stateHash,
     createdAt: FieldValue.serverTimestamp(),
     expiresAt: new Date(now + STATE_TTL_MS),
@@ -33,8 +34,12 @@ export type ValidateStateResult =
 
 /**
  * Validate state from callback query and consume (mark used). Returns uid and stateId if valid.
+ * @param purpose - If provided, state document must have this purpose (e.g. "oura_oauth").
  */
-export async function validateAndConsumeState(stateFromCallback: string): Promise<ValidateStateResult> {
+export async function validateAndConsumeState(
+  stateFromCallback: string,
+  purpose?: string,
+): Promise<ValidateStateResult> {
   if (!stateFromCallback || typeof stateFromCallback !== "string") {
     return { ok: false, reason: "missing_state" };
   }
@@ -55,7 +60,8 @@ export async function validateAndConsumeState(stateFromCallback: string): Promis
   } | undefined;
   if (!data) return { ok: false, reason: "state_not_found" };
 
-  if (data.purpose !== PURPOSE) return { ok: false, reason: "invalid_purpose" };
+  const expectedPurpose = purpose ?? DEFAULT_PURPOSE;
+  if (data.purpose !== expectedPurpose) return { ok: false, reason: "invalid_purpose" };
   const expectedHash = createHash("sha256").update(stateFromCallback).digest("hex");
   if (data.stateHash !== expectedHash) return { ok: false, reason: "state_hash_mismatch" };
 

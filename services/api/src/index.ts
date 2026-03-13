@@ -9,11 +9,12 @@ import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
-import integrationsRoutes, { handleWithingsCallback } from "./routes/integrations";
+import integrationsRoutes, { handleWithingsCallback, handleOuraCallback } from "./routes/integrations";
 import withingsPullRouter from "./routes/withingsPull";
 import withingsBackfillRouter from "./routes/withingsBackfill";
 import withingsPullNowRouter from "./routes/integrations/withingsPullNow";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
+import ouraIngestRouter from "./routes/integrations/ouraIngest";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
@@ -164,6 +165,31 @@ app.use("/integrations/withings/pull-now", authMiddleware, withingsPullNowRouter
  * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).
  */
 app.use("/integrations/apple-health/status", authMiddleware, appleHealthStatusRouter);
+
+/**
+ * Oura OAuth callback — PUBLIC so Oura can redirect here.
+ */
+app.get("/integrations/oura/callback", (req, res) => {
+  void handleOuraCallback(req, res);
+});
+
+/**
+ * Oura OAuth completion bridge — PUBLIC. Returns HTML that deep-links to com.olifitness.oli://oura-connected.
+ */
+app.get("/integrations/oura/complete", (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).send(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>` +
+      `<script>window.location.href = "com.olifitness.oli://oura-connected";</script>` +
+      `<p>Redirecting…</p>` +
+      `<a id="fallback" href="com.olifitness.oli://oura-connected" style="display:none;">Open Oli</a>` +
+      `<script>setTimeout(function(){ document.getElementById("fallback").style.display = "inline"; }, 500);</script>` +
+      `</body></html>`,
+  );
+});
+
+app.use("/integrations/oura/ingest", authMiddleware, ouraIngestRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.

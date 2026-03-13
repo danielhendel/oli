@@ -11,6 +11,7 @@ import {
   type Slice1SourceId,
 } from "@/lib/metrics/dataSourcesConfig";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
+import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 
@@ -23,6 +24,7 @@ export default function ConnectedSourceDetailScreen() {
   const router = useRouter();
   const { user, getIdToken } = useAuth();
   const withingsPresence = useWithingsPresence();
+  const ouraPresence = useOuraPresence();
   const [appleHealthStatus, setAppleHealthStatus] = useState<"loading" | "connected" | "not_connected" | "error">("loading");
 
   useEffect(() => {
@@ -71,24 +73,34 @@ export default function ConnectedSourceDetailScreen() {
             : appleHealthStatus === "error"
               ? "Error"
               : "Not connected"
-        : sourceId === "manual"
-          ? "Enabled"
-          : sourceId === "upload" || sourceId === "labs"
-            ? "Available"
-            : "—";
+        : sourceId === "oura"
+          ? ouraPresence.status === "error"
+            ? "Error"
+            : ouraPresence.status === "ready"
+              ? ouraPresence.data.connected
+                ? "Connected"
+                : "Not connected"
+              : "Loading…"
+          : sourceId === "manual"
+            ? "Enabled"
+            : sourceId === "upload" || sourceId === "labs"
+              ? "Available"
+              : "—";
 
   const description =
     sourceId === "withings"
       ? "Withings scales and body composition devices send weight and body fat to Oli."
       : sourceId === "apple_health"
         ? "Apple Health can provide steps, activity minutes, HRV, and sleep from your iPhone and Apple Watch."
-        : sourceId === "manual"
-          ? "Log data directly in the app. Manual entry is always available for supported metrics."
-          : sourceId === "upload"
-            ? "Upload files (e.g. lab PDFs) and track uploads in your record."
-            : sourceId === "labs"
-              ? "Add lab results and biomarkers in the Labs section."
-              : "";
+        : sourceId === "oura"
+          ? "Oura can provide sleep duration and HRV. When connected and synced, data appears in your record."
+          : sourceId === "manual"
+            ? "Log data directly in the app. Manual entry is always available for supported metrics."
+            : sourceId === "upload"
+              ? "Upload files (e.g. lab PDFs) and track uploads in your record."
+              : sourceId === "labs"
+                ? "Add lab results and biomarkers in the Labs section."
+                : "";
 
   return (
     <ModuleScreenShell title={title} subtitle={statusLine}>
@@ -121,6 +133,17 @@ export default function ConnectedSourceDetailScreen() {
                 Connect and sync Apple Health from the Devices screen in Settings.
               </Text>
             ) : null}
+            <Pressable
+              style={[styles.button, styles.buttonPrimary]}
+              onPress={() => router.push("/(app)/settings/devices")}
+            >
+              <Text style={styles.buttonText}>Manage in Devices</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {sourceId === "oura" && (
+          <View style={styles.actions}>
             <Pressable
               style={[styles.button, styles.buttonPrimary]}
               onPress={() => router.push("/(app)/settings/devices")}
