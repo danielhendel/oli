@@ -4,7 +4,7 @@
  */
 
 import type { ApiResult } from "@/lib/api/http";
-import type { GetOptions } from "@/lib/api/http";
+import type { GetOptions, PostOptions } from "@/lib/api/http";
 import { apiGetZodAuthed, apiPostZodAuthed } from "@/lib/api/validate";
 import { z } from "zod";
 
@@ -27,6 +27,41 @@ const ouraRevokeResponseSchema = z.object({
 });
 
 export type OuraStatusResponse = z.infer<typeof ouraStatusResponseSchema>;
+
+export type OuraPullNowResponse = {
+  ok: true;
+  requestId: string;
+  windowDays: number;
+  eventsCreated: number;
+  eventsAlreadyExists: number;
+};
+
+const ouraPullNowResponseSchema = z.object({
+  ok: z.literal(true),
+  requestId: z.string(),
+  windowDays: z.number(),
+  eventsCreated: z.number(),
+  eventsAlreadyExists: z.number(),
+});
+
+/** POST /integrations/oura/pull-now — sync sleep + HRV from Oura for authed user; requires Idempotency-Key. */
+export async function postOuraPullNow(
+  idToken: string,
+  opts?: PostOptions,
+): Promise<ApiResult<OuraPullNowResponse>> {
+  return apiPostZodAuthed(
+    "/integrations/oura/pull-now",
+    {},
+    idToken,
+    ouraPullNowResponseSchema,
+    {
+      timeoutMs: 30000,
+      noStore: true,
+      ...(opts?.cacheBust ? { cacheBust: opts.cacheBust } : {}),
+      ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
+    },
+  );
+}
 
 function truthGetOpts(opts?: GetOptions): GetOptions {
   return { noStore: true as const, ...(opts?.cacheBust ? { cacheBust: opts.cacheBust } : {}) };

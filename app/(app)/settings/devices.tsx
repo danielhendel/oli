@@ -1,6 +1,6 @@
 // app/(app)/settings/devices.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, AppState } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,11 +10,20 @@ import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+import { postOuraPullNow } from "@/lib/api/oura";
 import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import { getWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
-import { getOuraLastKnownConnected } from "@/lib/integrations/oura/storage";
+import {
+  getOuraLastKnownConnected,
+  getOuraLastCheckedAt,
+  setOuraLastCheckedAt,
+} from "@/lib/integrations/oura/storage";
+import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
+
+/** Throttle: do not call pull-now again if last attempt was within this many ms. */
+const OURA_AUTO_MIN_MS = 15 * 60 * 1000;
 
 function DevicesScreen() {
   const router = useRouter();
@@ -56,6 +65,25 @@ function DevicesScreen() {
     }
   }, [user, getIdToken]);
 
+  const maybeAutoOuraPullNow = useCallback(
+    async (reason: "focus" | "foreground") => {
+      if (!user) return;
+      if (!(ouraPresence.status === "ready" && ouraPresence.data?.connected)) return;
+      const last = await getOuraLastCheckedAt().catch(() => null);
+      if (!shouldRun(last, OURA_AUTO_MIN_MS)) return;
+      const token = await getIdToken(false);
+      if (!token) return;
+      const idempotencyKey = `ouraPullNow:auto:${reason}:${Date.now()}`;
+      try {
+        await postOuraPullNow(token, { idempotencyKey });
+      } finally {
+        await setOuraLastCheckedAt(nowIso()).catch(() => undefined);
+        ouraPresence.refetch({ cacheBust: `ouraAuto:${reason}:${Date.now()}` });
+      }
+    },
+    [user, ouraPresence, getIdToken],
+  );
+
   useFocusEffect(
     useCallback(() => {
       getWithingsLastKnownConnected().then((connected) => {
@@ -67,8 +95,16 @@ function DevicesScreen() {
       presence.refetch();
       ouraPresence.refetch();
       void fetchAppleStatus();
-    }, [presence, ouraPresence, fetchAppleStatus]),
+      void maybeAutoOuraPullNow("focus");
+    }, [presence, ouraPresence, fetchAppleStatus, maybeAutoOuraPullNow]),
   );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void maybeAutoOuraPullNow("foreground");
+    });
+    return () => sub.remove();
+  }, [maybeAutoOuraPullNow]);
 
   useEffect(() => {
     void fetchAppleStatus();
