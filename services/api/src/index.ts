@@ -16,6 +16,7 @@ import withingsPullNowRouter from "./routes/integrations/withingsPullNow";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
 import ouraIngestRouter from "./routes/integrations/ouraIngest";
 import ouraPullNowRouter from "./routes/integrations/ouraPullNow";
+import ouraPullRouter from "./routes/ouraPull";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
@@ -191,6 +192,7 @@ app.get("/integrations/oura/complete", (_req: Request, res: Response) => {
 });
 
 app.use("/integrations/oura/ingest", authMiddleware, ouraIngestRouter);
+app.use("/integrations/oura/pull", requireInvokerAuth, ouraPullRouter);
 app.use("/integrations/oura/pull-now", authMiddleware, ouraPullNowRouter);
 
 /**
