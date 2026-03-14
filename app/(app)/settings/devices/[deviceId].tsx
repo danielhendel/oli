@@ -184,11 +184,13 @@ function DeviceDetailScreen() {
         return;
       }
       const authUrl = res.json.url;
+      console.log("[OURA_AUTH_URL]", authUrl);
       if (!authUrl.startsWith(OURA_AUTHORIZE_PREFIX)) {
         Alert.alert("Connection failed", "Invalid authorization URL host.");
         return;
       }
       const result = await WebBrowser.openAuthSessionAsync(authUrl, getOuraReturnUrl());
+      console.log("[OURA_AUTH_RESULT]", JSON.stringify(result));
       if (result.type === "cancel") {
         Alert.alert("Cancelled", "Oura connection was cancelled.");
         return;
