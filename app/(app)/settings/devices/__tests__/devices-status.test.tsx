@@ -1,6 +1,6 @@
 /**
  * Devices list — integration status display.
- * Verifies screen renders; status flow fixes (refetch on focus, Apple Health try/catch, Withings error state) are in implementation.
+ * Verifies screen renders; refetch on focus; Oura auto-refresh (throttled) when connected.
  */
 import React from "react";
 import { act } from "react";
@@ -8,12 +8,27 @@ import renderer from "react-test-renderer";
 import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 import DevicesScreen from "../../devices";
 
+const mockPostOuraPullNow = jest.fn().mockResolvedValue({
+  ok: true,
+  requestId: "req-oura",
+  windowDays: 30,
+  eventsCreated: 0,
+  eventsAlreadyExists: 0,
+});
+const mockGetOuraLastCheckedAt = jest.fn().mockResolvedValue(null);
+const mockSetOuraLastCheckedAt = jest.fn().mockResolvedValue(undefined);
+
+let mockOuraConnected = false;
+
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: { create: (s: unknown) => s },
+  AppState: {
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
 }));
 
 jest.mock("@react-navigation/native", () => ({
@@ -44,9 +59,15 @@ jest.mock("@/lib/data/useWithingsPresence", () => ({
 jest.mock("@/lib/data/useOuraPresence", () => ({
   useOuraPresence: () => ({
     status: "ready",
-    data: { connected: false, lastSyncAt: null },
+    data: { connected: mockOuraConnected, lastSyncAt: null },
     refetch: jest.fn(),
   }),
+}));
+
+jest.mock("@/lib/api/oura", () => ({
+  getOuraConnectUrl: jest.fn(),
+  postOuraRevoke: jest.fn(),
+  postOuraPullNow: (...args: unknown[]) => mockPostOuraPullNow(...args),
 }));
 
 jest.mock("@expo/vector-icons", () => ({
@@ -67,10 +88,16 @@ jest.mock("@/lib/integrations/withings/storage", () => ({
 
 jest.mock("@/lib/integrations/oura/storage", () => ({
   getOuraLastKnownConnected: jest.fn(() => Promise.resolve(null)),
+  getOuraLastCheckedAt: (...args: unknown[]) => mockGetOuraLastCheckedAt(...args),
+  setOuraLastCheckedAt: (...args: unknown[]) => mockSetOuraLastCheckedAt(...args),
 }));
 
 describe("DevicesScreen", () => {
   beforeEach(() => {
+    mockOuraConnected = false;
+    mockGetOuraLastCheckedAt.mockResolvedValue(null);
+    mockPostOuraPullNow.mockClear();
+    mockSetOuraLastCheckedAt.mockClear();
     (global as unknown as { fetch: unknown }).fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
@@ -105,5 +132,53 @@ describe("DevicesScreen", () => {
     const json = tree!.toJSON() as { children?: unknown[] } | null;
     const str = JSON.stringify(json);
     expect(str).toContain("Oura");
+  });
+
+  describe("Oura auto-refresh", () => {
+    it("calls postOuraPullNow when Oura is connected and lastCheckedAt is null", async () => {
+      mockOuraConnected = true;
+      mockGetOuraLastCheckedAt.mockResolvedValue(null);
+      await act(async () => {
+        renderer.create(<DevicesScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockPostOuraPullNow).toHaveBeenCalled();
+      expect(mockSetOuraLastCheckedAt).toHaveBeenCalled();
+    });
+
+    it("does not call postOuraPullNow when Oura is disconnected", async () => {
+      mockOuraConnected = false;
+      mockGetOuraLastCheckedAt.mockResolvedValue(null);
+      await act(async () => {
+        renderer.create(<DevicesScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockPostOuraPullNow).not.toHaveBeenCalled();
+    });
+
+    it("does not call postOuraPullNow when lastCheckedAt is recent (throttle)", async () => {
+      mockOuraConnected = true;
+      mockGetOuraLastCheckedAt.mockResolvedValue(new Date().toISOString());
+      await act(async () => {
+        renderer.create(<DevicesScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockPostOuraPullNow).not.toHaveBeenCalled();
+    });
   });
 });

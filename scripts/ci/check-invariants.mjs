@@ -139,16 +139,17 @@ function checkApiIdempotency() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
   if (!exists(routesDir)) return;
 
-  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts", "withingsBackfill.ts"]);
+  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts", "withingsBackfill.ts", "ouraPull.ts"]);
   const EXEMPT_FILE_TO_MOUNT_PATH = new Map([
     ["withingsPull.ts", "/integrations/withings/pull"],
     ["withingsBackfill.ts", "/integrations/withings/backfill"],
+    ["ouraPull.ts", "/integrations/oura/pull"],
   ]);
   for (const basename of IDEMPOTENCY_POST_EXEMPT_FILES) {
     const mountPath = EXEMPT_FILE_TO_MOUNT_PATH.get(basename);
-    if (!mountPath || !mountPath.startsWith("/integrations/") || !mountPath.includes("withings")) {
+    if (!mountPath || !mountPath.startsWith("/integrations/")) {
       fail(
-        `CHECK 3 (API idempotency): exempt file "${basename}" must have a mount path in EXEMPT_FILE_TO_MOUNT_PATH starting with /integrations/ and including "withings".`,
+        `CHECK 3 (API idempotency): exempt file "${basename}" must have a mount path in EXEMPT_FILE_TO_MOUNT_PATH starting with /integrations/.`,
       );
     }
   }
