@@ -815,11 +815,13 @@ export async function handleOuraCallback(req: Request, res: Response): Promise<v
       logger.error({ msg: "oura_registry_write_error", rid, uid, err: msg });
     }
 
-    const publicBase = (process.env.PUBLIC_BASE_URL ?? "").trim();
-    const completionUrl =
-      publicBase && publicBase.startsWith("https://")
-        ? `${normalizeBaseUrl(publicBase)}/integrations/oura/complete`
-        : "com.olifitness.oli://oura-connected";
+    // Use same host as callback so browser lands on a URL that matches client's return URL (openAuthSessionAsync).
+    const callbackUrl = redirect.redirectUri;
+    const completionUrl = /\/integrations\/oura\/callback$/i.test(callbackUrl)
+      ? callbackUrl.replace(/\/integrations\/oura\/callback$/i, "/integrations/oura/complete")
+      : "com.olifitness.oli://oura-connected";
+    // eslint-disable-next-line no-console -- temporary debug for Oura callback return flow
+    console.log("[OURA_CALLBACK_REDIRECT]", { requestId: rid, stateValid: true, completionUrl });
     res.redirect(302, completionUrl);
   } catch (err) {
     if (err instanceof ouraSecrets.OuraConfigError) {
