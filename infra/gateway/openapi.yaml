@@ -671,6 +671,39 @@ paths:
         500:
           description: Server Error
 
+  # Oura pull-now — user-authenticated. Fetch sleep + HRV from Oura API, write raw events, update lastSyncAt.
+  /integrations/oura/pull-now:
+    options:
+      operationId: ouraPullNowOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: ouraPullNow
+      summary: Oura pull-now (user scoped)
+      description: Fetch sleep and daily_readiness (HRV) from Oura API for the authed user; write rawEvents idempotently; update lastSyncAt.
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+      responses:
+        200:
+          description: OK (eventsCreated, eventsAlreadyExists)
+        400:
+          description: Bad Request (missing Idempotency-Key)
+        401:
+          description: Unauthorized
+        409:
+          description: Request already in progress
+        502:
+          description: Oura fetch failed / not connected
+        500:
+          description: Server Error
+
   # Withings pull-now — user-authenticated. Pull last 72h for authed user; idempotent RawEvent writes.
   /integrations/withings/pull-now:
     options:

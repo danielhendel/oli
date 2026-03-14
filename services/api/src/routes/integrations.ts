@@ -10,6 +10,7 @@ import { createStateAsync, validateAndConsumeState } from "../lib/oauthState";
 import * as withingsSecrets from "../lib/withingsSecrets";
 import * as ouraSecrets from "../lib/ouraSecrets";
 import { logger } from "../lib/logger";
+import { performOuraPullNowCore } from "./integrations/ouraPullNow";
 
 const router = Router();
 
@@ -823,6 +824,15 @@ export async function handleOuraCallback(req: Request, res: Response): Promise<v
     // eslint-disable-next-line no-console -- temporary debug for Oura callback return flow
     console.log("[OURA_CALLBACK_REDIRECT]", { requestId: rid, stateValid: true, completionUrl });
     res.redirect(302, completionUrl);
+    // Fire-and-forget: kick off first sync so lastSyncAt updates without blocking redirect.
+    void performOuraPullNowCore(uid, rid).catch((err: unknown) =>
+      logger.error({
+        msg: "oura_callback_auto_sync_error",
+        rid,
+        uid,
+        err: err instanceof Error ? err.message : String(err),
+      }),
+    );
   } catch (err) {
     if (err instanceof ouraSecrets.OuraConfigError) {
       logger.error({ msg: "oura_callback_secret_manager_config_missing", rid });
