@@ -372,23 +372,46 @@ function DeviceDetailScreen() {
           ))}
         </View>
 
-        {isWithings &&
+        {(isWithings &&
           withingsPresence.status === "ready" &&
-          withingsPresence.data.backfill?.status === "running" && (
-            <Text style={styles.footerHint}>Importing history from Withings…</Text>
-          )}
-
-        {isAppleHealth && appleLastSyncAt && (
-          <Text style={styles.footerHint}>
-            Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
-          </Text>
-        )}
-
-        {isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt && (
-          <Text style={styles.footerHint}>
-            Last sync: {new Date(ouraPresence.data.lastSyncAt).toLocaleString()}
-          </Text>
-        )}
+          (withingsPresence.data.backfill?.status === "running" || withingsPresence.data.lastMeasurementAt)) ||
+        (isAppleHealth && appleLastSyncAt) ||
+        (isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt) ? (
+          <View style={styles.group}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Sync status</Text>
+            </View>
+            {isWithings && withingsPresence.status === "ready" ? (
+              <>
+                {withingsPresence.data.backfill?.status === "running" && (
+                  <View style={styles.metricRow}>
+                    <Text style={styles.metricText}>Importing history from Withings…</Text>
+                  </View>
+                )}
+                {withingsPresence.data.lastMeasurementAt && (
+                  <View style={styles.metricRow}>
+                    <Text style={styles.metricText}>
+                      Last measurement:{" "}
+                      {new Date(withingsPresence.data.lastMeasurementAt).toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : isAppleHealth && appleLastSyncAt ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
+                </Text>
+              </View>
+            ) : isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Last sync: {new Date(ouraPresence.data.lastSyncAt).toLocaleString()}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </ModuleScreenShell>
   );
@@ -505,11 +528,6 @@ const styles = StyleSheet.create({
   metricText: {
     fontSize: 15,
     color: "#1C1C1E",
-  },
-  footerHint: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#6E6E73",
   },
 });
 

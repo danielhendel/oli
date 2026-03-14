@@ -7,22 +7,13 @@
 
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
-import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../../middleware/auth";
-import { userCollection } from "../../db";
-import { writeFailure } from "../../lib/writeFailure";
-import { logger } from "../../lib/logger";
+import { writeOuraRawEvents } from "../../lib/ouraIngestWrite";
 
 const router = Router();
-const OURA_SOURCE_ID = "oura";
-const OURA_SOURCE_TYPE = "oura";
 
 function getRequestId(req: Request): string {
   return (req as AuthedRequest).rid ?? (req.header("x-request-id") ?? "unknown").toString();
-}
-
-function dayUtcNow(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 const sleepItemSchema = z.object({
@@ -99,132 +90,33 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   const { sleep = [], hrv = [] } = parsed.data;
-  const rawEventsCol = userCollection(uid, "rawEvents");
-  const receivedAt = new Date().toISOString();
-
-  let eventsCreated = 0;
-  let eventsAlreadyExists = 0;
-
-  for (const item of sleep) {
-    const payload = {
-      start: item.start,
-      end: item.end,
-      timezone: item.timezone,
-      ...(item.day != null ? { day: item.day } : {}),
-      totalMinutes: item.totalMinutes,
-      ...(item.efficiency != null ? { efficiency: item.efficiency } : {}),
-      ...(item.latencyMinutes != null ? { latencyMinutes: item.latencyMinutes } : {}),
-      ...(item.awakenings != null ? { awakenings: item.awakenings } : {}),
-      isMainSleep: item.isMainSleep,
-    };
-    const doc = {
-      id: item.idempotencyKey,
-      userId: uid,
-      sourceId: OURA_SOURCE_ID,
-      sourceType: OURA_SOURCE_TYPE,
-      provider: "manual" as const,
-      kind: "sleep" as const,
-      receivedAt,
-      observedAt: item.start,
-      payload,
-      schemaVersion: 1 as const,
-    };
-    const validated = rawEventDocSchema.safeParse(doc);
-    if (!validated.success) {
-      try {
-        await writeFailure({
-          userId: uid,
-          source: "ingestion",
-          stage: "oura.ingest.schema",
-          reasonCode: "RAW_EVENT_SCHEMA_INVALID",
-          message: "Invalid sleep RawEvent payload",
-          day: item.day ?? dayUtcNow(),
-          rawEventId: item.idempotencyKey,
-          details: validated.error.flatten(),
-          requestId,
-        });
-      } catch {
-        // best-effort
-      }
-      continue;
-    }
-    try {
-      await rawEventsCol.doc(item.idempotencyKey).create(validated.data);
-      eventsCreated += 1;
-    } catch (err: unknown) {
-      const existing = await rawEventsCol.doc(item.idempotencyKey).get();
-      if (existing.exists) {
-        eventsAlreadyExists += 1;
-      } else {
-        logger.error({
-          msg: "oura_ingest_sleep_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
-          requestId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-  }
-
-  for (const item of hrv) {
-    const payload = {
-      time: item.time,
-      timezone: item.timezone,
-      ...(item.day != null ? { day: item.day } : {}),
-      ...(item.rmssdMs != null ? { rmssdMs: item.rmssdMs } : {}),
-      ...(item.sdnnMs != null ? { sdnnMs: item.sdnnMs } : {}),
-      ...(item.measurementType != null ? { measurementType: item.measurementType } : {}),
-    };
-    const doc = {
-      id: item.idempotencyKey,
-      userId: uid,
-      sourceId: OURA_SOURCE_ID,
-      sourceType: OURA_SOURCE_TYPE,
-      provider: "manual" as const,
-      kind: "hrv" as const,
-      receivedAt,
-      observedAt: item.time,
-      payload,
-      schemaVersion: 1 as const,
-    };
-    const validated = rawEventDocSchema.safeParse(doc);
-    if (!validated.success) {
-      try {
-        await writeFailure({
-          userId: uid,
-          source: "ingestion",
-          stage: "oura.ingest.schema",
-          reasonCode: "RAW_EVENT_SCHEMA_INVALID",
-          message: "Invalid hrv RawEvent payload",
-          day: item.day ?? dayUtcNow(),
-          rawEventId: item.idempotencyKey,
-          details: validated.error.flatten(),
-          requestId,
-        });
-      } catch {
-        // best-effort
-      }
-      continue;
-    }
-    try {
-      await rawEventsCol.doc(item.idempotencyKey).create(validated.data);
-      eventsCreated += 1;
-    } catch (err: unknown) {
-      const existing = await rawEventsCol.doc(item.idempotencyKey).get();
-      if (existing.exists) {
-        eventsAlreadyExists += 1;
-      } else {
-        logger.error({
-          msg: "oura_ingest_hrv_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
-          requestId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-  }
+  const sleepItems = sleep.map((item) => ({
+    idempotencyKey: item.idempotencyKey,
+    start: item.start,
+    end: item.end,
+    timezone: item.timezone,
+    ...(item.day !== undefined ? { day: item.day } : {}),
+    totalMinutes: item.totalMinutes,
+    ...(item.efficiency !== undefined ? { efficiency: item.efficiency ?? null } : {}),
+    ...(item.latencyMinutes !== undefined ? { latencyMinutes: item.latencyMinutes ?? null } : {}),
+    ...(item.awakenings !== undefined ? { awakenings: item.awakenings ?? null } : {}),
+    isMainSleep: item.isMainSleep,
+  }));
+  const hrvItems = hrv.map((item) => ({
+    idempotencyKey: item.idempotencyKey,
+    time: item.time,
+    timezone: item.timezone,
+    ...(item.day !== undefined ? { day: item.day } : {}),
+    ...(item.rmssdMs !== undefined ? { rmssdMs: item.rmssdMs ?? null } : {}),
+    ...(item.sdnnMs !== undefined ? { sdnnMs: item.sdnnMs ?? null } : {}),
+    ...(item.measurementType !== undefined ? { measurementType: item.measurementType } : {}),
+  }));
+  const { eventsCreated, eventsAlreadyExists } = await writeOuraRawEvents(
+    uid,
+    sleepItems,
+    hrvItems,
+    requestId,
+  );
 
   return res.status(200).json({
     ok: true as const,
