@@ -5,7 +5,7 @@
 import express from "express";
 import request from "supertest";
 import { allowConsoleForThisTest } from "../../../../../../scripts/test/consoleGuard";
-import ouraPullNowRouter from "../ouraPullNow";
+import ouraPullNowRouter, { performOuraPostRawPersistence } from "../ouraPullNow";
 
 const requestRecordState: Record<
   string,
@@ -14,6 +14,9 @@ const requestRecordState: Record<
 
 const mockUserCollection = jest.fn();
 const mockRegistryDelete = jest.fn().mockResolvedValue(undefined);
+
+/** Integration doc ref shared so tests can set get() and assert set() calls. */
+let integrationDocRef: { get: jest.Mock; set: jest.Mock };
 
 function makeRequestRecordRef(id: string) {
   return {
@@ -53,6 +56,13 @@ jest.mock("../../../lib/ouraApi", () => ({
   refreshOuraAccessToken: jest.fn(),
   fetchOuraSleep: jest.fn(),
   fetchOuraDailyReadiness: jest.fn(),
+  fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
+  fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),
+  fetchOuraWorkouts: jest.fn().mockResolvedValue([]),
+  fetchOuraSessions: jest.fn().mockResolvedValue([]),
+  fetchOuraTags: jest.fn().mockResolvedValue([]),
+  fetchOuraSpo2: jest.fn().mockResolvedValue([]),
+  fetchOuraHeartrate: jest.fn().mockResolvedValue([]),
   mapOuraSleepToIngestItem: jest.fn((d: { id?: string; bed_time?: string; wake_time?: string; total_sleep_duration?: number; type?: string }) =>
     d.bed_time && d.wake_time
       ? {
@@ -78,6 +88,9 @@ jest.mock("../../../lib/ouraApi", () => ({
         }
       : null,
   ),
+  mapOuraDailyActivityToStepsItem: jest.fn().mockReturnValue(null),
+  mapOuraWorkoutToWorkoutItem: jest.fn().mockReturnValue(null),
+  toOuraRawIngestItem: jest.fn((dataset: string, id: string, data: Record<string, unknown>) => ({ idempotencyKey: id, dataset, data })),
   OuraApiError: class OuraApiError extends Error {
     code: string;
     status?: number;
@@ -93,13 +106,35 @@ jest.mock("../../../lib/ouraIngestWrite", () => ({
   writeOuraRawEvents: jest.fn().mockResolvedValue({ eventsCreated: 2, eventsAlreadyExists: 0 }),
 }));
 
+jest.mock("../../../lib/ouraVendorSnapshot", () => ({
+  writeOuraVendorSleepSnapshots: jest.fn().mockResolvedValue({
+    attempted: 1,
+    written: 1,
+    skippedMissingDay: 0,
+    errors: 0,
+  }),
+  writeOuraVendorReadinessSnapshots: jest.fn().mockResolvedValue({
+    attempted: 1,
+    written: 1,
+    skippedMissingDay: 0,
+    errors: 0,
+  }),
+}));
+
 jest.mock("../../../lib/writeFailure", () => ({
   writeFailure: jest.fn().mockResolvedValue({ id: "fail_1" }),
+}));
+
+jest.mock("../../../lib/ouraPostRawJob", () => ({
+  publishOuraPostRawJob: jest.fn().mockResolvedValue("mock-message-id"),
+  getOuraPostRawTopic: jest.fn().mockReturnValue(null),
 }));
 
 const ouraSecrets = require("../../../lib/ouraSecrets");
 const ouraApi = require("../../../lib/ouraApi");
 const ouraIngestWrite = require("../../../lib/ouraIngestWrite");
+const ouraVendorSnapshot = require("../../../lib/ouraVendorSnapshot");
+const ouraPostRawJob = require("../../../lib/ouraPostRawJob");
 
 describe("POST /integrations/oura/pull-now", () => {
   let app: express.Express;
@@ -126,9 +161,15 @@ describe("POST /integrations/oura/pull-now", () => {
 
   beforeEach(() => {
     allowConsoleForThisTest({
-      error: [(args: unknown[]) => String(args[0] ?? "").includes("oura_pull_now")],
+      error: [
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_pull_now"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_persistence"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_job"),
+      ],
     });
     jest.clearAllMocks();
+    (ouraPostRawJob.getOuraPostRawTopic as jest.Mock).mockReturnValue(null);
+    (ouraPostRawJob.publishOuraPostRawJob as jest.Mock).mockResolvedValue("mock-message-id");
     Object.keys(requestRecordState).forEach((k) => delete requestRecordState[k]);
     (ouraSecrets.getRefreshToken as jest.Mock).mockResolvedValue("rt_xxx");
     (ouraSecrets.getClientSecret as jest.Mock).mockResolvedValue("secret");
@@ -144,19 +185,38 @@ describe("POST /integrations/oura/pull-now", () => {
       { id: "r1", day: "2025-03-14", timestamp: "2025-03-14T08:00:00Z", rmssd_5min: 42 },
     ]);
     (ouraIngestWrite.writeOuraRawEvents as jest.Mock).mockResolvedValue({ eventsCreated: 2, eventsAlreadyExists: 0 });
+    (ouraVendorSnapshot.writeOuraVendorSleepSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 1,
+      written: 1,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    (ouraVendorSnapshot.writeOuraVendorReadinessSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 1,
+      written: 1,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
 
+    integrationDocRef = {
+      get: jest.fn().mockResolvedValue({ exists: false }),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
     mockUserCollection.mockImplementation((uid: string, col: string) => {
       if (col === "requestRecords") {
         return { doc: (id: string) => makeRequestRecordRef(id) };
       }
       if (col === "integrations") {
-        return {
-          doc: () => ({
-            set: jest.fn().mockResolvedValue(undefined),
-          }),
-        };
+        return { doc: () => integrationDocRef };
       }
-      return { doc: () => ({ create: jest.fn().mockResolvedValue(undefined), get: jest.fn().mockResolvedValue({ exists: false }) }) };
+      return {
+        doc: () => ({
+          create: jest.fn().mockResolvedValue(undefined),
+          get: jest.fn().mockResolvedValue({ exists: false }),
+          set: jest.fn().mockResolvedValue(undefined),
+        }),
+        where: () => ({ limit: () => ({ get: jest.fn().mockResolvedValue({ docs: [] }) }) }),
+      };
     });
     process.env.OURA_CLIENT_ID = "oura-client-id";
   });
@@ -187,11 +247,11 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(res.body.error?.code).toBe("OURA_NOT_CONNECTED");
   });
 
-  it("returns 200 with eventsCreated and eventsAlreadyExists on success", async () => {
+  it("returns 202 after raw writes without waiting for snapshot completion", async () => {
     const res = await request(app)
       .post("/integrations/oura/pull-now")
       .set("Idempotency-Key", "oura-pull-success");
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(202);
     expect(res.body.ok).toBe(true);
     expect(res.body.requestId).toBe("req-oura-pull");
     expect(res.body.eventsCreated).toBe(2);
@@ -203,6 +263,235 @@ describe("POST /integrations/oura/pull-now", () => {
       expect.any(Array),
       expect.any(Array),
       "req-oura-pull",
+      expect.objectContaining({
+        stepsItems: expect.any(Array),
+        workoutItems: expect.any(Array),
+        ouraRawItems: expect.any(Array),
+      }),
     );
+  });
+
+  it("kicks off post-raw persistence in background; snapshot writers run after response", async () => {
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-with-snapshots");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    expect(ouraIngestWrite.writeOuraRawEvents).toHaveBeenCalled();
+    // Allow background post-raw to run (mocks resolve immediately).
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalledWith(
+      "user_oura_1",
+      expect.any(Array),
+      "req-oura-pull",
+    );
+    expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
+      "user_oura_1",
+      expect.any(Array),
+      "req-oura-pull",
+    );
+  });
+
+  it("post-raw writes metadata (lastRefreshAt) even when zero snapshots written", async () => {
+    (ouraVendorSnapshot.writeOuraVendorSleepSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 0,
+      written: 0,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    (ouraVendorSnapshot.writeOuraVendorReadinessSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 0,
+      written: 0,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-zero-snapshots");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    const setCalls = (integrationDocRef.set as jest.Mock).mock.calls;
+    const lastRefreshAtCall = setCalls.find(
+      (c: [Record<string, unknown>, { merge?: boolean }]) =>
+        c[0] && typeof c[0] === "object" && "lastRefreshAt" in c[0],
+    );
+    expect(lastRefreshAtCall).toBeDefined();
+    expect(lastRefreshAtCall[0]).toMatchObject({ lastRefreshAt: expect.anything() });
+  });
+
+  it("post-raw errors are logged and do not affect the 202 response", async () => {
+    (ouraVendorSnapshot.writeOuraVendorSleepSnapshots as jest.Mock).mockRejectedValue(
+      new Error("snapshot write failed"),
+    );
+    const logger = require("../../../lib/logger").logger;
+    const errorSpy = jest.spyOn(logger, "error").mockImplementation(() => undefined);
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-post-raw-fails");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    const errorCalls = errorSpy.mock.calls.filter(
+      (c: unknown[]) => Array.isArray(c) && c[0]?.msg === "oura_post_raw_persistence_error",
+    );
+    expect(errorCalls.length).toBeGreaterThanOrEqual(1);
+    errorSpy.mockRestore();
+  });
+
+  it("enqueues durable post-raw job when TOPIC_OURA_POST_RAW is set", async () => {
+    (ouraPostRawJob.getOuraPostRawTopic as jest.Mock).mockReturnValue("oura.post_raw.v1");
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-durable-job");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    expect(ouraPostRawJob.publishOuraPostRawJob).toHaveBeenCalledWith(
+      "user_oura_1",
+      "req-oura-pull",
+      expect.any(Array),
+      expect.any(Array),
+    );
+    const [, , sleepDocs, readinessDocs] = (ouraPostRawJob.publishOuraPostRawJob as jest.Mock).mock.calls[0];
+    expect(sleepDocs).toHaveLength(1);
+    expect(readinessDocs).toHaveLength(1);
+  });
+
+  it("falls back to in-process post-raw when enqueue fails", async () => {
+    (ouraPostRawJob.getOuraPostRawTopic as jest.Mock).mockReturnValue("oura.post_raw.v1");
+    (ouraPostRawJob.publishOuraPostRawJob as jest.Mock).mockRejectedValue(new Error("pubsub unavailable"));
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-enqueue-fails");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalled();
+    expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalled();
+  });
+
+  it("legacy connected user with null backfill triggers recovery metadata path", async () => {
+    integrationDocRef.get.mockResolvedValue({
+      exists: true,
+      data: () => ({ connected: true, lastSnapshotAt: null, backfillStatus: null }),
+    });
+    const res = await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-legacy-recovery");
+    expect(res.status).toBe(202);
+    expect(res.body.ok).toBe(true);
+    expect(integrationDocRef.set).toHaveBeenCalledWith(
+      expect.objectContaining({ backfillStatus: "running", lastBackfillError: null }),
+      { merge: true },
+    );
+  });
+
+  it("legacy recovery does not write running when backfillStatus is already running", async () => {
+    integrationDocRef.get.mockResolvedValue({
+      exists: true,
+      data: () => ({ connected: true, lastSnapshotAt: null, backfillStatus: "running" }),
+    });
+    const setCallsBefore = (integrationDocRef.set as jest.Mock).mock.calls.length;
+    await request(app)
+      .post("/integrations/oura/pull-now")
+      .set("Idempotency-Key", "oura-pull-skip-duplicate-backfill");
+    const setCallsAfter = (integrationDocRef.set as jest.Mock).mock.calls;
+    const runningCalls = setCallsAfter.slice(setCallsBefore).filter((c: [Record<string, unknown>]) => c[0]?.backfillStatus === "running");
+    expect(runningCalls.length).toBe(0);
+  });
+});
+
+describe("performOuraPostRawPersistence", () => {
+  let integrationSetMock: jest.Mock;
+
+  beforeAll(() => {
+    integrationSetMock = jest.fn().mockResolvedValue(undefined);
+    mockUserCollection.mockImplementation((_uid: string, col: string) => {
+      if (col === "integrations") {
+        return { doc: () => ({ set: integrationSetMock, get: jest.fn().mockResolvedValue({ exists: false }) }) };
+      }
+      return {
+        doc: () => ({
+          create: jest.fn().mockResolvedValue(undefined),
+          get: jest.fn().mockResolvedValue({ exists: false }),
+          set: jest.fn().mockResolvedValue(undefined),
+        }),
+        where: () => ({ limit: () => ({ get: jest.fn().mockResolvedValue({ docs: [] }) }) }),
+      };
+    });
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (ouraVendorSnapshot.writeOuraVendorSleepSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 1,
+      written: 1,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    (ouraVendorSnapshot.writeOuraVendorReadinessSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 1,
+      written: 1,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    integrationSetMock.mockResolvedValue(undefined);
+  });
+
+  it("writes vendor sleep and readiness snapshots then integration metadata", async () => {
+    const sleepDocs = [
+      { id: "s1", bed_time: "2025-03-13T22:00:00Z", wake_time: "2025-03-14T06:00:00Z" },
+    ];
+    const readinessDocs = [{ id: "r1", day: "2025-03-14", timestamp: "2025-03-14T08:00:00Z" }];
+
+    await performOuraPostRawPersistence("uid-post-raw", "req-post-raw", sleepDocs, readinessDocs);
+
+    expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalledWith(
+      "uid-post-raw",
+      sleepDocs,
+      "req-post-raw",
+    );
+    expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
+      "uid-post-raw",
+      readinessDocs,
+      "req-post-raw",
+    );
+    expect(integrationSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastRefreshAt: expect.anything(),
+        lastSyncAt: expect.anything(),
+        lastSnapshotAt: expect.anything(),
+      }),
+      { merge: true },
+    );
+  });
+
+  it("writes only lastRefreshAt when zero snapshots written", async () => {
+    (ouraVendorSnapshot.writeOuraVendorSleepSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 0,
+      written: 0,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+    (ouraVendorSnapshot.writeOuraVendorReadinessSnapshots as jest.Mock).mockResolvedValue({
+      attempted: 0,
+      written: 0,
+      skippedMissingDay: 0,
+      errors: 0,
+    });
+
+    await performOuraPostRawPersistence("uid-zero", "req-zero", [], []);
+
+    expect(integrationSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ lastRefreshAt: expect.anything() }),
+      { merge: true },
+    );
+    const update = integrationSetMock.mock.calls[0][0];
+    expect(update).not.toHaveProperty("lastSyncAt");
+    expect(update).not.toHaveProperty("lastSnapshotAt");
   });
 });

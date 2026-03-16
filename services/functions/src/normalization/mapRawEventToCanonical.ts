@@ -472,6 +472,18 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
+  /**
+   * Oura raw-only events: session, tag, spo2, heartrate, personal stored for future use.
+   * No canonical mapping; treat as valid no-op.
+   */
+  if (raw.kind === "oura_raw") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, memoryOnly: true },
+    };
+  }
+
   if (raw.provider !== "manual") {
     return {
       ok: false,

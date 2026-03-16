@@ -42,6 +42,7 @@ import { onOuraPullScheduled } from "./oura/onOuraPullScheduled";
 // Account executors (Pub/Sub)
 import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
 import { onAccountExportRequested } from "./account/onAccountExportRequested";
+import { onOuraPostRawRequested } from "./oura/onOuraPostRawRequested";
 
 // Admin-only HTTP endpoints
 import { recomputeDailyFactsAdminHttp } from "./http/recomputeDailyFactsAdminHttp";
@@ -111,6 +112,7 @@ export { onOuraPullScheduled };
 // Account executors (Pub/Sub)
 export { onAccountDeleteRequested };
 export { onAccountExportRequested };
+export { onOuraPostRawRequested };
 
 // Admin-only HTTP endpoints
 export { recomputeDailyFactsAdminHttp };

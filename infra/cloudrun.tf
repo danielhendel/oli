@@ -17,6 +17,7 @@ resource "google_cloud_run_v2_service" "api" {
       env { name = "TOPIC_EVENTS_RAW" value = google_pubsub_topic.events_raw_v1.name }
       env { name = "TOPIC_EXPORTS"    value = google_pubsub_topic.exports_requests_v1.name }
       env { name = "TOPIC_DELETE"     value = google_pubsub_topic.account_delete_v1.name }
+      env { name = "TOPIC_OURA_POST_RAW" value = google_pubsub_topic.oura_post_raw_v1.name }
       env { name = "NODE_ENV" value = var.env }
       resources { cpu_idle = true }
       ports { container_port = 8080 }

@@ -5,10 +5,12 @@ import express from "express";
 import request from "supertest";
 
 const mockPerformOuraPullNowCore = jest.fn().mockResolvedValue({ statusCode: 200, body: { ok: true } });
+const mockTriggerOuraBackfill = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("../ouraPullNow", () => ({
   ...jest.requireActual("../ouraPullNow"),
   performOuraPullNowCore: (...args: unknown[]) => mockPerformOuraPullNowCore(...args),
+  triggerOuraBackfill: (...args: unknown[]) => mockTriggerOuraBackfill(...args),
 }));
 
 const mockGet = jest.fn();

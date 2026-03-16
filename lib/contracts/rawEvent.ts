@@ -76,6 +76,7 @@ export const rawEventKindSchema = z.enum([
   "strength_workout",
   "file",
   "incomplete",
+  "oura_raw",
 ]);
 
 /**
@@ -224,6 +225,17 @@ const manualIncompletePayloadSchema = z
   })
   .strip();
 
+/**
+ * Oura raw-only event: store API response blobs (session, tag, spo2, heartrate, personal)
+ * without canonical mapping. dataset identifies the Oura API resource; data is the response.
+ */
+const ouraRawPayloadSchema = z
+  .object({
+    dataset: z.string().min(1),
+    data: z.record(z.unknown()),
+  })
+  .strip();
+
 // Payload union keyed by kind (root kind controls payload choice)
 const payloadByKindSchema = {
   sleep: manualSleepPayloadSchema,
@@ -235,6 +247,7 @@ const payloadByKindSchema = {
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
+  oura_raw: ouraRawPayloadSchema,
 } as const;
 
 // -----------------------------
@@ -300,7 +313,8 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualNutritionPayloadSchema>
     | z.infer<typeof manualStrengthWorkoutPayloadSchema>
     | z.infer<typeof manualFilePayloadSchema>
-    | z.infer<typeof manualIncompletePayloadSchema>;
+    | z.infer<typeof manualIncompletePayloadSchema>
+    | z.infer<typeof ouraRawPayloadSchema>;
 };
 
 /**
@@ -317,4 +331,5 @@ export const rawEventPayloadByKindSchemas = {
   strength_workout: manualStrengthWorkoutPayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
+  oura_raw: ouraRawPayloadSchema,
 } as const;

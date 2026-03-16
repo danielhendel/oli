@@ -60,3 +60,10 @@ export type { HealthScoreDoc } from "@oli/contracts/healthScore";
 // Phase 1.5 Sprint 4 — Health Signals (derived truth read surface)
 export { healthSignalDocSchema } from "@oli/contracts/healthSignals";
 export type { HealthSignalDoc } from "@oli/contracts/healthSignals";
+
+// Oura Tier 1 — Sleep & Readiness view (vendor snapshot read surface)
+export {
+  sleepViewDtoSchema,
+  readinessViewDtoSchema,
+} from "@oli/contracts/ouraVendor";
+export type { SleepViewDto, ReadinessViewDto } from "@oli/contracts/ouraVendor";

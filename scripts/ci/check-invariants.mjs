@@ -925,7 +925,7 @@ function checkCanonicalKindsNoDrift() {
   // Memory-only RawEvent kinds are explicitly allowlisted here.
   // If you add another raw-only kind, it MUST be added to this list and documented.
   // Phase 2: "incomplete" = "something happened, details later" — no canonical normalization.
-  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file", "incomplete"];
+  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file", "incomplete", "oura_raw"];
 
   const rawText = readText(rawEventPath);
   const healthText = readText(healthPath);

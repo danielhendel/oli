@@ -456,10 +456,13 @@ describe("Withings integrations (Phase 3A)", () => {
     });
 
     it("returns 200 with connected:false defaults when doc missing", async () => {
-      (userCollection as jest.Mock).mockReturnValue({
-        doc: () => ({
-          get: jest.fn().mockResolvedValue({ exists: false }),
-        }),
+      (userCollection as jest.Mock).mockImplementation((_uid: string, col: string) => {
+        if (col !== "integrations") return { doc: jest.fn() };
+        return {
+          doc: () => ({
+            get: jest.fn().mockResolvedValue({ exists: false }),
+          }),
+        };
       });
 
       const res = await request(app)

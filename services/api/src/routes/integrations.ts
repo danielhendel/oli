@@ -10,7 +10,7 @@ import { createStateAsync, validateAndConsumeState } from "../lib/oauthState";
 import * as withingsSecrets from "../lib/withingsSecrets";
 import * as ouraSecrets from "../lib/ouraSecrets";
 import { logger } from "../lib/logger";
-import { performOuraPullNowCore } from "./integrations/ouraPullNow";
+import { performOuraPullNowCore, triggerOuraBackfill } from "./integrations/ouraPullNow";
 
 const router = Router();
 
@@ -20,7 +20,8 @@ const SCOPE = "user.metrics";
 
 const OURA_AUTHORIZE_URL = "https://cloud.ouraring.com/oauth/authorize";
 const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
-const OURA_SCOPE = "daily heartrate";
+/** Full Oura API v2 scopes: email, personal, daily (sleep/readiness/activity), heartrate, workout, tag, session, spo2Daily. */
+const OURA_SCOPE = "email personal daily heartrate workout tag session spo2Daily";
 const OURA_OAUTH_PURPOSE = "oura_oauth";
 
 /** Defaults for auto-start backfill (must match withingsBackfill semantics). */
@@ -610,16 +611,30 @@ router.get("/oura/status", async (req: AuthedRequest, res: Response) => {
         requestId: rid,
         connected: false,
         lastSyncAt: null,
+        lastRefreshAt: null,
+        lastSnapshotAt: null,
         revoked: false,
         failureState: null,
+        backfillStatus: null,
+        backfillStartedAt: null,
+        backfillCompletedAt: null,
+        backfillFailedAt: null,
+        lastBackfillError: null,
       });
     }
     const data = snap.data() as {
       connected?: boolean;
       connectedAt?: FirebaseFirestore.Timestamp | Date;
       lastSyncAt?: FirebaseFirestore.Timestamp | Date | string | null;
+      lastRefreshAt?: FirebaseFirestore.Timestamp | Date | string | null;
+      lastSnapshotAt?: FirebaseFirestore.Timestamp | Date | string | null;
       revoked?: boolean;
       failureState?: Record<string, unknown> | null;
+      backfillStatus?: string | null;
+      backfillStartedAt?: FirebaseFirestore.Timestamp | Date | string | null;
+      backfillCompletedAt?: FirebaseFirestore.Timestamp | Date | string | null;
+      backfillFailedAt?: FirebaseFirestore.Timestamp | Date | string | null;
+      lastBackfillError?: string | null;
     } | undefined;
     if (!data) {
       return res.status(200).json({
@@ -627,8 +642,15 @@ router.get("/oura/status", async (req: AuthedRequest, res: Response) => {
         requestId: rid,
         connected: false,
         lastSyncAt: null,
+        lastRefreshAt: null,
+        lastSnapshotAt: null,
         revoked: false,
         failureState: null,
+        backfillStatus: null,
+        backfillStartedAt: null,
+        backfillCompletedAt: null,
+        backfillFailedAt: null,
+        lastBackfillError: null,
       });
     }
     let lastSyncAt: string | null = null;
@@ -639,13 +661,54 @@ router.get("/oura/status", async (req: AuthedRequest, res: Response) => {
         lastSyncAt = toIsoOrNull(data.lastSyncAt);
       }
     }
+    let lastRefreshAt: string | null = null;
+    if (data.lastRefreshAt != null) {
+      if (typeof data.lastRefreshAt === "string") {
+        lastRefreshAt = data.lastRefreshAt;
+      } else {
+        lastRefreshAt = toIsoOrNull(data.lastRefreshAt);
+      }
+    }
+    let lastSnapshotAt: string | null = null;
+    if (data.lastSnapshotAt != null) {
+      if (typeof data.lastSnapshotAt === "string") {
+        lastSnapshotAt = data.lastSnapshotAt;
+      } else {
+        lastSnapshotAt = toIsoOrNull(data.lastSnapshotAt);
+      }
+    }
+    const backfillStatus =
+      typeof data.backfillStatus === "string" && ["idle", "running", "completed", "failed"].includes(data.backfillStatus)
+        ? data.backfillStatus
+        : null;
+    let backfillStartedAt: string | null = null;
+    if (data.backfillStartedAt != null) {
+      backfillStartedAt = typeof data.backfillStartedAt === "string" ? data.backfillStartedAt : toIsoOrNull(data.backfillStartedAt);
+    }
+    let backfillCompletedAt: string | null = null;
+    if (data.backfillCompletedAt != null) {
+      backfillCompletedAt = typeof data.backfillCompletedAt === "string" ? data.backfillCompletedAt : toIsoOrNull(data.backfillCompletedAt);
+    }
+    let backfillFailedAt: string | null = null;
+    if (data.backfillFailedAt != null) {
+      backfillFailedAt = typeof data.backfillFailedAt === "string" ? data.backfillFailedAt : toIsoOrNull(data.backfillFailedAt);
+    }
+    const lastBackfillError =
+      typeof data.lastBackfillError === "string" ? data.lastBackfillError : data.lastBackfillError == null ? null : String(data.lastBackfillError);
     return res.status(200).json({
       ok: true as const,
       requestId: rid,
       connected: Boolean(data.connected),
       lastSyncAt,
+      lastRefreshAt,
+      lastSnapshotAt,
       revoked: Boolean(data.revoked),
       failureState: data.failureState ?? null,
+      backfillStatus,
+      backfillStartedAt,
+      backfillCompletedAt,
+      backfillFailedAt,
+      lastBackfillError,
     });
   } catch (err) {
     logger.error({ msg: "oura_status_error", rid, uid, err: err instanceof Error ? err.message : String(err) });
@@ -802,6 +865,8 @@ export async function handleOuraCallback(req: Request, res: Response): Promise<v
         lastSyncAt: null,
         revoked: false,
         failureState: null,
+        backfillStatus: "running" as const,
+        backfillStartedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
@@ -828,6 +893,15 @@ export async function handleOuraCallback(req: Request, res: Response): Promise<v
     void performOuraPullNowCore(uid, rid).catch((err: unknown) =>
       logger.error({
         msg: "oura_callback_auto_sync_error",
+        rid,
+        uid,
+        err: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    // Fire-and-forget: backfill recent Oura history (sleep + readiness) so screens feel alive.
+    void triggerOuraBackfill(uid, rid).catch((err: unknown) =>
+      logger.error({
+        msg: "oura_callback_backfill_error",
         rid,
         uid,
         err: err instanceof Error ? err.message : String(err),

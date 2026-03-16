@@ -212,15 +212,6 @@ describe("POST /integrations/withings/pull-now", () => {
       const key2 = "withings:weight:user_123:222";
       const idemKey = "idem_replay_1";
 
-      const appReplay = express();
-      appReplay.use(express.json());
-      appReplay.use((req, _res, next) => {
-        (req as unknown as { uid: string; rid: string }).uid = "user_123";
-        (req as unknown as { rid: string }).rid = "req-pull-now-2";
-        next();
-      });
-      appReplay.use("/integrations/withings/pull-now", withingsPullNowRouter);
-
       mockUserCollection.mockImplementation((uid: string, col: string) => {
         if (col === "requestRecords") {
           return { doc: (id: string) => makeRequestRecordRef(id) };
@@ -262,11 +253,11 @@ describe("POST /integrations/withings/pull-now", () => {
       const fetchCountAfterFirst = withingsMeasures.fetchWithingsMeasures.mock.calls.length;
       expect(fetchCountAfterFirst).toBe(1);
 
-      const replayRes = await request(appReplay)
+      const replayRes = await request(appWithAuth)
         .post("/integrations/withings/pull-now")
         .set("Idempotency-Key", idemKey);
       expect(replayRes.status).toBe(200);
-      expect(replayRes.body.requestId).toBe("req-pull-now-2");
+      expect(replayRes.body.requestId).toBe("req-pull-now");
       expect(replayRes.body).toMatchObject({
         ok: true,
         windowHours: 72,

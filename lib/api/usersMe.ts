@@ -45,8 +45,12 @@ import {
   type LineageResponseDto,
   healthScoreDocSchema,
   healthSignalDocSchema,
+  sleepViewDtoSchema,
+  readinessViewDtoSchema,
   type HealthScoreDoc,
   type HealthSignalDoc,
+  type SleepViewDto,
+  type ReadinessViewDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -149,6 +153,34 @@ export const getIntelligenceContext = async (
     `/users/me/intelligence-context?day=${encodeURIComponent(day)}`,
     idToken,
     intelligenceContextDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+/** GET /users/me/oura-sleep-view?day= — Oura vendor snapshot for Sleep screen (Tier 1). 404 when no snapshot. */
+export const getOuraSleepView = async (
+  day: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<SleepViewDto>> => {
+  return apiGetZodAuthed(
+    `/users/me/oura-sleep-view?day=${encodeURIComponent(day)}`,
+    idToken,
+    sleepViewDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+/** GET /users/me/oura-readiness-view?day= — Oura vendor snapshot for Readiness screen (Tier 1). 404 when no snapshot. */
+export const getOuraReadinessView = async (
+  day: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<ReadinessViewDto>> => {
+  return apiGetZodAuthed(
+    `/users/me/oura-readiness-view?day=${encodeURIComponent(day)}`,
+    idToken,
+    readinessViewDtoSchema,
     truthGetOpts(opts),
   );
 };

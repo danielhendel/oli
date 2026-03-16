@@ -100,7 +100,7 @@ router.post("/", async (req: Request, res: Response) => {
       continue;
     }
 
-    if (result.statusCode === 200 && result.body && typeof result.body === "object") {
+    if ((result.statusCode === 200 || result.statusCode === 202) && result.body && typeof result.body === "object") {
       const body = result.body as { eventsCreated?: number; eventsAlreadyExists?: number };
       eventsCreated += typeof body.eventsCreated === "number" ? body.eventsCreated : 0;
       eventsAlreadyExists += typeof body.eventsAlreadyExists === "number" ? body.eventsAlreadyExists : 0;

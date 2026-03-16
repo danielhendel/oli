@@ -33,10 +33,13 @@ import {
   lineageResponseDtoSchema,
   healthScoreDocSchema,
   healthSignalDocSchema,
+  sleepViewDtoSchema,
+  readinessViewDtoSchema,
   type InsightDto,
 } from "../types/dtos";
 
 import { userCollection, documentIdPath } from "../db";
+import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
 
 const router = Router();
 
@@ -1331,6 +1334,197 @@ router.get(
       return;
     }
 
+    res.status(200).json(parsed.data);
+  }),
+);
+
+// ----------------------------
+// Oura Tier 1 — GET /users/me/oura-sleep-view & oura-readiness-view (vendor snapshot read + fallback)
+// ----------------------------
+
+const OURA_VIEW_FALLBACK_DAYS = 7;
+
+/** Return YYYY-MM-DD for (day - days). */
+function dayMinus(day: string, days: number): string {
+  const d = new Date(day + "T12:00:00.000Z");
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+router.get(
+  "/oura-sleep-view",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const requestedDay = parseDay(req, res);
+    if (!requestedDay) return;
+
+    let doc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+    const exactSnap = await userCollection(uid, "ouraVendorSleep")
+      .where("day", "==", requestedDay)
+      .limit(1)
+      .get();
+    doc = exactSnap.docs[0] ?? null;
+
+    if (!doc?.exists) {
+      const fallbackStart = dayMinus(requestedDay, OURA_VIEW_FALLBACK_DAYS);
+      const fallbackSnap = await userCollection(uid, "ouraVendorSleep")
+        .where("day", ">=", fallbackStart)
+        .where("day", "<=", requestedDay)
+        .orderBy("day", "desc")
+        .limit(1)
+        .get();
+      doc = fallbackSnap.docs[0] ?? null;
+    }
+
+    if (!doc?.exists) {
+      const lastResortSnap = await userCollection(uid, "ouraVendorSleep")
+        .orderBy("day", "desc")
+        .limit(1)
+        .get();
+      doc = lastResortSnap.docs[0] ?? null;
+    }
+
+    if (!doc?.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "ouraSleepView", day: requestedDay } });
+      return;
+    }
+
+    const data = doc.data() as Record<string, unknown> | undefined;
+    const resolvedDay = typeof data?.day === "string" ? data.day : requestedDay;
+    const isFallback = resolvedDay !== requestedDay;
+    const totalSleepDuration = typeof data?.totalSleepDuration === "number" ? data.totalSleepDuration : undefined;
+    const latencyRaw = typeof data?.latency === "number" ? data.latency : undefined;
+    const latencyMinutes =
+      latencyRaw != null
+        ? latencyRaw >= 60
+          ? Math.round(latencyRaw / 60)
+          : Math.round(latencyRaw)
+        : undefined;
+
+    const storedContributors = data?.contributors && typeof data.contributors === "object" ? data.contributors : undefined;
+    const storedContributorKeys = storedContributors ? Object.keys(storedContributors) : [];
+    const storedData: Parameters<typeof fillSleepContributorsFromStored>[0] = {};
+    if (storedContributors) storedData.contributors = storedContributors as Record<string, unknown>;
+    if (typeof data?.totalSleepDuration === "number") storedData.totalSleepDuration = data.totalSleepDuration;
+    if (typeof data?.efficiency === "number") storedData.efficiency = data.efficiency;
+    if (typeof data?.restfulSleep === "number") storedData.restfulSleep = data.restfulSleep;
+    if (typeof data?.remSleep === "number") storedData.remSleep = data.remSleep;
+    if (typeof data?.deepSleep === "number") storedData.deepSleep = data.deepSleep;
+    if (typeof data?.latency === "number") storedData.latency = data.latency;
+    if (typeof data?.score === "number") storedData.score = data.score;
+    if (typeof (data as { composite_score?: number })?.composite_score === "number") {
+      storedData.composite_score = (data as { composite_score: number }).composite_score;
+    }
+    const mergedContributors = fillSleepContributorsFromStored(storedData);
+    const responseContributorKeys = Object.keys(mergedContributors);
+    const scoreOnDoc = typeof data?.score === "number" ? data.score : undefined;
+    const compositeScoreOnDoc = typeof (data as { composite_score?: number })?.composite_score === "number"
+      ? (data as { composite_score: number }).composite_score
+      : undefined;
+    const responseScore =
+      typeof scoreOnDoc === "number"
+        ? scoreOnDoc
+        : typeof compositeScoreOnDoc === "number"
+          ? compositeScoreOnDoc
+          : undefined;
+
+    logger.info({
+      msg: "oura_sleep_view_proof",
+      requestedDay,
+      resolvedDay,
+      storedContributorKeys,
+      responseContributorKeys,
+      scoreOnDoc: scoreOnDoc != null,
+      scoreOnResponse: responseScore != null,
+      compositeScoreOnDoc: compositeScoreOnDoc != null,
+    });
+
+    const view = {
+      requestedDay,
+      resolvedDay,
+      isFallback,
+      day: resolvedDay,
+      sourceId: "oura" as const,
+      score: responseScore,
+      contributors: mergedContributors,
+      totalMinutes: totalSleepDuration != null ? Math.round(totalSleepDuration / 60) : undefined,
+      efficiency: data?.efficiency as number | undefined,
+      latencyMinutes: latencyMinutes ?? undefined,
+      awakenings: undefined,
+      restfulSleep: data?.restfulSleep as number | undefined,
+      remSleep: data?.remSleep as number | undefined,
+      deepSleep: data?.deepSleep as number | undefined,
+      fetchedAt: data?.fetchedAt as string | undefined,
+    };
+    const parsed = sleepViewDtoSchema.safeParse(view);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "ouraSleepView", parsed.error.flatten());
+      return;
+    }
+    res.status(200).json(parsed.data);
+  }),
+);
+
+router.get(
+  "/oura-readiness-view",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const requestedDay = parseDay(req, res);
+    if (!requestedDay) return;
+
+    let doc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+    const exactSnap = await userCollection(uid, "ouraVendorReadiness")
+      .where("day", "==", requestedDay)
+      .limit(1)
+      .get();
+    doc = exactSnap.docs[0] ?? null;
+
+    if (!doc?.exists) {
+      const fallbackStart = dayMinus(requestedDay, OURA_VIEW_FALLBACK_DAYS);
+      const fallbackSnap = await userCollection(uid, "ouraVendorReadiness")
+        .where("day", ">=", fallbackStart)
+        .where("day", "<=", requestedDay)
+        .orderBy("day", "desc")
+        .limit(1)
+        .get();
+      doc = fallbackSnap.docs[0] ?? null;
+    }
+
+    if (!doc?.exists) {
+      const lastResortSnap = await userCollection(uid, "ouraVendorReadiness")
+        .orderBy("day", "desc")
+        .limit(1)
+        .get();
+      doc = lastResortSnap.docs[0] ?? null;
+    }
+
+    if (!doc?.exists) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "ouraReadinessView", day: requestedDay } });
+      return;
+    }
+
+    const data = doc.data();
+    const resolvedDay = typeof data?.day === "string" ? data.day : requestedDay;
+    const isFallback = resolvedDay !== requestedDay;
+    const view = {
+      requestedDay,
+      resolvedDay,
+      isFallback,
+      day: resolvedDay,
+      sourceId: "oura" as const,
+      score: typeof data?.score === "number" ? data.score : data?.score ?? undefined,
+      contributors: data?.contributors,
+      fetchedAt: data?.fetchedAt,
+    };
+    const parsed = readinessViewDtoSchema.safeParse(view);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "ouraReadinessView", parsed.error.flatten());
+      return;
+    }
     res.status(200).json(parsed.data);
   }),
 );

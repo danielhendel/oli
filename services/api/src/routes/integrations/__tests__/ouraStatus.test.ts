@@ -82,6 +82,36 @@ describe("GET /integrations/oura/status", () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.connected).toBe(true);
     expect(res.body.lastSyncAt).toBe("2025-03-13T12:00:00.000Z");
+    expect(res.body).toHaveProperty("backfillStatus");
+    expect(res.body).toHaveProperty("backfillStartedAt");
+    expect(res.body).toHaveProperty("backfillCompletedAt");
+    expect(res.body).toHaveProperty("backfillFailedAt");
+    expect(res.body).toHaveProperty("lastBackfillError");
+  });
+
+  it("returns backfill fields when integration doc has backfill state", async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        connected: true,
+        lastSyncAt: null,
+        lastRefreshAt: "2025-03-14T10:00:00.000Z",
+        lastSnapshotAt: null,
+        revoked: false,
+        failureState: null,
+        backfillStatus: "completed",
+        backfillStartedAt: "2025-03-14T09:00:00.000Z",
+        backfillCompletedAt: "2025-03-14T09:05:00.000Z",
+        backfillFailedAt: null,
+        lastBackfillError: null,
+      }),
+    });
+    const res = await request(app).get("/integrations/oura/status");
+    expect(res.status).toBe(200);
+    expect(res.body.backfillStatus).toBe("completed");
+    expect(res.body.backfillStartedAt).toBe("2025-03-14T09:00:00.000Z");
+    expect(res.body.backfillCompletedAt).toBe("2025-03-14T09:05:00.000Z");
+    expect(res.body.lastBackfillError).toBe(null);
   });
 });
 
