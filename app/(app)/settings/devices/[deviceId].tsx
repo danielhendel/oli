@@ -8,6 +8,7 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
+import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { getWithingsConnectUrl, postWithingsRevoke } from "@/lib/api/withings";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
@@ -376,7 +377,9 @@ function DeviceDetailScreen() {
           withingsPresence.status === "ready" &&
           (withingsPresence.data.backfill?.status === "running" || withingsPresence.data.lastMeasurementAt)) ||
         (isAppleHealth && appleLastSyncAt) ||
-        (isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt) ? (
+        (isOura &&
+          ouraPresence.status === "ready" &&
+          (ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt)) ? (
           <View style={styles.group}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Sync status</Text>
@@ -403,12 +406,63 @@ function DeviceDetailScreen() {
                   Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
                 </Text>
               </View>
-            ) : isOura && ouraPresence.status === "ready" && ouraPresence.data.lastSyncAt ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Last sync: {new Date(ouraPresence.data.lastSyncAt).toLocaleString()}
-                </Text>
-              </View>
+            ) : isOura && ouraPresence.status === "ready" ? (
+              <>
+                <View style={styles.metricRow}>
+                  <Text style={styles.metricText}>
+                    Last refresh:{" "}
+                    {new Date(
+                      ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt ?? "",
+                    ).toLocaleString()}
+                  </Text>
+                </View>
+                {ouraPresence.data.lastSnapshotAt ? (
+                  <View style={styles.metricRow}>
+                    <Text style={styles.metricText}>
+                      Last sleep/readiness data:{" "}
+                      {new Date(ouraPresence.data.lastSnapshotAt).toLocaleString()}
+                    </Text>
+                  </View>
+                ) : ouraPresence.data.connected ? (
+                  (() => {
+                    const importState = deriveOuraImportState({
+                      connected: ouraPresence.data.connected,
+                      lastSnapshotAt: ouraPresence.data.lastSnapshotAt,
+                      backfillStatus: ouraPresence.data.backfillStatus,
+                    });
+                    if (importState === "running") {
+                      return (
+                        <View style={styles.metricRow}>
+                          <Text style={styles.metricText}>Importing Oura history…</Text>
+                        </View>
+                      );
+                    }
+                    if (importState === "failed") {
+                      return (
+                        <View style={styles.metricRow}>
+                          <Text style={styles.metricText}>
+                            Oura import failed. Pull to refresh and try again.
+                          </Text>
+                        </View>
+                      );
+                    }
+                    if (importState === "connected_no_data") {
+                      const completedNoSnapshot =
+                        ouraPresence.data.backfillStatus === "completed" && !ouraPresence.data.lastSnapshotAt;
+                      return (
+                        <View style={styles.metricRow}>
+                          <Text style={styles.metricText}>
+                            {completedNoSnapshot
+                              ? "Connected, but no usable sleep/readiness data was imported."
+                              : "Waiting for Oura data import."}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()
+                ) : null}
+              </>
             ) : null}
           </View>
         ) : null}

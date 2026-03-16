@@ -20,9 +20,11 @@ x-google-endpoints:
     allowCors: true
 
 # Default backend (all paths unless overridden)
+# deadline 90s so long-running Oura pull-now (raw + vendor snapshot writes) can complete
 x-google-backend:
   address: https://oli-api-1010034434203.us-central1.run.app
   path_translation: APPEND_PATH_TO_ADDRESS
+  deadline: 90.0
   # Required when Cloud Run requires IAM auth (invoker).
   # ESPv2 will mint a Google ID token for this audience when calling the backend.
   jwt_audience: https://oli-api-1010034434203.us-central1.run.app
@@ -360,6 +362,70 @@ paths:
       responses:
         200:
           description: OK
+
+  # Oura Tier 1 — Sleep view (vendor snapshot read; 404 when no snapshot in window)
+  /users/me/oura-sleep-view:
+    options:
+      operationId: ouraSleepViewOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraSleepViewGet
+      security:
+        - firebase: []
+      parameters:
+        - name: day
+          in: query
+          required: true
+          type: string
+          description: YYYY-MM-DD
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Sleep view (score, contributors, totalMinutes, etc.)
+        400:
+          description: Bad Request (missing or invalid day)
+        401:
+          description: Unauthorized
+        404:
+          description: No snapshot in requested or fallback window
+        500:
+          description: Server Error
+
+  # Oura Tier 1 — Readiness view (vendor snapshot read; 404 when no snapshot in window)
+  /users/me/oura-readiness-view:
+    options:
+      operationId: ouraReadinessViewOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: ouraReadinessViewGet
+      security:
+        - firebase: []
+      parameters:
+        - name: day
+          in: query
+          required: true
+          type: string
+          description: YYYY-MM-DD
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Readiness view (score, contributors)
+        400:
+          description: Bad Request (missing or invalid day)
+        401:
+          description: Unauthorized
+        404:
+          description: No snapshot in requested or fallback window
+        500:
+          description: Server Error
 
   /users/me/insights:
     options:

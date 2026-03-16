@@ -49,7 +49,16 @@ export default function DebugTokenScreen() {
 
       <View style={{ padding: 12, borderWidth: 1, borderColor: "#ddd", borderRadius: 12 }}>
         <Text style={{ color: "#555" }}>UID</Text>
-        <Text style={{ fontWeight: "700" }}>{user?.uid ?? "—"}</Text>
+        <Text selectable style={{ fontWeight: "700" }}>{user?.uid ?? "—"}</Text>
+      </View>
+
+      <View style={{ padding: 12, borderWidth: 1, borderColor: "#ddd", borderRadius: 12 }}>
+        <Text style={{ color: "#555" }}>Backend base URL</Text>
+        <Text selectable style={{ fontWeight: "700", fontSize: 12 }}>
+          {typeof process.env.EXPO_PUBLIC_BACKEND_BASE_URL === "string"
+            ? process.env.EXPO_PUBLIC_BACKEND_BASE_URL.trim() || "(empty)"
+            : "(not set)"}
+        </Text>
       </View>
 
       <Pressable

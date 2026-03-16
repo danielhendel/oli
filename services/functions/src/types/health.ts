@@ -62,7 +62,7 @@ export type CanonicalEventKind =
  *   (Phase 1: file/upload; Phase 2: incomplete).
  * - CanonicalEventKind remains strictly the set of normalized health facts.
  */
-export type RawEventKind = CanonicalEventKind | "upload.file" | "file" | "incomplete";
+export type RawEventKind = CanonicalEventKind | "upload.file" | "file" | "incomplete" | "oura_raw";
 
 /**
  * RawEvent is the ingestion boundary type.

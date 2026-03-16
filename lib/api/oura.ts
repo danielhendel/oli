@@ -8,13 +8,22 @@ import type { GetOptions, PostOptions } from "@/lib/api/http";
 import { apiGetZodAuthed, apiPostZodAuthed } from "@/lib/api/validate";
 import { z } from "zod";
 
+const ouraBackfillStatusSchema = z.enum(["idle", "running", "completed", "failed"]);
+
 const ouraStatusResponseSchema = z.object({
   ok: z.literal(true),
   requestId: z.string(),
   connected: z.boolean(),
   lastSyncAt: z.string().nullable(),
+  lastRefreshAt: z.string().nullable().optional(),
+  lastSnapshotAt: z.string().nullable().optional(),
   revoked: z.boolean().optional(),
   failureState: z.record(z.unknown()).nullable().optional(),
+  backfillStatus: ouraBackfillStatusSchema.nullable().optional(),
+  backfillStartedAt: z.string().nullable().optional(),
+  backfillCompletedAt: z.string().nullable().optional(),
+  backfillFailedAt: z.string().nullable().optional(),
+  lastBackfillError: z.string().nullable().optional(),
 });
 
 const ouraConnectResponseSchema = z.object({
@@ -55,7 +64,7 @@ export async function postOuraPullNow(
     idToken,
     ouraPullNowResponseSchema,
     {
-      timeoutMs: 30000,
+      timeoutMs: 90000,
       noStore: true,
       ...(opts?.cacheBust ? { cacheBust: opts.cacheBust } : {}),
       ...(opts?.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),

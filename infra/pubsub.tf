@@ -12,6 +12,10 @@ resource "google_pubsub_topic" "account_delete_v1" {
   name = "account.delete.v1"
 }
 
+resource "google_pubsub_topic" "oura_post_raw_v1" {
+  name = "oura.post_raw.v1"
+}
+
 # Dead-letter topics
 resource "google_pubsub_topic" "dlq_events_raw_v1" {
   name = "dlq.events.raw.v1"

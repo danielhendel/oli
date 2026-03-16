@@ -35,6 +35,8 @@ export default function AppLayout() {
           <Stack.Screen name="workouts/exercise-picker" options={{ title: "Add exercise" }} />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
           <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
+          <Stack.Screen name="recovery/sleep" options={{ title: "Sleep" }} />
+          <Stack.Screen name="recovery/readiness" options={{ title: "Readiness" }} />
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />

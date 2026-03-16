@@ -69,6 +69,27 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts a valid oura_raw RawEvent doc", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "oura_session_2025-01-01_0",
+      userId: "user_1",
+      sourceId: "oura",
+      provider: "manual",
+      sourceType: "oura",
+      kind: "oura_raw",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        dataset: "session",
+        data: { id: "s1", start_datetime: "2025-01-01T10:00:00Z" },
+      },
+    };
+
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
   test("rejects malformed payload for kind", () => {
     const raw = {
       schemaVersion: 1,

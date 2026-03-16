@@ -143,6 +143,25 @@ describe("mapRawEventToCanonical", () => {
     expect(result.reason).toBe("MALFORMED_PAYLOAD");
   });
 
+  it("treats oura_raw as memory-only (no canonical output)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "oura_session_2025-01-01_0",
+      provider: "manual",
+      kind: "oura_raw",
+      payload: {
+        dataset: "session",
+        data: { id: "s1" },
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected mapping failure");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details?.memoryOnly).toBe(true);
+  });
+
   it("treats upload.file as memory-only (no canonical output)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

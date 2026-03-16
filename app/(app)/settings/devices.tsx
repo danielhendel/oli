@@ -13,11 +13,7 @@ import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { postOuraPullNow } from "@/lib/api/oura";
 import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import { getWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
-import {
-  getOuraLastKnownConnected,
-  getOuraLastCheckedAt,
-  setOuraLastCheckedAt,
-} from "@/lib/integrations/oura/storage";
+import { getOuraLastCheckedAt, setOuraLastCheckedAt } from "@/lib/integrations/oura/storage";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
@@ -34,7 +30,6 @@ function DevicesScreen() {
   const appleFetchSeq = useRef(0);
   const [withingsHydrated, setWithingsHydrated] = useState<boolean | null>(null);
   const ouraPresence = useOuraPresence();
-  const [ouraHydrated, setOuraHydrated] = useState<boolean | null>(null);
 
   const backfill = presence.status === "ready" ? presence.data.backfill : undefined;
   const withingsConnected =
@@ -89,9 +84,6 @@ function DevicesScreen() {
       getWithingsLastKnownConnected().then((connected) => {
         setWithingsHydrated(connected);
       });
-      getOuraLastKnownConnected().then((connected) => {
-        setOuraHydrated(connected);
-      });
       presence.refetch();
       ouraPresence.refetch();
       void fetchAppleStatus();
@@ -119,9 +111,6 @@ function DevicesScreen() {
   useEffect(() => {
     getWithingsLastKnownConnected().then((connected) => {
       setWithingsHydrated(connected);
-    });
-    getOuraLastKnownConnected().then((connected) => {
-      setOuraHydrated(connected);
     });
   }, []);
 
@@ -155,11 +144,7 @@ function DevicesScreen() {
         ? ouraConnected
           ? "On"
           : "Off"
-        : ouraHydrated !== null
-          ? ouraHydrated
-            ? "On"
-            : "Off"
-          : "Loading…";
+        : "Loading…";
 
   return (
     <ModuleScreenShell title="Devices" hideTitleChrome>
