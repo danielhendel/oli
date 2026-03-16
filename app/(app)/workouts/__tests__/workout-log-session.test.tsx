@@ -346,6 +346,7 @@ describe("workouts/log session UI", () => {
       edgeOption!.props.onPress();
     });
     await flushEventLoop();
+    await flushEventLoop();
     expect(findByA11yLabel(test!.root, "Gym save error")).not.toBeNull();
     const startBtn = findByA11yLabel(test!.root, "Start workout");
     expect(startBtn).not.toBeNull();
