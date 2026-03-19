@@ -6,6 +6,10 @@ export type ModuleScreenShellProps = {
   subtitle?: string;
   /** When true, do not render the in-page title/subtitle block (e.g. when title is in nav header). */
   hideTitleChrome?: boolean;
+  /** Optional tighter header density for compact sticky strips (workouts calendar). */
+  compactHeader?: boolean;
+  /** Optional sticky header content rendered under the title/subtitle and pinned while body scrolls. */
+  headerContent?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -13,30 +17,57 @@ export function ModuleScreenShell({
   title,
   subtitle,
   hideTitleChrome = false,
+  compactHeader = false,
+  headerContent,
   children,
 }: ModuleScreenShellProps) {
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {!hideTitleChrome && (
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+    <View style={styles.root}>
+      {(!hideTitleChrome || headerContent) && (
+        <View style={[styles.header, compactHeader && styles.headerCompact]}>
+          {!hideTitleChrome && (
+            <>
+              <Text style={styles.title}>{title}</Text>
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </>
+          )}
+          {headerContent}
         </View>
       )}
 
-      <View style={styles.content}>{children}</View>
-    </ScrollView>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+        <View style={styles.content}>{children}</View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    backgroundColor: "#F2F2F7",
+  },
+  root: {
+    flex: 1,
+    backgroundColor: "#F2F2F7",
+  },
   container: {
-    padding: 16,
+    flexGrow: 1,
+    paddingHorizontal: 16,
     paddingBottom: 28,
+    paddingTop: 12,
     gap: 16,
   },
   header: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
     gap: 6,
+  },
+  headerCompact: {
+    paddingTop: 5,
+    paddingBottom: 2,
+    gap: 4,
   },
   title: {
     fontSize: 28,

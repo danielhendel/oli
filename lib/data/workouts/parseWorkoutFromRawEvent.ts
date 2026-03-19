@@ -37,13 +37,25 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
   const rawPayload: unknown = raw.payload;
   const payload = isRecord(rawPayload) ? rawPayload : null;
 
-  const start = asString(payload?.start) ?? asString(raw.observedAt) ?? null;
+  const start =
+    raw.kind === "strength_workout" && payload && asString((payload as { startedAt?: unknown }).startedAt)
+      ? asString((payload as { startedAt: string }).startedAt)
+      : asString(payload?.start) ?? asString(raw.observedAt) ?? null;
   const end = asString(payload?.end) ?? null;
 
-  const title =
-    asString(payload?.sport) ??
-    asString(payload?.activityName) ??
-    "Workout";
+  let title: string;
+  if (raw.kind === "strength_workout" && payload && Array.isArray((payload as { exercises?: unknown }).exercises)) {
+    const exs = (payload as { exercises: { name?: unknown }[] }).exercises;
+    const first = exs[0];
+    const exName = first && typeof first.name === "string" ? first.name.trim() : "";
+    title = exName.length > 0 ? exName : "Strength workout";
+  } else {
+    title =
+      asString((payload as { name?: unknown } | null)?.name) ??
+      asString(payload?.sport) ??
+      asString(payload?.activityName) ??
+      "Workout";
+  }
 
   const durationMinutes =
     asNumber(payload?.durationMinutes) ??

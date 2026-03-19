@@ -65,6 +65,7 @@ export default function DebugIntegrationsScreen() {
     ok: boolean;
     error?: string;
     requestId?: string | null;
+    mayHaveMoreWorkouts?: boolean;
   } | null>(null);
   const [appleRawWorkouts, setAppleRawWorkouts] = useState<{
     count: number;
@@ -185,7 +186,10 @@ export default function DebugIntegrationsScreen() {
           requestId: result.requestId ?? null,
         });
       } else {
-        setAppleSyncResult({ ok: true });
+        setAppleSyncResult({
+          ok: true,
+          mayHaveMoreWorkouts: result.mayHaveMoreWorkouts,
+        });
       }
 
       const lastSyncAfter = await getLastSyncAt();

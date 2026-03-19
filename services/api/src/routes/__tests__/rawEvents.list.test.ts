@@ -116,6 +116,14 @@ describe("GET /users/me/raw-events", () => {
     expect(json.error?.code).toBe("INVALID_QUERY");
   });
 
+  test("limit above schema max (100) fails closed with 400 INVALID_QUERY", async () => {
+    const res = await fetch(`${baseUrl}/users/me/raw-events?limit=101`);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error?.code).toBe("INVALID_QUERY");
+  });
+
   test("ignores unknown query params (t and _)", async () => {
     const docs: DocSnap[] = [
       {
@@ -291,4 +299,8 @@ describe("GET /users/me/raw-events", () => {
     expect(json.items.length).toBeGreaterThanOrEqual(1);
     expect(q.orderBy).toHaveBeenCalledWith("observedAt", "desc");
   });
+
+  // NOTE: workouts calendar currently uses the gateway without advanced filters.
+  // Contract for filters (start/end, kinds) is validated in other tests; here
+  // we only assert that the basic limit-only contract remains stable.
 });

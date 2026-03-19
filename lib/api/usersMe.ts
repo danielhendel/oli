@@ -257,6 +257,8 @@ export const getRawEvents = async (
     start?: string;
     end?: string;
     kinds?: string[];
+    /** Single kind alias (backend supports both `kinds` and `kind`). */
+    kind?: string;
     provenance?: string[];
     uncertaintyState?: string[];
     q?: string;
@@ -268,18 +270,17 @@ export const getRawEvents = async (
   if (opts?.start) params.set("start", opts.start);
   if (opts?.end) params.set("end", opts.end);
   if (opts?.kinds?.length) params.set("kinds", opts.kinds.join(","));
+  if ((!opts?.kinds || opts.kinds.length === 0) && opts?.kind) params.set("kind", opts.kind);
   if (opts?.provenance?.length) params.set("provenance", opts.provenance.join(","));
   if (opts?.uncertaintyState?.length) params.set("uncertaintyState", opts.uncertaintyState.join(","));
   if (opts?.q) params.set("q", opts.q);
   if (opts?.cursor) params.set("cursor", opts.cursor);
   if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
   const qs = params.toString();
-  return apiGetZodAuthed(
-    `/users/me/raw-events${qs ? `?${qs}` : ""}`,
-    idToken,
-    rawEventsListResponseDtoSchema,
-    truthGetOpts(opts),
-  );
+  const path = `/users/me/raw-events${qs ? `?${qs}` : ""}`;
+  const res = await apiGetZodAuthed(path, idToken, rawEventsListResponseDtoSchema, truthGetOpts(opts));
+
+  return res;
 };
 
 /**

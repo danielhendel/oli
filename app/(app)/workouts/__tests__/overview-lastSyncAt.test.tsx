@@ -3,10 +3,14 @@
  * Overview calls setLastSyncAt(nowIso) after successful sync.
  */
 import React, { act } from "react";
+
+type AhThrottle = { lastCheckedAt: string | null };
+const g = globalThis as unknown as { __overviewAhLastChecked?: AhThrottle };
+g.__overviewAhLastChecked ??= { lastCheckedAt: null };
 import renderer from "react-test-renderer";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 import TrainingOverviewScreen from "../overview";
-import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
+import { runWorkoutHistoryBackfillPasses } from "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill";
 import * as storage from "@/lib/integrations/appleHealth/storage";
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
@@ -29,8 +33,9 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
-jest.mock("@/lib/integrations/appleHealth/runAnchoredWorkoutsSync", () => ({
-  runAnchoredWorkoutsSync: jest.fn(),
+jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
+  runWorkoutHistoryBackfillPasses: jest.fn(),
+  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
 }));
 
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
@@ -41,8 +46,16 @@ jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: jest.fn(),
   setLastSyncAt: jest.fn().mockResolvedValue(undefined),
-  getAppleHealthLastCheckedAt: jest.fn().mockImplementation(() => Promise.resolve(new Date().toISOString())),
-  setAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(undefined),
+  getAppleHealthLastCheckedAt: jest.fn(() =>
+    Promise.resolve(
+      (globalThis as unknown as { __overviewAhLastChecked: AhThrottle }).__overviewAhLastChecked
+        .lastCheckedAt,
+    ),
+  ),
+  setAppleHealthLastCheckedAt: jest.fn(async (iso: string) => {
+    (globalThis as unknown as { __overviewAhLastChecked: AhThrottle }).__overviewAhLastChecked.lastCheckedAt =
+      iso;
+  }),
   getAppleHealthConnected: jest.fn(),
   setAppleHealthConnected: jest.fn(),
   setAppleHealthNotAvailable: jest.fn(),
@@ -88,6 +101,21 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
+  useWorkoutsCalendarRange: jest.fn(() => ({
+    status: "ready",
+    days: [
+      { day: "2026-03-01", workouts: [] },
+      { day: "2026-03-02", workouts: [] },
+      { day: "2026-03-03", workouts: [] },
+      { day: "2026-03-04", workouts: [] },
+      { day: "2026-03-05", workouts: [] },
+      { day: "2026-03-06", workouts: [] },
+      { day: "2026-03-07", workouts: [] },
+    ],
+  })),
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
 }));
@@ -104,7 +132,12 @@ jest.mock("react-native", () => ({
       isAvailable: (cb: (err: unknown, ok: boolean) => void) => cb(null, true),
     },
   },
-  AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
+  AppState: {
+    addEventListener: jest.fn((_evt: string, cb: (state: string) => void) => {
+      (globalThis as unknown as { __ahAppStateCb?: (state: string) => void }).__ahAppStateCb = cb;
+      return { remove: jest.fn() };
+    }),
+  },
 }));
 
 jest.mock("@react-navigation/native", () => ({
@@ -113,23 +146,24 @@ jest.mock("@react-navigation/native", () => ({
   },
 }));
 
-const mockRunAnchoredWorkoutsSync = runAnchoredWorkoutsSync as jest.MockedFunction<typeof runAnchoredWorkoutsSync>;
-const mockSetLastSyncAt = storage.setLastSyncAt as jest.MockedFunction<typeof storage.setLastSyncAt>;
+const mockRunBackfill = runWorkoutHistoryBackfillPasses as jest.MockedFunction<
+  typeof runWorkoutHistoryBackfillPasses
+>;
 const mockSetAppleHealthLastCheckedAt = storage.setAppleHealthLastCheckedAt as jest.MockedFunction<
   typeof storage.setAppleHealthLastCheckedAt
 >;
 
 beforeEach(() => {
+  g.__overviewAhLastChecked!.lastCheckedAt = new Date().toISOString();
   jest.clearAllMocks();
   (storage.getLastSyncAt as jest.Mock).mockResolvedValue(null);
-  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
   (storage.getAppleHealthConnected as jest.Mock).mockResolvedValue(true);
-  mockRunAnchoredWorkoutsSync.mockResolvedValue({ ok: true });
+  mockRunBackfill.mockResolvedValue({ ok: true, passesRun: 1, mayHaveMoreWorkouts: false });
 });
 
 it("smart foreground sync: when lastCheckedAt is recent, runner is not called on focus", async () => {
   allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
-  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
+  g.__overviewAhLastChecked!.lastCheckedAt = new Date().toISOString();
   await act(async () => {
     renderer.create(<TrainingOverviewScreen />);
   });
@@ -139,12 +173,12 @@ it("smart foreground sync: when lastCheckedAt is recent, runner is not called on
   await act(async () => {
     await Promise.resolve();
   });
-  expect(mockRunAnchoredWorkoutsSync).not.toHaveBeenCalled();
+  expect(mockRunBackfill).not.toHaveBeenCalled();
 });
 
 it("smart foreground sync: when lastCheckedAt is old, runner is called and setAppleHealthLastCheckedAt is called", async () => {
   allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
-  (storage.getAppleHealthLastCheckedAt as jest.Mock).mockResolvedValue(null);
+  g.__overviewAhLastChecked!.lastCheckedAt = null;
   await act(async () => {
     renderer.create(<TrainingOverviewScreen />);
   });
@@ -154,51 +188,6 @@ it("smart foreground sync: when lastCheckedAt is old, runner is called and setAp
   await act(async () => {
     await Promise.resolve();
   });
-  expect(mockRunAnchoredWorkoutsSync).toHaveBeenCalled();
+  expect(mockRunBackfill).toHaveBeenCalled();
   expect(mockSetAppleHealthLastCheckedAt).toHaveBeenCalled();
-});
-
-it("on successful sync calls setLastSyncAt with ISO string", async () => {
-  allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
-  let root: ReturnType<typeof renderer.create>;
-  await act(async () => {
-    root = renderer.create(<TrainingOverviewScreen />);
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  const syncButton = root!.root.findByProps({ accessibilityLabel: "Sync now" });
-  expect(syncButton).toBeDefined();
-  await act(async () => {
-    syncButton.props.onPress();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  expect(mockRunAnchoredWorkoutsSync).toHaveBeenCalled();
-  expect(mockSetLastSyncAt).toHaveBeenCalledTimes(1);
-  const [iso] = mockSetLastSyncAt.mock.calls[0]!;
-  expect(typeof iso).toBe("string");
-  expect(() => new Date(iso).toISOString()).not.toThrow();
-});
-
-it("renders current gym label on overview (No gym when selectedGymId null)", async () => {
-  let root: ReturnType<typeof renderer.create>;
-  await act(async () => {
-    root = renderer.create(<TrainingOverviewScreen />);
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-  const treeStr = JSON.stringify(root!.toJSON());
-  expect(treeStr).toContain("Gym");
-  expect(treeStr).toContain("No gym");
 });

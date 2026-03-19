@@ -30,15 +30,14 @@ export type RunAnchoredWorkoutsSyncDeps = {
 };
 
 export type RunAnchoredWorkoutsSyncResult =
-  | { ok: true }
+  | { ok: true; mayHaveMoreWorkouts: boolean }
   | { ok: false; error: string; requestId: string | null };
 
-const TRUNCATION_MESSAGE =
-  "Workout sync reached limit (500). Run Sync again to continue.";
-
 /**
- * Run anchored workouts sync. Updates anchor only after all ingest steps succeed.
- * Does not update anchor on pull error, truncation (length >= limit), or ingest failure.
+ * Run anchored workouts sync. Ingests every workout returned by the anchored pull.
+ * Updates anchor only after full success (steps + all workouts). Idempotent per workout.
+ * When the pull returns `limit` workouts, more history may remain — caller may run again
+ * with the updated anchor (bounded multi-pass orchestration on the client).
  */
 export async function runAnchoredWorkoutsSync(
   opts: { uid: string; token: string; limit: number },
@@ -49,9 +48,6 @@ export async function runAnchoredWorkoutsSync(
   const anchored = await deps.pullAnchoredWorkouts({ anchor, limit });
   if (!anchored.ok) {
     return { ok: false, error: anchored.error, requestId: null };
-  }
-  if (anchored.data.workouts.length >= limit) {
-    return { ok: false, error: TRUNCATION_MESSAGE, requestId: null };
   }
 
   const pull = await deps.pullTodaySnapshot();
@@ -87,14 +83,19 @@ export async function runAnchoredWorkoutsSync(
     }
   }
 
+  // Do not set payload.day: calendar grouping uses start + timezone (deriveWorkoutDayKey).
+  // Using "today" would mis-attribute all historical workouts to the sync day.
+
   for (const w of anchored.data.workouts) {
     const payload = {
       start: w.start,
       end: w.end,
       timezone,
-      day,
       sport: w.activityName || "Workout",
       durationMinutes: Math.max(1, w.durationMinutes),
+      ...(typeof w.calories === "number" && Number.isFinite(w.calories) && w.calories > 0
+        ? { calories: Math.round(w.calories) }
+        : {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {
         mode: "anchored" as const,
@@ -125,5 +126,6 @@ export async function runAnchoredWorkoutsSync(
   }
 
   await deps.setWorkoutsAnchor(uid, anchored.data.anchor);
-  return { ok: true };
+  const mayHaveMoreWorkouts = anchored.data.workouts.length >= limit;
+  return { ok: true, mayHaveMoreWorkouts };
 }
