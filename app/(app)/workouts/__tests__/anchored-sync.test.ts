@@ -1,6 +1,6 @@
 /**
- * W2.2 — Anchored sync determinism: anchor only updates on full success;
- * not updated when ingest fails or when result set is truncated (length === limit).
+ * Anchored workouts sync: anchor advances only on full success; full batches ingest
+ * and advance anchor so the next client pass can continue history backfill.
  */
 
 import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
@@ -79,7 +79,7 @@ describe("anchored sync determinism", () => {
     expect(mockSetWorkoutsAnchor).not.toHaveBeenCalled();
   });
 
-  it("does not call setWorkoutsAnchor when workouts length equals ANCHOR_LIMIT (truncation)", async () => {
+  it("ingests full limit batch, advances anchor, returns mayHaveMoreWorkouts true", async () => {
     const manyWorkouts: TodayWorkout[] = Array.from({ length: ANCHOR_LIMIT }, (_, i) => ({
       ...oneWorkout,
       id: `w${i}`,
@@ -90,16 +90,66 @@ describe("anchored sync determinism", () => {
       ok: true,
       data: { workouts: manyWorkouts, anchor: "next-anchor" },
     });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
 
-    const deps = baseDeps({ pullAnchoredWorkouts: mockPullAnchored });
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
 
     const result = await runAnchoredWorkoutsSync(
       { uid: "u1", token: "tok", limit: ANCHOR_LIMIT },
       deps,
     );
 
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error).toContain("limit");
-    expect(mockSetWorkoutsAnchor).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: true });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "next-anchor");
+    expect(mockIngest).toHaveBeenCalledTimes(ANCHOR_LIMIT);
+  });
+
+  it("returns mayHaveMoreWorkouts false when batch smaller than limit", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
+
+    const result = await runAnchoredWorkoutsSync(
+      { uid: "u1", token: "tok", limit: ANCHOR_LIMIT },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: false });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "anchor-done");
+    expect(mockIngest).toHaveBeenCalledTimes(1);
   });
 });

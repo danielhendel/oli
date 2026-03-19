@@ -5,6 +5,11 @@
 
 export { requestPermissions, pullTodaySnapshot, pullAnchoredWorkouts } from "./healthKit";
 export {
+  runWorkoutHistoryBackfillPasses,
+  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
+} from "./runWorkoutHistoryBackfill";
+export type { RunWorkoutHistoryBackfillResult } from "./runWorkoutHistoryBackfill";
+export {
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   restingHeartRateIdempotencyKey,

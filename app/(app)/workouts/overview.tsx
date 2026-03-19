@@ -7,39 +7,47 @@
  * contract kind="incomplete" allows only payload.note (no structured fields); we show them in UI only and do NOT ingest.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, NativeModules, AppState } from "react-native";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Platform, NativeModules, AppState } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
+import { getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
+import { LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
+import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
+import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
+import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
+import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
+import { getRecentWorkoutsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
 import {
-  requestPermissions,
   pullTodaySnapshot,
   pullAnchoredWorkouts,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   type TodaySnapshot,
-  type TodayWorkout,
 } from "@/lib/integrations/appleHealth";
 import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
-import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
+import {
+  runWorkoutHistoryBackfillPasses,
+  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
+} from "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill";
 import {
   getLastSyncAt,
   setLastSyncAt,
   getAppleHealthLastCheckedAt,
   setAppleHealthLastCheckedAt,
   getAppleHealthConnected,
-  setAppleHealthConnected,
   getAppleHealthNotAvailable,
   setAppleHealthNotAvailable,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
-import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
+import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import { formatWorkoutRowSummary, formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -54,11 +62,21 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 
 const ANCHOR_LIMIT = 500;
 const APPLE_AUTO_MIN_MS = 2 * 60_000;
-const CARD_BG = "#F2F2F7";
+const PAGE_BG = "#F2F2F7";
+const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
 const SHELL_SUBTITLE = "Strength & cardio";
-const METRIC_LABEL = "Training Overview";
+
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatWorkoutDayLabel(dayKey: string): string {
+  const d = new Date(`${dayKey}T12:00:00.000Z`);
+  const wd = WEEKDAY_SHORT[d.getUTCDay()] ?? "";
+  const month = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${wd} ${month}/${day}`;
+}
 
 function getDeviceTimezone(): string {
   try {
@@ -79,17 +97,6 @@ function getTodayBounds(): { start: string; end: string; day: string } {
   return { start: start.toISOString(), end: end.toISOString(), day };
 }
 
-function formatSyncTime(iso: string | null): string {
-  if (!iso) return "Never";
-  try {
-    const d = new Date(iso);
-    if (!Number.isFinite(d.getTime())) return "Never";
-    return d.toLocaleString();
-  } catch {
-    return "Never";
-  }
-}
-
 function OverflowMenuButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
@@ -103,46 +110,6 @@ function OverflowMenuButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function StatusChip({
-  title,
-  status,
-  onPress,
-  disabled,
-}: {
-  title: string;
-  status: string;
-  onPress?: () => void;
-  disabled?: boolean;
-}) {
-  const pressable = typeof onPress === "function";
-  const Comp = pressable ? Pressable : View;
-  return (
-    <Comp
-      {...(pressable
-        ? {
-            onPress,
-            disabled,
-            accessibilityRole: "button" as const,
-            accessibilityLabel: `${title} ${status}`,
-          }
-        : {})}
-      style={[styles.chip, disabled && styles.chipDisabled]}
-    >
-      <Text style={styles.chipTitle}>{title}</Text>
-      <Text style={styles.chipStatus}>{status}</Text>
-    </Comp>
-  );
-}
-
-function PlaceholderTile({ label }: { label: string }) {
-  return (
-    <View style={styles.insightTile}>
-      <Text style={styles.insightLabel}>{label}</Text>
-      <Text style={styles.insightValue}>Coming soon</Text>
-    </View>
-  );
-}
-
 export default function TrainingOverviewScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -150,21 +117,84 @@ export default function TrainingOverviewScreen() {
   const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
-  const [lastSyncAt, setLastSyncAtState] = useState<string | null>(null);
-  const [lastCheckedAt, setLastCheckedAtState] = useState<string | null>(null);
-  const [serverLastSyncAt, setServerLastSyncAt] = useState<string | null>(null);
-  const [statusFetchError, setStatusFetchError] = useState<{ message: string; requestId: string | null } | null>(null);
-  const [syncError, setSyncError] = useState<{ message: string; requestId: string | null } | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [connecting, setConnecting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
+  const [selectedWorkoutForMenu, setSelectedWorkoutForMenu] = useState<{
+    day: string;
+    workout: WorkoutHistoryItem;
+  } | null>(null);
+
+  const today = getTodayDayKeyLocal();
+  const anchorDay = today;
+  const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
+  const workoutBackfillInFlightRef = useRef(false);
+
+  const weekDaysFull = getWeekDaysForAnchor(anchorDay);
+  const weekStart = weekDaysFull[0]!;
+  const weekEnd = weekDaysFull[weekDaysFull.length - 1]!;
+  const calendarRangeOptions = useMemo(
+    () => ({ refreshEpoch: workoutsCalendarRefreshEpoch }),
+    [workoutsCalendarRefreshEpoch],
+  );
+  const calendarRange = useWorkoutsCalendarRange(weekStart, weekEnd, calendarRangeOptions);
+
+  const weeklyStripDays: CalendarDay<WorkoutDayMarker>[] =
+    calendarRange.status === "ready"
+      ? calendarRange.days.map((d) => ({
+          day: d.day,
+          meta: {
+            hasWorkouts: d.workouts.length > 0,
+            workoutCount: d.workouts.length,
+            workouts: d.workouts,
+          },
+        }))
+      : weekDaysFull.map((day) => ({
+          day,
+          meta: {
+            hasWorkouts: false,
+            workoutCount: 0,
+            workouts: [],
+          },
+        }));
+
+  const recentWorkouts = useMemo(() => {
+    if (calendarRange.status !== "ready") return [];
+    return getRecentWorkoutsFromCalendarDays(calendarRange.days, 5);
+  }, [calendarRange]);
 
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () => <OverflowMenuButton onPress={() => setMenuOpen(true)} />,
+      headerLeft: () => (
+        <Pressable
+          onPress={navigation.goBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.headerBackButton,
+            pressed && styles.headerBackButtonPressed,
+          ]}
+        >
+          <Text style={styles.headerBackIcon}>‹</Text>
+        </Pressable>
+      ),
+      headerRight: () => (
+        <View style={styles.headerRightRow}>
+          <HeaderIconButton
+            iconName="calendar-outline"
+            iconSize={24}
+            color="#FF3B30"
+            accessibilityLabel="Open workouts calendar"
+            onPress={() => router.push("/(app)/workouts/calendar")}
+          />
+          <View style={{ marginRight: -3 }}>
+            <OverflowMenuButton onPress={() => setMenuOpen(true)} />
+          </View>
+        </View>
+      ),
       title: SHELL_TITLE,
     });
-  }, [navigation]);
+  }, [navigation, router, setMenuOpen]);
 
   const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
     const [sync, checked, connected, notAvailable] = await Promise.all([
@@ -173,8 +203,8 @@ export default function TrainingOverviewScreen() {
       getAppleHealthConnected(),
       getAppleHealthNotAvailable(),
     ]);
-    setLastSyncAtState(sync);
-    setLastCheckedAtState(checked);
+    void sync;
+    void checked;
     if (!skipNotAvailableCheck && notAvailable) {
       console.log("[AH] status set Not available", { platform: Platform.OS });
       setConnectionStatus("not_available");
@@ -246,47 +276,6 @@ export default function TrainingOverviewScreen() {
     if (connectionStatus === "connected") refetchSnapshot();
   }, [connectionStatus, refetchSnapshot]);
 
-  const fetchServerStatus = useCallback(async () => {
-    const token = await getIdToken(false);
-    if (!token) return;
-    setStatusFetchError(null);
-    const res = await getAppleHealthStatus(token, { cacheBust: `status:${Date.now()}` });
-    if (res.ok) {
-      setServerLastSyncAt(res.json.lastSyncAt);
-    } else {
-      setStatusFetchError({ message: res.error, requestId: res.requestId ?? null });
-    }
-  }, [getIdToken]);
-
-  useEffect(() => {
-    if (connectionStatus === "connected" && user) void fetchServerStatus();
-  }, [connectionStatus, user, fetchServerStatus]);
-
-  const handleConnect = useCallback(async () => {
-    setConnecting(true);
-    setSyncError(null);
-    try {
-      const result = await requestPermissions();
-      if (result.ok) {
-        await setAppleHealthConnected(true);
-        await setAppleHealthNotAvailable(false);
-        setConnectionStatus("connected");
-        await refetchSnapshot();
-      } else {
-        await setAppleHealthConnected(false);
-        if (result.error.toLowerCase().includes("not available")) {
-          console.log("[AH] status set Not available", { platform: Platform.OS });
-          await setAppleHealthNotAvailable(true);
-          setConnectionStatus("not_available");
-        } else {
-          setConnectionStatus("not_connected");
-        }
-      }
-    } finally {
-      setConnecting(false);
-    }
-  }, [refetchSnapshot]);
-
   const maybeAutoAppleSync = useCallback(
     async (reason: "focus" | "foreground") => {
       void reason; // reserved for future idempotency / logging
@@ -296,87 +285,49 @@ export default function TrainingOverviewScreen() {
 
       const last = await getAppleHealthLastCheckedAt().catch(() => null);
       if (!shouldRun(last, APPLE_AUTO_MIN_MS)) return;
+      if (workoutBackfillInFlightRef.current) return;
+      workoutBackfillInFlightRef.current = true;
+      try {
+        const result = await runWorkoutHistoryBackfillPasses(
+          {
+            uid: user.uid,
+            token,
+            limit: ANCHOR_LIMIT,
+            maxPasses: DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
+          },
+          {
+            getWorkoutsAnchor,
+            setWorkoutsAnchor,
+            pullAnchoredWorkouts,
+            pullTodaySnapshot,
+            ingestRawEvent,
+            getTodayBounds,
+            getDeviceTimezone,
+            stepsIdempotencyKey,
+            workoutIdempotencyKey,
+          },
+        );
 
-      const result = await runAnchoredWorkoutsSync(
-        { uid: user.uid, token, limit: ANCHOR_LIMIT },
-        {
-          getWorkoutsAnchor,
-          setWorkoutsAnchor,
-          pullAnchoredWorkouts,
-          pullTodaySnapshot,
-          ingestRawEvent,
-          getTodayBounds,
-          getDeviceTimezone,
-          stepsIdempotencyKey,
-          workoutIdempotencyKey,
-        },
-      );
+        if (!result.ok) {
+          return;
+        }
 
-      if (!result.ok) {
-        setSyncError({ message: result.error, requestId: result.requestId });
-        return;
+        const atIso = nowIso();
+        await setAppleHealthLastCheckedAt(atIso);
+        await setLastSyncAt(atIso);
+        await refetchSnapshot();
+        setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+      } finally {
+        workoutBackfillInFlightRef.current = false;
       }
-
-      const atIso = nowIso();
-      await setAppleHealthLastCheckedAt(atIso);
-      setLastCheckedAtState(atIso);
-      await setLastSyncAt(atIso);
-      setLastSyncAtState(atIso);
-      await refetchSnapshot();
-      await fetchServerStatus();
     },
     [
       connectionStatus,
       user,
       getIdToken,
       refetchSnapshot,
-      fetchServerStatus,
     ],
   );
-
-  const handleSyncNow = useCallback(async () => {
-    if (connectionStatus !== "connected" || !user) return;
-    const token = await getIdToken(false);
-    if (!token) {
-      setSyncError({ message: "Not signed in", requestId: null });
-      return;
-    }
-    setSyncing(true);
-    setSyncError(null);
-    try {
-      const result = await runAnchoredWorkoutsSync(
-        { uid: user.uid, token, limit: ANCHOR_LIMIT },
-        {
-          getWorkoutsAnchor,
-          setWorkoutsAnchor,
-          pullAnchoredWorkouts,
-          pullTodaySnapshot,
-          ingestRawEvent,
-          getTodayBounds,
-          getDeviceTimezone,
-          stepsIdempotencyKey,
-          workoutIdempotencyKey,
-        },
-      );
-      if (!result.ok) {
-        setSyncError({ message: result.error, requestId: result.requestId });
-        return;
-      }
-      const nowIsoStr = new Date().toISOString();
-      try {
-        await setAppleHealthLastCheckedAt(nowIsoStr);
-      } catch {
-        // Best-effort; do not throw.
-      }
-      setLastCheckedAtState(nowIsoStr);
-      await setLastSyncAt(nowIsoStr);
-      setLastSyncAtState(nowIsoStr);
-      setServerLastSyncAt(nowIsoStr);
-      await refetchSnapshot();
-    } finally {
-      setSyncing(false);
-    }
-  }, [connectionStatus, user, getIdToken, refetchSnapshot]);
 
   useFocusEffect(
     useCallback(() => {
@@ -390,6 +341,136 @@ export default function TrainingOverviewScreen() {
     });
     return () => sub.remove();
   }, [maybeAutoAppleSync]);
+
+  const content = (
+    <View style={styles.pageBody}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Today</Text>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Steps</Text>
+          <Text style={styles.metricValue}>{snapshot?.steps != null ? Math.round(snapshot.steps) : "—"}</Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Exercise time</Text>
+          <Text style={styles.metricValue}>
+            {snapshot?.exerciseMinutes != null ? Math.round(snapshot.exerciseMinutes) : "—"}
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Active energy (kcal)</Text>
+          <Text style={styles.metricValue}>
+            {snapshot?.activeEnergyKcal != null ? Math.round(snapshot.activeEnergyKcal) : "—"}
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Resting HR (bpm)</Text>
+          <Text style={styles.metricValue}>
+            {snapshot?.restingHeartRateBpm != null ? Math.round(snapshot.restingHeartRateBpm) : "—"}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>Recent workouts</Text>
+          <Pressable
+            onPress={() => router.push("/(app)/workouts/log")}
+            accessibilityRole="button"
+            accessibilityLabel="Log workout"
+            hitSlop={10}
+            style={styles.cardHeaderAction}
+          >
+            <Ionicons name="add-circle-outline" size={24} color="#007AFF" />
+          </Pressable>
+        </View>
+        {recentWorkouts.length === 0 ? (
+          <Text style={styles.placeholder}>No workouts yet</Text>
+        ) : (
+          recentWorkouts.map(({ day, workout }) => (
+            <View key={`${day}:${workout.id}`} style={styles.recentRow}>
+              <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+              <View style={styles.recentMain}>
+                <Text style={styles.recentTitle} numberOfLines={1}>
+                  {formatWorkoutTitle(workout.title)}
+                </Text>
+                <Text style={styles.recentMeta} numberOfLines={1}>
+                  {formatWorkoutRowSummary(workout) ?? "Workout"}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setSelectedWorkoutForMenu({ day, workout });
+                  setWorkoutMenuOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Workout actions ${workout.id}`}
+                hitSlop={10}
+                style={styles.rowMenuBtn}
+              >
+                <Text style={styles.rowMenuText}>•••</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+      </View>
+
+      {workoutMenuOpen && selectedWorkoutForMenu && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => {
+            setWorkoutMenuOpen(false);
+            setSelectedWorkoutForMenu(null);
+          }}
+          accessibilityLabel="Close workout menu"
+        >
+          <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
+            <Text style={styles.menuTitle}>Workout</Text>
+            <Pressable
+              onPress={() => {
+                // Placeholder: route to workout log flow.
+                setWorkoutMenuOpen(false);
+                setSelectedWorkoutForMenu(null);
+                router.push("/(app)/workouts/log");
+              }}
+              style={styles.menuOptionRow}
+              accessibilityRole="button"
+              accessibilityLabel="Do it again"
+            >
+              <Text style={styles.menuOptionLabel}>Do it again</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                const { day } = selectedWorkoutForMenu;
+                setWorkoutMenuOpen(false);
+                setSelectedWorkoutForMenu(null);
+                router.push({
+                  pathname: "/(app)/workouts/day/[day]",
+                  params: { day },
+                });
+              }}
+              style={styles.menuOptionRow}
+              accessibilityRole="button"
+              accessibilityLabel="View details"
+            >
+              <Text style={styles.menuOptionLabel}>View details</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                // Placeholder: no share surface yet.
+                setWorkoutMenuOpen(false);
+                setSelectedWorkoutForMenu(null);
+              }}
+              style={styles.menuOptionRow}
+              accessibilityRole="button"
+              accessibilityLabel="Share"
+            >
+              <Text style={styles.menuOptionLabel}>Share</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
+    </View>
+  );
 
   if (initializing) {
     return (
@@ -411,162 +492,25 @@ export default function TrainingOverviewScreen() {
   }
 
   return (
-    <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
-      <View style={{ flex: 1 }}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.metricHeaderRow}>
-          <Text style={styles.metricHeaderLabel}>{METRIC_LABEL}</Text>
-          <StatusChip
-            title="Apple Health"
-            status={
-              connectionStatus === "loading"
-                ? "Loading…"
-                : connectionStatus === "not_available"
-                  ? "Not available"
-                  : connectionStatus === "not_connected"
-                    ? "Not connected"
-                    : "Connected"
-            }
-            {...(connectionStatus === "not_connected"
-              ? { onPress: () => { void handleConnect(); }, disabled: connecting }
-              : {})}
-          />
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Workout log</Text>
-          <View style={styles.gymRow}>
-            <Text style={styles.metricLabel}>Gym</Text>
-            <Text style={styles.gymLabel}>{getGymLabel(prefState.preferences?.selectedGymId ?? null)}</Text>
-          </View>
-          <Text style={styles.statusText}>
-            Log sets as you train. Offline-first, append-only session journal.
-          </Text>
-          <Pressable
-            onPress={() => router.push("/(app)/workouts/log")}
-            style={styles.primaryBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Log workout"
-          >
-            <Text style={styles.primaryBtnText}>Log workout</Text>
-          </Pressable>
-          {connectionStatus !== "connected" && (
-            <Text style={styles.hint}>
-              Apple Health sync is separate. Use the chip above to connect if you want automatic steps/workouts sync.
-            </Text>
-          )}
-        </View>
-
-        {syncError && (
-          <View style={styles.errorCard}>
-            <ErrorState message={syncError.message} requestId={syncError.requestId} onRetry={() => setSyncError(null)} />
-            <Text style={styles.requestIdLine}>
-              Request ID: {syncError.requestId != null ? syncError.requestId : "null"}
-            </Text>
-          </View>
-        )}
-
-        {connectionStatus === "connected" && (
-          <>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Today</Text>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Steps</Text>
-                <Text style={styles.metricValue}>{snapshot?.steps != null ? Math.round(snapshot.steps) : "—"}</Text>
-              </View>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Exercise time</Text>
-                <Text style={styles.metricValue}>
-                  {snapshot?.exerciseMinutes != null ? Math.round(snapshot.exerciseMinutes) : "—"}
-                </Text>
-              </View>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Active energy (kcal)</Text>
-                <Text style={styles.metricValue}>
-                  {snapshot?.activeEnergyKcal != null ? Math.round(snapshot.activeEnergyKcal) : "—"}
-                </Text>
-              </View>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Resting HR (bpm)</Text>
-                <Text style={styles.metricValue}>
-                  {snapshot?.restingHeartRateBpm != null ? Math.round(snapshot.restingHeartRateBpm) : "—"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Trends</Text>
-              <Text style={styles.placeholder}>Coming soon…</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Insights</Text>
-              <View style={styles.insightsRow}>
-                <PlaceholderTile label="Load" />
-                <PlaceholderTile label="Recovery" />
-                <PlaceholderTile label="Volume" />
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Recent workouts</Text>
-              {snapshot?.workouts && snapshot.workouts.length > 0 ? (
-                snapshot.workouts.map((w: TodayWorkout, i: number) => (
-                  <View key={w.id || i} style={styles.workoutRow}>
-                    <Text style={styles.workoutName}>{w.activityName}</Text>
-                    <Text style={styles.workoutMeta}>
-                      {w.durationMinutes} min · {Math.round(w.calories)} kcal
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.placeholder}>No workouts today</Text>
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>History</Text>
-              <Text style={styles.placeholder}>Coming soon.</Text>
-              <Pressable
-                onPress={() => { /* disabled */ }}
-                disabled
-                style={[styles.secondaryBtn, styles.secondaryBtnDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel="View history"
-              >
-                <Text style={styles.secondaryBtnText}>View history</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Last sync</Text>
-              <Text style={styles.metricLabel}>Last sync (local)</Text>
-              <Text style={styles.syncTime}>{formatSyncTime(lastSyncAt)}</Text>
-              <Text style={styles.metricLabel}>Last checked</Text>
-              <Text style={styles.syncTime}>{formatSyncTime(lastCheckedAt)}</Text>
-              <Text style={styles.metricLabel}>Last new data</Text>
-              <Text style={styles.syncTime}>{formatSyncTime(serverLastSyncAt)}</Text>
-              {statusFetchError && (
-                <Text style={styles.requestIdLine}>
-                  Status unavailable · Request ID: {statusFetchError.requestId ?? "—"}
-                </Text>
-              )}
-              <Pressable
-                onPress={handleSyncNow}
-                disabled={syncing}
-                style={[styles.primaryBtn, syncing && styles.primaryBtnDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel={syncing ? "Syncing…" : "Sync now"}
-              >
-                <Text style={styles.primaryBtnText}>{syncing ? "Syncing…" : "Sync now"}</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
-
-        {connectionStatus === "not_available" && (
-          <Text style={styles.hint}>Apple Health is not available on this device (e.g. not iOS).</Text>
-        )}
-      </ScrollView>
+    <ModuleScreenShell
+      title={SHELL_TITLE}
+      subtitle={SHELL_SUBTITLE}
+      hideTitleChrome
+      compactHeader
+      headerContent={
+        <WeeklyStrip
+          days={weeklyStripDays}
+          selectedDay={today}
+          onDayPress={(day) => {
+            router.push({
+              pathname: "/(app)/workouts/day/[day]",
+              params: { day },
+            });
+          }}
+        />
+      }
+    >
+      {content}
       {menuOpen && (
         <Pressable
           style={styles.menuOverlay}
@@ -606,14 +550,44 @@ export default function TrainingOverviewScreen() {
           </View>
         </Pressable>
       )}
-      </View>
     </ModuleScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 16, paddingBottom: 32 },
+  headerRightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingRight: 16,
+  },
+  headerBackButton: {
+    marginLeft: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F2F2F7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBackButtonPressed: {
+    opacity: 0.7,
+  },
+  headerBackIcon: {
+    fontSize: 23,
+    color: "#1C1C1E",
+    fontWeight: "600",
+    transform: [{ translateX: -0.5 }],
+  },
+  pageBody: {
+    backgroundColor: PAGE_BG,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
+    flexGrow: 1,
+    gap: 12,
+  },
   card: {
     backgroundColor: CARD_BG,
     borderRadius: RADIUS,
@@ -621,7 +595,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  statusText: { fontSize: 15, color: "#3C3C43" },
+  cardHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cardHeaderAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  placeholder: { fontSize: 15, color: "#8E8E93" },
   primaryBtn: {
     alignSelf: "flex-start",
     paddingVertical: 10,
@@ -629,71 +605,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
     borderRadius: 10,
   },
-  primaryBtnDisabled: { opacity: 0.7 },
   primaryBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
-  errorCard: { backgroundColor: "#FFF5F5", borderRadius: RADIUS, padding: 16, gap: 8 },
-  requestIdLine: { fontSize: 12, fontFamily: "monospace", color: "#8E8E93" },
   metricRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   metricLabel: { fontSize: 15, color: "#3C3C43" },
   metricValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  workoutRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#E5E5EA" },
-  workoutName: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  workoutMeta: { fontSize: 13, color: "#6E6E73", marginTop: 2 },
-  placeholder: { fontSize: 15, color: "#8E8E93" },
-  syncTime: { fontSize: 15, color: "#3C3C43" },
-  hint: { fontSize: 14, color: "#8E8E93", fontStyle: "italic" },
-  metricHeaderRow: {
+  recentRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
+    alignItems: "flex-start",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5EA",
   },
-  metricHeaderLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6E6E73",
-    textTransform: "uppercase",
-  },
-  gymRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  gymLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  recentDate: { width: 84, fontSize: 13, color: "#6E6E73" },
+  recentMain: { flex: 1, gap: 2 },
+  recentTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  recentMeta: { fontSize: 12, color: "#8E8E93" },
+  rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
+  rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
   headerMenuBtn: { padding: 12 },
   headerMenuText: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-    backgroundColor: "#F2F2F7",
-  },
-  chipDisabled: { opacity: 0.6 },
-  chipTitle: { fontSize: 13, fontWeight: "600", color: "#3C3C43" },
-  chipStatus: { fontSize: 12, fontWeight: "600", color: "#007AFF" },
-  insightsRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
-  insightTile: {
-    backgroundColor: "#E5E5EA",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minWidth: 80,
-  },
-  insightLabel: { fontSize: 12, color: "#6E6E73", marginBottom: 4 },
-  insightValue: { fontSize: 13, fontWeight: "600", color: "#8E8E93" },
-  secondaryBtn: {
-    alignSelf: "flex-start",
-    marginTop: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-    backgroundColor: "#F2F2F7",
-  },
-  secondaryBtnDisabled: { opacity: 0.55 },
-  secondaryBtnText: { fontSize: 15, fontWeight: "600", color: "#3C3C43" },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",

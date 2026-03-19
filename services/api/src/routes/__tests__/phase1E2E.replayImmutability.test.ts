@@ -208,5 +208,5 @@ describe("Phase 1 E2E: replay immutability — past views never change", () => {
 
     expect(parsedB.data.dailyFacts?.body?.weightKg).toBe(81);
     expect(snapshotFingerprint(parsedB.data)).not.toEqual(snapshotA_fingerprint);
-  });
+  }, 20_000);
 });

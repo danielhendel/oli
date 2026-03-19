@@ -10,6 +10,17 @@ import {
   installConsoleGuard,
 } from "./consoleGuard";
 
+jest.mock("@expo/vector-icons", () => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  const MockIcon = ({ name, ...rest }: { name: string }) =>
+    React.createElement(Text, rest, name);
+  return {
+    __esModule: true,
+    Ionicons: MockIcon,
+  };
+});
+
 installConsoleGuard();
 
 beforeEach(() => {
