@@ -6,6 +6,8 @@ import { MonthGrid } from "@/lib/ui/calendar/MonthGrid";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
 import { getMonthFirstDay, getMonthLastDay, type MonthYear, clampMonthYear } from "@/lib/ui/calendar/dateUtils";
+import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 
 function monthYearFromToday(): MonthYear {
   const now = new Date();
@@ -47,7 +49,7 @@ export default function WorkoutsCalendarScreen() {
     startIndex: MONTHS_BACK,
     endIndex: MONTHS_BACK,
   }));
-  const [markerMap, setMarkerMap] = useState<Map<DayKey, boolean>>(new Map());
+  const [markerMap, setMarkerMap] = useState<Map<DayKey, WorkoutMarkerFlags>>(new Map());
   const months = useMemo(() => buildMonthRange(todayMonth), [todayMonth.year, todayMonth.month]);
   const todayMonthIndex = MONTHS_BACK;
   const flatListRef = useRef<FlatList<CalendarMonthModel>>(null);
@@ -63,13 +65,21 @@ export default function WorkoutsCalendarScreen() {
     setMarkerMap((prev) => {
       const next = new Map(prev);
       for (const d of range.days) {
-        if (d.workouts.length > 0) next.set(d.day, true);
+        if (d.workouts.length > 0) {
+          const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
+          next.set(d.day, deriveSessionTypeFlags(sessions));
+        }
         else next.delete(d.day);
       }
       if (next.size === prev.size) {
         let same = true;
         for (const [k, v] of next) {
-          if (prev.get(k) !== v) {
+          const prevFlags = prev.get(k);
+          if (
+            !prevFlags ||
+            prevFlags.hasStrength !== v.hasStrength ||
+            prevFlags.hasCardio !== v.hasCardio
+          ) {
             same = false;
             break;
           }
@@ -159,8 +169,8 @@ export default function WorkoutsCalendarScreen() {
 
   const hasAnyWorkouts = markerMap.size > 0;
 
-  const hasMarker = (day: DayKey): boolean => {
-    return markerMap.get(day) === true;
+  const markerForDay = (day: DayKey): WorkoutMarkerFlags | null => {
+    return markerMap.get(day) ?? null;
   };
 
   const onDayPress = (day: DayKey) => {
@@ -197,7 +207,7 @@ export default function WorkoutsCalendarScreen() {
         ListHeaderComponent={<View style={styles.topSpacer} />}
         renderItem={({ item }) => (
           <View style={styles.monthItem}>
-            <MonthGrid monthYear={item.monthYear} hasMarker={hasMarker} onDayPress={onDayPress} />
+            <MonthGrid monthYear={item.monthYear} markerForDay={markerForDay} onDayPress={onDayPress} />
           </View>
         )}
         ListFooterComponent={

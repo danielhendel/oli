@@ -105,6 +105,7 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 
 jest.mock("@/lib/workouts/sessionEngine/commands", () => ({
   createSessionDraft: jest.fn().mockResolvedValue({ sessionId: "s1" }),
+  addWorkoutNote: jest.fn().mockResolvedValue(undefined),
   startSession: jest.fn().mockResolvedValue(undefined),
   createBlock: jest.fn().mockResolvedValue(undefined),
   updateBlock: jest.fn().mockResolvedValue(undefined),
@@ -377,6 +378,23 @@ describe("workouts/log session UI", () => {
     await flushEventLoop();
     expect(commands.createSessionDraft).toHaveBeenCalled();
     expect(commands.startSession).toHaveBeenCalledWith("u1", "s1");
+  });
+
+  it("start workout persists custom workout name note when entered", async () => {
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    const nameInput = findByA11yLabel(test!.root, "Workout name (optional)");
+    act(() => {
+      nameInput?.props?.onChangeText?.("Chest & Arms");
+    });
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    act(() => {
+      startBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.addWorkoutNote).toHaveBeenCalledWith("u1", "s1", "name:Chest & Arms");
   });
 
   it("shows Add block when active with zero blocks (empty exercises)", async () => {

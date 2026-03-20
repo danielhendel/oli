@@ -33,6 +33,9 @@ export default function AppLayout() {
           <Stack.Screen name="workouts/index" options={{ title: "Workouts" }} />
           <Stack.Screen name="workouts/calendar" options={{ title: "Workouts Calendar" }} />
           <Stack.Screen name="workouts/day/[day]" options={{ title: "Workout Day" }} />
+          <Stack.Screen name="workouts/edit/rename" options={{ title: "Rename Workout" }} />
+          <Stack.Screen name="workouts/edit/duration" options={{ title: "Edit Duration" }} />
+          <Stack.Screen name="workouts/edit/type" options={{ title: "Edit Workout Type" }} />
           <Stack.Screen name="workouts/log" options={{ headerShown: false }} />
           <Stack.Screen name="workouts/exercise-picker" options={{ title: "Add exercise" }} />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />

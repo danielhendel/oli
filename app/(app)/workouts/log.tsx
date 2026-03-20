@@ -42,6 +42,7 @@ import {
   completeSession,
   createBlock,
   createSessionDraft,
+  addWorkoutNote,
   correctStrengthSet,
   logStrengthSet,
   removeBlock,
@@ -492,6 +493,10 @@ export default function WorkoutLogScreen() {
     try {
       const { sessionId } = await createSessionDraft(user.uid);
       await startSession(user.uid, sessionId);
+      const trimmedWorkoutName = workoutName.trim();
+      if (trimmedWorkoutName.length > 0) {
+        await addWorkoutNote(user.uid, sessionId, `name:${trimmedWorkoutName}`);
+      }
       await setActiveWorkoutSessionId(user.uid, sessionId);
       const reduced = await loadReducedSession(user.uid, sessionId);
       setUi({ status: "active", sessionId, reduced });
@@ -500,7 +505,7 @@ export default function WorkoutLogScreen() {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user, startScreenGymId, selectedGymIdFromPref]);
+  }, [user, startScreenGymId, selectedGymIdFromPref, workoutName]);
 
   const onPickExercise = useCallback(
     async (exerciseId: string, blockId?: string) => {

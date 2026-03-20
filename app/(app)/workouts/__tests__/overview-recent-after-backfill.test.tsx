@@ -13,6 +13,7 @@ import TrainingOverviewScreen from "../overview";
 import { runWorkoutHistoryBackfillPasses } from "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill";
 
 const mockUseWorkoutsCalendarRange = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -90,10 +91,18 @@ jest.mock("@/lib/api/appleHealth", () => ({
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: (...args: unknown[]) => mockUseWorkoutsCalendarRange(...args),
 }));
+jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
+  useWorkoutOverrides: () => ({
+    loaded: true,
+    overridesByWorkoutId: {},
+    saveOverride: jest.fn(),
+    reload: jest.fn(),
+  }),
+}));
 
 jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn() }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -105,6 +114,9 @@ jest.mock("react-native", () => ({
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
+  Modal: "Modal",
+  TextInput: "TextInput",
+  Alert: { alert: jest.fn() },
   StyleSheet: { create: (s: unknown) => s },
   Platform: { OS: "ios", select: (obj: Record<string, unknown>) => obj.ios ?? obj.default },
   NativeModules: {
@@ -237,6 +249,57 @@ it("renders formatted recent workout title and summary metadata", async () => {
   const json = JSON.stringify(test.toJSON());
   expect(json).toContain("Strength Training");
   expect(json).toContain("45 min");
-  expect(json).toContain("380 kcal");
-  expect(json).toContain("Apple Health");
+  expect(json).not.toContain("Apple Health");
+});
+
+it("renders up to 7 recent workouts and supports lower-row interactions", async () => {
+  mockUseWorkoutsCalendarRange.mockImplementation(() => ({
+    status: "ready",
+    days: [
+      {
+        day: "2026-03-11",
+        workouts: [
+          { id: "r1", observedAt: "2026-03-11T10:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T10:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r2", observedAt: "2026-03-11T09:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T09:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r3", observedAt: "2026-03-11T08:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T08:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r4", observedAt: "2026-03-11T07:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T07:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r5", observedAt: "2026-03-11T06:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T06:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r6", observedAt: "2026-03-11T05:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T05:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r7", observedAt: "2026-03-11T04:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T04:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+          { id: "r8", observedAt: "2026-03-11T03:00:00.000Z", sourceId: "manual", title: "Running", start: "2026-03-11T03:00:00.000Z", end: null, durationMinutes: 20, calories: null },
+        ],
+      },
+    ],
+  }));
+
+  let test!: renderer.ReactTestRenderer;
+  await act(async () => {
+    test = renderer.create(<TrainingOverviewScreen />);
+  });
+
+  const rows = test.root.findAll(
+    (n) =>
+      typeof n.props?.accessibilityLabel === "string" &&
+      n.props.accessibilityLabel.startsWith("Open workout details r"),
+  );
+  expect(rows).toHaveLength(7);
+
+  act(() => {
+    test.root.findByProps({ accessibilityLabel: "Open workout details r7" }).props.onPress();
+  });
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: "/(app)/workouts/day/[day]",
+    params: { day: "2026-03-11" },
+  });
+
+  act(() => {
+    test.root.findByProps({ accessibilityLabel: "Workout actions r7" }).props.onPress();
+  });
+  act(() => {
+    test.root.findByProps({ accessibilityLabel: "View details" }).props.onPress();
+  });
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: "/(app)/workouts/day/[day]",
+    params: { day: "2026-03-11" },
+  });
 });

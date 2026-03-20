@@ -1,4 +1,5 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import type { WorkoutOverride, WorkoutOverrideType } from "@/lib/data/workouts/workoutOverrides";
 
 const WELL_KNOWN_TITLE_OVERRIDES: Record<string, string> = {
   traditionalstrengthtraining: "Strength Training",
@@ -56,6 +57,21 @@ export function formatWorkoutTimeLabel(iso: string | null | undefined): string {
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+export function formatIntegerWithCommas(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return Math.round(value).toLocaleString();
+}
+
+export function formatWorkoutDurationLabel(minutes: number | null | undefined): string {
+  if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0) return "—";
+  const total = Math.round(minutes);
+  if (total < 60) return `${total} min`;
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  if (mins === 0) return `${hours} hr`;
+  return `${hours} hr ${mins} min`;
+}
+
 export function formatWorkoutRowSummary(workout: WorkoutHistoryItem): string | null {
   const parts: string[] = [];
   if (typeof workout.durationMinutes === "number") {
@@ -69,4 +85,68 @@ export function formatWorkoutRowSummary(workout: WorkoutHistoryItem): string | n
     parts.push(source);
   }
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function resolveWorkoutType(
+  workout: WorkoutHistoryItem,
+  override?: WorkoutOverride | null,
+): WorkoutOverrideType {
+  if (override?.correctedWorkoutType) return override.correctedWorkoutType;
+  if (workout.workoutType === "strength" || workout.workoutType === "cardio") {
+    return workout.workoutType;
+  }
+  return "other";
+}
+
+export function formatWorkoutTypeLabel(type: WorkoutOverrideType): string {
+  if (type === "strength") return "Strength";
+  if (type === "cardio") return "Cardio";
+  return "Other";
+}
+
+export function resolveWorkoutDisplay(
+  workout: WorkoutHistoryItem,
+  override?: WorkoutOverride | null,
+): {
+  displayTitle: string;
+  displayDurationMinutes: number | null;
+  displayWorkoutType: WorkoutOverrideType;
+} {
+  const title = override?.customTitle?.trim();
+  const displayTitle = formatWorkoutTitle(title && title.length > 0 ? title : workout.title);
+  const displayDurationMinutes =
+    typeof override?.correctedDurationMinutes === "number"
+      ? override.correctedDurationMinutes
+      : workout.durationMinutes;
+  const displayWorkoutType = resolveWorkoutType(workout, override);
+  return { displayTitle, displayDurationMinutes, displayWorkoutType };
+}
+
+export function resolveWorkoutDisplayDurationMinutes(input: {
+  overrideDurationMinutes?: number | null;
+  sessionDurationMinutes?: number | null;
+  fallbackWorkoutDurationMinutes?: number | null;
+}): number | null {
+  if (
+    typeof input.overrideDurationMinutes === "number" &&
+    Number.isFinite(input.overrideDurationMinutes) &&
+    input.overrideDurationMinutes > 0
+  ) {
+    return input.overrideDurationMinutes;
+  }
+  if (
+    typeof input.sessionDurationMinutes === "number" &&
+    Number.isFinite(input.sessionDurationMinutes) &&
+    input.sessionDurationMinutes > 0
+  ) {
+    return input.sessionDurationMinutes;
+  }
+  if (
+    typeof input.fallbackWorkoutDurationMinutes === "number" &&
+    Number.isFinite(input.fallbackWorkoutDurationMinutes) &&
+    input.fallbackWorkoutDurationMinutes > 0
+  ) {
+    return input.fallbackWorkoutDurationMinutes;
+  }
+  return null;
 }

@@ -10,12 +10,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export type ScreenContainerProps = {
   children: React.ReactNode;
   edges?: ("top" | "bottom" | "left" | "right")[];
+  backgroundColor?: string;
+  padded?: boolean;
 };
 
-export function ScreenContainer({ children, edges = ["top"] }: ScreenContainerProps) {
+export function ScreenContainer({
+  children,
+  edges = ["top"],
+  backgroundColor = "#FFFFFF",
+  padded = true,
+}: ScreenContainerProps) {
   return (
-    <SafeAreaView style={styles.safe} edges={edges}>
-      <View style={styles.container}>{children}</View>
+    <SafeAreaView style={[styles.safe, { backgroundColor }]} edges={edges}>
+      <View style={[styles.container, !padded && styles.containerNoPadding]}>{children}</View>
     </SafeAreaView>
   );
 }
@@ -117,6 +124,7 @@ export function EmptyState({ title, description, explanation }: EmptyStateProps)
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   container: { flex: 1, padding: 16 },
+  containerNoPadding: { padding: 0 },
   stateContainer: {
     flex: 1,
     justifyContent: "center",

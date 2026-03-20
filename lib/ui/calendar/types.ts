@@ -23,6 +23,8 @@ export interface CalendarDay<TMeta = unknown> {
  */
 export interface WorkoutDayMarker {
   hasWorkouts: boolean;
+  hasStrength: boolean;
+  hasCardio: boolean;
   workoutCount: number;
   /**
    * All workouts for this day.
