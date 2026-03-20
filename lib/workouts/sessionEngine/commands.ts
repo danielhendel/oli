@@ -495,3 +495,25 @@ export async function correctStrengthSet(
   });
   await appendWorkoutJournalEvent(uid, sessionId, ev);
 }
+
+export async function addWorkoutNote(
+  uid: string,
+  sessionId: string,
+  note: string,
+  deps?: Partial<SessionEngineDeps>,
+): Promise<void> {
+  assertNonEmpty("uid", uid);
+  assertNonEmpty("sessionId", sessionId);
+  assertNonEmpty("note", note);
+  void (await loadStatusOrThrow(uid, sessionId));
+  const d = resolveDeps(deps);
+  const ev = mkBaseEvent({
+    uid,
+    sessionId,
+    deps: d,
+    kind: "workout_note_added",
+    payload: { note: note.trim().slice(0, 500) },
+    idempotencyKey: `session:addNote:${sessionId}:${note.trim().slice(0, 50)}`,
+  });
+  await appendWorkoutJournalEvent(uid, sessionId, ev);
+}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { CalendarDay, WorkoutDayMarker } from "./types";
+import { WorkoutDayRing } from "./WorkoutDayRing";
 
 export type WeeklyStripProps = {
   days: CalendarDay<WorkoutDayMarker>[];
@@ -9,7 +10,6 @@ export type WeeklyStripProps = {
 };
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 function getDayOfWeekLabel(dayKey: string): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);
   const dow = d.getUTCDay();
@@ -29,6 +29,8 @@ export function WeeklyStrip({ days, selectedDay, onDayPress }: WeeklyStripProps)
           const marker = d.meta;
           const isSelected = selectedDay === d.day;
           const hasWorkouts = marker?.hasWorkouts === true;
+          const hasStrength = marker?.hasStrength === true;
+          const hasCardio = marker?.hasCardio === true;
           return (
             <Pressable
               key={d.day}
@@ -50,10 +52,16 @@ export function WeeklyStrip({ days, selectedDay, onDayPress }: WeeklyStripProps)
               <View
                 style={[
                   styles.dayCircle,
-                  hasWorkouts && styles.dayCircleHasWorkouts,
                   isSelected && styles.dayCircleSelected,
                 ]}
               >
+                <WorkoutDayRing
+                  size={40}
+                  hasStrength={hasStrength}
+                  hasCardio={hasCardio}
+                  outerTestID={`weekly-outer-ring-${d.day}`}
+                  innerTestID={`weekly-cardio-inner-ring-${d.day}`}
+                />
                 <Text
                   style={[
                     styles.dayNumber,
@@ -70,8 +78,6 @@ export function WeeklyStrip({ days, selectedDay, onDayPress }: WeeklyStripProps)
     </View>
   );
 }
-
-const NEON_GREEN = "#39FF14";
 
 const styles = StyleSheet.create({
   /** No horizontal padding: parent (e.g. ModuleScreenShell header) already applies page gutter (16). */
@@ -108,11 +114,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  dayCircleHasWorkouts: {
-    borderColor: NEON_GREEN,
   },
   dayCircleSelected: {
     backgroundColor: "#1C1C1E",

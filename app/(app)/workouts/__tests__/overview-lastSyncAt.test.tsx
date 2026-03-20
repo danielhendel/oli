@@ -115,6 +115,14 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
     ],
   })),
 }));
+jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
+  useWorkoutOverrides: () => ({
+    loaded: true,
+    overridesByWorkoutId: {},
+    saveOverride: jest.fn(),
+    reload: jest.fn(),
+  }),
+}));
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -125,6 +133,9 @@ jest.mock("react-native", () => ({
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
+  Modal: "Modal",
+  TextInput: "TextInput",
+  Alert: { alert: jest.fn() },
   StyleSheet: { create: (s: unknown) => s },
   Platform: { OS: "ios", select: (obj: Record<string, unknown>) => obj.ios ?? obj.default },
   NativeModules: {

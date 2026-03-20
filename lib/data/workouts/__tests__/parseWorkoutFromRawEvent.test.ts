@@ -73,6 +73,7 @@ describe("parseWorkoutHistoryItem", () => {
     const item = parseWorkoutHistoryItem(raw);
     expect(item.title).toBe("Deadlift");
     expect(item.start).toBe("2024-06-04T10:00:00Z");
+    expect(item.workoutType).toBe("strength");
   });
 
   it("strength_workout without exercise names falls back to Strength workout", () => {
@@ -87,6 +88,40 @@ describe("parseWorkoutHistoryItem", () => {
       },
     } as RawEventDoc);
     expect(parseWorkoutHistoryItem(raw).title).toBe("Strength workout");
+  });
+
+  it("classifies TraditionalStrengthTraining workout kind as strength", () => {
+    const raw = minimalRaw({
+      id: "ev-ts",
+      kind: "workout",
+      payload: {
+        sport: "TraditionalStrengthTraining",
+        start: "2024-06-05T10:00:00Z",
+      },
+    } as RawEventDoc);
+    expect(parseWorkoutHistoryItem(raw).workoutType).toBe("strength");
+  });
+
+  it("classifies Strength Training title as strength", () => {
+    const raw = minimalRaw({
+      id: "ev-st",
+      kind: "workout",
+      payload: {
+        name: "Strength Training",
+      },
+    } as RawEventDoc);
+    expect(parseWorkoutHistoryItem(raw).workoutType).toBe("strength");
+  });
+
+  it("classifies Running as cardio", () => {
+    const raw = minimalRaw({
+      id: "ev-run",
+      kind: "workout",
+      payload: {
+        sport: "Running",
+      },
+    } as RawEventDoc);
+    expect(parseWorkoutHistoryItem(raw).workoutType).toBe("cardio");
   });
 
   it("missing payload returns fallback without throw", () => {

@@ -1,9 +1,13 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
+  formatIntegerWithCommas,
+  formatWorkoutDurationLabel,
   formatWorkoutRowSummary,
   formatWorkoutSourceLabel,
   formatWorkoutTimeLabel,
   formatWorkoutTitle,
+  resolveWorkoutDisplay,
+  resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
 
 function sampleWorkout(overrides: Partial<WorkoutHistoryItem> = {}): WorkoutHistoryItem {
@@ -51,5 +55,59 @@ describe("workoutDisplay", () => {
   it("formats time labels safely", () => {
     expect(formatWorkoutTimeLabel(null)).toBe("—");
     expect(formatWorkoutTimeLabel("not-a-date")).toBe("—");
+  });
+
+  it("formats workout duration labels with hour/minute rules", () => {
+    expect(formatWorkoutDurationLabel(45)).toBe("45 min");
+    expect(formatWorkoutDurationLabel(60)).toBe("1 hr");
+    expect(formatWorkoutDurationLabel(75)).toBe("1 hr 15 min");
+    expect(formatWorkoutDurationLabel(120)).toBe("2 hr");
+    expect(formatWorkoutDurationLabel(125)).toBe("2 hr 5 min");
+  });
+
+  it("formats integers with comma separators", () => {
+    expect(formatIntegerWithCommas(2345)).toBe("2,345");
+  });
+
+  it("resolves display values with override precedence", () => {
+    const base = sampleWorkout({
+      title: "Running",
+      durationMinutes: 30,
+      workoutType: "cardio",
+    });
+    const resolved = resolveWorkoutDisplay(base, {
+      workoutId: "w1",
+      customTitle: "Leg Day",
+      correctedDurationMinutes: 55,
+      correctedWorkoutType: "strength",
+      updatedAt: "2026-03-20T00:00:00.000Z",
+    });
+    expect(resolved.displayTitle).toBe("Leg Day");
+    expect(resolved.displayDurationMinutes).toBe(55);
+    expect(resolved.displayWorkoutType).toBe("strength");
+  });
+
+  it("resolves display duration precedence override > session > fallback", () => {
+    expect(
+      resolveWorkoutDisplayDurationMinutes({
+        overrideDurationMinutes: 45,
+        sessionDurationMinutes: 134,
+        fallbackWorkoutDurationMinutes: 90,
+      }),
+    ).toBe(45);
+    expect(
+      resolveWorkoutDisplayDurationMinutes({
+        overrideDurationMinutes: null,
+        sessionDurationMinutes: 134,
+        fallbackWorkoutDurationMinutes: 90,
+      }),
+    ).toBe(134);
+    expect(
+      resolveWorkoutDisplayDurationMinutes({
+        overrideDurationMinutes: null,
+        sessionDurationMinutes: null,
+        fallbackWorkoutDurationMinutes: 90,
+      }),
+    ).toBe(90);
   });
 });

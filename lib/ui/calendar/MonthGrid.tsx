@@ -7,16 +7,17 @@ import {
 } from "react-native";
 import type { DayKey } from "./types";
 import { getMonthGrid, formatMonthYearLabel, type MonthYear } from "./dateUtils";
+import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import { WorkoutDayRing } from "./WorkoutDayRing";
 
 export type MonthGridProps = {
   monthYear: MonthYear;
-  hasMarker: (day: DayKey) => boolean;
+  markerForDay: (day: DayKey) => WorkoutMarkerFlags | null;
   onDayPress: (day: DayKey) => void;
 };
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-export function MonthGrid({ monthYear, hasMarker, onDayPress }: MonthGridProps) {
+export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProps) {
   const weeks = getMonthGrid(monthYear);
   const paddedWeeks = [...weeks];
   while (paddedWeeks.length < 6) {
@@ -39,14 +40,17 @@ export function MonthGrid({ monthYear, hasMarker, onDayPress }: MonthGridProps) 
             if (!dayKey) {
               return <View key={colIdx} style={styles.dayCellEmpty} />;
             }
-            const marker = hasMarker(dayKey);
+            const marker = markerForDay(dayKey);
+            const hasStrength = !!marker?.hasStrength;
+            const hasCardio = !!marker?.hasCardio;
+            const hasWorkoutMarker = hasStrength || hasCardio;
             return (
               <Pressable
                 key={dayKey}
                 onPress={() => onDayPress(dayKey)}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  marker ? `${dayKey}, has workouts` : `${dayKey}, no workouts`
+                  hasWorkoutMarker ? `${dayKey}, has workouts` : `${dayKey}, no workouts`
                 }
                 style={({ pressed }) => [
                   styles.dayCell,
@@ -57,9 +61,15 @@ export function MonthGrid({ monthYear, hasMarker, onDayPress }: MonthGridProps) 
                 <View
                   style={[
                     styles.dayCircle,
-                    marker && styles.dayCircleHasMarker,
                   ]}
                 >
+                  <WorkoutDayRing
+                    size={32}
+                    hasStrength={hasStrength}
+                    hasCardio={hasCardio}
+                    outerTestID={`month-outer-ring-${dayKey}`}
+                    innerTestID={`month-cardio-inner-ring-${dayKey}`}
+                  />
                   <Text style={styles.dayNumber}>
                     {Number(dayKey.slice(8, 10))}
                   </Text>
@@ -72,8 +82,6 @@ export function MonthGrid({ monthYear, hasMarker, onDayPress }: MonthGridProps) 
     </View>
   );
 }
-
-const NEON_GREEN = "#39FF14";
 
 const styles = StyleSheet.create({
   container: {
@@ -124,11 +132,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  dayCircleHasMarker: {
-    borderColor: NEON_GREEN,
   },
   dayNumber: {
     fontSize: 15,

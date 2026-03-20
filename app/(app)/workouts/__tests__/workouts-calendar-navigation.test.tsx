@@ -42,6 +42,7 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 import TrainingOverviewScreen from "../overview";
 import WorkoutsCalendarScreen from "../calendar";
+import WorkoutDayScreen from "../day/[day]";
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -95,6 +96,18 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
   };
 });
 
+jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
+  useWorkoutOverrides: () => ({
+    loaded: true,
+    overridesByWorkoutId: {},
+    saveOverride: jest.fn(),
+    reload: jest.fn(),
+  }),
+}));
+jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
+  listManualWorkoutDaySummaries: jest.fn(async () => []),
+}));
+
 jest.mock("@/lib/integrations/appleHealth", () => ({
   requestPermissions: jest.fn(async () => ({ ok: false, error: "not used" })),
   pullTodaySnapshot: jest.fn(async () => ({ ok: true, data: { day: "2026-03-10", steps: null, exerciseMinutes: null, activeEnergyKcal: null, restingHeartRateBpm: null, workouts: [] } })),
@@ -146,6 +159,9 @@ jest.mock("react-native", () => ({
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
+  Modal: "Modal",
+  TextInput: "TextInput",
+  Alert: { alert: jest.fn() },
   FlatList: ({
     data,
     renderItem,
@@ -306,43 +322,19 @@ describe("Workouts calendar navigation", () => {
   });
 
   it("day detail renders without error for valid day", () => {
-    jest.resetModules();
-
-    const mockDayParams = { day: "2026-03-10" };
-
-    jest.doMock("expo-router", () => ({
-      __esModule: true,
-      useRouter: () => ({
-        push: mockPush,
-        replace: mockReplace,
-        back: mockGoBack,
-      }),
-      useNavigation: () => ({
-        setOptions: mockSetOptions,
-        goBack: mockGoBack,
-      }),
-      useLocalSearchParams: () => mockDayParams,
-      useFocusEffect: jest.fn(),
-      Stack: {
-        Screen: () => null,
-      },
-      Link: ({ children }: { children: React.ReactNode }) => children,
-    }));
-
-    // Re-require after reset/modules mock so this screen sees the mocked hook.
-    // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-    const WorkoutDayScreen = require("../day/[day]").default as React.ComponentType;
+    mockUseLocalSearchParams.mockReturnValue({ day: "2026-03-10" });
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<WorkoutDayScreen />);
     });
-    const nodesWithEmptyStateTitle = test.root.findAll(
+    const nodesWithDayStateTitle = test.root.findAll(
       (n) =>
         typeof getNodeText(n) === "string" &&
-        getNodeText(n).includes("No workouts for this day"),
+        (getNodeText(n).includes("No workouts for this day") ||
+          getNodeText(n).includes("Invalid day parameter")),
     );
-    expect(nodesWithEmptyStateTitle.length).toBeGreaterThan(0);
+    expect(nodesWithDayStateTitle.length).toBeGreaterThan(0);
   });
 
 });

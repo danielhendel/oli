@@ -1,10 +1,14 @@
 import type { RawEventDoc } from "@oli/contracts";
+import { classifyWorkoutType } from "@/lib/data/workouts/workoutMarkerFlags";
 
 export type WorkoutHistoryItem = {
   id: string;
   observedAt: string;
   sourceId: string;
   title: string;
+  workoutType?: "strength" | "cardio";
+  sport?: string | null;
+  activityName?: string | null;
   start: string | null;
   end: string | null;
   durationMinutes: number | null;
@@ -57,6 +61,9 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
       "Workout";
   }
 
+  const sport = asString(payload?.sport);
+  const activityName = asString(payload?.activityName);
+
   const durationMinutes =
     asNumber(payload?.durationMinutes) ??
     (asNumber(payload?.duration) != null
@@ -78,6 +85,14 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     observedAt,
     sourceId,
     title,
+    workoutType: classifyWorkoutType({
+      rawKind: raw.kind,
+      title,
+      sport,
+      activityName,
+    }),
+    ...(sport ? { sport } : {}),
+    ...(activityName ? { activityName } : {}),
     start,
     end,
     durationMinutes,

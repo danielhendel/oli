@@ -19,10 +19,10 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
-import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
 import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
-import { getRecentWorkoutsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
+import { getRecentWorkoutSessionsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
 import {
   pullTodaySnapshot,
   pullAnchoredWorkouts,
@@ -46,8 +46,18 @@ import {
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
-import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
-import { formatWorkoutRowSummary, formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
+import {
+  formatIntegerWithCommas,
+  formatWorkoutDurationLabel,
+  resolveWorkoutDisplay,
+  resolveWorkoutDisplayDurationMinutes,
+} from "@/lib/data/workouts/workoutDisplay";
+import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
+import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
+import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
+import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
+import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import { listManualWorkoutDaySummaries } from "@/lib/workouts/journal/manualWorkoutSummary";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -121,8 +131,10 @@ export default function TrainingOverviewScreen() {
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [selectedWorkoutForMenu, setSelectedWorkoutForMenu] = useState<{
     day: string;
-    workout: WorkoutHistoryItem;
+    session: ReconciledWorkoutSession;
   } | null>(null);
+  const [workoutMenuAnchor, setWorkoutMenuAnchor] = useState<WorkoutActionAnchor | null>(null);
+  const [manualWorkoutNameByDay, setManualWorkoutNameByDay] = useState<Record<string, string>>({});
 
   const today = getTodayDayKeyLocal();
   const anchorDay = today;
@@ -132,35 +144,71 @@ export default function TrainingOverviewScreen() {
   const weekDaysFull = getWeekDaysForAnchor(anchorDay);
   const weekStart = weekDaysFull[0]!;
   const weekEnd = weekDaysFull[weekDaysFull.length - 1]!;
+  const recentRangeStart = addCalendarDaysToDayKey(today, -120);
+  const recentRangeEnd = today;
   const calendarRangeOptions = useMemo(
     () => ({ refreshEpoch: workoutsCalendarRefreshEpoch }),
     [workoutsCalendarRefreshEpoch],
   );
   const calendarRange = useWorkoutsCalendarRange(weekStart, weekEnd, calendarRangeOptions);
+  const recentRange = useWorkoutsCalendarRange(recentRangeStart, recentRangeEnd, calendarRangeOptions);
 
   const weeklyStripDays: CalendarDay<WorkoutDayMarker>[] =
     calendarRange.status === "ready"
-      ? calendarRange.days.map((d) => ({
-          day: d.day,
-          meta: {
-            hasWorkouts: d.workouts.length > 0,
-            workoutCount: d.workouts.length,
-            workouts: d.workouts,
-          },
-        }))
+      ? calendarRange.days.map((d) => {
+          const markerFlags = deriveSessionTypeFlags(reconcileWorkoutSessionsForDay(d.day, d.workouts));
+          return {
+            day: d.day,
+            meta: {
+              hasWorkouts: d.workouts.length > 0,
+              hasStrength: markerFlags.hasStrength,
+              hasCardio: markerFlags.hasCardio,
+              workoutCount: d.workouts.length,
+              workouts: d.workouts,
+            },
+          };
+        })
       : weekDaysFull.map((day) => ({
           day,
           meta: {
             hasWorkouts: false,
+            hasStrength: false,
+            hasCardio: false,
             workoutCount: 0,
             workouts: [],
           },
         }));
 
   const recentWorkouts = useMemo(() => {
-    if (calendarRange.status !== "ready") return [];
-    return getRecentWorkoutsFromCalendarDays(calendarRange.days, 5);
-  }, [calendarRange]);
+    if (recentRange.status !== "ready") return [];
+    return getRecentWorkoutSessionsFromCalendarDays(recentRange.days, 7);
+  }, [recentRange]);
+
+  const recentWorkoutIds = useMemo(
+    () => recentWorkouts.map((entry) => entry.session.workouts[0]?.id ?? entry.session.id),
+    [recentWorkouts],
+  );
+  const { overridesByWorkoutId, reload } = useWorkoutOverrides(recentWorkoutIds);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (process.env.JEST_WORKER_ID) return;
+    if (!user?.uid) {
+      setManualWorkoutNameByDay({});
+      return;
+    }
+    void listManualWorkoutDaySummaries(user.uid).then((rows) => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const row of rows) {
+        if (row.customName?.trim()) next[row.day] = row.customName.trim();
+      }
+      setManualWorkoutNameByDay(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -332,7 +380,8 @@ export default function TrainingOverviewScreen() {
   useFocusEffect(
     useCallback(() => {
       void maybeAutoAppleSync("focus");
-    }, [maybeAutoAppleSync]),
+      void reload();
+    }, [maybeAutoAppleSync, reload]),
   );
 
   useEffect(() => {
@@ -342,30 +391,60 @@ export default function TrainingOverviewScreen() {
     return () => sub.remove();
   }, [maybeAutoAppleSync]);
 
+  const closeWorkoutMenu = useCallback(() => {
+    setWorkoutMenuOpen(false);
+    setSelectedWorkoutForMenu(null);
+    setWorkoutMenuAnchor(null);
+  }, []);
+
+  const openEditRoute = useCallback(
+    (mode: "rename" | "duration" | "type") => {
+      if (!selectedWorkoutForMenu) return;
+      const workout = selectedWorkoutForMenu.session.workouts[0];
+      if (!workout) return;
+      const override = overridesByWorkoutId[workout.id];
+      const resolved = resolveWorkoutDisplay(workout, override ?? null);
+      closeWorkoutMenu();
+      router.push({
+        pathname: `/(app)/workouts/edit/${mode}`,
+        params: {
+          workoutId: workout.id,
+          currentTitle: resolved.displayTitle,
+          currentDurationMinutes:
+            typeof resolved.displayDurationMinutes === "number"
+              ? String(Math.round(resolved.displayDurationMinutes))
+              : "",
+          currentWorkoutType: resolved.displayWorkoutType,
+        },
+      });
+    },
+    [selectedWorkoutForMenu, overridesByWorkoutId, closeWorkoutMenu, router],
+  );
+
   const content = (
     <View style={styles.pageBody}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Today</Text>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>Steps</Text>
-          <Text style={styles.metricValue}>{snapshot?.steps != null ? Math.round(snapshot.steps) : "—"}</Text>
+          <Text style={styles.metricValue}>{formatIntegerWithCommas(snapshot?.steps)}</Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>Exercise time</Text>
           <Text style={styles.metricValue}>
-            {snapshot?.exerciseMinutes != null ? Math.round(snapshot.exerciseMinutes) : "—"}
+            {formatIntegerWithCommas(snapshot?.exerciseMinutes)}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>Active energy (kcal)</Text>
           <Text style={styles.metricValue}>
-            {snapshot?.activeEnergyKcal != null ? Math.round(snapshot.activeEnergyKcal) : "—"}
+            {formatIntegerWithCommas(snapshot?.activeEnergyKcal)}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>Resting HR (bpm)</Text>
           <Text style={styles.metricValue}>
-            {snapshot?.restingHeartRateBpm != null ? Math.round(snapshot.restingHeartRateBpm) : "—"}
+            {formatIntegerWithCommas(snapshot?.restingHeartRateBpm)}
           </Text>
         </View>
       </View>
@@ -386,89 +465,89 @@ export default function TrainingOverviewScreen() {
         {recentWorkouts.length === 0 ? (
           <Text style={styles.placeholder}>No workouts yet</Text>
         ) : (
-          recentWorkouts.map(({ day, workout }) => (
-            <View key={`${day}:${workout.id}`} style={styles.recentRow}>
-              <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
-              <View style={styles.recentMain}>
-                <Text style={styles.recentTitle} numberOfLines={1}>
-                  {formatWorkoutTitle(workout.title)}
-                </Text>
-                <Text style={styles.recentMeta} numberOfLines={1}>
-                  {formatWorkoutRowSummary(workout) ?? "Workout"}
-                </Text>
-              </View>
+          recentWorkouts.map(({ day, session }) => {
+            const representative = session.workouts[0];
+            if (!representative) return null;
+            const override = overridesByWorkoutId[representative.id];
+            const resolved = resolveWorkoutDisplay(representative, override ?? null);
+            const durationLabel = formatWorkoutDurationLabel(
+              resolveWorkoutDisplayDurationMinutes({
+                overrideDurationMinutes: resolved.displayDurationMinutes,
+                sessionDurationMinutes: session.durationMinutes,
+                fallbackWorkoutDurationMinutes: representative.durationMinutes,
+              }),
+            );
+            return (
               <Pressable
+                key={session.id}
+                style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
                 onPress={() => {
-                  setSelectedWorkoutForMenu({ day, workout });
-                  setWorkoutMenuOpen(true);
+                  router.push({
+                    pathname: "/(app)/workouts/day/[day]",
+                    params: { day },
+                  });
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Workout actions ${workout.id}`}
-                hitSlop={10}
-                style={styles.rowMenuBtn}
+                accessibilityLabel={`Open workout details ${representative.id}`}
               >
-                <Text style={styles.rowMenuText}>•••</Text>
+                <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                <View style={styles.recentMain}>
+                  <Text style={styles.recentTitle} numberOfLines={1}>
+                    {representative.sourceId === "manual" && manualWorkoutNameByDay[day]
+                      ? manualWorkoutNameByDay[day]
+                      : resolved.displayTitle}
+                  </Text>
+                  <Text style={styles.recentMeta} numberOfLines={1}>
+                    {durationLabel}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    const native = e?.nativeEvent;
+                    setWorkoutMenuAnchor({
+                      x: typeof native?.pageX === "number" ? native.pageX : 320,
+                      y: typeof native?.pageY === "number" ? native.pageY : 220,
+                      width: 24,
+                      height: 24,
+                    });
+                    setSelectedWorkoutForMenu({ day, session });
+                    setWorkoutMenuOpen(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Workout actions ${representative.id}`}
+                  hitSlop={10}
+                  style={styles.rowMenuBtn}
+                >
+                  <Text style={styles.rowMenuText}>•••</Text>
+                </Pressable>
               </Pressable>
-            </View>
-          ))
+            );
+          })
         )}
       </View>
 
-      {workoutMenuOpen && selectedWorkoutForMenu && (
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => {
-            setWorkoutMenuOpen(false);
-            setSelectedWorkoutForMenu(null);
-          }}
-          accessibilityLabel="Close workout menu"
-        >
-          <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
-            <Text style={styles.menuTitle}>Workout</Text>
-            <Pressable
-              onPress={() => {
-                // Placeholder: route to workout log flow.
-                setWorkoutMenuOpen(false);
-                setSelectedWorkoutForMenu(null);
-                router.push("/(app)/workouts/log");
-              }}
-              style={styles.menuOptionRow}
-              accessibilityRole="button"
-              accessibilityLabel="Do it again"
-            >
-              <Text style={styles.menuOptionLabel}>Do it again</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                const { day } = selectedWorkoutForMenu;
-                setWorkoutMenuOpen(false);
-                setSelectedWorkoutForMenu(null);
-                router.push({
-                  pathname: "/(app)/workouts/day/[day]",
-                  params: { day },
-                });
-              }}
-              style={styles.menuOptionRow}
-              accessibilityRole="button"
-              accessibilityLabel="View details"
-            >
-              <Text style={styles.menuOptionLabel}>View details</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                // Placeholder: no share surface yet.
-                setWorkoutMenuOpen(false);
-                setSelectedWorkoutForMenu(null);
-              }}
-              style={styles.menuOptionRow}
-              accessibilityRole="button"
-              accessibilityLabel="Share"
-            >
-              <Text style={styles.menuOptionLabel}>Share</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      )}
+      <WorkoutActionSheet
+        visible={workoutMenuOpen && !!selectedWorkoutForMenu}
+        anchor={workoutMenuAnchor}
+        onClose={closeWorkoutMenu}
+        onViewDetails={() => {
+          if (!selectedWorkoutForMenu) return;
+          const { day } = selectedWorkoutForMenu;
+          closeWorkoutMenu();
+          router.push({
+            pathname: "/(app)/workouts/day/[day]",
+            params: { day },
+          });
+        }}
+        onDoItAgain={() => {
+          closeWorkoutMenu();
+          router.push("/(app)/workouts/log");
+        }}
+        onRename={() => openEditRoute("rename")}
+        onEditDuration={() => openEditRoute("duration")}
+        onEditType={() => openEditRoute("type")}
+      />
     </View>
   );
 
@@ -616,6 +695,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E5E5EA",
   },
+  recentRowPressed: {
+    opacity: 0.7,
+  },
   recentDate: { width: 84, fontSize: 13, color: "#6E6E73" },
   recentMain: { flex: 1, gap: 2 },
   recentTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
@@ -651,4 +733,26 @@ const styles = StyleSheet.create({
   menuOptionRowSelected: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)" },
   menuOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
   menuOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
+  editorInput: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#1C1C1E",
+  },
+  cancelBtn: { alignItems: "center", paddingVertical: 14, marginTop: 4 },
+  cancelText: { fontSize: 15, color: "#6E6E73", fontWeight: "600" },
+  cancelActionRow: {
+    marginTop: 4,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#F2F2F7",
+  },
+  cancelActionLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
 });
