@@ -30,6 +30,10 @@ setGlobalOptions({
 // Firestore triggers
 import { onRawEventCreated } from "./normalization/onRawEventCreated";
 import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
+import {
+  onRawEventDeletedForWorkoutDaySummary,
+  onRawEventUpdatedForWorkoutDaySummary,
+} from "./workouts/onRawEventWorkoutDaySummarySync";
 
 // Scheduled recompute jobs
 import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
@@ -100,6 +104,7 @@ export const onAuthCreate = functionsV1
 // Firestore triggers
 export { onRawEventCreated };
 export { onCanonicalEventCreated };
+export { onRawEventUpdatedForWorkoutDaySummary, onRawEventDeletedForWorkoutDaySummary };
 
 // Scheduled recompute jobs
 export { onDailyFactsRecomputeScheduled };

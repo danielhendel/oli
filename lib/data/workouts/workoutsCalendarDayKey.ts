@@ -31,21 +31,15 @@ export type WorkoutRawForDayDerivation = {
 /**
  * Derive the canonical day key for a workout-like RawEvent.
  *
- * Precedence:
- * 1. payload.day when present and valid (YYYY-MM-DD)
- * 2. payload.start or payload.time with payload.timezone/timeZone (tz-aware)
- * 3. observedAt UTC day as a last resort
+ * Precedence (aligned with server mapManualWorkout / window truth: day from occurrence time + TZ):
+ * 1. payload.start, startedAt (strength), or payload.time — with payload.timezone or timeZone
+ * 2. payload.day when present and valid (YYYY-MM-DD), for legacy / partial payloads without a window
+ * 3. observedAt UTC calendar day as a last resort
  */
 export function deriveWorkoutDayKey(raw: WorkoutRawForDayDerivation): DayKey | null {
   const payload = isRecord(raw.payload) ? raw.payload : null;
 
-  // 1) Explicit day field from payload (manual + Apple Health workouts, backfill-safe)
-  const payloadDay = payload && typeof payload.day === "string" ? payload.day : null;
-  if (payloadDay && YYYY_MM_DD.test(payloadDay)) {
-    return payloadDay as DayKey;
-  }
-
-  // 2) Window-based payloads with timezone/timeZone + start/time fields
+  // 1) Window + timezone (authoritative when present — do not let a stale payload.day override)
   if (payload) {
     const timezone =
       typeof payload.timezone === "string"
@@ -57,6 +51,9 @@ export function deriveWorkoutDayKey(raw: WorkoutRawForDayDerivation): DayKey | n
     if (timezone) {
       const startLike =
         (typeof payload.start === "string" && (payload.start as string)) ||
+        (typeof (payload as { startedAt?: unknown }).startedAt === "string"
+          ? ((payload as { startedAt: string }).startedAt as string)
+          : null) ||
         (typeof (payload as { time?: unknown }).time === "string"
           ? ((payload as { time: string }).time as string)
           : null);
@@ -66,6 +63,12 @@ export function deriveWorkoutDayKey(raw: WorkoutRawForDayDerivation): DayKey | n
         if (fromTz) return fromTz;
       }
     }
+  }
+
+  // 2) Explicit day when no usable window+timezone
+  const payloadDay = payload && typeof payload.day === "string" ? payload.day : null;
+  if (payloadDay && YYYY_MM_DD.test(payloadDay)) {
+    return payloadDay as DayKey;
   }
 
   // 3) Fallback: observedAt as UTC day

@@ -133,7 +133,8 @@ describe("parseWorkoutHistoryItem", () => {
     const item = parseWorkoutHistoryItem(raw);
     expect(item.id).toBe("ev-2");
     expect(item.observedAt).toBe("2024-06-02T09:00:00Z");
-    expect(item.title).toBe("Workout");
+    expect(item.title).toBe("");
+    expect(item.workoutType).toBeUndefined();
     expect(item.start).toBe("2024-06-02T09:00:00Z");
     expect(item.end).toBeNull();
     expect(item.durationMinutes).toBeNull();

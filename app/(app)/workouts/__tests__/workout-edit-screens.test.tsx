@@ -11,6 +11,10 @@ const mockUseLocalSearchParams = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
+  useNavigation: () => ({
+    setOptions: jest.fn(),
+    goBack: mockBack,
+  }),
 }));
 
 jest.mock("@/lib/data/workouts/workoutOverrides", () => ({

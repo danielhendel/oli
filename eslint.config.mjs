@@ -31,6 +31,9 @@ export default [
       "services/functions/lib/**",
       "services/functions/lib/**/*.map",
 
+      // API: esbuild output for workout summary rebuild
+      "**/workoutDaySummaryRebuild.bundled.cjs",
+
       // Never lint generated declaration files
       "**/*.d.ts",
 
@@ -133,6 +136,7 @@ export default [
   // ─────────────────────────────────────────────
   {
     files: ["**/*.js", "**/*.cjs", "**/*.mjs"],
+    ignores: ["**/workoutDaySummaryRebuild.bundled.cjs"],
     languageOptions: {
       globals: {
         ...globals.node,

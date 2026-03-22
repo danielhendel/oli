@@ -7,6 +7,34 @@
 import { NativeModules, Platform } from "react-native";
 import type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";
 
+/**
+ * react-native-health parses dates with NSDateFormatter `yyyy-MM-dd'T'HH:mm:ss.SSSZ`.
+ * `Date.toISOString()` matches that shape; keep a single helper for call sites.
+ */
+export function toHealthKitIso8601(d: Date): string {
+  return d.toISOString();
+}
+
+function minIsoStart(workouts: { start: string }[]): string | null {
+  if (workouts.length === 0) return null;
+  let best = workouts[0]!.start;
+  for (let i = 1; i < workouts.length; i++) {
+    const s = workouts[i]!.start;
+    if (s < best) best = s;
+  }
+  return best;
+}
+
+function maxIsoStart(workouts: { start: string }[]): string | null {
+  if (workouts.length === 0) return null;
+  let best = workouts[0]!.start;
+  for (let i = 1; i < workouts.length; i++) {
+    const s = workouts[i]!.start;
+    if (s > best) best = s;
+  }
+  return best;
+}
+
 type HealthPermission = string;
 type HealthInputOptions = { startDate?: string; endDate?: string; date?: string; limit?: number; anchor?: string };
 type HealthValue = { value: number; startDate?: string; endDate?: string; id?: string };
@@ -292,6 +320,144 @@ export async function pullAnchoredWorkouts(opts: {
       resolve({ ok: true, data: { workouts: list, anchor: result.anchor } });
     });
   });
+}
+
+export async function pullWorkoutsByDateRange(opts: {
+  startDate: string;
+  endDate: string;
+  limit: number;
+  maxPages?: number;
+}): Promise<
+  | { ok: true; data: { workouts: TodayWorkout[]; pagesFetched: number; truncated: boolean } }
+  | { ok: false; error: string }
+> {
+  const HK = await getHealthKit();
+  const nativeMethodPresent = HK != null && typeof HK.getAnchoredWorkouts === "function";
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_BOOTSTRAP_DEBUG] native-date-range-fetch-entry", {
+      platform: Platform.OS,
+      nativeModulePresent: HK != null,
+      nativeGetAnchoredWorkouts: nativeMethodPresent,
+      requestedStartDate: opts.startDate,
+      requestedEndDate: opts.endDate,
+      limit: opts.limit,
+      maxPages: opts.maxPages ?? 72,
+    });
+  }
+
+  if (!HK) {
+    return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
+  }
+
+  const maxPages = Math.max(1, opts.maxPages ?? 72);
+  const all: TodayWorkout[] = [];
+  const seen = new Set<string>();
+  let pagesFetched = 0;
+  let anchor: string | null = null;
+  let truncated = false;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await new Promise<
+      { ok: true; data: { workouts: TodayWorkout[]; anchor: string } } | { ok: false; error: string }
+    >((resolve) => {
+      const queryOpts: HealthInputOptions & { type?: string } = {
+        startDate: opts.startDate,
+        endDate: opts.endDate,
+        limit: opts.limit,
+        type: "Workout",
+      };
+      if (anchor) queryOpts.anchor = anchor;
+      HK.getAnchoredWorkouts(queryOpts, (err: unknown, r: AnchoredQueryResults) => {
+        if (err) {
+          resolve({ ok: false, error: err != null ? String(err) : "Date-range workouts query failed." });
+          return;
+        }
+        if (!r?.anchor || typeof r.anchor !== "string") {
+          resolve({ ok: false, error: "Date-range workouts response missing anchor." });
+          return;
+        }
+        const list = (r.data ?? []).slice(0, opts.limit).map((w: HKWorkoutQueriedSampleType) => ({
+          id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
+          start: w.start,
+          end: w.end,
+          activityId: w.activityId,
+          activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
+          sourceId: w.sourceId ?? null,
+          durationMinutes: Math.round((w.duration ?? 0) / 60),
+          calories: typeof w.calories === "number" ? w.calories : 0,
+        }));
+        resolve({ ok: true, data: { workouts: list, anchor: r.anchor } });
+      });
+    });
+
+    if (!result.ok) {
+      if (__DEV__ && !process.env.JEST_WORKER_ID) {
+        // eslint-disable-next-line no-console
+        console.log("[WORKOUT_BOOTSTRAP_DEBUG] native-date-range-fetch-error", {
+          page: page + 1,
+          error: result.error,
+        });
+      }
+      return result;
+    }
+    pagesFetched += 1;
+    anchor = result.data.anchor;
+
+    for (const workout of result.data.workouts) {
+      const key = `${workout.id}:${workout.start}:${workout.end}:${workout.activityId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      all.push(workout);
+    }
+
+    if (__DEV__ && !process.env.JEST_WORKER_ID) {
+      // eslint-disable-next-line no-console
+      console.log("[WORKOUT_BOOTSTRAP_DEBUG] native-date-range-fetch-page", {
+        pageNumber: pagesFetched,
+        pageSampleCount: result.data.workouts.length,
+        cumulativeUniqueCount: all.length,
+        pageEarliestStart: minIsoStart(result.data.workouts),
+        pageLatestStart: maxIsoStart(result.data.workouts),
+        cumulativeEarliestStart: minIsoStart(all),
+        cumulativeLatestStart: maxIsoStart(all),
+      });
+    }
+
+    if (result.data.workouts.length < opts.limit) {
+      if (__DEV__ && !process.env.JEST_WORKER_ID) {
+        // eslint-disable-next-line no-console
+        console.log("[WORKOUT_BOOTSTRAP_DEBUG] native-date-range-fetch-done", {
+          pagesFetched,
+          truncated: false,
+          totalUniqueWorkouts: all.length,
+          earliestWorkoutStart: minIsoStart(all),
+          latestWorkoutStart: maxIsoStart(all),
+        });
+      }
+      return {
+        ok: true,
+        data: { workouts: all, pagesFetched, truncated: false },
+      };
+    }
+  }
+
+  truncated = true;
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_BOOTSTRAP_DEBUG] native-date-range-fetch-done", {
+      pagesFetched,
+      truncated: true,
+      totalUniqueWorkouts: all.length,
+      earliestWorkoutStart: minIsoStart(all),
+      latestWorkoutStart: maxIsoStart(all),
+    });
+  }
+  return {
+    ok: true,
+    data: { workouts: all, pagesFetched, truncated },
+  };
 }
 
 /**

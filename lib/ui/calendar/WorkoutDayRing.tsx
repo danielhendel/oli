@@ -1,7 +1,8 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
-export const STRENGTH_GREEN = "#32D74B";
+/** Strength accent for workout rings — matches workouts overview chart blue. */
+export const WORKOUT_STRENGTH_COLOR = "#007AFF";
 export const CARDIO_RED = "#FF3B30";
 
 export type WorkoutDayRingProps = {
@@ -21,7 +22,7 @@ export function WorkoutDayRing({
 }: WorkoutDayRingProps) {
   if (!hasStrength && !hasCardio) return null;
 
-  const outerColor = hasStrength ? STRENGTH_GREEN : CARDIO_RED;
+  const outerColor = hasStrength ? WORKOUT_STRENGTH_COLOR : CARDIO_RED;
   const strokeWidth = 3;
   const inset = Math.max(3, Math.round(size * 0.1));
   const innerSize = Math.max(0, size - inset * 2);

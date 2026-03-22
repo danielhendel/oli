@@ -55,7 +55,7 @@ export function classifyWorkoutType(input: {
   title?: string | null | undefined;
   sport?: string | null | undefined;
   activityName?: string | null | undefined;
-}): "strength" | "cardio" {
+}): "strength" | "cardio" | undefined {
   if (input.rawKind === "strength_workout") return "strength";
 
   // Prefer normalized/sport signals before title fallbacks.
@@ -64,6 +64,9 @@ export function classifyWorkoutType(input: {
   const titleToken = compact(input.title);
 
   const normalized = [sportToken, activityToken].filter(Boolean).join(" ");
+  if (normalized.length === 0 && titleToken.length === 0) {
+    return undefined;
+  }
   if (normalized.length > 0) {
     if (containsAnyToken(normalized, STRENGTH_TERMS)) return "strength";
     if (containsAnyToken(normalized, CARDIO_TERMS)) return "cardio";
@@ -93,7 +96,9 @@ export function deriveWorkoutMarkerFlags(workouts: WorkoutHistoryItem[]): Workou
       hasStrength = true;
       continue;
     }
-    hasCardio = true;
+    if (type === "cardio") {
+      hasCardio = true;
+    }
   }
 
   return { hasStrength, hasCardio };

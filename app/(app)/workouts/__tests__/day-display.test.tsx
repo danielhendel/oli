@@ -9,7 +9,7 @@ const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ day: "2026-03-18" }),
-  useNavigation: () => ({ setOptions: mockSetOptions }),
+  useNavigation: () => ({ setOptions: mockSetOptions, goBack: jest.fn() }),
   useRouter: () => ({ push: mockPush }),
 }));
 

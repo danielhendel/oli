@@ -15,12 +15,12 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { useExerciseHistory } from "@/lib/workouts/hooks/useExerciseHistory";
 import { useWeightSeries } from "@/lib/data/useWeightSeries";
 import { ExerciseProgressChart } from "@/lib/ui/ExerciseProgressChart";
+import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { LoadingState, EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import type { ExerciseHistorySession, ExerciseHistorySet } from "@/lib/workouts/memory/exerciseHistory";
 
@@ -250,21 +250,11 @@ export default function ExerciseHistoryScreen() {
       : null;
 
   const topBar = (
-    <View style={styles.topBar}>
-      <Pressable
-        onPress={() => router.back()}
-        style={styles.backBtn}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        testID="exercise-history-back"
-      >
-        <Ionicons name="chevron-back" size={28} color="#007AFF" />
-      </Pressable>
-      <Text style={styles.topBarTitle} numberOfLines={1}>
-        {displayName ?? exerciseId ?? "Exercise"}
-      </Text>
-      <View style={styles.topBarSpacer} />
-    </View>
+    <WorkoutsNavBar
+      title={displayName ?? exerciseId ?? "Exercise"}
+      onBackPress={() => router.back()}
+      testID="exercise-history-back"
+    />
   );
 
   if (!exerciseId) {
@@ -411,23 +401,6 @@ export default function ExerciseHistoryScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F2F2F7" },
   screen: { flex: 1 },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    backgroundColor: "#F2F2F7",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
-  },
-  backBtn: { padding: 4, marginRight: 4 },
-  topBarTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
-  topBarSpacer: { width: 40 },
   content: { flex: 1, padding: 16 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },

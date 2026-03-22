@@ -47,6 +47,9 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
       : asString(payload?.start) ?? asString(raw.observedAt) ?? null;
   const end = asString(payload?.end) ?? null;
 
+  const sport = asString(payload?.sport);
+  const activityName = asString(payload?.activityName);
+
   let title: string;
   if (raw.kind === "strength_workout" && payload && Array.isArray((payload as { exercises?: unknown }).exercises)) {
     const exs = (payload as { exercises: { name?: unknown }[] }).exercises;
@@ -54,15 +57,26 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     const exName = first && typeof first.name === "string" ? first.name.trim() : "";
     title = exName.length > 0 ? exName : "Strength workout";
   } else {
-    title =
-      asString((payload as { name?: unknown } | null)?.name) ??
-      asString(payload?.sport) ??
-      asString(payload?.activityName) ??
-      "Workout";
+    const nameStr = asString((payload as { name?: unknown } | null)?.name);
+    if (nameStr != null) {
+      title = nameStr;
+    } else if (sport != null) {
+      title = sport;
+    } else if (activityName != null) {
+      title = activityName;
+    } else if (raw.kind === "workout") {
+      title = "";
+    } else {
+      title = "Workout";
+    }
   }
 
-  const sport = asString(payload?.sport);
-  const activityName = asString(payload?.activityName);
+  const workoutType = classifyWorkoutType({
+    rawKind: raw.kind,
+    title,
+    sport,
+    activityName,
+  });
 
   const durationMinutes =
     asNumber(payload?.durationMinutes) ??
@@ -85,12 +99,7 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     observedAt,
     sourceId,
     title,
-    workoutType: classifyWorkoutType({
-      rawKind: raw.kind,
-      title,
-      sport,
-      activityName,
-    }),
+    ...(workoutType != null ? { workoutType } : {}),
     ...(sport ? { sport } : {}),
     ...(activityName ? { activityName } : {}),
     start,

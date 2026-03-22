@@ -16,6 +16,12 @@ export * from "./preferences";
 // ✅ Labs Biomarkers v0 ( Sprint 2.9 )
 export * from "./labResults";
 
+// Workout day summary read model (Calendar markers)
+export * from "./workoutDaySummary";
+
+// Workout month summary read model (Overview analytics year)
+export * from "./workoutMonthSummary";
+
 // Sprint 1 — Retrieval Surfaces
 export * from "./retrieval";
 

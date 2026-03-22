@@ -29,6 +29,8 @@ export type ReconciledWorkoutSession = {
 };
 
 const MERGE_GAP_MINUTES = 30;
+const START_PROXIMITY_MINUTES = 35;
+const DURATION_RATIO_TOLERANCE = 0.6;
 
 type NormalizedWindow = {
   startMs: number | null;
@@ -71,6 +73,49 @@ function canMerge(
   if (overlap) return true;
   const gapMs = Math.abs(startMs - left);
   return gapMs <= MERGE_GAP_MINUTES * 60_000;
+}
+
+function areFamiliesCompatible(
+  existingFamilies: Set<"strength" | "cardio" | "unknown">,
+  incoming: "strength" | "cardio" | "unknown",
+): boolean {
+  if (incoming === "unknown") return true;
+  if (existingFamilies.has("unknown")) return true;
+  if (incoming === "strength" && existingFamilies.has("cardio")) return false;
+  if (incoming === "cardio" && existingFamilies.has("strength")) return false;
+  return true;
+}
+
+function estimatedDurationMinutes(window: NormalizedWindow, fallback: number | null): number | null {
+  if (window.startMs != null && window.endMs != null && window.endMs >= window.startMs) {
+    return Math.max(1, Math.round((window.endMs - window.startMs) / 60_000));
+  }
+  return fallback != null && Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+function isDurationCompatible(a: number | null, b: number | null): boolean {
+  if (a == null || b == null) return true;
+  const bigger = Math.max(a, b);
+  const smaller = Math.min(a, b);
+  if (bigger <= 0) return true;
+  return smaller / bigger >= 1 - DURATION_RATIO_TOLERANCE;
+}
+
+function mergeScore(
+  session: { start: number | null; end: number | null; workouts: WorkoutHistoryItem[] },
+  incomingWindow: NormalizedWindow,
+  incomingDuration: number | null,
+): number {
+  const incomingStart = incomingWindow.startMs;
+  if (incomingStart == null || session.start == null) return Number.POSITIVE_INFINITY;
+  const sessionDuration = estimatedDurationMinutes(
+    { startMs: session.start, endMs: session.end },
+    session.workouts[0]?.durationMinutes ?? null,
+  );
+  const startGap = Math.abs(incomingStart - session.start);
+  const endGap = Math.abs((incomingWindow.endMs ?? incomingStart) - (session.end ?? session.start));
+  if (!isDurationCompatible(sessionDuration, incomingDuration)) return Number.POSITIVE_INFINITY;
+  return startGap + endGap;
 }
 
 function chooseTitle(workouts: WorkoutHistoryItem[]): { title: string; source: ReconciledWorkoutSession["titleSource"] } {
@@ -129,15 +174,31 @@ export function reconcileWorkoutSessionsForDay(
   for (const workout of sorted) {
     const family = familyForWorkout(workout);
     const window = normalizeWindow(workout);
-    const existing = sessions[sessions.length - 1];
-    if (existing && existing.families.has(family) && canMerge(existing.start, existing.end, window)) {
-      existing.workouts.push(workout);
-      existing.families.add(family);
+    const incomingDuration = estimatedDurationMinutes(window, workout.durationMinutes);
+    let bestMatch: (typeof sessions)[number] | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const candidate of sessions) {
+      if (!areFamiliesCompatible(candidate.families, family)) continue;
+      const closeByTime =
+        canMerge(candidate.start, candidate.end, window) ||
+        (candidate.start != null &&
+          window.startMs != null &&
+          Math.abs(window.startMs - candidate.start) <= START_PROXIMITY_MINUTES * 60_000);
+      if (!closeByTime) continue;
+      const score = mergeScore(candidate, window, incomingDuration);
+      if (score < bestScore) {
+        bestScore = score;
+        bestMatch = candidate;
+      }
+    }
+    if (bestMatch) {
+      bestMatch.workouts.push(workout);
+      bestMatch.families.add(family);
       if (window.startMs != null) {
-        existing.start = existing.start == null ? window.startMs : Math.min(existing.start, window.startMs);
+        bestMatch.start = bestMatch.start == null ? window.startMs : Math.min(bestMatch.start, window.startMs);
       }
       if (window.endMs != null) {
-        existing.end = existing.end == null ? window.endMs : Math.max(existing.end, window.endMs);
+        bestMatch.end = bestMatch.end == null ? window.endMs : Math.max(bestMatch.end, window.endMs);
       }
     } else {
       sessions.push({

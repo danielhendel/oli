@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const projectRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(projectRoot, "../..");
 const entry = path.join(projectRoot, "src", "index.ts");
 const outFile = path.join(projectRoot, "lib", "index.js");
 
@@ -21,6 +22,10 @@ await build({
   target: "node20",
   sourcemap: true,
   logLevel: "info",
+  alias: {
+    "@/lib": path.join(repoRoot, "lib"),
+    "@oli/contracts": path.join(repoRoot, "lib/contracts/index.ts"),
+  },
 
   // CRITICAL:
   // Do not bundle firebase-functions or firebase-admin into the output bundle.

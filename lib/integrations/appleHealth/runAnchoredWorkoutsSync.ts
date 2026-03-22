@@ -127,5 +127,14 @@ export async function runAnchoredWorkoutsSync(
 
   await deps.setWorkoutsAnchor(uid, anchored.data.anchor);
   const mayHaveMoreWorkouts = anchored.data.workouts.length >= limit;
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] backfill-pass", {
+      anchorBefore: anchor,
+      anchorAfter: anchored.data.anchor,
+      workoutsIngested: anchored.data.workouts.length,
+      mayHaveMoreWorkouts,
+    });
+  }
   return { ok: true, mayHaveMoreWorkouts };
 }

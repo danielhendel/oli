@@ -79,6 +79,10 @@ let mockPickerParams: { sessionId?: string; blockId?: string; gymId?: string } =
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
   useLocalSearchParams: () => mockPickerParams,
+  useNavigation: () => ({
+    setOptions: jest.fn(),
+    goBack: jest.fn(),
+  }),
 }));
 
 jest.mock("@/lib/workouts/exercises/librarySections", () => ({

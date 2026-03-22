@@ -29,12 +29,65 @@ describe("workoutSessionReconciliation", () => {
     expect(sessions[0]?.workouts).toHaveLength(2);
   });
 
+  it("collapses overlapping manual + apple records for the same workout", () => {
+    const sessions = reconcileWorkoutSessionsForDay("2026-03-20", [
+      w({
+        id: "manual-1",
+        sourceId: "manual",
+        title: "Push Day",
+        workoutType: "strength",
+        start: "2026-03-20T09:00:00.000Z",
+        end: "2026-03-20T10:05:00.000Z",
+        durationMinutes: 65,
+      }),
+      w({
+        id: "apple-1",
+        sourceId: "apple_health",
+        title: "TraditionalStrengthTraining",
+        workoutType: "strength",
+        start: "2026-03-20T09:10:00.000Z",
+        end: "2026-03-20T10:00:00.000Z",
+        durationMinutes: 50,
+      }),
+    ]);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.title).toBe("Push Day");
+    expect(sessions[0]?.workouts).toHaveLength(2);
+  });
+
   it("keeps same-day strength then late cardio separate", () => {
     const sessions = reconcileWorkoutSessionsForDay("2026-03-20", [
       w({ id: "s", workoutType: "strength", start: "2026-03-20T17:00:00.000Z", durationMinutes: 60 }),
       w({ id: "c", workoutType: "cardio", start: "2026-03-20T20:00:00.000Z", durationMinutes: 30 }),
     ]);
     expect(sessions).toHaveLength(2);
+    expect(sessions[0]?.sessionType).toBe("strength");
+    expect(sessions[1]?.sessionType).toBe("cardio");
+  });
+
+  it("merges nearby same-family provider records into one session", () => {
+    const sessions = reconcileWorkoutSessionsForDay("2026-03-20", [
+      w({
+        id: "provider-1",
+        sourceId: "apple_health",
+        workoutType: "cardio",
+        title: "Outdoor Run",
+        start: "2026-03-20T07:00:00.000Z",
+        end: "2026-03-20T07:40:00.000Z",
+        durationMinutes: 40,
+      }),
+      w({
+        id: "provider-2",
+        sourceId: "apple_health",
+        workoutType: "cardio",
+        title: "Running",
+        start: "2026-03-20T07:10:00.000Z",
+        end: "2026-03-20T07:43:00.000Z",
+        durationMinutes: 33,
+      }),
+    ]);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.workouts).toHaveLength(2);
   });
 
   it("keeps separated strength sessions apart for large gaps", () => {

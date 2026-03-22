@@ -15,7 +15,9 @@ import {
   ListRenderItem,
   Image,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -219,6 +221,14 @@ export default function ExercisePickerScreen() {
   const { user, initializing } = useAuth();
   const { state: prefState } = usePreferences();
   const router = useRouter();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("task"),
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+    });
+  }, [navigation]);
   const params = useLocalSearchParams<{ sessionId?: string; blockId?: string; gymId?: string }>();
   const sessionId = typeof params.sessionId === "string" ? params.sessionId : undefined;
   const blockId = typeof params.blockId === "string" ? params.blockId : undefined;

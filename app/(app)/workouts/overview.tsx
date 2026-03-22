@@ -8,8 +8,16 @@
  */
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Platform, NativeModules, AppState } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Platform,
+  NativeModules,
+  AppState,
+  type PressableAndroidRippleConfig,
+} from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -17,20 +25,51 @@ import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
+import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import {
+  WORKOUTS_SCREEN_CONTENT_BG,
+  workoutsStackNavigationOptions,
+} from "@/lib/ui/headers/workoutsStackHeader";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
-import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
-import { getRecentWorkoutSessionsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
+  useWorkoutsCalendarRange,
+} from "@/lib/data/workouts/useWorkoutsCalendar";
+import {
+  filterWorkoutCalendarDaysInclusive,
+  overviewSharedRangeBounds,
+} from "@/lib/data/workouts/overviewCalendarRangeSlices";
+import {
+  buildWorkoutOverviewAnalyticsFromCalendarDays,
+  buildWorkoutOverviewAnalyticsFromMonthSummaryItems,
+  getRecentWorkoutSessionsFromCalendarDays,
+  WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
+  WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
+  WORKOUT_OVERVIEW_ANALYTICS_YEAR,
+} from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  WORKOUT_MONTH_SUMMARY_EXPECTED,
+  type WorkoutMonthSummariesResponseDto,
+} from "@oli/contracts";
+import { getWorkoutMonthSummaries, postWorkoutMonthSummariesRebuild } from "@/lib/api/usersMe";
 import {
   pullTodaySnapshot,
   pullAnchoredWorkouts,
+  pullWorkoutsByDateRange,
+  toHealthKitIso8601,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   type TodaySnapshot,
 } from "@/lib/integrations/appleHealth";
-import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
+import {
+  shouldRequestHistoricalBootstrapRange,
+  WORKOUT_RANGE_BOOTSTRAP_BUILD_ID,
+} from "@/lib/integrations/appleHealth/workoutBootstrapPolicy";
+import { clearWorkoutsAnchor, getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
 import {
   runWorkoutHistoryBackfillPasses,
   DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
@@ -42,12 +81,16 @@ import {
   setAppleHealthLastCheckedAt,
   getAppleHealthConnected,
   getAppleHealthNotAvailable,
+  getAppleHealthDeepBackfillVersion,
+  setAppleHealthDeepBackfillVersion,
   setAppleHealthNotAvailable,
+  getAppleHealthWorkoutRangeBootstrapBuild,
+  setAppleHealthWorkoutRangeBootstrapBuild,
+  clearAppleHealthWorkoutRangeBootstrapBuild,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 import {
-  formatIntegerWithCommas,
   formatWorkoutDurationLabel,
   resolveWorkoutDisplay,
   resolveWorkoutDisplayDurationMinutes,
@@ -58,6 +101,8 @@ import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { listManualWorkoutDaySummaries } from "@/lib/workouts/journal/manualWorkoutSummary";
+import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
+import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -72,7 +117,13 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 
 const ANCHOR_LIMIT = 500;
 const APPLE_AUTO_MIN_MS = 2 * 60_000;
-const PAGE_BG = "#F2F2F7";
+const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
+const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
+const WORKOUT_LOG_ADD_RIPPLE: PressableAndroidRippleConfig = {
+  color: "rgba(255,255,255,0.22)",
+  foreground: true,
+  borderless: false,
+};
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -107,6 +158,13 @@ function getTodayBounds(): { start: string; end: string; day: string } {
   return { start: start.toISOString(), end: end.toISOString(), day };
 }
 
+function getHistoricalBootstrapRange(monthsBack = 12): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date(end);
+  start.setMonth(start.getMonth() - monthsBack);
+  return { startDate: toHealthKitIso8601(start), endDate: toHealthKitIso8601(end) };
+}
+
 function OverflowMenuButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
@@ -126,7 +184,7 @@ export default function TrainingOverviewScreen() {
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
-  const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
+  const [, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [selectedWorkoutForMenu, setSelectedWorkoutForMenu] = useState<{
@@ -135,27 +193,143 @@ export default function TrainingOverviewScreen() {
   } | null>(null);
   const [workoutMenuAnchor, setWorkoutMenuAnchor] = useState<WorkoutActionAnchor | null>(null);
   const [manualWorkoutNameByDay, setManualWorkoutNameByDay] = useState<Record<string, string>>({});
+  const [monthSummariesFetch, setMonthSummariesFetch] = useState<
+    | { status: "idle" }
+    | { status: "ready"; res: WorkoutMonthSummariesResponseDto }
+  >({ status: "idle" });
+  const getIdTokenRef = useRef(getIdToken);
+  getIdTokenRef.current = getIdToken;
 
   const today = getTodayDayKeyLocal();
   const anchorDay = today;
   const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
   const workoutBackfillInFlightRef = useRef(false);
+  const pendingPostBootstrapCoverageLogRef = useRef(false);
 
   const weekDaysFull = getWeekDaysForAnchor(anchorDay);
   const weekStart = weekDaysFull[0]!;
   const weekEnd = weekDaysFull[weekDaysFull.length - 1]!;
   const recentRangeStart = addCalendarDaysToDayKey(today, -120);
   const recentRangeEnd = today;
-  const calendarRangeOptions = useMemo(
-    () => ({ refreshEpoch: workoutsCalendarRefreshEpoch }),
+  const analyticsRangeStart = WORKOUT_OVERVIEW_ANALYTICS_RANGE_START;
+  const analyticsRangeEnd = WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
+  const { start: overviewRangeStart, end: overviewRangeEnd } = useMemo(
+    () =>
+      overviewSharedRangeBounds({
+        weekStart,
+        weekEnd,
+        recentStart: recentRangeStart,
+        recentEnd: recentRangeEnd,
+        analyticsStart: analyticsRangeStart,
+        analyticsEnd: analyticsRangeEnd,
+      }),
+    [weekStart, weekEnd, recentRangeStart, recentRangeEnd, analyticsRangeStart, analyticsRangeEnd],
+  );
+
+  const calendarRangeOptionsShared = useMemo(
+    () => ({
+      refreshEpoch: workoutsCalendarRefreshEpoch,
+      rawEventKinds: DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
+      debugHydrateLabel: "overview-shared" as const,
+    }),
     [workoutsCalendarRefreshEpoch],
   );
-  const calendarRange = useWorkoutsCalendarRange(weekStart, weekEnd, calendarRangeOptions);
-  const recentRange = useWorkoutsCalendarRange(recentRangeStart, recentRangeEnd, calendarRangeOptions);
+
+  const overviewSharedRange = useWorkoutsCalendarRange(
+    overviewRangeStart,
+    overviewRangeEnd,
+    calendarRangeOptionsShared,
+  );
+
+  const sharedDays = overviewSharedRange.status === "ready" ? overviewSharedRange.days : [];
+
+  const weekDaysSlice = useMemo(
+    () => filterWorkoutCalendarDaysInclusive(sharedDays, weekStart, weekEnd),
+    [sharedDays, weekStart, weekEnd],
+  );
+  const recentDaysSlice = useMemo(
+    () => filterWorkoutCalendarDaysInclusive(sharedDays, recentRangeStart, recentRangeEnd),
+    [sharedDays, recentRangeStart, recentRangeEnd],
+  );
+  const analyticsDaysSlice = useMemo(
+    () => filterWorkoutCalendarDaysInclusive(sharedDays, analyticsRangeStart, analyticsRangeEnd),
+    [sharedDays, analyticsRangeStart, analyticsRangeEnd],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (initializing || !user) {
+      setMonthSummariesFetch({ status: "idle" });
+      return;
+    }
+    void (async () => {
+      const token = await getIdTokenRef.current(false);
+      if (!token || cancelled) return;
+      let sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
+      if (cancelled) return;
+      if (sumRes.ok && !sumRes.json.complete) {
+        const rebuildRes = await postWorkoutMonthSummariesRebuild(token, {
+          year: WORKOUT_OVERVIEW_ANALYTICS_YEAR,
+        });
+        if (rebuildRes.ok && !cancelled) {
+          sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
+        }
+      }
+      if (cancelled) return;
+      if (!sumRes.ok) {
+        setMonthSummariesFetch({ status: "idle" });
+        return;
+      }
+      setMonthSummariesFetch({ status: "ready", res: sumRes.json });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, initializing, workoutsCalendarRefreshEpoch]);
+
+  const overviewPerfRef = useRef<{ t0: number } | null>(null);
+
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    if (!user?.uid) return;
+    overviewPerfRef.current = { t0: performance.now() };
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PERF] overview-shared-range-start", {
+      overviewRangeStart,
+      overviewRangeEnd,
+      refreshEpoch: workoutsCalendarRefreshEpoch,
+    });
+  }, [user?.uid, overviewRangeStart, overviewRangeEnd, workoutsCalendarRefreshEpoch]);
+
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    const range = overviewSharedRange;
+    if (range.status !== "ready") return;
+    const t0 = overviewPerfRef.current?.t0;
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PERF] overview-shared-range-ready", {
+      ms: typeof t0 === "number" ? performance.now() - t0 : null,
+      totalDaysInSharedRange: range.days.length,
+      refreshing: Boolean(range.refreshing),
+    });
+  }, [overviewSharedRange]);
+
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    if (overviewSharedRange.status !== "ready") return;
+    const t0 = overviewPerfRef.current?.t0;
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PERF] overview-derived-slices-ready", {
+      ms: typeof t0 === "number" ? performance.now() - t0 : null,
+      weekSliceDays: weekDaysSlice.length,
+      recentSliceDays: recentDaysSlice.length,
+      analyticsSliceDays: analyticsDaysSlice.length,
+    });
+  }, [overviewSharedRange.status, weekDaysSlice, recentDaysSlice, analyticsDaysSlice]);
 
   const weeklyStripDays: CalendarDay<WorkoutDayMarker>[] =
-    calendarRange.status === "ready"
-      ? calendarRange.days.map((d) => {
+    overviewSharedRange.status === "ready"
+      ? weekDaysSlice.map((d) => {
           const markerFlags = deriveSessionTypeFlags(reconcileWorkoutSessionsForDay(d.day, d.workouts));
           return {
             day: d.day,
@@ -180,15 +354,85 @@ export default function TrainingOverviewScreen() {
         }));
 
   const recentWorkouts = useMemo(() => {
-    if (recentRange.status !== "ready") return [];
-    return getRecentWorkoutSessionsFromCalendarDays(recentRange.days, 7);
-  }, [recentRange]);
+    if (overviewSharedRange.status !== "ready") return [];
+    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, 7);
+  }, [overviewSharedRange.status, recentDaysSlice]);
 
   const recentWorkoutIds = useMemo(
     () => recentWorkouts.map((entry) => entry.session.workouts[0]?.id ?? entry.session.id),
     [recentWorkouts],
   );
   const { overridesByWorkoutId, reload } = useWorkoutOverrides(recentWorkoutIds);
+
+  const rawOverviewAnalytics = useMemo(
+    () =>
+      overviewSharedRange.status === "ready"
+        ? buildWorkoutOverviewAnalyticsFromCalendarDays(analyticsDaysSlice)
+        : buildWorkoutOverviewAnalyticsFromCalendarDays([]),
+    [overviewSharedRange.status, analyticsDaysSlice],
+  );
+
+  const overviewAnalytics = useMemo(() => {
+    if (monthSummariesFetch.status === "ready") {
+      const res = monthSummariesFetch.res;
+      if (
+        res.complete &&
+        res.items.length === res.expectedMonthCount &&
+        res.items.every(
+          (it) =>
+            it.schemaVersion === WORKOUT_MONTH_SUMMARY_EXPECTED.schemaVersion &&
+            it.reconcileVersion === WORKOUT_MONTH_SUMMARY_EXPECTED.reconcileVersion,
+        )
+      ) {
+        return buildWorkoutOverviewAnalyticsFromMonthSummaryItems(res.items);
+      }
+    }
+    return rawOverviewAnalytics;
+  }, [monthSummariesFetch, rawOverviewAnalytics]);
+
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    if (overviewSharedRange.status !== "ready") return;
+    const sessions = analyticsDaysSlice.flatMap((d) => reconcileWorkoutSessionsForDay(d.day, d.workouts));
+    const rawCount = analyticsDaysSlice.reduce((acc, d) => acc + d.workouts.length, 0);
+    const nonEmpty = analyticsDaysSlice.filter((d) => d.workouts.length > 0).map((d) => d.day);
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] analytics-source", {
+      rawEventKinds: [...DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS],
+      analyticsRangeStart,
+      analyticsRangeEnd,
+      earliestSessionDay: sessions[0]?.day ?? null,
+      latestSessionDay: sessions[sessions.length - 1]?.day ?? null,
+      rawWorkoutItems: rawCount,
+      totalSessions: sessions.length,
+      overviewStrengthTotal: overviewAnalytics.metricsByTab.strength.totalWorkouts,
+      overviewCardioTotal: overviewAnalytics.metricsByTab.cardio.totalWorkouts,
+      markedDays: nonEmpty,
+    });
+  }, [overviewSharedRange.status, analyticsDaysSlice, overviewAnalytics, analyticsRangeStart, analyticsRangeEnd]);
+
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    if (!pendingPostBootstrapCoverageLogRef.current) return;
+    if (overviewSharedRange.status !== "ready") return;
+    pendingPostBootstrapCoverageLogRef.current = false;
+    const nonEmpty = analyticsDaysSlice.filter((d) => d.workouts.length > 0);
+    const totalRaw = nonEmpty.reduce((acc, d) => acc + d.workouts.length, 0);
+    const totalSessions = nonEmpty.reduce(
+      (acc, d) => acc + reconcileWorkoutSessionsForDay(d.day, d.workouts).length,
+      0,
+    );
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_BOOTSTRAP_DEBUG] post-refresh-model-coverage", {
+      modelWindowStart: analyticsRangeStart,
+      modelWindowEnd: analyticsRangeEnd,
+      earliestStoredWorkoutDay: nonEmpty[0]?.day ?? null,
+      latestStoredWorkoutDay: nonEmpty[nonEmpty.length - 1]?.day ?? null,
+      daysWithWorkouts: nonEmpty.length,
+      totalRawWorkoutItems: totalRaw,
+      totalReconciledSessions: totalSessions,
+    });
+  }, [overviewSharedRange.status, analyticsDaysSlice, analyticsRangeStart, analyticsRangeEnd]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,22 +456,10 @@ export default function TrainingOverviewScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <Pressable
-          onPress={navigation.goBack}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.headerBackButton,
-            pressed && styles.headerBackButtonPressed,
-          ]}
-        >
-          <Text style={styles.headerBackIcon}>‹</Text>
-        </Pressable>
-      ),
+      ...workoutsStackNavigationOptions("module"),
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <View style={styles.headerRightRow}>
+        <WorkoutsHeaderRightRow>
           <HeaderIconButton
             iconName="calendar-outline"
             iconSize={24}
@@ -235,10 +467,8 @@ export default function TrainingOverviewScreen() {
             accessibilityLabel="Open workouts calendar"
             onPress={() => router.push("/(app)/workouts/calendar")}
           />
-          <View style={{ marginRight: -3 }}>
-            <OverflowMenuButton onPress={() => setMenuOpen(true)} />
-          </View>
-        </View>
+          <OverflowMenuButton onPress={() => setMenuOpen(true)} />
+        </WorkoutsHeaderRightRow>
       ),
       title: SHELL_TITLE,
     });
@@ -331,22 +561,70 @@ export default function TrainingOverviewScreen() {
       const token = await getIdToken(false);
       if (!token) return;
 
+      const deepBackfillVersion = await getAppleHealthDeepBackfillVersion().catch(() => null);
+      const needsDeepBackfill =
+        deepBackfillVersion !== WORKOUT_DEEP_BACKFILL_VERSION;
+      let rangeBootstrapBuildId = await getAppleHealthWorkoutRangeBootstrapBuild().catch(() => null);
       const last = await getAppleHealthLastCheckedAt().catch(() => null);
-      if (!shouldRun(last, APPLE_AUTO_MIN_MS)) return;
+      if (!needsDeepBackfill && !shouldRun(last, APPLE_AUTO_MIN_MS)) return;
       if (workoutBackfillInFlightRef.current) return;
       workoutBackfillInFlightRef.current = true;
       try {
+        let didBootstrapReset = false;
+        if (needsDeepBackfill && deepBackfillVersion !== WORKOUT_DEEP_BACKFILL_IN_PROGRESS) {
+          try {
+            await clearWorkoutsAnchor(user.uid);
+          } catch {
+            // ignore anchor reset failures and continue fail-closed via normal sync results
+          }
+          try {
+            await clearAppleHealthWorkoutRangeBootstrapBuild();
+          } catch {
+            // best-effort: allow range bootstrap to run again with deep heal
+          }
+          rangeBootstrapBuildId = null;
+          try {
+            await setAppleHealthDeepBackfillVersion(WORKOUT_DEEP_BACKFILL_IN_PROGRESS);
+          } catch {
+            // ignore marker persistence failures; next run can retry bootstrap
+          }
+          didBootstrapReset = true;
+        }
+        const shouldBootstrapRange = shouldRequestHistoricalBootstrapRange({
+          platformOs: Platform.OS,
+          needsDeepBackfill,
+          storedRangeBootstrapBuildId: rangeBootstrapBuildId,
+        });
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_TRUTH_DEBUG] backfill-start", {
+            reason,
+            deepBackfillVersion,
+            needsDeepBackfill,
+            didBootstrapReset,
+          });
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_BOOTSTRAP_DEBUG] sync-plan", {
+            platform: Platform.OS,
+            shouldBootstrapRange,
+            needsDeepBackfill,
+            storedRangeBootstrapBuildId: rangeBootstrapBuildId,
+            expectedRangeBootstrapBuildId: WORKOUT_RANGE_BOOTSTRAP_BUILD_ID,
+          });
+        }
         const result = await runWorkoutHistoryBackfillPasses(
           {
             uid: user.uid,
             token,
             limit: ANCHOR_LIMIT,
             maxPasses: DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
+            ...(shouldBootstrapRange ? { bootstrapRange: getHistoricalBootstrapRange(12) } : {}),
           },
           {
             getWorkoutsAnchor,
             setWorkoutsAnchor,
             pullAnchoredWorkouts,
+            pullWorkoutsByDateRange,
             pullTodaySnapshot,
             ingestRawEvent,
             getTodayBounds,
@@ -358,6 +636,34 @@ export default function TrainingOverviewScreen() {
 
         if (!result.ok) {
           return;
+        }
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_TRUTH_DEBUG] backfill-stop", {
+            reason,
+            passesRun: result.passesRun,
+            mayHaveMoreWorkouts: result.mayHaveMoreWorkouts,
+            stopReason: result.mayHaveMoreWorkouts ? "budget_reached" : "history_exhausted",
+            bootstrap: result.bootstrap,
+          });
+        }
+        if (!result.mayHaveMoreWorkouts) {
+          try {
+            await setAppleHealthDeepBackfillVersion(WORKOUT_DEEP_BACKFILL_VERSION);
+          } catch {
+            // best effort marker write; data path remains correct regardless
+          }
+        }
+
+        if (result.bootstrap.attempted) {
+          try {
+            await setAppleHealthWorkoutRangeBootstrapBuild(WORKOUT_RANGE_BOOTSTRAP_BUILD_ID);
+          } catch {
+            // best effort; next launch can retry range bootstrap if build id missing
+          }
+          if (__DEV__ && !process.env.JEST_WORKER_ID) {
+            pendingPostBootstrapCoverageLogRef.current = true;
+          }
         }
 
         const atIso = nowIso();
@@ -423,43 +729,49 @@ export default function TrainingOverviewScreen() {
 
   const content = (
     <View style={styles.pageBody}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today</Text>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Steps</Text>
-          <Text style={styles.metricValue}>{formatIntegerWithCommas(snapshot?.steps)}</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Exercise time</Text>
-          <Text style={styles.metricValue}>
-            {formatIntegerWithCommas(snapshot?.exerciseMinutes)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Active energy (kcal)</Text>
-          <Text style={styles.metricValue}>
-            {formatIntegerWithCommas(snapshot?.activeEnergyKcal)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Resting HR (bpm)</Text>
-          <Text style={styles.metricValue}>
-            {formatIntegerWithCommas(snapshot?.restingHeartRateBpm)}
-          </Text>
+      <WorkoutAnalyticsChart
+        headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
+        onViewMore={() => router.push("/(app)/workouts/analytics-detail")}
+        chartPointsByTab={overviewAnalytics.chartPointsByTab}
+        metricsByTab={overviewAnalytics.metricsByTab}
+      />
+
+      <View style={[styles.card, styles.workoutLogCard]}>
+        <View style={workoutOverviewInCardHeaderStyles.row}>
+          <View style={styles.workoutLogTitleBlock}>
+            <Text style={workoutOverviewInCardHeaderStyles.title}>Workout log</Text>
+            <Text style={styles.workoutLogSubtitle}>Start a new workout</Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/(app)/workouts/log")}
+            accessibilityRole="button"
+            accessibilityLabel="Open workout log"
+            hitSlop={8}
+            android_ripple={WORKOUT_LOG_ADD_RIPPLE}
+            style={({ pressed }) => [
+              styles.workoutLogAddButton,
+              pressed && styles.workoutLogAddButtonPressed,
+            ]}
+          >
+            <Text style={styles.workoutLogAddButtonPlus}>+</Text>
+          </Pressable>
         </View>
       </View>
 
       <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Recent workouts</Text>
+        <View style={workoutOverviewInCardHeaderStyles.row}>
+          <Text style={workoutOverviewInCardHeaderStyles.title}>Recent workouts</Text>
           <Pressable
-            onPress={() => router.push("/(app)/workouts/log")}
+            onPress={() => router.push("/(app)/workouts/recent-workouts-full")}
             accessibilityRole="button"
-            accessibilityLabel="Log workout"
-            hitSlop={10}
-            style={styles.cardHeaderAction}
+            accessibilityLabel="View more"
+            hitSlop={8}
+            style={({ pressed }) => [
+              workoutOverviewInCardHeaderStyles.linkHit,
+              pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+            ]}
           >
-            <Ionicons name="add-circle-outline" size={24} color="#007AFF" />
+            <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
           </Pressable>
         </View>
         {recentWorkouts.length === 0 ? (
@@ -634,49 +946,44 @@ export default function TrainingOverviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerRightRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingRight: 16,
-  },
-  headerBackButton: {
-    marginLeft: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F2F2F7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBackButtonPressed: {
-    opacity: 0.7,
-  },
-  headerBackIcon: {
-    fontSize: 23,
-    color: "#1C1C1E",
-    fontWeight: "600",
-    transform: [{ translateX: -0.5 }],
-  },
   pageBody: {
-    backgroundColor: PAGE_BG,
+    backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 28,
+    paddingTop: 16,
+    paddingBottom: 24,
     flexGrow: 1,
-    gap: 12,
+    gap: 20,
   },
   card: {
     backgroundColor: CARD_BG,
     borderRadius: RADIUS,
     padding: 16,
-    gap: 10,
+    gap: 12,
   },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  cardHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  cardHeaderAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  placeholder: { fontSize: 15, color: "#8E8E93" },
+  /** Workout log: horizontal 16 (card system), vertical 20 for breathing room. */
+  workoutLogCard: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  workoutLogTitleBlock: { flex: 1, gap: 4, paddingRight: 12 },
+  workoutLogSubtitle: { fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
+  workoutLogAddButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  workoutLogAddButtonPressed: { opacity: 0.82 },
+  workoutLogAddButtonPlus: {
+    color: "#FFFFFF",
+    fontSize: 26,
+    fontWeight: "300",
+    marginTop: -2,
+  },
+  placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
   primaryBtn: {
     alignSelf: "flex-start",
     paddingVertical: 10,
@@ -691,17 +998,17 @@ const styles = StyleSheet.create({
   recentRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "#E5E5EA",
   },
   recentRowPressed: {
     opacity: 0.7,
   },
-  recentDate: { width: 84, fontSize: 13, color: "#6E6E73" },
+  recentDate: { width: 84, fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
   recentMain: { flex: 1, gap: 2 },
-  recentTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  recentMeta: { fontSize: 12, color: "#8E8E93" },
+  recentTitle: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
+  recentMeta: { fontSize: 12, fontWeight: "400", color: "#AEAEB2", letterSpacing: -0.05 },
   rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
   rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
   headerMenuBtn: { padding: 12 },
@@ -734,7 +1041,7 @@ const styles = StyleSheet.create({
   menuOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
   menuOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
   editorInput: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -748,7 +1055,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
   },
   cancelActionLabel: {
     fontSize: 16,

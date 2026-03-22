@@ -5,8 +5,8 @@
   "main": "dist/src/server.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "node -r ts-node/register/transpile-only src/server.ts",
-    "build": "tsc -b tsconfig.json",
+    "dev": "node scripts/bundle-workout-day-summary-rebuild.mjs && node -r ts-node/register/transpile-only src/server.ts",
+    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && tsc -b tsconfig.json",
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit"
   },
@@ -32,6 +32,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.23",
     "@types/node": "^20.19.17",
+    "esbuild": "^0.24.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   }

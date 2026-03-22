@@ -63,7 +63,7 @@ describe("useWorkoutDayDetail", () => {
     const detailRef: { current: ReturnType<typeof useWorkoutDayDetail> | null } = { current: null };
 
     function DayOnly() {
-      detailRef.current = useWorkoutDayDetail(day, { includeStrengthWorkouts: false });
+      detailRef.current = useWorkoutDayDetail(day, { rawEventKinds: ["workout"] });
       return null;
     }
 

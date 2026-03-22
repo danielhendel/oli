@@ -295,7 +295,7 @@ describe("useWorkoutsCalendarRange — kind-only pagination contract", () => {
     });
 
     const TestComp = () => {
-      const range = useWorkoutsCalendarRange(day, day, { includeStrengthWorkouts: false });
+      const range = useWorkoutsCalendarRange(day, day, { rawEventKinds: ["workout"] });
       useEffect(() => {
         if (range.status !== "partial") resolveReady.current?.(range);
       }, [range.status]);

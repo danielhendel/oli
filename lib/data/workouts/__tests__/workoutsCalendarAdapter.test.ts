@@ -151,7 +151,7 @@ describe("workouts calendar adapter grouping", () => {
     expect(titles).toContain("Squat");
   });
 
-  it("uses payload day when provided and not just UTC observedAt", () => {
+  it("uses start+timezone for day when both exist (matches server window truth)", () => {
     const docs: RawEventDoc[] = [
       {
         ...base,
@@ -173,6 +173,51 @@ describe("workouts calendar adapter grouping", () => {
     const d2 = days.find((d) => d.day === "2026-03-02");
     expect(d1?.workouts).toHaveLength(1);
     expect(d2?.workouts).toHaveLength(0);
+  });
+
+  it("prefers start+timezone over a conflicting payload.day (stale sync day on HealthKit-shaped payload)", () => {
+    const docs: RawEventDoc[] = [
+      {
+        ...base,
+        id: "appleHealth:v2:workout:stale-day",
+        sourceId: "healthkit",
+        provider: "apple_health",
+        observedAt: "2026-03-01T12:00:00.000Z",
+        payload: {
+          day: "2026-03-01",
+          start: "2025-12-15T14:23:45.786Z",
+          end: "2025-12-15T15:26:07.325Z",
+          timezone: "America/New_York",
+          sport: "Other",
+          durationMinutes: 62,
+          hk: { sourceId: "com.myzonemoves.app.MYZONE", activityId: 50 },
+        },
+      },
+    ];
+
+    const days = groupForTest(docs, "2025-12-15", "2025-12-15");
+    expect(days[0]?.day).toBe("2025-12-15");
+    expect(days[0]?.workouts).toHaveLength(1);
+    expect(days[0]?.workouts[0]?.id).toBe("appleHealth:v2:workout:stale-day");
+  });
+
+  it("falls back to payload.day when no timezone+start window is available", () => {
+    const docs: RawEventDoc[] = [
+      {
+        ...base,
+        id: "day-only",
+        observedAt: "2026-03-10T12:00:00.000Z",
+        payload: {
+          day: "2026-03-09",
+          sport: "Run",
+          durationMinutes: 30,
+        },
+      },
+    ];
+
+    const days = groupForTest(docs, "2026-03-09", "2026-03-09");
+    expect(days[0]?.workouts).toHaveLength(1);
+    expect(days[0]?.workouts[0]?.id).toBe("day-only");
   });
 });
 

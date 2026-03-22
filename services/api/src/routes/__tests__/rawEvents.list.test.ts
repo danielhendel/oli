@@ -106,6 +106,42 @@ describe("GET /users/me/raw-events", () => {
       kind: "weight",
       observedAt: "2025-01-02T12:00:00.000Z",
     });
+    expect(json.items[0].payload).toBeUndefined();
+  });
+
+  test("includePayload=true includes Firestore payload on list items", async () => {
+    const docs: DocSnap[] = [
+      {
+        exists: true,
+        id: "raw_workout_1",
+        data: () => ({
+          schemaVersion: 1,
+          id: "raw_workout_1",
+          userId: "user_123",
+          sourceId: "apple_health",
+          kind: "workout",
+          observedAt: "2025-01-02T12:00:00.000Z",
+          receivedAt: "2025-01-02T12:01:00.000Z",
+          payload: { name: "Run", start: "2025-01-02T12:00:00.000Z" },
+        }),
+      },
+    ];
+
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockReturnValue({
+      orderBy: q.orderBy,
+      where: q.where,
+      limit: q.limit,
+      startAfter: q.startAfter,
+      get: q.get,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/raw-events?limit=10&includePayload=true`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items[0]).toMatchObject({ id: "raw_workout_1", kind: "workout" });
+    expect(json.items[0].payload).toEqual({ name: "Run", start: "2025-01-02T12:00:00.000Z" });
   });
 
   test("invalid query param fails closed with 400", async () => {
