@@ -5,6 +5,7 @@ import { rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import type { RequestWithRid } from "../lib/logger";
 import { writeFailure } from "../lib/writeFailure";
+import { mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded } from "../lib/mergeAppleHealthWorkoutDistance";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
@@ -331,11 +332,17 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     try {
       const existing = await docRef.get();
       if (existing.exists) {
+        const enriched = await mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded({
+          body,
+          existingData: existing.data(),
+          update: (payload) => docRef.update({ payload }),
+        });
         return res.status(202).json({
           ok: true as const,
           rawEventId,
           day,
           idempotentReplay: true as const,
+          ...(enriched ? { payloadEnriched: true as const } : {}),
           requestId,
         });
       }

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutDayDetail } from "@/lib/data/workouts/useWorkoutsCalendar";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import {
+  formatAvgPaceMinPerMileLabel,
   formatIntegerWithCommas,
+  formatWorkoutDistanceLabel,
   formatWorkoutTimeLabel,
   formatWorkoutDurationLabel,
   resolveWorkoutDisplay,
@@ -16,7 +18,7 @@ import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessi
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-import { WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
+import { CARDIO_RED, WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   listManualWorkoutDaySummaries,
@@ -27,7 +29,7 @@ import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthS
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
-import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import type { HeartRateZoneMinutes5, WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 
 /** Matches exercise-history numeric accents for set grid values. */
@@ -47,14 +49,21 @@ function formatHeaderDate(dayKey: string): string {
   return `${weekday} ${rest}`;
 }
 
-function formatMiles(representative: { id: string }): string {
-  void representative;
-  return "—";
-}
-
-function formatAvgPace(representative: { id: string }): string {
-  void representative;
-  return "—";
+function aggregateHeartRateZoneMinutes(session: ReconciledWorkoutSession): HeartRateZoneMinutes5 | null {
+  const sums = [0, 0, 0, 0, 0];
+  let any = false;
+  for (const w of session.workouts) {
+    const z = w.heartRateZoneMinutes;
+    if (!z) continue;
+    any = true;
+    const tuple = z as readonly [number, number, number, number, number];
+    for (let i = 0; i < 5; i += 1) {
+      const m = tuple[i];
+      const add = typeof m === "number" && Number.isFinite(m) && m >= 0 ? m : 0;
+      sums[i] = (sums[i] ?? 0) + add;
+    }
+  }
+  return any ? (sums as unknown as HeartRateZoneMinutes5) : null;
 }
 
 export function kgToLbs(kg: number): number {
@@ -135,6 +144,23 @@ export default function WorkoutDayScreen() {
     };
   }, [sessions, overridesByWorkoutId, manualDaySummary]);
 
+  /**
+   * Multiple pure-cardio sessions the same day → legacy cards (no per-session zone merge contract).
+   * Single cardio session → premium cardio layout (zones optional; empty state if missing).
+   */
+  const { usePremiumCardioLayout, premiumCardioSessionId } = useMemo(() => {
+    const cardioOnly = sessions.filter((s) => s.sessionType === "cardio");
+    const useLayout = cardioOnly.length === 1;
+    return {
+      usePremiumCardioLayout: useLayout,
+      premiumCardioSessionId: useLayout ? cardioOnly[0]!.id : null,
+    };
+  }, [sessions]);
+
+  const singleSessionPremiumCardioDay = sessions.length === 1 && usePremiumCardioLayout;
+
+  const cardioAccent = overviewAccentForTab("cardio");
+
   const primarySession = useMemo(() => sessions[0] ?? null, [sessions]);
   const primaryWorkout = primarySession?.workouts[0] ?? null;
 
@@ -174,9 +200,12 @@ export default function WorkoutDayScreen() {
     };
   }, [user?.uid, day, isDayKey]);
 
+  /** Stack header already sits below status bar; omit top safe-area to avoid a gray band under the nav bar. */
+  const screenEdges = ["left", "right", "bottom"] as const;
+
   if (!isDayKey) {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false}>
+      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
         <ErrorState message="Invalid day parameter" />
       </ScreenContainer>
     );
@@ -184,7 +213,7 @@ export default function WorkoutDayScreen() {
 
   if (detail.status === "partial") {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false}>
+      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
         <LoadingState message="Loading workouts…" />
       </ScreenContainer>
     );
@@ -192,7 +221,7 @@ export default function WorkoutDayScreen() {
 
   if (detail.status === "error") {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false}>
+      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
         <ErrorState
           message={detail.error}
           requestId={detail.requestId}
@@ -206,7 +235,7 @@ export default function WorkoutDayScreen() {
 
   if (workouts.length === 0 && !dailyFacts) {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false}>
+      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
         <EmptyState
           title="No workouts for this day"
           description="When workouts are imported or logged for this day, they will automatically appear here."
@@ -216,9 +245,15 @@ export default function WorkoutDayScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor="#F2F2F7" padded={false}>
+    <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
       <View style={styles.pageBackground}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll}
+        {...(Platform.OS === "ios"
+          ? { contentInsetAdjustmentBehavior: "never" as const }
+          : {})}
+      >
         {dailyFacts && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Daily metrics</Text>
@@ -259,20 +294,19 @@ export default function WorkoutDayScreen() {
 
         <View style={styles.summarySection}>
           {sessions.length === 0 ? (
-            <Text style={styles.placeholder}>No workouts from RawEvents for this day.</Text>
+            <Text style={styles.summarySectionPlaceholder}>No workouts from RawEvents for this day.</Text>
           ) : (
             sessions.map((session) => {
               const representative = session.workouts[0];
               if (!representative) return null;
               const timeLabel = formatWorkoutTimeLabel(session.start ?? representative.start ?? representative.observedAt);
               const resolved = resolveWorkoutDisplay(representative, overridesByWorkoutId[representative.id] ?? null);
-              const duration = formatWorkoutDurationLabel(
-                resolveWorkoutDisplayDurationMinutes({
-                  overrideDurationMinutes: resolved.displayDurationMinutes,
-                  sessionDurationMinutes: session.durationMinutes,
-                  fallbackWorkoutDurationMinutes: representative.durationMinutes,
-                }),
-              );
+              const resolvedDurationMinutes = resolveWorkoutDisplayDurationMinutes({
+                overrideDurationMinutes: resolved.displayDurationMinutes,
+                sessionDurationMinutes: session.durationMinutes,
+                fallbackWorkoutDurationMinutes: representative.durationMinutes,
+              });
+              const duration = formatWorkoutDurationLabel(resolvedDurationMinutes);
               const calories = typeof session.calories === "number" ? `${Math.round(session.calories)} kcal` : "—";
               const isStrength =
                 resolved.displayWorkoutType === "strength" ||
@@ -280,11 +314,22 @@ export default function WorkoutDayScreen() {
                 session.sessionType === "mixed";
               const showPremiumBlock =
                 usePremiumStrengthLayout && premiumSessionId === session.id && isStrength;
+              const showPremiumCardioBlock =
+                usePremiumCardioLayout &&
+                premiumCardioSessionId === session.id &&
+                session.sessionType === "cardio" &&
+                !isStrength;
 
               const titleText =
                 manualDaySummary?.customName && representative.sourceId === "manual"
                   ? manualDaySummary.customName
                   : resolved.displayTitle;
+
+              const distanceLabel = formatWorkoutDistanceLabel(representative.distanceMeters ?? null);
+              const paceLabel = formatAvgPaceMinPerMileLabel(
+                representative.distanceMeters ?? null,
+                resolvedDurationMinutes,
+              );
 
               if (showPremiumBlock && manualDaySummary) {
                 const exercises = manualDaySummary.exercises;
@@ -292,8 +337,8 @@ export default function WorkoutDayScreen() {
                 const maxVolKg = Math.max(1, ...volumesKg);
 
                 return (
-                  <View key={session.id} style={styles.summaryBlock}>
-                    <View style={styles.strengthOverviewCard} testID={`summary-card-${session.id}`}>
+                  <View key={session.id}>
+                    <View style={styles.premiumWorkoutCard} testID={`summary-card-${session.id}`}>
                       <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
                         <View style={styles.strengthOverviewTitleWrap}>
                           <Text style={workoutOverviewInCardHeaderStyles.title} numberOfLines={2}>
@@ -461,10 +506,95 @@ export default function WorkoutDayScreen() {
                 );
               }
 
+              if (showPremiumCardioBlock) {
+                const zoneMinutes = aggregateHeartRateZoneMinutes(session);
+                const maxZoneMin = zoneMinutes ? Math.max(1, ...zoneMinutes) : 1;
+
+                return (
+                  <View key={session.id}>
+                    <View style={styles.premiumWorkoutCard} testID={`summary-card-${session.id}`}>
+                      <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
+                        <View style={styles.strengthOverviewTitleWrap}>
+                          <Text style={workoutOverviewInCardHeaderStyles.title} numberOfLines={2}>
+                            {titleText}
+                          </Text>
+                        </View>
+                        <Text style={styles.strengthOverviewTime}>{timeLabel}</Text>
+                      </View>
+                      <View style={styles.overviewMetricsGrid}>
+                        <View style={styles.overviewMetricsRow}>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: cardioAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Duration</Text>
+                            <Text style={styles.overviewMetricValue}>{duration}</Text>
+                          </View>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: cardioAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Calories</Text>
+                            <Text style={styles.overviewMetricValue}>{calories}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.overviewMetricsRow}>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: cardioAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Distance</Text>
+                            <Text style={styles.overviewMetricValue}>{distanceLabel}</Text>
+                          </View>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: cardioAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Avg Pace</Text>
+                            <Text style={styles.overviewMetricValue}>{paceLabel}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.performanceInner}>
+                        <Text style={styles.cardioZonesSectionTitle}>Heart rate zones</Text>
+                        {zoneMinutes == null ? (
+                          <Text style={styles.placeholder}>
+                            Heart rate zones are not available for this workout.
+                          </Text>
+                        ) : (
+                          [1, 2, 3, 4, 5].map((zoneNum, idx) => {
+                            const minutes = zoneMinutes[idx] ?? 0;
+                            const progress = Math.max(0, Math.min(1, minutes / maxZoneMin));
+                            const minLabel =
+                              minutes > 0 && minutes < 1 ? "<1 min" : `${Math.round(minutes)} min`;
+                            return (
+                              <View key={zoneNum} style={styles.cardioZoneRowWrap}>
+                                <View style={styles.cardioZoneLine1}>
+                                  <Text style={styles.cardioZoneLabel}>{`Zone ${zoneNum}`}</Text>
+                                  <Text style={styles.cardioZoneMinutes}>{minLabel}</Text>
+                                </View>
+                                <View style={styles.performanceBarTrack}>
+                                  <View
+                                    style={[
+                                      styles.performanceBarFillCardio,
+                                      { width: `${progress * 100}%` },
+                                    ]}
+                                  />
+                                </View>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                );
+              }
+
               return (
-                <View key={session.id} style={styles.summaryBlock}>
+                <View key={session.id}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeaderTitle} numberOfLines={1}>
+                    <Text
+                      style={[workoutOverviewInCardHeaderStyles.title, styles.legacySessionTitle]}
+                      numberOfLines={2}
+                    >
                       {manualDaySummary?.customName && representative.sourceId === "manual"
                         ? manualDaySummary.customName
                         : resolved.displayTitle}
@@ -488,7 +618,7 @@ export default function WorkoutDayScreen() {
                         <Text style={styles.kpiValue}>
                           {isStrength
                             ? formatIntegerWithCommas(manualDaySummary?.totalVolume ?? null)
-                            : formatMiles(representative)}
+                            : distanceLabel}
                         </Text>
                       </View>
                       <View style={styles.kpiCell}>
@@ -498,7 +628,7 @@ export default function WorkoutDayScreen() {
                             ? typeof manualDaySummary?.avgIntensity === "number"
                               ? manualDaySummary.avgIntensity.toFixed(1)
                               : "—"
-                            : formatAvgPace(representative)}
+                            : paceLabel}
                         </Text>
                       </View>
                     </View>
@@ -508,15 +638,16 @@ export default function WorkoutDayScreen() {
             })
           )}
         </View>
-        {!usePremiumStrengthLayout && (
+        {!usePremiumStrengthLayout && !singleSessionPremiumCardioDay && (
           <View style={styles.exercisesSection}>
-            <Text style={styles.sectionHeaderTitle}>Exercises</Text>
+            <Text style={styles.exercisesSectionHeading}>Exercises</Text>
             {!manualDaySummary || manualDaySummary.exercises.length === 0 ? (
               <View style={styles.card}>
                 <Text style={styles.placeholder}>No logged exercises</Text>
               </View>
             ) : (
-              manualDaySummary.exercises.map((exercise) => (
+              <View style={styles.exercisesList}>
+              {manualDaySummary.exercises.map((exercise) => (
                 <View key={exercise.name} style={styles.exerciseCard} testID={`exercise-card-${exercise.name}`}>
                   <View style={styles.exerciseTitleRow}>
                     <Text style={styles.exerciseName}>{toTitleCase(exercise.name)}</Text>
@@ -553,7 +684,8 @@ export default function WorkoutDayScreen() {
                     </View>
                   ))}
                 </View>
-              ))
+              ))}
+              </View>
             )}
           </View>
         )}
@@ -610,9 +742,10 @@ export default function WorkoutDayScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollView: { flex: 1, backgroundColor: "#F2F2F7" },
   scroll: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 32,
     gap: 0,
   },
@@ -631,9 +764,12 @@ const styles = StyleSheet.create({
   },
   summarySection: {
     marginBottom: 16,
+    gap: 16,
   },
-  summaryBlock: {
-    marginBottom: 12,
+  summarySectionPlaceholder: {
+    fontSize: 14,
+    color: "#8E8E93",
+    paddingVertical: 4,
   },
   cardTitle: {
     fontSize: 18,
@@ -659,13 +795,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C1C1E",
   },
-  strengthOverviewCard: {
+  premiumWorkoutCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
-    marginBottom: 4,
   },
   strengthOverviewTitleWrap: { flex: 1, minWidth: 0, marginRight: 8 },
   strengthOverviewTime: {
@@ -730,6 +865,30 @@ const styles = StyleSheet.create({
     backgroundColor: WORKOUT_STRENGTH_COLOR,
     borderRadius: 3,
   },
+  performanceBarFillCardio: {
+    height: "100%",
+    backgroundColor: CARDIO_RED,
+    borderRadius: 3,
+  },
+  cardioZonesSectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8E8E93",
+    letterSpacing: 0.15,
+    marginBottom: 8,
+  },
+  cardioZoneRowWrap: { marginBottom: 12, gap: 6 },
+  cardioZoneLine1: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardioZoneLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1C1C1E",
+  },
+  cardioZoneMinutes: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   performanceExpanded: { marginTop: 8, paddingTop: 4 },
   perfTableHeaderRow: {
     flexDirection: "row",
@@ -770,31 +929,30 @@ const styles = StyleSheet.create({
   perfColVol: { flex: 1, fontWeight: "600" },
   workoutCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
     gap: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E5E5EA",
+  },
+  legacySessionTitle: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  sectionHeaderTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    flex: 1,
-    marginRight: 8,
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
   sectionHeaderTime: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "600",
     color: "#8E8E93",
-    fontWeight: "500",
+    letterSpacing: -0.2,
+    flexShrink: 0,
+    marginTop: 2,
   },
   kpiRow: {
     flexDirection: "row",
@@ -826,15 +984,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   exercisesSection: {
-    marginTop: 8,
+    marginTop: 0,
+    gap: 12,
+  },
+  exercisesSectionHeading: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    letterSpacing: -0.25,
+  },
+  exercisesList: {
+    gap: 12,
   },
   exerciseCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
     gap: 6,
-    marginTop: 12,
-    marginBottom: 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
   },

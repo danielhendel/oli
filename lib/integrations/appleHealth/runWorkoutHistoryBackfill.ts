@@ -23,7 +23,23 @@ export type RunWorkoutHistoryBackfillDeps = RunAnchoredWorkoutsSyncDeps & {
     limit: number;
     maxPages?: number;
   }) => Promise<
-    | { ok: true; data: { workouts: { start: string; end: string; activityId: number; activityName: string; sourceId: string | null; durationMinutes: number; calories: number; }[]; pagesFetched: number; truncated: boolean } }
+    | {
+        ok: true;
+        data: {
+          workouts: {
+            start: string;
+            end: string;
+            activityId: number;
+            activityName: string;
+            sourceId: string | null;
+            durationMinutes: number;
+            calories: number;
+            distanceMeters?: number;
+          }[];
+          pagesFetched: number;
+          truncated: boolean;
+        };
+      }
     | { ok: false; error: string }
   >;
 };
@@ -132,6 +148,11 @@ async function runRangeBootstrap(
       durationMinutes: Math.max(1, w.durationMinutes),
       ...(typeof w.calories === "number" && Number.isFinite(w.calories) && w.calories > 0
         ? { calories: Math.round(w.calories) }
+        : {}),
+      ...(typeof w.distanceMeters === "number" &&
+      Number.isFinite(w.distanceMeters) &&
+      w.distanceMeters > 0
+        ? { distanceMeters: w.distanceMeters }
         : {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {

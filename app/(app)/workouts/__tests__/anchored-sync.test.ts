@@ -152,4 +152,38 @@ describe("anchored sync determinism", () => {
     expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "anchor-done");
     expect(mockIngest).toHaveBeenCalledTimes(1);
   });
+
+  it("includes distanceMeters on workout ingest payload when pull provides it", async () => {
+    const withDistance: TodayWorkout = { ...oneWorkout, distanceMeters: 1609.344 };
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [withDistance], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
+
+    await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    );
+    expect(workoutCall).toBeDefined();
+    expect(workoutCall![0].payload.distanceMeters).toBe(1609.344);
+  });
 });

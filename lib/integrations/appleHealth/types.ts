@@ -27,4 +27,6 @@ export type TodayWorkout = {
   sourceId: string | null;
   durationMinutes: number;
   calories: number;
+  /** From HealthKit total distance when present (meters); see healthKit mapping from native `distance` (miles). */
+  distanceMeters?: number;
 };

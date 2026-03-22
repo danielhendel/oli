@@ -47,7 +47,32 @@ type HKWorkoutQueriedSampleType = {
   sourceId?: string;
   duration: number;
   calories: number;
+  /** Miles from react-native-health anchored workout query (RCTAppleHealthKit+Queries.m uses HKUnit mileUnit). */
+  distance?: number;
 };
+
+/** Matches HKUnit mileUnit in RCTAppleHealthKit+Queries.m `fetchAnchoredWorkouts`. */
+const METERS_PER_MILE = 1609.344;
+
+function distanceMetersFromNativeDistanceMiles(distanceMiles: unknown): number | null {
+  if (typeof distanceMiles !== "number" || !Number.isFinite(distanceMiles) || distanceMiles <= 0) return null;
+  return distanceMiles * METERS_PER_MILE;
+}
+
+function mapQueriedWorkoutToTodayWorkout(w: HKWorkoutQueriedSampleType): TodayWorkout {
+  const distanceMeters = distanceMetersFromNativeDistanceMiles(w.distance);
+  return {
+    id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
+    start: w.start,
+    end: w.end,
+    activityId: w.activityId,
+    activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
+    sourceId: w.sourceId ?? null,
+    durationMinutes: Math.round((w.duration ?? 0) / 60),
+    calories: typeof w.calories === "number" ? w.calories : 0,
+    ...(distanceMeters != null ? { distanceMeters } : {}),
+  };
+}
 type AnchoredQueryResults = { anchor: string; data: HKWorkoutQueriedSampleType[] };
 
 type HealthKitInstance = {
@@ -258,16 +283,7 @@ function pAnchoredWorkouts(HK: HealthKitInstance, startDate: string, endDate: st
         resolve([]);
         return;
       }
-      const list = (result.data as HKWorkoutQueriedSampleType[]).slice(0, limit).map((w) => ({
-        id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
-        start: w.start,
-        end: w.end,
-        activityId: w.activityId,
-        activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
-        sourceId: w.sourceId ?? null,
-        durationMinutes: Math.round((w.duration ?? 0) / 60),
-        calories: typeof w.calories === "number" ? w.calories : 0,
-      }));
+      const list = (result.data as HKWorkoutQueriedSampleType[]).slice(0, limit).map(mapQueriedWorkoutToTodayWorkout);
       resolve(list);
     });
   });
@@ -307,16 +323,7 @@ export async function pullAnchoredWorkouts(opts: {
         resolve({ ok: false, error: "Anchored workouts response missing anchor." });
         return;
       }
-      const list = (result.data ?? []).slice(0, opts.limit).map((w: HKWorkoutQueriedSampleType) => ({
-        id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
-        start: w.start,
-        end: w.end,
-        activityId: w.activityId,
-        activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
-        sourceId: w.sourceId ?? null,
-        durationMinutes: Math.round((w.duration ?? 0) / 60),
-        calories: typeof w.calories === "number" ? w.calories : 0,
-      }));
+      const list = (result.data ?? []).slice(0, opts.limit).map(mapQueriedWorkoutToTodayWorkout);
       resolve({ ok: true, data: { workouts: list, anchor: result.anchor } });
     });
   });
@@ -378,16 +385,7 @@ export async function pullWorkoutsByDateRange(opts: {
           resolve({ ok: false, error: "Date-range workouts response missing anchor." });
           return;
         }
-        const list = (r.data ?? []).slice(0, opts.limit).map((w: HKWorkoutQueriedSampleType) => ({
-          id: w.id ?? `${w.start}_${w.end}_${w.activityId}`,
-          start: w.start,
-          end: w.end,
-          activityId: w.activityId,
-          activityName: typeof w.activityName === "string" ? w.activityName : String(w.activityId),
-          sourceId: w.sourceId ?? null,
-          durationMinutes: Math.round((w.duration ?? 0) / 60),
-          calories: typeof w.calories === "number" ? w.calories : 0,
-        }));
+        const list = (r.data ?? []).slice(0, opts.limit).map(mapQueriedWorkoutToTodayWorkout);
         resolve({ ok: true, data: { workouts: list, anchor: r.anchor } });
       });
     });

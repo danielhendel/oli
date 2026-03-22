@@ -72,6 +72,41 @@ export function formatWorkoutDurationLabel(minutes: number | null | undefined): 
   return `${hours} hr ${mins} min`;
 }
 
+const METERS_PER_MILE = 1609.344;
+
+/** Running/cycling-style distance when `distanceMeters` is present on the workout item. */
+export function formatWorkoutDistanceLabel(distanceMeters: number | null | undefined): string {
+  if (typeof distanceMeters !== "number" || !Number.isFinite(distanceMeters) || distanceMeters <= 0) {
+    return "—";
+  }
+  const mi = distanceMeters / METERS_PER_MILE;
+  if (mi >= 0.15) return `${mi.toFixed(2)} mi`;
+  return `${(distanceMeters / 1000).toFixed(2)} km`;
+}
+
+/** Minutes per mile when distance and duration are known; otherwise "—". */
+export function formatAvgPaceMinPerMileLabel(
+  distanceMeters: number | null | undefined,
+  durationMinutes: number | null | undefined,
+): string {
+  if (
+    typeof distanceMeters !== "number" ||
+    typeof durationMinutes !== "number" ||
+    !Number.isFinite(distanceMeters) ||
+    !Number.isFinite(durationMinutes) ||
+    distanceMeters <= 0 ||
+    durationMinutes <= 0
+  ) {
+    return "—";
+  }
+  const mi = distanceMeters / METERS_PER_MILE;
+  if (mi < 1e-6) return "—";
+  const minPerMi = durationMinutes / mi;
+  const whole = Math.floor(minPerMi);
+  const sec = Math.min(59, Math.round((minPerMi - whole) * 60));
+  return `${whole}:${sec.toString().padStart(2, "0")} /mi`;
+}
+
 export function formatWorkoutRowSummary(workout: WorkoutHistoryItem): string | null {
   const parts: string[] = [];
   if (typeof workout.durationMinutes === "number") {

@@ -1,6 +1,9 @@
 import type { RawEventDoc } from "@oli/contracts";
 import { classifyWorkoutType } from "@/lib/data/workouts/workoutMarkerFlags";
 
+/** Best-effort minutes per zone (1–5) when present on raw payload; not part of strict ingest schema. */
+export type HeartRateZoneMinutes5 = readonly [number, number, number, number, number];
+
 export type WorkoutHistoryItem = {
   id: string;
   observedAt: string;
@@ -13,6 +16,10 @@ export type WorkoutHistoryItem = {
   end: string | null;
   durationMinutes: number | null;
   calories: number | null;
+  /** Meters when upstream stores it on payload (e.g. future HK fields); otherwise omitted. */
+  distanceMeters?: number | null;
+  /** Optional zone minutes on payload; omitted when absent or invalid. */
+  heartRateZoneMinutes?: HeartRateZoneMinutes5 | null;
   hk?: { sourceId: string | null; activityId: number | null };
 };
 
@@ -26,6 +33,28 @@ function asString(v: unknown): string | null {
 
 function asNumber(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function parseDistanceMetersFromPayload(payload: Record<string, unknown> | null): number | null {
+  if (!payload) return null;
+  const m =
+    asNumber(payload.distanceMeters) ??
+    asNumber(payload.totalDistanceMeters) ??
+    (asNumber(payload.distanceKm) != null ? (asNumber(payload.distanceKm) ?? 0) * 1000 : null);
+  if (m == null || m <= 0) return null;
+  return m;
+}
+
+function parseHeartRateZoneMinutesFromPayload(payload: Record<string, unknown> | null): HeartRateZoneMinutes5 | null {
+  if (!payload) return null;
+  const z = payload.heartRateZoneMinutes;
+  if (!Array.isArray(z) || z.length !== 5) return null;
+  const out: number[] = [];
+  for (const v of z) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+    out.push(v);
+  }
+  return out as unknown as HeartRateZoneMinutes5;
 }
 
 /**
@@ -86,6 +115,9 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
 
   const calories = asNumber(payload?.calories) ?? null;
 
+  const distanceMeters = parseDistanceMetersFromPayload(payload);
+  const heartRateZoneMinutes = parseHeartRateZoneMinutesFromPayload(payload);
+
   let hk: WorkoutHistoryItem["hk"] | undefined;
   if (isRecord(payload?.hk)) {
     const hkPayload = payload.hk as Record<string, unknown>;
@@ -106,6 +138,8 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     end,
     durationMinutes,
     calories,
+    ...(distanceMeters != null ? { distanceMeters } : {}),
+    ...(heartRateZoneMinutes != null ? { heartRateZoneMinutes } : {}),
     ...(hk ? { hk } : {}),
   };
 }

@@ -429,6 +429,68 @@ describe("WorkoutDayScreen display", () => {
     expect(JSON.stringify(test.toJSON())).toContain("Exercises");
   });
 
+  it("renders premium cardio card for a single cardio session with overview-style zones section", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "c1",
+          observedAt: "2026-03-18T12:00:00.000Z",
+          sourceId: "apple_health",
+          title: "Running",
+          start: "2026-03-18T12:00:00.000Z",
+          end: "2026-03-18T13:00:00.000Z",
+          durationMinutes: 60,
+          calories: 400,
+          workoutType: "cardio" as const,
+        },
+      ],
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutDayScreen />);
+    });
+    const json = JSON.stringify(test.toJSON());
+    expect(json).toContain("Running");
+    expect(json).toContain("Distance");
+    expect(json).toContain("Avg Pace");
+    expect(json).toContain("Heart rate zones");
+    expect(json).toContain("Heart rate zones are not available for this workout.");
+    expect(json).not.toContain("Exercises");
+  });
+
+  it("renders zone rows when heartRateZoneMinutes is present on the workout", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "c1",
+          observedAt: "2026-03-18T12:00:00.000Z",
+          sourceId: "apple_health",
+          title: "Running",
+          start: "2026-03-18T12:00:00.000Z",
+          end: "2026-03-18T13:00:00.000Z",
+          durationMinutes: 60,
+          calories: 400,
+          workoutType: "cardio" as const,
+          heartRateZoneMinutes: [5, 10, 20, 8, 2] as const,
+        },
+      ],
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutDayScreen />);
+    });
+    const json = JSON.stringify(test.toJSON());
+    expect(json).toContain("Zone 1");
+    expect(json).toContain("Zone 5");
+    expect(json).toContain("20 min");
+  });
+
   it("exercise history action reuses logger route pattern", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
