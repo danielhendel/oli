@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutDayDetail } from "@/lib/data/workouts/useWorkoutsCalendar";
@@ -18,7 +18,21 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { listManualWorkoutDaySummaries, type ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
+import {
+  listManualWorkoutDaySummaries,
+  totalVolumeKgForManualExercise,
+  type ManualWorkoutDaySummary,
+} from "@/lib/workouts/journal/manualWorkoutSummary";
+import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthSetDisplay";
+import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
+import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
+
+/** Matches exercise-history numeric accents for set grid values. */
+const METRIC_STRENGTH_ACCENT = "#FF3B30";
+const METRIC_VOLUME_ACCENT = "#34C759";
 
 const useLocalSearchParamsSafe: typeof useLocalSearchParams =
   typeof useLocalSearchParams === "function"
@@ -66,6 +80,19 @@ function toExerciseIdFromName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+function isStrengthLikeSession(
+  session: ReconciledWorkoutSession,
+  representative: WorkoutHistoryItem,
+  override: WorkoutOverride | null,
+): boolean {
+  const resolved = resolveWorkoutDisplay(representative, override);
+  return (
+    resolved.displayWorkoutType === "strength" ||
+    session.sessionType === "strength" ||
+    session.sessionType === "mixed"
+  );
+}
+
 export default function WorkoutDayScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -82,6 +109,31 @@ export default function WorkoutDayScreen() {
   const { overridesByWorkoutId } = useWorkoutOverrides(workoutIds);
   const [menuOpen, setMenuOpen] = useState(false);
   const [manualDaySummary, setManualDaySummary] = useState<ManualWorkoutDaySummary | null>(null);
+  const [expandedPerformanceRowKey, setExpandedPerformanceRowKey] = useState<string | null>(null);
+
+  const strengthAccent = overviewAccentForTab("strength");
+
+  const { usePremiumStrengthLayout, premiumSessionId } = useMemo(() => {
+    const strengthLikes = sessions.filter((session) => {
+      const representative = session.workouts[0];
+      if (!representative) return false;
+      return isStrengthLikeSession(
+        session,
+        representative,
+        overridesByWorkoutId[representative.id] ?? null,
+      );
+    });
+    /**
+     * `manualDaySummary` is day-scoped journal data. With multiple strength/mixed
+     * reconciled sessions on the same day, we cannot honestly attribute exercises to
+     * one session — keep the legacy session + exercises layout.
+     */
+    const useLayout = strengthLikes.length === 1 && manualDaySummary != null;
+    return {
+      usePremiumStrengthLayout: useLayout,
+      premiumSessionId: useLayout ? strengthLikes[0]!.id : null,
+    };
+  }, [sessions, overridesByWorkoutId, manualDaySummary]);
 
   const primarySession = useMemo(() => sessions[0] ?? null, [sessions]);
   const primaryWorkout = primarySession?.workouts[0] ?? null;
@@ -226,6 +278,189 @@ export default function WorkoutDayScreen() {
                 resolved.displayWorkoutType === "strength" ||
                 session.sessionType === "strength" ||
                 session.sessionType === "mixed";
+              const showPremiumBlock =
+                usePremiumStrengthLayout && premiumSessionId === session.id && isStrength;
+
+              const titleText =
+                manualDaySummary?.customName && representative.sourceId === "manual"
+                  ? manualDaySummary.customName
+                  : resolved.displayTitle;
+
+              if (showPremiumBlock && manualDaySummary) {
+                const exercises = manualDaySummary.exercises;
+                const volumesKg = exercises.map((ex) => totalVolumeKgForManualExercise(ex));
+                const maxVolKg = Math.max(1, ...volumesKg);
+
+                return (
+                  <View key={session.id} style={styles.summaryBlock}>
+                    <View style={styles.strengthOverviewCard} testID={`summary-card-${session.id}`}>
+                      <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
+                        <View style={styles.strengthOverviewTitleWrap}>
+                          <Text style={workoutOverviewInCardHeaderStyles.title} numberOfLines={2}>
+                            {titleText}
+                          </Text>
+                        </View>
+                        <Text style={styles.strengthOverviewTime}>{timeLabel}</Text>
+                      </View>
+                      <View style={styles.overviewMetricsGrid}>
+                        <View style={styles.overviewMetricsRow}>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Duration</Text>
+                            <Text style={styles.overviewMetricValue}>{duration}</Text>
+                          </View>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Calories</Text>
+                            <Text style={styles.overviewMetricValue}>{calories}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.overviewMetricsRow}>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Total Volume</Text>
+                            <Text style={styles.overviewMetricValue}>
+                              {formatIntegerWithCommas(manualDaySummary.totalVolume ?? null)}
+                            </Text>
+                          </View>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Avg Intensity</Text>
+                            <Text style={styles.overviewMetricValue}>
+                              {typeof manualDaySummary.avgIntensity === "number"
+                                ? manualDaySummary.avgIntensity.toFixed(1)
+                                : "—"}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.performanceInner}>
+                        {exercises.length === 0 ? (
+                          <Text style={styles.placeholder}>No logged exercises</Text>
+                        ) : (
+                          exercises.map((exercise, idx) => {
+                            const rowKey = `${idx}:${exercise.name}`;
+                            const volKg = volumesKg[idx] ?? 0;
+                            const volLb = Math.round(volKg * LB_PER_KG);
+                            const volDisplay = volLb >= 1 ? `${volLb.toLocaleString()} lb` : "—";
+                            const progress = maxVolKg > 0 ? Math.max(0, Math.min(1, volKg / maxVolKg)) : 0;
+                            const expanded = expandedPerformanceRowKey === rowKey;
+                            const toggleRow = () =>
+                              setExpandedPerformanceRowKey(expanded ? null : rowKey);
+
+                            return (
+                              <View key={rowKey} style={styles.performanceRowWrap}>
+                                <View style={styles.performanceRowLine1}>
+                                  <Pressable
+                                    testID={`exercise-performance-row-${idx}`}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ expanded }}
+                                    onPress={toggleRow}
+                                    style={styles.performanceRowMainPress}
+                                  >
+                                    <View style={styles.performanceNameVolRow}>
+                                      <Text style={styles.performanceExerciseName} numberOfLines={1}>
+                                        {toTitleCase(exercise.name)}
+                                      </Text>
+                                      <Text style={styles.performanceVolume}>{volDisplay}</Text>
+                                    </View>
+                                  </Pressable>
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Exercise history for ${exercise.name}`}
+                                    onPress={() => {
+                                      router.push({
+                                        pathname: "/(app)/workouts/exercise-history",
+                                        params: { exerciseId: toExerciseIdFromName(exercise.name) },
+                                      });
+                                    }}
+                                    hitSlop={8}
+                                  >
+                                    <Text style={styles.exerciseHistoryButton}>History</Text>
+                                  </Pressable>
+                                </View>
+                                <Pressable onPress={toggleRow} accessibilityRole="button">
+                                  <View style={styles.performanceBarTrack}>
+                                    <View
+                                      style={[
+                                        styles.performanceBarFill,
+                                        { width: `${progress * 100}%` },
+                                      ]}
+                                    />
+                                  </View>
+                                </Pressable>
+                                {expanded ? (
+                                  <View style={styles.performanceExpanded}>
+                                    <View style={styles.perfTableHeaderRow}>
+                                      <Text style={styles.perfTableHeaderCell}>Set</Text>
+                                      <Text style={styles.perfTableHeaderCell}>Reps</Text>
+                                      <Text style={styles.perfTableHeaderCell}>Weight</Text>
+                                      <Text style={styles.perfTableHeaderCell}>RPE</Text>
+                                      <Text style={styles.perfTableHeaderCell}>e1RM</Text>
+                                      <Text style={styles.perfTableHeaderCell}>Vol</Text>
+                                    </View>
+                                    {exercise.sets.map((set) => {
+                                      const cells = formatStrengthSetTableCells({
+                                        setNumber: set.setNumber,
+                                        reps: set.reps,
+                                        weightKg: set.weightKg,
+                                        intensity: set.intensity,
+                                      });
+                                      return (
+                                        <View
+                                          key={`${rowKey}-set-${set.setNumber}`}
+                                          style={styles.perfSetRow}
+                                        >
+                                          <Text style={[styles.perfTableCell, styles.perfColSet]}>
+                                            {cells.setLabel}
+                                          </Text>
+                                          <Text style={[styles.perfTableCell, styles.perfColReps]}>
+                                            {cells.repsLabel}
+                                          </Text>
+                                          <Text style={[styles.perfTableCell, styles.perfColWeight]}>
+                                            {cells.weightLabel}
+                                          </Text>
+                                          <Text style={[styles.perfTableCell, styles.perfColRpe]}>
+                                            {cells.rpeLabel}
+                                          </Text>
+                                          <Text
+                                            style={[
+                                              styles.perfTableCell,
+                                              styles.perfColE1rm,
+                                              { color: METRIC_STRENGTH_ACCENT },
+                                            ]}
+                                          >
+                                            {cells.e1RmLbLabel}
+                                          </Text>
+                                          <Text
+                                            style={[
+                                              styles.perfTableCell,
+                                              styles.perfColVol,
+                                              { color: METRIC_VOLUME_ACCENT },
+                                            ]}
+                                          >
+                                            {cells.volLbLabel}
+                                          </Text>
+                                        </View>
+                                      );
+                                    })}
+                                  </View>
+                                ) : null}
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                );
+              }
+
               return (
                 <View key={session.id} style={styles.summaryBlock}>
                   <View style={styles.sectionHeaderRow}>
@@ -273,53 +508,55 @@ export default function WorkoutDayScreen() {
             })
           )}
         </View>
-        <View style={styles.exercisesSection}>
-          <Text style={styles.sectionHeaderTitle}>Exercises</Text>
-          {!manualDaySummary || manualDaySummary.exercises.length === 0 ? (
-            <View style={styles.card}>
-            <Text style={styles.placeholder}>No logged exercises</Text>
-            </View>
-          ) : (
-            manualDaySummary.exercises.map((exercise) => (
-              <View key={exercise.name} style={styles.exerciseCard} testID={`exercise-card-${exercise.name}`}>
-                <View style={styles.exerciseTitleRow}>
-                  <Text style={styles.exerciseName}>{toTitleCase(exercise.name)}</Text>
-                  <Text
-                    accessibilityRole="button"
-                    accessibilityLabel={`Exercise history for ${exercise.name}`}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/(app)/workouts/exercise-history",
-                        params: { exerciseId: toExerciseIdFromName(exercise.name) },
-                      });
-                    }}
-                    style={styles.exerciseHistoryButton}
-                  >
-                    History
-                  </Text>
-                </View>
-                <View style={styles.exerciseHeaderRow}>
-                  <Text style={[styles.exerciseHeaderCell, styles.colSet]}>Set</Text>
-                  <Text style={[styles.exerciseHeaderCell, styles.colReps]}>Reps</Text>
-                  <Text style={[styles.exerciseHeaderCell, styles.colWeight]}>Weight (lb)</Text>
-                  <Text style={[styles.exerciseHeaderCell, styles.colIntensity]}>Intensity</Text>
-                </View>
-                {exercise.sets.map((set) => (
-                  <View key={`${exercise.name}-${set.setNumber}`} style={styles.exerciseSetRow}>
-                    <Text style={[styles.exerciseCell, styles.colSet]}>{set.setNumber}</Text>
-                    <Text style={[styles.exerciseCell, styles.colReps]}>{set.reps ?? "—"}</Text>
-                    <Text style={[styles.exerciseCell, styles.colWeight]}>
-                      {formatWeightLbs(set.weightKg)}
-                    </Text>
-                    <Text style={[styles.exerciseCell, styles.colIntensity]}>
-                      {typeof set.intensity === "number" ? set.intensity : "—"}
+        {!usePremiumStrengthLayout && (
+          <View style={styles.exercisesSection}>
+            <Text style={styles.sectionHeaderTitle}>Exercises</Text>
+            {!manualDaySummary || manualDaySummary.exercises.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.placeholder}>No logged exercises</Text>
+              </View>
+            ) : (
+              manualDaySummary.exercises.map((exercise) => (
+                <View key={exercise.name} style={styles.exerciseCard} testID={`exercise-card-${exercise.name}`}>
+                  <View style={styles.exerciseTitleRow}>
+                    <Text style={styles.exerciseName}>{toTitleCase(exercise.name)}</Text>
+                    <Text
+                      accessibilityRole="button"
+                      accessibilityLabel={`Exercise history for ${exercise.name}`}
+                      onPress={() => {
+                        router.push({
+                          pathname: "/(app)/workouts/exercise-history",
+                          params: { exerciseId: toExerciseIdFromName(exercise.name) },
+                        });
+                      }}
+                      style={styles.exerciseHistoryButton}
+                    >
+                      History
                     </Text>
                   </View>
-                ))}
-              </View>
-            ))
-          )}
-        </View>
+                  <View style={styles.exerciseHeaderRow}>
+                    <Text style={[styles.exerciseHeaderCell, styles.colSet]}>Set</Text>
+                    <Text style={[styles.exerciseHeaderCell, styles.colReps]}>Reps</Text>
+                    <Text style={[styles.exerciseHeaderCell, styles.colWeight]}>Weight (lb)</Text>
+                    <Text style={[styles.exerciseHeaderCell, styles.colIntensity]}>Intensity</Text>
+                  </View>
+                  {exercise.sets.map((set) => (
+                    <View key={`${exercise.name}-${set.setNumber}`} style={styles.exerciseSetRow}>
+                      <Text style={[styles.exerciseCell, styles.colSet]}>{set.setNumber}</Text>
+                      <Text style={[styles.exerciseCell, styles.colReps]}>{set.reps ?? "—"}</Text>
+                      <Text style={[styles.exerciseCell, styles.colWeight]}>
+                        {formatWeightLbs(set.weightKg)}
+                      </Text>
+                      <Text style={[styles.exerciseCell, styles.colIntensity]}>
+                        {typeof set.intensity === "number" ? set.intensity : "—"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
       <WorkoutActionSheet
         visible={menuOpen && !!primaryWorkout}
@@ -422,6 +659,115 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C1C1E",
   },
+  strengthOverviewCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E5E5EA",
+    marginBottom: 4,
+  },
+  strengthOverviewTitleWrap: { flex: 1, minWidth: 0, marginRight: 8 },
+  strengthOverviewTime: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#8E8E93",
+    letterSpacing: -0.2,
+    flexShrink: 0,
+  },
+  inCardHeaderRowSpacing: { marginBottom: 12 },
+  overviewMetricsGrid: { marginTop: 16, gap: 12 },
+  overviewMetricsRow: { flexDirection: "row", gap: 12 },
+  overviewMetricTile: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  overviewMetricLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.78)",
+    marginBottom: 4,
+    letterSpacing: 0.1,
+  },
+  overviewMetricValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: -0.25,
+  },
+  performanceInner: { marginTop: 16, gap: 4 },
+  performanceRowWrap: { marginBottom: 14, gap: 6 },
+  performanceRowLine1: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  performanceRowMainPress: { flex: 1, minWidth: 0, marginRight: 8 },
+  performanceNameVolRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  performanceExerciseName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1C1C1E",
+    minWidth: 0,
+  },
+  performanceVolume: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  performanceBarTrack: {
+    height: 6,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  performanceBarFill: {
+    height: "100%",
+    backgroundColor: WORKOUT_STRENGTH_COLOR,
+    borderRadius: 3,
+  },
+  performanceExpanded: { marginTop: 8, paddingTop: 4 },
+  perfTableHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
+    marginBottom: 4,
+  },
+  perfTableHeaderCell: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8E8E93",
+    letterSpacing: 0.2,
+    textAlign: "center",
+  },
+  perfSetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#F2F2F7",
+  },
+  perfTableCell: {
+    flex: 1,
+    fontSize: 14,
+    color: "#1C1C1E",
+    textAlign: "center",
+  },
+  perfColSet: { flex: 1 },
+  perfColReps: { flex: 1 },
+  perfColWeight: { flex: 1 },
+  perfColRpe: { flex: 1 },
+  perfColE1rm: { flex: 1, fontWeight: "600" },
+  perfColVol: { flex: 1, fontWeight: "600" },
   workoutCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,

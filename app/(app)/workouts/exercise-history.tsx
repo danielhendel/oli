@@ -28,12 +28,10 @@ import type { ExerciseHistorySession, ExerciseHistorySet } from "@/lib/workouts/
 const metricStrength = "#FF3B30";
 const metricVolume = "#34C759";
 
-const LB_PER_KG = 1 / 0.45359237;
-
-/** Epley e1RM = loadKg * (1 + reps/30). Same as lib/workouts/memory/exerciseHistory. */
-function epleyE1RmKg(loadKg: number, reps: number): number {
-  return loadKg * (1 + reps / 30);
-}
+import {
+  formatStrengthSetTableCells,
+  LB_PER_KG,
+} from "@/lib/workouts/strengthSetDisplay";
 
 function formatDate(iso: string): string {
   try {
@@ -87,22 +85,21 @@ function SessionTableHeader() {
 }
 
 function SetTableRow({ set }: { set: ExerciseHistorySet }) {
-  const hasLoad = set.loadKg != null && set.loadKg > 0;
-  const weightStr = hasLoad ? `${(set.loadKg! * LB_PER_KG).toFixed(1)}` : "BW";
-  const rpeStr = set.rpe != null ? String(set.rpe) : "—";
-  const e1RmKg = hasLoad ? epleyE1RmKg(set.loadKg!, set.reps) : null;
-  const e1RmStr = e1RmKg != null ? `${Math.round(e1RmKg * LB_PER_KG)}` : "—";
-  const volumeKg = hasLoad ? set.reps * set.loadKg! : 0;
-  const volStr = volumeKg > 0 ? `${Math.round(volumeKg * LB_PER_KG)}` : "—";
+  const cells = formatStrengthSetTableCells({
+    ordinal: set.ordinal,
+    reps: set.reps,
+    loadKg: set.loadKg,
+    rpe: set.rpe,
+  });
 
   return (
     <View style={styles.setRow}>
-      <Text style={[styles.tableCell, styles.tableColSet]}>{set.ordinal}</Text>
-      <Text style={[styles.tableCell, styles.tableColReps]}>{set.reps}</Text>
-      <Text style={[styles.tableCell, styles.tableColWeight]}>{weightStr}</Text>
-      <Text style={[styles.tableCell, styles.tableColRpe]}>{rpeStr}</Text>
-      <Text style={[styles.tableCell, styles.tableCellE1rm]}>{e1RmStr}</Text>
-      <Text style={[styles.tableCell, styles.tableCellVol]}>{volStr}</Text>
+      <Text style={[styles.tableCell, styles.tableColSet]}>{cells.setLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableColReps]}>{cells.repsLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableColWeight]}>{cells.weightLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableColRpe]}>{cells.rpeLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableCellE1rm]}>{cells.e1RmLbLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableCellVol]}>{cells.volLbLabel}</Text>
     </View>
   );
 }
