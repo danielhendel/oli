@@ -124,6 +124,35 @@ describe("parseWorkoutHistoryItem", () => {
     expect(parseWorkoutHistoryItem(raw).workoutType).toBe("cardio");
   });
 
+  it("parses optional distanceMeters and heartRateZoneMinutes from payload", () => {
+    const raw = minimalRaw({
+      id: "ev-zones",
+      observedAt: "2024-06-10T08:00:00Z",
+      payload: {
+        sport: "Running",
+        start: "2024-06-10T08:00:00Z",
+        end: "2024-06-10T09:00:00Z",
+        durationMinutes: 60,
+        distanceKm: 10.5,
+        heartRateZoneMinutes: [5, 10, 15, 8, 2],
+      },
+    });
+    const item = parseWorkoutHistoryItem(raw);
+    expect(item.distanceMeters).toBeCloseTo(10500, 5);
+    expect(item.heartRateZoneMinutes).toEqual([5, 10, 15, 8, 2]);
+  });
+
+  it("rejects heartRateZoneMinutes when not exactly five finite nonnegative numbers", () => {
+    const raw = minimalRaw({
+      id: "ev-bad-zones",
+      payload: {
+        sport: "Running",
+        heartRateZoneMinutes: [1, 2, 3],
+      },
+    });
+    expect(parseWorkoutHistoryItem(raw).heartRateZoneMinutes).toBeUndefined();
+  });
+
   it("missing payload returns fallback without throw", () => {
     const raw = minimalRaw({
       id: "ev-2",

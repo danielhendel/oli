@@ -7,7 +7,7 @@
  */
 
 /** Bump when we need all iOS clients to re-run HealthKit range bootstrap. */
-export const WORKOUT_RANGE_BOOTSTRAP_BUILD_ID = "oli-wb-v2-2026-03-21";
+export const WORKOUT_RANGE_BOOTSTRAP_BUILD_ID = "oli-wb-v3-2026-03-22-distance";
 
 export function shouldRequestHistoricalBootstrapRange(args: {
   platformOs: string;

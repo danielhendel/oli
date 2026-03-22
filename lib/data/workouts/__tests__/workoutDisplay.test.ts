@@ -1,6 +1,8 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
+  formatAvgPaceMinPerMileLabel,
   formatIntegerWithCommas,
+  formatWorkoutDistanceLabel,
   formatWorkoutDurationLabel,
   formatWorkoutRowSummary,
   formatWorkoutSourceLabel,
@@ -67,6 +69,17 @@ describe("workoutDisplay", () => {
 
   it("formats integers with comma separators", () => {
     expect(formatIntegerWithCommas(2345)).toBe("2,345");
+  });
+
+  it("formats distance from meters", () => {
+    expect(formatWorkoutDistanceLabel(null)).toBe("—");
+    expect(formatWorkoutDistanceLabel(80)).toMatch(/km/);
+    expect(formatWorkoutDistanceLabel(8046)).toMatch(/mi/);
+  });
+
+  it("formats avg pace min/mi when distance and duration known", () => {
+    expect(formatAvgPaceMinPerMileLabel(null, 30)).toBe("—");
+    expect(formatAvgPaceMinPerMileLabel(1609.344, 10)).toBe("10:00 /mi");
   });
 
   it("resolves display values with override precedence", () => {

@@ -96,6 +96,11 @@ export async function runAnchoredWorkoutsSync(
       ...(typeof w.calories === "number" && Number.isFinite(w.calories) && w.calories > 0
         ? { calories: Math.round(w.calories) }
         : {}),
+      ...(typeof w.distanceMeters === "number" &&
+      Number.isFinite(w.distanceMeters) &&
+      w.distanceMeters > 0
+        ? { distanceMeters: w.distanceMeters }
+        : {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {
         mode: "anchored" as const,

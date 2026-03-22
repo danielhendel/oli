@@ -150,6 +150,7 @@ describe("runWorkoutHistoryBackfillPasses", () => {
               sourceId: "watch",
               durationMinutes: 60,
               calories: 200,
+              distanceMeters: 3218.688,
             },
           ],
           pagesFetched: 1,
@@ -185,6 +186,8 @@ describe("runWorkoutHistoryBackfillPasses", () => {
       },
     });
     expect((deps.ingestRawEvent as jest.Mock)).toHaveBeenCalled();
+    const workoutCall = (deps.ingestRawEvent as jest.Mock).mock.calls.find((c) => c[0]?.kind === "workout");
+    expect(workoutCall?.[0]?.payload?.distanceMeters).toBe(3218.688);
     expect(spy).toHaveBeenCalledTimes(1);
   });
 

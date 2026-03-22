@@ -88,6 +88,8 @@ export const ingestAcceptedResponseDtoSchema = z
     rawEventId: z.string().min(1),
     day: dayKeySchema.optional(),
     idempotentReplay: z.literal(true).optional(),
+    /** Set when an existing apple_health workout doc had distanceMeters added without creating a duplicate. */
+    payloadEnriched: z.literal(true).optional(),
   })
   .strip();
 
@@ -132,8 +134,12 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
     intensity: z.enum(["easy", "moderate", "hard"]).optional(),
     durationMinutes: z.number().finite().positive(),
     trainingLoad: z.number().finite().nonnegative().nullable().optional(),
+    /** Apple Health / device-ingested cardio distance (meters); optional for manual-only payloads. */
+    distanceMeters: z.number().finite().positive().optional(),
+    calories: z.number().finite().nonnegative().optional(),
   })
-  .strip();
+  // Preserve HealthKit-only keys (hk, sync, etc.) stored on workout raw payloads.
+  .passthrough();
 
 const manualWeightPayloadSchema = z
   .object({
