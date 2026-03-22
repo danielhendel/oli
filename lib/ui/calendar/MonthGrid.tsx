@@ -6,7 +6,7 @@ import {
   View,
 } from "react-native";
 import type { DayKey } from "./types";
-import { getMonthGrid, formatMonthYearLabel, type MonthYear } from "./dateUtils";
+import { getMonthGrid, formatMonthYearLabel, getTodayDayKeyLocal, type MonthYear } from "./dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import { WorkoutDayRing } from "./WorkoutDayRing";
 
@@ -18,6 +18,7 @@ export type MonthGridProps = {
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProps) {
+  const todayKey = getTodayDayKeyLocal();
   const weeks = getMonthGrid(monthYear);
   const paddedWeeks = [...weeks];
   while (paddedWeeks.length < 6) {
@@ -58,18 +59,17 @@ export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProp
                 ]}
                 hitSlop={8}
               >
-                <View
-                  style={[
-                    styles.dayCircle,
-                  ]}
-                >
-                  <WorkoutDayRing
-                    size={32}
-                    hasStrength={hasStrength}
-                    hasCardio={hasCardio}
-                    outerTestID={`month-outer-ring-${dayKey}`}
-                    innerTestID={`month-cardio-inner-ring-${dayKey}`}
-                  />
+                <View style={styles.dayCircle}>
+                  <View style={styles.dayRingBackdrop} pointerEvents="none">
+                    <WorkoutDayRing
+                      size={32}
+                      hasStrength={hasStrength}
+                      hasCardio={hasCardio}
+                      emphasized={dayKey === todayKey}
+                      outerTestID={`month-outer-ring-${dayKey}`}
+                      innerTestID={`month-cardio-inner-ring-${dayKey}`}
+                    />
+                  </View>
                   <Text style={styles.dayNumber}>
                     {Number(dayKey.slice(8, 10))}
                   </Text>
@@ -130,6 +130,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayRingBackdrop: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "rgba(255,255,255,0.95)",
     letterSpacing: -0.25,
   },
 });

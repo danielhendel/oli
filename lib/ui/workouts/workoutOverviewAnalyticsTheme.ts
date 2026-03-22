@@ -1,16 +1,16 @@
 import { CARDIO_RED, WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
 
 /**
- * Strength metric tiles: same hue, slightly deeper than {@link WORKOUT_STRENGTH_COLOR}
- * so white captions stay readable at small sizes.
+ * Strength metric tiles: lighter blue than chart {@link WORKOUT_STRENGTH_COLOR} so
+ * tiles read soft while bars stay the primary accent.
  */
-export const WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG = "#0051D5";
+export const WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG = "#4F8FF7";
 
 /**
- * Cardio metric tiles: deeper red in the same family as calendar {@link CARDIO_RED}
- * for small-label contrast with white text.
+ * Cardio metric tiles: lighter red in the same family as {@link CARDIO_RED} for
+ * identity without heavy fill next to chart bars.
  */
-export const WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG = "#D63027";
+export const WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG = "#F25A52";
 
 export function overviewAccentForTab(tab: "strength" | "cardio"): {
   barColor: string;

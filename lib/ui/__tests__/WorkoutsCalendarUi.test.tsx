@@ -46,7 +46,7 @@ describe("WeeklyStrip", () => {
     expect(strengthOuter).toBeTruthy();
   });
 
-  it("renders dual-ring marker for mixed workout days", () => {
+  it("renders mixed-day cardio dot with strength ring", () => {
     const days: CalendarDay<WorkoutDayMarker>[] = [
       {
         day: "2026-03-03",
@@ -66,8 +66,8 @@ describe("WeeklyStrip", () => {
     });
 
     const root = test.root;
-    const mixedRing = root.findByProps({ testID: "weekly-cardio-inner-ring-2026-03-03" });
-    expect(mixedRing).toBeTruthy();
+    const mixedDot = root.findByProps({ testID: "weekly-cardio-inner-ring-2026-03-03" });
+    expect(mixedDot).toBeTruthy();
   });
 });
 
@@ -109,7 +109,7 @@ describe("MonthGrid", () => {
     expect(strengthOuter).toBeTruthy();
   });
 
-  it("renders inner cardio ring for mixed marker days", () => {
+  it("renders cardio dot for mixed marker days", () => {
     const markerForDay = (day: string) =>
       day === "2026-03-20" ? { hasStrength: true, hasCardio: true } : null;
 
@@ -125,8 +125,8 @@ describe("MonthGrid", () => {
     });
 
     const root = test.root;
-    const mixedRing = root.findByProps({ testID: "month-cardio-inner-ring-2026-03-20" });
-    expect(mixedRing).toBeTruthy();
+    const mixedDot = root.findByProps({ testID: "month-cardio-inner-ring-2026-03-20" });
+    expect(mixedDot).toBeTruthy();
   });
 });
 

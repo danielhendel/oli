@@ -16,7 +16,6 @@ import {
   Platform,
   NativeModules,
   AppState,
-  type PressableAndroidRippleConfig,
 } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -103,6 +102,7 @@ import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessio
 import { listManualWorkoutDaySummaries } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -119,11 +119,6 @@ const ANCHOR_LIMIT = 500;
 const APPLE_AUTO_MIN_MS = 2 * 60_000;
 const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
 const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
-const WORKOUT_LOG_ADD_RIPPLE: PressableAndroidRippleConfig = {
-  color: "rgba(255,255,255,0.22)",
-  foreground: true,
-  borderless: false,
-};
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 const SHELL_TITLE = "Workouts";
@@ -736,28 +731,6 @@ export default function TrainingOverviewScreen() {
         metricsByTab={overviewAnalytics.metricsByTab}
       />
 
-      <View style={[styles.card, styles.workoutLogCard]}>
-        <View style={workoutOverviewInCardHeaderStyles.row}>
-          <View style={styles.workoutLogTitleBlock}>
-            <Text style={workoutOverviewInCardHeaderStyles.title}>Workout log</Text>
-            <Text style={styles.workoutLogSubtitle}>Start a new workout</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/(app)/workouts/log")}
-            accessibilityRole="button"
-            accessibilityLabel="Open workout log"
-            hitSlop={8}
-            android_ripple={WORKOUT_LOG_ADD_RIPPLE}
-            style={({ pressed }) => [
-              styles.workoutLogAddButton,
-              pressed && styles.workoutLogAddButtonPressed,
-            ]}
-          >
-            <Text style={styles.workoutLogAddButtonPlus}>+</Text>
-          </Pressable>
-        </View>
-      </View>
-
       <View style={styles.card}>
         <View style={workoutOverviewInCardHeaderStyles.row}>
           <Text style={workoutOverviewInCardHeaderStyles.title}>Recent workouts</Text>
@@ -883,25 +856,28 @@ export default function TrainingOverviewScreen() {
   }
 
   return (
-    <ModuleScreenShell
-      title={SHELL_TITLE}
-      subtitle={SHELL_SUBTITLE}
-      hideTitleChrome
-      compactHeader
-      headerContent={
-        <WeeklyStrip
-          days={weeklyStripDays}
-          selectedDay={today}
-          onDayPress={(day) => {
-            router.push({
-              pathname: "/(app)/workouts/day/[day]",
-              params: { day },
-            });
-          }}
-        />
-      }
-    >
-      {content}
+    <View style={styles.overviewRoot}>
+      <ModuleScreenShell
+        title={SHELL_TITLE}
+        subtitle={SHELL_SUBTITLE}
+        hideTitleChrome
+        compactHeader
+        headerContent={
+          <WeeklyStrip
+            days={weeklyStripDays}
+            selectedDay={today}
+            onDayPress={(day) => {
+              router.push({
+                pathname: "/(app)/workouts/day/[day]",
+                params: { day },
+              });
+            }}
+          />
+        }
+      >
+        {content}
+      </ModuleScreenShell>
+      <WorkoutsOverviewBottomNav />
       {menuOpen && (
         <Pressable
           style={styles.menuOverlay}
@@ -941,17 +917,20 @@ export default function TrainingOverviewScreen() {
           </View>
         </Pressable>
       )}
-    </ModuleScreenShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overviewRoot: {
+    flex: 1,
+  },
   pageBody: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     marginHorizontal: -16,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 120,
     flexGrow: 1,
     gap: 20,
   },
@@ -960,28 +939,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS,
     padding: 16,
     gap: 12,
-  },
-  /** Workout log: horizontal 16 (card system), vertical 20 for breathing room. */
-  workoutLogCard: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-  },
-  workoutLogTitleBlock: { flex: 1, gap: 4, paddingRight: 12 },
-  workoutLogSubtitle: { fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  workoutLogAddButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#000000",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  workoutLogAddButtonPressed: { opacity: 0.82 },
-  workoutLogAddButtonPlus: {
-    color: "#FFFFFF",
-    fontSize: 26,
-    fontWeight: "300",
-    marginTop: -2,
   },
   placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
   primaryBtn: {

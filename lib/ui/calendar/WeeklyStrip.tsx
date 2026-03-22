@@ -55,13 +55,16 @@ export function WeeklyStrip({ days, selectedDay, onDayPress }: WeeklyStripProps)
                   isSelected && styles.dayCircleSelected,
                 ]}
               >
-                <WorkoutDayRing
-                  size={40}
-                  hasStrength={hasStrength}
-                  hasCardio={hasCardio}
-                  outerTestID={`weekly-outer-ring-${d.day}`}
-                  innerTestID={`weekly-cardio-inner-ring-${d.day}`}
-                />
+                <View style={styles.dayRingBackdrop} pointerEvents="none">
+                  <WorkoutDayRing
+                    size={40}
+                    hasStrength={hasStrength}
+                    hasCardio={hasCardio}
+                    emphasized={isSelected}
+                    outerTestID={`weekly-outer-ring-${d.day}`}
+                    innerTestID={`weekly-cardio-inner-ring-${d.day}`}
+                  />
+                </View>
                 <Text
                   style={[
                     styles.dayNumber,
@@ -112,11 +115,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  /** Ring + fill are absolutely positioned so the day numeral stays centered in the circle. */
+  dayRingBackdrop: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
   },
   dayCircleSelected: {
-    backgroundColor: "#1C1C1E",
+    backgroundColor: "#2C2C2E",
   },
   dayNumber: {
     fontSize: 18,
