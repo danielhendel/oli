@@ -22,9 +22,15 @@ jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "u1" } }),
 }));
-jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
-  listManualWorkoutDaySummaries: (...args: unknown[]) => mockListManualWorkoutDaySummaries(...args),
-}));
+jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => {
+  const actual = jest.requireActual<typeof import("@/lib/workouts/journal/manualWorkoutSummary")>(
+    "@/lib/workouts/journal/manualWorkoutSummary",
+  );
+  return {
+    ...actual,
+    listManualWorkoutDaySummaries: (...args: unknown[]) => mockListManualWorkoutDaySummaries(...args),
+  };
+});
 
 import WorkoutDayScreen from "../day/[day]";
 import { formatWeightLbs } from "../day/[day]";
@@ -303,7 +309,7 @@ describe("WorkoutDayScreen display", () => {
     expect(json).toContain("No logged exercises");
   });
 
-  it("renders each exercise in its own card", async () => {
+  it("renders each exercise as a premium performance row when one strength session and journal summary exist", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
       day: "2026-03-18",
@@ -351,16 +357,76 @@ describe("WorkoutDayScreen display", () => {
       process.env.JEST_WORKER_ID = prevJestWorkerId;
     }
 
-    expect(
-      test.root.find((n) => n.props?.testID === "exercise-card-tricep pushdown"),
-    ).toBeTruthy();
-    expect(
-      test.root.find((n) => n.props?.testID === "exercise-card-cable bicep curl"),
-    ).toBeTruthy();
+    expect(test.root.find((n) => n.props?.testID === "exercise-performance-row-0")).toBeTruthy();
+    expect(test.root.find((n) => n.props?.testID === "exercise-performance-row-1")).toBeTruthy();
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Tricep Pushdown");
     expect(json).toContain("Cable Bicep Curl");
     expect(json).toContain("History");
+  });
+
+  it("keeps legacy exercise cards when two strength sessions exist the same day (no per-session journal attribution)", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "w1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "manual",
+          title: "Morning",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 45,
+          calories: null,
+          workoutType: "strength",
+        },
+        {
+          id: "w2",
+          observedAt: "2026-03-18T18:00:00.000Z",
+          sourceId: "manual",
+          title: "Evening",
+          start: "2026-03-18T18:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: null,
+          workoutType: "strength",
+        },
+      ],
+    });
+    mockListManualWorkoutDaySummaries.mockResolvedValue([
+      {
+        sessionId: "s1",
+        day: "2026-03-18",
+        startedAt: "2026-03-18T08:00:00.000Z",
+        customName: "Double day",
+        totalVolume: 5000,
+        avgIntensity: 8,
+        exercises: [{ name: "squat", sets: [{ setNumber: 1, reps: 5, weightKg: 100, intensity: 8 }] }],
+      },
+    ]);
+
+    const prevJestWorkerId = process.env.JEST_WORKER_ID;
+    delete process.env.JEST_WORKER_ID;
+
+    let test!: renderer.ReactTestRenderer;
+    try {
+      await act(async () => {
+        test = renderer.create(<WorkoutDayScreen />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      process.env.JEST_WORKER_ID = prevJestWorkerId;
+    }
+
+    const perfRows = test.root.findAll(
+      (n) => typeof n.props?.testID === "string" && n.props.testID.startsWith("exercise-performance-row"),
+    );
+    expect(perfRows.length).toBe(0);
+    expect(test.root.find((n) => n.props?.testID === "exercise-card-squat")).toBeTruthy();
+    expect(JSON.stringify(test.toJSON())).toContain("Exercises");
   });
 
   it("exercise history action reuses logger route pattern", async () => {
