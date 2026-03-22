@@ -11,6 +11,8 @@
 
 import { z } from "zod";
 import { dayKeySchema } from "./day";
+import { WORKOUT_DAY_SUMMARY_SCHEMA_VERSION } from "./workoutDaySummary";
+import { WORKOUT_MONTH_SUMMARY_SCHEMA_VERSION } from "./workoutMonthSummary";
 import {
   rawEventKindSchema,
   uncertaintyStateSchema,
@@ -42,6 +44,11 @@ export const rawEventListItemSchema = z
     contentUnknown: z.boolean().optional(),
     // Phase 2 — correction provenance
     correctionOfRawEventId: z.string().min(1).optional(),
+    /**
+     * Present when `GET /users/me/raw-events?includePayload=true` (workout calendar hydrate).
+     * Same Firestore `payload` as single-doc GET; avoids N+1 per listed row.
+     */
+    payload: z.unknown().optional(),
   })
   .strip();
 
@@ -220,6 +227,11 @@ export const rawEventsListQuerySchema = z
     _: z.string().optional(),
     /** API Gateway forwards API key as ?key=...; accepted only so gateway requests pass validation; ignored (not passed downstream). */
     key: z.string().min(1).optional(),
+    /**
+     * When `true` or `1`, each list item includes `payload` (full Firestore body) so clients can skip GET /raw-event per row.
+     * Bounded by `limit` (max 100).
+     */
+    includePayload: z.string().optional(),
   })
   .strict()
   .transform((data) => {
@@ -231,6 +243,8 @@ export const rawEventsListQuerySchema = z
         : data.sourceId
           ? [data.sourceId]
           : undefined;
+    const includePayload =
+      data.includePayload === "true" || data.includePayload === "1";
     return {
       start: data.start,
       end: data.end,
@@ -240,6 +254,7 @@ export const rawEventsListQuerySchema = z
       q: data.q,
       cursor: data.cursor,
       limit: data.limit,
+      includePayload,
       // "_" is not included; accepted only to avoid 400 from client cache-bust
     };
   });
@@ -279,3 +294,103 @@ export const lineageQuerySchema = z
     },
     { message: "Must provide canonicalEventId OR (day + kind + observedAt)" },
   );
+
+// -----------------------------
+// Workout day summaries (Calendar markers read model)
+// -----------------------------
+
+export const workoutDaySummaryItemDtoSchema = z
+  .object({
+    schemaVersion: z.literal(WORKOUT_DAY_SUMMARY_SCHEMA_VERSION),
+    day: dayKeySchema,
+    computedAt: isoDateTimeSchema,
+    reconcileVersion: z.string().min(1),
+    hasStrength: z.boolean(),
+    hasCardio: z.boolean(),
+    rawWorkoutCount: z.number().int().nonnegative(),
+  })
+  .strip();
+
+export const workoutDaySummariesResponseDtoSchema = z
+  .object({
+    start: dayKeySchema,
+    end: dayKeySchema,
+    expectedDayCount: z.number().int().nonnegative(),
+    complete: z.boolean(),
+    items: z.array(workoutDaySummaryItemDtoSchema),
+  })
+  .strip();
+
+export const workoutDaySummariesQuerySchema = z
+  .object({
+    start: dayKeySchema,
+    end: dayKeySchema,
+  })
+  .strip()
+  .refine((v) => v.start <= v.end, { message: "start must be <= end" });
+
+/** POST body: same shape as list query (inclusive calendar-day range). */
+export const workoutDaySummariesRebuildRequestDtoSchema = workoutDaySummariesQuerySchema;
+
+export const workoutDaySummariesRebuildResponseDtoSchema = z
+  .object({
+    start: dayKeySchema,
+    end: dayKeySchema,
+    daysProcessed: z.number().int().nonnegative(),
+  })
+  .strip();
+
+export type WorkoutDaySummaryItemDto = z.infer<typeof workoutDaySummaryItemDtoSchema>;
+export type WorkoutDaySummariesResponseDto = z.infer<typeof workoutDaySummariesResponseDtoSchema>;
+export type WorkoutDaySummariesRebuildResponseDto = z.infer<typeof workoutDaySummariesRebuildResponseDtoSchema>;
+
+// -----------------------------
+// Workout month summaries (Overview analytics — fixed calendar year)
+// -----------------------------
+
+const monthKeySchema = z.string().regex(/^\d{4}-\d{2}$/);
+
+export const workoutMonthSummaryItemDtoSchema = z
+  .object({
+    schemaVersion: z.literal(WORKOUT_MONTH_SUMMARY_SCHEMA_VERSION),
+    monthKey: monthKeySchema,
+    computedAt: isoDateTimeSchema,
+    reconcileVersion: z.string().min(1),
+    strengthSessionCount: z.number().int().nonnegative(),
+    cardioSessionCount: z.number().int().nonnegative(),
+    strengthWeekKeys: z.array(z.string().min(1)),
+    cardioWeekKeys: z.array(z.string().min(1)),
+    strengthDurationSumCapped: z.number().finite().nonnegative(),
+    strengthDurationCountCapped: z.number().int().nonnegative(),
+    cardioDurationSumCapped: z.number().finite().nonnegative(),
+    cardioDurationCountCapped: z.number().int().nonnegative(),
+  })
+  .strip();
+
+export const workoutMonthSummariesResponseDtoSchema = z
+  .object({
+    year: z.number().int(),
+    expectedMonthCount: z.number().int().nonnegative(),
+    complete: z.boolean(),
+    items: z.array(workoutMonthSummaryItemDtoSchema),
+  })
+  .strip();
+
+export const workoutMonthSummariesQuerySchema = z
+  .object({
+    year: z.coerce.number().int().min(2000).max(2100),
+  })
+  .strip();
+
+export const workoutMonthSummariesRebuildRequestDtoSchema = workoutMonthSummariesQuerySchema;
+
+export const workoutMonthSummariesRebuildResponseDtoSchema = z
+  .object({
+    year: z.number().int(),
+    monthsProcessed: z.number().int().nonnegative(),
+  })
+  .strip();
+
+export type WorkoutMonthSummaryItemDto = z.infer<typeof workoutMonthSummaryItemDtoSchema>;
+export type WorkoutMonthSummariesResponseDto = z.infer<typeof workoutMonthSummariesResponseDtoSchema>;
+export type WorkoutMonthSummariesRebuildResponseDto = z.infer<typeof workoutMonthSummariesRebuildResponseDtoSchema>;

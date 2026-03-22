@@ -1,3 +1,39 @@
+jest.mock("@/lib/api/usersMe", () => ({
+  getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: {
+      year: 2026,
+      expectedMonthCount: 12,
+      complete: true,
+      items: Array.from({ length: 12 }, (_, i) => {
+        const m = i + 1;
+        return {
+          schemaVersion: 1,
+          monthKey: `2026-${String(m).padStart(2, "0")}`,
+          computedAt: "2026-01-01T00:00:00.000Z",
+          reconcileVersion: "1",
+          strengthSessionCount: 0,
+          cardioSessionCount: 0,
+          strengthWeekKeys: [],
+          cardioWeekKeys: [],
+          strengthDurationSumCapped: 0,
+          strengthDurationCountCapped: 0,
+          cardioDurationSumCapped: 0,
+          cardioDurationCountCapped: 0,
+        };
+      }),
+    },
+  }),
+  postWorkoutMonthSummariesRebuild: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, monthsProcessed: 12 },
+  }),
+}));
+
 jest.mock("@react-native-async-storage/async-storage", () => ({
   __esModule: true,
   default: {
@@ -18,6 +54,7 @@ const mockReplace = jest.fn();
 const mockSetOptions = jest.fn();
 const mockGoBack = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({}));
+const mockUseWorkoutsCalendarRange = jest.fn();
 
 jest.mock("expo-router", () => ({
   __esModule: true,
@@ -56,38 +93,7 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
   const actual = jest.requireActual("@/lib/data/workouts/useWorkoutsCalendar");
   return {
     ...actual,
-    useWorkoutsCalendarRange: (start: string) => {
-      if (start === "2026-03-08") {
-        return {
-          status: "ready",
-          days: [
-            { day: "2026-03-08", workouts: [] },
-            { day: "2026-03-09", workouts: [] },
-          ],
-        };
-      }
-      return {
-        status: "ready",
-        days: [
-          { day: "2026-03-10", workouts: [] },
-          {
-            day: "2026-03-11",
-            workouts: [
-              {
-                id: "w1",
-                observedAt: "2026-03-11T10:00:00.000Z",
-                sourceId: "manual",
-                title: "Run",
-                start: "2026-03-11T10:00:00.000Z",
-                end: "2026-03-11T11:00:00.000Z",
-                durationMinutes: 60,
-                calories: 500,
-              },
-            ],
-          },
-        ],
-      };
-    },
+    useWorkoutsCalendarRange: (...args: unknown[]) => mockUseWorkoutsCalendarRange(...args),
     useWorkoutDayDetail: () => ({
       status: "ready",
       day: "2026-03-10",
@@ -112,6 +118,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   requestPermissions: jest.fn(async () => ({ ok: false, error: "not used" })),
   pullTodaySnapshot: jest.fn(async () => ({ ok: true, data: { day: "2026-03-10", steps: null, exerciseMinutes: null, activeEnergyKcal: null, restingHeartRateBpm: null, workouts: [] } })),
   pullAnchoredWorkouts: jest.fn(),
+  pullWorkoutsByDateRange: jest.fn(),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: jest.fn(),
   workoutIdempotencyKey: jest.fn(),
 }));
@@ -119,16 +127,24 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   getWorkoutsAnchor: jest.fn(),
   setWorkoutsAnchor: jest.fn(),
+  clearWorkoutsAnchor: jest.fn(),
 }));
 
-jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
-  runWorkoutHistoryBackfillPasses: jest.fn(async () => ({
-    ok: true,
-    passesRun: 1,
-    mayHaveMoreWorkouts: false,
-  })),
-  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
-}));
+jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => {
+  const { emptyWorkoutHistoryBootstrapSummary } =
+    jest.requireActual<typeof import("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill")>(
+      "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill",
+    );
+  return {
+    runWorkoutHistoryBackfillPasses: jest.fn(async () => ({
+      ok: true,
+      passesRun: 1,
+      mayHaveMoreWorkouts: false,
+      bootstrap: emptyWorkoutHistoryBootstrapSummary(),
+    })),
+    DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
+  };
+});
 
 jest.mock("@/lib/api/ingest", () => ({
   ingestRawEvent: jest.fn(),
@@ -145,6 +161,21 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => ({
+  ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
+  getTodayDayKeyLocal: () => "2026-03-12",
+  getWeekDaysForAnchor: () =>
+    [
+      "2026-03-08",
+      "2026-03-09",
+      "2026-03-10",
+      "2026-03-11",
+      "2026-03-12",
+      "2026-03-13",
+      "2026-03-14",
+    ] as const,
+}));
+
 jest.mock("@/lib/workouts/gymRegistry", () => ({
   getGymLabel: () => "Any gym",
   getGymMenuOptions: () => [],
@@ -157,6 +188,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
+  ActivityIndicator: "ActivityIndicator",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Modal: "Modal",
@@ -236,16 +268,78 @@ function findByA11yLabel(root: renderer.ReactTestRenderer["root"], label: string
   );
 }
 
+/** Month-summary fetch resolves on a microtask; flush so console discipline does not see stray act() warnings. */
+async function mountTrainingOverview(): Promise<renderer.ReactTestRenderer> {
+  let test!: renderer.ReactTestRenderer;
+  await act(async () => {
+    test = renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  return test;
+}
+
 describe("Workouts calendar navigation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseLocalSearchParams.mockReturnValue({});
+    mockUseWorkoutsCalendarRange.mockImplementation((start: string, end: string) => {
+      // Workouts overview uses one shared range ending on the fixed analytics year (2026-12-31).
+      if (end === "2026-12-31") {
+        return {
+          status: "ready",
+          days: [
+            { day: "2026-03-08", workouts: [] },
+            { day: "2026-03-09", workouts: [] },
+            { day: "2026-03-10", workouts: [] },
+            {
+              day: "2026-03-11",
+              workouts: [
+                {
+                  id: "w1",
+                  observedAt: "2026-03-11T10:00:00.000Z",
+                  sourceId: "manual",
+                  title: "Run",
+                  start: "2026-03-11T10:00:00.000Z",
+                  end: "2026-03-11T11:00:00.000Z",
+                  durationMinutes: 60,
+                  calories: 500,
+                },
+              ],
+            },
+            { day: "2026-03-12", workouts: [] },
+            { day: "2026-03-13", workouts: [] },
+            { day: "2026-03-14", workouts: [] },
+          ],
+        };
+      }
+      return {
+        status: "ready",
+        days: [
+          { day: "2026-03-10", workouts: [] },
+          {
+            day: "2026-03-11",
+            workouts: [
+              {
+                id: "w1",
+                observedAt: "2026-03-11T10:00:00.000Z",
+                sourceId: "manual",
+                title: "Run",
+                start: "2026-03-11T10:00:00.000Z",
+                end: "2026-03-11T11:00:00.000Z",
+                durationMinutes: 60,
+                calories: 500,
+              },
+            ],
+          },
+        ],
+      };
+    });
   });
 
-  it("header calendar button navigates to workouts calendar", () => {
-    act(() => {
-      renderer.create(<TrainingOverviewScreen />);
-    });
+  it("header calendar button navigates to workouts calendar", async () => {
+    await mountTrainingOverview();
 
     // headerRight is injected via navigation.setOptions, not in the main tree
     const optionsArg = mockSetOptions.mock.calls[0]?.[0];
@@ -266,11 +360,8 @@ describe("Workouts calendar navigation", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/workouts/calendar");
   });
 
-  it("weekly strip day press navigates to workout day", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("weekly strip day press navigates to workout day", async () => {
+    const test = await mountTrainingOverview();
 
     const dayBtn = findByA11yLabel(test.root, "2026-03-11, has workouts");
     act(() => {
@@ -298,6 +389,54 @@ describe("Workouts calendar navigation", () => {
       pathname: "/(app)/workouts/day/[day]",
       params: { day: "2026-03-11" },
     });
+  });
+
+  it("calendar partial state renders month grid without full-screen loading gate", () => {
+    mockUseWorkoutsCalendarRange.mockReturnValue({ status: "partial" });
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutsCalendarScreen />);
+    });
+    const textNodes = test.root.findAll((n) => typeof n.props?.children === "string");
+    expect(
+      textNodes.some((n) => String(n.props.children).includes("Loading workouts calendar")),
+    ).toBe(false);
+    expect(textNodes.some((n) => String(n.props.children) === "Sun")).toBe(true);
+  });
+
+  it("calendar transitions from loading to ready without hook-order crash", () => {
+    const state = { current: { status: "partial" as const } };
+    mockUseWorkoutsCalendarRange.mockImplementation(() => state.current);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutsCalendarScreen />);
+    });
+    state.current = {
+      status: "ready",
+      days: [
+        { day: "2026-03-10", workouts: [] },
+        {
+          day: "2026-03-11",
+          workouts: [
+            {
+              id: "w1",
+              observedAt: "2026-03-11T10:00:00.000Z",
+              sourceId: "manual",
+              title: "Run",
+              start: "2026-03-11T10:00:00.000Z",
+              end: "2026-03-11T11:00:00.000Z",
+              durationMinutes: 60,
+              calories: 500,
+            },
+          ],
+        },
+      ],
+    };
+    act(() => {
+      test.update(<WorkoutsCalendarScreen />);
+    });
+    const button = findByA11yLabel(test.root, "2026-03-11, has workouts");
+    expect(button).toBeTruthy();
   });
 
   it("renders continuous month view with no arrow controls or Today jump button", () => {

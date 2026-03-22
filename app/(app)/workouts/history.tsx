@@ -8,6 +8,9 @@ import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl } from "rea
 import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutsHistory } from "@/lib/data/useWorkoutsHistory";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
@@ -100,7 +103,13 @@ export default function WorkoutHistoryScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () => <OverflowMenuButton onPress={menuPlaceholder} />,
+      ...workoutsStackNavigationOptions("detail"),
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerRight: () => (
+        <WorkoutsHeaderRightRow>
+          <OverflowMenuButton onPress={menuPlaceholder} />
+        </WorkoutsHeaderRightRow>
+      ),
       title: SHELL_TITLE,
     });
   }, [navigation]);

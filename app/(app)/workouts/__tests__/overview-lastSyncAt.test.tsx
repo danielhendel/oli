@@ -12,6 +12,22 @@ import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 import TrainingOverviewScreen from "../overview";
 import { runWorkoutHistoryBackfillPasses } from "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill";
 import * as storage from "@/lib/integrations/appleHealth/storage";
+import * as anchor from "@/lib/integrations/appleHealth/anchor";
+
+jest.mock("@/lib/api/usersMe", () => ({
+  getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, expectedMonthCount: 12, complete: false, items: [] },
+  }),
+  postWorkoutMonthSummariesRebuild: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, monthsProcessed: 12 },
+  }),
+}));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -33,6 +49,21 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => ({
+  ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
+  getTodayDayKeyLocal: () => "2026-03-07",
+  getWeekDaysForAnchor: () =>
+    [
+      "2026-03-01",
+      "2026-03-02",
+      "2026-03-03",
+      "2026-03-04",
+      "2026-03-05",
+      "2026-03-06",
+      "2026-03-07",
+    ] as const,
+}));
+
 jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
   runWorkoutHistoryBackfillPasses: jest.fn(),
   DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
@@ -41,6 +72,7 @@ jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   getWorkoutsAnchor: jest.fn().mockResolvedValue(null),
   setWorkoutsAnchor: jest.fn().mockResolvedValue(undefined),
+  clearWorkoutsAnchor: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
@@ -56,6 +88,11 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
     (globalThis as unknown as { __overviewAhLastChecked: AhThrottle }).__overviewAhLastChecked.lastCheckedAt =
       iso;
   }),
+  getAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue(null),
+  setAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue(undefined),
+  getAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue("oli-wb-v2-2026-03-21"),
+  setAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue(undefined),
+  clearAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue(undefined),
   getAppleHealthConnected: jest.fn(),
   setAppleHealthConnected: jest.fn(),
   setAppleHealthNotAvailable: jest.fn(),
@@ -79,6 +116,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
     ok: true,
     data: { workouts: [], anchor: "anchor-1" },
   }),
+  pullWorkoutsByDateRange: jest.fn(),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: (day: string) => `steps:${day}`,
   workoutIdempotencyKey: () => "workout:key",
 }));
@@ -160,16 +199,47 @@ jest.mock("@react-navigation/native", () => ({
 const mockRunBackfill = runWorkoutHistoryBackfillPasses as jest.MockedFunction<
   typeof runWorkoutHistoryBackfillPasses
 >;
+const mockGetDeepBackfillVersion = storage.getAppleHealthDeepBackfillVersion as jest.MockedFunction<
+  typeof storage.getAppleHealthDeepBackfillVersion
+>;
 const mockSetAppleHealthLastCheckedAt = storage.setAppleHealthLastCheckedAt as jest.MockedFunction<
   typeof storage.setAppleHealthLastCheckedAt
 >;
+const mockClearWorkoutsAnchor = anchor.clearWorkoutsAnchor as jest.MockedFunction<
+  typeof anchor.clearWorkoutsAnchor
+>;
+const mockClearRangeBootstrapBuild = storage.clearAppleHealthWorkoutRangeBootstrapBuild as jest.MockedFunction<
+  typeof storage.clearAppleHealthWorkoutRangeBootstrapBuild
+>;
+
+const MOCK_EMPTY_BOOTSTRAP = {
+  attempted: false,
+  requestedStartDate: null,
+  requestedEndDate: null,
+  nativeMethodAssumed: false,
+  workoutsFetched: 0,
+  workoutsIngested: 0,
+  pagesFetched: 0,
+  truncated: false,
+  nativeEarliestStart: null,
+  nativeLatestStart: null,
+  ingestAttempted: 0,
+  ingestOk: 0,
+  ingestFailed: 0,
+};
 
 beforeEach(() => {
   g.__overviewAhLastChecked!.lastCheckedAt = new Date().toISOString();
   jest.clearAllMocks();
   (storage.getLastSyncAt as jest.Mock).mockResolvedValue(null);
   (storage.getAppleHealthConnected as jest.Mock).mockResolvedValue(true);
-  mockRunBackfill.mockResolvedValue({ ok: true, passesRun: 1, mayHaveMoreWorkouts: false });
+  mockGetDeepBackfillVersion.mockResolvedValue("v13m");
+  mockRunBackfill.mockResolvedValue({
+    ok: true,
+    passesRun: 1,
+    mayHaveMoreWorkouts: false,
+    bootstrap: MOCK_EMPTY_BOOTSTRAP,
+  });
 });
 
 it("smart foreground sync: when lastCheckedAt is recent, runner is not called on focus", async () => {
@@ -201,4 +271,18 @@ it("smart foreground sync: when lastCheckedAt is old, runner is called and setAp
   });
   expect(mockRunBackfill).toHaveBeenCalled();
   expect(mockSetAppleHealthLastCheckedAt).toHaveBeenCalled();
+});
+
+it("runs backfill when deep backfill version is missing even if lastCheckedAt is recent", async () => {
+  g.__overviewAhLastChecked!.lastCheckedAt = new Date().toISOString();
+  mockGetDeepBackfillVersion.mockResolvedValueOnce(null).mockResolvedValue("v13m");
+  await act(async () => {
+    renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(mockRunBackfill).toHaveBeenCalled();
+  expect(mockClearWorkoutsAnchor).toHaveBeenCalled();
+  expect(mockClearRangeBootstrapBuild).toHaveBeenCalled();
 });

@@ -1,10 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, Text, type ViewToken } from "react-native";
+import { View, StyleSheet, FlatList, type ViewToken } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { ScreenContainer, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { MonthGrid } from "@/lib/ui/calendar/MonthGrid";
 import type { DayKey } from "@/lib/ui/calendar/types";
-import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
+import {
+  clearWorkoutCalendarMarkerCache,
+  loadWorkoutCalendarMarkerSnapshot,
+  persistWorkoutCalendarMarkerSnapshot,
+} from "@/lib/data/workouts/workoutsCalendarMarkerCache";
+import {
+  DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
+  useWorkoutsCalendarRange,
+} from "@/lib/data/workouts/useWorkoutsCalendar";
+import { getWorkoutTruthTargetConfig } from "@/lib/debug/workoutTruthTargets";
 import { getMonthFirstDay, getMonthLastDay, type MonthYear, clampMonthYear } from "@/lib/ui/calendar/dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
@@ -43,6 +55,7 @@ function buildMonthRange(center: MonthYear): CalendarMonthModel[] {
 export default function WorkoutsCalendarScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const { user } = useAuth();
   const todayMonth = monthYearFromToday();
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [windowBounds, setWindowBounds] = useState(() => ({
@@ -58,19 +71,42 @@ export default function WorkoutsCalendarScreen() {
   const clampedEnd = Math.max(clampedStart, Math.min(windowBounds.endIndex, months.length - 1));
   const startDay = getMonthFirstDay(months[clampedStart]!.monthYear);
   const endDay = getMonthLastDay(months[clampedEnd]!.monthYear);
-  const range = useWorkoutsCalendarRange(startDay, endDay, { refreshEpoch });
+  const range = useWorkoutsCalendarRange(startDay, endDay, {
+    refreshEpoch,
+    rawEventKinds: DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
+    debugHydrateLabel: "calendar-viewport",
+    preferWorkoutDaySummaries: true,
+  });
+
+  const rangeReady = range.status === "ready";
+  const rangeDays = rangeReady ? range.days : null;
+  const summaryMarkerFlags = rangeReady ? (range.markerFlagsByDay ?? null) : null;
+
+  const kindsSig = useMemo(
+    () => DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS.join(","),
+    [],
+  );
 
   useEffect(() => {
-    if (range.status !== "ready") return;
-    setMarkerMap((prev) => {
-      const next = new Map(prev);
-      for (const d of range.days) {
-        if (d.workouts.length > 0) {
-          const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
-          next.set(d.day, deriveSessionTypeFlags(sessions));
-        }
-        else next.delete(d.day);
-      }
+    if (process.env.JEST_WORKER_ID) return;
+    const uid = user?.uid;
+    if (!uid) return;
+    let cancelled = false;
+    void loadWorkoutCalendarMarkerSnapshot(uid, kindsSig).then((fromDisk) => {
+      if (cancelled || !fromDisk) return;
+      setMarkerMap((prev) => (prev.size > 0 ? prev : fromDisk));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, kindsSig]);
+
+  useEffect(() => {
+    if (!rangeReady || !rangeDays) return;
+    const mergeFlags = (
+      prev: Map<DayKey, WorkoutMarkerFlags>,
+      next: Map<DayKey, WorkoutMarkerFlags>,
+    ): Map<DayKey, WorkoutMarkerFlags> => {
       if (next.size === prev.size) {
         let same = true;
         for (const [k, v] of next) {
@@ -87,10 +123,38 @@ export default function WorkoutsCalendarScreen() {
         if (same) return prev;
       }
       return next;
+    };
+
+    if (summaryMarkerFlags) {
+      setMarkerMap((prev) => {
+        const next = new Map(prev);
+        for (const d of rangeDays) {
+          const f = summaryMarkerFlags[d.day];
+          if (f && (f.hasStrength || f.hasCardio)) {
+            next.set(d.day, { hasStrength: f.hasStrength, hasCardio: f.hasCardio });
+          } else {
+            next.delete(d.day);
+          }
+        }
+        return mergeFlags(prev, next);
+      });
+      return;
+    }
+
+    setMarkerMap((prev) => {
+      const next = new Map(prev);
+      for (const d of rangeDays) {
+        if (d.workouts.length > 0) {
+          const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
+          next.set(d.day, deriveSessionTypeFlags(sessions));
+        } else next.delete(d.day);
+      }
+      return mergeFlags(prev, next);
     });
-  }, [range.status, range.status === "ready" ? range.days : null]);
+  }, [rangeReady, rangeDays, summaryMarkerFlags]);
 
   useEffect(() => {
+    if (process.env.JEST_WORKER_ID) return;
     const id = requestAnimationFrame(() => {
       flatListRef.current?.scrollToIndex({
         index: todayMonthIndex,
@@ -103,20 +167,8 @@ export default function WorkoutsCalendarScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <Pressable
-          onPress={navigation.goBack}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.headerBackButton,
-            pressed && styles.headerBackButtonPressed,
-          ]}
-        >
-          <Text style={styles.headerBackIcon}>‹</Text>
-        </Pressable>
-      ),
+      ...workoutsStackNavigationOptions("detail"),
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
   }, [navigation]);
 
@@ -145,13 +197,31 @@ export default function WorkoutsCalendarScreen() {
     itemVisiblePercentThreshold: 20,
   }).current;
 
-  if (range.status === "partial" && markerMap.size === 0) {
-    return (
-      <ScreenContainer>
-        <LoadingState message="Loading workouts calendar…" />
-      </ScreenContainer>
-    );
-  }
+  useEffect(() => {
+    if (!(__DEV__ && !process.env.JEST_WORKER_ID)) return;
+    const markedDays = [...markerMap.keys()].sort();
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] calendar-source", {
+      rangeStart: startDay,
+      rangeEnd: endDay,
+      rawEventKinds: [...DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS],
+      markedDayCount: markedDays.length,
+      markedDays,
+    });
+  }, [markerMap, startDay, endDay]);
+
+  useEffect(() => {
+    if (!(__DEV__ && !process.env.JEST_WORKER_ID)) return;
+    if (!getWorkoutTruthTargetConfig()) return;
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] calendar-viewport-vs-2025-history", {
+      fetchStartDay: startDay,
+      fetchEndDay: endDay,
+      october2025CouldLoadWithoutScroll: startDay <= "2025-10-31" && endDay >= "2025-10-01",
+      november2025CouldLoadWithoutScroll: startDay <= "2025-11-30" && endDay >= "2025-11-01",
+      note: "Initial window is often a single month; scroll expands fetch — see windowBounds.",
+    });
+  }, [startDay, endDay]);
 
   if (range.status === "error" && markerMap.size === 0) {
     return (
@@ -168,6 +238,25 @@ export default function WorkoutsCalendarScreen() {
   }
 
   const hasAnyWorkouts = markerMap.size > 0;
+  /** Avoid “no workouts” footer while the first fetch or a refresh is still in flight. */
+  const rangeSettledForEmpty =
+    range.status === "ready" && !range.refreshing;
+  const showEmptyFooter = rangeSettledForEmpty && !hasAnyWorkouts;
+
+  useEffect(() => {
+    if (process.env.JEST_WORKER_ID) return;
+    const uid = user?.uid;
+    if (!uid) return;
+    if (showEmptyFooter) {
+      void clearWorkoutCalendarMarkerCache();
+      return;
+    }
+    if (markerMap.size === 0) return;
+    const t = setTimeout(() => {
+      void persistWorkoutCalendarMarkerSnapshot(uid, kindsSig, markerMap);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [showEmptyFooter, markerMap, user?.uid, kindsSig]);
 
   const markerForDay = (day: DayKey): WorkoutMarkerFlags | null => {
     return markerMap.get(day) ?? null;
@@ -211,7 +300,7 @@ export default function WorkoutsCalendarScreen() {
           </View>
         )}
         ListFooterComponent={
-          !hasAnyWorkouts ? (
+          showEmptyFooter ? (
             <View style={styles.emptyWrapper}>
               <EmptyState
                 title="No workouts in this range"
@@ -232,24 +321,6 @@ const styles = StyleSheet.create({
   topSpacer: { height: 0 },
   monthItem: {
     height: CALENDAR_MONTH_ITEM_HEIGHT,
-  },
-  headerBackButton: {
-    marginLeft: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F2F2F7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBackButtonPressed: {
-    opacity: 0.7,
-  },
-  headerBackIcon: {
-    fontSize: 23,
-    color: "#1C1C1E",
-    fontWeight: "600",
-    transform: [{ translateX: -0.5 }],
   },
   emptyWrapper: {
     marginTop: 24,

@@ -7,6 +7,42 @@ const mockSetOptions = jest.fn();
 const mockSaveOverride = jest.fn(async () => undefined);
 let mockOverridesState: Record<string, unknown> = {};
 
+jest.mock("@/lib/api/usersMe", () => ({
+  getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: {
+      year: 2026,
+      expectedMonthCount: 12,
+      complete: true,
+      items: Array.from({ length: 12 }, (_, i) => {
+        const m = i + 1;
+        return {
+          schemaVersion: 1,
+          monthKey: `2026-${String(m).padStart(2, "0")}`,
+          computedAt: "2026-01-01T00:00:00.000Z",
+          reconcileVersion: "0",
+          strengthSessionCount: 0,
+          cardioSessionCount: 0,
+          strengthWeekKeys: [],
+          cardioWeekKeys: [],
+          strengthDurationSumCapped: 0,
+          strengthDurationCountCapped: 0,
+          cardioDurationSumCapped: 0,
+          cardioDurationCountCapped: 0,
+        };
+      }),
+    },
+  }),
+  postWorkoutMonthSummariesRebuild: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, monthsProcessed: 12 },
+  }),
+}));
+
 jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: mockSetOptions, goBack: jest.fn() }),
   useRouter: () => ({ push: mockPush }),
@@ -57,6 +93,21 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   }),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => ({
+  ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
+  getTodayDayKeyLocal: () => "2026-03-10",
+  getWeekDaysForAnchor: () =>
+    [
+      "2026-03-08",
+      "2026-03-09",
+      "2026-03-10",
+      "2026-03-11",
+      "2026-03-12",
+      "2026-03-13",
+      "2026-03-14",
+    ] as const,
+}));
+
 jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
   useWorkoutOverrides: () => ({
     loaded: true,
@@ -79,6 +130,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
     },
   })),
   pullAnchoredWorkouts: jest.fn(),
+  pullWorkoutsByDateRange: jest.fn(),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: jest.fn(),
   workoutIdempotencyKey: jest.fn(),
 }));
@@ -86,18 +139,35 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   getWorkoutsAnchor: jest.fn(),
   setWorkoutsAnchor: jest.fn(),
+  clearWorkoutsAnchor: jest.fn(),
 }));
 
-jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
-  runWorkoutHistoryBackfillPasses: jest.fn(async () => ({ ok: true })),
-  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 1,
-}));
+jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => {
+  const { emptyWorkoutHistoryBootstrapSummary } =
+    jest.requireActual<typeof import("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill")>(
+      "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill",
+    );
+  return {
+    runWorkoutHistoryBackfillPasses: jest.fn(async () => ({
+      ok: true,
+      passesRun: 1,
+      mayHaveMoreWorkouts: false,
+      bootstrap: emptyWorkoutHistoryBootstrapSummary(),
+    })),
+    DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 1,
+  };
+});
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: jest.fn(async () => null),
   setLastSyncAt: jest.fn(async () => undefined),
   getAppleHealthLastCheckedAt: jest.fn(async () => null),
   setAppleHealthLastCheckedAt: jest.fn(async () => undefined),
+  getAppleHealthDeepBackfillVersion: jest.fn(async () => "v13m"),
+  setAppleHealthDeepBackfillVersion: jest.fn(async () => undefined),
+  getAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => "oli-wb-v2-2026-03-21"),
+  setAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => undefined),
+  clearAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => undefined),
   getAppleHealthConnected: jest.fn(async () => true),
   getAppleHealthNotAvailable: jest.fn(async () => false),
   setAppleHealthNotAvailable: jest.fn(async () => undefined),
@@ -125,17 +195,25 @@ jest.mock("react-native", () => ({
   AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
 }));
 
+async function mountTrainingOverview(): Promise<renderer.ReactTestRenderer> {
+  let test!: renderer.ReactTestRenderer;
+  await act(async () => {
+    test = renderer.create(<TrainingOverviewScreen />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  return test;
+}
+
 describe("overview workout actions", () => {
   beforeEach(() => {
     mockOverridesState = {};
     jest.clearAllMocks();
   });
 
-  it("view details keeps day navigation", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("view details keeps day navigation", async () => {
+    const test = await mountTrainingOverview();
     const openActions = test.root.findByProps({ accessibilityLabel: "Workout actions w1" });
     act(() => {
       openActions.props.onPress();
@@ -150,11 +228,8 @@ describe("overview workout actions", () => {
     });
   });
 
-  it("tapping recent row opens workout day details", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("tapping recent row opens workout day details", async () => {
+    const test = await mountTrainingOverview();
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Open workout details w1" }).props.onPress();
     });
@@ -164,11 +239,8 @@ describe("overview workout actions", () => {
     });
   });
 
-  it("opens contextual menu with all expected actions and dismisses on outside tap", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("opens contextual menu with all expected actions and dismisses on outside tap", async () => {
+    const test = await mountTrainingOverview();
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Workout actions w1" }).props.onPress();
     });
@@ -183,22 +255,16 @@ describe("overview workout actions", () => {
     expect(test.root.findAllByProps({ accessibilityLabel: "View details" })).toHaveLength(0);
   });
 
-  it("row subtitle shows duration only and keeps source hidden", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("row subtitle shows duration only and keeps source hidden", async () => {
+    const test = await mountTrainingOverview();
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("20 min");
     expect(json).not.toContain("Apple Health");
     expect(json).not.toContain("Manual");
   });
 
-  it("caps recent workouts list to 7 rows", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("caps recent workouts list to 7 rows", async () => {
+    const test = await mountTrainingOverview();
     const rowButtons = test.root.findAll(
       (n) =>
         typeof n.props?.accessibilityLabel === "string" &&
@@ -207,11 +273,8 @@ describe("overview workout actions", () => {
     expect(rowButtons).toHaveLength(7);
   });
 
-  it("lower row still supports row tap and action menu", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+  it("lower row still supports row tap and action menu", async () => {
+    const test = await mountTrainingOverview();
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Open workout details w7" }).props.onPress();
     });
@@ -232,10 +295,7 @@ describe("overview workout actions", () => {
   });
 
   it("rename action navigates to dedicated edit screen", async () => {
-    let test!: renderer.ReactTestRenderer;
-    await act(async () => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+    const test = await mountTrainingOverview();
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Workout actions w1" }).props.onPress();
     });
@@ -249,10 +309,7 @@ describe("overview workout actions", () => {
   });
 
   it("duration and type actions navigate to dedicated edit screens", async () => {
-    let test!: renderer.ReactTestRenderer;
-    await act(async () => {
-      test = renderer.create(<TrainingOverviewScreen />);
-    });
+    const test = await mountTrainingOverview();
 
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Workout actions w1" }).props.onPress();

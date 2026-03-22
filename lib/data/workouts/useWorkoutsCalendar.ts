@@ -1,38 +1,70 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getRawEvents, getRawEvent } from "@/lib/api/usersMe";
+import {
+  getRawEvents,
+  getRawEvent,
+  getWorkoutDaySummaries,
+  postWorkoutDaySummariesRebuild,
+} from "@/lib/api/usersMe";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import { parseWorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { isValidDayKey } from "@/lib/ui/calendar/types";
 import { addCalendarDaysToDayKey, enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
-import type { DailyFactsDto } from "@/lib/contracts";
+import type { DailyFactsDto, RawEventDoc, RawEventListItem } from "@/lib/contracts";
 import { deriveWorkoutDayKey } from "@/lib/data/workouts/workoutsCalendarDayKey";
 import type { WorkoutRawForDayDerivation } from "@/lib/data/workouts/workoutsCalendarDayKey";
 import { sortWorkoutsChronologicalAsc } from "@/lib/data/workouts/workoutsCalendarModel";
+import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE } from "@/lib/data/workouts/workoutsCalendarApiConstants";
-
-type RawEventKind = "workout" | "strength_workout";
+import type { WorkoutCalendarRawEventKind } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
+import { resolveWorkoutCalendarRawEventKinds } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
+import {
+  getWorkoutTruthTargetConfig,
+  rawEventIdMatchesTruthTargets,
+} from "@/lib/debug/workoutTruthTargets";
+import { clearWorkoutCalendarMarkerCache } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
+import { WORKOUT_DAY_SUMMARY_EXPECTED } from "@oli/contracts";
+import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 
 export { WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE } from "@/lib/data/workouts/workoutsCalendarApiConstants";
+
+export {
+  DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
+  resolveWorkoutCalendarRawEventKinds,
+} from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
+export type { WorkoutCalendarRawEventKind } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
 
 /** Pad observedAt query window so payload.day / TZ-derived days still match the UI range. */
 const OBSERVED_AT_PAD_DAYS = 21;
 
+/** Must stay ≤ API `workout-day-summaries` max range; otherwise skip summary-first hydrate. */
+const WORKOUT_DAY_SUMMARY_CLIENT_MAX_RANGE_DAYS = 900;
+
+/**
+ * When summaries are incomplete, one server rebuild is attempted for ranges up to this many days
+ * (bounds write/query load; wide history still uses raw fallback until a dedicated backfill).
+ */
+const WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS = 120;
+
 export type WorkoutCalendarAdapterOptions = {
   /**
-   * Optional: include strength_workout RawEvents as workout markers.
-   *
-   * Repo-truth today treats strength_workout as a separate canonical kind used
-   * for DailyFacts.strength. It is not yet unambiguously defined whether
-   * strength_workout should count as a generic "workout day" marker.
-   *
-   * To avoid guessing, callers must opt in explicitly.
+   * Raw kinds to list/hydrate for this range. Default: {@link DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS}.
+   * Tests may pass a subset (e.g. `["workout"]` only).
    */
-  includeStrengthWorkouts?: boolean;
+  rawEventKinds?: readonly WorkoutCalendarRawEventKind[];
   /** Increment after server-side workout ingest so this range refetches RawEvents. */
   refreshEpoch?: number;
+  /**
+   * DEV: label for `[WORKOUT_TRUTH_DEBUG] hydrate-target-*` logs when
+   * `EXPO_PUBLIC_WORKOUT_TRUTH_TARGET_RAW_EVENT_IDS` / `_PREFIXES` are set.
+   */
+  debugHydrateLabel?: string;
+  /**
+   * Calendar: try compact workout-day summaries before raw-event hydration when coverage is complete.
+   */
+  preferWorkoutDaySummaries?: boolean;
 };
 
 export type WorkoutCalendarDay = {
@@ -42,8 +74,19 @@ export type WorkoutCalendarDay = {
 
 export type WorkoutCalendarRangeState =
   | { status: "partial" }
-  | { status: "ready"; days: WorkoutCalendarDay[]; refreshing?: boolean }
+  | {
+      status: "ready";
+      days: WorkoutCalendarDay[];
+      refreshing?: boolean;
+      /** Present when markers were loaded from summary docs (workouts[] empty for those days). */
+      markerFlagsByDay?: Record<DayKey, WorkoutMarkerFlags>;
+    }
   | { status: "error"; error: string; requestId: string | null };
+
+type CachedWorkoutCalendarRange = {
+  days: WorkoutCalendarDay[];
+  markerFlagsByDay?: Record<DayKey, WorkoutMarkerFlags>;
+};
 
 const MAX_ITEMS_CAP = 2000;
 
@@ -52,7 +95,7 @@ function rangeShapeKey(uid: string, start: DayKey, end: DayKey, kindsSig: string
 }
 
 /** Last successful range per shape — stale-while-refresh across refocus / refreshEpoch. */
-const lastGoodRangeByShape = new Map<string, WorkoutCalendarDay[]>();
+const lastGoodRangeByShape = new Map<string, CachedWorkoutCalendarRange>();
 
 function clearRangeCachesForUidPrefix(uid: string): void {
   const p = `${uid}|`;
@@ -65,6 +108,7 @@ function clearRangeCachesForUidPrefix(uid: string): void {
 export function resetWorkoutsCalendarCachesForTests(): void {
   lastGoodRangeByShape.clear();
   dayWorkoutsByUidDay.clear();
+  void clearWorkoutCalendarMarkerCache();
 }
 
 export function seedDayWorkoutsCacheForTests(
@@ -100,35 +144,183 @@ function mergeWorkoutsIntoDayCache(uid: string, days: WorkoutCalendarDay[]): voi
   }
 }
 
+function workoutTruthPayloadPreview(payload: unknown): Record<string, unknown> {
+  if (payload == null || typeof payload !== "object" || Array.isArray(payload)) return {};
+  const p = payload as Record<string, unknown>;
+  return {
+    day: p.day,
+    start: p.start,
+    end: p.end,
+    timezone: p.timezone,
+    timeZone: p.timeZone,
+  };
+}
+
+/** Lexicographic ISO compare vs UTC day bounds (matches server parseStartEndAsIso for YYYY-MM-DD). */
+function observedAtLikelyInsideDayKeyWindow(observedAt: string, startDay: DayKey, endDay: DayKey): boolean {
+  const lo = `${startDay}T00:00:00.000Z`;
+  const hi = `${endDay}T23:59:59.999Z`;
+  return observedAt >= lo && observedAt <= hi;
+}
+
+type TruthTrace = {
+  seenInListIds: Set<string>;
+  includedIds: Set<string>;
+  lastDropById: Map<string, string>;
+};
+
+type PostListDropPoint =
+  | "kind_mismatch"
+  | "deriveWorkoutDayKey_null"
+  | "dayKey_outside_ui_range"
+  | "included_into_grouped";
+
+/** Single-line proof for EXPO_PUBLIC_WORKOUT_TRUTH_TARGET_* ids: post-list pipeline only. */
+function emitHydrateTargetPostListTrace(args: {
+  debugHydrateLabel: string;
+  targetRawEventId: string;
+  requestedUiStart: DayKey;
+  requestedUiEnd: DayKey;
+  listKindBeingHydrated: WorkoutCalendarRawEventKind;
+  raw: WorkoutRawForDayDerivation & { kind?: string; sourceId?: string };
+  derivedDayKey: DayKey | null;
+  dropPoint: PostListDropPoint;
+  parseInvoked: boolean;
+  parsedItem: WorkoutHistoryItem | null;
+  insertedIntoGrouped: boolean;
+  groupedBucketDayKey: DayKey | null;
+}): void {
+  if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+  const p = workoutTruthPayloadPreview(args.raw.payload);
+  const { derivedDayKey, requestedUiStart, requestedUiEnd } = args;
+  const dayKeyOutsideUi =
+    derivedDayKey == null ? null : derivedDayKey < requestedUiStart || derivedDayKey > requestedUiEnd;
+  // eslint-disable-next-line no-console
+  console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-post-list-trace", {
+    debugHydrateLabel: args.debugHydrateLabel,
+    targetRawEventId: args.targetRawEventId,
+    requestedUiStart,
+    requestedUiEnd,
+    listKindBeingHydrated: args.listKindBeingHydrated,
+    rawObservedAt: args.raw.observedAt,
+    payloadStart: p.start ?? null,
+    payloadEnd: p.end ?? null,
+    payloadDay: p.day ?? null,
+    payloadTimezone: p.timezone ?? null,
+    payloadTimeZone: p.timeZone ?? null,
+    docKind: args.raw.kind ?? null,
+    kindMatchesListRow: Boolean(args.raw.kind && args.raw.kind === args.listKindBeingHydrated),
+    deriveWorkoutDayKey: derivedDayKey,
+    dayKeyOutsideRequestedUiRange: dayKeyOutsideUi,
+    parseWorkoutHistoryItemInvoked: args.parseInvoked,
+    /** Contract: parseWorkoutHistoryItem never returns null (always WorkoutHistoryItem). */
+    parseWorkoutHistoryItemReturnsNull: args.parseInvoked ? false : "n_a_not_invoked",
+    parsedItemId: args.parsedItem?.id ?? null,
+    parsedItemStart: args.parsedItem?.start ?? null,
+    postListDropPoint: args.dropPoint,
+    insertedIntoGroupedArray: args.insertedIntoGrouped,
+    groupedBucketDayKey: args.groupedBucketDayKey,
+  });
+}
+
+function rawListItemIncludesPayload(
+  item: RawEventListItem,
+): item is RawEventListItem & { payload: unknown } {
+  return "payload" in item && item.payload !== undefined;
+}
+
+/** Enough for {@link parseWorkoutHistoryItem} + {@link deriveWorkoutDayKey} on this path. */
+function rawListItemToParseableDoc(item: RawEventListItem & { payload: unknown }): RawEventDoc {
+  return {
+    schemaVersion: 1,
+    id: item.id,
+    userId: item.userId,
+    sourceId: item.sourceId,
+    provider: "",
+    sourceType: "",
+    kind: item.kind,
+    observedAt: item.observedAt,
+    receivedAt: item.receivedAt,
+    payload: item.payload,
+    ...(item.recordedAt !== undefined ? { recordedAt: item.recordedAt } : {}),
+    ...(item.provenance !== undefined ? { provenance: item.provenance } : {}),
+    ...(item.uncertaintyState !== undefined ? { uncertaintyState: item.uncertaintyState } : {}),
+    ...(item.contentUnknown !== undefined ? { contentUnknown: item.contentUnknown } : {}),
+    ...(item.correctionOfRawEventId !== undefined
+      ? { correctionOfRawEventId: item.correctionOfRawEventId }
+      : {}),
+  } as RawEventDoc;
+}
+
 async function hydrateWorkoutsForRange(
-  kinds: RawEventKind[],
+  kinds: WorkoutCalendarRawEventKind[],
   start: DayKey,
   end: DayKey,
   idToken: string,
+  debugHydrateLabel?: string,
 ): Promise<{ ok: true; days: WorkoutCalendarDay[] } | { ok: false; error: string; requestId: string | null }> {
+  const overviewSharedHydrateWallStart =
+    __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel === "overview-shared" ? Date.now() : null;
   const observedStart = addCalendarDaysToDayKey(start, -OBSERVED_AT_PAD_DAYS);
   const observedEnd = addCalendarDaysToDayKey(end, OBSERVED_AT_PAD_DAYS);
+  const truthCfg = getWorkoutTruthTargetConfig();
+  const truthTrace: TruthTrace = {
+    seenInListIds: new Set(),
+    includedIds: new Set(),
+    lastDropById: new Map(),
+  };
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] range-hydrate", {
+      requestedDayStart: start,
+      requestedDayEnd: end,
+      observedAtWindowStart: observedStart,
+      observedAtWindowEnd: observedEnd,
+      rawEventKinds: kinds,
+      debugHydrateLabel: debugHydrateLabel ?? null,
+      truthTargetsConfigured: Boolean(truthCfg),
+    });
+  }
 
   const grouped: { day: DayKey; workout: WorkoutHistoryItem }[] = [];
+  let totalRawEventListRowsFetched = 0;
+  let totalRawEventDocFetches = 0;
 
-  async function hydrateKind(kind: RawEventKind): Promise<{ ok: true } | { ok: false; error: string; requestId: string | null }> {
+  async function hydrateKind(
+    kind: WorkoutCalendarRawEventKind,
+  ): Promise<{ ok: true } | { ok: false; error: string; requestId: string | null }> {
     let cursor: string | null = null;
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const listParams: {
-        kind: RawEventKind;
+        kind: WorkoutCalendarRawEventKind;
         limit: number;
         cursor?: string;
         start: string;
         end: string;
+        includePayload: boolean;
       } = {
         kind,
         limit: WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE,
         start: observedStart,
         end: observedEnd,
+        includePayload: true,
       };
       if (cursor) listParams.cursor = cursor;
+
+      if (__DEV__ && !process.env.JEST_WORKER_ID) {
+        // eslint-disable-next-line no-console
+        console.log("[WORKOUT_TRUTH_DEBUG] raw-events-list-query", {
+          kind: listParams.kind,
+          start: listParams.start,
+          end: listParams.end,
+          limit: listParams.limit,
+          cursor: listParams.cursor ?? null,
+          debugHydrateLabel: debugHydrateLabel ?? null,
+        });
+      }
 
       const listRes = await getRawEvents(idToken, listParams);
 
@@ -136,27 +328,151 @@ async function hydrateWorkoutsForRange(
         return { ok: false, error: listRes.error, requestId: listRes.requestId };
       }
 
-      const ids = listRes.json.items.map((i) => i.id);
-      if (ids.length === 0) {
+      const rows = listRes.json.items;
+      totalRawEventListRowsFetched += rows.length;
+      if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+        const ids = rows.map((r) => r.id);
+        const hits = ids.filter((id) => rawEventIdMatchesTruthTargets(id, truthCfg));
+        for (const h of hits) truthTrace.seenInListIds.add(h);
+        if (hits.length > 0) {
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-in-list-page", {
+            debugHydrateLabel,
+            listKind: kind,
+            requestedUiStart: start,
+            requestedUiEnd: end,
+            paddedListStartDay: observedStart,
+            paddedListEndDay: observedEnd,
+            cursor: listParams.cursor ?? null,
+            pageListedCount: ids.length,
+            matchingTargetIdsInPage: hits,
+          });
+        }
+      }
+
+      if (rows.length === 0) {
         cursor = listRes.json.nextCursor ?? null;
       } else {
-        const rawDocsRes = await Promise.all(ids.map((id) => getRawEvent(id, idToken)));
-        for (const res of rawDocsRes) {
-          if (!res) continue;
-          if (!res.ok) {
-            return { ok: false, error: res.error, requestId: res.requestId };
+        const resolvedDocs: RawEventDoc[] = new Array(rows.length);
+        const needFetchIdx: number[] = [];
+        for (let idx = 0; idx < rows.length; idx += 1) {
+          const row = rows[idx]!;
+          if (rawListItemIncludesPayload(row)) {
+            resolvedDocs[idx] = rawListItemToParseableDoc(row);
+          } else {
+            needFetchIdx.push(idx);
+          }
+        }
+
+        totalRawEventDocFetches += needFetchIdx.length;
+        if (needFetchIdx.length > 0) {
+          const fetched = await Promise.all(needFetchIdx.map((idx) => getRawEvent(rows[idx]!.id, idToken)));
+          for (let j = 0; j < needFetchIdx.length; j += 1) {
+            const idx = needFetchIdx[j]!;
+            const res = fetched[j];
+            if (!res) {
+              return { ok: false, error: "Missing raw event response", requestId: null };
+            }
+            if (!res.ok) {
+              return { ok: false, error: res.error, requestId: res.requestId };
+            }
+            resolvedDocs[idx] = res.json;
+          }
+        }
+
+        for (let i = 0; i < rows.length; i += 1) {
+          const id = rows[i]!.id;
+          const resJson = resolvedDocs[i]!;
+          const raw = resJson as WorkoutRawForDayDerivation & { kind?: string; sourceId?: string };
+          const isTarget = rawEventIdMatchesTruthTargets(id, truthCfg);
+          const derivedDayKey = deriveWorkoutDayKey(raw);
+          const rawKind = raw.kind as WorkoutCalendarRawEventKind | undefined;
+          if (!rawKind || rawKind !== kind) {
+            if (isTarget && debugHydrateLabel) {
+              truthTrace.lastDropById.set(
+                id,
+                `kind_mismatch:listKind=${kind}:docKind=${rawKind ?? "missing"}`,
+              );
+              emitHydrateTargetPostListTrace({
+                debugHydrateLabel,
+                targetRawEventId: id,
+                requestedUiStart: start,
+                requestedUiEnd: end,
+                listKindBeingHydrated: kind,
+                raw,
+                derivedDayKey,
+                dropPoint: "kind_mismatch",
+                parseInvoked: false,
+                parsedItem: null,
+                insertedIntoGrouped: false,
+                groupedBucketDayKey: null,
+              });
+            }
+            continue;
           }
 
-          const raw = res.json as WorkoutRawForDayDerivation & { kind?: string };
-          const rawKind = raw.kind as RawEventKind | undefined;
-          if (!rawKind || rawKind !== kind) continue;
+          if (!derivedDayKey) {
+            if (isTarget && debugHydrateLabel) {
+              truthTrace.lastDropById.set(id, "deriveWorkoutDayKey_null");
+              emitHydrateTargetPostListTrace({
+                debugHydrateLabel,
+                targetRawEventId: id,
+                requestedUiStart: start,
+                requestedUiEnd: end,
+                listKindBeingHydrated: kind,
+                raw,
+                derivedDayKey: null,
+                dropPoint: "deriveWorkoutDayKey_null",
+                parseInvoked: false,
+                parsedItem: null,
+                insertedIntoGrouped: false,
+                groupedBucketDayKey: null,
+              });
+            }
+            continue;
+          }
+          if (derivedDayKey < start || derivedDayKey > end) {
+            if (isTarget && debugHydrateLabel) {
+              const reason = `dayKey_outside_ui_range:dayKey=${derivedDayKey}:uiStart=${start}:uiEnd=${end}`;
+              truthTrace.lastDropById.set(id, reason);
+              emitHydrateTargetPostListTrace({
+                debugHydrateLabel,
+                targetRawEventId: id,
+                requestedUiStart: start,
+                requestedUiEnd: end,
+                listKindBeingHydrated: kind,
+                raw,
+                derivedDayKey,
+                dropPoint: "dayKey_outside_ui_range",
+                parseInvoked: false,
+                parsedItem: null,
+                insertedIntoGrouped: false,
+                groupedBucketDayKey: null,
+              });
+            }
+            continue;
+          }
 
-          const dayKey = deriveWorkoutDayKey(raw);
-          if (!dayKey) continue;
-          if (dayKey < start || dayKey > end) continue;
-
-          const item = parseWorkoutHistoryItem(res.json as never);
-          grouped.push({ day: dayKey, workout: item });
+          const item = parseWorkoutHistoryItem(resJson as never);
+          grouped.push({ day: derivedDayKey, workout: item });
+          if (isTarget && debugHydrateLabel) {
+            truthTrace.includedIds.add(id);
+            truthTrace.lastDropById.delete(id);
+            emitHydrateTargetPostListTrace({
+              debugHydrateLabel,
+              targetRawEventId: id,
+              requestedUiStart: start,
+              requestedUiEnd: end,
+              listKindBeingHydrated: kind,
+              raw,
+              derivedDayKey,
+              dropPoint: "included_into_grouped",
+              parseInvoked: true,
+              parsedItem: item,
+              insertedIntoGrouped: true,
+              groupedBucketDayKey: derivedDayKey,
+            });
+          }
           if (grouped.length > MAX_ITEMS_CAP) {
             return {
               ok: false,
@@ -179,6 +495,48 @@ async function hydrateWorkoutsForRange(
     if (!res.ok) return res as { ok: false; error: string; requestId: string | null };
   }
 
+  if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+    for (const tid of truthCfg.exactIds) {
+      if (truthTrace.includedIds.has(tid)) continue;
+      if (truthTrace.seenInListIds.has(tid)) continue;
+
+      const probe = await getRawEvent(tid, idToken);
+      if (probe == null || !probe.ok) {
+        // eslint-disable-next-line no-console
+        console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-probe", {
+          debugHydrateLabel,
+          id: tid,
+          outcome: "get_failed",
+          error: probe && !probe.ok ? probe.error : "no_response",
+        });
+        continue;
+      }
+      const doc = probe.json as WorkoutRawForDayDerivation & { kind?: string; sourceId?: string };
+      const derived = deriveWorkoutDayKey(doc);
+      const inPaddedWindow =
+        typeof doc.observedAt === "string" &&
+        observedAtLikelyInsideDayKeyWindow(doc.observedAt, observedStart, observedEnd);
+      // eslint-disable-next-line no-console
+      console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-probe", {
+        debugHydrateLabel,
+        id: tid,
+        outcome: "not_seen_in_any_list_page",
+        observedAt: doc.observedAt,
+        kind: doc.kind ?? null,
+        sourceId: doc.sourceId ?? null,
+        payloadPreview: workoutTruthPayloadPreview(doc.payload),
+        derivedDayKey: derived,
+        uiRangeStart: start,
+        uiRangeEnd: end,
+        paddedListStartDay: observedStart,
+        paddedListEndDay: observedEnd,
+        observedAtLikelyInsidePaddedServerListWindow: inPaddedWindow,
+        derivedDayVsUiRange:
+          derived == null ? "derive_null" : derived < start ? "before_ui" : derived > end ? "after_ui" : "inside_ui",
+      });
+    }
+  }
+
   const byDay = new Map<DayKey, WorkoutHistoryItem[]>();
 
   for (const entry of grouped) {
@@ -192,6 +550,101 @@ async function hydrateWorkoutsForRange(
     day,
     workouts: sortWorkoutsChronologicalAsc(byDay.get(day) ?? []),
   }));
+
+  if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+    const targetIdsToScan = new Set<string>();
+    for (const tid of truthTrace.seenInListIds) {
+      if (rawEventIdMatchesTruthTargets(tid, truthCfg)) targetIdsToScan.add(tid);
+    }
+    for (const tid of truthTrace.includedIds) {
+      if (rawEventIdMatchesTruthTargets(tid, truthCfg)) targetIdsToScan.add(tid);
+    }
+    for (const tid of targetIdsToScan) {
+      const finalDayKeys = days.filter((d) => d.workouts.some((w) => w.id === tid)).map((d) => d.day);
+      // eslint-disable-next-line no-console
+      console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-final-model-buckets", {
+        debugHydrateLabel,
+        targetRawEventId: tid,
+        presentInFinalDaysArray: finalDayKeys.length > 0,
+        finalDayKeys,
+      });
+    }
+  }
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    const nonEmpty = days.filter((d) => d.workouts.length > 0);
+    const totalRawItems = nonEmpty.reduce((acc, d) => acc + d.workouts.length, 0);
+    const totalSessions = nonEmpty.reduce(
+      (acc, d) => acc + reconcileWorkoutSessionsForDay(d.day, d.workouts).length,
+      0,
+    );
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] range-coverage", {
+      requestedStart: start,
+      requestedEnd: end,
+      observedStart,
+      observedEnd,
+      rawEventKindsHydrated: kinds,
+      earliestStoredWorkoutDay: nonEmpty[0]?.day ?? null,
+      latestStoredWorkoutDay: nonEmpty[nonEmpty.length - 1]?.day ?? null,
+      daysWithWorkouts: nonEmpty.length,
+      totalRawWorkoutItems: totalRawItems,
+      totalReconciledSessions: totalSessions,
+      totalRawEventListRowsFetched,
+      debugHydrateLabel: debugHydrateLabel ?? null,
+    });
+  }
+
+  if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+    const reconciliationById: Record<
+      string,
+      { day: DayKey; sessionCountThatDay: number; sessionContainsWorkoutId: boolean }
+    > = {};
+    for (const tid of truthTrace.includedIds) {
+      for (const d of days) {
+        const w = d.workouts.find((x) => x.id === tid);
+        if (!w) continue;
+        const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
+        reconciliationById[tid] = {
+          day: d.day,
+          sessionCountThatDay: sessions.length,
+          sessionContainsWorkoutId: sessions.some((s) => s.workouts.some((rw) => rw.id === tid)),
+        };
+        break;
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-reconciliation", {
+      debugHydrateLabel,
+      reconciliationById,
+    });
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_TRUTH_DEBUG] hydrate-target-outcome", {
+      debugHydrateLabel,
+      requestedUiStart: start,
+      requestedUiEnd: end,
+      paddedListStartDay: observedStart,
+      paddedListEndDay: observedEnd,
+      includedTargetIds: [...truthTrace.includedIds],
+      droppedTargets: Object.fromEntries(truthTrace.lastDropById),
+      seenInListNotIncluded: [...truthTrace.seenInListIds].filter((id) => !truthTrace.includedIds.has(id)),
+      analyticsAvgSemanticsNote:
+        debugHydrateLabel === "overview-analytics-2026" || debugHydrateLabel === "overview-shared"
+          ? "Overview chart+stats use buildWorkoutOverviewAnalyticsFromCalendarDays (calendar 2026; metrics: active months/weeks, Avg Duration caps at 480m per session)."
+          : undefined,
+    });
+  }
+
+  if (overviewSharedHydrateWallStart != null) {
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PERF] overview-shared-hydrate-complete", {
+      requestedDayStart: start,
+      requestedDayEnd: end,
+      hydrateDurationMs: Date.now() - overviewSharedHydrateWallStart,
+      totalRawEventListRowsFetched,
+      totalRawEventDocFetches,
+    });
+  }
 
   return { ok: true, days };
 }
@@ -208,6 +661,8 @@ export function useWorkoutsCalendarRange(
 
   const optsRef = useRef<WorkoutCalendarAdapterOptions | undefined>(options);
   optsRef.current = options;
+
+  const rawKindsSig = JSON.stringify(resolveWorkoutCalendarRawEventKinds(options));
 
   const fetchOnce = useCallback(async () => {
     const seq = ++seqRef.current;
@@ -235,29 +690,143 @@ export function useWorkoutsCalendarRange(
       prevUidRef.current = uid;
     }
 
-    const kinds: RawEventKind[] =
-      optsRef.current && optsRef.current.includeStrengthWorkouts === false
-        ? ["workout"]
-        : ["workout", "strength_workout"];
+    const kinds = resolveWorkoutCalendarRawEventKinds(optsRef.current);
     const kindsSig = kinds.join(",");
     const shapeKey = rangeShapeKey(uid, start, end, kindsSig);
-    const staleDays = lastGoodRangeByShape.get(shapeKey);
+    const staleEntry = lastGoodRangeByShape.get(shapeKey);
 
     const token = await getIdToken(false);
     if (!token || seq !== seqRef.current) return;
 
-    if (staleDays) {
-      safeSet({ status: "ready", days: staleDays, refreshing: true });
+    if (staleEntry) {
+      safeSet({
+        status: "ready",
+        days: staleEntry.days,
+        ...(staleEntry.markerFlagsByDay
+          ? { markerFlagsByDay: staleEntry.markerFlagsByDay }
+          : {}),
+        refreshing: true,
+      });
     } else {
       safeSet({ status: "partial" });
     }
 
-    const res = await hydrateWorkoutsForRange(kinds, start, end, token);
+    const preferSummary = Boolean(optsRef.current?.preferWorkoutDaySummaries);
+    const summaryRangeDays = enumerateDaysInclusive(start, end).length;
+    if (preferSummary && summaryRangeDays <= WORKOUT_DAY_SUMMARY_CLIENT_MAX_RANGE_DAYS) {
+      let sumRes = await getWorkoutDaySummaries(token, { start, end });
+      if (seq !== seqRef.current) return;
+
+      const buildFromSummaryResponse = (): CachedWorkoutCalendarRange | null => {
+        if (!sumRes.ok) return null;
+        if (!sumRes.json.complete || sumRes.json.items.length !== sumRes.json.expectedDayCount) return null;
+        let versionsOk = true;
+        const markerFlagsByDay: Record<DayKey, WorkoutMarkerFlags> = {};
+        for (const it of sumRes.json.items) {
+          if (
+            it.schemaVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion ||
+            it.reconcileVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.reconcileVersion
+          ) {
+            versionsOk = false;
+            break;
+          }
+          if (it.rawWorkoutCount > 0 || it.hasStrength || it.hasCardio) {
+            markerFlagsByDay[it.day] = {
+              hasStrength: it.hasStrength,
+              hasCardio: it.hasCardio,
+            };
+          }
+        }
+        if (!versionsOk) return null;
+        const days = enumerateDaysInclusive(start, end).map((day) => ({
+          day,
+          workouts: [] as WorkoutHistoryItem[],
+        }));
+        return { days, markerFlagsByDay };
+      };
+
+      let cached = buildFromSummaryResponse();
+
+      if (
+        !cached &&
+        sumRes.ok &&
+        !sumRes.json.complete &&
+        summaryRangeDays <= WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS
+      ) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID && optsRef.current?.debugHydrateLabel === "calendar-viewport") {
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_PERF] calendar-summary-miss", {
+            start,
+            end,
+            reason: "incomplete_before_rebuild",
+          });
+        }
+        const rebuildRes = await postWorkoutDaySummariesRebuild(token, { start, end });
+        if (seq !== seqRef.current) return;
+        if (rebuildRes.ok) {
+          if (__DEV__ && !process.env.JEST_WORKER_ID && optsRef.current?.debugHydrateLabel === "calendar-viewport") {
+            // eslint-disable-next-line no-console
+            console.log("[WORKOUT_PERF] calendar-summary-rebuild-done", {
+              start,
+              end,
+              daysProcessed: rebuildRes.json.daysProcessed,
+            });
+          }
+          sumRes = await getWorkoutDaySummaries(token, { start, end });
+          if (seq !== seqRef.current) return;
+          cached = buildFromSummaryResponse();
+        }
+      }
+
+      if (cached) {
+        lastGoodRangeByShape.set(shapeKey, cached);
+        if (__DEV__ && !process.env.JEST_WORKER_ID && optsRef.current?.debugHydrateLabel === "calendar-viewport") {
+          // eslint-disable-next-line no-console
+          console.log("[WORKOUT_PERF] calendar-summary-hit", {
+            start,
+            end,
+            markedDays: Object.keys(cached.markerFlagsByDay ?? {}).length,
+          });
+        }
+        safeSet({
+          status: "ready",
+          days: cached.days,
+          ...(cached.markerFlagsByDay ? { markerFlagsByDay: cached.markerFlagsByDay } : {}),
+          refreshing: false,
+        });
+        return;
+      }
+
+      if (__DEV__ && !process.env.JEST_WORKER_ID && optsRef.current?.debugHydrateLabel === "calendar-viewport") {
+        const reason = !sumRes.ok
+          ? "http_error"
+          : !sumRes.json.complete
+            ? "incomplete_after_rebuild"
+            : "version_or_shape_mismatch";
+        // eslint-disable-next-line no-console
+        console.log("[WORKOUT_PERF] calendar-summary-raw-fallback", { start, end, reason });
+      }
+    }
+
+    const res = await hydrateWorkoutsForRange(
+      kinds,
+      start,
+      end,
+      token,
+      optsRef.current?.debugHydrateLabel,
+    );
     if (seq !== seqRef.current) return;
 
     if (!res.ok) {
-      if (staleDays) {
-        safeSet({ status: "ready", days: staleDays, refreshing: false });
+      if (staleEntry) {
+        safeSet({
+          status: "ready",
+          days: staleEntry.days,
+          ...(staleEntry.markerFlagsByDay
+            ? { markerFlagsByDay: staleEntry.markerFlagsByDay }
+            : {}),
+          refreshing: false,
+        });
       } else {
         safeSet({
           status: "error",
@@ -268,14 +837,23 @@ export function useWorkoutsCalendarRange(
       return;
     }
 
-    lastGoodRangeByShape.set(shapeKey, res.days);
+    lastGoodRangeByShape.set(shapeKey, { days: res.days });
     mergeWorkoutsIntoDayCache(uid, res.days);
     safeSet({ status: "ready", days: res.days, refreshing: false });
-  }, [start, end, initializing, user, getIdToken, options?.refreshEpoch]);
+  }, [
+    start,
+    end,
+    initializing,
+    user,
+    getIdToken,
+    options?.refreshEpoch,
+    rawKindsSig,
+    options?.preferWorkoutDaySummaries,
+  ]);
 
   useEffect(() => {
     void fetchOnce();
-  }, [fetchOnce, start, end, user?.uid, options?.refreshEpoch]);
+  }, [fetchOnce, start, end, user?.uid, options?.refreshEpoch, rawKindsSig]);
 
   return state;
 }

@@ -2,6 +2,7 @@
 import { View } from "react-native";
 import { Stack } from "expo-router";
 import { RestTimerProvider, RestTimerPanel } from "@/lib/workouts/restTimer";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
 export default function AppLayout() {
   return (
@@ -30,14 +31,47 @@ export default function AppLayout() {
 
           {/* Keep native headers for the rest */}
           <Stack.Screen name="nutrition/index" options={{ title: "Nutrition" }} />
-          <Stack.Screen name="workouts/index" options={{ title: "Workouts" }} />
-          <Stack.Screen name="workouts/calendar" options={{ title: "Workouts Calendar" }} />
-          <Stack.Screen name="workouts/day/[day]" options={{ title: "Workout Day" }} />
-          <Stack.Screen name="workouts/edit/rename" options={{ title: "Rename Workout" }} />
-          <Stack.Screen name="workouts/edit/duration" options={{ title: "Edit Duration" }} />
-          <Stack.Screen name="workouts/edit/type" options={{ title: "Edit Workout Type" }} />
+          <Stack.Screen
+            name="workouts/index"
+            options={{ title: "Workouts", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="workouts/calendar"
+            options={{ title: "Workouts Calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/day/[day]"
+            options={{ title: "Workout Day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/edit/rename"
+            options={{ title: "Rename Workout", ...workoutsStackNavigationOptions("task") }}
+          />
+          <Stack.Screen
+            name="workouts/edit/duration"
+            options={{ title: "Edit Duration", ...workoutsStackNavigationOptions("task") }}
+          />
+          <Stack.Screen
+            name="workouts/edit/type"
+            options={{ title: "Edit Workout Type", ...workoutsStackNavigationOptions("task") }}
+          />
           <Stack.Screen name="workouts/log" options={{ headerShown: false }} />
-          <Stack.Screen name="workouts/exercise-picker" options={{ title: "Add exercise" }} />
+          <Stack.Screen
+            name="workouts/analytics-detail"
+            options={{ title: "Workout analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/recent-workouts-full"
+            options={{ title: "All workouts", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/history"
+            options={{ title: "Workouts", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/exercise-picker"
+            options={{ title: "Add exercise", ...workoutsStackNavigationOptions("task") }}
+          />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
           <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
           <Stack.Screen name="recovery/sleep" options={{ title: "Sleep" }} />

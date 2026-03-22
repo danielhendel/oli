@@ -15,10 +15,11 @@ import {
   Animated,
   PanResponder,
   findNodeHandle,
+  type PressableAndroidRippleConfig,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { WheelPicker } from "@/components/workouts/WheelPicker";
+import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 
 if (
   typeof Platform !== "undefined" &&
@@ -27,6 +28,12 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const START_GYM_ROW_RIPPLE: PressableAndroidRippleConfig = {
+  color: "rgba(0,0,0,0.06)",
+  foreground: true,
+  borderless: false,
+};
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -367,6 +374,7 @@ export default function WorkoutLogScreen() {
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const [workoutName, setWorkoutName] = useState("");
+  const [startWorkoutNameFocused, setStartWorkoutNameFocused] = useState(false);
   const [gymPickerVisible, setGymPickerVisible] = useState(false);
   const [gymSaveError, setGymSaveError] = useState<string | null>(null);
   /** Workout-flow gym for Start screen: sticks even when preference save fails. */
@@ -839,19 +847,7 @@ export default function WorkoutLogScreen() {
           <Text style={styles.headerTimer}>{timerLabel}</Text>
         </View>
       ) : ui.status === "idle" && isSignedIn ? (
-        <View style={styles.startScreenHeader}>
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <View style={styles.backBtnInner}>
-              <Ionicons name="chevron-back" size={20} color="#007AFF" />
-              <Text style={styles.backBtnText}>Back</Text>
-            </View>
-          </Pressable>
-        </View>
+        <WorkoutsNavBar title="Start Workout" onBackPress={() => router.back()} />
       ) : null}
       <ScrollView
         ref={scrollViewRef}
@@ -887,24 +883,32 @@ export default function WorkoutLogScreen() {
       {ui.status === "idle" ? (
         <>
           <View style={styles.startSetupCard} accessibilityLabel="Start workout setup">
-            <Text style={styles.startSetupTitle}>Start Workout</Text>
-            <Text style={styles.startSetupSubtitle}>
-              Set your gym and optional name, then start logging.
-            </Text>
+            <View style={styles.startSetupHeader}>
+              <Text style={styles.startSetupTitle}>Start Workout</Text>
+              <Text style={styles.startSetupSubtitle}>
+                Set your gym and optional name, then start logging.
+              </Text>
+            </View>
             <Text style={styles.startSetupSectionLabel}>Workout name (optional)</Text>
             <TextInput
               value={workoutName}
               onChangeText={setWorkoutName}
               placeholder="Chest Day"
               placeholderTextColor="#8E8E93"
-              style={styles.startSetupNameInput}
+              style={[
+                styles.startSetupNameInput,
+                startWorkoutNameFocused && styles.startSetupNameInputFocused,
+              ]}
+              onFocus={() => setStartWorkoutNameFocused(true)}
+              onBlur={() => setStartWorkoutNameFocused(false)}
               accessibilityLabel="Workout name (optional)"
               accessibilityHint="Optional label for this workout"
             />
-            <Text style={styles.startSetupSectionLabel}>Gym</Text>
+            <Text style={[styles.startSetupSectionLabel, styles.startSetupGymSectionLabel]}>Gym</Text>
             <Pressable
               onPress={() => setGymPickerVisible(true)}
-              style={styles.startSetupGymRow}
+              style={({ pressed }) => [styles.startSetupGymRow, pressed && styles.startSetupGymRowPressed]}
+              android_ripple={START_GYM_ROW_RIPPLE}
               accessibilityRole="button"
               accessibilityLabel={`Gym: ${getGymLabel(startScreenGymId ?? null)}. Tap to change.`}
             >
@@ -923,7 +927,7 @@ export default function WorkoutLogScreen() {
               accessibilityRole="button"
               accessibilityLabel="Start workout"
             >
-              <Text style={styles.primaryBtnText}>Start workout</Text>
+              <Text style={styles.startSetupPrimaryBtnText}>Start workout</Text>
             </Pressable>
           </View>
           {gymPickerVisible && (
@@ -1994,19 +1998,6 @@ const styles = StyleSheet.create({
   },
   headerTimer: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
   topBarText: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
-  startScreenHeader: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  backBtn: { paddingVertical: 8, paddingRight: 16 },
-  backBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  backBtnText: { fontSize: 17, fontWeight: "600", color: "#007AFF" },
   startCtaBlock: {
     marginTop: 100,
     backgroundColor: "#F2F2F7",
@@ -2015,60 +2006,94 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   startSetupCard: {
-    marginTop: 48,
+    marginTop: 36,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    gap: 16,
+    borderRadius: 12,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.06)",
     ...(Platform.OS === "ios"
-      ? { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12 }
-      : { elevation: 3 }),
+      ? { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6 }
+      : { elevation: 1 }),
   },
-  startSetupTitle: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
-  startSetupSubtitle: { fontSize: 15, color: "#6E6E73", lineHeight: 20 },
+  startSetupHeader: {
+    marginBottom: 16,
+    gap: 9,
+  },
+  startSetupTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1C1C1E",
+    letterSpacing: -0.45,
+  },
+  startSetupSubtitle: { fontSize: 15, color: "#8E8E93", lineHeight: 21 },
   startSetupSectionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6E6E73",
+    color: "#8E8E93",
     textTransform: "uppercase",
     letterSpacing: 0.3,
     marginBottom: 4,
   },
+  startSetupGymSectionLabel: {
+    marginTop: 12,
+  },
   startSetupNameInput: {
-    backgroundColor: "#F2F2F7",
-    borderRadius: 10,
+    backgroundColor: "#F5F5F7",
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
     fontSize: 17,
     color: "#1C1C1E",
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderWidth: 2,
+    borderColor: "#E8E8ED",
+  },
+  startSetupNameInputFocused: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#007AFF",
   },
   startSetupGymRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F2F2F7",
-    borderRadius: 10,
+    backgroundColor: "#F5F5F7",
+    borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: "#D1D1D6",
+  },
+  startSetupGymRowPressed: {
+    backgroundColor: "#EDEDF0",
+    borderColor: "#C7C7CC",
   },
   startSetupGymValue: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
-  startSetupGymChevron: { fontSize: 20, fontWeight: "600", color: "#8E8E93" },
+  startSetupGymChevron: { fontSize: 22, fontWeight: "500", color: "#AEAEB2", marginRight: 2 },
   startSetupPrimaryBtn: {
     alignSelf: "stretch",
-    paddingVertical: 14,
+    minHeight: 54,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
     backgroundColor: "#007AFF",
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "center",
+    marginTop: 20,
+    ...(Platform.OS === "ios"
+      ? {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.12,
+          shadowRadius: 6,
+        }
+      : { elevation: 2 }),
   },
+  startSetupPrimaryBtnText: { fontSize: 17, fontWeight: "700", color: "#FFFFFF", letterSpacing: -0.2 },
   startSetupErrorText: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 13,
     color: "#B00020",
   },

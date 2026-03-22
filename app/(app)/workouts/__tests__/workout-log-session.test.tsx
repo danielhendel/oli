@@ -266,7 +266,7 @@ describe("workouts/log session UI", () => {
     act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
-    const backBtn = findByA11yLabel(test!.root, "Back");
+    const backBtn = findByA11yLabel(test!.root, "Go back");
     expect(backBtn).not.toBeNull();
   });
 

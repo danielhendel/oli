@@ -10,6 +10,8 @@ import { writeFailureImmutable } from "../failures/writeFailureImmutable";
 import { recomputeDerivedTruthForDay } from "../pipeline/recomputeForDay";
 import { db } from "../firebaseAdmin";
 import type { DailyBodyFacts, YmdDateString } from "../types/health";
+import { deriveWorkoutDayKey } from "@/lib/data/workouts/workoutsCalendarDayKey";
+import { recomputeAndWriteWorkoutDaySummary } from "../workouts/recomputeWorkoutDaySummary";
 
 function toYmdUtc(d: Date): string {
   const y = d.getUTCFullYear();
@@ -382,6 +384,24 @@ export const onRawEventCreated = onDocumentCreated(
           userId: rawEvent.userId,
           canonicalId: canonical.id,
           error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else if (rawEvent.kind === "workout" || rawEvent.kind === "strength_workout") {
+      try {
+        const uiDay = deriveWorkoutDayKey({
+          observedAt: rawEvent.observedAt,
+          payload: rawEvent.payload,
+        });
+        if (uiDay) {
+          await recomputeAndWriteWorkoutDaySummary({ db, userId: pathUserId, uiDay });
+        }
+      } catch (summaryErr) {
+        logger.error("workout_day_summary_recompute_failed", {
+          msg: "workout_day_summary_recompute_failed",
+          userId: pathUserId,
+          rawEventId: rawEvent.id,
+          kind: rawEvent.kind,
+          error: summaryErr instanceof Error ? summaryErr.message : String(summaryErr),
         });
       }
     }

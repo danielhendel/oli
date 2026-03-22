@@ -14,7 +14,9 @@ import {
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
-import { STRENGTH_GREEN } from "@/lib/ui/calendar/WorkoutDayRing";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listManualWorkoutDaySummaries, type ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 
@@ -87,7 +89,9 @@ export default function WorkoutDayScreen() {
   useEffect(() => {
     if (!isDayKey) return;
     navigation.setOptions({
+      ...workoutsStackNavigationOptions("detail"),
       title: formatHeaderDate(day),
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <Text
           accessibilityRole="button"
@@ -531,7 +535,7 @@ const styles = StyleSheet.create({
   },
   exerciseCell: {
     fontSize: 17,
-    color: STRENGTH_GREEN,
+    color: WORKOUT_STRENGTH_COLOR,
     fontWeight: "700",
     textAlign: "center",
   },

@@ -4,9 +4,9 @@
  */
 import React, { act } from "react";
 
-type AhThrottle = { lastCheckedAt: string | null };
-const g = globalThis as unknown as { __recentBackfillAh?: AhThrottle };
-g.__recentBackfillAh ??= { lastCheckedAt: null };
+type AhState = { lastCheckedAt: string | null; deepBackfillVersion: string | null };
+const g = globalThis as unknown as { __recentBackfillAh?: AhState };
+g.__recentBackfillAh ??= { lastCheckedAt: null, deepBackfillVersion: null };
 import renderer from "react-test-renderer";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 import TrainingOverviewScreen from "../overview";
@@ -14,6 +14,21 @@ import { runWorkoutHistoryBackfillPasses } from "@/lib/integrations/appleHealth/
 
 const mockUseWorkoutsCalendarRange = jest.fn();
 const mockPush = jest.fn();
+
+jest.mock("@/lib/api/usersMe", () => ({
+  getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, expectedMonthCount: 12, complete: false, items: [] },
+  }),
+  postWorkoutMonthSummariesRebuild: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, monthsProcessed: 12 },
+  }),
+}));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -35,6 +50,21 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => ({
+  ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
+  getTodayDayKeyLocal: () => "2026-03-14",
+  getWeekDaysForAnchor: () =>
+    [
+      "2026-03-08",
+      "2026-03-09",
+      "2026-03-10",
+      "2026-03-11",
+      "2026-03-12",
+      "2026-03-13",
+      "2026-03-14",
+    ] as const,
+}));
+
 jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
   runWorkoutHistoryBackfillPasses: jest.fn(),
   DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
@@ -43,6 +73,7 @@ jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   getWorkoutsAnchor: jest.fn(),
   setWorkoutsAnchor: jest.fn(),
+  clearWorkoutsAnchor: jest.fn(),
 }));
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
@@ -50,12 +81,23 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   setLastSyncAt: jest.fn().mockResolvedValue(undefined),
   getAppleHealthLastCheckedAt: jest.fn(() =>
     Promise.resolve(
-      (globalThis as unknown as { __recentBackfillAh: AhThrottle }).__recentBackfillAh.lastCheckedAt,
+      (globalThis as unknown as { __recentBackfillAh: AhState }).__recentBackfillAh.lastCheckedAt,
     ),
   ),
   setAppleHealthLastCheckedAt: jest.fn(async (iso: string) => {
-    (globalThis as unknown as { __recentBackfillAh: AhThrottle }).__recentBackfillAh.lastCheckedAt = iso;
+    (globalThis as unknown as { __recentBackfillAh: AhState }).__recentBackfillAh.lastCheckedAt = iso;
   }),
+  getAppleHealthDeepBackfillVersion: jest.fn(() =>
+    Promise.resolve(
+      (globalThis as unknown as { __recentBackfillAh: AhState }).__recentBackfillAh.deepBackfillVersion,
+    ),
+  ),
+  setAppleHealthDeepBackfillVersion: jest.fn(async (version: string) => {
+    (globalThis as unknown as { __recentBackfillAh: AhState }).__recentBackfillAh.deepBackfillVersion = version;
+  }),
+  getAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => "oli-wb-v2-2026-03-21"),
+  setAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => undefined),
+  clearAppleHealthWorkoutRangeBootstrapBuild: jest.fn(async () => undefined),
   getAppleHealthConnected: jest.fn().mockResolvedValue(true),
   setAppleHealthConnected: jest.fn(),
   setAppleHealthNotAvailable: jest.fn(),
@@ -76,6 +118,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
     },
   }),
   pullAnchoredWorkouts: jest.fn(),
+  pullWorkoutsByDateRange: jest.fn(),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: (d: string) => `steps:${d}`,
   workoutIdempotencyKey: () => "w:key",
 }));
@@ -137,8 +181,25 @@ const mockBackfill = runWorkoutHistoryBackfillPasses as jest.MockedFunction<
   typeof runWorkoutHistoryBackfillPasses
 >;
 
+const MOCK_EMPTY_BOOTSTRAP = {
+  attempted: false,
+  requestedStartDate: null,
+  requestedEndDate: null,
+  nativeMethodAssumed: false,
+  workoutsFetched: 0,
+  workoutsIngested: 0,
+  pagesFetched: 0,
+  truncated: false,
+  nativeEarliestStart: null,
+  nativeLatestStart: null,
+  ingestAttempted: 0,
+  ingestOk: 0,
+  ingestFailed: 0,
+};
+
 beforeEach(() => {
   g.__recentBackfillAh!.lastCheckedAt = null;
+  g.__recentBackfillAh!.deepBackfillVersion = "v13m";
   jest.clearAllMocks();
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",
@@ -152,10 +213,15 @@ beforeEach(() => {
       { day: "2026-03-14", workouts: [] },
     ],
   });
-  mockBackfill.mockResolvedValue({ ok: true, passesRun: 1, mayHaveMoreWorkouts: false });
+  mockBackfill.mockResolvedValue({
+    ok: true,
+    passesRun: 1,
+    mayHaveMoreWorkouts: false,
+    bootstrap: MOCK_EMPTY_BOOTSTRAP,
+  });
 });
 
-it("passes increasing refreshEpoch to useWorkoutsCalendarRange after successful backfill", async () => {
+it("passes increasing refreshEpoch to the single overview useWorkoutsCalendarRange after successful backfill", async () => {
   allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
 
   await act(async () => {
@@ -170,6 +236,7 @@ it("passes increasing refreshEpoch to useWorkoutsCalendarRange after successful 
 
   expect(mockBackfill).toHaveBeenCalled();
   const calls = mockUseWorkoutsCalendarRange.mock.calls;
+  expect(calls.length).toBeGreaterThanOrEqual(1);
   const epochs = calls.map((c) => (c[2] as { refreshEpoch?: number } | undefined)?.refreshEpoch ?? 0);
   expect(Math.max(...epochs)).toBeGreaterThanOrEqual(1);
   expect(epochs[epochs.length - 1]).toBeGreaterThanOrEqual(epochs[0] ?? 0);

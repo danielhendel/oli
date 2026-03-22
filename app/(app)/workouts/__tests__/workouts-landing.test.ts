@@ -6,12 +6,20 @@ jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   setWorkoutsAnchor: async () => {
     return;
   },
+  clearWorkoutsAnchor: async () => {
+    return;
+  },
 }));
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: async () => null,
   setLastSyncAt: async () => { return; },
   getAppleHealthLastCheckedAt: async () => null,
   setAppleHealthLastCheckedAt: async () => { return; },
+  getAppleHealthDeepBackfillVersion: async () => null,
+  setAppleHealthDeepBackfillVersion: async () => { return; },
+  getAppleHealthWorkoutRangeBootstrapBuild: async () => null,
+  setAppleHealthWorkoutRangeBootstrapBuild: async () => { return; },
+  clearAppleHealthWorkoutRangeBootstrapBuild: async () => { return; },
   getAppleHealthConnected: async () => false,
   setAppleHealthConnected: async () => { return; },
   getAppleHealthNotAvailable: async () => false,
@@ -21,6 +29,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   requestPermissions: async () => ({ ok: false, error: "" }),
   pullTodaySnapshot: async () => ({ ok: true, data: { steps: 0, workouts: [] } }),
   pullAnchoredWorkouts: async () => ({ ok: true, data: { workouts: [], anchor: "mock" } }),
+  pullWorkoutsByDateRange: async () => ({ ok: true, data: { workouts: [], pagesFetched: 0, truncated: false } }),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: () => "",
   workoutIdempotencyKey: () => "",
 }));

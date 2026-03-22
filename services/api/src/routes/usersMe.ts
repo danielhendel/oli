@@ -10,6 +10,18 @@ import {
   canonicalEventsListQuerySchema,
   timelineQuerySchema,
   lineageQuerySchema,
+  workoutDaySummariesQuerySchema,
+  workoutDaySummariesResponseDtoSchema,
+  workoutDaySummariesRebuildRequestDtoSchema,
+  workoutDaySummariesRebuildResponseDtoSchema,
+  workoutDaySummaryItemDtoSchema,
+  WORKOUT_DAY_SUMMARY_EXPECTED,
+  workoutMonthSummariesQuerySchema,
+  workoutMonthSummariesResponseDtoSchema,
+  workoutMonthSummaryItemDtoSchema,
+  workoutMonthSummariesRebuildRequestDtoSchema,
+  workoutMonthSummariesRebuildResponseDtoSchema,
+  WORKOUT_MONTH_SUMMARY_EXPECTED,
 } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
@@ -36,10 +48,12 @@ import {
   sleepViewDtoSchema,
   readinessViewDtoSchema,
   type InsightDto,
+  type RawEventListItem,
 } from "../types/dtos";
 
-import { userCollection, documentIdPath } from "../db";
+import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
+import { getRawEventsTruthDebugConfig } from "../lib/workoutTruthDebug";
 
 const router = Router();
 
@@ -134,6 +148,19 @@ function parseStartEndAsIso(
   if (Number.isNaN(Date.parse(startIso)) || Number.isNaN(Date.parse(endIso)))
     return null;
   return { startIso, endIso };
+}
+
+/** UTC calendar-day walk for workout summary range reads (matches lib enumerateDaysInclusive). */
+function enumerateDayKeysInclusive(start: string, end: string): string[] {
+  const out: string[] = [];
+  let current = start;
+  while (current <= end) {
+    out.push(current);
+    const d = new Date(`${current}T12:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    current = d.toISOString().slice(0, 10);
+  }
+  return out;
 }
 
 /** Encode cursor for pagination: base64(docId) */
@@ -572,6 +599,7 @@ const RAW_EVENTS_LIST_QUERY_KEYS = [
   "q",
   "cursor",
   "limit",
+  "includePayload",
   "_",
   "key",
 ] as const;
@@ -600,7 +628,17 @@ router.get(
       return;
     }
 
-    const { start, end, kinds, provenance, uncertaintyState, q: keyword, cursor, limit } = parsed.data;
+    const {
+      start,
+      end,
+      kinds,
+      provenance,
+      uncertaintyState,
+      q: keyword,
+      cursor,
+      limit,
+      includePayload,
+    } = parsed.data;
 
     // Sprint 3 — keyword search: in-memory only (not indexed). Bounded strategy:
     // keyword filters within the date window (start/end). When no date range given,
@@ -744,6 +782,9 @@ router.get(
       if (raw["uncertaintyState"]) item.uncertaintyState = raw["uncertaintyState"];
       if (raw["contentUnknown"] === true) item.contentUnknown = true;
       if (raw["correctionOfRawEventId"]) item.correctionOfRawEventId = raw["correctionOfRawEventId"] as string;
+      if (includePayload && "payload" in raw) {
+        item.payload = raw["payload"];
+      }
       const validated = rawEventListItemSchema.safeParse(item);
       if (!validated.success) {
         invalidDoc500(req, res, "rawEvents", {
@@ -766,6 +807,370 @@ router.get(
       invalidDoc500(req, res, "rawEventsListResponse", validated.error.flatten());
       return;
     }
+
+    const truthDbg = getRawEventsTruthDebugConfig();
+    if (truthDbg) {
+      const rowsForTruth = outItems as RawEventListItem[];
+      const kindsForLog = kinds && kinds.length > 0 ? kinds.join(",") : "";
+      const rangeParsed = start && end ? parseStartEndAsIso(start, end) : null;
+      const observedAts = rowsForTruth
+        .map((it) => it.observedAt)
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .sort((a, b) => a.localeCompare(b));
+      const minObs = observedAts.length > 0 ? observedAts[0]! : null;
+      const maxObs = observedAts.length > 0 ? observedAts[observedAts.length - 1]! : null;
+      const exactTargetPresence = [...truthDbg.exactIds].map((id) => ({
+        id,
+        presentInPage: rowsForTruth.some((i) => i.id === id),
+      }));
+      const prefixTargetMatchesInPage = rowsForTruth
+        .filter((i) => truthDbg.prefixes.some((p) => i.id.startsWith(p)))
+        .map((i) => ({ id: i.id, observedAt: i.observedAt }));
+      logger.info({
+        msg: "workout_truth_debug_raw_events_list",
+        rid: getRid(req),
+        requestStart: start ?? null,
+        requestEnd: end ?? null,
+        parsedStartIso: rangeParsed?.startIso ?? null,
+        parsedEndIso: rangeParsed?.endIso ?? null,
+        kinds: kindsForLog,
+        limit,
+        hasCursor: Boolean(cursor),
+        returnedCount: outItems.length,
+        minObservedAtInPage: minObs,
+        maxObservedAtInPage: maxObs,
+        exactTargetPresence,
+        prefixTargetMatchesInPage,
+      });
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+const WORKOUT_DAY_SUMMARIES_QUERY_KEYS = ["start", "end", "_", "key"] as const;
+
+// ----------------------------
+// GET /users/me/workout-day-summaries?start=&end=
+// ----------------------------
+
+router.get(
+  "/workout-day-summaries",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const allowedQuery: Record<string, unknown> = {};
+    for (const k of WORKOUT_DAY_SUMMARIES_QUERY_KEYS) {
+      if (k in req.query) allowedQuery[k] = req.query[k];
+    }
+    const parsed = workoutDaySummariesQuerySchema.safeParse(allowedQuery);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsed.data;
+    const dayKeys = enumerateDayKeysInclusive(start, end);
+    const MAX_DAYS = 900;
+    if (dayKeys.length > MAX_DAYS) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: `Range too large (max ${MAX_DAYS} days)`,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const items: z.infer<typeof workoutDaySummaryItemDtoSchema>[] = [];
+    let complete = true;
+
+    for (const day of dayKeys) {
+      const snap = await userCollection(uid, "workoutDaySummaries").doc(day).get();
+      if (!snap.exists) {
+        complete = false;
+        continue;
+      }
+      const data = snap.data();
+      if (!data) {
+        complete = false;
+        continue;
+      }
+      const row = workoutDaySummaryItemDtoSchema.safeParse(data);
+      if (!row.success) {
+        complete = false;
+        continue;
+      }
+      const item = row.data;
+      if (item.day !== day) {
+        complete = false;
+        continue;
+      }
+      if (
+        item.schemaVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion ||
+        item.reconcileVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.reconcileVersion
+      ) {
+        complete = false;
+        continue;
+      }
+      items.push(item);
+    }
+
+    if (items.length !== dayKeys.length) {
+      complete = false;
+    }
+
+    const out = {
+      start,
+      end,
+      expectedDayCount: dayKeys.length,
+      complete,
+      items,
+    };
+    const validated = workoutDaySummariesResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "workoutDaySummariesResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// POST /users/me/workout-day-summaries/rebuild
+// Rebuilds summary docs from raw truth (same compute as Cloud Functions). Lazy-requires esbuild bundle.
+// ----------------------------
+
+router.post(
+  "/workout-day-summaries/rebuild",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = workoutDaySummariesRebuildRequestDtoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_BODY",
+          message: "Invalid request body",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsed.data;
+    const dayKeys = enumerateDayKeysInclusive(start, end);
+    const MAX_DAYS = 900;
+    if (dayKeys.length > MAX_DAYS) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_BODY",
+          message: `Range too large (max ${MAX_DAYS} days)`,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const t0 = Date.now();
+
+    // Built by `node scripts/bundle-workout-day-summary-rebuild.mjs` (see api `build` / `dev` scripts).
+    // Lazy require so Jest GET-only tests and `tsc` do not need the artifact on disk.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { rebuildWorkoutDaySummariesForRange } = require("../lib/workoutDaySummaryRebuild.bundled.cjs") as {
+      rebuildWorkoutDaySummariesForRange: (args: {
+        db: typeof db;
+        userId: string;
+        start: string;
+        end: string;
+      }) => Promise<{ daysProcessed: number }>;
+    };
+
+    const { daysProcessed } = await rebuildWorkoutDaySummariesForRange({
+      db,
+      userId: uid,
+      start,
+      end,
+    });
+
+    const out = { start, end, daysProcessed };
+    const validated = workoutDaySummariesRebuildResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "workoutDaySummariesRebuildResponse", validated.error.flatten());
+      return;
+    }
+
+    logger.info({
+      msg: "workout_day_summaries_rebuild_complete",
+      rid: getRid(req),
+      uid,
+      start,
+      end,
+      daysProcessed,
+      durationMs: Date.now() - t0,
+    });
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// GET /users/me/workout-month-summaries?year=
+// ----------------------------
+
+router.get(
+  "/workout-month-summaries",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = workoutMonthSummariesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const year = parsed.data.year;
+    const expectedMonthKeys: string[] = [];
+    for (let m = 1; m <= 12; m += 1) {
+      expectedMonthKeys.push(`${year}-${String(m).padStart(2, "0")}`);
+    }
+
+    const items: z.infer<typeof workoutMonthSummaryItemDtoSchema>[] = [];
+    let complete = true;
+
+    for (const mk of expectedMonthKeys) {
+      const snap = await userCollection(uid, "workoutMonthSummaries").doc(mk).get();
+      if (!snap.exists) {
+        complete = false;
+        continue;
+      }
+      const data = snap.data();
+      if (!data) {
+        complete = false;
+        continue;
+      }
+      const row = workoutMonthSummaryItemDtoSchema.safeParse(data);
+      if (!row.success) {
+        complete = false;
+        continue;
+      }
+      const item = row.data;
+      if (item.monthKey !== mk) {
+        complete = false;
+        continue;
+      }
+      if (
+        item.schemaVersion !== WORKOUT_MONTH_SUMMARY_EXPECTED.schemaVersion ||
+        item.reconcileVersion !== WORKOUT_MONTH_SUMMARY_EXPECTED.reconcileVersion
+      ) {
+        complete = false;
+        continue;
+      }
+      items.push(item);
+    }
+
+    if (items.length !== expectedMonthKeys.length) {
+      complete = false;
+    }
+
+    const out = {
+      year,
+      expectedMonthCount: expectedMonthKeys.length,
+      complete,
+      items,
+    };
+    const validated = workoutMonthSummariesResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "workoutMonthSummariesResponse", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// POST /users/me/workout-month-summaries/rebuild
+// ----------------------------
+
+router.post(
+  "/workout-month-summaries/rebuild",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = workoutMonthSummariesRebuildRequestDtoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_BODY",
+          message: "Invalid request body",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { year } = parsed.data;
+    const t0 = Date.now();
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { recomputeWorkoutMonthSummariesForYear } = require("../lib/workoutDaySummaryRebuild.bundled.cjs") as {
+      recomputeWorkoutMonthSummariesForYear: (args: {
+        db: typeof db;
+        userId: string;
+        year: number;
+      }) => Promise<{ monthsProcessed: number }>;
+    };
+
+    const { monthsProcessed } = await recomputeWorkoutMonthSummariesForYear({
+      db,
+      userId: uid,
+      year,
+    });
+
+    const out = { year, monthsProcessed };
+    const validated = workoutMonthSummariesRebuildResponseDtoSchema.safeParse(out);
+    if (!validated.success) {
+      invalidDoc500(req, res, "workoutMonthSummariesRebuildResponse", validated.error.flatten());
+      return;
+    }
+
+    logger.info({
+      msg: "workout_month_summaries_rebuild_complete",
+      rid: getRid(req),
+      uid,
+      year,
+      monthsProcessed,
+      durationMs: Date.now() - t0,
+    });
 
     res.status(200).json(validated.data);
   }),

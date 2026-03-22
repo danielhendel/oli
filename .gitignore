@@ -123,6 +123,9 @@ docs/_archive/
 # ----------------------------------------
 services/functions/lib/
 
+# API: esbuild output for workout summary rebuild (built before `tsc -b`)
+services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs
+
 # ----------------------------------------
 # Cloud Run local env (never commit)
 # ----------------------------------------

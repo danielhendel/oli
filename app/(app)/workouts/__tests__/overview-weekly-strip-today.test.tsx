@@ -6,6 +6,21 @@ import renderer, { act } from "react-test-renderer";
 
 const weeklyStripCalls: { selectedDay?: string }[] = [];
 
+jest.mock("@/lib/api/usersMe", () => ({
+  getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, expectedMonthCount: 12, complete: false, items: [] },
+  }),
+  postWorkoutMonthSummariesRebuild: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    requestId: null,
+    json: { year: 2026, monthsProcessed: 12 },
+  }),
+}));
+
 jest.mock("@/lib/ui/calendar/WeeklyStrip", () => {
   const actual = jest.requireActual("@/lib/ui/calendar/WeeklyStrip") as typeof import("@/lib/ui/calendar/WeeklyStrip");
   return {
@@ -84,6 +99,8 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
     },
   }),
   pullAnchoredWorkouts: jest.fn(),
+  pullWorkoutsByDateRange: jest.fn(),
+  toHealthKitIso8601: (d: Date) => d.toISOString(),
   stepsIdempotencyKey: jest.fn(),
   workoutIdempotencyKey: jest.fn(),
 }));
@@ -91,18 +108,35 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 jest.mock("@/lib/integrations/appleHealth/anchor", () => ({
   getWorkoutsAnchor: jest.fn(),
   setWorkoutsAnchor: jest.fn(),
+  clearWorkoutsAnchor: jest.fn(),
 }));
 
-jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => ({
-  runWorkoutHistoryBackfillPasses: jest.fn(),
-  DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
-}));
+jest.mock("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill", () => {
+  const { emptyWorkoutHistoryBootstrapSummary } =
+    jest.requireActual<typeof import("@/lib/integrations/appleHealth/runWorkoutHistoryBackfill")>(
+      "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill",
+    );
+  return {
+    runWorkoutHistoryBackfillPasses: jest.fn(async () => ({
+      ok: true,
+      passesRun: 1,
+      mayHaveMoreWorkouts: false,
+      bootstrap: emptyWorkoutHistoryBootstrapSummary(),
+    })),
+    DEFAULT_WORKOUT_BACKFILL_MAX_PASSES: 3,
+  };
+});
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getLastSyncAt: jest.fn().mockResolvedValue(null),
   setLastSyncAt: jest.fn(),
   getAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(null),
   setAppleHealthLastCheckedAt: jest.fn(),
+  getAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue("v13m"),
+  setAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue(undefined),
+  getAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue("oli-wb-v2-2026-03-21"),
+  setAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue(undefined),
+  clearAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue(undefined),
   getAppleHealthConnected: jest.fn().mockResolvedValue(true),
   setAppleHealthConnected: jest.fn(),
   setAppleHealthNotAvailable: jest.fn(),

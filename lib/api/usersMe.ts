@@ -1,6 +1,6 @@
 // lib/api/usersMe.ts
 import type { ApiResult } from "@/lib/api/http";
-import type { GetOptions } from "@/lib/api/http";
+import type { GetOptions, PostOptions } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
 import { apiGetZodAuthed } from "@/lib/api/validate";
 import { z } from "zod";
@@ -51,6 +51,14 @@ import {
   type HealthSignalDoc,
   type SleepViewDto,
   type ReadinessViewDto,
+  workoutDaySummariesResponseDtoSchema,
+  workoutDaySummariesRebuildResponseDtoSchema,
+  workoutMonthSummariesResponseDtoSchema,
+  workoutMonthSummariesRebuildResponseDtoSchema,
+  type WorkoutDaySummariesResponseDto,
+  type WorkoutDaySummariesRebuildResponseDto,
+  type WorkoutMonthSummariesResponseDto,
+  type WorkoutMonthSummariesRebuildResponseDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -264,6 +272,8 @@ export const getRawEvents = async (
     q?: string;
     cursor?: string;
     limit?: number;
+    /** When true, list rows include `payload` (avoids per-row GET /raw-event for hydrate paths). */
+    includePayload?: boolean;
   } & TruthGetOptions,
 ): Promise<ApiResult<RawEventsListResponseDto>> => {
   const params = new URLSearchParams();
@@ -276,11 +286,77 @@ export const getRawEvents = async (
   if (opts?.q) params.set("q", opts.q);
   if (opts?.cursor) params.set("cursor", opts.cursor);
   if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+  if (opts?.includePayload) params.set("includePayload", "true");
   const qs = params.toString();
   const path = `/users/me/raw-events${qs ? `?${qs}` : ""}`;
   const res = await apiGetZodAuthed(path, idToken, rawEventsListResponseDtoSchema, truthGetOpts(opts));
 
   return res;
+};
+
+export const getWorkoutDaySummaries = async (
+  idToken: string,
+  opts: { start: string; end: string } & TruthGetOptions,
+): Promise<ApiResult<WorkoutDaySummariesResponseDto>> => {
+  const params = new URLSearchParams();
+  params.set("start", opts.start);
+  params.set("end", opts.end);
+  return apiGetZodAuthed(
+    `/users/me/workout-day-summaries?${params.toString()}`,
+    idToken,
+    workoutDaySummariesResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+export const postWorkoutDaySummariesRebuild = async (
+  idToken: string,
+  opts: { start: string; end: string } & TruthGetOptions,
+  postOpts?: PostOptions,
+): Promise<ApiResult<WorkoutDaySummariesRebuildResponseDto>> => {
+  return apiPostZodAuthed(
+    "/users/me/workout-day-summaries/rebuild",
+    { start: opts.start, end: opts.end },
+    idToken,
+    workoutDaySummariesRebuildResponseDtoSchema,
+    {
+      ...truthGetOpts(opts),
+      timeoutMs: 120_000,
+      ...postOpts,
+    },
+  );
+};
+
+export const getWorkoutMonthSummaries = async (
+  idToken: string,
+  opts: { year: number } & TruthGetOptions,
+): Promise<ApiResult<WorkoutMonthSummariesResponseDto>> => {
+  const params = new URLSearchParams();
+  params.set("year", String(opts.year));
+  return apiGetZodAuthed(
+    `/users/me/workout-month-summaries?${params.toString()}`,
+    idToken,
+    workoutMonthSummariesResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+export const postWorkoutMonthSummariesRebuild = async (
+  idToken: string,
+  opts: { year: number } & TruthGetOptions,
+  postOpts?: PostOptions,
+): Promise<ApiResult<WorkoutMonthSummariesRebuildResponseDto>> => {
+  return apiPostZodAuthed(
+    "/users/me/workout-month-summaries/rebuild",
+    { year: opts.year },
+    idToken,
+    workoutMonthSummariesRebuildResponseDtoSchema,
+    {
+      ...truthGetOpts(opts),
+      timeoutMs: 120_000,
+      ...postOpts,
+    },
+  );
 };
 
 /**
