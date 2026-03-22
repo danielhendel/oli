@@ -10,7 +10,9 @@ const SIDE_SLOT = 56;
 const ROW_MIN = 44;
 
 export type WorkoutsNavBarProps = {
-  title: string;
+  /** Omit center title (balanced bar: back + empty center + right spacer). */
+  hideTitle?: boolean;
+  title?: string;
   onBackPress: () => void;
   rightSlot?: React.ReactNode;
   testID?: string;
@@ -20,7 +22,13 @@ export type WorkoutsNavBarProps = {
  * In-screen nav bar for workouts routes with `headerShown: false`.
  * Matches stack header typography and chrome; parent should wrap with SafeAreaView (top).
  */
-export function WorkoutsNavBar({ title, onBackPress, rightSlot, testID }: WorkoutsNavBarProps) {
+export function WorkoutsNavBar({
+  hideTitle = false,
+  title = "",
+  onBackPress,
+  rightSlot,
+  testID,
+}: WorkoutsNavBarProps) {
   return (
     <View style={styles.wrap} accessibilityRole="header">
       <View style={styles.row}>
@@ -31,9 +39,13 @@ export function WorkoutsNavBar({ title, onBackPress, rightSlot, testID }: Workou
             <HeaderBackButton onPress={onBackPress} style={{ marginLeft: 8 }} />
           )}
         </View>
-        <Text style={[WORKOUTS_STACK_HEADER_TITLE_STYLE, styles.title]} numberOfLines={1}>
-          {title}
-        </Text>
+        {hideTitle ? (
+          <View style={styles.titleSpacer} />
+        ) : (
+          <Text style={[WORKOUTS_STACK_HEADER_TITLE_STYLE, styles.title]} numberOfLines={1}>
+            {title}
+          </Text>
+        )}
         <View style={styles.right}>{rightSlot ?? <View style={styles.rightSpacer} />}</View>
       </View>
     </View>
@@ -60,6 +72,9 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: "center",
+  },
+  titleSpacer: {
+    flex: 1,
   },
   right: {
     width: SIDE_SLOT,

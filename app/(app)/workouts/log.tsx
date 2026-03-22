@@ -839,19 +839,22 @@ export default function WorkoutLogScreen() {
     [user, sessionId, reduced, existingBlockIds, refreshReduced],
   );
 
+  const idleStartChrome = ui.status === "idle" && isSignedIn;
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.screen}>
+    <SafeAreaView style={[styles.safe, idleStartChrome && styles.safeIdleStart]} edges={["top"]}>
+      <View style={[styles.screen, idleStartChrome && styles.screenIdleStart]}>
       {ui.status === "active" ? (
         <View style={styles.headerTimerWrap}>
           <Text style={styles.headerTimer}>{timerLabel}</Text>
         </View>
-      ) : ui.status === "idle" && isSignedIn ? (
-        <WorkoutsNavBar title="Start Workout" onBackPress={() => router.back()} />
+      ) : idleStartChrome ? (
+        <WorkoutsNavBar hideTitle onBackPress={() => router.back()} />
       ) : null}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={idleStartChrome ? styles.contentIdleStart : styles.content}
+        style={idleStartChrome ? styles.scrollIdleStart : undefined}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onScroll={(e) => {
@@ -882,6 +885,7 @@ export default function WorkoutLogScreen() {
 
       {ui.status === "idle" ? (
         <>
+          <View style={styles.startSetupCardWrap}>
           <View style={styles.startSetupCard} accessibilityLabel="Start workout setup">
             <View style={styles.startSetupHeader}>
               <Text style={styles.startSetupTitle}>Start Workout</Text>
@@ -929,6 +933,7 @@ export default function WorkoutLogScreen() {
             >
               <Text style={styles.startSetupPrimaryBtnText}>Start workout</Text>
             </Pressable>
+          </View>
           </View>
           {gymPickerVisible && (
             <Modal
@@ -1990,6 +1995,23 @@ const GRID_COL_ACTION_MIN = 64;
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F2F2F7" },
   screen: { flex: 1, backgroundColor: "#F2F2F7" },
+  safeIdleStart: { backgroundColor: "#FFFFFF" },
+  screenIdleStart: { backgroundColor: "#FFFFFF" },
+  scrollIdleStart: { flex: 1, backgroundColor: "#FFFFFF" },
+  contentIdleStart: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  startSetupCardWrap: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    transform: [{ translateY: -18 }],
+  },
   headerTimerWrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -2006,69 +2028,78 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   startSetupCard: {
-    marginTop: 36,
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    paddingVertical: 22,
-    paddingHorizontal: 20,
+    padding: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
+    borderColor: "rgba(60, 60, 67, 0.1)",
     ...(Platform.OS === "ios"
-      ? { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6 }
-      : { elevation: 1 }),
+      ? {
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 14,
+        }
+      : { elevation: 3 }),
   },
   startSetupHeader: {
     marginBottom: 16,
-    gap: 9,
+    gap: 12,
   },
   startSetupTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
     color: "#1C1C1E",
-    letterSpacing: -0.45,
+    letterSpacing: -0.5,
   },
-  startSetupSubtitle: { fontSize: 15, color: "#8E8E93", lineHeight: 21 },
+  startSetupSubtitle: {
+    fontSize: 15,
+    color: "#AEAEB2",
+    lineHeight: 22,
+    letterSpacing: -0.15,
+  },
   startSetupSectionLabel: {
     fontSize: 13,
     fontWeight: "600",
     color: "#8E8E93",
     textTransform: "uppercase",
     letterSpacing: 0.3,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   startSetupGymSectionLabel: {
     marginTop: 12,
   },
   startSetupNameInput: {
-    backgroundColor: "#F5F5F7",
+    backgroundColor: "#F7F7FA",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
     fontSize: 17,
     color: "#1C1C1E",
-    borderWidth: 2,
-    borderColor: "#E8E8ED",
+    borderWidth: 1,
+    borderColor: "rgba(60, 60, 67, 0.12)",
   },
   startSetupNameInputFocused: {
     backgroundColor: "#FFFFFF",
+    borderWidth: 2,
     borderColor: "#007AFF",
   },
   startSetupGymRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F5F5F7",
+    backgroundColor: "#F7F7FA",
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "#D1D1D6",
+    borderColor: "rgba(60, 60, 67, 0.12)",
   },
   startSetupGymRowPressed: {
-    backgroundColor: "#EDEDF0",
-    borderColor: "#C7C7CC",
+    backgroundColor: "#F0F0F4",
+    borderColor: "rgba(60, 60, 67, 0.18)",
   },
   startSetupGymValue: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
   startSetupGymChevron: { fontSize: 22, fontWeight: "500", color: "#AEAEB2", marginRight: 2 },
@@ -2078,18 +2109,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#FF3B30",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.06)",
     ...(Platform.OS === "ios"
       ? {
           shadowColor: "#000",
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.12,
-          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
         }
-      : { elevation: 2 }),
+      : { elevation: 3 }),
   },
   startSetupPrimaryBtnText: { fontSize: 17, fontWeight: "700", color: "#FFFFFF", letterSpacing: -0.2 },
   startSetupErrorText: {

@@ -57,6 +57,14 @@ export default function AppLayout() {
           />
           <Stack.Screen name="workouts/log" options={{ headerShown: false }} />
           <Stack.Screen
+            name="workouts/plan"
+            options={{ title: "Plan", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/create"
+            options={{ title: "Create", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="workouts/analytics-detail"
             options={{ title: "Workout analytics", ...workoutsStackNavigationOptions("detail") }}
           />
