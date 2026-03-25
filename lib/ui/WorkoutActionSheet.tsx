@@ -15,6 +15,8 @@ type WorkoutActionSheetProps = {
   onClose: () => void;
   onViewDetails: () => void;
   onDoItAgain: () => void;
+  /** Strength day detail: open workout-specific exercise editor when journal has exercises. */
+  onEditExercises?: () => void;
   onRename: () => void;
   onEditDuration: () => void;
   onEditType: () => void;
@@ -55,6 +57,7 @@ export function WorkoutActionSheet({
   onClose,
   onViewDetails,
   onDoItAgain,
+  onEditExercises,
   onRename,
   onEditDuration,
   onEditType,
@@ -85,9 +88,18 @@ export function WorkoutActionSheet({
               label="Do it again"
               icon="refresh-outline"
               onPress={onDoItAgain}
-              showDivider={false}
+              showDivider={onEditExercises != null}
               accessibilityLabel="Do it again"
             />
+            {onEditExercises != null ? (
+              <Row
+                label="Edit exercises"
+                icon="list-outline"
+                onPress={onEditExercises}
+                showDivider={false}
+                accessibilityLabel="Edit exercises"
+              />
+            ) : null}
           </View>
           <View style={styles.section}>
             <Row

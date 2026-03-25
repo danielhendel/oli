@@ -15,6 +15,7 @@ import {
   Animated,
   PanResponder,
   findNodeHandle,
+  Alert,
   type PressableAndroidRippleConfig,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -39,6 +40,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
+import { resolveSessionStartedAtIsoForDay } from "@/lib/workouts/journal/sessionAnchorForDay";
 import {
   buildExerciseMemory,
   type ExerciseMemoryMap,
@@ -61,15 +63,23 @@ import {
 import { loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
 import {
   clearActiveWorkoutSessionId,
+  getActiveWorkoutLogFlowMode,
   getActiveWorkoutSessionId,
   setActiveWorkoutSessionId,
 } from "@/lib/workouts/sessionEngine/activeSessionStorage";
+import {
+  clearEnrichSessionPointer,
+  getEnrichSessionPointer,
+  setEnrichSessionPointer,
+} from "@/lib/workouts/sessionEngine/enrichSessionStorage";
+import type { WorkoutLogFlowMode } from "@/lib/workouts/sessionEngine/workoutLogFlowMode";
 import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { useRestTimer } from "@/lib/workouts/restTimer";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
+import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
@@ -323,7 +333,10 @@ function ExerciseListRow({
   );
 }
 
-export default function WorkoutLogScreen() {
+export type WorkoutLogSessionEntry = "live" | "enrichment";
+
+export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutLogSessionEntry }) {
+  const isEnrichmentEntry = sessionEntry === "enrichment";
   const { user, initializing } = useAuth();
 
   type UiState =
@@ -334,12 +347,30 @@ export default function WorkoutLogScreen() {
     | { status: "error"; message: string };
 
   const router = useRouter();
-  const params = useLocalSearchParams<{ pickedExerciseId?: string; blockId?: string }>();
+  const params = useLocalSearchParams<{
+    pickedExerciseId?: string;
+    blockId?: string;
+    enrichDay?: string;
+    sessionAnchorIso?: string;
+    /** `ReconciledWorkoutSession.id` from strength day detail — ties backfill log to one workout. */
+    enrichTargetId?: string;
+    /** Local journal `sessionId` to hydrate when editing an existing completed/manual workout. */
+    journalSessionId?: string;
+  }>();
   const pickedExerciseIdParam = typeof params.pickedExerciseId === "string" ? params.pickedExerciseId : undefined;
   const blockIdParam = typeof params.blockId === "string" ? params.blockId : undefined;
   const appliedPickRef = useRef<string | null>(null);
+  const enrichReturnDayRef = useRef<string | null>(null);
+  const enrichSessionAnchorRef = useRef<string | null>(null);
+  const enrichTargetIdRef = useRef<string | null>(null);
+  /** Prevents duplicate Alert loops while the same active session blocks resume. */
+  const collisionPromptSidRef = useRef<string | null>(null);
+  const [resumeGeneration, setResumeGeneration] = useState(0);
+  const [activeLogFlowMode, setActiveLogFlowMode] = useState<WorkoutLogFlowMode>("live");
 
-  const [ui, setUi] = useState<UiState>({ status: "idle" });
+  const [ui, setUi] = useState<UiState>(() =>
+    sessionEntry === "enrichment" ? { status: "starting" } : { status: "idle" },
+  );
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [addBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [blockOptions, setBlockOptions] = useState<{
@@ -453,6 +484,50 @@ export default function WorkoutLogScreen() {
 
   const canInteract = isSignedIn && ui.status !== "starting";
 
+  const enrichDayLabel = useMemo(() => {
+    const d = typeof params.enrichDay === "string" ? params.enrichDay : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    const dt = new Date(`${d}T12:00:00.000Z`);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  }, [params.enrichDay]);
+
+  const isHydratingExistingJournal = useMemo(() => {
+    const j = typeof params.journalSessionId === "string" ? params.journalSessionId.trim() : "";
+    return j.length > 0;
+  }, [params.journalSessionId]);
+
+  const enrichNavTitle = useMemo(() => {
+    const dayPart = enrichDayLabel != null ? ` · ${enrichDayLabel}` : "";
+    return isHydratingExistingJournal ? `Edit exercises${dayPart}` : `Add exercises${dayPart}`;
+  }, [enrichDayLabel, isHydratingExistingJournal]);
+
+  useEffect(() => {
+    if (!isEnrichmentEntry) {
+      enrichReturnDayRef.current = null;
+      enrichSessionAnchorRef.current = null;
+      enrichTargetIdRef.current = null;
+      return;
+    }
+    const dayRaw = params.enrichDay;
+    const enrichDay =
+      typeof dayRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dayRaw) ? dayRaw : null;
+    const anchorRaw = params.sessionAnchorIso;
+    const anchor =
+      typeof anchorRaw === "string" && anchorRaw.trim().length > 0 ? anchorRaw.trim() : null;
+    const tidRaw = params.enrichTargetId;
+    const tid =
+      typeof tidRaw === "string" && tidRaw.trim().length > 0 ? tidRaw.trim() : null;
+    enrichReturnDayRef.current = enrichDay;
+    enrichSessionAnchorRef.current = enrichDay != null ? anchor : null;
+    enrichTargetIdRef.current = enrichDay != null ? tid : null;
+  }, [isEnrichmentEntry, params.enrichDay, params.sessionAnchorIso, params.enrichTargetId]);
+
+  const idleLogFlowMode: WorkoutLogFlowMode = isEnrichmentEntry ? "backfill" : "live";
+
+  const logFlowMode: WorkoutLogFlowMode =
+    ui.status === "active" || ui.status === "completed" ? activeLogFlowMode : idleLogFlowMode;
+
   const refreshReduced = useCallback(async (uid: string, sid: string) => {
     const next = await loadReducedSession(uid, sid);
     setUi((prev) => {
@@ -462,22 +537,251 @@ export default function WorkoutLogScreen() {
     });
   }, []);
 
-  // Resume active session (fail-closed):
-  // - If pointer exists, attempt to load reduced state
-  // - If load fails, clear pointer and return to idle
+  /**
+   * Legacy cleanup: previous builds persisted enrichment sessions in global active pointer.
+   * Once that session is completed/discarded, clear the global backfill pointer so Start Workout
+   * no longer shows stale "Exercise log open".
+   */
+  const clearLegacyBackfillPointerForSession = useCallback(
+    async (uid: string, finishedSessionId: string): Promise<void> => {
+      const activeSid = await getActiveWorkoutSessionId(uid);
+      if (activeSid !== finishedSessionId) return;
+      const flow = await getActiveWorkoutLogFlowMode(uid);
+      if (flow !== "backfill") return;
+      await clearActiveWorkoutSessionId(uid);
+    },
+    [],
+  );
+
+  /**
+   * Enrichment route: open or resume the journal session scoped to this workout target only
+   * (enrichSessionStorage). Never consults the global live active pointer.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    if (!isEnrichmentEntry) return;
+    if (!user || initializing) return;
+    if (ui.status !== "starting") return;
+    (async () => {
+      const dayRaw = params.enrichDay;
+      const enrichDay =
+        typeof dayRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dayRaw) ? dayRaw : null;
+      const tidRaw = params.enrichTargetId;
+      const tid =
+        typeof tidRaw === "string" && tidRaw.trim().length > 0 ? tidRaw.trim() : null;
+      const anchorRaw = params.sessionAnchorIso;
+      const anchor =
+        typeof anchorRaw === "string" && anchorRaw.trim().length > 0 ? anchorRaw.trim() : null;
+
+      if (enrichDay == null || tid == null) {
+        if (!cancelled) {
+          setUi({
+            status: "error",
+            message: "Missing workout context. Open from the workout day again.",
+          });
+        }
+        return;
+      }
+
+      const hydrateRaw = params.journalSessionId;
+      const hydrateSid =
+        typeof hydrateRaw === "string" && hydrateRaw.trim().length > 0 ? hydrateRaw.trim() : null;
+
+      try {
+        if (hydrateSid != null) {
+          const reducedHydrated = await loadReducedSession(user.uid, hydrateSid);
+          if (cancelled) return;
+          if (reducedHydrated.eventCount < 1) {
+            if (!cancelled) {
+              setUi({ status: "error", message: "Workout log not found." });
+            }
+            return;
+          }
+          if (reducedHydrated.status === "abandoned") {
+            if (!cancelled) {
+              setUi({
+                status: "error",
+                message: "That workout was discarded and can't be edited.",
+              });
+            }
+            return;
+          }
+          const started = reducedHydrated.startedAt;
+          if (started == null) {
+            if (!cancelled) {
+              setUi({ status: "error", message: "This workout can't be edited yet." });
+            }
+            return;
+          }
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+          const sessionDay = ymdInTimeZoneFromIso(started, tz);
+          if (sessionDay !== enrichDay) {
+            if (!cancelled) {
+              setUi({
+                status: "error",
+                message: "That workout doesn't match this day.",
+              });
+            }
+            return;
+          }
+          await setEnrichSessionPointer(user.uid, tid, hydrateSid);
+          if (cancelled) return;
+          setActiveLogFlowMode("backfill");
+          setSessionGymId(selectedGymIdFromPref ?? null);
+          setUi({ status: "active", sessionId: hydrateSid, reduced: reducedHydrated });
+          return;
+        }
+
+        let sid = await getEnrichSessionPointer(user.uid, tid);
+        if (cancelled) return;
+
+        if (sid) {
+          const reducedExisting = await loadReducedSession(user.uid, sid);
+          if (cancelled) return;
+          if (
+            reducedExisting.status === "draft" ||
+            reducedExisting.status === "active" ||
+            reducedExisting.status === "completed"
+          ) {
+            setActiveLogFlowMode("backfill");
+            setSessionGymId(selectedGymIdFromPref ?? null);
+            setUi({ status: "active", sessionId: sid, reduced: reducedExisting });
+            return;
+          }
+          await clearEnrichSessionPointer(user.uid, tid);
+          sid = null;
+        }
+
+        const anchorForStart = resolveSessionStartedAtIsoForDay(enrichDay, anchor ?? undefined);
+        const { sessionId: newId } = await createSessionDraft(user.uid);
+        await startSession(user.uid, newId, undefined, { anchorOccurredAt: anchorForStart });
+        await setEnrichSessionPointer(user.uid, tid, newId);
+        const reduced = await loadReducedSession(user.uid, newId);
+        if (cancelled) return;
+        setActiveLogFlowMode("backfill");
+        setSessionGymId(selectedGymIdFromPref ?? null);
+        setUi({ status: "active", sessionId: newId, reduced });
+      } catch (e: unknown) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "Unknown error";
+          setUi({ status: "error", message: msg });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isEnrichmentEntry,
+    user,
+    initializing,
+    ui.status,
+    params.enrichDay,
+    params.enrichTargetId,
+    params.sessionAnchorIso,
+    params.journalSessionId,
+    selectedGymIdFromPref,
+  ]);
+
+  /**
+   * Live /log only: resume in-progress workout from the global active pointer.
+   * If storage still says backfill (legacy), prompt to discard before starting live.
+   */
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (isEnrichmentEntry) return;
       if (!user || initializing) return;
       if (ui.status !== "idle") return;
       try {
         const sid = await getActiveWorkoutSessionId(user.uid);
-        if (!sid) return;
-        const next = await loadReducedSession(user.uid, sid);
+        if (!sid || cancelled) return;
+
+        const flow = await getActiveWorkoutLogFlowMode(user.uid);
         if (cancelled) return;
-        setUi({ status: "active", sessionId: sid, reduced: next });
+
+        const tryResume = async (): Promise<void> => {
+          try {
+            const next = await loadReducedSession(user.uid, sid);
+            if (cancelled) return;
+            setActiveLogFlowMode(flow);
+            collisionPromptSidRef.current = null;
+            setUi({ status: "active", sessionId: sid, reduced: next });
+          } catch {
+            try {
+              await clearActiveWorkoutSessionId(user.uid);
+            } catch {
+              // best effort
+            }
+            if (!cancelled) setUi({ status: "idle" });
+          }
+        };
+
+        const discardPointer = async (): Promise<void> => {
+          try {
+            await abandonSession(user.uid, sid);
+          } catch {
+            // session may be broken; still clear pointer
+          }
+          try {
+            await clearActiveWorkoutSessionId(user.uid);
+          } catch {
+            // best effort
+          }
+          collisionPromptSidRef.current = null;
+          if (!cancelled) setResumeGeneration((n) => n + 1);
+        };
+
+        const promptDiscard = (title: string, message: string, discardLabel: string): void => {
+          if (collisionPromptSidRef.current === sid) return;
+          collisionPromptSidRef.current = sid;
+          Alert.alert(title, message, [
+            {
+              text: "Go back",
+              style: "cancel",
+              onPress: () => {
+                collisionPromptSidRef.current = null;
+                router.back();
+              },
+            },
+            {
+              text: discardLabel,
+              style: "destructive",
+              onPress: () => {
+                void discardPointer();
+              },
+            },
+          ]);
+        };
+
+        if (flow === "backfill") {
+          try {
+            const reducedBackfill = await loadReducedSession(user.uid, sid);
+            if (cancelled) return;
+            if (reducedBackfill.status === "completed" || reducedBackfill.status === "abandoned") {
+              await clearActiveWorkoutSessionId(user.uid);
+              if (!cancelled) setResumeGeneration((n) => n + 1);
+              return;
+            }
+          } catch {
+            try {
+              await clearActiveWorkoutSessionId(user.uid);
+            } catch {
+              // best effort
+            }
+            if (!cancelled) setResumeGeneration((n) => n + 1);
+            return;
+          }
+          promptDiscard(
+            "Exercise log open",
+            "Finish or discard the exercise log you started from a workout day before starting a new workout here.",
+            "Discard log",
+          );
+          return;
+        }
+
+        await tryResume();
       } catch {
-        // Fail-closed: clear pointer if corrupted / cannot load
         try {
           await clearActiveWorkoutSessionId(user.uid);
         } catch {
@@ -489,9 +793,17 @@ export default function WorkoutLogScreen() {
     return () => {
       cancelled = true;
     };
-  }, [user, initializing, ui.status]);
+  }, [
+    isEnrichmentEntry,
+    user,
+    initializing,
+    ui.status,
+    resumeGeneration,
+    router,
+  ]);
 
   const onStart = useCallback(async () => {
+    if (isEnrichmentEntry) return;
     if (!user) {
       setUi({ status: "error", message: "Not signed in." });
       return;
@@ -500,20 +812,21 @@ export default function WorkoutLogScreen() {
     setUi({ status: "starting" });
     try {
       const { sessionId } = await createSessionDraft(user.uid);
-      await startSession(user.uid, sessionId);
+      await startSession(user.uid, sessionId, undefined, undefined);
       const trimmedWorkoutName = workoutName.trim();
       if (trimmedWorkoutName.length > 0) {
         await addWorkoutNote(user.uid, sessionId, `name:${trimmedWorkoutName}`);
       }
-      await setActiveWorkoutSessionId(user.uid, sessionId);
+      await setActiveWorkoutSessionId(user.uid, sessionId, { logFlowMode: "live" });
       const reduced = await loadReducedSession(user.uid, sessionId);
+      setActiveLogFlowMode("live");
       setUi({ status: "active", sessionId, reduced });
       setSessionGymId(effectiveGymAtStart);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user, startScreenGymId, selectedGymIdFromPref, workoutName]);
+  }, [user, startScreenGymId, selectedGymIdFromPref, workoutName, isEnrichmentEntry]);
 
   const onPickExercise = useCallback(
     async (exerciseId: string, blockId?: string) => {
@@ -680,13 +993,29 @@ export default function WorkoutLogScreen() {
     setCancelModalVisible(false);
     try {
       await abandonSession(user.uid, sessionId);
+      if (isEnrichmentEntry) {
+        const tid = enrichTargetIdRef.current;
+        if (tid) await clearEnrichSessionPointer(user.uid, tid);
+        await clearLegacyBackfillPointerForSession(user.uid, sessionId);
+        const day = enrichReturnDayRef.current;
+        enrichReturnDayRef.current = null;
+        enrichSessionAnchorRef.current = null;
+        enrichTargetIdRef.current = null;
+        if (day != null) {
+          router.dismissTo({ pathname: "/(app)/workouts/day/[day]", params: { day } });
+        } else {
+          router.back();
+        }
+        setUi({ status: "idle" });
+        return;
+      }
       await clearActiveWorkoutSessionId(user.uid);
       setUi({ status: "idle" });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user, sessionId]);
+  }, [user, sessionId, isEnrichmentEntry, router, clearLegacyBackfillPointerForSession]);
 
   const parsePositiveInt = (s: string): number | null => {
     const n = parseInt(s.trim(), 10);
@@ -712,16 +1041,31 @@ export default function WorkoutLogScreen() {
 
   const onFinish = useCallback(async () => {
     if (!user || !sessionId) return;
+    const returnDay = enrichReturnDayRef.current;
+    const enrichTid = enrichTargetIdRef.current;
     try {
       await completeSession(user.uid, sessionId);
-      await clearActiveWorkoutSessionId(user.uid);
+      if (isEnrichmentEntry) {
+        if (enrichTid) await clearEnrichSessionPointer(user.uid, enrichTid);
+        await clearLegacyBackfillPointerForSession(user.uid, sessionId);
+      } else {
+        await clearActiveWorkoutSessionId(user.uid);
+      }
+      if (returnDay != null) {
+        enrichReturnDayRef.current = null;
+        enrichSessionAnchorRef.current = null;
+        enrichTargetIdRef.current = null;
+        router.dismissTo({ pathname: "/(app)/workouts/day/[day]", params: { day: returnDay } });
+        setUi({ status: "idle" });
+        return;
+      }
       const next = await loadReducedSession(user.uid, sessionId);
       setUi({ status: "completed", sessionId, reduced: next });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user, sessionId]);
+  }, [user, sessionId, router, isEnrichmentEntry, clearLegacyBackfillPointerForSession]);
 
   // When user signs out mid-screen, fail closed and reset.
   useEffect(() => {
@@ -738,9 +1082,47 @@ export default function WorkoutLogScreen() {
     if (appliedPickRef.current === pickedExerciseIdParam) return;
     appliedPickRef.current = pickedExerciseIdParam;
     void onPickExercise(pickedExerciseIdParam, blockIdParam).finally(() => {
-      router.replace("/(app)/workouts/log");
+      const returnPath = isEnrichmentEntry ? "/(app)/workouts/enrich" : "/(app)/workouts/log";
+      const e =
+        typeof params.enrichDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.enrichDay)
+          ? params.enrichDay
+          : undefined;
+      const a =
+        typeof params.sessionAnchorIso === "string" && params.sessionAnchorIso.trim().length > 0
+          ? params.sessionAnchorIso.trim()
+          : undefined;
+      const t =
+        typeof params.enrichTargetId === "string" && params.enrichTargetId.trim().length > 0
+          ? params.enrichTargetId.trim()
+          : undefined;
+      const j =
+        typeof params.journalSessionId === "string" && params.journalSessionId.trim().length > 0
+          ? params.journalSessionId.trim()
+          : undefined;
+      router.replace({
+        pathname: returnPath,
+        params: {
+          ...(e != null ? { enrichDay: e } : {}),
+          ...(a != null ? { sessionAnchorIso: a } : {}),
+          ...(t != null ? { enrichTargetId: t } : {}),
+          ...(j != null ? { journalSessionId: j } : {}),
+        },
+      });
     });
-  }, [pickedExerciseIdParam, blockIdParam, user, ui.status, sessionId, onPickExercise, router]);
+  }, [
+    pickedExerciseIdParam,
+    blockIdParam,
+    user,
+    ui.status,
+    sessionId,
+    onPickExercise,
+    router,
+    params.enrichDay,
+    params.sessionAnchorIso,
+    params.enrichTargetId,
+    params.journalSessionId,
+    isEnrichmentEntry,
+  ]);
 
   useEffect(() => {
     if (!user || initializing) return;
@@ -757,9 +1139,10 @@ export default function WorkoutLogScreen() {
 
   useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
+    if (logFlowMode === "backfill") return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [ui.status, reduced?.startedAt]);
+  }, [ui.status, reduced?.startedAt, logFlowMode]);
 
   const timerLabel = useMemo(() => {
     if (!reduced?.startedAt) return "00:00";
@@ -771,14 +1154,17 @@ export default function WorkoutLogScreen() {
 
   useEffect(() => {
     if (prefState.status === "error") {
-      const base = "Gym preference couldn't be saved. You can still start your workout.";
+      const base =
+        idleLogFlowMode === "backfill"
+          ? "Gym preference couldn't be saved. You can still continue and add exercises."
+          : "Gym preference couldn't be saved. You can still start your workout.";
       const devDetail =
         __DEV__ && "message" in prefState && prefState.message
           ? ` (${prefState.message})`
           : "";
       setGymSaveError(base + devDetail);
     }
-  }, [prefState]);
+  }, [prefState, idleLogFlowMode]);
 
   const topInset =
     Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 8 : 12;
@@ -839,15 +1225,32 @@ export default function WorkoutLogScreen() {
     [user, sessionId, reduced, existingBlockIds, refreshReduced],
   );
 
-  const idleStartChrome = ui.status === "idle" && isSignedIn;
+  const idleStartChrome = ui.status === "idle" && isSignedIn && !isEnrichmentEntry;
+  const isBackfillFlow = logFlowMode === "backfill";
 
   return (
     <SafeAreaView style={[styles.safe, idleStartChrome && styles.safeIdleStart]} edges={["top"]}>
       <View style={[styles.screen, idleStartChrome && styles.screenIdleStart]}>
       {ui.status === "active" ? (
-        <View style={styles.headerTimerWrap}>
-          <Text style={styles.headerTimer}>{timerLabel}</Text>
-        </View>
+        isBackfillFlow ? (
+          <WorkoutsNavBar
+            title={isEnrichmentEntry ? enrichNavTitle : "Add exercises"}
+            onBackPress={() => router.back()}
+            testID="workout-log-backfill-nav"
+          />
+        ) : (
+          <View style={styles.headerTimerWrap} testID="workout-log-live-timer-wrap">
+            <Text style={styles.headerTimer} testID="workout-log-live-timer">
+              {timerLabel}
+            </Text>
+          </View>
+        )
+      ) : ui.status === "starting" && isEnrichmentEntry ? (
+        <WorkoutsNavBar
+          title={enrichNavTitle}
+          onBackPress={() => router.back()}
+          testID="workout-enrich-loading-nav"
+        />
       ) : idleStartChrome ? (
         <WorkoutsNavBar hideTitle onBackPress={() => router.back()} />
       ) : null}
@@ -873,7 +1276,15 @@ export default function WorkoutLogScreen() {
           <Text style={styles.errorTitle}>Action failed</Text>
           <Text style={styles.errorBody}>{ui.message}</Text>
           <Pressable
-            onPress={() => setUi((prev) => (prev.status === "active" || prev.status === "completed" ? prev : { status: "idle" }))}
+            onPress={() => {
+              if (isEnrichmentEntry) {
+                router.back();
+                return;
+              }
+              setUi((prev) =>
+                prev.status === "active" || prev.status === "completed" ? prev : { status: "idle" },
+              );
+            }}
             style={styles.secondaryBtn}
             accessibilityRole="button"
             accessibilityLabel="Dismiss error"
@@ -886,11 +1297,20 @@ export default function WorkoutLogScreen() {
       {ui.status === "idle" ? (
         <>
           <View style={styles.startSetupCardWrap}>
-          <View style={styles.startSetupCard} accessibilityLabel="Start workout setup">
+          <View
+            style={styles.startSetupCard}
+            accessibilityLabel={isBackfillFlow ? "Add exercises setup" : "Start workout setup"}
+          >
             <View style={styles.startSetupHeader}>
-              <Text style={styles.startSetupTitle}>Start Workout</Text>
+              <Text style={styles.startSetupTitle}>
+                {isBackfillFlow ? "Add exercises" : "Start Workout"}
+              </Text>
               <Text style={styles.startSetupSubtitle}>
-                Set your gym and optional name, then start logging.
+                {isBackfillFlow
+                  ? enrichDayLabel != null
+                    ? `For ${enrichDayLabel}. Optional name and gym, then log your lifts. Save returns you to workout details.`
+                    : "Optional name and gym, then log your lifts. Save returns you to workout details."
+                  : "Set your gym and optional name, then start logging."}
               </Text>
             </View>
             <Text style={styles.startSetupSectionLabel}>Workout name (optional)</Text>
@@ -929,9 +1349,11 @@ export default function WorkoutLogScreen() {
               disabled={!canInteract}
               style={[styles.startSetupPrimaryBtn, !canInteract && styles.primaryBtnDisabled]}
               accessibilityRole="button"
-              accessibilityLabel="Start workout"
+              accessibilityLabel={isBackfillFlow ? "Continue to add exercises" : "Start workout"}
             >
-              <Text style={styles.startSetupPrimaryBtnText}>Start workout</Text>
+              <Text style={styles.startSetupPrimaryBtnText}>
+                {isBackfillFlow ? "Continue" : "Start workout"}
+              </Text>
             </Pressable>
           </View>
           </View>
@@ -993,8 +1415,16 @@ export default function WorkoutLogScreen() {
 
       {ui.status === "starting" ? (
         <View style={styles.card}>
-          <Text style={styles.title}>Starting…</Text>
-          <Text style={styles.muted}>Creating local session journal.</Text>
+          <Text style={styles.title}>
+            {isEnrichmentEntry ? "Opening editor…" : isBackfillFlow ? "Opening log…" : "Starting…"}
+          </Text>
+          <Text style={styles.muted}>
+            {isEnrichmentEntry
+              ? "Loading exercises for this workout."
+              : isBackfillFlow
+                ? "Preparing your exercise log."
+                : "Creating local session journal."}
+          </Text>
         </View>
       ) : null}
 
@@ -1043,6 +1473,23 @@ export default function WorkoutLogScreen() {
                             sessionId,
                             blockId: bid,
                             ...(sessionGymId != null ? { gymId: sessionGymId } : {}),
+                            ...(isEnrichmentEntry
+                              ? {
+                                  logReturnPath: "enrich",
+                                  ...(typeof params.enrichDay === "string" ? { enrichDay: params.enrichDay } : {}),
+                                  ...(typeof params.enrichTargetId === "string"
+                                    ? { enrichTargetId: params.enrichTargetId }
+                                    : {}),
+                                  ...(typeof params.sessionAnchorIso === "string" &&
+                                  params.sessionAnchorIso.trim().length > 0
+                                    ? { sessionAnchorIso: params.sessionAnchorIso.trim() }
+                                    : {}),
+                                  ...(typeof params.journalSessionId === "string" &&
+                                  params.journalSessionId.trim().length > 0
+                                    ? { journalSessionId: params.journalSessionId.trim() }
+                                    : {}),
+                                }
+                              : {}),
                           },
                         })
                       }
@@ -1752,18 +2199,22 @@ export default function WorkoutLogScreen() {
               onPress={() => setFinishModalVisible(true)}
               style={styles.finishBtn}
               accessibilityRole="button"
-              accessibilityLabel="Finish workout"
+              accessibilityLabel={isBackfillFlow ? "Save exercises" : "Finish workout"}
             >
-              <Text style={styles.finishBtnText}>Finish</Text>
+              <Text style={styles.finishBtnText}>{isBackfillFlow ? "Save" : "Finish"}</Text>
             </Pressable>
-            <Pressable
-              onPress={() => setRestTimerPanelVisible(!restTimerPanelVisible)}
-              style={styles.circleBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Timer"
-            >
-              <Text style={styles.circleBtnText}>⏱</Text>
-            </Pressable>
+            {isBackfillFlow ? (
+              <View style={styles.circleBtnSpacer} accessibilityElementsHidden />
+            ) : (
+              <Pressable
+                onPress={() => setRestTimerPanelVisible(!restTimerPanelVisible)}
+                style={styles.circleBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Timer"
+              >
+                <Text style={styles.circleBtnText}>⏱</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       ) : null}
@@ -1902,10 +2353,17 @@ export default function WorkoutLogScreen() {
         <Pressable style={styles.finishBackdrop} onPress={() => setFinishModalVisible(false)}>
           <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetGrabber} />
-            <Text style={styles.sheetTitle} accessibilityLabel="Finish workout?">
-              Finish workout?
+            <Text
+              style={styles.sheetTitle}
+              accessibilityLabel={isBackfillFlow ? "Save exercises?" : "Finish workout?"}
+            >
+              {isBackfillFlow ? "Save exercises?" : "Finish workout?"}
             </Text>
-            <Text style={styles.muted}>This will seal the workout.</Text>
+            <Text style={styles.muted}>
+              {isBackfillFlow
+                ? "Saves your lifts to this workout day and returns to details."
+                : "This will seal the workout."}
+            </Text>
             <View style={styles.finishSheetActions}>
               <Pressable
                 onPress={() => {
@@ -1914,17 +2372,21 @@ export default function WorkoutLogScreen() {
                 }}
                 style={styles.finishSheetPrimary}
                 accessibilityRole="button"
-                accessibilityLabel="Confirm finish workout"
+                accessibilityLabel={isBackfillFlow ? "Save exercises" : "Confirm finish workout"}
               >
-                <Text style={styles.finishSheetPrimaryText}>Finish</Text>
+                <Text style={styles.finishSheetPrimaryText}>
+                  {isBackfillFlow ? "Save" : "Finish"}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => setFinishModalVisible(false)}
                 style={styles.finishSheetSecondary}
                 accessibilityRole="button"
-                accessibilityLabel="Keep working"
+                accessibilityLabel={isBackfillFlow ? "Keep editing" : "Keep working"}
               >
-                <Text style={styles.finishSheetSecondaryText}>Keep working</Text>
+                <Text style={styles.finishSheetSecondaryText}>
+                  {isBackfillFlow ? "Keep editing" : "Keep working"}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -1933,9 +2395,11 @@ export default function WorkoutLogScreen() {
                 }}
                 style={styles.finishSheetSecondary}
                 accessibilityRole="button"
-                accessibilityLabel="Cancel workout"
+                accessibilityLabel={isBackfillFlow ? "Discard exercise log" : "Cancel workout"}
               >
-                <Text style={styles.finishSheetSecondaryText}>Cancel workout</Text>
+                <Text style={styles.finishSheetSecondaryText}>
+                  {isBackfillFlow ? "Discard log" : "Cancel workout"}
+                </Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1952,18 +2416,26 @@ export default function WorkoutLogScreen() {
       >
         <Pressable style={styles.finishBackdrop} onPress={() => setCancelConfirmVisible(false)}>
           <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>Cancel workout?</Text>
+            <Text style={styles.sheetTitle}>
+              {isBackfillFlow ? "Discard exercise log?" : "Cancel workout?"}
+            </Text>
             <Text style={styles.muted}>
-              This will abandon the session and discard the current workout.
+              {isBackfillFlow
+                ? "This abandons the log and discards exercises you have not saved."
+                : "This will abandon the session and discard the current workout."}
             </Text>
             <View style={styles.finishSheetActions}>
               <Pressable
                 onPress={() => setCancelConfirmVisible(false)}
                 style={styles.finishSheetSecondary}
                 accessibilityRole="button"
-                accessibilityLabel="Keep working after cancel prompt"
+                accessibilityLabel={
+                  isBackfillFlow ? "Keep editing after discard prompt" : "Keep working after cancel prompt"
+                }
               >
-                <Text style={styles.finishSheetSecondaryText}>Keep working</Text>
+                <Text style={styles.finishSheetSecondaryText}>
+                  {isBackfillFlow ? "Keep editing" : "Keep working"}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -1972,9 +2444,11 @@ export default function WorkoutLogScreen() {
                 }}
                 style={styles.finishSheetPrimaryDestructive}
                 accessibilityRole="button"
-                accessibilityLabel="Confirm cancel workout"
+                accessibilityLabel={isBackfillFlow ? "Confirm discard exercise log" : "Confirm cancel workout"}
               >
-                <Text style={styles.finishSheetPrimaryText}>Cancel workout</Text>
+                <Text style={styles.finishSheetPrimaryText}>
+                  {isBackfillFlow ? "Discard log" : "Cancel workout"}
+                </Text>
               </Pressable>
             </View>
           </Pressable>
@@ -1984,6 +2458,10 @@ export default function WorkoutLogScreen() {
     </View>
     </SafeAreaView>
   );
+}
+
+export default function WorkoutLogRoute() {
+  return <WorkoutLogScreenInner sessionEntry="live" />;
 }
 
 /** Set grid: Set | Reps | Weight | RPE | e1RM | Vol. Active row adds Log column. Weight/e1RM/Vol flex to fill. */
@@ -2184,6 +2662,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     ...(Platform.OS === "android" ? { elevation: 3 } : {}),
+  },
+  circleBtnSpacer: {
+    width: 48,
+    height: 48,
   },
   circleBtnText: {
     fontSize: 22,

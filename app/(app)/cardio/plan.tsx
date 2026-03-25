@@ -1,5 +1,5 @@
 /**
- * Placeholder: structured training plan (routes from Workouts overview bottom nav).
+ * Placeholder: cardio plan (mirrors Strength plan route shape).
  */
 
 import React, { useEffect } from "react";
@@ -9,7 +9,7 @@ import { EmptyState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
-export default function WorkoutsPlanScreen() {
+export default function CardioPlanScreen() {
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -20,8 +20,8 @@ export default function WorkoutsPlanScreen() {
   }, [navigation]);
 
   return (
-    <ModuleScreenShell title="Strength" subtitle="Plan" hideTitleChrome>
-      <EmptyState title="Plan" description="Your training plan will appear here." />
+    <ModuleScreenShell title="Cardio" subtitle="Plan" hideTitleChrome>
+      <EmptyState title="Plan" description="Your cardio plan will appear here." />
     </ModuleScreenShell>
   );
 }

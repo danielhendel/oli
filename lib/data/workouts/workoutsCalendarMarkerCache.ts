@@ -1,8 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
-export const WORKOUT_CALENDAR_MARKER_CACHE_KEY = "workouts:calendarMarkers:v1";
+const WORKOUT_CALENDAR_MARKER_CACHE_KEY_BASE = "workouts:calendarMarkers:v1";
+
+export function workoutCalendarMarkerStorageKey(domain: WorkoutProductDomain): string {
+  return `${WORKOUT_CALENDAR_MARKER_CACHE_KEY_BASE}:${domain}`;
+}
 
 const SNAPSHOT_VERSION = 1;
 /** Cap JSON size for very large histories; ISO day keys sort chronologically. */
@@ -49,8 +54,9 @@ export function markerRecordToMap(
 export async function loadWorkoutCalendarMarkerSnapshot(
   uid: string,
   kindsSig: string,
+  domain: WorkoutProductDomain,
 ): Promise<Map<DayKey, WorkoutMarkerFlags> | null> {
-  const raw = await AsyncStorage.getItem(WORKOUT_CALENDAR_MARKER_CACHE_KEY);
+  const raw = await AsyncStorage.getItem(workoutCalendarMarkerStorageKey(domain));
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -69,9 +75,11 @@ export async function persistWorkoutCalendarMarkerSnapshot(
   uid: string,
   kindsSig: string,
   map: Map<DayKey, WorkoutMarkerFlags>,
+  domain: WorkoutProductDomain,
 ): Promise<void> {
+  const storageKey = workoutCalendarMarkerStorageKey(domain);
   if (map.size === 0) {
-    await AsyncStorage.removeItem(WORKOUT_CALENDAR_MARKER_CACHE_KEY);
+    await AsyncStorage.removeItem(storageKey);
     return;
   }
   const snapshot: WorkoutCalendarMarkerSnapshotV1 = {
@@ -81,9 +89,15 @@ export async function persistWorkoutCalendarMarkerSnapshot(
     savedAt: new Date().toISOString(),
     markers: markerMapToRecord(map),
   };
-  await AsyncStorage.setItem(WORKOUT_CALENDAR_MARKER_CACHE_KEY, JSON.stringify(snapshot));
+  await AsyncStorage.setItem(storageKey, JSON.stringify(snapshot));
 }
 
-export async function clearWorkoutCalendarMarkerCache(): Promise<void> {
-  await AsyncStorage.removeItem(WORKOUT_CALENDAR_MARKER_CACHE_KEY);
+export async function clearWorkoutCalendarMarkerCache(domain: WorkoutProductDomain): Promise<void> {
+  await AsyncStorage.removeItem(workoutCalendarMarkerStorageKey(domain));
+}
+
+/** Clears persisted markers for every product domain (e.g. Jest reset). */
+export async function clearAllWorkoutCalendarMarkerCaches(): Promise<void> {
+  await clearWorkoutCalendarMarkerCache("strength");
+  await clearWorkoutCalendarMarkerCache("cardio");
 }

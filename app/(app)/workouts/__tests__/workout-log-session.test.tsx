@@ -49,14 +49,22 @@ jest.mock("react-native", () => {
     Platform: RN.Platform ?? { OS: "ios" },
     UIManager: RN.UIManager ?? {},
     LayoutAnimation: RN.LayoutAnimation ?? { configureNext: jest.fn(), Presets: {} },
+    Alert: { alert: jest.fn() },
   };
 });
 
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
+const mockRouterDismissTo = jest.fn();
+let mockLogSearchParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockRouterPush, replace: mockRouterReplace }),
-  useLocalSearchParams: () => ({}),
+  useRouter: () => ({
+    push: mockRouterPush,
+    replace: mockRouterReplace,
+    dismissTo: mockRouterDismissTo,
+    back: jest.fn(),
+  }),
+  useLocalSearchParams: () => mockLogSearchParams,
 }));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
@@ -120,10 +128,19 @@ jest.mock("@/lib/workouts/sessionEngine/commands", () => ({
 }));
 
 let mockActiveSessionId: string | null = null;
+let mockActiveLogFlowMode: "live" | "backfill" = "live";
+let mockEnrichPointer: string | null = null;
 jest.mock("@/lib/workouts/sessionEngine/activeSessionStorage", () => ({
   getActiveWorkoutSessionId: jest.fn(async () => mockActiveSessionId),
   setActiveWorkoutSessionId: jest.fn(async () => undefined),
   clearActiveWorkoutSessionId: jest.fn(async () => undefined),
+  getActiveWorkoutLogFlowMode: jest.fn(async () => mockActiveLogFlowMode),
+}));
+
+jest.mock("@/lib/workouts/sessionEngine/enrichSessionStorage", () => ({
+  getEnrichSessionPointer: jest.fn(async () => mockEnrichPointer),
+  setEnrichSessionPointer: jest.fn(async () => undefined),
+  clearEnrichSessionPointer: jest.fn(async () => undefined),
 }));
 
 const mockReduced = {
@@ -185,7 +202,15 @@ jest.mock("@expo/vector-icons", () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const commands = require("@/lib/workouts/sessionEngine/commands");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const WorkoutLogScreen = require("../log").default;
+const activeSessionStorage = require("@/lib/workouts/sessionEngine/activeSessionStorage");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { resolveSessionStartedAtIsoForDay } = require("@/lib/workouts/journal/sessionAnchorForDay");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const logModule = require("../log");
+const WorkoutLogScreen = logModule.default;
+const WorkoutLogScreenInner = logModule.WorkoutLogScreenInner;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const enrichSessionStorage = require("@/lib/workouts/sessionEngine/enrichSessionStorage");
 
 function findByA11yLabel(
   root: renderer.ReactTestRenderer["root"],
@@ -219,6 +244,10 @@ describe("workouts/log session UI", () => {
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     mockActiveSessionId = null;
+    mockReduced.status = "active";
+    mockReduced.sessionId = "s1";
+    mockReduced.startedAt = "2026-03-01T10:00:00.000Z";
+    mockReduced.eventCount = 1;
     mockReduced.blocks = [];
     mockReduced.exercises = [];
     mockExerciseMemory = {};
@@ -230,7 +259,14 @@ describe("workouts/log session UI", () => {
     mockPrefMessage = "";
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
+    mockRouterDismissTo.mockClear();
     mockScrollTo.mockClear();
+    mockLogSearchParams = {};
+    mockActiveLogFlowMode = "live";
+    mockEnrichPointer = null;
+    enrichSessionStorage.getEnrichSessionPointer.mockClear();
+    enrichSessionStorage.setEnrichSessionPointer.mockClear();
+    enrichSessionStorage.clearEnrichSessionPointer.mockClear();
   });
 
   afterEach(() => {
@@ -358,7 +394,7 @@ describe("workouts/log session UI", () => {
     await flushEventLoop();
     await flushEventLoop();
     expect(commands.createSessionDraft).toHaveBeenCalled();
-    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1");
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1", undefined, undefined);
   });
 
   it("renders Active set card when active session has one block and one exercise", async () => {
@@ -377,7 +413,79 @@ describe("workouts/log session UI", () => {
     await flushEventLoop();
     await flushEventLoop();
     expect(commands.createSessionDraft).toHaveBeenCalled();
-    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1");
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1", undefined, undefined);
+  });
+
+  it("live /workouts/log ignores enrich params and shows Start workout (not enrichment bootstrap)", async () => {
+    mockLogSearchParams = {
+      enrichDay: "2026-03-18",
+      enrichTargetId: "2026-03-18:session:0:w1",
+      sessionAnchorIso: "2026-03-18T15:30:00.000Z",
+    };
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Continue to add exercises")).toBeNull();
+    expect(enrichSessionStorage.getEnrichSessionPointer).not.toHaveBeenCalled();
+  });
+
+  it("enrichment route auto-bootstraps journal with anchor and scopes enrichSessionStorage", async () => {
+    mockLogSearchParams = {
+      enrichDay: "2026-03-18",
+      enrichTargetId: "2026-03-18:session:0:w1",
+      sessionAnchorIso: "2026-03-18T15:30:00.000Z",
+    };
+    mockEnrichPointer = null;
+    commands.startSession.mockClear();
+    commands.createSessionDraft.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreenInner sessionEntry="enrichment" />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.createSessionDraft).toHaveBeenCalled();
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1", undefined, {
+      anchorOccurredAt: resolveSessionStartedAtIsoForDay(
+        "2026-03-18",
+        "2026-03-18T15:30:00.000Z",
+      ),
+    });
+    expect(enrichSessionStorage.setEnrichSessionPointer).toHaveBeenCalledWith(
+      "u1",
+      "2026-03-18:session:0:w1",
+      "s1",
+    );
+  });
+
+  it("enrichment with journalSessionId hydrates existing journal without createSessionDraft", async () => {
+    mockLogSearchParams = {
+      enrichDay: "2026-03-18",
+      enrichTargetId: "2026-03-18:session:0:w1",
+      journalSessionId: "journal-existing",
+    };
+    mockEnrichPointer = null;
+    mockReduced.status = "completed";
+    mockReduced.sessionId = "journal-existing";
+    mockReduced.startedAt = "2026-03-18T12:00:00.000Z";
+    mockReduced.eventCount = 4;
+    commands.createSessionDraft.mockClear();
+    commands.startSession.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreenInner sessionEntry="enrichment" />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.createSessionDraft).not.toHaveBeenCalled();
+    expect(commands.startSession).not.toHaveBeenCalled();
+    expect(enrichSessionStorage.setEnrichSessionPointer).toHaveBeenCalledWith(
+      "u1",
+      "2026-03-18:session:0:w1",
+      "journal-existing",
+    );
+    expect(test!.root.findByProps({ testID: "workout-log-backfill-nav" })).toBeTruthy();
   });
 
   it("start workout persists custom workout name note when entered", async () => {
@@ -1904,6 +2012,42 @@ describe("workouts/log session UI", () => {
     });
     const finishBtn = findByA11yLabel(test!.root, "Finish workout");
     expect(finishBtn).not.toBeNull();
+    expect(test!.root.findAll((n) => n.props?.testID === "workout-log-live-timer").length).toBeGreaterThan(0);
+  });
+
+  it("backfill active session hides live timer and shows Add exercises header", async () => {
+    mockActiveSessionId = null;
+    mockEnrichPointer = "s1";
+    mockLogSearchParams = {
+      enrichDay: "2026-03-18",
+      enrichTargetId: "2026-03-18:session:0:w1",
+    };
+    act(() => {
+      test = renderer.create(<WorkoutLogScreenInner sessionEntry="enrichment" />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    expect(test!.root.findAll((n) => n.props?.testID === "workout-log-live-timer").length).toBe(0);
+    expect(test!.root.findByProps({ testID: "workout-log-backfill-nav" })).toBeTruthy();
+    const saveBtn = findByA11yLabel(test!.root, "Save exercises");
+    expect(saveBtn).not.toBeNull();
+  });
+
+  it("live /workouts/log clears stale completed backfill pointer without showing blocker", async () => {
+    mockActiveSessionId = "s1";
+    mockActiveLogFlowMode = "backfill";
+    mockReduced.status = "completed";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
   });
 
   it("pressing Finish opens finish confirmation sheet; confirming calls completeSession", async () => {

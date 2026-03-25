@@ -15,10 +15,11 @@ import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { PageTitleRow } from "@/lib/ui/PageTitleRow";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 
-/** Cards that navigate to existing routes only. No Cardio/Steps — no dedicated routes. */
+/** Cards that navigate to existing routes only. */
 const MANAGE_DATA_CARDS = [
   { id: "body", title: "Body Composition", subtitle: "Log and track weight and body metrics", route: "/(app)/body/weight" as const },
-  { id: "workouts", title: "Workouts", subtitle: "Log workouts and view history", route: "/(app)/workouts" as const },
+  { id: "strength", title: "Strength", subtitle: "Lift, log sessions, and review training", route: "/(app)/workouts" as const },
+  { id: "cardio", title: "Cardio", subtitle: "Runs, rides, and Apple Health sessions", route: "/(app)/cardio" as const },
   { id: "nutrition", title: "Nutrition", subtitle: "Log meals and set targets", route: "/(app)/nutrition" as const },
   { id: "sleep", title: "Sleep", subtitle: "View and manage sleep data", route: "/(app)/recovery/sleep" as const },
   { id: "readiness", title: "Readiness", subtitle: "Recovery and readiness metrics", route: "/(app)/recovery/readiness" as const },

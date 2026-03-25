@@ -82,7 +82,8 @@ describe("Dash provenance", () => {
     const text = collectAllText(test);
     expect(text).toContain("Manage your data");
     expect(text).toContain("Body Composition");
-    expect(text).toContain("Workouts");
+    expect(text).toContain("Strength");
+    expect(text).toContain("Cardio");
     expect(text).toContain("Nutrition");
     expect(text).toContain("Sleep");
     expect(text).toContain("Readiness");

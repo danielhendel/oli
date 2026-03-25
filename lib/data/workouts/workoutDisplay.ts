@@ -1,5 +1,6 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride, WorkoutOverrideType } from "@/lib/data/workouts/workoutOverrides";
+import { kgToLbs } from "@/lib/metrics/metricUnits";
 
 const WELL_KNOWN_TITLE_OVERRIDES: Record<string, string> = {
   traditionalstrengthtraining: "Strength Training",
@@ -70,6 +71,13 @@ export function formatWorkoutDurationLabel(minutes: number | null | undefined): 
   const mins = total % 60;
   if (mins === 0) return `${hours} hr`;
   return `${hours} hr ${mins} min`;
+}
+
+/** Mean session volume in lb (from kg) for strength overview; matches other workout empty states. */
+export function formatTypicalStrengthVolumeLabel(kg: number | null): string {
+  if (kg == null || !Number.isFinite(kg) || kg <= 0) return "—";
+  const lbs = kgToLbs(kg);
+  return `${formatIntegerWithCommas(lbs)} lb`;
 }
 
 const METERS_PER_MILE = 1609.344;

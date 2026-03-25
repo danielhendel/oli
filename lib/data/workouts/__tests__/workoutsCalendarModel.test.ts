@@ -333,7 +333,7 @@ describe("workoutsCalendarModel", () => {
     expect(bundle.metricsByTab.cardio.totalWorkouts).toBe(0);
   });
 
-  it("buildWorkoutOverviewAnalyticsFromCalendarDays uses active months and active weeks for avg denominators", () => {
+  it("buildWorkoutOverviewAnalyticsFromCalendarDays uses active months and elapsed-year weekly rate for Avg per Week", () => {
     const days = [
       {
         day: "2026-03-10",
@@ -371,11 +371,35 @@ describe("workoutsCalendarModel", () => {
     const bundle = buildWorkoutOverviewAnalyticsFromCalendarDays(days);
     expect(bundle.metricsByTab.strength.totalWorkouts).toBe(2);
     expect(bundle.metricsByTab.strength.avgPerMonth).toBeCloseTo(1, 10);
-    expect(bundle.metricsByTab.strength.avgPerWeek).toBeCloseTo(1, 10);
+    expect(bundle.metricsByTab.strength.avgPerWeek).toBeCloseTo((2 * 7) / 365, 8);
     expect(bundle.metricsByTab.strength.avgDurationMinutes).toBeCloseTo(45, 10);
     expect(bundle.chartPointsByTab.strength.find((p) => p.monthKey === "2026-03")?.workouts).toBe(1);
     expect(bundle.chartPointsByTab.strength.find((p) => p.monthKey === "2026-06")?.workouts).toBe(1);
     expect(bundle.chartPointsByTab.strength.find((p) => p.monthKey === "2026-01")?.workouts).toBe(0);
+  });
+
+  it("buildWorkoutOverviewAnalyticsFromCalendarDays Avg per Week uses elapsed days Jan 1 through today in analytics year", () => {
+    const days = [
+      {
+        day: "2026-03-10",
+        workouts: [
+          {
+            id: "s1",
+            observedAt: "2026-03-10T08:00:00.000Z",
+            sourceId: "manual",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-03-10T08:00:00.000Z",
+            end: "2026-03-10T09:00:00.000Z",
+            durationMinutes: 60,
+            calories: null,
+          },
+        ],
+      },
+    ];
+    const bundle = buildWorkoutOverviewAnalyticsFromCalendarDays(days, { todayDayKey: "2026-03-10" });
+    expect(bundle.metricsByTab.strength.totalWorkouts).toBe(1);
+    expect(bundle.metricsByTab.strength.avgPerWeek).toBeCloseTo(7 / 69, 8);
   });
 
   it("buildWorkoutOverviewAnalyticsFromCalendarDays avg per month = total / distinct months with sessions", () => {

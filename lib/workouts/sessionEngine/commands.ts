@@ -92,9 +92,12 @@ function mkBaseEvent(params: {
   payload: WorkoutEventV1["payload"];
   idempotencyKey: string;
   eventId?: string;
+  /** When set, used as `occurredAt` while `capturedAt` stays wall-clock from deps. */
+  occurredAtOverride?: string;
 }): WorkoutEventV1 {
   const { uid, sessionId, deps, kind, payload, idempotencyKey } = params;
-  const occurredAt = deps.nowIso();
+  const capturedAt = deps.nowIso();
+  const occurredAt = params.occurredAtOverride ?? capturedAt;
   const eventId = params.eventId ?? deps.makeId("wev");
   return {
     kind,
@@ -102,7 +105,7 @@ function mkBaseEvent(params: {
     ownerUid: uid,
     sessionId,
     occurredAt,
-    capturedAt: occurredAt,
+    capturedAt,
     deviceTimeZone: deps.deviceTimeZone,
     source: "manual",
     idempotencyKey,
@@ -140,6 +143,7 @@ export async function setSessionStatus(
   sessionId: string,
   to: WorkoutSessionStatus,
   deps?: Partial<SessionEngineDeps>,
+  eventOptions?: { occurredAt?: string; sessionStartedAtAnchorIso?: string },
 ): Promise<void> {
   assertNonEmpty("uid", uid);
   assertNonEmpty("sessionId", sessionId);
@@ -152,13 +156,27 @@ export async function setSessionStatus(
     );
   }
 
+  const anchor =
+    eventOptions?.sessionStartedAtAnchorIso != null &&
+    eventOptions.sessionStartedAtAnchorIso.trim() !== ""
+      ? eventOptions.sessionStartedAtAnchorIso.trim()
+      : undefined;
+
   const ev = mkBaseEvent({
     uid,
     sessionId,
     deps: d,
     kind: "workout_session_state_changed",
-    payload: { from, to, reason: "user" },
+    payload: {
+      from,
+      to,
+      reason: "user",
+      ...(anchor != null ? { sessionStartedAtAnchorIso: anchor } : {}),
+    },
     idempotencyKey: `session:status:${sessionId}:${from}->${to}`,
+    ...(eventOptions?.occurredAt != null && eventOptions.occurredAt.trim() !== ""
+      ? { occurredAtOverride: eventOptions.occurredAt }
+      : {}),
   });
   await appendWorkoutJournalEvent(uid, sessionId, ev);
 }
@@ -167,8 +185,15 @@ export async function startSession(
   uid: string,
   sessionId: string,
   deps?: Partial<SessionEngineDeps>,
+  options?: { anchorOccurredAt?: string },
 ): Promise<void> {
-  await setSessionStatus(uid, sessionId, "active", deps);
+  const anchor =
+    options?.anchorOccurredAt != null && options.anchorOccurredAt.trim() !== ""
+      ? options.anchorOccurredAt.trim()
+      : undefined;
+  await setSessionStatus(uid, sessionId, "active", deps, {
+    ...(anchor != null ? { sessionStartedAtAnchorIso: anchor } : {}),
+  });
 }
 
 export async function completeSession(

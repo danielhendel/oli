@@ -32,7 +32,7 @@ jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => {
   };
 });
 
-import WorkoutDayScreen from "../day/[day]";
+import { WorkoutDayScreen } from "../day/[day]";
 import { formatWeightLbs } from "../day/[day]";
 
 describe("WorkoutDayScreen display", () => {
@@ -66,7 +66,7 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
     });
 
     const json = JSON.stringify(test.toJSON());
@@ -81,7 +81,7 @@ describe("WorkoutDayScreen display", () => {
     expect(json).not.toContain("\"Workouts\"");
   });
 
-  it("renders multiple workouts and handles missing optional fields", () => {
+  it("renders multiple strength sessions on the strength day route", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
       day: "2026-03-18",
@@ -91,6 +91,7 @@ describe("WorkoutDayScreen display", () => {
           observedAt: "2026-03-18T08:00:00.000Z",
           sourceId: "manual",
           title: "Chest Day",
+          workoutType: "strength" as const,
           start: "2026-03-18T08:00:00.000Z",
           end: null,
           durationMinutes: null,
@@ -99,8 +100,9 @@ describe("WorkoutDayScreen display", () => {
         {
           id: "w2",
           observedAt: "2026-03-18T18:00:00.000Z",
-          sourceId: "apple_health",
-          title: "IndoorCycle",
+          sourceId: "manual",
+          title: "Evening Pull",
+          workoutType: "strength" as const,
           start: "2026-03-18T18:00:00.000Z",
           end: null,
           durationMinutes: 30,
@@ -111,16 +113,56 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
     });
 
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Chest Day");
+    expect(json).toContain("Evening Pull");
+    expect(json).toContain("—");
+    expect(json).not.toContain("Manual");
+  });
+
+  it("renders cardio session fields on the cardio day route", () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "w1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "manual",
+          title: "Chest Day",
+          workoutType: "strength" as const,
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: null,
+        },
+        {
+          id: "w2",
+          observedAt: "2026-03-18T18:00:00.000Z",
+          sourceId: "apple_health",
+          title: "IndoorCycle",
+          workoutType: "cardio" as const,
+          start: "2026-03-18T18:00:00.000Z",
+          end: null,
+          durationMinutes: 30,
+          calories: null,
+        },
+      ],
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutDayScreen domain="cardio" />);
+    });
+
+    const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Indoor Cycling");
     expect(json).toContain("Distance");
     expect(json).toContain("Avg Pace");
-    expect(json).toContain("—");
-    expect(json).not.toContain("Manual");
+    expect(json).not.toContain("Chest Day");
   });
 
   it("renders no-workout empty state and calls overrides hook with empty ids", () => {
@@ -133,11 +175,11 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
     });
 
     const json = JSON.stringify(test.toJSON());
-    expect(json).toContain("No workouts for this day");
+    expect(json).toContain("No data for this day");
     expect(mockUseWorkoutOverrides).toHaveBeenCalledWith([]);
   });
 
@@ -169,14 +211,14 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
     });
     act(() => {
-      test.update(<WorkoutDayScreen />);
+      test.update(<WorkoutDayScreen domain="strength" />);
     });
 
     const json = JSON.stringify(test.toJSON());
-    expect(json).toContain("No workouts for this day");
+    expect(json).toContain("No data for this day");
     expect(mockUseWorkoutOverrides.mock.calls[0][0]).toEqual(["w1"]);
     expect(mockUseWorkoutOverrides.mock.calls[1][0]).toEqual([]);
   });
@@ -190,12 +232,12 @@ describe("WorkoutDayScreen display", () => {
           id: "w1",
           observedAt: "2026-03-18T08:00:00.000Z",
           sourceId: "manual",
-          title: "Running",
+          title: "Morning lift",
           start: "2026-03-18T08:00:00.000Z",
           end: null,
           durationMinutes: 20,
           calories: null,
-          workoutType: "cardio",
+          workoutType: "strength",
         },
       ],
     });
@@ -215,7 +257,7 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
     });
 
     const json = JSON.stringify(test.toJSON());
@@ -249,7 +291,7 @@ describe("WorkoutDayScreen display", () => {
     });
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="cardio" />);
     });
 
     const options = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1]?.[0];
@@ -269,7 +311,7 @@ describe("WorkoutDayScreen display", () => {
     expect(json).not.toContain("Workout Day");
   });
 
-  it("renders exercises card container", async () => {
+  it("renders premium empty exercise state with log CTA when journal has no sets", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
       day: "2026-03-18",
@@ -293,20 +335,76 @@ describe("WorkoutDayScreen display", () => {
         day: "2026-03-18",
         startedAt: "2026-03-18T08:00:00.000Z",
         customName: "Chest & Arms",
-        totalVolume: 12450,
-        avgIntensity: 8.5,
-        exercises: [
-          { name: "bench press", sets: [{ setNumber: 1, reps: 10, weightKg: 60, intensity: 8 }] },
-        ],
+        totalVolume: null,
+        avgIntensity: null,
+        exercises: [],
       },
     ]);
+    const prevJestWorkerId = process.env.JEST_WORKER_ID;
+    delete process.env.JEST_WORKER_ID;
     let test!: renderer.ReactTestRenderer;
-    await act(async () => {
-      test = renderer.create(<WorkoutDayScreen />);
-    });
+    try {
+      await act(async () => {
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      process.env.JEST_WORKER_ID = prevJestWorkerId;
+    }
     const json = JSON.stringify(test.toJSON());
-    expect(json).toContain("Exercises");
-    expect(json).toContain("No logged exercises");
+    expect(json).toContain("No exercises logged yet");
+    expect(json).toContain("Add exercises");
+    expect(test.root.findByProps({ testID: "add-exercises-cta" })).toBeTruthy();
+  });
+
+  it("Apple-only single strength session uses premium shell and log CTA navigates with enrichDay", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "w1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "apple_health",
+          title: "TraditionalStrengthTraining",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: 320,
+        },
+      ],
+    });
+    mockListManualWorkoutDaySummaries.mockResolvedValue([]);
+    const prevJestWorkerId = process.env.JEST_WORKER_ID;
+    delete process.env.JEST_WORKER_ID;
+    let test!: renderer.ReactTestRenderer;
+    try {
+      await act(async () => {
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      process.env.JEST_WORKER_ID = prevJestWorkerId;
+    }
+    const json = JSON.stringify(test.toJSON());
+    expect(json).toContain("Total Volume");
+    expect(json).toContain("Add exercises");
+    const cta = test.root.findByProps({ testID: "add-exercises-cta" });
+    act(() => {
+      cta.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/enrich",
+      params: {
+        enrichDay: "2026-03-18",
+        enrichTargetId: "2026-03-18:session:0:w1",
+        sessionAnchorIso: "2026-03-18T08:00:00.000Z",
+      },
+    });
   });
 
   it("renders each exercise as a premium performance row when one strength session and journal summary exist", async () => {
@@ -348,7 +446,7 @@ describe("WorkoutDayScreen display", () => {
     let test!: renderer.ReactTestRenderer;
     try {
       await act(async () => {
-        test = renderer.create(<WorkoutDayScreen />);
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
       });
       await act(async () => {
         await Promise.resolve();
@@ -412,7 +510,7 @@ describe("WorkoutDayScreen display", () => {
     let test!: renderer.ReactTestRenderer;
     try {
       await act(async () => {
-        test = renderer.create(<WorkoutDayScreen />);
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
       });
       await act(async () => {
         await Promise.resolve();
@@ -450,7 +548,7 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="cardio" />);
     });
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Running");
@@ -483,7 +581,7 @@ describe("WorkoutDayScreen display", () => {
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<WorkoutDayScreen />);
+      test = renderer.create(<WorkoutDayScreen domain="cardio" />);
     });
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Zone 1");
@@ -526,7 +624,7 @@ describe("WorkoutDayScreen display", () => {
     let test!: renderer.ReactTestRenderer;
     try {
       await act(async () => {
-        test = renderer.create(<WorkoutDayScreen />);
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
       });
       await act(async () => {
         await Promise.resolve();

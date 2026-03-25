@@ -83,4 +83,25 @@ describe("sessionEngine commands", () => {
     expect(reduced.exercises[0]!.sets[0]!.reps).toBe(8);
     expect(reduced.exercises[0]!.sets[0]!.loadKg).toBe(60);
   });
+
+  it("startSession with anchorOccurredAt sets reducer startedAt to anchor", async () => {
+    const deps = mkDeps();
+    const { sessionId } = await createSessionDraft("u1", deps);
+    await startSession("u1", sessionId, deps, { anchorOccurredAt: "2026-03-18T15:30:00.000Z" });
+    const reduced = await loadReducedSession("u1", sessionId);
+    expect(reduced.startedAt).toBe("2026-03-18T15:30:00.000Z");
+    expect(reduced.status).toBe("active");
+  });
+
+  it("backfill anchor in the past leaves session active (occurredAt order) and completeSession succeeds", async () => {
+    const deps = mkDeps();
+    const { sessionId } = await createSessionDraft("u1", deps);
+    await startSession("u1", sessionId, deps, { anchorOccurredAt: "2024-06-01T12:00:00.000Z" });
+    const activeReduced = await loadReducedSession("u1", sessionId);
+    expect(activeReduced.status).toBe("active");
+    expect(activeReduced.startedAt).toBe("2024-06-01T12:00:00.000Z");
+    await completeSession("u1", sessionId, deps);
+    const completed = await loadReducedSession("u1", sessionId);
+    expect(completed.status).toBe("completed");
+  });
 });

@@ -1,5 +1,6 @@
 /**
- * Placeholder: structured training plan (routes from Workouts overview bottom nav).
+ * Cardio manual logging: Apple Health supplies HK workouts; structured manual entry
+ * uses the same journal patterns as Strength when added later.
  */
 
 import React, { useEffect } from "react";
@@ -9,7 +10,7 @@ import { EmptyState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
-export default function WorkoutsPlanScreen() {
+export default function CardioLogScreen() {
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -20,8 +21,11 @@ export default function WorkoutsPlanScreen() {
   }, [navigation]);
 
   return (
-    <ModuleScreenShell title="Strength" subtitle="Plan" hideTitleChrome>
-      <EmptyState title="Plan" description="Your training plan will appear here." />
+    <ModuleScreenShell title="Cardio" subtitle="Log" hideTitleChrome>
+      <EmptyState
+        title="Cardio logging"
+        description="Runs, rides, and other cardio sessions from Apple Health sync automatically. Structured manual cardio entry will use this spot when shipped."
+      />
     </ModuleScreenShell>
   );
 }

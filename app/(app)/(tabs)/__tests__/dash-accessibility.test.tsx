@@ -68,16 +68,21 @@ describe("Dash accessibility", () => {
     expect(body.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("exposes accessibilityLabel on Workouts card", () => {
+  it("exposes accessibilityLabel on Strength and Cardio cards", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
-    const workouts = findPressablesWithLabel(
+    const strength = findPressablesWithLabel(
       test.root,
-      "Workouts. Log workouts and view history"
+      "Strength. Lift, log sessions, and review training"
     );
-    expect(workouts.length).toBeGreaterThanOrEqual(1);
+    expect(strength.length).toBeGreaterThanOrEqual(1);
+    const cardio = findPressablesWithLabel(
+      test.root,
+      "Cardio. Runs, rides, and Apple Health sessions"
+    );
+    expect(cardio.length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows Manage your data section label", () => {
@@ -103,6 +108,6 @@ describe("Dash accessibility", () => {
     const withRole = pressables.filter(
       (p) => (p.props as { accessibilityRole?: string }).accessibilityRole === "button"
     );
-    expect(withRole.length).toBeGreaterThanOrEqual(4);
+    expect(withRole.length).toBeGreaterThanOrEqual(8);
   });
 });

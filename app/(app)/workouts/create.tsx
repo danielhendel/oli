@@ -20,7 +20,7 @@ export default function WorkoutsCreateScreen() {
   }, [navigation]);
 
   return (
-    <ModuleScreenShell title="Workouts" subtitle="Create" hideTitleChrome>
+    <ModuleScreenShell title="Strength" subtitle="Create" hideTitleChrome>
       <EmptyState title="Create" description="Build a workout template or quick session here." />
     </ModuleScreenShell>
   );

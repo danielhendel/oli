@@ -40,17 +40,22 @@ const SLOT_PRIMARY_SHADOW =
       }
     : { elevation: 4 };
 
+export type WorkoutsOverviewBottomNavProps = {
+  /** Stack base for this product flow (`/(app)/workouts` = Strength, `/(app)/cardio` = Cardio). */
+  basePath: "/(app)/workouts" | "/(app)/cardio";
+};
+
 /**
- * Single floating pill dock for Workouts overview — plan, start log (primary), create.
+ * Single floating pill dock for training overview — plan, start log (primary), create.
  */
-export function WorkoutsOverviewBottomNav() {
+export function WorkoutsOverviewBottomNav({ basePath }: WorkoutsOverviewBottomNavProps) {
   const router = useRouter();
 
   return (
     <View style={styles.bar} pointerEvents="box-none">
       <View style={[styles.dock, DOCK_SHADOW]}>
         <Pressable
-          onPress={() => router.push("/(app)/workouts/plan")}
+          onPress={() => router.push(`${basePath}/plan`)}
           style={({ pressed }) => [
             styles.slot,
             styles.slotSide,
@@ -63,7 +68,7 @@ export function WorkoutsOverviewBottomNav() {
           <Ionicons name="reader-outline" size={ICON} color="#2C2C2E" />
         </Pressable>
         <Pressable
-          onPress={() => router.push("/(app)/workouts/log")}
+          onPress={() => router.push(`${basePath}/log`)}
           style={({ pressed }) => [
             styles.slot,
             styles.slotPrimary,
@@ -76,7 +81,7 @@ export function WorkoutsOverviewBottomNav() {
           <Ionicons name="add" size={ICON} color="#FFFFFF" style={styles.addIcon} />
         </Pressable>
         <Pressable
-          onPress={() => router.push("/(app)/workouts/create")}
+          onPress={() => router.push(`${basePath}/create`)}
           style={({ pressed }) => [
             styles.slot,
             styles.slotSide,

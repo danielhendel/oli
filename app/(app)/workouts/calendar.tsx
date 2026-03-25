@@ -20,6 +20,8 @@ import { getWorkoutTruthTargetConfig } from "@/lib/debug/workoutTruthTargets";
 import { getMonthFirstDay, getMonthLastDay, type MonthYear, clampMonthYear } from "@/lib/ui/calendar/dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
+import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
+import { narrowWorkoutMarkerFlagsForDomain } from "@/lib/data/workouts/workoutDomain";
 
 function monthYearFromToday(): MonthYear {
   const now = new Date();
@@ -52,7 +54,7 @@ function buildMonthRange(center: MonthYear): CalendarMonthModel[] {
   return out;
 }
 
-export default function WorkoutsCalendarScreen() {
+export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
   const router = useRouter();
   const { user } = useAuth();
@@ -83,8 +85,8 @@ export default function WorkoutsCalendarScreen() {
   const summaryMarkerFlags = rangeReady ? (range.markerFlagsByDay ?? null) : null;
 
   const kindsSig = useMemo(
-    () => DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS.join(","),
-    [],
+    () => `${DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS.join(",")}|domain:${domain}`,
+    [domain],
   );
 
   useEffect(() => {
@@ -92,14 +94,14 @@ export default function WorkoutsCalendarScreen() {
     const uid = user?.uid;
     if (!uid) return;
     let cancelled = false;
-    void loadWorkoutCalendarMarkerSnapshot(uid, kindsSig).then((fromDisk) => {
+    void loadWorkoutCalendarMarkerSnapshot(uid, kindsSig, domain).then((fromDisk) => {
       if (cancelled || !fromDisk) return;
       setMarkerMap((prev) => (prev.size > 0 ? prev : fromDisk));
     });
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, kindsSig]);
+  }, [user?.uid, kindsSig, domain]);
 
   useEffect(() => {
     if (!rangeReady || !rangeDays) return;
@@ -131,7 +133,12 @@ export default function WorkoutsCalendarScreen() {
         for (const d of rangeDays) {
           const f = summaryMarkerFlags[d.day];
           if (f && (f.hasStrength || f.hasCardio)) {
-            next.set(d.day, { hasStrength: f.hasStrength, hasCardio: f.hasCardio });
+            const narrowed = narrowWorkoutMarkerFlagsForDomain(
+              { hasStrength: f.hasStrength, hasCardio: f.hasCardio },
+              domain,
+            );
+            if (narrowed) next.set(d.day, narrowed);
+            else next.delete(d.day);
           } else {
             next.delete(d.day);
           }
@@ -146,12 +153,15 @@ export default function WorkoutsCalendarScreen() {
       for (const d of rangeDays) {
         if (d.workouts.length > 0) {
           const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
-          next.set(d.day, deriveSessionTypeFlags(sessions));
+          const flags = deriveSessionTypeFlags(sessions);
+          const narrowed = narrowWorkoutMarkerFlagsForDomain(flags, domain);
+          if (narrowed) next.set(d.day, narrowed);
+          else next.delete(d.day);
         } else next.delete(d.day);
       }
       return mergeFlags(prev, next);
     });
-  }, [rangeReady, rangeDays, summaryMarkerFlags]);
+  }, [rangeReady, rangeDays, summaryMarkerFlags, domain]);
 
   useEffect(() => {
     if (process.env.JEST_WORKER_ID) return;
@@ -202,13 +212,14 @@ export default function WorkoutsCalendarScreen() {
     const markedDays = [...markerMap.keys()].sort();
     // eslint-disable-next-line no-console
     console.log("[WORKOUT_TRUTH_DEBUG] calendar-source", {
+      productDomain: domain,
       rangeStart: startDay,
       rangeEnd: endDay,
       rawEventKinds: [...DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS],
       markedDayCount: markedDays.length,
       markedDays,
     });
-  }, [markerMap, startDay, endDay]);
+  }, [markerMap, startDay, endDay, domain]);
 
   useEffect(() => {
     if (!(__DEV__ && !process.env.JEST_WORKER_ID)) return;
@@ -248,15 +259,15 @@ export default function WorkoutsCalendarScreen() {
     const uid = user?.uid;
     if (!uid) return;
     if (showEmptyFooter) {
-      void clearWorkoutCalendarMarkerCache();
+      void clearWorkoutCalendarMarkerCache(domain);
       return;
     }
     if (markerMap.size === 0) return;
     const t = setTimeout(() => {
-      void persistWorkoutCalendarMarkerSnapshot(uid, kindsSig, markerMap);
+      void persistWorkoutCalendarMarkerSnapshot(uid, kindsSig, markerMap, domain);
     }, 200);
     return () => clearTimeout(t);
-  }, [showEmptyFooter, markerMap, user?.uid, kindsSig]);
+  }, [showEmptyFooter, markerMap, user?.uid, kindsSig, domain]);
 
   const markerForDay = (day: DayKey): WorkoutMarkerFlags | null => {
     return markerMap.get(day) ?? null;
@@ -264,7 +275,7 @@ export default function WorkoutsCalendarScreen() {
 
   const onDayPress = (day: DayKey) => {
     router.push({
-      pathname: "/(app)/workouts/day/[day]",
+      pathname: domain === "strength" ? "/(app)/workouts/day/[day]" : "/(app)/cardio/day/[day]",
       params: { day },
     });
   };
@@ -303,8 +314,8 @@ export default function WorkoutsCalendarScreen() {
           showEmptyFooter ? (
             <View style={styles.emptyWrapper}>
               <EmptyState
-                title="No workouts in this range"
-                description="When workouts are imported or logged for these dates, they will automatically appear here."
+                title={domain === "strength" ? "No strength workouts in this range" : "No cardio sessions in this range"}
+                description="When sessions are imported from Apple Health or logged for these dates, they will appear here."
               />
             </View>
           ) : null
@@ -312,6 +323,10 @@ export default function WorkoutsCalendarScreen() {
       />
     </ScreenContainer>
   );
+}
+
+export default function WorkoutsStrengthCalendarScreen() {
+  return <WorkoutsCalendarRoute domain="strength" />;
 }
 
 const styles = StyleSheet.create({

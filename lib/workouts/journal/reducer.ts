@@ -100,7 +100,9 @@ export function reduceWorkoutSessionV1(events: WorkoutEventV1[]): ReducedSession
       case "workout_session_state_changed": {
         status = e.payload.to;
         if (e.payload.to === "active" && startedAt === null) {
-          startedAt = e.occurredAt;
+          const anchor = e.payload.sessionStartedAtAnchorIso;
+          startedAt =
+            typeof anchor === "string" && anchor.trim().length > 0 ? anchor.trim() : e.occurredAt;
         }
         break;
       }

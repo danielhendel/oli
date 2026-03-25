@@ -92,8 +92,7 @@ export type WorkoutOverviewAnalyticsBundle = {
 
 /**
  * Distinct `weekKeyFromIso` values at UTC noon for each DayKey in [startDay, endDay] inclusive.
- * Used by {@link WORKOUT_OVERVIEW_ANALYTICS_WEEK_COUNT} (tests / reference). Overview **Avg per Week**
- * uses active weeks from sessions via the same `weekKeyFromIso` on session start (or first workout `observedAt`).
+ * Used by {@link WORKOUT_OVERVIEW_ANALYTICS_WEEK_COUNT} (tests / reference).
  */
 export function countWeekBucketsInDayRangeInclusive(startDay: DayKey, endDay: DayKey): number {
   const weeks = new Set<string>();
@@ -116,6 +115,41 @@ export const WORKOUT_OVERVIEW_ANALYTICS_WEEK_COUNT = countWeekBucketsInDayRangeI
  * (typical cause: Apple Watch workout not ended, inflated HealthKit duration).
  */
 export const WORKOUT_OVERVIEW_AVG_DURATION_CAP_MINUTES = 480;
+
+/**
+ * Inclusive calendar days from {@link WORKOUT_OVERVIEW_ANALYTICS_RANGE_START} through `coverageEnd`
+ * (clamped to the analytics year). Used for overview **Avg per Week** weekly rate.
+ *
+ * - Before the analytics year: denominator = full year length (annualized rate over the configured window).
+ * - On or after range start: through `min(todayDayKey, rangeEnd)` when today falls in-range; after range end, full year.
+ */
+export function elapsedDaysForWorkoutOverviewAnalyticsYear(todayDayKey: DayKey): number {
+  const start = WORKOUT_OVERVIEW_ANALYTICS_RANGE_START;
+  const end = WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
+  const fullYearDays = enumerateDaysInclusive(start, end).length;
+  if (todayDayKey < start) return fullYearDays;
+  const coverageEnd = todayDayKey > end ? end : todayDayKey;
+  return enumerateDaysInclusive(start, coverageEnd).length;
+}
+
+/**
+ * Weekly workout rate for the overview analytics year: `(totalWorkouts × 7) / elapsedDays`.
+ * Aligns with the strength month-tab “Avg per Week” style (calendar elapsed time, not “weeks that had a workout”).
+ */
+export function computeWorkoutOverviewAvgPerWeekFromTotals(
+  totalWorkouts: number,
+  todayDayKey: DayKey,
+): number | null {
+  if (totalWorkouts <= 0) return null;
+  const elapsed = elapsedDaysForWorkoutOverviewAnalyticsYear(todayDayKey);
+  if (elapsed <= 0) return null;
+  return (totalWorkouts * 7) / elapsed;
+}
+
+export type WorkoutOverviewAnalyticsTodayOptions = {
+  /** Local/device today; drives elapsed-year denominator for Avg per Week. Defaults to range end (full year). */
+  todayDayKey?: DayKey;
+};
 
 /**
  * Strength / Cardio overview tabs: strict `sessionType` match only.
@@ -143,18 +177,18 @@ function buildTwelveMonthSkeleton(year: number): WorkoutAnalyticsMonthPoint[] {
   return out;
 }
 
-function buildOverviewMetricsForFiltered(filtered: ReconciledWorkoutSession[]): WorkoutAnalyticsMetrics {
+function buildOverviewMetricsForFiltered(
+  filtered: ReconciledWorkoutSession[],
+  todayDayKey: DayKey,
+): WorkoutAnalyticsMetrics {
   const totalWorkouts = filtered.length;
   if (totalWorkouts === 0) {
     return { totalWorkouts: 0, avgPerMonth: null, avgPerWeek: null, avgDurationMinutes: null };
   }
 
   const activeMonths = new Set<string>();
-  const activeWeeks = new Set<string>();
   for (const s of filtered) {
     activeMonths.add(monthKeyFromDay(s.day));
-    const wk = weekKeyFromIso(s.start ?? s.workouts[0]?.observedAt ?? null);
-    if (wk) activeWeeks.add(wk);
   }
 
   let durationSum = 0;
@@ -173,12 +207,11 @@ function buildOverviewMetricsForFiltered(filtered: ReconciledWorkoutSession[]): 
   }
 
   const monthDenom = activeMonths.size;
-  const weekDenom = activeWeeks.size;
 
   return {
     totalWorkouts,
     avgPerMonth: monthDenom > 0 ? totalWorkouts / monthDenom : null,
-    avgPerWeek: weekDenom > 0 ? totalWorkouts / weekDenom : null,
+    avgPerWeek: computeWorkoutOverviewAvgPerWeekFromTotals(totalWorkouts, todayDayKey),
     avgDurationMinutes: durationCount > 0 ? durationSum / durationCount : null,
   };
 }
@@ -190,7 +223,9 @@ function buildOverviewMetricsForFiltered(filtered: ReconciledWorkoutSession[]): 
  */
 export function buildWorkoutOverviewAnalyticsFromCalendarDays(
   days: WorkoutCalendarDayLike[],
+  options?: WorkoutOverviewAnalyticsTodayOptions,
 ): WorkoutOverviewAnalyticsBundle {
+  const todayDayKey = options?.todayDayKey ?? WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
   const year = WORKOUT_OVERVIEW_ANALYTICS_YEAR;
   const skeleton = buildTwelveMonthSkeleton(year);
   const strengthMonths = new Map(skeleton.map((p) => [p.monthKey, { ...p }]));
@@ -225,8 +260,8 @@ export function buildWorkoutOverviewAnalyticsFromCalendarDays(
       cardio: cardioSeries,
     },
     metricsByTab: {
-      strength: buildOverviewMetricsForFiltered(strengthSessions),
-      cardio: buildOverviewMetricsForFiltered(cardioSessions),
+      strength: buildOverviewMetricsForFiltered(strengthSessions, todayDayKey),
+      cardio: buildOverviewMetricsForFiltered(cardioSessions, todayDayKey),
     },
   };
 }
@@ -238,7 +273,9 @@ export function buildWorkoutOverviewAnalyticsFromCalendarDays(
  */
 export function buildWorkoutOverviewAnalyticsFromMonthSummaryItems(
   items: WorkoutMonthSummaryItemDto[],
+  options?: WorkoutOverviewAnalyticsTodayOptions,
 ): WorkoutOverviewAnalyticsBundle {
+  const todayDayKey = options?.todayDayKey ?? WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
   const year = WORKOUT_OVERVIEW_ANALYTICS_YEAR;
   const skeleton = buildTwelveMonthSkeleton(year);
   const byKey = new Map(items.map((i) => [i.monthKey, i]));
@@ -265,18 +302,15 @@ export function buildWorkoutOverviewAnalyticsFromMonthSummaryItems(
   const mergeMetrics = (tab: WorkoutOverviewMetricsTab): WorkoutAnalyticsMetrics => {
     let totalWorkouts = 0;
     const activeMonths = new Set<string>();
-    const activeWeeks = new Set<string>();
     let durationSum = 0;
     let durationCount = 0;
 
     for (const m of items) {
       const count = tab === "strength" ? m.strengthSessionCount : m.cardioSessionCount;
-      const weeks = tab === "strength" ? m.strengthWeekKeys : m.cardioWeekKeys;
       const dSum = tab === "strength" ? m.strengthDurationSumCapped : m.cardioDurationSumCapped;
       const dCnt = tab === "strength" ? m.strengthDurationCountCapped : m.cardioDurationCountCapped;
       totalWorkouts += count;
       if (count > 0) activeMonths.add(m.monthKey);
-      for (const wk of weeks) activeWeeks.add(wk);
       durationSum += dSum;
       durationCount += dCnt;
     }
@@ -288,7 +322,7 @@ export function buildWorkoutOverviewAnalyticsFromMonthSummaryItems(
     return {
       totalWorkouts,
       avgPerMonth: activeMonths.size > 0 ? totalWorkouts / activeMonths.size : null,
-      avgPerWeek: activeWeeks.size > 0 ? totalWorkouts / activeWeeks.size : null,
+      avgPerWeek: computeWorkoutOverviewAvgPerWeekFromTotals(totalWorkouts, todayDayKey),
       avgDurationMinutes: durationCount > 0 ? durationSum / durationCount : null,
     };
   };
@@ -299,6 +333,19 @@ export function buildWorkoutOverviewAnalyticsFromMonthSummaryItems(
       strength: mergeMetrics("strength"),
       cardio: mergeMetrics("cardio"),
     },
+  };
+}
+
+/** Month-summary path: pick one product domain (server rows are already split). */
+export function buildWorkoutOverviewSingleDomainFromMonthSummaryItems(
+  items: WorkoutMonthSummaryItemDto[],
+  domain: WorkoutOverviewMetricsTab,
+  options?: WorkoutOverviewAnalyticsTodayOptions,
+): { chartPoints: WorkoutAnalyticsMonthPoint[]; metrics: WorkoutAnalyticsMetrics } {
+  const bundle = buildWorkoutOverviewAnalyticsFromMonthSummaryItems(items, options);
+  return {
+    chartPoints: bundle.chartPointsByTab[domain],
+    metrics: bundle.metricsByTab[domain],
   };
 }
 

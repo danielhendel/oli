@@ -1,5 +1,6 @@
 import type { RawEventDoc } from "@oli/contracts";
 import { classifyWorkoutType } from "@/lib/data/workouts/workoutMarkerFlags";
+import { computeStrengthVolumeKgFromStrengthWorkoutPayload } from "@/lib/data/workouts/strengthWorkoutVolumeKg";
 
 /** Best-effort minutes per zone (1–5) when present on raw payload; not part of strict ingest schema. */
 export type HeartRateZoneMinutes5 = readonly [number, number, number, number, number];
@@ -8,6 +9,8 @@ export type WorkoutHistoryItem = {
   id: string;
   observedAt: string;
   sourceId: string;
+  /** Original RawEvent kind (e.g. `strength_workout`, `workout`) for domain routing. */
+  rawKind?: string;
   title: string;
   workoutType?: "strength" | "cardio";
   sport?: string | null;
@@ -21,6 +24,8 @@ export type WorkoutHistoryItem = {
   /** Optional zone minutes on payload; omitted when absent or invalid. */
   heartRateZoneMinutes?: HeartRateZoneMinutes5 | null;
   hk?: { sourceId: string | null; activityId: number | null };
+  /** Parsed from `strength_workout` payload exercises when volume can be computed; omitted otherwise. */
+  strengthVolumeKg?: number | null;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -126,10 +131,16 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     hk = { sourceId: hkSourceId, activityId: hkActivityId };
   }
 
+  const strengthVolumeKg =
+    raw.kind === "strength_workout" && payload
+      ? computeStrengthVolumeKgFromStrengthWorkoutPayload(payload)
+      : null;
+
   return {
     id,
     observedAt,
     sourceId,
+    rawKind: raw.kind,
     title,
     ...(workoutType != null ? { workoutType } : {}),
     ...(sport ? { sport } : {}),
@@ -141,5 +152,6 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     ...(distanceMeters != null ? { distanceMeters } : {}),
     ...(heartRateZoneMinutes != null ? { heartRateZoneMinutes } : {}),
     ...(hk ? { hk } : {}),
+    ...(strengthVolumeKg != null && strengthVolumeKg > 0 ? { strengthVolumeKg } : {}),
   };
 }
