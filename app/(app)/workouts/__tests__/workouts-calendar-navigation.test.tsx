@@ -300,7 +300,8 @@ describe("Workouts calendar navigation", () => {
                   id: "w1",
                   observedAt: "2026-03-11T10:00:00.000Z",
                   sourceId: "manual",
-                  title: "Run",
+                  title: "Strength Training",
+                  workoutType: "strength" as const,
                   start: "2026-03-11T10:00:00.000Z",
                   end: "2026-03-11T11:00:00.000Z",
                   durationMinutes: 60,
@@ -325,7 +326,8 @@ describe("Workouts calendar navigation", () => {
                 id: "w1",
                 observedAt: "2026-03-11T10:00:00.000Z",
                 sourceId: "manual",
-                title: "Run",
+                title: "Strength Training",
+                workoutType: "strength" as const,
                 start: "2026-03-11T10:00:00.000Z",
                 end: "2026-03-11T11:00:00.000Z",
                 durationMinutes: 60,
@@ -352,7 +354,7 @@ describe("Workouts calendar navigation", () => {
       headerTree = renderer.create(HeaderRight());
     });
 
-    const btn = findByA11yLabel(headerTree.root, "Open workouts calendar");
+    const btn = findByA11yLabel(headerTree.root, "Open strength calendar");
     act(() => {
       btn.props.onPress();
     });
@@ -422,7 +424,8 @@ describe("Workouts calendar navigation", () => {
               id: "w1",
               observedAt: "2026-03-11T10:00:00.000Z",
               sourceId: "manual",
-              title: "Run",
+              title: "Strength Training",
+              workoutType: "strength" as const,
               start: "2026-03-11T10:00:00.000Z",
               end: "2026-03-11T11:00:00.000Z",
               durationMinutes: 60,

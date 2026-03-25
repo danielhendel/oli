@@ -44,12 +44,19 @@ import {
 } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
-  buildWorkoutOverviewAnalyticsFromMonthSummaryItems,
+  buildWorkoutOverviewSingleDomainFromMonthSummaryItems,
   getRecentWorkoutSessionsFromCalendarDays,
+  monthKeyFromDay,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
   WORKOUT_OVERVIEW_ANALYTICS_YEAR,
 } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  buildStrengthMonthOverviewFromCalendarDays,
+  monthShortLabelFromMonthKey,
+} from "@/lib/data/workouts/strengthOverviewMonthAnalytics";
+import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
+import { mapWorkoutCalendarDaysForDomain } from "@/lib/data/workouts/workoutDomain";
 import {
   WORKOUT_MONTH_SUMMARY_EXPECTED,
   type WorkoutMonthSummariesResponseDto,
@@ -99,7 +106,10 @@ import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
-import { listManualWorkoutDaySummaries } from "@/lib/workouts/journal/manualWorkoutSummary";
+import {
+  listManualWorkoutDaySummaries,
+  type ManualWorkoutDaySummary,
+} from "@/lib/workouts/journal/manualWorkoutSummary";
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
@@ -121,10 +131,20 @@ const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
 const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
-const SHELL_TITLE = "Workouts";
-const SHELL_SUBTITLE = "Strength & cardio";
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function shellTitleForDomain(domain: WorkoutProductDomain): string {
+  return domain === "strength" ? "Strength" : "Cardio";
+}
+
+function shellSubtitleForDomain(domain: WorkoutProductDomain): string {
+  return domain === "strength" ? "Training & lifting" : "Runs, rides, and more";
+}
+
+function basePathForDomain(domain: WorkoutProductDomain): "/(app)/workouts" | "/(app)/cardio" {
+  return domain === "strength" ? "/(app)/workouts" : "/(app)/cardio";
+}
 
 function formatWorkoutDayLabel(dayKey: string): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);
@@ -160,22 +180,25 @@ function getHistoricalBootstrapRange(monthsBack = 12): { startDate: string; endD
   return { startDate: toHealthKitIso8601(start), endDate: toHealthKitIso8601(end) };
 }
 
-function OverflowMenuButton({ onPress }: { onPress: () => void }) {
+function OverflowMenuButton({ onPress, label }: { onPress: () => void; label: string }) {
   return (
     <Pressable
       onPress={onPress}
       style={styles.headerMenuBtn}
       accessibilityRole="button"
-      accessibilityLabel="Workouts menu"
+      accessibilityLabel={label}
     >
       <Text style={styles.headerMenuText}>•••</Text>
     </Pressable>
   );
 }
 
-export default function TrainingOverviewScreen() {
+export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
   const router = useRouter();
+  const basePath = basePathForDomain(domain);
+  const shellTitle = shellTitleForDomain(domain);
+  const shellSubtitle = shellSubtitleForDomain(domain);
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
@@ -187,7 +210,7 @@ export default function TrainingOverviewScreen() {
     session: ReconciledWorkoutSession;
   } | null>(null);
   const [workoutMenuAnchor, setWorkoutMenuAnchor] = useState<WorkoutActionAnchor | null>(null);
-  const [manualWorkoutNameByDay, setManualWorkoutNameByDay] = useState<Record<string, string>>({});
+  const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
   const [monthSummariesFetch, setMonthSummariesFetch] = useState<
     | { status: "idle" }
     | { status: "ready"; res: WorkoutMonthSummariesResponseDto }
@@ -238,17 +261,22 @@ export default function TrainingOverviewScreen() {
 
   const sharedDays = overviewSharedRange.status === "ready" ? overviewSharedRange.days : [];
 
+  const domainSharedDays = useMemo(
+    () => mapWorkoutCalendarDaysForDomain(sharedDays, domain),
+    [sharedDays, domain],
+  );
+
   const weekDaysSlice = useMemo(
-    () => filterWorkoutCalendarDaysInclusive(sharedDays, weekStart, weekEnd),
-    [sharedDays, weekStart, weekEnd],
+    () => filterWorkoutCalendarDaysInclusive(domainSharedDays, weekStart, weekEnd),
+    [domainSharedDays, weekStart, weekEnd],
   );
   const recentDaysSlice = useMemo(
-    () => filterWorkoutCalendarDaysInclusive(sharedDays, recentRangeStart, recentRangeEnd),
-    [sharedDays, recentRangeStart, recentRangeEnd],
+    () => filterWorkoutCalendarDaysInclusive(domainSharedDays, recentRangeStart, recentRangeEnd),
+    [domainSharedDays, recentRangeStart, recentRangeEnd],
   );
   const analyticsDaysSlice = useMemo(
-    () => filterWorkoutCalendarDaysInclusive(sharedDays, analyticsRangeStart, analyticsRangeEnd),
-    [sharedDays, analyticsRangeStart, analyticsRangeEnd],
+    () => filterWorkoutCalendarDaysInclusive(domainSharedDays, analyticsRangeStart, analyticsRangeEnd),
+    [domainSharedDays, analyticsRangeStart, analyticsRangeEnd],
   );
 
   useEffect(() => {
@@ -359,12 +387,34 @@ export default function TrainingOverviewScreen() {
   );
   const { overridesByWorkoutId, reload } = useWorkoutOverrides(recentWorkoutIds);
 
-  const rawOverviewAnalytics = useMemo(
-    () =>
+  const rawOverviewAnalyticsSingle = useMemo(() => {
+    const bundle =
       overviewSharedRange.status === "ready"
-        ? buildWorkoutOverviewAnalyticsFromCalendarDays(analyticsDaysSlice)
-        : buildWorkoutOverviewAnalyticsFromCalendarDays([]),
-    [overviewSharedRange.status, analyticsDaysSlice],
+        ? buildWorkoutOverviewAnalyticsFromCalendarDays(analyticsDaysSlice, { todayDayKey: today })
+        : buildWorkoutOverviewAnalyticsFromCalendarDays([], { todayDayKey: today });
+    return {
+      chartPoints: bundle.chartPointsByTab[domain],
+      metrics: bundle.metricsByTab[domain],
+    };
+  }, [overviewSharedRange.status, analyticsDaysSlice, domain, today]);
+
+  const focusStrengthMonthKey = monthKeyFromDay(today);
+
+  const manualWorkoutNameByDay = useMemo(() => {
+    const next: Record<string, string> = {};
+    for (const row of manualWorkoutSummaries) {
+      if (row.customName?.trim()) next[row.day] = row.customName.trim();
+    }
+    return next;
+  }, [manualWorkoutSummaries]);
+
+  const strengthMonthOverview = useMemo(
+    () =>
+      buildStrengthMonthOverviewFromCalendarDays(analyticsDaysSlice, focusStrengthMonthKey, {
+        todayDayKey: today,
+        manualJournalSummaries: manualWorkoutSummaries,
+      }),
+    [analyticsDaysSlice, focusStrengthMonthKey, today, manualWorkoutSummaries],
   );
 
   const overviewAnalytics = useMemo(() => {
@@ -379,11 +429,13 @@ export default function TrainingOverviewScreen() {
             it.reconcileVersion === WORKOUT_MONTH_SUMMARY_EXPECTED.reconcileVersion,
         )
       ) {
-        return buildWorkoutOverviewAnalyticsFromMonthSummaryItems(res.items);
+        return buildWorkoutOverviewSingleDomainFromMonthSummaryItems(res.items, domain, {
+          todayDayKey: today,
+        });
       }
     }
-    return rawOverviewAnalytics;
-  }, [monthSummariesFetch, rawOverviewAnalytics]);
+    return rawOverviewAnalyticsSingle;
+  }, [monthSummariesFetch, rawOverviewAnalyticsSingle, domain, today]);
 
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
@@ -393,6 +445,7 @@ export default function TrainingOverviewScreen() {
     const nonEmpty = analyticsDaysSlice.filter((d) => d.workouts.length > 0).map((d) => d.day);
     // eslint-disable-next-line no-console
     console.log("[WORKOUT_TRUTH_DEBUG] analytics-source", {
+      productDomain: domain,
       rawEventKinds: [...DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS],
       analyticsRangeStart,
       analyticsRangeEnd,
@@ -400,11 +453,10 @@ export default function TrainingOverviewScreen() {
       latestSessionDay: sessions[sessions.length - 1]?.day ?? null,
       rawWorkoutItems: rawCount,
       totalSessions: sessions.length,
-      overviewStrengthTotal: overviewAnalytics.metricsByTab.strength.totalWorkouts,
-      overviewCardioTotal: overviewAnalytics.metricsByTab.cardio.totalWorkouts,
+      overviewDomainTotal: overviewAnalytics.metrics.totalWorkouts,
       markedDays: nonEmpty,
     });
-  }, [overviewSharedRange.status, analyticsDaysSlice, overviewAnalytics, analyticsRangeStart, analyticsRangeEnd]);
+  }, [overviewSharedRange.status, analyticsDaysSlice, overviewAnalytics, analyticsRangeStart, analyticsRangeEnd, domain]);
 
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
@@ -433,16 +485,12 @@ export default function TrainingOverviewScreen() {
     let cancelled = false;
     if (process.env.JEST_WORKER_ID) return;
     if (!user?.uid) {
-      setManualWorkoutNameByDay({});
+      setManualWorkoutSummaries([]);
       return;
     }
     void listManualWorkoutDaySummaries(user.uid).then((rows) => {
       if (cancelled) return;
-      const next: Record<string, string> = {};
-      for (const row of rows) {
-        if (row.customName?.trim()) next[row.day] = row.customName.trim();
-      }
-      setManualWorkoutNameByDay(next);
+      setManualWorkoutSummaries(rows);
     });
     return () => {
       cancelled = true;
@@ -459,15 +507,22 @@ export default function TrainingOverviewScreen() {
             iconName="calendar-outline"
             iconSize={24}
             color="#FF3B30"
-            accessibilityLabel="Open workouts calendar"
-            onPress={() => router.push("/(app)/workouts/calendar")}
+            accessibilityLabel={`Open ${shellTitle.toLowerCase()} calendar`}
+            onPress={() =>
+              router.push(domain === "strength" ? "/(app)/workouts/calendar" : "/(app)/cardio/calendar")
+            }
           />
-          <OverflowMenuButton onPress={() => setMenuOpen(true)} />
+          {domain === "strength" ? (
+            <OverflowMenuButton
+              onPress={() => setMenuOpen(true)}
+              label="Strength training menu"
+            />
+          ) : null}
         </WorkoutsHeaderRightRow>
       ),
-      title: SHELL_TITLE,
+      title: shellTitle,
     });
-  }, [navigation, router, setMenuOpen]);
+  }, [navigation, router, setMenuOpen, domain, shellTitle]);
 
   const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
     const [sync, checked, connected, notAvailable] = await Promise.all([
@@ -724,18 +779,36 @@ export default function TrainingOverviewScreen() {
 
   const content = (
     <View style={styles.pageBody}>
-      <WorkoutAnalyticsChart
-        headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
-        onViewMore={() => router.push("/(app)/workouts/analytics-detail")}
-        chartPointsByTab={overviewAnalytics.chartPointsByTab}
-        metricsByTab={overviewAnalytics.metricsByTab}
-      />
+      {domain === "strength" ? (
+        <WorkoutAnalyticsChart
+          layout="singleStrengthPeriod"
+          headerTitle="Workouts"
+          yearTabLabel={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
+          monthTabLabel={monthShortLabelFromMonthKey(focusStrengthMonthKey)}
+          onViewMore={() => router.push(`${basePath}/analytics-detail`)}
+          yearChartPoints={overviewAnalytics.chartPoints}
+          yearMetrics={overviewAnalytics.metrics}
+          monthChartBars={strengthMonthOverview.chartBars}
+          monthMetrics={strengthMonthOverview.metrics}
+        />
+      ) : (
+        <WorkoutAnalyticsChart
+          layout="single"
+          domain={domain}
+          headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
+          onViewMore={() => router.push(`${basePath}/analytics-detail`)}
+          chartPoints={overviewAnalytics.chartPoints}
+          metrics={overviewAnalytics.metrics}
+        />
+      )}
 
       <View style={styles.card}>
         <View style={workoutOverviewInCardHeaderStyles.row}>
-          <Text style={workoutOverviewInCardHeaderStyles.title}>Recent workouts</Text>
+          <Text style={workoutOverviewInCardHeaderStyles.title}>
+            {domain === "strength" ? "Recent" : "Recent cardio sessions"}
+          </Text>
           <Pressable
-            onPress={() => router.push("/(app)/workouts/recent-workouts-full")}
+            onPress={() => router.push(`${basePath}/recent-workouts-full`)}
             accessibilityRole="button"
             accessibilityLabel="View more"
             hitSlop={8}
@@ -748,7 +821,9 @@ export default function TrainingOverviewScreen() {
           </Pressable>
         </View>
         {recentWorkouts.length === 0 ? (
-          <Text style={styles.placeholder}>No workouts yet</Text>
+          <Text style={styles.placeholder}>
+            {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
+          </Text>
         ) : (
           recentWorkouts.map(({ day, session }) => {
             const representative = session.workouts[0];
@@ -768,7 +843,10 @@ export default function TrainingOverviewScreen() {
                 style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
                 onPress={() => {
                   router.push({
-                    pathname: "/(app)/workouts/day/[day]",
+                    pathname:
+                      domain === "strength"
+                        ? "/(app)/workouts/day/[day]"
+                        : "/(app)/cardio/day/[day]",
                     params: { day },
                   });
                 }}
@@ -778,7 +856,9 @@ export default function TrainingOverviewScreen() {
                 <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
                 <View style={styles.recentMain}>
                   <Text style={styles.recentTitle} numberOfLines={1}>
-                    {representative.sourceId === "manual" && manualWorkoutNameByDay[day]
+                    {representative.sourceId === "manual" &&
+                    domain === "strength" &&
+                    manualWorkoutNameByDay[day]
                       ? manualWorkoutNameByDay[day]
                       : resolved.displayTitle}
                   </Text>
@@ -821,13 +901,14 @@ export default function TrainingOverviewScreen() {
           const { day } = selectedWorkoutForMenu;
           closeWorkoutMenu();
           router.push({
-            pathname: "/(app)/workouts/day/[day]",
+            pathname:
+              domain === "strength" ? "/(app)/workouts/day/[day]" : "/(app)/cardio/day/[day]",
             params: { day },
           });
         }}
         onDoItAgain={() => {
           closeWorkoutMenu();
-          router.push("/(app)/workouts/log");
+          router.push(domain === "strength" ? "/(app)/workouts/log" : "/(app)/cardio/log");
         }}
         onRename={() => openEditRoute("rename")}
         onEditDuration={() => openEditRoute("duration")}
@@ -838,7 +919,7 @@ export default function TrainingOverviewScreen() {
 
   if (initializing) {
     return (
-      <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
+      <ModuleScreenShell title={shellTitle} subtitle={shellSubtitle} hideTitleChrome>
         <LoadingState message="Loading…" />
       </ModuleScreenShell>
     );
@@ -846,10 +927,10 @@ export default function TrainingOverviewScreen() {
 
   if (!user) {
     return (
-      <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
+      <ModuleScreenShell title={shellTitle} subtitle={shellSubtitle} hideTitleChrome>
         <EmptyState
-          title="Sign in to view workouts"
-          description="Sign in to see your Apple Health data and sync workouts."
+          title={`Sign in to view ${shellTitle.toLowerCase()}`}
+          description="Sign in to see your Apple Health data and synced sessions."
         />
       </ModuleScreenShell>
     );
@@ -858,8 +939,8 @@ export default function TrainingOverviewScreen() {
   return (
     <View style={styles.overviewRoot}>
       <ModuleScreenShell
-        title={SHELL_TITLE}
-        subtitle={SHELL_SUBTITLE}
+        title={shellTitle}
+        subtitle={shellSubtitle}
         hideTitleChrome
         compactHeader
         headerContent={
@@ -868,7 +949,8 @@ export default function TrainingOverviewScreen() {
             selectedDay={today}
             onDayPress={(day) => {
               router.push({
-                pathname: "/(app)/workouts/day/[day]",
+                pathname:
+                  domain === "strength" ? "/(app)/workouts/day/[day]" : "/(app)/cardio/day/[day]",
                 params: { day },
               });
             }}
@@ -877,15 +959,15 @@ export default function TrainingOverviewScreen() {
       >
         {content}
       </ModuleScreenShell>
-      <WorkoutsOverviewBottomNav />
-      {menuOpen && (
+      <WorkoutsOverviewBottomNav basePath={basePath} />
+      {domain === "strength" && menuOpen && (
         <Pressable
           style={styles.menuOverlay}
           onPress={() => setMenuOpen(false)}
           accessibilityLabel="Close menu"
         >
           <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
-            <Text style={styles.menuTitle}>Workouts</Text>
+            <Text style={styles.menuTitle}>{shellTitle}</Text>
             <Text style={styles.menuSectionLabel}>Gym</Text>
             {getGymMenuOptions().map((opt) => {
               const selected =
@@ -919,6 +1001,10 @@ export default function TrainingOverviewScreen() {
       )}
     </View>
   );
+}
+
+export default function StrengthTrainingOverviewScreen() {
+  return <TrainingOverviewScreen domain="strength" />;
 }
 
 const styles = StyleSheet.create({

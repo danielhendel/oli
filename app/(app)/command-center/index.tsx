@@ -301,8 +301,8 @@ function CardioSection(props: {
 
         {m.showWorkoutsCta ? (
           <ModuleSectionLinkRow
-            title="Go to Workouts"
-            subtitle="View training and add activity inputs"
+            title="Go to Cardio"
+            subtitle="View cardio sessions and activity"
             onPress={props.onPressWorkouts}
           />
         ) : null}
@@ -639,7 +639,12 @@ function QuickActionsRow(props: { dayKey: string }) {
       </Pressable>
 
       <Pressable onPress={() => router.push("/(app)/workouts")} style={styles.quickActionBtn}>
-        <Text style={styles.quickActionTitle}>Training</Text>
+        <Text style={styles.quickActionTitle}>Strength</Text>
+        <Text style={styles.quickActionSubtitle}>Overview</Text>
+      </Pressable>
+
+      <Pressable onPress={() => router.push("/(app)/cardio")} style={styles.quickActionBtn}>
+        <Text style={styles.quickActionTitle}>Cardio</Text>
         <Text style={styles.quickActionSubtitle}>Overview</Text>
       </Pressable>
     </View>
@@ -1163,7 +1168,7 @@ export default function CommandCenterScreen(props: Props) {
 
         <CardioSection
           model={cardioModel}
-          onPressWorkouts={() => router.push("/(app)/workouts")}
+          onPressWorkouts={() => router.push("/(app)/cardio")}
           onPressFailures={() => router.push("/(app)/failures")}
         />
 

@@ -1,6 +1,6 @@
 /**
  * Exercise Picker — full-screen route for selecting an exercise to add to a workout session.
- * Offline-first, deterministic, no timers/network. Returns selection via router.replace to log.
+ * Offline-first, deterministic, no timers/network. Returns selection via router.replace to log or enrich.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -229,7 +229,17 @@ export default function ExercisePickerScreen() {
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
   }, [navigation]);
-  const params = useLocalSearchParams<{ sessionId?: string; blockId?: string; gymId?: string }>();
+  const params = useLocalSearchParams<{
+    sessionId?: string;
+    blockId?: string;
+    gymId?: string;
+    /** When "enrich", replace back to /workouts/enrich with enrich* params preserved. */
+    logReturnPath?: string;
+    enrichDay?: string;
+    enrichTargetId?: string;
+    sessionAnchorIso?: string;
+    journalSessionId?: string;
+  }>();
   const sessionId = typeof params.sessionId === "string" ? params.sessionId : undefined;
   const blockId = typeof params.blockId === "string" ? params.blockId : undefined;
   const workoutFlowGymId = typeof params.gymId === "string" ? params.gymId : null;
@@ -318,14 +328,35 @@ export default function ExercisePickerScreen() {
     (exerciseId: string) => {
       if (sessionId == null) return;
       setSelectedExerciseId(null);
+      const returnToEnrich = params.logReturnPath === "enrich";
+      const pathname = returnToEnrich ? "/(app)/workouts/enrich" : "/(app)/workouts/log";
       const logParams: Record<string, string> = { sessionId, pickedExerciseId: exerciseId };
       if (blockId != null) logParams.blockId = blockId;
+      if (returnToEnrich) {
+        const d = typeof params.enrichDay === "string" ? params.enrichDay : "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) logParams.enrichDay = d;
+        const t = typeof params.enrichTargetId === "string" ? params.enrichTargetId.trim() : "";
+        if (t.length > 0) logParams.enrichTargetId = t;
+        const a = typeof params.sessionAnchorIso === "string" ? params.sessionAnchorIso.trim() : "";
+        if (a.length > 0) logParams.sessionAnchorIso = a;
+        const j = typeof params.journalSessionId === "string" ? params.journalSessionId.trim() : "";
+        if (j.length > 0) logParams.journalSessionId = j;
+      }
       router.replace({
-        pathname: "/(app)/workouts/log",
+        pathname,
         params: logParams,
       });
     },
-    [sessionId, blockId, router],
+    [
+      sessionId,
+      blockId,
+      router,
+      params.logReturnPath,
+      params.enrichDay,
+      params.enrichTargetId,
+      params.sessionAnchorIso,
+      params.journalSessionId,
+    ],
   );
 
   const listData = useMemo((): ListEntry[] => {

@@ -1,6 +1,13 @@
 // lib/modules/moduleSectionRoutes.ts
 
-export type ModuleId = "body" | "workouts" | "nutrition" | "recovery" | "labs" | "settings";
+export type ModuleId =
+  | "body"
+  | "workouts"
+  | "cardio"
+  | "nutrition"
+  | "recovery"
+  | "labs"
+  | "settings";
 
 export type ModuleSection = {
   id: string; // refined to ModuleSectionId via `as const` below
@@ -15,10 +22,14 @@ export const MODULE_SECTIONS = [
   { id: "body.weight", moduleId: "body", title: "Weight", href: "/(app)/body/weight" },
   { id: "body.dexa", moduleId: "body", title: "DEXA", href: "/(app)/body/dexa" },
 
-  // WORKOUTS
-  { id: "workouts.overview", moduleId: "workouts", title: "Overview", href: "/(app)/workouts/overview" },
-  { id: "workouts.log", moduleId: "workouts", title: "Log Workout", href: "/(app)/workouts/log" },
-  { id: "workouts.history", moduleId: "workouts", title: "History", href: "/(app)/workouts/history" },
+  // STRENGTH (stack: /workouts)
+  { id: "workouts.overview", moduleId: "workouts", title: "Strength overview", href: "/(app)/workouts/overview" },
+  { id: "workouts.log", moduleId: "workouts", title: "Log strength workout", href: "/(app)/workouts/log" },
+  { id: "workouts.history", moduleId: "workouts", title: "Strength history", href: "/(app)/workouts/history" },
+
+  // CARDIO
+  { id: "cardio.overview", moduleId: "cardio", title: "Cardio overview", href: "/(app)/cardio" },
+  { id: "cardio.log", moduleId: "cardio", title: "Cardio log", href: "/(app)/cardio/log" },
 
   // NUTRITION
   { id: "nutrition.overview", moduleId: "nutrition", title: "Overview", href: "/(app)/nutrition/overview" },

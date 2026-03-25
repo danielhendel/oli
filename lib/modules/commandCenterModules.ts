@@ -3,6 +3,7 @@
 export type CommandCenterModuleId =
   | "body"
   | "training"
+  | "cardio"
   | "nutrition"
   | "recovery"
   | "labs"
@@ -24,9 +25,15 @@ export const COMMAND_CENTER_MODULES: readonly CommandCenterModule[] = [
   },
   {
     id: "training",
-    title: "Training",
-    subtitle: "Strength & cardio",
+    title: "Strength",
+    subtitle: "Lift & log sessions",
     href: "/(app)/workouts",
+  },
+  {
+    id: "cardio",
+    title: "Cardio",
+    subtitle: "Runs, rides, and more",
+    href: "/(app)/cardio",
   },
   {
     id: "nutrition",

@@ -16,8 +16,8 @@ import { useWorkoutsHistory } from "@/lib/data/useWorkoutsHistory";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import { getAppleHealthConnected, getAppleHealthNotAvailable } from "@/lib/integrations/appleHealth/storage";
 
-const SHELL_TITLE = "Workouts";
-const SHELL_SUBTITLE = "Strength & cardio";
+const SHELL_TITLE = "Strength history";
+const SHELL_SUBTITLE = "Logged and synced strength sessions";
 
 /** Placeholder until menu actions are defined. */
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -45,7 +45,7 @@ function OverflowMenuButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={styles.headerMenuBtn}
       accessibilityRole="button"
-      accessibilityLabel="Workouts menu"
+      accessibilityLabel="Strength history menu"
     >
       <Text style={styles.headerMenuText}>•••</Text>
     </Pressable>
@@ -99,7 +99,7 @@ export default function WorkoutHistoryScreen() {
   const router = useRouter();
   const { user, initializing } = useAuth();
   const [appleHealthStatus, setAppleHealthStatus] = useState<AppleHealthStatus>("loading");
-  const history = useWorkoutsHistory();
+  const history = useWorkoutsHistory(25, { productDomain: "strength" });
 
   useEffect(() => {
     navigation.setOptions({
@@ -144,7 +144,7 @@ export default function WorkoutHistoryScreen() {
   if (initializing || !user) {
     return (
       <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
-        <EmptyState title="Sign in to view workouts" />
+        <EmptyState title="Sign in to view strength history" />
       </ModuleScreenShell>
     );
   }
@@ -153,12 +153,12 @@ export default function WorkoutHistoryScreen() {
     return (
       <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
         <View style={styles.headerRow}>
-          <Text style={styles.sectionLabel}>WORKOUT HISTORY</Text>
+          <Text style={styles.sectionLabel}>STRENGTH HISTORY</Text>
           <StatusChip status={chipStatus} />
         </View>
         {appleHealthStatus === "not_connected" && (
           <Pressable onPress={goToOverview} style={styles.overviewBtn} accessibilityRole="button">
-            <Text style={styles.overviewBtnText}>Go to Training Overview</Text>
+            <Text style={styles.overviewBtnText}>Go to Strength overview</Text>
           </Pressable>
         )}
         <LoadingState message="Loading…" />
@@ -170,12 +170,12 @@ export default function WorkoutHistoryScreen() {
     return (
       <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
         <View style={styles.headerRow}>
-          <Text style={styles.sectionLabel}>WORKOUT HISTORY</Text>
+          <Text style={styles.sectionLabel}>STRENGTH HISTORY</Text>
           <StatusChip status={chipStatus} />
         </View>
         {appleHealthStatus === "not_connected" && (
           <Pressable onPress={goToOverview} style={styles.overviewBtn} accessibilityRole="button">
-            <Text style={styles.overviewBtnText}>Go to Training Overview</Text>
+            <Text style={styles.overviewBtnText}>Go to Strength overview</Text>
           </Pressable>
         )}
         <ErrorState
@@ -191,15 +191,15 @@ export default function WorkoutHistoryScreen() {
     return (
       <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
         <View style={styles.headerRow}>
-          <Text style={styles.sectionLabel}>WORKOUT HISTORY</Text>
+          <Text style={styles.sectionLabel}>STRENGTH HISTORY</Text>
           <StatusChip status={chipStatus} />
         </View>
         {appleHealthStatus === "not_connected" && (
           <Pressable onPress={goToOverview} style={styles.overviewBtn} accessibilityRole="button">
-            <Text style={styles.overviewBtnText}>Go to Training Overview</Text>
+            <Text style={styles.overviewBtnText}>Go to Strength overview</Text>
           </Pressable>
         )}
-        <EmptyState title="No workouts yet" />
+        <EmptyState title="No strength workouts yet" />
       </ModuleScreenShell>
     );
   }
@@ -210,12 +210,12 @@ export default function WorkoutHistoryScreen() {
   return (
     <ModuleScreenShell title={SHELL_TITLE} subtitle={SHELL_SUBTITLE} hideTitleChrome>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionLabel}>WORKOUT HISTORY</Text>
+        <Text style={styles.sectionLabel}>STRENGTH HISTORY</Text>
         <StatusChip status={chipStatus} />
       </View>
       {appleHealthStatus === "not_connected" && (
         <Pressable onPress={goToOverview} style={styles.overviewBtn} accessibilityRole="button">
-          <Text style={styles.overviewBtnText}>Go to Training Overview</Text>
+          <Text style={styles.overviewBtnText}>Go to Strength overview</Text>
         </Pressable>
       )}
       <FlatList

@@ -3,7 +3,7 @@ import {
   clearWorkoutCalendarMarkerCache,
   loadWorkoutCalendarMarkerSnapshot,
   persistWorkoutCalendarMarkerSnapshot,
-  WORKOUT_CALENDAR_MARKER_CACHE_KEY,
+  workoutCalendarMarkerStorageKey,
 } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -17,15 +17,15 @@ describe("workoutsCalendarMarkerCache", () => {
     const map = new Map<DayKey, WorkoutMarkerFlags>([
       ["2026-03-11", { hasStrength: true, hasCardio: false }],
     ]);
-    await persistWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", map);
+    await persistWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", map, "strength");
 
-    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout");
+    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", "strength");
     expect(loaded?.get("2026-03-11")).toEqual({ hasStrength: true, hasCardio: false });
   });
 
   it("returns null on uid mismatch", async () => {
     await AsyncStorage.setItem(
-      WORKOUT_CALENDAR_MARKER_CACHE_KEY,
+      workoutCalendarMarkerStorageKey("strength"),
       JSON.stringify({
         v: 1,
         uid: "other",
@@ -34,14 +34,19 @@ describe("workoutsCalendarMarkerCache", () => {
         markers: { "2026-03-11": { hasStrength: true, hasCardio: false } },
       }),
     );
-    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout");
+    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", "strength");
     expect(loaded).toBeNull();
   });
 
   it("clearWorkoutCalendarMarkerCache removes snapshot", async () => {
-    await persistWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", new Map([["2026-01-01", { hasStrength: false, hasCardio: true }]]));
-    await clearWorkoutCalendarMarkerCache();
-    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout");
+    await persistWorkoutCalendarMarkerSnapshot(
+      "u1",
+      "workout,strength_workout",
+      new Map([["2026-01-01", { hasStrength: false, hasCardio: true }]]),
+      "strength",
+    );
+    await clearWorkoutCalendarMarkerCache("strength");
+    const loaded = await loadWorkoutCalendarMarkerSnapshot("u1", "workout,strength_workout", "strength");
     expect(loaded).toBeNull();
   });
 });

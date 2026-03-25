@@ -33,15 +33,15 @@ export default function AppLayout() {
           <Stack.Screen name="nutrition/index" options={{ title: "Nutrition" }} />
           <Stack.Screen
             name="workouts/index"
-            options={{ title: "Workouts", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: "Strength", ...workoutsStackNavigationOptions("module") }}
           />
           <Stack.Screen
             name="workouts/calendar"
-            options={{ title: "Workouts Calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "Strength Calendar", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/day/[day]"
-            options={{ title: "Workout Day", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "Strength Day", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/edit/rename"
@@ -56,6 +56,7 @@ export default function AppLayout() {
             options={{ title: "Edit Workout Type", ...workoutsStackNavigationOptions("task") }}
           />
           <Stack.Screen name="workouts/log" options={{ headerShown: false }} />
+          <Stack.Screen name="workouts/enrich" options={{ headerShown: false }} />
           <Stack.Screen
             name="workouts/plan"
             options={{ title: "Plan", ...workoutsStackNavigationOptions("detail") }}
@@ -66,21 +67,52 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="workouts/analytics-detail"
-            options={{ title: "Workout analytics", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "Strength analytics", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/recent-workouts-full"
-            options={{ title: "All workouts", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "All strength workouts", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/history"
-            options={{ title: "Workouts", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "Strength history", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/exercise-picker"
             options={{ title: "Add exercise", ...workoutsStackNavigationOptions("task") }}
           />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
+
+          <Stack.Screen
+            name="cardio/index"
+            options={{ title: "Cardio", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="cardio/calendar"
+            options={{ title: "Cardio Calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="cardio/day/[day]"
+            options={{ title: "Cardio Day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="cardio/plan"
+            options={{ title: "Cardio plan", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="cardio/create"
+            options={{ title: "Create cardio", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen name="cardio/log" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="cardio/analytics-detail"
+            options={{ title: "Cardio analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="cardio/recent-workouts-full"
+            options={{ title: "All cardio sessions", ...workoutsStackNavigationOptions("detail") }}
+          />
+
           <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
           <Stack.Screen name="recovery/sleep" options={{ title: "Sleep" }} />
           <Stack.Screen name="recovery/readiness" options={{ title: "Readiness" }} />

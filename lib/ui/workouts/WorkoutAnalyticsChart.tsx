@@ -5,11 +5,48 @@ import type {
   WorkoutAnalyticsMonthPoint,
   WorkoutOverviewMetricsTab,
 } from "@/lib/data/workouts/workoutsCalendarModel";
-import { formatWorkoutDurationLabel } from "@/lib/data/workouts/workoutDisplay";
+import type {
+  StrengthMonthChartBar,
+  StrengthMonthScopedMetrics,
+} from "@/lib/data/workouts/strengthOverviewMonthAnalytics";
+import {
+  formatTypicalStrengthVolumeLabel,
+  formatWorkoutDurationLabel,
+} from "@/lib/data/workouts/workoutDisplay";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import {
+  WorkoutAnalyticsMonthBarChart,
+  workoutMonthBarChartYAxisTicks,
+} from "@/lib/ui/workouts/WorkoutAnalyticsMonthBarChart";
 
 type MetricsByTab = Record<WorkoutOverviewMetricsTab, WorkoutAnalyticsMetrics>;
+
+export type WorkoutAnalyticsChartProps = {
+  headerTitle: string;
+  onViewMore: () => void;
+} & (
+  | {
+      layout: "dual";
+      chartPointsByTab: Record<WorkoutOverviewMetricsTab, WorkoutAnalyticsMonthPoint[]>;
+      metricsByTab: MetricsByTab;
+    }
+  | {
+      layout: "single";
+      domain: WorkoutOverviewMetricsTab;
+      chartPoints: WorkoutAnalyticsMonthPoint[];
+      metrics: WorkoutAnalyticsMetrics;
+    }
+  | {
+      layout: "singleStrengthPeriod";
+      yearTabLabel: string;
+      monthTabLabel: string;
+      yearChartPoints: WorkoutAnalyticsMonthPoint[];
+      yearMetrics: WorkoutAnalyticsMetrics;
+      monthChartBars: StrengthMonthChartBar[];
+      monthMetrics: StrengthMonthScopedMetrics;
+    }
+);
 
 /** Single-letter month labels for chart X-axis (Jan–Dec); not derived from localized monthLabel. */
 const CHART_MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"] as const;
@@ -19,6 +56,8 @@ const BAR_TRACK_HEIGHT = 120;
 const CHART_PLOT_INSET_H = 8;
 /** Matches monthLabelsRow marginTop + single-line label height for column alignment. */
 const MONTH_LABEL_STACK_HEIGHT = 20;
+
+type StrengthPeriodTab = "year" | "month";
 
 function monthLetterFromMonthKey(monthKey: string): string {
   const part = monthKey.slice(5, 7);
@@ -32,37 +71,117 @@ function formatAvg(v: number | null): string {
   return v.toFixed(1);
 }
 
-type ChartPoint = { monthKey: string; displayLabel: string; value: number };
+type YearChartPoint = { monthKey: string; displayLabel: string; value: number };
+type MonthChartPoint = { key: string; displayLabel: string; value: number };
 
 /**
- * Workouts Overview: one card — year header, Strength/Cardio tabs, Jan–Dec chart, and metrics share tab state.
+ * Training overview: dual-tab (legacy) or single-domain (Strength-only / Cardio-only product flows).
  */
-export function WorkoutAnalyticsChart({
-  headerTitle,
-  onViewMore,
-  chartPointsByTab,
-  metricsByTab,
-}: {
-  headerTitle: string;
-  onViewMore: () => void;
-  chartPointsByTab: Record<WorkoutOverviewMetricsTab, WorkoutAnalyticsMonthPoint[]>;
-  metricsByTab: MetricsByTab;
-}) {
-  const [tab, setTab] = useState<WorkoutOverviewMetricsTab>("strength");
-  const accent = overviewAccentForTab(tab);
-  const points = chartPointsByTab[tab];
-  const metrics = useMemo(() => metricsByTab[tab], [metricsByTab, tab]);
-  const chartPoints = useMemo<ChartPoint[]>(
-    () =>
-      points.map((p) => ({
+export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
+  const { headerTitle, onViewMore } = props;
+  const [dualTab, setDualTab] = useState<WorkoutOverviewMetricsTab>("strength");
+  const [strengthPeriodTab, setStrengthPeriodTab] = useState<StrengthPeriodTab>("year");
+
+  const resolved = useMemo(() => {
+    if (props.layout === "dual") {
+      return {
+        kind: "dual" as const,
+        accent: overviewAccentForTab(dualTab),
+        yearPoints: props.chartPointsByTab[dualTab].map((p) => ({
+          monthKey: p.monthKey,
+          displayLabel: monthLetterFromMonthKey(p.monthKey),
+          value: p.workouts,
+        })),
+        metrics: props.metricsByTab[dualTab],
+        monthChartPoints: null as MonthChartPoint[] | null,
+        monthMetrics: null as StrengthMonthScopedMetrics | null,
+        tabBar: "dual" as const,
+        dualTab,
+        setDualTab,
+        strengthPeriodTab: null as StrengthPeriodTab | null,
+        setStrengthPeriodTab: null as null | ((t: StrengthPeriodTab) => void),
+        yearTabLabel: "",
+        monthTabLabel: "",
+        chartEmptyMessage: "No data for this year yet" as const,
+      };
+    }
+    if (props.layout === "singleStrengthPeriod") {
+      const accent = overviewAccentForTab("strength");
+      const yearPoints = props.yearChartPoints.map((p) => ({
+        monthKey: p.monthKey,
+        displayLabel: monthLetterFromMonthKey(p.monthKey),
+        value: p.workouts,
+      }));
+      const monthChartPoints: MonthChartPoint[] = props.monthChartBars.map((b) => ({
+        key: b.weekKey,
+        displayLabel: b.label,
+        value: b.value,
+      }));
+      const activePeriod = strengthPeriodTab;
+      return {
+        kind: "singleStrengthPeriod" as const,
+        accent,
+        yearPoints,
+        metrics: activePeriod === "year" ? props.yearMetrics : null,
+        monthChartPoints: activePeriod === "month" ? monthChartPoints : null,
+        monthMetrics: activePeriod === "month" ? props.monthMetrics : null,
+        tabBar: "strengthPeriod" as const,
+        yearTabLabel: props.yearTabLabel,
+        monthTabLabel: props.monthTabLabel,
+        dualTab: null as WorkoutOverviewMetricsTab | null,
+        setDualTab: null as null,
+        strengthPeriodTab: activePeriod,
+        setStrengthPeriodTab,
+        chartEmptyMessage:
+          activePeriod === "year"
+            ? ("No data for this year yet" as const)
+            : ("No data for this month yet" as const),
+      };
+    }
+    return {
+      kind: "single" as const,
+      accent: overviewAccentForTab(props.domain),
+      yearPoints: props.chartPoints.map((p) => ({
         monthKey: p.monthKey,
         displayLabel: monthLetterFromMonthKey(p.monthKey),
         value: p.workouts,
       })),
-    [points],
-  );
+      metrics: props.metrics,
+      monthChartPoints: null as MonthChartPoint[] | null,
+      monthMetrics: null as StrengthMonthScopedMetrics | null,
+      tabBar: "none" as const,
+      dualTab: null as WorkoutOverviewMetricsTab | null,
+      setDualTab: null as null,
+      strengthPeriodTab: null as StrengthPeriodTab | null,
+      setStrengthPeriodTab: null as null,
+      yearTabLabel: "",
+      monthTabLabel: "",
+      chartEmptyMessage: "No data for this year yet" as const,
+    };
+  }, [props, dualTab, strengthPeriodTab]);
+
+  const chartPoints: YearChartPoint[] | MonthChartPoint[] =
+    resolved.monthChartPoints != null ? resolved.monthChartPoints : resolved.yearPoints;
+
+  const useMonthFixedScaleBars =
+    resolved.kind === "singleStrengthPeriod" &&
+    resolved.strengthPeriodTab === "month" &&
+    resolved.monthChartPoints != null &&
+    chartPoints.length > 0;
+
   const max = Math.max(1, ...chartPoints.map((p) => p.value));
   const axisMid = Math.round(max / 2);
+
+  const pointKey = (p: YearChartPoint | MonthChartPoint): string =>
+    "monthKey" in p ? p.monthKey : p.key;
+
+  const monthBarPoints = useMonthFixedScaleBars
+    ? (chartPoints as MonthChartPoint[]).map((p) => ({
+        key: p.key,
+        label: p.displayLabel,
+        value: p.value,
+      }))
+    : [];
 
   return (
     <View style={styles.card}>
@@ -81,50 +200,127 @@ export function WorkoutAnalyticsChart({
           <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
         </Pressable>
       </View>
-      <View style={styles.tabBar}>
-        <Pressable
-          onPress={() => setTab("strength")}
-          style={({ pressed }) => [
-            styles.tab,
-            tab === "strength" && styles.tabActive,
-            pressed && styles.tabPressed,
-          ]}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: tab === "strength" }}
-          accessibilityLabel="Strength chart tab"
-        >
-          <Text
-            style={[
-              styles.tabText,
-              tab === "strength" && [styles.tabTextActive, { color: accent.tabTextActive }],
+      {resolved.tabBar === "dual" && resolved.setDualTab ? (
+        <View style={styles.tabBar}>
+          <Pressable
+            onPress={() => resolved.setDualTab("strength")}
+            style={({ pressed }) => [
+              styles.tab,
+              resolved.dualTab === "strength" && styles.tabActive,
+              pressed && styles.tabPressed,
             ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: resolved.dualTab === "strength" }}
+            accessibilityLabel="Strength chart tab"
           >
-            Strength
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setTab("cardio")}
-          style={({ pressed }) => [
-            styles.tab,
-            tab === "cardio" && styles.tabActive,
-            pressed && styles.tabPressed,
-          ]}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: tab === "cardio" }}
-          accessibilityLabel="Cardio chart tab"
-        >
-          <Text
-            style={[
-              styles.tabText,
-              tab === "cardio" && [styles.tabTextActive, { color: accent.tabTextActive }],
+            <Text
+              style={[
+                styles.tabText,
+                resolved.dualTab === "strength" && [
+                  styles.tabTextActive,
+                  { color: resolved.accent.tabTextActive },
+                ],
+              ]}
+            >
+              Strength
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => resolved.setDualTab("cardio")}
+            style={({ pressed }) => [
+              styles.tab,
+              resolved.dualTab === "cardio" && styles.tabActive,
+              pressed && styles.tabPressed,
             ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: resolved.dualTab === "cardio" }}
+            accessibilityLabel="Cardio chart tab"
           >
-            Cardio
-          </Text>
-        </Pressable>
-      </View>
+            <Text
+              style={[
+                styles.tabText,
+                resolved.dualTab === "cardio" && [
+                  styles.tabTextActive,
+                  { color: resolved.accent.tabTextActive },
+                ],
+              ]}
+            >
+              Cardio
+            </Text>
+          </Pressable>
+        </View>
+      ) : resolved.tabBar === "strengthPeriod" && resolved.setStrengthPeriodTab ? (
+        <View style={styles.tabBar}>
+          <Pressable
+            onPress={() => resolved.setStrengthPeriodTab("year")}
+            style={({ pressed }) => [
+              styles.tab,
+              resolved.strengthPeriodTab === "year" && styles.tabActive,
+              pressed && styles.tabPressed,
+            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: resolved.strengthPeriodTab === "year" }}
+            accessibilityLabel={`Year ${resolved.yearTabLabel} chart tab`}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                resolved.strengthPeriodTab === "year" && [
+                  styles.tabTextActive,
+                  { color: resolved.accent.tabTextActive },
+                ],
+              ]}
+            >
+              {resolved.yearTabLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => resolved.setStrengthPeriodTab("month")}
+            style={({ pressed }) => [
+              styles.tab,
+              resolved.strengthPeriodTab === "month" && styles.tabActive,
+              pressed && styles.tabPressed,
+            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: resolved.strengthPeriodTab === "month" }}
+            accessibilityLabel={`Month ${resolved.monthTabLabel} chart tab`}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                resolved.strengthPeriodTab === "month" && [
+                  styles.tabTextActive,
+                  { color: resolved.accent.tabTextActive },
+                ],
+              ]}
+            >
+              {resolved.monthTabLabel}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.singleDomainChartSpacer} />
+      )}
       {chartPoints.length === 0 ? (
-        <Text style={styles.placeholder}>No data for this year yet</Text>
+        <Text style={styles.placeholder}>{resolved.chartEmptyMessage}</Text>
+      ) : useMonthFixedScaleBars ? (
+        <View style={styles.chartPlotRow}>
+          <View style={styles.yAxisColumn}>
+            <View style={styles.yAxisTrackMonth}>
+              {workoutMonthBarChartYAxisTicks().map((t) => (
+                <Text key={t} style={styles.yAxisTick}>
+                  {t}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.yAxisBelowTrackSpacer} />
+          </View>
+          <View style={styles.chartBarsBlock}>
+            <View style={[styles.chartBarsInner, styles.chartBarsInnerMonth]}>
+              <WorkoutAnalyticsMonthBarChart points={monthBarPoints} barColor={resolved.accent.barColor} />
+            </View>
+          </View>
+        </View>
       ) : (
         <View style={styles.chartPlotRow}>
           <View style={styles.yAxisColumn}>
@@ -139,13 +335,13 @@ export function WorkoutAnalyticsChart({
             <View style={styles.chartBarsInner}>
               <View style={styles.barsRow}>
                 {chartPoints.map((p) => (
-                  <View key={p.monthKey} style={styles.barCol}>
+                  <View key={pointKey(p)} style={styles.barCol}>
                     <View
                       style={[
                         styles.bar,
                         {
                           height: Math.max(6, Math.round((p.value / max) * BAR_TRACK_HEIGHT)),
-                          backgroundColor: accent.barColor,
+                          backgroundColor: resolved.accent.barColor,
                         },
                       ]}
                     />
@@ -154,8 +350,13 @@ export function WorkoutAnalyticsChart({
               </View>
               <View style={styles.monthLabelsRow}>
                 {chartPoints.map((p) => (
-                  <View key={p.monthKey} style={styles.monthLabelCol}>
-                    <Text style={styles.barLabel} accessibilityLabel={`Month ${p.monthKey}`}>
+                  <View key={pointKey(p)} style={styles.monthLabelCol}>
+                    <Text
+                      style={styles.barLabel}
+                      accessibilityLabel={
+                        "monthKey" in p ? `Month ${p.monthKey}` : `Week ${p.displayLabel}`
+                      }
+                    >
                       {p.displayLabel}
                     </Text>
                   </View>
@@ -166,30 +367,59 @@ export function WorkoutAnalyticsChart({
         </View>
       )}
 
-      <View style={styles.metricsGrid}>
-        <View style={styles.metricsRow}>
-          <View style={[styles.metricCell, { backgroundColor: accent.metricTileBg }]}>
-            <Text style={styles.metricLabel}>Total Workouts</Text>
-            <Text style={styles.metricValue}>{metrics.totalWorkouts.toLocaleString()}</Text>
+      {resolved.kind === "singleStrengthPeriod" && resolved.strengthPeriodTab === "month" && resolved.monthMetrics ? (
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricsRow}>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Total Workouts</Text>
+              <Text style={styles.metricValue}>{resolved.monthMetrics.totalWorkouts.toLocaleString()}</Text>
+            </View>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Avg per Week</Text>
+              <Text style={styles.metricValue}>{formatAvg(resolved.monthMetrics.avgPerWeek)}</Text>
+            </View>
           </View>
-          <View style={[styles.metricCell, { backgroundColor: accent.metricTileBg }]}>
-            <Text style={styles.metricLabel}>Avg per Month</Text>
-            <Text style={styles.metricValue}>{formatAvg(metrics.avgPerMonth)}</Text>
+          <View style={styles.metricsRow}>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Avg Duration</Text>
+              <Text style={styles.metricValue}>
+                {formatWorkoutDurationLabel(resolved.monthMetrics.avgDurationMinutes)}
+              </Text>
+            </View>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Typical Volume</Text>
+              <Text style={styles.metricValue}>
+                {formatTypicalStrengthVolumeLabel(resolved.monthMetrics.typicalVolumeKg)}
+              </Text>
+            </View>
           </View>
         </View>
-        <View style={styles.metricsRow}>
-          <View style={[styles.metricCell, { backgroundColor: accent.metricTileBg }]}>
-            <Text style={styles.metricLabel}>Avg per Week</Text>
-            <Text style={styles.metricValue}>{formatAvg(metrics.avgPerWeek)}</Text>
+      ) : resolved.metrics != null ? (
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricsRow}>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Total Workouts</Text>
+              <Text style={styles.metricValue}>{resolved.metrics.totalWorkouts.toLocaleString()}</Text>
+            </View>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Avg per Month</Text>
+              <Text style={styles.metricValue}>{formatAvg(resolved.metrics.avgPerMonth)}</Text>
+            </View>
           </View>
-          <View style={[styles.metricCell, { backgroundColor: accent.metricTileBg }]}>
-            <Text style={styles.metricLabel}>Avg Duration</Text>
-            <Text style={styles.metricValue}>
-              {formatWorkoutDurationLabel(metrics.avgDurationMinutes)}
-            </Text>
+          <View style={styles.metricsRow}>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Avg per Week</Text>
+              <Text style={styles.metricValue}>{formatAvg(resolved.metrics.avgPerWeek)}</Text>
+            </View>
+            <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
+              <Text style={styles.metricLabel}>Avg Duration</Text>
+              <Text style={styles.metricValue}>
+                {formatWorkoutDurationLabel(resolved.metrics.avgDurationMinutes)}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -201,6 +431,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   inCardHeaderRowSpacing: { marginBottom: 12 },
+  singleDomainChartSpacer: { height: 12 },
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#EBEBEF",
@@ -242,6 +473,11 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "space-between",
   },
+  yAxisTrackMonth: {
+    height: BAR_TRACK_HEIGHT,
+    width: "100%",
+    justifyContent: "space-between",
+  },
   yAxisTick: {
     fontSize: 11,
     fontWeight: "400",
@@ -257,6 +493,11 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingLeft: CHART_PLOT_INSET_H,
     paddingRight: CHART_PLOT_INSET_H,
+  },
+  /** Slightly tighter side inset so month bars + internal plot pad stay balanced. */
+  chartBarsInnerMonth: {
+    paddingLeft: 4,
+    paddingRight: 4,
   },
   barsRow: {
     flexDirection: "row",

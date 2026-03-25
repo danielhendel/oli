@@ -74,6 +74,7 @@ describe("parseWorkoutHistoryItem", () => {
     expect(item.title).toBe("Deadlift");
     expect(item.start).toBe("2024-06-04T10:00:00Z");
     expect(item.workoutType).toBe("strength");
+    expect(item.strengthVolumeKg).toBeCloseTo(500, 5);
   });
 
   it("strength_workout without exercise names falls back to Strength workout", () => {

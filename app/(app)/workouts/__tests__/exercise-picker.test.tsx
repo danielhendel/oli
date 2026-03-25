@@ -75,7 +75,16 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 }));
 
 const mockReplace = jest.fn();
-let mockPickerParams: { sessionId?: string; blockId?: string; gymId?: string } = { sessionId: "s1" };
+let mockPickerParams: {
+  sessionId?: string;
+  blockId?: string;
+  gymId?: string;
+  logReturnPath?: string;
+  enrichDay?: string;
+  enrichTargetId?: string;
+  sessionAnchorIso?: string;
+  journalSessionId?: string;
+} = { sessionId: "s1" };
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
   useLocalSearchParams: () => mockPickerParams,
@@ -191,6 +200,41 @@ describe("workouts/exercise-picker", () => {
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/log",
       params: { sessionId: "s1", pickedExerciseId: "bench_press" },
+    });
+  });
+
+  it("Add to workout replaces to enrich when logReturnPath is enrich", async () => {
+    mockPickerParams = {
+      sessionId: "s1",
+      logReturnPath: "enrich",
+      enrichDay: "2026-03-18",
+      enrichTargetId: "2026-03-18:session:0:w1",
+      sessionAnchorIso: "2026-03-18T12:00:00.000Z",
+      journalSessionId: "journal-saved-1",
+    };
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
+    act(() => {
+      pickBench!.props.onPress();
+    });
+    const addButton = findByA11yLabel(test!.root, "Add to workout");
+    act(() => {
+      addButton!.props.onPress();
+    });
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/enrich",
+      params: {
+        sessionId: "s1",
+        pickedExerciseId: "bench_press",
+        enrichDay: "2026-03-18",
+        enrichTargetId: "2026-03-18:session:0:w1",
+        sessionAnchorIso: "2026-03-18T12:00:00.000Z",
+        journalSessionId: "journal-saved-1",
+      },
     });
   });
 

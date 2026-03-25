@@ -49,6 +49,35 @@ describe("reduceWorkoutSessionV1", () => {
     expect(a).toEqual(b);
   });
 
+  it("uses sessionStartedAtAnchorIso for startedAt while occurredAt follows wall-clock order after draft seed", () => {
+    const events: WorkoutEventV1[] = [
+      e({
+        kind: "workout_session_state_changed",
+        eventId: "e_draft",
+        idempotencyKey: "k_draft",
+        occurredAt: "2026-03-01T10:00:00.000Z",
+        capturedAt: "2026-03-01T10:00:00.000Z",
+        payload: { from: "draft", to: "draft", reason: "system" },
+      }),
+      e({
+        kind: "workout_session_state_changed",
+        eventId: "e_active",
+        idempotencyKey: "k_active",
+        occurredAt: "2026-03-01T10:00:01.000Z",
+        capturedAt: "2026-03-01T10:00:01.000Z",
+        payload: {
+          from: "draft",
+          to: "active",
+          reason: "user",
+          sessionStartedAtAnchorIso: "2024-06-15T15:30:00.000Z",
+        },
+      }),
+    ];
+    const out = reduceWorkoutSessionV1(events);
+    expect(out.status).toBe("active");
+    expect(out.startedAt).toBe("2024-06-15T15:30:00.000Z");
+  });
+
   it("applies set corrections deterministically without mutating original log", () => {
     const events: WorkoutEventV1[] = [
       e({

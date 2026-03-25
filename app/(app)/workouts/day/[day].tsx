@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { filterWorkoutHistoryItemsForDomain, type WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
@@ -102,7 +103,7 @@ function isStrengthLikeSession(
   );
 }
 
-export default function WorkoutDayScreen() {
+export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
   const router = useRouter();
   const { user } = useAuth();
@@ -113,8 +114,12 @@ export default function WorkoutDayScreen() {
   const detail = useWorkoutDayDetail(day);
   const workouts = detail.status === "ready" ? detail.workouts : [];
   const dailyFacts = detail.status === "ready" ? detail.dailyFacts : null;
-  const sessions = reconcileWorkoutSessionsForDay(day, workouts);
-  const workoutIds = workouts.map((w) => w.id);
+  const domainWorkouts = useMemo(
+    () => filterWorkoutHistoryItemsForDomain(workouts, domain),
+    [workouts, domain],
+  );
+  const sessions = reconcileWorkoutSessionsForDay(day, domainWorkouts);
+  const workoutIds = domainWorkouts.map((w) => w.id);
   const { overridesByWorkoutId } = useWorkoutOverrides(workoutIds);
   const [menuOpen, setMenuOpen] = useState(false);
   const [manualDaySummary, setManualDaySummary] = useState<ManualWorkoutDaySummary | null>(null);
@@ -133,16 +138,15 @@ export default function WorkoutDayScreen() {
       );
     });
     /**
-     * `manualDaySummary` is day-scoped journal data. With multiple strength/mixed
-     * reconciled sessions on the same day, we cannot honestly attribute exercises to
-     * one session — keep the legacy session + exercises layout.
+     * Single strength/mixed reconciled session → premium shell (same layout with or
+     * without journal). Multiple sessions → cannot attribute exercises to one session.
      */
-    const useLayout = strengthLikes.length === 1 && manualDaySummary != null;
+    const useLayout = domain === "strength" && strengthLikes.length === 1;
     return {
       usePremiumStrengthLayout: useLayout,
       premiumSessionId: useLayout ? strengthLikes[0]!.id : null,
     };
-  }, [sessions, overridesByWorkoutId, manualDaySummary]);
+  }, [sessions, overridesByWorkoutId, domain]);
 
   /**
    * Multiple pure-cardio sessions the same day → legacy cards (no per-session zone merge contract).
@@ -163,6 +167,38 @@ export default function WorkoutDayScreen() {
 
   const primarySession = useMemo(() => sessions[0] ?? null, [sessions]);
   const primaryWorkout = primarySession?.workouts[0] ?? null;
+
+  const premiumStrengthSession = useMemo(
+    () => (premiumSessionId != null ? sessions.find((s) => s.id === premiumSessionId) ?? null : null),
+    [sessions, premiumSessionId],
+  );
+
+  const onEditExercisesFromMenu =
+    domain === "strength" &&
+    usePremiumStrengthLayout &&
+    Boolean(user?.uid) &&
+    premiumStrengthSession != null &&
+    manualDaySummary != null &&
+    manualDaySummary.exercises.length > 0
+      ? () => {
+          setMenuOpen(false);
+          const representative = premiumStrengthSession.workouts[0];
+          const anchor =
+            premiumStrengthSession.start ??
+            representative?.start ??
+            representative?.observedAt ??
+            "";
+          router.push({
+            pathname: "/(app)/workouts/enrich",
+            params: {
+              enrichDay: day,
+              enrichTargetId: premiumStrengthSession.id,
+              journalSessionId: manualDaySummary.sessionId,
+              ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
+            },
+          });
+        }
+      : undefined;
 
   useEffect(() => {
     if (!isDayKey) return;
@@ -214,7 +250,9 @@ export default function WorkoutDayScreen() {
   if (detail.status === "partial") {
     return (
       <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
-        <LoadingState message="Loading workouts…" />
+        <LoadingState
+          message={domain === "strength" ? "Loading strength workouts…" : "Loading cardio sessions…"}
+        />
       </ScreenContainer>
     );
   }
@@ -237,8 +275,19 @@ export default function WorkoutDayScreen() {
     return (
       <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
         <EmptyState
-          title="No workouts for this day"
-          description="When workouts are imported or logged for this day, they will automatically appear here."
+          title="No data for this day"
+          description="When sessions are imported or logged for this day, they will automatically appear here."
+        />
+      </ScreenContainer>
+    );
+  }
+
+  if (workouts.length > 0 && domainWorkouts.length === 0 && !dailyFacts) {
+    return (
+      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+        <EmptyState
+          title={domain === "strength" ? "No strength workouts for this day" : "No cardio sessions for this day"}
+          description="This day has activity in another training category. Switch products from the Dash to view it."
         />
       </ScreenContainer>
     );
@@ -273,7 +322,7 @@ export default function WorkoutDayScreen() {
                 )}
               </>
             )}
-            {dailyFacts.strength && (
+            {dailyFacts.strength && domain === "strength" && (
               <>
                 <View style={styles.metricRow}>
                   <Text style={styles.metricLabel}>Strength sessions</Text>
@@ -294,7 +343,11 @@ export default function WorkoutDayScreen() {
 
         <View style={styles.summarySection}>
           {sessions.length === 0 ? (
-            <Text style={styles.summarySectionPlaceholder}>No workouts from RawEvents for this day.</Text>
+            <Text style={styles.summarySectionPlaceholder}>
+              {domain === "strength"
+                ? "No strength workouts from synced data for this day."
+                : "No cardio sessions from synced data for this day."}
+            </Text>
           ) : (
             sessions.map((session) => {
               const representative = session.workouts[0];
@@ -312,8 +365,11 @@ export default function WorkoutDayScreen() {
                 resolved.displayWorkoutType === "strength" ||
                 session.sessionType === "strength" ||
                 session.sessionType === "mixed";
-              const showPremiumBlock =
-                usePremiumStrengthLayout && premiumSessionId === session.id && isStrength;
+              const showPremiumStrengthBlock =
+                domain === "strength" &&
+                usePremiumStrengthLayout &&
+                premiumSessionId === session.id &&
+                isStrength;
               const showPremiumCardioBlock =
                 usePremiumCardioLayout &&
                 premiumCardioSessionId === session.id &&
@@ -331,10 +387,16 @@ export default function WorkoutDayScreen() {
                 resolvedDurationMinutes,
               );
 
-              if (showPremiumBlock && manualDaySummary) {
-                const exercises = manualDaySummary.exercises;
+              if (showPremiumStrengthBlock) {
+                const exercises = manualDaySummary?.exercises ?? [];
                 const volumesKg = exercises.map((ex) => totalVolumeKgForManualExercise(ex));
                 const maxVolKg = Math.max(1, ...volumesKg);
+                const premiumTitle =
+                  manualDaySummary?.customName?.trim() ||
+                  titleText.trim() ||
+                  "Strength workout";
+                const showLogExercisesCta =
+                  Boolean(user?.uid) && exercises.length === 0;
 
                 return (
                   <View key={session.id}>
@@ -342,7 +404,7 @@ export default function WorkoutDayScreen() {
                       <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
                         <View style={styles.strengthOverviewTitleWrap}>
                           <Text style={workoutOverviewInCardHeaderStyles.title} numberOfLines={2}>
-                            {titleText}
+                            {premiumTitle}
                           </Text>
                         </View>
                         <Text style={styles.strengthOverviewTime}>{timeLabel}</Text>
@@ -368,7 +430,7 @@ export default function WorkoutDayScreen() {
                           >
                             <Text style={styles.overviewMetricLabel}>Total Volume</Text>
                             <Text style={styles.overviewMetricValue}>
-                              {formatIntegerWithCommas(manualDaySummary.totalVolume ?? null)}
+                              {formatIntegerWithCommas(manualDaySummary?.totalVolume ?? null)}
                             </Text>
                           </View>
                           <View
@@ -376,7 +438,7 @@ export default function WorkoutDayScreen() {
                           >
                             <Text style={styles.overviewMetricLabel}>Avg Intensity</Text>
                             <Text style={styles.overviewMetricValue}>
-                              {typeof manualDaySummary.avgIntensity === "number"
+                              {typeof manualDaySummary?.avgIntensity === "number"
                                 ? manualDaySummary.avgIntensity.toFixed(1)
                                 : "—"}
                             </Text>
@@ -386,7 +448,43 @@ export default function WorkoutDayScreen() {
 
                       <View style={styles.performanceInner}>
                         {exercises.length === 0 ? (
-                          <Text style={styles.placeholder}>No logged exercises</Text>
+                          <View style={styles.performanceExerciseEmpty}>
+                            <Text style={styles.performanceExerciseEmptyTitle}>
+                              No exercises logged yet
+                            </Text>
+                            <Text style={styles.performanceExerciseEmptyBody}>
+                              Add your lifts to match your usual logging flow. Volume and intensity
+                              will appear here once you save a completed workout.
+                            </Text>
+                            {showLogExercisesCta ? (
+                              <Pressable
+                                testID="add-exercises-cta"
+                                accessibilityRole="button"
+                                accessibilityLabel="Add exercises for this workout"
+                                onPress={() => {
+                                  const anchor =
+                                    session.start ??
+                                    representative.start ??
+                                    representative.observedAt ??
+                                    "";
+                                  router.push({
+                                    pathname: "/(app)/workouts/enrich",
+                                    params: {
+                                      enrichDay: day,
+                                      enrichTargetId: session.id,
+                                      ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
+                                    },
+                                  });
+                                }}
+                                style={({ pressed }) => [
+                                  styles.performanceExerciseEmptyCta,
+                                  pressed && styles.performanceExerciseEmptyCtaPressed,
+                                ]}
+                              >
+                                <Text style={styles.performanceExerciseEmptyCtaText}>Add exercises</Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
                         ) : (
                           exercises.map((exercise, idx) => {
                             const rowKey = `${idx}:${exercise.name}`;
@@ -696,12 +794,16 @@ export default function WorkoutDayScreen() {
         onClose={() => setMenuOpen(false)}
         onViewDetails={() => {
           setMenuOpen(false);
-          router.push({ pathname: "/(app)/workouts/day/[day]", params: { day } });
+          router.push({
+            pathname: domain === "strength" ? "/(app)/workouts/day/[day]" : "/(app)/cardio/day/[day]",
+            params: { day },
+          });
         }}
         onDoItAgain={() => {
           setMenuOpen(false);
-          router.push("/(app)/workouts/log");
+          router.push(domain === "strength" ? "/(app)/workouts/log" : "/(app)/cardio/log");
         }}
+        {...(onEditExercisesFromMenu != null ? { onEditExercises: onEditExercisesFromMenu } : {})}
         onRename={() => {
           if (!primaryWorkout) return;
           const resolved = resolveWorkoutDisplay(primaryWorkout, overridesByWorkoutId[primaryWorkout.id] ?? null);
@@ -739,6 +841,10 @@ export default function WorkoutDayScreen() {
       </View>
     </ScreenContainer>
   );
+}
+
+export default function WorkoutDayStrengthRoute() {
+  return <WorkoutDayScreen domain="strength" />;
 }
 
 const styles = StyleSheet.create({
@@ -833,6 +939,45 @@ const styles = StyleSheet.create({
     letterSpacing: -0.25,
   },
   performanceInner: { marginTop: 16, gap: 4 },
+  performanceExerciseEmpty: {
+    marginTop: 4,
+    paddingVertical: 20,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    gap: 10,
+  },
+  performanceExerciseEmptyTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.25,
+    textAlign: "center",
+  },
+  performanceExerciseEmptyBody: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: "#8E8E93",
+    textAlign: "center",
+    maxWidth: 320,
+  },
+  performanceExerciseEmptyCta: {
+    marginTop: 6,
+    backgroundColor: WORKOUT_STRENGTH_COLOR,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    minWidth: 200,
+    alignItems: "center",
+  },
+  performanceExerciseEmptyCtaPressed: {
+    opacity: 0.88,
+  },
+  performanceExerciseEmptyCtaText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: -0.25,
+  },
   performanceRowWrap: { marginBottom: 14, gap: 6 },
   performanceRowLine1: {
     flexDirection: "row",

@@ -46,6 +46,12 @@ export const workoutSessionStateChangedSchema = baseWorkoutEventSchema.extend({
     from: workoutSessionStatusSchema,
     to: workoutSessionStatusSchema,
     reason: z.enum(["user", "timeout", "system"]).optional(),
+    /**
+     * When present, reducer uses this ISO time for `startedAt` instead of the event's `occurredAt`.
+     * The event still uses wall-clock `occurredAt` for sort order so backfill "active" transitions
+     * remain after the draft seed (past anchors must not sort before createSessionDraft).
+     */
+    sessionStartedAtAnchorIso: isoStringSchema.optional(),
   }),
 });
 export type WorkoutSessionStateChanged = z.infer<typeof workoutSessionStateChangedSchema>;
@@ -190,7 +196,10 @@ export type ReducedSessionV1 = {
   ownerUid: string;
   sessionId: string;
   status: WorkoutSessionStatus;
-  /** ISO string when session transitioned to active (first workout_session_state_changed to "active"), or earliest event occurredAt; null if no events */
+  /**
+   * ISO time for the workout start used by summaries: first transition to "active" uses
+   * `sessionStartedAtAnchorIso` from that event when set, else the event's `occurredAt`; if none, earliest event time.
+   */
   startedAt: string | null;
   blocks: { blockId: string; blockType: string; position: number; title: string; removed: boolean }[];
   exercises: {

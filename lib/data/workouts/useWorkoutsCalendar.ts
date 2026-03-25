@@ -24,7 +24,7 @@ import {
   getWorkoutTruthTargetConfig,
   rawEventIdMatchesTruthTargets,
 } from "@/lib/debug/workoutTruthTargets";
-import { clearWorkoutCalendarMarkerCache } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
+import { clearAllWorkoutCalendarMarkerCaches } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
 import { WORKOUT_DAY_SUMMARY_EXPECTED } from "@oli/contracts";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 
@@ -108,7 +108,7 @@ function clearRangeCachesForUidPrefix(uid: string): void {
 export function resetWorkoutsCalendarCachesForTests(): void {
   lastGoodRangeByShape.clear();
   dayWorkoutsByUidDay.clear();
-  void clearWorkoutCalendarMarkerCache();
+  void clearAllWorkoutCalendarMarkerCaches();
 }
 
 export function seedDayWorkoutsCacheForTests(

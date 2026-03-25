@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getRawEvents, getRawEvent } from "@/lib/api/usersMe";
 import { parseWorkoutHistoryItem, type WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import {
+  resolveHistoryItemProductDomain,
+  type WorkoutProductDomain,
+} from "@/lib/data/workouts/workoutDomain";
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -17,6 +21,11 @@ export type WorkoutsHistoryState =
 export type UseWorkoutsHistoryResult = WorkoutsHistoryState & {
   refetch: () => void;
   loadMore: () => void;
+};
+
+export type UseWorkoutsHistoryOptions = {
+  /** When set, only rows for this product domain are kept (still lists both raw kinds upstream). */
+  productDomain?: WorkoutProductDomain;
 };
 
 async function hydrateInOrder(
@@ -43,8 +52,12 @@ async function hydrateInOrder(
   return { items };
 }
 
-export function useWorkoutsHistory(limit: number = DEFAULT_PAGE_SIZE): UseWorkoutsHistoryResult {
+export function useWorkoutsHistory(
+  limit: number = DEFAULT_PAGE_SIZE,
+  options?: UseWorkoutsHistoryOptions,
+): UseWorkoutsHistoryResult {
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
+  const productDomain = options?.productDomain;
   const { user, initializing, getIdToken } = useAuth();
 
   const [state, setState] = useState<WorkoutsHistoryState>({ status: "idle" });
@@ -61,8 +74,10 @@ export function useWorkoutsHistory(limit: number = DEFAULT_PAGE_SIZE): UseWorkou
       loadingRef.current = true;
       if (!append) setState({ status: "partial" });
 
+      const kinds: string[] =
+        productDomain != null ? ["workout", "strength_workout"] : ["workout"];
       const listOpts: { kinds: string[]; limit: number; cursor?: string } = {
-        kinds: ["workout"],
+        kinds,
         limit: pageSize,
       };
       if (cursor != null) listOpts.cursor = cursor;
@@ -121,9 +136,14 @@ export function useWorkoutsHistory(limit: number = DEFAULT_PAGE_SIZE): UseWorkou
         return;
       }
 
+      const domainItems =
+        productDomain != null
+          ? newItems.filter((it) => resolveHistoryItemProductDomain(it) === productDomain)
+          : newItems;
+
       setState((prev) => {
         const prevItems = prev.status === "ready" ? prev.data.items : [];
-        const combined = append ? [...prevItems, ...newItems] : newItems;
+        const combined = append ? [...prevItems, ...domainItems] : domainItems;
         if (combined.length > MAX_ITEMS_CAP) {
           loadingRef.current = false;
           return {
@@ -142,7 +162,7 @@ export function useWorkoutsHistory(limit: number = DEFAULT_PAGE_SIZE): UseWorkou
         };
       });
     },
-    [user, getIdToken, pageSize],
+    [user, getIdToken, pageSize, productDomain],
   );
 
   const refetch = useCallback(() => {
