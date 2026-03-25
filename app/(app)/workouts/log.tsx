@@ -51,7 +51,6 @@ import {
   completeSession,
   createBlock,
   createSessionDraft,
-  addWorkoutNote,
   correctStrengthSet,
   logStrengthSet,
   removeBlock,
@@ -83,16 +82,12 @@ import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
+const MAX_WEIGHT_LB = 2000;
 
-/** Epley e1RM = loadKg * (1 + reps/30). Same as lib/workouts/memory/exerciseHistory. */
-function epleyE1RmKg(loadKg: number, reps: number): number {
-  return loadKg * (1 + reps / 30);
-}
-
-/** Precomputed list of weights in lb (0 to 600 in 2.5 lb steps) for single-wheel picker. Exported for tests. */
+/** Precomputed list of weights in lb (0 to max in 2.5 lb steps) for single-wheel picker. Exported for tests. */
 export function getPrecomputedWeightListLb(): number[] {
   const list: number[] = [];
-  for (let w = 0; w <= 600; w += 2.5) {
+  for (let w = 0; w <= MAX_WEIGHT_LB; w += 2.5) {
     list.push(w);
   }
   return list;
@@ -102,7 +97,7 @@ const PRECOMPUTED_WEIGHTS_LB = getPrecomputedWeightListLb();
 
 /** Reps 1–100 for wheel picker. */
 const REP_OPTIONS = Array.from({ length: 100 }, (_, i) => i + 1);
-/** "bw" plus 0–600 lb in 2.5 lb steps for wheel picker. */
+/** "bw" plus 0–max lb in 2.5 lb steps for wheel picker. */
 const LOAD_OPTIONS: (string | number)[] = ["bw", ...PRECOMPUTED_WEIGHTS_LB];
 /** Empty plus RPE 1–10 for wheel picker. */
 const RPE_OPTIONS: (number | "")[] = ["", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -134,6 +129,29 @@ function formatActiveWeightDisplay(loadText: string): string {
   if (Number.isNaN(n)) return t;
   const s = Number.isInteger(n) ? String(n) : t;
   return `${s} lb`;
+}
+
+function getLoggedSetVolumeLb(set: { reps: number; loadKg: number | null }): number {
+  if (set.loadKg == null || set.loadKg <= 0) return 0;
+  return Math.max(0, Math.round(set.reps * set.loadKg * LB_PER_KG));
+}
+
+function formatLoggedSetWeightLabel(loadKg: number | null): string {
+  if (loadKg == null || loadKg <= 0) return "BW";
+  const lb = loadKg * LB_PER_KG;
+  const roundedInt = Math.round(lb);
+  if (Math.abs(lb - roundedInt) < 0.05) return `${roundedInt} lb`;
+  return `${lb.toFixed(1)} lb`;
+}
+
+function getLoggedSetBarColor(rpe: number | null): string {
+  if (rpe == null || !Number.isFinite(rpe)) return "#8E8E93";
+  const value = Math.max(0, Math.min(10, rpe));
+  if (value <= 2) return "#8E8E93";
+  if (value <= 4) return "#FFD60A";
+  if (value <= 6) return "#32D74B";
+  if (value <= 8) return "#0A84FF";
+  return "#FF3B30";
 }
 
 /** UI-only draft set before logging via logStrengthSet. */
@@ -404,8 +422,6 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
-  const [workoutName, setWorkoutName] = useState("");
-  const [startWorkoutNameFocused, setStartWorkoutNameFocused] = useState(false);
   const [gymPickerVisible, setGymPickerVisible] = useState(false);
   const [gymSaveError, setGymSaveError] = useState<string | null>(null);
   /** Workout-flow gym for Start screen: sticks even when preference save fails. */
@@ -813,10 +829,6 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     try {
       const { sessionId } = await createSessionDraft(user.uid);
       await startSession(user.uid, sessionId, undefined, undefined);
-      const trimmedWorkoutName = workoutName.trim();
-      if (trimmedWorkoutName.length > 0) {
-        await addWorkoutNote(user.uid, sessionId, `name:${trimmedWorkoutName}`);
-      }
       await setActiveWorkoutSessionId(user.uid, sessionId, { logFlowMode: "live" });
       const reduced = await loadReducedSession(user.uid, sessionId);
       setActiveLogFlowMode("live");
@@ -826,7 +838,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
     }
-  }, [user, startScreenGymId, selectedGymIdFromPref, workoutName, isEnrichmentEntry]);
+  }, [user, startScreenGymId, selectedGymIdFromPref, isEnrichmentEntry]);
 
   const onPickExercise = useCallback(
     async (exerciseId: string, blockId?: string) => {
@@ -1009,8 +1021,10 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         setUi({ status: "idle" });
         return;
       }
+      await clearLegacyBackfillPointerForSession(user.uid, sessionId);
       await clearActiveWorkoutSessionId(user.uid);
       setUi({ status: "idle" });
+      router.replace("/(app)/workouts");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
@@ -1049,6 +1063,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         if (enrichTid) await clearEnrichSessionPointer(user.uid, enrichTid);
         await clearLegacyBackfillPointerForSession(user.uid, sessionId);
       } else {
+        await clearLegacyBackfillPointerForSession(user.uid, sessionId);
         await clearActiveWorkoutSessionId(user.uid);
       }
       if (returnDay != null) {
@@ -1057,6 +1072,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         enrichTargetIdRef.current = null;
         router.dismissTo({ pathname: "/(app)/workouts/day/[day]", params: { day: returnDay } });
         setUi({ status: "idle" });
+        return;
+      }
+      if (!isEnrichmentEntry) {
+        setUi({ status: "idle" });
+        router.replace("/(app)/workouts");
         return;
       }
       const next = await loadReducedSession(user.uid, sessionId);
@@ -1228,8 +1248,12 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   const idleStartChrome = ui.status === "idle" && isSignedIn && !isEnrichmentEntry;
   const isBackfillFlow = logFlowMode === "backfill";
 
+  const safeAreaEdges: readonly ("top" | "left" | "right" | "bottom")[] = idleStartChrome
+    ? ["top", "bottom"]
+    : ["top"];
+
   return (
-    <SafeAreaView style={[styles.safe, idleStartChrome && styles.safeIdleStart]} edges={["top"]}>
+    <SafeAreaView style={[styles.safe, idleStartChrome && styles.safeIdleStart]} edges={safeAreaEdges}>
       <View style={[styles.screen, idleStartChrome && styles.screenIdleStart]}>
       {ui.status === "active" ? (
         isBackfillFlow ? (
@@ -1301,34 +1325,16 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
             style={styles.startSetupCard}
             accessibilityLabel={isBackfillFlow ? "Add exercises setup" : "Start workout setup"}
           >
-            <View style={styles.startSetupHeader}>
-              <Text style={styles.startSetupTitle}>
-                {isBackfillFlow ? "Add exercises" : "Start Workout"}
-              </Text>
-              <Text style={styles.startSetupSubtitle}>
-                {isBackfillFlow
-                  ? enrichDayLabel != null
-                    ? `For ${enrichDayLabel}. Optional name and gym, then log your lifts. Save returns you to workout details.`
-                    : "Optional name and gym, then log your lifts. Save returns you to workout details."
-                  : "Set your gym and optional name, then start logging."}
-              </Text>
-            </View>
-            <Text style={styles.startSetupSectionLabel}>Workout name (optional)</Text>
-            <TextInput
-              value={workoutName}
-              onChangeText={setWorkoutName}
-              placeholder="Chest Day"
-              placeholderTextColor="#8E8E93"
-              style={[
-                styles.startSetupNameInput,
-                startWorkoutNameFocused && styles.startSetupNameInputFocused,
-              ]}
-              onFocus={() => setStartWorkoutNameFocused(true)}
-              onBlur={() => setStartWorkoutNameFocused(false)}
-              accessibilityLabel="Workout name (optional)"
-              accessibilityHint="Optional label for this workout"
-            />
-            <Text style={[styles.startSetupSectionLabel, styles.startSetupGymSectionLabel]}>Gym</Text>
+            {isBackfillFlow ? (
+              <View style={styles.startSetupHeader}>
+                <Text style={styles.startSetupTitle}>Add exercises</Text>
+                <Text style={styles.startSetupSubtitle}>
+                  {enrichDayLabel != null
+                    ? `For ${enrichDayLabel}. Choose gym, then log your lifts. Save returns you to workout details.`
+                    : "Choose gym, then log your lifts. Save returns you to workout details."}
+                </Text>
+              </View>
+            ) : null}
             <Pressable
               onPress={() => setGymPickerVisible(true)}
               style={({ pressed }) => [styles.startSetupGymRow, pressed && styles.startSetupGymRowPressed]}
@@ -1371,7 +1377,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
               >
                 <View style={styles.startGymPickerCard} onStartShouldSetResponder={() => true}>
                   <Text style={styles.startGymPickerTitle}>Gym</Text>
-                  <Text style={styles.startSetupSectionLabel}>Choose your location</Text>
+                  <Text style={styles.startGymPickerSectionLabel}>Choose your location</Text>
                   {getGymMenuOptions().map((opt) => {
                     const selected =
                       (opt.value === null && startScreenGymId === null) ||
@@ -1612,91 +1618,77 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                 </Pressable>
                               </View>
                               <View style={styles.setListInModal}>
-                              {loggedSets.length > 0 ? (
-                                <View style={styles.setGridHeader}>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setGridHeaderCellWrapSet, styles.setColSet]}>
-                                    <Text style={[styles.setGridHeaderCell, styles.setGridHeaderCellSet]}>Set</Text>
-                                  </View>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setColReps]}>
-                                    <Text style={styles.setGridHeaderCell}>Reps</Text>
-                                  </View>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setColWeight]}>
-                                    <Text style={styles.setGridHeaderCell}>Weight</Text>
-                                  </View>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setColRpe]}>
-                                    <Text style={styles.setGridHeaderCell}>RPE</Text>
-                                  </View>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setColE1rm]}>
-                                    <Text style={styles.setGridHeaderCell}>e1RM</Text>
-                                  </View>
-                                  <View style={[styles.setGridHeaderCellWrap, styles.setColVol]}>
-                                    <Text style={styles.setGridHeaderCell}>Vol</Text>
-                                  </View>
-                                </View>
-                              ) : null}
-                              {loggedSets.map((s) => {
-                                const lbDisplay =
-                                  s.loadKg != null ? `${(s.loadKg * LB_PER_KG).toFixed(1)} lb` : "BW";
-                                const hasLoad = s.loadKg != null && s.loadKg > 0;
-                                const e1RmKg = hasLoad ? epleyE1RmKg(s.loadKg!, s.reps) : null;
-                                const e1RmStr = e1RmKg != null ? `${Math.round(e1RmKg * LB_PER_KG)}` : "—";
-                                const volumeKg = hasLoad ? s.reps * s.loadKg! : 0;
-                                const volStr = volumeKg > 0 ? `${Math.round(volumeKg * LB_PER_KG)}` : "—";
-                                return (
-                                  <SwipeableSetRow
-                                    key={s.setId}
-                                    setId={s.setId}
-                                    onDelete={() => void onRemoveSet(s.setId)}
-                                    rowContent={
-                                      <>
-                                        <Text style={[styles.setOrdinalCell, styles.setColSet]}>{s.ordinal}</Text>
-                                        <Pressable
-                                          style={[styles.setDataCellTouchable, styles.setColReps]}
-                                          onPress={() =>
-                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "reps" })
-                                          }
-                                          accessibilityRole="button"
-                                          accessibilityLabel={`Edit set ${s.setId} reps`}
-                                        >
-                                          <Text style={styles.setDataCell} numberOfLines={1}>
-                                            {s.reps}
-                                          </Text>
-                                        </Pressable>
-                                        <Pressable
-                                          style={[styles.setDataCellTouchable, styles.setColWeight]}
-                                          onPress={() =>
-                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "load" })
-                                          }
-                                          accessibilityRole="button"
-                                          accessibilityLabel={`Edit set ${s.setId} weight`}
-                                        >
-                                          <Text style={styles.setDataCell} numberOfLines={1}>
-                                            {lbDisplay}
-                                          </Text>
-                                        </Pressable>
-                                        <Pressable
-                                          style={[styles.setDataCellTouchable, styles.setColRpe]}
-                                          onPress={() =>
-                                            setCompletedSetPicker({ slotId, setId: s.setId, field: "rpe" })
-                                          }
-                                          accessibilityRole="button"
-                                          accessibilityLabel={`Edit set ${s.setId} RPE`}
-                                        >
-                                          <Text style={styles.setDataCell} numberOfLines={1}>
-                                            {s.rpe != null ? String(s.rpe) : ""}
-                                          </Text>
-                                        </Pressable>
-                                        <Text style={[styles.setDataCell, styles.setDataCellE1rm, styles.setColE1rm]} numberOfLines={1}>
-                                          {e1RmStr}
-                                        </Text>
-                                        <Text style={[styles.setDataCell, styles.setDataCellVol, styles.setColVol]} numberOfLines={1}>
-                                          {volStr}
-                                        </Text>
-                                      </>
-                                    }
-                                  />
-                                );
-                              })}
+                                {(() => {
+                                  const loggedSetVolumesLb = loggedSets.map((set) =>
+                                    getLoggedSetVolumeLb(set),
+                                  );
+                                  const maxLoggedSetVolumeLb = Math.max(0, ...loggedSetVolumesLb);
+                                  return loggedSets.map((s, setIdx) => {
+                                    const volumeLb = loggedSetVolumesLb[setIdx] ?? 0;
+                                    const rawProgress =
+                                      maxLoggedSetVolumeLb > 0 ? volumeLb / maxLoggedSetVolumeLb : 0;
+                                    const progress =
+                                      maxLoggedSetVolumeLb > 0
+                                        ? Math.max(0.14, Math.min(1, rawProgress))
+                                        : 0.34;
+                                    const weightLabel = formatLoggedSetWeightLabel(s.loadKg ?? null);
+                                    const barColor = getLoggedSetBarColor(s.rpe ?? null);
+                                    const rpeLabel = s.rpe != null ? String(s.rpe) : "—";
+                                    return (
+                                      <SwipeableSetRow
+                                        key={s.setId}
+                                        setId={s.setId}
+                                        onDelete={() => void onRemoveSet(s.setId)}
+                                        rowContent={
+                                          <View style={styles.loggedSetSummaryContent}>
+                                            <View style={styles.loggedSetSummaryTopRow}>
+                                              <View style={styles.loggedSetSummaryLine}>
+                                                <Pressable
+                                                  onPress={() =>
+                                                    setCompletedSetPicker({ slotId, setId: s.setId, field: "reps" })
+                                                  }
+                                                  accessibilityRole="button"
+                                                  accessibilityLabel={`Edit set ${s.setId} reps`}
+                                                >
+                                                  <Text style={styles.loggedSetSummaryText}>{`Set ${s.ordinal} - ${s.reps} reps`}</Text>
+                                                </Pressable>
+                                                <Pressable
+                                                  onPress={() =>
+                                                    setCompletedSetPicker({ slotId, setId: s.setId, field: "load" })
+                                                  }
+                                                  accessibilityRole="button"
+                                                  accessibilityLabel={`Edit set ${s.setId} weight`}
+                                                >
+                                                  <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
+                                                </Pressable>
+                                                <Pressable
+                                                  onPress={() =>
+                                                    setCompletedSetPicker({ slotId, setId: s.setId, field: "rpe" })
+                                                  }
+                                                  accessibilityRole="button"
+                                                  accessibilityLabel={`Edit set ${s.setId} RPE`}
+                                                >
+                                                  <Text style={styles.loggedSetSummaryText}>{` @ ${rpeLabel} RPE`}</Text>
+                                                </Pressable>
+                                              </View>
+                                              <Text style={styles.loggedSetVolumeText}>
+                                                {volumeLb > 0 ? String(volumeLb) : "—"}
+                                              </Text>
+                                            </View>
+                                            <View style={styles.loggedSetBarTrack}>
+                                              <View
+                                                style={[
+                                                  styles.loggedSetBarFill,
+                                                  { width: `${progress * 100}%`, backgroundColor: barColor },
+                                                ]}
+                                              />
+                                            </View>
+                                          </View>
+                                        }
+                                      />
+                                    );
+                                  });
+                                })()}
                               {drafts.map((d, idx) => {
                                 const activeOrdinal = loggedSets.length + idx + 1;
                                 return (
@@ -2354,15 +2346,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetGrabber} />
             <Text
-              style={styles.sheetTitle}
+              style={styles.finishSheetTitle}
               accessibilityLabel={isBackfillFlow ? "Save exercises?" : "Finish workout?"}
             >
               {isBackfillFlow ? "Save exercises?" : "Finish workout?"}
             </Text>
-            <Text style={styles.muted}>
+            <Text style={styles.finishSheetSubtitle}>
               {isBackfillFlow
-                ? "Saves your lifts to this workout day and returns to details."
-                : "This will seal the workout."}
+                ? "This will save your exercises to this workout."
+                : "This will save your workout."}
             </Text>
             <View style={styles.finishSheetActions}>
               <Pressable
@@ -2393,11 +2385,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                   setFinishModalVisible(false);
                   setCancelConfirmVisible(true);
                 }}
-                style={styles.finishSheetSecondary}
+                style={styles.finishSheetTertiary}
                 accessibilityRole="button"
                 accessibilityLabel={isBackfillFlow ? "Discard exercise log" : "Cancel workout"}
               >
-                <Text style={styles.finishSheetSecondaryText}>
+                <Text style={styles.finishSheetTertiaryText}>
                   {isBackfillFlow ? "Discard log" : "Cancel workout"}
                 </Text>
               </Pressable>
@@ -2416,27 +2408,16 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       >
         <Pressable style={styles.finishBackdrop} onPress={() => setCancelConfirmVisible(false)}>
           <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>
+            <View style={styles.sheetGrabber} />
+            <Text style={styles.finishSheetTitle}>
               {isBackfillFlow ? "Discard exercise log?" : "Cancel workout?"}
             </Text>
-            <Text style={styles.muted}>
+            <Text style={styles.finishSheetSubtitle}>
               {isBackfillFlow
-                ? "This abandons the log and discards exercises you have not saved."
-                : "This will abandon the session and discard the current workout."}
+                ? "This will discard this exercise log."
+                : "This will discard this workout."}
             </Text>
             <View style={styles.finishSheetActions}>
-              <Pressable
-                onPress={() => setCancelConfirmVisible(false)}
-                style={styles.finishSheetSecondary}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isBackfillFlow ? "Keep editing after discard prompt" : "Keep working after cancel prompt"
-                }
-              >
-                <Text style={styles.finishSheetSecondaryText}>
-                  {isBackfillFlow ? "Keep editing" : "Keep working"}
-                </Text>
-              </Pressable>
               <Pressable
                 onPress={() => {
                   setCancelConfirmVisible(false);
@@ -2448,6 +2429,18 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
               >
                 <Text style={styles.finishSheetPrimaryText}>
                   {isBackfillFlow ? "Discard log" : "Cancel workout"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setCancelConfirmVisible(false)}
+                style={styles.finishSheetSecondary}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isBackfillFlow ? "Keep editing after discard prompt" : "Keep working after cancel prompt"
+                }
+              >
+                <Text style={styles.finishSheetSecondaryText}>
+                  {isBackfillFlow ? "Keep editing" : "Keep working"}
                 </Text>
               </Pressable>
             </View>
@@ -2464,11 +2457,8 @@ export default function WorkoutLogRoute() {
   return <WorkoutLogScreenInner sessionEntry="live" />;
 }
 
-/** Set grid: Set | Reps | Weight | RPE | e1RM | Vol. Active row adds Log column. Weight/e1RM/Vol flex to fill. */
+/** Active draft row ordinal column width. */
 const GRID_COL_SET = 26;
-const GRID_COL_REPS = 42;
-const GRID_COL_RPE = 38;
-const GRID_COL_ACTION_MIN = 64;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F2F2F7" },
@@ -2477,18 +2467,18 @@ const styles = StyleSheet.create({
   screenIdleStart: { backgroundColor: "#FFFFFF" },
   scrollIdleStart: { flex: 1, backgroundColor: "#FFFFFF" },
   contentIdleStart: {
+    flex: 1,
     flexGrow: 1,
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "stretch",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
   startSetupCardWrap: {
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
-    transform: [{ translateY: -18 }],
   },
   headerTimerWrap: {
     alignItems: "center",
@@ -2506,22 +2496,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   startSetupCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.1)",
-    ...(Platform.OS === "ios"
-      ? {
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 14,
-        }
-      : { elevation: 3 }),
+    paddingVertical: 4,
   },
   startSetupHeader: {
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 12,
   },
   startSetupTitle: {
@@ -2535,33 +2513,6 @@ const styles = StyleSheet.create({
     color: "#AEAEB2",
     lineHeight: 22,
     letterSpacing: -0.15,
-  },
-  startSetupSectionLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#8E8E93",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    marginBottom: 8,
-  },
-  startSetupGymSectionLabel: {
-    marginTop: 12,
-  },
-  startSetupNameInput: {
-    backgroundColor: "#F7F7FA",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 48,
-    fontSize: 17,
-    color: "#1C1C1E",
-    borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.12)",
-  },
-  startSetupNameInputFocused: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 2,
-    borderColor: "#007AFF",
   },
   startSetupGymRow: {
     flexDirection: "row",
@@ -2590,7 +2541,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF3B30",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: "rgba(0, 0, 0, 0.06)",
     ...(Platform.OS === "ios"
@@ -2621,6 +2572,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   startGymPickerTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
+  startGymPickerSectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8E8E93",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
   startGymOptionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2701,38 +2659,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   finishSheetActions: {
-    flexDirection: "row",
     gap: 10,
-    marginTop: 14,
+    marginTop: 18,
   },
   finishSheetPrimary: {
     backgroundColor: "#FF3B30",
+    minHeight: 50,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   finishSheetPrimaryText: {
     color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "800",
   },
   finishSheetPrimaryDestructive: {
     backgroundColor: "#FF3B30",
+    minHeight: 50,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   finishSheetSecondary: {
     backgroundColor: "#F2F2F7",
+    minHeight: 50,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   finishSheetSecondaryText: {
     color: "#1C1C1E",
+    fontSize: 16,
     fontWeight: "700",
+  },
+  finishSheetTertiary: {
+    minHeight: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  finishSheetTertiaryText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FF3B30",
   },
   bottomRow: { flexDirection: "row", gap: 10 },
   bottomBtnPrimary: {
@@ -3019,39 +2996,7 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
   },
   setListInModal: { gap: 4, marginBottom: 12 },
-  setGridHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 0,
-    paddingHorizontal: 10,
-    marginBottom: 6,
-  },
-  setGridHeaderCellWrap: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  setGridHeaderCellWrapSet: {
-    alignItems: "flex-start",
-  },
-  setGridHeaderCell: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8A8A8F",
-    letterSpacing: 0.3,
-    textAlign: "center",
-  },
-  setGridHeaderCellSet: {
-    textAlign: "left",
-  },
   setColSet: { width: GRID_COL_SET },
-  setColReps: { width: GRID_COL_REPS },
-  setColWeight: { flex: 1, minWidth: 68 },
-  setColRpe: { width: GRID_COL_RPE },
-  setColE1rm: { flex: 1, minWidth: 48 },
-  setColVol: { flex: 1, minWidth: 44 },
-  setColAction: { minWidth: GRID_COL_ACTION_MIN, flex: 1 },
-  setDataCellE1rm: { fontWeight: "600" },
-  setDataCellVol: { fontWeight: "600" },
   setPlaceholderCell: { minHeight: 40, justifyContent: "center" },
   swipeableRowWrap: {
     minHeight: 40,
@@ -3082,22 +3027,48 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   setRowCompleted: {
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 40,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    gap: 6,
+    minHeight: 56,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: "#F7F7F8",
     borderRadius: 10,
   },
-  setDataCellTouchable: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 2,
-  },
   setOrdinalCell: { fontSize: 15, fontWeight: "500", color: "#6B7280", textAlign: "left" },
-  setDataCell: { fontSize: 15, fontWeight: "500", color: "#6B7280", textAlign: "center" },
+  loggedSetSummaryContent: { gap: 8 },
+  loggedSetSummaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  loggedSetSummaryLine: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  loggedSetSummaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
+  loggedSetVolumeText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#3A3A3C",
+    minWidth: 40,
+    textAlign: "right",
+  },
+  loggedSetBarTrack: {
+    height: 6,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  loggedSetBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
   setRowActive: {
     flexDirection: "row",
     alignItems: "center",
@@ -3252,11 +3223,11 @@ const styles = StyleSheet.create({
   },
   finishSheet: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 24,
     marginBottom: 0,
   },
   sheetContainer: {
@@ -3274,6 +3245,20 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "#C7C7CC",
     marginBottom: 12,
+  },
+  finishSheetTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1C1C1E",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  finishSheetSubtitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#6B7280",
+    lineHeight: 22,
+    textAlign: "center",
   },
   sheetTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 12 },
   draftPickerSheetTitle: {

@@ -5,6 +5,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutDayDetail } from "@/lib/data/workouts/useWorkoutsCalendar";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import type { DailyFactsDto } from "@/lib/contracts";
 import {
   formatAvgPaceMinPerMileLabel,
   formatIntegerWithCommas,
@@ -90,6 +91,26 @@ function toExerciseIdFromName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+function hasMeaningfulDailyMetrics(
+  dailyFacts: DailyFactsDto | null | undefined,
+  domain: WorkoutProductDomain,
+): boolean {
+  if (!dailyFacts) return false;
+  const hasActivityMetric =
+    (typeof dailyFacts.activity?.steps === "number" && dailyFacts.activity.steps > 0) ||
+    (typeof dailyFacts.activity?.trainingLoad === "number" && dailyFacts.activity.trainingLoad > 0);
+
+  if (domain === "strength") {
+    const s = dailyFacts.strength;
+    const hasStrengthMetric =
+      (typeof s?.workoutsCount === "number" && s.workoutsCount > 0) ||
+      (typeof s?.totalSets === "number" && s.totalSets > 0) ||
+      (typeof s?.totalReps === "number" && s.totalReps > 0);
+    return hasActivityMetric || hasStrengthMetric;
+  }
+  return hasActivityMetric;
+}
+
 function isStrengthLikeSession(
   session: ReconciledWorkoutSession,
   representative: WorkoutHistoryItem,
@@ -162,6 +183,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   }, [sessions]);
 
   const singleSessionPremiumCardioDay = sessions.length === 1 && usePremiumCardioLayout;
+  const showDailyMetricsCard = hasMeaningfulDailyMetrics(dailyFacts, domain);
 
   const cardioAccent = overviewAccentForTab("cardio");
 
@@ -303,7 +325,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
           ? { contentInsetAdjustmentBehavior: "never" as const }
           : {})}
       >
-        {dailyFacts && (
+        {showDailyMetricsCard && dailyFacts && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Daily metrics</Text>
             {dailyFacts.activity && (

@@ -183,6 +183,71 @@ describe("WorkoutDayScreen display", () => {
     expect(mockUseWorkoutOverrides).toHaveBeenCalledWith([]);
   });
 
+  it("does not render Daily metrics card when dailyFacts has no meaningful metrics", () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "w1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "apple_health",
+          title: "TraditionalStrengthTraining",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: 320,
+          workoutType: "strength" as const,
+        },
+      ],
+      dailyFacts: {
+        activity: { steps: 0, trainingLoad: 0 },
+        strength: { workoutsCount: 0, totalSets: 0, totalReps: 0 },
+      },
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
+    });
+
+    const json = JSON.stringify(test.toJSON());
+    expect(json).not.toContain("Daily metrics");
+  });
+
+  it("renders Daily metrics card when dailyFacts has meaningful metrics", () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "w1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "apple_health",
+          title: "TraditionalStrengthTraining",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: 320,
+          workoutType: "strength" as const,
+        },
+      ],
+      dailyFacts: {
+        activity: { steps: 1234, trainingLoad: 0 },
+        strength: { workoutsCount: 0, totalSets: 0, totalReps: 0 },
+      },
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<WorkoutDayScreen domain="strength" />);
+    });
+
+    const json = JSON.stringify(test.toJSON());
+    expect(json).toContain("Daily metrics");
+    expect(json).toContain("Steps");
+  });
+
   it("keeps hook order stable when transitioning from workouts day to empty day", () => {
     mockUseWorkoutDayDetail
       .mockReturnValueOnce({
