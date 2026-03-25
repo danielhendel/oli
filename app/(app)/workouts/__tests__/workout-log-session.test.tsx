@@ -290,12 +290,16 @@ describe("workouts/log session UI", () => {
     expect(gymSelector).not.toBeNull();
   });
 
-  it("idle start screen shows workout name input", () => {
+  it("idle start screen only shows gym selector + start button controls", () => {
     act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
+    const gymSelector = findByA11yLabelPrefix(test!.root, "Gym:");
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
     const nameInput = findByA11yLabel(test!.root, "Workout name (optional)");
-    expect(nameInput).not.toBeNull();
+    expect(gymSelector).not.toBeNull();
+    expect(startBtn).not.toBeNull();
+    expect(nameInput).toBeNull();
   });
 
   it("idle start screen back control renders", () => {
@@ -488,13 +492,9 @@ describe("workouts/log session UI", () => {
     expect(test!.root.findByProps({ testID: "workout-log-backfill-nav" })).toBeTruthy();
   });
 
-  it("start workout persists custom workout name note when entered", async () => {
+  it("start workout no longer writes workout-name note metadata", async () => {
     act(() => {
       test = renderer.create(<WorkoutLogScreen />);
-    });
-    const nameInput = findByA11yLabel(test!.root, "Workout name (optional)");
-    act(() => {
-      nameInput?.props?.onChangeText?.("Chest & Arms");
     });
     const startBtn = findByA11yLabel(test!.root, "Start workout");
     act(() => {
@@ -502,7 +502,7 @@ describe("workouts/log session UI", () => {
     });
     await flushEventLoop();
     await flushEventLoop();
-    expect(commands.addWorkoutNote).toHaveBeenCalledWith("u1", "s1", "name:Chest & Arms");
+    expect(commands.addWorkoutNote).not.toHaveBeenCalled();
   });
 
   it("shows Add block when active with zero blocks (empty exercises)", async () => {
@@ -853,7 +853,7 @@ describe("workouts/log session UI", () => {
     expect(str).not.toContain("Vol");
   });
 
-  it("expanded exercise with at least one logged set shows set grid header", async () => {
+  it("expanded exercise with at least one logged set shows summary row format", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -892,12 +892,9 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toContain("Set");
-    expect(str).toContain("Reps");
-    expect(str).toContain("Weight");
-    expect(str).toContain("RPE");
-    expect(str).toContain("e1RM");
-    expect(str).toContain("Vol");
+    expect(str).toContain("Set 1 - 5 reps");
+    expect(str).toContain("x 220.5 lb");
+    expect(str).toContain("@ — RPE");
     expect(str).toContain("History");
     expect(str).toContain("+ Set");
   });
@@ -1705,7 +1702,7 @@ describe("workouts/log session UI", () => {
     expect(list).toContain(17.5);
     expect(list).toContain(185);
     expect(list[0]).toBe(0);
-    expect(list[list.length - 1]).toBe(600);
+    expect(list[list.length - 1]).toBe(2000);
   });
 
   it("closestWeightIndexLb maps exact and nearest weight to correct list index", () => {
@@ -1718,6 +1715,7 @@ describe("workouts/log session UI", () => {
     expect(closestWeightIndexLb(135.2)).toBe(list.indexOf(135));
     expect(list[closestWeightIndexLb(135.2)]).toBe(135);
     expect(closestWeightIndexLb(134.9)).toBe(list.indexOf(135));
+    expect(list[closestWeightIndexLb(2050)]).toBe(2000);
   });
 
   it("Add draft set adds a new draft row with Log button", async () => {
@@ -1812,7 +1810,7 @@ describe("workouts/log session UI", () => {
     );
   });
 
-  it("completed set row shows e1RM and Volume columns", async () => {
+  it("completed set row shows summary text and set volume value", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [
       {
@@ -1851,11 +1849,9 @@ describe("workouts/log session UI", () => {
     });
     const tree = test!.toJSON();
     const str = tree ? JSON.stringify(tree) : "";
-    expect(str).toContain("e1RM");
-    expect(str).toContain("Vol");
-    expect(str).toContain("90");
     expect(str).toContain("10");
-    expect(str).toContain("120");
+    expect(str).toContain("x 90 lb");
+    expect(str).toContain("@ — RPE");
     expect(str).toContain("900");
   });
 
@@ -2078,6 +2074,35 @@ describe("workouts/log session UI", () => {
     expect(commands.completeSession).toHaveBeenCalledWith("u1", "s1");
   });
 
+  it("confirming Finish in live flow replaces to strength workouts page", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [];
+    commands.completeSession.mockClear();
+    activeSessionStorage.clearActiveWorkoutSessionId.mockClear();
+    mockRouterReplace.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const finishBtn = findByA11yLabel(test!.root, "Finish workout");
+    expect(finishBtn).not.toBeNull();
+    act(() => {
+      finishBtn!.props.onPress();
+    });
+    const confirmBtn = findByA11yLabel(test!.root, "Confirm finish workout");
+    expect(confirmBtn).not.toBeNull();
+    act(() => {
+      confirmBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.completeSession).toHaveBeenCalledWith("u1", "s1");
+    expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(app)/workouts");
+  });
+
   it("finish confirmation sheet shows Cancel workout button", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [
@@ -2126,6 +2151,42 @@ describe("workouts/log session UI", () => {
     });
     const confirmCancelBtn = findByA11yLabel(test!.root, "Confirm cancel workout");
     expect(confirmCancelBtn).not.toBeNull();
+  });
+
+  it("confirming live cancel abandons session and replaces to strength workouts page", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [];
+    commands.abandonSession.mockClear();
+    activeSessionStorage.clearActiveWorkoutSessionId.mockClear();
+    mockRouterReplace.mockClear();
+    mockRouterDismissTo.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const finishBtn = findByA11yLabel(test!.root, "Finish workout");
+    expect(finishBtn).not.toBeNull();
+    act(() => {
+      finishBtn!.props.onPress();
+    });
+    const cancelWorkoutBtn = findByA11yLabel(test!.root, "Cancel workout");
+    expect(cancelWorkoutBtn).not.toBeNull();
+    act(() => {
+      cancelWorkoutBtn!.props.onPress();
+    });
+    const confirmCancelBtn = findByA11yLabel(test!.root, "Confirm cancel workout");
+    expect(confirmCancelBtn).not.toBeNull();
+    act(() => {
+      confirmCancelBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.abandonSession).toHaveBeenCalledWith("u1", "s1");
+    expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
+    expect(mockRouterReplace).toHaveBeenCalledWith("/(app)/workouts");
+    expect(mockRouterDismissTo).not.toHaveBeenCalled();
   });
 
   it("block label opens options sheet", async () => {

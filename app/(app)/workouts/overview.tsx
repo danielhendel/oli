@@ -16,6 +16,7 @@ import {
   Platform,
   NativeModules,
   AppState,
+  InteractionManager,
 } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -133,6 +134,15 @@ const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function runAfterInteractionsSafe(task: () => void): { cancel: () => void } {
+  const run = InteractionManager?.runAfterInteractions;
+  if (typeof run === "function") {
+    return run(task);
+  }
+  task();
+  return { cancel: () => void 0 };
+}
 
 function shellTitleForDomain(domain: WorkoutProductDomain): string {
   return domain === "strength" ? "Strength" : "Cardio";
@@ -281,34 +291,42 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   useEffect(() => {
     let cancelled = false;
+    if (domain !== "strength") {
+      setMonthSummariesFetch({ status: "idle" });
+      return;
+    }
+    if (overviewSharedRange.status !== "ready") return;
     if (initializing || !user) {
       setMonthSummariesFetch({ status: "idle" });
       return;
     }
-    void (async () => {
-      const token = await getIdTokenRef.current(false);
-      if (!token || cancelled) return;
-      let sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
-      if (cancelled) return;
-      if (sumRes.ok && !sumRes.json.complete) {
-        const rebuildRes = await postWorkoutMonthSummariesRebuild(token, {
-          year: WORKOUT_OVERVIEW_ANALYTICS_YEAR,
-        });
-        if (rebuildRes.ok && !cancelled) {
-          sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
+    const task = runAfterInteractionsSafe(() => {
+      void (async () => {
+        const token = await getIdTokenRef.current(false);
+        if (!token || cancelled) return;
+        let sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
+        if (cancelled) return;
+        if (sumRes.ok && !sumRes.json.complete) {
+          const rebuildRes = await postWorkoutMonthSummariesRebuild(token, {
+            year: WORKOUT_OVERVIEW_ANALYTICS_YEAR,
+          });
+          if (rebuildRes.ok && !cancelled) {
+            sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
+          }
         }
-      }
-      if (cancelled) return;
-      if (!sumRes.ok) {
-        setMonthSummariesFetch({ status: "idle" });
-        return;
-      }
-      setMonthSummariesFetch({ status: "ready", res: sumRes.json });
-    })();
+        if (cancelled) return;
+        if (!sumRes.ok) {
+          setMonthSummariesFetch({ status: "idle" });
+          return;
+        }
+        setMonthSummariesFetch({ status: "ready", res: sumRes.json });
+      })();
+    });
     return () => {
       cancelled = true;
+      task.cancel();
     };
-  }, [user?.uid, initializing, workoutsCalendarRefreshEpoch]);
+  }, [domain, overviewSharedRange.status, user?.uid, initializing, workoutsCalendarRefreshEpoch]);
 
   const overviewPerfRef = useRef<{ t0: number } | null>(null);
 
@@ -350,31 +368,34 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     });
   }, [overviewSharedRange.status, weekDaysSlice, recentDaysSlice, analyticsDaysSlice]);
 
-  const weeklyStripDays: CalendarDay<WorkoutDayMarker>[] =
-    overviewSharedRange.status === "ready"
-      ? weekDaysSlice.map((d) => {
-          const markerFlags = deriveSessionTypeFlags(reconcileWorkoutSessionsForDay(d.day, d.workouts));
-          return {
-            day: d.day,
+  const weeklyStripDays: CalendarDay<WorkoutDayMarker>[] = useMemo(
+    () =>
+      overviewSharedRange.status === "ready"
+        ? weekDaysSlice.map((d) => {
+            const markerFlags = deriveSessionTypeFlags(reconcileWorkoutSessionsForDay(d.day, d.workouts));
+            return {
+              day: d.day,
+              meta: {
+                hasWorkouts: d.workouts.length > 0,
+                hasStrength: markerFlags.hasStrength,
+                hasCardio: markerFlags.hasCardio,
+                workoutCount: d.workouts.length,
+                workouts: d.workouts,
+              },
+            };
+          })
+        : weekDaysFull.map((day) => ({
+            day,
             meta: {
-              hasWorkouts: d.workouts.length > 0,
-              hasStrength: markerFlags.hasStrength,
-              hasCardio: markerFlags.hasCardio,
-              workoutCount: d.workouts.length,
-              workouts: d.workouts,
+              hasWorkouts: false,
+              hasStrength: false,
+              hasCardio: false,
+              workoutCount: 0,
+              workouts: [],
             },
-          };
-        })
-      : weekDaysFull.map((day) => ({
-          day,
-          meta: {
-            hasWorkouts: false,
-            hasStrength: false,
-            hasCardio: false,
-            workoutCount: 0,
-            workouts: [],
-          },
-        }));
+          })),
+    [overviewSharedRange.status, weekDaysSlice, weekDaysFull],
+  );
 
   const recentWorkouts = useMemo(() => {
     if (overviewSharedRange.status !== "ready") return [];
@@ -484,18 +505,26 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   useEffect(() => {
     let cancelled = false;
     if (process.env.JEST_WORKER_ID) return;
+    if (domain !== "strength") {
+      setManualWorkoutSummaries([]);
+      return;
+    }
+    if (overviewSharedRange.status !== "ready") return;
     if (!user?.uid) {
       setManualWorkoutSummaries([]);
       return;
     }
-    void listManualWorkoutDaySummaries(user.uid).then((rows) => {
-      if (cancelled) return;
-      setManualWorkoutSummaries(rows);
+    const task = runAfterInteractionsSafe(() => {
+      void listManualWorkoutDaySummaries(user.uid).then((rows) => {
+        if (cancelled) return;
+        setManualWorkoutSummaries(rows);
+      });
     });
     return () => {
       cancelled = true;
+      task.cancel();
     };
-  }, [user?.uid]);
+  }, [domain, overviewSharedRange.status, user?.uid]);
 
   useEffect(() => {
     navigation.setOptions({
