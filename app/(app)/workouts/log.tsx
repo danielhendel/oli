@@ -79,6 +79,15 @@ import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
+import {
+  listCustomExercises,
+  type CustomExerciseRecord,
+} from "@/lib/workouts/exercises/customExerciseStore";
+import {
+  resolveStrengthLoggingType,
+  supportsLoadEntry,
+  type StrengthLoggingType,
+} from "@/lib/workouts/exercises/loggingType";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
@@ -142,6 +151,11 @@ function formatLoggedSetWeightLabel(loadKg: number | null): string {
   const roundedInt = Math.round(lb);
   if (Math.abs(lb - roundedInt) < 0.05) return `${roundedInt} lb`;
   return `${lb.toFixed(1)} lb`;
+}
+
+function formatBodyweightSetLoadLabel(loadKg: number | null): string {
+  if (loadKg == null || loadKg <= 0) return "BW";
+  return `BW + ${formatLoggedSetWeightLabel(loadKg)}`;
 }
 
 function getLoggedSetBarColor(rpe: number | null): string {
@@ -403,6 +417,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   const [expandedSlotId, setExpandedSlotId] = useState<string | null>(null);
   const [exerciseMenuSlotId, setExerciseMenuSlotId] = useState<string | null>(null);
   const [draftSetsBySlotId, setDraftSetsBySlotId] = useState<Record<string, DraftSet[]>>({});
+  const [bodyweightLoadEnabledBySlotId, setBodyweightLoadEnabledBySlotId] = useState<Record<string, boolean>>({});
   const [editSetDraft, setEditSetDraft] = useState<{
     setId: string;
     slotId: string;
@@ -421,6 +436,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     field: "reps" | "load" | "rpe";
   } | null>(null);
   const [memory, setMemory] = useState<ExerciseMemoryMap>({});
+  const [customExercisesById, setCustomExercisesById] = useState<Record<string, CustomExerciseRecord>>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const [gymPickerVisible, setGymPickerVisible] = useState(false);
   const [gymSaveError, setGymSaveError] = useState<string | null>(null);
@@ -951,19 +967,25 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   );
 
   const onLogDraftSet = useCallback(
-    async (slotId: string, draft: DraftSet) => {
+    async (
+      slotId: string,
+      draft: DraftSet,
+      loggingType: StrengthLoggingType,
+      allowLoadEntry: boolean,
+    ) => {
       if (!user || !sessionId || !reduced) return;
       const reps = parsePositiveInt(draft.repsText);
       if (reps == null) {
         setUi({ status: "error", message: "Reps are required." });
         return;
       }
-      const loadLb = draft.loadText.trim() === "" ? undefined : parsePositiveFloat(draft.loadText);
-      if (draft.loadText.trim() !== "" && loadLb == null) {
+      const allowLoad = supportsLoadEntry(loggingType) || allowLoadEntry;
+      const loadLb = allowLoad && draft.loadText.trim() !== "" ? parsePositiveFloat(draft.loadText) : undefined;
+      if (allowLoad && draft.loadText.trim() !== "" && loadLb == null) {
         setUi({ status: "error", message: "Load must be > 0 when provided." });
         return;
       }
-      const loadKg = loadLb != null ? loadLb * KG_PER_LB : undefined;
+      const loadKg = allowLoad && loadLb != null ? loadLb * KG_PER_LB : undefined;
       const rpeVal = draft.rpeText.trim() === "" ? undefined : parseIntensity(draft.rpeText);
       if (draft.rpeText.trim() !== "" && rpeVal == null) {
         setUi({ status: "error", message: "RPE must be between 0 and 10." });
@@ -986,11 +1008,17 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           const newDraft: DraftSet = {
             id: `${slotId}:draft:${nextList.length}`,
             repsText: String(reps),
-            loadText: draft.loadText.trim() !== "" ? draft.loadText.trim() : "",
+            loadText: allowLoad && draft.loadText.trim() !== "" ? draft.loadText.trim() : "",
             rpeText: rpeVal != null ? String(rpeVal) : "",
           };
           return { ...prev, [slotId]: [...nextList, newDraft] };
         });
+        if (loggingType === "bodyweight_reps") {
+          setBodyweightLoadEnabledBySlotId((prev) => ({
+            ...prev,
+            [slotId]: loadKg != null && loadKg > 0,
+          }));
+        }
         await refreshReduced(user.uid, sessionId);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error";
@@ -1158,6 +1186,22 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   }, [user, initializing]);
 
   useEffect(() => {
+    if (!user || initializing) return;
+    let cancelled = false;
+    listCustomExercises(user.uid)
+      .catch(() => [])
+      .then((rows) => {
+        if (cancelled) return;
+        const byId: Record<string, CustomExerciseRecord> = {};
+        for (const row of rows) byId[row.exerciseId] = row;
+        setCustomExercisesById(byId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, initializing]);
+
+  useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
     if (logFlowMode === "backfill") return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
@@ -1221,8 +1265,9 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     void memory; // reserved for future exercise memory (e.g. Last/Best in row)
     const m = new Map<string, string>();
     for (const item of EXERCISE_CATALOG_V1) m.set(item.exerciseId, item.name);
+    for (const [exerciseId, row] of Object.entries(customExercisesById)) m.set(exerciseId, row.name);
     return m;
-  }, [memory]);
+  }, [memory, customExercisesById]);
 
   const onAddBlockChoose = useCallback(
     async (type: BlockTypeId) => {
@@ -1511,10 +1556,23 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                     const isExpanded = expandedSlotId === slotId;
                     const displayName = catalogNameById.get(ex.exerciseId) ?? ex.exerciseId;
                     void getExerciseMeta(ex.exerciseId); // reserved for future metadata use
+                    const exerciseLoggingType = resolveStrengthLoggingType(
+                      ex.exerciseId,
+                      customExercisesById[ex.exerciseId]?.loggingType,
+                    );
+                    const bodyweightLoadEnabled = Boolean(bodyweightLoadEnabledBySlotId[slotId]);
+                    const showLoadField =
+                      supportsLoadEntry(exerciseLoggingType) ||
+                      (exerciseLoggingType === "bodyweight_reps" && bodyweightLoadEnabled);
                     const drafts = draftSetsBySlotId[slotId] ?? [];
                     const loggedSets = ex.sets ?? [];
                     const onToggleExpandWithLayout = (id: string) => {
                       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      if (exerciseLoggingType === "bodyweight_reps" && expandedSlotId !== id) {
+                        const latest = loggedSets[loggedSets.length - 1] ?? null;
+                        const shouldEnable = latest?.loadKg != null && latest.loadKg > 0;
+                        setBodyweightLoadEnabledBySlotId((prev) => ({ ...prev, [slotId]: shouldEnable }));
+                      }
                       setExpandedSlotId((prev) => (prev === id ? null : id));
                     };
                     const onCollapse = () => {
@@ -1594,7 +1652,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                     setDraftSetsBySlotId((prev) => {
                                       const list = prev[slotId] ?? [];
                                       const id = `${slotId}:draft:${list.length}`;
-                                      return { ...prev, [slotId]: [...list, { id, repsText: "", loadText: "", rpeText: "" }] };
+                                      const lastLogged = loggedSets[loggedSets.length - 1] ?? null;
+                                      const prefLoadText =
+                                        showLoadField && lastLogged?.loadKg != null && lastLogged.loadKg > 0
+                                          ? String(Math.round(lastLogged.loadKg * LB_PER_KG * 10) / 10)
+                                          : "";
+                                      return {
+                                        ...prev,
+                                        [slotId]: [...list, { id, repsText: "", loadText: prefLoadText, rpeText: "" }],
+                                      };
                                     });
                                   }}
                                   style={styles.loggerUtilityAction}
@@ -1616,22 +1682,70 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                 >
                                   <Text style={styles.loggerUtilityActionText}>History</Text>
                                 </Pressable>
+                                {exerciseLoggingType === "bodyweight_reps" ? (
+                                  <Pressable
+                                    onPress={() => {
+                                      setBodyweightLoadEnabledBySlotId((prev) => {
+                                        const nextEnabled = !prev[slotId];
+                                        if (!nextEnabled) {
+                                          setDraftSetsBySlotId((draftPrev) => {
+                                            const list = draftPrev[slotId] ?? [];
+                                            if (list.length === 0) return draftPrev;
+                                            return {
+                                              ...draftPrev,
+                                              [slotId]: list.map((row) => ({ ...row, loadText: "" })),
+                                            };
+                                          });
+                                        }
+                                        return { ...prev, [slotId]: nextEnabled };
+                                      });
+                                    }}
+                                    style={[
+                                      styles.loggerUtilityAction,
+                                      bodyweightLoadEnabled && styles.loggerUtilityActionActive,
+                                    ]}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={
+                                      bodyweightLoadEnabled
+                                        ? "Disable bodyweight external load"
+                                        : "Enable bodyweight external load"
+                                    }
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.loggerUtilityActionText,
+                                        bodyweightLoadEnabled && styles.loggerUtilityActionTextActive,
+                                      ]}
+                                    >
+                                      {bodyweightLoadEnabled ? "Weighted" : "+ Add weight"}
+                                    </Text>
+                                  </Pressable>
+                                ) : null}
                               </View>
                               <View style={styles.setListInModal}>
                                 {(() => {
-                                  const loggedSetVolumesLb = loggedSets.map((set) =>
-                                    getLoggedSetVolumeLb(set),
+                                  const useLoadMetrics = supportsLoadEntry(exerciseLoggingType);
+                                  const loggedSetVolumeLikeValues = loggedSets.map((set) =>
+                                    useLoadMetrics ? getLoggedSetVolumeLb(set) : Math.max(0, set.reps),
                                   );
-                                  const maxLoggedSetVolumeLb = Math.max(0, ...loggedSetVolumesLb);
+                                  const maxLoggedSetValue = Math.max(0, ...loggedSetVolumeLikeValues);
                                   return loggedSets.map((s, setIdx) => {
-                                    const volumeLb = loggedSetVolumesLb[setIdx] ?? 0;
+                                    const rightValue = loggedSetVolumeLikeValues[setIdx] ?? 0;
                                     const rawProgress =
-                                      maxLoggedSetVolumeLb > 0 ? volumeLb / maxLoggedSetVolumeLb : 0;
+                                      maxLoggedSetValue > 0 ? rightValue / maxLoggedSetValue : 0;
                                     const progress =
-                                      maxLoggedSetVolumeLb > 0
+                                      maxLoggedSetValue > 0
                                         ? Math.max(0.14, Math.min(1, rawProgress))
                                         : 0.34;
-                                    const weightLabel = formatLoggedSetWeightLabel(s.loadKg ?? null);
+                                    const weightLabel = supportsLoadEntry(exerciseLoggingType)
+                                      ? formatLoggedSetWeightLabel(s.loadKg ?? null)
+                                      : exerciseLoggingType === "bodyweight_reps"
+                                        ? formatBodyweightSetLoadLabel(s.loadKg ?? null)
+                                        : null;
+                                    const canEditLoad =
+                                      supportsLoadEntry(exerciseLoggingType) ||
+                                      (exerciseLoggingType === "bodyweight_reps" &&
+                                        (bodyweightLoadEnabled || (s.loadKg ?? 0) > 0));
                                     const barColor = getLoggedSetBarColor(s.rpe ?? null);
                                     const rpeLabel = s.rpe != null ? String(s.rpe) : "—";
                                     return (
@@ -1652,15 +1766,21 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                                 >
                                                   <Text style={styles.loggedSetSummaryText}>{`Set ${s.ordinal} - ${s.reps} reps`}</Text>
                                                 </Pressable>
-                                                <Pressable
-                                                  onPress={() =>
-                                                    setCompletedSetPicker({ slotId, setId: s.setId, field: "load" })
-                                                  }
-                                                  accessibilityRole="button"
-                                                  accessibilityLabel={`Edit set ${s.setId} weight`}
-                                                >
-                                                  <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
-                                                </Pressable>
+                                                {weightLabel != null ? (
+                                                  canEditLoad ? (
+                                                    <Pressable
+                                                      onPress={() =>
+                                                        setCompletedSetPicker({ slotId, setId: s.setId, field: "load" })
+                                                      }
+                                                      accessibilityRole="button"
+                                                      accessibilityLabel={`Edit set ${s.setId} weight`}
+                                                    >
+                                                      <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
+                                                    </Pressable>
+                                                  ) : (
+                                                    <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
+                                                  )
+                                                ) : null}
                                                 <Pressable
                                                   onPress={() =>
                                                     setCompletedSetPicker({ slotId, setId: s.setId, field: "rpe" })
@@ -1672,7 +1792,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                                 </Pressable>
                                               </View>
                                               <Text style={styles.loggedSetVolumeText}>
-                                                {volumeLb > 0 ? String(volumeLb) : "—"}
+                                                {rightValue > 0
+                                                  ? useLoadMetrics
+                                                    ? String(rightValue)
+                                                    : `${rightValue}r`
+                                                  : "—"}
                                               </Text>
                                             </View>
                                             <View style={styles.loggedSetBarTrack}>
@@ -1711,21 +1835,23 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                         <Text style={styles.draftTapFieldLabel} numberOfLines={1}>Reps</Text>
                                       )}
                                     </Pressable>
-                                    <Pressable
-                                      onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
-                                      style={({ pressed }) => [
-                                        styles.draftTapTarget,
-                                        pressed && styles.draftTapTargetPressed,
-                                      ]}
-                                      accessibilityRole="button"
-                                      accessibilityLabel="Draft set load"
-                                    >
-                                      {d.loadText.trim() ? (
-                                        <Text style={styles.draftTapFieldValue} numberOfLines={1}>{formatActiveWeightDisplay(d.loadText)}</Text>
-                                      ) : (
-                                        <Text style={styles.draftTapFieldLabel} numberOfLines={1}>Weight</Text>
-                                      )}
-                                    </Pressable>
+                                    {showLoadField ? (
+                                      <Pressable
+                                        onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "load" })}
+                                        style={({ pressed }) => [
+                                          styles.draftTapTarget,
+                                          pressed && styles.draftTapTargetPressed,
+                                        ]}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Draft set load"
+                                      >
+                                        {d.loadText.trim() ? (
+                                          <Text style={styles.draftTapFieldValue} numberOfLines={1}>{formatActiveWeightDisplay(d.loadText)}</Text>
+                                        ) : (
+                                          <Text style={styles.draftTapFieldLabel} numberOfLines={1}>Weight</Text>
+                                        )}
+                                      </Pressable>
+                                    ) : null}
                                     <Pressable
                                       onPress={() => setDraftFieldPicker({ slotId, draftId: d.id, field: "rpe" })}
                                       style={({ pressed }) => [
@@ -1743,7 +1869,9 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                     </Pressable>
                                     <View style={styles.setColActionWrap}>
                                       <Pressable
-                                        onPress={() => void onLogDraftSet(slotId, d)}
+                                        onPress={() =>
+                                          void onLogDraftSet(slotId, d, exerciseLoggingType, showLoadField)
+                                        }
                                         style={styles.logDraftBtn}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                         accessibilityRole="button"
@@ -2994,6 +3122,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     color: "#FF3B30",
+  },
+  loggerUtilityActionActive: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 12,
+  },
+  loggerUtilityActionTextActive: {
+    color: "#FFFFFF",
   },
   setListInModal: { gap: 4, marginBottom: 12 },
   setColSet: { width: GRID_COL_SET },

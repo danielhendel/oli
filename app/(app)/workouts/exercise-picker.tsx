@@ -26,9 +26,15 @@ import { getGymLabel, isExerciseAvailableAtGym } from "@/lib/workouts/gymRegistr
 import { searchExercises } from "@/lib/workouts/exercises/search";
 import { buildExerciseLibrarySections } from "@/lib/workouts/exercises/librarySections";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
+import type { ExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
+import {
+  listCustomExercises,
+  type CustomExerciseRecord,
+} from "@/lib/workouts/exercises/customExerciseStore";
+import { normalizeStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 
 type Equipment = "any" | "barbell" | "dumbbell" | "machine" | "bodyweight";
 type Muscle = "any" | "chest" | "back" | "legs" | "shoulders" | "biceps" | "triceps" | "core";
@@ -56,12 +62,15 @@ const DEFAULT_FILTERS: ExerciseFilters = {
   trainingType: "any",
 };
 
+function isSupportedLoggingTypeForPicker(value: string): boolean {
+  return value === "weight_reps" || value === "bodyweight_reps" || value === "reps_only";
+}
+
 type TabId = "all" | "recent" | "myGym";
 
 type ListEntry =
   | { type: "header" }
-  | { type: "row"; exerciseId: string }
-  | { type: "custom"; exerciseId: string };
+  | { type: "row"; exerciseId: string };
 
 function normForHighlight(s: string): string {
   return s
@@ -144,21 +153,7 @@ function renderHighlightedText(
   return <Text style={styleRef.rowTitle}>{segments}</Text>;
 }
 
-function sanitizeExerciseId(name: string): string | null {
-  const s = name.trim().toLowerCase();
-  if (!s) return null;
-  const slug = s
-    .replace(/[\s-]+/g, "_")
-    .replace(/[^a-z0-9_]/g, "")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  if (!slug) return null;
-  if (slug.length > 64) return slug.slice(0, 64);
-  return slug;
-}
-
-function passesFilters(exerciseId: string, filters: ExerciseFilters): boolean {
-  const meta = getExerciseMeta(exerciseId);
+function passesFilters(meta: ExerciseMeta, filters: ExerciseFilters): boolean {
   const equipmentLower = meta.equipment.toLowerCase();
   const primaryLower = meta.primary.toLowerCase();
   if (filters.equipment !== "any" && equipmentLower !== filters.equipment) return false;
@@ -175,6 +170,29 @@ function activeFilterCount(filters: ExerciseFilters): number {
   if (filters.movement !== "any") n++;
   if (filters.trainingType !== "any") n++;
   return n;
+}
+
+function customMetaFromRecord(record: CustomExerciseRecord): ExerciseMeta {
+  return {
+    equipment: record.equipment,
+    primary: record.primary === "Other" ? "Full body" : record.primary,
+    movement: "isolation",
+    trainingType: "strength",
+    cues: [
+      "Move with control",
+      "Use a stable setup",
+      "Log consistently for progress tracking",
+    ],
+    description: `${record.name} is a custom exercise created for your training flow.`,
+    primaryCoarse: ["FullBody"],
+    secondaryCoarse: [],
+    primaryDetailed: [],
+    secondaryDetailed: [],
+  };
+}
+
+function customSubtitle(record: CustomExerciseRecord): string {
+  return `Custom · ${record.equipment} · ${record.primary}`;
 }
 
 const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
@@ -257,6 +275,7 @@ export default function ExercisePickerScreen() {
     recentIds: [],
     popularIds: [],
   });
+  const [customExercises, setCustomExercises] = useState<CustomExerciseRecord[]>([]);
 
   const isSignedIn = Boolean(user) && !initializing;
 
@@ -273,53 +292,109 @@ export default function ExercisePickerScreen() {
     };
   }, [user, initializing]);
 
+  useEffect(() => {
+    if (!user || initializing) return;
+    let cancelled = false;
+    listCustomExercises(user.uid)
+      .catch(() => [])
+      .then((rows) => {
+        if (!cancelled) {
+          setCustomExercises(
+            rows
+              .filter((row) => isSupportedLoggingTypeForPicker(row.loggingType))
+              .map((row) => ({ ...row, loggingType: normalizeStrengthLoggingType(row.loggingType) })),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, initializing]);
+
+  const customById = useMemo(() => {
+    const m = new Map<string, CustomExerciseRecord>();
+    for (const row of customExercises) m.set(row.exerciseId, row);
+    return m;
+  }, [customExercises]);
+
+  const mergedCatalog = useMemo(
+    () => [
+      ...EXERCISE_CATALOG_V1,
+      ...customExercises.map((row) => ({
+        exerciseId: row.exerciseId,
+        name: row.name,
+        aliases: [row.name],
+      })),
+    ],
+    [customExercises],
+  );
+
   const allSorted = useMemo(
     () =>
-      [...EXERCISE_CATALOG_V1].sort((a, b) => {
+      [...mergedCatalog].sort((a, b) => {
         const nameCmp = a.name.localeCompare(b.name);
         if (nameCmp !== 0) return nameCmp;
         return a.exerciseId.localeCompare(b.exerciseId);
       }),
-    [],
+    [mergedCatalog],
   );
 
   const searchResults = useMemo(
-    () => (query.trim() ? searchExercises(EXERCISE_CATALOG_V1, query, 20) : []),
-    [query],
+    () => (query.trim() ? searchExercises(mergedCatalog, query, 20) : []),
+    [query, mergedCatalog],
   );
   /** All / Recent: search filtered by equipment/muscle/etc only. My Gym: also filtered by gym. */
   const displaySearchResults = useMemo(() => {
-    const byFilters = searchResults.filter((e) => passesFilters(e.exerciseId, filters));
+    const byFilters = searchResults.filter((e) =>
+      passesFilters(
+        customById.get(e.exerciseId)
+          ? customMetaFromRecord(customById.get(e.exerciseId)!)
+          : getExerciseMeta(e.exerciseId),
+        filters,
+      ),
+    );
     if (activeTab === "myGym" && effectiveGymId != null) {
       return byFilters.filter((e) => isExerciseAvailableAtGym(effectiveGymId, e.exerciseId));
     }
     return byFilters;
-  }, [searchResults, filters, activeTab, effectiveGymId]);
+  }, [searchResults, filters, activeTab, effectiveGymId, customById]);
 
   /** All tab: full catalog, filters only. No gym restriction. */
   const allDisplaySorted = useMemo(
-    () => allSorted.filter((e) => passesFilters(e.exerciseId, filters)),
-    [allSorted, filters],
+    () =>
+      allSorted.filter((e) =>
+        passesFilters(
+          customById.get(e.exerciseId)
+            ? customMetaFromRecord(customById.get(e.exerciseId)!)
+            : getExerciseMeta(e.exerciseId),
+          filters,
+        ),
+      ),
+    [allSorted, filters, customById],
   );
 
   /** My Gym tab only: catalog filtered by gym + filters. */
   const myGymFilteredAll = useMemo(
     () =>
       allSorted.filter(
-        (e) => passesFilters(e.exerciseId, filters) && isExerciseAvailableAtGym(effectiveGymId, e.exerciseId),
+        (e) =>
+          passesFilters(
+            customById.get(e.exerciseId)
+              ? customMetaFromRecord(customById.get(e.exerciseId)!)
+              : getExerciseMeta(e.exerciseId),
+            filters,
+          ) && isExerciseAvailableAtGym(effectiveGymId, e.exerciseId),
       ),
-    [allSorted, filters, effectiveGymId],
+    [allSorted, filters, effectiveGymId, customById],
   );
 
   const activeFilterCountNum = activeFilterCount(filters);
 
-  const customExerciseId = useMemo(() => sanitizeExerciseId(query), [query]);
-
   const catalogNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const item of EXERCISE_CATALOG_V1) m[item.exerciseId] = item.name;
+    for (const item of mergedCatalog) m[item.exerciseId] = item.name;
     return m;
-  }, []);
+  }, [mergedCatalog]);
 
   /** Recent tab: recent IDs only. No gym restriction. */
   const recentDisplayIds = sections.recentIds;
@@ -359,6 +434,33 @@ export default function ExercisePickerScreen() {
     ],
   );
 
+  const onOpenCreateExercise = useCallback(() => {
+    if (sessionId == null) return;
+    const nextParams: Record<string, string> = { sessionId };
+    if (blockId != null) nextParams.blockId = blockId;
+    if (params.logReturnPath === "enrich") {
+      nextParams.logReturnPath = "enrich";
+      const d = typeof params.enrichDay === "string" ? params.enrichDay : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) nextParams.enrichDay = d;
+      const t = typeof params.enrichTargetId === "string" ? params.enrichTargetId.trim() : "";
+      if (t.length > 0) nextParams.enrichTargetId = t;
+      const a = typeof params.sessionAnchorIso === "string" ? params.sessionAnchorIso.trim() : "";
+      if (a.length > 0) nextParams.sessionAnchorIso = a;
+      const j = typeof params.journalSessionId === "string" ? params.journalSessionId.trim() : "";
+      if (j.length > 0) nextParams.journalSessionId = j;
+    }
+    router.push({ pathname: "/(app)/workouts/exercise-create", params: nextParams });
+  }, [
+    sessionId,
+    blockId,
+    params.logReturnPath,
+    params.enrichDay,
+    params.enrichTargetId,
+    params.sessionAnchorIso,
+    params.journalSessionId,
+    router,
+  ]);
+
   const listData = useMemo((): ListEntry[] => {
     const hasQuery = query.trim() !== "";
     const entries: ListEntry[] = [{ type: "header" }];
@@ -366,9 +468,6 @@ export default function ExercisePickerScreen() {
     if (hasQuery) {
       for (const e of displaySearchResults) {
         entries.push({ type: "row", exerciseId: e.exerciseId });
-      }
-      if (displaySearchResults.length === 0 && customExerciseId) {
-        entries.push({ type: "custom", exerciseId: customExerciseId });
       }
     } else {
       if (activeTab === "all") {
@@ -393,7 +492,6 @@ export default function ExercisePickerScreen() {
     query,
     activeTab,
     displaySearchResults,
-    customExerciseId,
     recentDisplayIds,
     allDisplaySorted,
     myGymFilteredAll,
@@ -412,16 +510,21 @@ export default function ExercisePickerScreen() {
   const microlineText = microlineParts.length > 0 ? microlineParts.join(" · ") : "";
 
   const getRowName = useCallback(
-    (exerciseId: string, isCustom: boolean): string => {
-      if (isCustom) return `Add custom ${exerciseId}`;
-      return catalogNameById[exerciseId] ?? exerciseId;
-    },
+    (exerciseId: string): string => catalogNameById[exerciseId] ?? exerciseId,
     [catalogNameById],
   );
 
   const renderHeaderContent = useCallback(
     () => (
       <View style={styles.header}>
+        <Pressable
+          onPress={onOpenCreateExercise}
+          style={styles.createExerciseCta}
+          accessibilityRole="button"
+          accessibilityLabel="Create exercise"
+        >
+          <Text style={styles.createExerciseCtaText}>+ Create exercise</Text>
+        </Pressable>
         <View style={styles.searchRow}>
           <Text style={styles.magnifier}>⌕</Text>
           <TextInput
@@ -495,7 +598,15 @@ export default function ExercisePickerScreen() {
         ) : null}
       </View>
     ),
-    [query, activeTab, showMicroline, microlineText, activeFilterCountNum, effectiveGymId],
+    [
+      query,
+      activeTab,
+      showMicroline,
+      microlineText,
+      activeFilterCountNum,
+      effectiveGymId,
+      onOpenCreateExercise,
+    ],
   );
 
   const renderItem: ListRenderItem<ListEntry> = useCallback(
@@ -510,12 +621,12 @@ export default function ExercisePickerScreen() {
         isFirstRow && styles.listItemFirst,
         isLastRow && styles.listItemLast,
       ];
-      const isCustom = entry.type === "custom";
       const exerciseId = entry.exerciseId;
-      const name = getRowName(exerciseId, isCustom);
-      const meta = getExerciseMeta(exerciseId);
-      const subtitle = `${meta.equipment} · ${meta.primary}`;
-      const hasThumbnail = hasBundledExerciseAsset(exerciseId);
+      const custom = customById.get(exerciseId) ?? null;
+      const name = getRowName(exerciseId);
+      const meta = custom ? customMetaFromRecord(custom) : getExerciseMeta(exerciseId);
+      const subtitle = custom ? customSubtitle(custom) : `${meta.equipment} · ${meta.primary}`;
+      const hasThumbnail = !custom && hasBundledExerciseAsset(exerciseId);
 
       const showHighlight = query.trim() !== "" && entry.type === "row";
       const titleNode = showHighlight
@@ -551,7 +662,15 @@ export default function ExercisePickerScreen() {
         </Pressable>
       );
     },
-    [getRowName, listData.length, query, sessionId, onAddToWorkout, renderHeaderContent],
+    [
+      getRowName,
+      listData.length,
+      query,
+      sessionId,
+      onAddToWorkout,
+      renderHeaderContent,
+      customById,
+    ],
   );
 
   const keyExtractor = useCallback((item: ListEntry, index: number): string => {
@@ -567,9 +686,14 @@ export default function ExercisePickerScreen() {
     );
   }
 
-  const selectedMeta = selectedExerciseId ? getExerciseMeta(selectedExerciseId) : null;
+  const selectedCustom = selectedExerciseId ? customById.get(selectedExerciseId) ?? null : null;
+  const selectedMeta = selectedExerciseId
+    ? selectedCustom
+      ? customMetaFromRecord(selectedCustom)
+      : getExerciseMeta(selectedExerciseId)
+    : null;
   const selectedName = selectedExerciseId
-    ? (catalogNameById[selectedExerciseId] ?? `Add custom ${selectedExerciseId}`)
+    ? (catalogNameById[selectedExerciseId] ?? selectedExerciseId)
     : "";
 
   const showGymAwareEmptyHint =
@@ -751,13 +875,15 @@ export default function ExercisePickerScreen() {
                 <Text style={styles.modalMeta}>
                   {selectedMeta.equipment} · {selectedMeta.primary}
                 </Text>
-                <View style={styles.modalMediaContainer}>
-                  <ExerciseMediaPreview
-                    exerciseId={selectedExerciseId}
-                    style={styles.modalMediaFill}
-                    containerBackgroundColor="#FFFFFF"
-                  />
-                </View>
+                {selectedCustom == null ? (
+                  <View style={styles.modalMediaContainer}>
+                    <ExerciseMediaPreview
+                      exerciseId={selectedExerciseId}
+                      style={styles.modalMediaFill}
+                      containerBackgroundColor="#FFFFFF"
+                    />
+                  </View>
+                ) : null}
                 <Text style={styles.modalDescription}>{selectedMeta.description}</Text>
                 <View style={styles.cuesBlock}>
                   {selectedMeta.cues.slice(0, 3).map((cue, i) => (
@@ -806,6 +932,21 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 12,
     gap: 12,
+  },
+  createExerciseCta: {
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#C6C6C8",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  createExerciseCtaText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#007AFF",
   },
   listContent: {
     paddingHorizontal: 16,

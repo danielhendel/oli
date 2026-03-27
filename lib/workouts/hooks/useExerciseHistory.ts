@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getExerciseHistory, type ExerciseHistoryResult } from "@/lib/workouts/memory/exerciseHistory";
+import type { StrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 
 /** Uses canonical readiness: partial | ready | error (see lib/contracts/readiness.ts). */
 export type ExerciseHistoryState =
@@ -21,7 +22,10 @@ export type UseExerciseHistoryReturn = ExerciseHistoryState & {
  * Load exercise history for the given exerciseId. Requires signed-in user.
  * Returns partial/ready/error; refetch reloads from journal.
  */
-export function useExerciseHistory(exerciseId: string | null): UseExerciseHistoryReturn {
+export function useExerciseHistory(
+  exerciseId: string | null,
+  loggingType: StrengthLoggingType,
+): UseExerciseHistoryReturn {
   const { user, initializing } = useAuth();
   const [state, setState] = useState<ExerciseHistoryState>({ status: "partial" });
   const mountedRef = useRef(true);
@@ -36,6 +40,8 @@ export function useExerciseHistory(exerciseId: string | null): UseExerciseHistor
             totalSessions: 0,
             bestE1RmKg: null,
             lastSummaryText: null,
+            bestSetReps: null,
+            bestSessionReps: null,
           },
           sessions: [],
         },
@@ -45,7 +51,7 @@ export function useExerciseHistory(exerciseId: string | null): UseExerciseHistor
 
     setState({ status: "partial" });
     try {
-      const data = await getExerciseHistory(user.uid, exerciseId);
+      const data = await getExerciseHistory(user.uid, exerciseId, loggingType);
       if (!mountedRef.current) return;
       setState({ status: "ready", data });
     } catch (e) {
@@ -53,7 +59,7 @@ export function useExerciseHistory(exerciseId: string | null): UseExerciseHistor
       const message = e instanceof Error ? e.message : "Failed to load history";
       setState({ status: "error", error: message });
     }
-  }, [exerciseId, user?.uid]);
+  }, [exerciseId, loggingType, user?.uid]);
 
   useEffect(() => {
     mountedRef.current = true;

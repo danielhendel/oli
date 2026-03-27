@@ -11,6 +11,7 @@ export type ManualWorkoutExerciseSet = {
 };
 
 export type ManualWorkoutExerciseSummary = {
+  exerciseId: string;
   name: string;
   sets: ManualWorkoutExerciseSet[];
 };
@@ -93,6 +94,7 @@ export async function listManualWorkoutDaySummaries(uid: string): Promise<Manual
     const exercises: ManualWorkoutExerciseSummary[] = reduced.exercises
       .filter((e) => !e.removed)
       .map((e) => ({
+        exerciseId: e.exerciseId,
         name: e.exerciseId.replace(/_/g, " "),
         sets: e.sets.map((s) => ({
           setNumber: s.ordinal,

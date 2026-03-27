@@ -75,6 +75,7 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 }));
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 let mockPickerParams: {
   sessionId?: string;
   blockId?: string;
@@ -86,12 +87,16 @@ let mockPickerParams: {
   journalSessionId?: string;
 } = { sessionId: "s1" };
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush }),
   useLocalSearchParams: () => mockPickerParams,
   useNavigation: () => ({
     setOptions: jest.fn(),
     goBack: jest.fn(),
   }),
+}));
+
+jest.mock("@/lib/workouts/exercises/customExerciseStore", () => ({
+  listCustomExercises: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("@/lib/workouts/exercises/librarySections", () => ({
@@ -130,6 +135,7 @@ describe("workouts/exercise-picker", () => {
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     mockReplace.mockClear();
+    mockPush.mockClear();
     mockSelectedGymId = null;
     mockPickerParams = { sessionId: "s1" };
   });
@@ -150,6 +156,23 @@ describe("workouts/exercise-picker", () => {
     });
     const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
     expect(pickBench).not.toBeNull();
+  });
+
+  it("shows Create exercise CTA above search and opens create screen", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const createBtn = findByA11yLabel(test!.root, "Create exercise");
+    expect(createBtn).not.toBeNull();
+    act(() => {
+      createBtn!.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/exercise-create",
+      params: { sessionId: "s1" },
+    });
   });
 
   it("switching tabs updates visible rows", async () => {

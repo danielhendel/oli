@@ -4,7 +4,7 @@
  * Bodyweight for BW ratio from useWeightSeries (lib/data). No native header; custom top bar.
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,11 @@ import { ExerciseProgressChart } from "@/lib/ui/ExerciseProgressChart";
 import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { LoadingState, EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import type { ExerciseHistorySession, ExerciseHistorySet } from "@/lib/workouts/memory/exerciseHistory";
+import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
+import {
+  resolveStrengthLoggingType,
+  type StrengthLoggingType,
+} from "@/lib/workouts/exercises/loggingType";
 
 /** Semantic colors for strength/volume metrics. Used for numeric values only, not labels. */
 const metricStrength = "#FF3B30";
@@ -71,20 +76,23 @@ function selectBestActualLift(
   };
 }
 
-function SessionTableHeader() {
+function SessionTableHeader({ loggingType }: { loggingType: StrengthLoggingType }) {
+  const noLoad = loggingType !== "weight_reps";
   return (
     <View style={styles.tableHeaderRow}>
       <Text style={[styles.tableHeaderCell, styles.tableColSet]}>Set</Text>
       <Text style={[styles.tableHeaderCell, styles.tableColReps]}>Reps</Text>
-      <Text style={[styles.tableHeaderCell, styles.tableColWeight]}>Weight</Text>
+      <Text style={[styles.tableHeaderCell, styles.tableColWeight]}>
+        {loggingType === "bodyweight_reps" ? "Load" : noLoad ? "Type" : "Weight"}
+      </Text>
       <Text style={[styles.tableHeaderCell, styles.tableColRpe]}>RPE</Text>
-      <Text style={[styles.tableHeaderCell, styles.tableColE1rm]}>e1RM</Text>
-      <Text style={[styles.tableHeaderCell, styles.tableColVol]}>Vol</Text>
+      <Text style={[styles.tableHeaderCell, styles.tableColE1rm]}>{noLoad ? "Best" : "e1RM"}</Text>
+      <Text style={[styles.tableHeaderCell, styles.tableColVol]}>{noLoad ? "Session" : "Vol"}</Text>
     </View>
   );
 }
 
-function SetTableRow({ set }: { set: ExerciseHistorySet }) {
+function SetTableRow({ set, loggingType }: { set: ExerciseHistorySet; loggingType: StrengthLoggingType }) {
   const cells = formatStrengthSetTableCells({
     ordinal: set.ordinal,
     reps: set.reps,
@@ -92,14 +100,24 @@ function SetTableRow({ set }: { set: ExerciseHistorySet }) {
     rpe: set.rpe,
   });
 
+  const bwLoadLabel =
+    set.loadKg != null && set.loadKg > 0
+      ? `BW + ${(set.loadKg * LB_PER_KG).toFixed(1)} lb`
+      : "BW";
   return (
     <View style={styles.setRow}>
       <Text style={[styles.tableCell, styles.tableColSet]}>{cells.setLabel}</Text>
       <Text style={[styles.tableCell, styles.tableColReps]}>{cells.repsLabel}</Text>
-      <Text style={[styles.tableCell, styles.tableColWeight]}>{cells.weightLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableColWeight]}>
+        {loggingType === "weight_reps" ? cells.weightLabel : loggingType === "bodyweight_reps" ? bwLoadLabel : "Reps"}
+      </Text>
       <Text style={[styles.tableCell, styles.tableColRpe]}>{cells.rpeLabel}</Text>
-      <Text style={[styles.tableCell, styles.tableCellE1rm]}>{cells.e1RmLbLabel}</Text>
-      <Text style={[styles.tableCell, styles.tableCellVol]}>{cells.volLbLabel}</Text>
+      <Text style={[styles.tableCell, styles.tableCellE1rm]}>
+        {loggingType === "weight_reps" ? cells.e1RmLbLabel : String(set.reps)}
+      </Text>
+      <Text style={[styles.tableCell, styles.tableCellVol]}>
+        {loggingType === "weight_reps" ? cells.volLbLabel : "—"}
+      </Text>
     </View>
   );
 }
@@ -109,10 +127,14 @@ type ChartTab = "bestLift" | "volume";
 function ChartTabBar({
   value,
   onChange,
+  loggingType,
 }: {
   value: ChartTab;
   onChange: (t: ChartTab) => void;
+  loggingType: StrengthLoggingType;
 }) {
+  const leftLabel = loggingType === "weight_reps" ? "Best Lift" : "Best Reps";
+  const rightLabel = loggingType === "weight_reps" ? "Volume" : "Total Reps";
   return (
     <View style={styles.tabBar}>
       <Pressable
@@ -123,7 +145,7 @@ function ChartTabBar({
         accessibilityLabel="Best Lift trend"
       >
         <Text style={[styles.tabText, value === "bestLift" && styles.tabTextActive]}>
-          Best Lift
+          {leftLabel}
         </Text>
       </Pressable>
       <Pressable
@@ -134,14 +156,20 @@ function ChartTabBar({
         accessibilityLabel="Volume trend"
       >
         <Text style={[styles.tabText, value === "volume" && styles.tabTextActive]}>
-          Volume
+          {rightLabel}
         </Text>
       </Pressable>
     </View>
   );
 }
 
-function SessionBlock({ session }: { session: ExerciseHistorySession }) {
+function SessionBlock({
+  session,
+  loggingType,
+}: {
+  session: ExerciseHistorySession;
+  loggingType: StrengthLoggingType;
+}) {
   const volumeLb = session.volumeKg * LB_PER_KG;
   const sortedSets = [...session.sets].sort((a, b) => a.ordinal - b.ordinal);
 
@@ -150,24 +178,24 @@ function SessionBlock({ session }: { session: ExerciseHistorySession }) {
       <View style={styles.sessionHeader}>
         <Text style={styles.sessionDate}>{formatDate(session.startedAt)}</Text>
         <View style={styles.sessionMeta}>
-          {volumeLb >= 1 ? (
+          {loggingType === "weight_reps" && volumeLb >= 1 ? (
             <>
               <Text style={styles.sessionVolValue}>{Math.round(volumeLb)}</Text>
               <Text style={styles.sessionMetaLabel}> lb vol</Text>
             </>
+          ) : loggingType !== "weight_reps" ? (
+            <Text style={styles.sessionMetaLabel}>{`${session.totalReps} reps`}</Text>
           ) : (
             <Text style={styles.sessionMetaLabel}>—</Text>
           )}
         </View>
       </View>
       <View style={styles.sessionTable}>
-        <SessionTableHeader />
+        <SessionTableHeader loggingType={loggingType} />
         {sortedSets.length === 0 ? (
           <Text style={styles.setRowPlaceholder}>—</Text>
         ) : (
-          sortedSets.map((s) => (
-            <SetTableRow key={`${s.ordinal}-${s.occurredAt}`} set={s} />
-          ))
+          sortedSets.map((s) => <SetTableRow key={`${s.ordinal}-${s.occurredAt}`} set={s} loggingType={loggingType} />)
         )}
       </View>
     </View>
@@ -206,29 +234,58 @@ export default function ExerciseHistoryScreen() {
   const params = useLocalSearchParams<{ exerciseId?: string }>();
   const exerciseId = typeof params.exerciseId === "string" ? params.exerciseId.trim() || null : null;
   const { user, initializing } = useAuth();
-  const history = useExerciseHistory(exerciseId);
+  const [loggingType, setLoggingType] = useState<StrengthLoggingType>("weight_reps");
+  useEffect(() => {
+    if (!exerciseId || !user || initializing) return;
+    let cancelled = false;
+    listCustomExercises(user.uid)
+      .then((rows) => {
+        if (cancelled) return;
+        const row = rows.find((x) => x.exerciseId === exerciseId);
+        setLoggingType(resolveStrengthLoggingType(exerciseId, row?.loggingType));
+      })
+      .catch(() => {
+        if (!cancelled) setLoggingType("weight_reps");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [exerciseId, user, initializing]);
+  const history = useExerciseHistory(exerciseId, loggingType);
   const weightSeries = useWeightSeries("30D");
   const [chartTab, setChartTab] = useState<ChartTab>("bestLift");
 
   const sessions = history.status === "ready" ? history.data.sessions : [];
 
   const bestLiftPoints = useMemo(() => {
+    if (loggingType !== "weight_reps") {
+      const points = sessions
+        .filter((s) => s.bestSetReps > 0)
+        .map((s) => ({ dateIso: s.startedAt, valueKg: s.bestSetReps }));
+      return [...points].sort((a, b) => new Date(a.dateIso).getTime() - new Date(b.dateIso).getTime());
+    }
     const withE1 = sessions
       .filter((s): s is ExerciseHistorySession & { bestE1RmKg: number } => s.bestE1RmKg != null)
       .map((s) => ({ dateIso: s.startedAt, valueKg: s.bestE1RmKg }));
     return [...withE1].sort(
       (a, b) => new Date(a.dateIso).getTime() - new Date(b.dateIso).getTime(),
     );
-  }, [sessions]);
+  }, [sessions, loggingType]);
 
   const volumePoints = useMemo(() => {
+    if (loggingType !== "weight_reps") {
+      const points = sessions
+        .filter((s) => s.totalReps > 0)
+        .map((s) => ({ dateIso: s.startedAt, valueKg: s.totalReps }));
+      return [...points].sort((a, b) => new Date(a.dateIso).getTime() - new Date(b.dateIso).getTime());
+    }
     const withVol = sessions
       .filter((s) => s.volumeKg > 0)
       .map((s) => ({ dateIso: s.startedAt, valueKg: s.volumeKg }));
     return [...withVol].sort(
       (a, b) => new Date(a.dateIso).getTime() - new Date(b.dateIso).getTime(),
     );
-  }, [sessions]);
+  }, [sessions, loggingType]);
 
   const bestActualLift = useMemo(() => selectBestActualLift(sessions), [sessions]);
   const bestActualLiftFormatted =
@@ -335,49 +392,68 @@ export default function ExerciseHistoryScreen() {
           ) : (
             <>
               <View style={styles.chartCard}>
-                <ChartTabBar value={chartTab} onChange={setChartTab} />
+                <ChartTabBar value={chartTab} onChange={setChartTab} loggingType={loggingType} />
                 {chartTab === "bestLift" ? (
                   <ExerciseProgressChart
                     points={bestLiftPoints}
                     showPlaceholder={false}
-                    placeholderMessage="Log more sessions to see e1RM trend"
+                    placeholderMessage={
+                      loggingType === "weight_reps"
+                        ? "Log more sessions to see e1RM trend"
+                        : "Log more sessions to see best reps trend"
+                    }
                     lineColor={metricStrength}
                   />
                 ) : (
                   <ExerciseProgressChart
                     points={volumePoints}
                     showPlaceholder={false}
-                    placeholderMessage="Log more sessions to see volume trend"
+                    placeholderMessage={
+                      loggingType === "weight_reps"
+                        ? "Log more sessions to see volume trend"
+                        : "Log more sessions to see total reps trend"
+                    }
                     lineColor={metricVolume}
                   />
                 )}
               </View>
 
               <View style={styles.metricsCard}>
-                <Text style={styles.metricsTitle}>Strength metrics</Text>
+                <Text style={styles.metricsTitle}>
+                  {loggingType === "weight_reps" ? "Strength metrics" : "Reps metrics"}
+                </Text>
                 <View style={styles.metricsGrid}>
                   <View style={styles.metricsRow}>
-                    <MetricCell
-                      label="Best e1RM"
-                      value={
-                        data.summary.bestE1RmKg != null
-                          ? `${Math.round(data.summary.bestE1RmKg * LB_PER_KG)} lb`
-                          : null
-                      }
-                      accent
-                    />
-                    <MetricCell
-                      label="Best BW Ratio"
-                      value={bwRatio != null ? bwRatio.toFixed(2) : null}
-                      unavailable={bwRatio == null}
-                      unavailableReason={latestWeightKg == null ? "Log weight in Body" : "—"}
-                    />
+                    {loggingType === "weight_reps" ? (
+                      <>
+                        <MetricCell
+                          label="Best e1RM"
+                          value={
+                            data.summary.bestE1RmKg != null
+                              ? `${Math.round(data.summary.bestE1RmKg * LB_PER_KG)} lb`
+                              : null
+                          }
+                          accent
+                        />
+                        <MetricCell
+                          label="Best BW Ratio"
+                          value={bwRatio != null ? bwRatio.toFixed(2) : null}
+                          unavailable={bwRatio == null}
+                          unavailableReason={latestWeightKg == null ? "Log weight in Body" : "—"}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <MetricCell label="Best Set Reps" value={data.summary.bestSetReps ?? "—"} accent />
+                        <MetricCell label="Best Session Reps" value={data.summary.bestSessionReps ?? "—"} />
+                      </>
+                    )}
                   </View>
                   <View style={styles.metricsRow}>
                     <MetricCell label="Sessions" value={data.summary.totalSessions} />
                     <MetricCell
-                      label="Best Actual Lift"
-                      value={bestActualLiftFormatted ?? "—"}
+                      label={loggingType === "weight_reps" ? "Best Actual Lift" : "Last Summary"}
+                      value={loggingType === "weight_reps" ? (bestActualLiftFormatted ?? "—") : (data.summary.lastSummaryText ?? "—")}
                     />
                   </View>
                 </View>
@@ -385,7 +461,7 @@ export default function ExerciseHistoryScreen() {
 
               <Text style={styles.sectionTitle}>Recent sessions</Text>
               {data.sessions.map((session) => (
-                <SessionBlock key={session.sessionId} session={session} />
+                <SessionBlock key={session.sessionId} session={session} loggingType={loggingType} />
               ))}
             </>
           )}

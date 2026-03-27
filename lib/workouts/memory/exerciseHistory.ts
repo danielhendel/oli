@@ -8,6 +8,7 @@ import { listWorkoutJournalSessionIds } from "@/lib/workouts/journal/sessionInde
 import { listWorkoutJournalEvents } from "@/lib/workouts/journal/store";
 import { reduceWorkoutSessionV1 } from "@/lib/workouts/journal/reducer";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
+import type { StrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 
 /** Single set as stored in reduced session (for history display). */
 export type ExerciseHistorySet = {
@@ -28,6 +29,8 @@ export type ExerciseHistorySession = {
   volumeKg: number;
   /** Best e1RM (Epley) in this session for this exercise; null if no set with load. */
   bestE1RmKg: number | null;
+  totalReps: number;
+  bestSetReps: number;
 };
 
 /** Top-level summary derived from history. */
@@ -39,6 +42,8 @@ export type ExerciseHistorySummary = {
   bestE1RmKg: number | null;
   /** Human-readable "last" line e.g. "3 × 10 @ 135 lb". */
   lastSummaryText: string | null;
+  bestSetReps: number | null;
+  bestSessionReps: number | null;
 };
 
 export type ExerciseHistoryResult = {
@@ -54,16 +59,23 @@ function epleyE1RmKg(loadKg: number, reps: number): number {
   return loadKg * (1 + reps / 30);
 }
 
-function formatLastSummaryText(sets: ExerciseHistorySet[]): string | null {
+function formatLastSummaryText(
+  sets: ExerciseHistorySet[],
+  loggingType: StrengthLoggingType,
+): string | null {
   const sorted = [...sets].sort((a, b) => a.ordinal - b.ordinal);
   const first = sorted[0];
   if (!first || first.reps == null) return null;
   const n = sets.length;
-  const w =
-    first.loadKg != null && first.loadKg > 0
-      ? `${(first.loadKg * LB_PER_KG).toFixed(1)} lb`
-      : "BW";
-  return `${n} × ${first.reps} @ ${w}`;
+  if (loggingType === "weight_reps") {
+    const w =
+      first.loadKg != null && first.loadKg > 0
+        ? `${(first.loadKg * LB_PER_KG).toFixed(1)} lb`
+        : "BW";
+    return `${n} × ${first.reps} @ ${w}`;
+  }
+  if (loggingType === "bodyweight_reps") return `${n} × ${first.reps} @ BW`;
+  return `${n} × ${first.reps} reps`;
 }
 
 /**
@@ -73,12 +85,15 @@ function formatLastSummaryText(sets: ExerciseHistorySet[]): string | null {
 export async function getExerciseHistory(
   uid: string,
   exerciseId: string,
+  loggingType: StrengthLoggingType = "weight_reps",
 ): Promise<ExerciseHistoryResult> {
   const sessionIds = await listWorkoutJournalSessionIds(uid);
   const sessions: ExerciseHistorySession[] = [];
   let lastPerformedAt: string | null = null;
   let bestE1RmKg: number | null = null;
   let lastSummaryText: string | null = null;
+  let bestSetReps: number | null = null;
+  let bestSessionReps: number | null = null;
 
   // Session index order: append order. Newest is last; iterate reverse for newest-first.
   for (let i = sessionIds.length - 1; i >= 0; i--) {
@@ -105,7 +120,11 @@ export async function getExerciseHistory(
 
     let volumeKg = 0;
     let sessionBestE1RmKg: number | null = null;
+    let sessionTotalReps = 0;
+    let sessionBestSetReps = 0;
     for (const s of ex.sets) {
+      sessionTotalReps += s.reps;
+      if (s.reps > sessionBestSetReps) sessionBestSetReps = s.reps;
       const load = s.loadKg;
       if (load != null && load > 0) {
         volumeKg += s.reps * load;
@@ -116,8 +135,10 @@ export async function getExerciseHistory(
 
     if (lastPerformedAt == null) {
       lastPerformedAt = startedAt;
-      lastSummaryText = formatLastSummaryText(sets);
+      lastSummaryText = formatLastSummaryText(sets, loggingType);
     }
+    if (bestSetReps == null || sessionBestSetReps > bestSetReps) bestSetReps = sessionBestSetReps;
+    if (bestSessionReps == null || sessionTotalReps > bestSessionReps) bestSessionReps = sessionTotalReps;
 
     for (const s of ex.sets) {
       if (s.loadKg != null && s.loadKg > 0) {
@@ -126,7 +147,15 @@ export async function getExerciseHistory(
       }
     }
 
-    sessions.push({ sessionId, startedAt, sets, volumeKg, bestE1RmKg: sessionBestE1RmKg });
+    sessions.push({
+      sessionId,
+      startedAt,
+      sets,
+      volumeKg,
+      bestE1RmKg: sessionBestE1RmKg,
+      totalReps: sessionTotalReps,
+      bestSetReps: sessionBestSetReps,
+    });
   }
 
   return {
@@ -135,6 +164,8 @@ export async function getExerciseHistory(
       totalSessions: sessions.length,
       bestE1RmKg,
       lastSummaryText,
+      bestSetReps,
+      bestSessionReps,
     },
     sessions,
   };
