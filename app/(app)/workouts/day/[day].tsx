@@ -28,6 +28,8 @@ import {
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthSetDisplay";
+import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
+import { resolveStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
@@ -145,6 +147,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [manualDaySummary, setManualDaySummary] = useState<ManualWorkoutDaySummary | null>(null);
   const [expandedPerformanceRowKey, setExpandedPerformanceRowKey] = useState<string | null>(null);
+  const [customLoggingTypeByExerciseId, setCustomLoggingTypeByExerciseId] = useState<Record<string, string>>({});
 
   const strengthAccent = overviewAccentForTab("strength");
 
@@ -257,6 +260,28 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
       cancelled = true;
     };
   }, [user?.uid, day, isDayKey]);
+
+  useEffect(() => {
+    if (process.env.JEST_WORKER_ID) return;
+    if (!user?.uid) {
+      setCustomLoggingTypeByExerciseId({});
+      return;
+    }
+    let cancelled = false;
+    listCustomExercises(user.uid)
+      .then((rows) => {
+        if (cancelled) return;
+        const next: Record<string, string> = {};
+        for (const row of rows) next[row.exerciseId] = row.loggingType;
+        setCustomLoggingTypeByExerciseId(next);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomLoggingTypeByExerciseId({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   /** Stack header already sits below status bar; omit top safe-area to avoid a gray band under the nav bar. */
   const screenEdges = ["left", "right", "bottom"] as const;
@@ -510,10 +535,24 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                         ) : (
                           exercises.map((exercise, idx) => {
                             const rowKey = `${idx}:${exercise.name}`;
+                            const loggingType = resolveStrengthLoggingType(
+                              exercise.exerciseId,
+                              customLoggingTypeByExerciseId[exercise.exerciseId],
+                            );
+                            const isLoadBased = loggingType === "weight_reps";
+                            const totalReps = exercise.sets.reduce((sum, set) => sum + (set.reps ?? 0), 0);
                             const volKg = volumesKg[idx] ?? 0;
                             const volLb = Math.round(volKg * LB_PER_KG);
-                            const volDisplay = volLb >= 1 ? `${volLb.toLocaleString()} lb` : "—";
-                            const progress = maxVolKg > 0 ? Math.max(0, Math.min(1, volKg / maxVolKg)) : 0;
+                            const volDisplay = isLoadBased
+                              ? volLb >= 1
+                                ? `${volLb.toLocaleString()} lb`
+                                : "—"
+                              : `${totalReps} reps`;
+                            const progress = isLoadBased
+                              ? maxVolKg > 0
+                                ? Math.max(0, Math.min(1, volKg / maxVolKg))
+                                : 0
+                              : Math.max(0, Math.min(1, totalReps / Math.max(1, ...exercises.map((ex2) => ex2.sets.reduce((sum, set) => sum + (set.reps ?? 0), 0)))));
                             const expanded = expandedPerformanceRowKey === rowKey;
                             const toggleRow = () =>
                               setExpandedPerformanceRowKey(expanded ? null : rowKey);
@@ -541,7 +580,9 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                     onPress={() => {
                                       router.push({
                                         pathname: "/(app)/workouts/exercise-history",
-                                        params: { exerciseId: toExerciseIdFromName(exercise.name) },
+                                        params: {
+                                          exerciseId: exercise.exerciseId || toExerciseIdFromName(exercise.name),
+                                        },
                                       });
                                     }}
                                     hitSlop={8}
@@ -564,10 +605,12 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                     <View style={styles.perfTableHeaderRow}>
                                       <Text style={styles.perfTableHeaderCell}>Set</Text>
                                       <Text style={styles.perfTableHeaderCell}>Reps</Text>
-                                      <Text style={styles.perfTableHeaderCell}>Weight</Text>
+                                      <Text style={styles.perfTableHeaderCell}>
+                                        {isLoadBased ? "Weight" : loggingType === "bodyweight_reps" ? "Load" : "Type"}
+                                      </Text>
                                       <Text style={styles.perfTableHeaderCell}>RPE</Text>
-                                      <Text style={styles.perfTableHeaderCell}>e1RM</Text>
-                                      <Text style={styles.perfTableHeaderCell}>Vol</Text>
+                                      <Text style={styles.perfTableHeaderCell}>{isLoadBased ? "e1RM" : "Best"}</Text>
+                                      <Text style={styles.perfTableHeaderCell}>{isLoadBased ? "Vol" : "Session"}</Text>
                                     </View>
                                     {exercise.sets.map((set) => {
                                       const cells = formatStrengthSetTableCells({
@@ -588,7 +631,13 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                             {cells.repsLabel}
                                           </Text>
                                           <Text style={[styles.perfTableCell, styles.perfColWeight]}>
-                                            {cells.weightLabel}
+                                            {isLoadBased
+                                              ? cells.weightLabel
+                                              : loggingType === "bodyweight_reps"
+                                                ? set.weightKg != null && set.weightKg > 0
+                                                  ? `BW + ${(set.weightKg * LB_PER_KG).toFixed(1)} lb`
+                                                  : "BW"
+                                                : "Reps"}
                                           </Text>
                                           <Text style={[styles.perfTableCell, styles.perfColRpe]}>
                                             {cells.rpeLabel}
@@ -600,7 +649,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                               { color: METRIC_STRENGTH_ACCENT },
                                             ]}
                                           >
-                                            {cells.e1RmLbLabel}
+                                            {isLoadBased ? cells.e1RmLbLabel : String(set.reps ?? "—")}
                                           </Text>
                                           <Text
                                             style={[
@@ -609,7 +658,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                               { color: METRIC_VOLUME_ACCENT },
                                             ]}
                                           >
-                                            {cells.volLbLabel}
+                                            {isLoadBased ? cells.volLbLabel : "—"}
                                           </Text>
                                         </View>
                                       );

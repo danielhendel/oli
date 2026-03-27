@@ -52,7 +52,6 @@ export async function buildExerciseLibrarySections(uid: string, opts?: Opts): Pr
       let hasQualifyingSet = false;
 
       for (const s of ex.sets) {
-        if (s.loadKg == null) continue; // fail-closed: require load
         const ms = safeParseMs(s.occurredAt);
         if (ms == null) continue; // fail-closed: require parseable time
 
