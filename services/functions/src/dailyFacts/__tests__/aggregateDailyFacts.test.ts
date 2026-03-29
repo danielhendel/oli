@@ -9,6 +9,7 @@ import type {
   WeightCanonicalEvent,
   HrvCanonicalEvent,
   StrengthWorkoutCanonicalEvent,
+  NutritionCanonicalEvent,
 } from '../../types/health';
 import { aggregateDailyFactsForDay } from '../aggregateDailyFacts';
 
@@ -78,6 +79,19 @@ const makeHrv = (overrides: Partial<HrvCanonicalEvent>): HrvCanonicalEvent => ({
   end: '2025-01-01T06:30:00.000Z',
   rmssdMs: 80,
   sdnnMs: 100,
+  ...baseMeta,
+  ...overrides,
+});
+
+const makeNutrition = (overrides: Partial<NutritionCanonicalEvent>): NutritionCanonicalEvent => ({
+  id: 'nutrition_1',
+  kind: 'nutrition',
+  start: '2025-01-01T12:00:00.000Z',
+  end: '2025-01-01T12:00:00.000Z',
+  totalKcal: 1800,
+  proteinG: 100,
+  carbsG: 200,
+  fatG: 70,
   ...baseMeta,
   ...overrides,
 });
@@ -153,6 +167,41 @@ describe('aggregateDailyFactsForDay', () => {
     const recovery = result.recovery!;
     // average of 80 and 60 = 70
     expect(recovery.hrvRmssd).toBe(70);
+  });
+
+  it('sums nutrition macro totals across nutrition canonical events', () => {
+    const events: CanonicalEvent[] = [
+      makeNutrition({
+        id: 'n1',
+        totalKcal: 1000,
+        proteinG: 60,
+        carbsG: 100,
+        fatG: 30,
+      }),
+      makeNutrition({
+        id: 'n2',
+        totalKcal: 500,
+        proteinG: 30,
+        carbsG: 50,
+        fatG: 20,
+        fiberG: 12,
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.nutrition).toBeDefined();
+    const n = result.nutrition!;
+    expect(n.totalKcal).toBe(1500);
+    expect(n.proteinG).toBe(90);
+    expect(n.carbsG).toBe(150);
+    expect(n.fatG).toBe(50);
+    expect(n.fiberG).toBe(12);
   });
 
   it('aggregates strength facts correctly including mixed-unit volume', () => {

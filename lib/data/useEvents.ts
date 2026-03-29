@@ -1,5 +1,5 @@
 // lib/data/useEvents.ts
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getEvents } from "@/lib/api/usersMe";
 import type { FailureKind, GetOptions } from "@/lib/api/http";
@@ -118,5 +118,11 @@ export function useEvents(
     void fetchOnce();
   }, [fetchOnce, args.start, args.end, args.kinds?.join(","), args.cursor, args.limit, enabled, user?.uid]);
 
-  return { ...state, refetch: fetchOnce };
+  return useMemo(
+    () => ({
+      ...state,
+      refetch: fetchOnce,
+    }),
+    [state, fetchOnce],
+  );
 }

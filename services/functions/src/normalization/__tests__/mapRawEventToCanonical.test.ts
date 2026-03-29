@@ -333,4 +333,42 @@ describe("mapRawEventToCanonical", () => {
       expect(result.canonical.day).toBe(c.expectedDay);
     }
   });
+
+  it("maps manual nutrition payload to NutritionCanonicalEvent", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_nutrition_1",
+      provider: "manual",
+      kind: "nutrition",
+      payload: {
+        start: "2025-01-01T05:00:00.000Z",
+        end: "2025-01-01T23:59:59.999Z",
+        timezone: "America/New_York",
+        day: "2025-01-01",
+        totalKcal: 2000,
+        proteinG: 120,
+        carbsG: 200,
+        fatG: 60,
+        fiberG: 25,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    expect(canonical.kind).toBe("nutrition");
+    if (canonical.kind !== "nutrition") throw new Error("Expected nutrition kind");
+    expect(canonical.totalKcal).toBe(2000);
+    expect(canonical.proteinG).toBe(120);
+    expect(canonical.carbsG).toBe(200);
+    expect(canonical.fatG).toBe(60);
+    expect(canonical.fiberG).toBe(25);
+    expect(canonical.day).toBe(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(
+        new Date("2025-01-01T05:00:00.000Z"),
+      ),
+    );
+  });
 });

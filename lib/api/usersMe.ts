@@ -9,6 +9,10 @@ import {
   manualStrengthWorkoutIdempotencyKey,
   type ManualStrengthWorkoutPayload,
 } from "@/lib/events/manualStrengthWorkout";
+import {
+  manualNutritionIdempotencyKey,
+  type ManualNutritionPayload,
+} from "@/lib/events/manualNutrition";
 
 import {
   logWeightResponseDtoSchema,
@@ -123,6 +127,26 @@ export const logStrengthWorkout = async (
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualStrengthWorkoutIdempotencyKey(payload),
+  });
+};
+
+export const logNutrition = async (
+  payload: ManualNutritionPayload,
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
+  const ingestBody = {
+    provider: "manual" as const,
+    kind: "nutrition" as const,
+    observedAt: payload.start,
+    sourceId: "manual",
+    timeZone: payload.timezone,
+    payload,
+  };
+
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey: manualNutritionIdempotencyKey(payload),
   });
 };
 
