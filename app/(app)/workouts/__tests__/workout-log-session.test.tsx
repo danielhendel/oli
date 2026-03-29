@@ -22,7 +22,15 @@ jest.mock("react-native", () => {
       keyExtractor,
     }: {
       data: unknown[];
-      renderItem: (o: { item: unknown; index: number }) => React.ReactNode;
+      renderItem: (o: {
+        item: unknown;
+        index: number;
+        separators: {
+          highlight: () => void;
+          unhighlight: () => void;
+          updateProps: () => void;
+        };
+      }) => React.ReactNode;
       keyExtractor: (item: unknown, index: number) => string;
     }) {
       return React.createElement(
@@ -71,6 +79,7 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
     user: { uid: "u1" },
     initializing: false,
+    getIdToken: jest.fn().mockResolvedValue("token-1"),
   }),
 }));
 
@@ -154,8 +163,16 @@ const mockReduced = {
   eventCount: 1,
 };
 
-jest.mock("@/lib/workouts/sessionEngine/selectors", () => ({
-  loadReducedSession: jest.fn().mockImplementation(async () => mockReduced),
+jest.mock("@/lib/workouts/sessionEngine/selectors", () => {
+  const actual = jest.requireActual("@/lib/workouts/sessionEngine/selectors");
+  return {
+    ...actual,
+    loadReducedSession: jest.fn().mockImplementation(async () => mockReduced),
+  };
+});
+
+jest.mock("@/lib/workouts/sessionEngine/finalize", () => ({
+  persistCompletedSessionToHistory: jest.fn().mockResolvedValue(true),
 }));
 
 let mockExerciseMemory: Record<
@@ -183,7 +200,25 @@ jest.mock("@/lib/workouts/memory/previousWorkout", () => ({
   }),
 }));
 
-jest.mock("expo-video");
+jest.mock("expo-video", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    VideoView: function VideoViewMock({ style }: { player?: unknown; style?: object }) {
+      return React.createElement(View, { testID: "expo-video-mock-view", style });
+    },
+    useVideoPlayer: jest.fn((_source: unknown, setup?: (p: Record<string, unknown>) => void) => {
+      const p = {
+        loop: false,
+        muted: false,
+        play: jest.fn(),
+        pause: jest.fn(),
+      };
+      setup?.(p);
+      return p;
+    }),
+  };
+});
 
 jest.mock("@/lib/workouts/restTimer", () => ({
   useRestTimer: () => ({ panelVisible: false, setPanelVisible: jest.fn() }),
@@ -203,6 +238,8 @@ jest.mock("@expo/vector-icons", () => ({
 const commands = require("@/lib/workouts/sessionEngine/commands");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const activeSessionStorage = require("@/lib/workouts/sessionEngine/activeSessionStorage");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sessionFinalize = require("@/lib/workouts/sessionEngine/finalize");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { resolveSessionStartedAtIsoForDay } = require("@/lib/workouts/journal/sessionAnchorForDay");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -264,14 +301,20 @@ describe("workouts/log session UI", () => {
     mockLogSearchParams = {};
     mockActiveLogFlowMode = "live";
     mockEnrichPointer = null;
+    sessionFinalize.persistCompletedSessionToHistory.mockClear();
     enrichSessionStorage.getEnrichSessionPointer.mockClear();
     enrichSessionStorage.setEnrichSessionPointer.mockClear();
     enrichSessionStorage.clearEnrichSessionPointer.mockClear();
   });
 
   afterEach(() => {
-    test?.unmount();
+    const t = test;
     test = null;
+    if (t != null) {
+      act(() => {
+        t.unmount();
+      });
+    }
   });
 
   it("renders Start workout CTA when idle", () => {
@@ -2046,6 +2089,44 @@ describe("workouts/log session UI", () => {
     expect(startBtn).not.toBeNull();
   });
 
+  it("live /workouts/log clears stale abandoned live pointer and does not resume it", async () => {
+    mockActiveSessionId = "s1";
+    mockActiveLogFlowMode = "live";
+    mockReduced.status = "abandoned";
+    activeSessionStorage.clearActiveWorkoutSessionId.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
+    expect(test!.root.findAll((n) => n.props?.testID === "workout-log-live-timer").length).toBe(0);
+  });
+
+  it("start workout creates fresh session after stale abandoned pointer is cleared", async () => {
+    mockActiveSessionId = "s1";
+    mockActiveLogFlowMode = "live";
+    mockReduced.status = "abandoned";
+    commands.createSessionDraft.mockClear();
+    commands.startSession.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const startBtn = findByA11yLabel(test!.root, "Start workout");
+    expect(startBtn).not.toBeNull();
+    act(() => {
+      startBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(commands.createSessionDraft).toHaveBeenCalledTimes(1);
+    expect(commands.startSession).toHaveBeenCalledWith("u1", "s1", undefined, undefined);
+  });
+
   it("pressing Finish opens finish confirmation sheet; confirming calls completeSession", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
@@ -2074,11 +2155,12 @@ describe("workouts/log session UI", () => {
     expect(commands.completeSession).toHaveBeenCalledWith("u1", "s1");
   });
 
-  it("confirming Finish in live flow replaces to strength workouts page", async () => {
+  it("confirming Finish in live flow dismisses to strength workouts page", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [];
     commands.completeSession.mockClear();
+    sessionFinalize.persistCompletedSessionToHistory.mockClear();
     activeSessionStorage.clearActiveWorkoutSessionId.mockClear();
     mockRouterReplace.mockClear();
     act(() => {
@@ -2099,8 +2181,13 @@ describe("workouts/log session UI", () => {
     await flushEventLoop();
     await flushEventLoop();
     expect(commands.completeSession).toHaveBeenCalledWith("u1", "s1");
+    expect(sessionFinalize.persistCompletedSessionToHistory).toHaveBeenCalledWith(
+      "u1",
+      "s1",
+      "token-1",
+    );
     expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
-    expect(mockRouterReplace).toHaveBeenCalledWith("/(app)/workouts");
+    expect(mockRouterDismissTo).toHaveBeenCalledWith("/(app)/workouts");
   });
 
   it("finish confirmation sheet shows Cancel workout button", async () => {
@@ -2153,7 +2240,7 @@ describe("workouts/log session UI", () => {
     expect(confirmCancelBtn).not.toBeNull();
   });
 
-  it("confirming live cancel abandons session and replaces to strength workouts page", async () => {
+  it("confirming live cancel abandons session and dismisses to strength workouts page", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [];
@@ -2185,8 +2272,7 @@ describe("workouts/log session UI", () => {
     await flushEventLoop();
     expect(commands.abandonSession).toHaveBeenCalledWith("u1", "s1");
     expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
-    expect(mockRouterReplace).toHaveBeenCalledWith("/(app)/workouts");
-    expect(mockRouterDismissTo).not.toHaveBeenCalled();
+    expect(mockRouterDismissTo).toHaveBeenCalledWith("/(app)/workouts");
   });
 
   it("block label opens options sheet", async () => {

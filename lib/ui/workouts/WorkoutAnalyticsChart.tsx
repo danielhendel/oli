@@ -24,7 +24,8 @@ type MetricsByTab = Record<WorkoutOverviewMetricsTab, WorkoutAnalyticsMetrics>;
 
 export type WorkoutAnalyticsChartProps = {
   headerTitle: string;
-  onViewMore: () => void;
+  /** Omit to hide the header "View More" action (e.g. on the analytics destination screen). */
+  onViewMore?: () => void;
 } & (
   | {
       layout: "dual";
@@ -45,6 +46,7 @@ export type WorkoutAnalyticsChartProps = {
       yearMetrics: WorkoutAnalyticsMetrics;
       monthChartBars: StrengthMonthChartBar[];
       monthMetrics: StrengthMonthScopedMetrics;
+      fixedPeriod?: StrengthPeriodTab;
     }
 );
 
@@ -117,7 +119,7 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
         displayLabel: b.label,
         value: b.value,
       }));
-      const activePeriod = strengthPeriodTab;
+      const activePeriod = props.fixedPeriod ?? strengthPeriodTab;
       return {
         kind: "singleStrengthPeriod" as const,
         accent,
@@ -125,13 +127,13 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
         metrics: activePeriod === "year" ? props.yearMetrics : null,
         monthChartPoints: activePeriod === "month" ? monthChartPoints : null,
         monthMetrics: activePeriod === "month" ? props.monthMetrics : null,
-        tabBar: "strengthPeriod" as const,
+        tabBar: props.fixedPeriod ? ("none" as const) : ("strengthPeriod" as const),
         yearTabLabel: props.yearTabLabel,
         monthTabLabel: props.monthTabLabel,
         dualTab: null as WorkoutOverviewMetricsTab | null,
         setDualTab: null as null,
         strengthPeriodTab: activePeriod,
-        setStrengthPeriodTab,
+        setStrengthPeriodTab: props.fixedPeriod ? (null as null) : setStrengthPeriodTab,
         chartEmptyMessage:
           activePeriod === "year"
             ? ("No data for this year yet" as const)
@@ -187,18 +189,20 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
     <View style={styles.card}>
       <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
         <Text style={workoutOverviewInCardHeaderStyles.title}>{headerTitle}</Text>
-        <Pressable
-          onPress={onViewMore}
-          accessibilityRole="button"
-          accessibilityLabel="View more"
-          hitSlop={8}
-          style={({ pressed }) => [
-            workoutOverviewInCardHeaderStyles.linkHit,
-            pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-          ]}
-        >
-          <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
-        </Pressable>
+        {onViewMore != null ? (
+          <Pressable
+            onPress={onViewMore}
+            accessibilityRole="button"
+            accessibilityLabel="View more"
+            hitSlop={8}
+            style={({ pressed }) => [
+              workoutOverviewInCardHeaderStyles.linkHit,
+              pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+            ]}
+          >
+            <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
+          </Pressable>
+        ) : null}
       </View>
       {resolved.tabBar === "dual" && resolved.setDualTab ? (
         <View style={styles.tabBar}>
@@ -252,7 +256,7 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
       ) : resolved.tabBar === "strengthPeriod" && resolved.setStrengthPeriodTab ? (
         <View style={styles.tabBar}>
           <Pressable
-            onPress={() => resolved.setStrengthPeriodTab("year")}
+            onPress={() => resolved.setStrengthPeriodTab?.("year")}
             style={({ pressed }) => [
               styles.tab,
               resolved.strengthPeriodTab === "year" && styles.tabActive,
@@ -275,7 +279,7 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => resolved.setStrengthPeriodTab("month")}
+            onPress={() => resolved.setStrengthPeriodTab?.("month")}
             style={({ pressed }) => [
               styles.tab,
               resolved.strengthPeriodTab === "month" && styles.tabActive,

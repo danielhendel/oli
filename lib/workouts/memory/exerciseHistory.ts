@@ -7,6 +7,7 @@
 import { listWorkoutJournalSessionIds } from "@/lib/workouts/journal/sessionIndex";
 import { listWorkoutJournalEvents } from "@/lib/workouts/journal/store";
 import { reduceWorkoutSessionV1 } from "@/lib/workouts/journal/reducer";
+import { trainingVolumeKgForManualSet } from "@/lib/workouts/strength/strengthVolumeKg";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
 import type { StrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 
@@ -126,8 +127,13 @@ export async function getExerciseHistory(
       sessionTotalReps += s.reps;
       if (s.reps > sessionBestSetReps) sessionBestSetReps = s.reps;
       const load = s.loadKg;
-      if (load != null && load > 0) {
-        volumeKg += s.reps * load;
+      const setVol = trainingVolumeKgForManualSet({
+        reps: s.reps,
+        weightKg: s.loadKg,
+        isWarmup: s.isWarmup,
+      });
+      volumeKg += setVol;
+      if (load != null && load > 0 && setVol > 0) {
         const e1 = epleyE1RmKg(load, s.reps);
         if (sessionBestE1RmKg == null || e1 > sessionBestE1RmKg) sessionBestE1RmKg = e1;
       }
@@ -141,6 +147,15 @@ export async function getExerciseHistory(
     if (bestSessionReps == null || sessionTotalReps > bestSessionReps) bestSessionReps = sessionTotalReps;
 
     for (const s of ex.sets) {
+      if (
+        trainingVolumeKgForManualSet({
+          reps: s.reps,
+          weightKg: s.loadKg,
+          isWarmup: s.isWarmup,
+        }) <= 0
+      ) {
+        continue;
+      }
       if (s.loadKg != null && s.loadKg > 0) {
         const e1 = epleyE1RmKg(s.loadKg, s.reps);
         if (bestE1RmKg == null || e1 > bestE1RmKg) bestE1RmKg = e1;

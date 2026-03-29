@@ -11,7 +11,12 @@ const RING_STRENGTH_STROKE = "#4A9EF5";
 /** Softer red for ring strokes and mixed-day dot (less heavy than {@link CARDIO_RED}). */
 const RING_CARDIO_STROKE = "#FF6A62";
 
-const RING_STRENGTH_FILL = "rgba(74, 158, 245, 0.11)";
+/**
+ * Light blue center fill inside the weekly calendar day circle for strength days (inner `fillDisk` in
+ * {@link WorkoutDayRing}). Same value as the previous private `RING_STRENGTH_FILL`.
+ */
+export const STRENGTH_ACCENT_LIGHT = "rgba(74, 158, 245, 0.11)";
+const RING_STRENGTH_FILL = STRENGTH_ACCENT_LIGHT;
 const RING_CARDIO_FILL = "rgba(255, 106, 98, 0.11)";
 /** Mixed days: single blue ring + red dot; use calm blue wash (no split fill). */
 const RING_MIXED_FILL = "rgba(74, 158, 245, 0.1)";

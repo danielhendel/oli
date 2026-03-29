@@ -42,10 +42,6 @@ import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
 import { resolveSessionStartedAtIsoForDay } from "@/lib/workouts/journal/sessionAnchorForDay";
 import {
-  buildExerciseMemory,
-  type ExerciseMemoryMap,
-} from "@/lib/workouts/memory/exerciseMemory";
-import {
   addExercise,
   abandonSession,
   completeSession,
@@ -59,7 +55,8 @@ import {
   startSession,
   updateBlock,
 } from "@/lib/workouts/sessionEngine/commands";
-import { loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
+import { isResumableWorkoutSession, loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
+import { persistCompletedSessionToHistory } from "@/lib/workouts/sessionEngine/finalize";
 import {
   clearActiveWorkoutSessionId,
   getActiveWorkoutLogFlowMode,
@@ -88,6 +85,7 @@ import {
   supportsLoadEntry,
   type StrengthLoggingType,
 } from "@/lib/workouts/exercises/loggingType";
+import { exitLiveWorkoutLogToOverview } from "@/lib/workouts/navigation/exitWorkoutLogFlow";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
@@ -369,14 +367,14 @@ export type WorkoutLogSessionEntry = "live" | "enrichment";
 
 export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutLogSessionEntry }) {
   const isEnrichmentEntry = sessionEntry === "enrichment";
-  const { user, initializing } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
 
   type UiState =
     | { status: "idle" }
     | { status: "starting" }
     | { status: "active"; sessionId: string; reduced: ReducedSessionV1 }
     | { status: "completed"; sessionId: string; reduced: ReducedSessionV1 }
-    | { status: "error"; message: string };
+    | { status: "error"; message: string; canRetryFinishPersist?: boolean };
 
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -395,6 +393,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   const enrichReturnDayRef = useRef<string | null>(null);
   const enrichSessionAnchorRef = useRef<string | null>(null);
   const enrichTargetIdRef = useRef<string | null>(null);
+  const finishPersistRetryRef = useRef<{
+    sessionId: string;
+    returnDay: string | null;
+    enrichTid: string | null;
+  } | null>(null);
   /** Prevents duplicate Alert loops while the same active session blocks resume. */
   const collisionPromptSidRef = useRef<string | null>(null);
   const [resumeGeneration, setResumeGeneration] = useState(0);
@@ -435,7 +438,6 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     setId: string;
     field: "reps" | "load" | "rpe";
   } | null>(null);
-  const [memory, setMemory] = useState<ExerciseMemoryMap>({});
   const [customExercisesById, setCustomExercisesById] = useState<Record<string, CustomExerciseRecord>>({});
   const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const [gymPickerVisible, setGymPickerVisible] = useState(false);
@@ -736,6 +738,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           try {
             const next = await loadReducedSession(user.uid, sid);
             if (cancelled) return;
+            if (!isResumableWorkoutSession(next)) {
+              await clearActiveWorkoutSessionId(user.uid);
+              if (!cancelled) setResumeGeneration((n) => n + 1);
+              return;
+            }
             setActiveLogFlowMode(flow);
             collisionPromptSidRef.current = null;
             setUi({ status: "active", sessionId: sid, reduced: next });
@@ -1050,9 +1057,13 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         return;
       }
       await clearLegacyBackfillPointerForSession(user.uid, sessionId);
-      await clearActiveWorkoutSessionId(user.uid);
+      try {
+        await clearActiveWorkoutSessionId(user.uid);
+      } catch {
+        // best effort: abandoning the session is the source of truth
+      }
       setUi({ status: "idle" });
-      router.replace("/(app)/workouts");
+      exitLiveWorkoutLogToOverview(router);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setUi({ status: "error", message: msg });
@@ -1085,8 +1096,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     if (!user || !sessionId) return;
     const returnDay = enrichReturnDayRef.current;
     const enrichTid = enrichTargetIdRef.current;
-    try {
-      await completeSession(user.uid, sessionId);
+    const finalizeAndExit = async (): Promise<void> => {
       if (isEnrichmentEntry) {
         if (enrichTid) await clearEnrichSessionPointer(user.uid, enrichTid);
         await clearLegacyBackfillPointerForSession(user.uid, sessionId);
@@ -1104,16 +1114,80 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       }
       if (!isEnrichmentEntry) {
         setUi({ status: "idle" });
-        router.replace("/(app)/workouts");
+        exitLiveWorkoutLogToOverview(router);
         return;
       }
       const next = await loadReducedSession(user.uid, sessionId);
       setUi({ status: "completed", sessionId, reduced: next });
+    };
+    let completedLocally = false;
+    try {
+      await completeSession(user.uid, sessionId);
+      completedLocally = true;
+      const token = await getIdToken(false);
+      if (!token) {
+        throw new Error("Not signed in.");
+      }
+      await persistCompletedSessionToHistory(user.uid, sessionId, token);
+      finishPersistRetryRef.current = null;
+      await finalizeAndExit();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
-      setUi({ status: "error", message: msg });
+      if (completedLocally) {
+        finishPersistRetryRef.current = { sessionId, returnDay, enrichTid };
+        setUi({
+          status: "error",
+          message: `${msg} Workout is complete locally, but history sync failed.`,
+          canRetryFinishPersist: true,
+        });
+        return;
+      }
+      setUi({ status: "error", message: msg, canRetryFinishPersist: false });
     }
-  }, [user, sessionId, router, isEnrichmentEntry, clearLegacyBackfillPointerForSession]);
+  }, [user, sessionId, router, isEnrichmentEntry, clearLegacyBackfillPointerForSession, getIdToken]);
+
+  const onRetryFinishPersist = useCallback(async () => {
+    if (!user) return;
+    const retry = finishPersistRetryRef.current;
+    if (!retry) return;
+    try {
+      const token = await getIdToken(false);
+      if (!token) {
+        throw new Error("Not signed in.");
+      }
+      await persistCompletedSessionToHistory(user.uid, retry.sessionId, token);
+      finishPersistRetryRef.current = null;
+      if (isEnrichmentEntry) {
+        if (retry.enrichTid) await clearEnrichSessionPointer(user.uid, retry.enrichTid);
+        await clearLegacyBackfillPointerForSession(user.uid, retry.sessionId);
+      } else {
+        await clearLegacyBackfillPointerForSession(user.uid, retry.sessionId);
+        await clearActiveWorkoutSessionId(user.uid);
+      }
+      if (retry.returnDay != null) {
+        enrichReturnDayRef.current = null;
+        enrichSessionAnchorRef.current = null;
+        enrichTargetIdRef.current = null;
+        router.dismissTo({ pathname: "/(app)/workouts/day/[day]", params: { day: retry.returnDay } });
+        setUi({ status: "idle" });
+        return;
+      }
+      if (!isEnrichmentEntry) {
+        setUi({ status: "idle" });
+        exitLiveWorkoutLogToOverview(router);
+        return;
+      }
+      const next = await loadReducedSession(user.uid, retry.sessionId);
+      setUi({ status: "completed", sessionId: retry.sessionId, reduced: next });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setUi({
+        status: "error",
+        message: `${msg} Workout is complete locally, but history sync failed.`,
+        canRetryFinishPersist: true,
+      });
+    }
+  }, [user, getIdToken, isEnrichmentEntry, clearLegacyBackfillPointerForSession, router]);
 
   // When user signs out mid-screen, fail closed and reset.
   useEffect(() => {
@@ -1174,19 +1248,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
 
   useEffect(() => {
     if (!user || initializing) return;
-    let cancelled = false;
-    buildExerciseMemory(user.uid)
-      .catch(() => ({} as ExerciseMemoryMap))
-      .then((mem) => {
-        if (!cancelled) setMemory(mem);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, initializing]);
-
-  useEffect(() => {
-    if (!user || initializing) return;
+    if (ui.status !== "active" && ui.status !== "completed") return;
     let cancelled = false;
     listCustomExercises(user.uid)
       .catch(() => [])
@@ -1199,7 +1261,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     return () => {
       cancelled = true;
     };
-  }, [user, initializing]);
+  }, [user, initializing, ui.status]);
 
   useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
@@ -1262,12 +1324,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   const hasZeroBlocks = displayBlocks.length === 0;
 
   const catalogNameById = useMemo(() => {
-    void memory; // reserved for future exercise memory (e.g. Last/Best in row)
     const m = new Map<string, string>();
     for (const item of EXERCISE_CATALOG_V1) m.set(item.exerciseId, item.name);
     for (const [exerciseId, row] of Object.entries(customExercisesById)) m.set(exerciseId, row.name);
     return m;
-  }, [memory, customExercisesById]);
+  }, [customExercisesById]);
 
   const onAddBlockChoose = useCallback(
     async (type: BlockTypeId) => {
@@ -1344,6 +1405,18 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         <View style={styles.errorCard} accessibilityLabel="workout-log-error">
           <Text style={styles.errorTitle}>Action failed</Text>
           <Text style={styles.errorBody}>{ui.message}</Text>
+          {ui.canRetryFinishPersist ? (
+            <Pressable
+              onPress={() => {
+                void onRetryFinishPersist();
+              }}
+              style={styles.primaryBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Retry history sync"
+            >
+              <Text style={styles.primaryBtnText}>Retry sync</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => {
               if (isEnrichmentEntry) {

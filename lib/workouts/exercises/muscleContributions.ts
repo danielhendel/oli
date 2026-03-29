@@ -178,3 +178,23 @@ export function getPrimaryMuscleGroupsForExercise(exerciseId: string): MuscleGro
     })
     .map(([group]) => group);
 }
+
+function fallbackPrimaryGroupFromLibraryBucket(exerciseId: string): MuscleGroup | null {
+  const item = EXERCISE_LIBRARY_V1.find((entry) => entry.exerciseId === exerciseId);
+  if (!item) return null;
+  if (item.primaryBucket === "Chest") return "chest";
+  if (item.primaryBucket === "Back") return "back";
+  if (item.primaryBucket === "Shoulders") return "shoulders";
+  if (item.primaryBucket === "Triceps") return "triceps";
+  if (item.primaryBucket === "Biceps") return "biceps";
+  if (item.primaryBucket === "Core") return "core";
+  // "Legs"/"Full body" are too coarse for a single top-level assignment here.
+  return null;
+}
+
+/** Top-level muscle with the highest summed contribution weight (ties broken by group name). */
+export function getPrimaryMuscleGroupForExercise(exerciseId: string): MuscleGroup | null {
+  const ordered = getPrimaryMuscleGroupsForExercise(exerciseId);
+  if (ordered[0] != null) return ordered[0];
+  return fallbackPrimaryGroupFromLibraryBucket(exerciseId);
+}

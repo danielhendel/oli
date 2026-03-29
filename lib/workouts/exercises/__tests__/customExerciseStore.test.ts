@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createCustomExercise,
   listCustomExercises,
+  resolveCatalogExerciseIdByName,
+  resolveCustomExercisePrimaryMuscleGroup,
   sanitizeCustomExerciseName,
 } from "../customExerciseStore";
 
@@ -54,5 +56,23 @@ describe("customExerciseStore", () => {
 
   it("normalizes whitespace in names", () => {
     expect(sanitizeCustomExerciseName("  Leg   Press   ")).toBe("Leg Press");
+  });
+
+  it("resolves catalog exercise id from custom free-text names/aliases", () => {
+    expect(resolveCatalogExerciseIdByName("Cable Bicep Curl")).toBe("cable_bicep_curl");
+    expect(resolveCatalogExerciseIdByName("db hammer curl")).toBe("hammer_curl");
+  });
+
+  it("resolves custom primary muscle from catalog name match first", () => {
+    const group = resolveCustomExercisePrimaryMuscleGroup({
+      exerciseId: "custom_u1_cable_bicep_curl",
+      name: "Cable Bicep Curl",
+      equipment: "Cable",
+      primary: "Other",
+      loggingType: "weight_reps",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(group).toBe("biceps");
   });
 });

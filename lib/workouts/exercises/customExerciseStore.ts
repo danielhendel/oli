@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Equipment, PrimaryBucket } from "./taxonomy";
+import { getPrimaryMuscleGroupForExercise } from "./muscleContributions";
+import { EXERCISE_LIBRARY_V1 } from "./library.v1";
+import type { Equipment, MuscleGroup, PrimaryBucket } from "./taxonomy";
 
 export type CustomExerciseLoggingType =
   | "weight_reps"
@@ -176,4 +178,51 @@ export async function createCustomExercise(
   };
   await writeCustomExercises(uid, [...existing, row]);
   return row;
+}
+
+function normalizeLookupName(input: string): string {
+  return input.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+}
+
+const CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME: ReadonlyMap<string, string> = (() => {
+  const out = new Map<string, string>();
+  for (const entry of EXERCISE_LIBRARY_V1) {
+    out.set(normalizeLookupName(entry.name), entry.exerciseId);
+    for (const alias of entry.aliases) {
+      out.set(normalizeLookupName(alias), entry.exerciseId);
+    }
+  }
+  return out;
+})();
+
+/** Best-effort canonical catalog id lookup from free-text custom exercise name. */
+export function resolveCatalogExerciseIdByName(name: string): string | null {
+  const keyName = normalizeLookupName(name);
+  if (keyName.length === 0) return null;
+  return CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME.get(keyName) ?? null;
+}
+
+function fallbackMuscleGroupFromPrimaryBucket(primary: PrimaryBucket | "Other"): MuscleGroup | null {
+  if (primary === "Chest") return "chest";
+  if (primary === "Back") return "back";
+  if (primary === "Shoulders") return "shoulders";
+  if (primary === "Triceps") return "triceps";
+  if (primary === "Biceps") return "biceps";
+  if (primary === "Core") return "core";
+  // "Legs", "Full body", "Other" are too coarse to deterministically pick one top-level subgroup.
+  return null;
+}
+
+/**
+ * Resolve custom exercise to the best primary top-level muscle group for Sets tab:
+ * 1) map custom name to a catalog exercise (name/alias) and use canonical contribution primary
+ * 2) fallback to explicit custom `primary` bucket when it maps 1:1 to a top-level group
+ */
+export function resolveCustomExercisePrimaryMuscleGroup(row: CustomExerciseRecord): MuscleGroup | null {
+  const catalogExerciseId = resolveCatalogExerciseIdByName(row.name);
+  if (catalogExerciseId != null) {
+    const primary = getPrimaryMuscleGroupForExercise(catalogExerciseId);
+    if (primary != null) return primary;
+  }
+  return fallbackMuscleGroupFromPrimaryBucket(row.primary);
 }

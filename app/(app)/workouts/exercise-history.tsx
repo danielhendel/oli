@@ -16,7 +16,6 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
 import { useExerciseHistory } from "@/lib/workouts/hooks/useExerciseHistory";
 import { useWeightSeries } from "@/lib/data/useWeightSeries";
 import { ExerciseProgressChart } from "@/lib/ui/ExerciseProgressChart";
@@ -24,6 +23,7 @@ import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { LoadingState, EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import type { ExerciseHistorySession, ExerciseHistorySet } from "@/lib/workouts/memory/exerciseHistory";
 import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
+import { resolveExerciseDisplayName } from "@/lib/workouts/exercises/displayName";
 import {
   resolveStrengthLoggingType,
   type StrengthLoggingType,
@@ -235,17 +235,24 @@ export default function ExerciseHistoryScreen() {
   const exerciseId = typeof params.exerciseId === "string" ? params.exerciseId.trim() || null : null;
   const { user, initializing } = useAuth();
   const [loggingType, setLoggingType] = useState<StrengthLoggingType>("weight_reps");
+  const [customExerciseNameById, setCustomExerciseNameById] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
   useEffect(() => {
     if (!exerciseId || !user || initializing) return;
     let cancelled = false;
     listCustomExercises(user.uid)
       .then((rows) => {
         if (cancelled) return;
+        setCustomExerciseNameById(new Map(rows.map((row) => [row.exerciseId, row.name])));
         const row = rows.find((x) => x.exerciseId === exerciseId);
         setLoggingType(resolveStrengthLoggingType(exerciseId, row?.loggingType));
       })
       .catch(() => {
-        if (!cancelled) setLoggingType("weight_reps");
+        if (!cancelled) {
+          setCustomExerciseNameById(new Map());
+          setLoggingType("weight_reps");
+        }
       });
     return () => {
       cancelled = true;
@@ -295,7 +302,7 @@ export default function ExerciseHistoryScreen() {
 
   const displayName =
     exerciseId != null
-      ? EXERCISE_CATALOG_V1.find((x) => x.exerciseId === exerciseId)?.name ?? exerciseId
+      ? resolveExerciseDisplayName(exerciseId, customExerciseNameById)
       : null;
 
   const latestWeightKg =

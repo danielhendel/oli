@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { CalendarDay, WorkoutDayMarker } from "./types";
+import { WEEKLY_STRIP_SELECTED_DAY_CIRCLE_FILL } from "./weeklyCalendarStripTheme";
 import { WorkoutDayRing } from "./WorkoutDayRing";
 
 export type WeeklyStripProps = {
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayCircleSelected: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: WEEKLY_STRIP_SELECTED_DAY_CIRCLE_FILL,
   },
   dayNumber: {
     fontSize: 18,

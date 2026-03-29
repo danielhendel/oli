@@ -3,6 +3,7 @@ import {
   maxDayKey,
   minDayKey,
   overviewSharedRangeBounds,
+  overviewStrengthMainTabCalendarBounds,
 } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 
@@ -18,6 +19,19 @@ describe("overviewSharedRangeBounds", () => {
         analyticsEnd: "2026-12-31",
       }),
     ).toEqual({ start: "2025-11-22", end: "2026-12-31" });
+  });
+});
+
+describe("overviewStrengthMainTabCalendarBounds", () => {
+  it("unions only the visible week and recent window (no analytics year span)", () => {
+    expect(
+      overviewStrengthMainTabCalendarBounds({
+        weekStart: "2026-03-09",
+        weekEnd: "2026-03-15",
+        recentStart: "2025-11-28",
+        recentEnd: "2026-03-28",
+      }),
+    ).toEqual({ start: "2025-11-28", end: "2026-03-28" });
   });
 });
 

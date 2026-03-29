@@ -2,12 +2,19 @@ import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 import { listWorkoutJournalSessionIds } from "@/lib/workouts/journal/sessionIndex";
 import { listWorkoutJournalEvents } from "@/lib/workouts/journal/store";
 import { reduceWorkoutSessionV1 } from "@/lib/workouts/journal/reducer";
+import { loadCustomExerciseNameById, resolveExerciseDisplayName } from "@/lib/workouts/exercises/displayName";
+import {
+  trainingVolumeKgForManualExercise,
+  trainingVolumeKgForManualExercises,
+} from "@/lib/workouts/strength/strengthVolumeKg";
 
 export type ManualWorkoutExerciseSet = {
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
   intensity: number | null;
+  /** When true, set is excluded from training volume (canonical rule in `lib/workouts/strength/strengthVolumeKg.ts`). */
+  isWarmup?: boolean;
 };
 
 export type ManualWorkoutExerciseSummary = {
@@ -38,23 +45,9 @@ function extractSessionName(notes: string[]): string | null {
   return null;
 }
 
-/** Sum of reps×weightKg for one exercise (same inclusion rules as session total volume). */
-export function totalVolumeKgForManualExercise(exercise: ManualWorkoutExerciseSummary): number {
-  let volume = 0;
-  for (const set of exercise.sets) {
-    if (
-      typeof set.reps === "number" &&
-      Number.isFinite(set.reps) &&
-      set.reps > 0 &&
-      typeof set.weightKg === "number" &&
-      Number.isFinite(set.weightKg) &&
-      set.weightKg > 0
-    ) {
-      volume += set.reps * set.weightKg;
-    }
-  }
-  return volume;
-}
+export { trainingVolumeKgForManualExercise, trainingVolumeKgForManualExercises };
+/** @deprecated Use `trainingVolumeKgForManualExercise`. */
+export const totalVolumeKgForManualExercise = trainingVolumeKgForManualExercise;
 
 export function computeStrengthMetricsFromExercises(
   exercises: ManualWorkoutExerciseSummary[],
@@ -64,7 +57,7 @@ export function computeStrengthMetricsFromExercises(
   let intensitySum = 0;
   let intensityCount = 0;
   for (const exercise of exercises) {
-    const exVol = totalVolumeKgForManualExercise(exercise);
+    const exVol = trainingVolumeKgForManualExercise(exercise);
     if (exVol > 0) {
       volume += exVol;
       hasVolume = true;
@@ -84,6 +77,7 @@ export function computeStrengthMetricsFromExercises(
 
 export async function listManualWorkoutDaySummaries(uid: string): Promise<ManualWorkoutDaySummary[]> {
   const sessionIds = await listWorkoutJournalSessionIds(uid);
+  const customExerciseNameById = await loadCustomExerciseNameById(uid);
   const out: ManualWorkoutDaySummary[] = [];
   for (const sessionId of sessionIds) {
     const events = await listWorkoutJournalEvents(uid, sessionId).catch(() => []);
@@ -95,12 +89,13 @@ export async function listManualWorkoutDaySummaries(uid: string): Promise<Manual
       .filter((e) => !e.removed)
       .map((e) => ({
         exerciseId: e.exerciseId,
-        name: e.exerciseId.replace(/_/g, " "),
+        name: resolveExerciseDisplayName(e.exerciseId, customExerciseNameById),
         sets: e.sets.map((s) => ({
           setNumber: s.ordinal,
           reps: s.reps ?? null,
           weightKg: s.loadKg ?? null,
           intensity: s.rpe ?? null,
+          isWarmup: s.isWarmup,
         })),
       }));
     const metrics = computeStrengthMetricsFromExercises(exercises);

@@ -8,6 +8,7 @@ import {
   type WorkoutCalendarDayLike,
 } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
+import { trainingVolumeKgForManualExercises } from "@/lib/workouts/strength/strengthVolumeKg";
 
 export type StrengthMonthChartBar = {
   /** Stable key for the month-grid row (0-based index). */
@@ -85,9 +86,16 @@ function collectTypicalVolumeSamplesKg(
     if (v != null && v > 0) samples.push(v);
   }
   for (const row of manualRowsInMonth) {
-    const vol = row.totalVolume;
-    if (vol == null || !Number.isFinite(vol) || vol <= 0) continue;
     if (dayHasIngestedStrengthVolumeWithSets(sessionsInMonth, row.day as DayKey)) continue;
+    let vol: number | null = null;
+    if (row.exercises.length > 0) {
+      const fromSets = trainingVolumeKgForManualExercises(row.exercises);
+      if (fromSets > 0) vol = fromSets;
+    }
+    if (vol == null && row.totalVolume != null && Number.isFinite(row.totalVolume) && row.totalVolume > 0) {
+      vol = row.totalVolume;
+    }
+    if (vol == null || vol <= 0) continue;
     samples.push(vol);
   }
   return samples;
