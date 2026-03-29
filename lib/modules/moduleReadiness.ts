@@ -43,9 +43,9 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     case "nutrition.overview":
       return READY;
     case "nutrition.log":
-      return SOON("Soon");
+      return READY;
     case "nutrition.targets":
-      return SOON("Soon");
+      return READY;
 
     // RECOVERY
     case "recovery.overview":

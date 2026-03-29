@@ -30,7 +30,38 @@ export default function AppLayout() {
           <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
 
           {/* Keep native headers for the rest */}
-          <Stack.Screen name="nutrition/index" options={{ title: "Nutrition" }} />
+          <Stack.Screen
+            name="nutrition/index"
+            options={{ title: "Nutrition", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="nutrition/overview"
+            options={{ title: "Nutrition", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="nutrition/day/[day]"
+            options={{ title: "Nutrition day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/analytics-detail"
+            options={{ title: "Nutrition analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/log"
+            options={{ title: "Log nutrition", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/targets"
+            options={{ title: "Nutrition targets", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/calendar"
+            options={{ title: "Nutrition Calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/settings"
+            options={{ title: "Nutrition settings", ...workoutsStackNavigationOptions("detail") }}
+          />
           <Stack.Screen
             name="workouts/index"
             options={{ title: "Strength", ...workoutsStackNavigationOptions("module") }}

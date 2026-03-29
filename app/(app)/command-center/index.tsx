@@ -1162,7 +1162,12 @@ export default function CommandCenterScreen(props: Props) {
 
         <NutritionSection
           model={nutritionModel}
-          onPressLog={() => router.push("/(app)/nutrition/log")}
+          onPressLog={() =>
+            router.push({
+              pathname: "/(app)/nutrition/log",
+              params: { day: getTodayDayKey() },
+            })
+          }
           onPressFailures={() => router.push("/(app)/failures")}
         />
 

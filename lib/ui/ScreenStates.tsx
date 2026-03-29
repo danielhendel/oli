@@ -41,6 +41,8 @@ export type ErrorStateProps = {
   secondaryAction?: ErrorStateSecondaryAction;
   /** Set when kind:"contract" for user-friendly data validation message */
   isContractError?: boolean;
+  /** `inline` avoids flex:1 so the block can sit inside cards */
+  variant?: "screen" | "inline";
 };
 
 export function ErrorState({
@@ -50,6 +52,7 @@ export function ErrorState({
   onRetry,
   secondaryAction,
   isContractError = false,
+  variant = "screen",
 }: ErrorStateProps) {
   const displayTitle = isContractError ? "Data validation failed" : title;
   const displayMessage = isContractError
@@ -57,7 +60,7 @@ export function ErrorState({
     : message;
 
   return (
-    <View style={styles.stateContainer}>
+    <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
       <Text style={styles.errorTitle}>{displayTitle}</Text>
       <Text style={styles.errorMessage}>{displayMessage}</Text>
       {requestId ? (
@@ -89,11 +92,12 @@ export function ErrorState({
 
 export type LoadingStateProps = {
   message?: string;
+  variant?: "screen" | "inline";
 };
 
-export function LoadingState({ message = "Loading…" }: LoadingStateProps) {
+export function LoadingState({ message = "Loading…", variant = "screen" }: LoadingStateProps) {
   return (
-    <View style={styles.stateContainer}>
+    <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
       <ActivityIndicator size="small" color="#1C1C1E" />
       <Text style={styles.loadingMessage}>{message}</Text>
     </View>
@@ -131,6 +135,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 24,
     gap: 12,
+  },
+  stateContainerInline: {
+    flexGrow: 0,
+    alignSelf: "stretch",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    gap: 10,
   },
   errorTitle: {
     fontSize: 17,

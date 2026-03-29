@@ -8,6 +8,7 @@ import type {
   DailyRecoveryFacts,
   DailySleepFacts,
   DailyStrengthFacts,
+  DailyNutritionFacts,
   IsoDateTimeString,
   YmdDateString,
   SleepCanonicalEvent,
@@ -16,6 +17,7 @@ import type {
   WeightCanonicalEvent,
   HrvCanonicalEvent,
   StrengthWorkoutCanonicalEvent,
+  NutritionCanonicalEvent,
 } from '../types/health';
 
 const isNumber = (value: unknown): value is number =>
@@ -39,6 +41,8 @@ const isHrvEvent = (e: CanonicalEvent): e is HrvCanonicalEvent => e.kind === 'hr
 const isStrengthWorkoutEvent = (
   e: CanonicalEvent,
 ): e is StrengthWorkoutCanonicalEvent => e.kind === 'strength_workout';
+
+const isNutritionEvent = (e: CanonicalEvent): e is NutritionCanonicalEvent => e.kind === 'nutrition';
 
 // -----------------------------------------------------------------------------
 // Builders
@@ -200,6 +204,41 @@ const buildStrengthFacts = (
   return facts;
 };
 
+const buildNutritionFacts = (events: CanonicalEvent[]): DailyNutritionFacts | undefined => {
+  const nutritionEvents = events.filter(isNutritionEvent);
+  if (nutritionEvents.length === 0) return undefined;
+
+  let totalKcal = 0;
+  let proteinG = 0;
+  let carbsG = 0;
+  let fatG = 0;
+  let fiberSum = 0;
+  let haveFiber = false;
+
+  for (const e of nutritionEvents) {
+    totalKcal += e.totalKcal;
+    proteinG += e.proteinG;
+    carbsG += e.carbsG;
+    fatG += e.fatG;
+    if (typeof e.fiberG === 'number' && Number.isFinite(e.fiberG)) {
+      fiberSum += e.fiberG;
+      haveFiber = true;
+    }
+  }
+
+  const facts: DailyNutritionFacts = {
+    totalKcal,
+    proteinG,
+    carbsG,
+    fatG,
+  };
+  if (haveFiber) {
+    facts.fiberG = fiberSum;
+  }
+
+  return facts;
+};
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -232,6 +271,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   const body = buildBodyFacts(events) ?? factOnlyBody;
   const recovery = buildRecoveryFacts(events);
   const strength = buildStrengthFacts(events);
+  const nutrition = buildNutritionFacts(events);
 
   const dailyFacts: DailyFacts = {
     userId,
@@ -245,6 +285,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   if (recovery) dailyFacts.recovery = recovery;
   if (body) dailyFacts.body = body;
   if (strength) dailyFacts.strength = strength;
+  if (nutrition) dailyFacts.nutrition = nutrition;
 
   return dailyFacts;
 };
