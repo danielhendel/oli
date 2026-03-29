@@ -42,27 +42,17 @@ import {
 import {
   filterWorkoutCalendarDaysInclusive,
   overviewSharedRangeBounds,
+  overviewStrengthMainTabCalendarBounds,
 } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
-  buildWorkoutOverviewSingleDomainFromMonthSummaryItems,
   getRecentWorkoutSessionsFromCalendarDays,
-  monthKeyFromDay,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
   WORKOUT_OVERVIEW_ANALYTICS_YEAR,
 } from "@/lib/data/workouts/workoutsCalendarModel";
-import {
-  buildStrengthMonthOverviewFromCalendarDays,
-  monthShortLabelFromMonthKey,
-} from "@/lib/data/workouts/strengthOverviewMonthAnalytics";
 import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { mapWorkoutCalendarDaysForDomain } from "@/lib/data/workouts/workoutDomain";
-import {
-  WORKOUT_MONTH_SUMMARY_EXPECTED,
-  type WorkoutMonthSummariesResponseDto,
-} from "@oli/contracts";
-import { getWorkoutMonthSummaries, postWorkoutMonthSummariesRebuild } from "@/lib/api/usersMe";
 import {
   pullTodaySnapshot,
   pullAnchoredWorkouts,
@@ -111,9 +101,19 @@ import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
+import {
+  listCustomExercises,
+  type CustomExerciseRecord,
+} from "@/lib/workouts/exercises/customExerciseStore";
+import { buildWeeklyStrengthCardModel } from "@/lib/data/workouts/weeklyStrengthCardModel";
+import { buildWeeklyInsightsCardModel } from "@/lib/data/workouts/weeklyInsightsCardModel";
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
+import { buildTodayOverviewModel } from "@/lib/data/workouts/todayOverviewModel";
+import { TodayCard } from "@/lib/ui/workouts/TodayCard";
+import { WeeklyInsightsCard } from "@/lib/ui/workouts/WeeklyInsightsCard";
+import { serializeStrengthAnalyticsFocusParams } from "@/lib/workouts/navigation/strengthAnalyticsNavigationIntent";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -212,7 +212,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
-  const [, setSnapshot] = useState<TodaySnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [selectedWorkoutForMenu, setSelectedWorkoutForMenu] = useState<{
@@ -221,13 +221,9 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   } | null>(null);
   const [workoutMenuAnchor, setWorkoutMenuAnchor] = useState<WorkoutActionAnchor | null>(null);
   const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
-  const [monthSummariesFetch, setMonthSummariesFetch] = useState<
-    | { status: "idle" }
-    | { status: "ready"; res: WorkoutMonthSummariesResponseDto }
-  >({ status: "idle" });
-  const getIdTokenRef = useRef(getIdToken);
-  getIdTokenRef.current = getIdToken;
-
+  const [customExerciseById, setCustomExerciseById] = useState<ReadonlyMap<string, CustomExerciseRecord>>(
+    () => new Map(),
+  );
   const today = getTodayDayKeyLocal();
   const anchorDay = today;
   const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
@@ -237,21 +233,38 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const weekDaysFull = getWeekDaysForAnchor(anchorDay);
   const weekStart = weekDaysFull[0]!;
   const weekEnd = weekDaysFull[weekDaysFull.length - 1]!;
+  const prevWeekStart = useMemo(() => addCalendarDaysToDayKey(weekStart, -7), [weekStart]);
+  const prevWeekEnd = useMemo(() => addCalendarDaysToDayKey(weekEnd, -7), [weekEnd]);
   const recentRangeStart = addCalendarDaysToDayKey(today, -120);
   const recentRangeEnd = today;
   const analyticsRangeStart = WORKOUT_OVERVIEW_ANALYTICS_RANGE_START;
   const analyticsRangeEnd = WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
   const { start: overviewRangeStart, end: overviewRangeEnd } = useMemo(
     () =>
-      overviewSharedRangeBounds({
-        weekStart,
-        weekEnd,
-        recentStart: recentRangeStart,
-        recentEnd: recentRangeEnd,
-        analyticsStart: analyticsRangeStart,
-        analyticsEnd: analyticsRangeEnd,
-      }),
-    [weekStart, weekEnd, recentRangeStart, recentRangeEnd, analyticsRangeStart, analyticsRangeEnd],
+      domain === "strength"
+        ? overviewStrengthMainTabCalendarBounds({
+            weekStart,
+            weekEnd,
+            recentStart: recentRangeStart,
+            recentEnd: recentRangeEnd,
+          })
+        : overviewSharedRangeBounds({
+            weekStart,
+            weekEnd,
+            recentStart: recentRangeStart,
+            recentEnd: recentRangeEnd,
+            analyticsStart: analyticsRangeStart,
+            analyticsEnd: analyticsRangeEnd,
+          }),
+    [
+      domain,
+      weekStart,
+      weekEnd,
+      recentRangeStart,
+      recentRangeEnd,
+      analyticsRangeStart,
+      analyticsRangeEnd,
+    ],
   );
 
   const calendarRangeOptionsShared = useMemo(
@@ -288,45 +301,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, analyticsRangeStart, analyticsRangeEnd),
     [domainSharedDays, analyticsRangeStart, analyticsRangeEnd],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    if (domain !== "strength") {
-      setMonthSummariesFetch({ status: "idle" });
-      return;
-    }
-    if (overviewSharedRange.status !== "ready") return;
-    if (initializing || !user) {
-      setMonthSummariesFetch({ status: "idle" });
-      return;
-    }
-    const task = runAfterInteractionsSafe(() => {
-      void (async () => {
-        const token = await getIdTokenRef.current(false);
-        if (!token || cancelled) return;
-        let sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
-        if (cancelled) return;
-        if (sumRes.ok && !sumRes.json.complete) {
-          const rebuildRes = await postWorkoutMonthSummariesRebuild(token, {
-            year: WORKOUT_OVERVIEW_ANALYTICS_YEAR,
-          });
-          if (rebuildRes.ok && !cancelled) {
-            sumRes = await getWorkoutMonthSummaries(token, { year: WORKOUT_OVERVIEW_ANALYTICS_YEAR });
-          }
-        }
-        if (cancelled) return;
-        if (!sumRes.ok) {
-          setMonthSummariesFetch({ status: "idle" });
-          return;
-        }
-        setMonthSummariesFetch({ status: "ready", res: sumRes.json });
-      })();
-    });
-    return () => {
-      cancelled = true;
-      task.cancel();
-    };
-  }, [domain, overviewSharedRange.status, user?.uid, initializing, workoutsCalendarRefreshEpoch]);
 
   const overviewPerfRef = useRef<{ t0: number } | null>(null);
 
@@ -402,24 +376,50 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, 7);
   }, [overviewSharedRange.status, recentDaysSlice]);
 
+  const weekWorkoutIds = useMemo(
+    () =>
+      weekDaysSlice.flatMap((d) =>
+        reconcileWorkoutSessionsForDay(d.day, d.workouts).flatMap((s) => s.workouts.map((w) => w.id)),
+      ),
+    [weekDaysSlice],
+  );
+
   const recentWorkoutIds = useMemo(
     () => recentWorkouts.map((entry) => entry.session.workouts[0]?.id ?? entry.session.id),
     [recentWorkouts],
   );
-  const { overridesByWorkoutId, reload } = useWorkoutOverrides(recentWorkoutIds);
 
-  const rawOverviewAnalyticsSingle = useMemo(() => {
+  const workoutIdsForOverrides = useMemo(() => {
+    const uniq = new Set<string>();
+    for (const id of recentWorkoutIds) uniq.add(id);
+    for (const id of weekWorkoutIds) uniq.add(id);
+    return [...uniq];
+  }, [recentWorkoutIds, weekWorkoutIds]);
+
+  const { overridesByWorkoutId, reload } = useWorkoutOverrides(workoutIdsForOverrides);
+
+  /** Strength main tab does not render the yearly chart; skip scanning the analytics year slice. */
+  const strengthPlaceholderOverviewAnalytics = useMemo(() => {
+    const bundle = buildWorkoutOverviewAnalyticsFromCalendarDays([], { todayDayKey: today });
+    return {
+      chartPoints: bundle.chartPointsByTab.strength,
+      metrics: bundle.metricsByTab.strength,
+    };
+  }, [today]);
+
+  const cardioOverviewAnalyticsFromCalendar = useMemo(() => {
     const bundle =
       overviewSharedRange.status === "ready"
         ? buildWorkoutOverviewAnalyticsFromCalendarDays(analyticsDaysSlice, { todayDayKey: today })
         : buildWorkoutOverviewAnalyticsFromCalendarDays([], { todayDayKey: today });
     return {
-      chartPoints: bundle.chartPointsByTab[domain],
-      metrics: bundle.metricsByTab[domain],
+      chartPoints: bundle.chartPointsByTab.cardio,
+      metrics: bundle.metricsByTab.cardio,
     };
-  }, [overviewSharedRange.status, analyticsDaysSlice, domain, today]);
+  }, [overviewSharedRange.status, analyticsDaysSlice, today]);
 
-  const focusStrengthMonthKey = monthKeyFromDay(today);
+  const rawOverviewAnalyticsSingle =
+    domain === "strength" ? strengthPlaceholderOverviewAnalytics : cardioOverviewAnalyticsFromCalendar;
 
   const manualWorkoutNameByDay = useMemo(() => {
     const next: Record<string, string> = {};
@@ -429,35 +429,28 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     return next;
   }, [manualWorkoutSummaries]);
 
-  const strengthMonthOverview = useMemo(
-    () =>
-      buildStrengthMonthOverviewFromCalendarDays(analyticsDaysSlice, focusStrengthMonthKey, {
-        todayDayKey: today,
-        manualJournalSummaries: manualWorkoutSummaries,
-      }),
-    [analyticsDaysSlice, focusStrengthMonthKey, today, manualWorkoutSummaries],
-  );
+  const weeklyInsightsCardModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    const analyticsCtx = { customExerciseById };
+    const currentWeek = buildWeeklyStrengthCardModel(manualWorkoutSummaries, {
+      weekStartDay: weekStart,
+      weekEndDay: weekEnd,
+      weekKey: `${weekStart}..${weekEnd}`,
+      sessionDisplayHints: [],
+      analyticsContext: analyticsCtx,
+    });
+    const previousWeek = buildWeeklyStrengthCardModel(manualWorkoutSummaries, {
+      weekStartDay: prevWeekStart,
+      weekEndDay: prevWeekEnd,
+      weekKey: `${prevWeekStart}..${prevWeekEnd}`,
+      sessionDisplayHints: [],
+      analyticsContext: analyticsCtx,
+    });
+    return buildWeeklyInsightsCardModel(currentWeek, previousWeek);
+  }, [domain, manualWorkoutSummaries, weekStart, weekEnd, prevWeekStart, prevWeekEnd, customExerciseById]);
 
-  const overviewAnalytics = useMemo(() => {
-    if (monthSummariesFetch.status === "ready") {
-      const res = monthSummariesFetch.res;
-      if (
-        res.complete &&
-        res.items.length === res.expectedMonthCount &&
-        res.items.every(
-          (it) =>
-            it.schemaVersion === WORKOUT_MONTH_SUMMARY_EXPECTED.schemaVersion &&
-            it.reconcileVersion === WORKOUT_MONTH_SUMMARY_EXPECTED.reconcileVersion,
-        )
-      ) {
-        return buildWorkoutOverviewSingleDomainFromMonthSummaryItems(res.items, domain, {
-          todayDayKey: today,
-        });
-      }
-    }
-    return rawOverviewAnalyticsSingle;
-  }, [monthSummariesFetch, rawOverviewAnalyticsSingle, domain, today]);
-
+  const overviewAnalytics = rawOverviewAnalyticsSingle;
+  const todayModel = useMemo(() => buildTodayOverviewModel(snapshot), [snapshot]);
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
     if (overviewSharedRange.status !== "ready") return;
@@ -507,18 +500,23 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     if (process.env.JEST_WORKER_ID) return;
     if (domain !== "strength") {
       setManualWorkoutSummaries([]);
+      setCustomExerciseById(new Map());
       return;
     }
     if (overviewSharedRange.status !== "ready") return;
     if (!user?.uid) {
       setManualWorkoutSummaries([]);
+      setCustomExerciseById(new Map());
       return;
     }
     const task = runAfterInteractionsSafe(() => {
-      void listManualWorkoutDaySummaries(user.uid).then((rows) => {
-        if (cancelled) return;
-        setManualWorkoutSummaries(rows);
-      });
+      void Promise.all([listManualWorkoutDaySummaries(user.uid), listCustomExercises(user.uid)]).then(
+        ([rows, customRows]) => {
+          if (cancelled) return;
+          setManualWorkoutSummaries(rows);
+          setCustomExerciseById(new Map(customRows.map((r) => [r.exerciseId, r])));
+        },
+      );
     });
     return () => {
       cancelled = true;
@@ -806,120 +804,132 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     [selectedWorkoutForMenu, overridesByWorkoutId, closeWorkoutMenu, router],
   );
 
+  const recentCard = (
+    <View style={styles.card}>
+      <View style={workoutOverviewInCardHeaderStyles.row}>
+        <Text style={workoutOverviewInCardHeaderStyles.title}>
+          {domain === "strength" ? "Recent" : "Recent cardio sessions"}
+        </Text>
+        <Pressable
+          onPress={() => router.push(`${basePath}/recent-workouts-full`)}
+          accessibilityRole="button"
+          accessibilityLabel="View more"
+          hitSlop={8}
+          style={({ pressed }) => [
+            workoutOverviewInCardHeaderStyles.linkHit,
+            pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+          ]}
+        >
+          <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
+        </Pressable>
+      </View>
+      {recentWorkouts.length === 0 ? (
+        <Text style={styles.placeholder}>
+          {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
+        </Text>
+      ) : (
+        recentWorkouts.map(({ day, session }) => {
+          const representative = session.workouts[0];
+          if (!representative) return null;
+          const override = overridesByWorkoutId[representative.id];
+          const resolved = resolveWorkoutDisplay(representative, override ?? null);
+          const durationLabel = formatWorkoutDurationLabel(
+            resolveWorkoutDisplayDurationMinutes({
+              overrideDurationMinutes: resolved.displayDurationMinutes,
+              sessionDurationMinutes: session.durationMinutes,
+              fallbackWorkoutDurationMinutes: representative.durationMinutes,
+            }),
+          );
+          return (
+            <Pressable
+              key={session.id}
+              style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
+              onPress={() => {
+                router.push({
+                  pathname:
+                    domain === "strength"
+                      ? "/(app)/workouts/day/[day]"
+                      : "/(app)/cardio/day/[day]",
+                  params: { day },
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Open workout details ${representative.id}`}
+            >
+              <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+              <View style={styles.recentMain}>
+                <Text style={styles.recentTitle} numberOfLines={1}>
+                  {representative.sourceId === "manual" &&
+                  domain === "strength" &&
+                  manualWorkoutNameByDay[day]
+                    ? manualWorkoutNameByDay[day]
+                    : resolved.displayTitle}
+                </Text>
+                <Text style={styles.recentMeta} numberOfLines={1}>
+                  {durationLabel}
+                </Text>
+              </View>
+              <Pressable
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  const native = e?.nativeEvent;
+                  setWorkoutMenuAnchor({
+                    x: typeof native?.pageX === "number" ? native.pageX : 320,
+                    y: typeof native?.pageY === "number" ? native.pageY : 220,
+                    width: 24,
+                    height: 24,
+                  });
+                  setSelectedWorkoutForMenu({ day, session });
+                  setWorkoutMenuOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Workout actions ${representative.id}`}
+                hitSlop={10}
+                style={styles.rowMenuBtn}
+              >
+                <Text style={styles.rowMenuText}>•••</Text>
+              </Pressable>
+            </Pressable>
+          );
+        })
+      )}
+    </View>
+  );
+
   const content = (
     <View style={styles.pageBody}>
       {domain === "strength" ? (
-        <WorkoutAnalyticsChart
-          layout="singleStrengthPeriod"
-          headerTitle="Workouts"
-          yearTabLabel={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
-          monthTabLabel={monthShortLabelFromMonthKey(focusStrengthMonthKey)}
-          onViewMore={() => router.push(`${basePath}/analytics-detail`)}
-          yearChartPoints={overviewAnalytics.chartPoints}
-          yearMetrics={overviewAnalytics.metrics}
-          monthChartBars={strengthMonthOverview.chartBars}
-          monthMetrics={strengthMonthOverview.metrics}
-        />
+        <>
+          <TodayCard
+            model={todayModel}
+            onViewMore={() => router.push(`${basePath}/analytics-detail`)}
+          />
+          {recentCard}
+          {weeklyInsightsCardModel != null ? (
+            <WeeklyInsightsCard
+              model={weeklyInsightsCardModel}
+              onInsightPress={(insight) =>
+                router.push({
+                  pathname: "/(app)/workouts/analytics-detail",
+                  params: serializeStrengthAnalyticsFocusParams(insight.destination),
+                })
+              }
+            />
+          ) : null}
+        </>
       ) : (
-        <WorkoutAnalyticsChart
-          layout="single"
-          domain={domain}
-          headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
-          onViewMore={() => router.push(`${basePath}/analytics-detail`)}
-          chartPoints={overviewAnalytics.chartPoints}
-          metrics={overviewAnalytics.metrics}
-        />
+        <>
+          <WorkoutAnalyticsChart
+            layout="single"
+            domain={domain}
+            headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
+            onViewMore={() => router.push(`${basePath}/analytics-detail`)}
+            chartPoints={overviewAnalytics.chartPoints}
+            metrics={overviewAnalytics.metrics}
+          />
+          {recentCard}
+        </>
       )}
-
-      <View style={styles.card}>
-        <View style={workoutOverviewInCardHeaderStyles.row}>
-          <Text style={workoutOverviewInCardHeaderStyles.title}>
-            {domain === "strength" ? "Recent" : "Recent cardio sessions"}
-          </Text>
-          <Pressable
-            onPress={() => router.push(`${basePath}/recent-workouts-full`)}
-            accessibilityRole="button"
-            accessibilityLabel="View more"
-            hitSlop={8}
-            style={({ pressed }) => [
-              workoutOverviewInCardHeaderStyles.linkHit,
-              pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-            ]}
-          >
-            <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
-          </Pressable>
-        </View>
-        {recentWorkouts.length === 0 ? (
-          <Text style={styles.placeholder}>
-            {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
-          </Text>
-        ) : (
-          recentWorkouts.map(({ day, session }) => {
-            const representative = session.workouts[0];
-            if (!representative) return null;
-            const override = overridesByWorkoutId[representative.id];
-            const resolved = resolveWorkoutDisplay(representative, override ?? null);
-            const durationLabel = formatWorkoutDurationLabel(
-              resolveWorkoutDisplayDurationMinutes({
-                overrideDurationMinutes: resolved.displayDurationMinutes,
-                sessionDurationMinutes: session.durationMinutes,
-                fallbackWorkoutDurationMinutes: representative.durationMinutes,
-              }),
-            );
-            return (
-              <Pressable
-                key={session.id}
-                style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
-                onPress={() => {
-                  router.push({
-                    pathname:
-                      domain === "strength"
-                        ? "/(app)/workouts/day/[day]"
-                        : "/(app)/cardio/day/[day]",
-                    params: { day },
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Open workout details ${representative.id}`}
-              >
-                <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
-                <View style={styles.recentMain}>
-                  <Text style={styles.recentTitle} numberOfLines={1}>
-                    {representative.sourceId === "manual" &&
-                    domain === "strength" &&
-                    manualWorkoutNameByDay[day]
-                      ? manualWorkoutNameByDay[day]
-                      : resolved.displayTitle}
-                  </Text>
-                  <Text style={styles.recentMeta} numberOfLines={1}>
-                    {durationLabel}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={(e) => {
-                    e?.stopPropagation?.();
-                    const native = e?.nativeEvent;
-                    setWorkoutMenuAnchor({
-                      x: typeof native?.pageX === "number" ? native.pageX : 320,
-                      y: typeof native?.pageY === "number" ? native.pageY : 220,
-                      width: 24,
-                      height: 24,
-                    });
-                    setSelectedWorkoutForMenu({ day, session });
-                    setWorkoutMenuOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Workout actions ${representative.id}`}
-                  hitSlop={10}
-                  style={styles.rowMenuBtn}
-                >
-                  <Text style={styles.rowMenuText}>•••</Text>
-                </Pressable>
-              </Pressable>
-            );
-          })
-        )}
-      </View>
 
       <WorkoutActionSheet
         visible={workoutMenuOpen && !!selectedWorkoutForMenu}

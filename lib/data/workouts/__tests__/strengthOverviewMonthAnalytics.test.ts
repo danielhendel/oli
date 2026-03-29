@@ -100,6 +100,30 @@ describe("strengthOverviewMonthAnalytics", () => {
     expect(metrics.typicalVolumeKg).toBe(900);
   });
 
+  it("prefers canonical volume from logged sets over totalVolume when exercises are present", () => {
+    const row: ManualWorkoutDaySummary = {
+      sessionId: "j1",
+      day: "2026-03-10",
+      startedAt: "2026-03-10T12:00:00.000Z",
+      customName: null,
+      totalVolume: 100,
+      avgIntensity: null,
+      exercises: [
+        {
+          exerciseId: "bench_press",
+          name: "Bench",
+          sets: [{ setNumber: 1, reps: 10, weightKg: 100, intensity: null }],
+        },
+      ],
+    };
+    const { metrics } = buildStrengthMonthOverviewFromCalendarDays(
+      [{ day: "2026-03-10", workouts: [strengthItem("a", "2026-03-10", 10)] }],
+      "2026-03",
+      { todayDayKey: "2026-03-31", manualJournalSummaries: [row] },
+    );
+    expect(metrics.typicalVolumeKg).toBe(1000);
+  });
+
   it("skips journal volume when the day already has ingested strength_workout volume", () => {
     const row: ManualWorkoutDaySummary = {
       sessionId: "j1",

@@ -43,11 +43,20 @@ function TestConsumer({
 }
 
 describe("RestTimerContext", () => {
+  let mounted: renderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     jest.useFakeTimers();
   });
   afterEach(() => {
+    const t = mounted;
+    mounted = null;
+    if (t != null) {
+      act(() => {
+        t.unmount();
+      });
+    }
     jest.useRealTimers();
   });
 
@@ -58,7 +67,7 @@ describe("RestTimerContext", () => {
       panelVisible: true,
     };
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <TestConsumer
             onState={(s) => {
@@ -89,7 +98,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -111,7 +120,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -135,7 +144,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -164,7 +173,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -197,7 +206,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -222,7 +231,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,
@@ -249,7 +258,7 @@ describe("RestTimerContext", () => {
       return null;
     }
     act(() => {
-      renderer.create(
+      mounted = renderer.create(
         <RestTimerProvider>
           <Consumer />
         </RestTimerProvider>,

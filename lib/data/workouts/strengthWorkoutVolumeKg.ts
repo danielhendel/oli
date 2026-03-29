@@ -13,7 +13,7 @@ function loadKg(load: number, unit: string): number | null {
 
 /**
  * Total training volume (kg) from a manual `strength_workout` ingest payload (`exercises[].sets[]`).
- * Mirrors inclusion rules used for manual journal volume: reps and load must be positive finite.
+ * Mirrors `lib/workouts/strength/strengthVolumeKg.ts`: warmup sets excluded; reps/load positive finite.
  */
 export function computeStrengthVolumeKgFromStrengthWorkoutPayload(payload: unknown): number | null {
   if (!isRecord(payload)) return null;
@@ -27,6 +27,7 @@ export function computeStrengthVolumeKgFromStrengthWorkoutPayload(payload: unkno
     if (!Array.isArray(sets)) continue;
     for (const set of sets) {
       if (!isRecord(set)) continue;
+      if (set.isWarmup === true) continue;
       const reps = set.reps;
       const load = set.load;
       const unit = set.unit;

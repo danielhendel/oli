@@ -8,7 +8,7 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 import type { DailyFactsDto } from "@/lib/contracts";
 import {
   formatAvgPaceMinPerMileLabel,
-  formatIntegerWithCommas,
+  formatTypicalStrengthVolumeLabel,
   formatWorkoutDistanceLabel,
   formatWorkoutTimeLabel,
   formatWorkoutDurationLabel,
@@ -21,12 +21,18 @@ import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { CARDIO_RED, WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
+import {
+  WORKOUT_STRENGTH_PROGRESS_FILL,
+  WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
+} from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   listManualWorkoutDaySummaries,
   totalVolumeKgForManualExercise,
+  trainingVolumeKgForManualExercises,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
+import { kgToLbs } from "@/lib/metrics/metricUnits";
 import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthSetDisplay";
 import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
 import { resolveStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
@@ -68,10 +74,6 @@ function aggregateHeartRateZoneMinutes(session: ReconciledWorkoutSession): Heart
     }
   }
   return any ? (sums as unknown as HeartRateZoneMinutes5) : null;
-}
-
-export function kgToLbs(kg: number): number {
-  return kg * 2.20462;
 }
 
 export function formatWeightLbs(kg: number | null | undefined): string {
@@ -436,6 +438,10 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
 
               if (showPremiumStrengthBlock) {
                 const exercises = manualDaySummary?.exercises ?? [];
+                const sessionTrainingVolumeKg =
+                  exercises.length > 0
+                    ? trainingVolumeKgForManualExercises(exercises)
+                    : manualDaySummary?.totalVolume ?? null;
                 const volumesKg = exercises.map((ex) => totalVolumeKgForManualExercise(ex));
                 const maxVolKg = Math.max(1, ...volumesKg);
                 const premiumTitle =
@@ -477,7 +483,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                           >
                             <Text style={styles.overviewMetricLabel}>Total Volume</Text>
                             <Text style={styles.overviewMetricValue}>
-                              {formatIntegerWithCommas(manualDaySummary?.totalVolume ?? null)}
+                              {formatTypicalStrengthVolumeLabel(sessionTrainingVolumeKg)}
                             </Text>
                           </View>
                           <View
@@ -542,7 +548,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                             const isLoadBased = loggingType === "weight_reps";
                             const totalReps = exercise.sets.reduce((sum, set) => sum + (set.reps ?? 0), 0);
                             const volKg = volumesKg[idx] ?? 0;
-                            const volLb = Math.round(volKg * LB_PER_KG);
+                            const volLb = Math.round(kgToLbs(volKg));
                             const volDisplay = isLoadBased
                               ? volLb >= 1
                                 ? `${volLb.toLocaleString()} lb`
@@ -618,6 +624,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                         reps: set.reps,
                                         weightKg: set.weightKg,
                                         intensity: set.intensity,
+                                        ...(set.isWarmup === true ? { isWarmup: true as const } : {}),
                                       });
                                       return (
                                         <View
@@ -786,7 +793,11 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                         <Text style={styles.kpiLabel}>{isStrength ? "Total Volume" : "Distance"}</Text>
                         <Text style={styles.kpiValue}>
                           {isStrength
-                            ? formatIntegerWithCommas(manualDaySummary?.totalVolume ?? null)
+                            ? formatTypicalStrengthVolumeLabel(
+                                manualDaySummary && manualDaySummary.exercises.length > 0
+                                  ? trainingVolumeKgForManualExercises(manualDaySummary.exercises)
+                                  : manualDaySummary?.totalVolume ?? null,
+                              )
                             : distanceLabel}
                         </Text>
                       </View>
@@ -1072,14 +1083,14 @@ const styles = StyleSheet.create({
   performanceVolume: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   performanceBarTrack: {
     height: 6,
-    backgroundColor: "#E5E5EA",
-    borderRadius: 3,
+    backgroundColor: WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
+    borderRadius: 999,
     overflow: "hidden",
   },
   performanceBarFill: {
     height: "100%",
-    backgroundColor: WORKOUT_STRENGTH_COLOR,
-    borderRadius: 3,
+    backgroundColor: WORKOUT_STRENGTH_PROGRESS_FILL,
+    borderRadius: 999,
   },
   performanceBarFillCardio: {
     height: "100%",

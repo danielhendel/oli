@@ -1,6 +1,7 @@
 import {
   defineMuscleContributions,
   getExerciseMuscleContributions,
+  getPrimaryMuscleGroupForExercise,
   getPrimaryMuscleGroupsForExercise,
 } from "@/lib/workouts/exercises/muscleContributions";
 
@@ -13,6 +14,7 @@ describe("exercise muscle contributions", () => {
     expect(groups).toContain("triceps");
     expect(groups).toContain("shoulders");
     expect(groups[0]).toBe("chest");
+    expect(getPrimaryMuscleGroupForExercise("bench_press")).toBe("chest");
   });
 
   it("returns squat contributions with quads/glutes emphasis", () => {
@@ -25,6 +27,10 @@ describe("exercise muscle contributions", () => {
     const groups = getPrimaryMuscleGroupsForExercise("romanian_deadlift");
     expect(groups).toContain("hamstrings");
     expect(groups).toContain("glutes");
+  });
+
+  it("falls back to exercise library primary bucket when contribution map is missing", () => {
+    expect(getPrimaryMuscleGroupForExercise("cable_bicep_curl")).toBe("biceps");
   });
 
   it("returns null/empty for unknown exercise ids", () => {

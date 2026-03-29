@@ -3,6 +3,10 @@
  * Epley e1RM = loadKg * (1 + reps/30). Same as lib/workouts/memory/exerciseHistory.
  */
 
+import { kgToLbs } from "@/lib/metrics/metricUnits";
+import { trainingVolumeKgForManualSet } from "@/lib/workouts/strength/strengthVolumeKg";
+
+/** lb per kg (display); prefer `kgToLbs(kg)` for totals to match `formatTypicalStrengthVolumeLabel`. */
 export const LB_PER_KG = 1 / 0.45359237;
 
 export function epleyE1RmKg(loadKg: number, reps: number): number {
@@ -17,6 +21,8 @@ export type StrengthSetDisplayInput = {
   weightKg?: number | null;
   rpe?: number | null;
   intensity?: number | null;
+  /** When true, Vol column shows "—" (excluded from training volume). */
+  isWarmup?: boolean;
 };
 
 export function formatStrengthSetTableCells(set: StrengthSetDisplayInput): {
@@ -37,8 +43,12 @@ export function formatStrengthSetTableCells(set: StrengthSetDisplayInput): {
   const safeReps = typeof reps === "number" && Number.isFinite(reps) ? reps : 0;
   const e1RmKg = hasLoad ? epleyE1RmKg(loadKg!, safeReps) : null;
   const e1RmStr = e1RmKg != null ? `${Math.round(e1RmKg * LB_PER_KG)}` : "—";
-  const volumeKg = hasLoad && safeReps > 0 ? safeReps * loadKg! : 0;
-  const volStr = volumeKg > 0 ? `${Math.round(volumeKg * LB_PER_KG)}` : "—";
+  const volumeKg = trainingVolumeKgForManualSet({
+    reps,
+    weightKg: loadKg ?? null,
+    ...(set.isWarmup === true ? { isWarmup: true as const } : {}),
+  });
+  const volStr = volumeKg > 0 ? `${Math.round(kgToLbs(volumeKg))}` : "—";
 
   return {
     setLabel: String(ord),

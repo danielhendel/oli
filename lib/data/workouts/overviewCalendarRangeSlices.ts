@@ -26,6 +26,23 @@ export function overviewSharedRangeBounds(args: {
   return { start, end };
 }
 
+/**
+ * Calendar hydrate bounds for the Strength **main tab** (Today, Recent, Weekly Insights only).
+ * Omits the year-wide analytics window so the first open does not fetch Jan–Dec solely for charts
+ * that live on Strength Analytics.
+ */
+export function overviewStrengthMainTabCalendarBounds(args: {
+  weekStart: DayKey;
+  weekEnd: DayKey;
+  recentStart: DayKey;
+  recentEnd: DayKey;
+}): { start: DayKey; end: DayKey } {
+  return {
+    start: minDayKey(args.weekStart, args.recentStart),
+    end: maxDayKey(args.weekEnd, args.recentEnd),
+  };
+}
+
 /** Inclusive day-key filter; `days` must be sorted by `day` ascending (same as calendar hydrate). */
 export function filterWorkoutCalendarDaysInclusive<T extends WorkoutCalendarDayLike>(
   days: readonly T[],

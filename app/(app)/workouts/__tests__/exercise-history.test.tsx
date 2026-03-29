@@ -64,6 +64,8 @@ const useExerciseHistory = require("@/lib/workouts/hooks/useExerciseHistory")
 const ExerciseHistoryScreen = require("../exercise-history").default;
 
 describe("exercise-history screen", () => {
+  let mounted: renderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
     mockUseLocalSearchParams.mockReturnValue({});
@@ -71,6 +73,16 @@ describe("exercise-history screen", () => {
       status: "partial",
       refetch: jest.fn(),
     });
+  });
+
+  afterEach(() => {
+    const t = mounted;
+    mounted = null;
+    if (t != null) {
+      act(() => {
+        t.unmount();
+      });
+    }
   });
 
   it("shows no exercise selected when exerciseId is missing", () => {
@@ -81,11 +93,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const emptyState = tree!.root.findAllByType("Text").find((t) => {
+    const emptyState = mounted!.root.findAllByType("Text").find((t) => {
       const c = t.props.children;
       return c === "No exercise selected";
     });
@@ -96,11 +107,10 @@ describe("exercise-history screen", () => {
     mockUseLocalSearchParams.mockReturnValue({ exerciseId: "bench_press" });
     useExerciseHistory.mockReturnValue({ status: "partial", refetch: jest.fn() });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const loadingText = tree!.root.findAllByType("Text").find(
+    const loadingText = mounted!.root.findAllByType("Text").find(
       (t) => t.props.children === "Loading history…" || t.props.children === "Loading…",
     );
     expect(loadingText).toBeTruthy();
@@ -122,11 +132,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const empty = tree!.root.findAllByType("Text").find((t) => {
+    const empty = mounted!.root.findAllByType("Text").find((t) => {
       const c = t.props.children;
       return c === "No history yet";
     });
@@ -141,11 +150,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const err = tree!.root.findAllByType("Text").find((t) => t.props.children === "Load failed");
+    const err = mounted!.root.findAllByType("Text").find((t) => t.props.children === "Load failed");
     expect(err).toBeTruthy();
   });
 
@@ -176,13 +184,12 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const chart = tree!.root.findByProps({ testID: "exercise-progress-chart" });
+    const chart = mounted!.root.findByProps({ testID: "exercise-progress-chart" });
     expect(chart).toBeTruthy();
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("1"))).toBe(true);
     expect(texts.some((s) => String(s).includes("Sessions"))).toBe(true);
   });
@@ -198,11 +205,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const chartWhenEmpty = tree!.root.findAllByProps({ testID: "exercise-progress-chart" });
+    const chartWhenEmpty = mounted!.root.findAllByProps({ testID: "exercise-progress-chart" });
     expect(chartWhenEmpty).toHaveLength(0);
 
     useExerciseHistory.mockReturnValue({
@@ -217,9 +223,9 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const chartWithHistory = tree!.root.findByProps({ testID: "exercise-progress-chart" });
+    const chartWithHistory = mounted!.root.findByProps({ testID: "exercise-progress-chart" });
     expect(chartWithHistory).toBeTruthy();
   });
 
@@ -234,13 +240,12 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const backBtn = tree!.root.findByProps({ testID: "exercise-history-back" });
+    const backBtn = mounted!.root.findByProps({ testID: "exercise-history-back" });
     expect(backBtn).toBeTruthy();
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("Bench Press") || String(s).includes("bench_press"))).toBe(true);
   });
 
@@ -258,11 +263,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s) === "Best Lift")).toBe(true);
     expect(texts.some((s) => String(s) === "Volume")).toBe(true);
   });
@@ -271,11 +275,10 @@ describe("exercise-history screen", () => {
     mockUseLocalSearchParams.mockReturnValue({ exerciseId: "bench_press" });
     useExerciseHistory.mockReturnValue({ status: "partial", refetch: jest.fn() });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    expect(tree!.root.findAllByType("Text").some((t) => t.props.children === "Loading history…")).toBe(true);
+    expect(mounted!.root.findAllByType("Text").some((t) => t.props.children === "Loading history…")).toBe(true);
 
     useExerciseHistory.mockReturnValue({
       status: "ready",
@@ -288,9 +291,9 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
     act(() => {
-      tree!.update(<ExerciseHistoryScreen />);
+      mounted!.update(<ExerciseHistoryScreen />);
     });
-    const chart = tree!.root.findByProps({ testID: "exercise-progress-chart" });
+    const chart = mounted!.root.findByProps({ testID: "exercise-progress-chart" });
     expect(chart).toBeTruthy();
   });
 
@@ -307,11 +310,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("Strength metrics"))).toBe(true);
     expect(texts.some((s) => String(s).includes("Best e1RM"))).toBe(true);
     expect(texts.some((s) => String(s).includes("Best BW Ratio"))).toBe(true);
@@ -334,11 +336,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("110.2 lb × 5"))).toBe(true);
   });
 
@@ -364,11 +365,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("88.2 lb × 10"))).toBe(true);
   });
 
@@ -385,11 +385,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("Best Actual Lift"))).toBe(true);
     expect(texts.some((s) => String(s) === "—")).toBe(true);
   });
@@ -407,11 +406,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s).includes("2 × 10 @ 90 lb"))).toBe(false);
   });
 
@@ -437,11 +435,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s) === "Set")).toBe(true);
     expect(texts.some((s) => String(s) === "Reps")).toBe(true);
     expect(texts.some((s) => String(s) === "Weight")).toBe(true);
@@ -471,11 +468,10 @@ describe("exercise-history screen", () => {
       refetch: jest.fn(),
     });
 
-    let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<ExerciseHistoryScreen />);
+      mounted = renderer.create(<ExerciseHistoryScreen />);
     });
-    const texts = tree!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
+    const texts = mounted!.root.findAllByType("Text").map((t) => (Array.isArray(t.props.children) ? t.props.children.join("") : t.props.children));
     expect(texts.some((s) => String(s) === "1")).toBe(true);
     expect(texts.some((s) => String(s) === "10")).toBe(true);
     expect(texts.some((s) => String(s) === "5")).toBe(true);

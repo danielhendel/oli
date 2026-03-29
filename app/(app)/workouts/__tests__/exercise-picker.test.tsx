@@ -106,7 +106,25 @@ jest.mock("@/lib/workouts/exercises/librarySections", () => ({
   }),
 }));
 
-jest.mock("expo-video");
+jest.mock("expo-video", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    VideoView: function VideoViewMock({ style }: { player?: unknown; style?: object }) {
+      return React.createElement(View, { testID: "expo-video-mock-view", style });
+    },
+    useVideoPlayer: jest.fn((_source: unknown, setup?: (p: Record<string, unknown>) => void) => {
+      const p = {
+        loop: false,
+        muted: false,
+        play: jest.fn(),
+        pause: jest.fn(),
+      };
+      setup?.(p);
+      return p;
+    }),
+  };
+});
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: function MockIonicons() {
@@ -141,8 +159,13 @@ describe("workouts/exercise-picker", () => {
   });
 
   afterEach(() => {
-    test?.unmount();
+    const t = test;
     test = null;
+    if (t != null) {
+      act(() => {
+        t.unmount();
+      });
+    }
   });
 
   it("expect Pick Bench Press still exists", async () => {
