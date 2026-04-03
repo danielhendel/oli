@@ -105,6 +105,22 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertFails(db.doc(`users/${uid}/healthSignals/2026-01-01`).delete());
   });
 
+  it("allows owner read of users/{uid}/profile/* and denies client writes", async () => {
+    const uid = "user_a";
+
+    await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
+      const db = ctx.firestore();
+      await db.doc(`users/${uid}/profile/main`).set({
+        identity: { firstName: "A" },
+      });
+    });
+
+    const db = userDb({ uid });
+    await assertSucceeds(db.doc(`users/${uid}/profile/main`).get());
+    await assertFails(db.doc(`users/${uid}/profile/main`).set({ any: "x" }));
+    await assertFails(db.doc(`users/${uid}/profile/main`).update({ any: "x" }));
+  });
+
   it("denies cross-user reads (user isolation)", async () => {
     const uidA = "user_a";
     const uidB = "user_b";

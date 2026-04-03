@@ -1,8 +1,9 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_FILL_14 } from "@/lib/ui/theme/systemAccent";
 
-export const BODY_INDIGO = "#4F46E5";
-const BODY_INDIGO_FILL = "rgba(79, 70, 229, 0.14)";
+/** @deprecated Use {@link SYSTEM_ACCENT} from `@/lib/ui/theme/systemAccent`. */
+export const BODY_INDIGO = SYSTEM_ACCENT;
 
 type BodyDayRingProps = {
   size: number;
@@ -35,7 +36,7 @@ export function BodyDayRing({ size, hasMeasurement, emphasized = false, testID }
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderWidth: emphasized ? 2.5 : 2,
+            borderWidth: emphasized ? 2.75 : 1.75,
           },
         ]}
       />
@@ -51,11 +52,11 @@ const styles = StyleSheet.create({
   },
   fillDisk: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: BODY_INDIGO_FILL,
+    backgroundColor: SYSTEM_ACCENT_FILL_14,
   },
   ring: {
     ...StyleSheet.absoluteFillObject,
-    borderColor: BODY_INDIGO,
+    borderColor: SYSTEM_ACCENT,
   },
 });
 

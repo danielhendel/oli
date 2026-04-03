@@ -76,7 +76,7 @@ The following route files must exist:
 | Manage | `app/(app)/(tabs)/manage.tsx` |
 | Library index | `app/(app)/(tabs)/library/index.tsx` |
 | Library category | `app/(app)/(tabs)/library/[category].tsx` |
-| Stats | `app/(app)/(tabs)/stats.tsx` |
+| Profile | `app/(app)/(tabs)/profile.tsx` |
 | Event detail | `app/(app)/event/[id].tsx` |
 | Lineage | `app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx` |
 | Replay day | `app/(app)/(tabs)/library/replay/day/[dayKey].tsx` |

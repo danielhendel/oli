@@ -9,6 +9,7 @@ import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
+import profileMainRoutes from "./routes/profileMain";
 import integrationsRoutes, { handleOuraCallback } from "./routes/integrations";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
 import ouraIngestRouter from "./routes/integrations/ouraIngest";
@@ -115,6 +116,11 @@ app.use("/uploads", authMiddleware, uploadsRoutes);
  * Phase 1: units + timezone bucketing preferences.
  */
 app.use("/preferences", authMiddleware, preferencesRoutes);
+
+/**
+ * Profile main (`users/{uid}/profile/main`) — authenticated read/write via API.
+ */
+app.use("/profile", authMiddleware, profileMainRoutes);
 
 /**
  * AUTHENTICATED READ BOUNDARY

@@ -35,6 +35,15 @@ jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: (...args: unknown[]) => mockHook(...args),
 }));
 
+jest.mock("@/lib/data/body/useBodyCompositionInterpretation", () => {
+  const { buildBodyOverviewInterpretations } = require("@/lib/body/bodyCompositionInterpretation");
+  const { defaultUserProfileMain } = require("@oli/contracts");
+  return {
+    useBodyCompositionInterpretation: (overview: unknown) =>
+      buildBodyOverviewInterpretations(defaultUserProfileMain(), overview, { massDisplayUnit: "lb" }),
+  };
+});
+
 const mockAccess = jest.fn();
 jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
   useAppleHealthBodyAccessState: () => mockAccess(),
@@ -181,7 +190,11 @@ describe("Body Composition main screen", () => {
     });
     const weightRow = tree.root
       .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === "Open weight details");
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Open weight details"),
+      );
     expect(weightRow).toBeDefined();
     act(() => {
       weightRow!.props.onPress();
@@ -217,7 +230,10 @@ describe("Body Composition main screen", () => {
     });
     const bmiRow = tree.root
       .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === "Open BMI details");
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" && p.props.accessibilityLabel.startsWith("Open BMI details"),
+      );
     act(() => {
       bmiRow!.props.onPress();
     });
@@ -225,14 +241,18 @@ describe("Body Composition main screen", () => {
     mockPush.mockClear();
     const bfRow = tree.root
       .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === "Open body fat details");
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Open body fat details"),
+      );
     act(() => {
       bfRow!.props.onPress();
     });
     expect(mockPush).toHaveBeenLastCalledWith(BODY_METRIC_DETAIL_HREFS.bodyFat);
   });
 
-  it("renders BMI, lean body mass, and RMR on overview when present", () => {
+  it("renders BMI and lean body mass on overview when present (RMR not on overview card)", () => {
     const day = "2026-03-31";
     mockHook.mockReturnValue(
       buildBody({
@@ -273,8 +293,9 @@ describe("Body Composition main screen", () => {
     expect(text).toContain("24.2");
     expect(text).toContain("Lean Body Mass");
     expect(text).toContain("132.3 lb");
-    expect(text).toContain("RMR");
-    expect(text).toContain("1780 kcal/day");
+    expect(text).not.toContain("RMR");
+    expect(text).not.toContain("1780 kcal/day");
+    expect(text).toMatch(/Fair|Good|Optimal|Out of range|No data/);
   });
 
   it("routes to body day from weekly strip tap", () => {

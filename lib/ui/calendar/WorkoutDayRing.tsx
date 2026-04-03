@@ -1,28 +1,33 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-
-/** System strength accent — charts, tabs, links (unchanged). */
-export const WORKOUT_STRENGTH_COLOR = "#007AFF";
-/** System cardio accent — charts, tabs (unchanged). */
-export const CARDIO_RED = "#FF3B30";
-
-/** Softer blue for ring strokes (less heavy than {@link WORKOUT_STRENGTH_COLOR}). */
-const RING_STRENGTH_STROKE = "#4A9EF5";
-/** Softer red for ring strokes and mixed-day dot (less heavy than {@link CARDIO_RED}). */
-const RING_CARDIO_STROKE = "#FF6A62";
+import {
+  SYSTEM_ACCENT,
+  SYSTEM_ACCENT_FILL_11,
+  SYSTEM_ACCENT_MIXED_MARK,
+  SYSTEM_ACCENT_OVERLAY_10,
+} from "@/lib/ui/theme/systemAccent";
 
 /**
- * Light blue center fill inside the weekly calendar day circle for strength days (inner `fillDisk` in
- * {@link WorkoutDayRing}). Same value as the previous private `RING_STRENGTH_FILL`.
+ * @deprecated Use {@link SYSTEM_ACCENT} from `@/lib/ui/theme/systemAccent`. Kept for call-site imports.
  */
-export const STRENGTH_ACCENT_LIGHT = "rgba(74, 158, 245, 0.11)";
-const RING_STRENGTH_FILL = STRENGTH_ACCENT_LIGHT;
-const RING_CARDIO_FILL = "rgba(255, 106, 98, 0.11)";
-/** Mixed days: single blue ring + red dot; use calm blue wash (no split fill). */
-const RING_MIXED_FILL = "rgba(74, 158, 245, 0.1)";
+export const WORKOUT_STRENGTH_COLOR = SYSTEM_ACCENT;
+/**
+ * @deprecated Use {@link SYSTEM_ACCENT}. Calendar rings no longer use a separate cardio red.
+ */
+export const CARDIO_RED = SYSTEM_ACCENT;
 
-const STROKE_WIDTH = 2;
-const STROKE_WIDTH_EMPHASIZED = 2.5;
+/**
+ * @deprecated Ring fill is {@link SYSTEM_ACCENT_FILL_11}; name retained for analytics theme comments.
+ */
+export const STRENGTH_ACCENT_LIGHT = SYSTEM_ACCENT_FILL_11;
+
+const RING_STROKE = SYSTEM_ACCENT;
+const RING_FILL = SYSTEM_ACCENT_FILL_11;
+const RING_MIXED_FILL = SYSTEM_ACCENT_OVERLAY_10;
+
+/** Default ring: slightly finer so selected (emphasized) reads clearly. */
+const STROKE_WIDTH = 1.75;
+const STROKE_WIDTH_EMPHASIZED = 2.75;
 
 export type WorkoutDayRingProps = {
   size: number;
@@ -31,7 +36,7 @@ export type WorkoutDayRingProps = {
   /** True when this day is “today” / primary selection — slightly stronger presence. */
   emphasized?: boolean;
   outerTestID?: string;
-  /** Mixed-day cardio dot below the date, bottom-center inside the ring (legacy id: was inner ring). */
+  /** Mixed-day marker below the date, bottom-center inside the ring. */
   innerTestID?: string;
 };
 
@@ -46,7 +51,6 @@ export function WorkoutDayRing({
   if (!hasStrength && !hasCardio) return null;
 
   const strokeWidth = emphasized ? STROKE_WIDTH_EMPHASIZED : STROKE_WIDTH;
-  const outerColor = hasStrength ? RING_STRENGTH_STROKE : RING_CARDIO_STROKE;
   const isMixed = hasStrength && hasCardio;
   /** Small marker; sits under the centered date without touching the ring stroke. */
   const dotSize = Math.max(4, Math.round(size * 0.15));
@@ -64,7 +68,7 @@ export function WorkoutDayRing({
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: isMixed ? RING_MIXED_FILL : hasStrength ? RING_STRENGTH_FILL : RING_CARDIO_FILL,
+            backgroundColor: isMixed ? RING_MIXED_FILL : RING_FILL,
           },
         ]}
       />
@@ -78,7 +82,7 @@ export function WorkoutDayRing({
             height: size,
             borderRadius: size / 2,
             borderWidth: strokeWidth,
-            borderColor: outerColor,
+            borderColor: RING_STROKE,
           },
         ]}
       />
@@ -94,7 +98,7 @@ export function WorkoutDayRing({
               borderRadius: dotSize / 2,
               left: dotLeft,
               bottom: dotBottom,
-              backgroundColor: RING_CARDIO_STROKE,
+              backgroundColor: SYSTEM_ACCENT_MIXED_MARK,
             },
           ]}
         />

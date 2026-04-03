@@ -41,7 +41,11 @@ export function BodyWeeklyStrip({ days, selectedDay, onDayPress }: BodyWeeklyStr
                 hasMeasurement ? `${d.day}, has body measurement` : `${d.day}, no body measurement`
               }
               hitSlop={8}
-              style={({ pressed }) => [styles.dayCell, pressed && styles.dayCellPressed]}
+              style={({ pressed }) => [
+                styles.dayCell,
+                isSelected && styles.dayCellSelected,
+                pressed && styles.dayCellPressed,
+              ]}
             >
               <Text style={styles.dayOfWeek}>{getDayOfWeekLabel(d.day)}</Text>
               <View style={[styles.dayCircle, isSelected && styles.dayCircleSelected]}>
@@ -69,6 +73,7 @@ const styles = StyleSheet.create({
   container: { width: "100%", paddingHorizontal: 0, paddingBottom: 2, paddingTop: 0 },
   row: { flexDirection: "row", width: "100%", alignItems: "flex-start", justifyContent: "space-between" },
   dayCell: { flex: 1, minWidth: 0, alignItems: "center", justifyContent: "flex-start" },
+  dayCellSelected: {},
   dayCellPressed: { opacity: 0.7 },
   dayOfWeek: { fontSize: 13, color: "#8E8E93", marginBottom: 2 },
   dayCircle: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },

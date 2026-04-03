@@ -48,16 +48,17 @@ export function mapReadStatusesToSnapshot(readStatuses: number[] | undefined): B
  * Derives Body overview UX phase from HealthKit auth, sync activity, and whether Oli has any body raw points.
  * Pure — no I/O; screens consume via useAppleHealthBodyAccessState.
  *
- * Precedence (data / successful pipeline over flaky auth introspection):
+ * Precedence (stale-while-revalidate: data / pipeline over transient auth + background sync):
  * 1. Non‑iOS → unavailable
- * 2. Sync or backfill running → syncing
- * 3. Weight series ready and Oli has body samples → ready (trends may still be loading on other screens)
- * 4. HealthKit body pipeline succeeded → wait for series + overview probe (and trends when observed), then granted_no_data if still empty;
- *    never surface connect/denied while pipeline proves reads+ingest worked (avoids flaky getAuthStatus).
+ * 2. Weight series ready and Oli has body samples → ready (background sync does not downgrade to syncing/connect)
+ * 3. Sync or backfill running → syncing (only when not already showing data in step 2)
+ * 4. HealthKit body pipeline succeeded (session or persisted storage) → wait for series + overview probe (and trends when observed),
+ *    then granted_no_data if still empty; never surface connect/denied while pipeline proves reads+ingest worked.
  * 5. Auth still loading → loading
  * 6. Auth probe unavailable → unavailable
- * 7. not_determined / denied from combined read statuses (only when no pipeline evidence)
- * 8. Otherwise loading until series+trends ready, then granted_no_data or ready
+ * 7. Before persisted hydration finishes on iOS, not_determined/denied → loading (avoids connect flicker while AsyncStorage loads)
+ * 8. not_determined / denied (first-run or revoked) when hydrated and no pipeline evidence
+ * 9. Otherwise loading until series+trends ready, then granted_no_data or ready
  */
 export function deriveAppleHealthBodyUxPhase(input: {
   platform: string;
@@ -72,14 +73,19 @@ export function deriveAppleHealthBodyUxPhase(input: {
   /** Single-page overview raw-events probe; when pending, pipeline gate waits. */
   overviewProbePending: boolean;
   hasAnyBodySampleInOli: boolean;
-  /** True after a successful incremental body sync or completed backfill — proves reads can run even if getAuthStatus is wrong. */
+  /** True after successful sync this session, completed backfill this session, or persisted pipeline markers from storage. */
   hasHealthKitBodyPipelineEvidence: boolean;
+  /**
+   * False only briefly on iOS while reading AsyncStorage for prior pipeline evidence.
+   * When false, suppress not_determined/denied so the connect card does not flash on warm load.
+   */
+  persistedPipelineEvidenceHydrated: boolean;
 }): AppleHealthBodyUxPhase {
   if (input.platform !== "ios") return "unavailable";
 
-  if (input.isBodySyncing || input.isBackfillRunning) return "syncing";
-
   if (input.seriesReady && input.hasAnyBodySampleInOli) return "ready";
+
+  if (input.isBodySyncing || input.isBackfillRunning) return "syncing";
 
   if (input.hasHealthKitBodyPipelineEvidence) {
     if (!input.seriesReady || input.overviewProbePending) return "loading";
@@ -92,6 +98,11 @@ export function deriveAppleHealthBodyUxPhase(input: {
 
   const snap = input.authSnapshot;
   if (snap.kind === "unavailable") return "unavailable";
+
+  if (!input.persistedPipelineEvidenceHydrated) {
+    if (snap.kind === "not_determined" || snap.kind === "denied") return "loading";
+  }
+
   if (snap.kind === "not_determined") return "not_determined";
   if (snap.kind === "denied") return "denied";
 

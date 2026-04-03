@@ -65,9 +65,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headerCompact: {
-    paddingTop: 5,
-    paddingBottom: 2,
-    gap: 4,
+    paddingTop: 4,
+    paddingBottom: 1,
+    gap: 3,
   },
   title: {
     fontSize: 28,

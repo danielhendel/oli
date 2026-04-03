@@ -86,6 +86,7 @@ import {
   type StrengthLoggingType,
 } from "@/lib/workouts/exercises/loggingType";
 import { exitLiveWorkoutLogToOverview } from "@/lib/workouts/navigation/exitWorkoutLogFlow";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
@@ -2739,7 +2740,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: "#FF3B30",
+    backgroundColor: SYSTEM_ACCENT,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
@@ -2790,9 +2791,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.2)",
   },
-  startGymOptionRowSelected: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)" },
+  startGymOptionRowSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: SYSTEM_ACCENT_OVERLAY_08 },
   startGymOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
-  startGymOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
+  startGymOptionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
   content: { padding: 16, paddingBottom: 110, gap: 16 },
   bottomNav: {
     position: "absolute",
@@ -2832,7 +2833,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
   },
   finishBtn: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: SYSTEM_ACCENT,
     paddingVertical: 12,
     paddingHorizontal: 28,
     borderRadius: 22,
@@ -2864,7 +2865,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   finishSheetPrimary: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: SYSTEM_ACCENT,
     minHeight: 50,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -2915,7 +2916,7 @@ const styles = StyleSheet.create({
   bottomRow: { flexDirection: "row", gap: 10 },
   bottomBtnPrimary: {
     flex: 1,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
@@ -2951,7 +2952,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2991,7 +2992,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 10,
   },
   primaryBtnDisabled: { opacity: 0.6 },
@@ -2999,7 +3000,7 @@ const styles = StyleSheet.create({
   smallBtn: {
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 10,
   },
   smallBtnText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
@@ -3064,7 +3065,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3089,7 +3090,7 @@ const styles = StyleSheet.create({
   addExerciseInBlockBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 8,
   },
   addExerciseInBlockBtnText: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
@@ -3376,7 +3377,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 8,
   },
-  draftPickerDoneBtnText: { fontSize: 17, fontWeight: "600", color: "#007AFF" },
+  draftPickerDoneBtnText: { fontSize: 17, fontWeight: "600", color: SYSTEM_ACCENT },
   logDraftBtn: {
     width: 56,
     minHeight: 44,
@@ -3407,7 +3408,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: "center",
   },
-  addSetSmallBtnText: { fontSize: 16, fontWeight: "600", color: "#007AFF" },
+  addSetSmallBtnText: { fontSize: 16, fontWeight: "600", color: SYSTEM_ACCENT },
   sheetBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -3537,7 +3538,7 @@ const styles = StyleSheet.create({
   blockTypeBtn: {
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 10,
     alignItems: "center",
   },

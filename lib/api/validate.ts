@@ -58,6 +58,43 @@ export async function apiGetZodAuthed<T>(
   };
 }
 
+/**
+ * Like apiGetZodAuthed, but HTTP 404 is treated as “resource not created yet” and returns
+ * `notFoundValue` with ok:true (no error surface). Other failures are unchanged.
+ */
+export async function apiGetZodAuthedDefaultOn404<T>(
+  path: string,
+  idToken: string,
+  schema: z.ZodType<T>,
+  notFoundValue: T,
+  opts?: GetOptions,
+): Promise<ApiResult<T>> {
+  const res = await apiGetJsonAuthed<unknown>(path, idToken, opts);
+
+  if (!res.ok && res.status === 404) {
+    return {
+      ok: true,
+      status: 200,
+      requestId: res.requestId,
+      json: notFoundValue,
+    };
+  }
+
+  if (!res.ok) return res as ApiResult<T>;
+
+  const parsed = schema.safeParse(res.json);
+  if (!parsed.success) {
+    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+  }
+
+  return {
+    ok: true,
+    status: res.status,
+    requestId: res.requestId,
+    json: parsed.data,
+  };
+}
+
 export async function apiPostZodAuthed<T>(
   path: string,
   body: unknown,

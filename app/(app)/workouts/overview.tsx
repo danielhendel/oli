@@ -32,6 +32,7 @@ import {
   WORKOUTS_SCREEN_CONTENT_BG,
   workoutsStackNavigationOptions,
 } from "@/lib/ui/headers/workoutsStackHeader";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
@@ -533,7 +534,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
           <HeaderIconButton
             iconName="calendar-outline"
             iconSize={24}
-            color="#FF3B30"
+            color={SYSTEM_ACCENT}
             accessibilityLabel={`Open ${shellTitle.toLowerCase()} calendar`}
             onPress={() =>
               router.push(domain === "strength" ? "/(app)/workouts/calendar" : "/(app)/cardio/calendar")
@@ -1070,7 +1071,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 10,
   },
   primaryBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
@@ -1119,9 +1120,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.2)",
   },
-  menuOptionRowSelected: { borderColor: "#007AFF", backgroundColor: "rgba(0,122,255,0.08)" },
+  menuOptionRowSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: SYSTEM_ACCENT_OVERLAY_08 },
   menuOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
-  menuOptionCheck: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
+  menuOptionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
   editorInput: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,

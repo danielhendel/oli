@@ -35,6 +35,7 @@ import {
   type CustomExerciseRecord,
 } from "@/lib/workouts/exercises/customExerciseStore";
 import { normalizeStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 type Equipment = "any" | "barbell" | "dumbbell" | "machine" | "bodyweight";
 type Muscle = "any" | "chest" | "back" | "legs" | "shoulders" | "biceps" | "triceps" | "core";
@@ -946,7 +947,7 @@ const styles = StyleSheet.create({
   createExerciseCtaText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -980,7 +981,7 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     fontSize: 14,
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
     fontWeight: "600",
   },
   filterButton: {
@@ -992,14 +993,14 @@ const styles = StyleSheet.create({
   },
   filterIcon: {
     fontSize: 14,
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
     fontWeight: "600",
   },
   filterBadge: {
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1035,7 +1036,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E5EA",
   },
   chipSelected: {
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
   },
   chipText: {
     fontSize: 14,
@@ -1150,7 +1151,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   addButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
@@ -1240,7 +1241,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     alignItems: "center",
   },
   filterDoneText: {

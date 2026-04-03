@@ -13,7 +13,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
       }}
     >
-      {/* Left → right: Dash, Timeline, Manage, Library, Stats */}
+      {/* Left → right: Dash, Timeline, Manage, Library, Profile */}
       <Tabs.Screen
         name="dash"
         options={{
@@ -55,12 +55,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="stats"
+        name="profile"
         options={{
-          title: "Stats",
-          tabBarAccessibilityLabel: "Stats",
+          title: "Profile",
+          tabBarAccessibilityLabel: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size ?? 24} color={color} />
+            <Ionicons name="person-circle-outline" size={size ?? 24} color={color} />
           ),
         }}
       />

@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 /**
  * Shared title row for Workouts Overview in-card section headers:
@@ -17,7 +18,7 @@ export const workoutOverviewInCardHeaderStyles = StyleSheet.create({
     letterSpacing: -0.35,
   },
   linkHit: { paddingVertical: 4, paddingLeft: 8 },
-  link: { fontSize: 15, fontWeight: "600", color: "#007AFF", letterSpacing: -0.2 },
+  link: { fontSize: 15, fontWeight: "600", color: SYSTEM_ACCENT, letterSpacing: -0.2 },
   /** Matches HeaderIconButton / link rows: quiet opacity on press. */
   linkPressed: { opacity: 0.55 },
 });

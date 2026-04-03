@@ -27,7 +27,7 @@ const UI_ROUTES = [
   "app/(app)/(tabs)/manage.tsx",
   "app/(app)/(tabs)/library/index.tsx",
   "app/(app)/(tabs)/library/[category].tsx",
-  "app/(app)/(tabs)/stats.tsx",
+  "app/(app)/(tabs)/profile.tsx",
   "app/(app)/event/[id].tsx",
   "app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx",
   "app/(app)/(tabs)/library/replay/day/[dayKey].tsx",
@@ -178,7 +178,7 @@ ${UI_ROUTES.map((r) => `- ${r}`).join("\n")}
 - app/(app)/(tabs)/manage.tsx
 - app/(app)/(tabs)/library/index.tsx
 - app/(app)/(tabs)/library/[category].tsx
-- app/(app)/(tabs)/stats.tsx
+- app/(app)/(tabs)/profile.tsx
 - app/(app)/event/[id].tsx
 - app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx
 - app/(app)/(tabs)/library/replay/day/[dayKey].tsx

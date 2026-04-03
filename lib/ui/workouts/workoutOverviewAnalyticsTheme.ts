@@ -1,48 +1,38 @@
-import { CARDIO_RED, WORKOUT_STRENGTH_COLOR } from "@/lib/ui/calendar/WorkoutDayRing";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_TILE_WASH } from "@/lib/ui/theme/systemAccent";
 
 /**
- * Strength progress bars outside the overview (e.g. workout day exercise rows): system strength accent.
+ * Strength progress bars outside the overview (e.g. workout day exercise rows).
  */
 export const WORKOUT_STRENGTH_PROGRESS_TRACK_BG = "#E5E5EA";
-export const WORKOUT_STRENGTH_PROGRESS_FILL = WORKOUT_STRENGTH_COLOR;
+export const WORKOUT_STRENGTH_PROGRESS_FILL = SYSTEM_ACCENT;
 
 /**
- * Medium-light strength blue for Strength overview progress bars (Today, Weekly Strength, Weekly Muscle Group).
- *
- * - Softer than {@link WORKOUT_STRENGTH_COLOR} (`#007AFF`, monthly/yearly chart bars).
- * - More legible than the calendar inner-disk wash (`STRENGTH_ACCENT_LIGHT` in WorkoutDayRing, ~11% opacity).
- *
- * Value: 50% RGB blend of chart blue `#007AFF` and the wash base `#4A9EF5` (ring stroke family).
+ * Overview card progress bars (Today, weekly cards) — same accent family, full-opacity stroke on track.
  */
-export const WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL = "#258CFA";
+export const WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL = SYSTEM_ACCENT;
+
+/** Metric tiles under charts — shared light wash for Strength and Cardio (unified accent). */
+export const WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG = SYSTEM_ACCENT_TILE_WASH;
+export const WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG = SYSTEM_ACCENT_TILE_WASH;
+
+const UNIFIED_TAB = {
+  barColor: SYSTEM_ACCENT,
+  metricTileBg: WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG,
+  tabTextActive: SYSTEM_ACCENT,
+} as const;
 
 /**
- * Strength metric tiles: lighter blue than chart {@link WORKOUT_STRENGTH_COLOR} so
- * tiles read soft while bars stay the primary accent.
+ * Strength vs Cardio tabs share the system accent; domain is kept for API stability.
  */
-export const WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG = "#4F8FF7";
-
-/**
- * Cardio metric tiles: lighter red in the same family as {@link CARDIO_RED} for
- * identity without heavy fill next to chart bars.
- */
-export const WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG = "#F25A52";
-
-export function overviewAccentForTab(tab: "strength" | "cardio"): {
+export function overviewAccentForTab(_tab: "strength" | "cardio"): {
   barColor: string;
   metricTileBg: string;
   tabTextActive: string;
 } {
-  if (tab === "strength") {
-    return {
-      barColor: WORKOUT_STRENGTH_COLOR,
-      metricTileBg: WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG,
-      tabTextActive: WORKOUT_STRENGTH_COLOR,
-    };
-  }
+  void _tab;
   return {
-    barColor: CARDIO_RED,
-    metricTileBg: WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG,
-    tabTextActive: CARDIO_RED,
+    barColor: UNIFIED_TAB.barColor,
+    metricTileBg: UNIFIED_TAB.metricTileBg,
+    tabTextActive: UNIFIED_TAB.tabTextActive,
   };
 }

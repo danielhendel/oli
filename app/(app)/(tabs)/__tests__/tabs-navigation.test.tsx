@@ -68,7 +68,7 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("has 5 visible tabs in order: Dash, Timeline, Manage, Library, Stats", () => {
+  it("has 5 visible tabs in order: Dash, Timeline, Manage, Library, Profile", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -84,11 +84,11 @@ describe("TabsLayout", () => {
     expect(titles).toContain("Library");
     expect(titles).toContain("Manage");
     expect(titles).toContain("Timeline");
-    expect(titles).toContain("Stats");
+    expect(titles).toContain("Profile");
     expect(titles).toContain("Dash");
     expect(titles.indexOf("Dash")).toBeLessThan(titles.indexOf("Timeline"));
     expect(titles.indexOf("Timeline")).toBeLessThan(titles.indexOf("Manage"));
     expect(titles.indexOf("Manage")).toBeLessThan(titles.indexOf("Library"));
-    expect(titles.indexOf("Library")).toBeLessThan(titles.indexOf("Stats"));
+    expect(titles.indexOf("Library")).toBeLessThan(titles.indexOf("Profile"));
   });
 });

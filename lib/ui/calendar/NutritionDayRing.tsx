@@ -1,8 +1,8 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { NUTRITION_ACCENT, NUTRITION_ACCENT_LIGHT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
-const STROKE_WIDTH = 2;
-const STROKE_WIDTH_EMPHASIZED = 2.5;
+const STROKE_WIDTH = 1.75;
+const STROKE_WIDTH_EMPHASIZED = 2.75;
 
 export type NutritionDayRingProps = {
   size: number;

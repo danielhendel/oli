@@ -9,6 +9,7 @@ import {
   createCustomExercise,
   type CustomExerciseLoggingType,
 } from "@/lib/workouts/exercises/customExerciseStore";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const EQUIPMENT_OPTIONS: Equipment[] = [
   "Barbell",
@@ -239,13 +240,13 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
-  chipSelected: { backgroundColor: "#007AFF" },
+  chipSelected: { backgroundColor: SYSTEM_ACCENT },
   chipText: { fontSize: 13, fontWeight: "600", color: "#1C1C1E" },
   chipTextSelected: { color: "#FFFFFF" },
   error: { color: "#B00020", fontSize: 13, fontWeight: "600", marginTop: 4 },
   saveButton: {
     marginTop: 10,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 12,
     minHeight: 50,
     alignItems: "center",
