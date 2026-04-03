@@ -14,7 +14,7 @@ export default function AppLayout() {
             headerShadowVisible: false,
           }}
         >
-          {/* Sprint 3 — Phase 1 tabs (Library, Manage, Timeline, Stats, Dash) */}
+          {/* Sprint 3 — Phase 1 tabs (Library, Manage, Timeline, Profile, Dash) */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
           {/* Event detail (from Library / Timeline) */}
@@ -166,6 +166,7 @@ export default function AppLayout() {
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
+          <Stack.Screen name="profile/edit/[field]" options={{ title: "Edit" }} />
           {/* Secondary: API-ingest strength form. Primary strength log is workouts/log. */}
           <Stack.Screen name="training/strength/log" options={{ title: "Log Strength" }} />
           <Stack.Screen name="log/index" options={{ title: "Quick log" }} />

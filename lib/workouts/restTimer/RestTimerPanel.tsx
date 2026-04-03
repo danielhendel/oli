@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRestTimer } from "./RestTimerContext";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 /** Preset durations in seconds; 2m = 120 */
 const PRESETS_SEC = [30, 45, 60, 90, 120];
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
   activeBtn: {
     paddingVertical: 10,
     paddingHorizontal: 14,
-    backgroundColor: "#007AFF",
+    backgroundColor: SYSTEM_ACCENT,
     borderRadius: 10,
   },
   activeBtnSecondary: {

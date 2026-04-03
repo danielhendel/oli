@@ -28,15 +28,15 @@ import {
   resolveStrengthLoggingType,
   type StrengthLoggingType,
 } from "@/lib/workouts/exercises/loggingType";
-
-/** Semantic colors for strength/volume metrics. Used for numeric values only, not labels. */
-const metricStrength = "#FF3B30";
-const metricVolume = "#34C759";
-
 import {
   formatStrengthSetTableCells,
   LB_PER_KG,
 } from "@/lib/workouts/strengthSetDisplay";
+import { SYSTEM_ACCENT, SYSTEM_METRIC_SECONDARY } from "@/lib/ui/theme/systemAccent";
+
+/** Primary vs secondary series for load vs volume numerics (not module brand colors). */
+const metricStrength = SYSTEM_ACCENT;
+const metricVolume = SYSTEM_METRIC_SECONDARY;
 
 function formatDate(iso: string): string {
   try {

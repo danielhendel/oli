@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const PADDING = { left: 44, right: 8, top: 8, bottom: 44 };
 const Y_LABEL_FONT_SIZE = 11;
@@ -14,7 +15,8 @@ const X_LABEL_FONT_SIZE = 11;
 const CHART_HEIGHT = 180;
 const DOT_R = 5;
 const CROSSHAIR_COLOR = "#8E8E93";
-const ACCENT_BLUE = "#007AFF";
+
+const ACCENT_BLUE = SYSTEM_ACCENT;
 const LINE_WIDTH = 2;
 const GRID_COLOR = "#E5E5EA";
 const AREA_OPACITY = 0.25;

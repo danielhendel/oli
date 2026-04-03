@@ -33,6 +33,7 @@ describe("deriveAppleHealthBodyUxPhase", () => {
     overviewProbePending: false,
     hasAnyBodySampleInOli: false,
     hasHealthKitBodyPipelineEvidence: false,
+    persistedPipelineEvidenceHydrated: true,
   };
 
   it("returns loading when auth is loading", () => {
@@ -111,7 +112,7 @@ describe("deriveAppleHealthBodyUxPhase", () => {
     ).toBe("granted_no_data");
   });
 
-  it("returns syncing when body sync is running", () => {
+  it("stays ready when body sync runs but Oli already has samples (no syncing banner)", () => {
     expect(
       deriveAppleHealthBodyUxPhase({
         ...base,
@@ -119,7 +120,7 @@ describe("deriveAppleHealthBodyUxPhase", () => {
         isBodySyncing: true,
         hasAnyBodySampleInOli: true,
       }),
-    ).toBe("syncing");
+    ).toBe("ready");
   });
 
   it("returns syncing when backfill is running", () => {
@@ -241,5 +242,60 @@ describe("deriveAppleHealthBodyUxPhase", () => {
         hasAnyBodySampleInOli: false,
       }),
     ).toBe("loading");
+  });
+
+  it("returns loading when not_determined but persisted evidence has not hydrated yet (avoid connect flicker)", () => {
+    expect(
+      deriveAppleHealthBodyUxPhase({
+        ...base,
+        authSnapshot: mapAuthNumbersToSnapshot(HK_AUTH_NOT_DETERMINED),
+        persistedPipelineEvidenceHydrated: false,
+      }),
+    ).toBe("loading");
+  });
+
+  it("returns loading when denied but persisted evidence has not hydrated yet", () => {
+    expect(
+      deriveAppleHealthBodyUxPhase({
+        ...base,
+        authSnapshot: mapAuthNumbersToSnapshot(HK_AUTH_SHARING_DENIED),
+        persistedPipelineEvidenceHydrated: false,
+      }),
+    ).toBe("loading");
+  });
+
+  it("returns loading when not_determined, no samples, but persisted pipeline evidence (warm load)", () => {
+    expect(
+      deriveAppleHealthBodyUxPhase({
+        ...base,
+        seriesReady: false,
+        authSnapshot: mapAuthNumbersToSnapshot(HK_AUTH_NOT_DETERMINED),
+        hasHealthKitBodyPipelineEvidence: true,
+      }),
+    ).toBe("loading");
+  });
+
+  it("returns not_determined after hydration when no pipeline evidence and no samples (true first run)", () => {
+    expect(
+      deriveAppleHealthBodyUxPhase({
+        ...base,
+        authSnapshot: mapAuthNumbersToSnapshot(HK_AUTH_NOT_DETERMINED),
+        persistedPipelineEvidenceHydrated: true,
+        hasHealthKitBodyPipelineEvidence: false,
+        seriesReady: true,
+        hasAnyBodySampleInOli: false,
+      }),
+    ).toBe("not_determined");
+  });
+
+  it("returns ready when backfill runs but samples already in Oli", () => {
+    expect(
+      deriveAppleHealthBodyUxPhase({
+        ...base,
+        authSnapshot: { kind: "authorized" },
+        isBackfillRunning: true,
+        hasAnyBodySampleInOli: true,
+      }),
+    ).toBe("ready");
   });
 });

@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
 import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
+import { UserProfileMainProvider } from "../lib/data/profile/useUserProfileMain";
 
 function RouteGuard() {
   const { user, initializing } = useAuth();
@@ -38,21 +39,23 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <PreferencesProvider>
-        <StatusBar style="auto" />
-        <RouteGuard />
-        <Stack screenOptions={{ headerShown: false }}>
-          {/* Auth flow */}
-          <Stack.Screen name="(auth)" />
+        <UserProfileMainProvider>
+          <StatusBar style="auto" />
+          <RouteGuard />
+          <Stack screenOptions={{ headerShown: false }}>
+            {/* Auth flow */}
+            <Stack.Screen name="(auth)" />
 
-          {/* Product shell */}
-          <Stack.Screen name="(app)" />
+            {/* Product shell */}
+            <Stack.Screen name="(app)" />
 
-          {/* Root index exists (can be used for deep-links / legacy) */}
-          <Stack.Screen name="index" />
+            {/* Root index exists (can be used for deep-links / legacy) */}
+            <Stack.Screen name="index" />
 
-          {/* Debug area — development only */}
-          {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
-        </Stack>
+            {/* Debug area — development only */}
+            {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
+          </Stack>
+        </UserProfileMainProvider>
       </PreferencesProvider>
     </AuthProvider>
   );

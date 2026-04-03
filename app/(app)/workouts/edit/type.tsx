@@ -6,6 +6,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { formatWorkoutTypeLabel } from "@/lib/data/workouts/workoutDisplay";
 import { type WorkoutOverrideType, useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 export default function EditWorkoutTypeScreen() {
   const router = useRouter();
@@ -94,8 +95,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#D1D1D6",
   },
   optionLabel: { fontSize: 17, color: "#1C1C1E" },
-  check: { fontSize: 18, color: "#007AFF", fontWeight: "700", width: 20, textAlign: "right" },
-  primaryBtn: { marginTop: 16, backgroundColor: "#007AFF", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  check: { fontSize: 18, color: SYSTEM_ACCENT, fontWeight: "700", width: 20, textAlign: "right" },
+  primaryBtn: { marginTop: 16, backgroundColor: SYSTEM_ACCENT, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   disabled: { opacity: 0.6 },
   primaryText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
   cancelBtn: { marginTop: 12, alignItems: "center", paddingVertical: 12 },

@@ -25,7 +25,7 @@ export type NutritionWeeklyStripProps = {
 };
 
 /**
- * Week strip aligned with {@link WeeklyStrip} (Strength): typography, spacing, selection, green nutrition rings only when logged.
+ * Week strip aligned with {@link WeeklyStrip} (Strength): typography, spacing, selection; accent rings when logged.
  */
 export function NutritionWeeklyStrip({ days, selectedDay, onDayPress }: NutritionWeeklyStripProps) {
   return (

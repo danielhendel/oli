@@ -14,6 +14,7 @@ import {
   type BodyCompositionReadAuthSnapshot,
 } from "@/lib/data/body/appleHealthBodyUxPhase";
 import { filterToAppleHealthBodyReadSources } from "@/lib/data/body/sourceFiltering";
+import { useAppleHealthBodyPersistedPipelineEvidence } from "@/lib/data/body/useAppleHealthBodyPersistedPipelineEvidence";
 
 type SeriesState =
   | { status: "partial" }
@@ -44,6 +45,7 @@ export function useAppleHealthBodyAccessState(opts: {
 } {
   const [authSnapshot, setAuthSnapshot] = useState<BodyCompositionReadAuthSnapshot | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const persisted = useAppleHealthBodyPersistedPipelineEvidence();
 
   const refreshAuth = useCallback(async () => {
     if (Platform.OS !== "ios") {
@@ -86,6 +88,10 @@ export function useAppleHealthBodyAccessState(opts: {
     const trendsReady = !observeTrends || trends?.status === "ready";
     const overviewProbePending = opts.overviewProbe?.status === "partial";
 
+    const hasHealthKitBodyPipelineEvidence =
+      opts.hasHealthKitBodyPipelineEvidence ||
+      (persisted.hydrated && persisted.hasEvidence);
+
     return deriveAppleHealthBodyUxPhase({
       platform: Platform.OS,
       authSnapshot,
@@ -101,11 +107,14 @@ export function useAppleHealthBodyAccessState(opts: {
         (opts.series.status === "ready" &&
           filterToAppleHealthBodyReadSources(opts.series.data.points).length > 0) ||
         opts.overviewPeekHasSamples === true,
-      hasHealthKitBodyPipelineEvidence: opts.hasHealthKitBodyPipelineEvidence,
+      hasHealthKitBodyPipelineEvidence,
+      persistedPipelineEvidenceHydrated: persisted.hydrated,
     });
   }, [
     authSnapshot,
     authLoading,
+    persisted.hydrated,
+    persisted.hasEvidence,
     opts.isBodySyncing,
     opts.isBackfillRunning,
     opts.series,

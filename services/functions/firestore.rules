@@ -133,6 +133,18 @@ service cloud.firestore {
                     && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
+
+      // ----------------------------------------------------------
+      // PROFILE (APP-OWNED PERSONALIZATION)
+      //
+      // Reads are owner-scoped. Writes go through the verified API
+      // (Admin SDK) so shapes stay validated server-side.
+      // ----------------------------------------------------------
+      match /profile/{docId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
     }
   }
 }

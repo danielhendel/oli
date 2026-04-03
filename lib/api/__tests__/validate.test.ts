@@ -2,7 +2,9 @@
  * Sprint 2 — Client Trust Layer tests.
  * Proves: valid payload → ready; invalid payload → error (fail-closed) with kind:"contract"
  */
-import { apiGetZodAuthed, apiPostZodAuthed } from "../validate";
+import { z } from "zod";
+
+import { apiGetZodAuthed, apiGetZodAuthedDefaultOn404, apiPostZodAuthed } from "../validate";
 import { dailyFactsDtoSchema, logWeightResponseDtoSchema } from "@oli/contracts";
 
 const originalFetch = global.fetch;
@@ -82,6 +84,41 @@ describe("apiGetZodAuthed", () => {
     if (!res.ok) {
       expect(res.kind).toBe("http");
       expect(res.status).toBe(404);
+    }
+  });
+});
+
+describe("apiGetZodAuthedDefaultOn404", () => {
+  it("returns notFoundValue when response is HTTP 404", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers({ "x-request-id": "req_nf" }),
+      text: () => Promise.resolve(JSON.stringify({ error: "Not found" })),
+    });
+
+    const res = await apiGetZodAuthedDefaultOn404("/profile/main", "token", z.string(), "default-profile");
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.json).toBe("default-profile");
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it("parses successful responses with the schema", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "x-request-id": "req_ok" }),
+      text: () => Promise.resolve(JSON.stringify("from-server")),
+    });
+
+    const res = await apiGetZodAuthedDefaultOn404("/profile/main", "token", z.string(), "default-profile");
+
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.json).toBe("from-server");
     }
   });
 });

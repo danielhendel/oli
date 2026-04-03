@@ -509,6 +509,29 @@ paths:
         200:
           description: OK
 
+  # Profile main — users/{uid}/profile/main via Cloud Run (Firebase required)
+  /profile/main:
+    options:
+      operationId: profileMainOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: profileMainGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+    put:
+      operationId: profileMainPut
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+
   # Apple Health integration status (Firebase required)
   /integrations/apple-health/status:
     options:

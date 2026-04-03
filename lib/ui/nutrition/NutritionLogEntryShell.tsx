@@ -24,6 +24,7 @@ import { NutritionMealBuilderCard } from "@/lib/ui/nutrition/NutritionMealBuilde
 import { NutritionRecentLoggingCard } from "@/lib/ui/nutrition/NutritionRecentLoggingCard";
 import { NutritionMacroSummaryBar } from "@/lib/ui/nutrition/NutritionMacroSummaryBar";
 import { NutritionLoggingSubmitBar } from "@/lib/ui/nutrition/NutritionLoggingSubmitBar";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const ACCESSORY_ID = "nutritionLogKeyboardAccessoryV2";
 
@@ -228,8 +229,8 @@ const styles = StyleSheet.create({
   },
   accessoryBtn: { minHeight: 44, paddingHorizontal: 12, justifyContent: "center" },
   accessoryPrimary: { minHeight: 44, paddingHorizontal: 14, justifyContent: "center" },
-  accessoryBtnText: { fontSize: 17, fontWeight: "400", color: "#007AFF" },
-  accessoryPrimaryText: { fontSize: 17, fontWeight: "600", color: "#007AFF" },
+  accessoryBtnText: { fontSize: 17, fontWeight: "400", color: SYSTEM_ACCENT },
+  accessoryPrimaryText: { fontSize: 17, fontWeight: "600", color: SYSTEM_ACCENT },
   accessoryPressed: { opacity: 0.65 },
   errorBox: {
     backgroundColor: "rgba(255, 59, 48, 0.08)",
@@ -243,6 +244,6 @@ const styles = StyleSheet.create({
   errorRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
   linkBtn: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, justifyContent: "center" },
   linkPrimary: { backgroundColor: "rgba(0, 122, 255, 0.12)", borderRadius: 10 },
-  linkText: { fontSize: 16, fontWeight: "600", color: "#007AFF" },
-  linkPrimaryText: { fontSize: 16, fontWeight: "700", color: "#007AFF" },
+  linkText: { fontSize: 16, fontWeight: "600", color: SYSTEM_ACCENT },
+  linkPrimaryText: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
 });

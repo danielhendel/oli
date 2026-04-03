@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 export type BodyLogActionAnchor = {
   x: number;
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   cancelLabel: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
   },
   rowPressed: {
     opacity: 0.7,

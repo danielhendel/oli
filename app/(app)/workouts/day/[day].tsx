@@ -37,14 +37,15 @@ import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthS
 import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
 import { resolveStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
+import { SYSTEM_ACCENT, SYSTEM_METRIC_SECONDARY } from "@/lib/ui/theme/systemAccent";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { HeartRateZoneMinutes5, WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 
 /** Matches exercise-history numeric accents for set grid values. */
-const METRIC_STRENGTH_ACCENT = "#FF3B30";
-const METRIC_VOLUME_ACCENT = "#34C759";
+const METRIC_STRENGTH_ACCENT = SYSTEM_ACCENT;
+const METRIC_VOLUME_ACCENT = SYSTEM_METRIC_SECONDARY;
 
 const useLocalSearchParamsSafe: typeof useLocalSearchParams =
   typeof useLocalSearchParams === "function"
@@ -1201,7 +1202,7 @@ const styles = StyleSheet.create({
   kpiValue: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#FF3B30",
+    color: SYSTEM_ACCENT,
   },
   headerMenuText: {
     fontSize: 18,
@@ -1247,7 +1248,7 @@ const styles = StyleSheet.create({
   exerciseHistoryButton: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
     paddingVertical: 4,
     paddingHorizontal: 2,
   },

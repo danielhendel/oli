@@ -3,11 +3,13 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const PADDING = { left: 40, right: 8, top: 8, bottom: 36 };
 const CHART_HEIGHT = 160;
 const LB_PER_KG = 2.2046226218;
-const LINE_COLOR = "#007AFF";
+
+const LINE_COLOR = SYSTEM_ACCENT;
 const LINE_WIDTH = 2;
 const DOT_R = 4;
 const GRID_COLOR = "#E5E5EA";

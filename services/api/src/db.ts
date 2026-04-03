@@ -42,6 +42,11 @@ export function userDoc(uid: string): DocumentReference {
   return db.collection("users").doc(uid);
 }
 
+/** App-editable profile document at `users/{uid}/profile/main`. */
+export function userProfileMainDoc(uid: string): DocumentReference {
+  return userDoc(uid).collection("profile").doc("main");
+}
+
 export function userCollection<T = FirebaseFirestore.DocumentData>(
   uid: string,
   name:

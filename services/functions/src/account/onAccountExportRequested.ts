@@ -108,10 +108,13 @@ export const onAccountExportRequested = onMessagePublished(
       const profileGeneralSnap = await db.doc(`users/${uid}/profile/general`).get();
       const profileGeneral = profileGeneralSnap.exists ? profileGeneralSnap.data() : null;
 
+      const profileMainSnap = await db.doc(`users/${uid}/profile/main`).get();
+      const profileMain = profileMainSnap.exists ? profileMainSnap.data() : null;
+
       const collections = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "healthScores", "healthSignals"] as const;
 
       const data: Record<string, unknown> = {
-        profile: { general: profileGeneral },
+        profile: { general: profileGeneral, main: profileMain },
         collections: {},
       };
 

@@ -2,6 +2,7 @@ import React from "react";
 import { View, Pressable, StyleSheet, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 /** Uniform circular hit targets (center is not larger than sides). */
 const SLOT = 52;
@@ -34,11 +35,11 @@ const SLOT_PRIMARY_SHADOW =
   Platform.OS === "ios"
     ? {
         shadowColor: "#000000",
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
       }
-    : { elevation: 4 };
+    : { elevation: 3 };
 
 export type WorkoutsOverviewBottomNavProps = {
   /** Stack base for this product flow (`/(app)/workouts` = Strength, `/(app)/cardio` = Cardio). */
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8E8ED",
   },
   slotPrimary: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: SYSTEM_ACCENT,
     borderWidth: 1,
     borderColor: "rgba(0, 0, 0, 0.06)",
   },

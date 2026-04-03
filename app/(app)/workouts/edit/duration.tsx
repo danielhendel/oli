@@ -5,6 +5,7 @@ import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 export default function EditWorkoutDurationScreen() {
   const router = useRouter();
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
   currentValue: { fontSize: 17, color: "#1C1C1E", fontWeight: "500", marginBottom: 12 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#D1D1D6", marginBottom: 12 },
   input: { backgroundColor: "#F2F2F7", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: "#1C1C1E" },
-  primaryBtn: { marginTop: 16, backgroundColor: "#007AFF", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  primaryBtn: { marginTop: 16, backgroundColor: SYSTEM_ACCENT, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   disabled: { opacity: 0.6 },
   primaryText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
   cancelBtn: { marginTop: 12, alignItems: "center", paddingVertical: 12 },

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
 import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
@@ -8,17 +9,23 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
 import { BodyLogActionSheet, type BodyLogActionAnchor } from "@/lib/ui/body/BodyLogActionSheet";
 import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
 import { formatOverviewAsOfLabel } from "@/lib/ui/body/formatOverviewAsOfLabel";
 import {
   formatBodyBmi,
   formatBodyLeanMass,
-  formatBodyRmr,
   formatBodyWeight,
-  neutralMetricProgress,
 } from "@/lib/ui/body/bodyMetricFormatting";
+import {
+  InterpretationQualityBar,
+  interpretationBarAccessibilityLabel,
+} from "@/lib/ui/body/InterpretationQualityBar";
+import { InterpretationRatingPill } from "@/lib/ui/body/InterpretationRatingPill";
+import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
+import { useBodyCompositionInterpretation } from "@/lib/data/body/useBodyCompositionInterpretation";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -78,23 +85,21 @@ export default function BodyOverviewScreen() {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
       title: "Body Composition",
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <WorkoutsHeaderRightRow>
+        <WorkoutsHeaderRightRow gap={10}>
           <HeaderIconButton
             iconName="calendar-outline"
             iconSize={24}
-            color={BODY_INDIGO}
+            color={SYSTEM_ACCENT}
             accessibilityLabel="Open body calendar"
             onPress={() => router.push("/(app)/body/calendar")}
           />
-          <Pressable
-            onPress={() => setMenuOpen(true)}
-            style={styles.headerMenuBtn}
-            accessibilityRole="button"
+          <HeaderIconButton
+            label="•••"
             accessibilityLabel="Body menu"
-          >
-            <Text style={styles.headerMenuText}>•••</Text>
-          </Pressable>
+            onPress={() => setMenuOpen(true)}
+          />
         </WorkoutsHeaderRightRow>
       ),
     });
@@ -109,6 +114,7 @@ export default function BodyOverviewScreen() {
         : null;
 
   const { overview } = body;
+  const compositionIx = useBodyCompositionInterpretation(overview);
   const overviewRows = useMemo(
     () => [
       {
@@ -116,43 +122,51 @@ export default function BodyOverviewScreen() {
         href: BODY_METRIC_DETAIL_HREFS.weight,
         label: "Weight",
         value: overview.weightKg != null ? formatBodyWeight(overview.weightKg, unit) : "—",
-        progress: neutralMetricProgress(overview.weightKg != null),
-        a11y: "Open weight details",
+        bar: compositionIx.weight.bar,
+        subtitle: compositionIx.weight.subtitle,
+        a11y:
+          compositionIx.weight.subtitle != null
+            ? `Open weight details. ${compositionIx.weight.subtitle}. ${interpretationBarAccessibilityLabel(compositionIx.weight.bar, "Weight")}`
+            : `Open weight details. ${interpretationBarAccessibilityLabel(compositionIx.weight.bar, "Weight")}`,
       },
       {
         id: "bmi",
         href: BODY_METRIC_DETAIL_HREFS.bmi,
         label: "BMI",
         value: overview.bmi != null ? formatBodyBmi(overview.bmi) : "—",
-        progress: neutralMetricProgress(overview.bmi != null),
-        a11y: "Open BMI details",
+        bar: compositionIx.bmi.bar,
+        subtitle: compositionIx.bmi.subtitle,
+        a11y:
+          compositionIx.bmi.subtitle != null
+            ? `Open BMI details. ${compositionIx.bmi.subtitle}. ${interpretationBarAccessibilityLabel(compositionIx.bmi.bar, "BMI")}`
+            : `Open BMI details. ${interpretationBarAccessibilityLabel(compositionIx.bmi.bar, "BMI")}`,
       },
       {
         id: "body-fat",
         href: BODY_METRIC_DETAIL_HREFS.bodyFat,
         label: "Body Fat",
         value: overview.bodyFatPercent != null ? `${overview.bodyFatPercent.toFixed(1)}%` : "—",
-        progress: neutralMetricProgress(overview.bodyFatPercent != null),
-        a11y: "Open body fat details",
+        bar: compositionIx.bodyFat.bar,
+        subtitle: compositionIx.bodyFat.subtitle,
+        a11y:
+          compositionIx.bodyFat.subtitle != null
+            ? `Open body fat details. ${compositionIx.bodyFat.subtitle}. ${interpretationBarAccessibilityLabel(compositionIx.bodyFat.bar, "Body Fat")}`
+            : `Open body fat details. ${interpretationBarAccessibilityLabel(compositionIx.bodyFat.bar, "Body Fat")}`,
       },
       {
         id: "lean",
         href: BODY_METRIC_DETAIL_HREFS.leanMass,
         label: "Lean Body Mass",
         value: overview.leanBodyMassKg != null ? formatBodyLeanMass(overview.leanBodyMassKg, unit) : "—",
-        progress: neutralMetricProgress(overview.leanBodyMassKg != null),
-        a11y: "Open lean body mass details",
-      },
-      {
-        id: "rmr",
-        href: BODY_METRIC_DETAIL_HREFS.rmr,
-        label: "RMR",
-        value: overview.restingMetabolicRateKcal != null ? formatBodyRmr(overview.restingMetabolicRateKcal) : "—",
-        progress: neutralMetricProgress(overview.restingMetabolicRateKcal != null),
-        a11y: "Open RMR details",
+        bar: compositionIx.lean.bar,
+        subtitle: compositionIx.lean.subtitle,
+        a11y:
+          compositionIx.lean.subtitle != null
+            ? `Open lean body mass details. ${compositionIx.lean.subtitle}. ${interpretationBarAccessibilityLabel(compositionIx.lean.bar, "Lean Body Mass")}`
+            : `Open lean body mass details. ${interpretationBarAccessibilityLabel(compositionIx.lean.bar, "Lean Body Mass")}`,
       },
     ],
-    [overview, unit],
+    [overview, unit, compositionIx],
   );
 
   const closeRecentActionSheet = () => {
@@ -261,8 +275,8 @@ export default function BodyOverviewScreen() {
             </View>
           ) : null}
           <View style={styles.card}>
-            <View style={styles.overviewHeader}>
-              <Text style={styles.cardTitle}>Overview</Text>
+            <View style={[styles.overviewHeader, workoutOverviewInCardHeaderStyles.row]}>
+              <Text style={workoutOverviewInCardHeaderStyles.title}>Overview</Text>
               {overview.overviewDay != null ? (
                 <Text style={styles.asOfLabel} accessibilityLabel={`As of ${overview.overviewDay}`}>
                   {formatOverviewAsOfLabel(overview.overviewDay)}
@@ -298,7 +312,12 @@ export default function BodyOverviewScreen() {
                   >
                     <View style={styles.todayRow}>
                       <View style={styles.todayRowTop}>
-                        <Text style={styles.metricLabel}>{row.label}</Text>
+                        <View style={styles.metricTitleRow}>
+                          <Text style={styles.metricLabel} numberOfLines={1}>
+                            {row.label}
+                          </Text>
+                          <InterpretationRatingPill bar={row.bar} />
+                        </View>
                         <Text
                           style={[
                             styles.metricValue,
@@ -308,9 +327,10 @@ export default function BodyOverviewScreen() {
                           {row.value}
                         </Text>
                       </View>
-                      <View style={styles.track}>
-                        <View style={[styles.fill, { width: `${Math.round(row.progress * 100)}%` }]} />
-                      </View>
+                      <InterpretationQualityBar bar={row.bar} />
+                      {row.subtitle != null ? (
+                        <Text style={styles.metricSubtitle}>{row.subtitle}</Text>
+                      ) : null}
                     </View>
                   </Pressable>
                 ))}
@@ -408,9 +428,6 @@ const styles = StyleSheet.create({
   },
   card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, gap: 12 },
   overviewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: 8,
   },
   cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
@@ -419,12 +436,18 @@ const styles = StyleSheet.create({
   metricRowPressable: { borderRadius: 8 },
   metricRowPressed: { opacity: 0.75 },
   todayRow: { gap: 6 },
-  todayRowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  metricLabel: { fontSize: 14, fontWeight: "600", color: "#3C3C43" },
+  todayRowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  metricTitleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  metricLabel: { flexShrink: 1, fontSize: 14, fontWeight: "600", color: "#3C3C43" },
   metricValue: { fontSize: 14, fontWeight: "700", color: "#1C1C1E" },
   metricValueEmpty: { color: "#AEAEB2", fontWeight: "600" },
-  track: { width: "100%", height: 8, borderRadius: 999, backgroundColor: "#E5E5EA", overflow: "hidden" },
-  fill: { height: "100%", borderRadius: 999, backgroundColor: BODY_INDIGO },
+  metricSubtitle: { fontSize: 12, fontWeight: "500", color: "#6E6E73", lineHeight: 16 },
   recentHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   placeholder: { fontSize: 15, color: "#8E8E93" },
   recentRow: {
@@ -440,8 +463,6 @@ const styles = StyleSheet.create({
   recentValue: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
   rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
   rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
-  headerMenuBtn: { padding: 12 },
-  headerMenuText: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -453,7 +474,7 @@ const styles = StyleSheet.create({
   menuAction: { paddingVertical: 10 },
   menuActionText: { fontSize: 16, fontWeight: "600", color: BODY_INDIGO },
   syncBanner: {
-    backgroundColor: "rgba(79, 70, 229, 0.1)",
+    backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
