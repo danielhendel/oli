@@ -36,6 +36,7 @@ export const rawEventKindSchema = z.enum([
   "steps",
   "workout",
   "weight",
+  "body_composition",
   "hrv",
   "nutrition",
   "strength_workout",

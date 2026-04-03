@@ -136,7 +136,7 @@ function monotonePathD(points: { cx: number; cy: number }[]): string {
 
 /** Safe, display-only source labels. Never show tokens or secrets. */
 function sourceLabel(sourceId: string): string {
-  if (sourceId === "withings") return "Withings";
+  if (sourceId === "apple_health") return "Apple Health";
   if (sourceId === "manual") return "Manual";
   if (typeof sourceId === "string" && sourceId.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(sourceId))
     return sourceId;
@@ -273,9 +273,11 @@ function ticksForRangeUsingData(
 
 export type WeightTrendChartProps = {
   points: WeightPoint[];
-  unitLabel: "kg" | "lb";
+  unitLabel: string;
   formatValue: (weightKg: number) => string;
   range: WeightRangeKey;
+  valueKind?: "mass" | "generic";
+  accentColor?: string;
   onChartError?: (message: string) => void;
 };
 
@@ -292,6 +294,8 @@ export function WeightTrendChart({
   unitLabel,
   formatValue,
   range,
+  valueKind = "mass",
+  accentColor = ACCENT_BLUE,
   onChartError,
 }: WeightTrendChartProps) {
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -361,8 +365,8 @@ export function WeightTrendChart({
       dMin = p05 - padding;
       dMax = p95 + padding;
 
-      const spanMinKg = unitLabel === "lb" ? MIN_SPAN_LB / LBS_PER_KG : MIN_SPAN_KG;
-      const padMinKg = unitLabel === "lb" ? MIN_PAD_LB / LBS_PER_KG : MIN_PAD_KG;
+      const spanMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_SPAN_LB / LBS_PER_KG : MIN_SPAN_KG;
+      const padMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_PAD_LB / LBS_PER_KG : MIN_PAD_KG;
       const currentSpanKg = dMax - dMin;
       const midKg = (dMin + dMax) / 2;
       if (currentSpanKg < spanMinKg) {
@@ -376,8 +380,8 @@ export function WeightTrendChart({
       }
       dMin = Math.max(0, dMin);
     }
-    if (unitLabel === "lb" && dMin * LBS_PER_KG > DISPLAY_FLOOR_LB) dMin = DISPLAY_FLOOR_LB / LBS_PER_KG;
-    if (unitLabel === "kg" && dMin > DISPLAY_FLOOR_KG) dMin = DISPLAY_FLOOR_KG;
+    if (valueKind === "mass" && unitLabel === "lb" && dMin * LBS_PER_KG > DISPLAY_FLOOR_LB) dMin = DISPLAY_FLOOR_LB / LBS_PER_KG;
+    if (valueKind === "mass" && unitLabel === "kg" && dMin > DISPLAY_FLOOR_KG) dMin = DISPLAY_FLOOR_KG;
     dMin = Math.max(0, dMin);
     const count = processed.filter((p) => p.weightKg < dMin || p.weightKg > dMax).length;
     return { displayMin: dMin, displayMax: dMax, outlierCount: count };
@@ -437,11 +441,11 @@ export function WeightTrendChart({
   const yLow = toChartY(clampedLow);
   /** Exact values, one decimal; no unit suffix. */
   const highLabel =
-    unitLabel === "lb"
+    valueKind === "mass" && unitLabel === "lb"
       ? (actualMaxW * LBS_PER_KG).toFixed(1)
       : actualMaxW.toFixed(1);
   const lowLabel =
-    unitLabel === "lb"
+    valueKind === "mass" && unitLabel === "lb"
       ? (actualMinW * LBS_PER_KG).toFixed(1)
       : actualMinW.toFixed(1);
   const isSparseLabels = processed.length < 2;
@@ -592,7 +596,7 @@ export function WeightTrendChart({
               y={yLow}
               width={layout.width - PADDING.left - PADDING.right}
               height={Math.max(0, baselineY - yLow)}
-              fill={ACCENT_BLUE}
+              fill={accentColor}
               fillOpacity={BASE_FILL_OPACITY}
             />
           )}
@@ -600,7 +604,7 @@ export function WeightTrendChart({
           {areaD ? (
             <Path
               d={areaD}
-              fill={ACCENT_BLUE}
+              fill={accentColor}
               fillOpacity={AREA_OPACITY}
               stroke="none"
             />
@@ -609,7 +613,7 @@ export function WeightTrendChart({
           {pathD ? (
             <Path
               d={pathD}
-              stroke={ACCENT_BLUE}
+              stroke={accentColor}
               strokeWidth={LINE_WIDTH}
               fill="none"
               strokeLinecap="round"
@@ -624,12 +628,12 @@ export function WeightTrendChart({
                 cy={selected.cy}
                 r={DOT_R}
                 fill="none"
-                stroke={ACCENT_BLUE}
+                stroke={accentColor}
                 strokeWidth={2}
                 opacity={1}
               />
             ) : (
-              <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={ACCENT_BLUE} opacity={1} />
+              <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={accentColor} opacity={1} />
             ))}
           {/* Crosshair at selected x */}
           {touchX != null && selected != null && (
@@ -686,13 +690,13 @@ export function WeightTrendChart({
           ]}
           pointerEvents="none"
           accessibilityLiveRegion="polite"
-          accessibilityLabel={`${new Date(selPoint.observedAt).toLocaleString()}, ${formatValue(selPoint.weightKg)} ${unitLabel}${selPoint.sourceId ? `, ${sourceLabel(selPoint.sourceId)}` : ""}`}
+          accessibilityLabel={`${new Date(selPoint.observedAt).toLocaleString()}, ${formatValue(selPoint.weightKg)}${unitLabel ? ` ${unitLabel}` : ""}${selPoint.sourceId ? `, ${sourceLabel(selPoint.sourceId)}` : ""}`}
         >
           <Text style={styles.tooltipDate}>
             {new Date(selPoint.observedAt).toLocaleString()}
           </Text>
           <Text style={styles.tooltipValue}>
-            {formatValue(selPoint.weightKg)} {unitLabel}
+            {formatValue(selPoint.weightKg)}{unitLabel ? ` ${unitLabel}` : ""}
           </Text>
           {selPoint.sourceId ? (
             <Text style={styles.tooltipSource}>{sourceLabel(selPoint.sourceId)}</Text>

@@ -71,6 +71,7 @@ export const rawEventKindSchema = z.enum([
   "steps",
   "workout",
   "weight",
+  "body_composition",
   "hrv",
   "nutrition",
   "strength_workout",
@@ -141,6 +142,28 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
   // Preserve HealthKit-only keys (hk, sync, etc.) stored on workout raw payloads.
   .passthrough();
 
+/** Written only by admin repair `scripts/admin/repair-apple-health-mass-unit.mjs` (idempotent). */
+const appleHealthWeightLbMislabeledAsKgRepairSchema = z
+  .object({
+    version: z.literal(1),
+    appliedAt: isoDateTimeStringSchema,
+    precondition: z.literal("react_native_health_default_lb_stored_as_weightKg"),
+    previousStoredNumeric: z.number().finite().positive(),
+    correctedWeightKg: z.number().finite().positive(),
+  })
+  .strict();
+
+/** Written only by admin repair for lean mass conflated with the same native default-lb bug. */
+const appleHealthLeanMassLbMislabeledAsKgRepairSchema = z
+  .object({
+    version: z.literal(1),
+    appliedAt: isoDateTimeStringSchema,
+    precondition: z.literal("react_native_health_default_lb_stored_as_leanBodyMassKg"),
+    previousStoredNumeric: z.number().finite().positive(),
+    correctedLeanBodyMassKg: z.number().finite().positive(),
+  })
+  .strict();
+
 const manualWeightPayloadSchema = z
   .object({
     time: isoDateTimeStringSchema,
@@ -148,8 +171,33 @@ const manualWeightPayloadSchema = z
     day: ymdDateStringSchema.optional(),
     weightKg: z.number().finite().positive(),
     bodyFatPercent: z.number().finite().min(0).max(100).nullable().optional(),
+    appleHealthWeightLbMislabeledAsKgRepair: appleHealthWeightLbMislabeledAsKgRepairSchema.optional(),
   })
   .strip();
+
+const manualBodyCompositionPayloadSchema = z
+  .object({
+    time: isoDateTimeStringSchema,
+    timezone: z.string().min(1),
+    day: ymdDateStringSchema.optional(),
+    weightKg: z.number().finite().positive().optional(),
+    bodyFatPercent: z.number().finite().min(0).max(100).optional(),
+    /** Apple Health may surface edge zeros; treat as nonnegative finite. */
+    bmi: z.number().finite().min(0).optional(),
+    leanBodyMassKg: z.number().finite().min(0).optional(),
+    restingMetabolicRateKcal: z.number().finite().min(0).optional(),
+    appleHealthLeanMassLbMislabeledAsKgRepair: appleHealthLeanMassLbMislabeledAsKgRepairSchema.optional(),
+  })
+  .strip()
+  .refine(
+    (v) =>
+      v.weightKg !== undefined ||
+      v.bodyFatPercent !== undefined ||
+      v.bmi !== undefined ||
+      v.leanBodyMassKg !== undefined ||
+      v.restingMetabolicRateKcal !== undefined,
+    { message: "At least one body composition metric is required" },
+  );
 
 const manualHrvPayloadSchema = z
   .object({
@@ -248,6 +296,7 @@ const payloadByKindSchema = {
   steps: manualStepsPayloadSchema,
   workout: manualWorkoutPayloadSchema,
   weight: manualWeightPayloadSchema,
+  body_composition: manualBodyCompositionPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,
@@ -315,6 +364,7 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualStepsPayloadSchema>
     | z.infer<typeof manualWorkoutPayloadSchema>
     | z.infer<typeof manualWeightPayloadSchema>
+    | z.infer<typeof manualBodyCompositionPayloadSchema>
     | z.infer<typeof manualHrvPayloadSchema>
     | z.infer<typeof manualNutritionPayloadSchema>
     | z.infer<typeof manualStrengthWorkoutPayloadSchema>
@@ -332,6 +382,7 @@ export const rawEventPayloadByKindSchemas = {
   steps: manualStepsPayloadSchema,
   workout: manualWorkoutPayloadSchema,
   weight: manualWeightPayloadSchema,
+  body_composition: manualBodyCompositionPayloadSchema,
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,

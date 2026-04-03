@@ -1,7 +1,7 @@
 /**
  * API-side failure record write (Phase 3B).
  * Matches FailureEntry shape and deterministic id intent from functions.
- * Used when Withings pull fails per-user (e.g. API error) so failures are visible.
+ * Used when provider pulls fail per-user (e.g. API error) so failures are visible.
  */
 
 import crypto from "node:crypto";

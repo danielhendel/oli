@@ -23,42 +23,4 @@ if (!indexText.includes('"/integrations"') || !indexText.includes("integrationsR
   die("Integrations router not mounted at /integrations");
 }
 
-/**
- * Phase 3B: pull route must be mounted with requireInvokerAuth
- */
-if (
-  !indexText.includes('"/integrations/withings/pull"') ||
-  !indexText.includes("requireInvokerAuth") ||
-  !indexText.includes("withingsPullRouter")
-) {
-  die("Missing or improperly mounted POST /integrations/withings/pull");
-}
-
-/**
- * Phase 3B.1: backfill route must be mounted with requireInvokerAuth
- */
-if (
-  !indexText.includes('"/integrations/withings/backfill"') ||
-  !indexText.includes("requireInvokerAuth") ||
-  !indexText.includes("withingsBackfillRouter")
-) {
-  die("Missing or improperly mounted POST /integrations/withings/backfill");
-}
-
-/**
- * Ensure backfill route file exists
- */
-const backfillRoute = path.join(repoRoot, "services/api/src/routes/withingsBackfill.ts");
-if (!fs.existsSync(backfillRoute)) {
-  die("withingsBackfill.ts route file missing");
-}
-
-/**
- * Ensure pull route file exists
- */
-const pullRoute = path.join(repoRoot, "services/api/src/routes/withingsPull.ts");
-if (!fs.existsSync(pullRoute)) {
-  die("withingsPull.ts route file missing");
-}
-
 console.log("ASSERT_API_ROUTES_OK");

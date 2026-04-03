@@ -36,7 +36,7 @@ function deriveDayFromRaw(raw: Record<string, unknown> | undefined): string | nu
 }
 
 /**
- * Derive dayKey and factOnlyBody from a fact-only rawEvent (e.g. weight).
+ * Derive dayKey and factOnlyBody from a fact-only rawEvent (e.g. weight, body_composition).
  * Must match canonical day derivation: Intl.DateTimeFormat("en-CA", { timeZone }).
  */
 function extractFactOnlyContext(
@@ -67,6 +67,44 @@ function extractFactOnlyContext(
           : {}),
       };
 
+      return { dayKey, factOnlyBody };
+    } catch {
+      return null;
+    }
+  }
+
+  if (rawEvent.kind === "body_composition") {
+    const p = rawEvent.payload as Record<string, unknown> | undefined;
+    if (!p || typeof p["time"] !== "string" || typeof p["timezone"] !== "string") return null;
+    try {
+      const d = new Date(p["time"] as string);
+      if (Number.isNaN(d.getTime())) return null;
+      const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: p["timezone"] as string });
+      const dayKey = fmt.format(d) as YmdDateString;
+      const weightKg = p["weightKg"];
+      const bodyFatPercent = p["bodyFatPercent"];
+      const bmi = p["bmi"];
+      const leanBodyMassKg = p["leanBodyMassKg"];
+      const restingMetabolicRateKcal = p["restingMetabolicRateKcal"];
+      const factOnlyBody: DailyBodyFacts = {
+        ...(typeof weightKg === "number" && Number.isFinite(weightKg) && weightKg > 0 ? { weightKg } : {}),
+        ...(typeof bodyFatPercent === "number" &&
+        Number.isFinite(bodyFatPercent) &&
+        bodyFatPercent >= 0 &&
+        bodyFatPercent <= 100
+          ? { bodyFatPercent }
+          : {}),
+        ...(typeof bmi === "number" && Number.isFinite(bmi) && bmi > 0 && bmi < 100 ? { bmi } : {}),
+        ...(typeof leanBodyMassKg === "number" && Number.isFinite(leanBodyMassKg) && leanBodyMassKg > 0
+          ? { leanBodyMassKg }
+          : {}),
+        ...(typeof restingMetabolicRateKcal === "number" &&
+        Number.isFinite(restingMetabolicRateKcal) &&
+        restingMetabolicRateKcal > 0
+          ? { restingMetabolicRateKcal }
+          : {}),
+      };
+      if (Object.keys(factOnlyBody).length === 0) return null;
       return { dayKey, factOnlyBody };
     } catch {
       return null;

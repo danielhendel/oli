@@ -6,7 +6,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { FieldValue, userCollection } from "../db";
 
-const DEFAULT_PURPOSE = "withings_oauth";
+const DEFAULT_PURPOSE = "integration_oauth";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function createStateAsync(

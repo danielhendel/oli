@@ -14,7 +14,6 @@ jest.mock("../../../db", () => ({
     doc: jest.fn(() => ({ get: mockGet, set: mockSet })),
   })),
   FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
-  withingsConnectedRegistryDoc: jest.fn(() => ({ set: jest.fn(), delete: jest.fn() })),
   ouraConnectedRegistryDoc: jest.fn(() => ({ set: jest.fn(), delete: jest.fn() })),
 }));
 

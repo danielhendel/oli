@@ -1,4 +1,4 @@
-// app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Withings, Apple Health, Oura)
+// app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Apple Health, Oura)
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
@@ -6,23 +6,14 @@ import * as WebBrowser from "expo-web-browser";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
+import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
-import { getWithingsConnectUrl, postWithingsRevoke } from "@/lib/api/withings";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
+import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealth/resolveAppleHealthDeviceConnected";
 
-const WITHINGS_AUTHORIZE_PREFIX = "https://account.withings.com/oauth2_user/authorize2";
 const OURA_AUTHORIZE_PREFIX = "https://cloud.ouraring.com/oauth/authorize";
-
-function getWithingsReturnUrl(): string {
-  const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
-  if (base && base.startsWith("https://")) {
-    return `${base.replace(/\/$/, "")}/integrations/withings/complete`;
-  }
-  return "com.olifitness.oli://withings-connected";
-}
 
 function getOuraReturnUrl(): string {
   const base = (process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "").trim();
@@ -32,7 +23,7 @@ function getOuraReturnUrl(): string {
   return "com.olifitness.oli://oura-connected";
 }
 
-type DeviceId = "withings" | "apple_health" | "oura";
+type DeviceId = "apple_health" | "oura";
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
 
@@ -40,23 +31,20 @@ function DeviceDetailScreen() {
   const { deviceId } = useLocalSearchParams<{ deviceId: string }>();
   const navigation = useNavigation();
   const { user, getIdToken } = useAuth();
-  const withingsPresence = useWithingsPresence();
   const ouraPresence = useOuraPresence();
 
   const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
   const [appleLastSyncAt, setAppleLastSyncAt] = useState<string | null>(null);
 
-  const [withingsConnecting, setWithingsConnecting] = useState(false);
-  const [withingsRevoking, setWithingsRevoking] = useState(false);
   const [ouraConnecting, setOuraConnecting] = useState(false);
   const [ouraRevoking, setOuraRevoking] = useState(false);
+  const bodyBackfill = useAppleHealthBodyBackfill();
 
   const id = (deviceId ?? "") as DeviceId;
-  const isWithings = id === "withings";
   const isAppleHealth = id === "apple_health";
   const isOura = id === "oura";
 
-  const title = isWithings ? "Withings" : isAppleHealth ? "Apple Health" : isOura ? "Oura" : "Device";
+  const title = isAppleHealth ? "Apple Health" : isOura ? "Oura" : "Device";
 
   useEffect(() => {
     navigation.setOptions({ title });
@@ -86,7 +74,9 @@ function DeviceDetailScreen() {
           setAppleLastSyncAt(null);
           return;
         }
-        setAppleStatus(res.json.connected ? "connected" : "not_connected");
+        const effective = await resolveAppleHealthDeviceConnected(res.json.connected);
+        if (cancelled) return;
+        setAppleStatus(effective ? "connected" : "not_connected");
         setAppleLastSyncAt(res.json.lastSyncAt);
       } catch {
         if (!cancelled) {
@@ -99,72 +89,6 @@ function DeviceDetailScreen() {
       cancelled = true;
     };
   }, [isAppleHealth, user, getIdToken]);
-
-  const handleConnectWithings = useCallback(async () => {
-    const token = await getIdToken(true);
-    if (!token) {
-      Alert.alert("Sign in required", "Please sign in to connect Withings.");
-      return;
-    }
-    setWithingsConnecting(true);
-    try {
-      const res = await getWithingsConnectUrl(token);
-      if (!res.ok) {
-        const message = res.error ?? `Request failed (${res.status})`;
-        Alert.alert("Connection failed", message);
-        return;
-      }
-      if (!res.json?.url) {
-        Alert.alert("Connection failed", "No authorization URL returned.");
-        return;
-      }
-      const authUrl = res.json.url;
-      if (!authUrl.startsWith(WITHINGS_AUTHORIZE_PREFIX)) {
-        Alert.alert("Connection failed", "Invalid authorization URL host.");
-        return;
-      }
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, getWithingsReturnUrl());
-      if (result.type === "cancel") {
-        Alert.alert("Cancelled", "Withings connection was cancelled.");
-        return;
-      }
-      await withingsPresence.refetch();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong";
-      Alert.alert("Connection failed", message);
-    } finally {
-      setWithingsConnecting(false);
-    }
-  }, [getIdToken, withingsPresence]);
-
-  const handleDisconnectWithings = useCallback(() => {
-    Alert.alert(
-      "Disconnect Withings?",
-      "Your existing weight and body composition data from Withings will remain. You can connect again later.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Disconnect",
-          style: "destructive",
-          onPress: async () => {
-            const token = await getIdToken(false);
-            if (!token) return;
-            setWithingsRevoking(true);
-            try {
-              const res = await postWithingsRevoke(token);
-              if (!res.ok) {
-                Alert.alert("Disconnect failed", res.error ?? "Could not disconnect Withings.");
-                return;
-              }
-              await withingsPresence.refetch({ cacheBust: `withingsRevoke:devices-detail:${Date.now()}` });
-            } finally {
-              setWithingsRevoking(false);
-            }
-          },
-        },
-      ],
-    );
-  }, [getIdToken, withingsPresence]);
 
   const handleConnectOura = useCallback(async () => {
     const token = await getIdToken(true);
@@ -234,7 +158,7 @@ function DeviceDetailScreen() {
     );
   }, [getIdToken, ouraPresence]);
 
-  if (!isWithings && !isAppleHealth && !isOura) {
+  if (!isAppleHealth && !isOura) {
     return (
       <ModuleScreenShell title="Device" subtitle="Unknown device">
         <View style={styles.body}>
@@ -244,44 +168,37 @@ function DeviceDetailScreen() {
     );
   }
 
-  const withingsConnected =
-    withingsPresence.status === "ready" && withingsPresence.data.connected;
-
   const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
   const mainStatus =
-    isWithings && withingsPresence.status === "error"
-      ? "Error"
-      : isWithings
-        ? withingsConnected
+    isOura
+      ? ouraPresence.status === "error"
+        ? "Error"
+        : ouraPresence.status === "ready"
+          ? ouraConnected
+            ? "Connected"
+            : "Not connected"
+          : "Loading…"
+      : appleStatus === "loading"
+        ? "Loading…"
+        : appleStatus === "connected"
           ? "Connected"
-          : "Not connected"
-        : isOura
-          ? ouraPresence.status === "error"
+          : appleStatus === "error"
             ? "Error"
-            : ouraPresence.status === "ready"
-              ? ouraConnected
-                ? "Connected"
-                : "Not connected"
-              : "Loading…"
-          : appleStatus === "loading"
-            ? "Loading…"
-            : appleStatus === "connected"
-              ? "Connected"
-              : appleStatus === "error"
-                ? "Error"
-                : "Not connected";
-
-  const withingsCopy =
-    "Connect your Withings scale to sync weight and body composition into Oli. When connected, Oli can import new readings and historical data.";
+            : "Not connected";
 
   const appleCopy =
-    "Apple Health can provide workouts, steps, activity, HRV, and sleep from your iPhone and Apple Watch. Manage Apple Health permissions and sync from Workouts.";
+    "Apple Health can provide workouts, steps, activity, HRV, sleep, and Body Composition (weight, body fat, BMI, lean mass, resting energy) from your iPhone and Apple Watch. Grant access in Body or Workouts when prompted; you can change access anytime in the Health app under Sharing → Apps → Oli.";
 
   const ouraCopy =
     "Oura can provide sleep and HRV data. When connected and synced, Oli uses Oura for sleep duration and heart rate variability in your record.";
 
-  const metricsForWithings = ["Weight", "Body fat"];
-  const metricsForAppleHealth = ["Steps", "Activity minutes", "HRV", "Sleep duration"];
+  const metricsForAppleHealth = [
+    "Steps",
+    "Activity minutes",
+    "HRV",
+    "Sleep duration",
+    "Weight & body composition",
+  ];
   const metricsForOura = ["Sleep duration", "HRV"];
 
   return (
@@ -290,36 +207,7 @@ function DeviceDetailScreen() {
         <View style={styles.group}>
           <View style={styles.row}>
             <Text style={styles.rowTitle}>{title}</Text>
-            {isWithings ? (
-              <Pressable
-                style={[
-                  styles.togglePill,
-                  withingsConnected ? styles.togglePillOn : styles.togglePillOff,
-                  withingsConnecting || withingsRevoking ? styles.togglePillDisabled : null,
-                ]}
-                disabled={withingsConnecting || withingsRevoking}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  withingsConnected
-                    ? withingsRevoking
-                      ? "Disconnecting Withings…"
-                      : "Turn off Withings"
-                    : withingsConnecting
-                      ? "Connecting Withings…"
-                      : "Turn on Withings"
-                }
-                onPress={withingsConnected ? handleDisconnectWithings : handleConnectWithings}
-              >
-                <Text
-                  style={[
-                    styles.toggleLabel,
-                    withingsConnected ? styles.toggleLabelOn : styles.toggleLabelOff,
-                  ]}
-                >
-                  {withingsConnected ? "On" : "Off"}
-                </Text>
-              </Pressable>
-            ) : isOura ? (
+            {isOura ? (
               <Pressable
                 style={[
                   styles.togglePill,
@@ -354,11 +242,9 @@ function DeviceDetailScreen() {
           </View>
         </View>
 
-        {/* No separate Withings action box; main toggle above is the primary control. */}
-
         <View style={styles.body}>
           <Text style={styles.description}>
-            {isWithings ? withingsCopy : isOura ? ouraCopy : appleCopy}
+            {isOura ? ouraCopy : appleCopy}
           </Text>
         </View>
 
@@ -366,17 +252,14 @@ function DeviceDetailScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Metrics this device provides</Text>
           </View>
-          {(isWithings ? metricsForWithings : isOura ? metricsForOura : metricsForAppleHealth).map((m) => (
+          {(isOura ? metricsForOura : metricsForAppleHealth).map((m) => (
             <View key={m} style={styles.metricRow}>
               <Text style={styles.metricText}>{m}</Text>
             </View>
           ))}
         </View>
 
-        {(isWithings &&
-          withingsPresence.status === "ready" &&
-          (withingsPresence.data.backfill?.status === "running" || withingsPresence.data.lastMeasurementAt)) ||
-        (isAppleHealth && appleLastSyncAt) ||
+        {(isAppleHealth && appleLastSyncAt) ||
         (isOura &&
           ouraPresence.status === "ready" &&
           (ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt)) ? (
@@ -384,23 +267,7 @@ function DeviceDetailScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Sync status</Text>
             </View>
-            {isWithings && withingsPresence.status === "ready" ? (
-              <>
-                {withingsPresence.data.backfill?.status === "running" && (
-                  <View style={styles.metricRow}>
-                    <Text style={styles.metricText}>Importing history from Withings…</Text>
-                  </View>
-                )}
-                {withingsPresence.data.lastMeasurementAt && (
-                  <View style={styles.metricRow}>
-                    <Text style={styles.metricText}>
-                      Last measurement:{" "}
-                      {new Date(withingsPresence.data.lastMeasurementAt).toLocaleString()}
-                    </Text>
-                  </View>
-                )}
-              </>
-            ) : isAppleHealth && appleLastSyncAt ? (
+            {isAppleHealth && appleLastSyncAt ? (
               <View style={styles.metricRow}>
                 <Text style={styles.metricText}>
                   Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
@@ -463,6 +330,49 @@ function DeviceDetailScreen() {
                   })()
                 ) : null}
               </>
+            ) : null}
+          </View>
+        ) : null}
+
+        {isAppleHealth ? (
+          <View style={styles.group}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Body history backfill</Text>
+            </View>
+            <Pressable
+              style={[
+                styles.primaryButton,
+                bodyBackfill.state.status === "running" ? styles.primaryButtonDisabled : null,
+              ]}
+              disabled={bodyBackfill.state.status === "running"}
+              onPress={() => {
+                void bodyBackfill.start();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Backfill Apple Health body history"
+            >
+              <Text style={styles.primaryButtonText}>
+                {bodyBackfill.state.status === "running"
+                  ? "Backfilling…"
+                  : "Backfill Apple Health history"}
+              </Text>
+            </Pressable>
+            {bodyBackfill.state.summary ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Chunks: {bodyBackfill.state.summary.chunkCount} • Read: {bodyBackfill.state.summary.samplesRead} • Ingested: {bodyBackfill.state.summary.samplesIngested}
+                </Text>
+              </View>
+            ) : null}
+            {bodyBackfill.state.status === "completed" ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>Backfill complete.</Text>
+              </View>
+            ) : null}
+            {bodyBackfill.state.message ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>Error: {bodyBackfill.state.message}</Text>
+              </View>
             ) : null}
           </View>
         ) : null}

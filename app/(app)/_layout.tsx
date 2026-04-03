@@ -23,9 +23,24 @@ export default function AppLayout() {
           {/* Hide native header on Command Center (we render our own large header) */}
           <Stack.Screen name="command-center/index" options={{ headerShown: false }} />
 
-          {/* Body Composition: title in nav header; weight screen sets headerRight (•••) via setOptions */}
+          {/* Body Composition */}
           <Stack.Screen name="body/weight" options={{ title: "Body Composition" }} />
-          <Stack.Screen name="body/index" options={{ headerTitle: "" }} />
+          <Stack.Screen
+            name="body/index"
+            options={{ title: "Body Composition", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="body/calendar"
+            options={{ title: "Body Calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/day/[day]"
+            options={{ title: "Body Day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/metric/[metric]"
+            options={{ title: "Body metric", ...workoutsStackNavigationOptions("detail") }}
+          />
           <Stack.Screen name="body/overview" options={{ headerTitle: "" }} />
           <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
 

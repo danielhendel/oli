@@ -10,7 +10,6 @@ import {
   getMetricById,
   type Slice1SourceId,
 } from "@/lib/metrics/dataSourcesConfig";
-import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
@@ -23,7 +22,6 @@ export default function ConnectedSourceDetailScreen() {
   const { sourceId } = useLocalSearchParams<{ sourceId: string }>();
   const router = useRouter();
   const { user, getIdToken } = useAuth();
-  const withingsPresence = useWithingsPresence();
   const ouraPresence = useOuraPresence();
   const [appleHealthStatus, setAppleHealthStatus] = useState<"loading" | "connected" | "not_connected" | "error">("loading");
 
@@ -57,15 +55,7 @@ export default function ConnectedSourceDetailScreen() {
   const metricLabels = metricIds.map((id) => getMetricById(id)?.label ?? id).join(", ");
 
   const statusLine =
-    sourceId === "withings"
-      ? withingsPresence.status === "error"
-        ? "Error loading status"
-        : withingsPresence.status === "ready"
-          ? withingsPresence.data.connected
-            ? "Connected"
-            : "Not connected"
-          : "Loading…"
-      : sourceId === "apple_health"
+    sourceId === "apple_health"
         ? appleHealthStatus === "loading"
           ? "Loading…"
           : appleHealthStatus === "connected"
@@ -88,9 +78,7 @@ export default function ConnectedSourceDetailScreen() {
               : "—";
 
   const description =
-    sourceId === "withings"
-      ? "Withings scales and body composition devices send weight and body fat to Oli."
-      : sourceId === "apple_health"
+    sourceId === "apple_health"
         ? "Apple Health can provide steps, activity minutes, HRV, and sleep from your iPhone and Apple Watch."
         : sourceId === "oura"
           ? "Oura can provide sleep duration and HRV. When connected and synced, data appears in your record."
@@ -111,20 +99,6 @@ export default function ConnectedSourceDetailScreen() {
           <Text style={styles.metricsLabel}>Metrics this source provides</Text>
           <Text style={styles.metricsList}>{metricLabels}</Text>
         </View>
-
-        {sourceId === "withings" && (
-          <View style={styles.actions}>
-            {withingsPresence.status === "ready" && withingsPresence.data.backfill?.status === "running" && (
-              <Text style={styles.hint}>Importing history…</Text>
-            )}
-            <Pressable
-              style={[styles.button, styles.buttonPrimary]}
-              onPress={() => router.push("/(app)/settings/devices")}
-            >
-              <Text style={styles.buttonText}>Manage in Devices</Text>
-            </Pressable>
-          </View>
-        )}
 
         {sourceId === "apple_health" && (
           <View style={styles.actions}>

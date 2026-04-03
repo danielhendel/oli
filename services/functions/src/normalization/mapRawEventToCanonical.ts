@@ -36,7 +36,7 @@ import type {
  * but do NOT emit canonical events. Constitutional: canonical = "what happened"; weight is a
  * measurement fact, not an event.
  */
-export const FACT_ONLY_RAW_EVENT_KINDS = ["weight"] as const;
+export const FACT_ONLY_RAW_EVENT_KINDS = ["weight", "body_composition"] as const;
 
 export type FactOnlyRawEventKind = (typeof FACT_ONLY_RAW_EVENT_KINDS)[number];
 
@@ -121,13 +121,6 @@ type ManualWorkoutPayload = ManualWindowBase & {
   trainingLoad?: number | null;
 };
 
-type ManualWeightPayload = {
-  time: IsoDateTimeString;
-  timezone: string;
-  weightKg: number;
-  bodyFatPercent?: number | null;
-};
-
 type ManualHrvPayload = {
   time: IsoDateTimeString;
   timezone: string;
@@ -169,19 +162,18 @@ type ManualPayloadByKind = {
   sleep: ManualSleepPayload;
   steps: ManualStepsPayload;
   workout: ManualWorkoutPayload;
-  weight: ManualWeightPayload;
   hrv: ManualHrvPayload;
   strength_workout: ManualStrengthWorkoutPayload;
   nutrition: ManualNutritionPayload;
 };
 
+/** Kinds that map to canonical events for provider === "manual" (weight is fact-only for all providers). */
 type ManualKind = keyof ManualPayloadByKind;
 
 const MANUAL_KINDS: readonly ManualKind[] = [
   "sleep",
   "steps",
   "workout",
-  "weight",
   "hrv",
   "strength_workout",
   "nutrition",
@@ -221,11 +213,6 @@ const isManualWorkoutPayload = (value: unknown): value is ManualWorkoutPayload =
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
   return hasString(value, "sport") && hasNumber(value, "durationMinutes");
-};
-
-const isManualWeightPayload = (value: unknown): value is ManualWeightPayload => {
-  if (!isRecord(value)) return false;
-  return hasString(value, "time") && hasString(value, "timezone") && hasNumber(value, "weightKg");
 };
 
 const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
@@ -299,8 +286,6 @@ const parseManualPayload = <K extends ManualKind>(
       return isManualStepsPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
     case "workout":
       return isManualWorkoutPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
-    case "weight":
-      return isManualWeightPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
     case "hrv":
       return isManualHrvPayload(payload) ? (payload as ManualPayloadByKind[K]) : null;
     case "strength_workout":
@@ -542,6 +527,28 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
+  if (raw.kind === "body_composition") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, factOnly: true },
+    };
+  }
+
+  /**
+   * Weight is fact-only for all providers (manual, apple_health, …).
+   * Must be checked BEFORE the manual-only provider gate — otherwise
+   * apple_health weight hits UNSUPPORTED_PROVIDER and onRawEventCreated never
+   * runs recomputeDerivedTruthForDay (dailyFacts stay missing).
+   */
+  if (raw.kind === "weight") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, factOnly: true },
+    };
+  }
+
   if (raw.provider !== "manual") {
     return {
       ok: false,
@@ -618,14 +625,6 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       }
       return { ok: true, canonical };
     }
-
-    case "weight":
-      // Fact-only: handled by early return; this case satisfies exhaustive switch
-      return {
-        ok: false,
-        reason: "UNSUPPORTED_KIND",
-        details: { kind: raw.kind, rawEventId: raw.id, factOnly: true },
-      };
 
     case "hrv": {
       const payload = parseManualPayload("hrv", raw.payload);

@@ -281,6 +281,25 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.body!.bodyFatPercent).toBe(18);
   });
 
+  it('includes extended body metrics from factOnlyBody', () => {
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: [],
+      factOnlyBody: {
+        bmi: 23.8,
+        leanBodyMassKg: 61.2,
+        restingMetabolicRateKcal: 1690,
+      },
+    });
+    expect(result.body).toEqual({
+      bmi: 23.8,
+      leanBodyMassKg: 61.2,
+      restingMetabolicRateKcal: 1690,
+    });
+  });
+
   it('prefers canonical weight events over factOnlyBody when both exist', () => {
     const result = aggregateDailyFactsForDay({
       userId: 'user_123',

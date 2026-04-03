@@ -62,7 +62,7 @@ beforeEach(() => {
       id: "w1",
       kind: "weight",
       observedAt: "2025-01-15T10:00:00.000Z",
-      sourceId: "withings",
+      sourceId: "apple_health",
       payload: { weightKg: 70 },
       schemaVersion: 1,
     },

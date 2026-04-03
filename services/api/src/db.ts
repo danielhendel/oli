@@ -22,19 +22,6 @@ export const documentIdPath = FieldPath.documentId();
 export const db = getFirestore();
 
 /**
- * Registry of connected Withings users (no collectionGroup; no composite index).
- * Path: system/integrations/withings_connected/{uid}
- * Fields: { connected: true, updatedAt: serverTimestamp() }. On revoke, doc is deleted.
- */
-export function withingsConnectedRegistryCollection(): CollectionReference {
-  return db.collection("system").doc("integrations").collection("withings_connected") as CollectionReference;
-}
-
-export function withingsConnectedRegistryDoc(uid: string): DocumentReference {
-  return withingsConnectedRegistryCollection().doc(uid);
-}
-
-/**
  * Registry of connected Oura users (no collectionGroup; no composite index).
  * Path: system/integrations/oura_connected/{uid}
  * Fields: { connected: true, updatedAt: serverTimestamp() }. On revoke, doc is deleted.

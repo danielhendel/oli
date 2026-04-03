@@ -8,11 +8,22 @@ import type { FailureKind, GetOptions } from "@/lib/api/http";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
+import { deriveWeightPointDayKey } from "@/lib/data/body/weightDayKey";
+import { filterToAppleHealthBodyReadSources } from "@/lib/data/body/sourceFiltering";
+import {
+  addDaysToDayKey,
+  rangeToStartEnd,
+  type WeightRangeKey,
+} from "@/lib/data/body/bodyHistoryRange";
+
+export type { WeightRangeKey } from "@/lib/data/body/bodyHistoryRange";
 
 /** Per-page limit for getRawEvents (API max 100). */
 const MAX_WEIGHT_ITEMS_FETCH = 100;
-/** Hard cap for all-time load; if exceeded, fail-closed with explicit error. */
+/** Hard cap for unbounded (All) pagination. */
 const MAX_TOTAL_WEIGHT_ITEMS = 5000;
+/** Hard cap when `start`/`end` bound the query (multi-page within window). */
+const MAX_TOTAL_WEIGHT_ITEMS_BOUNDED = 25000;
 const CONCURRENCY = 8;
 
 function getDeviceTimeZone(): string {
@@ -23,25 +34,6 @@ function getDeviceTimeZone(): string {
     return "UTC";
   }
 }
-
-function parseYmd(dayKey: string): number {
-  const parts = dayKey.split("-").map(Number);
-  const y = parts[0] ?? 0;
-  const m = parts[1] ?? 1;
-  const d = parts[2] ?? 1;
-  return new Date(y, m - 1, d).getTime();
-}
-
-function addDays(dayKey: string, delta: number): string {
-  const d = new Date(parseYmd(dayKey));
-  d.setDate(d.getDate() + delta);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-export type WeightRangeKey = "7D" | "30D" | "90D" | "6M" | "1Y" | "3Y" | "5Y" | "All";
 
 /** One weight entry; observedAt must come from raw event (no derived/fake timestamps). */
 export type WeightPoint = {
@@ -83,7 +75,7 @@ function computeRolling7(
   for (const dayKey of dayKeys) {
     const vals: number[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = addDays(dayKey, -i);
+      const d = addDaysToDayKey(dayKey, -i);
       const dayVals = byDay.get(d);
       if (dayVals) vals.push(...dayVals);
     }
@@ -150,7 +142,7 @@ function computeInsights(
   let streakDays = 0;
   const today = getTodayDayKey();
   for (let i = 0; i < 365; i++) {
-    const d = addDays(today, -i);
+    const d = addDaysToDayKey(today, -i);
     if (byDay.has(d)) streakDays++;
     else break;
   }
@@ -202,7 +194,7 @@ function buildViewModel(
   let weeklyDeltaKg: number | null = null;
   if (latest && sorted.length >= 2) {
     const latestDay = ymdInTimeZoneFromIso(latest.observedAt, timeZone);
-    const targetDay = addDays(latestDay, -7);
+    const targetDay = addDaysToDayKey(latestDay, -7);
     const near = sorted.filter((p) => p.dayKey <= targetDay);
     if (near.length > 0) {
       const ref = near[near.length - 1]!;
@@ -221,45 +213,6 @@ function buildViewModel(
     rolling7,
     insights,
   };
-}
-
-/**
- * Returns start/end dayKeys for bounded ranges. For "All", callers must use
- * all-time load (pagination without start/end), not this.
- */
-function rangeToStartEnd(
-  range: WeightRangeKey,
-): { start: string; end: string } | "all" {
-  if (range === "All") return "all";
-  const today = getTodayDayKey();
-  const end = today;
-  let start: string;
-  switch (range) {
-    case "7D":
-      start = addDays(today, -7);
-      break;
-    case "30D":
-      start = addDays(today, -30);
-      break;
-    case "90D":
-      start = addDays(today, -90);
-      break;
-    case "6M":
-      start = addDays(today, -182);
-      break;
-    case "1Y":
-      start = addDays(today, -365);
-      break;
-    case "3Y":
-      start = addDays(today, -1095);
-      break;
-    case "5Y":
-      start = addDays(today, -1825);
-      break;
-    default:
-      start = addDays(today, -30);
-  }
-  return { start, end };
 }
 
 type State =
@@ -309,12 +262,31 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
       const optsUnique = withUniqueCacheBust(opts, seq);
       const tz = getDeviceTimeZone();
 
-      let items: { id: string; observedAt: string; sourceId: string }[];
+      type WeightRow = {
+        id: string;
+        observedAt: string;
+        sourceId: string;
+        kind: string;
+        payload?: unknown;
+      };
+
+      const accumulated: WeightRow[] = [];
       let lastRequestId: string | null = null;
 
+      const pushPage = (page: typeof accumulated) => {
+        for (const it of page) {
+          const row: WeightRow = {
+            id: it.id,
+            observedAt: it.observedAt,
+            sourceId: it.sourceId,
+            kind: it.kind,
+          };
+          if (it.payload !== undefined) row.payload = it.payload;
+          accumulated.push(row);
+        }
+      };
+
       if (rangeToStartEnd(rangeNow) === "all") {
-        // All-time: paginate without start/end until exhaustion or safety cap.
-        const accumulated: { id: string; observedAt: string; sourceId: string }[] = [];
         let cursor: string | null = null;
         let done = false;
         while (!done) {
@@ -322,6 +294,7 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
           const listRes = await getRawEvents(token, {
             kinds: ["weight"],
             limit: MAX_WEIGHT_ITEMS_FETCH,
+            includePayload: true,
             ...(cursor ? { cursor } : {}),
             ...optsUnique,
           });
@@ -341,14 +314,7 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
             });
             return;
           }
-          const page = listOutcome.data.items;
-          for (const it of page) {
-            accumulated.push({
-              id: it.id,
-              observedAt: it.observedAt,
-              sourceId: it.sourceId,
-            });
-          }
+          pushPage(listOutcome.data.items);
           if (accumulated.length >= MAX_TOTAL_WEIGHT_ITEMS && listOutcome.data.nextCursor) {
             safeSet({
               status: "error",
@@ -361,78 +327,105 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
           cursor = listOutcome.data.nextCursor;
           done = cursor == null;
         }
-        items = accumulated;
       } else {
         const { start, end } = rangeToStartEnd(rangeNow) as { start: string; end: string };
-        const listRes = await getRawEvents(token, {
-          start,
-          end,
-          kinds: ["weight"],
-          limit: MAX_WEIGHT_ITEMS_FETCH,
-          ...optsUnique,
-        });
-        if (seq !== reqSeq.current) return;
-        lastRequestId = listRes.requestId ?? null;
-        const listOutcome = truthOutcomeFromApiResult(listRes);
-        if (listOutcome.status !== "ready") {
-          if (listOutcome.status === "missing") {
+        let cursor: string | null = null;
+        for (;;) {
+          if (seq !== reqSeq.current) return;
+          const listRes = await getRawEvents(token, {
+            start,
+            end,
+            kinds: ["weight"],
+            limit: MAX_WEIGHT_ITEMS_FETCH,
+            includePayload: true,
+            ...(cursor ? { cursor } : {}),
+            ...optsUnique,
+          });
+          if (seq !== reqSeq.current) return;
+          lastRequestId = listRes.requestId ?? null;
+          const listOutcome = truthOutcomeFromApiResult(listRes);
+          if (listOutcome.status !== "ready") {
+            if (listOutcome.status === "missing") {
+              break;
+            }
             safeSet({
-              status: "ready",
-              data: buildViewModel([], tz),
+              status: "error",
+              error: listOutcome.error,
+              requestId: listOutcome.requestId,
+              reason: listOutcome.reason,
             });
             return;
           }
-          safeSet({
-            status: "error",
-            error: listOutcome.error,
-            requestId: listOutcome.requestId,
-            reason: listOutcome.reason,
-          });
-          return;
+          pushPage(listOutcome.data.items);
+          if (accumulated.length >= MAX_TOTAL_WEIGHT_ITEMS_BOUNDED && listOutcome.data.nextCursor) {
+            safeSet({
+              status: "error",
+              error: `Weight history exceeds ${MAX_TOTAL_WEIGHT_ITEMS_BOUNDED} entries in this range. Narrow the range in Settings or contact support.`,
+              requestId: lastRequestId,
+              reason: "contract",
+            });
+            return;
+          }
+          cursor = listOutcome.data.nextCursor;
+          if (!cursor) break;
         }
-        items = listOutcome.data.items;
       }
+
+      const rows = filterToAppleHealthBodyReadSources(accumulated);
 
       if (seq !== reqSeq.current) return;
       const points: WeightPoint[] = [];
 
-      for (let i = 0; i < items.length; i += CONCURRENCY) {
-        const batch = items.slice(i, i + CONCURRENCY);
+      for (let i = 0; i < rows.length; i += CONCURRENCY) {
+        const batch = rows.slice(i, i + CONCURRENCY);
         const results = await Promise.all(
-          batch.map((item) => getRawEvent(item.id, token, optsUnique)),
+          batch.map(async (row) => {
+            if (row.payload !== undefined) {
+              return { ok: true as const, row };
+            }
+            const res = await getRawEvent(row.id, token, optsUnique);
+            if (!res.ok) return { ok: false as const, res };
+            const doc = res.json;
+            return {
+              ok: true as const,
+              row: {
+                ...row,
+                kind: doc.kind,
+                payload: doc.payload,
+              },
+            };
+          }),
         );
         if (seq !== reqSeq.current) return;
-        for (let j = 0; j < results.length; j++) {
-          const res = results[j]!;
-          const raw = items[i + j]!;
-          if (!res.ok) {
+        for (const out of results) {
+          if (!out.ok) {
             safeSet({
               status: "error",
-              error: res.error,
-              requestId: res.requestId,
-              reason: res.kind,
+              error: out.res.error,
+              requestId: out.res.requestId,
+              reason: out.res.kind,
             });
             return;
           }
-          const doc = res.json;
-          if (doc.kind !== "weight") continue;
-          const payload = doc.payload as { weightKg?: number; time?: string };
-          const weightKg = typeof payload?.weightKg === "number" && payload.weightKg > 0 ? payload.weightKg : null;
+          const row = out.row;
+          if (row.kind !== "weight") continue;
+          const payload = row.payload as { weightKg?: number; time?: string; timezone?: string } | undefined;
+          const weightKg =
+            typeof payload?.weightKg === "number" && payload.weightKg > 0 ? payload.weightKg : null;
           if (weightKg == null) continue;
-          // Fail-closed: observedAt must come from raw event; do not derive fake timestamps.
-          const observedAt = raw.observedAt;
+          const observedAt = row.observedAt;
           if (typeof observedAt !== "string" || observedAt.length === 0) {
             if (__DEV__) {
               console.warn("useWeightSeries: skipped raw event missing observedAt");
             }
             continue;
           }
-          const dayKey = ymdInTimeZoneFromIso(observedAt, tz);
+          const dayKey = deriveWeightPointDayKey(payload ?? {}, observedAt, tz);
           points.push({
             observedAt,
             dayKey,
             weightKg,
-            sourceId: raw.sourceId,
+            sourceId: row.sourceId,
           });
         }
       }

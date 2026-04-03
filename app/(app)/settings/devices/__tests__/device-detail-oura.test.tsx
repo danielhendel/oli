@@ -30,14 +30,6 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
-jest.mock("@/lib/data/useWithingsPresence", () => ({
-  useWithingsPresence: () => ({
-    status: "ready",
-    data: { connected: false },
-    refetch: jest.fn(),
-  }),
-}));
-
 jest.mock("@/lib/data/useOuraPresence", () => ({
   useOuraPresence: () => ({
     status: "ready",
@@ -46,7 +38,6 @@ jest.mock("@/lib/data/useOuraPresence", () => ({
   }),
 }));
 
-jest.mock("@/lib/api/withings", () => ({}));
 jest.mock("@/lib/api/oura", () => ({
   getOuraConnectUrl: jest.fn(),
   postOuraRevoke: jest.fn(),

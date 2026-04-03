@@ -20,6 +20,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
+    "admin:repair-apple-health-mass": "node scripts/admin/repair-apple-health-mass-unit.mjs",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:expo-resolution": "node scripts/ci/check-expo-resolution.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",

@@ -25,6 +25,48 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts a valid body_composition RawEvent doc", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "abc124",
+      userId: "user_1",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      sourceType: "device",
+      kind: "body_composition",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        time: "2025-01-02T00:00:00.000Z",
+        timezone: "America/New_York",
+        bmi: 24.2,
+      },
+    };
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
+  test("accepts body_composition with nonnegative RMR (HealthKit edge)", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "abc125",
+      userId: "user_1",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      sourceType: "device",
+      kind: "body_composition",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        time: "2025-01-02T00:00:00.000Z",
+        timezone: "America/New_York",
+        restingMetabolicRateKcal: 0,
+      },
+    };
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
   test('accepts a valid file RawEvent doc (no parsing)', () => {
     const raw = {
       schemaVersion: 1,

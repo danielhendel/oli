@@ -130,7 +130,7 @@ function checkClientNoDerivedWrites() {
 /**
  * CHECK 3 — Ingestion routes must enforce idempotency
  *
- * Exemption: invoker-only scheduled job routes (e.g. POST /integrations/withings/pull) are
+ * Exemption: invoker-only scheduled job routes (e.g. POST /integrations/oura/pull) are
  * system-initiated, use deterministic internal doc IDs (rawEvent doc id = idempotencyKey), are
  * not callable by clients, and therefore do not require Idempotency-Key header. Exempt list
  * must stay minimal; any new exempt file must be invoker-only and use deterministic internal ids.
@@ -139,10 +139,8 @@ function checkApiIdempotency() {
   const routesDir = path.join(ROOT, "services", "api", "src", "routes");
   if (!exists(routesDir)) return;
 
-  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["withingsPull.ts", "withingsBackfill.ts", "ouraPull.ts"]);
+  const IDEMPOTENCY_POST_EXEMPT_FILES = new Set(["ouraPull.ts"]);
   const EXEMPT_FILE_TO_MOUNT_PATH = new Map([
-    ["withingsPull.ts", "/integrations/withings/pull"],
-    ["withingsBackfill.ts", "/integrations/withings/backfill"],
     ["ouraPull.ts", "/integrations/oura/pull"],
   ]);
   for (const basename of IDEMPOTENCY_POST_EXEMPT_FILES) {
@@ -213,7 +211,7 @@ function checkApiNoGlobalFirestoreRootCollections() {
       // eslint-disable-next-line no-cond-assign
       while ((m = rx.exec(text)) !== null) {
         const col = m[1];
-        // users = per-uid data; system = deterministic registry (e.g. withings connected) only in db.ts
+        // users = per-uid data; system = deterministic registry only in db.ts
         if (col !== "users" && col !== "system") offenders.push({ file: rel(f), col });
         if (col === "system" && !f.includes("db.ts")) offenders.push({ file: rel(f), col });
       }
@@ -925,7 +923,8 @@ function checkCanonicalKindsNoDrift() {
   // Memory-only RawEvent kinds are explicitly allowlisted here.
   // If you add another raw-only kind, it MUST be added to this list and documented.
   // Phase 2: "incomplete" = "something happened, details later" — no canonical normalization.
-  const MEMORY_ONLY_RAW_EVENT_KINDS = ["file", "incomplete", "oura_raw"];
+  // body_composition: fact-only (dailyFacts / raw reads); no canonical event emission (see mapRawEventToCanonical).
+  const MEMORY_ONLY_RAW_EVENT_KINDS = ["body_composition", "file", "incomplete", "oura_raw"];
 
   const rawText = readText(rawEventPath);
   const healthText = readText(healthPath);

@@ -1,7 +1,7 @@
 // services/functions/src/dailyFacts/loadBodyFactsFromRawForDay.ts
 
 /**
- * Load all weight raw events for a user+day, then resolve body facts using
+ * Load all body-capable raw events for a user+day, then resolve body facts using
  * preferences.metricSources (source-aware aggregation for weight and body_fat_percent).
  * Used by recomputeForDay, admin HTTP recompute, and scheduled daily facts job.
  */
@@ -58,13 +58,14 @@ function deriveDayFromWeightPayload(
 }
 
 /**
- * Parse one raw weight doc into BodyRawEventForDay if valid for the target day.
+ * Parse one body-capable raw doc into BodyRawEventForDay if valid for the target day.
  */
 function parseWeightRawDoc(
   data: Record<string, unknown>,
   targetDayKey: YmdDateString,
 ): BodyRawEventForDay | null {
-  if (data["kind"] !== "weight") return null;
+  const kind = data["kind"];
+  if (kind !== "weight" && kind !== "body_composition") return null;
   const observedAt = data["observedAt"];
   const sourceId = data["sourceId"];
   if (typeof observedAt !== "string" || typeof sourceId !== "string") return null;
@@ -75,6 +76,9 @@ function parseWeightRawDoc(
 
   const weightKg = payload?.["weightKg"];
   const bodyFatPercent = payload?.["bodyFatPercent"];
+  const bmi = payload?.["bmi"];
+  const leanBodyMassKg = payload?.["leanBodyMassKg"];
+  const restingMetabolicRateKcal = payload?.["restingMetabolicRateKcal"];
   const w =
     typeof weightKg === "number" && Number.isFinite(weightKg) && weightKg > 0 ? weightKg : undefined;
   const bf =
@@ -84,19 +88,36 @@ function parseWeightRawDoc(
     bodyFatPercent <= 100
       ? bodyFatPercent
       : undefined;
-  if (w === undefined && bf === undefined) return null;
+  const bmiValue =
+    typeof bmi === "number" && Number.isFinite(bmi) && bmi > 0 && bmi < 100 ? bmi : undefined;
+  const leanValue =
+    typeof leanBodyMassKg === "number" && Number.isFinite(leanBodyMassKg) && leanBodyMassKg > 0
+      ? leanBodyMassKg
+      : undefined;
+  const rmrValue =
+    typeof restingMetabolicRateKcal === "number" &&
+    Number.isFinite(restingMetabolicRateKcal) &&
+    restingMetabolicRateKcal > 0
+      ? restingMetabolicRateKcal
+      : undefined;
+  if (w === undefined && bf === undefined && bmiValue === undefined && leanValue === undefined && rmrValue === undefined)
+    return null;
 
   return {
     observedAt,
     sourceId,
     ...(w !== undefined ? { weightKg: w } : {}),
     ...(bf !== undefined ? { bodyFatPercent: bf } : {}),
+    ...(bmiValue !== undefined ? { bmi: bmiValue } : {}),
+    ...(leanValue !== undefined ? { leanBodyMassKg: leanValue } : {}),
+    ...(rmrValue !== undefined ? { restingMetabolicRateKcal: rmrValue } : {}),
   };
 }
 
 /**
- * Load body facts for a user+day from raw weight events and preferences.
- * Queries rawEvents by kind=weight and observedAt in a range that covers the calendar day in any timezone.
+ * Load body facts for a user+day from raw body events and preferences.
+ * Queries rawEvents by kind in [weight, body_composition] and observedAt in a range
+ * that covers the calendar day in any timezone.
  */
 export async function loadBodyFactsFromRawForDay(
   db: Firestore,
@@ -110,7 +131,7 @@ export async function loadBodyFactsFromRawForDay(
 
   const rawSnap = await userRef
     .collection("rawEvents")
-    .where("kind", "==", "weight")
+    .where("kind", "in", ["weight", "body_composition"])
     .where("observedAt", ">=", startIso)
     .where("observedAt", "<=", endIso)
     .get();

@@ -74,7 +74,7 @@ export default function DebugIndex() {
         onPress={() => router.push("/debug/integrations")}
         style={{ padding: 12, borderWidth: 1, borderRadius: 10 }}
       >
-        <Text>Integrations probe (Withings + Apple Health)</Text>
+        <Text>Integrations probe (Apple Health)</Text>
       </Pressable>
 
       <Text selectable style={{ fontFamily: "Menlo", fontSize: 12, paddingTop: 8 }}>
