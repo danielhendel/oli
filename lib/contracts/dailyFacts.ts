@@ -49,6 +49,9 @@ export const dailyFactsDtoSchema = z
       .object({
         weightKg: z.number().finite().optional(),
         bodyFatPercent: z.number().finite().optional(),
+        bmi: z.number().finite().optional(),
+        leanBodyMassKg: z.number().finite().optional(),
+        restingMetabolicRateKcal: z.number().finite().optional(),
       })
       .strip()
       .optional(),

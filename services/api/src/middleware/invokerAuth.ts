@@ -4,7 +4,7 @@
  * 1) x-goog-authenticated-user-email (Cloud Run IAM-injected), OR
  * 2) Authorization: Bearer <Google-signed ID token> verified with verifyIdToken (audience + allowlist).
  * Fail-closed: production requires explicit allowlist and (for token path) INVOKER_TOKEN_AUDIENCE.
- * Token path: allow by email (WITHINGS_PULL_INVOKER_EMAILS) or by sub (WITHINGS_PULL_INVOKER_SUBS).
+ * Token path: allow by email (INVOKER_ALLOWED_EMAILS) or by sub (INVOKER_ALLOWED_SUBS).
  * SA ID tokens often omit email; sub is always present and can be allowlisted.
  * Never log tokens or Authorization header.
  */
@@ -25,7 +25,7 @@ function getOAuth2Client(): OAuth2Client {
 }
 
 function getAllowedInvokerEmails(): Set<string> {
-  const raw = (process.env.WITHINGS_PULL_INVOKER_EMAILS ?? "").trim();
+  const raw = (process.env.INVOKER_ALLOWED_EMAILS ?? "").trim();
   if (!raw) return new Set();
   return new Set(
     raw
@@ -37,7 +37,7 @@ function getAllowedInvokerEmails(): Set<string> {
 
 /** Comma-separated sub (subject) allowlist for SA tokens that omit email. */
 function getAllowedInvokerSubs(): Set<string> {
-  const raw = (process.env.WITHINGS_PULL_INVOKER_SUBS ?? "").trim();
+  const raw = (process.env.INVOKER_ALLOWED_SUBS ?? "").trim();
   if (!raw) return new Set();
   return new Set(
     raw
@@ -139,7 +139,7 @@ async function requireInvokerAuthAsync(req: Request, res: Response, next: NextFu
     const allowed = getAllowedInvokerEmails();
     if (isProd() && allowed.size === 0) {
       logInvokerReject(req, "header_allowlist_empty", "INVOKER_ALLOWLIST_REQUIRED");
-      reject(res, "INVOKER_ALLOWLIST_REQUIRED", "Invoker allowlist required in production (WITHINGS_PULL_INVOKER_EMAILS)");
+      reject(res, "INVOKER_ALLOWLIST_REQUIRED", "Invoker allowlist required in production (INVOKER_ALLOWED_EMAILS)");
       return;
     }
     if (allowed.size > 0 && !allowed.has(email.toLowerCase())) {
@@ -195,7 +195,7 @@ async function requireInvokerAuthAsync(req: Request, res: Response, next: NextFu
 
     if (isProd() && !hasAllowlist) {
       logInvokerReject(req, "token_allowlist_empty", "INVOKER_ALLOWLIST_REQUIRED");
-      reject(res, "INVOKER_ALLOWLIST_REQUIRED", "Invoker allowlist required in production (WITHINGS_PULL_INVOKER_EMAILS or WITHINGS_PULL_INVOKER_SUBS)");
+      reject(res, "INVOKER_ALLOWLIST_REQUIRED", "Invoker allowlist required in production (INVOKER_ALLOWED_EMAILS or INVOKER_ALLOWED_SUBS)");
       return;
     }
 

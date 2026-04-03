@@ -9,10 +9,7 @@ import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
-import integrationsRoutes, { handleWithingsCallback, handleOuraCallback } from "./routes/integrations";
-import withingsPullRouter from "./routes/withingsPull";
-import withingsBackfillRouter from "./routes/withingsBackfill";
-import withingsPullNowRouter from "./routes/integrations/withingsPullNow";
+import integrationsRoutes, { handleOuraCallback } from "./routes/integrations";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
 import ouraIngestRouter from "./routes/integrations/ouraIngest";
 import ouraPullNowRouter from "./routes/integrations/ouraPullNow";
@@ -123,45 +120,6 @@ app.use("/preferences", authMiddleware, preferencesRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
-
-/**
- * Withings OAuth callback — PUBLIC (no auth) so Withings can redirect here.
- */
-app.get("/integrations/withings/callback", (req, res) => {
-  void handleWithingsCallback(req, res);
-});
-
-/**
- * Withings OAuth completion bridge — PUBLIC. Returns HTML that deep-links to com.olifitness.oli://withings-connected
- * so WebBrowser.openAuthSessionAsync reliably auto-closes even when Safari lands on a JSON/wrong host.
- */
-app.get("/integrations/withings/complete", (_req: Request, res: Response) => {
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store");
-  res.status(200).send(
-    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>` +
-      `<script>window.location.href = "com.olifitness.oli://withings-connected";</script>` +
-      `<p>Redirecting…</p>` +
-      `<a id="fallback" href="com.olifitness.oli://withings-connected" style="display:none;">Open Oli</a>` +
-      `<script>setTimeout(function(){ document.getElementById("fallback").style.display = "inline"; }, 500);</script>` +
-      `</body></html>`,
-  );
-});
-
-/**
- * Withings pull — invoker-only (Cloud Scheduler / IAM). Not under user auth.
- */
-app.use("/integrations/withings/pull", requireInvokerAuth, withingsPullRouter);
-
-/**
- * Withings backfill — invoker-only. Chunked historical import; job-only, not callable by client.
- */
-app.use("/integrations/withings/backfill", requireInvokerAuth, withingsBackfillRouter);
-
-/**
- * Withings pull-now — user-authenticated. Immediate pull for authed user only (last 72h).
- */
-app.use("/integrations/withings/pull-now", authMiddleware, withingsPullNowRouter);
 
 /**
  * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).

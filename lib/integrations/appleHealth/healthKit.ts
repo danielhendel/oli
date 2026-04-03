@@ -5,6 +5,7 @@
  */
 
 import { NativeModules, Platform } from "react-native";
+import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 import type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";
 
 /**
@@ -36,7 +37,16 @@ function maxIsoStart(workouts: { start: string }[]): string | null {
 }
 
 type HealthPermission = string;
-type HealthInputOptions = { startDate?: string; endDate?: string; date?: string; limit?: number; anchor?: string };
+type HealthInputOptions = {
+  startDate?: string;
+  endDate?: string;
+  date?: string;
+  limit?: number;
+  anchor?: string;
+  ascending?: boolean;
+  /** react-native-health mass queries default to pounds when omitted (RCTAppleHealthKit+Methods_Body.m). */
+  unit?: string;
+};
 type HealthValue = { value: number; startDate?: string; endDate?: string; id?: string };
 type HKWorkoutQueriedSampleType = {
   id?: string;
@@ -83,6 +93,15 @@ type HealthKitInstance = {
   getActiveEnergyBurned: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getRestingHeartRateSamples: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getAnchoredWorkouts: (o: HealthInputOptions & { type?: string }, cb: (err: unknown, r: AnchoredQueryResults) => void) => void;
+  getWeightSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getBodyFatPercentageSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getBmiSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getLeanBodyMassSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getBasalEnergyBurned?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getAuthStatus?: (
+    input: { permissions: { read: HealthPermission[]; write: HealthPermission[] } },
+    cb: (err: string, results: { permissions: { read: number[]; write: number[] } }) => void,
+  ) => void;
 };
 
 type MaybeNativeHK = {
@@ -126,6 +145,34 @@ function getNativeAppleHealthKit(): HealthKitInstance | null {
   return raw as HealthKitInstance;
 }
 
+/**
+ * Direct NativeModules.AppleHealthKit often omits body sample helpers; react-native-health's
+ * default export includes them. Bind missing methods so Body composition queries work.
+ */
+async function mergeBodySampleQueryMethodsFromPackage(HK: HealthKitInstance): Promise<void> {
+  const keys = [
+    "getWeightSamples",
+    "getBodyFatPercentageSamples",
+    "getBmiSamples",
+    "getLeanBodyMassSamples",
+    "getBasalEnergyBurned",
+    "getAuthStatus",
+  ] as const;
+  const needsMerge = keys.some((k) => typeof HK[k] !== "function");
+  if (!needsMerge) return;
+  try {
+    const mod = await import("react-native-health");
+    const pkg = (mod.default ?? mod) as HealthKitInstance;
+    for (const k of keys) {
+      if (typeof HK[k] !== "function" && typeof pkg[k] === "function") {
+        (HK as unknown as Record<string, unknown>)[k] = (pkg[k] as (...args: unknown[]) => unknown).bind(pkg);
+      }
+    }
+  } catch {
+    // keep HK as-is; pullBodyCompositionSamples will fail-closed per-query
+  }
+}
+
 let healthKitModule: HealthKitInstance | null | undefined = undefined;
 
 async function getHealthKit(): Promise<HealthKitInstance | null> {
@@ -135,6 +182,7 @@ async function getHealthKit(): Promise<HealthKitInstance | null> {
   const nativeHK = getNativeAppleHealthKit();
   if (nativeHK) {
     console.log("[AH] using NativeModules.AppleHealthKit");
+    await mergeBodySampleQueryMethodsFromPackage(nativeHK);
     healthKitModule = nativeHK;
     return healthKitModule;
   }
@@ -164,12 +212,311 @@ const W1_READ_PERMISSIONS: HealthPermission[] = [
   "RestingHeartRate",
   "AppleExerciseTime",
   "ActiveEnergyBurned",
+  "BodyMass",
+  "BodyFatPercentage",
+  "BodyMassIndex",
+  "LeanBodyMass",
+  "BasalEnergyBurned",
 ];
 
+export type AppleHealthBodyWeightSample = {
+  observedAt: string;
+  sourceId: string | null;
+  weightKg?: number;
+  bodyFatPercent?: number;
+  bmi?: number;
+  leanBodyMassKg?: number;
+  restingMetabolicRateKcal?: number;
+};
+
+function normalizePercent(raw: number): number | null {
+  if (!Number.isFinite(raw)) return null;
+  const normalized = raw <= 1 ? raw * 100 : raw;
+  if (normalized < 0 || normalized > 100) return null;
+  return normalized;
+}
+
+function normalizePositive(raw: number): number | null {
+  if (!Number.isFinite(raw)) return null;
+  if (raw <= 0) return null;
+  return raw;
+}
+
+function pHealthValueArrayResult(
+  fn: ((o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void) | undefined,
+  options: HealthInputOptions,
+  label: string,
+): Promise<{ ok: true; data: HealthValue[] } | { ok: false; error: string }> {
+  if (typeof fn !== "function") {
+    return Promise.resolve({
+      ok: false,
+      error: `HealthKit ${label} query is not available (missing native method).`,
+    });
+  }
+  return new Promise((resolve) => {
+    fn(options, (err: string, results: HealthValue[]) => {
+      if (err) {
+        resolve({ ok: false, error: `HealthKit ${label}: ${err}` });
+        return;
+      }
+      if (!Array.isArray(results)) {
+        resolve({ ok: false, error: `HealthKit ${label} returned invalid results.` });
+        return;
+      }
+      resolve({ ok: true, data: results });
+    });
+  });
+}
+
+type BodyMetricMerge = Partial<{
+  weightKg: number;
+  bodyFatPercent: number;
+  bmi: number;
+  leanBodyMassKg: number;
+  restingMetabolicRateKcal: number;
+}>;
+
+function upsertBodyMetric(
+  out: Map<string, AppleHealthBodyWeightSample>,
+  observedAt: string,
+  sourceId: string | null,
+  patch: BodyMetricMerge,
+): void {
+  const key = `${observedAt}|${sourceId ?? "healthkit"}`;
+  const prev = out.get(key) ?? { observedAt, sourceId };
+  out.set(key, { ...prev, ...patch });
+}
+
+function deviceTimeZoneForBodyPull(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.length ? tz : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 /**
- * Request HealthKit permissions. Call only on explicit user action.
- * Read: steps, workouts, resting heart rate, apple exercise time, active energy.
- * Write: none.
+ * HealthKit returns BodyMass, body fat %, BMI, lean mass, and basal energy as separate samples
+ * with different `startDate` values. `upsertBodyMetric` keys by exact timestamp, so BMI / lean /
+ * RMR often sit on different rows than weight and may not ingest next to the same-day weight.
+ *
+ * Coalesce per **local calendar day** (device TZ) and `sourceId`:
+ * - Every weight row for that day is kept (multi weigh-in days preserved).
+ * - The **latest** weight row that day also receives composition fields taken from the **newest**
+ *   timestamp in the day group (including composition-only samples).
+ * - A day with no weight merges composition-only samples into one row (latest `observedAt`).
+ */
+export function coalesceAppleHealthBodySamplesForIngest(
+  samples: AppleHealthBodyWeightSample[],
+  timeZone: string,
+): AppleHealthBodyWeightSample[] {
+  if (samples.length === 0) return [];
+
+  const groupKey = (s: AppleHealthBodyWeightSample) =>
+    `${ymdInTimeZoneFromIso(s.observedAt, timeZone)}|${s.sourceId ?? "healthkit"}`;
+
+  const groups = new Map<string, AppleHealthBodyWeightSample[]>();
+  for (const s of samples) {
+    const k = groupKey(s);
+    const arr = groups.get(k) ?? [];
+    arr.push(s);
+    groups.set(k, arr);
+  }
+
+  const result: AppleHealthBodyWeightSample[] = [];
+
+  for (const group of groups.values()) {
+    const sortedAsc = [...group].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+    const latestByField: BodyMetricMerge = {};
+    for (const s of sortedAsc) {
+      if (s.bodyFatPercent != null) latestByField.bodyFatPercent = s.bodyFatPercent;
+      if (s.bmi != null) latestByField.bmi = s.bmi;
+      if (s.leanBodyMassKg != null) latestByField.leanBodyMassKg = s.leanBodyMassKg;
+      if (s.restingMetabolicRateKcal != null) latestByField.restingMetabolicRateKcal = s.restingMetabolicRateKcal;
+    }
+
+    const withWeight = group.filter((s) => typeof s.weightKg === "number" && s.weightKg > 0);
+    const weightsAsc = [...withWeight].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+
+    if (weightsAsc.length === 0) {
+      const anchor = sortedAsc[sortedAsc.length - 1]!;
+      result.push({
+        observedAt: anchor.observedAt,
+        sourceId: anchor.sourceId,
+        ...latestByField,
+      });
+      continue;
+    }
+
+    for (let i = 0; i < weightsAsc.length; i += 1) {
+      const w = weightsAsc[i]!;
+      const isLatestWeight = i === weightsAsc.length - 1;
+      if (!isLatestWeight) {
+        result.push({ ...w });
+        continue;
+      }
+      const merged: AppleHealthBodyWeightSample = {
+        observedAt: w.observedAt,
+        sourceId: w.sourceId,
+        weightKg: w.weightKg!,
+      };
+      const bf = w.bodyFatPercent ?? latestByField.bodyFatPercent;
+      if (bf !== undefined) merged.bodyFatPercent = bf;
+      const bmiVal = w.bmi ?? latestByField.bmi;
+      if (bmiVal !== undefined) merged.bmi = bmiVal;
+      const lean = w.leanBodyMassKg ?? latestByField.leanBodyMassKg;
+      if (lean !== undefined) merged.leanBodyMassKg = lean;
+      const rmr = w.restingMetabolicRateKcal ?? latestByField.restingMetabolicRateKcal;
+      if (rmr !== undefined) merged.restingMetabolicRateKcal = rmr;
+      result.push(merged);
+    }
+  }
+
+  return result.sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+}
+
+/**
+ * Options for HealthKit **body mass** samples (weight, lean body mass).
+ * react-native-health defaults to **pounds** when `unit` is omitted (`RCTAppleHealthKit+Methods_Body.m`).
+ * Exported for unit tests; `pullBodyCompositionSamples` uses this for weight + lean mass only.
+ */
+export function buildAppleHealthBodyMassSampleQueryOptions(opts: {
+  startDate: string;
+  endDate: string;
+  limit?: number;
+}): HealthInputOptions {
+  return {
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    ...(typeof opts.limit === "number" ? { limit: opts.limit } : {}),
+    ascending: false,
+    unit: "kg",
+  };
+}
+
+export async function pullBodyCompositionSamples(opts: {
+  startDate: string;
+  endDate: string;
+  limit?: number;
+}): Promise<{ ok: true; data: AppleHealthBodyWeightSample[] } | { ok: false; error: string }> {
+  const HK = await getHealthKit();
+  if (!HK) {
+    return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
+  }
+
+  const windowOpts: HealthInputOptions = {
+    startDate: opts.startDate,
+    endDate: opts.endDate,
+    ...(typeof opts.limit === "number" ? { limit: opts.limit } : {}),
+    ascending: false,
+  };
+  const massKgQuery = buildAppleHealthBodyMassSampleQueryOptions(opts);
+
+  const [w, bf, bmiR, leanR, basalR] = await Promise.all([
+    pHealthValueArrayResult(HK.getWeightSamples, massKgQuery, "BodyMass"),
+    pHealthValueArrayResult(HK.getBodyFatPercentageSamples, windowOpts, "BodyFatPercentage"),
+    pHealthValueArrayResult(HK.getBmiSamples, windowOpts, "BodyMassIndex"),
+    pHealthValueArrayResult(HK.getLeanBodyMassSamples, massKgQuery, "LeanBodyMass"),
+    pHealthValueArrayResult(HK.getBasalEnergyBurned, windowOpts, "BasalEnergyBurned"),
+  ]);
+
+  const parts = [w, bf, bmiR, leanR, basalR];
+  const anyOk = parts.some((p) => p.ok);
+  if (!anyOk) {
+    const errs = parts
+      .filter((p): p is { ok: false; error: string } => !p.ok)
+      .map((p) => p.error);
+    return { ok: false, error: errs.join(" ") || "HealthKit body queries failed." };
+  }
+
+  const weightSamples = w.ok ? w.data : [];
+  const bodyFatSamples = bf.ok ? bf.data : [];
+  const bmiSamples = bmiR.ok ? bmiR.data : [];
+  const leanSamples = leanR.ok ? leanR.data : [];
+  const basalEnergySamples = basalR.ok ? basalR.data : [];
+
+  const out = new Map<string, AppleHealthBodyWeightSample>();
+  for (const sample of weightSamples) {
+    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
+    const weightKg = normalizePositive(sample?.value);
+    if (!observedAt || weightKg == null) continue;
+    upsertBodyMetric(out, observedAt, null, { weightKg });
+  }
+  for (const sample of bodyFatSamples) {
+    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
+    const bodyFatPercent = normalizePercent(sample?.value);
+    if (!observedAt || bodyFatPercent == null) continue;
+    upsertBodyMetric(out, observedAt, null, { bodyFatPercent });
+  }
+  for (const sample of bmiSamples) {
+    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
+    const bmi = normalizePositive(sample?.value);
+    if (!observedAt || bmi == null) continue;
+    upsertBodyMetric(out, observedAt, null, { bmi });
+  }
+  for (const sample of leanSamples) {
+    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
+    const leanBodyMassKg = normalizePositive(sample?.value);
+    if (!observedAt || leanBodyMassKg == null) continue;
+    upsertBodyMetric(out, observedAt, null, { leanBodyMassKg });
+  }
+  for (const sample of basalEnergySamples) {
+    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
+    const restingMetabolicRateKcal = normalizePositive(sample?.value);
+    if (!observedAt || restingMetabolicRateKcal == null) continue;
+    upsertBodyMetric(out, observedAt, null, { restingMetabolicRateKcal });
+  }
+
+  const coalesced = coalesceAppleHealthBodySamplesForIngest([...out.values()], deviceTimeZoneForBodyPull());
+  return { ok: true, data: coalesced };
+}
+
+/** Body read types for getAuthStatus (same family as body composition queries). */
+const BODY_COMPOSITION_READ_TYPES: HealthPermission[] = [
+  "BodyMass",
+  "BodyFatPercentage",
+  "BodyMassIndex",
+  "LeanBodyMass",
+  "BasalEnergyBurned",
+];
+
+export type BodyCompositionReadAuthStatusResult =
+  | { ok: true; bodyMassStatus: number; readStatuses: number[] }
+  | { ok: false; error: string };
+
+/**
+ * Read authorization status for Body composition types (react-native-health getAuthStatus).
+ * Returns per-type codes in `readStatuses` (same order as BODY_COMPOSITION_READ_TYPES).
+ * UI maps the full vector in TS — do not gate on index 0 alone.
+ */
+export async function getBodyCompositionReadAuthStatus(): Promise<BodyCompositionReadAuthStatusResult> {
+  const HK = await getHealthKit();
+  if (!HK) {
+    return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
+  }
+  if (typeof HK.getAuthStatus !== "function") {
+    return { ok: false, error: "HealthKit getAuthStatus is not available." };
+  }
+  return new Promise((resolve) => {
+    HK.getAuthStatus!(
+      { permissions: { read: BODY_COMPOSITION_READ_TYPES, write: [] } },
+      (err: string, results: { permissions: { read: number[]; write: number[] } }) => {
+        if (err) {
+          resolve({ ok: false, error: err });
+          return;
+        }
+        const read = results.permissions.read;
+        const bodyMassStatus = typeof read[0] === "number" ? read[0]! : 0;
+        resolve({ ok: true, bodyMassStatus, readStatuses: read });
+      },
+    );
+  });
+}
+
+/**
+ * Request HealthKit read permissions (includes BodyMass, body fat, BMI, lean mass, basal energy for Body).
+ * Call before body sync/backfill so queries are authorized. Write: none.
  */
 export async function requestPermissions(): Promise<HealthKitPermissionResult> {
   const HK = await getHealthKit();

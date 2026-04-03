@@ -12,6 +12,7 @@ export * from "./weight";
 
 // ✅ Preferences (Phase 1)
 export * from "./preferences";
+export * from "./bodyReadSources";
 
 // ✅ Labs Biomarkers v0 ( Sprint 2.9 )
 export * from "./labResults";

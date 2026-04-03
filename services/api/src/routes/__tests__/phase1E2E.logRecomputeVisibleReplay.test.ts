@@ -81,10 +81,10 @@ describe("Phase 1 E2E: log → recompute → visible → replayable", () => {
           "Idempotency-Key": IDEMPOTENCY_KEY,
         },
         body: JSON.stringify({
-          provider: "manual",
+          provider: "apple_health",
           kind: "weight",
           observedAt: "2026-01-15T14:30:00.000Z",
-          sourceId: "manual",
+          sourceId: "apple_health",
           timeZone: "America/New_York",
           payload: {
             time: "2026-01-15T14:30:00.000Z",

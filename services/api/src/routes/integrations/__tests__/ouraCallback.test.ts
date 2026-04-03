@@ -22,7 +22,6 @@ jest.mock("../../../db", () => ({
     doc: (...args: unknown[]) => mockDoc(...args),
   })),
   FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }) },
-  withingsConnectedRegistryDoc: jest.fn(() => ({ set: jest.fn(), delete: jest.fn() })),
   ouraConnectedRegistryDoc: jest.fn(() => ({ set: jest.fn().mockResolvedValue(undefined), delete: jest.fn() })),
 }));
 

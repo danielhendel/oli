@@ -111,6 +111,57 @@ describe("mapRawEventToCanonical", () => {
     );
   });
 
+  it("returns fact-only for apple_health weight (not UNSUPPORTED_PROVIDER)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_weight_1",
+      provider: "apple_health",
+      kind: "weight",
+      payload: {
+        time: "2025-01-01T06:00:00.000Z",
+        timezone: "America/New_York",
+        weightKg: 80,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected fact-only (no canonical)");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details).toEqual(
+      expect.objectContaining({
+        kind: "weight",
+        factOnly: true,
+        rawEventId: "raw_ah_weight_1",
+      }),
+    );
+  });
+
+  it("returns fact-only for body_composition (no canonical event)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_body_comp_1",
+      provider: "apple_health",
+      kind: "body_composition",
+      payload: {
+        time: "2025-01-01T06:00:00.000Z",
+        timezone: "America/New_York",
+        bmi: 23.9,
+      } as unknown,
+    };
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected fact-only (no canonical)");
+    expect(result.reason).toBe("UNSUPPORTED_KIND");
+    expect(result.details).toEqual(
+      expect.objectContaining({
+        kind: "body_composition",
+        factOnly: true,
+        rawEventId: "raw_body_comp_1",
+      }),
+    );
+  });
+
   it("returns failure for unsupported provider", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

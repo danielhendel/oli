@@ -1,14 +1,11 @@
 /**
- * DEV-ONLY — Integration probe: Withings weight + Apple Health workouts.
- * Proves what the app believes vs what the server has. No secrets in output (no idToken).
- * Renders only when __DEV__; otherwise null.
+ * DEV-ONLY — Integration probe: Apple Health workouts.
  */
 
 import React, { useState, useCallback } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getRawEvents } from "@/lib/api/usersMe";
-import { getWithingsStatus, postWithingsPullNow } from "@/lib/api/withings";
 import { getLastSyncAt } from "@/lib/integrations/appleHealth/storage";
 import { getWorkoutsAnchor, setWorkoutsAnchor } from "@/lib/integrations/appleHealth/anchor";
 import { runAnchoredWorkoutsSync } from "@/lib/integrations/appleHealth/runAnchoredWorkoutsSync";
@@ -41,24 +38,6 @@ function getTodayBounds(): { start: string; end: string; day: string } {
 
 export default function DebugIntegrationsScreen() {
   const { user, getIdToken } = useAuth();
-  const [withingsStatus, setWithingsStatus] = useState<{
-    connected?: boolean;
-    requestId?: string | null;
-    error?: string;
-  } | null>(null);
-  const [withingsPullResult, setWithingsPullResult] = useState<{
-    ok: boolean;
-    requestId?: string | null;
-    eventsCreated?: number;
-    eventsAlreadyExists?: number;
-    error?: string;
-  } | null>(null);
-  const [weightRawEvents, setWeightRawEvents] = useState<{
-    count: number;
-    items: { id: string; observedAt: string; sourceId: string; receivedAt?: string }[];
-    requestId?: string | null;
-    error?: string;
-  } | null>(null);
   const [appleLastSyncAt, setAppleLastSyncAt] = useState<string | null>(null);
   const [appleAnchor, setAppleAnchor] = useState<string | null>(null);
   const [appleSyncResult, setAppleSyncResult] = useState<{
@@ -75,75 +54,6 @@ export default function DebugIntegrationsScreen() {
   } | null>(null);
   const [appleLastSyncAtAfter, setAppleLastSyncAtAfter] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
-
-  const runWithingsProbe = useCallback(async () => {
-    if (!user) return;
-    setLoading("withings");
-    setWithingsStatus(null);
-    setWithingsPullResult(null);
-    setWeightRawEvents(null);
-    try {
-      const token = await getIdToken(false);
-      if (!token) {
-        setWithingsStatus({ error: "No auth token", requestId: null });
-        return;
-      }
-      const cacheBust = `debug:${Date.now()}`;
-
-      const statusRes = await getWithingsStatus(token, { cacheBust });
-      if (!statusRes.ok) {
-        setWithingsStatus({ error: statusRes.error, requestId: statusRes.requestId });
-        return;
-      }
-      setWithingsStatus({
-        connected: statusRes.json.connected,
-        requestId: statusRes.requestId,
-      });
-
-      const idempotencyKey = `withingsPullNow:debug:${Date.now()}`;
-      const pullRes = await postWithingsPullNow(token, {
-        idempotencyKey,
-        cacheBust: `pullNow:${Date.now()}`,
-      });
-      if (!pullRes.ok) {
-        setWithingsPullResult({
-          ok: false,
-          requestId: pullRes.requestId,
-          error: pullRes.error,
-        });
-      } else {
-        setWithingsPullResult({
-          ok: true,
-          requestId: pullRes.requestId,
-          eventsCreated: pullRes.json.eventsCreated,
-          eventsAlreadyExists: pullRes.json.eventsAlreadyExists,
-        });
-      }
-
-      const rawRes = await getRawEvents(token, {
-        kinds: ["weight"],
-        limit: 5,
-        cacheBust,
-      });
-      if (!rawRes.ok) {
-        setWeightRawEvents({ count: 0, items: [], requestId: rawRes.requestId, error: rawRes.error });
-        return;
-      }
-      const items = rawRes.json.items.map((i) => ({
-        id: i.id,
-        observedAt: i.observedAt,
-        sourceId: i.sourceId,
-        receivedAt: i.receivedAt,
-      }));
-      setWeightRawEvents({
-        count: items.length,
-        items,
-        requestId: rawRes.requestId,
-      });
-    } finally {
-      setLoading(null);
-    }
-  }, [user, getIdToken]);
 
   const runAppleProbe = useCallback(async () => {
     if (!user) return;
@@ -246,63 +156,6 @@ export default function DebugIntegrationsScreen() {
     <ScrollView contentContainerStyle={styles.scroll}>
       <Text style={styles.title}>Integration probes (DEV)</Text>
       <Text style={styles.hint}>No secrets logged. Only requestId, counts, timestamps.</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Withings</Text>
-        <Pressable
-          onPress={runWithingsProbe}
-          disabled={!!loading}
-          style={[styles.btn, loading === "withings" && styles.btnDisabled]}
-        >
-          <Text style={styles.btnText}>
-            {loading === "withings" ? "Running…" : "Pull Now + Fetch weight raw-events"}
-          </Text>
-        </Pressable>
-        {withingsStatus != null && (
-          <View style={styles.block}>
-            <Text style={styles.label}>Status</Text>
-            <Text selectable style={styles.mono}>
-              connected={String(withingsStatus.connected ?? "—")} requestId=
-              {withingsStatus.requestId ?? "null"}
-            </Text>
-            {withingsStatus.error != null && (
-              <Text style={styles.error}>error: {withingsStatus.error}</Text>
-            )}
-          </View>
-        )}
-        {withingsPullResult != null && (
-          <View style={styles.block}>
-            <Text style={styles.label}>Pull Now result</Text>
-            <Text selectable style={styles.mono}>
-              ok={String(withingsPullResult.ok)} requestId=
-              {withingsPullResult.requestId ?? "null"}
-              {withingsPullResult.eventsCreated != null
-                ? ` eventsCreated=${withingsPullResult.eventsCreated} eventsAlreadyExists=${withingsPullResult.eventsAlreadyExists}`
-                : ""}
-            </Text>
-            {withingsPullResult.error != null && (
-              <Text style={styles.error}>{withingsPullResult.error}</Text>
-            )}
-          </View>
-        )}
-        {weightRawEvents != null && (
-          <View style={styles.block}>
-            <Text style={styles.label}>Weight raw-events (limit 5)</Text>
-            <Text selectable style={styles.mono}>
-              count={weightRawEvents.count} requestId={weightRawEvents.requestId ?? "null"}
-            </Text>
-            {weightRawEvents.items.map((i, idx) => (
-              <Text key={idx} selectable style={styles.monoSmall}>
-                id={i.id} observedAt={i.observedAt} sourceId={i.sourceId} receivedAt=
-                {i.receivedAt ?? "—"}
-              </Text>
-            ))}
-            {weightRawEvents.error != null && (
-              <Text style={styles.error}>{weightRawEvents.error}</Text>
-            )}
-          </View>
-        )}
-      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Apple Health</Text>

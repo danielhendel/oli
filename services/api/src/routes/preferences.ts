@@ -71,6 +71,38 @@ const preferencesPatchSchema = z
  */
 const stripUndefined = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+const LEGACY_BODY_SOURCE_ID = "withings";
+const APPLE_HEALTH_SOURCE_ID = "apple_health";
+const BODY_METRIC_KEYS = [
+  "weight",
+  "body_fat_percent",
+  "bmi",
+  "lean_body_mass",
+  "resting_metabolic_rate",
+] as const;
+
+function normalizeMetricSourcesForAppleHealthOnly(
+  metricSources: Record<string, string> | undefined,
+): { metricSources: Record<string, string>; changed: boolean } {
+  const next: Record<string, string> = { ...(metricSources ?? {}) };
+  let changed = false;
+
+  for (const metricKey of BODY_METRIC_KEYS) {
+    const existing = next[metricKey];
+    if (existing === LEGACY_BODY_SOURCE_ID) {
+      next[metricKey] = APPLE_HEALTH_SOURCE_ID;
+      changed = true;
+      continue;
+    }
+    if (!existing) {
+      next[metricKey] = APPLE_HEALTH_SOURCE_ID;
+      changed = true;
+    }
+  }
+
+  return { metricSources: next, changed };
+}
+
 /**
  * GET /preferences
  *
@@ -95,9 +127,11 @@ router.get(
     // If no user doc exists yet, materialize it with defaults.
     if (!snap.exists) {
       const prefs = defaultPreferences();
-      await ref.set({ preferences: prefs }, { merge: true });
+      const normalized = normalizeMetricSourcesForAppleHealthOnly(prefs.metricSources);
+      const hydrated = { ...prefs, metricSources: normalized.metricSources };
+      await ref.set({ preferences: hydrated }, { merge: true });
 
-      res.status(200).json(prefs);
+      res.status(200).json(hydrated);
       return;
     }
 
@@ -107,9 +141,11 @@ router.get(
     // If preferences missing, set defaults.
     if (!rawPrefs) {
       const prefs = defaultPreferences();
-      await ref.set({ preferences: prefs }, { merge: true });
+      const normalized = normalizeMetricSourcesForAppleHealthOnly(prefs.metricSources);
+      const hydrated = { ...prefs, metricSources: normalized.metricSources };
+      await ref.set({ preferences: hydrated }, { merge: true });
 
-      res.status(200).json(prefs);
+      res.status(200).json(hydrated);
       return;
     }
 
@@ -121,7 +157,13 @@ router.get(
       return;
     }
 
-    res.status(200).json(parsed.data);
+    const normalized = normalizeMetricSourcesForAppleHealthOnly(parsed.data.metricSources);
+    const responsePrefs = { ...parsed.data, metricSources: normalized.metricSources };
+    if (normalized.changed) {
+      await ref.set({ preferences: responsePrefs }, { merge: true });
+    }
+
+    res.status(200).json(responsePrefs);
   }),
 );
 
@@ -208,7 +250,11 @@ router.put(
       metricSources: nextMetricSources,
     };
 
-    const next = preferencesSchema.safeParse(candidate);
+    const normalizedMetricSources = normalizeMetricSourcesForAppleHealthOnly(candidate.metricSources);
+    const next = preferencesSchema.safeParse({
+      ...candidate,
+      metricSources: normalizedMetricSources.metricSources,
+    });
 
     if (!next.success) {
       res.status(400).json({

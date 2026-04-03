@@ -70,7 +70,101 @@ describe("GET/PUT /preferences", () => {
       timezone: { mode: "recorded" },
       selectedGymId: null,
     });
+    expect(json.metricSources).toMatchObject({
+      weight: "apple_health",
+      body_fat_percent: "apple_health",
+      bmi: "apple_health",
+      lean_body_mass: "apple_health",
+      resting_metabolic_rate: "apple_health",
+    });
 
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("GET maps legacy withings body metric source to apple_health", async () => {
+    const setMock = jest.fn(async () => undefined);
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+              metricSources: { weight: "withings" },
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.metricSources.weight).toBe("apple_health");
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("GET preserves mixed valid sources while normalizing legacy body source", async () => {
+    const setMock = jest.fn(async () => undefined);
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+              metricSources: {
+                hrv: "oura",
+                weight: "withings",
+                body_fat_percent: "manual",
+              },
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.metricSources.hrv).toBe("oura");
+    expect(json.metricSources.body_fat_percent).toBe("manual");
+    expect(json.metricSources.weight).toBe("apple_health");
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("GET applies apple_health fallback when metricSources are empty", async () => {
+    const setMock = jest.fn(async () => undefined);
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+              metricSources: {},
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.metricSources).toMatchObject({
+      weight: "apple_health",
+      body_fat_percent: "apple_health",
+      bmi: "apple_health",
+      lean_body_mass: "apple_health",
+      resting_metabolic_rate: "apple_health",
+    });
     expect(setMock).toHaveBeenCalledTimes(1);
   });
 

@@ -26,6 +26,7 @@ import {
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { loadBodyFactsFromRawForApi } from "../lib/bodyFactsSynthesizeFromRaw";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
 import { dayQuerySchema, dayKeySchema } from "../types/day";
@@ -1580,6 +1581,38 @@ router.get(
 
     const snap = await ref.get();
     if (!snap.exists) {
+      let synthesized: Awaited<ReturnType<typeof loadBodyFactsFromRawForApi>> | undefined;
+      try {
+        synthesized = await loadBodyFactsFromRawForApi(uid, day);
+      } catch (err) {
+        logger.info({
+          msg: "daily_facts_synthesize_from_raw_failed",
+          level: "warn",
+          rid: getRid(req),
+          day,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      if (synthesized) {
+        const computedAt = new Date().toISOString();
+        const draft = {
+          schemaVersion: 1 as const,
+          userId: uid,
+          date: day,
+          computedAt,
+          meta: {
+            computedAt,
+            pipelineVersion: 1,
+            source: { synthesizedFromRaw: true as const },
+          },
+          body: synthesized,
+        };
+        const synParsed = dailyFactsDtoSchema.safeParse(draft);
+        if (synParsed.success) {
+          res.status(200).json(synParsed.data);
+          return;
+        }
+      }
       res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "dailyFacts", day } });
       return;
     }

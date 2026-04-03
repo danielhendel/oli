@@ -72,3 +72,28 @@ export function activeEnergyIdempotencyKey(day: string): string {
   if (!safe) throw new Error("activeEnergyIdempotencyKey: day is required");
   return `${PREFIX}:activeEnergy:${safe}`;
 }
+
+/**
+ * Idempotency key for Apple Health body-weight ingestion.
+ * Uses the sample timestamp and source id; deterministic across sync retries.
+ */
+export function appleHealthBodyWeightIdempotencyKey(params: {
+  observedAtIso: string;
+  sourceId?: string | null;
+}): string {
+  const observedAt = sanitizeForDocId(params.observedAtIso);
+  if (!observedAt) throw new Error("appleHealthBodyWeightIdempotencyKey: observedAtIso is required");
+  const sourceId = params.sourceId != null ? sanitizeForDocId(String(params.sourceId)) : "healthkit";
+  return `${PREFIX}:bodyWeight:${observedAt}_${sourceId}`;
+}
+
+export function appleHealthBodyCompositionIdempotencyKey(params: {
+  observedAtIso: string;
+  sourceId?: string | null;
+  metric: "bodyFatPercent" | "bmi" | "leanBodyMassKg" | "restingMetabolicRateKcal";
+}): string {
+  const observedAt = sanitizeForDocId(params.observedAtIso);
+  if (!observedAt) throw new Error("appleHealthBodyCompositionIdempotencyKey: observedAtIso is required");
+  const sourceId = params.sourceId != null ? sanitizeForDocId(String(params.sourceId)) : "healthkit";
+  return `${PREFIX}:bodyComposition:${params.metric}:${observedAt}_${sourceId}`;
+}

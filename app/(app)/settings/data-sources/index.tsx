@@ -12,7 +12,6 @@ import {
   type Slice1SourceId,
 } from "@/lib/metrics/dataSourcesConfig";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
@@ -50,15 +49,11 @@ function useAppleHealthStatusForDataSources(): AppleHealthStatus {
 
 function getSourceStatus(
   sourceId: Slice1SourceId,
-  withingsConnected: boolean,
   appleHealth: AppleHealthStatus,
   ouraConnected: boolean,
   ouraStatus: "loading" | "ready" | "error",
 ): string {
   switch (sourceId) {
-    case "withings":
-      if (withingsConnected) return "Connected";
-      return "Not connected";
     case "apple_health":
       if (appleHealth === "loading") return "Loading…";
       if (appleHealth === "connected") return "Connected";
@@ -81,12 +76,10 @@ function getSourceStatus(
 export default function DataSourcesHomeScreen() {
   const router = useRouter();
   const { state } = usePreferences();
-  const withingsPresence = useWithingsPresence();
   const ouraPresence = useOuraPresence();
   const appleHealthStatus = useAppleHealthStatusForDataSources();
 
   const metricSources = state.preferences.metricSources ?? {};
-  const withingsConnected = withingsPresence.status === "ready" && withingsPresence.data.connected;
   const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
   const ouraStatus = ouraPresence.status === "error" ? "error" : ouraPresence.status === "ready" ? "ready" : "loading";
 
@@ -122,7 +115,7 @@ export default function DataSourcesHomeScreen() {
             <ModuleSectionLinkRow
               key={sourceId}
               title={SOURCE_DISPLAY_NAMES[sourceId]}
-              subtitle={getSourceStatus(sourceId, withingsConnected, appleHealthStatus, ouraConnected, ouraStatus)}
+              subtitle={getSourceStatus(sourceId, appleHealthStatus, ouraConnected, ouraStatus)}
               onPress={() => router.push(`/(app)/settings/data-sources/source/${sourceId}`)}
             />
           ))}

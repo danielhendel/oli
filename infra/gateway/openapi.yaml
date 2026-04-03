@@ -509,49 +509,6 @@ paths:
         200:
           description: OK
 
-  /integrations/withings/connect:
-    options:
-      operationId: withingsConnectOptions
-      security: []
-      responses:
-        204:
-          description: No Content
-    get:
-      operationId: withingsConnectGet
-      security:
-        - firebase: []
-      responses:
-        200:
-          description: Authorization URL returned
-        401:
-          description: Unauthorized
-        500:
-          description: Server Error
-
-  # Withings integration status (Firebase required)
-  /integrations/withings/status:
-    options:
-      operationId: withingsStatusOptions
-      security: []
-      responses:
-        204:
-          description: No Content
-    get:
-      operationId: withingsStatusGet
-      security:
-        - firebase: []
-      produces:
-        - application/json
-      responses:
-        200:
-          description: Integration status (connected, scopes, no tokens)
-          schema:
-            $ref: "#/definitions/WithingsStatusResponse"
-        401:
-          description: Unauthorized
-        500:
-          description: Server Error
-
   # Apple Health integration status (Firebase required)
   /integrations/apple-health/status:
     options:
@@ -571,44 +528,6 @@ paths:
           description: Unauthorized
         500:
           description: Server Error
-
-  # PUBLIC: Withings OAuth callback (no Firebase; Withings must be able to call this)
-  /integrations/withings/callback:
-    options:
-      operationId: withingsCallbackOptions
-      security: []
-      responses:
-        204:
-          description: No Content
-    get:
-      operationId: withingsCallbackGet
-      security: []
-      responses:
-        200:
-          description: OK
-        302:
-          description: Redirect
-        400:
-          description: Bad Request
-        500:
-          description: Server Error
-
-  # PUBLIC: Withings completion bridge (HTML) used as WebBrowser returnUrl
-  /integrations/withings/complete:
-    options:
-      operationId: withingsCompleteOptions
-      security: []
-      responses:
-        204:
-          description: No Content
-    get:
-      operationId: withingsCompleteGet
-      security: []
-      produces:
-        - text/html
-      responses:
-        200:
-          description: Completion bridge HTML
 
   # Oura integration status (Firebase required)
   /integrations/oura/status:
@@ -770,94 +689,7 @@ paths:
         500:
           description: Server Error
 
-  # Withings pull-now — user-authenticated. Pull last 72h for authed user; idempotent RawEvent writes.
-  /integrations/withings/pull-now:
-    options:
-      operationId: withingsPullNowOptions
-      security: []
-      responses:
-        204:
-          description: No Content
-    post:
-      operationId: withingsPullNow
-      summary: Withings pull-now (user scoped)
-      description: Pull last 72h of Withings measures for the authed user and write rawEvents idempotently.
-      security:
-        - firebase: []
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          required: true
-          type: string
-          description: Required for idempotent pull-now; replay returns same result.
-      produces:
-        - application/json
-      responses:
-        200:
-          description: Success; ok true with requestId and counts
-          schema:
-            $ref: "#/definitions/WithingsPullNowResponse"
-        400:
-          description: Missing Idempotency-Key header (BAD_REQUEST)
-        401:
-          description: Unauthorized
-        409:
-          description: Request already in progress (CONFLICT)
-        502:
-          description: Withings fetch failed (e.g. WITHINGS_FETCH_FAILED)
-        500:
-          description: Server Error
-
 definitions:
-  WithingsPullNowResponse:
-    type: object
-    required:
-      - ok
-      - requestId
-    properties:
-      ok:
-        type: boolean
-      requestId:
-        type: string
-      windowHours:
-        type: integer
-      eventsCreated:
-        type: integer
-      eventsAlreadyExists:
-        type: integer
-      failuresWritten:
-        type: integer
-      failureWriteErrors:
-        type: integer
-
-  WithingsStatusResponse:
-    type: object
-    required:
-      - ok
-      - connected
-      - scopes
-      - connectedAt
-      - revoked
-      - failureState
-    properties:
-      ok:
-        type: boolean
-      connected:
-        type: boolean
-      scopes:
-        type: array
-        items:
-          type: string
-      connectedAt:
-        type: string
-        format: date-time
-        description: ISO 8601 or null when not connected
-      revoked:
-        type: boolean
-      failureState:
-        type: object
-        description: null when no failure
-
   HealthResponse:
     type: object
     required:

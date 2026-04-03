@@ -1,10 +1,10 @@
 /**
  * Scheduled Oura pull — sleep + HRV for all connected users.
- * Calls POST /integrations/oura/pull (invoker-only). Same pattern as Withings pull.
+ * Calls POST /integrations/oura/pull (invoker-only).
  *
  * Requirements:
  * - OLI_API_BASE_URL must be set (Cloud Run API base).
- * - WITHINGS_PULL_INVOKER_EMAILS (or SUBS) on the API must include this function's service account.
+ * - INVOKER_ALLOWED_EMAILS (or INVOKER_ALLOWED_SUBS) on the API must include this function's service account.
  * - Cloud Run IAM must grant roles/run.invoker to that SA.
  */
 

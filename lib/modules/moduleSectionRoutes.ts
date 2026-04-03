@@ -18,8 +18,8 @@ export type ModuleSection = {
 
 export const MODULE_SECTIONS = [
   // BODY
-  { id: "body.overview", moduleId: "body", title: "Overview", href: "/(app)/body/overview" },
-  { id: "body.weight", moduleId: "body", title: "Weight", href: "/(app)/body/weight" },
+  { id: "body.overview", moduleId: "body", title: "Overview", href: "/(app)/body" },
+  { id: "body.weight", moduleId: "body", title: "Weight", href: "/(app)/body" },
   { id: "body.dexa", moduleId: "body", title: "DEXA", href: "/(app)/body/dexa" },
 
   // STRENGTH (stack: /workouts)

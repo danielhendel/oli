@@ -35,7 +35,7 @@ export const preferencesSchema = z
 
     /**
      * Data Sources — one preferred source per metric.
-     * Keys: metric IDs (e.g. weight, steps). Values: sourceId (e.g. withings, manual).
+     * Keys: metric IDs (e.g. weight, steps). Values: sourceId (e.g. apple_health, manual).
      * Absent key = use default / not set.
      */
     metricSources: z.record(z.string().min(1), z.string().min(1)).optional(),

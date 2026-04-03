@@ -1,352 +1,471 @@
-// app/(app)/body/__tests__/weight-screen.test.tsx
-// Weight Page v1: no-data state, range selector, manual log CTA when not connected.
-
-import React, { act } from "react";
-import renderer from "react-test-renderer";
-import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
+import React from "react";
+import renderer, { act } from "react-test-renderer";
+import type { WeightPoint } from "@/lib/data/useWeightSeries";
+import { BODY_METRIC_DETAIL_HREFS } from "../index";
 
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
-  TextInput: "TextInput",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Modal: "Modal",
+  Platform: { OS: "ios" },
   StyleSheet: { create: (s: unknown) => s },
-  AppState: {
-    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
-  },
-}));
-
-jest.mock("@react-navigation/native", () => ({
-  useFocusEffect: (cb: () => void) => {
-    if (typeof cb === "function") cb();
-  },
-}));
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-  useNavigation: () => ({ setOptions: jest.fn() }),
-}));
-
-jest.mock("react-native-svg", () => ({
-  default: "Svg",
-  Path: "Path",
-  Circle: "Circle",
-}));
-
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
 }));
 
+const mockPush = jest.fn();
 
-jest.mock("@/lib/auth/AuthProvider", () => ({
-  useAuth: () => ({
-    user: { uid: "u1" },
-    initializing: false,
-    getIdToken: jest.fn().mockResolvedValue("token"),
-  }),
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+  useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
-    state: {
-      status: "ready",
-      preferences: { units: { mass: "lb" } },
-    },
+    state: { preferences: { units: { mass: "lb" } } },
   }),
 }));
 
-jest.mock("@/lib/integrations/withings/storage", () => ({
-  getWithingsLastCheckedAt: jest.fn().mockResolvedValue(null),
-  setWithingsLastCheckedAt: jest.fn().mockResolvedValue(undefined),
+const mockHook = jest.fn();
+jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
+  useBodyOverviewData: (...args: unknown[]) => mockHook(...args),
 }));
 
-jest.mock("@/lib/api/withings", () => ({
-  postWithingsPullNow: jest.fn().mockResolvedValue({
-    ok: true,
-    json: { eventsCreated: 0, eventsAlreadyExists: 0 },
-    requestId: "test-req",
+const mockAccess = jest.fn();
+jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
+  useAppleHealthBodyAccessState: () => mockAccess(),
+}));
+
+jest.mock("@/lib/data/body/useAppleHealthBodyBackfill", () => ({
+  useAppleHealthBodyBackfill: () => ({
+    state: { status: "idle" as const, message: null, summary: null },
+    start: jest.fn(),
+    refresh: jest.fn(),
   }),
 }));
 
-let mockWithingsConnected = false;
-jest.mock("@/lib/data/useWithingsPresence", () => ({
-  useWithingsPresence: () => ({
-    status: "ready",
-    data: {
-      connected: mockWithingsConnected,
-      lastMeasurementAt: mockWithingsConnected ? "2025-02-20T08:00:00.000Z" : null,
-      hasRecentData: mockWithingsConnected,
-    },
-    refetch: jest.fn(),
-  }),
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: "Ionicons",
 }));
 
-const emptyViewModel = {
-  points: [] as { observedAt: string; dayKey: string; weightKg: number; sourceId: string }[],
-  latest: null as { weightKg: number; observedAt: string; sourceId: string } | null,
-  avg7Kg: null as number | null,
-  weeklyDeltaKg: null as number | null,
-  rolling7: [] as { dayKey: string; valueKg: number }[],
-  insights: {
-    change30dKg: null as number | null,
-    weeklyRateKg: null as number | null,
-    consistency: "medium" as const,
-    volatilityKg: null as number | null,
-    streakDays: 0,
-    trendNote: "Not enough data",
-  },
-};
+const Screen = require("../index").default as React.ComponentType;
 
-const viewModelWithPoints = {
-  ...emptyViewModel,
-  points: [
-    {
-      observedAt: "2025-02-20T10:00:00.000Z",
-      dayKey: "2025-02-20",
-      weightKg: 75,
-      sourceId: "manual",
-    },
-  ],
-  latest: { weightKg: 75, observedAt: "2025-02-20T10:00:00.000Z", sourceId: "manual" },
-};
-
-let mockWeightSeriesData = emptyViewModel;
-
-jest.mock("@/lib/data/useWeightSeries", () => ({
-  useWeightSeries: () => ({
-    status: "ready",
-    data: mockWeightSeriesData,
-    refetch: jest.fn(),
-  }),
-}));
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const BodyWeightScreen = require("../weight").default;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const withingsStorage = require("@/lib/integrations/withings/storage");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const withingsApi = require("@/lib/api/withings");
-
-function collectAllText(test: renderer.ReactTestRenderer): string {
-  const nodes = test.root.findAllByType("Text");
-  const parts: string[] = [];
-  for (const n of nodes) {
-    for (const child of n.children) {
-      if (typeof child === "string" || typeof child === "number") parts.push(String(child));
-    }
-  }
-  return parts.join(" ");
+function collectText(test: renderer.ReactTestRenderer): string {
+  return test.root
+    .findAllByType("Text")
+    .flatMap((node) => node.children)
+    .filter((x) => typeof x === "string")
+    .join(" ");
 }
 
-function findPressableWithLabel(
-  root: renderer.ReactTestInstance,
-  label: string,
-): renderer.ReactTestInstance | null {
-  const pressables = root.findAllByType("Pressable");
-  for (const p of pressables) {
-    if ((p.props as { accessibilityLabel?: string }).accessibilityLabel === label) return p;
-  }
-  return null;
+function buildPoint(dayKey: string, observedAt = `${dayKey}T07:00:00.000Z`): WeightPoint {
+  return { dayKey, observedAt, weightKg: 80, sourceId: "healthkit" };
 }
 
-describe("Weight screen", () => {
+function buildBody(overrides: Record<string, unknown> = {}) {
+  return {
+    today: "2026-03-31",
+    peek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
+    snapshotDayPeek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
+    series: {
+      status: "ready" as const,
+      data: { points: [] as WeightPoint[], latest: null },
+      refetch: jest.fn(),
+    },
+    dayFacts: { status: "missing" as const },
+    isBodySyncing: false,
+    syncAppleHealthBodyNow: jest.fn(),
+    hasSuccessfulBodySync: false,
+    weekDays: [] as { day: string; meta: { hasMeasurement: boolean } }[],
+    markedDays: new Set<string>(),
+    byDay: new Map<string, WeightPoint[]>(),
+    recent: [] as { day: string; latest: WeightPoint }[],
+    stats: { changeKg: null, avgKg: null, highKg: null, lowKg: null },
+    overview: {
+      overviewDay: null as string | null,
+      weightKg: null as number | null,
+      bodyFatPercent: null as number | null,
+      bmi: null as number | null,
+      leanBodyMassKg: null as number | null,
+      restingMetabolicRateKcal: null as number | null,
+      hasAnyMetric: false,
+    },
+    ...overrides,
+  };
+}
+
+describe("Body Composition main screen", () => {
   beforeEach(() => {
-    allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+    mockPush.mockClear();
+    mockAccess.mockReturnValue({
+      phase: "ready",
+      authLoading: false,
+      authSnapshot: { kind: "authorized" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
+    });
   });
 
-  it("renders with Weight metric label in body (header title is in nav, not in-page)", () => {
-    let test!: renderer.ReactTestRenderer;
+  it("renders Overview empty state when all metrics absent", () => {
+    mockHook.mockReturnValue(buildBody());
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("Weight");
+    const text = collectText(tree);
+    expect(text).toContain("Overview");
+    expect(text).toContain("No overview data yet");
+    expect(text).toContain("Recent");
   });
 
-  it("renders in no-data state with EmptyState and hero without numeric weight", () => {
-    let test!: renderer.ReactTestRenderer;
+  it("shows As of label when overview snapshot day is known", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        overview: {
+          overviewDay: day,
+          weightKg: 80,
+          bodyFatPercent: null,
+          bmi: null,
+          leanBodyMassKg: null,
+          restingMetabolicRateKcal: null,
+          hasAnyMetric: true,
+        },
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        series: {
+          status: "ready",
+          data: { points: [buildPoint(day)], latest: buildPoint(day) },
+          refetch: jest.fn(),
+        },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("No weight data yet");
-    expect(text).toContain("Last logged");
-    expect(text).toContain("Your chart will appear after your first weigh-in.");
+    const text = collectText(tree);
+    expect(text).toContain("As of 3/31");
   });
 
-  it("renders range selector with 7D, 30D, 90D, 6M, 1Y, 3Y, 5Y, All", () => {
-    let test!: renderer.ReactTestRenderer;
+  it("routes to weight metric detail when Weight row is pressed", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        overview: {
+          overviewDay: day,
+          weightKg: 80,
+          bodyFatPercent: null,
+          bmi: null,
+          leanBodyMassKg: null,
+          restingMetabolicRateKcal: null,
+          hasAnyMetric: true,
+        },
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        series: {
+          status: "ready",
+          data: { points: [buildPoint(day)], latest: buildPoint(day) },
+          refetch: jest.fn(),
+        },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("7D");
-    expect(text).toContain("30D");
-    expect(text).toContain("90D");
-    expect(text).toContain("6M");
-    expect(text).toContain("1Y");
-    expect(text).toContain("3Y");
-    expect(text).toContain("5Y");
-    expect(text).toContain("All");
-  });
-
-  it("shows Log your weight button when not connected", () => {
-    let test!: renderer.ReactTestRenderer;
+    const weightRow = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Open weight details");
+    expect(weightRow).toBeDefined();
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      weightRow!.props.onPress();
     });
-    const btn = findPressableWithLabel(test.root, "Log your weight");
-    expect(btn).not.toBeNull();
+    expect(mockPush).toHaveBeenCalledWith(BODY_METRIC_DETAIL_HREFS.weight);
   });
 
-  it("shows Withings chip with Connect when not connected", () => {
-    let test!: renderer.ReactTestRenderer;
+  it("routes to BMI and body fat metric pages from overview rows", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        overview: {
+          overviewDay: day,
+          weightKg: 80,
+          bodyFatPercent: 18,
+          bmi: 24.2,
+          leanBodyMassKg: 60,
+          restingMetabolicRateKcal: 1700,
+          hasAnyMetric: true,
+        },
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        series: {
+          status: "ready",
+          data: { points: [buildPoint(day)], latest: buildPoint(day) },
+          refetch: jest.fn(),
+        },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("Withings");
-    expect(text).toContain("Manage");
-    const manageBtn = findPressableWithLabel(test.root, "Manage Withings in Devices");
-    expect(manageBtn).not.toBeNull();
-  });
-
-  it("renders chart when points.length > 0 and does not show placeholder text", () => {
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+    const bmiRow = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Open BMI details");
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      bmiRow!.props.onPress();
     });
-    const text = collectAllText(test);
-    expect(text).not.toContain("Chart will appear once data is available");
-    const chart = test.root.findByProps({ testID: "weight-trend-chart" });
-    expect(chart).toBeTruthy();
-    mockWeightSeriesData = emptyViewModel;
-  });
-
-  it("shows Last logged in hero when points exist", () => {
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+    expect(mockPush).toHaveBeenLastCalledWith(BODY_METRIC_DETAIL_HREFS.bmi);
+    mockPush.mockClear();
+    const bfRow = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Open body fat details");
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      bfRow!.props.onPress();
     });
-    const text = collectAllText(test);
-    expect(text).toContain("Last logged");
-    mockWeightSeriesData = emptyViewModel;
+    expect(mockPush).toHaveBeenLastCalledWith(BODY_METRIC_DETAIL_HREFS.bodyFat);
   });
 
-  it("shows stat tiles (Change, Avg, High, Low) when points exist", () => {
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+  it("renders BMI, lean body mass, and RMR on overview when present", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        today: day,
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        markedDays: new Set<string>([day]),
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        recent: [{ day, latest: buildPoint(day) }],
+        overview: {
+          overviewDay: day,
+          weightKg: 80,
+          bodyFatPercent: 18.2,
+          bmi: 24.2,
+          leanBodyMassKg: 60,
+          restingMetabolicRateKcal: 1780,
+          hasAnyMetric: true,
+        },
+        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+        dayFacts: {
+          status: "ready",
+          data: {
+            body: {
+              bodyFatPercent: 18.2,
+              bmi: 24.2,
+              leanBodyMassKg: 60,
+              restingMetabolicRateKcal: 1780,
+            },
+          },
+        },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("High");
-    expect(text).toContain("Low");
-    mockWeightSeriesData = emptyViewModel;
+    const text = collectText(tree);
+    expect(text).toContain("BMI");
+    expect(text).toContain("24.2");
+    expect(text).toContain("Lean Body Mass");
+    expect(text).toContain("132.3 lb");
+    expect(text).toContain("RMR");
+    expect(text).toContain("1780 kcal/day");
   });
 
-  it("chart container has testID when points exist and placeholder text never appears", () => {
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+  it("routes to body day from weekly strip tap", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        today: day,
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        markedDays: new Set<string>([day]),
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).not.toContain("Chart will appear once data is available");
-    const chartContainer = test.root.findByProps({ testID: "weight-trend-chart" });
-    expect(chartContainer).toBeTruthy();
-    mockWeightSeriesData = emptyViewModel;
-  });
-
-  it("hides Add manual entry when Withings connected", () => {
-    mockWithingsConnected = true;
-    let test!: renderer.ReactTestRenderer;
+    const pressables = tree.root.findAllByType("Pressable");
+    const stripDayPressable = pressables.find(
+      (p) => p.props.accessibilityLabel === `${day}, has body measurement`,
+    );
+    expect(stripDayPressable).toBeDefined();
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      stripDayPressable!.props.onPress();
     });
-    const addManualBtn = findPressableWithLabel(test.root, "Add manual entry");
-    expect(addManualBtn).toBeNull();
-    mockWithingsConnected = false;
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/body/day/[day]",
+      params: { day },
+    });
   });
 
-  it("History section shows when data exists", () => {
-    mockWithingsConnected = true;
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+  it("routes to body day from recent row tap", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        today: "2026-03-31",
+        weekDays: [{ day: "2026-03-31", meta: { hasMeasurement: true } }],
+        markedDays: new Set<string>([day]),
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        recent: [{ day, latest: buildPoint(day) }],
+        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectAllText(test);
-    expect(text).toContain("History");
-    mockWithingsConnected = false;
-    mockWeightSeriesData = emptyViewModel;
-  });
-
-  it("shows Update button when Withings connected", () => {
-    mockWithingsConnected = true;
-    mockWeightSeriesData = viewModelWithPoints;
-    let test!: renderer.ReactTestRenderer;
+    const recentRow = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === `Open body details for ${day}`);
+    expect(recentRow).toBeDefined();
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      recentRow!.props.onPress();
     });
-    const updateBtn = findPressableWithLabel(test.root, "Update");
-    expect(updateBtn).not.toBeNull();
-    mockWithingsConnected = false;
-    mockWeightSeriesData = emptyViewModel;
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/body/day/[day]",
+      params: { day },
+    });
   });
 
-  it("shows Connect to update when Withings not connected", () => {
-    mockWithingsConnected = false;
-    let test!: renderer.ReactTestRenderer;
+  it("shows compact recent day label and row actions menu", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        today: day,
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        markedDays: new Set<string>([day]),
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        recent: [{ day, latest: buildPoint(day) }],
+        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<BodyWeightScreen />);
+      tree = renderer.create(React.createElement(Screen));
     });
-    const connectToUpdateBtn = findPressableWithLabel(test.root, "Connect to update");
-    expect(connectToUpdateBtn).not.toBeNull();
+    const text = collectText(tree);
+    expect(text).toContain("Tue 3/31");
+    const rowActions = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === `Body log actions ${day}`);
+    expect(rowActions).toBeDefined();
+    act(() => {
+      rowActions!.props.onPress({ stopPropagation: jest.fn(), nativeEvent: { pageX: 100, pageY: 150 } });
+    });
+    const updatedText = collectText(tree);
+    expect(updatedText).toContain("Edit log");
+    expect(updatedText).toContain("Delete log");
   });
 
-  describe("smart foreground sync throttle", () => {
-    it("does not call postWithingsPullNow when lastCheckedAt is recent", async () => {
-      mockWithingsConnected = true;
-      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValue(new Date().toISOString());
-      (withingsApi.postWithingsPullNow as jest.Mock).mockClear();
-      await act(async () => {
-        renderer.create(<BodyWeightScreen />);
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(withingsApi.postWithingsPullNow).not.toHaveBeenCalled();
-      mockWithingsConnected = false;
-      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValue(null);
+  it("shows Apple Health permission onboarding when access is not determined", () => {
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "not_determined",
+      authLoading: false,
+      authSnapshot: { kind: "not_determined" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
     });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Connect Apple Health for Body data");
+    expect(text).toContain("Allow Apple Health Access");
+  });
 
-    it("calls postWithingsPullNow when lastCheckedAt is null", async () => {
-      mockWithingsConnected = true;
-      (withingsStorage.getWithingsLastCheckedAt as jest.Mock).mockResolvedValueOnce(null);
-      (withingsApi.postWithingsPullNow as jest.Mock).mockClear();
-      await act(async () => {
-        renderer.create(<BodyWeightScreen />);
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(withingsApi.postWithingsPullNow).toHaveBeenCalled();
-      mockWithingsConnected = false;
+  it("invokes onAllowAppleHealthBodyAccess when Allow Apple Health Access is pressed", () => {
+    const onAllow = jest.fn();
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "not_determined",
+      authLoading: false,
+      authSnapshot: { kind: "not_determined" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: onAllow,
+      onOpenAppSettings: jest.fn(),
     });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const primary = tree.root
+      .findAllByType("Pressable")
+      .find((p) => p.props.accessibilityLabel === "Allow Apple Health access for body data");
+    expect(primary).toBeDefined();
+    act(() => {
+      primary!.props.onPress();
+    });
+    expect(onAllow).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows denied-state guidance when Apple Health body access is denied", () => {
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "denied",
+      authLoading: false,
+      authSnapshot: { kind: "denied" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Apple Health access is off");
+    expect(text).toContain("Open Settings");
+  });
+
+  it("shows granted-no-data copy on overview when permission is granted but Oli has no body samples", () => {
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "granted_no_data",
+      authLoading: false,
+      authSnapshot: { kind: "authorized" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).toContain("No body measurements yet");
+    expect(text).not.toContain("No trend data yet");
+  });
+
+  it("shows syncing banner when Apple Health body sync is in progress", () => {
+    mockHook.mockReturnValue(
+      buildBody({
+        isBodySyncing: true,
+      }),
+    );
+    mockAccess.mockReturnValue({
+      phase: "syncing",
+      authLoading: false,
+      authSnapshot: { kind: "authorized" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Syncing Apple Health");
   });
 });

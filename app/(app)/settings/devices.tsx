@@ -6,13 +6,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { useWithingsPresence } from "@/lib/data/useWithingsPresence";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { postOuraPullNow } from "@/lib/api/oura";
-import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
-import { getWithingsLastKnownConnected } from "@/lib/integrations/withings/storage";
+import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealth/resolveAppleHealthDeviceConnected";
 import { getOuraLastCheckedAt, setOuraLastCheckedAt } from "@/lib/integrations/oura/storage";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 
@@ -23,17 +21,11 @@ const OURA_AUTO_MIN_MS = 15 * 60 * 1000;
 
 function DevicesScreen() {
   const router = useRouter();
-  const presence = useWithingsPresence();
   const { user, getIdToken } = useAuth();
 
   const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
   const appleFetchSeq = useRef(0);
-  const [withingsHydrated, setWithingsHydrated] = useState<boolean | null>(null);
   const ouraPresence = useOuraPresence();
-
-  const backfill = presence.status === "ready" ? presence.data.backfill : undefined;
-  const withingsConnected =
-    presence.status === "ready" && presence.data.connected;
 
   const fetchAppleStatus = useCallback(async () => {
     const seq = ++appleFetchSeq.current;
@@ -54,7 +46,9 @@ function DevicesScreen() {
         setAppleStatus("error");
         return;
       }
-      setAppleStatus(res.json.connected ? "connected" : "not_connected");
+      const effective = await resolveAppleHealthDeviceConnected(res.json.connected);
+      if (seq !== appleFetchSeq.current) return;
+      setAppleStatus(effective ? "connected" : "not_connected");
     } catch {
       if (seq === appleFetchSeq.current) setAppleStatus("error");
     }
@@ -81,14 +75,10 @@ function DevicesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getWithingsLastKnownConnected().then((connected) => {
-        setWithingsHydrated(connected);
-      });
-      presence.refetch();
       ouraPresence.refetch();
       void fetchAppleStatus();
       void maybeAutoOuraPullNow("focus");
-    }, [presence, ouraPresence, fetchAppleStatus, maybeAutoOuraPullNow]),
+    }, [ouraPresence, fetchAppleStatus, maybeAutoOuraPullNow]),
   );
 
   useEffect(() => {
@@ -102,39 +92,14 @@ function DevicesScreen() {
     void fetchAppleStatus();
   }, [fetchAppleStatus]);
 
-  useEffect(() => {
-    getAppleHealthConnected().then((connected) => {
-      setAppleStatus((prev) => (prev === "loading" ? (connected ? "connected" : "not_connected") : prev));
-    });
-  }, []);
-
-  useEffect(() => {
-    getWithingsLastKnownConnected().then((connected) => {
-      setWithingsHydrated(connected);
-    });
-  }, []);
-
   const appleStatusLine =
     appleStatus === "loading"
       ? "Loading…"
       : appleStatus === "connected"
-        ? "On"
+        ? "Connected"
         : appleStatus === "error"
           ? "Error"
-          : "Off";
-
-  const withingsStatusSummary =
-    presence.status === "error"
-      ? "Error"
-      : presence.status === "ready"
-        ? withingsConnected
-          ? "On"
-          : "Off"
-        : withingsHydrated !== null
-          ? withingsHydrated
-            ? "On"
-            : "Off"
-          : "Loading…";
+          : "Not connected";
 
   const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
   const ouraStatusSummary =
@@ -150,22 +115,6 @@ function DevicesScreen() {
     <ModuleScreenShell title="Devices" hideTitleChrome>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.listGroup}>
-          <Pressable
-            style={styles.row}
-            onPress={() => router.push("/(app)/settings/devices/withings")}
-            accessibilityRole="button"
-            accessibilityLabel="Withings device settings"
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="scale-outline" size={22} color="#3C3C43" style={styles.rowIcon} />
-              <Text style={styles.rowTitle}>Withings</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.rowStatus}>{withingsStatusSummary}</Text>
-              <Text style={styles.rowChevron}>›</Text>
-            </View>
-          </Pressable>
-
           <Pressable
             style={styles.row}
             onPress={() => router.push("/(app)/settings/devices/apple_health")}
@@ -201,11 +150,6 @@ function DevicesScreen() {
           </Pressable>
         </View>
 
-        {backfill?.status === "running" && (
-          <Text style={styles.footerHint}>
-            Withings is importing history in the background.
-          </Text>
-        )}
       </ScrollView>
     </ModuleScreenShell>
   );

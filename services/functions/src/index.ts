@@ -39,8 +39,6 @@ import {
 import { onDailyFactsRecomputeScheduled } from "./dailyFacts/onDailyFactsRecomputeScheduled";
 import { onInsightsRecomputeScheduled } from "./insights/onInsightsRecomputeScheduled";
 import { onDailyIntelligenceContextRecomputeScheduled } from "./intelligence/onDailyIntelligenceContextRecomputeScheduled";
-import { onWithingsBackfillScheduled } from "./withings/onWithingsBackfillScheduled";
-import { onWithingsPullScheduled } from "./withings/onWithingsPullScheduled";
 import { onOuraPullScheduled } from "./oura/onOuraPullScheduled";
 
 // Account executors (Pub/Sub)
@@ -110,8 +108,6 @@ export { onRawEventUpdatedForWorkoutDaySummary, onRawEventDeletedForWorkoutDaySu
 export { onDailyFactsRecomputeScheduled };
 export { onInsightsRecomputeScheduled };
 export { onDailyIntelligenceContextRecomputeScheduled };
-export { onWithingsBackfillScheduled };
-export { onWithingsPullScheduled };
 export { onOuraPullScheduled };
 
 // Account executors (Pub/Sub)

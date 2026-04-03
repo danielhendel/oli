@@ -5,7 +5,6 @@
  */
 
 export const SLICE_1_SOURCE_IDS = [
-  "withings",
   "apple_health",
   "oura",
   "manual",
@@ -16,7 +15,6 @@ export const SLICE_1_SOURCE_IDS = [
 export type Slice1SourceId = (typeof SLICE_1_SOURCE_IDS)[number];
 
 export const SOURCE_DISPLAY_NAMES: Record<Slice1SourceId, string> = {
-  withings: "Withings",
   apple_health: "Apple Health",
   oura: "Oura",
   manual: "Manual Entry",
@@ -40,8 +38,8 @@ export type Slice1MetricId = (typeof SLICE_1_METRICS)[number]["id"];
 
 /** For each metric, which source IDs are valid options in the picker. */
 export const METRIC_ALLOWED_SOURCES: Record<Slice1MetricId, readonly Slice1SourceId[]> = {
-  weight: ["withings", "manual"],
-  body_fat_percent: ["withings", "manual"],
+  weight: ["apple_health", "manual"],
+  body_fat_percent: ["apple_health", "manual"],
   steps: ["apple_health", "manual"],
   activity_minutes: ["apple_health", "manual"],
   hrv: ["apple_health", "oura", "manual"],
@@ -68,8 +66,7 @@ export function getAllowedSourcesForMetric(metricId: string): Slice1SourceId[] {
 
 /** Metrics each source can provide (for Connected Source Detail). */
 export const SOURCE_PROVIDES_METRICS: Record<Slice1SourceId, Slice1MetricId[]> = {
-  withings: ["weight", "body_fat_percent"],
-  apple_health: ["steps", "activity_minutes", "hrv", "sleep_duration"],
+  apple_health: ["weight", "body_fat_percent", "steps", "activity_minutes", "hrv", "sleep_duration"],
   oura: ["sleep_duration", "hrv"],
   manual: ["weight", "body_fat_percent", "steps", "activity_minutes", "hrv", "sleep_duration"],
   upload: ["uploads", "lab_results"],

@@ -7,6 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const APPLE_HEALTH_LAST_SYNC_AT = "appleHealth:lastSyncAt";
 export const APPLE_HEALTH_LAST_CHECKED_AT = "appleHealth:lastCheckedAt";
+export const APPLE_HEALTH_BODY_LAST_CHECKED_AT = "appleHealth:bodyLastCheckedAt";
+export const APPLE_HEALTH_BODY_BACKFILL_STATE = "appleHealth:bodyBackfillState";
 export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
@@ -27,6 +29,48 @@ export async function getAppleHealthLastCheckedAt(): Promise<string | null> {
 
 export async function setAppleHealthLastCheckedAt(iso: string): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_LAST_CHECKED_AT, iso);
+}
+
+export async function getAppleHealthBodyLastCheckedAt(): Promise<string | null> {
+  return AsyncStorage.getItem(APPLE_HEALTH_BODY_LAST_CHECKED_AT);
+}
+
+export async function setAppleHealthBodyLastCheckedAt(iso: string): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_BODY_LAST_CHECKED_AT, iso);
+}
+
+export type AppleHealthBodyBackfillStatus = "not_started" | "in_progress" | "completed" | "failed";
+
+export type AppleHealthBodyBackfillState = {
+  status: AppleHealthBodyBackfillStatus;
+  backfillStartDate: string;
+  targetStartDate: string;
+  lastProcessedDate: string | null;
+  lastRunAt: string;
+  summary: {
+    startedAt: string;
+    completedAt: string | null;
+    chunkCount: number;
+    samplesRead: number;
+    samplesIngested: number;
+    samplesSkippedDuplicate: number;
+    lastProcessedDate: string | null;
+  };
+  error: string | null;
+};
+
+export async function getAppleHealthBodyBackfillState(): Promise<AppleHealthBodyBackfillState | null> {
+  const raw = await AsyncStorage.getItem(APPLE_HEALTH_BODY_BACKFILL_STATE);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AppleHealthBodyBackfillState;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthBodyBackfillState(state: AppleHealthBodyBackfillState): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_BODY_BACKFILL_STATE, JSON.stringify(state));
 }
 
 export async function getAppleHealthConnected(): Promise<boolean> {

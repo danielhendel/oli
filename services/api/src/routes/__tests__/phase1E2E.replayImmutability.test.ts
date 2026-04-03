@@ -104,10 +104,10 @@ describe("Phase 1 E2E: replay immutability — past views never change", () => {
       .set("Content-Type", "application/json")
       .set("Idempotency-Key", IDEMPOTENCY_A)
       .send({
-        provider: "manual",
+        provider: "apple_health",
         kind: "weight",
         observedAt: `${DAY_KEY}T14:30:00.000Z`,
-        sourceId: "manual",
+        sourceId: "apple_health",
         timeZone: "America/New_York",
         payload: {
           time: `${DAY_KEY}T14:30:00.000Z`,
@@ -153,10 +153,10 @@ describe("Phase 1 E2E: replay immutability — past views never change", () => {
       .set("Content-Type", "application/json")
       .set("Idempotency-Key", IDEMPOTENCY_B)
       .send({
-        provider: "manual",
+        provider: "apple_health",
         kind: "weight",
         observedAt: `${DAY_KEY}T15:00:00.000Z`,
-        sourceId: "manual",
+        sourceId: "apple_health",
         timeZone: "America/New_York",
         payload: {
           time: `${DAY_KEY}T15:00:00.000Z`,
