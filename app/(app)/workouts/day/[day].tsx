@@ -1,4 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  isWorkoutDayDebugDate,
+  logWorkoutDayDebug,
+  logWorkoutDayDebugJournalForDay,
+  workoutDayDebugEnabled,
+} from "@/lib/debug/workoutDayDebug";
 import { filterWorkoutHistoryItemsForDomain, type WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -17,6 +23,13 @@ import {
 } from "@/lib/data/workouts/workoutDisplay";
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
+import {
+  buildWorkoutSessionSurfaceModel,
+  pickJournalSummaryForStrengthSession,
+  pickWorkoutForSessionActions,
+  pickWorkoutOverrideForSession,
+  resolveStrengthSessionExerciseDisplay,
+} from "@/lib/data/workouts/workoutSessionSurface";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
@@ -29,7 +42,6 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   listManualWorkoutDaySummaries,
   totalVolumeKgForManualExercise,
-  trainingVolumeKgForManualExercises,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
@@ -40,7 +52,7 @@ import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalytics
 import { SYSTEM_ACCENT, SYSTEM_METRIC_SECONDARY } from "@/lib/ui/theme/systemAccent";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
-import type { HeartRateZoneMinutes5, WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import type { HeartRateZoneMinutes5 } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 
 /** Matches exercise-history numeric accents for set grid values. */
@@ -118,15 +130,17 @@ function hasMeaningfulDailyMetrics(
 
 function isStrengthLikeSession(
   session: ReconciledWorkoutSession,
-  representative: WorkoutHistoryItem,
-  override: WorkoutOverride | null,
+  overridesByWorkoutId: Record<string, WorkoutOverride | undefined>,
 ): boolean {
-  const resolved = resolveWorkoutDisplay(representative, override);
-  return (
-    resolved.displayWorkoutType === "strength" ||
-    session.sessionType === "strength" ||
-    session.sessionType === "mixed"
+  if (session.sessionType === "strength" || session.sessionType === "mixed") return true;
+  const action = pickWorkoutForSessionActions(session);
+  if (!action) return false;
+  const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+  const resolved = resolveWorkoutDisplay(
+    action,
+    sessionOverride ?? overridesByWorkoutId[action.id] ?? null,
   );
+  return resolved.displayWorkoutType === "strength";
 }
 
 export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
@@ -140,30 +154,61 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const detail = useWorkoutDayDetail(day);
   const workouts = detail.status === "ready" ? detail.workouts : [];
   const dailyFacts = detail.status === "ready" ? detail.dailyFacts : null;
+  const durableTitlesByWorkoutId =
+    detail.status === "ready" ? detail.durableTitlesByWorkoutId : {};
   const domainWorkouts = useMemo(
     () => filterWorkoutHistoryItemsForDomain(workouts, domain),
     [workouts, domain],
   );
   const sessions = reconcileWorkoutSessionsForDay(day, domainWorkouts);
+  const sessionDebugSig = useMemo(
+    () =>
+      JSON.stringify(
+        sessions.map((s) => ({
+          id: s.id,
+          t: s.sessionType,
+          w: s.workouts.map((x) => x.id),
+        })),
+      ),
+    [sessions],
+  );
+  const workoutIdsSig = useMemo(() => workouts.map((w) => w.id).join(","), [workouts]);
+  const domainWorkoutIdsSig = useMemo(() => domainWorkouts.map((w) => w.id).join(","), [domainWorkouts]);
+
+  useEffect(() => {
+    if (!workoutDayDebugEnabled() || !isWorkoutDayDebugDate(day)) return;
+    if (detail.status !== "ready") return;
+    logWorkoutDayDebug("day-screen-final-sessions", {
+      requestedDay: day,
+      domain,
+      preFilterWorkoutIds: workoutIdsSig.split(",").filter(Boolean),
+      domainWorkoutIds: domainWorkoutIdsSig.split(",").filter(Boolean),
+      reconciledSessions: sessions.map((s) => ({
+        reconciledSessionId: s.id,
+        sessionType: s.sessionType,
+        title: s.title,
+        titleSource: s.titleSource,
+        memberRawIds: s.workouts.map((w) => w.id),
+      })),
+      sessionDebugSig,
+    });
+  }, [day, domain, detail.status, workoutIdsSig, domainWorkoutIdsSig, sessionDebugSig, sessions]);
+
   const workoutIds = domainWorkouts.map((w) => w.id);
   const { overridesByWorkoutId } = useWorkoutOverrides(workoutIds);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [manualDaySummary, setManualDaySummary] = useState<ManualWorkoutDaySummary | null>(null);
+  const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
+  const legacyDayExerciseSummary = useMemo(
+    () => manualWorkoutSummaries.find((s) => s.day === day) ?? null,
+    [manualWorkoutSummaries, day],
+  );
   const [expandedPerformanceRowKey, setExpandedPerformanceRowKey] = useState<string | null>(null);
   const [customLoggingTypeByExerciseId, setCustomLoggingTypeByExerciseId] = useState<Record<string, string>>({});
 
   const strengthAccent = overviewAccentForTab("strength");
 
   const { usePremiumStrengthLayout, premiumSessionId } = useMemo(() => {
-    const strengthLikes = sessions.filter((session) => {
-      const representative = session.workouts[0];
-      if (!representative) return false;
-      return isStrengthLikeSession(
-        session,
-        representative,
-        overridesByWorkoutId[representative.id] ?? null,
-      );
-    });
+    const strengthLikes = sessions.filter((session) => isStrengthLikeSession(session, overridesByWorkoutId));
     /**
      * Single strength/mixed reconciled session → premium shell (same layout with or
      * without journal). Multiple sessions → cannot attribute exercises to one session.
@@ -194,34 +239,42 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const cardioAccent = overviewAccentForTab("cardio");
 
   const primarySession = useMemo(() => sessions[0] ?? null, [sessions]);
-  const primaryWorkout = primarySession?.workouts[0] ?? null;
+  const primaryWorkout = useMemo(
+    () => (primarySession ? pickWorkoutForSessionActions(primarySession) : null),
+    [primarySession],
+  );
 
   const premiumStrengthSession = useMemo(
     () => (premiumSessionId != null ? sessions.find((s) => s.id === premiumSessionId) ?? null : null),
     [sessions, premiumSessionId],
   );
 
+  const premiumJournalSummary = useMemo(() => {
+    if (!premiumStrengthSession) return null;
+    return pickJournalSummaryForStrengthSession(day, premiumStrengthSession, manualWorkoutSummaries);
+  }, [day, premiumStrengthSession, manualWorkoutSummaries]);
+
   const onEditExercisesFromMenu =
     domain === "strength" &&
     usePremiumStrengthLayout &&
     Boolean(user?.uid) &&
     premiumStrengthSession != null &&
-    manualDaySummary != null &&
-    manualDaySummary.exercises.length > 0
+    premiumJournalSummary != null &&
+    premiumJournalSummary.exercises.length > 0
       ? () => {
           setMenuOpen(false);
-          const representative = premiumStrengthSession.workouts[0];
+          const actionWorkout = pickWorkoutForSessionActions(premiumStrengthSession);
           const anchor =
             premiumStrengthSession.start ??
-            representative?.start ??
-            representative?.observedAt ??
+            actionWorkout?.start ??
+            actionWorkout?.observedAt ??
             "";
           router.push({
             pathname: "/(app)/workouts/enrich",
             params: {
               enrichDay: day,
               enrichTargetId: premiumStrengthSession.id,
-              journalSessionId: manualDaySummary.sessionId,
+              journalSessionId: premiumJournalSummary.sessionId,
               ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
             },
           });
@@ -252,12 +305,13 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
     if (process.env.JEST_WORKER_ID) return;
     if (!isDayKey) return;
     if (!user?.uid) {
-      setManualDaySummary(null);
+      setManualWorkoutSummaries([]);
       return;
     }
     void listManualWorkoutDaySummaries(user.uid).then((all) => {
       if (cancelled) return;
-      setManualDaySummary(all.find((s) => s.day === day) ?? null);
+      setManualWorkoutSummaries(all);
+      logWorkoutDayDebugJournalForDay(day, all);
     });
     return () => {
       cancelled = true;
@@ -402,19 +456,51 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
             sessions.map((session) => {
               const representative = session.workouts[0];
               if (!representative) return null;
-              const timeLabel = formatWorkoutTimeLabel(session.start ?? representative.start ?? representative.observedAt);
-              const resolved = resolveWorkoutDisplay(representative, overridesByWorkoutId[representative.id] ?? null);
+              const journalSummary =
+                domain === "strength"
+                  ? pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries)
+                  : null;
+              const surface = buildWorkoutSessionSurfaceModel(
+                session,
+                overridesByWorkoutId,
+                domain,
+                journalSummary,
+                durableTitlesByWorkoutId,
+              );
+              const strengthExerciseDisplay = resolveStrengthSessionExerciseDisplay(
+                journalSummary ?? null,
+                surface.actionWorkout,
+              );
+              const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+              const resolvedMetrics = resolveWorkoutDisplay(
+                surface.metricsWorkout,
+                sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+              );
+              const resolvedAction = resolveWorkoutDisplay(
+                surface.actionWorkout,
+                sessionOverride ?? overridesByWorkoutId[surface.actionWorkout.id] ?? null,
+              );
+              const timeLabel = formatWorkoutTimeLabel(
+                session.start ?? surface.metricsWorkout.start ?? surface.metricsWorkout.observedAt,
+              );
               const resolvedDurationMinutes = resolveWorkoutDisplayDurationMinutes({
-                overrideDurationMinutes: resolved.displayDurationMinutes,
-                sessionDurationMinutes: session.durationMinutes,
-                fallbackWorkoutDurationMinutes: representative.durationMinutes,
+                overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
+                sessionDurationMinutes: null,
+                fallbackWorkoutDurationMinutes:
+                  surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
               });
               const duration = formatWorkoutDurationLabel(resolvedDurationMinutes);
-              const calories = typeof session.calories === "number" ? `${Math.round(session.calories)} kcal` : "—";
+              const caloriesNum =
+                typeof surface.metricsWorkout.calories === "number" && surface.metricsWorkout.calories >= 0
+                  ? surface.metricsWorkout.calories
+                  : typeof session.calories === "number"
+                    ? session.calories
+                    : null;
+              const calories = caloriesNum != null ? `${Math.round(caloriesNum)} kcal` : "—";
               const isStrength =
-                resolved.displayWorkoutType === "strength" ||
                 session.sessionType === "strength" ||
-                session.sessionType === "mixed";
+                session.sessionType === "mixed" ||
+                resolvedAction.displayWorkoutType === "strength";
               const showPremiumStrengthBlock =
                 domain === "strength" &&
                 usePremiumStrengthLayout &&
@@ -426,29 +512,20 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                 session.sessionType === "cardio" &&
                 !isStrength;
 
-              const titleText =
-                manualDaySummary?.customName && representative.sourceId === "manual"
-                  ? manualDaySummary.customName
-                  : resolved.displayTitle;
+              const titleText = surface.displayTitle;
 
-              const distanceLabel = formatWorkoutDistanceLabel(representative.distanceMeters ?? null);
+              const distanceLabel = formatWorkoutDistanceLabel(surface.metricsWorkout.distanceMeters ?? null);
               const paceLabel = formatAvgPaceMinPerMileLabel(
-                representative.distanceMeters ?? null,
+                surface.metricsWorkout.distanceMeters ?? null,
                 resolvedDurationMinutes,
               );
 
               if (showPremiumStrengthBlock) {
-                const exercises = manualDaySummary?.exercises ?? [];
-                const sessionTrainingVolumeKg =
-                  exercises.length > 0
-                    ? trainingVolumeKgForManualExercises(exercises)
-                    : manualDaySummary?.totalVolume ?? null;
+                const exercises = strengthExerciseDisplay.exercises;
+                const sessionTrainingVolumeKg = strengthExerciseDisplay.totalVolume;
                 const volumesKg = exercises.map((ex) => totalVolumeKgForManualExercise(ex));
                 const maxVolKg = Math.max(1, ...volumesKg);
-                const premiumTitle =
-                  manualDaySummary?.customName?.trim() ||
-                  titleText.trim() ||
-                  "Strength workout";
+                const premiumTitle = titleText.trim() || "Strength workout";
                 const showLogExercisesCta =
                   Boolean(user?.uid) && exercises.length === 0;
 
@@ -492,8 +569,8 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                           >
                             <Text style={styles.overviewMetricLabel}>Avg Intensity</Text>
                             <Text style={styles.overviewMetricValue}>
-                              {typeof manualDaySummary?.avgIntensity === "number"
-                                ? manualDaySummary.avgIntensity.toFixed(1)
+                              {typeof strengthExerciseDisplay.avgIntensity === "number"
+                                ? strengthExerciseDisplay.avgIntensity.toFixed(1)
                                 : "—"}
                             </Text>
                           </View>
@@ -518,14 +595,17 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                                 onPress={() => {
                                   const anchor =
                                     session.start ??
-                                    representative.start ??
-                                    representative.observedAt ??
+                                    surface.actionWorkout.start ??
+                                    surface.actionWorkout.observedAt ??
                                     "";
                                   router.push({
                                     pathname: "/(app)/workouts/enrich",
                                     params: {
                                       enrichDay: day,
                                       enrichTargetId: session.id,
+                                      ...(journalSummary?.sessionId
+                                        ? { journalSessionId: journalSummary.sessionId }
+                                        : {}),
                                       ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
                                     },
                                   });
@@ -772,9 +852,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                       style={[workoutOverviewInCardHeaderStyles.title, styles.legacySessionTitle]}
                       numberOfLines={2}
                     >
-                      {manualDaySummary?.customName && representative.sourceId === "manual"
-                        ? manualDaySummary.customName
-                        : resolved.displayTitle}
+                      {titleText}
                     </Text>
                     <Text style={styles.sectionHeaderTime}>{timeLabel}</Text>
                   </View>
@@ -794,11 +872,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                         <Text style={styles.kpiLabel}>{isStrength ? "Total Volume" : "Distance"}</Text>
                         <Text style={styles.kpiValue}>
                           {isStrength
-                            ? formatTypicalStrengthVolumeLabel(
-                                manualDaySummary && manualDaySummary.exercises.length > 0
-                                  ? trainingVolumeKgForManualExercises(manualDaySummary.exercises)
-                                  : manualDaySummary?.totalVolume ?? null,
-                              )
+                            ? formatTypicalStrengthVolumeLabel(strengthExerciseDisplay.totalVolume)
                             : distanceLabel}
                         </Text>
                       </View>
@@ -806,8 +880,8 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                         <Text style={styles.kpiLabel}>{isStrength ? "Avg Intensity" : "Avg Pace"}</Text>
                         <Text style={styles.kpiValue}>
                           {isStrength
-                            ? typeof manualDaySummary?.avgIntensity === "number"
-                              ? manualDaySummary.avgIntensity.toFixed(1)
+                            ? typeof strengthExerciseDisplay.avgIntensity === "number"
+                              ? strengthExerciseDisplay.avgIntensity.toFixed(1)
                               : "—"
                             : paceLabel}
                         </Text>
@@ -822,13 +896,13 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
         {!usePremiumStrengthLayout && !singleSessionPremiumCardioDay && (
           <View style={styles.exercisesSection}>
             <Text style={styles.exercisesSectionHeading}>Exercises</Text>
-            {!manualDaySummary || manualDaySummary.exercises.length === 0 ? (
+            {!legacyDayExerciseSummary || legacyDayExerciseSummary.exercises.length === 0 ? (
               <View style={styles.card}>
                 <Text style={styles.placeholder}>No logged exercises</Text>
               </View>
             ) : (
               <View style={styles.exercisesList}>
-              {manualDaySummary.exercises.map((exercise) => (
+              {legacyDayExerciseSummary.exercises.map((exercise) => (
                 <View key={exercise.name} style={styles.exerciseCard} testID={`exercise-card-${exercise.name}`}>
                   <View style={styles.exerciseTitleRow}>
                     <Text style={styles.exerciseName}>{toTitleCase(exercise.name)}</Text>
@@ -888,17 +962,35 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
         }}
         {...(onEditExercisesFromMenu != null ? { onEditExercises: onEditExercisesFromMenu } : {})}
         onRename={() => {
-          if (!primaryWorkout) return;
-          const resolved = resolveWorkoutDisplay(primaryWorkout, overridesByWorkoutId[primaryWorkout.id] ?? null);
+          if (!primaryWorkout || !primarySession) return;
+          const journalSummary =
+            domain === "strength"
+              ? pickJournalSummaryForStrengthSession(day, primarySession, manualWorkoutSummaries)
+              : null;
+          const surface = buildWorkoutSessionSurfaceModel(
+            primarySession,
+            overridesByWorkoutId,
+            domain,
+            journalSummary,
+            durableTitlesByWorkoutId,
+          );
           setMenuOpen(false);
           router.push({
             pathname: "/(app)/workouts/edit/rename",
-            params: { workoutId: primaryWorkout.id, currentTitle: resolved.displayTitle },
+            params: {
+              workoutId: primaryWorkout.id,
+              currentTitle: surface.displayTitle,
+              titleAnchorObservedAt: primaryWorkout.start ?? primaryWorkout.observedAt,
+            },
           });
         }}
         onEditDuration={() => {
-          if (!primaryWorkout) return;
-          const resolved = resolveWorkoutDisplay(primaryWorkout, overridesByWorkoutId[primaryWorkout.id] ?? null);
+          if (!primaryWorkout || !primarySession) return;
+          const sessionOverride = pickWorkoutOverrideForSession(primarySession, overridesByWorkoutId);
+          const resolved = resolveWorkoutDisplay(
+            primaryWorkout,
+            sessionOverride ?? overridesByWorkoutId[primaryWorkout.id] ?? null,
+          );
           setMenuOpen(false);
           router.push({
             pathname: "/(app)/workouts/edit/duration",
@@ -912,8 +1004,12 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
           });
         }}
         onEditType={() => {
-          if (!primaryWorkout) return;
-          const resolved = resolveWorkoutDisplay(primaryWorkout, overridesByWorkoutId[primaryWorkout.id] ?? null);
+          if (!primaryWorkout || !primarySession) return;
+          const sessionOverride = pickWorkoutOverrideForSession(primarySession, overridesByWorkoutId);
+          const resolved = resolveWorkoutDisplay(
+            primaryWorkout,
+            sessionOverride ?? overridesByWorkoutId[primaryWorkout.id] ?? null,
+          );
           setMenuOpen(false);
           router.push({
             pathname: "/(app)/workouts/edit/type",

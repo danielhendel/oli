@@ -375,6 +375,9 @@ export function getRecentWorkoutsFromCalendarDays(
   return entries.slice(0, maxCount);
 }
 
+/** Strength / Cardio overview “Recent” strip: newest-first session cap (raised so manual rows survive heavy Apple backfill). */
+export const WORKOUT_OVERVIEW_RECENT_SESSION_CAP = 14;
+
 export function getRecentWorkoutSessionsFromCalendarDays(
   days: WorkoutCalendarDayLike[],
   maxCount = 7,

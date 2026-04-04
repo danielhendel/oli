@@ -203,6 +203,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     days: [
       { day: "2026-03-08", workouts: [] },
       { day: "2026-03-09", workouts: [] },
@@ -245,6 +246,7 @@ it("passes increasing refreshEpoch to the single overview useWorkoutsCalendarRan
 it("still shows recent workouts while calendar range is refreshing (stale-while-refresh)", async () => {
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     refreshing: true,
     days: [
       { day: "2026-03-08", workouts: [] },
@@ -284,6 +286,7 @@ it("still shows recent workouts while calendar range is refreshing (stale-while-
 it("renders formatted recent workout title and summary metadata", async () => {
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     days: [
       { day: "2026-03-08", workouts: [] },
       { day: "2026-03-09", workouts: [] },
@@ -320,9 +323,10 @@ it("renders formatted recent workout title and summary metadata", async () => {
   expect(json).not.toContain("Apple Health");
 });
 
-it("renders up to 7 recent workouts and supports lower-row interactions", async () => {
+it("renders up to 14 recent workouts and supports lower-row interactions", async () => {
   mockUseWorkoutsCalendarRange.mockImplementation(() => ({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     days: [
       {
         day: "2026-03-11",
@@ -350,10 +354,10 @@ it("renders up to 7 recent workouts and supports lower-row interactions", async 
       typeof n.props?.accessibilityLabel === "string" &&
       n.props.accessibilityLabel.startsWith("Open workout details r"),
   );
-  expect(rows).toHaveLength(7);
+  expect(rows).toHaveLength(8);
 
   act(() => {
-    test.root.findByProps({ accessibilityLabel: "Open workout details r7" }).props.onPress();
+    test.root.findByProps({ accessibilityLabel: "Open workout details r8" }).props.onPress();
   });
   expect(mockPush).toHaveBeenCalledWith({
     pathname: "/(app)/workouts/day/[day]",
@@ -361,7 +365,7 @@ it("renders up to 7 recent workouts and supports lower-row interactions", async 
   });
 
   act(() => {
-    test.root.findByProps({ accessibilityLabel: "Workout actions r7" }).props.onPress();
+    test.root.findByProps({ accessibilityLabel: "Workout actions r8" }).props.onPress();
   });
   act(() => {
     test.root.findByProps({ accessibilityLabel: "View details" }).props.onPress();

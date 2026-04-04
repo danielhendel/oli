@@ -16,6 +16,14 @@ import {
   workoutIdempotencyKey,
 } from "@/lib/integrations/appleHealth";
 import { ingestRawEvent } from "@/lib/api/ingest";
+import {
+  devProbeRecentManualStrengthWorkouts,
+  type ManualStrengthProbeRow,
+} from "@/lib/debug/manualStrengthDurability";
+import {
+  devProbeRecentWorkoutTitleOverrides,
+  type WorkoutTitleOverrideProbeRow,
+} from "@/lib/debug/workoutTitleOverrideDurability";
 
 function getDeviceTimezone(): string {
   try {
@@ -54,6 +62,16 @@ export default function DebugIntegrationsScreen() {
   } | null>(null);
   const [appleLastSyncAtAfter, setAppleLastSyncAtAfter] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [manualStrengthProbe, setManualStrengthProbe] = useState<
+    | { ok: true; rows: ManualStrengthProbeRow[] }
+    | { ok: false; error: string }
+    | null
+  >(null);
+  const [titleOverrideProbe, setTitleOverrideProbe] = useState<
+    | { ok: true; rows: WorkoutTitleOverrideProbeRow[] }
+    | { ok: false; error: string }
+    | null
+  >(null);
 
   const runAppleProbe = useCallback(async () => {
     if (!user) return;
@@ -136,6 +154,40 @@ export default function DebugIntegrationsScreen() {
     }
   }, [user, getIdToken]);
 
+  const runManualStrengthProbe = useCallback(async () => {
+    if (!user) return;
+    setLoading("manual_strength");
+    setManualStrengthProbe(null);
+    try {
+      const token = await getIdToken(false);
+      if (!token) {
+        setManualStrengthProbe({ ok: false, error: "No auth token" });
+        return;
+      }
+      const out = await devProbeRecentManualStrengthWorkouts(token, 20);
+      setManualStrengthProbe(out);
+    } finally {
+      setLoading(null);
+    }
+  }, [user, getIdToken]);
+
+  const runTitleOverrideProbe = useCallback(async () => {
+    if (!user) return;
+    setLoading("title_override");
+    setTitleOverrideProbe(null);
+    try {
+      const token = await getIdToken(false);
+      if (!token) {
+        setTitleOverrideProbe({ ok: false, error: "No auth token" });
+        return;
+      }
+      const out = await devProbeRecentWorkoutTitleOverrides(token, 20);
+      setTitleOverrideProbe(out);
+    } finally {
+      setLoading(null);
+    }
+  }, [user, getIdToken]);
+
   if (!__DEV__) {
     return (
       <View style={styles.container}>
@@ -207,6 +259,55 @@ export default function DebugIntegrationsScreen() {
             ))}
             {appleRawWorkouts.error != null && (
               <Text style={styles.error}>{appleRawWorkouts.error}</Text>
+            )}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Manual strength (rawEvents)</Text>
+        <Pressable
+          onPress={runManualStrengthProbe}
+          disabled={!!loading}
+          style={[styles.btn, loading === "manual_strength" && styles.btnDisabled]}
+        >
+          <Text style={styles.btnText}>
+            {loading === "manual_strength" ? "Loading…" : "Probe last manual strength_workout rows"}
+          </Text>
+        </Pressable>
+        {manualStrengthProbe != null && (
+          <View style={styles.block}>
+            {manualStrengthProbe.ok === false ? (
+              <Text style={styles.error}>{manualStrengthProbe.error}</Text>
+            ) : (
+              manualStrengthProbe.rows.map((r) => (
+                <Text key={r.id} selectable style={styles.monoSmall}>
+                  id={r.id} observedAt={r.observedAt} exercises={r.exerciseCount} displayName=
+                  {r.displayName ?? "—"}
+                </Text>
+              ))
+            )}
+          </View>
+        )}
+        <Pressable
+          onPress={runTitleOverrideProbe}
+          disabled={!!loading}
+          style={[styles.btn, loading === "title_override" && styles.btnDisabled]}
+        >
+          <Text style={styles.btnText}>
+            {loading === "title_override" ? "Loading…" : "Probe workout_title_override rows"}
+          </Text>
+        </Pressable>
+        {titleOverrideProbe != null && (
+          <View style={styles.block}>
+            {titleOverrideProbe.ok === false ? (
+              <Text style={styles.error}>{titleOverrideProbe.error}</Text>
+            ) : (
+              titleOverrideProbe.rows.map((r) => (
+                <Text key={r.id} selectable style={styles.monoSmall}>
+                  id={r.id} target={r.targetWorkoutId ?? "—"} name={r.displayName ?? "—"} observedAt={r.observedAt}
+                </Text>
+              ))
             )}
           </View>
         )}

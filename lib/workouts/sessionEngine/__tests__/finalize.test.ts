@@ -56,11 +56,16 @@ describe("persistCompletedSessionToHistory", () => {
         },
       ],
     });
-    usersMeApi.logStrengthWorkout.mockResolvedValue({ ok: true, status: 202, requestId: null, json: {} });
+    usersMeApi.logStrengthWorkout.mockResolvedValue({
+      ok: true,
+      status: 202,
+      requestId: null,
+      json: { ok: true, rawEventId: "raw_evt_1", day: "2026-03-27" },
+    });
 
     const out = await persistCompletedSessionToHistory("u1", "s1", "token-1");
 
-    expect(out).toBe(true);
+    expect(out).toEqual({ kind: "written", rawEventId: "raw_evt_1", day: "2026-03-27" });
     expect(usersMeApi.logStrengthWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
         startedAt: "2026-03-27T10:00:00.000Z",
@@ -118,7 +123,12 @@ describe("persistCompletedSessionToHistory", () => {
         updatedAt: "2026-03-01T00:00:00.000Z",
       },
     ]);
-    usersMeApi.logStrengthWorkout.mockResolvedValue({ ok: true, status: 202, requestId: null, json: {} });
+    usersMeApi.logStrengthWorkout.mockResolvedValue({
+      ok: true,
+      status: 202,
+      requestId: null,
+      json: { ok: true, rawEventId: "raw_evt_2", day: "2026-03-27" },
+    });
 
     await persistCompletedSessionToHistory("u1", "s1", "token-1");
 
@@ -130,7 +140,57 @@ describe("persistCompletedSessionToHistory", () => {
     );
   });
 
-  it("returns false and skips ingest when there are no logged sets", async () => {
+  it("includes displayName from journal name: note in ingest payload", async () => {
+    selectors.loadReducedSession.mockResolvedValue({
+      ownerUid: "u1",
+      sessionId: "s1",
+      status: "completed",
+      startedAt: "2026-03-27T10:00:00.000Z",
+      blocks: [],
+      notes: ["name:Push Day"],
+      eventCount: 3,
+      exercises: [
+        {
+          slotId: "slot1",
+          blockId: null,
+          exerciseId: "bench_press",
+          position: 0,
+          removed: false,
+          sets: [
+            {
+              setId: "set1",
+              ordinal: 1,
+              reps: 5,
+              loadKg: 100,
+              rpe: 8,
+              tempo: null,
+              isWarmup: false,
+              note: null,
+              occurredAt: "2026-03-27T10:05:00.000Z",
+            },
+          ],
+        },
+      ],
+    });
+    usersMeApi.logStrengthWorkout.mockResolvedValue({
+      ok: true,
+      status: 202,
+      requestId: null,
+      json: { ok: true, rawEventId: "raw_evt_3", day: "2026-03-27" },
+    });
+
+    await persistCompletedSessionToHistory("u1", "s1", "token-1");
+
+    expect(usersMeApi.logStrengthWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayName: "Push Day",
+        startedAt: "2026-03-27T10:00:00.000Z",
+      }),
+      "token-1",
+    );
+  });
+
+  it("returns skipped_no_sets and skips ingest when there are no logged sets", async () => {
     selectors.loadReducedSession.mockResolvedValue({
       ownerUid: "u1",
       sessionId: "s1",
@@ -153,7 +213,7 @@ describe("persistCompletedSessionToHistory", () => {
 
     const out = await persistCompletedSessionToHistory("u1", "s1", "token-1");
 
-    expect(out).toBe(false);
+    expect(out).toEqual({ kind: "skipped_no_sets" });
     expect(usersMeApi.logStrengthWorkout).not.toHaveBeenCalled();
   });
 

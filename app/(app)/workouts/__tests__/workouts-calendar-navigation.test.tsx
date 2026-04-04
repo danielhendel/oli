@@ -98,6 +98,7 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
       status: "ready",
       day: "2026-03-10",
       workouts: [],
+      durableTitlesByWorkoutId: {},
     }),
   };
 });
@@ -289,6 +290,7 @@ describe("Workouts calendar navigation", () => {
       if (end === "2026-12-31") {
         return {
           status: "ready",
+          durableTitlesByWorkoutId: {},
           days: [
             { day: "2026-03-08", workouts: [] },
             { day: "2026-03-09", workouts: [] },
@@ -317,6 +319,7 @@ describe("Workouts calendar navigation", () => {
       }
       return {
         status: "ready",
+        durableTitlesByWorkoutId: {},
         days: [
           { day: "2026-03-10", workouts: [] },
           {
@@ -415,6 +418,7 @@ describe("Workouts calendar navigation", () => {
     });
     state.current = {
       status: "ready",
+      durableTitlesByWorkoutId: {},
       days: [
         { day: "2026-03-10", workouts: [] },
         {

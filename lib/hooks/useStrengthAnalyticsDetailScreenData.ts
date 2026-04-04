@@ -33,8 +33,14 @@ import {
   type CustomExerciseRecord,
 } from "@/lib/workouts/exercises/customExerciseStore";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
-import { resolveWorkoutDisplay } from "@/lib/data/workouts/workoutDisplay";
-import { getRecentWorkoutSessionsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  buildWorkoutSessionSurfaceModel,
+  pickJournalSummaryForStrengthSession,
+} from "@/lib/data/workouts/workoutSessionSurface";
+import {
+  getRecentWorkoutSessionsFromCalendarDays,
+  WORKOUT_OVERVIEW_RECENT_SESSION_CAP,
+} from "@/lib/data/workouts/workoutsCalendarModel";
 import type { WeeklySessionDisplayHint } from "@/lib/data/workouts/weeklyStrengthCardModel";
 
 function runAfterInteractionsSafe(task: () => void): { cancel: () => void } {
@@ -100,6 +106,9 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
     calendarRangeOptions,
   );
 
+  const durableTitlesByWorkoutId =
+    overviewSharedRange.status === "ready" ? overviewSharedRange.durableTitlesByWorkoutId : {};
+
   const sharedDays = overviewSharedRange.status === "ready" ? overviewSharedRange.days : [];
 
   const domainSharedDays = useMemo(
@@ -122,7 +131,7 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
 
   const recentWorkouts = useMemo(() => {
     if (overviewSharedRange.status !== "ready") return [];
-    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, 7);
+    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, WORKOUT_OVERVIEW_RECENT_SESSION_CAP);
   }, [overviewSharedRange.status, recentDaysSlice]);
 
   const weekWorkoutIds = useMemo(
@@ -134,7 +143,7 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
   );
 
   const recentWorkoutIds = useMemo(
-    () => recentWorkouts.map((entry) => entry.session.workouts[0]?.id ?? entry.session.id),
+    () => recentWorkouts.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
     [recentWorkouts],
   );
 
@@ -146,32 +155,6 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
   }, [recentWorkoutIds, weekWorkoutIds]);
 
   const { overridesByWorkoutId } = useWorkoutOverrides(workoutIdsForOverrides);
-
-  const weeklySessionDisplayHints = useMemo<WeeklySessionDisplayHint[]>(
-    () =>
-      weekDaysSlice.flatMap((d) =>
-        reconcileWorkoutSessionsForDay(d.day, d.workouts).map((session) => {
-          const representative = session.workouts[0];
-          if (!representative) {
-            return {
-              day: d.day,
-              startAt: session.start,
-              displayTitle: "Workout",
-            };
-          }
-          const resolved = resolveWorkoutDisplay(
-            representative,
-            overridesByWorkoutId[representative.id] ?? null,
-          );
-          return {
-            day: d.day,
-            startAt: session.start ?? representative.start ?? representative.observedAt ?? null,
-            displayTitle: resolved.displayTitle,
-          };
-        }),
-      ),
-    [weekDaysSlice, overridesByWorkoutId],
-  );
 
   const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
   const [customExerciseById, setCustomExerciseById] = useState<ReadonlyMap<string, CustomExerciseRecord>>(
@@ -199,6 +182,35 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
       task.cancel();
     };
   }, [overviewSharedRange.status, uid]);
+
+  const weeklySessionDisplayHints = useMemo<WeeklySessionDisplayHint[]>(() => {
+    return weekDaysSlice.flatMap((d) =>
+      reconcileWorkoutSessionsForDay(d.day, d.workouts).map((session) => {
+        const representative = session.workouts[0];
+        if (!representative) {
+          return {
+            day: d.day,
+            startAt: session.start,
+            displayTitle: "Workout",
+          };
+        }
+        const journalSummary = pickJournalSummaryForStrengthSession(d.day, session, manualWorkoutSummaries);
+        const surface = buildWorkoutSessionSurfaceModel(
+          session,
+          overridesByWorkoutId,
+          "strength",
+          journalSummary,
+          durableTitlesByWorkoutId,
+        );
+        const displayTitle = surface.displayTitle;
+        return {
+          day: d.day,
+          startAt: session.start ?? representative.start ?? representative.observedAt ?? null,
+          displayTitle,
+        };
+      }),
+    );
+  }, [weekDaysSlice, overridesByWorkoutId, manualWorkoutSummaries, durableTitlesByWorkoutId]);
 
   const models = useMemo(() => {
     if (!uid) return null;

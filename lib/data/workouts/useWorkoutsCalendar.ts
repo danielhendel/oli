@@ -18,15 +18,32 @@ import type { WorkoutRawForDayDerivation } from "@/lib/data/workouts/workoutsCal
 import { sortWorkoutsChronologicalAsc } from "@/lib/data/workouts/workoutsCalendarModel";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE } from "@/lib/data/workouts/workoutsCalendarApiConstants";
+import { observedAtPadDaysForWorkoutCalendarRange } from "@/lib/data/workouts/workoutsCalendarObservedAtPad";
 import type { WorkoutCalendarRawEventKind } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
 import { resolveWorkoutCalendarRawEventKinds } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
 import {
   getWorkoutTruthTargetConfig,
   rawEventIdMatchesTruthTargets,
 } from "@/lib/debug/workoutTruthTargets";
+import {
+  WORKOUT_DAY_DEBUG_DATES,
+  isWorkoutDayDebugDate,
+  logWorkoutDayDebug,
+  workoutDayDebugEnabled,
+  workoutDayDebugFixRevision,
+  workoutDayDebugPayloadStartedAt,
+  workoutDayDebugRangeOverlaps,
+  workoutDayDebugRowTouchesAuditDates,
+} from "@/lib/debug/workoutDayDebug";
 import { clearAllWorkoutCalendarMarkerCaches } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
 import { WORKOUT_DAY_SUMMARY_EXPECTED } from "@oli/contracts";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import { subscribeWorkoutCalendarHydrateInvalidate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
+import {
+  durableTitleOverrideMapToRecord,
+  mergeWorkoutTitleOverrideListRow,
+  type DurableTitleOverrideAccumulator,
+} from "@/lib/data/workouts/workoutTitleOverridesFromRaw";
 
 export { WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE } from "@/lib/data/workouts/workoutsCalendarApiConstants";
 
@@ -36,8 +53,7 @@ export {
 } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
 export type { WorkoutCalendarRawEventKind } from "@/lib/data/workouts/workoutsCalendarRawEventKinds";
 
-/** Pad observedAt query window so payload.day / TZ-derived days still match the UI range. */
-const OBSERVED_AT_PAD_DAYS = 21;
+export { observedAtPadDaysForWorkoutCalendarRange } from "@/lib/data/workouts/workoutsCalendarObservedAtPad";
 
 /** Must stay ≤ API `workout-day-summaries` max range; otherwise skip summary-first hydrate. */
 const WORKOUT_DAY_SUMMARY_CLIENT_MAX_RANGE_DAYS = 900;
@@ -80,12 +96,15 @@ export type WorkoutCalendarRangeState =
       refreshing?: boolean;
       /** Present when markers were loaded from summary docs (workouts[] empty for those days). */
       markerFlagsByDay?: Record<DayKey, WorkoutMarkerFlags>;
+      /** Latest durable display title per target workout raw id (`workout_title_override`). */
+      durableTitlesByWorkoutId: Record<string, string>;
     }
   | { status: "error"; error: string; requestId: string | null };
 
 type CachedWorkoutCalendarRange = {
   days: WorkoutCalendarDay[];
   markerFlagsByDay?: Record<DayKey, WorkoutMarkerFlags>;
+  durableTitlesByWorkoutId: Record<string, string>;
 };
 
 const MAX_ITEMS_CAP = 2000;
@@ -132,8 +151,21 @@ export function getCachedWorkoutsForDay(uid: string, day: DayKey): WorkoutHistor
 function mergeWorkoutsIntoDayCache(uid: string, days: WorkoutCalendarDay[]): void {
   for (const d of days) {
     const k = dayCacheKey(uid, d.day);
+    if (workoutDayDebugEnabled() && isWorkoutDayDebugDate(d.day)) {
+      logWorkoutDayDebug("merge-cache-row", {
+        day: d.day,
+        incomingHydrateWorkoutIds: d.workouts.map((w) => w.id),
+        perDayCacheIdsBeforeMerge: getCachedWorkoutsForDay(uid, d.day).map((w) => w.id),
+        emptyIncomingPreservesCache: true,
+      });
+    }
     if (d.workouts.length === 0) {
-      dayWorkoutsByUidDay.delete(k);
+      /**
+       * Do not delete existing per-day cache. An empty bucket usually means the `observedAt`
+       * list window missed raw docs that still belong on this calendar day (see
+       * `deriveWorkoutDayKey` vs API filter), not that the user has zero workouts. Overview
+       * hydrates may have populated this key from a wider window.
+       */
       continue;
     }
     const prev = dayWorkoutsByUidDay.get(k) ?? [];
@@ -141,6 +173,12 @@ function mergeWorkoutsIntoDayCache(uid: string, days: WorkoutCalendarDay[]): voi
     for (const w of prev) byId.set(w.id, w);
     for (const w of d.workouts) byId.set(w.id, w);
     dayWorkoutsByUidDay.set(k, sortWorkoutsChronologicalAsc([...byId.values()]));
+    if (workoutDayDebugEnabled() && isWorkoutDayDebugDate(d.day)) {
+      logWorkoutDayDebug("merge-cache-row-after", {
+        day: d.day,
+        perDayCacheIdsAfterMerge: dayWorkoutsByUidDay.get(k)?.map((w) => w.id) ?? [],
+      });
+    }
   }
 }
 
@@ -252,17 +290,64 @@ function rawListItemToParseableDoc(item: RawEventListItem & { payload: unknown }
   } as RawEventDoc;
 }
 
+async function hydrateDurableTitleOverrideMap(
+  observedStart: DayKey,
+  observedEnd: DayKey,
+  idToken: string,
+): Promise<Record<string, string>> {
+  const acc: DurableTitleOverrideAccumulator = new Map();
+  let cursor: string | null = null;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const listParams: {
+      kind: string;
+      limit: number;
+      cursor?: string;
+      start: string;
+      end: string;
+      includePayload: boolean;
+    } = {
+      kind: "workout_title_override",
+      limit: WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE,
+      start: observedStart,
+      end: observedEnd,
+      includePayload: true,
+    };
+    if (cursor) listParams.cursor = cursor;
+
+    const listRes = await getRawEvents(idToken, listParams);
+    if (!listRes.ok) {
+      if (__DEV__ && !process.env.JEST_WORKER_ID) {
+        // eslint-disable-next-line no-console
+        console.warn("[workout_title_override] raw-events list failed", listRes.error);
+      }
+      return durableTitleOverrideMapToRecord(acc);
+    }
+
+    for (const row of listRes.json.items) {
+      mergeWorkoutTitleOverrideListRow(acc, row);
+    }
+    cursor = listRes.json.nextCursor ?? null;
+    if (!cursor) break;
+  }
+  return durableTitleOverrideMapToRecord(acc);
+}
+
 async function hydrateWorkoutsForRange(
   kinds: WorkoutCalendarRawEventKind[],
   start: DayKey,
   end: DayKey,
   idToken: string,
   debugHydrateLabel?: string,
-): Promise<{ ok: true; days: WorkoutCalendarDay[] } | { ok: false; error: string; requestId: string | null }> {
+): Promise<
+  | { ok: true; days: WorkoutCalendarDay[]; durableTitlesByWorkoutId: Record<string, string> }
+  | { ok: false; error: string; requestId: string | null }
+> {
   const overviewSharedHydrateWallStart =
     __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel === "overview-shared" ? Date.now() : null;
-  const observedStart = addCalendarDaysToDayKey(start, -OBSERVED_AT_PAD_DAYS);
-  const observedEnd = addCalendarDaysToDayKey(end, OBSERVED_AT_PAD_DAYS);
+  const observedPad = observedAtPadDaysForWorkoutCalendarRange(start, end);
+  const observedStart = addCalendarDaysToDayKey(start, -observedPad);
+  const observedEnd = addCalendarDaysToDayKey(end, observedPad);
   const truthCfg = getWorkoutTruthTargetConfig();
   const truthTrace: TruthTrace = {
     seenInListIds: new Set(),
@@ -280,6 +365,22 @@ async function hydrateWorkoutsForRange(
       rawEventKinds: kinds,
       debugHydrateLabel: debugHydrateLabel ?? null,
       truthTargetsConfigured: Boolean(truthCfg),
+    });
+  }
+
+  if (workoutDayDebugEnabled() && workoutDayDebugRangeOverlaps(start, end)) {
+    logWorkoutDayDebug("range-hydrate-begin", {
+      requestedDay: start === end ? start : null,
+      requestedUiStart: start,
+      requestedUiEnd: end,
+      observedAtListWindowStart: observedStart,
+      observedAtListWindowEnd: observedEnd,
+      observedAtPadDays: observedPad,
+      kindFilters: kinds,
+      debugHydrateLabel: debugHydrateLabel ?? null,
+      ...workoutDayDebugFixRevision(),
+      note:
+        "Rows come from GET /raw-events (observedAt window). Calendar day uses deriveWorkoutDayKey. Mismatch → row can be missing from this query.",
     });
   }
 
@@ -387,7 +488,25 @@ async function hydrateWorkoutsForRange(
           const isTarget = rawEventIdMatchesTruthTargets(id, truthCfg);
           const derivedDayKey = deriveWorkoutDayKey(raw);
           const rawKind = raw.kind as WorkoutCalendarRawEventKind | undefined;
+          const dbgTouch = workoutDayDebugRowTouchesAuditDates({
+            observedAt: raw.observedAt,
+            payload: raw.payload,
+            derivedDayKey,
+          });
+          const dbgRowBase = (): Record<string, unknown> => ({
+            rawEventId: id,
+            listKind: kind,
+            docKind: raw.kind ?? null,
+            sourceId: raw.sourceId ?? null,
+            observedAt: raw.observedAt,
+            payloadStartedAt: workoutDayDebugPayloadStartedAt(raw.payload),
+            derivedDayKey,
+            requestedUiRange: { start, end },
+          });
           if (!rawKind || rawKind !== kind) {
+            if (dbgTouch) {
+              logWorkoutDayDebug("pipeline-row", { ...dbgRowBase(), outcome: "dropped_kind_mismatch" });
+            }
             if (isTarget && debugHydrateLabel) {
               truthTrace.lastDropById.set(
                 id,
@@ -412,6 +531,9 @@ async function hydrateWorkoutsForRange(
           }
 
           if (!derivedDayKey) {
+            if (dbgTouch) {
+              logWorkoutDayDebug("pipeline-row", { ...dbgRowBase(), outcome: "dropped_deriveWorkoutDayKey_null" });
+            }
             if (isTarget && debugHydrateLabel) {
               truthTrace.lastDropById.set(id, "deriveWorkoutDayKey_null");
               emitHydrateTargetPostListTrace({
@@ -432,6 +554,12 @@ async function hydrateWorkoutsForRange(
             continue;
           }
           if (derivedDayKey < start || derivedDayKey > end) {
+            if (dbgTouch) {
+              logWorkoutDayDebug("pipeline-row", {
+                ...dbgRowBase(),
+                outcome: "dropped_dayKey_outside_ui_range",
+              });
+            }
             if (isTarget && debugHydrateLabel) {
               const reason = `dayKey_outside_ui_range:dayKey=${derivedDayKey}:uiStart=${start}:uiEnd=${end}`;
               truthTrace.lastDropById.set(id, reason);
@@ -455,6 +583,16 @@ async function hydrateWorkoutsForRange(
 
           const item = parseWorkoutHistoryItem(resJson as never);
           grouped.push({ day: derivedDayKey, workout: item });
+          if (dbgTouch) {
+            logWorkoutDayDebug("pipeline-row", {
+              ...dbgRowBase(),
+              outcome: "included_into_hydrate_bucket",
+              parsedWorkoutId: item.id,
+              parsedRawKind: item.rawKind ?? null,
+              parsedTitle: item.title,
+              strengthIngestExerciseCount: item.strengthIngestExercises?.length ?? 0,
+            });
+          }
           if (isTarget && debugHydrateLabel) {
             truthTrace.includedIds.add(id);
             truthTrace.lastDropById.delete(id);
@@ -493,6 +631,22 @@ async function hydrateWorkoutsForRange(
   for (const kind of kinds) {
     const res = await hydrateKind(kind);
     if (!res.ok) return res as { ok: false; error: string; requestId: string | null };
+  }
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+    const countsBySourceId: Record<string, number> = {};
+    for (const g of grouped) {
+      const sid = String(g.workout.sourceId ?? "unknown").trim() || "unknown";
+      countsBySourceId[sid] = (countsBySourceId[sid] ?? 0) + 1;
+    }
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PIPELINE_DEBUG] hydrate-raw-items-by-source", {
+      debugHydrateLabel,
+      uiRangeStart: start,
+      uiRangeEnd: end,
+      countsBySourceId,
+      totalParsedItems: grouped.length,
+    });
   }
 
   if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
@@ -550,6 +704,41 @@ async function hydrateWorkoutsForRange(
     day,
     workouts: sortWorkoutsChronologicalAsc(byDay.get(day) ?? []),
   }));
+
+  if (workoutDayDebugEnabled() && workoutDayDebugRangeOverlaps(start, end)) {
+    for (const d of WORKOUT_DAY_DEBUG_DATES) {
+      if (d < start || d > end) continue;
+      const bucket = days.find((x) => x.day === d)?.workouts ?? [];
+      const byKind: Record<string, string[]> = {};
+      for (const w of bucket) {
+        const key = w.rawKind ?? w.sourceId ?? "unknown";
+        byKind[key] = byKind[key] ?? [];
+        byKind[key].push(w.id);
+      }
+      logWorkoutDayDebug("hydrate-result-bucket", {
+        day: d,
+        workoutCount: bucket.length,
+        workoutIds: bucket.map((w) => w.id),
+        byKind,
+      });
+    }
+  }
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
+    let multiSourceSessionCount = 0;
+    for (const d of days) {
+      const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
+      for (const s of sessions) {
+        if (s.sourceCount > 1) multiSourceSessionCount += 1;
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log("[WORKOUT_PIPELINE_DEBUG] hydrate-merged-sessions", {
+      debugHydrateLabel,
+      multiSourceSessionCount,
+      dayBuckets: days.filter((d) => d.workouts.length > 0).length,
+    });
+  }
 
   if (truthCfg && __DEV__ && !process.env.JEST_WORKER_ID && debugHydrateLabel) {
     const targetIdsToScan = new Set<string>();
@@ -646,7 +835,8 @@ async function hydrateWorkoutsForRange(
     });
   }
 
-  return { ok: true, days };
+  const durableTitlesByWorkoutId = await hydrateDurableTitleOverrideMap(observedStart, observedEnd, idToken);
+  return { ok: true, days, durableTitlesByWorkoutId };
 }
 
 export function useWorkoutsCalendarRange(
@@ -656,8 +846,15 @@ export function useWorkoutsCalendarRange(
 ): WorkoutCalendarRangeState {
   const { user, initializing, getIdToken } = useAuth();
   const [state, setState] = useState<WorkoutCalendarRangeState>({ status: "partial" });
+  const [hydrateInvalidateTick, setHydrateInvalidateTick] = useState(0);
   const seqRef = useRef(0);
   const prevUidRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return subscribeWorkoutCalendarHydrateInvalidate(() => {
+      setHydrateInvalidateTick((n) => n + 1);
+    });
+  }, []);
 
   const optsRef = useRef<WorkoutCalendarAdapterOptions | undefined>(options);
   optsRef.current = options;
@@ -705,6 +902,7 @@ export function useWorkoutsCalendarRange(
         ...(staleEntry.markerFlagsByDay
           ? { markerFlagsByDay: staleEntry.markerFlagsByDay }
           : {}),
+        durableTitlesByWorkoutId: staleEntry.durableTitlesByWorkoutId ?? {},
         refreshing: true,
       });
     } else {
@@ -742,7 +940,7 @@ export function useWorkoutsCalendarRange(
           day,
           workouts: [] as WorkoutHistoryItem[],
         }));
-        return { days, markerFlagsByDay };
+        return { days, markerFlagsByDay, durableTitlesByWorkoutId: {} };
       };
 
       let cached = buildFromSummaryResponse();
@@ -779,7 +977,17 @@ export function useWorkoutsCalendarRange(
       }
 
       if (cached) {
-        lastGoodRangeByShape.set(shapeKey, cached);
+        const observedPad = observedAtPadDaysForWorkoutCalendarRange(start, end);
+        const titleObsStart = addCalendarDaysToDayKey(start, -observedPad);
+        const titleObsEnd = addCalendarDaysToDayKey(end, observedPad);
+        const durableTitlesByWorkoutId = await hydrateDurableTitleOverrideMap(
+          titleObsStart,
+          titleObsEnd,
+          token,
+        );
+        if (seq !== seqRef.current) return;
+        const cachedWithTitles: CachedWorkoutCalendarRange = { ...cached, durableTitlesByWorkoutId };
+        lastGoodRangeByShape.set(shapeKey, cachedWithTitles);
         if (__DEV__ && !process.env.JEST_WORKER_ID && optsRef.current?.debugHydrateLabel === "calendar-viewport") {
           // eslint-disable-next-line no-console
           console.log("[WORKOUT_PERF] calendar-summary-hit", {
@@ -792,6 +1000,7 @@ export function useWorkoutsCalendarRange(
           status: "ready",
           days: cached.days,
           ...(cached.markerFlagsByDay ? { markerFlagsByDay: cached.markerFlagsByDay } : {}),
+          durableTitlesByWorkoutId,
           refreshing: false,
         });
         return;
@@ -806,6 +1015,19 @@ export function useWorkoutsCalendarRange(
         // eslint-disable-next-line no-console
         console.log("[WORKOUT_PERF] calendar-summary-raw-fallback", { start, end, reason });
       }
+    }
+
+    if (
+      workoutDayDebugEnabled() &&
+      start === end &&
+      isWorkoutDayDebugDate(start)
+    ) {
+      logWorkoutDayDebug("day-detail-pre-hydrate", {
+        requestedDay: start,
+        perDayCacheWorkoutIdsBeforeHydrate: getCachedWorkoutsForDay(uid, start).map((w) => w.id),
+        rangeShapeKey: shapeKey,
+        ...workoutDayDebugFixRevision(),
+      });
     }
 
     const res = await hydrateWorkoutsForRange(
@@ -825,6 +1047,7 @@ export function useWorkoutsCalendarRange(
           ...(staleEntry.markerFlagsByDay
             ? { markerFlagsByDay: staleEntry.markerFlagsByDay }
             : {}),
+          durableTitlesByWorkoutId: staleEntry.durableTitlesByWorkoutId ?? {},
           refreshing: false,
         });
       } else {
@@ -837,9 +1060,17 @@ export function useWorkoutsCalendarRange(
       return;
     }
 
-    lastGoodRangeByShape.set(shapeKey, { days: res.days });
+    lastGoodRangeByShape.set(shapeKey, {
+      days: res.days,
+      durableTitlesByWorkoutId: res.durableTitlesByWorkoutId,
+    });
     mergeWorkoutsIntoDayCache(uid, res.days);
-    safeSet({ status: "ready", days: res.days, refreshing: false });
+    safeSet({
+      status: "ready",
+      days: res.days,
+      durableTitlesByWorkoutId: res.durableTitlesByWorkoutId,
+      refreshing: false,
+    });
   }, [
     start,
     end,
@@ -849,19 +1080,38 @@ export function useWorkoutsCalendarRange(
     options?.refreshEpoch,
     rawKindsSig,
     options?.preferWorkoutDaySummaries,
+    hydrateInvalidateTick,
   ]);
 
   useEffect(() => {
     void fetchOnce();
-  }, [fetchOnce, start, end, user?.uid, options?.refreshEpoch, rawKindsSig]);
+  }, [fetchOnce, start, end, user?.uid, options?.refreshEpoch, rawKindsSig, hydrateInvalidateTick]);
 
   return state;
+}
+
+/**
+ * Day detail: single-day GET /raw-events uses `observedAt` bounds; overview hydrate may have
+ * already bucketed the same raw ids under this day (wider window). Union so we do not drop rows
+ * when `observedAt` is far from the workout's logical day. Range result wins on id collision.
+ */
+function mergeWorkoutDayDetailWorkouts(fromCache: WorkoutHistoryItem[], fromRange: WorkoutHistoryItem[]): WorkoutHistoryItem[] {
+  const byId = new Map<string, WorkoutHistoryItem>();
+  for (const w of fromCache) byId.set(w.id, w);
+  for (const w of fromRange) byId.set(w.id, w);
+  return sortWorkoutsChronologicalAsc([...byId.values()]);
 }
 
 export type WorkoutDayDetailState =
   | { status: "partial" }
   | { status: "error"; error: string; requestId: string | null }
-  | { status: "ready"; day: DayKey; workouts: WorkoutHistoryItem[]; dailyFacts?: DailyFactsDto };
+  | {
+      status: "ready";
+      day: DayKey;
+      workouts: WorkoutHistoryItem[];
+      dailyFacts?: DailyFactsDto;
+      durableTitlesByWorkoutId: Record<string, string>;
+    };
 
 export function useWorkoutDayDetail(
   day: DayKey,
@@ -873,6 +1123,31 @@ export function useWorkoutDayDetail(
 
   const uid = user?.uid ?? "";
 
+  const rangeSettled = rangeState.status === "ready";
+  const fromRange = rangeSettled
+    ? sortWorkoutsChronologicalAsc(rangeState.days[0]?.workouts ?? [])
+    : [];
+  const fromCache = uid ? getCachedWorkoutsForDay(uid, day) : [];
+  const workouts = rangeSettled
+    ? mergeWorkoutDayDetailWorkouts(fromCache, fromRange)
+    : fromCache.length > 0
+      ? sortWorkoutsChronologicalAsc(fromCache)
+      : [];
+
+  const workoutDayDebugSig = `${fromCache.map((w) => w.id).join(",")}|${fromRange.map((w) => w.id).join(",")}|${workouts.map((w) => w.id).join(",")}`;
+  useEffect(() => {
+    if (!workoutDayDebugEnabled() || !isWorkoutDayDebugDate(day) || !uid) return;
+    logWorkoutDayDebug("day-detail-hook", {
+      requestedDay: day,
+      rangeStatus: rangeState.status,
+      fromCacheWorkoutIds: fromCache.map((w) => w.id),
+      fromRangeWorkoutIds: fromRange.map((w) => w.id),
+      mergedWorkoutIds: workouts.map((w) => w.id),
+      observedAtPadDaysForThisRange: observedAtPadDaysForWorkoutCalendarRange(day, day),
+      ...workoutDayDebugFixRevision(),
+    });
+  }, [day, uid, rangeState.status, workoutDayDebugSig]);
+
   if (rangeState.status === "error") {
     return {
       status: "error",
@@ -881,17 +1156,6 @@ export function useWorkoutDayDetail(
     };
   }
 
-  const rangeSettled = rangeState.status === "ready";
-  const fromRange = rangeSettled
-    ? sortWorkoutsChronologicalAsc(rangeState.days[0]?.workouts ?? [])
-    : [];
-  const fromCache = uid ? getCachedWorkoutsForDay(uid, day) : [];
-  const workouts = rangeSettled
-    ? fromRange
-    : fromCache.length > 0
-      ? sortWorkoutsChronologicalAsc(fromCache)
-      : [];
-
   if (!rangeSettled && workouts.length === 0) {
     return { status: "partial" };
   }
@@ -899,10 +1163,14 @@ export function useWorkoutDayDetail(
   const dailyFactsDto =
     dailyFacts.status === "ready" && dailyFacts.data ? dailyFacts.data : undefined;
 
+  const durableTitlesByWorkoutId =
+    rangeState.status === "ready" ? rangeState.durableTitlesByWorkoutId : {};
+
   return {
     status: "ready",
     day,
     workouts,
+    durableTitlesByWorkoutId,
     ...(dailyFactsDto ? { dailyFacts: dailyFactsDto } : {}),
   };
 }

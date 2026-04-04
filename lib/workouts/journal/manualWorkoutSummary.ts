@@ -35,7 +35,8 @@ export type ManualWorkoutDaySummary = {
 
 const NAME_PREFIX = "name:";
 
-function extractSessionName(notes: string[]): string | null {
+/** Last `name:…` journal note wins (same rule as session summaries). Exported for ingest / durability. */
+export function extractManualWorkoutSessionDisplayNameFromNotes(notes: readonly string[]): string | null {
   for (let i = notes.length - 1; i >= 0; i -= 1) {
     const note = notes[i]?.trim() ?? "";
     if (!note.toLowerCase().startsWith(NAME_PREFIX)) continue;
@@ -103,7 +104,7 @@ export async function listManualWorkoutDaySummaries(uid: string): Promise<Manual
       sessionId: reduced.sessionId,
       day: ymdInTimeZoneFromIso(startedAt, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
       startedAt,
-      customName: extractSessionName(reduced.notes),
+      customName: extractManualWorkoutSessionDisplayNameFromNotes(reduced.notes),
       totalVolume: metrics.totalVolume,
       avgIntensity: metrics.avgIntensity,
       exercises,

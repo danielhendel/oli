@@ -3,6 +3,7 @@ import { buildManualStrengthWorkoutPayload, type ManualStrengthWorkoutPayload } 
 import { loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
 import type { ReducedSessionV1 } from "@/lib/workouts/journal/types";
 import { loadCustomExerciseNameById, resolveExerciseDisplayName } from "@/lib/workouts/exercises/displayName";
+import { extractManualWorkoutSessionDisplayNameFromNotes } from "@/lib/workouts/journal/manualWorkoutSummary";
 
 function buildPayloadFromReducedSession(
   reduced: ReducedSessionV1,
@@ -32,32 +33,41 @@ function buildPayloadFromReducedSession(
 
   if (exercises.length === 0) return null;
 
+  const displayName = extractManualWorkoutSessionDisplayNameFromNotes(reduced.notes)?.trim() ?? "";
   return buildManualStrengthWorkoutPayload({
     startedAt: reduced.startedAt,
     timeZone,
     exercises,
+    ...(displayName.length > 0 ? { displayName: displayName.slice(0, 120) } : {}),
   });
 }
 
+export type PersistCompletedSessionToHistoryResult =
+  | { kind: "skipped_no_sets" }
+  | { kind: "written"; rawEventId: string; day?: string };
+
 /**
- * Persist a completed journal session into canonical strength workout history.
- * Returns `true` when ingest is attempted, `false` when session has no ingestible sets.
+ * Persist a completed journal session into canonical strength workout history (POST /ingest).
+ * Throws when the session is not completed or the API rejects the write.
  */
 export async function persistCompletedSessionToHistory(
   uid: string,
   sessionId: string,
   idToken: string,
-): Promise<boolean> {
+): Promise<PersistCompletedSessionToHistoryResult> {
   const reduced = await loadReducedSession(uid, sessionId);
   if (reduced.status !== "completed") {
     throw new Error("Cannot persist history for a non-completed session.");
   }
   const customExerciseNameById = await loadCustomExerciseNameById(uid);
   const payload = buildPayloadFromReducedSession(reduced, customExerciseNameById);
-  if (payload == null) return false;
+  if (payload == null) return { kind: "skipped_no_sets" };
   const res = await logStrengthWorkout(payload, idToken);
   if (!res.ok) {
     throw new Error(res.error ?? "Failed to persist completed workout.");
   }
-  return true;
+  const { rawEventId, day } = res.json;
+  return day != null
+    ? { kind: "written" as const, rawEventId, day }
+    : { kind: "written" as const, rawEventId };
 }

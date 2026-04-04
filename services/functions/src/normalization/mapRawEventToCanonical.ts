@@ -527,6 +527,14 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
+  if (raw.kind === "workout_title_override") {
+    return {
+      ok: false,
+      reason: "UNSUPPORTED_KIND",
+      details: { kind: raw.kind, rawEventId: raw.id, memoryOnly: true },
+    };
+  }
+
   if (raw.kind === "body_composition") {
     return {
       ok: false,

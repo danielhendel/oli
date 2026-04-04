@@ -92,6 +92,28 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts a valid workout_title_override RawEvent doc", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "title_ov_1",
+      userId: "user_1",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "workout_title_override",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-01T14:00:00.000Z",
+      payload: {
+        targetWorkoutId: "strength_raw_1",
+        displayName: "Leg day",
+        appliedAt: "2025-01-02T00:00:00.000Z",
+        timeZone: "America/New_York",
+      },
+    };
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
   test("accepts a valid Phase 2 incomplete RawEvent doc", () => {
     const raw = {
       schemaVersion: 1,

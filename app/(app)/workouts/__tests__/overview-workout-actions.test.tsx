@@ -74,6 +74,7 @@ jest.mock("@/lib/workouts/gymRegistry", () => ({
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     days: [
       { day: "2026-03-09", workouts: [] },
       {
@@ -263,34 +264,34 @@ describe("overview workout actions", () => {
     expect(json).not.toContain("Manual");
   });
 
-  it("caps recent workouts list to 7 rows", async () => {
+  it("lists every recent session when count is below the 14-session cap", async () => {
     const test = await mountTrainingOverview();
     const rowButtons = test.root.findAll(
       (n) =>
         typeof n.props?.accessibilityLabel === "string" &&
         n.props.accessibilityLabel.startsWith("Open workout details "),
     );
-    expect(rowButtons).toHaveLength(7);
+    expect(rowButtons).toHaveLength(8);
   });
 
   it("lower row still supports row tap and action menu", async () => {
     const test = await mountTrainingOverview();
     act(() => {
-      test.root.findByProps({ accessibilityLabel: "Open workout details w7" }).props.onPress();
+      test.root.findByProps({ accessibilityLabel: "Open workout details w8" }).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/day/[day]",
       params: { day: "2026-03-10" },
     });
     act(() => {
-      test.root.findByProps({ accessibilityLabel: "Workout actions w7" }).props.onPress();
+      test.root.findByProps({ accessibilityLabel: "Workout actions w8" }).props.onPress();
     });
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Edit workout type" }).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/edit/type",
-      params: expect.objectContaining({ workoutId: "w7" }),
+      params: expect.objectContaining({ workoutId: "w8" }),
     });
   });
 

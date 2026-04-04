@@ -92,6 +92,12 @@ describe("useWorkoutsCalendarRange summary-first", () => {
       requestId: null,
     });
 
+    mockGetRawEvents.mockResolvedValue({
+      ok: true,
+      json: { items: [], nextCursor: null },
+      requestId: null,
+    });
+
     const ref: { current: ReturnType<typeof useWorkoutsCalendarRange> | null } = { current: null };
 
     function Probe() {
@@ -110,7 +116,12 @@ describe("useWorkoutsCalendarRange summary-first", () => {
 
     expect(mockGetWorkoutDaySummaries).toHaveBeenCalled();
     expect(mockPostWorkoutDaySummariesRebuild).not.toHaveBeenCalled();
-    expect(mockGetRawEvents).not.toHaveBeenCalled();
+    expect(mockGetRawEvents).toHaveBeenCalled();
+    expect(
+      mockGetRawEvents.mock.calls.some(
+        (c) => (c[1] as { kind?: string }).kind === "workout_title_override",
+      ),
+    ).toBe(true);
     expect(ref.current?.status).toBe("ready");
     if (ref.current?.status === "ready") {
       expect(ref.current.markerFlagsByDay?.["2026-03-11"]).toEqual({
@@ -118,6 +129,7 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasCardio: false,
       });
       expect(ref.current.days.every((d) => d.workouts.length === 0)).toBe(true);
+      expect(ref.current.durableTitlesByWorkoutId).toEqual({});
     }
 
     act(() => root.unmount());
@@ -224,6 +236,12 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         requestId: null,
       });
 
+    mockGetRawEvents.mockResolvedValue({
+      ok: true,
+      json: { items: [], nextCursor: null },
+      requestId: null,
+    });
+
     const ref: { current: ReturnType<typeof useWorkoutsCalendarRange> | null } = { current: null };
 
     function Probe() {
@@ -242,13 +260,14 @@ describe("useWorkoutsCalendarRange summary-first", () => {
 
     expect(mockPostWorkoutDaySummariesRebuild).toHaveBeenCalledTimes(1);
     expect(mockGetWorkoutDaySummaries).toHaveBeenCalledTimes(2);
-    expect(mockGetRawEvents).not.toHaveBeenCalled();
+    expect(mockGetRawEvents).toHaveBeenCalled();
     expect(ref.current?.status).toBe("ready");
     if (ref.current?.status === "ready") {
       expect(ref.current.markerFlagsByDay?.["2026-03-11"]).toEqual({
         hasStrength: true,
         hasCardio: false,
       });
+      expect(ref.current.durableTitlesByWorkoutId).toEqual({});
     }
 
     act(() => root.unmount());
