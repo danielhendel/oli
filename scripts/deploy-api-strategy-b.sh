@@ -23,7 +23,7 @@ gcloud builds submit \
   --project "${PROJECT_ID}" \
   --region "${REGION}" \
   --config cloudbuild.api.yaml \
-  --substitutions "_IMAGE=${IMAGE}" \
+  --substitutions "_SHORT_SHA=${SHA}" \
   .
 
 gcloud run deploy "${SERVICE}" \
