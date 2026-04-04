@@ -49,6 +49,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders workout cards with formatted names and key fields", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -84,6 +85,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders multiple strength sessions on the strength day route", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -126,6 +128,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders cardio session fields on the cardio day route", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -168,6 +171,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders no-workout empty state and calls overrides hook with empty ids", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [],
       dailyFacts: null,
@@ -186,6 +190,7 @@ describe("WorkoutDayScreen display", () => {
   it("does not render Daily metrics card when dailyFacts has no meaningful metrics", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -218,6 +223,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders Daily metrics card when dailyFacts has meaningful metrics", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -252,6 +258,7 @@ describe("WorkoutDayScreen display", () => {
     mockUseWorkoutDayDetail
       .mockReturnValueOnce({
         status: "ready",
+        durableTitlesByWorkoutId: {},
         day: "2026-03-18",
         workouts: [
           {
@@ -269,6 +276,7 @@ describe("WorkoutDayScreen display", () => {
       })
       .mockReturnValueOnce({
         status: "ready",
+        durableTitlesByWorkoutId: {},
         day: "2026-03-18",
         workouts: [],
         dailyFacts: null,
@@ -291,6 +299,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders override title and duration from shared resolver path", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -339,6 +348,7 @@ describe("WorkoutDayScreen display", () => {
   it("sets native header title and exposes workout actions menu", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -379,6 +389,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders premium empty exercise state with log CTA when journal has no sets", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -427,6 +438,7 @@ describe("WorkoutDayScreen display", () => {
   it("Apple-only single strength session uses premium shell and log CTA navigates with enrichDay", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -475,6 +487,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders each exercise as a premium performance row when one strength session and journal summary exist", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -528,9 +541,163 @@ describe("WorkoutDayScreen display", () => {
     expect(json).toContain("History");
   });
 
+  it("merged Apple-first session binds journal exercises by manual time anchor", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "apple1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "apple_health",
+          title: "TraditionalStrengthTraining",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: 320,
+          workoutType: "strength",
+          rawKind: "workout",
+        },
+        {
+          id: "man1",
+          observedAt: "2026-03-18T08:35:00.000Z",
+          sourceId: "manual",
+          title: "Dumbbell Incline Bench Press",
+          start: "2026-03-18T08:35:00.000Z",
+          end: null,
+          durationMinutes: null,
+          calories: null,
+          workoutType: "strength",
+          rawKind: "strength_workout",
+        },
+      ],
+    });
+    mockListManualWorkoutDaySummaries.mockResolvedValue([
+      {
+        sessionId: "journal-s1",
+        day: "2026-03-18",
+        startedAt: "2026-03-18T08:35:00.000Z",
+        customName: "Push Day Custom",
+        totalVolume: 5000,
+        avgIntensity: 8,
+        exercises: [
+          {
+            exerciseId: "dumbbell_incline_bench_press",
+            name: "Dumbbell Incline Bench Press",
+            sets: [{ setNumber: 1, reps: 8, weightKg: 30, intensity: 8 }],
+          },
+        ],
+      },
+    ]);
+    const prevJestWorkerId = process.env.JEST_WORKER_ID;
+    delete process.env.JEST_WORKER_ID;
+    let test!: renderer.ReactTestRenderer;
+    try {
+      await act(async () => {
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      process.env.JEST_WORKER_ID = prevJestWorkerId;
+    }
+    const json = JSON.stringify(test.toJSON());
+    expect(json).toContain("Push Day Custom");
+    expect(json).not.toContain("No exercises logged yet");
+    expect(test.root.findByProps({ testID: "exercise-performance-row-0" })).toBeTruthy();
+    expect(json).toContain("Dumbbell Incline Bench Press");
+  });
+
+  it("header menu rename targets manual raw id when Apple sorts first in merged session", async () => {
+    mockUseWorkoutDayDetail.mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      day: "2026-03-18",
+      workouts: [
+        {
+          id: "apple1",
+          observedAt: "2026-03-18T08:00:00.000Z",
+          sourceId: "apple_health",
+          title: "TraditionalStrengthTraining",
+          start: "2026-03-18T08:00:00.000Z",
+          end: null,
+          durationMinutes: 40,
+          calories: 320,
+          workoutType: "strength",
+          rawKind: "workout",
+        },
+        {
+          id: "man1",
+          observedAt: "2026-03-18T08:35:00.000Z",
+          sourceId: "manual",
+          title: "Dumbbell Incline Bench Press",
+          start: "2026-03-18T08:35:00.000Z",
+          end: null,
+          durationMinutes: null,
+          calories: null,
+          workoutType: "strength",
+          rawKind: "strength_workout",
+        },
+      ],
+    });
+    mockListManualWorkoutDaySummaries.mockResolvedValue([
+      {
+        sessionId: "journal-s1",
+        day: "2026-03-18",
+        startedAt: "2026-03-18T08:35:00.000Z",
+        customName: "Push Day Custom",
+        totalVolume: null,
+        avgIntensity: null,
+        exercises: [
+          {
+            exerciseId: "dumbbell_incline_bench_press",
+            name: "Dumbbell Incline Bench Press",
+            sets: [{ setNumber: 1, reps: 8, weightKg: 30, intensity: 8 }],
+          },
+        ],
+      },
+    ]);
+    const prevJestWorkerId = process.env.JEST_WORKER_ID;
+    delete process.env.JEST_WORKER_ID;
+    let test!: renderer.ReactTestRenderer;
+    try {
+      await act(async () => {
+        test = renderer.create(<WorkoutDayScreen domain="strength" />);
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      process.env.JEST_WORKER_ID = prevJestWorkerId;
+    }
+    const options = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1]?.[0];
+    let headerTree!: renderer.ReactTestRenderer;
+    act(() => {
+      headerTree = renderer.create(options.headerRight());
+    });
+    const menuBtn = headerTree.root.findByProps({ accessibilityLabel: "Workout day actions" });
+    act(() => {
+      menuBtn.props.onPress();
+    });
+    const renameBtn = test.root.findByProps({ accessibilityLabel: "Rename workout" });
+    act(() => {
+      renameBtn.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/edit/rename",
+      params: expect.objectContaining({
+        workoutId: "man1",
+        currentTitle: "Push Day Custom",
+      }),
+    });
+  });
+
   it("keeps legacy exercise cards when two strength sessions exist the same day (no per-session journal attribution)", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -595,6 +762,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders premium cardio card for a single cardio session with overview-style zones section", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -627,6 +795,7 @@ describe("WorkoutDayScreen display", () => {
   it("renders zone rows when heartRateZoneMinutes is present on the workout", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {
@@ -657,6 +826,7 @@ describe("WorkoutDayScreen display", () => {
   it("exercise history action reuses logger route pattern", async () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
+      durableTitlesByWorkoutId: {},
       day: "2026-03-18",
       workouts: [
         {

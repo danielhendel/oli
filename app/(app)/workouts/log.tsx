@@ -57,6 +57,8 @@ import {
 } from "@/lib/workouts/sessionEngine/commands";
 import { isResumableWorkoutSession, loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
 import { persistCompletedSessionToHistory } from "@/lib/workouts/sessionEngine/finalize";
+import { getRawEvent } from "@/lib/api/usersMe";
+import { devVerifyManualStrengthWorkoutPersisted } from "@/lib/debug/manualStrengthDurability";
 import {
   clearActiveWorkoutSessionId,
   getActiveWorkoutLogFlowMode,
@@ -1129,7 +1131,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       if (!token) {
         throw new Error("Not signed in.");
       }
-      await persistCompletedSessionToHistory(user.uid, sessionId, token);
+      const persistResult = await persistCompletedSessionToHistory(user.uid, sessionId, token);
+      if (persistResult.kind === "written" && __DEV__ && !process.env.JEST_WORKER_ID) {
+        await devVerifyManualStrengthWorkoutPersisted({
+          getRawEvent,
+          idToken: token,
+          rawEventId: persistResult.rawEventId,
+          expectedMinExerciseCount: 1,
+        });
+      }
       finishPersistRetryRef.current = null;
       await finalizeAndExit();
     } catch (e: unknown) {
@@ -1156,7 +1166,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       if (!token) {
         throw new Error("Not signed in.");
       }
-      await persistCompletedSessionToHistory(user.uid, retry.sessionId, token);
+      const persistResult = await persistCompletedSessionToHistory(user.uid, retry.sessionId, token);
+      if (persistResult.kind === "written" && __DEV__ && !process.env.JEST_WORKER_ID) {
+        await devVerifyManualStrengthWorkoutPersisted({
+          getRawEvent,
+          idToken: token,
+          rawEventId: persistResult.rawEventId,
+          expectedMinExerciseCount: 1,
+        });
+      }
       finishPersistRetryRef.current = null;
       if (isEnrichmentEntry) {
         if (retry.enrichTid) await clearEnrichSessionPointer(user.uid, retry.enrichTid);

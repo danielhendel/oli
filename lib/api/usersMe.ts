@@ -12,6 +12,10 @@ import {
   manualNutritionIdempotencyKey,
   type ManualNutritionPayload,
 } from "@/lib/events/manualNutrition";
+import {
+  buildWorkoutTitleOverridePayload,
+  workoutTitleOverrideIdempotencyKey,
+} from "@/lib/events/workoutTitleOverride";
 
 import {
   logWeightResponseDtoSchema,
@@ -146,6 +150,83 @@ export const logNutrition = async (
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualNutritionIdempotencyKey(payload),
+  });
+};
+
+/** Top-level `observedAt` must parse for @oli/contracts `isoDateTimeStringSchema` (same as payload `appliedAt`). */
+function coerceParseableIsoDateTime(value: string, fallbackIso: string): string {
+  const t = typeof value === "string" ? value.trim() : "";
+  if (t.length > 0 && !Number.isNaN(Date.parse(t))) return t;
+  return fallbackIso;
+}
+
+/**
+ * Append-only durable workout title (POST /ingest). `observedAtIso` should match the target workout
+ * anchor so raw-event list windows align with the session calendar day.
+ */
+export const logWorkoutTitleOverride = async (
+  args: {
+    targetWorkoutId: string;
+    displayName: string;
+    observedAtIso: string;
+    /** Top-level ingest timeZone (required by gateway). */
+    timeZone: string;
+    /** Ignored for payload `appliedAt`; server expects save-time ISO from `new Date().toISOString()`. */
+    appliedAtIso: string;
+    payloadTimeZone?: string;
+  },
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
+  const targetWorkoutId = args.targetWorkoutId.trim();
+  if (!targetWorkoutId) {
+    return { ok: false, status: 400, kind: "unknown", error: "targetWorkoutId is required", requestId: null };
+  }
+  const displayName = args.displayName.trim();
+  if (!displayName) {
+    return { ok: false, status: 400, kind: "unknown", error: "displayName is required", requestId: null };
+  }
+
+  const appliedAtIso = new Date().toISOString();
+  const observedAtIso = coerceParseableIsoDateTime(args.observedAtIso, appliedAtIso);
+
+  const payload = buildWorkoutTitleOverridePayload({
+    targetWorkoutId,
+    displayName,
+    appliedAtIso,
+    ...(typeof args.payloadTimeZone === "string" && args.payloadTimeZone.trim().length > 0
+      ? { timeZone: args.payloadTimeZone.trim() }
+      : {}),
+  });
+  const ingestBody = {
+    provider: "manual" as const,
+    kind: "workout_title_override" as const,
+    observedAt: observedAtIso,
+    sourceId: "manual",
+    timeZone: args.timeZone.trim(),
+    payload,
+  };
+
+  const idempotencyKey = workoutTitleOverrideIdempotencyKey();
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // Temporary: trace ingest shape when debugging HTTP 400 (remove once stable).
+    // eslint-disable-next-line no-console
+    console.log("[workout_title_override] POST /ingest (pre-send)", {
+      kind: ingestBody.kind,
+      fullPayload: ingestBody,
+      targetWorkoutId: payload.targetWorkoutId,
+      displayName: payload.displayName,
+      appliedAt: payload.appliedAt,
+      timeZone: ingestBody.timeZone,
+      observedAt: ingestBody.observedAt,
+      idempotencyKey,
+    });
+  }
+
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey,
   });
 };
 

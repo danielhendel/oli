@@ -143,6 +143,7 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: jest.fn(() => ({
     status: "ready",
+    durableTitlesByWorkoutId: {},
     days: [
       { day: "2026-03-01", workouts: [] },
       { day: "2026-03-02", workouts: [] },

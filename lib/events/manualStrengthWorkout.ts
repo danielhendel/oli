@@ -16,12 +16,15 @@ export type ManualStrengthWorkoutPayload = {
   startedAt: string;
   timeZone: string;
   exercises: { name: string; sets: StrengthSet[] }[];
+  /** Optional user label; persisted on rawEvents.payload (survives reinstall vs AsyncStorage overrides). */
+  displayName?: string;
 };
 
 export type ManualStrengthWorkoutInput = {
   startedAt: string;
   timeZone: string;
   exercises: { name: string; sets: StrengthSet[] }[];
+  displayName?: string;
 };
 
 /**
@@ -49,10 +52,13 @@ export const buildManualStrengthWorkoutPayload = (
     })),
   }));
 
+  const displayName =
+    typeof input.displayName === "string" ? input.displayName.trim().slice(0, 120) : "";
   return {
     startedAt: input.startedAt,
     timeZone: input.timeZone,
     exercises,
+    ...(displayName.length > 0 ? { displayName } : {}),
   };
 };
 

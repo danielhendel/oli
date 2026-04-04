@@ -46,6 +46,7 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready" as const,
+    durableTitlesByWorkoutId: {},
     days: [
       { day: "2026-03-09", workouts: [] },
       { day: "2026-03-10", workouts: [] },

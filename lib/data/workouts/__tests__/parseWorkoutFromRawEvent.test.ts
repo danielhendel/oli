@@ -59,6 +59,23 @@ describe("parseWorkoutHistoryItem", () => {
     expect(parseWorkoutHistoryItem(raw).title).toBe("Leg day template");
   });
 
+  it("strength_workout uses payload.displayName as title when present", () => {
+    const raw = minimalRaw({
+      id: "ev-str-dn",
+      kind: "strength_workout",
+      observedAt: "2024-06-04T10:00:00Z",
+      payload: {
+        startedAt: "2024-06-04T10:00:00Z",
+        timeZone: "UTC",
+        displayName: "Leg Day",
+        exercises: [{ name: "Squat", sets: [{ reps: 5, load: 100, unit: "kg" as const }] }],
+      },
+    } as RawEventDoc);
+    const item = parseWorkoutHistoryItem(raw);
+    expect(item.title).toBe("Leg Day");
+    expect(item.strengthIngestDisplayName).toBe("Leg Day");
+  });
+
   it("strength_workout uses first exercise name as title", () => {
     const raw = minimalRaw({
       id: "ev-str",
@@ -72,9 +89,14 @@ describe("parseWorkoutHistoryItem", () => {
     } as RawEventDoc);
     const item = parseWorkoutHistoryItem(raw);
     expect(item.title).toBe("Deadlift");
+    expect(item.strengthIngestDisplayName).toBeUndefined();
     expect(item.start).toBe("2024-06-04T10:00:00Z");
     expect(item.workoutType).toBe("strength");
     expect(item.strengthVolumeKg).toBeCloseTo(500, 5);
+    expect(item.strengthIngestExercises).toHaveLength(1);
+    expect(item.strengthIngestExercises![0]!.exerciseId).toBe("exercise:ingested:ev-str:0");
+    expect(item.strengthIngestExercises![0]!.sets[0]!.weightKg).toBe(100);
+    expect(item.strengthIngestExercises![0]!.sets[0]!.reps).toBe(5);
   });
 
   it("strength_workout without exercise names falls back to Strength workout", () => {

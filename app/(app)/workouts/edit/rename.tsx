@@ -6,10 +6,15 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { getRawEvent, logWorkoutTitleOverride } from "@/lib/api/usersMe";
+import { devVerifyWorkoutTitleOverridePersisted } from "@/lib/debug/workoutTitleOverrideDurability";
+import { invalidateWorkoutCalendarHydrate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
 
 export default function EditWorkoutRenameScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { getIdToken } = useAuth();
 
   useEffect(() => {
     navigation.setOptions({
@@ -20,9 +25,14 @@ export default function EditWorkoutRenameScreen() {
   const params = useLocalSearchParams<{
     workoutId?: string;
     currentTitle?: string;
+    titleAnchorObservedAt?: string;
   }>();
   const workoutId = typeof params.workoutId === "string" ? params.workoutId : "";
   const currentTitle = typeof params.currentTitle === "string" ? params.currentTitle : "Workout";
+  const titleAnchorObservedAt =
+    typeof params.titleAnchorObservedAt === "string" && params.titleAnchorObservedAt.trim().length > 0
+      ? params.titleAnchorObservedAt.trim()
+      : null;
   const [nextTitle, setNextTitle] = useState(currentTitle);
   const [saving, setSaving] = useState(false);
   const { saveOverride } = useWorkoutOverrides(useMemo(() => (workoutId ? [workoutId] : []), [workoutId]));
@@ -64,9 +74,62 @@ export default function EditWorkoutRenameScreen() {
               return;
             }
             setSaving(true);
-            await saveOverride(workoutId, { customTitle: trimmed });
-            setSaving(false);
-            router.back();
+            try {
+              const idToken = await getIdToken(false);
+              if (!idToken) {
+                Alert.alert("Sign in required", "You need to be signed in to save this name.");
+                return;
+              }
+              const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+              const appliedAtIso = new Date().toISOString();
+              const observedAtIso = titleAnchorObservedAt ?? appliedAtIso;
+              const ingest = await logWorkoutTitleOverride(
+                {
+                  targetWorkoutId: workoutId.trim(),
+                  displayName: trimmed,
+                  observedAtIso,
+                  timeZone,
+                  appliedAtIso,
+                  payloadTimeZone: timeZone,
+                },
+                idToken,
+              );
+              if (!ingest.ok) {
+                const base =
+                  ingest.error || "The server did not accept this rename. Your previous title is unchanged.";
+                const details =
+                  __DEV__ &&
+                  ingest.json &&
+                  typeof ingest.json === "object" &&
+                  ingest.json !== null &&
+                  "details" in ingest.json
+                    ? `\n\n${JSON.stringify((ingest.json as { details: unknown }).details, null, 2)}`
+                    : "";
+                Alert.alert("Could not save name", `${base}${details}`);
+                return;
+              }
+              if (__DEV__ && !process.env.JEST_WORKER_ID) {
+                await devVerifyWorkoutTitleOverridePersisted({
+                  getRawEvent,
+                  idToken,
+                  rawEventId: ingest.json.rawEventId,
+                  expectedTargetId: workoutId,
+                  expectedDisplayName: trimmed,
+                });
+              }
+              invalidateWorkoutCalendarHydrate();
+              try {
+                await saveOverride(workoutId, { customTitle: trimmed });
+              } catch {
+                // optional local cache only
+              }
+              router.back();
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              Alert.alert("Could not save name", msg);
+            } finally {
+              setSaving(false);
+            }
           }}
           style={[styles.primaryBtn, saving && styles.disabled]}
           accessibilityRole="button"

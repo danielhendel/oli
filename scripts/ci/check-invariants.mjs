@@ -924,7 +924,14 @@ function checkCanonicalKindsNoDrift() {
   // If you add another raw-only kind, it MUST be added to this list and documented.
   // Phase 2: "incomplete" = "something happened, details later" — no canonical normalization.
   // body_composition: fact-only (dailyFacts / raw reads); no canonical event emission (see mapRawEventToCanonical).
-  const MEMORY_ONLY_RAW_EVENT_KINDS = ["body_composition", "file", "incomplete", "oura_raw"];
+  // workout_title_override: append-only display title on a target raw workout; no canonical event (see mapRawEventToCanonical).
+  const MEMORY_ONLY_RAW_EVENT_KINDS = [
+    "body_composition",
+    "file",
+    "incomplete",
+    "oura_raw",
+    "workout_title_override",
+  ];
 
   const rawText = readText(rawEventPath);
   const healthText = readText(healthPath);

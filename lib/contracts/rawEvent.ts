@@ -75,6 +75,7 @@ export const rawEventKindSchema = z.enum([
   "hrv",
   "nutrition",
   "strength_workout",
+  "workout_title_override",
   "file",
   "incomplete",
   "oura_raw",
@@ -247,8 +248,21 @@ const manualStrengthWorkoutPayloadSchema = z
     startedAt: isoDateTimeStringSchema,
     timeZone: z.string().min(1),
     exercises: z.array(strengthWorkoutExerciseSchema).min(1),
+    /** User-facing workout label; optional for backward compatibility. Stored in Firestore payload. */
+    displayName: z.string().min(1).max(120).optional(),
   })
   .strip();
+
+export const workoutTitleOverridePayloadSchema = z
+  .object({
+    targetWorkoutId: z.string().min(1),
+    displayName: z.string().min(1).max(120),
+    appliedAt: isoDateTimeStringSchema,
+    timeZone: z.string().min(1).optional(),
+  })
+  .strip();
+
+export type WorkoutTitleOverridePayload = z.infer<typeof workoutTitleOverridePayloadSchema>;
 
 /**
  * Phase 1: file upload artifact (NO parsing)
@@ -300,6 +314,7 @@ const payloadByKindSchema = {
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,
+  workout_title_override: workoutTitleOverridePayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
   oura_raw: ouraRawPayloadSchema,
@@ -368,6 +383,7 @@ export type RawEventDoc = z.infer<typeof rawEventBaseSchema> & {
     | z.infer<typeof manualHrvPayloadSchema>
     | z.infer<typeof manualNutritionPayloadSchema>
     | z.infer<typeof manualStrengthWorkoutPayloadSchema>
+    | z.infer<typeof workoutTitleOverridePayloadSchema>
     | z.infer<typeof manualFilePayloadSchema>
     | z.infer<typeof manualIncompletePayloadSchema>
     | z.infer<typeof ouraRawPayloadSchema>;
@@ -386,6 +402,7 @@ export const rawEventPayloadByKindSchemas = {
   hrv: manualHrvPayloadSchema,
   nutrition: manualNutritionPayloadSchema,
   strength_workout: manualStrengthWorkoutPayloadSchema,
+  workout_title_override: workoutTitleOverridePayloadSchema,
   file: manualFilePayloadSchema,
   incomplete: manualIncompletePayloadSchema,
   oura_raw: ouraRawPayloadSchema,

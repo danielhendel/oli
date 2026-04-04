@@ -41,6 +41,12 @@ import {
   useWorkoutsCalendarRange,
 } from "@/lib/data/workouts/useWorkoutsCalendar";
 import {
+  WORKOUT_DAY_DEBUG_DATES,
+  logWorkoutDayDebug,
+  workoutDayDebugEnabled,
+  workoutDayDebugFixRevision,
+} from "@/lib/debug/workoutDayDebug";
+import {
   filterWorkoutCalendarDaysInclusive,
   overviewSharedRangeBounds,
   overviewStrengthMainTabCalendarBounds,
@@ -48,6 +54,7 @@ import {
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
+  WORKOUT_OVERVIEW_RECENT_SESSION_CAP,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
   WORKOUT_OVERVIEW_ANALYTICS_YEAR,
@@ -94,6 +101,12 @@ import {
   resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
 import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
+import {
+  buildWorkoutSessionSurfaceModel,
+  pickJournalSummaryForStrengthSession,
+  pickWorkoutForSessionActions,
+  pickWorkoutOverrideForSession,
+} from "@/lib/data/workouts/workoutSessionSurface";
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
@@ -283,6 +296,9 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     calendarRangeOptionsShared,
   );
 
+  const durableTitlesByWorkoutId =
+    overviewSharedRange.status === "ready" ? overviewSharedRange.durableTitlesByWorkoutId : {};
+
   const sharedDays = overviewSharedRange.status === "ready" ? overviewSharedRange.days : [];
 
   const domainSharedDays = useMemo(
@@ -302,6 +318,49 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, analyticsRangeStart, analyticsRangeEnd),
     [domainSharedDays, analyticsRangeStart, analyticsRangeEnd],
   );
+
+  const workoutDayDebugOverviewSig = useMemo(
+    () =>
+      WORKOUT_DAY_DEBUG_DATES.map((d) => {
+        const row = domainSharedDays.find((x) => x.day === d);
+        const ids = row?.workouts.map((w) => w.id).join("|") ?? "";
+        return `${d}:${row ? row.workouts.length : "missing"}:${ids}`;
+      }).join(";"),
+    [domainSharedDays],
+  );
+
+  useEffect(() => {
+    if (!workoutDayDebugEnabled()) return;
+    if (overviewSharedRange.status !== "ready") return;
+    for (const d of WORKOUT_DAY_DEBUG_DATES) {
+      const row = domainSharedDays.find((x) => x.day === d);
+      if (!row) {
+        logWorkoutDayDebug("overview-audit-day-not-in-hydrated-range", {
+          day: d,
+          domain,
+          overviewRangeStart,
+          overviewRangeEnd,
+          note: "No calendar bucket for this day in the current overview hydrate (range or empty).",
+        });
+        continue;
+      }
+      const sessions = reconcileWorkoutSessionsForDay(d, row.workouts);
+      logWorkoutDayDebug("overview-model-for-audit-day", {
+        day: d,
+        domain,
+        workoutCount: row.workouts.length,
+        workoutIds: row.workouts.map((w) => w.id),
+        reconciledSessionCount: sessions.length,
+        ...workoutDayDebugFixRevision(),
+      });
+    }
+  }, [
+    overviewSharedRange.status,
+    domain,
+    workoutDayDebugOverviewSig,
+    overviewRangeStart,
+    overviewRangeEnd,
+  ]);
 
   const overviewPerfRef = useRef<{ t0: number } | null>(null);
 
@@ -374,7 +433,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const recentWorkouts = useMemo(() => {
     if (overviewSharedRange.status !== "ready") return [];
-    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, 7);
+    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, WORKOUT_OVERVIEW_RECENT_SESSION_CAP);
   }, [overviewSharedRange.status, recentDaysSlice]);
 
   const weekWorkoutIds = useMemo(
@@ -386,7 +445,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   );
 
   const recentWorkoutIds = useMemo(
-    () => recentWorkouts.map((entry) => entry.session.workouts[0]?.id ?? entry.session.id),
+    () => recentWorkouts.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
     [recentWorkouts],
   );
 
@@ -421,14 +480,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const rawOverviewAnalyticsSingle =
     domain === "strength" ? strengthPlaceholderOverviewAnalytics : cardioOverviewAnalyticsFromCalendar;
-
-  const manualWorkoutNameByDay = useMemo(() => {
-    const next: Record<string, string> = {};
-    for (const row of manualWorkoutSummaries) {
-      if (row.customName?.trim()) next[row.day] = row.customName.trim();
-    }
-    return next;
-  }, [manualWorkoutSummaries]);
 
   const weeklyInsightsCardModel = useMemo(() => {
     if (domain !== "strength") return null;
@@ -784,25 +835,53 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const openEditRoute = useCallback(
     (mode: "rename" | "duration" | "type") => {
       if (!selectedWorkoutForMenu) return;
-      const workout = selectedWorkoutForMenu.session.workouts[0];
+      const { day: sessionDay, session } = selectedWorkoutForMenu;
+      const workout = pickWorkoutForSessionActions(session);
       if (!workout) return;
-      const override = overridesByWorkoutId[workout.id];
-      const resolved = resolveWorkoutDisplay(workout, override ?? null);
+      const journalSummary =
+        domain === "strength"
+          ? pickJournalSummaryForStrengthSession(sessionDay, session, manualWorkoutSummaries)
+          : null;
+      const surface = buildWorkoutSessionSurfaceModel(
+        session,
+        overridesByWorkoutId,
+        domain,
+        journalSummary,
+        durableTitlesByWorkoutId,
+      );
+      const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+      const resolvedAction = resolveWorkoutDisplay(
+        workout,
+        sessionOverride ?? overridesByWorkoutId[workout.id] ?? null,
+      );
+      const resolvedMetrics = resolveWorkoutDisplay(
+        surface.metricsWorkout,
+        sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+      );
       closeWorkoutMenu();
       router.push({
         pathname: `/(app)/workouts/edit/${mode}`,
         params: {
           workoutId: workout.id,
-          currentTitle: resolved.displayTitle,
+          currentTitle: surface.displayTitle,
+          titleAnchorObservedAt: workout.start ?? workout.observedAt,
           currentDurationMinutes:
-            typeof resolved.displayDurationMinutes === "number"
-              ? String(Math.round(resolved.displayDurationMinutes))
+            typeof resolvedMetrics.displayDurationMinutes === "number"
+              ? String(Math.round(resolvedMetrics.displayDurationMinutes))
               : "",
-          currentWorkoutType: resolved.displayWorkoutType,
+          currentWorkoutType: resolvedAction.displayWorkoutType,
         },
       });
     },
-    [selectedWorkoutForMenu, overridesByWorkoutId, closeWorkoutMenu, router],
+    [
+      selectedWorkoutForMenu,
+      overridesByWorkoutId,
+      closeWorkoutMenu,
+      router,
+      domain,
+      manualWorkoutSummaries,
+      durableTitlesByWorkoutId,
+    ],
   );
 
   const recentCard = (
@@ -832,13 +911,28 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         recentWorkouts.map(({ day, session }) => {
           const representative = session.workouts[0];
           if (!representative) return null;
-          const override = overridesByWorkoutId[representative.id];
-          const resolved = resolveWorkoutDisplay(representative, override ?? null);
+          const journalSummary =
+            domain === "strength"
+              ? pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries)
+              : null;
+          const surface = buildWorkoutSessionSurfaceModel(
+            session,
+            overridesByWorkoutId,
+            domain,
+            journalSummary,
+            durableTitlesByWorkoutId,
+          );
+          const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+          const resolvedMetrics = resolveWorkoutDisplay(
+            surface.metricsWorkout,
+            sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+          );
           const durationLabel = formatWorkoutDurationLabel(
             resolveWorkoutDisplayDurationMinutes({
-              overrideDurationMinutes: resolved.displayDurationMinutes,
-              sessionDurationMinutes: session.durationMinutes,
-              fallbackWorkoutDurationMinutes: representative.durationMinutes,
+              overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
+              sessionDurationMinutes: null,
+              fallbackWorkoutDurationMinutes:
+                surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
             }),
           );
           return (
@@ -855,16 +949,12 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 });
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Open workout details ${representative.id}`}
+              accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
             >
               <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
               <View style={styles.recentMain}>
                 <Text style={styles.recentTitle} numberOfLines={1}>
-                  {representative.sourceId === "manual" &&
-                  domain === "strength" &&
-                  manualWorkoutNameByDay[day]
-                    ? manualWorkoutNameByDay[day]
-                    : resolved.displayTitle}
+                  {surface.displayTitle}
                 </Text>
                 <Text style={styles.recentMeta} numberOfLines={1}>
                   {durationLabel}
@@ -884,7 +974,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                   setWorkoutMenuOpen(true);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Workout actions ${representative.id}`}
+                accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
                 hitSlop={10}
                 style={styles.rowMenuBtn}
               >

@@ -240,6 +240,14 @@ describe("useWorkoutsCalendarRange — kind-only pagination contract", () => {
     const resolveReady: { current: null | ((v: unknown) => void) } = { current: null };
 
     mockGetRawEvents.mockImplementation(async (_idToken: string, opts: AdapterGetRawEventsOpts) => {
+      if (opts?.kind === "workout_title_override") {
+        return {
+          ok: true,
+          status: 200,
+          requestId: "rid-title-ov",
+          json: { items: [], nextCursor: null },
+        };
+      }
       if (opts?.kind !== "workout") {
         return {
           ok: true,
@@ -319,12 +327,15 @@ describe("useWorkoutsCalendarRange — kind-only pagination contract", () => {
     const callOpts = mockGetRawEvents.mock.calls.map((c) => c[1] as AdapterGetRawEventsOpts);
     expect(callOpts.length).toBeGreaterThanOrEqual(2);
 
+    const workoutCalls = callOpts.filter((o) => o.kind === "workout");
+    expect(workoutCalls.length).toBeGreaterThanOrEqual(2);
+    expect(callOpts.some((o) => o.kind === "workout_title_override")).toBe(true);
+
     // Contract: every call must include a `kind` filter and observedAt window (server-side bound).
-    expect(callOpts.every((o) => o.kind === "workout")).toBe(true);
     expect(callOpts.every((o) => typeof o.start === "string" && typeof o.end === "string")).toBe(true);
     expect(callOpts.every((o) => o.limit === WORKOUTS_CALENDAR_RAW_EVENTS_PAGE_SIZE)).toBe(true);
     // Pagination: second call must carry cursor from first response.
-    expect(callOpts.some((o) => o.cursor === "c1")).toBe(true);
+    expect(workoutCalls.some((o) => o.cursor === "c1")).toBe(true);
 
     // Also ensure strength kind never fetched when opted out.
     expect(callOpts.some((o) => o.kind === "strength_workout")).toBe(false);

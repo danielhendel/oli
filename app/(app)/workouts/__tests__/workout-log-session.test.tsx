@@ -172,7 +172,11 @@ jest.mock("@/lib/workouts/sessionEngine/selectors", () => {
 });
 
 jest.mock("@/lib/workouts/sessionEngine/finalize", () => ({
-  persistCompletedSessionToHistory: jest.fn().mockResolvedValue(true),
+  persistCompletedSessionToHistory: jest.fn().mockResolvedValue({
+    kind: "written",
+    rawEventId: "raw_evt_test_mock",
+    day: "2026-03-27",
+  }),
 }));
 
 let mockExerciseMemory: Record<

@@ -39,6 +39,24 @@ export type WorkoutRawForDayDerivation = {
 export function deriveWorkoutDayKey(raw: WorkoutRawForDayDerivation): DayKey | null {
   const payload = isRecord(raw.payload) ? raw.payload : null;
 
+  // workout_title_override: calendar bucket from appliedAt + optional payload time zone
+  if (
+    payload &&
+    typeof payload.targetWorkoutId === "string" &&
+    typeof payload.appliedAt === "string"
+  ) {
+    const tz =
+      typeof payload.timeZone === "string"
+        ? payload.timeZone
+        : typeof payload.timezone === "string"
+          ? payload.timezone
+          : null;
+    if (tz) {
+      const fromApplied = ymdInTimeZoneFromIso(payload.appliedAt, tz);
+      if (fromApplied) return fromApplied;
+    }
+  }
+
   // 1) Window + timezone (authoritative when present — do not let a stale payload.day override)
   if (payload) {
     const timezone =

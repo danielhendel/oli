@@ -40,6 +40,7 @@ export const rawEventKindSchema = z.enum([
   "hrv",
   "nutrition",
   "strength_workout",
+  "workout_title_override",
   "incomplete",
 ]);
 

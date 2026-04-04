@@ -1,6 +1,8 @@
 import type { RawEventDoc } from "@oli/contracts";
 import { classifyWorkoutType } from "@/lib/data/workouts/workoutMarkerFlags";
 import { computeStrengthVolumeKgFromStrengthWorkoutPayload } from "@/lib/data/workouts/strengthWorkoutVolumeKg";
+import { kgToLbs } from "@/lib/metrics/metricUnits";
+import type { ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 
 /** Best-effort minutes per zone (1–5) when present on raw payload; not part of strict ingest schema. */
 export type HeartRateZoneMinutes5 = readonly [number, number, number, number, number];
@@ -26,6 +28,13 @@ export type WorkoutHistoryItem = {
   hk?: { sourceId: string | null; activityId: number | null };
   /** Parsed from `strength_workout` payload exercises when volume can be computed; omitted otherwise. */
   strengthVolumeKg?: number | null;
+  /**
+   * Exercises parsed from ingested `strength_workout` payload (server truth).
+   * Used when the local workout journal is missing or unmatched so the UI can still list sets.
+   */
+  strengthIngestExercises?: ManualWorkoutExerciseSummary[];
+  /** Present only when `strength_workout` payload included `displayName` (title resolution vs exercise-derived title). */
+  strengthIngestDisplayName?: string;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -38,6 +47,59 @@ function asString(v: unknown): string | null {
 
 function asNumber(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function loadKgFromSet(load: number, unit: unknown): number | null {
+  if (!Number.isFinite(load) || load <= 0) return null;
+  if (unit === "kg") return load;
+  if (unit === "lb") return load / kgToLbs(1);
+  return null;
+}
+
+/**
+ * Best-effort parse of `strength_workout` ingest exercises into the same summary shape as the journal reducer.
+ */
+export function parseStrengthIngestExercisesFromPayload(
+  rawEventId: string,
+  payload: Record<string, unknown>,
+): ManualWorkoutExerciseSummary[] | undefined {
+  const exercisesRaw = payload.exercises;
+  if (!Array.isArray(exercisesRaw)) return undefined;
+  const out: ManualWorkoutExerciseSummary[] = [];
+  let exIdx = 0;
+  for (const ex of exercisesRaw) {
+    if (!isRecord(ex)) continue;
+    const nameRaw = ex.name;
+    const name = typeof nameRaw === "string" ? nameRaw.trim() : "";
+    const setsRaw = ex.sets;
+    if (!Array.isArray(setsRaw)) continue;
+    const sets: ManualWorkoutExerciseSummary["sets"] = [];
+    let setOrdinal = 0;
+    for (const s of setsRaw) {
+      if (!isRecord(s)) continue;
+      setOrdinal += 1;
+      const reps = typeof s.reps === "number" && Number.isFinite(s.reps) ? s.reps : null;
+      const load = typeof s.load === "number" && Number.isFinite(s.load) ? s.load : NaN;
+      const weightKg = loadKgFromSet(load, s.unit);
+      const intensity =
+        typeof s.rpe === "number" && Number.isFinite(s.rpe) ? s.rpe : null;
+      sets.push({
+        setNumber: setOrdinal,
+        reps,
+        weightKg,
+        intensity,
+        ...(s.isWarmup === true ? { isWarmup: true } : {}),
+      });
+    }
+    if (sets.length === 0) continue;
+    out.push({
+      exerciseId: `exercise:ingested:${rawEventId}:${exIdx}`,
+      name: name.length > 0 ? name : `Exercise ${exIdx + 1}`,
+      sets,
+    });
+    exIdx += 1;
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 function parseDistanceMetersFromPayload(payload: Record<string, unknown> | null): number | null {
@@ -85,11 +147,20 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
   const activityName = asString(payload?.activityName);
 
   let title: string;
-  if (raw.kind === "strength_workout" && payload && Array.isArray((payload as { exercises?: unknown }).exercises)) {
-    const exs = (payload as { exercises: { name?: unknown }[] }).exercises;
-    const first = exs[0];
-    const exName = first && typeof first.name === "string" ? first.name.trim() : "";
-    title = exName.length > 0 ? exName : "Strength workout";
+  let strengthIngestDisplayName: string | undefined;
+  if (raw.kind === "strength_workout" && payload) {
+    const displayTitle = asString((payload as { displayName?: unknown }).displayName);
+    if (displayTitle != null) {
+      strengthIngestDisplayName = displayTitle;
+      title = displayTitle;
+    } else if (Array.isArray((payload as { exercises?: unknown }).exercises)) {
+      const exs = (payload as { exercises: { name?: unknown }[] }).exercises;
+      const first = exs[0];
+      const exName = first && typeof first.name === "string" ? first.name.trim() : "";
+      title = exName.length > 0 ? exName : "Strength workout";
+    } else {
+      title = "Strength workout";
+    }
   } else {
     const nameStr = asString((payload as { name?: unknown } | null)?.name);
     if (nameStr != null) {
@@ -136,6 +207,11 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
       ? computeStrengthVolumeKgFromStrengthWorkoutPayload(payload)
       : null;
 
+  const strengthIngestExercises =
+    raw.kind === "strength_workout" && payload
+      ? parseStrengthIngestExercisesFromPayload(id, payload)
+      : undefined;
+
   return {
     id,
     observedAt,
@@ -153,5 +229,11 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     ...(heartRateZoneMinutes != null ? { heartRateZoneMinutes } : {}),
     ...(hk ? { hk } : {}),
     ...(strengthVolumeKg != null && strengthVolumeKg > 0 ? { strengthVolumeKg } : {}),
+    ...(strengthIngestExercises != null && strengthIngestExercises.length > 0
+      ? { strengthIngestExercises }
+      : {}),
+    ...(strengthIngestDisplayName != null && strengthIngestDisplayName.length > 0
+      ? { strengthIngestDisplayName }
+      : {}),
   };
 }

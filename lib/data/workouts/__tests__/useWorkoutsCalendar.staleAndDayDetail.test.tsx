@@ -34,8 +34,17 @@ const {
 describe("useWorkoutDayDetail", () => {
   const day: DayKey = "2026-03-11";
 
+  const emptyRawListOk = {
+    ok: true as const,
+    status: 200,
+    requestId: "rid-empty",
+    json: { items: [] as unknown[], nextCursor: null as string | null },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetRawEvents.mockReset();
+    mockGetRawEvents.mockResolvedValue(emptyRawListOk);
     resetWorkoutsCalendarCachesForTests();
   });
 
@@ -79,5 +88,37 @@ describe("useWorkoutDayDetail", () => {
     act(() => {
       root.unmount();
     });
+    mockGetRawEvents.mockReset();
+    mockGetRawEvents.mockResolvedValue(emptyRawListOk);
+  });
+
+  it("when range is ready, merges per-day cache rows missing from single-day raw fetch", () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    const w: WorkoutHistoryItem = {
+      id: "cached-strength-1",
+      observedAt: "2026-04-01T12:00:00.000Z",
+      sourceId: "manual",
+      title: "Bench",
+      start: `${day}T12:00:00.000Z`,
+      end: null,
+      durationMinutes: 45,
+      calories: null,
+      rawKind: "strength_workout",
+    };
+    seedDayWorkoutsCacheForTests("day-cache-uid", day, [w]);
+
+    const detailRef: { current: ReturnType<typeof useWorkoutDayDetail> | null } = { current: null };
+
+    function DayOnly() {
+      detailRef.current = useWorkoutDayDetail(day);
+      return null;
+    }
+
+    act(() => {
+      renderer.create(<DayOnly />);
+    });
+
+    expect(detailRef.current?.status).toBe("ready");
+    expect(detailRef.current?.workouts.some((x) => x.id === "cached-strength-1")).toBe(true);
   });
 });
