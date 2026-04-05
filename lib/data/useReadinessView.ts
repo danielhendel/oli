@@ -54,11 +54,9 @@ export function useReadinessView(day: string): State & { refetch: (opts?: TruthG
         return;
       }
       if (outcome.status === "missing") {
-        if (stateRef.current.status === "ready") return;
         safeSet({ status: "missing" });
         return;
       }
-      if (stateRef.current.status === "ready") return;
       safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
     [getIdToken, initializing, user],

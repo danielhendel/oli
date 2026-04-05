@@ -1,15 +1,21 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useRouter } from "expo-router";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useReadinessView } from "@/lib/data/useReadinessView";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
+import { useOuraViewWeekSnapshotPresence } from "@/lib/data/oura/useOuraViewWeekSnapshotPresence";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { RecoveryScoreCard } from "@/lib/ui/recovery/RecoveryScoreCard";
 import {
   RecoveryContributorsCard,
   type ContributorRowProps,
 } from "@/lib/ui/recovery/RecoveryContributorsCard";
+import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStrip";
 import {
   scoreToRatingLabel,
   contributorValueToProgress,
@@ -17,11 +23,8 @@ import {
   formatContributorDisplayValue,
   READINESS_CONTRIBUTOR_KEYS,
 } from "@/lib/format/ouraScore";
-
-function toTodayYmd(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
+import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import type { CalendarDay } from "@/lib/ui/calendar/types";
 
 /** Format YYYY-MM-DD as "Mar 13" for fallback banner. */
 function formatResolvedDay(day: string): string {
@@ -35,25 +38,83 @@ function formatResolvedDay(day: string): string {
   }
 }
 
+function RecoveryShell({
+  title,
+  headerContent,
+  children,
+}: {
+  title: string;
+  headerContent: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <ModuleScreenShell title={title} hideTitleChrome compactHeader headerContent={headerContent}>
+      {children}
+    </ModuleScreenShell>
+  );
+}
+
 export default function ReadinessScreen() {
-  const day = useMemo(() => toTodayYmd(), []);
-  const { refetch, ...readinessState } = useReadinessView(day);
+  const navigation = useNavigation();
+  const router = useRouter();
+  const [selectedDay, setSelectedDay] = useState(() => getTodayDayKeyLocal());
+  const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
+  const weekStripPresence = useOuraViewWeekSnapshotPresence(weekDayKeys, "readiness");
+  const refetchWeekStrip = weekStripPresence.refetch;
+  const { refetch: refetchReadiness, ...readinessState } = useReadinessView(selectedDay);
   const ouraPresence = useOuraPresence();
+
+  const stripDays: CalendarDay<{ hasOuraSnapshot: boolean }>[] = useMemo(() => {
+    const map =
+      weekStripPresence.status === "ready" ? weekStripPresence.hasSnapshotByDay : {};
+    return weekDayKeys.map((day) => ({
+      day,
+      meta: { hasOuraSnapshot: map[day] === true },
+    }));
+  }, [weekDayKeys, weekStripPresence]);
+
+  const headerStrip = (
+    <RecoveryOuraWeeklyStrip
+      days={stripDays}
+      selectedDay={selectedDay}
+      onDayPress={setSelectedDay}
+      categoryLabel="readiness"
+      testIDPrefix="readiness-weekly"
+    />
+  );
 
   useFocusEffect(
     useCallback(() => {
-      refetch({ cacheBust: `readiness:${Date.now()}` });
-    }, [refetch]),
+      const bust = Date.now();
+      void refetchReadiness({ cacheBust: `readiness:${bust}` });
+      void refetchWeekStrip();
+    }, [refetchReadiness, refetchWeekStrip]),
   );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("module"),
+      title: "Readiness",
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerRight: () => (
+        <HeaderControls
+          calendarAccessibilityLabel="Open readiness calendar"
+          onCalendarPress={() => router.push("/(app)/recovery/readiness/calendar")}
+          overflowAccessibilityLabel="Readiness settings"
+          onOverflowPress={() => router.push("/(app)/recovery/readiness/settings")}
+        />
+      ),
+    });
+  }, [navigation, router]);
 
   if (readinessState.status === "partial") {
     return (
-      <ModuleScreenShell title="Readiness" hideTitleChrome>
+      <RecoveryShell title="Readiness" headerContent={headerStrip}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading readiness data…</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
@@ -74,38 +135,38 @@ export default function ReadinessScreen() {
       subtitle2 = "Oura import failed. Pull to refresh and try again.";
     } else if (importState === "connected_no_data" || importState === "ready") {
       subtitle2 =
-        "Oura is connected, but recent readiness data has not been imported yet.";
+        "Oura is connected, but there is no readiness snapshot stored for this day yet.";
     } else {
       subtitle2 =
         "Connect Oura in Settings → Devices and sync to see your readiness score and contributors here.";
     }
     return (
-      <ModuleScreenShell title="Readiness" hideTitleChrome>
+      <RecoveryShell title="Readiness" headerContent={headerStrip}>
         <View style={styles.messageCard}>
-          <Text style={styles.emptyTitle}>No readiness data in the last 7 days</Text>
+          <Text style={styles.emptyTitle}>No Oura readiness for {formatResolvedDay(selectedDay)}</Text>
           <Text style={styles.emptySubtitle}>{subtitle2}</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
   if (readinessState.status === "error") {
     return (
-      <ModuleScreenShell title="Readiness" hideTitleChrome>
+      <RecoveryShell title="Readiness" headerContent={headerStrip}>
         <View style={styles.messageCard}>
           <Text style={styles.errorText}>Could not load readiness data. Try again later.</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
   if (readinessState.status !== "ready") {
     return (
-      <ModuleScreenShell title="Readiness" hideTitleChrome>
+      <RecoveryShell title="Readiness" headerContent={headerStrip}>
         <View style={styles.messageCard}>
           <Text style={styles.emptySubtitle}>No readiness data available.</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
@@ -129,7 +190,7 @@ export default function ReadinessScreen() {
     : null;
 
   return (
-    <ModuleScreenShell title="Readiness" hideTitleChrome>
+    <RecoveryShell title="Readiness" headerContent={headerStrip}>
       <View style={styles.content}>
         <RecoveryScoreCard
           score={score}
@@ -143,7 +204,7 @@ export default function ReadinessScreen() {
           </View>
         )}
       </View>
-    </ModuleScreenShell>
+    </RecoveryShell>
   );
 }
 

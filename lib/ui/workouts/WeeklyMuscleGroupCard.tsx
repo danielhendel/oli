@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
 import type { WeeklyStrengthCardModel } from "@/lib/data/workouts/weeklyStrengthCardModel";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
+import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 import {
   overviewAccentForTab,
   WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
@@ -112,7 +113,6 @@ export function WeeklyMuscleGroupCard({ model, initialTab }: WeeklyMuscleGroupCa
             <Text style={styles.placeholder}>{placeholder}</Text>
           ) : (
             model.muscleGroups.map((row) => {
-              const widthPct = Math.max(0, Math.min(100, (row.totalVolume / volumeMax) * 100));
               return (
                 <View key={row.muscleGroup} style={styles.row}>
                   <View style={styles.rowTop}>
@@ -121,9 +121,11 @@ export function WeeklyMuscleGroupCard({ model, initialTab }: WeeklyMuscleGroupCa
                     </Text>
                     <Text style={styles.rowValue}>{formatVolumeLabelKgAsLb(row.totalVolume)}</Text>
                   </View>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${widthPct}%` }]} />
-                  </View>
+                  <LinearProgressBar
+                    progress={row.totalVolume / volumeMax}
+                    trackColor={WORKOUT_STRENGTH_PROGRESS_TRACK_BG}
+                    fillColor={WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL}
+                  />
                 </View>
               );
             })
@@ -132,7 +134,6 @@ export function WeeklyMuscleGroupCard({ model, initialTab }: WeeklyMuscleGroupCa
           <Text style={styles.placeholder}>{placeholder}</Text>
         ) : (
           model.muscleGroupsSets.map((row) => {
-            const widthPct = Math.max(0, Math.min(100, (row.totalSets / setsMax) * 100));
             return (
               <View key={row.muscleGroup} style={styles.row}>
                 <View style={styles.rowTop}>
@@ -141,9 +142,11 @@ export function WeeklyMuscleGroupCard({ model, initialTab }: WeeklyMuscleGroupCa
                   </Text>
                   <Text style={styles.rowValue}>{formatSetCount(row.totalSets)}</Text>
                 </View>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${widthPct}%` }]} />
-                </View>
+                <LinearProgressBar
+                  progress={row.totalSets / setsMax}
+                  trackColor={WORKOUT_STRENGTH_PROGRESS_TRACK_BG}
+                  fillColor={WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL}
+                />
               </View>
             );
           })
@@ -208,18 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#3C3C43",
-  },
-  progressTrack: {
-    width: "100%",
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
   },
   placeholder: {
     fontSize: 14,

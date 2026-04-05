@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NutritionTodayCardModel } from "@/lib/data/nutrition/nutritionTodayCardModel";
 import type { NutritionTodayFactsUi } from "@/lib/data/nutrition/nutritionOverviewUi";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 import { NUTRITION_ACCENT, NUTRITION_PROGRESS_TRACK_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 
@@ -55,9 +56,11 @@ export function NutritionTodayCard({ model, todayFacts, onRetryFacts, onViewMore
                   <Text style={styles.label}>{row.label}</Text>
                   <Text style={styles.value}>{row.valueLabel}</Text>
                 </View>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${Math.round(row.progress * 100)}%` }]} />
-                </View>
+                <LinearProgressBar
+                  progress={row.progress}
+                  trackColor={NUTRITION_PROGRESS_TRACK_BG}
+                  fillColor={NUTRITION_ACCENT}
+                />
               </View>
             ))}
           </View>
@@ -102,17 +105,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#1C1C1E",
-  },
-  track: {
-    width: "100%",
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: NUTRITION_PROGRESS_TRACK_BG,
-    overflow: "hidden",
-  },
-  fill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: NUTRITION_ACCENT,
   },
 });

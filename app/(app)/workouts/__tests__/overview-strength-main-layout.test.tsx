@@ -1,5 +1,5 @@
 /**
- * Strength overview main body: Today above Recent; analytics cards live on analytics-detail.
+ * Strength overview main body: Overview above Recent Workouts; analytics cards live on analytics-detail.
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
@@ -153,11 +153,19 @@ jest.mock("@react-navigation/native", () => ({
   useFocusEffect: jest.fn(),
 }));
 
-const mockRouterPush = jest.fn();
-jest.mock("expo-router", () => ({
-  useNavigation: () => ({ setOptions: jest.fn() }),
-  useRouter: () => ({ push: mockRouterPush }),
-}));
+jest.mock("expo-router", () => {
+  const w = { push: jest.fn(), setOptions: jest.fn() };
+  (globalThis as unknown as { __oliWorkoutsOverviewExpo?: typeof w }).__oliWorkoutsOverviewExpo = w;
+  return {
+    useNavigation: () => ({ setOptions: w.setOptions, goBack: jest.fn() }),
+    useRouter: () => ({ push: w.push }),
+  };
+});
+
+function workoutsOverviewExpoMocks() {
+  return (globalThis as unknown as { __oliWorkoutsOverviewExpo: { push: jest.Mock; setOptions: jest.Mock } })
+    .__oliWorkoutsOverviewExpo;
+}
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -168,31 +176,59 @@ import StrengthTrainingOverviewScreen from "../overview";
 
 describe("Strength overview main layout", () => {
   beforeEach(() => {
-    mockRouterPush.mockClear();
+    workoutsOverviewExpoMocks().push.mockClear();
+    workoutsOverviewExpoMocks().setOptions.mockClear();
   });
 
-  it("renders Today before Recent and omits weekly/monthly analytics cards", async () => {
+  it("renders Overview before Recent Workouts and omits weekly/monthly analytics cards", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    const iToday = json.indexOf('"Today"');
-    const iRecent = json.indexOf('"Recent"');
+    const iOverview = json.indexOf('"Overview"');
+    const iRecent = json.indexOf('"Recent Workouts"');
     const iWeeklyInsights = json.indexOf('"Weekly Insights"');
-    expect(iToday).toBeGreaterThan(-1);
+    expect(iOverview).toBeGreaterThan(-1);
     expect(iRecent).toBeGreaterThan(-1);
     expect(iWeeklyInsights).toBeGreaterThan(-1);
-    expect(iToday).toBeLessThan(iRecent);
+    expect(iOverview).toBeLessThan(iRecent);
     expect(iRecent).toBeLessThan(iWeeklyInsights);
     expect(json).not.toContain("Weekly Strength");
     expect(json).not.toContain("Weekly Muscle Group");
     expect(json).not.toContain("Monthly Workouts");
     expect(json).not.toContain("Yearly Workouts");
     expect(json).toContain("Weekly Insights");
+    expect(json).toContain("YTD");
+    expect(json).toContain("3 Month");
+    expect(json).toContain("MTD");
+    expect(json).toContain("This Week");
   });
 
-  it("Today View More navigates to Strength Analytics", async () => {
+  it("overflow opens Strength settings route (dedicated settings, not in-popup menu)", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const { setOptions, push } = workoutsOverviewExpoMocks();
+    expect(setOptions.mock.calls.length).toBeGreaterThan(0);
+    const lastOpts = setOptions.mock.calls[setOptions.mock.calls.length - 1]![0] as {
+      headerRight?: () => React.ReactElement;
+    };
+    expect(lastOpts.headerRight).toBeDefined();
+    let header!: renderer.ReactTestRenderer;
+    await act(async () => {
+      header = renderer.create(lastOpts.headerRight!());
+    });
+    const overflow = header.root.findByProps({ accessibilityLabel: "Strength settings" });
+    await act(async () => {
+      overflow.props.onPress();
+    });
+    expect(push).toHaveBeenCalledWith("/(app)/workouts/settings");
+    void tree;
+  });
+
+  it("Overview View More navigates to Strength Analytics", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
@@ -202,6 +238,6 @@ describe("Strength overview main layout", () => {
     await act(async () => {
       viewMoreLinks[0]!.props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
+    expect(workoutsOverviewExpoMocks().push).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
   });
 });

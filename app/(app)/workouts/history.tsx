@@ -9,7 +9,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutsHistory } from "@/lib/data/useWorkoutsHistory";
@@ -37,19 +37,6 @@ function formatDateTime(iso: string | null): string {
   } catch {
     return "—";
   }
-}
-
-function OverflowMenuButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.headerMenuBtn}
-      accessibilityRole="button"
-      accessibilityLabel="Strength history menu"
-    >
-      <Text style={styles.headerMenuText}>•••</Text>
-    </Pressable>
-  );
 }
 
 function StatusChip({
@@ -106,9 +93,10 @@ export default function WorkoutHistoryScreen() {
       ...workoutsStackNavigationOptions("detail"),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <WorkoutsHeaderRightRow>
-          <OverflowMenuButton onPress={menuPlaceholder} />
-        </WorkoutsHeaderRightRow>
+        <HeaderControls
+          onOverflowPress={menuPlaceholder}
+          overflowAccessibilityLabel="Strength history menu"
+        />
       ),
       title: SHELL_TITLE,
     });
@@ -258,11 +246,6 @@ const styles = StyleSheet.create({
   },
   chipTitle: { fontSize: 12, color: "#6E6E73" },
   chipStatus: { fontSize: 13, fontWeight: "600", color: "#3C3C43" },
-  headerMenuBtn: {
-    padding: 8,
-    marginRight: 4,
-  },
-  headerMenuText: { fontSize: 18, fontWeight: "700", color: "#1C1C1E" },
   overviewBtn: {
     alignSelf: "flex-start",
     paddingVertical: 10,

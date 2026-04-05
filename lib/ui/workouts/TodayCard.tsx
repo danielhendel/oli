@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { TodayOverviewModel } from "@/lib/data/workouts/todayOverviewModel";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 import {
   WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
@@ -39,9 +40,11 @@ export function TodayCard({ model, onViewMore }: TodayCardProps) {
               <Text style={styles.label}>{row.label}</Text>
               <Text style={styles.value}>{row.valueLabel}</Text>
             </View>
-            <View style={styles.track}>
-              <View style={[styles.fill, { width: `${Math.round(row.progress * 100)}%` }]} />
-            </View>
+            <LinearProgressBar
+              progress={row.progress}
+              trackColor={WORKOUT_STRENGTH_PROGRESS_TRACK_BG}
+              fillColor={WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL}
+            />
           </View>
         ))}
       </View>
@@ -77,17 +80,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#1C1C1E",
-  },
-  track: {
-    width: "100%",
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
-    overflow: "hidden",
-  },
-  fill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
   },
 });

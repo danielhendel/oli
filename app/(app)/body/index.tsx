@@ -2,14 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
-import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
+import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
 import { BodyLogActionSheet, type BodyLogActionAnchor } from "@/lib/ui/body/BodyLogActionSheet";
 import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
 import { formatOverviewAsOfLabel } from "@/lib/ui/body/formatOverviewAsOfLabel";
@@ -23,6 +22,7 @@ import {
   interpretationBarAccessibilityLabel,
 } from "@/lib/ui/body/InterpretationQualityBar";
 import { InterpretationRatingPill } from "@/lib/ui/body/InterpretationRatingPill";
+import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useBodyCompositionInterpretation } from "@/lib/data/body/useBodyCompositionInterpretation";
@@ -43,7 +43,6 @@ export const BODY_METRIC_DETAIL_HREFS = {
 export default function BodyOverviewScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [recentActionOpen, setRecentActionOpen] = useState(false);
   const [recentActionAnchor, setRecentActionAnchor] = useState<BodyLogActionAnchor | null>(null);
   const [selectedRecentDay, setSelectedRecentDay] = useState<string | null>(null);
@@ -87,20 +86,13 @@ export default function BodyOverviewScreen() {
       title: "Body Composition",
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <WorkoutsHeaderRightRow gap={10}>
-          <HeaderIconButton
-            iconName="calendar-outline"
-            iconSize={24}
-            color={SYSTEM_ACCENT}
-            accessibilityLabel="Open body calendar"
-            onPress={() => router.push("/(app)/body/calendar")}
-          />
-          <HeaderIconButton
-            label="•••"
-            accessibilityLabel="Body menu"
-            onPress={() => setMenuOpen(true)}
-          />
-        </WorkoutsHeaderRightRow>
+        <HeaderControls
+          gap={10}
+          calendarAccessibilityLabel="Open body calendar"
+          onCalendarPress={() => router.push("/(app)/body/calendar")}
+          overflowAccessibilityLabel="Body settings"
+          onOverflowPress={() => router.push("/(app)/body/settings")}
+        />
       ),
     });
   }, [navigation, router]);
@@ -232,24 +224,6 @@ export default function BodyOverviewScreen() {
             ) : null}
           </View>
         </ModuleScreenShell>
-        {menuOpen ? (
-          <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)} accessibilityLabel="Close body menu">
-            <View style={styles.menuCard}>
-              <Text style={styles.menuTitle}>Body Composition</Text>
-              <Pressable
-                onPress={() => {
-                  setMenuOpen(false);
-                  router.push("/(app)/settings/devices");
-                }}
-                style={styles.menuAction}
-                accessibilityRole="button"
-                accessibilityLabel="Open devices"
-              >
-                <Text style={styles.menuActionText}>Devices</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        ) : null}
       </View>
     );
   }
@@ -301,7 +275,7 @@ export default function BodyOverviewScreen() {
                 }
               />
             ) : (
-              <View style={styles.todayRows}>
+              <View style={moduleOverviewMetricLayoutStyles.metricGroups}>
                 {overviewRows.map((row) => (
                   <Pressable
                     key={row.id}
@@ -310,27 +284,25 @@ export default function BodyOverviewScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={row.a11y}
                   >
-                    <View style={styles.todayRow}>
-                      <View style={styles.todayRowTop}>
-                        <View style={styles.metricTitleRow}>
-                          <Text style={styles.metricLabel} numberOfLines={1}>
+                    <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
+                      <View style={moduleOverviewMetricLayoutStyles.topRow}>
+                        <View style={moduleOverviewMetricLayoutStyles.titlePillCluster}>
+                          <Text style={moduleOverviewMetricLayoutStyles.primaryLabel} numberOfLines={1}>
                             {row.label}
                           </Text>
                           <InterpretationRatingPill bar={row.bar} />
                         </View>
                         <Text
                           style={[
-                            styles.metricValue,
-                            row.value === "—" ? styles.metricValueEmpty : null,
+                            moduleOverviewMetricLayoutStyles.trailingValue,
+                            row.value === "—" ? styles.trailingValueEmpty : null,
                           ]}
+                          numberOfLines={1}
                         >
                           {row.value}
                         </Text>
                       </View>
                       <InterpretationQualityBar bar={row.bar} />
-                      {row.subtitle != null ? (
-                        <Text style={styles.metricSubtitle}>{row.subtitle}</Text>
-                      ) : null}
                     </View>
                   </Pressable>
                 ))}
@@ -394,24 +366,6 @@ export default function BodyOverviewScreen() {
           closeRecentActionSheet();
         }}
       />
-      {menuOpen ? (
-        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)} accessibilityLabel="Close body menu">
-          <View style={styles.menuCard}>
-            <Text style={styles.menuTitle}>Body Composition</Text>
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/(app)/settings/devices");
-              }}
-              style={styles.menuAction}
-              accessibilityRole="button"
-              accessibilityLabel="Open devices"
-            >
-              <Text style={styles.menuActionText}>Devices</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -432,22 +386,9 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
   asOfLabel: { fontSize: 14, fontWeight: "600", color: "#6E6E73" },
-  todayRows: { gap: 10 },
   metricRowPressable: { borderRadius: 8 },
   metricRowPressed: { opacity: 0.75 },
-  todayRow: { gap: 6 },
-  todayRowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  metricTitleRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-  },
-  metricLabel: { flexShrink: 1, fontSize: 14, fontWeight: "600", color: "#3C3C43" },
-  metricValue: { fontSize: 14, fontWeight: "700", color: "#1C1C1E" },
-  metricValueEmpty: { color: "#AEAEB2", fontWeight: "600" },
-  metricSubtitle: { fontSize: 12, fontWeight: "500", color: "#6E6E73", lineHeight: 16 },
+  trailingValueEmpty: { color: "#AEAEB2", fontWeight: "600" },
   recentHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   placeholder: { fontSize: 15, color: "#8E8E93" },
   recentRow: {
@@ -463,16 +404,6 @@ const styles = StyleSheet.create({
   recentValue: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
   rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
   rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
-  menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-    padding: 24,
-  },
-  menuCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 20, gap: 12 },
-  menuTitle: { fontSize: 18, fontWeight: "700", color: "#1C1C1E" },
-  menuAction: { paddingVertical: 10 },
-  menuActionText: { fontSize: 16, fontWeight: "600", color: BODY_INDIGO },
   syncBanner: {
     backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
     borderRadius: 10,
