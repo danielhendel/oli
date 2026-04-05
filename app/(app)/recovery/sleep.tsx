@@ -1,15 +1,21 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useRouter } from "expo-router";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useSleepView } from "@/lib/data/useSleepView";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
+import { useOuraViewWeekSnapshotPresence } from "@/lib/data/oura/useOuraViewWeekSnapshotPresence";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { RecoveryScoreCard } from "@/lib/ui/recovery/RecoveryScoreCard";
 import {
   RecoveryContributorsCard,
   type ContributorRowProps,
 } from "@/lib/ui/recovery/RecoveryContributorsCard";
+import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStrip";
 import {
   scoreToRatingLabel,
   contributorValueToProgress,
@@ -18,11 +24,8 @@ import {
   formatSleepDurationMinutes,
   SLEEP_CONTRIBUTOR_KEYS,
 } from "@/lib/format/ouraScore";
-
-function toTodayYmd(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
+import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import type { CalendarDay } from "@/lib/ui/calendar/types";
 
 /** Format YYYY-MM-DD as "Mar 13" for fallback banner. */
 function formatResolvedDay(day: string): string {
@@ -36,25 +39,83 @@ function formatResolvedDay(day: string): string {
   }
 }
 
+function RecoveryShell({
+  title,
+  headerContent,
+  children,
+}: {
+  title: string;
+  headerContent: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <ModuleScreenShell title={title} hideTitleChrome compactHeader headerContent={headerContent}>
+      {children}
+    </ModuleScreenShell>
+  );
+}
+
 export default function SleepScreen() {
-  const day = useMemo(() => toTodayYmd(), []);
-  const { refetch, ...sleepState } = useSleepView(day);
+  const navigation = useNavigation();
+  const router = useRouter();
+  const [selectedDay, setSelectedDay] = useState(() => getTodayDayKeyLocal());
+  const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
+  const weekStripPresence = useOuraViewWeekSnapshotPresence(weekDayKeys, "sleep");
+  const refetchWeekStrip = weekStripPresence.refetch;
+  const { refetch: refetchSleep, ...sleepState } = useSleepView(selectedDay);
   const ouraPresence = useOuraPresence();
+
+  const stripDays: CalendarDay<{ hasOuraSnapshot: boolean }>[] = useMemo(() => {
+    const map =
+      weekStripPresence.status === "ready" ? weekStripPresence.hasSnapshotByDay : {};
+    return weekDayKeys.map((day) => ({
+      day,
+      meta: { hasOuraSnapshot: map[day] === true },
+    }));
+  }, [weekDayKeys, weekStripPresence]);
+
+  const headerStrip = (
+    <RecoveryOuraWeeklyStrip
+      days={stripDays}
+      selectedDay={selectedDay}
+      onDayPress={setSelectedDay}
+      categoryLabel="sleep"
+      testIDPrefix="sleep-weekly"
+    />
+  );
 
   useFocusEffect(
     useCallback(() => {
-      refetch({ cacheBust: `sleep:${Date.now()}` });
-    }, [refetch]),
+      const bust = Date.now();
+      void refetchSleep({ cacheBust: `sleep:${bust}` });
+      void refetchWeekStrip();
+    }, [refetchSleep, refetchWeekStrip]),
   );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("module"),
+      title: "Sleep",
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerRight: () => (
+        <HeaderControls
+          calendarAccessibilityLabel="Open sleep calendar"
+          onCalendarPress={() => router.push("/(app)/recovery/sleep/calendar")}
+          overflowAccessibilityLabel="Sleep settings"
+          onOverflowPress={() => router.push("/(app)/recovery/sleep/settings")}
+        />
+      ),
+    });
+  }, [navigation, router]);
 
   if (sleepState.status === "partial") {
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome>
+      <RecoveryShell title="Sleep" headerContent={headerStrip}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading sleep data…</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
@@ -75,38 +136,38 @@ export default function SleepScreen() {
       subtitle2 = "Oura import failed. Pull to refresh and try again.";
     } else if (importState === "connected_no_data" || importState === "ready") {
       subtitle2 =
-        "Oura is connected, but recent sleep data has not been imported yet.";
+        "Oura is connected, but there is no sleep snapshot stored for this day yet.";
     } else {
       subtitle2 =
         "Connect Oura in Settings → Devices and sync to see your sleep score and contributors here.";
     }
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome>
+      <RecoveryShell title="Sleep" headerContent={headerStrip}>
         <View style={styles.messageCard}>
-          <Text style={styles.emptyTitle}>No sleep data in the last 7 days</Text>
+          <Text style={styles.emptyTitle}>No Oura sleep for {formatResolvedDay(selectedDay)}</Text>
           <Text style={styles.emptySubtitle}>{subtitle2}</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
   if (sleepState.status === "error") {
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome>
+      <RecoveryShell title="Sleep" headerContent={headerStrip}>
         <View style={styles.messageCard}>
           <Text style={styles.errorText}>Could not load sleep data. Try again later.</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
   if (sleepState.status !== "ready") {
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome>
+      <RecoveryShell title="Sleep" headerContent={headerStrip}>
         <View style={styles.messageCard}>
           <Text style={styles.emptySubtitle}>No sleep data available.</Text>
         </View>
-      </ModuleScreenShell>
+      </RecoveryShell>
     );
   }
 
@@ -133,7 +194,7 @@ export default function SleepScreen() {
     : null;
 
   return (
-    <ModuleScreenShell title="Sleep" hideTitleChrome>
+    <RecoveryShell title="Sleep" headerContent={headerStrip}>
       <View style={styles.content}>
         <RecoveryScoreCard
           score={score}
@@ -147,7 +208,7 @@ export default function SleepScreen() {
           </View>
         )}
       </View>
-    </ModuleScreenShell>
+    </RecoveryShell>
   );
 }
 

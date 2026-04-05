@@ -2,9 +2,12 @@ import React from "react";
 import { Pressable, StyleSheet, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { headerChromeCircleShell } from "@/lib/ui/headerChrome";
+import { UI_HEADER_CHROME_BG, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+
 /** Neutral header chrome (card-surface family), not primary CTA black. */
-export const HEADER_BACK_BUTTON_BG = "#F2F2F7";
-export const HEADER_BACK_BUTTON_ICON = "#1C1C1E";
+export const HEADER_BACK_BUTTON_BG = UI_HEADER_CHROME_BG;
+export const HEADER_BACK_BUTTON_ICON = UI_TEXT_PRIMARY;
 
 const VISUAL_SIZE = 40;
 const ICON_SIZE = 20;
@@ -47,9 +50,9 @@ const styles = StyleSheet.create({
     height: VISUAL_SIZE,
     borderRadius: VISUAL_SIZE / 2,
     marginLeft: 12,
-    backgroundColor: HEADER_BACK_BUTTON_BG,
     alignItems: "center",
     justifyContent: "center",
+    ...headerChromeCircleShell,
   },
   pressed: { opacity: 0.72, transform: [{ scale: 0.96 }] },
 });

@@ -1,7 +1,8 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "@jest/globals";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
+import { MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME } from "@/lib/ui/overview/moduleOverviewStrengthTierPillChrome";
 import { InterpretationRatingPill } from "../InterpretationRatingPill";
 
 describe("InterpretationRatingPill", () => {
@@ -20,6 +21,10 @@ describe("InterpretationRatingPill", () => {
       );
     });
     expect(tree.root.findAllByType(Text).some((n) => n.props.children === "Optimal")).toBe(true);
+    const shell = tree.root.findByType(View);
+    expect(shell.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[4].pillBg })]),
+    );
   });
 
   it("renders No data when metric has no value", () => {

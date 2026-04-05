@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import type { WeeklyStrengthCardModel } from "@/lib/data/workouts/weeklyStrengthCardModel";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 import {
   WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
@@ -43,7 +44,6 @@ export function WeeklyStrengthCard({ model }: WeeklyStrengthCardProps) {
           <Text style={styles.placeholder}>No strength workouts this week yet.</Text>
         ) : (
           model.workouts.map((row) => {
-            const widthPct = Math.max(0, Math.min(100, (row.totalVolume / workoutMax) * 100));
             return (
               <View key={row.workoutId} style={styles.row}>
                 <View style={styles.rowTop}>
@@ -52,9 +52,11 @@ export function WeeklyStrengthCard({ model }: WeeklyStrengthCardProps) {
                   </Text>
                   <Text style={styles.rowValue}>{formatVolumeLabelKgAsLb(row.totalVolume)}</Text>
                 </View>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${widthPct}%` }]} />
-                </View>
+                <LinearProgressBar
+                  progress={row.totalVolume / workoutMax}
+                  trackColor={WORKOUT_STRENGTH_PROGRESS_TRACK_BG}
+                  fillColor={WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL}
+                />
               </View>
             );
           })
@@ -121,18 +123,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#3C3C43",
-  },
-  progressTrack: {
-    width: "100%",
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
   },
   placeholder: {
     fontSize: 14,

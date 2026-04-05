@@ -1,7 +1,7 @@
 /**
  * Workouts Overview — W1 Apple Health integration.
- * Connection status, today metrics (steps, active minutes, active energy, resting HR),
- * recent workouts, last sync, manual "Sync now". Fail-closed: requestId on all API failures.
+ * Connection status, Strength Overview / Cardio analytics summary, recent workouts, last sync,
+ * manual "Sync now". Fail-closed: requestId on all API failures.
  *
  * INGESTION: Steps and workouts only (existing kinds). Resting HR, active energy, exercise time:
  * contract kind="incomplete" allows only payload.note (no structured fields); we show them in UI only and do NOT ingest.
@@ -21,18 +21,14 @@ import {
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
-import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
 import {
   WORKOUTS_SCREEN_CONTENT_BG,
   workoutsStackNavigationOptions,
 } from "@/lib/ui/headers/workoutsStackHeader";
-import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
@@ -49,7 +45,6 @@ import {
 import {
   filterWorkoutCalendarDaysInclusive,
   overviewSharedRangeBounds,
-  overviewStrengthMainTabCalendarBounds,
 } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
@@ -68,7 +63,6 @@ import {
   toHealthKitIso8601,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
-  type TodaySnapshot,
 } from "@/lib/integrations/appleHealth";
 import {
   shouldRequestHistoricalBootstrapRange,
@@ -124,8 +118,8 @@ import { buildWeeklyInsightsCardModel } from "@/lib/data/workouts/weeklyInsights
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
-import { buildTodayOverviewModel } from "@/lib/data/workouts/todayOverviewModel";
-import { TodayCard } from "@/lib/ui/workouts/TodayCard";
+import { buildStrengthOverviewCardModel } from "@/lib/data/workouts/strengthOverviewCardModel";
+import { StrengthOverviewCard } from "@/lib/ui/workouts/StrengthOverviewCard";
 import { WeeklyInsightsCard } from "@/lib/ui/workouts/WeeklyInsightsCard";
 import { serializeStrengthAnalyticsFocusParams } from "@/lib/workouts/navigation/strengthAnalyticsNavigationIntent";
 
@@ -146,6 +140,9 @@ const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
 const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
+
+/** Strength overview “Recent Workouts” list: max visible rows (newest-first; source list still uses WORKOUT_OVERVIEW_RECENT_SESSION_CAP). */
+const STRENGTH_OVERVIEW_RECENT_DISPLAY_COUNT = 5;
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -204,19 +201,6 @@ function getHistoricalBootstrapRange(monthsBack = 12): { startDate: string; endD
   return { startDate: toHealthKitIso8601(start), endDate: toHealthKitIso8601(end) };
 }
 
-function OverflowMenuButton({ onPress, label }: { onPress: () => void; label: string }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.headerMenuBtn}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Text style={styles.headerMenuText}>•••</Text>
-    </Pressable>
-  );
-}
-
 export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
   const router = useRouter();
@@ -224,10 +208,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const shellTitle = shellTitleForDomain(domain);
   const shellSubtitle = shellSubtitleForDomain(domain);
   const { user, initializing, getIdToken } = useAuth();
-  const { state: prefState, setSelectedGymId } = usePreferences();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("loading");
-  const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false);
   const [selectedWorkoutForMenu, setSelectedWorkoutForMenu] = useState<{
     day: string;
@@ -255,30 +236,15 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const analyticsRangeEnd = WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
   const { start: overviewRangeStart, end: overviewRangeEnd } = useMemo(
     () =>
-      domain === "strength"
-        ? overviewStrengthMainTabCalendarBounds({
-            weekStart,
-            weekEnd,
-            recentStart: recentRangeStart,
-            recentEnd: recentRangeEnd,
-          })
-        : overviewSharedRangeBounds({
-            weekStart,
-            weekEnd,
-            recentStart: recentRangeStart,
-            recentEnd: recentRangeEnd,
-            analyticsStart: analyticsRangeStart,
-            analyticsEnd: analyticsRangeEnd,
-          }),
-    [
-      domain,
-      weekStart,
-      weekEnd,
-      recentRangeStart,
-      recentRangeEnd,
-      analyticsRangeStart,
-      analyticsRangeEnd,
-    ],
+      overviewSharedRangeBounds({
+        weekStart,
+        weekEnd,
+        recentStart: recentRangeStart,
+        recentEnd: recentRangeEnd,
+        analyticsStart: analyticsRangeStart,
+        analyticsEnd: analyticsRangeEnd,
+      }),
+    [weekStart, weekEnd, recentRangeStart, recentRangeEnd, analyticsRangeStart, analyticsRangeEnd],
   );
 
   const calendarRangeOptionsShared = useMemo(
@@ -436,6 +402,11 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, WORKOUT_OVERVIEW_RECENT_SESSION_CAP);
   }, [overviewSharedRange.status, recentDaysSlice]);
 
+  const recentSessionsShownOnOverview = useMemo(() => {
+    if (domain !== "strength") return recentWorkouts;
+    return recentWorkouts.slice(0, STRENGTH_OVERVIEW_RECENT_DISPLAY_COUNT);
+  }, [domain, recentWorkouts]);
+
   const weekWorkoutIds = useMemo(
     () =>
       weekDaysSlice.flatMap((d) =>
@@ -445,8 +416,8 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   );
 
   const recentWorkoutIds = useMemo(
-    () => recentWorkouts.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
-    [recentWorkouts],
+    () => recentSessionsShownOnOverview.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
+    [recentSessionsShownOnOverview],
   );
 
   const workoutIdsForOverrides = useMemo(() => {
@@ -458,28 +429,22 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const { overridesByWorkoutId, reload } = useWorkoutOverrides(workoutIdsForOverrides);
 
-  /** Strength main tab does not render the yearly chart; skip scanning the analytics year slice. */
-  const strengthPlaceholderOverviewAnalytics = useMemo(() => {
-    const bundle = buildWorkoutOverviewAnalyticsFromCalendarDays([], { todayDayKey: today });
-    return {
-      chartPoints: bundle.chartPointsByTab.strength,
-      metrics: bundle.metricsByTab.strength,
-    };
-  }, [today]);
-
-  const cardioOverviewAnalyticsFromCalendar = useMemo(() => {
+  const workoutOverviewAnalyticsBundle = useMemo(() => {
     const bundle =
       overviewSharedRange.status === "ready"
         ? buildWorkoutOverviewAnalyticsFromCalendarDays(analyticsDaysSlice, { todayDayKey: today })
         : buildWorkoutOverviewAnalyticsFromCalendarDays([], { todayDayKey: today });
     return {
-      chartPoints: bundle.chartPointsByTab.cardio,
-      metrics: bundle.metricsByTab.cardio,
+      strength: {
+        chartPoints: bundle.chartPointsByTab.strength,
+        metrics: bundle.metricsByTab.strength,
+      },
+      cardio: {
+        chartPoints: bundle.chartPointsByTab.cardio,
+        metrics: bundle.metricsByTab.cardio,
+      },
     };
   }, [overviewSharedRange.status, analyticsDaysSlice, today]);
-
-  const rawOverviewAnalyticsSingle =
-    domain === "strength" ? strengthPlaceholderOverviewAnalytics : cardioOverviewAnalyticsFromCalendar;
 
   const weeklyInsightsCardModel = useMemo(() => {
     if (domain !== "strength") return null;
@@ -501,8 +466,31 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     return buildWeeklyInsightsCardModel(currentWeek, previousWeek);
   }, [domain, manualWorkoutSummaries, weekStart, weekEnd, prevWeekStart, prevWeekEnd, customExerciseById]);
 
-  const overviewAnalytics = rawOverviewAnalyticsSingle;
-  const todayModel = useMemo(() => buildTodayOverviewModel(snapshot), [snapshot]);
+  const overviewAnalytics =
+    domain === "strength" ? workoutOverviewAnalyticsBundle.strength : workoutOverviewAnalyticsBundle.cardio;
+
+  const strengthOverviewModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildStrengthOverviewCardModel({
+      strengthCalendarDays: domainSharedDays,
+      analyticsDaysSlice,
+      todayDayKey: today,
+      weekStartDay: weekStart,
+      weekEndDay: weekEnd,
+      manualWorkoutSummaries,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    domainSharedDays,
+    analyticsDaysSlice,
+    today,
+    weekStart,
+    weekEnd,
+    manualWorkoutSummaries,
+  ]);
+
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
     if (overviewSharedRange.status !== "ready") return;
@@ -581,27 +569,27 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       ...workoutsStackNavigationOptions("module"),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <WorkoutsHeaderRightRow>
-          <HeaderIconButton
-            iconName="calendar-outline"
-            iconSize={24}
-            color={SYSTEM_ACCENT}
-            accessibilityLabel={`Open ${shellTitle.toLowerCase()} calendar`}
-            onPress={() =>
-              router.push(domain === "strength" ? "/(app)/workouts/calendar" : "/(app)/cardio/calendar")
-            }
-          />
-          {domain === "strength" ? (
-            <OverflowMenuButton
-              onPress={() => setMenuOpen(true)}
-              label="Strength training menu"
-            />
-          ) : null}
-        </WorkoutsHeaderRightRow>
+        <HeaderControls
+          calendarAccessibilityLabel={`Open ${shellTitle.toLowerCase()} calendar`}
+          onCalendarPress={() =>
+            router.push(domain === "strength" ? "/(app)/workouts/calendar" : "/(app)/cardio/calendar")
+          }
+          {...(domain === "strength"
+            ? {
+                onOverflowPress: () => router.push("/(app)/workouts/settings"),
+                overflowAccessibilityLabel: "Strength settings" as const,
+              }
+            : domain === "cardio"
+              ? {
+                  onOverflowPress: () => router.push("/(app)/cardio/settings"),
+                  overflowAccessibilityLabel: "Cardio settings" as const,
+                }
+              : {})}
+        />
       ),
       title: shellTitle,
     });
-  }, [navigation, router, setMenuOpen, domain, shellTitle]);
+  }, [navigation, router, domain, shellTitle]);
 
   const loadStored = useCallback(async (skipNotAvailableCheck?: boolean) => {
     const [sync, checked, connected, notAvailable] = await Promise.all([
@@ -672,16 +660,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       cancelled = true;
     };
   }, [loadStored]);
-
-  const refetchSnapshot = useCallback(async () => {
-    const result = await pullTodaySnapshot();
-    if (result.ok) setSnapshot(result.data);
-    else setSnapshot(null);
-  }, []);
-
-  useEffect(() => {
-    if (connectionStatus === "connected") refetchSnapshot();
-  }, [connectionStatus, refetchSnapshot]);
 
   const maybeAutoAppleSync = useCallback(
     async (reason: "focus" | "foreground") => {
@@ -798,18 +776,12 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         const atIso = nowIso();
         await setAppleHealthLastCheckedAt(atIso);
         await setLastSyncAt(atIso);
-        await refetchSnapshot();
         setWorkoutsCalendarRefreshEpoch((n) => n + 1);
       } finally {
         workoutBackfillInFlightRef.current = false;
       }
     },
-    [
-      connectionStatus,
-      user,
-      getIdToken,
-      refetchSnapshot,
-    ],
+    [connectionStatus, user, getIdToken],
   );
 
   useFocusEffect(
@@ -888,7 +860,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     <View style={styles.card}>
       <View style={workoutOverviewInCardHeaderStyles.row}>
         <Text style={workoutOverviewInCardHeaderStyles.title}>
-          {domain === "strength" ? "Recent" : "Recent cardio sessions"}
+          {domain === "strength" ? "Recent Workouts" : "Recent cardio sessions"}
         </Text>
         <Pressable
           onPress={() => router.push(`${basePath}/recent-workouts-full`)}
@@ -908,7 +880,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
           {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
         </Text>
       ) : (
-        recentWorkouts.map(({ day, session }) => {
+        recentSessionsShownOnOverview.map(({ day, session }) => {
           const representative = session.workouts[0];
           if (!representative) return null;
           const journalSummary =
@@ -991,8 +963,9 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     <View style={styles.pageBody}>
       {domain === "strength" ? (
         <>
-          <TodayCard
-            model={todayModel}
+          <StrengthOverviewCard
+            loading={overviewSharedRange.status !== "ready"}
+            model={strengthOverviewModel}
             onViewMore={() => router.push(`${basePath}/analytics-detail`)}
           />
           {recentCard}
@@ -1090,45 +1063,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         {content}
       </ModuleScreenShell>
       <WorkoutsOverviewBottomNav basePath={basePath} />
-      {domain === "strength" && menuOpen && (
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setMenuOpen(false)}
-          accessibilityLabel="Close menu"
-        >
-          <View style={styles.menuCard} onStartShouldSetResponder={() => true}>
-            <Text style={styles.menuTitle}>{shellTitle}</Text>
-            <Text style={styles.menuSectionLabel}>Gym</Text>
-            {getGymMenuOptions().map((opt) => {
-              const selected =
-                (opt.value === null && prefState.preferences.selectedGymId === null) ||
-                (opt.value !== null && prefState.preferences.selectedGymId === opt.value);
-              return (
-                <Pressable
-                  key={opt.value ?? "none"}
-                  onPress={() => {
-                    setSelectedGymId(opt.value);
-                  }}
-                  style={[styles.menuOptionRow, selected && styles.menuOptionRowSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Gym: ${opt.label}${selected ? ", selected" : ""}`}
-                >
-                  <Text style={styles.menuOptionLabel}>{opt.label}</Text>
-                  {selected ? <Text style={styles.menuOptionCheck}>✓</Text> : null}
-                </Pressable>
-              );
-            })}
-            <Pressable
-              onPress={() => setMenuOpen(false)}
-              style={styles.primaryBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text style={styles.primaryBtnText}>Close</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -1157,14 +1091,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  primaryBtn: {
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: SYSTEM_ACCENT,
-    borderRadius: 10,
-  },
-  primaryBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
   metricRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   metricLabel: { fontSize: 15, color: "#3C3C43" },
   metricValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
@@ -1184,35 +1110,6 @@ const styles = StyleSheet.create({
   recentMeta: { fontSize: 12, fontWeight: "400", color: "#AEAEB2", letterSpacing: -0.05 },
   rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
   rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
-  headerMenuBtn: { padding: 12 },
-  headerMenuText: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
-  menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-    padding: 24,
-  },
-  menuCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 24,
-    gap: 12,
-  },
-  menuTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
-  menuSectionLabel: { fontSize: 13, fontWeight: "600", color: "#6E6E73", marginTop: 4, marginBottom: 6 },
-  menuOptionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.2)",
-  },
-  menuOptionRowSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: SYSTEM_ACCENT_OVERLAY_08 },
-  menuOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
-  menuOptionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
   editorInput: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,

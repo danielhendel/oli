@@ -1,39 +1,19 @@
 import React, { useLayoutEffect } from "react";
-import { View, StyleSheet, Pressable, Text } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useNutritionOverviewScreenData } from "@/lib/hooks/useNutritionOverviewScreenData";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderIconButton } from "@/lib/ui/HeaderIconButton";
-import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { NutritionWeeklyStrip } from "@/lib/ui/nutrition/NutritionWeeklyStrip";
-import { NUTRITION_ACCENT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
+import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { NutritionTodayCard } from "@/lib/ui/nutrition/NutritionTodayCard";
 import { NutritionRecentCard } from "@/lib/ui/nutrition/NutritionRecentCard";
 import { NutritionWeeklyInsightsCard } from "@/lib/ui/nutrition/NutritionWeeklyInsightsCard";
 import { NutritionOverviewBottomNav } from "@/lib/ui/nutrition/NutritionOverviewBottomNav";
-import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-
-function NutritionHeaderOverflowButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={headerMenuStyles.btn}
-      accessibilityRole="button"
-      accessibilityLabel="Nutrition menu"
-    >
-      <Text style={headerMenuStyles.text}>•••</Text>
-    </Pressable>
-  );
-}
-
-const headerMenuStyles = StyleSheet.create({
-  btn: { padding: 12 },
-  text: { fontSize: 18, color: "#1C1C1E", fontWeight: "700" },
-});
 
 export default function NutritionOverviewScreen() {
   const navigation = useNavigation();
@@ -46,16 +26,12 @@ export default function NutritionOverviewScreen() {
       ...workoutsStackNavigationOptions("module"),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
-        <WorkoutsHeaderRightRow>
-          <HeaderIconButton
-            iconName="calendar-outline"
-            iconSize={24}
-            color={NUTRITION_ACCENT}
-            accessibilityLabel="Open nutrition calendar"
-            onPress={() => router.push("/(app)/nutrition/calendar")}
-          />
-          <NutritionHeaderOverflowButton onPress={() => router.push("/(app)/nutrition/settings")} />
-        </WorkoutsHeaderRightRow>
+        <HeaderControls
+          calendarAccessibilityLabel="Open nutrition calendar"
+          onCalendarPress={() => router.push("/(app)/nutrition/calendar")}
+          overflowAccessibilityLabel="Nutrition menu"
+          onOverflowPress={() => router.push("/(app)/nutrition/settings")}
+        />
       ),
       title: "Nutrition",
     });

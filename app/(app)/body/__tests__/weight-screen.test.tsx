@@ -296,6 +296,43 @@ describe("Body Composition main screen", () => {
     expect(text).not.toContain("RMR");
     expect(text).not.toContain("1780 kcal/day");
     expect(text).toMatch(/Fair|Good|Optimal|Out of range|No data/);
+    expect(text).not.toMatch(/\bWHO\b/);
+  });
+
+  it("does not render long interpretation subtitle paragraphs as visible overview copy", () => {
+    const day = "2026-03-31";
+    mockHook.mockReturnValue(
+      buildBody({
+        overview: {
+          overviewDay: day,
+          weightKg: 80,
+          bodyFatPercent: 18.2,
+          bmi: 24.2,
+          leanBodyMassKg: 60,
+          restingMetabolicRateKcal: 1780,
+          hasAnyMetric: true,
+        },
+        byDay: new Map([[day, [buildPoint(day)]]]),
+        weekDays: [{ day, meta: { hasMeasurement: true } }],
+        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).not.toMatch(/Mifflin/i);
+    expect(text).not.toMatch(/World Health Organization/i);
+    const weightRow = tree.root
+      .findAllByType("Pressable")
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Open weight details"),
+      );
+    expect(weightRow).toBeDefined();
+    expect(String(weightRow!.props.accessibilityLabel)).toContain("interpretation");
   });
 
   it("routes to body day from weekly strip tap", () => {

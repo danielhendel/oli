@@ -43,6 +43,10 @@ export default function AppLayout() {
           />
           <Stack.Screen name="body/overview" options={{ headerTitle: "" }} />
           <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
+          <Stack.Screen
+            name="body/settings"
+            options={{ title: "Body settings", ...workoutsStackNavigationOptions("detail") }}
+          />
 
           {/* Keep native headers for the rest */}
           <Stack.Screen
@@ -128,6 +132,10 @@ export default function AppLayout() {
             options={{ title: "Add exercise", ...workoutsStackNavigationOptions("task") }}
           />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="workouts/settings"
+            options={{ title: "Strength settings", ...workoutsStackNavigationOptions("detail") }}
+          />
 
           <Stack.Screen
             name="cardio/index"
@@ -158,10 +166,36 @@ export default function AppLayout() {
             name="cardio/recent-workouts-full"
             options={{ title: "All cardio sessions", ...workoutsStackNavigationOptions("detail") }}
           />
+          <Stack.Screen
+            name="cardio/settings"
+            options={{ title: "Cardio settings", ...workoutsStackNavigationOptions("detail") }}
+          />
 
           <Stack.Screen name="recovery/index" options={{ title: "Recovery" }} />
-          <Stack.Screen name="recovery/sleep" options={{ title: "Sleep" }} />
-          <Stack.Screen name="recovery/readiness" options={{ title: "Readiness" }} />
+          <Stack.Screen
+            name="recovery/sleep"
+            options={{ title: "Sleep", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="recovery/sleep/settings"
+            options={{ title: "Sleep settings", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="recovery/sleep/calendar"
+            options={{ title: "Sleep calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="recovery/readiness"
+            options={{ title: "Readiness", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="recovery/readiness/settings"
+            options={{ title: "Readiness settings", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="recovery/readiness/calendar"
+            options={{ title: "Readiness calendar", ...workoutsStackNavigationOptions("detail") }}
+          />
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />

@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
+
 export type ContributorRowProps = {
   label: string;
   valueDisplay: string;
@@ -24,9 +26,13 @@ export function RecoveryContributorsCard({ title = "Contributors", rows }: Props
               <Text style={styles.label}>{row.label}</Text>
               <Text style={styles.value}>{row.valueDisplay}</Text>
             </View>
-            <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }]} />
-            </View>
+            <LinearProgressBar
+              progress={row.progress}
+              height={6}
+              borderRadius={3}
+              trackColor="#E5E5EA"
+              fillColor="#1C1C1E"
+            />
             <Text style={styles.rating}>{row.rating}</Text>
           </View>
         ))}
@@ -67,17 +73,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#1C1C1E",
-  },
-  barTrack: {
-    height: 6,
-    backgroundColor: "#E5E5EA",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    backgroundColor: "#1C1C1E",
-    borderRadius: 3,
   },
   rating: {
     fontSize: 13,

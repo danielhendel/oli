@@ -323,7 +323,7 @@ it("renders formatted recent workout title and summary metadata", async () => {
   expect(json).not.toContain("Apple Health");
 });
 
-it("renders up to 14 recent workouts and supports lower-row interactions", async () => {
+it("renders up to five recent workouts on the overview and supports fifth-row interactions", async () => {
   mockUseWorkoutsCalendarRange.mockImplementation(() => ({
     status: "ready",
     durableTitlesByWorkoutId: {},
@@ -354,10 +354,10 @@ it("renders up to 14 recent workouts and supports lower-row interactions", async
       typeof n.props?.accessibilityLabel === "string" &&
       n.props.accessibilityLabel.startsWith("Open workout details r"),
   );
-  expect(rows).toHaveLength(8);
+  expect(rows).toHaveLength(5);
 
   act(() => {
-    test.root.findByProps({ accessibilityLabel: "Open workout details r8" }).props.onPress();
+    test.root.findByProps({ accessibilityLabel: "Open workout details r5" }).props.onPress();
   });
   expect(mockPush).toHaveBeenCalledWith({
     pathname: "/(app)/workouts/day/[day]",
@@ -365,7 +365,7 @@ it("renders up to 14 recent workouts and supports lower-row interactions", async
   });
 
   act(() => {
-    test.root.findByProps({ accessibilityLabel: "Workout actions r8" }).props.onPress();
+    test.root.findByProps({ accessibilityLabel: "Workout actions r5" }).props.onPress();
   });
   act(() => {
     test.root.findByProps({ accessibilityLabel: "View details" }).props.onPress();
