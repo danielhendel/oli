@@ -17,6 +17,8 @@ export default function AppLayout() {
           {/* Sprint 3 — Phase 1 tabs (Library, Manage, Timeline, Profile, Dash) */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
+          <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
+
           {/* Event detail (from Library / Timeline) */}
           <Stack.Screen name="event/[id]" options={{ title: "Event" }} />
 

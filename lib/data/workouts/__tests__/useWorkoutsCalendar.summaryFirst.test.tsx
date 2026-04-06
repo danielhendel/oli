@@ -59,6 +59,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: false,
         hasCardio: false,
         rawWorkoutCount: 0,
+        strengthSessionCount: 0,
+        cardioSessionCount: 0,
       },
       {
         schemaVersion: WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion,
@@ -68,6 +70,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: true,
         hasCardio: false,
         rawWorkoutCount: 1,
+        strengthSessionCount: 1,
+        cardioSessionCount: 0,
       },
       {
         schemaVersion: WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion,
@@ -77,6 +81,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: false,
         hasCardio: false,
         rawWorkoutCount: 0,
+        strengthSessionCount: 0,
+        cardioSessionCount: 0,
       },
     ];
 
@@ -191,6 +197,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: false,
         hasCardio: false,
         rawWorkoutCount: 0,
+        strengthSessionCount: 0,
+        cardioSessionCount: 0,
       },
       {
         schemaVersion: WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion,
@@ -200,6 +208,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: true,
         hasCardio: false,
         rawWorkoutCount: 1,
+        strengthSessionCount: 1,
+        cardioSessionCount: 0,
       },
       {
         schemaVersion: WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion,
@@ -209,6 +219,8 @@ describe("useWorkoutsCalendarRange summary-first", () => {
         hasStrength: false,
         hasCardio: false,
         rawWorkoutCount: 0,
+        strengthSessionCount: 0,
+        cardioSessionCount: 0,
       },
     ];
 

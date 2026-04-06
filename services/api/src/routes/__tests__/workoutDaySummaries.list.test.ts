@@ -39,13 +39,15 @@ describe("GET /users/me/workout-day-summaries", () => {
 
   it("returns complete true when every day in range has a valid summary doc", async () => {
     const item = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       day: "2026-03-10",
       computedAt: "2026-03-10T12:00:00.000Z",
-      reconcileVersion: "1",
+      reconcileVersion: "2",
       hasStrength: false,
       hasCardio: true,
       rawWorkoutCount: 1,
+      strengthSessionCount: 0,
+      cardioSessionCount: 1,
     };
 
     (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
@@ -72,6 +74,8 @@ describe("GET /users/me/workout-day-summaries", () => {
     expect(json.expectedDayCount).toBe(1);
     expect(json.items).toHaveLength(1);
     expect(json.items[0].day).toBe("2026-03-10");
+    expect(json.items[0].cardioSessionCount).toBe(1);
+    expect(json.items[0].strengthSessionCount).toBe(0);
   });
 
   it("returns complete false when a day is missing", async () => {

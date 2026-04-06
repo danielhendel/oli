@@ -6,7 +6,10 @@ import {
   reconcileWorkoutSessionsForDay,
 } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { parseWorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
-import { sortWorkoutsChronologicalAsc } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  deriveOverviewTabSessionCounts,
+  sortWorkoutsChronologicalAsc,
+} from "@/lib/data/workouts/workoutsCalendarModel";
 
 function minimalWorkoutRaw(
   id: string,
@@ -46,13 +49,19 @@ describe("computeWorkoutDaySummaryPayload", () => {
     const computedAt = "2026-03-11T12:00:00.000Z";
     const summary = computeWorkoutDaySummaryPayload(day, docs, computedAt);
     const items = sortWorkoutsChronologicalAsc(docs.map((d) => parseWorkoutHistoryItem(d)));
-    const flags = deriveSessionTypeFlags(reconcileWorkoutSessionsForDay(day, items));
+    const sessions = reconcileWorkoutSessionsForDay(day, items);
+    const flags = deriveSessionTypeFlags(sessions);
+    const tabCounts = deriveOverviewTabSessionCounts(sessions);
     expect(summary.day).toBe(day);
     expect(summary.rawWorkoutCount).toBe(1);
     expect(summary.hasStrength).toBe(flags.hasStrength);
     expect(summary.hasCardio).toBe(flags.hasCardio);
-    expect(summary.reconcileVersion).toBe("1");
-    expect(summary.schemaVersion).toBe(1);
+    expect(summary.strengthSessionCount).toBe(tabCounts.strengthSessionCount);
+    expect(summary.cardioSessionCount).toBe(tabCounts.cardioSessionCount);
+    expect(summary.cardioSessionCount).toBe(1);
+    expect(summary.strengthSessionCount).toBe(0);
+    expect(summary.reconcileVersion).toBe("2");
+    expect(summary.schemaVersion).toBe(2);
   });
 
   it("returns zero counts for empty day input", () => {
@@ -61,5 +70,28 @@ describe("computeWorkoutDaySummaryPayload", () => {
     expect(summary.rawWorkoutCount).toBe(0);
     expect(summary.hasStrength).toBe(false);
     expect(summary.hasCardio).toBe(false);
+    expect(summary.strengthSessionCount).toBe(0);
+    expect(summary.cardioSessionCount).toBe(0);
+  });
+
+  it("counts one strength session for strength_workout raw doc", () => {
+    const day = "2026-03-13";
+    const docs: RawEventDoc[] = [
+      minimalWorkoutRaw(
+        "r1",
+        "strength_workout",
+        {
+          start: `${day}T18:00:00.000Z`,
+          timezone: "UTC",
+          exercises: [{ exercise: "Squat", reps: 5, load: 100, unit: "kg" }],
+        },
+        `${day}T18:00:00.000Z`,
+      ),
+    ];
+    const summary = computeWorkoutDaySummaryPayload(day, docs, "2026-03-13T12:00:00.000Z");
+    expect(summary.rawWorkoutCount).toBe(1);
+    expect(summary.strengthSessionCount).toBe(1);
+    expect(summary.cardioSessionCount).toBe(0);
+    expect(summary.hasStrength).toBe(true);
   });
 });

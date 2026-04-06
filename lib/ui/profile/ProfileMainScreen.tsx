@@ -1,11 +1,12 @@
 // lib/ui/profile/ProfileMainScreen.tsx
-// Tab-root layout: matches Dash / other tabs — ScreenContainer + in-scroll PageTitleRow (no settings gear).
+// Tab-root layout: TabRootScreenHeader + scroll (matches other tab roots; no settings gear).
 import React from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 import type { MassUnit, UserProfileMain } from "@oli/contracts";
 import {
   formatHeightForDisplay,
@@ -26,8 +27,6 @@ const CATEGORY_PLACEHOLDERS = [
   "Health inputs",
 ] as const;
 
-/** Tab-root grays: continuous page + grouped sections (aligned with app grays, not stark white cards). */
-const PAGE_BG = "#F2F2F7";
 const GROUP_BG = "#EBEBEF";
 const GROUP_OUTLINE = "#D1D1D6";
 const ROW_DIVIDER = "#C6C6CC";
@@ -79,16 +78,16 @@ export function ProfileMainScreen({
   );
 
   return (
-    <ScreenContainer backgroundColor={PAGE_BG}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        bounces
-      >
-        <PageTitleRow title="Profile" subtitle="Personalization & body context" />
-
+    <ScreenContainer padded={false}>
+      <View style={styles.tabRoot}>
+        <TabRootScreenHeader title="Profile" subtitle="Personalization & body context" />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces
+        >
         {showLoadError ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
         {hydrating ? (
@@ -213,18 +212,21 @@ export function ProfileMainScreen({
           Social Security numbers, government IDs, or payment details in Profile.
         </Text>
       </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  tabRoot: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   scroll: {
     flex: 1,
-    backgroundColor: PAGE_BG,
+    backgroundColor: UI_APP_SCREEN_BG,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 16,
+    paddingHorizontal: UI_TAB_ROOT_INSET,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   sectionLabel: {

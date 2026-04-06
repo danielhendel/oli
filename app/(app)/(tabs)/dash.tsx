@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: title, subtitle, and "Manage your data" cards to real screens only.
+// Oli — Dash: tab header, Daily Recap, Stacks + subtitle, category cards to real screens only.
 import React, { useRef } from "react";
 import {
   ScrollView,
@@ -12,8 +12,21 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
+import { DashRecapCard } from "@/lib/ui/dash/DashRecapCard";
+import { useDashRecapData } from "@/lib/data/dash/useDashRecapData";
+import {
+  UI_APP_SCREEN_BG,
+  UI_CARD_SURFACE,
+  UI_DASH_CATEGORY_CARD_RADIUS,
+  UI_HEADER_CHROME_BG,
+  UI_TAB_ROOT_INSET,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_SLATE_COOL,
+} from "@/lib/ui/theme/uiTokens";
 
 /** Cards that navigate to existing routes only. */
 const MANAGE_DATA_CARDS = [
@@ -26,8 +39,15 @@ const MANAGE_DATA_CARDS = [
   { id: "labs", title: "Labs", subtitle: "Lab results and biomarkers", route: "/(app)/labs" as const },
 ] as const;
 
+const CATEGORY_CARD_PRESSED_BG = UI_HEADER_CHROME_BG;
+
 const SCALE_PRESSED = 0.98;
 const ANIM_DURATION = 100;
+
+const STACKS_TAGLINE = "Optimize your health and fitness — all in one place.";
+
+/** Must match `styles.card` `paddingHorizontal` so Stacks copy aligns with card title text. */
+const DASH_CARD_PADDING_HORIZONTAL = 18;
 
 type DashCardProps = {
   title: string;
@@ -57,7 +77,10 @@ function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProp
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: pressed ? CATEGORY_CARD_PRESSED_BG : UI_CARD_SURFACE },
+      ]}
       onPress={onPress}
       onPressIn={pressIn}
       onPressOut={pressOut}
@@ -70,7 +93,9 @@ function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProp
             <Text style={styles.cardTitle}>{title}</Text>
             <Text style={styles.cardSubtitle}>{subtitle}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
+          <View style={styles.cardChevronWrap}>
+            <Ionicons name="chevron-forward" size={21} color={UI_TEXT_SECONDARY} />
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -79,63 +104,116 @@ function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProp
 
 export default function DashScreen() {
   const router = useRouter();
+  const recapModel = useDashRecapData();
 
   return (
-    <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <PageTitleRow
-          title="Oli"
-          subtitle="Manage your health and fitness — all in one place."
-          rightSlot={<SettingsGearButton />}
-        />
+    <ScreenContainer padded={false}>
+      <View style={styles.root}>
+        <TabRootScreenHeader title="Oli" rightSlot={<SettingsGearButton />} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.recapWrap}>
+            <DashRecapCard model={recapModel} onViewMore={() => router.push("/(app)/dash/daily-recap")} />
+          </View>
 
-        <Text style={styles.sectionLabel}>Manage your data</Text>
-
-        <View style={styles.cards}>
-          {MANAGE_DATA_CARDS.map((card) => (
-            <DashCard
-              key={card.id}
-              title={card.title}
-              subtitle={card.subtitle}
-              onPress={() => router.push(card.route)}
-              accessibilityLabel={`${card.title}. ${card.subtitle}`}
-            />
-          ))}
-        </View>
-      </ScrollView>
+          <View style={styles.stacksSection}>
+            <View style={styles.stacksHeaderInset}>
+              <Text style={styles.sectionHeading} accessibilityRole="header">
+                Stacks
+              </Text>
+              <Text style={styles.stacksTagline}>{STACKS_TAGLINE}</Text>
+            </View>
+            <View style={styles.cards}>
+              {MANAGE_DATA_CARDS.map((card) => (
+                <DashCard
+                  key={card.id}
+                  title={card.title}
+                  subtitle={card.subtitle}
+                  onPress={() => router.push(card.route)}
+                  accessibilityLabel={`${card.title}. ${card.subtitle}`}
+                />
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
-  sectionLabel: {
-    marginTop: 18,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#8E8E93",
-    textTransform: "uppercase",
+  root: {
+    flex: 1,
+    backgroundColor: UI_APP_SCREEN_BG,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: UI_APP_SCREEN_BG,
+  },
+  scroll: {
+    paddingHorizontal: UI_TAB_ROOT_INSET,
+    paddingTop: 8,
+    paddingBottom: 40,
+    flexGrow: 1,
+    backgroundColor: UI_APP_SCREEN_BG,
+  },
+  recapWrap: { marginTop: 4 },
+  /** Groups Stacks header + cards; cards share full width with scroll content inset. */
+  stacksSection: {},
+  /** Inset matches card inner padding so “Stacks” / tagline align with category row titles. */
+  stacksHeaderInset: {
+    paddingHorizontal: DASH_CARD_PADDING_HORIZONTAL,
+  },
+  /** Below Oli (28 / 900): smaller size + bold 700 preserves Oli > Stacks hierarchy. */
+  sectionHeading: {
+    marginTop: 28,
+    marginBottom: 0,
+    fontSize: 24,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: 0.25,
+  },
+  stacksTagline: {
+    fontSize: 17,
+    fontWeight: "400",
+    color: UI_TEXT_SLATE_COOL,
+    marginTop: 5,
+    marginBottom: 12,
+    lineHeight: 26,
+    letterSpacing: 0.2,
   },
   cards: {
     gap: 14,
   },
   card: {
     width: "100%",
-    backgroundColor: "#F2F2F7",
-    borderRadius: 20,
-    padding: 20,
-    minHeight: 88,
+    borderRadius: UI_DASH_CATEGORY_CARD_RADIUS,
+    paddingVertical: 16,
+    paddingHorizontal: DASH_CARD_PADDING_HORIZONTAL,
+    minHeight: 68,
     justifyContent: "center",
   },
-  cardPressed: { backgroundColor: "#EAEAEE" },
   cardInner: {},
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  cardTextBlock: { flex: 1, minWidth: 0 },
-  cardTitle: { fontSize: 18, fontWeight: "700", color: "#1C1C1E" },
-  cardSubtitle: { fontSize: 14, color: "#6E6E73", marginTop: 4, lineHeight: 20 },
+  cardTextBlock: { flex: 1, minWidth: 0, paddingRight: 10 },
+  cardChevronWrap: {
+    justifyContent: "center",
+    alignSelf: "center",
+    paddingRight: 4,
+  },
+  cardTitle: { fontSize: 17, fontWeight: "700", color: UI_TEXT_PRIMARY },
+  cardSubtitle: {
+    fontSize: 13,
+    color: UI_TEXT_MUTED,
+    marginTop: 4,
+    lineHeight: 19,
+  },
 });

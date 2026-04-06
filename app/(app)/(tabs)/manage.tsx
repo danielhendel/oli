@@ -6,8 +6,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useLabResults } from "@/lib/data/useLabResults";
@@ -568,23 +569,36 @@ export default function ManageScreen() {
   );
 
   return (
-    <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <PageTitleRow
+    <ScreenContainer padded={false}>
+      <View style={styles.tabRoot}>
+        <TabRootScreenHeader
           title="Manage"
           subtitle="Your health record — tracked and missing."
           rightSlot={<SettingsGearButton />}
         />
-        {renderSection("HEALTH SYSTEMS", healthSystems)}
-        {renderSection("CLINICAL RECORDS", clinicalRecords)}
-        {renderSection("RECORD INTEGRITY", recordIntegrity)}
-      </ScrollView>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {renderSection("HEALTH SYSTEMS", healthSystems)}
+          {renderSection("CLINICAL RECORDS", clinicalRecords)}
+          {renderSection("RECORD INTEGRITY", recordIntegrity)}
+        </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  tabRoot: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  scrollView: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  scroll: {
+    paddingHorizontal: UI_TAB_ROOT_INSET,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
   section: { marginTop: 24 },
   sectionLabel: {
     marginBottom: 10,

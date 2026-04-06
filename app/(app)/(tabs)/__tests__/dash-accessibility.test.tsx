@@ -4,11 +4,16 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+jest.mock("@/lib/data/dash/useDashRecapData", () => ({
+  useDashRecapData: () => ({ kind: "loading" as const }),
+}));
+
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
+  ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
   Animated: {
     View: "Animated.View",
@@ -85,7 +90,7 @@ describe("Dash accessibility", () => {
     expect(cardio.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows Manage your data section label", () => {
+  it("shows Stacks section heading", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -96,7 +101,7 @@ describe("Dash accessibility", () => {
         (n.children as (string | number)[]).filter((c) => typeof c === "string" || typeof c === "number").join("")
       )
       .join(" ");
-    expect(text).toContain("Manage your data");
+    expect(text).toContain("Stacks");
   });
 
   it("exposes accessibilityRole button on Settings and all cards", () => {

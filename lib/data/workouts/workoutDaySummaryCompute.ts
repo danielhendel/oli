@@ -6,7 +6,10 @@ import {
   deriveSessionTypeFlags,
   reconcileWorkoutSessionsForDay,
 } from "@/lib/data/workouts/workoutSessionReconciliation";
-import { sortWorkoutsChronologicalAsc } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  deriveOverviewTabSessionCounts,
+  sortWorkoutsChronologicalAsc,
+} from "@/lib/data/workouts/workoutsCalendarModel";
 import {
   DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
   type WorkoutCalendarRawEventKind,
@@ -30,10 +33,15 @@ export type WorkoutDaySummaryPayload = {
   hasStrength: boolean;
   hasCardio: boolean;
   rawWorkoutCount: number;
+  /** Count of reconciled sessions with `sessionType === "strength"` (overview Strength tab). */
+  strengthSessionCount: number;
+  /** Count of reconciled sessions with `sessionType === "cardio"` (overview Cardio tab). */
+  cardioSessionCount: number;
 };
 
 /**
  * Same marker semantics as Calendar: {@link reconcileWorkoutSessionsForDay} → {@link deriveSessionTypeFlags}.
+ * Tab session counts: {@link deriveOverviewTabSessionCounts} (strict strength vs cardio; excludes mixed/unknown).
  * `rawWorkoutCount` matches grouped raw items for that UI day (before session merge).
  */
 export function computeWorkoutDaySummaryPayload(
@@ -51,6 +59,7 @@ export function computeWorkoutDaySummaryPayload(
   const sorted = sortWorkoutsChronologicalAsc(items);
   const sessions = reconcileWorkoutSessionsForDay(uiDay, sorted);
   const flags = deriveSessionTypeFlags(sessions);
+  const tabCounts = deriveOverviewTabSessionCounts(sessions);
   return {
     schemaVersion: WORKOUT_DAY_SUMMARY_SCHEMA_VERSION,
     day: uiDay,
@@ -59,5 +68,7 @@ export function computeWorkoutDaySummaryPayload(
     hasStrength: flags.hasStrength,
     hasCardio: flags.hasCardio,
     rawWorkoutCount: sorted.length,
+    strengthSessionCount: tabCounts.strengthSessionCount,
+    cardioSessionCount: tabCounts.cardioSessionCount,
   };
 }

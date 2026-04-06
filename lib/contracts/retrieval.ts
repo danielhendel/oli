@@ -308,6 +308,10 @@ export const workoutDaySummaryItemDtoSchema = z
     hasStrength: z.boolean(),
     hasCardio: z.boolean(),
     rawWorkoutCount: z.number().int().nonnegative(),
+    /** Overview Strength tab: reconciled sessions with sessionType "strength" only. */
+    strengthSessionCount: z.number().int().nonnegative(),
+    /** Overview Cardio tab: reconciled sessions with sessionType "cardio" only. */
+    cardioSessionCount: z.number().int().nonnegative(),
   })
   .strip();
 

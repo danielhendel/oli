@@ -5,8 +5,9 @@ import { ScreenContainer, EmptyState } from "@/lib/ui/ScreenStates";
 import { FailClosed } from "@/lib/ui/FailClosed";
 import { OfflineBanner } from "@/lib/ui/OfflineBanner";
 import { TruthIndicator } from "@/lib/ui/TruthIndicators";
-import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo, useState, useCallback } from "react";
 import {
@@ -75,15 +76,14 @@ export default function TimelineIndexScreen() {
   }, [jumpInput]);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer padded={false}>
       <View style={styles.main}>
-        <View style={styles.header}>
-          <PageTitleRow
-            title="Timeline"
-            subtitle="Day list with presence and light counts"
-            rightSlot={<SettingsGearButton />}
-          />
-        </View>
+        <TabRootScreenHeader
+          title="Timeline"
+          subtitle="Day list with presence and light counts"
+          rightSlot={<SettingsGearButton />}
+        />
+        <View style={styles.failClosedWrap}>
         <FailClosed
           outcome={outcome}
           onRetry={() => timeline.refetch()}
@@ -250,15 +250,22 @@ export default function TimelineIndexScreen() {
             );
           }}
         </FailClosed>
+        </View>
       </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  main: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  scroll: { flex: 1, padding: 16, paddingBottom: 40 },
+  main: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  failClosedWrap: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  scroll: {
+    flex: 1,
+    paddingHorizontal: UI_TAB_ROOT_INSET,
+    paddingTop: 8,
+    paddingBottom: 40,
+    backgroundColor: UI_APP_SCREEN_BG,
+  },
   listHeader: { height: 16 },
   listFooter: { height: 40 },
   listGap: { height: 6 },
@@ -266,7 +273,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 16,
+    marginTop: 8,
     marginBottom: 8,
   },
   viewModeRow: { flexDirection: "row", gap: 4 },
