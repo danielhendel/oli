@@ -4,11 +4,16 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+jest.mock("@/lib/data/dash/useDashRecapData", () => ({
+  useDashRecapData: () => ({ kind: "loading" as const }),
+}));
+
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
+  ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
   Animated: {
     View: "Animated.View",
@@ -64,23 +69,26 @@ describe("Dash provenance", () => {
     mockPush.mockClear();
   });
 
-  it("shows Oli title and manage-your-health subtitle", () => {
+  it("shows Oli title and Stacks tagline", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
     expect(text).toContain("Oli");
-    expect(text).toContain("Manage your health and fitness — all in one place.");
+    expect(text).toContain("Optimize your health and fitness — all in one place.");
+    expect(text).toContain("Daily Recap");
+    expect(text).toContain("View More");
   });
 
-  it("shows Manage your data section label and cards", () => {
+  it("shows Stacks section heading, tagline, and cards", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Manage your data");
+    expect(text).toContain("Stacks");
+    expect(text).toContain("Optimize your health and fitness — all in one place.");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Strength");
     expect(text).toContain("Cardio");

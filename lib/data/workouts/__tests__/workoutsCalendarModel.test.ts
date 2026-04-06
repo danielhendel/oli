@@ -5,6 +5,7 @@ import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
   compareWorkoutsChronologicalAsc,
   countWeekBucketsInDayRangeInclusive,
+  deriveOverviewTabSessionCounts,
   getRecentWorkoutsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
   sortWorkoutsChronologicalAsc,
@@ -533,5 +534,86 @@ describe("workoutsCalendarModel", () => {
     expect(bundle.metricsByTab.cardio.totalWorkouts).toBe(0);
     expect(bundle.chartPointsByTab.strength.find((p) => p.monthKey === "2026-07")?.workouts).toBe(0);
     expect(bundle.chartPointsByTab.cardio.find((p) => p.monthKey === "2026-07")?.workouts).toBe(0);
+  });
+
+  describe("deriveOverviewTabSessionCounts", () => {
+    it("excludes mixed sessions from both tab counts (flags may still be true via deriveSessionTypeFlags)", () => {
+      const dayKey = "2026-07-15";
+      const mixedDay = {
+        day: dayKey,
+        workouts: [
+          {
+            id: "str",
+            observedAt: "2026-07-15T10:00:00.000Z",
+            sourceId: "manual",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-07-15T10:00:00.000Z",
+            end: "2026-07-15T10:45:00.000Z",
+            durationMinutes: 45,
+            calories: null,
+          },
+          {
+            id: "bridge",
+            observedAt: "2026-07-15T10:08:00.000Z",
+            sourceId: "manual",
+            title: "",
+            start: "2026-07-15T10:08:00.000Z",
+            end: null,
+            durationMinutes: null,
+            calories: null,
+          },
+          {
+            id: "car",
+            observedAt: "2026-07-15T10:15:00.000Z",
+            sourceId: "apple_health",
+            title: "Running",
+            workoutType: "cardio" as const,
+            start: "2026-07-15T10:15:00.000Z",
+            end: "2026-07-15T10:50:00.000Z",
+            durationMinutes: 35,
+            calories: null,
+          },
+        ],
+      };
+      const sessions = reconcileWorkoutSessionsForDay(dayKey, mixedDay.workouts);
+      expect(deriveOverviewTabSessionCounts(sessions)).toEqual({
+        strengthSessionCount: 0,
+        cardioSessionCount: 0,
+      });
+    });
+
+    it("counts one strength and one cardio session the same as overview tab totals", () => {
+      const day = "2026-03-20";
+      const items: WorkoutHistoryItem[] = [
+        {
+          id: "s",
+          observedAt: `${day}T17:00:00.000Z`,
+          sourceId: "manual",
+          title: "Push",
+          workoutType: "strength",
+          start: `${day}T17:00:00.000Z`,
+          end: null,
+          durationMinutes: 60,
+          calories: null,
+        },
+        {
+          id: "c",
+          observedAt: `${day}T20:00:00.000Z`,
+          sourceId: "manual",
+          title: "Run",
+          workoutType: "cardio",
+          start: `${day}T20:00:00.000Z`,
+          end: null,
+          durationMinutes: 30,
+          calories: null,
+        },
+      ];
+      const sessions = reconcileWorkoutSessionsForDay(day, items);
+      expect(deriveOverviewTabSessionCounts(sessions)).toEqual({
+        strengthSessionCount: 1,
+        cardioSessionCount: 1,
+      });
+    });
   });
 });

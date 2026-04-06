@@ -163,6 +163,26 @@ export function sessionMatchesOverviewCardioTab(session: ReconciledWorkoutSessio
   return session.sessionType === "cardio";
 }
 
+/**
+ * Per-day session counts aligned with Strength/Cardio overview tabs: strict `sessionType` match only.
+ * `mixed` and `unknown` are excluded from both counts (same rules as {@link buildWorkoutOverviewAnalyticsFromCalendarDays}).
+ *
+ * Note: {@link deriveSessionTypeFlags} sets both `hasStrength` and `hasCardio` when any session is `mixed`,
+ * but those sessions contribute **0** to both counts here — flags are “any signal,” counts are “tab-eligible sessions.”
+ */
+export function deriveOverviewTabSessionCounts(sessions: readonly ReconciledWorkoutSession[]): {
+  strengthSessionCount: number;
+  cardioSessionCount: number;
+} {
+  let strengthSessionCount = 0;
+  let cardioSessionCount = 0;
+  for (const s of sessions) {
+    if (sessionMatchesOverviewStrengthTab(s)) strengthSessionCount += 1;
+    if (sessionMatchesOverviewCardioTab(s)) cardioSessionCount += 1;
+  }
+  return { strengthSessionCount, cardioSessionCount };
+}
+
 function buildTwelveMonthSkeleton(year: number): WorkoutAnalyticsMonthPoint[] {
   const out: WorkoutAnalyticsMonthPoint[] = [];
   for (let m = 1; m <= 12; m += 1) {

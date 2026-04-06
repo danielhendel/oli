@@ -2,8 +2,9 @@
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { PageTitleRow } from "@/lib/ui/PageTitleRow";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
@@ -72,14 +73,19 @@ export default function LibraryIndexScreen() {
   };
 
   return (
-    <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <PageTitleRow
+    <ScreenContainer padded={false}>
+      <View style={styles.tabRoot}>
+        <TabRootScreenHeader
           title="Library"
           subtitle="Category list with presence and counts"
           rightSlot={<SettingsGearButton />}
         />
-
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.quickLenses}>
           {QUICK_LENSES.map((l) => (
             <Pressable
@@ -122,13 +128,20 @@ export default function LibraryIndexScreen() {
           ))}
         </View>
       </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
-  quickLenses: { flexDirection: "row", gap: 8, marginTop: 16, flexWrap: "wrap" },
+  tabRoot: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  scrollView: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
+  scroll: {
+    paddingHorizontal: UI_TAB_ROOT_INSET,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  quickLenses: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
   lensBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,

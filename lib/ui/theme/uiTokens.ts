@@ -7,6 +7,9 @@ export const UI_TEXT_SECONDARY = "#3C3C43";
 export const UI_TEXT_MUTED = "#6E6E73";
 export const UI_TEXT_TERTIARY_LABEL = "#8E8E93";
 
+/** Cool blue-gray secondary line on grouped sheets (e.g. Dash Stacks tagline) — calm, not marketing blue. */
+export const UI_TEXT_SLATE_COOL = "#5B6C8A";
+
 /** Header back / toolbar pill fill (iOS grouped background family). */
 export const UI_HEADER_CHROME_BG = "#F2F2F7";
 
@@ -31,3 +34,23 @@ export const UI_LINK_SECONDARY = UI_TEXT_SECONDARY;
 export const UI_BORDER_HAIRLINE = "#E5E5EA";
 export const UI_SCREEN_BG = "#F2F2F7";
 export const UI_CARD_SURFACE = "#FFFFFF";
+
+/** App-wide grouped page root (tab roots, ScreenContainer default). Calm blue-gray. */
+export const UI_APP_SCREEN_BG = "#EEF3F8";
+
+/** @deprecated Use UI_APP_SCREEN_BG — kept for existing imports. */
+export const UI_DASH_SCREEN_BG = UI_APP_SCREEN_BG;
+
+/**
+ * Horizontal inset for tab root headers and scroll content so title, gear, and cards share one grid.
+ */
+export const UI_TAB_ROOT_INSET = 20;
+
+/** Default corner radius for white cards on grouped backgrounds (non-Dash). */
+export const UI_GROUPED_CARD_RADIUS = 16;
+
+/** Daily Recap on Dash — crisp primary card (tighter than secondary nav rows). */
+export const UI_DASH_RECAP_CARD_RADIUS = 14;
+
+/** Dash category module rows — softer, more premium than recap. */
+export const UI_DASH_CATEGORY_CARD_RADIUS = 20;

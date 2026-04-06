@@ -6,6 +6,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 export type ScreenContainerProps = {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ export type ScreenContainerProps = {
 export function ScreenContainer({
   children,
   edges = ["top"],
-  backgroundColor = "#FFFFFF",
+  backgroundColor = UI_APP_SCREEN_BG,
   padded = true,
 }: ScreenContainerProps) {
   return (
