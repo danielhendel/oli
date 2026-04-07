@@ -6,6 +6,7 @@ import type {
   WeeklyInsightsCardModel,
 } from "@/lib/data/workouts/weeklyInsightsCardModel";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 type WeeklyInsightsCardProps = {
   model: WeeklyInsightsCardModel;
@@ -71,6 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     gap: 12,
+    ...elevatedCardSurfaceStyle,
   },
   insightList: {
     gap: 12,

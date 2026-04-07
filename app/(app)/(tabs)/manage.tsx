@@ -8,7 +8,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
+  UI_TAB_ROOT_INSET,
+} from "@/lib/ui/theme/uiTokens";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useLabResults } from "@/lib/data/useLabResults";
@@ -582,9 +586,11 @@ export default function ManageScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {renderSection("HEALTH SYSTEMS", healthSystems)}
-          {renderSection("CLINICAL RECORDS", clinicalRecords)}
-          {renderSection("RECORD INTEGRITY", recordIntegrity)}
+          <View style={UI_TAB_ROOT_CONTENT_GUTTER_STYLE}>
+            {renderSection("HEALTH SYSTEMS", healthSystems)}
+            {renderSection("CLINICAL RECORDS", clinicalRecords)}
+            {renderSection("RECORD INTEGRITY", recordIntegrity)}
+          </View>
         </ScrollView>
       </View>
     </ScreenContainer>
@@ -596,7 +602,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 40,
   },
   section: { marginTop: 24 },
@@ -618,7 +624,7 @@ const styles = StyleSheet.create({
   row: {
     backgroundColor: "#FFFFFF",
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E5EA",
   },
@@ -627,6 +633,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingRight: 16,
   },
   rowLeft: { flex: 1, minWidth: 0, gap: 2 },
   rowTitle: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },

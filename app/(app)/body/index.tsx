@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
+import React, { useEffect, useMemo } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
@@ -9,9 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
-import { BodyLogActionSheet, type BodyLogActionAnchor } from "@/lib/ui/body/BodyLogActionSheet";
-import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
-import { formatOverviewAsOfLabel } from "@/lib/ui/body/formatOverviewAsOfLabel";
+import { formatOverviewAsOfLabel } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import {
   formatBodyBmi,
   formatBodyLeanMass,
@@ -30,6 +28,8 @@ import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBod
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
+import { BodyTrendsCard } from "@/lib/ui/body/BodyTrendsCard";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 /** @internal — tests assert on these hrefs */
 export const BODY_METRIC_DETAIL_HREFS = {
@@ -43,9 +43,6 @@ export const BODY_METRIC_DETAIL_HREFS = {
 export default function BodyOverviewScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const [recentActionOpen, setRecentActionOpen] = useState(false);
-  const [recentActionAnchor, setRecentActionAnchor] = useState<BodyLogActionAnchor | null>(null);
-  const [selectedRecentDay, setSelectedRecentDay] = useState<string | null>(null);
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const body = useBodyOverviewData();
@@ -54,6 +51,7 @@ export default function BodyOverviewScreen() {
     void body.peek.refetch({ cacheBust: `bodyBackfillPeek:${Date.now()}` });
     void body.snapshotDayPeek.refetch({ cacheBust: `bodyBackfillSnapshotPeek:${Date.now()}` });
     void body.dayFacts.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
+    void body.trendsWeightYtd.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
   });
   const access = useAppleHealthBodyAccessState({
     syncAppleHealthBodyNow: body.syncAppleHealthBodyNow,
@@ -161,12 +159,6 @@ export default function BodyOverviewScreen() {
     [overview, unit, compositionIx],
   );
 
-  const closeRecentActionSheet = () => {
-    setRecentActionOpen(false);
-    setRecentActionAnchor(null);
-    setSelectedRecentDay(null);
-  };
-
   if (body.series.status === "error") {
     return (
       <ModuleScreenShell
@@ -252,7 +244,7 @@ export default function BodyOverviewScreen() {
             <View style={[styles.overviewHeader, workoutOverviewInCardHeaderStyles.row]}>
               <Text style={workoutOverviewInCardHeaderStyles.title}>Overview</Text>
               {overview.overviewDay != null ? (
-                <Text style={styles.asOfLabel} accessibilityLabel={`As of ${overview.overviewDay}`}>
+                <Text style={styles.asOfLabel} accessibilityLabel={formatOverviewAsOfLabel(overview.overviewDay)}>
                   {formatOverviewAsOfLabel(overview.overviewDay)}
                 </Text>
               ) : null}
@@ -286,21 +278,22 @@ export default function BodyOverviewScreen() {
                   >
                     <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
                       <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                        <View style={moduleOverviewMetricLayoutStyles.titlePillCluster}>
-                          <Text style={moduleOverviewMetricLayoutStyles.primaryLabel} numberOfLines={1}>
+                        <View style={styles.bodyMetricLeftSummary}>
+                          <Text style={styles.bodyMetricLabel} numberOfLines={1}>
                             {row.label}
                           </Text>
-                          <InterpretationRatingPill bar={row.bar} />
+                          <Text
+                            style={[
+                              styles.bodyMetricValue,
+                              row.value === "—" ? styles.bodyMetricValueEmpty : null,
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {row.value}
+                          </Text>
                         </View>
-                        <Text
-                          style={[
-                            moduleOverviewMetricLayoutStyles.trailingValue,
-                            row.value === "—" ? styles.trailingValueEmpty : null,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {row.value}
-                        </Text>
+                        <InterpretationRatingPill bar={row.bar} shellStyle={styles.bodyRatingPillTrailing} />
                       </View>
                       <InterpretationQualityBar bar={row.bar} />
                     </View>
@@ -310,62 +303,9 @@ export default function BodyOverviewScreen() {
             )}
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.cardTitle}>Recent</Text>
-            </View>
-            {body.recent.length === 0 ? (
-              <Text style={styles.placeholder}>No measurements yet</Text>
-            ) : (
-              body.recent.map((item) => (
-                <Pressable
-                  key={item.day}
-                  style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
-                  onPress={() => router.push({ pathname: "/(app)/body/day/[day]", params: { day: item.day } })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open body details for ${item.day}`}
-                >
-                  <Text style={styles.recentDate}>{formatBodyDayLabel(item.day)}</Text>
-                  <View style={styles.recentMain}>
-                    <Text style={styles.recentValue}>{formatBodyWeight(item.latest.weightKg, unit)}</Text>
-                  </View>
-                  <Pressable
-                    onPress={(e: GestureResponderEvent) => {
-                      e.stopPropagation();
-                      const native = e.nativeEvent;
-                      setRecentActionAnchor({
-                        x: typeof native?.pageX === "number" ? native.pageX : 320,
-                        y: typeof native?.pageY === "number" ? native.pageY : 220,
-                        width: 24,
-                        height: 24,
-                      });
-                      setSelectedRecentDay(item.day);
-                      setRecentActionOpen(true);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Body log actions ${item.day}`}
-                    hitSlop={10}
-                    style={styles.rowMenuBtn}
-                  >
-                    <Text style={styles.rowMenuText}>•••</Text>
-                  </Pressable>
-                </Pressable>
-              ))
-            )}
-          </View>
+          <BodyTrendsCard unit={unit} trends={body.trendsV1} onRetryYtd={() => void body.trendsWeightYtd.refetch()} />
         </View>
       </ModuleScreenShell>
-      <BodyLogActionSheet
-        visible={recentActionOpen && selectedRecentDay != null}
-        anchor={recentActionAnchor}
-        onClose={closeRecentActionSheet}
-        onEditLog={() => {
-          closeRecentActionSheet();
-        }}
-        onDeleteLog={() => {
-          closeRecentActionSheet();
-        }}
-      />
     </View>
   );
 }
@@ -380,30 +320,54 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
     gap: 20,
   },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, gap: 12 },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    ...elevatedCardSurfaceStyle,
+  },
   overviewHeader: {
     gap: 8,
+    alignItems: "flex-start",
+    paddingBottom: 2,
   },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
   asOfLabel: { fontSize: 14, fontWeight: "600", color: "#6E6E73" },
   metricRowPressable: { borderRadius: 8 },
   metricRowPressed: { opacity: 0.75 },
-  trailingValueEmpty: { color: "#AEAEB2", fontWeight: "600" },
-  recentHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  placeholder: { fontSize: 15, color: "#8E8E93" },
-  recentRow: {
+  /** Matches Strength overview “label + result” scan line; pill trails right. */
+  bodyMetricLeftSummary: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5EA",
-    paddingVertical: 12,
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 8,
   },
-  recentRowPressed: { opacity: 0.7 },
-  recentDate: { width: 84, fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  recentMain: { flex: 1, gap: 2 },
-  recentValue: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
-  rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
-  rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
+  bodyMetricLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6E6E73",
+    letterSpacing: -0.12,
+    flexShrink: 0,
+  },
+  bodyMetricValue: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3C3C43",
+    letterSpacing: -0.15,
+  },
+  bodyMetricValueEmpty: {
+    color: "#AEAEB2",
+    fontWeight: "600",
+  },
+  bodyRatingPillTrailing: {
+    flexShrink: 0,
+    maxWidth: "40%",
+    alignSelf: "center",
+  },
   syncBanner: {
     backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
     borderRadius: 10,

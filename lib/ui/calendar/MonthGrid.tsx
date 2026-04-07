@@ -8,6 +8,7 @@ import {
 import type { DayKey } from "./types";
 import { getMonthGrid, formatMonthYearLabel, getTodayDayKeyLocal, type MonthYear } from "./dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import { UI_TEXT_PRIMARY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 import { WorkoutDayRing } from "./WorkoutDayRing";
 
 export type MonthGridProps = {
@@ -86,30 +87,34 @@ export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProp
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: "700",
     color: "#1C1C1E",
     textAlign: "center",
-    marginBottom: 12,
+    letterSpacing: -0.28,
+    marginBottom: 14,
   },
   dowRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   dowLabel: {
     flex: 1,
     textAlign: "center",
-    fontSize: 12,
-    color: "#8E8E93",
+    fontSize: 13,
+    fontWeight: "500",
+    color: UI_TEXT_MUTED,
+    letterSpacing: 0.15,
   },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   dayCellEmpty: {
     flex: 1,
@@ -140,9 +145,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayNumber: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
+    fontVariant: ["tabular-nums"],
+    letterSpacing: -0.2,
   },
 });
 

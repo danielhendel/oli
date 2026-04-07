@@ -6,7 +6,11 @@ import { useRouter } from "expo-router";
 
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
+  UI_TAB_ROOT_INSET,
+} from "@/lib/ui/theme/uiTokens";
 import type { MassUnit, UserProfileMain } from "@oli/contracts";
 import {
   formatHeightForDisplay,
@@ -88,6 +92,7 @@ export function ProfileMainScreen({
           showsVerticalScrollIndicator={false}
           bounces
         >
+          <View style={[styles.scrollInner, UI_TAB_ROOT_CONTENT_GUTTER_STYLE]}>
         {showLoadError ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
         {hydrating ? (
@@ -211,6 +216,7 @@ export function ProfileMainScreen({
           Profile and body inputs help tailor your experience. You can skip any optional field. Oli does not ask for
           Social Security numbers, government IDs, or payment details in Profile.
         </Text>
+          </View>
       </ScrollView>
       </View>
     </ScreenContainer>
@@ -226,8 +232,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 40,
+  },
+  scrollInner: {
+    flexGrow: 1,
   },
   sectionLabel: {
     marginTop: 18,
@@ -248,7 +257,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingLeft: 0,
+    paddingRight: 12,
     minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: ROW_DIVIDER,

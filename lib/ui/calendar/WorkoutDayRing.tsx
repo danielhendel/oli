@@ -27,7 +27,7 @@ const RING_MIXED_FILL = SYSTEM_ACCENT_OVERLAY_10;
 
 /** Default ring: slightly finer so selected (emphasized) reads clearly. */
 const STROKE_WIDTH = 1.75;
-const STROKE_WIDTH_EMPHASIZED = 2.75;
+const STROKE_WIDTH_EMPHASIZED = 3;
 
 export type WorkoutDayRingProps = {
   size: number;

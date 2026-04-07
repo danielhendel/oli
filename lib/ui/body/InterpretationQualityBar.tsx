@@ -29,6 +29,7 @@ export function InterpretationQualityBar({ bar }: InterpretationQualityBarProps)
       markerPosition01={d.displayMarker01}
       showMarker={bar.hasValue}
       markerBackgroundColor={d.markerDotColor}
+      markerStyle="elevated"
       dotSize={MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize}
       barHeight={MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight}
       trackRadius={MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius}

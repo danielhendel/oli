@@ -41,10 +41,12 @@ export const moduleOverviewMetricLayoutStyles = StyleSheet.create({
   },
   ratingPillShell: {
     flexShrink: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
     borderRadius: 8,
     maxWidth: "46%",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.12)",
   },
   ratingPillLabel: {
     fontSize: 11,

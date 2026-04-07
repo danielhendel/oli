@@ -4,7 +4,11 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
+  UI_TAB_ROOT_INSET,
+} from "@/lib/ui/theme/uiTokens";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
@@ -86,48 +90,50 @@ export default function LibraryIndexScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        <View style={styles.quickLenses}>
-          {QUICK_LENSES.map((l) => (
-            <Pressable
-              key={l.id}
-              style={styles.lensBtn}
-              onPress={() =>
-                router.push({
-                  pathname: l.path as "/",
-                  params: l.params as Record<string, string>,
-                })
-              }
-            >
-              <Text style={styles.lensBtnText}>{l.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={UI_TAB_ROOT_CONTENT_GUTTER_STYLE}>
+            <View style={styles.quickLenses}>
+              {QUICK_LENSES.map((l) => (
+                <Pressable
+                  key={l.id}
+                  style={styles.lensBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: l.path as "/",
+                      params: l.params as Record<string, string>,
+                    })
+                  }
+                >
+                  <Text style={styles.lensBtnText}>{l.label}</Text>
+                </Pressable>
+              ))}
+            </View>
 
-        <View style={styles.list}>
-          {LIBRARY_CATEGORIES.map((cat) => (
-            <Pressable
-              key={cat.id}
-              style={styles.row}
-              onPress={() => {
-                if (cat.id === "search") {
-                  router.push("/(app)/(tabs)/library/search");
-                } else if (cat.id === "weight") {
-                  router.push("/(app)/body/weight");
-                } else {
-                  router.push({
-                    pathname: "/(app)/(tabs)/library/[category]",
-                    params: { category: cat.id },
-                  });
-                }
-              }}
-              accessibilityLabel={`${cat.title}, ${getCategoryCount(cat)}`}
-            >
-              <Text style={styles.rowTitle}>{cat.title}</Text>
-              <Text style={styles.rowCount}>{getCategoryCount(cat)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+            <View style={styles.list}>
+              {LIBRARY_CATEGORIES.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  style={styles.row}
+                  onPress={() => {
+                    if (cat.id === "search") {
+                      router.push("/(app)/(tabs)/library/search");
+                    } else if (cat.id === "weight") {
+                      router.push("/(app)/body/weight");
+                    } else {
+                      router.push({
+                        pathname: "/(app)/(tabs)/library/[category]",
+                        params: { category: cat.id },
+                      });
+                    }
+                  }}
+                  accessibilityLabel={`${cat.title}, ${getCategoryCount(cat)}`}
+                >
+                  <Text style={styles.rowTitle}>{cat.title}</Text>
+                  <Text style={styles.rowCount}>{getCategoryCount(cat)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </View>
     </ScreenContainer>
   );
@@ -138,7 +144,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 40,
   },
   quickLenses: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
@@ -154,7 +160,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingVertical: 16,
+    paddingLeft: 0,
+    paddingRight: 16,
     backgroundColor: "#FFFFFF",
   },
   rowTitle: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },

@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: tab header, Daily Recap, Stacks + subtitle, category cards to real screens only.
+// Oli — Dash: tab header, Stacks section (subtitle + Daily Recap + stack cards); recap reads as summary of Stacks.
 import React, { useRef } from "react";
 import {
   ScrollView,
@@ -9,6 +9,7 @@ import {
   Pressable,
   Animated,
 } from "react-native";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
@@ -21,6 +22,7 @@ import {
   UI_CARD_SURFACE,
   UI_DASH_CATEGORY_CARD_RADIUS,
   UI_HEADER_CHROME_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER,
   UI_TAB_ROOT_INSET,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
@@ -45,9 +47,6 @@ const SCALE_PRESSED = 0.98;
 const ANIM_DURATION = 100;
 
 const STACKS_TAGLINE = "Optimize your health and fitness — all in one place.";
-
-/** Must match `styles.card` `paddingHorizontal` so Stacks copy aligns with card title text. */
-const DASH_CARD_PADDING_HORIZONTAL = 18;
 
 type DashCardProps = {
   title: string;
@@ -116,16 +115,15 @@ export default function DashScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.recapWrap}>
-            <DashRecapCard model={recapModel} onViewMore={() => router.push("/(app)/dash/daily-recap")} />
-          </View>
-
           <View style={styles.stacksSection}>
             <View style={styles.stacksHeaderInset}>
               <Text style={styles.sectionHeading} accessibilityRole="header">
                 Stacks
               </Text>
               <Text style={styles.stacksTagline}>{STACKS_TAGLINE}</Text>
+            </View>
+            <View style={styles.recapInStacksSection}>
+              <DashRecapCard model={recapModel} onViewMore={() => router.push("/(app)/dash/daily-recap")} />
             </View>
             <View style={styles.cards}>
               {MANAGE_DATA_CARDS.map((card) => (
@@ -156,44 +154,47 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 40,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },
-  recapWrap: { marginTop: 4 },
-  /** Groups Stacks header + cards; cards share full width with scroll content inset. */
+  /** Stacks = parent section: heading, tagline, Daily Recap (section summary), then module cards. */
   stacksSection: {},
   /** Inset matches card inner padding so “Stacks” / tagline align with category row titles. */
   stacksHeaderInset: {
-    paddingHorizontal: DASH_CARD_PADDING_HORIZONTAL,
+    paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
   },
-  /** Below Oli (28 / 900): smaller size + bold 700 preserves Oli > Stacks hierarchy. */
   sectionHeading: {
-    marginTop: 28,
+    marginTop: 18,
     marginBottom: 0,
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
     color: UI_TEXT_PRIMARY,
-    letterSpacing: 0.25,
+    letterSpacing: -0.2,
   },
   stacksTagline: {
     fontSize: 17,
     fontWeight: "400",
     color: UI_TEXT_SLATE_COOL,
-    marginTop: 5,
+    marginTop: 7,
     marginBottom: 12,
     lineHeight: 26,
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
+  },
+  /** Daily Recap sits inside Stacks — spacing after subtitle, before stack cards. */
+  recapInStacksSection: {
+    marginBottom: 16,
   },
   cards: {
     gap: 14,
   },
   card: {
     width: "100%",
+    ...elevatedCardSurfaceStyle,
     borderRadius: UI_DASH_CATEGORY_CARD_RADIUS,
     paddingVertical: 16,
-    paddingHorizontal: DASH_CARD_PADDING_HORIZONTAL,
+    paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
     minHeight: 68,
     justifyContent: "center",
   },

@@ -13,6 +13,7 @@ import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOvervie
 import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { LoadingState } from "@/lib/ui/ScreenStates";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 type StrengthOverviewCardProps = {
   loading: boolean;
@@ -23,7 +24,7 @@ type StrengthOverviewCardProps = {
 /**
  * Strength-only tier palette (not Body interpretation zones).
  * Tier chroma: Low #E57373, Developing #F2D06B, Solid #E6A15C, Strong #5EC08C, Optimal #5C8FE6.
- * Bar segments: same RGB at ~35% alpha on white. Pill fg + marker: full-opacity tier hex. Pill bg: soft opaque tints.
+ * Bar segments: same RGB at ~35% alpha on white. Pill fg: tier chroma (API/tests). Bar marker: neutral elevated dot. Pill bg: soft opaque tints.
  */
 const STRENGTH_OVERVIEW_TIER_COLORS: Record<
   StrengthOverviewTimeframeRatingTier,
@@ -66,6 +67,12 @@ const RATING_PILL_STYLES: Record<StrengthOverviewTimeframeRatingTier, { bg: stri
     {} as Record<StrengthOverviewTimeframeRatingTier, { bg: string; fg: string }>,
   );
 
+/** Tier tint stays on pill shell; label text reads in neutral ink (Strength overview). */
+const STRENGTH_RATING_PILL_LABEL_INK = "#111827";
+
+/** Consistency bar marker: dark neutral fill + elevated halo (see {@link SegmentedZoneTrack} `markerStyle`). */
+const STRENGTH_CONSISTENCY_MARKER_FILL = "#1F2937";
+
 const TIER_FOR_RATING_LABEL: Record<StrengthOverviewTimeframeRatingLabel, StrengthOverviewTimeframeRatingTier> = {
   Low: "low",
   Developing: "developing",
@@ -95,16 +102,13 @@ function clamp01(x: number): number {
 function StrengthOverviewConsistencyTrack({
   testID,
   markerPosition01,
-  ratingLabel,
 }: {
   testID: string;
   /** 0–1 along full track; must already lie inside the tier segment (see {@link computeStrengthOverviewMarkerPosition01}). */
   markerPosition01: number;
-  ratingLabel: StrengthOverviewTimeframeRatingLabel;
 }) {
   const marker01 = clamp01(markerPosition01);
   const pct = Math.round(marker01 * 100);
-  const markerColor = getStrengthOverviewMarkerColorForRatingLabel(ratingLabel);
 
   return (
     <SegmentedZoneTrack
@@ -112,7 +116,8 @@ function StrengthOverviewConsistencyTrack({
       testID={testID}
       markerPosition01={marker01}
       showMarker
-      markerBackgroundColor={markerColor}
+      markerBackgroundColor={STRENGTH_CONSISTENCY_MARKER_FILL}
+      markerStyle="elevated"
       dotSize={MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize}
       barHeight={MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight}
       trackRadius={MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius}
@@ -155,19 +160,32 @@ export function StrengthOverviewCard({ loading, model, onViewMore }: StrengthOve
             return (
               <View key={tf.key} style={moduleOverviewMetricLayoutStyles.metricBlock} accessibilityLabel={a11y} accessible>
                 <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                  <View style={moduleOverviewMetricLayoutStyles.titlePillCluster}>
-                    <Text style={moduleOverviewMetricLayoutStyles.primaryLabel} numberOfLines={1}>
+                  <View style={styles.leftSummary}>
+                    <Text style={styles.timeframeLabel} numberOfLines={1}>
                       {tf.label}
                     </Text>
-                    <View style={[moduleOverviewMetricLayoutStyles.ratingPillShell, { backgroundColor: pill.bg }]}>
-                      <Text style={[moduleOverviewMetricLayoutStyles.ratingPillLabel, { color: pill.fg }]} numberOfLines={1}>
-                        {tf.rating.label}
-                      </Text>
-                    </View>
+                    <Text
+                      style={styles.resultSummary}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {tf.compactStatsSummary}
+                    </Text>
                   </View>
-                  <Text style={moduleOverviewMetricLayoutStyles.trailingValue} numberOfLines={1}>
-                    {tf.compactStatsSummary}
-                  </Text>
+                  <View
+                    style={[
+                      moduleOverviewMetricLayoutStyles.ratingPillShell,
+                      styles.ratingPillTrailing,
+                      { backgroundColor: pill.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[moduleOverviewMetricLayoutStyles.ratingPillLabel, { color: STRENGTH_RATING_PILL_LABEL_INK }]}
+                      numberOfLines={1}
+                    >
+                      {tf.rating.label}
+                    </Text>
+                  </View>
                 </View>
                 <StrengthOverviewConsistencyTrack
                   testID={`strength-overview-consistency-bar-${tf.key}`}
@@ -175,7 +193,6 @@ export function StrengthOverviewCard({ loading, model, onViewMore }: StrengthOve
                     tier: tf.rating.tier,
                     scoringAvg: tf.rating.scoringAvg,
                   })}
-                  ratingLabel={tf.rating.label}
                 />
               </View>
             );
@@ -192,8 +209,40 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     gap: 12,
+    ...elevatedCardSurfaceStyle,
   },
   headerRow: {
     alignItems: "flex-start",
+    paddingBottom: 2,
+  },
+  /** Timeframe + numeric result (scan line); pill sits on the right. */
+  leftSummary: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 8,
+  },
+  timeframeLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6E6E73",
+    letterSpacing: -0.12,
+    flexShrink: 0,
+  },
+  resultSummary: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3C3C43",
+    letterSpacing: -0.15,
+  },
+  /** Overrides shared shell when pill is the trailing control (no max-width squeeze with title). */
+  ratingPillTrailing: {
+    flexShrink: 0,
+    maxWidth: "40%",
+    alignSelf: "center",
   },
 });

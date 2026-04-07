@@ -66,7 +66,7 @@ describe("Dash Recap card", () => {
     mockUseDashRecapData.mockReset();
   });
 
-  it("renders Daily Recap before Stacks and tagline when model is ready", () => {
+  it("renders Stacks and tagline before Daily Recap when model is ready", () => {
     mockUseDashRecapData.mockReturnValue({
       kind: "ready",
       dayKey: "2026-04-05",
@@ -100,8 +100,8 @@ describe("Dash Recap card", () => {
     expect(text).toContain("View More");
     expect(idxStacks).toBeGreaterThan(-1);
     expect(idxTagline).toBeGreaterThan(-1);
-    expect(idxStacks).toBeGreaterThan(idxRecap);
-    expect(idxTagline).toBeGreaterThan(idxStacks);
+    expect(idxStacks).toBeLessThan(idxTagline);
+    expect(idxTagline).toBeLessThan(idxRecap);
     expect(text).toContain("176.4 lb");
     expect(text).toContain("Cardio Sessions");
     expect(text).toContain("2");

@@ -121,6 +121,7 @@ import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBot
 import { buildStrengthOverviewCardModel } from "@/lib/data/workouts/strengthOverviewCardModel";
 import { StrengthOverviewCard } from "@/lib/ui/workouts/StrengthOverviewCard";
 import { WeeklyInsightsCard } from "@/lib/ui/workouts/WeeklyInsightsCard";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { serializeStrengthAnalyticsFocusParams } from "@/lib/workouts/navigation/strengthAnalyticsNavigationIntent";
 
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
@@ -173,6 +174,27 @@ function formatWorkoutDayLabel(dayKey: string): string {
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
   return `${wd} ${month}/${day}`;
+}
+
+function countJournalSetsForDisplay(summary: ManualWorkoutDaySummary | null): number {
+  if (summary == null) return 0;
+  let n = 0;
+  for (const ex of summary.exercises) {
+    n += ex.sets.length;
+  }
+  return n;
+}
+
+/** Recent row line 3: duration; strength appends journal set count when present (display-only). */
+function formatRecentWorkoutMetaLine(
+  domain: WorkoutProductDomain,
+  durationLabel: string,
+  journalSummary: ManualWorkoutDaySummary | null,
+): string {
+  if (domain !== "strength") return durationLabel;
+  const n = countJournalSetsForDisplay(journalSummary);
+  if (n > 0) return `${durationLabel} · ${n} set${n === 1 ? "" : "s"}`;
+  return durationLabel;
 }
 
 function getDeviceTimezone(): string {
@@ -880,7 +902,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
           {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
         </Text>
       ) : (
-        recentSessionsShownOnOverview.map(({ day, session }) => {
+        recentSessionsShownOnOverview.map(({ day, session }, rowIndex) => {
           const representative = session.workouts[0];
           if (!representative) return null;
           const journalSummary =
@@ -907,10 +929,15 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
             }),
           );
+          const metaLine = formatRecentWorkoutMetaLine(domain, durationLabel, journalSummary);
           return (
             <Pressable
               key={session.id}
-              style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
+              style={({ pressed }) => [
+                styles.recentRow,
+                rowIndex === 0 && styles.recentRowFirst,
+                pressed && styles.recentRowPressed,
+              ]}
               onPress={() => {
                 router.push({
                   pathname:
@@ -923,13 +950,13 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               accessibilityRole="button"
               accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
             >
-              <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
-              <View style={styles.recentMain}>
-                <Text style={styles.recentTitle} numberOfLines={1}>
+              <View style={styles.recentRowTextCol}>
+                <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
                   {surface.displayTitle}
                 </Text>
-                <Text style={styles.recentMeta} numberOfLines={1}>
-                  {durationLabel}
+                <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
+                  {metaLine}
                 </Text>
               </View>
               <Pressable
@@ -1087,8 +1114,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: CARD_BG,
     borderRadius: RADIUS,
-    padding: 16,
-    gap: 12,
+    padding: 14,
+    gap: 10,
+    ...elevatedCardSurfaceStyle,
   },
   placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
   metricRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -1096,20 +1124,52 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   recentRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 12,
+    alignItems: "center",
+    paddingVertical: 11,
     borderTopWidth: 1,
-    borderTopColor: "#E5E5EA",
+    borderTopColor: "rgba(60, 60, 67, 0.055)",
+    gap: 2,
+  },
+  /** Most recent session: no rule above so the list reads as one block from the header. */
+  recentRowFirst: {
+    borderTopWidth: 0,
   },
   recentRowPressed: {
     opacity: 0.7,
   },
-  recentDate: { width: 84, fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  recentMain: { flex: 1, gap: 2 },
-  recentTitle: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
-  recentMeta: { fontSize: 12, fontWeight: "400", color: "#AEAEB2", letterSpacing: -0.05 },
-  rowMenuBtn: { paddingHorizontal: 10, paddingVertical: 6, marginTop: -2 },
-  rowMenuText: { fontSize: 18, color: "#6E6E73", fontWeight: "700" },
+  recentRowTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  recentDate: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#8E8E93",
+    letterSpacing: -0.05,
+  },
+  recentTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.28,
+    lineHeight: 21,
+  },
+  recentMeta: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6E6E73",
+    letterSpacing: -0.1,
+  },
+  rowMenuBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    alignSelf: "center",
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 36,
+  },
+  rowMenuText: { fontSize: 17, color: "#3C3C43", fontWeight: "700", letterSpacing: 0.5 },
   editorInput: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,

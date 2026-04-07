@@ -6,6 +6,8 @@ import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useBodyOverviewPeek } from "@/lib/data/body/useBodyOverviewPeek";
 import { useBodyOverviewSnapshotDayPeek } from "@/lib/data/body/useBodyOverviewSnapshotDayPeek";
 import { useAppleHealthBodySync } from "@/lib/data/body/useAppleHealthBodySync";
+import { ytdBoundsForAnchorDay } from "@/lib/data/body/bodyHistoryRange";
+import { useBodyMetricTrends, type BodyMetricTrendsState } from "@/lib/data/body/useBodyMetricTrends";
 import { filterToAppleHealthBodyReadSources } from "@/lib/data/body/sourceFiltering";
 import {
   bodyMarkerDays,
@@ -23,8 +25,88 @@ export type BodyRecentItem = {
 };
 
 /**
- * Main Body overview: weight series (5Y) + one-page peek + daily facts for snapshot day.
- * Does not load full multi-metric trends (detail screens only).
+ * YTD band: low/high = min/max weight (kg) in the YTD query window; current = latest sample in-window by `observedAt`.
+ * Not an interpretation / quality bar — pure placement on the min–max weight span.
+ */
+export type BodyTrendsV1WeightYtd = {
+  trendYear: number;
+  windowLabel: string;
+  trendsStatus: "partial" | "ready" | "error";
+  /** `buildStats` change (last − first by `observedAt`) in YTD window; kg. */
+  changeKg: number | null;
+  bandLowKg: number | null;
+  bandHighKg: number | null;
+  bandCurrentKg: number | null;
+  sampleCount: number | null;
+  errorMessage?: string;
+  requestId?: string | null;
+};
+
+export type BodyTrendsV1Weight = {
+  /** Overview snapshot weight + weekly delta from `useWeightSeries` 5Y view model (`weeklyDeltaKg`). */
+  latest: {
+    currentKg: number | null;
+    seriesStatus: "partial" | "ready" | "error";
+    weeklyDeltaKg: number | null;
+  };
+  ytd: BodyTrendsV1WeightYtd;
+};
+
+/** View-model for {@link BodyTrendsCard} (weight-only). */
+export type BodyTrendsV1 = BodyTrendsV1Weight;
+
+function bodyTrendsYtdFromState(anchorDayKey: string, state: BodyMetricTrendsState): BodyTrendsV1WeightYtd {
+  const win = ytdBoundsForAnchorDay(anchorDayKey);
+  const windowLabel = `${win.start} → ${win.end}`;
+  const trendYear = Number(anchorDayKey.slice(0, 4));
+  const safeYear = Number.isFinite(trendYear) && trendYear >= 1 ? trendYear : new Date().getFullYear();
+
+  if (state.status === "partial") {
+    return {
+      trendYear: safeYear,
+      windowLabel,
+      trendsStatus: "partial",
+      changeKg: null,
+      bandLowKg: null,
+      bandHighKg: null,
+      bandCurrentKg: null,
+      sampleCount: null,
+    };
+  }
+  if (state.status === "error") {
+    return {
+      trendYear: safeYear,
+      windowLabel,
+      trendsStatus: "error",
+      changeKg: null,
+      bandLowKg: null,
+      bandHighKg: null,
+      bandCurrentKg: null,
+      sampleCount: null,
+      errorMessage: state.error,
+      requestId: state.requestId,
+    };
+  }
+  const pts = state.data.byMetric.weight;
+  const sorted = [...pts].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+  const bandCurrentKg = sorted.length ? sorted[sorted.length - 1]!.weightKg : null;
+  const w = state.data.statsByMetric.weight;
+  return {
+    trendYear: safeYear,
+    windowLabel,
+    trendsStatus: "ready",
+    changeKg: w.change,
+    bandLowKg: w.low,
+    bandHighKg: w.high,
+    bandCurrentKg,
+    sampleCount: pts.length,
+  };
+}
+
+/**
+ * Main Body overview: weight series (5Y) + one-page peek + daily facts for snapshot day +
+ * `useBodyMetricTrends("YTD", "weight", { anchorDayKey })` for annual summary +
+ * `weeklyDeltaKg` from `useWeightSeries` for “this week”.
  */
 export function useBodyOverviewData() {
   const series = useWeightSeries("5Y");
@@ -48,12 +130,14 @@ export function useBodyOverviewData() {
   const factsDay = overviewDay ?? today;
   const dayFacts = useDailyFacts(factsDay);
   const snapshotDayPeek = useBodyOverviewSnapshotDayPeek(overviewDay);
+  const trendsWeightYtd = useBodyMetricTrends("YTD", "weight", { anchorDayKey: factsDay });
 
   const { isBodySyncing, syncAppleHealthBodyNow, hasSuccessfulBodySync } = useAppleHealthBodySync(() => {
     void series.refetch({ cacheBust: `appleHealthBody:${Date.now()}` });
     void peek.refetch({ cacheBust: `appleHealthPeek:${Date.now()}` });
     void snapshotDayPeek.refetch({ cacheBust: `appleHealthSnapshotPeek:${Date.now()}` });
     void dayFacts.refetch({ cacheBust: `appleHealthBody:${Date.now()}` });
+    void trendsWeightYtd.refetch({ cacheBust: `appleHealthBody:${Date.now()}` });
   });
 
   const derived = useMemo(() => {
@@ -166,9 +250,21 @@ export function useBodyOverviewData() {
     };
   }, [overviewDay, derived.byDay, peek, snapshotDayPeek, dayFacts, tz]);
 
+  const trendsV1 = useMemo((): BodyTrendsV1 => {
+    return {
+      latest: {
+        currentKg: overview.weightKg,
+        seriesStatus: series.status,
+        weeklyDeltaKg: series.status === "ready" ? series.data.weeklyDeltaKg : null,
+      },
+      ytd: bodyTrendsYtdFromState(factsDay, trendsWeightYtd),
+    };
+  }, [overview.weightKg, series, factsDay, trendsWeightYtd]);
+
   return {
     today,
     series,
+    trendsWeightYtd,
     peek,
     snapshotDayPeek,
     dayFacts,
@@ -177,5 +273,6 @@ export function useBodyOverviewData() {
     hasSuccessfulBodySync,
     ...derived,
     overview,
+    trendsV1,
   };
 }

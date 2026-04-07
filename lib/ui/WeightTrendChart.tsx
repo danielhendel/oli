@@ -181,7 +181,7 @@ function ticksForRangeUsingData(
     return ticks;
   }
 
-  if (range === "1Y") {
+  if (range === "1Y" || range === "YTD") {
     const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
     const triple = [dataStartMs, midT, dataEndMs] as const;
     triple.forEach((tMs, i) => {

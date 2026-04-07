@@ -35,6 +35,9 @@ export const UI_BORDER_HAIRLINE = "#E5E5EA";
 export const UI_SCREEN_BG = "#F2F2F7";
 export const UI_CARD_SURFACE = "#FFFFFF";
 
+/** 1px edge on elevated white cards over grouped backgrounds — barely visible, iOS-style hairline. */
+export const UI_CARD_ELEVATED_BORDER = "rgba(60, 60, 67, 0.08)";
+
 /** App-wide grouped page root (tab roots, ScreenContainer default). Calm blue-gray. */
 export const UI_APP_SCREEN_BG = "#EEF3F8";
 
@@ -42,9 +45,19 @@ export const UI_APP_SCREEN_BG = "#EEF3F8";
 export const UI_DASH_SCREEN_BG = UI_APP_SCREEN_BG;
 
 /**
- * Horizontal inset for tab root headers and scroll content so title, gear, and cards share one grid.
+ * Horizontal inset for tab root scroll areas and the outer edge of grouped content (card shells).
  */
 export const UI_TAB_ROOT_INSET = 20;
+
+/**
+ * Inner gutter from `UI_TAB_ROOT_INSET` so tab header titles and primary row / card text share one vertical alignment.
+ */
+export const UI_TAB_ROOT_CONTENT_GUTTER = 18;
+
+/** Apply inside tab-root scroll bodies (after horizontal `UI_TAB_ROOT_INSET`) for primary text alignment. */
+export const UI_TAB_ROOT_CONTENT_GUTTER_STYLE = {
+  paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
+} as const;
 
 /** Default corner radius for white cards on grouped backgrounds (non-Dash). */
 export const UI_GROUPED_CARD_RADIUS = 16;

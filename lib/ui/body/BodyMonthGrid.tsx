@@ -7,6 +7,7 @@ import {
   getTodayDayKeyLocal,
   type MonthYear,
 } from "@/lib/ui/calendar/dateUtils";
+import { UI_TEXT_PRIMARY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 import { BodyDayRing } from "./BodyDayRing";
 
 type BodyMonthGridProps = {
@@ -72,17 +73,25 @@ export function BodyMonthGrid({ monthYear, markerForDay, onDayPress }: BodyMonth
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, paddingTop: 4 },
+  container: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: "700",
     color: "#1C1C1E",
     textAlign: "center",
-    marginBottom: 12,
+    letterSpacing: -0.28,
+    marginBottom: 14,
   },
-  dowRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  dowLabel: { flex: 1, textAlign: "center", fontSize: 12, color: "#8E8E93" },
-  weekRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  dowRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  dowLabel: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "500",
+    color: UI_TEXT_MUTED,
+    letterSpacing: 0.15,
+  },
+  weekRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
   dayCellEmpty: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 44 },
   dayCell: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 44 },
   dayCellPressed: { opacity: 0.7 },
@@ -99,6 +108,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dayNumber: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  dayNumber: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+    fontVariant: ["tabular-nums"],
+    letterSpacing: -0.2,
+  },
 });
 
