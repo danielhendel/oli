@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { LayoutChangeEvent, StyleSheet, View, type ViewProps } from "react-native";
+import { LayoutChangeEvent, Platform, StyleSheet, View, type ViewProps } from "react-native";
 
 import { clampedDotLeftPx } from "@/lib/ui/body/interpretationBarDotLayout";
 import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
@@ -25,6 +25,11 @@ export type SegmentedZoneTrackProps = {
   dotSize?: number;
   barHeight?: number;
   trackRadius?: number;
+  /**
+   * `elevated` — white halo + soft shadow + vertical centering (Strength + Body overview markers).
+   * Default keeps the compact hairline ring for Dash recap.
+   */
+  markerStyle?: "default" | "elevated";
   /** Applied to the outer wrapper (layout + testID are owned by this component). */
   wrapperProps?: Omit<ViewProps, "children" | "onLayout" | "testID" | "style"> & {
     style?: ViewProps["style"];
@@ -44,6 +49,7 @@ export function SegmentedZoneTrack({
   dotSize = DEFAULT_DOT_SIZE,
   barHeight = DEFAULT_BAR_HEIGHT,
   trackRadius = DEFAULT_TRACK_RADIUS,
+  markerStyle = "default",
   wrapperProps,
 }: SegmentedZoneTrackProps) {
   const [trackW, setTrackW] = useState(0);
@@ -58,9 +64,37 @@ export function SegmentedZoneTrack({
   const dotLeft =
     showMarker && trackW > 0 ? clampedDotLeftPx(trackW, marker01, dotSize) : undefined;
 
+  const os = typeof Platform !== "undefined" && Platform.OS != null ? Platform.OS : "ios";
+
+  const markerElevated = markerStyle === "elevated";
+  const dotTop = markerElevated ? (barHeight - dotSize) / 2 : 0;
+
+  const markerDotShadow =
+    markerElevated && os === "ios"
+      ? {
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+        }
+      : markerElevated && os === "android"
+        ? { elevation: 1 }
+        : {};
+
   const zonesTestID = testID != null ? `${testID}-zones` : undefined;
   const markerTestID = testID != null ? `${testID}-marker` : undefined;
   const { style: wrapperStyle, ...wrapperRest } = wrapperProps ?? {};
+  const rimShadow =
+    os === "ios"
+      ? {
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.06,
+          shadowRadius: 3,
+        }
+      : os === "android"
+        ? { elevation: 2 }
+        : {};
 
   return (
     <View
@@ -70,30 +104,44 @@ export function SegmentedZoneTrack({
       onLayout={onTrackLayout}
     >
       <View
-        style={[styles.zonesClip, { borderRadius: trackRadius, height: barHeight }]}
-        {...(zonesTestID != null ? { testID: zonesTestID } : {})}
+        style={[
+          styles.trackRim,
+          {
+            height: barHeight,
+            borderRadius: trackRadius,
+            ...rimShadow,
+          },
+        ]}
         importantForAccessibility="no"
       >
-        <View style={[styles.zonesRow, { height: barHeight }]} importantForAccessibility="no">
-          {zoneColors.map((color, i) => (
-            <View
-              key={i}
-              style={[styles.zone, { backgroundColor: color }]}
-              importantForAccessibility="no"
-            />
-          ))}
+        <View
+          style={[styles.zonesClip, { borderRadius: trackRadius, height: barHeight }]}
+          {...(zonesTestID != null ? { testID: zonesTestID } : {})}
+          importantForAccessibility="no"
+        >
+          <View style={[styles.zonesRow, { height: barHeight }]} importantForAccessibility="no">
+            {zoneColors.map((color, i) => (
+              <View
+                key={i}
+                style={[styles.zone, { backgroundColor: color }]}
+                importantForAccessibility="no"
+              />
+            ))}
+          </View>
         </View>
       </View>
       {dotLeft != null ? (
         <View
           style={[
-            styles.markerDot,
+            markerElevated ? styles.markerDotElevated : styles.markerDot,
             {
               left: dotLeft,
+              top: dotTop,
               width: dotSize,
               height: dotSize,
               borderRadius: dotSize / 2,
               backgroundColor: markerBackgroundColor,
+              ...markerDotShadow,
             },
           ]}
           importantForAccessibility="no"
@@ -110,6 +158,11 @@ const styles = StyleSheet.create({
     position: "relative",
     justifyContent: "center",
   },
+  trackRim: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.11)",
+    backgroundColor: "#FFFFFF",
+  },
   zonesClip: {
     overflow: "hidden",
   },
@@ -125,5 +178,10 @@ const styles = StyleSheet.create({
     top: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.85)",
+  },
+  markerDotElevated: {
+    position: "absolute",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
 });

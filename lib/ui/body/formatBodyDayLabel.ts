@@ -1,10 +1,6 @@
-const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { formatDayKeyWeekdayShortMonthDay } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 export function formatBodyDayLabel(dayKey: string): string {
-  const d = new Date(`${dayKey}T12:00:00.000Z`);
-  const wd = WEEKDAY_SHORT[d.getUTCDay()] ?? "";
-  const month = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
-  return `${wd} ${month}/${day}`;
+  return formatDayKeyWeekdayShortMonthDay(dayKey as DayKey);
 }
-

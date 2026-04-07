@@ -1,7 +1,7 @@
 // Shared title row for tab pages: title (and optional subtitle) left, optional rightSlot (e.g. Settings gear) right.
 // Gear is in the same row as the title so it aligns with the title line; subtitle sits below.
 import { View, Text, StyleSheet } from "react-native";
-import { UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
+import { UI_TEXT_MUTED, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type PageTitleRowProps = {
   title: string;
@@ -45,9 +45,10 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     minWidth: 0,
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#1C1C1E",
+    fontSize: 22,
+    fontWeight: "600",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: 0.15,
   },
   rightSlot: { marginLeft: 8 },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 6 },

@@ -1,6 +1,7 @@
 // lib/ui/dash/DashRecapCard.tsx
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import type { DashRecapViewModel } from "@/lib/data/dash/dashRecapViewModel";
 import { dashRecapRowAccessibilityLabel } from "@/lib/data/dash/dashRecapA11y";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
@@ -8,9 +9,13 @@ import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOver
 import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
 import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
-import { formatOverviewAsOfLabel } from "@/lib/ui/body/formatOverviewAsOfLabel";
+import { formatOverviewAsOfLabel } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
-import { UI_CARD_SURFACE, UI_DASH_RECAP_CARD_RADIUS } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_CARD_SURFACE,
+  UI_DASH_RECAP_CARD_RADIUS,
+  UI_TAB_ROOT_CONTENT_GUTTER,
+} from "@/lib/ui/theme/uiTokens";
 
 /** Marker fill: neutral gray — does not encode Strength tier semantics. */
 const DASH_RECAP_PLACEMENT_MARKER_COLOR = "#6E6E73";
@@ -162,8 +167,10 @@ export function DashRecapCard({ model, onViewMore }: DashRecapCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: UI_CARD_SURFACE,
+    ...elevatedCardSurfaceStyle,
     borderRadius: UI_DASH_RECAP_CARD_RADIUS,
-    padding: 20,
+    paddingVertical: 20,
+    paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
     gap: 12,
   },
   headerRow: {

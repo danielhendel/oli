@@ -14,9 +14,9 @@ export const workoutOverviewInCardHeaderStyles = StyleSheet.create({
   },
   title: {
     fontSize: 21,
-    fontWeight: "800",
+    fontWeight: "900",
     color: "#1C1C1E",
-    letterSpacing: -0.35,
+    letterSpacing: -0.38,
   },
   linkHit: { paddingVertical: 4, paddingLeft: 8 },
   link: { fontSize: 15, fontWeight: "600", color: UI_LINK_SECONDARY, letterSpacing: -0.2 },

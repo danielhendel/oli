@@ -7,7 +7,11 @@ import { OfflineBanner } from "@/lib/ui/OfflineBanner";
 import { TruthIndicator } from "@/lib/ui/TruthIndicators";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
+  UI_TAB_ROOT_INSET,
+} from "@/lib/ui/theme/uiTokens";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo, useState, useCallback } from "react";
 import {
@@ -99,6 +103,7 @@ export default function TimelineIndexScreen() {
               <>
                 <OfflineBanner isOffline={fromCache} />
                 <View style={styles.scroll}>
+                  <View style={[styles.scrollBody, UI_TAB_ROOT_CONTENT_GUTTER_STYLE]}>
                   <View style={styles.navRow}>
                   <View style={styles.viewModeRow}>
                     {VIEW_MODES.map((m) => (
@@ -145,6 +150,7 @@ export default function TimelineIndexScreen() {
                 />
               ) : (
                 <FlatList
+                  style={styles.listFlex}
                   data={days}
                   keyExtractor={(d) => d.day}
                   renderItem={({ item: d }) => (
@@ -244,7 +250,8 @@ export default function TimelineIndexScreen() {
                     </View>
                 </Pressable>
               </Pressable>
-            </Modal>
+              </Modal>
+                  </View>
                 </View>
               </>
             );
@@ -262,9 +269,12 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 8,
-    paddingBottom: 40,
+    paddingTop: 6,
     backgroundColor: UI_APP_SCREEN_BG,
+  },
+  scrollBody: {
+    flex: 1,
+    paddingBottom: 40,
   },
   listHeader: { height: 16 },
   listFooter: { height: 40 },
@@ -307,11 +317,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 6,
   },
+  listFlex: { flex: 1 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingVertical: 16,
+    paddingLeft: 0,
+    paddingRight: 12,
     backgroundColor: "#F2F2F7",
     borderRadius: 12,
   },

@@ -116,17 +116,20 @@ type TrendRow = {
  *
  * @param filterMetric — when set, only that metric is populated (and only the matching raw `kind(s)` are requested).
  * @param opts.enabled — when false, skips network (e.g. invalid route guard).
+ * @param opts.anchorDayKey — when `chartRange` is `YTD`, passed to {@link resolveBodyHistoryQueryWindow} (overview snapshot day, etc.).
  */
 export function useBodyMetricTrends(
   chartRange: WeightRangeKey,
   filterMetric?: BodyTrendMetric,
-  opts?: { enabled?: boolean },
+  opts?: { enabled?: boolean; anchorDayKey?: string },
 ): State & { refetch: (opts?: GetOptions) => void } {
   const { user, initializing, getIdToken } = useAuth();
   const rangeRef = useRef(chartRange);
   rangeRef.current = chartRange;
   const metricRef = useRef(filterMetric);
   metricRef.current = filterMetric;
+  const anchorDayKeyRef = useRef(opts?.anchorDayKey);
+  anchorDayKeyRef.current = opts?.anchorDayKey;
   const enabledRef = useRef(opts?.enabled !== false);
   enabledRef.current = opts?.enabled !== false;
   const reqSeq = useRef(0);
@@ -158,7 +161,11 @@ export function useBodyMetricTrends(
       safeSet({ status: "partial" });
       const optsUnique = withUniqueCacheBust(opts, seq);
       const tz = getDeviceTimezone();
-      const { start, end } = resolveBodyHistoryQueryWindow(rangeRef.current);
+      const anchor = anchorDayKeyRef.current;
+      const { start, end } = resolveBodyHistoryQueryWindow(
+        rangeRef.current,
+        anchor !== undefined ? { anchorDayKey: anchor } : undefined,
+      );
       const fm = metricRef.current;
       const kinds = fm ? trendKindsForMetric(fm) : (["weight", "body_composition"] as const);
 
@@ -311,12 +318,12 @@ export function useBodyMetricTrends(
       };
       safeSet({ status: "ready", data: { byMetric, statsByMetric } });
     },
-    [getIdToken, initializing, user, chartRange, filterMetric, opts?.enabled],
+    [getIdToken, initializing, user, chartRange, filterMetric, opts?.enabled, opts?.anchorDayKey],
   );
 
   useEffect(() => {
     void loadOnce();
-  }, [loadOnce, chartRange, filterMetric, opts?.enabled, user?.uid]);
+  }, [loadOnce, chartRange, filterMetric, opts?.enabled, opts?.anchorDayKey, user?.uid]);
 
   return useMemo(() => ({ ...state, refetch: loadOnce }), [state, loadOnce]);
 }

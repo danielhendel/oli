@@ -33,7 +33,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="body/calendar"
-            options={{ title: "Body Calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="body/day/[day]"
@@ -77,7 +77,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="nutrition/calendar"
-            options={{ title: "Nutrition Calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="nutrition/settings"
@@ -89,7 +89,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="workouts/calendar"
-            options={{ title: "Strength Calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/day/[day]"
@@ -145,7 +145,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="cardio/calendar"
-            options={{ title: "Cardio Calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="cardio/day/[day]"
@@ -184,7 +184,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="recovery/sleep/calendar"
-            options={{ title: "Sleep calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="recovery/readiness"
@@ -196,7 +196,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="recovery/readiness/calendar"
-            options={{ title: "Readiness calendar", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />

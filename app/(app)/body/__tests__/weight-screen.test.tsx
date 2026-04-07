@@ -30,6 +30,14 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => {
+  const actual = jest.requireActual<typeof import("@/lib/ui/calendar/dateUtils")>("@/lib/ui/calendar/dateUtils");
+  return {
+    ...actual,
+    getTodayDayKeyLocal: jest.fn(() => "2026-04-06"),
+  };
+});
+
 const mockHook = jest.fn();
 jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: (...args: unknown[]) => mockHook(...args),
@@ -75,11 +83,33 @@ function buildPoint(dayKey: string, observedAt = `${dayKey}T07:00:00.000Z`): Wei
   return { dayKey, observedAt, weightKg: 80, sourceId: "healthkit" };
 }
 
+function defaultTrendsV1() {
+  return {
+    latest: {
+      currentKg: null as number | null,
+      seriesStatus: "ready" as const,
+      weeklyDeltaKg: null as number | null,
+    },
+    ytd: {
+      trendYear: 2026,
+      windowLabel: "2026-01-01 → 2026-04-07",
+      trendsStatus: "ready" as const,
+      changeKg: null as number | null,
+      bandLowKg: null as number | null,
+      bandHighKg: null as number | null,
+      bandCurrentKg: null as number | null,
+      sampleCount: 0 as number | null,
+    },
+  };
+}
+
 function buildBody(overrides: Record<string, unknown> = {}) {
   return {
     today: "2026-03-31",
     peek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
     snapshotDayPeek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
+    trendsWeightYtd: { refetch: jest.fn(), status: "ready" as const },
+    trendsV1: defaultTrendsV1(),
     series: {
       status: "ready" as const,
       data: { points: [] as WeightPoint[], latest: null },
@@ -129,7 +159,8 @@ describe("Body Composition main screen", () => {
     const text = collectText(tree);
     expect(text).toContain("Overview");
     expect(text).toContain("No overview data yet");
-    expect(text).toContain("Recent");
+    expect(text).toContain("2026 Weight Trend");
+    expect(text).not.toContain("Recent");
   });
 
   it("shows As of label when overview snapshot day is known", () => {
@@ -159,7 +190,7 @@ describe("Body Composition main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("As of 3/31");
+    expect(text).toContain("As of Tue 3/31");
   });
 
   it("routes to weight metric detail when Weight row is pressed", () => {
@@ -362,65 +393,6 @@ describe("Body Composition main screen", () => {
       pathname: "/(app)/body/day/[day]",
       params: { day },
     });
-  });
-
-  it("routes to body day from recent row tap", () => {
-    const day = "2026-03-31";
-    mockHook.mockReturnValue(
-      buildBody({
-        today: "2026-03-31",
-        weekDays: [{ day: "2026-03-31", meta: { hasMeasurement: true } }],
-        markedDays: new Set<string>([day]),
-        byDay: new Map([[day, [buildPoint(day)]]]),
-        recent: [{ day, latest: buildPoint(day) }],
-        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
-      }),
-    );
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const recentRow = tree.root
-      .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === `Open body details for ${day}`);
-    expect(recentRow).toBeDefined();
-    act(() => {
-      recentRow!.props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(app)/body/day/[day]",
-      params: { day },
-    });
-  });
-
-  it("shows compact recent day label and row actions menu", () => {
-    const day = "2026-03-31";
-    mockHook.mockReturnValue(
-      buildBody({
-        today: day,
-        weekDays: [{ day, meta: { hasMeasurement: true } }],
-        markedDays: new Set<string>([day]),
-        byDay: new Map([[day, [buildPoint(day)]]]),
-        recent: [{ day, latest: buildPoint(day) }],
-        series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
-      }),
-    );
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).toContain("Tue 3/31");
-    const rowActions = tree.root
-      .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === `Body log actions ${day}`);
-    expect(rowActions).toBeDefined();
-    act(() => {
-      rowActions!.props.onPress({ stopPropagation: jest.fn(), nativeEvent: { pageX: 100, pageY: 150 } });
-    });
-    const updatedText = collectText(tree);
-    expect(updatedText).toContain("Edit log");
-    expect(updatedText).toContain("Delete log");
   });
 
   it("shows Apple Health permission onboarding when access is not determined", () => {

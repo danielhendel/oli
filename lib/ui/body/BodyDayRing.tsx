@@ -36,7 +36,7 @@ export function BodyDayRing({ size, hasMeasurement, emphasized = false, testID }
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderWidth: emphasized ? 2.75 : 1.75,
+            borderWidth: emphasized ? 3 : 1.75,
           },
         ]}
       />

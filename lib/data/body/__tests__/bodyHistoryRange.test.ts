@@ -12,6 +12,7 @@ import {
   addDaysToDayKey,
   rangeToStartEnd,
   resolveBodyHistoryQueryWindow,
+  ytdBoundsForAnchorDay,
 } from "../bodyHistoryRange";
 
 describe("bodyHistoryRange", () => {
@@ -34,5 +35,15 @@ describe("bodyHistoryRange", () => {
 
   it("rangeToStartEnd(All) is unbounded marker for legacy callers", () => {
     expect(rangeToStartEnd("All")).toBe("all");
+  });
+
+  it("YTD window is Jan 1 of anchor year through anchor + end buffer", () => {
+    expect(ytdBoundsForAnchorDay("2026-03-20")).toEqual({
+      start: "2026-01-01",
+      end: addDaysToDayKey("2026-03-20", RAW_EVENTS_QUERY_END_DAY_BUFFER),
+    });
+    expect(resolveBodyHistoryQueryWindow("YTD", { anchorDayKey: "2025-11-02" })).toEqual(
+      ytdBoundsForAnchorDay("2025-11-02"),
+    );
   });
 });

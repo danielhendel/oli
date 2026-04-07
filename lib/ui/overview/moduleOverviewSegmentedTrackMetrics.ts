@@ -4,6 +4,6 @@
  */
 export const MODULE_OVERVIEW_SEGMENTED_TRACK = {
   barHeight: 10,
-  trackRadius: 5,
+  trackRadius: 6,
   dotSize: 10,
 } as const;

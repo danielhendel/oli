@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, FlatList, type ViewToken } from "react-native";
+import { View, StyleSheet, FlatList, Platform, type ViewToken } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ScreenContainer, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { MonthGrid } from "@/lib/ui/calendar/MonthGrid";
+import { headerYearFromViewableMonthItems } from "@/lib/ui/calendar/moduleCalendarHeaderYear";
+import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import {
   clearWorkoutCalendarMarkerCache,
@@ -17,15 +17,22 @@ import {
   useWorkoutsCalendarRange,
 } from "@/lib/data/workouts/useWorkoutsCalendar";
 import { getWorkoutTruthTargetConfig } from "@/lib/debug/workoutTruthTargets";
-import { getMonthFirstDay, getMonthLastDay, type MonthYear, clampMonthYear } from "@/lib/ui/calendar/dateUtils";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import {
+  getMonthFirstDay,
+  getMonthLastDay,
+  getTodayDayKeyLocal,
+  type MonthYear,
+  clampMonthYear,
+} from "@/lib/ui/calendar/dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { narrowWorkoutMarkerFlagsForDomain } from "@/lib/data/workouts/workoutDomain";
 
 function monthYearFromToday(): MonthYear {
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  const d = getTodayDayKeyLocal();
+  return clampMonthYear({ year: Number(d.slice(0, 4)), month: Number(d.slice(5, 7)) });
 }
 
 function shiftMonth(monthYear: MonthYear, delta: number): MonthYear {
@@ -65,9 +72,12 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
     endIndex: MONTHS_BACK,
   }));
   const [markerMap, setMarkerMap] = useState<Map<DayKey, WorkoutMarkerFlags>>(new Map());
+  const [headerYear, setHeaderYear] = useState(todayMonth.year);
   const months = useMemo(() => buildMonthRange(todayMonth), [todayMonth.year, todayMonth.month]);
   const todayMonthIndex = MONTHS_BACK;
   const flatListRef = useRef<FlatList<CalendarMonthModel>>(null);
+
+  useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
   const clampedStart = Math.max(0, Math.min(windowBounds.startIndex, months.length - 1));
   const clampedEnd = Math.max(clampedStart, Math.min(windowBounds.endIndex, months.length - 1));
@@ -175,13 +185,6 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
     return () => cancelAnimationFrame(id);
   }, [todayMonthIndex]);
 
-  useEffect(() => {
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("detail"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-    });
-  }, [navigation]);
-
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length === 0) return;
@@ -200,8 +203,11 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
           ? prev
           : { startIndex: nextStart, endIndex: nextEnd },
       );
+
+      const y = headerYearFromViewableMonthItems(viewableItems, months);
+      if (y != null) setHeaderYear(y);
     },
-    [months.length],
+    [months],
   );
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 20,
@@ -280,8 +286,11 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
     });
   };
 
+  /** Stack header below status bar; avoid top safe-area + padded container duplicating inset under nav (matches Body calendar / workouts day). */
+  const screenEdges = ["left", "right", "bottom"] as const;
+
   return (
-    <ScreenContainer>
+    <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
       <FlatList
         ref={flatListRef}
         data={months}
@@ -304,7 +313,7 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
             animated: false,
           });
         }}
-        ListHeaderComponent={<View style={styles.topSpacer} />}
+        {...(Platform.OS === "ios" ? { contentInsetAdjustmentBehavior: "never" as const } : {})}
         renderItem={({ item }) => (
           <View style={styles.monthItem}>
             <MonthGrid monthYear={item.monthYear} markerForDay={markerForDay} onDayPress={onDayPress} />
@@ -333,7 +342,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: 32,
   },
-  topSpacer: { height: 0 },
   monthItem: {
     height: CALENDAR_MONTH_ITEM_HEIGHT,
   },

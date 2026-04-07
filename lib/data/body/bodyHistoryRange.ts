@@ -8,7 +8,15 @@ import { getTodayDayKey } from "@/lib/time/dayKey";
 export const RAW_EVENTS_QUERY_END_DAY_BUFFER = 1;
 
 /** Shared with weight chart / Body trends (not Strength). */
-export type WeightRangeKey = "7D" | "30D" | "90D" | "6M" | "1Y" | "3Y" | "5Y" | "All";
+export type WeightRangeKey = "7D" | "30D" | "90D" | "6M" | "1Y" | "YTD" | "3Y" | "5Y" | "All";
+
+export type BodyHistoryQueryWindowOpts = {
+  /**
+   * When `range` is `YTD`, window is Jan 1 of this calendar year through `anchorDayKey` (+ end buffer).
+   * Omit to use {@link getTodayDayKey} (rolling “today”).
+   */
+  anchorDayKey?: string;
+};
 
 /**
  * Body chart "All" maps to the same horizon as Apple Health body backfill
@@ -35,6 +43,18 @@ export function addDaysToDayKey(dayKey: string, delta: number): string {
 }
 
 /**
+ * Calendar year-to-date window for `anchorDayKey` (local YYYY-MM-DD):
+ * `[year-01-01, anchorDay + RAW_EVENTS_QUERY_END_DAY_BUFFER]` — same end-buffer rule as other bounded ranges.
+ */
+export function ytdBoundsForAnchorDay(anchorDayKey: string): { start: string; end: string } {
+  const y = Number(anchorDayKey.slice(0, 4));
+  const year = Number.isFinite(y) && y >= 1 ? y : Number(getTodayDayKey().slice(0, 4));
+  const start = `${year}-01-01`;
+  const end = addDaysToDayKey(anchorDayKey, RAW_EVENTS_QUERY_END_DAY_BUFFER);
+  return { start, end };
+}
+
+/**
  * Calendar day window [start, end] for raw-events `start`/`end` query params, or `"all"` for legacy unbounded pagination.
  */
 export function rangeToStartEnd(range: WeightRangeKey): { start: string; end: string } | "all" {
@@ -58,6 +78,8 @@ export function rangeToStartEnd(range: WeightRangeKey): { start: string; end: st
     case "1Y":
       start = addDaysToDayKey(today, -365);
       break;
+    case "YTD":
+      return ytdBoundsForAnchorDay(today);
     case "3Y":
       start = addDaysToDayKey(today, -1095);
       break;
@@ -71,8 +93,15 @@ export function rangeToStartEnd(range: WeightRangeKey): { start: string; end: st
 }
 
 /** Finite window for Body chart/trends (never unbounded). */
-export function resolveBodyHistoryQueryWindow(range: WeightRangeKey): { start: string; end: string } {
+export function resolveBodyHistoryQueryWindow(
+  range: WeightRangeKey,
+  opts?: BodyHistoryQueryWindowOpts,
+): { start: string; end: string } {
   const effective = range === "All" ? BODY_CHART_ALL_EFFECTIVE_RANGE : range;
+  if (effective === "YTD") {
+    const anchor = opts?.anchorDayKey ?? getTodayDayKey();
+    return ytdBoundsForAnchorDay(anchor);
+  }
   const bounds = rangeToStartEnd(effective);
   if (bounds === "all") {
     return rangeToStartEnd(BODY_CHART_ALL_EFFECTIVE_RANGE) as { start: string; end: string };

@@ -1,18 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, FlatList, type ViewToken } from "react-native";
+import { View, StyleSheet, FlatList, Platform, type ViewToken } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ScreenContainer, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NutritionMonthGrid } from "@/lib/ui/calendar/NutritionMonthGrid";
-import type { DayKey } from "@/lib/ui/calendar/types";
-import { getMonthFirstDay, getMonthLastDay, type MonthYear, clampMonthYear } from "@/lib/ui/calendar/dateUtils";
+import {
+  getMonthFirstDay,
+  getMonthLastDay,
+  getTodayDayKeyLocal,
+  type MonthYear,
+  clampMonthYear,
+} from "@/lib/ui/calendar/dateUtils";
+import { headerYearFromViewableMonthItems } from "@/lib/ui/calendar/moduleCalendarHeaderYear";
+import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
 import { useNutritionLoggedDaysForRange } from "@/lib/hooks/useNutritionLoggedDaysForRange";
+import type { DayKey } from "@/lib/ui/calendar/types";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 function monthYearFromToday(): MonthYear {
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  const d = getTodayDayKeyLocal();
+  return clampMonthYear({ year: Number(d.slice(0, 4)), month: Number(d.slice(5, 7)) });
 }
 
 function shiftMonth(monthYear: MonthYear, delta: number): MonthYear {
@@ -46,6 +53,7 @@ export default function NutritionCalendarScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const todayMonth = monthYearFromToday();
+  const [headerYear, setHeaderYear] = useState(todayMonth.year);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [windowBounds, setWindowBounds] = useState(() => ({
     startIndex: MONTHS_BACK,
@@ -54,6 +62,8 @@ export default function NutritionCalendarScreen() {
   const months = useMemo(() => buildMonthRange(todayMonth), [todayMonth.year, todayMonth.month]);
   const todayMonthIndex = MONTHS_BACK;
   const flatListRef = useRef<FlatList<CalendarMonthModel>>(null);
+
+  useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
   const clampedStart = Math.max(0, Math.min(windowBounds.startIndex, months.length - 1));
   const clampedEnd = Math.max(clampedStart, Math.min(windowBounds.endIndex, months.length - 1));
@@ -64,13 +74,6 @@ export default function NutritionCalendarScreen() {
     enabled: !!user,
     refreshEpoch,
   });
-
-  useEffect(() => {
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("detail"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-    });
-  }, [navigation]);
 
   useEffect(() => {
     if (process.env.JEST_WORKER_ID) return;
@@ -102,8 +105,11 @@ export default function NutritionCalendarScreen() {
           ? prev
           : { startIndex: nextStart, endIndex: nextEnd },
       );
+
+      const y = headerYearFromViewableMonthItems(viewableItems, months);
+      if (y != null) setHeaderYear(y);
     },
-    [months.length],
+    [months],
   );
 
   const viewabilityConfig = useRef({
@@ -135,8 +141,10 @@ export default function NutritionCalendarScreen() {
     router.push({ pathname: "/(app)/nutrition/day/[day]", params: { day } });
   };
 
+  const screenEdges = ["left", "right", "bottom"] as const;
+
   return (
-    <ScreenContainer>
+    <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
       <FlatList
         ref={flatListRef}
         data={months}
@@ -159,7 +167,7 @@ export default function NutritionCalendarScreen() {
             animated: false,
           });
         }}
-        ListHeaderComponent={<View style={styles.topSpacer} />}
+        {...(Platform.OS === "ios" ? { contentInsetAdjustmentBehavior: "never" as const } : {})}
         renderItem={({ item }) => (
           <View style={styles.monthItem}>
             <NutritionMonthGrid monthYear={item.monthYear} markerForDay={markerForDay} onDayPress={onDayPress} />
@@ -184,7 +192,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: 32,
   },
-  topSpacer: { height: 0 },
   monthItem: {
     height: CALENDAR_MONTH_ITEM_HEIGHT,
   },

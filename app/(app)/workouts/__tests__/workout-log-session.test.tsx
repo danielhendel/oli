@@ -395,10 +395,9 @@ describe("workouts/log session UI", () => {
     const edgeOption = findByA11yLabel(test!.root, "Gym: Edge Fitness Manchester CT");
     expect(edgeOption).not.toBeNull();
 
-    act(() => {
-      edgeOption!.props.onPress();
+    await act(async () => {
+      await edgeOption!.props.onPress();
     });
-    await flushEventLoop();
 
     const errorNode = findByA11yLabel(test!.root, "Gym save error");
     expect(errorNode).not.toBeNull();

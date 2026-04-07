@@ -12,6 +12,7 @@ import {
   formatBodyRmr,
   formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
+import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
 import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -44,7 +45,7 @@ export default function BodyMetricDetailScreen() {
   const router = useRouter();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
-  const [range, setRange] = useState<WeightRangeKey>("1Y");
+  const [range, setRange] = useState<WeightRangeKey>(BODY_METRIC_DETAIL_DEFAULT_RANGE);
 
   const metric = typeof metricParam === "string" ? PARAM_TO_METRIC[metricParam] : undefined;
 

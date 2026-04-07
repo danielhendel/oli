@@ -1,10 +1,11 @@
-import React, { useLayoutEffect } from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "expo-router";
 
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 export type ModuleCalendarPlaceholderScreenProps = {
   title: string;
@@ -14,16 +15,12 @@ export type ModuleCalendarPlaceholderScreenProps = {
 /** Placeholder until module-specific sleep/readiness calendar UX is defined (no data hooks). */
 export function ModuleCalendarPlaceholderScreen({ title, description }: ModuleCalendarPlaceholderScreenProps) {
   const navigation = useNavigation();
+  const headerYear = useMemo(() => Number(getTodayDayKeyLocal().slice(0, 4)), []);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("detail"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-    });
-  }, [navigation]);
+  useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer backgroundColor={UI_APP_SCREEN_BG}>
       <View style={styles.body}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.bodyText}>{description}</Text>
