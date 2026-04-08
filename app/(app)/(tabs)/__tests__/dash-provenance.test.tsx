@@ -90,12 +90,45 @@ describe("Dash provenance", () => {
     expect(text).toContain("Stacks");
     expect(text).toContain("Optimize your health and fitness — all in one place.");
     expect(text).toContain("Body Composition");
+    expect(text).toContain("Activity");
+    expect(text).toContain("Track steps and daily movement");
     expect(text).toContain("Strength");
     expect(text).toContain("Cardio");
     expect(text).toContain("Nutrition");
     expect(text).toContain("Sleep");
     expect(text).toContain("Readiness");
     expect(text).toContain("Labs");
+  });
+
+  it("orders Activity between Body Composition and Strength", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const text = collectAllText(test);
+    const bodyIdx = text.indexOf("Body Composition");
+    const activityIdx = text.indexOf("Activity");
+    const strengthIdx = text.indexOf("Strength");
+    expect(bodyIdx).not.toBe(-1);
+    expect(activityIdx).not.toBe(-1);
+    expect(strengthIdx).not.toBe(-1);
+    expect(bodyIdx < activityIdx && activityIdx < strengthIdx).toBe(true);
+  });
+
+  it("pressing Activity card navigates to activity overview", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const card = findPressableWithLabel(
+      test.root,
+      "Activity. Track steps and daily movement",
+    );
+    expect(card).not.toBeNull();
+    act(() => {
+      (card as renderer.ReactTestInstance).props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/activity");
   });
 
   it("pressing Body Composition card navigates to body/weight", () => {

@@ -29,6 +29,7 @@ setGlobalOptions({
 
 // Firestore triggers
 import { onRawEventCreated } from "./normalization/onRawEventCreated";
+import { onRawEventUpdatedForNormalization } from "./normalization/onRawEventUpdatedForNormalization";
 import { onCanonicalEventCreated } from "./realtime/onCanonicalEventCreated";
 import {
   onRawEventDeletedForWorkoutDaySummary,
@@ -101,6 +102,7 @@ export const onAuthCreate = functionsV1
 
 // Firestore triggers
 export { onRawEventCreated };
+export { onRawEventUpdatedForNormalization };
 export { onCanonicalEventCreated };
 export { onRawEventUpdatedForWorkoutDaySummary, onRawEventDeletedForWorkoutDaySummary };
 

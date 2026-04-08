@@ -8,6 +8,7 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
+import { useAppleHealthStepsBackfill } from "@/lib/data/activity/useAppleHealthStepsBackfill";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
@@ -39,6 +40,7 @@ function DeviceDetailScreen() {
   const [ouraConnecting, setOuraConnecting] = useState(false);
   const [ouraRevoking, setOuraRevoking] = useState(false);
   const bodyBackfill = useAppleHealthBodyBackfill();
+  const stepsBackfill = useAppleHealthStepsBackfill();
 
   const id = (deviceId ?? "") as DeviceId;
   const isAppleHealth = id === "apple_health";
@@ -372,6 +374,52 @@ function DeviceDetailScreen() {
             {bodyBackfill.state.message ? (
               <View style={styles.metricRow}>
                 <Text style={styles.metricText}>Error: {bodyBackfill.state.message}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {isAppleHealth ? (
+          <View style={styles.group}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Activity history backfill</Text>
+            </View>
+            <Text style={styles.description}>
+              Replays daily step totals from Apple Health for year to date (local calendar) through Oli&apos;s normal
+              sync pipeline (same as workout sync). Safe to run again after server fixes.
+            </Text>
+            <Pressable
+              style={[
+                styles.primaryButton,
+                stepsBackfill.state.status === "running" ? styles.primaryButtonDisabled : null,
+              ]}
+              disabled={stepsBackfill.state.status === "running"}
+              onPress={() => {
+                void stepsBackfill.start();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Backfill steps history from Apple Health"
+            >
+              <Text style={styles.primaryButtonText}>
+                {stepsBackfill.state.status === "running" ? "Backfilling steps…" : "Backfill Steps History"}
+              </Text>
+            </Pressable>
+            {stepsBackfill.state.summary ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Days: {stepsBackfill.state.summary.daysProcessed}/{stepsBackfill.state.summary.daysTotal} • Ingested:{" "}
+                  {stepsBackfill.state.summary.daysIngested} • No data: {stepsBackfill.state.summary.daysSkippedNoData}
+                </Text>
+              </View>
+            ) : null}
+            {stepsBackfill.state.status === "completed" ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>Steps backfill finished.</Text>
+              </View>
+            ) : null}
+            {stepsBackfill.state.message ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>Error: {stepsBackfill.state.message}</Text>
               </View>
             ) : null}
           </View>

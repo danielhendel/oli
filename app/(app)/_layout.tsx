@@ -50,6 +50,19 @@ export default function AppLayout() {
             options={{ title: "Body settings", ...workoutsStackNavigationOptions("detail") }}
           />
 
+          <Stack.Screen
+            name="activity/index"
+            options={{ title: "Activity", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="activity/calendar"
+            options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="activity/settings"
+            options={{ title: "Activity settings", ...workoutsStackNavigationOptions("detail") }}
+          />
+
           {/* Keep native headers for the rest */}
           <Stack.Screen
             name="nutrition/index"

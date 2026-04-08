@@ -12,6 +12,9 @@ export {
   pullBodyCompositionSamples,
   buildAppleHealthBodyMassSampleQueryOptions,
   toHealthKitIso8601,
+  getLocalCalendarDayBoundsFromYmd,
+  addLocalCalendarDaysToDayKey,
+  pullStepCountForLocalCalendarDay,
 } from "./healthKit";
 export type { BodyCompositionReadAuthStatusResult } from "./healthKit";
 export {
@@ -41,4 +44,10 @@ export {
   type RunAppleHealthBodyBackfillDeps,
   type RunAppleHealthBodyBackfillResult,
 } from "./runAppleHealthBodyBackfill";
+export {
+  runAppleHealthStepsBackfill,
+  computeLocalYtdLookbackDays,
+  type RunAppleHealthStepsBackfillDeps,
+  type RunAppleHealthStepsBackfillResult,
+} from "./runAppleHealthStepsBackfill";
 export type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";

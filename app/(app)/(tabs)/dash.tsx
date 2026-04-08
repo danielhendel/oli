@@ -33,6 +33,7 @@ import {
 /** Cards that navigate to existing routes only. */
 const MANAGE_DATA_CARDS = [
   { id: "body", title: "Body Composition", subtitle: "Log and track weight and body metrics", route: "/(app)/body/weight" as const },
+  { id: "activity", title: "Activity", subtitle: "Track steps and daily movement", route: "/(app)/activity" as const },
   { id: "strength", title: "Strength", subtitle: "Lift, log sessions, and review training", route: "/(app)/workouts" as const },
   { id: "cardio", title: "Cardio", subtitle: "Runs, rides, and Apple Health sessions", route: "/(app)/cardio" as const },
   { id: "nutrition", title: "Nutrition", subtitle: "Log meals and set targets", route: "/(app)/nutrition" as const },

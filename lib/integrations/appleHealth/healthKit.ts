@@ -551,20 +551,76 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
   });
 }
 
+const LOCAL_DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Start/end ISO bounds for a **local** calendar day (device timezone).
+ * Matches the semantics used for Apple Health steps in anchored sync.
+ */
+export function getLocalCalendarDayBoundsFromYmd(dayYmd: string): { start: string; end: string; day: string } {
+  if (!LOCAL_DAY_KEY_RE.test(dayYmd)) {
+    throw new Error(`getLocalCalendarDayBoundsFromYmd: invalid day key "${dayYmd}"`);
+  }
+  const [ys, ms, ds] = dayYmd.split("-");
+  const y = Number(ys);
+  const mo = Number(ms);
+  const d = Number(ds);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+    throw new Error(`getLocalCalendarDayBoundsFromYmd: invalid day key "${dayYmd}"`);
+  }
+  const start = new Date(y, mo - 1, d, 0, 0, 0, 0);
+  const end = new Date(y, mo - 1, d, 23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString(), day: dayYmd };
+}
+
+/** Shift a local calendar day key by `deltaDays` (device local calendar). */
+export function addLocalCalendarDaysToDayKey(dayYmd: string, deltaDays: number): string {
+  if (!LOCAL_DAY_KEY_RE.test(dayYmd)) {
+    throw new Error(`addLocalCalendarDaysToDayKey: invalid day key "${dayYmd}"`);
+  }
+  const [ys, ms, ds] = dayYmd.split("-");
+  const y = Number(ys);
+  const mo = Number(ms);
+  const d = Number(ds);
+  const dt = new Date(y, mo - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 /** Start and end of today in local time, ISO strings (for HealthKit date range). */
 function getTodayBounds(): { startDate: string; endDate: string; day: string } {
+  const { start, end, day } = getLocalCalendarDayBoundsFromYmd(getTodayDayKeyLocalInternal());
+  return { startDate: start, endDate: end, day };
+}
+
+function getTodayDayKeyLocalInternal(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
   const d = now.getDate();
-  const start = new Date(y, m, d, 0, 0, 0, 0);
-  const end = new Date(y, m, d, 23, 59, 59, 999);
-  const day = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  return {
-    startDate: start.toISOString(),
-    endDate: end.toISOString(),
-    day,
-  };
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * Step total for one local calendar day via HealthKit (same query path as {@link pullTodaySnapshot}).
+ */
+export async function pullStepCountForLocalCalendarDay(
+  dayYmd: string,
+): Promise<{ ok: true; steps: number | null } | { ok: false; error: string }> {
+  const HK = await getHealthKit();
+  if (!HK) {
+    return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
+  }
+  try {
+    const { start, end } = getLocalCalendarDayBoundsFromYmd(dayYmd);
+    const steps = await pStepCount(HK, start, end);
+    return { ok: true, steps };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 function pStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {

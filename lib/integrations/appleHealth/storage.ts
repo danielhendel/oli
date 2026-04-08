@@ -9,6 +9,7 @@ export const APPLE_HEALTH_LAST_SYNC_AT = "appleHealth:lastSyncAt";
 export const APPLE_HEALTH_LAST_CHECKED_AT = "appleHealth:lastCheckedAt";
 export const APPLE_HEALTH_BODY_LAST_CHECKED_AT = "appleHealth:bodyLastCheckedAt";
 export const APPLE_HEALTH_BODY_BACKFILL_STATE = "appleHealth:bodyBackfillState";
+export const APPLE_HEALTH_STEPS_BACKFILL_STATE = "appleHealth:stepsBackfillState";
 export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
@@ -71,6 +72,42 @@ export async function getAppleHealthBodyBackfillState(): Promise<AppleHealthBody
 
 export async function setAppleHealthBodyBackfillState(state: AppleHealthBodyBackfillState): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_BODY_BACKFILL_STATE, JSON.stringify(state));
+}
+
+export type AppleHealthStepsBackfillStatus = "not_started" | "in_progress" | "completed" | "failed";
+
+export type AppleHealthStepsBackfillState = {
+  status: AppleHealthStepsBackfillStatus;
+  backfillStartDate: string;
+  windowStartDay: string;
+  windowEndDay: string;
+  lookbackDays: number;
+  lastProcessedDay: string | null;
+  lastRunAt: string;
+  error: string | null;
+  summary: {
+    startedAt: string;
+    completedAt: string | null;
+    daysTotal: number;
+    daysProcessed: number;
+    daysIngested: number;
+    daysSkippedNoData: number;
+    lastProcessedDay: string | null;
+  };
+};
+
+export async function getAppleHealthStepsBackfillState(): Promise<AppleHealthStepsBackfillState | null> {
+  const raw = await AsyncStorage.getItem(APPLE_HEALTH_STEPS_BACKFILL_STATE);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AppleHealthStepsBackfillState;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthStepsBackfillState(state: AppleHealthStepsBackfillState): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_STEPS_BACKFILL_STATE, JSON.stringify(state));
 }
 
 export async function getAppleHealthConnected(): Promise<boolean> {
