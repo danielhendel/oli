@@ -100,7 +100,7 @@ const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | unde
   const facts: DailyActivityFacts = {};
 
   const steps = stepsEvents.reduce((sum, e) => sum + e.steps, 0);
-  if (steps > 0) {
+  if (stepsEvents.length > 0) {
     facts.steps = steps;
   }
 

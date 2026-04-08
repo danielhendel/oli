@@ -12,6 +12,39 @@ jest.mock("../../db", () => ({
   documentIdPath: { _: "documentId" },
 }));
 
+function emptyEventsQueryMock() {
+  const chain = {
+    where: (): typeof chain => chain,
+    get: async () => ({ docs: [] as { data: () => unknown }[] }),
+  };
+  return chain;
+}
+
+/** rawEvents: query path for body synthesis + doc(id) for steps raw synthesis */
+function rawEventsMockWithDoc(
+  opts: {
+    whereDocs?: { data: () => unknown }[];
+    docGet?: (id: string) => Promise<{ exists: boolean; data?: () => unknown }>;
+  },
+) {
+  const whereDocs = opts.whereDocs ?? [];
+  const docGet =
+    opts.docGet ??
+    (async () => ({
+      exists: false as const,
+    }));
+  const chain = {
+    where: (): typeof chain => chain,
+    get: async () => ({ docs: whereDocs }),
+  };
+  return {
+    where: (): typeof chain => chain,
+    doc: (id: string) => ({
+      get: () => docGet(id),
+    }),
+  };
+}
+
 describe("GET /users/me/daily-facts", () => {
   let server: http.Server;
   let baseUrl: string;
@@ -55,11 +88,12 @@ describe("GET /users/me/daily-facts", () => {
         };
       }
       if (name === "rawEvents") {
-        const rawQuery = {
-          where: (): typeof rawQuery => rawQuery,
-          get: async () => ({ docs: [{ data: () => weightDoc }] }),
-        };
-        return rawQuery;
+        return rawEventsMockWithDoc({
+          whereDocs: [{ data: () => weightDoc }],
+        });
+      }
+      if (name === "events") {
+        return emptyEventsQueryMock();
       }
       return {};
     });
@@ -87,11 +121,10 @@ describe("GET /users/me/daily-facts", () => {
         };
       }
       if (name === "rawEvents") {
-        const rawQuery = {
-          where: (): typeof rawQuery => rawQuery,
-          get: async () => ({ docs: [] }),
-        };
-        return rawQuery;
+        return rawEventsMockWithDoc({});
+      }
+      if (name === "events") {
+        return emptyEventsQueryMock();
       }
       return {};
     });
@@ -102,5 +135,90 @@ describe("GET /users/me/daily-facts", () => {
 
     const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-01`);
     expect(res.status).toBe(404);
+  });
+
+  test("returns 200 with synthesized activity.steps when dailyFacts missing and canonical steps exist", async () => {
+    const stepsCanonical = {
+      kind: "steps",
+      day: "2026-04-02",
+      steps: 9500,
+    };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: false }),
+          }),
+        };
+      }
+      if (name === "rawEvents") {
+        return rawEventsMockWithDoc({});
+      }
+      if (name === "events") {
+        const eventsQuery = {
+          where: (): typeof eventsQuery => eventsQuery,
+          get: async () => ({ docs: [{ data: () => stepsCanonical }] }),
+        };
+        return eventsQuery;
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-02`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: unknown } };
+    expect(json.activity?.steps).toBe(9500);
+    expect(json.meta?.source).toEqual(
+      expect.objectContaining({ synthesizedActivityFromCanonical: true }),
+    );
+  });
+
+  test("returns 200 with synthesized activity.steps from apple_health raw doc when canonical is missing", async () => {
+    const stepsRaw = {
+      kind: "steps",
+      provider: "apple_health",
+      payload: { steps: 8421 },
+    };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: false }),
+          }),
+        };
+      }
+      if (name === "rawEvents") {
+        return rawEventsMockWithDoc({
+          docGet: async (id: string) => {
+            if (id === "appleHealth:v2:steps:2026-04-05") {
+              return { exists: true, data: () => stepsRaw };
+            }
+            return { exists: false };
+          },
+        });
+      }
+      if (name === "events") {
+        return emptyEventsQueryMock();
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-05`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: unknown } };
+    expect(json.activity?.steps).toBe(8421);
+    expect(json.meta?.source).toEqual(
+      expect.objectContaining({ synthesizedActivityFromRaw: true }),
+    );
   });
 });
