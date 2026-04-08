@@ -23,10 +23,11 @@ describe("detectAppleHealthStepsRawGapsForRecentDays", () => {
     getRawEvents.mockReset();
   });
 
-  it("returns empty when API fails", async () => {
+  it("returns probeReliable false when API fails", async () => {
     getRawEvents.mockResolvedValueOnce({ ok: false, status: 500, kind: "http", error: "x", requestId: null });
-    const gaps = await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 2);
-    expect(gaps).toEqual([]);
+    const probe = await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 2);
+    expect(probe.gaps).toEqual([]);
+    expect(probe.probeReliable).toBe(false);
   });
 
   it("flags days missing expected appleHealth:v2:steps doc ids", async () => {
@@ -49,7 +50,44 @@ describe("detectAppleHealthStepsRawGapsForRecentDays", () => {
         nextCursor: null,
       },
     });
-    const gaps = await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 2);
-    expect(gaps).toEqual(["2026-04-07"]);
+    const probe = await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 2);
+    expect(probe.probeReliable).toBe(true);
+    expect(probe.gaps).toEqual(["2026-04-07"]);
+  });
+
+  it("uses raw-events limit within contract max (100)", async () => {
+    getRawEvents.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      requestId: null,
+      json: { items: [], nextCursor: null },
+    });
+    await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 7);
+    expect(getRawEvents).toHaveBeenCalledWith(
+      "tok",
+      expect.objectContaining({
+        kind: "steps",
+        limit: 100,
+        start: "2026-04-01",
+        end: "2026-04-09",
+      }),
+    );
+  });
+
+  it("scopes raw-events list to a padded local day range so Apple ids for the window are not crowded out", async () => {
+    getRawEvents.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      requestId: null,
+      json: { items: [], nextCursor: null },
+    });
+    await detectAppleHealthStepsRawGapsForRecentDays("tok", "2026-04-08", 2);
+    expect(getRawEvents).toHaveBeenCalledWith(
+      "tok",
+      expect.objectContaining({
+        start: "2026-04-06",
+        end: "2026-04-09",
+      }),
+    );
   });
 });

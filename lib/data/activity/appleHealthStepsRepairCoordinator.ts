@@ -79,8 +79,9 @@ async function runRepairInner(opts: ScheduleAppleHealthStepsRepairOpts): Promise
 
   if (opts.trigger === "recovery") {
     const today = getTodayDayKeyLocal();
-    const gaps = await detectAppleHealthStepsRawGapsForRecentDays(token, today, RECENT_GAP_DAYS);
-    if (gaps.length === 0) return;
+    const { gaps, probeReliable } = await detectAppleHealthStepsRawGapsForRecentDays(token, today, RECENT_GAP_DAYS);
+    // When the gap probe fails (e.g. raw-events 400), do not skip repair — empty gaps would be a false negative.
+    if (probeReliable && gaps.length === 0) return;
   }
 
   const perm = await requestPermissions();

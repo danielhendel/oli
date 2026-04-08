@@ -169,6 +169,21 @@ describe('aggregateDailyFactsForDay', () => {
     expect(recovery.hrvRmssd).toBe(70);
   });
 
+  it('includes activity.steps when steps canonical events sum to zero (HealthKit empty / explicit zero)', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'steps_zero', steps: 0, distanceKm: null, moveMinutes: null }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.activity?.steps).toBe(0);
+  });
+
   it('sums nutrition macro totals across nutrition canonical events', () => {
     const events: CanonicalEvent[] = [
       makeNutrition({
