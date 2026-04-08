@@ -30,7 +30,9 @@ export type RunAppleHealthStepsBackfillDeps = {
   /** HealthKit step query for one local calendar day (inject for tests). */
   pullStepCountForLocalCalendarDay: (
     dayYmd: string,
-  ) => Promise<{ ok: true; steps: number | null } | { ok: false; error: string }>;
+  ) => Promise<
+    { ok: true; steps: number; hkEmpty?: true } | { ok: false; error: string }
+  >;
   ingestRawEvent: (
     body: unknown,
     token: string,
@@ -154,46 +156,45 @@ export async function runAppleHealthStepsBackfill(
 
     daysProcessed += 1;
 
-    if (pulled.steps != null && pulled.steps >= 0) {
-      const { start, end } = getLocalCalendarDayBoundsFromYmd(day);
-
-      const body = buildAppleHealthStepsIngestBody({
-        start,
-        end,
-        day,
-        timezone,
-        steps: pulled.steps,
-      });
-      const res = await deps.ingestRawEvent(body, opts.token, {
-        idempotencyKey: deps.stepsIdempotencyKey(day),
-        timeoutMs: 15000,
-      });
-      if (!res.ok) {
-        await deps.setBackfillState({
-          status: "failed",
-          backfillStartDate: startedAt,
-          windowStartDay,
-          windowEndDay,
-          lookbackDays,
-          lastProcessedDay: day,
-          lastRunAt: deps.nowIso(),
-          error: res.error,
-          summary: {
-            startedAt,
-            completedAt: null,
-            daysTotal: days.length,
-            daysProcessed,
-            daysIngested,
-            daysSkippedNoData,
-            lastProcessedDay: day,
-          },
-        });
-        return { ok: false, error: res.error, requestId: res.requestId };
-      }
-      daysIngested += 1;
-    } else {
+    if (pulled.hkEmpty) {
       daysSkippedNoData += 1;
     }
+
+    const { start, end } = getLocalCalendarDayBoundsFromYmd(day);
+    const body = buildAppleHealthStepsIngestBody({
+      start,
+      end,
+      day,
+      timezone,
+      steps: pulled.steps,
+    });
+    const res = await deps.ingestRawEvent(body, opts.token, {
+      idempotencyKey: deps.stepsIdempotencyKey(day),
+      timeoutMs: 15000,
+    });
+    if (!res.ok) {
+      await deps.setBackfillState({
+        status: "failed",
+        backfillStartDate: startedAt,
+        windowStartDay,
+        windowEndDay,
+        lookbackDays,
+        lastProcessedDay: day,
+        lastRunAt: deps.nowIso(),
+        error: res.error,
+        summary: {
+          startedAt,
+          completedAt: null,
+          daysTotal: days.length,
+          daysProcessed,
+          daysIngested,
+          daysSkippedNoData,
+          lastProcessedDay: day,
+        },
+      });
+      return { ok: false, error: res.error, requestId: res.requestId };
+    }
+    daysIngested += 1;
 
     await deps.setBackfillState({
       status: "in_progress",

@@ -11,8 +11,8 @@ describe("buildAppleHealthStepsIngestBody", () => {
       steps: 8421,
     });
     expect(body.provider).toBe("apple_health");
+    expect(body.sourceId).toBe("apple_health");
     expect(body.kind).toBe("steps");
-    expect(body.sourceId).toBe("healthkit");
     expect(body.observedAt).toBe("2026-04-07T04:00:00.000Z");
     expect(body.timeZone).toBe("America/New_York");
     expect(body.payload.steps).toBe(8421);
