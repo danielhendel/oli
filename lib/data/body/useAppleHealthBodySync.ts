@@ -8,8 +8,10 @@ import {
   requestPermissions,
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
+import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import {
   getAppleHealthBodyLastCheckedAt,
+  getAppleHealthConnected,
   setAppleHealthBodyLastCheckedAt,
   setAppleHealthConnected,
   setLastSyncAt,
@@ -80,9 +82,17 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
     await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
 
     if (!result.ok) return { ok: false as const };
+    const wasConnected = await getAppleHealthConnected().catch(() => false);
     setHasSuccessfulBodySync(true);
     await setAppleHealthConnected(true).catch(() => undefined);
     await setLastSyncAt(nowIso()).catch(() => undefined);
+    if (!wasConnected) {
+      scheduleAppleHealthStepsRepair({
+        trigger: "connection",
+        bypassCooldown: true,
+        getIdToken,
+      });
+    }
     onSynced?.();
     return { ok: true as const };
   }, [getIdToken, onSynced]);

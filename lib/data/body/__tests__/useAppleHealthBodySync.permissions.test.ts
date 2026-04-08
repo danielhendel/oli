@@ -15,9 +15,14 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   appleHealthBodyCompositionIdempotencyKey: jest.fn(),
 }));
 
+jest.mock("@/lib/data/activity/appleHealthStepsRepairCoordinator", () => ({
+  scheduleAppleHealthStepsRepair: jest.fn(),
+}));
+
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthBodyLastCheckedAt: jest.fn(async () => null),
   setAppleHealthBodyLastCheckedAt: jest.fn(async () => undefined),
+  getAppleHealthConnected: jest.fn(async () => false),
   setAppleHealthConnected: jest.fn(async () => undefined),
   setLastSyncAt: jest.fn(async () => undefined),
 }));
@@ -29,6 +34,7 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
+import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { requestPermissions, runAppleHealthBodySync } from "@/lib/integrations/appleHealth";
 import { useAppleHealthBodySync } from "../useAppleHealthBodySync";
 
@@ -40,10 +46,12 @@ function Host() {
 describe("useAppleHealthBodySync", () => {
   const perm = jest.mocked(requestPermissions);
   const sync = jest.mocked(runAppleHealthBodySync);
+  const scheduleRepair = jest.mocked(scheduleAppleHealthStepsRepair);
 
   beforeEach(() => {
     perm.mockClear();
     sync.mockClear();
+    scheduleRepair.mockClear();
     perm.mockResolvedValue({ ok: true });
     sync.mockResolvedValue({
       ok: true,
@@ -75,5 +83,20 @@ describe("useAppleHealthBodySync", () => {
     });
     expect(perm).toHaveBeenCalled();
     expect(sync).not.toHaveBeenCalled();
+  });
+
+  it("schedules automatic steps repair when Apple Health was not connected before a successful sync", async () => {
+    await act(async () => {
+      renderer.create(React.createElement(Host));
+    });
+    await act(async () => {
+      await new Promise<void>((r) => setImmediate(r));
+    });
+    expect(scheduleRepair).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: "connection",
+        bypassCooldown: true,
+      }),
+    );
   });
 });

@@ -88,6 +88,7 @@ import {
   clearAppleHealthWorkoutRangeBootstrapBuild,
 } from "@/lib/integrations/appleHealth/storage";
 import { ingestRawEvent } from "@/lib/api/ingest";
+import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 import {
   formatWorkoutDurationLabel,
@@ -799,6 +800,11 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         await setAppleHealthLastCheckedAt(atIso);
         await setLastSyncAt(atIso);
         setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+        scheduleAppleHealthStepsRepair({
+          trigger: "sync",
+          getIdToken,
+          forceRestart: false,
+        });
       } finally {
         workoutBackfillInFlightRef.current = false;
       }

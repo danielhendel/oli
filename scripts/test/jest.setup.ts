@@ -54,6 +54,11 @@ jest.mock("@react-native-async-storage/async-storage", () => {
   };
 });
 
+jest.mock("@/lib/data/activity/appleHealthStepsRepairCoordinator", () => ({
+  scheduleAppleHealthStepsRepair: jest.fn(),
+  executeAppleHealthStepsRepair: jest.fn(async () => undefined),
+}));
+
 installConsoleGuard();
 
 beforeEach(() => {
