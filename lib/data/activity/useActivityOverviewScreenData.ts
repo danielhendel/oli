@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
+import { Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { buildActivityOverviewCardModel } from "@/lib/data/activity/activityOverviewCardModel";
 import { useActivityStepsRollupMap } from "@/lib/data/activity/useActivityStepsRollupMap";
 import type { ActivityDayStripMeta } from "@/lib/data/activity/activityDayStripMeta";
@@ -9,7 +11,7 @@ import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dat
 import type { CalendarDay } from "@/lib/ui/calendar/types";
 
 export function useActivityOverviewScreenData() {
-  const { user, initializing } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
   const [selectedDay, setSelectedDay] = useState(() => getTodayDayKeyLocal());
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
 
@@ -18,7 +20,13 @@ export function useActivityOverviewScreenData() {
   useFocusEffect(
     useCallback(() => {
       void stepsRollup.refetch({ cacheBust: `activityRollup:${Date.now()}` });
-    }, [stepsRollup.refetch]),
+      if (Platform.OS === "ios" && user) {
+        scheduleAppleHealthStepsRepair({
+          trigger: "recovery",
+          getIdToken,
+        });
+      }
+    }, [stepsRollup.refetch, user, getIdToken]),
   );
 
   const weeklyStripDays: CalendarDay<ActivityDayStripMeta>[] = useMemo(() => {

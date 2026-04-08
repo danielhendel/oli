@@ -12,6 +12,7 @@ import {
   setAppleHealthStepsBackfillState,
   type AppleHealthStepsBackfillState,
 } from "@/lib/integrations/appleHealth/storage";
+import { runAppleHealthStepsBackfillSerialized } from "@/lib/data/activity/appleHealthStepsBackfillMutex";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { nowIso } from "@/lib/sync/throttle";
 
@@ -28,6 +29,9 @@ type LocalState = {
   status: "idle" | "running" | "completed" | "failed";
   message: string | null;
   summary: AppleHealthStepsBackfillState["summary"] | null;
+  windowStartDay: string | null;
+  windowEndDay: string | null;
+  lastTriggerSource: AppleHealthStepsBackfillState["lastTriggerSource"];
 };
 
 export function useAppleHealthStepsBackfill(onSynced?: () => void): {
@@ -40,12 +44,22 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
     status: "idle",
     message: null,
     summary: null,
+    windowStartDay: null,
+    windowEndDay: null,
+    lastTriggerSource: null,
   });
 
   const refresh = useCallback(async () => {
     const s = await getAppleHealthStepsBackfillState().catch(() => null);
     if (!s) {
-      setState({ status: "idle", message: null, summary: null });
+      setState({
+        status: "idle",
+        message: null,
+        summary: null,
+        windowStartDay: null,
+        windowEndDay: null,
+        lastTriggerSource: null,
+      });
       return;
     }
     setState({
@@ -59,6 +73,9 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
               : "idle",
       message: s.error,
       summary: s.summary,
+      windowStartDay: s.windowStartDay,
+      windowEndDay: s.windowEndDay,
+      lastTriggerSource: s.lastTriggerSource ?? null,
     });
   }, []);
 
@@ -83,15 +100,14 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
         }));
         return;
       }
-      const runOpts =
-        opts?.lookbackDays != null || opts?.forceRestart === true
-          ? {
-              token,
-              ...(opts.lookbackDays != null ? { lookbackDays: opts.lookbackDays } : {}),
-              ...(opts.forceRestart === true ? { forceRestart: true as const } : {}),
-            }
-          : { token };
-      const res = await runAppleHealthStepsBackfill(runOpts, {
+      const runOpts = {
+        token,
+        triggerSource: "manual" as const,
+        ...(opts?.lookbackDays != null ? { lookbackDays: opts.lookbackDays } : {}),
+        ...(opts?.forceRestart === true ? { forceRestart: true as const } : {}),
+      };
+      const res = await runAppleHealthStepsBackfillSerialized(() =>
+        runAppleHealthStepsBackfill(runOpts, {
           nowIso,
           getTodayDayKeyLocal,
           getDeviceTimezone,
@@ -100,7 +116,8 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
           stepsIdempotencyKey,
           getBackfillState: getAppleHealthStepsBackfillState,
           setBackfillState: setAppleHealthStepsBackfillState,
-        });
+        }),
+      );
       if (!res.ok) {
         await refresh();
         setState((prev) => ({ ...prev, status: "failed", message: res.error }));

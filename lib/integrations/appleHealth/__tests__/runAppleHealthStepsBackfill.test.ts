@@ -1,5 +1,9 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
-import { computeLocalYtdLookbackDays, runAppleHealthStepsBackfill } from "../runAppleHealthStepsBackfill";
+import {
+  assertStepsBackfillSingleDayInvariant,
+  computeLocalYtdLookbackDays,
+  runAppleHealthStepsBackfill,
+} from "../runAppleHealthStepsBackfill";
 import type { AppleHealthStepsBackfillState } from "../storage";
 
 function makeStore(initial: AppleHealthStepsBackfillState | null = null) {
@@ -26,7 +30,7 @@ describe("runAppleHealthStepsBackfill", () => {
     });
 
     const result = await runAppleHealthStepsBackfill(
-      { token: "tok", lookbackDays: 2 },
+      { token: "tok", lookbackDays: 2, triggerSource: "manual" },
       {
         nowIso: () => "2026-04-07T12:00:00.000Z",
         getTodayDayKeyLocal: () => "2026-04-07",
@@ -44,6 +48,9 @@ describe("runAppleHealthStepsBackfill", () => {
     expect(result.daysTotal).toBe(2);
     expect(result.daysSkippedNoData).toBe(1);
     expect(result.daysIngested).toBe(2);
+    expect(result.daysFailed).toBe(0);
+    expect(result.lastSuccessfulDay).toBe("2026-04-07");
+    expect(result.triggerSource).toBe("manual");
     expect(ingestRawEvent).toHaveBeenCalledTimes(2);
     const keys = ingestRawEvent.mock.calls.map((c) => c[2]?.idempotencyKey);
     expect(keys).toContain("appleHealth:v2:steps:2026-04-06");
@@ -85,6 +92,26 @@ describe("runAppleHealthStepsBackfill", () => {
     const body = ingestRawEvent.mock.calls[0]![0] as { payload?: { steps?: number }; provider?: string };
     expect(body.provider).toBe("apple_health");
     expect(body.payload?.steps).toBe(0);
+  });
+
+  it("assertStepsBackfillSingleDayInvariant rejects payload.day mismatch", () => {
+    expect(() =>
+      assertStepsBackfillSingleDayInvariant({
+        day: "2026-04-07",
+        idempotencyKey: "appleHealth:v2:steps:2026-04-07",
+        payloadDay: "2026-04-06",
+      }),
+    ).toThrow(/payload.day/);
+  });
+
+  it("assertStepsBackfillSingleDayInvariant rejects idempotency key not ending with day", () => {
+    expect(() =>
+      assertStepsBackfillSingleDayInvariant({
+        day: "2026-04-07",
+        idempotencyKey: "appleHealth:v2:steps:2026-04-06",
+        payloadDay: "2026-04-07",
+      }),
+    ).toThrow(/idempotencyKey/);
   });
 
   it("computeLocalYtdLookbackDays counts Jan 1 through today inclusive", () => {

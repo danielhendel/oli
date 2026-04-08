@@ -385,9 +385,26 @@ function DeviceDetailScreen() {
               <Text style={styles.sectionTitle}>Activity history backfill</Text>
             </View>
             <Text style={styles.description}>
-              Replays daily step totals from Apple Health for year to date (local calendar) through Oli&apos;s normal
-              sync pipeline (same as workout sync). Safe to run again after server fixes.
+              Steps history repairs automatically after Apple Health connects, after workout sync, and when Activity
+              detects missing days—same ingest pipeline as manual backfill. Re-running is safe and idempotent.
             </Text>
+            {stepsBackfill.state.summary?.completedAt && stepsBackfill.state.summary.daysTotal != null ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Last repair: {new Date(stepsBackfill.state.summary.completedAt).toLocaleString()}
+                  {stepsBackfill.state.lastTriggerSource
+                    ? ` · ${stepsBackfill.state.lastTriggerSource === "manual" ? "Manual" : stepsBackfill.state.lastTriggerSource === "sync" ? "After sync" : stepsBackfill.state.lastTriggerSource === "connection" ? "After connect" : "Activity check"}`
+                    : ""}
+                </Text>
+              </View>
+            ) : null}
+            {stepsBackfill.state.windowStartDay && stepsBackfill.state.windowEndDay ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Window: {stepsBackfill.state.windowStartDay} – {stepsBackfill.state.windowEndDay}
+                </Text>
+              </View>
+            ) : null}
             <Pressable
               style={[
                 styles.primaryButton,
@@ -407,8 +424,20 @@ function DeviceDetailScreen() {
             {stepsBackfill.state.summary ? (
               <View style={styles.metricRow}>
                 <Text style={styles.metricText}>
-                  Days: {stepsBackfill.state.summary.daysProcessed}/{stepsBackfill.state.summary.daysTotal} • Ingested:{" "}
-                  {stepsBackfill.state.summary.daysIngested} • No data: {stepsBackfill.state.summary.daysSkippedNoData}
+                  Processed {stepsBackfill.state.summary.daysProcessed}/{stepsBackfill.state.summary.daysTotal} •
+                  Ingested {stepsBackfill.state.summary.daysIngested} • Empty (HealthKit){" "}
+                  {stepsBackfill.state.summary.daysSkippedNoData}
+                  {typeof stepsBackfill.state.summary.daysFailed === "number" &&
+                  stepsBackfill.state.summary.daysFailed > 0
+                    ? ` • Failed ${stepsBackfill.state.summary.daysFailed}`
+                    : ""}
+                </Text>
+              </View>
+            ) : null}
+            {stepsBackfill.state.summary?.lastSuccessfulDay ? (
+              <View style={styles.metricRow}>
+                <Text style={styles.metricText}>
+                  Last successful day: {stepsBackfill.state.summary.lastSuccessfulDay}
                 </Text>
               </View>
             ) : null}

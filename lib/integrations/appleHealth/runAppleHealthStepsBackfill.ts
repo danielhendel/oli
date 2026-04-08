@@ -1,6 +1,9 @@
 import { buildAppleHealthStepsIngestBody } from "./appleHealthStepsIngestBody";
 import { addLocalCalendarDaysToDayKey, getLocalCalendarDayBoundsFromYmd } from "./healthKit";
-import type { AppleHealthStepsBackfillState } from "./storage";
+import type {
+  AppleHealthStepsBackfillState,
+  AppleHealthStepsRepairTriggerSource,
+} from "./storage";
 
 const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -55,8 +58,29 @@ export type RunAppleHealthStepsBackfillResult =
       daysProcessed: number;
       daysIngested: number;
       daysSkippedNoData: number;
+      daysFailed: number;
+      lastSuccessfulDay: string | null;
+      triggerSource: AppleHealthStepsRepairTriggerSource | null;
     }
   | { ok: false; error: string; requestId: string | null };
+
+/** Invariant: one local calendar day string drives idempotency key, payload.day, and HK bounds. */
+export function assertStepsBackfillSingleDayInvariant(params: {
+  day: string;
+  idempotencyKey: string;
+  payloadDay: string;
+}): void {
+  if (params.day !== params.payloadDay) {
+    throw new Error(
+      `steps backfill invariant: loop day ${params.day} !== payload.day ${params.payloadDay}`,
+    );
+  }
+  if (!params.idempotencyKey.endsWith(params.day)) {
+    throw new Error(
+      `steps backfill invariant: idempotencyKey ${params.idempotencyKey} does not end with day ${params.day}`,
+    );
+  }
+}
 
 function enumerateLocalDayWindow(endDay: string, lookbackDays: number): string[] {
   const n = Math.max(1, lookbackDays);
@@ -79,6 +103,8 @@ export async function runAppleHealthStepsBackfill(
     token: string;
     forceRestart?: boolean;
     lookbackDays?: number;
+    /** Persisted on state for UI/diagnostics; defaults to last known or null. */
+    triggerSource?: AppleHealthStepsRepairTriggerSource | null;
   },
   deps: RunAppleHealthStepsBackfillDeps,
 ): Promise<RunAppleHealthStepsBackfillResult> {
@@ -95,6 +121,11 @@ export async function runAppleHealthStepsBackfill(
   const resumeInProgress = !opts.forceRestart && existing?.status === "in_progress";
   const startedAt = resumeInProgress ? existing!.summary.startedAt : now;
 
+  const triggerSource: AppleHealthStepsRepairTriggerSource | null =
+    opts.triggerSource !== undefined && opts.triggerSource !== null
+      ? opts.triggerSource
+      : (existing?.lastTriggerSource ?? null);
+
   let startIndex = 0;
   if (resumeInProgress && existing!.lastProcessedDay) {
     const resumeFrom = addLocalCalendarDaysToDayKey(existing!.lastProcessedDay, 1);
@@ -105,6 +136,10 @@ export async function runAppleHealthStepsBackfill(
   let daysProcessed = resumeInProgress ? existing!.summary.daysProcessed : 0;
   let daysIngested = resumeInProgress ? existing!.summary.daysIngested : 0;
   let daysSkippedNoData = resumeInProgress ? existing!.summary.daysSkippedNoData : 0;
+  let lastSuccessfulDay: string | null =
+    resumeInProgress && existing!.summary.lastSuccessfulDay != null
+      ? existing!.summary.lastSuccessfulDay
+      : null;
 
   const timezone = deps.getDeviceTimezone();
 
@@ -117,6 +152,7 @@ export async function runAppleHealthStepsBackfill(
     lastProcessedDay: startIndex > 0 && startIndex <= days.length ? days[startIndex - 1]! : null,
     lastRunAt: now,
     error: null,
+    lastTriggerSource: triggerSource,
     summary: {
       startedAt,
       completedAt: null,
@@ -124,6 +160,8 @@ export async function runAppleHealthStepsBackfill(
       daysProcessed,
       daysIngested,
       daysSkippedNoData,
+      daysFailed: 0,
+      lastSuccessfulDay,
       lastProcessedDay: startIndex > 0 && startIndex <= days.length ? days[startIndex - 1]! : null,
     },
   });
@@ -141,6 +179,7 @@ export async function runAppleHealthStepsBackfill(
         lastProcessedDay: day,
         lastRunAt: deps.nowIso(),
         error: pulled.error,
+        lastTriggerSource: triggerSource,
         summary: {
           startedAt,
           completedAt: null,
@@ -148,6 +187,8 @@ export async function runAppleHealthStepsBackfill(
           daysProcessed,
           daysIngested,
           daysSkippedNoData,
+          daysFailed: 1,
+          lastSuccessfulDay,
           lastProcessedDay: day,
         },
       });
@@ -168,8 +209,14 @@ export async function runAppleHealthStepsBackfill(
       timezone,
       steps: pulled.steps,
     });
+    const idempotencyKey = deps.stepsIdempotencyKey(day);
+    assertStepsBackfillSingleDayInvariant({
+      day,
+      idempotencyKey,
+      payloadDay: body.payload.day,
+    });
     const res = await deps.ingestRawEvent(body, opts.token, {
-      idempotencyKey: deps.stepsIdempotencyKey(day),
+      idempotencyKey,
       timeoutMs: 15000,
     });
     if (!res.ok) {
@@ -182,6 +229,7 @@ export async function runAppleHealthStepsBackfill(
         lastProcessedDay: day,
         lastRunAt: deps.nowIso(),
         error: res.error,
+        lastTriggerSource: triggerSource,
         summary: {
           startedAt,
           completedAt: null,
@@ -189,12 +237,15 @@ export async function runAppleHealthStepsBackfill(
           daysProcessed,
           daysIngested,
           daysSkippedNoData,
+          daysFailed: 1,
+          lastSuccessfulDay,
           lastProcessedDay: day,
         },
       });
       return { ok: false, error: res.error, requestId: res.requestId };
     }
     daysIngested += 1;
+    lastSuccessfulDay = day;
 
     await deps.setBackfillState({
       status: "in_progress",
@@ -205,6 +256,7 @@ export async function runAppleHealthStepsBackfill(
       lastProcessedDay: day,
       lastRunAt: deps.nowIso(),
       error: null,
+      lastTriggerSource: triggerSource,
       summary: {
         startedAt,
         completedAt: null,
@@ -212,6 +264,8 @@ export async function runAppleHealthStepsBackfill(
         daysProcessed,
         daysIngested,
         daysSkippedNoData,
+        daysFailed: 0,
+        lastSuccessfulDay,
         lastProcessedDay: day,
       },
     });
@@ -227,6 +281,7 @@ export async function runAppleHealthStepsBackfill(
     lastProcessedDay: days.length > 0 ? days[days.length - 1]! : null,
     lastRunAt: completedAt,
     error: null,
+    lastTriggerSource: triggerSource,
     summary: {
       startedAt,
       completedAt,
@@ -234,6 +289,8 @@ export async function runAppleHealthStepsBackfill(
       daysProcessed,
       daysIngested,
       daysSkippedNoData,
+      daysFailed: 0,
+      lastSuccessfulDay,
       lastProcessedDay: days.length > 0 ? days[days.length - 1]! : null,
     },
   });
@@ -249,5 +306,8 @@ export async function runAppleHealthStepsBackfill(
     daysProcessed,
     daysIngested,
     daysSkippedNoData,
+    daysFailed: 0,
+    lastSuccessfulDay,
+    triggerSource,
   };
 }

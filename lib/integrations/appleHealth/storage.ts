@@ -10,6 +10,8 @@ export const APPLE_HEALTH_LAST_CHECKED_AT = "appleHealth:lastCheckedAt";
 export const APPLE_HEALTH_BODY_LAST_CHECKED_AT = "appleHealth:bodyLastCheckedAt";
 export const APPLE_HEALTH_BODY_BACKFILL_STATE = "appleHealth:bodyBackfillState";
 export const APPLE_HEALTH_STEPS_BACKFILL_STATE = "appleHealth:stepsBackfillState";
+/** ISO timestamp of last automatic steps repair completion (cooldown for sync/gap triggers). */
+export const APPLE_HEALTH_STEPS_AUTO_REPAIR_LAST_AT = "appleHealth:stepsAutoRepair:lastCompletedAt";
 export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
@@ -76,6 +78,9 @@ export async function setAppleHealthBodyBackfillState(state: AppleHealthBodyBack
 
 export type AppleHealthStepsBackfillStatus = "not_started" | "in_progress" | "completed" | "failed";
 
+/** Who initiated the steps backfill/repair run (persisted for diagnostics and UI). */
+export type AppleHealthStepsRepairTriggerSource = "connection" | "sync" | "manual" | "recovery";
+
 export type AppleHealthStepsBackfillState = {
   status: AppleHealthStepsBackfillStatus;
   backfillStartDate: string;
@@ -85,13 +90,20 @@ export type AppleHealthStepsBackfillState = {
   lastProcessedDay: string | null;
   lastRunAt: string;
   error: string | null;
+  /** Present for runs started after this field was added. */
+  lastTriggerSource?: AppleHealthStepsRepairTriggerSource | null;
   summary: {
     startedAt: string;
     completedAt: string | null;
     daysTotal: number;
     daysProcessed: number;
     daysIngested: number;
+    /** Days where HealthKit returned an empty aggregate (`hkEmpty`); still ingested as steps:0. */
     daysSkippedNoData: number;
+    /** Ingest failures mid-run (aborted backfill). Omitted/0 when full success. */
+    daysFailed?: number;
+    /** Last calendar day that received a successful POST /ingest in this run. */
+    lastSuccessfulDay?: string | null;
     lastProcessedDay: string | null;
   };
 };
@@ -108,6 +120,14 @@ export async function getAppleHealthStepsBackfillState(): Promise<AppleHealthSte
 
 export async function setAppleHealthStepsBackfillState(state: AppleHealthStepsBackfillState): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_STEPS_BACKFILL_STATE, JSON.stringify(state));
+}
+
+export async function getAppleHealthStepsAutoRepairLastCompletedAt(): Promise<string | null> {
+  return AsyncStorage.getItem(APPLE_HEALTH_STEPS_AUTO_REPAIR_LAST_AT);
+}
+
+export async function setAppleHealthStepsAutoRepairLastCompletedAt(iso: string): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_STEPS_AUTO_REPAIR_LAST_AT, iso);
 }
 
 export async function getAppleHealthConnected(): Promise<boolean> {
