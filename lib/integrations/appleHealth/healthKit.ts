@@ -609,31 +609,63 @@ function getTodayDayKeyLocalInternal(): string {
  */
 export async function pullStepCountForLocalCalendarDay(
   dayYmd: string,
-): Promise<{ ok: true; steps: number | null } | { ok: false; error: string }> {
+): Promise<{ ok: true; steps: number; hkEmpty?: true } | { ok: false; error: string }> {
   const HK = await getHealthKit();
   if (!HK) {
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
   }
   try {
     const { start, end } = getLocalCalendarDayBoundsFromYmd(dayYmd);
-    const steps = await pStepCount(HK, start, end);
-    return { ok: true, steps };
+    const r = await queryStepCount(HK, start, end);
+    if (r.kind === "error") {
+      return { ok: false, error: `HealthKit getStepCount: ${r.message}` };
+    }
+    if (r.kind === "empty") {
+      /** RN Health often returns no error + empty aggregate for a day; still ingest 0 so rawEvents show `apple_health`. */
+      return { ok: true, steps: 0, hkEmpty: true as const };
+    }
+    return { ok: true, steps: Math.max(0, r.steps) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-function pStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {
+type StepCountQueryResult =
+  | { kind: "ok"; steps: number }
+  | { kind: "empty" }
+  | { kind: "error"; message: string };
+
+/**
+ * Low-level HKStatistics-style callback: distinguishes **error** vs **no aggregate** vs **numeric total**.
+ * Previously we treated errors like missing data (`null`), so steps backfill skipped POST /ingest entirely.
+ */
+function queryStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<StepCountQueryResult> {
   return new Promise((resolve) => {
     HK.getStepCount({ startDate, endDate }, (err: string, result: HealthValue) => {
-      if (err || result == null) {
-        resolve(null);
+      if (err != null && String(err).trim() !== "") {
+        resolve({ kind: "error", message: String(err) });
         return;
       }
-      const v = typeof result.value === "number" ? result.value : null;
-      resolve(v);
+      if (result == null || typeof result.value !== "number" || !Number.isFinite(result.value)) {
+        resolve({ kind: "empty" });
+        return;
+      }
+      resolve({ kind: "ok", steps: result.value });
     });
   });
+}
+
+async function pStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {
+  const r = await queryStepCount(HK, startDate, endDate);
+  if (r.kind === "error") {
+    if (__DEV__ && !process.env.JEST_WORKER_ID) {
+      // eslint-disable-next-line no-console
+      console.warn("[AH] getStepCount error", { startDate, endDate, message: r.message });
+    }
+    return null;
+  }
+  if (r.kind === "empty") return null;
+  return r.steps;
 }
 
 function pAppleExerciseTime(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {

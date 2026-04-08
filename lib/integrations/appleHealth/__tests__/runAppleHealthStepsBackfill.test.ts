@@ -22,7 +22,7 @@ describe("runAppleHealthStepsBackfill", () => {
     const ingestRawEvent = jest.fn(async () => ({ ok: true as const }));
     const pullStepCountForLocalCalendarDay = jest.fn(async (day: string) => {
       if (day === "2026-04-07") return { ok: true as const, steps: 100 };
-      return { ok: true as const, steps: 0 };
+      return { ok: true as const, steps: 0, hkEmpty: true as const };
     });
 
     const result = await runAppleHealthStepsBackfill(
@@ -42,6 +42,7 @@ describe("runAppleHealthStepsBackfill", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.daysTotal).toBe(2);
+    expect(result.daysSkippedNoData).toBe(1);
     expect(result.daysIngested).toBe(2);
     expect(ingestRawEvent).toHaveBeenCalledTimes(2);
     const keys = ingestRawEvent.mock.calls.map((c) => c[2]?.idempotencyKey);
@@ -53,10 +54,14 @@ describe("runAppleHealthStepsBackfill", () => {
     expect(firstBody.payload?.steps).toBe(0);
   });
 
-  it("skips ingest when HealthKit returns null steps", async () => {
+  it("ingests steps:0 when HealthKit returns empty aggregate (hkEmpty) so apple_health raw exists", async () => {
     const store = makeStore();
     const ingestRawEvent = jest.fn(async () => ({ ok: true as const }));
-    const pullStepCountForLocalCalendarDay = jest.fn(async () => ({ ok: true as const, steps: null }));
+    const pullStepCountForLocalCalendarDay = jest.fn(async () => ({
+      ok: true as const,
+      steps: 0,
+      hkEmpty: true as const,
+    }));
 
     const result = await runAppleHealthStepsBackfill(
       { token: "tok", lookbackDays: 1 },
@@ -75,8 +80,11 @@ describe("runAppleHealthStepsBackfill", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.daysSkippedNoData).toBe(1);
-    expect(result.daysIngested).toBe(0);
-    expect(ingestRawEvent).not.toHaveBeenCalled();
+    expect(result.daysIngested).toBe(1);
+    expect(ingestRawEvent).toHaveBeenCalledTimes(1);
+    const body = ingestRawEvent.mock.calls[0]![0] as { payload?: { steps?: number }; provider?: string };
+    expect(body.provider).toBe("apple_health");
+    expect(body.payload?.steps).toBe(0);
   });
 
   it("computeLocalYtdLookbackDays counts Jan 1 through today inclusive", () => {

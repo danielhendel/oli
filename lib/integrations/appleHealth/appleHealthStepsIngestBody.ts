@@ -26,7 +26,8 @@ export function buildAppleHealthStepsIngestBody(params: {
   const { start, end, day, timezone, steps } = params;
   return {
     provider: "apple_health",
-    sourceId: "healthkit",
+    /** Align with body/workout ingest (`runAppleHealthBodySync`) so rawEvents are clearly Apple Health–sourced. */
+    sourceId: "apple_health",
     kind: "steps",
     observedAt: start,
     timeZone: timezone,
