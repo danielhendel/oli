@@ -3,6 +3,7 @@
  * Only calls setWorkoutsAnchor after full success; fail-closed on truncation or ingest failure.
  */
 
+import { buildAppleHealthStepsIngestBody } from "./appleHealthStepsIngestBody";
 import type { TodaySnapshot, TodayWorkout } from "./types";
 
 export type RunAnchoredWorkoutsSyncDeps = {
@@ -59,21 +60,13 @@ export async function runAnchoredWorkoutsSync(
   const { start, end, day } = deps.getTodayBounds();
 
   if (data.steps != null && data.steps >= 0) {
-    const body = {
-      provider: "apple_health" as const,
-      sourceId: "healthkit",
-      kind: "steps" as const,
-      observedAt: start,
-      timeZone: timezone,
-      payload: {
-        start,
-        end,
-        timezone,
-        day,
-        steps: data.steps,
-        sync: { mode: "range" as const, anchorVersion: 1, anchorUsed: false },
-      },
-    };
+    const body = buildAppleHealthStepsIngestBody({
+      start,
+      end,
+      day,
+      timezone,
+      steps: data.steps,
+    });
     const res = await deps.ingestRawEvent(body, token, {
       idempotencyKey: deps.stepsIdempotencyKey(day),
       timeoutMs: 15000,

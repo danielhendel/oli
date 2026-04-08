@@ -557,6 +557,32 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
     };
   }
 
+  /**
+   * Apple Health steps ingest uses the same window payload as manual steps (`start`, `end`, `timezone`, `steps`, …).
+   * Canonical `day` remains derived from `start` + timezone only (client `payload.day` is ignored in mapper).
+   * Without this branch, provider `apple_health` hit UNSUPPORTED_PROVIDER → no canonical event → DailyFacts never
+   * received `activity.steps` for HealthKit-synced days (only manual/Oura-shaped ingest produced steps in rollups).
+   */
+  if (raw.provider === "apple_health" && raw.kind === "steps") {
+    const payload = parseManualPayload("steps", raw.payload);
+    if (!payload) {
+      return {
+        ok: false,
+        reason: "MALFORMED_PAYLOAD",
+        details: { rawEventId: raw.id, provider: raw.provider, kind: raw.kind },
+      };
+    }
+    const canonical = mapManualSteps(raw, payload);
+    if (!canonical) {
+      return {
+        ok: false,
+        reason: "MALFORMED_PAYLOAD",
+        details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
+      };
+    }
+    return { ok: true, canonical };
+  }
+
   if (raw.provider !== "manual") {
     return {
       ok: false,

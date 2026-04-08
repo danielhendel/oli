@@ -84,6 +84,37 @@ describe("mapRawEventToCanonical", () => {
     expect(stepsEvent.moveMinutes).toBe(90);
   });
 
+  it("maps apple_health steps payload to StepsCanonicalEvent (parity with HealthKit ingest)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_steps_1",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      kind: "steps",
+      payload: {
+        start: "2025-01-01T05:00:00.000Z",
+        end: "2025-01-02T04:59:59.999Z",
+        timezone: "America/New_York",
+        day: "2025-01-01",
+        steps: 8421,
+        sync: { mode: "range", anchorVersion: 1, anchorUsed: false },
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    expect(canonical.kind).toBe("steps");
+    expect(canonical.sourceId).toBe("healthkit");
+    expect(canonical.day).toBe(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date("2025-01-01T05:00:00.000Z")),
+    );
+    const stepsEvent = canonical as Extract<CanonicalEvent, { kind: "steps" }>;
+    expect(stepsEvent.steps).toBe(8421);
+  });
+
   it("returns fact-only for weight (no canonical event, trigger recompute via onRawEventCreated)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

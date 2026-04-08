@@ -337,6 +337,12 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
           existingData: existing.data(),
           update: (payload) => docRef.update({ payload }),
         });
+        // Steps replays use the same raw doc id; `onDocumentCreated` does not re-fire.
+        // Bump `receivedAt` so `onRawEventUpdatedForNormalization` can re-run the mapper
+        // after deploys that fix normalization (e.g. apple_health steps).
+        if (validated.data.kind === "steps") {
+          await docRef.update({ receivedAt: validated.data.receivedAt });
+        }
         return res.status(202).json({
           ok: true as const,
           rawEventId,
