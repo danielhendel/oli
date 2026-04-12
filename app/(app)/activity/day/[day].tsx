@@ -19,18 +19,18 @@ export default function ActivityDayScreen() {
     );
   }
 
-  if (initializing || state.status === "idle" || state.status === "loading") {
+  if (!user && !initializing) {
     return (
       <ScreenContainer>
-        <LoadingState message="Loading steps…" />
+        <EmptyState title="Sign in" description="Sign in to view steps for this day." />
       </ScreenContainer>
     );
   }
 
-  if (!user) {
+  if (initializing || state.status === "partial") {
     return (
       <ScreenContainer>
-        <EmptyState title="Sign in" description="Sign in to view steps for this day." />
+        <LoadingState message="Loading steps…" />
       </ScreenContainer>
     );
   }
@@ -47,7 +47,7 @@ export default function ActivityDayScreen() {
     );
   }
 
-  if (state.status === "empty") {
+  if (state.status === "missing") {
     return (
       <ScreenContainer>
         <EmptyState

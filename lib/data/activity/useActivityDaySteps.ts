@@ -6,46 +6,53 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import type { DailyFactsDto } from "@/lib/contracts/dailyFacts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
+/**
+ * Activity day steps fetch surface — `status` uses Phase 1 canonical readiness only
+ * (`missing` | `partial` | `ready` | `error`, see `@oli/contracts/readiness`).
+ */
 export type ActivityDayStepsState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | {
-      status: "error";
-      message: string;
-      requestId: string | null;
-    }
-  | { status: "empty" }
-  | { status: "ready"; steps: number };
+  | { status: "missing" }
+  | { status: "partial" }
+  | { status: "ready"; steps: number }
+  | { status: "error"; message: string; requestId: string | null };
 
 /**
  * Loads `activity.steps` for one day via GET /users/me/daily-facts (same trust boundary as Activity rollups).
- * Pass `null` when the route day is invalid or absent — no network calls are made.
+ * Pass `null` when the route day is invalid or absent — no network calls are made (`missing`).
  */
 export function useActivityDaySteps(dayKey: string | null): {
   state: ActivityDayStepsState;
   reload: () => void;
 } {
   const { user, initializing, getIdToken } = useAuth();
-  const [state, setState] = useState<ActivityDayStepsState>({ status: "idle" });
+  const [state, setState] = useState<ActivityDayStepsState>({ status: "missing" });
   const seqRef = useRef(0);
+
+  useEffect(() => {
+    if (dayKey == null || dayKey.length === 0) {
+      setState({ status: "missing" });
+      return;
+    }
+    setState({ status: "partial" });
+  }, [dayKey]);
 
   const run = useCallback(async () => {
     const seq = ++seqRef.current;
     if (dayKey == null || dayKey.length === 0) {
-      setState({ status: "idle" });
+      setState({ status: "missing" });
       return;
     }
     const key = dayKey;
     if (initializing) {
-      setState({ status: "idle" });
+      setState({ status: "partial" });
       return;
     }
     if (!user) {
-      setState({ status: "idle" });
+      setState({ status: "missing" });
       return;
     }
 
-    setState({ status: "loading" });
+    setState({ status: "partial" });
     const token = await getIdToken(false);
     if (seq !== seqRef.current) return;
     if (!token) {
@@ -70,7 +77,7 @@ export function useActivityDaySteps(dayKey: string | null): {
       return;
     }
     if (outcome.status === "missing") {
-      setState({ status: "empty" });
+      setState({ status: "missing" });
       return;
     }
 
@@ -79,7 +86,7 @@ export function useActivityDaySteps(dayKey: string | null): {
       setState({ status: "ready", steps: Math.round(s) });
       return;
     }
-    setState({ status: "empty" });
+    setState({ status: "missing" });
   }, [dayKey, getIdToken, initializing, user]);
 
   useEffect(() => {
