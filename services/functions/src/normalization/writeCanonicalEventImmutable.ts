@@ -7,7 +7,7 @@ import type { CanonicalEvent } from "../types/health";
 import { canonicalEquals, canonicalHash } from "./canonicalImmutability";
 
 export type WriteCanonicalResult =
-  | { ok: true; mode: "created" | "identical_noop" }
+  | { ok: true; mode: "created" | "identical_noop" | "replaced" }
   | {
       ok: false;
       mode: "conflict";
@@ -52,6 +52,20 @@ export async function writeCanonicalEventImmutable(params: {
 
     if (canonicalEquals(existing, canonical)) {
       return { ok: true, mode: "identical_noop" } as const;
+    }
+
+    /**
+     * Daily step totals are cumulative for the local calendar window and legitimately change
+     * intraday under the same raw/canonical id (same idempotency key). Immutability conflicts
+     * here would strand DailyFacts on the first ingested value.
+     */
+    if (
+      existing.kind === "steps" &&
+      canonical.kind === "steps" &&
+      existing.id === canonical.id
+    ) {
+      tx.set(ref, canonical);
+      return { ok: true, mode: "replaced" } as const;
     }
 
     const existingHash = canonicalHash(existing);

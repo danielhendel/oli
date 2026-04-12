@@ -6,7 +6,13 @@ import {
   View,
 } from "react-native";
 import type { DayKey } from "./types";
-import { getMonthGrid, formatMonthYearLabel, getTodayDayKeyLocal, type MonthYear } from "./dateUtils";
+import {
+  getMonthGrid,
+  getMonthGridLocal,
+  formatMonthYearLabel,
+  getTodayDayKeyLocal,
+  type MonthYear,
+} from "./dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import { UI_TEXT_PRIMARY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 import { WorkoutDayRing } from "./WorkoutDayRing";
@@ -15,12 +21,25 @@ export type MonthGridProps = {
   monthYear: MonthYear;
   markerForDay: (day: DayKey) => WorkoutMarkerFlags | null;
   onDayPress: (day: DayKey) => void;
+  /**
+   * `local` — cell `DayKey`s use the device calendar (matches Apple Health daily steps keys).
+   * `utc` — legacy UTC-noon grid (default for Strength/Cardio calendars).
+   */
+  dayKeyBasis?: "utc" | "local";
+  /** `activity` — a11y copy for step rollup markers; default `workout` for strength/cardio grids. */
+  ringSemantics?: "workout" | "activity";
 };
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProps) {
+export function MonthGrid({
+  monthYear,
+  markerForDay,
+  onDayPress,
+  dayKeyBasis = "utc",
+  ringSemantics = "workout",
+}: MonthGridProps) {
   const todayKey = getTodayDayKeyLocal();
-  const weeks = getMonthGrid(monthYear);
+  const weeks = dayKeyBasis === "local" ? getMonthGridLocal(monthYear) : getMonthGrid(monthYear);
   const paddedWeeks = [...weeks];
   while (paddedWeeks.length < 6) {
     paddedWeeks.push([null, null, null, null, null, null, null]);
@@ -45,15 +64,21 @@ export function MonthGrid({ monthYear, markerForDay, onDayPress }: MonthGridProp
             const marker = markerForDay(dayKey);
             const hasStrength = !!marker?.hasStrength;
             const hasCardio = !!marker?.hasCardio;
-            const hasWorkoutMarker = hasStrength || hasCardio;
+            const hasRingMarker = hasStrength || hasCardio;
+            const a11yDetail =
+              ringSemantics === "activity"
+                ? hasRingMarker
+                  ? "steps in daily rollup"
+                  : "no steps in daily rollup"
+                : hasRingMarker
+                  ? "has workouts"
+                  : "no workouts";
             return (
               <Pressable
                 key={dayKey}
                 onPress={() => onDayPress(dayKey)}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  hasWorkoutMarker ? `${dayKey}, has workouts` : `${dayKey}, no workouts`
-                }
+                accessibilityLabel={`${dayKey}, ${a11yDetail}`}
                 style={({ pressed }) => [
                   styles.dayCell,
                   pressed && styles.dayCellPressed,

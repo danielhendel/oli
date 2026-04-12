@@ -2,6 +2,7 @@
 
 export * from "./rawEvent";
 export * from "./dailyFacts";
+export * from "./activityStepsResolution";
 export * from "./derivedLedger";
 export * from "./insights";
 export * from "./intelligenceContext";

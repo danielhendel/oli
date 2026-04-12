@@ -221,4 +221,138 @@ describe("GET /users/me/daily-facts", () => {
       expect.objectContaining({ synthesizedActivityFromRaw: true }),
     );
   });
+
+  test("synthesized steps prefer apple_health when multiple canonical step events exist", async () => {
+    const stepsApple = { kind: "steps", day: "2026-04-21", sourceId: "apple_health", steps: 4000 };
+    const stepsManual = { kind: "steps", day: "2026-04-21", sourceId: "manual", steps: 9999 };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: false }),
+          }),
+        };
+      }
+      if (name === "rawEvents") {
+        return rawEventsMockWithDoc({});
+      }
+      if (name === "events") {
+        const eventsQuery = {
+          where: (): typeof eventsQuery => eventsQuery,
+          get: async () => ({
+            docs: [
+              { data: () => stepsManual },
+              { data: () => stepsApple },
+            ],
+          }),
+        };
+        return eventsQuery;
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-21`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { activity?: { steps?: number } };
+    expect(json.activity?.steps).toBe(4000);
+  });
+
+  test("merges activity.steps when dailyFacts has activity object but no numeric steps field", async () => {
+    const storedFacts = {
+      schemaVersion: 1,
+      userId: "user_body_test",
+      date: "2026-04-22",
+      computedAt: "2026-04-22T10:00:00.000Z",
+      activity: { distanceKm: 3.2 },
+    };
+
+    const stepsCanonical = {
+      kind: "steps",
+      day: "2026-04-22",
+      sourceId: "apple_health",
+      steps: 6060,
+    };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: true, data: () => storedFacts }),
+          }),
+        };
+      }
+      if (name === "events") {
+        const eventsQuery = {
+          where: (): typeof eventsQuery => eventsQuery,
+          get: async () => ({ docs: [{ id: "e1", data: () => stepsCanonical }] }),
+        };
+        return eventsQuery;
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-22`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      activity?: { steps?: number; distanceKm?: number };
+      meta?: { source?: Record<string, unknown> };
+    };
+    expect(json.activity?.steps).toBe(6060);
+    expect(json.activity?.distanceKm).toBe(3.2);
+    expect(json.meta?.source?.activityStepsFilledOnRead).toBe(true);
+  });
+
+  test("merges activity.steps when dailyFacts exists but omits numeric steps and canonical has steps", async () => {
+    const storedFacts = {
+      schemaVersion: 1,
+      userId: "user_body_test",
+      date: "2026-04-20",
+      computedAt: "2026-04-20T10:00:00.000Z",
+      sleep: { totalMinutes: 420 },
+    };
+
+    const stepsCanonical = {
+      kind: "steps",
+      day: "2026-04-20",
+      sourceId: "apple_health",
+      steps: 7777,
+    };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: true, data: () => storedFacts }),
+          }),
+        };
+      }
+      if (name === "events") {
+        const eventsQuery = {
+          where: (): typeof eventsQuery => eventsQuery,
+          get: async () => ({ docs: [{ id: "appleHealth:v2:steps:2026-04-20", data: () => stepsCanonical }] }),
+        };
+        return eventsQuery;
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-20`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: Record<string, unknown> } };
+    expect(json.activity?.steps).toBe(7777);
+    expect(json.meta?.source?.activityStepsFilledOnRead).toBe(true);
+  });
 });

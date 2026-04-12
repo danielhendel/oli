@@ -18,7 +18,32 @@ describe("ActivityOverviewCard", () => {
     expect(str).not.toContain("activity-overview-steps-bar-today");
   });
 
-  it("shows error inline when error is set", () => {
+  it("shows error inline together with model when both are set", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityOverviewCard
+          loading={false}
+          error={{ message: "partial failure", requestId: "r9", onRetry: jest.fn() }}
+          model={{
+            timeframes: [
+              {
+                key: "today",
+                label: "Today",
+                compactStatsSummary: "100 steps",
+                markerPosition01: 0.1,
+              },
+            ],
+          }}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("partial failure");
+    expect(str).toContain("activity-overview-steps-bar-today");
+  });
+
+  it("shows error inline when error is set and model is null", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -45,8 +70,6 @@ describe("ActivityOverviewCard", () => {
               {
                 key: "today",
                 label: "Today",
-                totalSteps: 100,
-                averageStepsPerDay: null,
                 compactStatsSummary: "100 steps",
                 markerPosition01: 0.1,
               },

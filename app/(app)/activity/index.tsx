@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOverviewScreenData";
+import { ActivityDailyDetailsCard } from "@/lib/ui/activity/ActivityDailyDetailsCard";
 import { ActivityOverviewCard } from "@/lib/ui/activity/ActivityOverviewCard";
 import { ActivityWeeklyStrip } from "@/lib/ui/activity/ActivityWeeklyStrip";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -51,11 +52,16 @@ export default function ActivityOverviewScreen() {
     );
   }
 
+  const onStripDayPress = (day: string) => {
+    data.setSelectedDay(day);
+    router.push({ pathname: "/(app)/activity/day/[day]", params: { day } });
+  };
+
   const headerStrip = (
     <ActivityWeeklyStrip
       days={data.weeklyStripDays}
       selectedDay={data.selectedDay}
-      onDayPress={data.setSelectedDay}
+      onDayPress={onStripDayPress}
     />
   );
 
@@ -74,6 +80,12 @@ export default function ActivityOverviewScreen() {
             error={data.overview.error}
             model={data.overview.model}
           />
+          <View style={styles.cardSpacer} />
+          <ActivityDailyDetailsCard
+            loading={data.dailyDetails.loading}
+            error={data.dailyDetails.error}
+            model={data.dailyDetails.model}
+          />
         </View>
       </ModuleScreenShell>
     </View>
@@ -88,4 +100,5 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     flexGrow: 1,
   },
+  cardSpacer: { height: 16 },
 });

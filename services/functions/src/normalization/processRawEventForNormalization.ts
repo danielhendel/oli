@@ -412,6 +412,44 @@ export async function processRawEventForNormalization(params: {
     }
   } else {
     /**
+     * Same-id steps canonical was overwritten (intraday cumulative update). `onDocumentCreated`
+     * does not run for updates — recompute here so dailyFacts track the latest total.
+     */
+    if (writeRes.mode === "replaced" && rawEvent.kind === "steps") {
+      const dayKey = canonical.day as YmdDateString;
+      try {
+        logger.info("steps_canonical_replaced_recompute_start", {
+          msg: "steps_canonical_replaced_recompute_start",
+          userId: rawEvent.userId,
+          rawEventId: rawEvent.id,
+          dayKey,
+          trigger,
+        });
+        await recomputeDerivedTruthForDay({
+          db,
+          userId: rawEvent.userId,
+          dayKey,
+          trigger: { type: "realtime", eventId: `${canonical.id}:steps_canonical_replaced` },
+        });
+        logger.info("steps_canonical_replaced_recompute_done", {
+          msg: "steps_canonical_replaced_recompute_done",
+          userId: rawEvent.userId,
+          dayKey,
+          trigger,
+        });
+      } catch (err) {
+        logger.error("steps_canonical_replaced_recompute_failed", {
+          msg: "steps_canonical_replaced_recompute_failed",
+          userId: rawEvent.userId,
+          rawEventId: rawEvent.id,
+          dayKey,
+          trigger,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    /**
      * `onCanonicalEventCreated` only runs on Firestore **create**. Identical replays use
      * `writeCanonicalEventImmutable` → `identical_noop` (no write), so derived truth is not
      * recomputed unless we invoke it here. Steps replays after pipeline fixes depend on this.

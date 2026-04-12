@@ -338,10 +338,19 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
           update: (payload) => docRef.update({ payload }),
         });
         // Steps replays use the same raw doc id; `onDocumentCreated` does not re-fire.
-        // Bump `receivedAt` so `onRawEventUpdatedForNormalization` can re-run the mapper
-        // after deploys that fix normalization (e.g. apple_health steps).
+        // Apple Health sends an updated cumulative total for the same calendar day under the
+        // same idempotency key — we must persist the new payload, not only bump receivedAt,
+        // or Firestore stays on an early partial (e.g. 37) while HealthKit shows thousands.
         if (validated.data.kind === "steps") {
-          await docRef.update({ receivedAt: validated.data.receivedAt });
+          const patch: Record<string, unknown> = {
+            payload: validated.data.payload,
+            observedAt: validated.data.observedAt,
+            receivedAt: validated.data.receivedAt,
+          };
+          if (validated.data.occurredAt !== undefined) {
+            patch.occurredAt = validated.data.occurredAt;
+          }
+          await docRef.update(patch);
         }
         return res.status(202).json({
           ok: true as const,

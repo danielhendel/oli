@@ -59,6 +59,10 @@ export default function AppLayout() {
             options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="activity/day/[day]"
+            options={{ title: "Activity day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="activity/settings"
             options={{ title: "Activity settings", ...workoutsStackNavigationOptions("detail") }}
           />
