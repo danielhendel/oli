@@ -46,4 +46,19 @@ describe("interpretDailyFactsStepsRollupEntry", () => {
       requestId: "r3",
     });
   });
+
+  it("returns numeric when activity.steps is explicitly 0 (counts toward overview averages)", () => {
+    const r = okFacts({ activity: { steps: 0 } });
+    expect(interpretDailyFactsStepsRollupEntry(r)).toEqual({ kind: "numeric", steps: 0 });
+  });
+
+  it("returns absent when activity exists but steps is omitted (not coerced to 0)", () => {
+    const r = okFacts({ activity: {} });
+    expect(interpretDailyFactsStepsRollupEntry(r)).toEqual({ kind: "absent" });
+  });
+
+  it("returns absent when activity is omitted", () => {
+    const r = okFacts({});
+    expect(interpretDailyFactsStepsRollupEntry(r)).toEqual({ kind: "absent" });
+  });
 });

@@ -124,4 +124,19 @@ describe("writeCanonicalEventImmutable — steps intraday", () => {
 
     expect(res).toEqual({ ok: true, mode: "identical_noop" });
   });
+
+  it("does not reduce steps when a lower cumulative total arrives out of order", async () => {
+    const path = "users/u_steps/events/appleHealth:v2:steps:2026-04-08";
+    mockTransactionStore.set(path, { ...stepsCanonical(5000, "2026-04-08T20:00:00.000Z") } as Record<string, unknown>);
+
+    const res = await writeCanonicalEventImmutable({
+      userId: "u_steps",
+      canonical: { ...stepsCanonical(133, "2026-04-08T08:00:00.000Z") },
+      sourceRawEventId: "appleHealth:v2:steps:2026-04-08",
+      sourceRawEventPath: "x",
+    });
+
+    expect(res).toEqual({ ok: true, mode: "identical_noop" });
+    expect((mockTransactionStore.get(path) as { steps?: number }).steps).toBe(5000);
+  });
 });

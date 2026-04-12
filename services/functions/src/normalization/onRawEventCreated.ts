@@ -9,7 +9,7 @@ import { processRawEventForNormalization } from "./processRawEventForNormalizati
  *   Output: /users/{userId}/events/{canonicalEventId}
  *
  * Canonical persistence uses {@link writeCanonicalEventImmutable} inside
- * {@link processRawEventForNormalization} (create-only or identical-on-replay).
+ * {@link processRawEventForNormalization} (steps may advance intraday; other kinds stay immutable).
  *
  * See {@link processRawEventForNormalization} for behavior.
  *

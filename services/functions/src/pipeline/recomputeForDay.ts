@@ -57,6 +57,17 @@ const addDaysUtc = (ymd: YmdDateString, deltaDays: number): YmdDateString => {
   return `${yy}-${mm}-${dd}`;
 };
 
+/** Two consecutive identical snapshots ⇒ no canonical doc changed between reads (best-effort). */
+function canonicalEventsFingerprint(events: CanonicalEvent[]): string {
+  return [...events]
+    .map((e) => {
+      const t = e.updatedAt ?? (e as { createdAt?: string }).createdAt ?? "";
+      return `${e.kind}\0${e.id}\0${t}`;
+    })
+    .sort()
+    .join("\u0001");
+}
+
 export interface RecomputeForDayInput {
   db: Firestore;
   userId: string;
@@ -76,9 +87,17 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
 
   const userRef = db.collection("users").doc(userId);
 
-  // Load canonical events for the day
-  const eventsSnap = await userRef.collection("events").where("day", "==", dayKey).get();
-  const eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+  // Load canonical events for the day — stabilize with two identical consecutive reads so a long
+  // recompute does not write dailyFacts from a snapshot that was already superseded mid-flight.
+  let eventsForDay: CanonicalEvent[] = [];
+  let fpPrev: string | null = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const eventsSnap = await userRef.collection("events").where("day", "==", dayKey).get();
+    eventsForDay = eventsSnap.docs.map((d) => d.data() as CanonicalEvent);
+    const fp = canonicalEventsFingerprint(eventsForDay);
+    if (fp === fpPrev) break;
+    fpPrev = fp;
+  }
 
   const latestCanonicalEventAt: IsoDateTimeString | undefined =
     eventsForDay.reduce<IsoDateTimeString | undefined>((max, ev) => {
