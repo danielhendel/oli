@@ -100,15 +100,11 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): State
 }
 
 /**
- * Overview screen: union of trailing 365d through today + week strip around `selectedDay`.
+ * Overview screen: trailing `ACTIVITY_OVERVIEW_AVG_12M_DAYS` (365) inclusive calendar days ending on `selectedDay`.
  */
-export function useActivityStepsRollupMap(
-  selectedDay: DayKey,
-  todayDayKey: DayKey,
-): State & { refetch: (opts?: { cacheBust?: string }) => void } {
-  const keys = useMemo(
-    () => computeActivityOverviewFetchDayKeys(selectedDay, todayDayKey),
-    [selectedDay, todayDayKey],
-  );
+export function useActivityStepsRollupMap(selectedDay: DayKey): State & {
+  refetch: (opts?: { cacheBust?: string }) => void;
+} {
+  const keys = useMemo(() => computeActivityOverviewFetchDayKeys(selectedDay), [selectedDay]);
   return useActivityStepsRollupForKeys(keys);
 }

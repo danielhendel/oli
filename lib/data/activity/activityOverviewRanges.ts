@@ -1,5 +1,5 @@
 import type { DayKey } from "@/lib/ui/calendar/types";
-import { addCalendarDaysToDayKey, enumerateDaysInclusive, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import { addCalendarDaysToDayKey, enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
 
 /**
  * Inclusive trailing window of local calendar days ending on `endDay`, length `dayCount`.
@@ -24,16 +24,14 @@ export const ACTIVITY_OVERVIEW_AVG_12M_DAYS = 365;
 export const ACTIVITY_CALENDAR_MARKER_SPAN_DAYS = 540;
 
 /**
- * GET /users/me/daily-facts keys for the Activity overview + week strip.
- * - Trailing {@link ACTIVITY_OVERVIEW_AVG_12M_DAYS} days through **today** (overview windows are all subsets).
- * - Full Sun–Sat week containing **selectedDay** (strip markers; may include future days).
+ * GET /users/me/daily-facts keys for the Activity overview screen.
+ *
+ * Exactly the deduped union of trailing windows **ending on `overviewAnchorDay`** (strip-selected day):
+ * Today row + 7D + 30D + 365D ⊆ one {@link ACTIVITY_OVERVIEW_AVG_12M_DAYS}-day inclusive trail.
+ * No dates after `overviewAnchorDay`, and no extra history outside that trail (no full week union).
  */
-export function computeActivityOverviewFetchDayKeys(selectedDay: DayKey, todayDayKey: DayKey): DayKey[] {
-  const u = new Set<DayKey>([
-    ...getWeekDaysForAnchor(selectedDay),
-    ...activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_12M_DAYS),
-  ]);
-  return [...u].sort();
+export function computeActivityOverviewFetchDayKeys(overviewAnchorDay: DayKey): DayKey[] {
+  return activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_12M_DAYS).sort();
 }
 
 /** Keys to mark days with steps on the Activity full-calendar screen. */

@@ -28,6 +28,23 @@ export const onCanonicalEventCreated = onDocumentCreated(
 
     const day = canonical.day as YmdDateString;
 
+    /**
+     * Steps normalization always calls {@link recomputeDerivedTruthForDay} from
+     * {@link processRawEventForNormalization} after the canonical write (create/replace/noop).
+     * Skipping here avoids a second async recompute racing a fast intraday raw update: a slow
+     * create-triggered recompute could otherwise read an early cumulative total and overwrite
+     * dailyFacts after a later ingest had already written the correct higher total.
+     */
+    if (canonical.kind === "steps") {
+      logger.info("Realtime recompute skipped for steps (handled by raw normalization)", {
+        userId,
+        eventId,
+        day,
+        kind: canonical.kind,
+      });
+      return;
+    }
+
     logger.info("Realtime recompute started", { userId, eventId, day, kind: canonical.kind });
     await recomputeDerivedTruthForDay({
       db,

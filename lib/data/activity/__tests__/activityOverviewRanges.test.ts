@@ -1,6 +1,9 @@
+import type { DayKey } from "@/lib/ui/calendar/types";
 import {
   ACTIVITY_CALENDAR_MARKER_SPAN_DAYS,
   ACTIVITY_OVERVIEW_AVG_12M_DAYS,
+  ACTIVITY_OVERVIEW_AVG_30D_DAYS,
+  ACTIVITY_OVERVIEW_AVG_7D_DAYS,
   activityTrailingNDaysInclusive,
   computeActivityCalendarFetchDayKeys,
   computeActivityOverviewFetchDayKeys,
@@ -15,20 +18,46 @@ describe("activityTrailingNDaysInclusive", () => {
   });
 });
 
+/** Spec: distinct GET keys equal union(Today row, 7D, 30D, 365D) — nested windows collapse to the 365 trail. */
+function expectedDedupedOverviewFetchUnionSize(anchor: DayKey): number {
+  return new Set<DayKey>([
+    anchor,
+    ...activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_AVG_7D_DAYS),
+    ...activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_AVG_30D_DAYS),
+    ...activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_AVG_12M_DAYS),
+  ]).size;
+}
+
 describe("computeActivityOverviewFetchDayKeys", () => {
-  it("includes trailing 365d through today and week around selectedDay", () => {
-    const keys = computeActivityOverviewFetchDayKeys("2026-04-08", "2026-04-08");
+  it("returns exactly the 365-day inclusive trail ending on the anchor (no device-today bleed, no week future days)", () => {
+    const anchor = "2026-04-08" as DayKey;
+    const keys = computeActivityOverviewFetchDayKeys(anchor);
+    const trail = activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
+    expect(keys).toEqual([...trail].sort());
+    expect(keys).toHaveLength(ACTIVITY_OVERVIEW_AVG_12M_DAYS);
     expect(keys[0]).toBe("2025-04-09");
-    expect(keys[keys.length - 1]).toBe("2026-04-11");
-    const set = new Set(keys);
-    expect(set.size).toBe(keys.length);
-    expect(keys).toContain("2026-04-08");
+    expect(keys[keys.length - 1]).toBe("2026-04-08");
+    expect(expectedDedupedOverviewFetchUnionSize(anchor)).toBe(keys.length);
   });
 
-  it("includes an off-window selected day in its week strip", () => {
-    const keys = computeActivityOverviewFetchDayKeys("2026-03-15", "2026-04-08");
-    expect(keys).toContain("2026-03-15");
-    expect(keys[keys.length - 1]).toBe("2026-04-08");
+  it("for anchor 2026-04-12: bounded to trailing windows ending that day, no keys after anchor, earliest is 365D start only", () => {
+    const anchor = "2026-04-12" as DayKey;
+    const keys = computeActivityOverviewFetchDayKeys(anchor);
+    const trail365 = activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
+
+    expect(keys).toEqual([...trail365].sort());
+    expect(keys).toHaveLength(365);
+    expect(keys[keys.length - 1]).toBe("2026-04-12");
+    expect(keys.every((k) => k <= anchor)).toBe(true);
+    expect(keys[0]).toBe(trail365[0]);
+    expect(keys[0]).toBe("2025-04-13");
+    expect(expectedDedupedOverviewFetchUnionSize(anchor)).toBe(365);
+  });
+
+  it("does not extend fetch range when calendar today is after the selected anchor", () => {
+    const keysHistorical = computeActivityOverviewFetchDayKeys("2026-03-15");
+    expect(keysHistorical[keysHistorical.length - 1]).toBe("2026-03-15");
+    expect(keysHistorical.every((k) => k <= "2026-03-15")).toBe(true);
   });
 });
 

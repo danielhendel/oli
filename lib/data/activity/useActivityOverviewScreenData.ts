@@ -23,7 +23,7 @@ export function useActivityOverviewScreenData() {
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
 
   const todayDayKey = getTodayDayKeyLocal();
-  const stepsRollup = useActivityStepsRollupMap(selectedDay, todayDayKey);
+  const stepsRollup = useActivityStepsRollupMap(selectedDay);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,10 +68,10 @@ export function useActivityOverviewScreenData() {
   const overviewCardModel = useMemo(() => {
     if (stepsRollup.status !== "ready") return null;
     return buildActivityOverviewCardModel({
-      todayDayKey,
+      overviewAnchorDay: selectedDay,
       rollupByDay: stepsRollup.rollupByDay,
     });
-  }, [stepsRollup, todayDayKey]);
+  }, [stepsRollup, selectedDay]);
 
   const dailyDetailsModel = useMemo(() => {
     if (stepsRollup.status !== "ready") return null;

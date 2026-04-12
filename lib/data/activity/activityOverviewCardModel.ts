@@ -30,27 +30,22 @@ export type ActivityOverviewCardModel = {
   timeframes: ActivityOverviewRowModel[];
 };
 
-/** Steps counted toward period sums: numeric rollups only; absent/error days contribute 0. */
-function numericContribution(rollup: Readonly<ActivityStepsRollupMap>, d: DayKey): number {
-  const e = rollup[d];
-  return e?.kind === "numeric" ? e.steps : 0;
-}
-
-function sumNumericForDays(days: readonly DayKey[], rollup: Readonly<ActivityStepsRollupMap>): number {
-  let t = 0;
-  for (const d of days) {
-    t += numericContribution(rollup, d);
-  }
-  return t;
-}
-
 /**
- * Average steps per day over a fixed-length trailing window ending on `todayDayKey`.
- * Missing/absent days count as 0 steps and still count in the denominator (deterministic).
+ * Mean steps over a trailing calendar window, using **only** days with numeric daily-facts steps.
+ * Absent, error, and missing keys are excluded (not treated as 0 in the denominator).
+ * If no numeric days in the window → 0.
  */
-function averageStepsFixedWindow(totalSteps: number, windowDays: number): number {
-  if (windowDays <= 0) return 0;
-  return totalSteps / windowDays;
+function averageStepsNumericDaysOnly(days: readonly DayKey[], rollup: Readonly<ActivityStepsRollupMap>): number {
+  let sum = 0;
+  let count = 0;
+  for (const d of days) {
+    const e = rollup[d];
+    if (e?.kind !== "numeric") continue;
+    sum += e.steps;
+    count += 1;
+  }
+  if (count === 0) return 0;
+  return sum / count;
 }
 
 export function formatActivityDailyDetailsTitle(selectedDay: DayKey, todayDayKey: DayKey): string {
@@ -69,34 +64,29 @@ export function formatActivityAverageRowSummary(avgStepsPerDay: number): string 
 }
 
 /**
- * Activity Overview summary — **independent of strip selection**.
- * Source of truth: persisted `activity.steps` per day from GET /users/me/daily-facts (rolled into {@link rollupByDay}).
+ * Activity Overview summary — trailing windows **end on `overviewAnchorDay`** (Activity strip selection).
+ * Source of truth: `activity.steps` per day from GET /users/me/daily-facts (rolled into {@link rollupByDay} as `kind: "numeric"` only when a finite non-negative steps value exists).
  *
- * Formulas (local calendar days, inclusive of today):
- * - **Today:** steps for `todayDayKey` only.
- * - **7D Avg:** (Σ steps over last 7 days including today) / 7.
- * - **30D Avg:** (Σ steps over last 30 days including today) / 30.
- * - **365D Avg:** (Σ steps over last 365 days including today) / 365 (trailing window, not calendar year).
+ * Formulas (local calendar days, inclusive of anchor day):
+ * - **Today row:** steps for `overviewAnchorDay` only (UI label unchanged).
+ * - **7D / 30D / 365D Avg:** mean of steps on days **with numeric rollups inside that trailing window ending on the anchor** only.
+ *   Missing/error/absent days do not count toward the average. No numeric days → **0**.
  */
 export function buildActivityOverviewCardModel(input: {
-  todayDayKey: DayKey;
+  overviewAnchorDay: DayKey;
   rollupByDay: Readonly<ActivityStepsRollupMap>;
 }): ActivityOverviewCardModel {
-  const { todayDayKey, rollupByDay } = input;
+  const { overviewAnchorDay, rollupByDay } = input;
 
-  const d7 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
-  const d30 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
-  const d365 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
+  const d7 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
+  const d30 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
+  const d365 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
 
-  const todayEntry = rollupByDay[todayDayKey];
+  const todayEntry = rollupByDay[overviewAnchorDay];
 
-  const sum7 = sumNumericForDays(d7, rollupByDay);
-  const sum30 = sumNumericForDays(d30, rollupByDay);
-  const sum365 = sumNumericForDays(d365, rollupByDay);
-
-  const avg7 = averageStepsFixedWindow(sum7, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
-  const avg30 = averageStepsFixedWindow(sum30, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
-  const avg365 = averageStepsFixedWindow(sum365, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
+  const avg7 = averageStepsNumericDaysOnly(d7, rollupByDay);
+  const avg30 = averageStepsNumericDaysOnly(d30, rollupByDay);
+  const avg365 = averageStepsNumericDaysOnly(d365, rollupByDay);
 
   const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
 

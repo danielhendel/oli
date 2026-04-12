@@ -25,13 +25,13 @@ describe("onCanonicalEventCreated", () => {
     jest.resetModules();
   });
 
-  it("delegates realtime recompute to shared pipeline", async () => {
+  it("delegates realtime recompute to shared pipeline for non-steps canonicals", async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("../onCanonicalEventCreated");
     const handler = mod.onCanonicalEventCreated as (event: unknown) => Promise<void>;
     await handler({
       params: { userId: "u1", eventId: "e1" },
-      data: { data: () => ({ day: "2026-03-31", kind: "steps" }) },
+      data: { data: () => ({ day: "2026-03-31", kind: "sleep" }) },
     });
     expect(mockRecompute).toHaveBeenCalledWith({
       db: {},
@@ -39,6 +39,17 @@ describe("onCanonicalEventCreated", () => {
       dayKey: "2026-03-31",
       trigger: { type: "realtime", eventId: "e1" },
     });
+  });
+
+  it("does not recompute for steps (normalization owns derived truth for steps)", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("../onCanonicalEventCreated");
+    const handler = mod.onCanonicalEventCreated as (event: unknown) => Promise<void>;
+    await handler({
+      params: { userId: "u1", eventId: "e1" },
+      data: { data: () => ({ day: "2026-03-31", kind: "steps" }) },
+    });
+    expect(mockRecompute).not.toHaveBeenCalled();
   });
 });
 

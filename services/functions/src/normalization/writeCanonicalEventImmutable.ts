@@ -3,8 +3,43 @@
 import crypto from "node:crypto"; // ✅ ADD
 import * as logger from "firebase-functions/logger";
 import { admin, db } from "../firebaseAdmin";
-import type { CanonicalEvent } from "../types/health";
+import type { CanonicalEvent, StepsCanonicalEvent } from "../types/health";
 import { canonicalEquals, canonicalHash } from "./canonicalImmutability";
+
+function lexIsoMax(a: string | undefined, b: string | undefined): string {
+  const aa = a ?? "";
+  const bb = b ?? "";
+  return aa >= bb ? aa : bb;
+}
+
+/**
+ * Apple Health (and manual) daily steps reuse one canonical id per day; totals are cumulative intraday.
+ * Out-of-order delivery must not reduce the stored total. When the count increases, the newer payload wins
+ * for scalar fields; `updatedAt` is the lexicographic max of both.
+ */
+function mergeIntradayStepsCanonical(
+  existing: StepsCanonicalEvent,
+  incoming: StepsCanonicalEvent,
+): { merged: StepsCanonicalEvent; changed: boolean } {
+  if (incoming.steps < existing.steps) {
+    return { merged: existing, changed: false };
+  }
+  if (incoming.steps > existing.steps) {
+    const merged: StepsCanonicalEvent = {
+      ...incoming,
+      steps: incoming.steps,
+      updatedAt: lexIsoMax(existing.updatedAt, incoming.updatedAt),
+    };
+    return { merged, changed: !canonicalEquals(existing, merged) };
+  }
+  const merged: StepsCanonicalEvent = {
+    ...existing,
+    ...incoming,
+    steps: existing.steps,
+    updatedAt: lexIsoMax(existing.updatedAt, incoming.updatedAt),
+  };
+  return { merged, changed: !canonicalEquals(existing, merged) };
+}
 
 export type WriteCanonicalResult =
   | { ok: true; mode: "created" | "identical_noop" | "replaced" }
@@ -64,7 +99,11 @@ export async function writeCanonicalEventImmutable(params: {
       canonical.kind === "steps" &&
       existing.id === canonical.id
     ) {
-      tx.set(ref, canonical);
+      const { merged, changed } = mergeIntradayStepsCanonical(existing, canonical);
+      if (!changed) {
+        return { ok: true, mode: "identical_noop" } as const;
+      }
+      tx.set(ref, merged);
       return { ok: true, mode: "replaced" } as const;
     }
 
