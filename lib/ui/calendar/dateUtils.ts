@@ -144,6 +144,52 @@ export function getMonthGrid({ year, month }: MonthYear): (DayKey | null)[][] {
   return weeks;
 }
 
+/**
+ * Month grid using the device **local** calendar for each cell’s `DayKey`.
+ * Aligns with Apple Health steps ingest (`getLocalCalendarDayBoundsFromYmd`) and {@link getTodayDayKeyLocal}.
+ */
+export function getMonthGridLocal({ year, month }: MonthYear): (DayKey | null)[][] {
+  const { year: y, month: mo } = clampMonthYear({ year, month });
+  const firstMid = new Date(y, mo - 1, 1, 12, 0, 0, 0);
+  const lastMid = new Date(y, mo, 0, 12, 0, 0, 0);
+
+  const start = new Date(firstMid);
+  const startDow = start.getDay();
+  start.setDate(start.getDate() - startDow);
+  start.setHours(12, 0, 0, 0);
+
+  const end = new Date(lastMid);
+  const endDow = end.getDay();
+  end.setDate(end.getDate() + (6 - endDow));
+  end.setHours(12, 0, 0, 0);
+
+  const targetMonthIndex = firstMid.getMonth();
+  const targetYear = firstMid.getFullYear();
+
+  const weeks: (DayKey | null)[][] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const week: (DayKey | null)[] = [];
+    for (let i = 0; i < 7; i += 1) {
+      const dayKey = localNoonDateToDayKey(cursor);
+      const inMonth = cursor.getMonth() === targetMonthIndex && cursor.getFullYear() === targetYear;
+      week.push(inMonth ? dayKey : null);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  return weeks;
+}
+
+function localNoonDateToDayKey(d: Date): DayKey {
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 export function formatMonthYearLabel({ year, month }: MonthYear): string {
   const { year: y, month: m } = clampMonthYear({ year, month });
   const d = new Date(Date.UTC(y, m - 1, 1, 12, 0, 0, 0));

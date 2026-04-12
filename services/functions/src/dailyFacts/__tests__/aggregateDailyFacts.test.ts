@@ -155,8 +155,8 @@ describe('aggregateDailyFactsForDay', () => {
     expect(sleep.mainSleepMinutes).toBe(480);
 
     const activity = result.activity!;
-    // 8000 + 4000 = 12000
-    expect(activity.steps).toBe(12000);
+    // Two non-apple step events: pick higher (8000), do not sum (avoids duplicate sources)
+    expect(activity.steps).toBe(8000);
     // training load from single workout
     expect(activity.trainingLoad).toBe(50);
 
@@ -167,6 +167,20 @@ describe('aggregateDailyFactsForDay', () => {
     const recovery = result.recovery!;
     // average of 80 and 60 = 70
     expect(recovery.hrvRmssd).toBe(70);
+  });
+
+  it('prefers apple_health steps over other sources for the same day', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'manual_steps', sourceId: 'manual', steps: 12000 }),
+      makeSteps({ id: 'appleHealth:v2:steps:2025-01-01', sourceId: 'apple_health', steps: 5011 }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.activity?.steps).toBe(5011);
   });
 
   it('includes activity.steps when steps canonical events sum to zero (HealthKit empty / explicit zero)', () => {
@@ -262,6 +276,20 @@ describe('aggregateDailyFactsForDay', () => {
     });
 
     expect(result.strength).toBeUndefined();
+  });
+
+  it('prefers apple_health steps when another source also reports steps (no double count)', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'manual_1', sourceId: 'manual_entry', steps: 9000 }),
+      makeSteps({ id: 'ah_1', sourceId: 'apple_health', steps: 5012 }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.activity?.steps).toBe(5012);
   });
 
   it('returns minimal DailyFacts when no events exist', () => {

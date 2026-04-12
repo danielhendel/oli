@@ -5,6 +5,7 @@ import type { DayKey } from "@/lib/ui/calendar/types";
  */
 export type DayStepsRollupEntry =
   | { kind: "numeric"; steps: number }
-  | { kind: "absent" };
+  | { kind: "absent" }
+  | { kind: "error"; message: string; requestId: string | null };
 
 export type ActivityStepsRollupMap = Record<DayKey, DayStepsRollupEntry>;

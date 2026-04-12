@@ -20,6 +20,11 @@ import type {
   NutritionCanonicalEvent,
 } from '../types/health';
 
+import {
+  pickContributingStepEventsForDailyFacts,
+  resolvedStepsTotalFromContributing,
+} from '@oli/contracts';
+
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -99,12 +104,12 @@ const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | unde
 
   const facts: DailyActivityFacts = {};
 
-  const steps = stepsEvents.reduce((sum, e) => sum + e.steps, 0);
-  if (stepsEvents.length > 0) {
-    facts.steps = steps;
+  const contributing = pickContributingStepEventsForDailyFacts(stepsEvents);
+  if (contributing.length > 0) {
+    facts.steps = resolvedStepsTotalFromContributing(contributing);
   }
 
-  const distanceKm = stepsEvents
+  const distanceKm = contributing
     .map((e) => e.distanceKm)
     .filter(isNumber)
     .reduce((sum, v) => sum + v, 0);
@@ -112,7 +117,7 @@ const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | unde
     facts.distanceKm = distanceKm;
   }
 
-  const moveMinutes = stepsEvents
+  const moveMinutes = contributing
     .map((e) => e.moveMinutes)
     .filter(isNumber)
     .reduce((sum, v) => sum + v, 0);

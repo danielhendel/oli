@@ -63,7 +63,7 @@ describe("POST /ingest — steps idempotent replay", () => {
     jest.restoreAllMocks();
   });
 
-  it("updates receivedAt on idempotent replay so normalization can re-run", async () => {
+  it("updates payload, observedAt, and receivedAt on steps idempotent replay (cumulative day total)", async () => {
     const app = createIngestApp();
     const server = app.listen(0);
     const addr = server.address();
@@ -87,9 +87,52 @@ describe("POST /ingest — steps idempotent replay", () => {
       expect(json.idempotentReplay).toBe(true);
 
       expect(mockDocRef.update).toHaveBeenCalledTimes(1);
-      const patch = mockDocRef.update.mock.calls[0][0] as { receivedAt?: string };
+      const patch = mockDocRef.update.mock.calls[0][0] as {
+        receivedAt?: string;
+        observedAt?: string;
+        payload?: { steps?: number };
+      };
       expect(typeof patch.receivedAt).toBe("string");
       expect(patch.receivedAt!.length).toBeGreaterThan(10);
+      expect(patch.observedAt).toBe(baseBody.occurredAt);
+      expect(patch.payload?.steps).toBe(5000);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("overwrites stale stored steps on replay when incoming cumulative total is higher", async () => {
+    mockDocRef.get.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        ...baseBody,
+        id: mockDocRef.id,
+        userId: "user_steps_replay",
+        payload: { ...baseBody.payload, steps: 37 },
+      }),
+    });
+
+    const app = createIngestApp();
+    const server = app.listen(0);
+    const addr = server.address();
+    if (!addr || typeof addr === "string") {
+      server.close();
+      throw new Error("Failed to bind");
+    }
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${addr.port}/ingest`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "idem_steps_replay",
+        },
+        body: JSON.stringify(baseBody),
+      });
+
+      expect(res.status).toBe(202);
+      const patch = mockDocRef.update.mock.calls[0][0] as { payload?: { steps?: number } };
+      expect(patch.payload?.steps).toBe(5000);
     } finally {
       server.close();
     }

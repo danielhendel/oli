@@ -3,9 +3,10 @@ import {
   dashRecapPlacementMarker01,
 } from "@/lib/data/dash/dashRecapDisplayPlacement";
 import {
-  activityMtdDaysThrough,
-  activityWeekElapsedDaysThrough,
-  activityYtdDaysThrough,
+  ACTIVITY_OVERVIEW_AVG_12M_DAYS,
+  ACTIVITY_OVERVIEW_AVG_30D_DAYS,
+  ACTIVITY_OVERVIEW_AVG_7D_DAYS,
+  activityTrailingNDaysInclusive,
 } from "@/lib/data/activity/activityOverviewRanges";
 import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { formatDayKeyWeekdayShortMonthDay } from "@/lib/ui/calendar/dayKeyDisplayFormat";
@@ -14,7 +15,7 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 /** Same neutral display cap as Daily Recap steps bar — not a clinical target. */
 export const ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP = DASH_RECAP_DISPLAY_PLACEMENT_CAPS.steps;
 
-export type ActivityOverviewTimeframeKey = "today" | "thisWeek" | "mtd" | "ytd";
+export type ActivityOverviewTimeframeKey = "today" | "avg7d" | "avg30d" | "avg365d";
 
 export type ActivityOverviewRowModel = {
   key: ActivityOverviewTimeframeKey;
@@ -29,11 +30,7 @@ export type ActivityOverviewCardModel = {
   timeframes: ActivityOverviewRowModel[];
 };
 
-function primaryDayRowLabel(selectedDay: DayKey, todayDayKey: DayKey): string {
-  return selectedDay === todayDayKey ? "Today" : formatDayKeyWeekdayShortMonthDay(selectedDay);
-}
-
-/** Steps counted toward multi-day averages: numeric rollups only; absent/error days contribute 0. */
+/** Steps counted toward period sums: numeric rollups only; absent/error days contribute 0. */
 function numericContribution(rollup: Readonly<ActivityStepsRollupMap>, d: DayKey): number {
   const e = rollup[d];
   return e?.kind === "numeric" ? e.steps : 0;
@@ -47,12 +44,19 @@ function sumNumericForDays(days: readonly DayKey[], rollup: Readonly<ActivitySte
   return t;
 }
 
-function averageOverCalendarDays(totalNumericSteps: number, dayCount: number): number {
-  if (dayCount <= 0) return 0;
-  return totalNumericSteps / dayCount;
+/**
+ * Average steps per day over a fixed-length trailing window ending on `todayDayKey`.
+ * Missing/absent days count as 0 steps and still count in the denominator (deterministic).
+ */
+function averageStepsFixedWindow(totalSteps: number, windowDays: number): number {
+  if (windowDays <= 0) return 0;
+  return totalSteps / windowDays;
 }
 
-/** @internal — tests */
+export function formatActivityDailyDetailsTitle(selectedDay: DayKey, todayDayKey: DayKey): string {
+  return selectedDay === todayDayKey ? "Today" : formatDayKeyWeekdayShortMonthDay(selectedDay);
+}
+
 export function formatActivityTodayRowSummary(entry: DayStepsRollupEntry | undefined): string {
   if (entry?.kind === "numeric") {
     return `${Math.round(entry.steps).toLocaleString()} steps`;
@@ -60,34 +64,39 @@ export function formatActivityTodayRowSummary(entry: DayStepsRollupEntry | undef
   return "No daily rollup for this day";
 }
 
-/** @internal — tests */
 export function formatActivityAverageRowSummary(avgStepsPerDay: number): string {
   return `${Math.round(avgStepsPerDay).toLocaleString()}/day`;
 }
 
 /**
- * Builds Activity Overview rows from per-day rollup entries (GET /users/me/daily-facts).
- * Today: total only when `activity.steps` exists; multi-day rows: calendar average (sum of numeric days / calendar span).
+ * Activity Overview summary — **independent of strip selection**.
+ * Source of truth: persisted `activity.steps` per day from GET /users/me/daily-facts (rolled into {@link rollupByDay}).
+ *
+ * Formulas (local calendar days, inclusive of today):
+ * - **Today:** steps for `todayDayKey` only.
+ * - **7D Avg:** (Σ steps over last 7 days including today) / 7.
+ * - **30D Avg:** (Σ steps over last 30 days including today) / 30.
+ * - **365D Avg:** (Σ steps over last 365 days including today) / 365 (trailing window, not calendar year).
  */
 export function buildActivityOverviewCardModel(input: {
-  selectedDay: DayKey;
   todayDayKey: DayKey;
   rollupByDay: Readonly<ActivityStepsRollupMap>;
 }): ActivityOverviewCardModel {
-  const { selectedDay, todayDayKey, rollupByDay } = input;
+  const { todayDayKey, rollupByDay } = input;
 
-  const weekDays = activityWeekElapsedDaysThrough(selectedDay);
-  const mtdDays = activityMtdDaysThrough(selectedDay);
-  const ytdDays = activityYtdDaysThrough(selectedDay);
+  const d7 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
+  const d30 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
+  const d365 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
 
-  const todayEntry = rollupByDay[selectedDay];
-  const weekTotal = sumNumericForDays(weekDays, rollupByDay);
-  const mtdTotal = sumNumericForDays(mtdDays, rollupByDay);
-  const ytdTotal = sumNumericForDays(ytdDays, rollupByDay);
+  const todayEntry = rollupByDay[todayDayKey];
 
-  const weekAvg = averageOverCalendarDays(weekTotal, weekDays.length);
-  const mtdAvg = averageOverCalendarDays(mtdTotal, mtdDays.length);
-  const ytdAvg = averageOverCalendarDays(ytdTotal, ytdDays.length);
+  const sum7 = sumNumericForDays(d7, rollupByDay);
+  const sum30 = sumNumericForDays(d30, rollupByDay);
+  const sum365 = sumNumericForDays(d365, rollupByDay);
+
+  const avg7 = averageStepsFixedWindow(sum7, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
+  const avg30 = averageStepsFixedWindow(sum30, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
+  const avg365 = averageStepsFixedWindow(sum365, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
 
   const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
 
@@ -98,29 +107,51 @@ export function buildActivityOverviewCardModel(input: {
   const timeframes: ActivityOverviewRowModel[] = [
     {
       key: "today",
-      label: primaryDayRowLabel(selectedDay, todayDayKey),
+      label: "Today",
       compactStatsSummary: formatActivityTodayRowSummary(todayEntry),
       markerPosition01: todayMarker,
     },
     {
-      key: "thisWeek",
-      label: "This Week",
-      compactStatsSummary: formatActivityAverageRowSummary(weekAvg),
-      markerPosition01: dashRecapPlacementMarker01(weekAvg, cap),
+      key: "avg7d",
+      label: "7D Avg",
+      compactStatsSummary: formatActivityAverageRowSummary(avg7),
+      markerPosition01: dashRecapPlacementMarker01(avg7, cap),
     },
     {
-      key: "mtd",
-      label: "MTD",
-      compactStatsSummary: formatActivityAverageRowSummary(mtdAvg),
-      markerPosition01: dashRecapPlacementMarker01(mtdAvg, cap),
+      key: "avg30d",
+      label: "30D Avg",
+      compactStatsSummary: formatActivityAverageRowSummary(avg30),
+      markerPosition01: dashRecapPlacementMarker01(avg30, cap),
     },
     {
-      key: "ytd",
-      label: "YTD",
-      compactStatsSummary: formatActivityAverageRowSummary(ytdAvg),
-      markerPosition01: dashRecapPlacementMarker01(ytdAvg, cap),
+      key: "avg365d",
+      label: "365D Avg",
+      compactStatsSummary: formatActivityAverageRowSummary(avg365),
+      markerPosition01: dashRecapPlacementMarker01(avg365, cap),
     },
   ];
 
   return { timeframes };
+}
+
+export type ActivityDailyDetailsCardModel = {
+  title: string;
+  compactStatsSummary: string;
+  markerPosition01: number;
+};
+
+export function buildActivityDailyDetailsCardModel(input: {
+  selectedDay: DayKey;
+  todayDayKey: DayKey;
+  rollupByDay: Readonly<ActivityStepsRollupMap>;
+}): ActivityDailyDetailsCardModel {
+  const { selectedDay, todayDayKey, rollupByDay } = input;
+  const entry = rollupByDay[selectedDay];
+  const numericSteps = entry?.kind === "numeric" ? entry.steps : 0;
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  return {
+    title: formatActivityDailyDetailsTitle(selectedDay, todayDayKey),
+    compactStatsSummary: formatActivityTodayRowSummary(entry),
+    markerPosition01: entry?.kind === "numeric" ? dashRecapPlacementMarker01(numericSteps, cap) : 0,
+  };
 }

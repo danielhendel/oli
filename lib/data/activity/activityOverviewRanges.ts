@@ -1,44 +1,42 @@
 import type { DayKey } from "@/lib/ui/calendar/types";
-import {
-  enumerateDaysInclusive,
-  getMonthFirstDay,
-  getWeekDaysForAnchor,
-} from "@/lib/ui/calendar/dateUtils";
+import { addCalendarDaysToDayKey, enumerateDaysInclusive, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 
 /**
- * Calendar windows for Activity Overview rows (Today / This Week / MTD / YTD).
- * All bounds are inclusive day keys in device-neutral UTC-noon calendar math (same as Strength).
+ * Inclusive trailing window of local calendar days ending on `endDay`, length `dayCount`.
+ * Uses the same UTC-noon day arithmetic as {@link enumerateDaysInclusive} (repo standard).
  */
-
-export function activityWeekElapsedDaysThrough(selectedDay: DayKey): DayKey[] {
-  return getWeekDaysForAnchor(selectedDay).filter((d) => d <= selectedDay);
+export function activityTrailingNDaysInclusive(endDay: DayKey, dayCount: number): DayKey[] {
+  if (dayCount <= 0) return [];
+  const start = addCalendarDaysToDayKey(endDay, -(dayCount - 1));
+  return enumerateDaysInclusive(start, endDay);
 }
 
-export function activityMtdDaysThrough(selectedDay: DayKey): DayKey[] {
-  const year = Number(selectedDay.slice(0, 4));
-  const month = Number(selectedDay.slice(5, 7));
-  if (!Number.isFinite(year) || !Number.isFinite(month)) return [];
-  const monthStart = getMonthFirstDay({ year, month });
-  if (monthStart > selectedDay) return [];
-  return enumerateDaysInclusive(monthStart, selectedDay);
-}
-
-export function activityYtdDaysThrough(selectedDay: DayKey): DayKey[] {
-  const year = selectedDay.slice(0, 4);
-  if (year.length !== 4) return [];
-  const yearStart = `${year}-01-01` as DayKey;
-  if (yearStart > selectedDay) return [];
-  return enumerateDaysInclusive(yearStart, selectedDay);
-}
+/** Apple-aligned overview row: average over these trailing day counts (inclusive of today). */
+export const ACTIVITY_OVERVIEW_AVG_7D_DAYS = 7;
+export const ACTIVITY_OVERVIEW_AVG_30D_DAYS = 30;
+/** Rolling “12 months” ≈ 365 local days including today (deterministic; matches common Health rolling-year summaries). */
+export const ACTIVITY_OVERVIEW_AVG_12M_DAYS = 365;
 
 /**
- * Unique sorted day keys to fetch via GET /users/me/daily-facts (union of week ∪ MTD ∪ YTD windows).
+ * Days fetched for calendar month markers (~18 months back from today).
+ * Must cover visible months in the Activity calendar FlatList (−12 … +12 from current month).
  */
-export function computeActivityOverviewFetchDayKeys(selectedDay: DayKey): DayKey[] {
+export const ACTIVITY_CALENDAR_MARKER_SPAN_DAYS = 540;
+
+/**
+ * GET /users/me/daily-facts keys for the Activity overview + week strip.
+ * - Trailing {@link ACTIVITY_OVERVIEW_AVG_12M_DAYS} days through **today** (overview windows are all subsets).
+ * - Full Sun–Sat week containing **selectedDay** (strip markers; may include future days).
+ */
+export function computeActivityOverviewFetchDayKeys(selectedDay: DayKey, todayDayKey: DayKey): DayKey[] {
   const u = new Set<DayKey>([
-    ...activityWeekElapsedDaysThrough(selectedDay),
-    ...activityMtdDaysThrough(selectedDay),
-    ...activityYtdDaysThrough(selectedDay),
+    ...getWeekDaysForAnchor(selectedDay),
+    ...activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_AVG_12M_DAYS),
   ]);
   return [...u].sort();
+}
+
+/** Keys to mark days with steps on the Activity full-calendar screen. */
+export function computeActivityCalendarFetchDayKeys(todayDayKey: DayKey): DayKey[] {
+  return activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_CALENDAR_MARKER_SPAN_DAYS);
 }

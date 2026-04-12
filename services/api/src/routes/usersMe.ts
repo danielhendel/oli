@@ -1662,7 +1662,59 @@ router.get(
       return;
     }
 
-    res.status(200).json(parsed.data);
+    let out = parsed.data;
+    const stepsVal = out.activity?.steps;
+    const hasNumericActivitySteps =
+      typeof stepsVal === "number" && Number.isFinite(stepsVal) && stepsVal >= 0;
+
+    if (!hasNumericActivitySteps) {
+      let synthesizedActivity: Awaited<ReturnType<typeof loadActivityStepsFromCanonicalForApi>> | undefined;
+      try {
+        synthesizedActivity = await loadActivityStepsFromCanonicalForApi(uid, day);
+      } catch (err) {
+        logger.info({
+          msg: "daily_facts_merge_activity_from_canonical_failed",
+          level: "warn",
+          rid: getRid(req),
+          day,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      if (!synthesizedActivity) {
+        try {
+          synthesizedActivity = await loadActivityStepsFromRawForApi(uid, day);
+        } catch (err) {
+          logger.info({
+            msg: "daily_facts_merge_activity_from_raw_failed",
+            level: "warn",
+            rid: getRid(req),
+            day,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (synthesizedActivity) {
+        const priorSource =
+          typeof out.meta?.source === "object" && out.meta.source !== null && !Array.isArray(out.meta.source)
+            ? { ...(out.meta.source as Record<string, unknown>) }
+            : {};
+        const merged = {
+          ...out,
+          activity: { ...(out.activity ?? {}), steps: synthesizedActivity.steps },
+          meta: {
+            computedAt: out.meta?.computedAt ?? out.computedAt,
+            pipelineVersion: out.meta?.pipelineVersion ?? 1,
+            source: { ...priorSource, activityStepsFilledOnRead: true },
+          },
+        };
+        const mergedParsed = dailyFactsDtoSchema.safeParse(merged);
+        if (mergedParsed.success) {
+          out = mergedParsed.data;
+        }
+      }
+    }
+
+    res.status(200).json(out);
   }),
 );
 

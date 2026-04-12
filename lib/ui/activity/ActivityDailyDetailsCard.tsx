@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import type { ActivityOverviewCardModel } from "@/lib/data/activity/activityOverviewCardModel";
+import type { ActivityDailyDetailsCardModel } from "@/lib/data/activity/activityOverviewCardModel";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOverviewSegmentZoneFills";
 import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
@@ -10,13 +10,12 @@ import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOver
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
-/** Neutral marker fill — same elevated dot treatment as Strength overview (not tier-colored). */
-const ACTIVITY_OVERVIEW_MARKER_FILL = "#1F2937";
+const ACTIVITY_DETAILS_MARKER_FILL = "#1F2937";
 
-type ActivityOverviewCardProps = {
+type ActivityDailyDetailsCardProps = {
   loading: boolean;
   error: { message: string; requestId: string | null; onRetry: () => void } | null;
-  model: ActivityOverviewCardModel | null;
+  model: ActivityDailyDetailsCardModel | null;
 };
 
 function clamp01(x: number): number {
@@ -25,7 +24,7 @@ function clamp01(x: number): number {
   return x;
 }
 
-function ActivityOverviewPlacementTrack({ testID, markerPosition01 }: { testID: string; markerPosition01: number }) {
+function DetailsPlacementTrack({ testID, markerPosition01 }: { testID: string; markerPosition01: number }) {
   const marker01 = clamp01(markerPosition01);
   const pct = Math.round(marker01 * 100);
   return (
@@ -34,7 +33,7 @@ function ActivityOverviewPlacementTrack({ testID, markerPosition01 }: { testID: 
       testID={testID}
       markerPosition01={marker01}
       showMarker
-      markerBackgroundColor={ACTIVITY_OVERVIEW_MARKER_FILL}
+      markerBackgroundColor={ACTIVITY_DETAILS_MARKER_FILL}
       markerStyle="elevated"
       dotSize={MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize}
       barHeight={MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight}
@@ -47,15 +46,12 @@ function ActivityOverviewPlacementTrack({ testID, markerPosition01 }: { testID: 
   );
 }
 
-/**
- * Activity Overview — visual family aligned with StrengthOverviewCard (card shell, row rhythm, segmented bar).
- * No rating pills: steps use neutral placement bands only (dash recap geometry), not Strength consistency tiers.
- */
-export function ActivityOverviewCard({ loading, error, model }: ActivityOverviewCardProps) {
+/** Per-day steps for the week-strip (or calendar) selection — does not drive Overview averages. */
+export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDailyDetailsCardProps) {
   return (
     <View style={styles.card}>
       <View style={[styles.headerRow, workoutOverviewInCardHeaderStyles.row]}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>Overview</Text>
+        <Text style={workoutOverviewInCardHeaderStyles.title}>Daily details</Text>
       </View>
 
       {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
@@ -69,27 +65,19 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
       ) : null}
       {!loading && model != null ? (
         <View style={moduleOverviewMetricLayoutStyles.metricGroups}>
-          {model.timeframes.map((tf) => {
-            const a11y = `${tf.label}. ${tf.compactStatsSummary}.`;
-            return (
-              <View key={tf.key} style={moduleOverviewMetricLayoutStyles.metricBlock} accessibilityLabel={a11y} accessible>
-                <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                  <View style={styles.leftSummary}>
-                    <Text style={styles.timeframeLabel} numberOfLines={1}>
-                      {tf.label}
-                    </Text>
-                    <Text style={styles.resultSummary} numberOfLines={1} ellipsizeMode="tail">
-                      {tf.compactStatsSummary}
-                    </Text>
-                  </View>
-                </View>
-                <ActivityOverviewPlacementTrack
-                  testID={`activity-overview-steps-bar-${tf.key}`}
-                  markerPosition01={tf.markerPosition01}
-                />
+          <View style={moduleOverviewMetricLayoutStyles.metricBlock} accessible accessibilityLabel={`${model.title}. ${model.compactStatsSummary}.`}>
+            <View style={moduleOverviewMetricLayoutStyles.topRow}>
+              <View style={styles.leftSummary}>
+                <Text style={styles.timeframeLabel} numberOfLines={1}>
+                  {model.title}
+                </Text>
+                <Text style={styles.resultSummary} numberOfLines={1} ellipsizeMode="tail">
+                  {model.compactStatsSummary}
+                </Text>
               </View>
-            );
-          })}
+            </View>
+            <DetailsPlacementTrack testID="activity-daily-details-steps-bar" markerPosition01={model.markerPosition01} />
+          </View>
         </View>
       ) : null}
     </View>

@@ -2,45 +2,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getDailyFacts } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import type { DailyFactsDto } from "@/lib/contracts/dailyFacts";
-import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
+import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import { interpretDailyFactsStepsRollupEntry } from "@/lib/data/activity/dailyFactsStepsRollupEntry";
 import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
-import type { TruthOutcome } from "@/lib/data/truthOutcome";
-import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 type State = { status: "partial" } | { status: "ready"; rollupByDay: ActivityStepsRollupMap };
 
-function rollupFromOutcome(outcome: TruthOutcome<DailyFactsDto>): DayStepsRollupEntry {
-  if (outcome.status === "ready") {
-    const s = outcome.data.activity?.steps;
-    if (typeof s === "number" && Number.isFinite(s) && s >= 0) {
-      return { kind: "numeric", steps: Math.round(s) };
-    }
-    return { kind: "absent" };
-  }
-  if (outcome.status === "missing") return { kind: "absent" };
-  return { kind: "absent" };
-}
-
 /**
- * Fetches GET /users/me/daily-facts for every calendar day in the union of Activity Overview windows.
+ * Fetches GET /users/me/daily-facts for each key in `dayKeys` (parallel).
  * Per-day entries are persisted server rollups only (no client raw-event math).
  */
-export function useActivityStepsRollupMap(selectedDay: DayKey): State & { refetch: (opts?: { cacheBust?: string }) => void } {
+export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): State & {
+  refetch: (opts?: { cacheBust?: string }) => void;
+} {
   const { user, initializing, getIdToken } = useAuth();
-  const selectedRef = useRef(selectedDay);
-  selectedRef.current = selectedDay;
+  const keysRef = useRef(dayKeys);
+  keysRef.current = dayKeys;
   const requestSeq = useRef(0);
   const authRef = useRef({ initializing, userUid: user?.uid, getIdToken });
   authRef.current = { initializing, userUid: user?.uid, getIdToken };
 
   const [state, setState] = useState<State>({ status: "partial" });
 
+  const keySig = useMemo(() => [...dayKeys].sort().join("\0"), [dayKeys]);
+
   const fetchAll = useCallback(async (cacheBust?: string) => {
     const seq = ++requestSeq.current;
-    const day = selectedRef.current;
-    const keys = computeActivityOverviewFetchDayKeys(day);
+    const keys = keysRef.current;
     const { initializing: init, userUid, getIdToken: getToken } = authRef.current;
 
     const safeSet = (next: State) => {
@@ -83,16 +72,14 @@ export function useActivityStepsRollupMap(selectedDay: DayKey): State & { refetc
       const k = keys[i]!;
       const item = settled[i]!;
       if (item.status === "rejected") {
-        rollupByDay[k] = { kind: "absent" };
+        const r = item.reason;
+        const reason =
+          r instanceof Error ? r.message : typeof r === "string" && r.length > 0 ? r : "Request failed";
+        rollupByDay[k] = { kind: "error", message: reason, requestId: null };
         continue;
       }
       const { res } = item.value;
-      const outcome = truthOutcomeFromApiResult(res);
-      if (outcome.status === "error") {
-        rollupByDay[k] = { kind: "absent" };
-        continue;
-      }
-      rollupByDay[k] = rollupFromOutcome(outcome);
+      rollupByDay[k] = interpretDailyFactsStepsRollupEntry(res);
     }
 
     safeSet({ status: "ready", rollupByDay });
@@ -100,7 +87,7 @@ export function useActivityStepsRollupMap(selectedDay: DayKey): State & { refetc
 
   useEffect(() => {
     void fetchAll();
-  }, [fetchAll, selectedDay, user?.uid, initializing]);
+  }, [fetchAll, keySig, user?.uid, initializing]);
 
   const refetch = useCallback(
     (opts?: { cacheBust?: string }) => {
@@ -110,4 +97,18 @@ export function useActivityStepsRollupMap(selectedDay: DayKey): State & { refetc
   );
 
   return useMemo(() => ({ ...state, refetch }), [state, refetch]);
+}
+
+/**
+ * Overview screen: union of trailing 365d through today + week strip around `selectedDay`.
+ */
+export function useActivityStepsRollupMap(
+  selectedDay: DayKey,
+  todayDayKey: DayKey,
+): State & { refetch: (opts?: { cacheBust?: string }) => void } {
+  const keys = useMemo(
+    () => computeActivityOverviewFetchDayKeys(selectedDay, todayDayKey),
+    [selectedDay, todayDayKey],
+  );
+  return useActivityStepsRollupForKeys(keys);
 }
