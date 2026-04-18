@@ -10,41 +10,48 @@ const defaultOverviewData = {
   selectedDay: "2026-04-06",
   setSelectedDay: mockSetSelectedDay,
   weeklyStripDays: [
-    { day: "2026-04-05", meta: { hasSteps: false } },
-    { day: "2026-04-06", meta: { hasSteps: true } },
-    { day: "2026-04-07", meta: { hasSteps: false } },
-    { day: "2026-04-08", meta: { hasSteps: false } },
-    { day: "2026-04-09", meta: { hasSteps: false } },
-    { day: "2026-04-10", meta: { hasSteps: false } },
-    { day: "2026-04-11", meta: { hasSteps: false } },
+    { day: "2026-04-05", meta: { hasSteps: false, ringTierIndex: null } },
+    { day: "2026-04-06", meta: { hasSteps: true, ringTierIndex: 0 } },
+    { day: "2026-04-07", meta: { hasSteps: false, ringTierIndex: null } },
+    { day: "2026-04-08", meta: { hasSteps: false, ringTierIndex: null } },
+    { day: "2026-04-09", meta: { hasSteps: false, ringTierIndex: null } },
+    { day: "2026-04-10", meta: { hasSteps: false, ringTierIndex: null } },
+    { day: "2026-04-11", meta: { hasSteps: false, ringTierIndex: null } },
   ],
-  stepsRollup: { status: "ready" as const, rollupByDay: {}, refetch: jest.fn() },
+  stepsRollup: {
+    status: "ready" as const,
+    rollupByDay: {},
+    rollupDisplayByDay: {},
+    rollupFallbackBase: {},
+    isRefreshing: false,
+    refetch: jest.fn(),
+  },
   overview: {
     loading: false,
     error: null,
     model: {
       timeframes: [
         {
-          key: "today" as const,
-          label: "Today",
-          compactStatsSummary: "5,000 steps",
-          markerPosition01: 0.4,
-        },
-        {
-          key: "avg7d" as const,
-          label: "7D Avg",
+          key: "day7" as const,
+          label: "7 Day",
           compactStatsSummary: "3,000/day",
           markerPosition01: 0.25,
         },
         {
-          key: "avg30d" as const,
-          label: "30D Avg",
+          key: "day30" as const,
+          label: "30 Day",
           compactStatsSummary: "2,000/day",
           markerPosition01: 0.17,
         },
         {
-          key: "avg365d" as const,
-          label: "365D Avg",
+          key: "ytd" as const,
+          label: "YTD",
+          compactStatsSummary: "Not enough data",
+          markerPosition01: 0,
+        },
+        {
+          key: "month12" as const,
+          label: "12 Month",
           compactStatsSummary: "4,000/day",
           markerPosition01: 0.33,
         },
@@ -147,23 +154,33 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/settings");
   });
 
-  it("renders Overview and Daily details cards with trailing averages", async () => {
+  it("renders Overview and Today’s Steps cards with timeframe rows", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str).toContain("Overview");
-    expect(str).toContain("Daily details");
-    expect(str).toContain("5,000 steps");
-    expect(str).toContain("3,000/day");
-    expect(str).toContain("2,000/day");
-    expect(str).toContain("4,000/day");
-    expect(str).toContain("1,234 steps");
+    expect(str).toContain("Step Ratings");
+    expect(str).toContain("activity-step-ratings-toggle");
+    expect(str.indexOf("Step Ratings")).toBeLessThan(str.indexOf("Today’s Steps"));
+    const overviewBarMarker = "activity-overview-steps-bar-day7";
+    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf(overviewBarMarker));
+    expect(str).toContain(overviewBarMarker);
+    expect(str).toContain("Today’s Steps");
+    expect(str).toContain("7 Day");
+    expect(str).toContain("30 Day");
+    expect(str).toContain("YTD");
+    expect(str).toContain("12 Month");
+    expect(str).toContain("3,000");
+    expect(str).toContain("2,000");
+    expect(str).toContain("Not enough data");
+    expect(str).toContain("4,000");
+    expect(str).toContain("1,234");
+    expect(str).not.toMatch(/1,234 steps/);
     expect(str).not.toMatch(/\d+ steps · \d/);
-    expect(str).toContain("activity-overview-steps-bar-today");
-    expect(str).toContain("activity-overview-steps-bar-avg365d");
+    expect(str).toContain("activity-overview-steps-bar-day7");
+    expect(str).toContain("activity-overview-steps-bar-month12");
     expect(str).toContain("activity-daily-details-steps-bar");
   });
 
@@ -177,11 +194,8 @@ describe("ActivityOverviewScreen", () => {
     await act(async () => {
       cell.props.onPress();
     });
-    expect(mockSetSelectedDay).toHaveBeenCalledWith("2026-04-07");
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: "/(app)/activity/day/[day]",
-      params: { day: "2026-04-07" },
-    });
+    expect(mockSetSelectedDay).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/day/2026-04-07");
   });
 
   it("strip selection uses the same day key string as the calendar and day route (zero-padded month/day)", async () => {
@@ -195,10 +209,87 @@ describe("ActivityOverviewScreen", () => {
     await act(async () => {
       cell.props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: "/(app)/activity/day/[day]",
-      params: { day: "2026-04-05" },
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/day/2026-04-05");
+  });
+
+  it("shows overview rollup warning on Overview only, not on Today’s Steps, when daily model is ready", async () => {
+    const aggregateMessage = "Couldn’t load steps for 38 days. Other days may still show below.";
+    mockUseActivityOverviewScreenData.mockImplementation(() => ({
+      ...defaultOverviewData,
+      overview: {
+        ...defaultOverviewData.overview,
+        error: {
+          message: aggregateMessage,
+          requestId: "rAgg",
+          onRetry: jest.fn(),
+        },
+      },
+      dailyDetails: {
+        loading: false,
+        error: null,
+        model: {
+          title: "Today",
+          compactStatsSummary: "148 steps",
+          markerPosition01: 0.15,
+        },
+      },
+    }));
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
     });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain(aggregateMessage);
+    expect(str).toContain("148");
+    expect(str).not.toMatch(/148 steps/);
+    const first = str.indexOf(aggregateMessage);
+    const second = str.indexOf(aggregateMessage, first + 1);
+    expect(second).toBe(-1);
+  });
+
+  it("shows Today’s Steps own error when daily fetch failed, separate from overview warning", async () => {
+    const aggregateMessage = "Couldn’t load steps for 2 days. Other days may still show below.";
+    const todayMessage = "Selected day request failed";
+    mockUseActivityOverviewScreenData.mockImplementation(() => ({
+      ...defaultOverviewData,
+      overview: {
+        ...defaultOverviewData.overview,
+        error: {
+          message: aggregateMessage,
+          requestId: "rAgg",
+          onRetry: jest.fn(),
+        },
+      },
+      dailyDetails: {
+        loading: false,
+        error: { message: todayMessage, requestId: "rDay", onRetry: jest.fn() },
+        model: null,
+      },
+    }));
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain(aggregateMessage);
+    expect(str).toContain(todayMessage);
+    expect(str).not.toContain("148 steps");
+  });
+
+  it("shows no rollup warning when overview has no error", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain("Couldn’t load steps for");
+    expect(str).toContain("1,234");
+    expect(str).not.toMatch(/1,234 steps/);
   });
 
   it("navigates to day detail for the strip day marked as today and for a non-today strip day", async () => {
@@ -206,8 +297,8 @@ describe("ActivityOverviewScreen", () => {
       ...defaultOverviewData,
       selectedDay: "2026-04-10",
       weeklyStripDays: [
-        { day: "2026-04-05", meta: { hasSteps: false } },
-        { day: "2026-04-10", meta: { hasSteps: true } },
+        { day: "2026-04-05", meta: { hasSteps: false, ringTierIndex: null } },
+        { day: "2026-04-10", meta: { hasSteps: true, ringTierIndex: 3 } },
       ],
     }));
 
@@ -220,10 +311,7 @@ describe("ActivityOverviewScreen", () => {
     await act(async () => {
       findStripDayPressable(tree.root, "2026-04-10").props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenLastCalledWith({
-      pathname: "/(app)/activity/day/[day]",
-      params: { day: "2026-04-10" },
-    });
+    expect(mockRouterPush).toHaveBeenLastCalledWith("/(app)/activity/day/2026-04-10");
 
     mockRouterPush.mockClear();
     mockSetSelectedDay.mockClear();
@@ -231,9 +319,7 @@ describe("ActivityOverviewScreen", () => {
     await act(async () => {
       findStripDayPressable(tree.root, "2026-04-05").props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenLastCalledWith({
-      pathname: "/(app)/activity/day/[day]",
-      params: { day: "2026-04-05" },
-    });
+    expect(mockSetSelectedDay).not.toHaveBeenCalled();
+    expect(mockRouterPush).toHaveBeenLastCalledWith("/(app)/activity/day/2026-04-05");
   });
 });

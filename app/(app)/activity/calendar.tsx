@@ -12,6 +12,8 @@ import { headerYearFromViewableMonthItems } from "@/lib/ui/calendar/moduleCalend
 import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
 import { computeActivityCalendarFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
 import { useActivityStepsRollupForKeys } from "@/lib/data/activity/useActivityStepsRollupMap";
+import { buildActivityCalendarDayModelFromRollup } from "@/lib/ui/activity/activityCalendarDayRingPresentation";
+import type { DayKey } from "@/lib/ui/calendar/types";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 type MonthModel = { key: string; monthYear: MonthYear };
@@ -52,14 +54,18 @@ export default function ActivityCalendarScreen() {
   const fetchKeys = useMemo(() => computeActivityCalendarFetchDayKeys(todayDayKey), [todayDayKey]);
   const rollup = useActivityStepsRollupForKeys(fetchKeys);
 
-  const markedDays = useMemo(() => {
-    if (rollup.status !== "ready") return new Set<string>();
-    const s = new Set<string>();
-    for (const [d, e] of Object.entries(rollup.rollupByDay)) {
-      if (e?.kind === "numeric" && e.steps > 0) s.add(d);
-    }
-    return s;
-  }, [rollup]);
+  const activityCalendarDayForDay = useCallback(
+    (day: DayKey) => {
+      const rollupEntry = rollup.rollupDisplayByDay[day];
+      return buildActivityCalendarDayModelFromRollup({
+        dayKey: day,
+        todayKey: todayDayKey,
+        rollupReady: rollupEntry !== undefined,
+        rollupEntry,
+      });
+    },
+    [rollup, todayDayKey],
+  );
 
   useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
@@ -120,10 +126,9 @@ export default function ActivityCalendarScreen() {
               monthYear={item.monthYear}
               dayKeyBasis="local"
               ringSemantics="activity"
-              markerForDay={(day) =>
-                markedDays.has(day) ? { hasStrength: false, hasCardio: true } : null
-              }
-              onDayPress={(day) => router.push({ pathname: "/(app)/activity/day/[day]", params: { day } })}
+              markerForDay={() => null}
+              activityCalendarDayForDay={activityCalendarDayForDay}
+              onDayPress={(day) => router.push(`/(app)/activity/day/${day}`)}
             />
           </View>
         )}

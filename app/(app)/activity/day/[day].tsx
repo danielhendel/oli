@@ -1,15 +1,40 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useNavigation, usePathname } from "expo-router";
 
+import { activityDayKeyFromActivityDayPathname } from "@/lib/data/activity/activityDayRouteParam";
 import { useActivityDayScreenData } from "@/lib/data/activity/useActivityDayScreenData";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { formatDayKeyStackNavTitle } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { EmptyState, ErrorState, LoadingState, ScreenContainer } from "@/lib/ui/ScreenStates";
 
 export default function ActivityDayScreen() {
+  const navigation = useNavigation();
+  const pathname = usePathname();
   const params = useLocalSearchParams<{ day?: string | string[] }>();
-  const { normalized, state, reload } = useActivityDayScreenData(params.day);
+  const rawDayParam = activityDayKeyFromActivityDayPathname(pathname) ?? params.day;
+  const { normalized, state, reload } = useActivityDayScreenData(rawDayParam);
   const { user, initializing } = useAuth();
+
+  useLayoutEffect(() => {
+    if (!normalized.ok) {
+      navigation.setOptions({
+        ...workoutsStackNavigationOptions("detail"),
+        title: "Activity",
+        headerTitleAlign: "center",
+        headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      });
+      return;
+    }
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("detail"),
+      title: formatDayKeyStackNavTitle(normalized.day),
+      headerTitleAlign: "center",
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+    });
+  }, [navigation, normalized]);
 
   if (!normalized.ok) {
     return (
@@ -62,7 +87,6 @@ export default function ActivityDayScreen() {
     <ScreenContainer>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.title}>{normalized.ok ? normalized.day : ""}</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Steps</Text>
             <Text style={styles.value}>{state.steps.toLocaleString()}</Text>
@@ -77,7 +101,6 @@ export default function ActivityDayScreen() {
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 32 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, gap: 10 },
-  title: { fontSize: 18, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: { fontSize: 14, color: "#6E6E73" },
   value: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

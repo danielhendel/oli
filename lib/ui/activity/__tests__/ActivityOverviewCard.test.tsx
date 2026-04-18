@@ -15,7 +15,7 @@ describe("ActivityOverviewCard", () => {
     });
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("Loading steps");
-    expect(str).not.toContain("activity-overview-steps-bar-today");
+    expect(str).not.toContain("activity-overview-steps-bar-day7");
   });
 
   it("shows error inline together with model when both are set", () => {
@@ -28,9 +28,9 @@ describe("ActivityOverviewCard", () => {
           model={{
             timeframes: [
               {
-                key: "today",
-                label: "Today",
-                compactStatsSummary: "100 steps",
+                key: "day7",
+                label: "7 Day",
+                compactStatsSummary: "100/day",
                 markerPosition01: 0.1,
               },
             ],
@@ -40,7 +40,8 @@ describe("ActivityOverviewCard", () => {
     });
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("partial failure");
-    expect(str).toContain("activity-overview-steps-bar-today");
+    expect(str).toContain("100");
+    expect(str).toContain("activity-overview-steps-bar-day7");
   });
 
   it("shows error inline when error is set and model is null", () => {
@@ -68,9 +69,9 @@ describe("ActivityOverviewCard", () => {
           model={{
             timeframes: [
               {
-                key: "today",
-                label: "Today",
-                compactStatsSummary: "100 steps",
+                key: "day7",
+                label: "7 Day",
+                compactStatsSummary: "100/day",
                 markerPosition01: 0.1,
               },
             ],
@@ -78,15 +79,35 @@ describe("ActivityOverviewCard", () => {
         />,
       );
     });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("100");
+    expect(str).toContain("activity-overview-steps-bar-day7");
+    expect(str).toContain("Low");
+    expect(str).not.toContain("Optimal");
+    expect(str).not.toContain("Overview");
+  });
+
+  it("renders Not enough data copy when model supplies it", () => {
+    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree.root
-        .findAllByProps({ testID: "activity-overview-steps-bar-today" })
-        .find((n) => typeof n.props.onLayout === "function")
-        ?.props.onLayout({ nativeEvent: { layout: { width: 320 } } });
+      tree = renderer.create(
+        <ActivityOverviewCard
+          loading={false}
+          error={null}
+          model={{
+            timeframes: [
+              {
+                key: "ytd",
+                label: "YTD",
+                compactStatsSummary: "Not enough data",
+                markerPosition01: 0,
+              },
+            ],
+          }}
+        />,
+      );
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str).toContain("activity-overview-steps-bar-today");
-    expect(str).not.toContain("Low");
-    expect(str).not.toContain("Optimal");
+    expect(str).toContain("Not enough data");
   });
 });

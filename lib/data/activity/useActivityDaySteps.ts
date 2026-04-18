@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
 import type { ApiResult } from "@/lib/api/http";
 import { getDailyFacts } from "@/lib/api/usersMe";
@@ -27,8 +28,10 @@ export function useActivityDaySteps(dayKey: string | null): {
   const { user, initializing, getIdToken } = useAuth();
   const [state, setState] = useState<ActivityDayStepsState>({ status: "missing" });
   const seqRef = useRef(0);
+  const latestDayKeyRef = useRef<string | null>(dayKey);
+  latestDayKeyRef.current = dayKey;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (dayKey == null || dayKey.length === 0) {
       setState({ status: "missing" });
       return;
@@ -54,7 +57,7 @@ export function useActivityDaySteps(dayKey: string | null): {
 
     setState({ status: "partial" });
     const token = await getIdToken(false);
-    if (seq !== seqRef.current) return;
+    if (seq !== seqRef.current || key !== latestDayKeyRef.current) return;
     if (!token) {
       setState({
         status: "error",
@@ -64,10 +67,13 @@ export function useActivityDaySteps(dayKey: string | null): {
       return;
     }
 
-    const res: ApiResult<DailyFactsDto> = await getDailyFacts(key, token);
-    if (seq !== seqRef.current) return;
+    const res: ApiResult<DailyFactsDto> = await getDailyFacts(key, token, {
+      cacheBust: `activityDay:${Date.now()}`,
+    });
+    if (seq !== seqRef.current || key !== latestDayKeyRef.current) return;
 
     const outcome = truthOutcomeFromApiResult(res);
+    if (seq !== seqRef.current || key !== latestDayKeyRef.current) return;
     if (outcome.status === "error") {
       setState({
         status: "error",
@@ -83,15 +89,34 @@ export function useActivityDaySteps(dayKey: string | null): {
 
     const s = outcome.data.activity?.steps;
     if (typeof s === "number" && Number.isFinite(s) && s >= 0) {
+      if (seq !== seqRef.current || key !== latestDayKeyRef.current) return;
       setState({ status: "ready", steps: Math.round(s) });
       return;
     }
+    if (seq !== seqRef.current || key !== latestDayKeyRef.current) return;
     setState({ status: "missing" });
   }, [dayKey, getIdToken, initializing, user]);
 
   useEffect(() => {
     void run();
   }, [run]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (dayKey == null || dayKey.length === 0) return;
+      if (initializing || !user) return;
+      void run();
+    }, [dayKey, initializing, user, run]),
+  );
+
+  useEffect(() => {
+    if (dayKey == null || dayKey.length === 0) return;
+    if (initializing || !user) return;
+    const t = setTimeout(() => {
+      void run();
+    }, 800);
+    return () => clearTimeout(t);
+  }, [dayKey, initializing, user, run]);
 
   const reload = useCallback(() => {
     void run();

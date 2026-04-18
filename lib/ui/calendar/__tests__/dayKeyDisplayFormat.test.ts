@@ -8,10 +8,24 @@ jest.mock("../dateUtils", () => {
   };
 });
 
-import { formatDayKeyWeekdayShortMonthDay, formatOverviewAsOfLabel } from "../dayKeyDisplayFormat";
+import {
+  formatDayKeyStackNavTitle,
+  formatDayKeyWeekdayShortMonthDay,
+  formatOverviewAsOfLabel,
+} from "../dayKeyDisplayFormat";
 import * as dateUtils from "../dateUtils";
 
 const getToday = dateUtils.getTodayDayKeyLocal as jest.MockedFunction<typeof dateUtils.getTodayDayKeyLocal>;
+
+describe("formatDayKeyStackNavTitle", () => {
+  it("includes weekday, month name, day, and year (stack header style)", () => {
+    const s = formatDayKeyStackNavTitle("2026-04-14");
+    expect(s).toMatch(/Tue/);
+    expect(s).toMatch(/Apr/);
+    expect(s).toMatch(/14/);
+    expect(s).toMatch(/2026/);
+  });
+});
 
 describe("formatDayKeyWeekdayShortMonthDay", () => {
   it("formats Tue 3/31 for 2026-03-31", () => {

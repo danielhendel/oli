@@ -436,6 +436,7 @@ export async function processRawEventForNormalization(params: {
           db,
           userId: rawEvent.userId,
           dayKey,
+          canonicalAnchorDay: canonical.day as YmdDateString,
           trigger: {
             type: "realtime",
             eventId: `${canonical.id}:steps_norm_${writeRes.mode}`,

@@ -20,6 +20,7 @@ import type {
   NutritionCanonicalEvent,
 } from '../types/health';
 
+// Steps scalar uses {@link pickContributingStepEventsForDailyFacts} (time + id dedupe, not max(steps)).
 import {
   pickContributingStepEventsForDailyFacts,
   resolvedStepsTotalFromContributing,

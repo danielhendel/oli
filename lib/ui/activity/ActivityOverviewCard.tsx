@@ -2,16 +2,15 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { ActivityOverviewCardModel } from "@/lib/data/activity/activityOverviewCardModel";
+import {
+  ActivityTierProgressTrack,
+  activityTierProgressAccessibilityPercent,
+} from "@/lib/ui/activity/ActivityTierProgressTrack";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
-import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOverviewSegmentZoneFills";
-import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
-import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
-import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-
-/** Neutral marker fill — same elevated dot treatment as Strength overview (not tier-colored). */
-const ACTIVITY_OVERVIEW_MARKER_FILL = "#1F2937";
+import { getStepRating, getStepRatingTierIndex, stepsFromLocaleDigitString } from "@/lib/utils/activityStepRating";
 
 type ActivityOverviewCardProps = {
   loading: boolean;
@@ -19,26 +18,22 @@ type ActivityOverviewCardProps = {
   model: ActivityOverviewCardModel | null;
 };
 
-function clamp01(x: number): number {
-  if (!Number.isFinite(x) || x <= 0) return 0;
-  if (x >= 1) return 1;
-  return x;
+/**
+ * View-only: model still ships `…/day`; strip suffix for large figure (matches Today’s Steps digit treatment).
+ */
+function overviewRowFigureDisplay(compactStatsSummary: string): { numeric: true; digits: string } | { numeric: false; text: string } {
+  const s = compactStatsSummary.trim();
+  const m = s.match(/^([\d,]+)\/day$/);
+  if (m) return { numeric: true, digits: m[1]! };
+  return { numeric: false, text: s };
 }
 
-function ActivityOverviewPlacementTrack({ testID, markerPosition01 }: { testID: string; markerPosition01: number }) {
-  const marker01 = clamp01(markerPosition01);
-  const pct = Math.round(marker01 * 100);
+function ActivityOverviewTierProgressTrack({ testID, tierIndex }: { testID: string; tierIndex: number | null }) {
+  const pct = activityTierProgressAccessibilityPercent(tierIndex);
   return (
-    <SegmentedZoneTrack
-      zoneColors={MODULE_OVERVIEW_SEGMENT_ZONE_FILLS}
+    <ActivityTierProgressTrack
       testID={testID}
-      markerPosition01={marker01}
-      showMarker
-      markerBackgroundColor={ACTIVITY_OVERVIEW_MARKER_FILL}
-      markerStyle="elevated"
-      dotSize={MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize}
-      barHeight={MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight}
-      trackRadius={MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius}
+      tierIndex={tierIndex}
       wrapperProps={{
         accessibilityRole: "progressbar",
         accessibilityValue: { now: pct, min: 0, max: 100 },
@@ -48,16 +43,11 @@ function ActivityOverviewPlacementTrack({ testID, markerPosition01 }: { testID: 
 }
 
 /**
- * Activity Overview — visual family aligned with StrengthOverviewCard (card shell, row rhythm, segmented bar).
- * No rating pills: steps use neutral placement bands only (dash recap geometry), not Strength consistency tiers.
+ * Activity overview rows — fixed-tier step bars and rating pills (no section title; spacing via card gap).
  */
 export function ActivityOverviewCard({ loading, error, model }: ActivityOverviewCardProps) {
   return (
     <View style={styles.card}>
-      <View style={[styles.headerRow, workoutOverviewInCardHeaderStyles.row]}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>Overview</Text>
-      </View>
-
       {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
       {!loading && error != null ? (
         <ErrorState
@@ -70,23 +60,42 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
       {!loading && model != null ? (
         <View style={moduleOverviewMetricLayoutStyles.metricGroups}>
           {model.timeframes.map((tf) => {
-            const a11y = `${tf.label}. ${tf.compactStatsSummary}.`;
+            const figure = overviewRowFigureDisplay(tf.compactStatsSummary);
+            const rowSteps = figure.numeric ? stepsFromLocaleDigitString(figure.digits) : null;
+            const rating = rowSteps != null ? getStepRating(rowSteps) : null;
+            const tierIndex = rowSteps != null ? getStepRatingTierIndex(rowSteps) : null;
+            const a11y =
+              rating != null
+                ? `${tf.label}. ${rating.label}. ${tf.compactStatsSummary}.`
+                : `${tf.label}. ${tf.compactStatsSummary}.`;
             return (
-              <View key={tf.key} style={moduleOverviewMetricLayoutStyles.metricBlock} accessibilityLabel={a11y} accessible>
+              <View key={tf.key} style={moduleOverviewMetricLayoutStyles.metricBlock} accessible accessibilityLabel={a11y}>
                 <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                  <View style={styles.leftSummary}>
-                    <Text style={styles.timeframeLabel} numberOfLines={1}>
+                  <View style={styles.labelPillCluster}>
+                    <Text style={styles.rowLabel} numberOfLines={1}>
                       {tf.label}
                     </Text>
-                    <Text style={styles.resultSummary} numberOfLines={1} ellipsizeMode="tail">
-                      {tf.compactStatsSummary}
-                    </Text>
+                    {rating != null ? (
+                      <ActivityRatingPill
+                        label={rating.label}
+                        color={rating.color}
+                        backgroundColor={rating.backgroundColor}
+                        emphasis="subtle"
+                        testID={`activity-overview-rating-${tf.key}`}
+                      />
+                    ) : null}
                   </View>
+                  {figure.numeric ? (
+                    <Text style={styles.rowFigure} numberOfLines={1}>
+                      {figure.digits}
+                    </Text>
+                  ) : (
+                    <Text style={styles.rowNonNumeric} numberOfLines={1} ellipsizeMode="tail">
+                      {figure.text}
+                    </Text>
+                  )}
                 </View>
-                <ActivityOverviewPlacementTrack
-                  testID={`activity-overview-steps-bar-${tf.key}`}
-                  markerPosition01={tf.markerPosition01}
-                />
+                <ActivityOverviewTierProgressTrack testID={`activity-overview-steps-bar-${tf.key}`} tierIndex={tierIndex} />
               </View>
             );
           })}
@@ -96,6 +105,7 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
   );
 }
 
+/** Matches Today’s Steps card title / step figure sizing (see ActivityDailyDetailsCard). */
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
@@ -104,31 +114,35 @@ const styles = StyleSheet.create({
     gap: 12,
     ...elevatedCardSurfaceStyle,
   },
-  headerRow: {
-    alignItems: "flex-start",
-    paddingBottom: 2,
-  },
-  leftSummary: {
+  labelPillCluster: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingRight: 8,
+    gap: 8,
   },
-  timeframeLabel: {
-    fontSize: 15,
+  rowLabel: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 21,
     fontWeight: "600",
-    color: "#6E6E73",
-    letterSpacing: -0.12,
+    color: "#1C1C1E",
+    letterSpacing: -0.38,
+  },
+  rowFigure: {
+    fontSize: 23,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    letterSpacing: -0.42,
     flexShrink: 0,
   },
-  resultSummary: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14,
+  rowNonNumeric: {
+    flexShrink: 1,
+    maxWidth: "52%",
+    fontSize: 15,
     fontWeight: "600",
-    color: "#3C3C43",
-    letterSpacing: -0.15,
+    color: "#8E8E93",
+    letterSpacing: -0.12,
+    textAlign: "right",
   },
 });

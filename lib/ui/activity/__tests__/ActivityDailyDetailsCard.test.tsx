@@ -1,0 +1,63 @@
+import React from "react";
+import renderer, { act } from "react-test-renderer";
+
+import { ActivityDailyDetailsCard } from "@/lib/ui/activity/ActivityDailyDetailsCard";
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: () => null,
+}));
+
+describe("ActivityDailyDetailsCard", () => {
+  it("shows numeric row without aggregate rollup warning when error is null", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          loading={false}
+          error={null}
+          model={{
+            title: "Today",
+            compactStatsSummary: "148 steps",
+            markerPosition01: 0.2,
+          }}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("148");
+    expect(str).toContain("Low");
+    expect(str).not.toMatch(/148 steps/);
+    expect(str).not.toContain("Couldn’t load steps for");
+    expect(str).toContain("activity-daily-details-steps-bar");
+  });
+
+  it("shows selected-day inline error when that day failed and model is absent", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          loading={false}
+          error={{ message: "Today fetch failed", requestId: "r1", onRetry: jest.fn() }}
+          model={null}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("Today fetch failed");
+    expect(str).not.toContain("148 steps");
+  });
+
+  it("does not duplicate overview-style partial failure copy when props omit aggregate error", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          loading={false}
+          error={null}
+          model={{ title: "Today", compactStatsSummary: "1,234 steps", markerPosition01: 0.1 }}
+        />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain("Other days may still show");
+  });
+});

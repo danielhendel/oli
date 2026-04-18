@@ -32,6 +32,10 @@ export const calendarWeeklyStripStyles = StyleSheet.create({
     color: UI_TEXT_TERTIARY_LABEL,
     marginBottom: 2,
   },
+  dayOfWeekWhenSelected: {
+    fontWeight: "700",
+    letterSpacing: -0.12,
+  },
   dayCircle: {
     width: 40,
     height: 40,
@@ -52,5 +56,10 @@ export const calendarWeeklyStripStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+  },
+  dayNumberWhenSelected: {
+    fontWeight: "700",
+    fontSize: 19,
+    letterSpacing: -0.35,
   },
 });

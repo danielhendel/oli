@@ -5,6 +5,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOverviewScreenData";
 import { ActivityDailyDetailsCard } from "@/lib/ui/activity/ActivityDailyDetailsCard";
 import { ActivityOverviewCard } from "@/lib/ui/activity/ActivityOverviewCard";
+import { ActivityStepRatingsCard } from "@/lib/ui/activity/ActivityStepRatingsCard";
 import { ActivityWeeklyStrip } from "@/lib/ui/activity/ActivityWeeklyStrip";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -53,8 +54,9 @@ export default function ActivityOverviewScreen() {
   }
 
   const onStripDayPress = (day: string) => {
-    data.setSelectedDay(day);
-    router.push({ pathname: "/(app)/activity/day/[day]", params: { day } });
+    // Day detail is route-driven only; do not mutate strip/overview anchor state here.
+    // Push a concrete path so the dynamic segment always matches the tapped day (avoids param merge edge cases).
+    router.push(`/(app)/activity/day/${day}`);
   };
 
   const headerStrip = (
@@ -75,16 +77,18 @@ export default function ActivityOverviewScreen() {
         headerContent={headerStrip}
       >
         <View style={styles.pageBody}>
-          <ActivityOverviewCard
-            loading={data.overview.loading}
-            error={data.overview.error}
-            model={data.overview.model}
-          />
+          <ActivityStepRatingsCard />
           <View style={styles.cardSpacer} />
           <ActivityDailyDetailsCard
             loading={data.dailyDetails.loading}
             error={data.dailyDetails.error}
             model={data.dailyDetails.model}
+          />
+          <View style={styles.cardSpacer} />
+          <ActivityOverviewCard
+            loading={data.overview.loading}
+            error={data.overview.error}
+            model={data.overview.model}
           />
         </View>
       </ModuleScreenShell>

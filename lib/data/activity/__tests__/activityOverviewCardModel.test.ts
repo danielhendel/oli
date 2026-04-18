@@ -4,10 +4,20 @@ import {
   ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP,
   buildActivityDailyDetailsCardModel,
   buildActivityOverviewCardModel,
+  buildActivityTodayStepsLiveCardModel,
   formatActivityAverageRowSummary,
   formatActivityDailyDetailsTitle,
   formatActivityTodayRowSummary,
 } from "@/lib/data/activity/activityOverviewCardModel";
+import { ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA } from "@/lib/data/activity/activityOverviewSufficiency";
+import {
+  ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT,
+  ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT,
+  activityTrailingNDaysInclusive,
+  activityYtdInclusiveThroughEndDay,
+} from "@/lib/data/activity/activityOverviewRanges";
+import { addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 describe("formatActivityDailyDetailsTitle", () => {
   it('uses "Today" when selected is local today', () => {
@@ -44,125 +54,201 @@ function numericMap(pairs: [string, number][]): ActivityStepsRollupMap {
   return out;
 }
 
+function fillTrailingNumeric(end: string, dayCount: number, steps: number): ActivityStepsRollupMap {
+  const days = activityTrailingNDaysInclusive(end, dayCount);
+  return numericMap(days.map((d) => [d, steps]));
+}
+
+function overviewAnchorFromToday(today: DayKey): DayKey {
+  return addCalendarDaysToDayKey(today, -1);
+}
+
+function buildOverview(rollup: ActivityStepsRollupMap, today: DayKey) {
+  return buildActivityOverviewCardModel({
+    overviewAnchorEndDay: overviewAnchorFromToday(today),
+    rollupByDay: rollup,
+  });
+}
+
 describe("buildActivityOverviewCardModel", () => {
-  const overviewAnchorDay = "2026-04-08";
+  const today: DayKey = "2026-04-08";
+  const anchor = overviewAnchorFromToday(today);
 
-  it("excludes error rollup days from trailing averages (only numeric daily-facts days count)", () => {
-    const rollup: ActivityStepsRollupMap = {
-      "2026-04-08": { kind: "numeric", steps: 7000 },
-      "2026-04-07": { kind: "error", message: "network", requestId: "x" },
-    };
-    expect(rollupEntryIsFailure(rollup["2026-04-07"])).toBe(true);
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay, rollupByDay: rollup });
-    expect(timeframes[0]?.compactStatsSummary).toBe("7,000 steps");
-    // 7d window: only 2026-04-08 is numeric; others absent → avg = 7000 / 1
-    expect(timeframes[1]?.compactStatsSummary).toBe("7,000/day");
+  it("orders rows 7 Day, 30 Day, YTD, 12 Month", () => {
+    const rollup = fillTrailingNumeric(anchor, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT, 1000);
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes.map((r) => r.key)).toEqual(["day7", "day30", "ytd", "month12"]);
+    expect(timeframes.map((r) => r.label)).toEqual(["7 Day", "30 Day", "YTD", "12 Month"]);
   });
 
-  it("orders rows Today, 7D Avg, 30D Avg, 365D Avg", () => {
-    const rollup = numericMap([["2026-04-08", 7000]]);
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay, rollupByDay: rollup });
-    expect(timeframes.map((r) => r.key)).toEqual(["today", "avg7d", "avg30d", "avg365d"]);
-    expect(timeframes.map((r) => r.label)).toEqual(["Today", "7D Avg", "30D Avg", "365D Avg"]);
+  it("anchors overview to yesterday of today, not a future strip day", () => {
+    const todayKey: DayKey = "2026-04-14";
+    const anchorKey = overviewAnchorFromToday(todayKey);
+    const rollup = fillTrailingNumeric(anchorKey, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT, 2000);
+    const { timeframes } = buildActivityOverviewCardModel({
+      overviewAnchorEndDay: anchorKey,
+      rollupByDay: rollup,
+    });
+    const d7 = activityTrailingNDaysInclusive(anchorKey, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT);
+    const sum7 = d7.length * 2000;
+    expect(timeframes[0]?.compactStatsSummary).toBe(`${Math.round(sum7 / 7).toLocaleString()}/day`);
   });
 
-  it("uses fixed trailing windows: 7/30/365 days inclusive of overview anchor day", () => {
-    const rollup = numericMap([
+  it("7 Day: full numeric window => mean; missing any day => Not enough data", () => {
+    const full = numericMap([
+      ["2026-04-01", 1000],
       ["2026-04-02", 1000],
       ["2026-04-03", 1000],
       ["2026-04-04", 1000],
       ["2026-04-05", 1000],
       ["2026-04-06", 1000],
-      ["2026-04-07", 1000],
-      ["2026-04-08", 7000],
+      ["2026-04-07", 7000],
     ]);
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay, rollupByDay: rollup });
-    expect(timeframes[0]?.compactStatsSummary).toBe("7,000 steps");
-    // sum 7d = 6×1000 + 7000 = 13_000; all 7 days numeric → / 7
-    expect(timeframes[1]?.compactStatsSummary).toBe("1,857/day");
-    // 30d window contains the same 7 numeric days; rest absent → 13_000 / 7
-    expect(timeframes[2]?.compactStatsSummary).toBe("1,857/day");
-    // 365d window: same seven numeric days in range, remainder absent → 13_000 / 7
-    expect(timeframes[3]?.compactStatsSummary).toBe("1,857/day");
+    const { timeframes: ok } = buildOverview(full, today);
+    expect(ok[0]?.compactStatsSummary).toBe("1,857/day");
+
+    const partial: ActivityStepsRollupMap = {
+      ...full,
+      "2026-04-05": { kind: "absent" },
+    };
+    const { timeframes: bad } = buildOverview(partial, today);
+    expect(bad[0]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
   });
 
-  it("365D average uses only numeric days in window (not fixed 365 denominator)", () => {
-    const pairs: [string, number][] = [];
-    for (let i = 0; i < 10; i += 1) {
-      const d = `2026-04-${String(i + 1).padStart(2, "0")}` as `${string}-${string}-${string}`;
-      pairs.push([d, 3650]);
+  it("30 Day: requires all 30 numeric days", () => {
+    const rollup = fillTrailingNumeric(anchor, 30, 3000);
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[1]?.compactStatsSummary).toBe("3,000/day");
+
+    const gap = { ...rollup, "2026-03-20": { kind: "error", message: "x", requestId: null } as const };
+    const { timeframes: err } = buildOverview(gap, today);
+    expect(err[1]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+  });
+
+  it("YTD and 12 Month: any error day in window => Not enough data (no silent zero-fill)", () => {
+    const ytdDays = activityYtdInclusiveThroughEndDay(anchor);
+    const rollupYtd = numericMap(ytdDays.map((d) => [d, 1000]));
+    const failYtd = ytdDays[Math.floor(ytdDays.length / 2)]!;
+    rollupYtd[failYtd] = { kind: "error", message: "503", requestId: "r1" };
+    const ytdRow = buildOverview(rollupYtd, today);
+    expect(ytdRow.timeframes[2]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(ytdRow.timeframes[2]?.markerPosition01).toBe(0);
+
+    const d365 = activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT);
+    const rollup365 = numericMap(d365.map((d) => [d, 500]));
+    const fail365 = d365[100]!;
+    rollup365[fail365] = { kind: "error", message: "503", requestId: null };
+    const m12 = buildOverview(rollup365, today);
+    expect(m12.timeframes[3]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(m12.timeframes[3]?.markerPosition01).toBe(0);
+  });
+
+  it("YTD: fixed denominator Jan 1..anchor; missing days count as 0 in numerator", () => {
+    const ytdDays = activityYtdInclusiveThroughEndDay(anchor);
+    const rollup = numericMap(ytdDays.map((d) => [d, 1000]));
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[2]?.compactStatsSummary).toBe("1,000/day");
+
+    const sparse: ActivityStepsRollupMap = { "2026-04-07": { kind: "numeric", steps: 7000 } };
+    const { timeframes: partial } = buildOverview(sparse, today);
+    const denom = ytdDays.length;
+    expect(partial[2]?.compactStatsSummary).toBe(`${Math.round(7000 / denom).toLocaleString()}/day`);
+  });
+
+  it("12 Month: rolling average uses fixed 365 denominator; 10 days at 10k and 355 missing => ~274/day", () => {
+    const d365 = activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT);
+    const rollup: ActivityStepsRollupMap = {};
+    for (const d of d365.slice(-10)) {
+      rollup[d] = { kind: "numeric", steps: 10_000 };
     }
-    const rollup = numericMap(pairs);
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-10", rollupByDay: rollup });
-    // 10 days × 3650 = 36_500 / 10
-    expect(timeframes[3]?.compactStatsSummary).toBe("3,650/day");
+    const { timeframes } = buildOverview(rollup, today);
+    const expected = (10 * 10_000) / 365;
+    expect(Math.round(expected)).toBe(274);
+    expect(timeframes[3]?.compactStatsSummary).toBe(`${Math.round(expected).toLocaleString()}/day`);
   });
 
-  it("returns 0/day when the trailing window has no numeric rollups", () => {
+  it("12 Month: absent map entries count as 0 (not NED)", () => {
+    const rollup = fillTrailingNumeric(anchor, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT, 500);
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[3]?.compactStatsSummary).toBe("500/day");
+
+    const oneMissing = { ...rollup };
+    delete (oneMissing as Record<string, unknown>)["2025-04-09"];
+    const { timeframes: withGap } = buildOverview(oneMissing, today);
+    const expectedAvg = (364 * 500) / 365;
+    expect(withGap[3]?.compactStatsSummary).toBe(`${Math.round(expectedAvg).toLocaleString()}/day`);
+  });
+
+  it("excludes error rollup from sufficiency (not treated as numeric)", () => {
     const rollup: ActivityStepsRollupMap = {
-      "2026-04-07": { kind: "absent" },
-      "2026-04-08": { kind: "error", message: "x", requestId: null },
+      "2026-04-08": { kind: "numeric", steps: 7000 },
+      "2026-04-07": { kind: "error", message: "network", requestId: "x" },
     };
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-08", rollupByDay: rollup });
-    expect(timeframes[1]?.compactStatsSummary).toBe("0/day");
-    expect(timeframes[2]?.compactStatsSummary).toBe("0/day");
-    expect(timeframes[3]?.compactStatsSummary).toBe("0/day");
+    expect(rollupEntryIsFailure(rollup["2026-04-07"])).toBe(true);
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[0]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
   });
 
-  it("trailing averages ignore absent days: only valid numeric rollups in the denominator", () => {
+  it("sparse rollup: 7 and 30 day NED; YTD and 12 Month still show zero-filled averages", () => {
     const rollup: ActivityStepsRollupMap = {
-      "2026-04-08": { kind: "numeric", steps: 3000 },
-      "2026-04-06": { kind: "numeric", steps: 1000 },
-      "2026-04-04": { kind: "numeric", steps: 0 },
+      "2026-04-07": { kind: "numeric", steps: ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP },
     };
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-08", rollupByDay: rollup });
-    // 7d window Apr 2–8: numeric Apr 4 (0), Apr 6 (1000), Apr 8 (3000); Apr 2,3,5,7 absent → 4000/3
-    expect(timeframes[1]?.compactStatsSummary).toBe("1,333/day");
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[0]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(timeframes[1]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(timeframes[0]?.markerPosition01).toBe(0);
+    expect(timeframes[1]?.markerPosition01).toBe(0);
+    const ytdDays = activityYtdInclusiveThroughEndDay(anchor);
+    const ytdAvg = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP / ytdDays.length;
+    expect(timeframes[2]?.compactStatsSummary).toBe(`${Math.round(ytdAvg).toLocaleString()}/day`);
+    const d365Avg = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP / ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT;
+    expect(timeframes[3]?.compactStatsSummary).toBe(`${Math.round(d365Avg).toLocaleString()}/day`);
+    expect(timeframes[2]?.markerPosition01).toBeGreaterThan(0);
+    expect(timeframes[3]?.markerPosition01).toBeGreaterThan(0);
   });
 
-  it("treats days missing from the rollup map like 404/absent (undefined cell, not 0 in denominator)", () => {
-    // Only today is present; other 6 days in the 7D window were never fetched into the map
-    const rollup = numericMap([["2026-04-08", 7000]]);
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-08", rollupByDay: rollup });
-    expect(timeframes[1]?.compactStatsSummary).toBe("7,000/day");
-  });
-
-  it("mixes explicit absent entries (404-shaped) with numeric days in a partial 7D window", () => {
-    const rollup: ActivityStepsRollupMap = {
-      "2026-04-06": { kind: "absent" },
-      "2026-04-07": { kind: "absent" },
-      "2026-04-08": { kind: "numeric", steps: 9000 },
-    };
-    const { timeframes } = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-08", rollupByDay: rollup });
-    expect(timeframes[1]?.compactStatsSummary).toBe("9,000/day");
-  });
-
-  it("exposes marker positions within 0–1 for bars", () => {
-    const { timeframes } = buildActivityOverviewCardModel({
-      overviewAnchorDay,
-      rollupByDay: numericMap([[overviewAnchorDay, ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP]]),
-    });
+  it("when fully covered, marker positions stay within 0–1", () => {
+    const rollup = fillTrailingNumeric(anchor, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT, 1000);
+    const { timeframes } = buildOverview(rollup, today);
     for (const tf of timeframes) {
       expect(tf.markerPosition01).toBeGreaterThanOrEqual(0);
       expect(tf.markerPosition01).toBeLessThanOrEqual(1);
     }
-    expect(timeframes[0]?.markerPosition01).toBe(1);
+  });
+
+  it("7 Day uses completed window through yesterday: absent/partial today does not break sufficiency", () => {
+    const rollup = fillTrailingNumeric(anchor, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT, 4000);
+    rollup["2026-04-08"] = { kind: "absent" };
+    const { timeframes } = buildOverview(rollup, today);
+    expect(timeframes[0]?.compactStatsSummary).toBe("4,000/day");
+  });
+});
+
+describe("buildActivityTodayStepsLiveCardModel", () => {
+  it("formats Today title and steps from HealthKit total", () => {
+    const m = buildActivityTodayStepsLiveCardModel({ todayDayKey: "2026-04-14", steps: 5313 });
+    expect(m.title).toBe("Today");
+    expect(m.compactStatsSummary).toBe("5,313 steps");
+    expect(m.markerPosition01).toBeGreaterThan(0);
   });
 });
 
 describe("buildActivityDailyDetailsCardModel", () => {
-  it("uses selected day rollup independent of overview anchor row", () => {
+  it("uses detail day rollup independent of overview rows", () => {
     const rollup = numericMap([
       ["2026-04-05", 100],
       ["2026-04-08", 9999],
     ]);
     const m = buildActivityDailyDetailsCardModel({
-      selectedDay: "2026-04-05",
+      detailDayKey: "2026-04-05",
       todayDayKey: "2026-04-08",
       rollupByDay: rollup,
     });
     expect(m.compactStatsSummary).toBe("100 steps");
-    const overview = buildActivityOverviewCardModel({ overviewAnchorDay: "2026-04-08", rollupByDay: rollup });
-    expect(overview.timeframes[0]?.compactStatsSummary).toBe("9,999 steps");
+    const overview = buildOverview(rollup, "2026-04-08");
+    expect(overview.timeframes[0]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(overview.timeframes[1]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(overview.timeframes[2]?.compactStatsSummary).not.toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(overview.timeframes[3]?.compactStatsSummary).not.toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
   });
 });

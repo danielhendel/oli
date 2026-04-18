@@ -1,4 +1,20 @@
-import { normalizeActivityDayRouteParam } from "../activityDayRouteParam";
+import { activityDayKeyFromActivityDayPathname, normalizeActivityDayRouteParam } from "../activityDayRouteParam";
+
+describe("activityDayKeyFromActivityDayPathname", () => {
+  it("parses the trailing day segment from the normalized activity day path", () => {
+    expect(activityDayKeyFromActivityDayPathname("/activity/day/2026-04-14")).toBe("2026-04-14");
+  });
+
+  it("accepts a trailing slash", () => {
+    expect(activityDayKeyFromActivityDayPathname("/activity/day/2026-04-14/")).toBe("2026-04-14");
+  });
+
+  it("returns null when the path does not match", () => {
+    expect(activityDayKeyFromActivityDayPathname("/activity/day/not-a-day")).toBeNull();
+    expect(activityDayKeyFromActivityDayPathname("/workouts/day/2026-04-14")).toBeNull();
+    expect(activityDayKeyFromActivityDayPathname(undefined)).toBeNull();
+  });
+});
 
 describe("normalizeActivityDayRouteParam", () => {
   it("accepts a valid string", () => {

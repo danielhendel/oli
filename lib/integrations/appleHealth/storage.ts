@@ -17,6 +17,12 @@ export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
 /** Last completed workout range-bootstrap build id (see workoutBootstrapPolicy). */
 export const APPLE_HEALTH_WORKOUT_RANGE_BOOTSTRAP_BUILD = "appleHealth:workoutRangeBootstrapBuild";
+/** JSON map of local day key → last successfully POSTed steps (client guard vs transient HealthKit regression). */
+export const APPLE_HEALTH_LAST_INGESTED_STEPS_BY_DAY = "appleHealth:lastIngestedStepsByDayJson";
+/** Last local calendar `yesterday` YMD for which forced Activity open-ingest succeeded (throttle anchor). */
+export const APPLE_HEALTH_FORCED_YESTERDAY_LAST_YMD = "appleHealth:forcedYesterday:lastYesterdayYmd";
+/** ISO time of last successful forced yesterday ingest (anti-spam within same `yesterday` target). */
+export const APPLE_HEALTH_FORCED_YESTERDAY_LAST_AT = "appleHealth:forcedYesterday:lastAtIso";
 
 export async function getLastSyncAt(): Promise<string | null> {
   return AsyncStorage.getItem(APPLE_HEALTH_LAST_SYNC_AT);
@@ -166,4 +172,51 @@ export async function setAppleHealthWorkoutRangeBootstrapBuild(buildId: string):
 
 export async function clearAppleHealthWorkoutRangeBootstrapBuild(): Promise<void> {
   await AsyncStorage.removeItem(APPLE_HEALTH_WORKOUT_RANGE_BOOTSTRAP_BUILD);
+}
+
+async function readLastIngestedStepsMap(): Promise<Record<string, number>> {
+  const raw = await AsyncStorage.getItem(APPLE_HEALTH_LAST_INGESTED_STEPS_BY_DAY);
+  if (!raw) return {};
+  try {
+    const p = JSON.parse(raw) as unknown;
+    if (typeof p !== "object" || p === null || Array.isArray(p)) return {};
+    return p as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+/** Highest steps value we successfully ingested for this local calendar day (per-device). */
+export async function getLastIngestedStepsForDay(dayYmd: string): Promise<number | null> {
+  const m = await readLastIngestedStepsMap();
+  const v = m[dayYmd];
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
+}
+
+export async function setLastIngestedStepsForDay(dayYmd: string, steps: number): Promise<void> {
+  const m = await readLastIngestedStepsMap();
+  m[dayYmd] = steps;
+  const keys = Object.keys(m).sort();
+  if (keys.length > 500) {
+    for (const k of keys.slice(0, keys.length - 500)) {
+      delete m[k];
+    }
+  }
+  await AsyncStorage.setItem(APPLE_HEALTH_LAST_INGESTED_STEPS_BY_DAY, JSON.stringify(m));
+}
+
+export async function getAppleHealthForcedYesterdayRefreshLastYmd(): Promise<string | null> {
+  return AsyncStorage.getItem(APPLE_HEALTH_FORCED_YESTERDAY_LAST_YMD);
+}
+
+export async function setAppleHealthForcedYesterdayRefreshLastYmd(ymd: string): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_FORCED_YESTERDAY_LAST_YMD, ymd);
+}
+
+export async function getAppleHealthForcedYesterdayRefreshLastAtIso(): Promise<string | null> {
+  return AsyncStorage.getItem(APPLE_HEALTH_FORCED_YESTERDAY_LAST_AT);
+}
+
+export async function setAppleHealthForcedYesterdayRefreshLastAtIso(iso: string): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_FORCED_YESTERDAY_LAST_AT, iso);
 }

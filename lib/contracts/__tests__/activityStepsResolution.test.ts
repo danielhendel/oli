@@ -13,13 +13,24 @@ describe("activityStepsResolution", () => {
     expect(resolvedStepsTotalFromContributing(contributing)).toBe(5012);
   });
 
-  it("multiple apple_health: picks one row (highest steps) to avoid double-counting daily totals", () => {
+  it("multiple apple_health same instant: deterministic id tie-break (not higher steps)", () => {
     const contributing = pickContributingStepEventsForDailyFacts([
-      { id: "b", sourceId: "apple_health", steps: 1000 },
-      { id: "a", sourceId: "apple_health", steps: 5000 },
+      { id: "b", sourceId: "apple_health", steps: 5000, updatedAt: "2026-04-01T12:00:00.000Z" },
+      { id: "a", sourceId: "apple_health", steps: 1000, updatedAt: "2026-04-01T12:00:00.000Z" },
     ]);
     expect(contributing).toHaveLength(1);
-    expect(contributing[0]!.steps).toBe(5000);
+    expect(contributing[0]!.id).toBe("a");
+    expect(contributing[0]!.steps).toBe(1000);
+  });
+
+  it("multiple apple_health: latest updatedAt wins even when steps decrease", () => {
+    const contributing = pickContributingStepEventsForDailyFacts([
+      { id: "early", sourceId: "apple_health", steps: 15577, updatedAt: "2026-04-01T08:00:00.000Z" },
+      { id: "late", sourceId: "apple_health", steps: 148, updatedAt: "2026-04-01T18:00:00.000Z" },
+    ]);
+    expect(contributing).toHaveLength(1);
+    expect(contributing[0]!.steps).toBe(148);
+    expect(contributing[0]!.id).toBe("late");
   });
 
   it("single non-apple event wins alone", () => {
@@ -29,10 +40,10 @@ describe("activityStepsResolution", () => {
     expect(resolvedStepsTotalFromContributing(contributing)).toBe(3333);
   });
 
-  it("multiple non-apple: picks highest steps, tie-break by id", () => {
+  it("multiple non-apple same authoritative instant: lexicographic id wins (not higher steps)", () => {
     const contributing = pickContributingStepEventsForDailyFacts([
-      { id: "z", sourceId: "manual", steps: 4000 },
-      { id: "a", sourceId: "manual", steps: 4000 },
+      { id: "z", sourceId: "manual", steps: 4000, updatedAt: "2026-04-01T12:00:00.000Z" },
+      { id: "a", sourceId: "manual", steps: 4000, updatedAt: "2026-04-01T12:00:00.000Z" },
     ]);
     expect(contributing).toHaveLength(1);
     expect(contributing[0]!.id).toBe("a");
@@ -73,5 +84,71 @@ describe("activityStepsResolution", () => {
     const contributing = pickContributingStepEventsForDailyFacts(events);
     expect(contributing.map((e) => e.id)).toEqual(["hk_daily"]);
     expect(resolvedStepsTotalFromContributing(events)).toBe(67);
+  });
+
+  it("same sourceSampleId: later authoritative row wins (downward correction)", () => {
+    const contributing = pickContributingStepEventsForDailyFacts([
+      {
+        id: "idem_a",
+        sourceId: "apple_health",
+        sourceSampleId: "HK-sample-1",
+        steps: 15577,
+        updatedAt: "2026-04-01T08:00:00.000Z",
+      },
+      {
+        id: "idem_b",
+        sourceId: "apple_health",
+        sourceSampleId: "HK-sample-1",
+        steps: 148,
+        updatedAt: "2026-04-01T18:00:00.000Z",
+      },
+    ]);
+    expect(contributing).toHaveLength(1);
+    expect(contributing[0]!.steps).toBe(148);
+    expect(contributing[0]!.id).toBe("idem_b");
+  });
+
+  it("same sourceSampleId: earlier correct value kept when later row is older timestamp", () => {
+    const contributing = pickContributingStepEventsForDailyFacts([
+      {
+        id: "good",
+        sourceId: "apple_health",
+        sourceSampleId: "HK-sample-2",
+        steps: 5000,
+        updatedAt: "2026-04-01T20:00:00.000Z",
+      },
+      {
+        id: "stale_dup",
+        sourceId: "apple_health",
+        sourceSampleId: "HK-sample-2",
+        steps: 999999,
+        updatedAt: "2026-04-01T08:00:00.000Z",
+      },
+    ]);
+    expect(contributing).toHaveLength(1);
+    expect(contributing[0]!.steps).toBe(5000);
+    expect(contributing[0]!.id).toBe("good");
+  });
+
+  it("two distinct sourceSampleIds: scalar picks one representative by latest instant then id", () => {
+    const contributing = pickContributingStepEventsForDailyFacts([
+      {
+        id: "raw_z",
+        sourceId: "apple_health",
+        sourceSampleId: "sample-z",
+        steps: 200,
+        updatedAt: "2026-04-01T12:00:00.000Z",
+      },
+      {
+        id: "raw_a",
+        sourceId: "apple_health",
+        sourceSampleId: "sample-a",
+        steps: 100,
+        updatedAt: "2026-04-01T12:00:00.000Z",
+      },
+    ]);
+    expect(contributing).toHaveLength(1);
+    expect(contributing[0]!.sourceSampleId).toBe("sample-a");
+    expect(contributing[0]!.steps).toBe(100);
   });
 });

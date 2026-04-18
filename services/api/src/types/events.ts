@@ -69,9 +69,11 @@ const isoDateTimeString = z
  * RawEvent ingestion request body for the Cloud Run gateway.
  *
  * Time semantics:
- * - `observedAt` is preferred and canonical.
+ * - `observedAt` is preferred over `occurredAt` when both are present (envelope instant for storage).
  * - `occurredAt` is accepted for backward compatibility.
- * - Exactly one of them MUST be present.
+ * - Exactly one of them MUST be present unless both are sent; then `observedAt` wins.
+ * - Apple Health `steps`: local calendar `day` is derived only from `payload.start` + `payload.timezone`
+ *   (must match top-level `timeZone`); envelope instants must not override that day mapping.
  *
  * Payload semantics:
  * - Payload is intentionally opaque at the ingestion boundary.

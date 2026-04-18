@@ -7,6 +7,7 @@ export * from "./derivedLedger";
 export * from "./insights";
 export * from "./intelligenceContext";
 export * from "./day";
+export * from "./localCalendarDayKey";
 export * from "./dayTruth";
 export * from "./failure";
 export * from "./weight";

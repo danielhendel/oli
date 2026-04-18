@@ -4,8 +4,14 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { useAppleHealthForcedYesterdayFinalize } from "../lib/data/activity/useAppleHealthForcedYesterdayFinalize";
 import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
 import { UserProfileMainProvider } from "../lib/data/profile/useUserProfileMain";
+
+function AppleHealthForcedYesterdayFinalizeRunner() {
+  useAppleHealthForcedYesterdayFinalize();
+  return null;
+}
 
 function RouteGuard() {
   const { user, initializing } = useAuth();
@@ -41,6 +47,7 @@ export default function RootLayout() {
       <PreferencesProvider>
         <UserProfileMainProvider>
           <StatusBar style="auto" />
+          <AppleHealthForcedYesterdayFinalizeRunner />
           <RouteGuard />
           <Stack screenOptions={{ headerShown: false }}>
             {/* Auth flow */}

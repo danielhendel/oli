@@ -1,5 +1,6 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { NavigationContainer } from "@react-navigation/native";
 
 jest.mock("@/lib/api/usersMe", () => ({
   getDailyFacts: jest.fn(),
@@ -25,6 +26,10 @@ function Harness({ raw, probe }: { raw: unknown; probe: { current: ReturnType<ty
   return null;
 }
 
+function renderWithNavigation(ui: React.ReactElement) {
+  return renderer.create(<NavigationContainer>{ui}</NavigationContainer>);
+}
+
 describe("useActivityDayScreenData", () => {
   beforeEach(() => {
     (getDailyFacts as jest.Mock).mockClear();
@@ -44,7 +49,7 @@ describe("useActivityDayScreenData", () => {
   it("marks invalid route param without calling getDailyFacts", async () => {
     const probe: { current: ReturnType<typeof useActivityDayScreenData> | null } = { current: null };
     await act(async () => {
-      renderer.create(<Harness raw="not-a-day" probe={probe} />);
+      renderWithNavigation(<Harness raw="not-a-day" probe={probe} />);
     });
     expect(probe.current?.normalized.ok).toBe(false);
     expect(getDailyFacts).not.toHaveBeenCalled();
@@ -53,12 +58,13 @@ describe("useActivityDayScreenData", () => {
   it("accepts string[] and uses first element", async () => {
     const probe: { current: ReturnType<typeof useActivityDayScreenData> | null } = { current: null };
     await act(async () => {
-      renderer.create(<Harness raw={["2026-06-15", "ignored"]} probe={probe} />);
+      renderWithNavigation(<Harness raw={["2026-06-15", "ignored"]} probe={probe} />);
     });
     expect(probe.current?.normalized).toEqual({ ok: true, day: "2026-06-15" });
   });
 
   it("fetches daily facts for valid day", async () => {
+    const probe: { current: ReturnType<typeof useActivityDayScreenData> | null } = { current: null };
     (getDailyFacts as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
@@ -71,14 +77,28 @@ describe("useActivityDayScreenData", () => {
         activity: { steps: 4444 },
       },
     });
-    const probe: { current: ReturnType<typeof useActivityDayScreenData> | null } = { current: null };
     await act(async () => {
-      renderer.create(<Harness raw="2026-06-20" probe={probe} />);
+      renderWithNavigation(<Harness raw="2026-06-20" probe={probe} />);
     });
     await act(async () => {
       await Promise.resolve();
+      await Promise.resolve();
     });
-    expect(getDailyFacts).toHaveBeenCalledWith("2026-06-20", "token-1");
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 850);
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getDailyFacts).toHaveBeenCalledWith(
+      "2026-06-20",
+      "token-1",
+      expect.objectContaining({ cacheBust: expect.stringMatching(/^activityDay:/) }),
+    );
     expect(probe.current?.state).toEqual({ status: "ready", steps: 4444 });
   });
 });

@@ -3,11 +3,19 @@ import {
   dashRecapPlacementMarker01,
 } from "@/lib/data/dash/dashRecapDisplayPlacement";
 import {
-  ACTIVITY_OVERVIEW_AVG_12M_DAYS,
-  ACTIVITY_OVERVIEW_AVG_30D_DAYS,
-  ACTIVITY_OVERVIEW_AVG_7D_DAYS,
+  ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT,
+  ACTIVITY_OVERVIEW_TRAILING_30_DAY_COUNT,
+  ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT,
   activityTrailingNDaysInclusive,
+  activityYtdInclusiveThroughEndDay,
 } from "@/lib/data/activity/activityOverviewRanges";
+import {
+  ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA,
+  meanNumericStepsForWindow,
+  meanStepsPerDayZeroFilled,
+  stepsWindowHasAnyErrorDay,
+  stepsWindowHasFullNumericCoverage,
+} from "@/lib/data/activity/activityOverviewSufficiency";
 import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { formatDayKeyWeekdayShortMonthDay } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -15,12 +23,12 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 /** Same neutral display cap as Daily Recap steps bar — not a clinical target. */
 export const ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP = DASH_RECAP_DISPLAY_PLACEMENT_CAPS.steps;
 
-export type ActivityOverviewTimeframeKey = "today" | "avg7d" | "avg30d" | "avg365d";
+export type ActivityOverviewTimeframeKey = "day7" | "day30" | "ytd" | "month12";
 
 export type ActivityOverviewRowModel = {
   key: ActivityOverviewTimeframeKey;
   label: string;
-  /** Single line for the row (totals vs averages formatted here, not in the screen). */
+  /** Single line for the row (averages when sufficient, otherwise exact insufficient copy). */
   compactStatsSummary: string;
   /** Neutral placement along shared 5-zone track. */
   markerPosition01: number;
@@ -30,22 +38,60 @@ export type ActivityOverviewCardModel = {
   timeframes: ActivityOverviewRowModel[];
 };
 
-/**
- * Mean steps over a trailing calendar window, using **only** days with numeric daily-facts steps.
- * Absent, error, and missing keys are excluded (not treated as 0 in the denominator).
- * If no numeric days in the window → 0.
- */
-function averageStepsNumericDaysOnly(days: readonly DayKey[], rollup: Readonly<ActivityStepsRollupMap>): number {
-  let sum = 0;
-  let count = 0;
-  for (const d of days) {
-    const e = rollup[d];
-    if (e?.kind !== "numeric") continue;
-    sum += e.steps;
-    count += 1;
+function rowFromFullCoverageWindow(input: {
+  key: ActivityOverviewTimeframeKey;
+  label: string;
+  days: readonly DayKey[];
+  rollupByDay: Readonly<ActivityStepsRollupMap>;
+}): ActivityOverviewRowModel {
+  const { key, label, days, rollupByDay } = input;
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  const sufficient = stepsWindowHasFullNumericCoverage(days, rollupByDay);
+  if (!sufficient) {
+    return {
+      key,
+      label,
+      compactStatsSummary: ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA,
+      markerPosition01: 0,
+    };
   }
-  if (count === 0) return 0;
-  return sum / count;
+  const avg = meanNumericStepsForWindow(days, rollupByDay);
+  return {
+    key,
+    label,
+    compactStatsSummary: formatActivityAverageRowSummary(avg),
+    markerPosition01: dashRecapPlacementMarker01(avg, cap),
+  };
+}
+
+/**
+ * YTD / 12 Month: fixed window length; missing/absent days contribute 0.
+ * If any day has a failed request (`kind: "error"`, e.g. 503), do not show a numeric average — that would
+ * silently treat failures as zero and overstate certainty.
+ */
+function rowFromZeroFilledFixedDenominator(input: {
+  key: ActivityOverviewTimeframeKey;
+  label: string;
+  days: readonly DayKey[];
+  rollupByDay: Readonly<ActivityStepsRollupMap>;
+}): ActivityOverviewRowModel {
+  const { key, label, days, rollupByDay } = input;
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  if (stepsWindowHasAnyErrorDay(days, rollupByDay)) {
+    return {
+      key,
+      label,
+      compactStatsSummary: ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA,
+      markerPosition01: 0,
+    };
+  }
+  const avg = meanStepsPerDayZeroFilled(days, rollupByDay);
+  return {
+    key,
+    label,
+    compactStatsSummary: formatActivityAverageRowSummary(avg),
+    markerPosition01: dashRecapPlacementMarker01(avg, cap),
+  };
 }
 
 export function formatActivityDailyDetailsTitle(selectedDay: DayKey, todayDayKey: DayKey): string {
@@ -64,61 +110,30 @@ export function formatActivityAverageRowSummary(avgStepsPerDay: number): string 
 }
 
 /**
- * Activity Overview summary — trailing windows **end on `overviewAnchorDay`** (Activity strip selection).
- * Source of truth: `activity.steps` per day from GET /users/me/daily-facts (rolled into {@link rollupByDay} as `kind: "numeric"` only when a finite non-negative steps value exists).
+ * Activity overview rows use a **completed-day anchor** (`overviewAnchorEndDay`, typically local yesterday).
+ * Strip selection and partial “today” do not move these windows.
  *
- * Formulas (local calendar days, inclusive of anchor day):
- * - **Today row:** steps for `overviewAnchorDay` only (UI label unchanged).
- * - **7D / 30D / 365D Avg:** mean of steps on days **with numeric rollups inside that trailing window ending on the anchor** only.
- *   Missing/error/absent days do not count toward the average. No numeric days → **0**.
+ * - **7 Day / 30 Day:** mean steps/day only when every day in the window has a numeric rollup; else
+ *   {@link ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA}.
+ * - **YTD / 12 Month:** true calendar mean `sum(steps or 0) / windowDayCount` when no day in the window
+ *   has a failed daily-facts fetch; otherwise {@link ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA}.
  */
 export function buildActivityOverviewCardModel(input: {
-  overviewAnchorDay: DayKey;
+  overviewAnchorEndDay: DayKey;
   rollupByDay: Readonly<ActivityStepsRollupMap>;
 }): ActivityOverviewCardModel {
-  const { overviewAnchorDay, rollupByDay } = input;
+  const { overviewAnchorEndDay: end, rollupByDay } = input;
 
-  const d7 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_7D_DAYS);
-  const d30 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_30D_DAYS);
-  const d365 = activityTrailingNDaysInclusive(overviewAnchorDay, ACTIVITY_OVERVIEW_AVG_12M_DAYS);
-
-  const todayEntry = rollupByDay[overviewAnchorDay];
-
-  const avg7 = averageStepsNumericDaysOnly(d7, rollupByDay);
-  const avg30 = averageStepsNumericDaysOnly(d30, rollupByDay);
-  const avg365 = averageStepsNumericDaysOnly(d365, rollupByDay);
-
-  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
-
-  const todayNumericSteps = todayEntry?.kind === "numeric" ? todayEntry.steps : 0;
-  const todayMarker =
-    todayEntry?.kind === "numeric" ? dashRecapPlacementMarker01(todayNumericSteps, cap) : 0;
+  const d7 = activityTrailingNDaysInclusive(end, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT);
+  const d30 = activityTrailingNDaysInclusive(end, ACTIVITY_OVERVIEW_TRAILING_30_DAY_COUNT);
+  const d365 = activityTrailingNDaysInclusive(end, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT);
+  const ytdDays = activityYtdInclusiveThroughEndDay(end);
 
   const timeframes: ActivityOverviewRowModel[] = [
-    {
-      key: "today",
-      label: "Today",
-      compactStatsSummary: formatActivityTodayRowSummary(todayEntry),
-      markerPosition01: todayMarker,
-    },
-    {
-      key: "avg7d",
-      label: "7D Avg",
-      compactStatsSummary: formatActivityAverageRowSummary(avg7),
-      markerPosition01: dashRecapPlacementMarker01(avg7, cap),
-    },
-    {
-      key: "avg30d",
-      label: "30D Avg",
-      compactStatsSummary: formatActivityAverageRowSummary(avg30),
-      markerPosition01: dashRecapPlacementMarker01(avg30, cap),
-    },
-    {
-      key: "avg365d",
-      label: "365D Avg",
-      compactStatsSummary: formatActivityAverageRowSummary(avg365),
-      markerPosition01: dashRecapPlacementMarker01(avg365, cap),
-    },
+    rowFromFullCoverageWindow({ key: "day7", label: "7 Day", days: d7, rollupByDay }),
+    rowFromFullCoverageWindow({ key: "day30", label: "30 Day", days: d30, rollupByDay }),
+    rowFromZeroFilledFixedDenominator({ key: "ytd", label: "YTD", days: ytdDays, rollupByDay }),
+    rowFromZeroFilledFixedDenominator({ key: "month12", label: "12 Month", days: d365, rollupByDay }),
   ];
 
   return { timeframes };
@@ -130,17 +145,29 @@ export type ActivityDailyDetailsCardModel = {
   markerPosition01: number;
 };
 
+/** Today’s Steps row from a live HealthKit total (not daily-facts). */
+export function buildActivityTodayStepsLiveCardModel(input: { todayDayKey: DayKey; steps: number }): ActivityDailyDetailsCardModel {
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  const steps = Math.max(0, input.steps);
+  return {
+    title: formatActivityDailyDetailsTitle(input.todayDayKey, input.todayDayKey),
+    compactStatsSummary: `${Math.round(steps).toLocaleString()} steps`,
+    markerPosition01: dashRecapPlacementMarker01(steps, cap),
+  };
+}
+
 export function buildActivityDailyDetailsCardModel(input: {
-  selectedDay: DayKey;
+  /** Calendar day whose rollup backs the row (Activity overview passes device today for Today’s Steps). */
+  detailDayKey: DayKey;
   todayDayKey: DayKey;
   rollupByDay: Readonly<ActivityStepsRollupMap>;
 }): ActivityDailyDetailsCardModel {
-  const { selectedDay, todayDayKey, rollupByDay } = input;
-  const entry = rollupByDay[selectedDay];
+  const { detailDayKey, todayDayKey, rollupByDay } = input;
+  const entry = rollupByDay[detailDayKey];
   const numericSteps = entry?.kind === "numeric" ? entry.steps : 0;
   const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
   return {
-    title: formatActivityDailyDetailsTitle(selectedDay, todayDayKey),
+    title: formatActivityDailyDetailsTitle(detailDayKey, todayDayKey),
     compactStatsSummary: formatActivityTodayRowSummary(entry),
     markerPosition01: entry?.kind === "numeric" ? dashRecapPlacementMarker01(numericSteps, cap) : 0,
   };
