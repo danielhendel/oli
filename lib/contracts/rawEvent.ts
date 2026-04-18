@@ -127,6 +127,11 @@ const manualStepsPayloadSchema = manualWindowBaseSchema
     steps: z.number().finite().nonnegative(),
     distanceKm: z.number().finite().nonnegative().nullable().optional(),
     moveMinutes: z.number().finite().nonnegative().nullable().optional(),
+    /** Preferred stable HealthKit / Apple sample identity (additive). */
+    sourceSampleId: z.string().min(1).max(512).optional(),
+    /** Alias accepted from some clients; normalized to canonical `sourceSampleId` in the mapper. */
+    sampleId: z.string().min(1).max(512).optional(),
+    sourceUUID: z.string().min(1).max(512).optional(),
   })
   .strip();
 

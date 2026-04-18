@@ -6,37 +6,38 @@ import { admin, db } from "../firebaseAdmin";
 import type { CanonicalEvent, StepsCanonicalEvent } from "../types/health";
 import { canonicalEquals, canonicalHash } from "./canonicalImmutability";
 
-function lexIsoMax(a: string | undefined, b: string | undefined): string {
-  const aa = a ?? "";
-  const bb = b ?? "";
-  return aa >= bb ? aa : bb;
-}
-
 /**
- * Apple Health (and manual) daily steps reuse one canonical id per day; totals are cumulative intraday.
- * Out-of-order delivery must not reduce the stored total. When the count increases, the newer payload wins
- * for scalar fields; `updatedAt` is the lexicographic max of both.
+ * Same-day steps share one canonical document id (e.g. Apple Health daily aggregate). Ingest replays
+ * carry a newer `updatedAt` from the raw event's `receivedAt`. The **latest** ingest wins so Apple
+ * downward corrections (lower cumulative after sample removal) can replace a stale higher total.
+ * Older `updatedAt` deliveries are ignored as out-of-order.
  */
 function mergeIntradayStepsCanonical(
   existing: StepsCanonicalEvent,
   incoming: StepsCanonicalEvent,
 ): { merged: StepsCanonicalEvent; changed: boolean } {
-  if (incoming.steps < existing.steps) {
-    return { merged: existing, changed: false };
-  }
-  if (incoming.steps > existing.steps) {
+  const inT = incoming.updatedAt ?? "";
+  const exT = existing.updatedAt ?? "";
+  if (inT > exT) {
     const merged: StepsCanonicalEvent = {
       ...incoming,
-      steps: incoming.steps,
-      updatedAt: lexIsoMax(existing.updatedAt, incoming.updatedAt),
+      updatedAt: incoming.updatedAt,
+      createdAt: existing.createdAt ?? incoming.createdAt,
+      sourceSampleId: incoming.sourceSampleId ?? existing.sourceSampleId ?? null,
     };
     return { merged, changed: !canonicalEquals(existing, merged) };
   }
+  if (inT < exT) {
+    return { merged: existing, changed: false };
+  }
+  // Same `updatedAt` (rare): treat incoming as authoritative for idempotent replay / correction tie.
   const merged: StepsCanonicalEvent = {
     ...existing,
     ...incoming,
-    steps: existing.steps,
-    updatedAt: lexIsoMax(existing.updatedAt, incoming.updatedAt),
+    steps: incoming.steps,
+    updatedAt: inT || exT,
+    createdAt: existing.createdAt,
+    sourceSampleId: incoming.sourceSampleId ?? existing.sourceSampleId ?? null,
   };
   return { merged, changed: !canonicalEquals(existing, merged) };
 }

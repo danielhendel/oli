@@ -1,7 +1,7 @@
 // services/api/src/routes/events.ts
 import { Router, type Response } from "express";
 
-import { rawEventDocSchema } from "@oli/contracts";
+import { localCalendarDayKeyFromIsoInTimeZone, rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
 import type { RequestWithRid } from "../lib/logger";
 import { writeFailure } from "../lib/writeFailure";
@@ -60,10 +60,12 @@ const requireValidTimeZone = (reqBody: unknown): string | undefined => {
 };
 
 /**
- * Single source-of-truth dayKey algorithm (must match canonical normalization):
- * Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(observedAt))
+ * Ingest `day` for non–Apple-steps events: local calendar key from envelope `observedAt` + `timeZone`.
+ * Apple Health `steps` uses {@link localCalendarDayKeyFromIsoInTimeZone} on `payload.start` + `payload.timezone` only.
  */
 const canonicalDayKeyFromObservedAt = (observedAtIso: string, timeZone: string): string => {
+  const key = localCalendarDayKeyFromIsoInTimeZone(observedAtIso, timeZone);
+  if (key) return key;
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone });
   return formatter.format(new Date(observedAtIso));
 };
@@ -194,8 +196,9 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const body: IngestRawEventBody = parsed.data;
 
-  // Canonicalize timestamps (observedAt preferred; occurredAt can be exact or range)
-  const occurredAtRaw = body.occurredAt ?? body.observedAt;
+  // Canonicalize timestamps: `observedAt` wins over `occurredAt` when both are present (explicit envelope).
+  // `occurredAt` may still be a string or { start, end } range for legacy clients.
+  const occurredAtRaw = body.observedAt ?? body.occurredAt;
   if (!occurredAtRaw) {
     try {
       await writeFailure({
@@ -251,8 +254,115 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   const receivedAt = new Date().toISOString();
 
-  // ✅ Must match canonical dayKey semantics (use observedAt for day derivation)
-  const day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
+  let day: string;
+  if (body.provider === "apple_health" && body.kind === "steps") {
+    const p = body.payload;
+    if (typeof p !== "object" || p === null || Array.isArray(p)) {
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest",
+          reasonCode: "STEPS_PAYLOAD_INVALID",
+          message: "apple_health steps requires a JSON object payload with start, end, timezone, steps",
+          day: dayUtcNow(),
+          requestId,
+          details: {},
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(400).json({
+        ok: false as const,
+        error: {
+          code: "STEPS_PAYLOAD_INVALID" as const,
+          message: "apple_health steps requires a JSON object payload with start, end, timezone, steps",
+        },
+        requestId,
+      });
+    }
+    const pr = p as Record<string, unknown>;
+    const pStart = pr["start"];
+    const pTz = pr["timezone"];
+    if (typeof pStart !== "string" || typeof pTz !== "string") {
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest",
+          reasonCode: "STEPS_PAYLOAD_INVALID",
+          message: "apple_health steps payload must include string start and timezone",
+          day: dayUtcNow(),
+          requestId,
+          details: {},
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(400).json({
+        ok: false as const,
+        error: {
+          code: "STEPS_PAYLOAD_INVALID" as const,
+          message: "apple_health steps payload must include string start and timezone",
+        },
+        requestId,
+      });
+    }
+    if (pTz !== timeZone) {
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest",
+          reasonCode: "STEPS_PAYLOAD_TIMEZONE_MISMATCH",
+          message:
+            "steps payload.timezone must match top-level timeZone (single IANA source for ingest + normalization)",
+          day: dayUtcNow(),
+          requestId,
+          details: { payloadTimezone: pTz, envelopeTimeZone: timeZone },
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(400).json({
+        ok: false as const,
+        error: {
+          code: "STEPS_PAYLOAD_TIMEZONE_MISMATCH" as const,
+          message:
+            "steps payload.timezone must match top-level timeZone (single IANA source for ingest + normalization)",
+        },
+        requestId,
+      });
+    }
+    const payloadDay = localCalendarDayKeyFromIsoInTimeZone(pStart, pTz);
+    if (!payloadDay) {
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest",
+          reasonCode: "STEPS_PAYLOAD_DAY_INVALID",
+          message: "Could not derive local calendar day from steps payload.start and payload.timezone",
+          day: dayUtcNow(),
+          requestId,
+          details: { payloadStart: pStart, payloadTimezone: pTz },
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(400).json({
+        ok: false as const,
+        error: {
+          code: "STEPS_PAYLOAD_DAY_INVALID" as const,
+          message: "Could not derive local calendar day from steps payload.start and payload.timezone",
+        },
+        requestId,
+      });
+    }
+    day = payloadDay;
+  } else {
+    day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
+  }
 
   // Phase 1: gateway currently represents manual ingestion
   const sourceType = "manual" as const;

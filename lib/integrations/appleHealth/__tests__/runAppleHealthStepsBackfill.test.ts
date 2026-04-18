@@ -1,9 +1,10 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import {
   assertStepsBackfillSingleDayInvariant,
-  computeLocalYtdLookbackDays,
+  APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS,
   runAppleHealthStepsBackfill,
 } from "../runAppleHealthStepsBackfill";
+import { addLocalCalendarDaysToDayKey } from "../healthKit";
 import type { AppleHealthStepsBackfillState } from "../storage";
 
 function makeStore(initial: AppleHealthStepsBackfillState | null = null) {
@@ -94,6 +95,40 @@ describe("runAppleHealthStepsBackfill", () => {
     expect(body.payload?.steps).toBe(0);
   });
 
+  it("default lookback is trailing 365 local days ending on getTodayDayKeyLocal, with no dates after today", async () => {
+    const store = makeStore();
+    const ingestRawEvent = jest.fn(async () => ({ ok: true as const }));
+    const pullStepCountForLocalCalendarDay = jest.fn(async () => ({
+      ok: true as const,
+      steps: 0,
+      hkEmpty: true as const,
+    }));
+    const today = "2026-04-14";
+    const result = await runAppleHealthStepsBackfill(
+      { token: "tok" },
+      {
+        nowIso: () => "2026-04-14T15:00:00.000Z",
+        getTodayDayKeyLocal: () => today,
+        getDeviceTimezone: () => "America/Los_Angeles",
+        pullStepCountForLocalCalendarDay,
+        ingestRawEvent,
+        stepsIdempotencyKey: (d) => `appleHealth:v2:steps:${d}`,
+        getBackfillState: store.get,
+        setBackfillState: store.set,
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.lookbackDays).toBe(APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS);
+    expect(result.windowEndDay).toBe(today);
+    expect(result.daysTotal).toBe(365);
+    const expectedStart = addLocalCalendarDaysToDayKey(today, -(365 - 1));
+    expect(result.windowStartDay).toBe(expectedStart);
+    const pulledDays = pullStepCountForLocalCalendarDay.mock.calls.map((c) => c[0]);
+    expect(pulledDays.every((d) => d <= today)).toBe(true);
+    expect(new Set(pulledDays).size).toBe(365);
+  });
+
   it("assertStepsBackfillSingleDayInvariant rejects payload.day mismatch", () => {
     expect(() =>
       assertStepsBackfillSingleDayInvariant({
@@ -112,11 +147,5 @@ describe("runAppleHealthStepsBackfill", () => {
         payloadDay: "2026-04-07",
       }),
     ).toThrow(/idempotencyKey/);
-  });
-
-  it("computeLocalYtdLookbackDays counts Jan 1 through today inclusive", () => {
-    expect(computeLocalYtdLookbackDays("2026-01-01")).toBe(1);
-    expect(computeLocalYtdLookbackDays("2026-01-03")).toBe(3);
-    expect(computeLocalYtdLookbackDays("2026-04-08")).toBe(98);
   });
 });

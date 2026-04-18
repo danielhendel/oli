@@ -1,7 +1,7 @@
 /**
- * When users/me/dailyFacts/{day} is missing (or activity is merged), synthesize `activity.steps`
- * from canonical `events` for that day — same resolution rules as {@link aggregateDailyFactsForDay}.
- * Read-only; does not write Firestore.
+ * Read-only helper: resolve `activity.steps` from canonical `events` for a day using the same rules
+ * as `aggregateDailyFactsForDay` (including Apple per-identity dedupe in `@oli/contracts`).
+ * Optional tooling / non-GET-daily-facts callers only; `GET /users/me/daily-facts` does not use this.
  */
 
 import {
@@ -21,7 +21,14 @@ export async function loadActivityStepsFromCanonicalForApi(
 ): Promise<ActivityStepsSynthesized | undefined> {
   const snap = await userCollection(uid, "events").where("day", "==", dayKey).get();
 
-  const likes: { id: string; sourceId: string; steps: number }[] = [];
+  const likes: {
+    id: string;
+    sourceId: string;
+    steps: number;
+    updatedAt?: string;
+    createdAt?: string;
+    sourceSampleId?: string | null;
+  }[] = [];
   for (const d of snap.docs) {
     const data = d.data() as Record<string, unknown>;
     if (data["kind"] !== "steps") continue;
@@ -30,7 +37,18 @@ export async function loadActivityStepsFromCanonicalForApi(
     const rawSource = data["sourceId"];
     const sourceId =
       typeof rawSource === "string" && rawSource.length > 0 ? rawSource : "unknown_source";
-    likes.push({ id: d.id, sourceId, steps: s });
+    const updatedAt = typeof data["updatedAt"] === "string" ? data["updatedAt"] : undefined;
+    const createdAt = typeof data["createdAt"] === "string" ? data["createdAt"] : undefined;
+    const rawSid = data["sourceSampleId"];
+    const sourceSampleId = typeof rawSid === "string" && rawSid.trim().length > 0 ? rawSid.trim() : null;
+    likes.push({
+      id: d.id,
+      sourceId,
+      steps: s,
+      sourceSampleId,
+      ...(updatedAt !== undefined ? { updatedAt } : {}),
+      ...(createdAt !== undefined ? { createdAt } : {}),
+    });
   }
 
   const contributing = pickContributingStepEventsForDailyFacts(likes);

@@ -115,6 +115,56 @@ describe("mapRawEventToCanonical", () => {
     expect(stepsEvent.steps).toBe(8421);
   });
 
+  it("maps sampleId on apple_health steps payload to canonical sourceSampleId", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_steps_sample",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      kind: "steps",
+      payload: {
+        start: "2025-01-01T05:00:00.000Z",
+        end: "2025-01-02T04:59:59.999Z",
+        timezone: "America/New_York",
+        steps: 100,
+        sampleId: "  hk-uuid-1  ",
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const stepsEvent = result.canonical as Extract<CanonicalEvent, { kind: "steps" }>;
+    expect(stepsEvent.sourceSampleId).toBe("hk-uuid-1");
+  });
+
+  it("apple_health steps: canonical day follows payload.start+timezone, not raw observedAt", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_steps_drift",
+      sourceId: "apple_health",
+      provider: "apple_health",
+      kind: "steps",
+      observedAt: "2025-01-02T12:00:00.000Z",
+      payload: {
+        start: "2025-01-01T05:00:00.000Z",
+        end: "2025-01-02T04:59:59.999Z",
+        timezone: "America/New_York",
+        day: "2099-12-31",
+        steps: 100,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const canonical = result.canonical as Extract<CanonicalEvent, { kind: "steps" }>;
+    expect(canonical.day).toBe(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date("2025-01-01T05:00:00.000Z")),
+    );
+    expect(canonical.day).not.toBe("2099-12-31");
+  });
+
   it("returns fact-only for weight (no canonical event, trigger recompute via onRawEventCreated)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

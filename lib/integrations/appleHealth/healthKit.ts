@@ -88,6 +88,10 @@ type AnchoredQueryResults = { anchor: string; data: HKWorkoutQueriedSampleType[]
 type HealthKitInstance = {
   initHealthKit: (p: unknown, cb: (err: string, r: unknown) => void) => void;
   isAvailable: (cb: (err: unknown, ok: boolean) => void) => void;
+  /**
+   * Native `fitness_getStepCountOnDay` reads **`date`** only (ISO string). `startDate`/`endDate` are ignored.
+   * Pass local start-of-calendar-day ISO from {@link getLocalCalendarDayBoundsFromYmd} `.start`.
+   */
   getStepCount: (o: HealthInputOptions, cb: (err: string, r: HealthValue) => void) => void;
   getAppleExerciseTime: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getActiveEnergyBurned: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
@@ -573,6 +577,16 @@ export function getLocalCalendarDayBoundsFromYmd(dayYmd: string): { start: strin
   return { start: start.toISOString(), end: end.toISOString(), day: dayYmd };
 }
 
+/**
+ * Arguments for `AppleHealthKit.getStepCount` (react-native-health iOS).
+ * The bridge sums step-count samples for the **local calendar day** containing `date`
+ * via `HKStatisticsOptionCumulativeSum` (full-day total, not a delta).
+ */
+export function buildHealthKitGetStepCountOptions(dayYmd: string): { date: string; includeManuallyAdded: boolean } {
+  const { start } = getLocalCalendarDayBoundsFromYmd(dayYmd);
+  return { date: start, includeManuallyAdded: true };
+}
+
 /** Shift a local calendar day key by `deltaDays` (device local calendar). */
 export function addLocalCalendarDaysToDayKey(dayYmd: string, deltaDays: number): string {
   if (!LOCAL_DAY_KEY_RE.test(dayYmd)) {
@@ -615,8 +629,7 @@ export async function pullStepCountForLocalCalendarDay(
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
   }
   try {
-    const { start, end } = getLocalCalendarDayBoundsFromYmd(dayYmd);
-    const r = await queryStepCount(HK, start, end);
+    const r = await queryStepCountForLocalDay(HK, dayYmd);
     if (r.kind === "error") {
       return { ok: false, error: `HealthKit getStepCount: ${r.message}` };
     }
@@ -638,10 +651,15 @@ type StepCountQueryResult =
 /**
  * Low-level HKStatistics-style callback: distinguishes **error** vs **no aggregate** vs **numeric total**.
  * Previously we treated errors like missing data (`null`), so steps backfill skipped POST /ingest entirely.
+ *
+ * IMPORTANT: react-native-health `getStepCount` → `fitness_getStepCountOnDay` uses option key **`date`** only.
+ * Passing only `startDate`/`endDate` leaves `date` unset, so native code defaults to **now**, and every
+ * backfill day incorrectly queried **today’s** steps while still POSTing historical `payload.day` values.
  */
-function queryStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<StepCountQueryResult> {
+function queryStepCountForLocalDay(HK: HealthKitInstance, dayYmd: string): Promise<StepCountQueryResult> {
+  const opts = buildHealthKitGetStepCountOptions(dayYmd);
   return new Promise((resolve) => {
-    HK.getStepCount({ startDate, endDate }, (err: string, result: HealthValue) => {
+    HK.getStepCount(opts, (err: string, result: HealthValue) => {
       if (err != null && String(err).trim() !== "") {
         resolve({ kind: "error", message: String(err) });
         return;
@@ -655,12 +673,12 @@ function queryStepCount(HK: HealthKitInstance, startDate: string, endDate: strin
   });
 }
 
-async function pStepCount(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {
-  const r = await queryStepCount(HK, startDate, endDate);
+async function pStepCount(HK: HealthKitInstance, dayYmd: string): Promise<number | null> {
+  const r = await queryStepCountForLocalDay(HK, dayYmd);
   if (r.kind === "error") {
     if (__DEV__ && !process.env.JEST_WORKER_ID) {
       // eslint-disable-next-line no-console
-      console.warn("[AH] getStepCount error", { startDate, endDate, message: r.message });
+      console.warn("[AH] getStepCount error", { dayYmd, message: r.message });
     }
     return null;
   }
@@ -906,7 +924,7 @@ export async function pullTodaySnapshot(): Promise<{ ok: true; data: TodaySnapsh
   const { startDate, endDate, day } = getTodayBounds();
 
   return Promise.all([
-    pStepCount(HK, startDate, endDate),
+    pStepCount(HK, day),
     pAppleExerciseTime(HK, startDate, endDate),
     pActiveEnergyBurned(HK, startDate, endDate),
     pRestingHeartRateSamples(HK, startDate, endDate),

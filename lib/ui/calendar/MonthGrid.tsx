@@ -14,6 +14,9 @@ import {
   type MonthYear,
 } from "./dateUtils";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
+import type { ActivityCalendarDayRingModel } from "@/lib/ui/activity/activityCalendarDayRingPresentation";
+import { ActivityDayRing } from "@/lib/ui/activity/ActivityDayRing";
+import { WEEKLY_STRIP_SELECTED_DAY_CIRCLE_FILL } from "@/lib/ui/calendar/weeklyCalendarStripTheme";
 import { UI_TEXT_PRIMARY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 import { WorkoutDayRing } from "./WorkoutDayRing";
 
@@ -28,6 +31,11 @@ export type MonthGridProps = {
   dayKeyBasis?: "utc" | "local";
   /** `activity` — a11y copy for step rollup markers; default `workout` for strength/cardio grids. */
   ringSemantics?: "workout" | "activity";
+  /**
+   * When set, Activity tier / neutral rings replace {@link WorkoutDayRing} (Activity calendar only).
+   * `markerForDay` is ignored for the ring layer (pass a stub if unused).
+   */
+  activityCalendarDayForDay?: (day: DayKey) => ActivityCalendarDayRingModel;
 };
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -37,6 +45,7 @@ export function MonthGrid({
   onDayPress,
   dayKeyBasis = "utc",
   ringSemantics = "workout",
+  activityCalendarDayForDay,
 }: MonthGridProps) {
   const todayKey = getTodayDayKeyLocal();
   const weeks = dayKeyBasis === "local" ? getMonthGridLocal(monthYear) : getMonthGrid(monthYear);
@@ -65,8 +74,10 @@ export function MonthGrid({
             const hasStrength = !!marker?.hasStrength;
             const hasCardio = !!marker?.hasCardio;
             const hasRingMarker = hasStrength || hasCardio;
-            const a11yDetail =
-              ringSemantics === "activity"
+            const activityDayModel = activityCalendarDayForDay?.(dayKey);
+            const a11yDetail = activityDayModel
+              ? activityDayModel.accessibilityDetail
+              : ringSemantics === "activity"
                 ? hasRingMarker
                   ? "steps in daily rollup"
                   : "no steps in daily rollup"
@@ -85,16 +96,32 @@ export function MonthGrid({
                 ]}
                 hitSlop={8}
               >
-                <View style={styles.dayCircle}>
+                <View
+                  style={[
+                    styles.dayCircle,
+                    activityDayModel != null &&
+                      dayKey === todayKey &&
+                      styles.dayCircleActivityToday,
+                  ]}
+                >
                   <View style={styles.dayRingBackdrop} pointerEvents="none">
-                    <WorkoutDayRing
-                      size={32}
-                      hasStrength={hasStrength}
-                      hasCardio={hasCardio}
-                      emphasized={dayKey === todayKey}
-                      outerTestID={`month-outer-ring-${dayKey}`}
-                      innerTestID={`month-cardio-inner-ring-${dayKey}`}
-                    />
+                    {activityDayModel != null ? (
+                      <ActivityDayRing
+                        size={32}
+                        presentation={activityDayModel.presentation}
+                        emphasized={false}
+                        outerTestID={`month-outer-ring-${dayKey}`}
+                      />
+                    ) : (
+                      <WorkoutDayRing
+                        size={32}
+                        hasStrength={hasStrength}
+                        hasCardio={hasCardio}
+                        emphasized={dayKey === todayKey}
+                        outerTestID={`month-outer-ring-${dayKey}`}
+                        innerTestID={`month-cardio-inner-ring-${dayKey}`}
+                      />
+                    )}
                   </View>
                   <Text style={styles.dayNumber}>
                     {Number(dayKey.slice(8, 10))}
@@ -163,6 +190,10 @@ const styles = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+  },
+  /** Same fill as Strength weekly strip `dayCircleSelected` / header chrome. */
+  dayCircleActivityToday: {
+    backgroundColor: WEEKLY_STRIP_SELECTED_DAY_CIRCLE_FILL,
   },
   dayRingBackdrop: {
     ...StyleSheet.absoluteFillObject,

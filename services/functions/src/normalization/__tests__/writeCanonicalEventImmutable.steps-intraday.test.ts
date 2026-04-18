@@ -71,7 +71,7 @@ jest.mock("../../firebaseAdmin", () => ({
 import type { StepsCanonicalEvent } from "../../types/health";
 import { writeCanonicalEventImmutable } from "../writeCanonicalEventImmutable";
 
-function stepsCanonical(steps: number, updatedAt: string): StepsCanonicalEvent {
+function stepsCanonical(steps: number, updatedAt: string, sourceSampleId?: string | null): StepsCanonicalEvent {
   return {
     id: "appleHealth:v2:steps:2026-04-08",
     userId: "u_steps",
@@ -85,6 +85,7 @@ function stepsCanonical(steps: number, updatedAt: string): StepsCanonicalEvent {
     updatedAt,
     schemaVersion: 1,
     steps,
+    ...(sourceSampleId !== undefined ? { sourceSampleId } : {}),
     distanceKm: null,
     moveMinutes: null,
   };
@@ -125,7 +126,7 @@ describe("writeCanonicalEventImmutable — steps intraday", () => {
     expect(res).toEqual({ ok: true, mode: "identical_noop" });
   });
 
-  it("does not reduce steps when a lower cumulative total arrives out of order", async () => {
+  it("ignores out-of-order ingest when incoming updatedAt is older than existing", async () => {
     const path = "users/u_steps/events/appleHealth:v2:steps:2026-04-08";
     mockTransactionStore.set(path, { ...stepsCanonical(5000, "2026-04-08T20:00:00.000Z") } as Record<string, unknown>);
 
@@ -138,5 +139,52 @@ describe("writeCanonicalEventImmutable — steps intraday", () => {
 
     expect(res).toEqual({ ok: true, mode: "identical_noop" });
     expect((mockTransactionStore.get(path) as { steps?: number }).steps).toBe(5000);
+  });
+
+  it("same updatedAt: incoming steps replace existing (idempotent correction replay)", async () => {
+    const path = "users/u_steps/events/appleHealth:v2:steps:2026-04-08";
+    mockTransactionStore.set(path, { ...stepsCanonical(15577, "2026-04-08T18:00:00.000Z") } as Record<string, unknown>);
+
+    const res = await writeCanonicalEventImmutable({
+      userId: "u_steps",
+      canonical: { ...stepsCanonical(148, "2026-04-08T18:00:00.000Z") },
+      sourceRawEventId: "appleHealth:v2:steps:2026-04-08",
+      sourceRawEventPath: "x",
+    });
+
+    expect(res).toEqual({ ok: true, mode: "replaced" });
+    expect((mockTransactionStore.get(path) as { steps?: number }).steps).toBe(148);
+  });
+
+  it("merges sourceSampleId from incoming when newer updatedAt replaces steps", async () => {
+    const path = "users/u_steps/events/appleHealth:v2:steps:2026-04-08";
+    mockTransactionStore.set(path, { ...stepsCanonical(100, "2026-04-08T08:00:00.000Z", null) } as Record<string, unknown>);
+
+    const res = await writeCanonicalEventImmutable({
+      userId: "u_steps",
+      canonical: { ...stepsCanonical(120, "2026-04-08T18:00:00.000Z", "hk-99") },
+      sourceRawEventId: "appleHealth:v2:steps:2026-04-08",
+      sourceRawEventPath: "x",
+    });
+
+    expect(res).toEqual({ ok: true, mode: "replaced" });
+    const stored = mockTransactionStore.get(path) as { steps?: number; sourceSampleId?: string | null };
+    expect(stored.steps).toBe(120);
+    expect(stored.sourceSampleId).toBe("hk-99");
+  });
+
+  it("applies Apple downward correction when newer updatedAt carries a lower total", async () => {
+    const path = "users/u_steps/events/appleHealth:v2:steps:2026-04-08";
+    mockTransactionStore.set(path, { ...stepsCanonical(15577, "2026-04-08T10:00:00.000Z") } as Record<string, unknown>);
+
+    const res = await writeCanonicalEventImmutable({
+      userId: "u_steps",
+      canonical: { ...stepsCanonical(148, "2026-04-08T18:00:00.000Z") },
+      sourceRawEventId: "appleHealth:v2:steps:2026-04-08",
+      sourceRawEventPath: "x",
+    });
+
+    expect(res).toEqual({ ok: true, mode: "replaced" });
+    expect((mockTransactionStore.get(path) as { steps?: number }).steps).toBe(148);
   });
 });

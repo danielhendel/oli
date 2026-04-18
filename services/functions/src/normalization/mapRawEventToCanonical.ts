@@ -1,9 +1,9 @@
 // services/functions/src/normalization/mapRawEventToCanonical.ts
+import { localCalendarDayKeyFromIsoInTimeZone } from "@oli/contracts";
 import type {
   CanonicalEvent,
   RawEvent,
   IsoDateTimeString,
-  YmdDateString,
   SleepCanonicalEvent,
   StepsCanonicalEvent,
   WorkoutCanonicalEvent,
@@ -62,35 +62,6 @@ export type MappingSuccess = {
 export type MappingResult = MappingSuccess | MappingFailure;
 
 // -----------------------------------------------------------------------------
-// Canonical dayKey derivation (AUTHORITATIVE)
-// -----------------------------------------------------------------------------
-
-/**
- * Canonical dayKey derivation using IANA timezone.
- *
- * Algorithm must match the ingestion acknowledgement semantics:
- *   Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(iso))
- *
- * Returns null if:
- * - ISO timestamp is invalid, OR
- * - timeZone is invalid (fail closed; no UTC fallback here)
- */
-const ymdInTimeZoneFromIso = (
-  iso: string,
-  timeZone: string,
-): YmdDateString | null => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-
-  try {
-    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone });
-    return fmt.format(d) as YmdDateString;
-  } catch {
-    return null;
-  }
-};
-
-// -----------------------------------------------------------------------------
 // Manual payload shapes & guards
 // -----------------------------------------------------------------------------
 
@@ -112,6 +83,9 @@ type ManualStepsPayload = ManualWindowBase & {
   steps: number;
   distanceKm?: number | null;
   moveMinutes?: number | null;
+  sourceSampleId?: string;
+  sampleId?: string;
+  sourceUUID?: string;
 };
 
 type ManualWorkoutPayload = ManualWindowBase & {
@@ -309,7 +283,7 @@ const mapManualSleep = (
   raw: RawEvent,
   payload: ManualSleepPayload,
 ): SleepCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
   if (!day) return null;
 
   return {
@@ -332,12 +306,24 @@ const mapManualSleep = (
   };
 };
 
+function stepsPayloadSourceSampleId(payload: ManualStepsPayload): string | undefined {
+  const a = payload.sourceSampleId?.trim();
+  if (a) return a;
+  const b = payload.sampleId?.trim();
+  if (b) return b;
+  const c = payload.sourceUUID?.trim();
+  if (c) return c;
+  return undefined;
+}
+
 const mapManualSteps = (
   raw: RawEvent,
   payload: ManualStepsPayload,
 ): StepsCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
   if (!day) return null;
+
+  const sourceSampleId = stepsPayloadSourceSampleId(payload);
 
   return {
     id: raw.id,
@@ -352,6 +338,7 @@ const mapManualSteps = (
     updatedAt: raw.receivedAt,
     schemaVersion: 1,
     steps: payload.steps,
+    ...(sourceSampleId ? { sourceSampleId } : {}),
     distanceKm: payload.distanceKm ?? null,
     moveMinutes: payload.moveMinutes ?? null,
   };
@@ -361,7 +348,7 @@ const mapManualWorkout = (
   raw: RawEvent,
   payload: ManualWorkoutPayload,
 ): WorkoutCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
   if (!day) return null;
 
   const base: WorkoutCanonicalEvent = {
@@ -392,7 +379,7 @@ const mapManualHrv = (
   raw: RawEvent,
   payload: ManualHrvPayload,
 ): HrvCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.time, payload.timezone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.time, payload.timezone);
   if (!day) return null;
 
   const base: HrvCanonicalEvent = {
@@ -419,7 +406,7 @@ const mapManualHrv = (
 };
 
 const mapManualNutrition = (raw: RawEvent, payload: ManualNutritionPayload): NutritionCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.start, payload.timezone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
   if (!day) return null;
 
   const canonical: NutritionCanonicalEvent = {
@@ -449,7 +436,7 @@ const mapManualStrengthWorkout = (
   raw: RawEvent,
   payload: ManualStrengthWorkoutPayload,
 ): StrengthWorkoutCanonicalEvent | null => {
-  const day = ymdInTimeZoneFromIso(payload.startedAt, payload.timeZone);
+  const day = localCalendarDayKeyFromIsoInTimeZone(payload.startedAt, payload.timeZone);
   if (!day) return null;
 
   const exercises: StrengthWorkoutCanonicalSet[] = [];

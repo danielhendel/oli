@@ -192,6 +192,12 @@ export interface StepsCanonicalEvent extends BaseCanonicalEvent {
   /** Total steps in this window */
   steps: number;
 
+  /**
+   * Stable logical sample identity from the raw payload (e.g. HealthKit sample id), when present.
+   * Dedupe / aggregation groups same-day Apple-class rows by this key before timestamp ordering.
+   */
+  sourceSampleId?: string | null;
+
   /** Optional travel distance in km */
   distanceKm?: number | null;
 

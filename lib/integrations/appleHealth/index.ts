@@ -15,6 +15,7 @@ export {
   getLocalCalendarDayBoundsFromYmd,
   addLocalCalendarDaysToDayKey,
   pullStepCountForLocalCalendarDay,
+  buildHealthKitGetStepCountOptions,
 } from "./healthKit";
 export type { BodyCompositionReadAuthStatusResult } from "./healthKit";
 export {
@@ -46,7 +47,7 @@ export {
 } from "./runAppleHealthBodyBackfill";
 export {
   runAppleHealthStepsBackfill,
-  computeLocalYtdLookbackDays,
+  APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS,
   type RunAppleHealthStepsBackfillDeps,
   type RunAppleHealthStepsBackfillResult,
 } from "./runAppleHealthStepsBackfill";

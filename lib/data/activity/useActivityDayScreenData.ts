@@ -2,8 +2,9 @@ import { normalizeActivityDayRouteParam } from "@/lib/data/activity/activityDayR
 import { useActivityDaySteps } from "@/lib/data/activity/useActivityDaySteps";
 
 /**
- * Activity day route: normalize `day` search param (string | string[] | undefined) and load steps
- * via GET /users/me/daily-facts — same trust boundary as {@link useActivityStepsRollupMap}.
+ * Activity day route: normalize `day` from the screen (pathname-derived when provided by the screen,
+ * else `string | string[] | undefined`) and load steps via GET /users/me/daily-facts — same trust boundary as
+ * {@link useActivityStepsRollupMap}.
  */
 export function useActivityDayScreenData(rawDayParam: unknown): {
   normalized: ReturnType<typeof normalizeActivityDayRouteParam>;

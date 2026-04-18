@@ -21,6 +21,7 @@ import {
   resolveWorkoutDisplay,
   resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
+import { formatDayKeyStackNavTitle } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
@@ -63,14 +64,6 @@ const useLocalSearchParamsSafe: typeof useLocalSearchParams =
   typeof useLocalSearchParams === "function"
     ? useLocalSearchParams
     : ((() => ({})) as typeof useLocalSearchParams);
-
-function formatHeaderDate(dayKey: string): string {
-  const d = new Date(`${dayKey}T12:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return dayKey;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "short" }).replace(",", "");
-  const rest = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  return `${weekday} ${rest}`;
-}
 
 function aggregateHeartRateZoneMinutes(session: ReconciledWorkoutSession): HeartRateZoneMinutes5 | null {
   const sums = [0, 0, 0, 0, 0];
@@ -285,7 +278,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
     if (!isDayKey) return;
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: formatHeaderDate(day),
+      title: formatDayKeyStackNavTitle(day),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <Text

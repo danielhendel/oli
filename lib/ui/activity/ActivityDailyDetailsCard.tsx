@@ -2,15 +2,15 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { ActivityDailyDetailsCardModel } from "@/lib/data/activity/activityOverviewCardModel";
+import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
+import {
+  ActivityTierProgressTrack,
+  activityTierProgressAccessibilityPercent,
+} from "@/lib/ui/activity/ActivityTierProgressTrack";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
-import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOverviewSegmentZoneFills";
-import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
-import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
-import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-
-const ACTIVITY_DETAILS_MARKER_FILL = "#1F2937";
+import { getStepRating, getStepRatingTierIndex, stepsFromLocaleDigitString } from "@/lib/utils/activityStepRating";
 
 type ActivityDailyDetailsCardProps = {
   loading: boolean;
@@ -18,26 +18,18 @@ type ActivityDailyDetailsCardProps = {
   model: ActivityDailyDetailsCardModel | null;
 };
 
-function clamp01(x: number): number {
-  if (!Number.isFinite(x) || x <= 0) return 0;
-  if (x >= 1) return 1;
-  return x;
+/** Parses `compactStatsSummary` for display only (e.g. `7,524 steps` → `7,524`). Hook output unchanged. */
+function primaryStepsFigureFromCompactSummary(compactStatsSummary: string): string | null {
+  const m = compactStatsSummary.trim().match(/^([\d,]+)\s+steps$/i);
+  return m?.[1] ?? null;
 }
 
-function DetailsPlacementTrack({ testID, markerPosition01 }: { testID: string; markerPosition01: number }) {
-  const marker01 = clamp01(markerPosition01);
-  const pct = Math.round(marker01 * 100);
+function DetailsTierProgressTrack({ testID, tierIndex }: { testID: string; tierIndex: number | null }) {
+  const pct = activityTierProgressAccessibilityPercent(tierIndex);
   return (
-    <SegmentedZoneTrack
-      zoneColors={MODULE_OVERVIEW_SEGMENT_ZONE_FILLS}
+    <ActivityTierProgressTrack
       testID={testID}
-      markerPosition01={marker01}
-      showMarker
-      markerBackgroundColor={ACTIVITY_DETAILS_MARKER_FILL}
-      markerStyle="elevated"
-      dotSize={MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize}
-      barHeight={MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight}
-      trackRadius={MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius}
+      tierIndex={tierIndex}
       wrapperProps={{
         accessibilityRole: "progressbar",
         accessibilityValue: { now: pct, min: 0, max: 100 },
@@ -46,12 +38,49 @@ function DetailsPlacementTrack({ testID, markerPosition01 }: { testID: string; m
   );
 }
 
-/** Per-day steps for the week-strip (or calendar) selection — does not drive Overview averages. */
 export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDailyDetailsCardProps) {
+  const digits = model != null ? primaryStepsFigureFromCompactSummary(model.compactStatsSummary) : null;
+  const rating = digits != null ? getStepRating(stepsFromLocaleDigitString(digits)) : null;
+  const titleRowA11y =
+    loading || model == null
+      ? "Today’s Steps"
+      : digits != null
+        ? rating != null
+          ? `Today’s steps, ${rating.label}, ${digits}`
+          : `Today’s steps, ${digits}`
+        : `Today’s steps, ${model.compactStatsSummary}`;
+
   return (
     <View style={styles.card}>
-      <View style={[styles.headerRow, workoutOverviewInCardHeaderStyles.row]}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>Daily details</Text>
+      <View
+        style={[moduleOverviewMetricLayoutStyles.topRow, styles.titleNumberRow]}
+        accessible
+        accessibilityRole="header"
+        accessibilityLabel={titleRowA11y}
+      >
+        <View style={styles.labelPillCluster}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            Today’s Steps
+          </Text>
+          {!loading && model != null && rating != null ? (
+            <ActivityRatingPill
+              label={rating.label}
+              color={rating.color}
+              backgroundColor={rating.backgroundColor}
+              emphasis="subtle"
+              testID="activity-daily-details-rating"
+            />
+          ) : null}
+        </View>
+        {!loading && model != null && digits != null ? (
+          <Text style={styles.stepCountFigure} numberOfLines={1}>
+            {digits}
+          </Text>
+        ) : !loading && model != null && digits == null ? (
+          <Text style={styles.stepCountPlaceholder} numberOfLines={1}>
+            —
+          </Text>
+        ) : null}
       </View>
 
       {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
@@ -64,20 +93,11 @@ export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDail
         />
       ) : null}
       {!loading && model != null ? (
-        <View style={moduleOverviewMetricLayoutStyles.metricGroups}>
-          <View style={moduleOverviewMetricLayoutStyles.metricBlock} accessible accessibilityLabel={`${model.title}. ${model.compactStatsSummary}.`}>
-            <View style={moduleOverviewMetricLayoutStyles.topRow}>
-              <View style={styles.leftSummary}>
-                <Text style={styles.timeframeLabel} numberOfLines={1}>
-                  {model.title}
-                </Text>
-                <Text style={styles.resultSummary} numberOfLines={1} ellipsizeMode="tail">
-                  {model.compactStatsSummary}
-                </Text>
-              </View>
-            </View>
-            <DetailsPlacementTrack testID="activity-daily-details-steps-bar" markerPosition01={model.markerPosition01} />
-          </View>
+        <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
+          <DetailsTierProgressTrack
+            testID="activity-daily-details-steps-bar"
+            tierIndex={digits != null ? getStepRatingTierIndex(stepsFromLocaleDigitString(digits)) : null}
+          />
         </View>
       ) : null}
     </View>
@@ -92,31 +112,35 @@ const styles = StyleSheet.create({
     gap: 12,
     ...elevatedCardSurfaceStyle,
   },
-  headerRow: {
-    alignItems: "flex-start",
-    paddingBottom: 2,
+  titleNumberRow: {
+    paddingBottom: 0,
   },
-  leftSummary: {
+  labelPillCluster: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingRight: 8,
+    gap: 8,
   },
-  timeframeLabel: {
-    fontSize: 15,
+  cardTitle: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 21,
     fontWeight: "600",
-    color: "#6E6E73",
-    letterSpacing: -0.12,
+    color: "#1C1C1E",
+    letterSpacing: -0.38,
+  },
+  stepCountFigure: {
+    fontSize: 23,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    letterSpacing: -0.42,
     flexShrink: 0,
   },
-  resultSummary: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14,
+  stepCountPlaceholder: {
+    fontSize: 21,
     fontWeight: "600",
-    color: "#3C3C43",
-    letterSpacing: -0.15,
+    color: "#8E8E93",
+    flexShrink: 0,
   },
 });

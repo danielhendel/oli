@@ -72,6 +72,11 @@ export interface RecomputeForDayInput {
   db: Firestore;
   userId: string;
   dayKey: YmdDateString;
+  /**
+   * Hard lock from normalization: mapped canonical `day` for the raw event that triggered recompute.
+   * When set, must equal `dayKey` or the function throws before any reads/writes (no silent wrong-day DailyFacts).
+   */
+  canonicalAnchorDay?: YmdDateString;
   /** Body facts from fact-only raw events (e.g. weight). When provided, merged into dailyFacts when no canonical weight events exist. */
   factOnlyBody?: DailyBodyFacts;
   trigger: { type: "factOnly"; rawEventId: string } | { type: "realtime"; eventId: string } | { type: "admin"; source: string };
@@ -82,8 +87,14 @@ export interface RecomputeForDayInput {
  * Idempotent; overwrites are allowed.
  */
 export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): Promise<void> {
-  const { db, userId, dayKey, trigger } = input;
+  const { db, userId, dayKey, trigger, canonicalAnchorDay } = input;
   const computedAt: IsoDateTimeString = new Date().toISOString();
+
+  if (canonicalAnchorDay !== undefined && canonicalAnchorDay !== dayKey) {
+    throw new Error(
+      `recomputeDerivedTruthForDay: RECOMPUTE_DAY_MISMATCH dayKey=${dayKey} canonicalAnchorDay=${canonicalAnchorDay}`,
+    );
+  }
 
   const userRef = db.collection("users").doc(userId);
 
@@ -97,6 +108,13 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
     const fp = canonicalEventsFingerprint(eventsForDay);
     if (fp === fpPrev) break;
     fpPrev = fp;
+  }
+
+  const drift = eventsForDay.find((e) => e.day !== dayKey);
+  if (drift) {
+    throw new Error(
+      `recomputeDerivedTruthForDay: RECOMPUTE_CANONICAL_DAY_DRIFT dayKey=${dayKey} eventId=${drift.id} event.day=${drift.day}`,
+    );
   }
 
   const latestCanonicalEventAt: IsoDateTimeString | undefined =

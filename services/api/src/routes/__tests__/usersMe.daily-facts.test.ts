@@ -1,4 +1,4 @@
-// GET /users/me/daily-facts — synthetic body when doc missing but raw exists
+// GET /users/me/daily-facts — stored DailyFacts only for activity; optional body-only synthesis when doc missing
 import express from "express";
 import type http from "http";
 import { AddressInfo } from "net";
@@ -20,7 +20,7 @@ function emptyEventsQueryMock() {
   return chain;
 }
 
-/** rawEvents: query path for body synthesis + doc(id) for steps raw synthesis */
+/** rawEvents: query path for body synthesis when dailyFacts doc is missing */
 function rawEventsMockWithDoc(
   opts: {
     whereDocs?: { data: () => unknown }[];
@@ -137,7 +137,7 @@ describe("GET /users/me/daily-facts", () => {
     expect(res.status).toBe(404);
   });
 
-  test("returns 200 with synthesized activity.steps when dailyFacts missing and canonical steps exist", async () => {
+  test("returns 404 when dailyFacts missing and only canonical steps exist (no activity synthesis)", async () => {
     const stepsCanonical = {
       kind: "steps",
       day: "2026-04-02",
@@ -170,15 +170,13 @@ describe("GET /users/me/daily-facts", () => {
     });
 
     const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-02`);
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: unknown } };
-    expect(json.activity?.steps).toBe(9500);
-    expect(json.meta?.source).toEqual(
-      expect.objectContaining({ synthesizedActivityFromCanonical: true }),
-    );
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error?: { code?: string; resource?: string } };
+    expect(json.error?.code).toBe("NOT_FOUND");
+    expect(json.error?.resource).toBe("dailyFacts");
   });
 
-  test("returns 200 with synthesized activity.steps from apple_health raw doc when canonical is missing", async () => {
+  test("returns 404 when dailyFacts missing and only apple_health raw steps exist (no raw steps synthesis)", async () => {
     const stepsRaw = {
       kind: "steps",
       provider: "apple_health",
@@ -214,68 +212,16 @@ describe("GET /users/me/daily-facts", () => {
     });
 
     const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-05`);
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: unknown } };
-    expect(json.activity?.steps).toBe(8421);
-    expect(json.meta?.source).toEqual(
-      expect.objectContaining({ synthesizedActivityFromRaw: true }),
-    );
+    expect(res.status).toBe(404);
   });
 
-  test("synthesized steps prefer apple_health when multiple canonical step events exist", async () => {
-    const stepsApple = { kind: "steps", day: "2026-04-21", sourceId: "apple_health", steps: 4000 };
-    const stepsManual = { kind: "steps", day: "2026-04-21", sourceId: "manual", steps: 9999 };
-
-    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
-      if (name === "dailyFacts") {
-        return {
-          doc: () => ({
-            get: async () => ({ exists: false }),
-          }),
-        };
-      }
-      if (name === "rawEvents") {
-        return rawEventsMockWithDoc({});
-      }
-      if (name === "events") {
-        const eventsQuery = {
-          where: (): typeof eventsQuery => eventsQuery,
-          get: async () => ({
-            docs: [
-              { data: () => stepsManual },
-              { data: () => stepsApple },
-            ],
-          }),
-        };
-        return eventsQuery;
-      }
-      return {};
-    });
-
-    (userDoc as jest.Mock).mockReturnValue({
-      get: async () => ({ data: () => ({}) }),
-    });
-
-    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-21`);
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { activity?: { steps?: number } };
-    expect(json.activity?.steps).toBe(4000);
-  });
-
-  test("merges activity.steps when dailyFacts has activity object but no numeric steps field", async () => {
+  test("returns stored dailyFacts activity.steps unchanged when doc omits merge with canonical", async () => {
     const storedFacts = {
       schemaVersion: 1,
       userId: "user_body_test",
       date: "2026-04-22",
       computedAt: "2026-04-22T10:00:00.000Z",
-      activity: { distanceKm: 3.2 },
-    };
-
-    const stepsCanonical = {
-      kind: "steps",
-      day: "2026-04-22",
-      sourceId: "apple_health",
-      steps: 6060,
+      activity: { distanceKm: 3.2, steps: 120 },
     };
 
     (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
@@ -289,7 +235,9 @@ describe("GET /users/me/daily-facts", () => {
       if (name === "events") {
         const eventsQuery = {
           where: (): typeof eventsQuery => eventsQuery,
-          get: async () => ({ docs: [{ id: "e1", data: () => stepsCanonical }] }),
+          get: async () => ({
+            docs: [{ id: "e1", data: () => ({ kind: "steps", day: "2026-04-22", sourceId: "apple_health", steps: 6060 }) }],
+          }),
         };
         return eventsQuery;
       }
@@ -304,27 +252,18 @@ describe("GET /users/me/daily-facts", () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       activity?: { steps?: number; distanceKm?: number };
-      meta?: { source?: Record<string, unknown> };
     };
-    expect(json.activity?.steps).toBe(6060);
+    expect(json.activity?.steps).toBe(120);
     expect(json.activity?.distanceKm).toBe(3.2);
-    expect(json.meta?.source?.activityStepsFilledOnRead).toBe(true);
   });
 
-  test("merges activity.steps when dailyFacts exists but omits numeric steps and canonical has steps", async () => {
+  test("returns stored doc without adding activity.steps from canonical when sleep-only doc", async () => {
     const storedFacts = {
       schemaVersion: 1,
       userId: "user_body_test",
       date: "2026-04-20",
       computedAt: "2026-04-20T10:00:00.000Z",
       sleep: { totalMinutes: 420 },
-    };
-
-    const stepsCanonical = {
-      kind: "steps",
-      day: "2026-04-20",
-      sourceId: "apple_health",
-      steps: 7777,
     };
 
     (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
@@ -338,7 +277,7 @@ describe("GET /users/me/daily-facts", () => {
       if (name === "events") {
         const eventsQuery = {
           where: (): typeof eventsQuery => eventsQuery,
-          get: async () => ({ docs: [{ id: "appleHealth:v2:steps:2026-04-20", data: () => stepsCanonical }] }),
+          get: async () => ({ docs: [{ id: "appleHealth:v2:steps:2026-04-20", data: () => ({ kind: "steps", steps: 7777 }) }] }),
         };
         return eventsQuery;
       }
@@ -351,8 +290,8 @@ describe("GET /users/me/daily-facts", () => {
 
     const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-20`);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { activity?: { steps?: number }; meta?: { source?: Record<string, unknown> } };
-    expect(json.activity?.steps).toBe(7777);
-    expect(json.meta?.source?.activityStepsFilledOnRead).toBe(true);
+    const json = (await res.json()) as { activity?: { steps?: number }; sleep?: { totalMinutes?: number } };
+    expect(json.sleep?.totalMinutes).toBe(420);
+    expect(json.activity).toBeUndefined();
   });
 });

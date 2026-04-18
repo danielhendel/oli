@@ -155,7 +155,7 @@ describe('aggregateDailyFactsForDay', () => {
     expect(sleep.mainSleepMinutes).toBe(480);
 
     const activity = result.activity!;
-    // Two non-apple step events: pick higher (8000), do not sum (avoids duplicate sources)
+    // Two non-apple step events, same updatedAt: lexicographic id tie-break (steps_1 before steps_2), do not sum
     expect(activity.steps).toBe(8000);
     // training load from single workout
     expect(activity.trainingLoad).toBe(50);
@@ -290,6 +290,32 @@ describe('aggregateDailyFactsForDay', () => {
       events,
     });
     expect(result.activity?.steps).toBe(5012);
+  });
+
+  it('collapses duplicate apple_health rows sharing sourceSampleId to latest updatedAt', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({
+        id: 'raw_early',
+        sourceId: 'apple_health',
+        sourceSampleId: 'HK-1',
+        steps: 15577,
+        updatedAt: '2025-01-01T08:00:00.000Z',
+      }),
+      makeSteps({
+        id: 'raw_late',
+        sourceId: 'apple_health',
+        sourceSampleId: 'HK-1',
+        steps: 148,
+        updatedAt: '2025-01-01T18:00:00.000Z',
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.activity?.steps).toBe(148);
   });
 
   it('returns minimal DailyFacts when no events exist', () => {

@@ -17,7 +17,8 @@ import {
 } from "@/lib/integrations/appleHealth";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { nowIso } from "@/lib/sync/throttle";
-import { computeLocalYtdLookbackDays } from "@/lib/integrations/appleHealth/runAppleHealthStepsBackfill";
+import { APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS } from "@/lib/integrations/appleHealth/runAppleHealthStepsBackfill";
+import { runForcedLocalYesterdayAppleHealthStepsIngest } from "@/lib/data/activity/appleHealthForcedLocalYesterdaySteps";
 import { detectAppleHealthStepsRawGapsForRecentDays } from "@/lib/data/activity/detectAppleHealthStepsRawGaps";
 import { runAppleHealthStepsBackfillSerialized } from "@/lib/data/activity/appleHealthStepsBackfillMutex";
 import { stepsRepairCooldownAllowsRun } from "@/lib/data/activity/stepsRepairCooldown";
@@ -43,8 +44,8 @@ export type ScheduleAppleHealthStepsRepairOpts = {
   bypassCooldown?: boolean;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   /**
-   * Default: YTD local (`computeLocalYtdLookbackDays(today)`).
-   * Ignored when `trigger === "recovery"` and gaps exist — then uses at least YTD so the window always covers gaps.
+   * Default: trailing {@link APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS} local days.
+   * When `trigger === "recovery"` and gaps exist, the repair still uses at least this default so the window covers recent gaps.
    */
   lookbackDays?: number;
   /** When true, discard in-progress backfill state and restart from window start. */
@@ -61,11 +62,18 @@ async function isOutsideAutoCooldown(bypass: boolean): Promise<boolean> {
 }
 
 /**
- * Runs YTD (or custom lookback) steps backfill with HealthKit + ingest. Serialized so sync + gap + connection do not overlap.
+ * Runs trailing-local-days steps backfill with HealthKit + ingest. Serialized so sync + gap + connection do not overlap.
+ *
+ * Always runs {@link runForcedLocalYesterdayAppleHealthStepsIngest} first (bypasses gap detection, raw presence,
+ * repair cooldown, and client monotonic ingest guard) so the previous local calendar day can finalize via the
+ * normal raw → canonical → dailyFacts pipeline.
  */
 export async function executeAppleHealthStepsRepair(opts: ScheduleAppleHealthStepsRepairOpts): Promise<void> {
   if (Platform.OS !== "ios") return;
-  await runAppleHealthStepsBackfillSerialized(() => runRepairInner(opts));
+  await runAppleHealthStepsBackfillSerialized(async () => {
+    await runForcedLocalYesterdayAppleHealthStepsIngest(opts.getIdToken);
+    await runRepairInner(opts);
+  });
 }
 
 async function runRepairInner(opts: ScheduleAppleHealthStepsRepairOpts): Promise<void> {
@@ -77,8 +85,9 @@ async function runRepairInner(opts: ScheduleAppleHealthStepsRepairOpts): Promise
   const token = await opts.getIdToken(false);
   if (!token) return;
 
+  const today = getTodayDayKeyLocal();
+
   if (opts.trigger === "recovery") {
-    const today = getTodayDayKeyLocal();
     const { gaps, probeReliable } = await detectAppleHealthStepsRawGapsForRecentDays(token, today, RECENT_GAP_DAYS);
     // When the gap probe fails (e.g. raw-events 400), do not skip repair — empty gaps would be a false negative.
     if (probeReliable && gaps.length === 0) return;
@@ -87,12 +96,11 @@ async function runRepairInner(opts: ScheduleAppleHealthStepsRepairOpts): Promise
   const perm = await requestPermissions();
   if (!perm.ok) return;
 
-  const today = getTodayDayKeyLocal();
-  const ytd = computeLocalYtdLookbackDays(today);
+  const defaultLookback = APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS;
   const lookbackDays =
     opts.trigger === "recovery"
-      ? Math.max(ytd, opts.lookbackDays ?? ytd)
-      : Math.max(1, opts.lookbackDays ?? ytd);
+      ? Math.max(defaultLookback, opts.lookbackDays ?? defaultLookback)
+      : Math.max(1, opts.lookbackDays ?? defaultLookback);
 
   const forceRestart =
     opts.forceRestart !== undefined

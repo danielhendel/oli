@@ -3,7 +3,9 @@
  * Only calls setWorkoutsAnchor after full success; fail-closed on truncation or ingest failure.
  */
 
+import { shouldIngestAppleHealthStepsForDay } from "./appleHealthStepsIngestGuard";
 import { buildAppleHealthStepsIngestBody } from "./appleHealthStepsIngestBody";
+import { getLastIngestedStepsForDay, setLastIngestedStepsForDay } from "./storage";
 import type { TodaySnapshot, TodayWorkout } from "./types";
 
 export type RunAnchoredWorkoutsSyncDeps = {
@@ -51,28 +53,53 @@ export async function runAnchoredWorkoutsSync(
     return { ok: false, error: anchored.error, requestId: null };
   }
 
-  const pull = await deps.pullTodaySnapshot();
-  if (!pull.ok) {
-    return { ok: false, error: pull.error, requestId: null };
-  }
-  const data = pull.data;
   const timezone = deps.getDeviceTimezone();
   const { start, end, day } = deps.getTodayBounds();
 
+  const pull = await deps.pullTodaySnapshot();
+  const data = pull.ok
+    ? pull.data
+    : {
+        day,
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      };
+
+  if (!pull.ok && __DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.warn("[AH] pullTodaySnapshot failed; continuing workout ingest", pull.error);
+  }
+
   if (data.steps != null && data.steps >= 0) {
-    const body = buildAppleHealthStepsIngestBody({
-      start,
-      end,
-      day,
-      timezone,
-      steps: data.steps,
+    const lastIngested = await getLastIngestedStepsForDay(day);
+    const sendSteps = shouldIngestAppleHealthStepsForDay({
+      healthSteps: data.steps,
+      hkEmpty: false,
+      lastIngestedSteps: lastIngested,
     });
-    const res = await deps.ingestRawEvent(body, token, {
-      idempotencyKey: deps.stepsIdempotencyKey(day),
-      timeoutMs: 15000,
-    });
-    if (!res.ok) {
-      return { ok: false, error: res.error, requestId: res.requestId };
+    if (sendSteps) {
+      const body = buildAppleHealthStepsIngestBody({
+        start,
+        end,
+        day,
+        timezone,
+        steps: data.steps,
+      });
+      const res = await deps.ingestRawEvent(body, token, {
+        idempotencyKey: deps.stepsIdempotencyKey(day),
+        timeoutMs: 15000,
+      });
+      if (!res.ok) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.warn("[AH] steps ingest failed; continuing workout ingest", res.error, res.requestId);
+        }
+      } else {
+        await setLastIngestedStepsForDay(day, data.steps);
+      }
     }
   }
 

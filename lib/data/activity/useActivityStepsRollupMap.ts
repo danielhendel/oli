@@ -2,20 +2,35 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getDailyFacts } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { interpretDailyFactsStepsRollupEntry } from "@/lib/data/activity/dailyFactsStepsRollupEntry";
 import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
-type State = { status: "partial" } | { status: "ready"; rollupByDay: ActivityStepsRollupMap };
+type RollupInternalState = {
+  /** Per-wave accumulator (keys filled as each daily-facts response settles). */
+  rollupByDay: ActivityStepsRollupMap;
+  /** Snapshot at wave start; merged under {@link rollupDisplayByDay} until the wave finishes. */
+  rollupFallbackBase: ActivityStepsRollupMap;
+  isRefreshing: boolean;
+};
+
+export type ActivityStepsRollupHookState = RollupInternalState & {
+  /** `partial` only when no displayable rollup entries yet. */
+  status: "partial" | "ready";
+  /** Stale-while-revalidate view: `rollupFallbackBase` ∪ latest per-key overlays. */
+  rollupDisplayByDay: ActivityStepsRollupMap;
+  refetch: (opts?: { cacheBust?: string }) => void;
+};
+
+const emptyRollup = (): ActivityStepsRollupMap => ({});
 
 /**
- * Fetches GET /users/me/daily-facts for each key in `dayKeys` (parallel).
+ * Fetches GET /users/me/daily-facts for each key in `dayKeys` (parallel requests, merged incrementally).
  * Per-day entries are persisted server rollups only (no client raw-event math).
  */
-export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): State & {
-  refetch: (opts?: { cacheBust?: string }) => void;
-} {
+export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): ActivityStepsRollupHookState {
   const { user, initializing, getIdToken } = useAuth();
   const keysRef = useRef(dayKeys);
   keysRef.current = dayKeys;
@@ -23,66 +38,123 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): State
   const authRef = useRef({ initializing, userUid: user?.uid, getIdToken });
   authRef.current = { initializing, userUid: user?.uid, getIdToken };
 
-  const [state, setState] = useState<State>({ status: "partial" });
+  const [state, setState] = useState<RollupInternalState>({
+    rollupByDay: emptyRollup(),
+    rollupFallbackBase: emptyRollup(),
+    isRefreshing: false,
+  });
 
   const keySig = useMemo(() => [...dayKeys].sort().join("\0"), [dayKeys]);
+
+  const rollupDisplayByDay = useMemo(
+    () => ({ ...state.rollupFallbackBase, ...state.rollupByDay }),
+    [state.rollupFallbackBase, state.rollupByDay],
+  );
+
+  const status = useMemo<"partial" | "ready">(() => {
+    return Object.keys(rollupDisplayByDay).length > 0 ? "ready" : "partial";
+  }, [rollupDisplayByDay]);
 
   const fetchAll = useCallback(async (cacheBust?: string) => {
     const seq = ++requestSeq.current;
     const keys = keysRef.current;
     const { initializing: init, userUid, getIdToken: getToken } = authRef.current;
 
-    const safeSet = (next: State) => {
-      if (seq === requestSeq.current) setState(next);
-    };
-
     if (init) {
-      safeSet({ status: "partial" });
+      if (seq === requestSeq.current) {
+        setState({
+          rollupByDay: emptyRollup(),
+          rollupFallbackBase: emptyRollup(),
+          isRefreshing: false,
+        });
+      }
       return;
     }
     if (!userUid) {
-      safeSet({ status: "ready", rollupByDay: {} });
+      if (seq === requestSeq.current) {
+        setState({
+          rollupByDay: emptyRollup(),
+          rollupFallbackBase: emptyRollup(),
+          isRefreshing: false,
+        });
+      }
       return;
     }
 
     if (keys.length === 0) {
-      safeSet({ status: "ready", rollupByDay: {} });
+      if (seq === requestSeq.current) {
+        setState({
+          rollupByDay: emptyRollup(),
+          rollupFallbackBase: emptyRollup(),
+          isRefreshing: false,
+        });
+      }
       return;
     }
 
-    safeSet({ status: "partial" });
+    setState((prev) => {
+      if (seq !== requestSeq.current) return prev;
+      return {
+        rollupFallbackBase: { ...prev.rollupByDay },
+        rollupByDay: emptyRollup(),
+        isRefreshing: true,
+      };
+    });
 
     const token = await getToken(false);
-    if (!token || seq !== requestSeq.current) return;
+    if (seq !== requestSeq.current) return;
+    if (!token) {
+      setState((prev) => {
+        if (seq !== requestSeq.current) return prev;
+        return {
+          rollupByDay: { ...prev.rollupFallbackBase, ...prev.rollupByDay },
+          rollupFallbackBase: emptyRollup(),
+          isRefreshing: false,
+        };
+      });
+      return;
+    }
 
     const bust = cacheBust ? `${cacheBust}` : undefined;
 
-    const settled = await Promise.allSettled(
+    const waveResults: ActivityStepsRollupMap = {};
+    await Promise.all(
       keys.map(async (k) => {
-        const res = await getDailyFacts(k, token, bust ? { cacheBust: `${bust}:${k}` } : undefined);
-        return { k, res } as const;
+        let entry: DayStepsRollupEntry;
+        try {
+          const res = await getDailyFacts(k, token, bust ? { cacheBust: `${bust}:${k}` } : undefined);
+          entry = interpretDailyFactsStepsRollupEntry(res);
+        } catch (r: unknown) {
+          const reason =
+            r instanceof Error ? r.message : typeof r === "string" && r.length > 0 ? r : "Request failed";
+          entry = { kind: "error", message: reason, requestId: null };
+        }
+        waveResults[k] = entry;
+        setState((prev) => {
+          if (seq !== requestSeq.current) return prev;
+          return {
+            ...prev,
+            rollupByDay: { ...prev.rollupByDay, [k]: entry },
+            isRefreshing: true,
+          };
+        });
       }),
     );
 
     if (seq !== requestSeq.current) return;
 
-    const rollupByDay: ActivityStepsRollupMap = {};
-
-    for (let i = 0; i < settled.length; i += 1) {
-      const k = keys[i]!;
-      const item = settled[i]!;
-      if (item.status === "rejected") {
-        const r = item.reason;
-        const reason =
-          r instanceof Error ? r.message : typeof r === "string" && r.length > 0 ? r : "Request failed";
-        rollupByDay[k] = { kind: "error", message: reason, requestId: null };
-        continue;
-      }
-      const { res } = item.value;
-      rollupByDay[k] = interpretDailyFactsStepsRollupEntry(res);
+    const finalRollup: ActivityStepsRollupMap = {};
+    for (const k of keys) {
+      finalRollup[k] = waveResults[k]!;
     }
-
-    safeSet({ status: "ready", rollupByDay });
+    setState((prev) => {
+      if (seq !== requestSeq.current) return prev;
+      return {
+        rollupByDay: finalRollup,
+        rollupFallbackBase: emptyRollup(),
+        isRefreshing: false,
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -96,15 +168,26 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): State
     [fetchAll],
   );
 
-  return useMemo(() => ({ ...state, refetch }), [state, refetch]);
+  return useMemo(
+    () => ({
+      ...state,
+      status,
+      rollupDisplayByDay,
+      refetch,
+    }),
+    [state, status, rollupDisplayByDay, refetch],
+  );
 }
 
 /**
- * Overview screen: trailing `ACTIVITY_OVERVIEW_AVG_12M_DAYS` (365) inclusive calendar days ending on `selectedDay`.
+ * Overview screen: union of overview windows (no future keys except strip-selected future day), always including
+ * device today so Today’s Steps can load current-day rollups while the strip anchor is historical.
  */
-export function useActivityStepsRollupMap(selectedDay: DayKey): State & {
-  refetch: (opts?: { cacheBust?: string }) => void;
-} {
-  const keys = useMemo(() => computeActivityOverviewFetchDayKeys(selectedDay), [selectedDay]);
+export function useActivityStepsRollupMap(selectedDay: DayKey): ActivityStepsRollupHookState {
+  const todayDayKey = getTodayDayKeyLocal();
+  const keys = useMemo(
+    () => computeActivityOverviewFetchDayKeys(selectedDay, todayDayKey),
+    [selectedDay, todayDayKey],
+  );
   return useActivityStepsRollupForKeys(keys);
 }

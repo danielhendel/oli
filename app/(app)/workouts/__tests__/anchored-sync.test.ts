@@ -46,6 +46,76 @@ describe("anchored sync determinism", () => {
     mockGetWorkoutsAnchor.mockResolvedValue(null);
   });
 
+  it("still ingests workouts and advances anchor when pullTodaySnapshot fails", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "next-anchor" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: false,
+      error: "HealthKit snapshot failed",
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
+
+    const result = await runAnchoredWorkoutsSync(
+      { uid: "u1", token: "tok", limit: ANCHOR_LIMIT },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: false });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "next-anchor");
+    expect(mockIngest).toHaveBeenCalledTimes(1);
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find((c) => c[0]?.kind === "workout");
+    expect(workoutCall).toBeDefined();
+  });
+
+  it("still ingests workouts and advances anchor when steps ingest fails", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "next-anchor" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: 8000,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn(async (body: { kind?: string }) => {
+      if (body?.kind === "steps") {
+        return { ok: false, error: "steps ingest rejected", requestId: "req-steps" };
+      }
+      return { ok: true };
+    });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
+
+    const result = await runAnchoredWorkoutsSync(
+      { uid: "u1", token: "tok", limit: ANCHOR_LIMIT },
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: false });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "next-anchor");
+    expect(mockIngest).toHaveBeenCalledTimes(2);
+    expect((mockIngest as jest.Mock).mock.calls.some((c) => c[0]?.kind === "steps")).toBe(true);
+    expect((mockIngest as jest.Mock).mock.calls.some((c) => c[0]?.kind === "workout")).toBe(true);
+  });
+
   it("does not call setWorkoutsAnchor when workout ingest fails", async () => {
     const mockPullAnchored = jest.fn().mockResolvedValue({
       ok: true,
