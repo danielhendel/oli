@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View, type TextStyle } from "react-native";
 
 export type ActivityRatingPillProps = {
   label: string;
@@ -9,6 +9,8 @@ export type ActivityRatingPillProps = {
   backgroundColor: string;
   /** Smaller, quieter chrome for Activity tier labels (bars carry color). */
   emphasis?: "default" | "subtle";
+  /** Optional override for label typography (e.g. Sleep metric pills). */
+  labelTypography?: Pick<TextStyle, "fontSize" | "fontWeight" | "letterSpacing">;
   testID?: string;
 };
 
@@ -21,6 +23,7 @@ export function ActivityRatingPill({
   color,
   backgroundColor,
   emphasis = "default",
+  labelTypography,
   testID,
 }: ActivityRatingPillProps) {
   const subtle = emphasis === "subtle";
@@ -50,7 +53,11 @@ export function ActivityRatingPill({
         },
       ]}
     >
-      <Text style={[subtle ? styles.textSubtle : styles.text, { color }]} numberOfLines={1} testID={testID}>
+      <Text
+        style={[subtle ? styles.textSubtle : styles.text, { color }, labelTypography]}
+        numberOfLines={1}
+        testID={testID}
+      >
         {label}
       </Text>
     </View>

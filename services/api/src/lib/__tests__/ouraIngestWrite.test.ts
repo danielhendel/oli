@@ -15,6 +15,7 @@ jest.mock("../writeFailure", () => ({
 
 const mockCreate = jest.fn().mockResolvedValue(undefined);
 const mockGet = jest.fn().mockResolvedValue({ exists: false });
+const mockSet = jest.fn().mockResolvedValue(undefined);
 
 describe("writeOuraRawEvents", () => {
   let infoSpy: jest.SpyInstance;
@@ -23,8 +24,9 @@ describe("writeOuraRawEvents", () => {
     jest.clearAllMocks();
     mockCreate.mockResolvedValue(undefined);
     mockGet.mockResolvedValue({ exists: false });
+    mockSet.mockResolvedValue(undefined);
     (userCollection as jest.Mock).mockReturnValue({
-      doc: () => ({ create: mockCreate, get: mockGet }),
+      doc: () => ({ create: mockCreate, get: mockGet, set: mockSet }),
     });
     infoSpy = jest.spyOn(logger, "info").mockImplementation(() => undefined);
   });

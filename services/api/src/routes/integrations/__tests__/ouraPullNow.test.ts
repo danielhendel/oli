@@ -55,6 +55,9 @@ jest.mock("../../../lib/ouraSecrets", () => ({
 jest.mock("../../../lib/ouraApi", () => ({
   refreshOuraAccessToken: jest.fn(),
   fetchOuraSleep: jest.fn(),
+  ouraSleepWakeIsoForLog: jest.fn((d: { wake_time?: string }) =>
+    typeof d?.wake_time === "string" ? d.wake_time : null,
+  ),
   fetchOuraDailyReadiness: jest.fn(),
   fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
   fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),

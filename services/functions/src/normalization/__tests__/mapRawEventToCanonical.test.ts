@@ -54,6 +54,111 @@ describe("mapRawEventToCanonical", () => {
     expect(sleep.isMainSleep).toBe(true);
   });
 
+  it("Oura-ingested sleep uses payload.day when valid (Oura API sleep day)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_oura_sleep_api_day",
+      sourceId: "oura",
+      sourceType: "wearable",
+      provider: "manual",
+      kind: "sleep",
+      payload: {
+        start: "2026-04-18T23:00:00.000Z",
+        end: "2026-04-19T12:00:00.000Z",
+        timezone: "UTC",
+        day: "2026-04-19",
+        totalMinutes: 486,
+        isMainSleep: true,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    expect(result.canonical.kind).toBe("sleep");
+    if (result.canonical.kind !== "sleep") throw new Error("Expected sleep");
+    expect(result.canonical.day).toBe("2026-04-19");
+  });
+
+  it("Oura-ingested sleep without payload.day attributes to wake instant (end) in payload timezone", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_oura_sleep_wake_anchor",
+      sourceId: "oura",
+      sourceType: "wearable",
+      provider: "manual",
+      kind: "sleep",
+      payload: {
+        start: "2026-04-18T23:30:00.000Z",
+        end: "2026-04-19T11:30:00.000Z",
+        timezone: "UTC",
+        totalMinutes: 486,
+        isMainSleep: true,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    expect(result.canonical.kind).toBe("sleep");
+    if (result.canonical.kind !== "sleep") throw new Error("Expected sleep");
+    expect(result.canonical.day).toBe("2026-04-19");
+  });
+
+  it("Oura-ingested sleep America/New_York: wake morning maps to local wake day", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_oura_sleep_ny",
+      sourceId: "oura",
+      sourceType: "wearable",
+      provider: "manual",
+      kind: "sleep",
+      payload: {
+        start: "2026-04-19T04:00:00.000Z",
+        end: "2026-04-19T12:00:00.000Z",
+        timezone: "America/New_York",
+        totalMinutes: 450,
+        isMainSleep: true,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    if (result.canonical.kind !== "sleep") throw new Error("Expected sleep");
+    const expectedEndDay = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+    }).format(new Date("2026-04-19T12:00:00.000Z"));
+    expect(result.canonical.day).toBe(expectedEndDay);
+  });
+
+  it("maps optional REM/deep stage minutes on manual sleep", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_sleep_stages",
+      provider: "manual",
+      kind: "sleep",
+      payload: {
+        start: "2025-01-01T22:00:00.000Z",
+        end: "2025-01-02T06:00:00.000Z",
+        timezone: "America/New_York",
+        totalMinutes: 480,
+        isMainSleep: true,
+        remSleepMinutes: 100,
+        deepSleepMinutes: 80,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const canonical = result.canonical;
+    if (canonical.kind !== "sleep") throw new Error("Expected sleep kind");
+    const sleep = canonical as Extract<CanonicalEvent, { kind: "sleep" }>;
+    expect(sleep.remSleepMinutes).toBe(100);
+    expect(sleep.deepSleepMinutes).toBe(80);
+  });
+
   it("maps manual steps payload to StepsCanonicalEvent", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

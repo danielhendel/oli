@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { calendarWeeklyStripStyles } from "@/lib/ui/calendar/calendarWeeklyStripStyles";
+import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 export type CalendarDayCellProps = {
   dayOfWeekLabel: string;
@@ -15,6 +16,8 @@ export type CalendarDayCellProps = {
   ring: React.ReactNode;
   /** Slightly stronger weekday + date weight when selected (Activity strip). */
   emphasizeSelectedTypography?: boolean;
+  /** Sleep: softer unselected weekday/date ink for clearer selection contrast. */
+  stripVariant?: "default" | "sleep";
 };
 
 /**
@@ -29,6 +32,7 @@ export function CalendarDayCell({
   accessibilityLabel,
   ring,
   emphasizeSelectedTypography = false,
+  stripVariant = "default",
 }: CalendarDayCellProps) {
   const selectedType = emphasizeSelectedTypography && isSelected;
   const todayOrSelectedCircle = isSelected || isToday;
@@ -47,7 +51,11 @@ export function CalendarDayCell({
       <Text
         style={[
           calendarWeeklyStripStyles.dayOfWeek,
+          stripVariant === "sleep" &&
+            !isSelected &&
+            calendarWeeklyStripStyles.dayOfWeekSleepMuted,
           selectedType && calendarWeeklyStripStyles.dayOfWeekWhenSelected,
+          selectedType && stripVariant === "sleep" && { color: UI_TEXT_PRIMARY },
         ]}
       >
         {dayOfWeekLabel}
@@ -64,6 +72,9 @@ export function CalendarDayCell({
         <Text
           style={[
             calendarWeeklyStripStyles.dayNumber,
+            stripVariant === "sleep" &&
+              !isSelected &&
+              calendarWeeklyStripStyles.dayNumberSleepMuted,
             selectedType && calendarWeeklyStripStyles.dayNumberWhenSelected,
           ]}
         >

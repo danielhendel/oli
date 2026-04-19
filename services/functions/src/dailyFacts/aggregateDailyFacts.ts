@@ -61,15 +61,12 @@ const buildSleepFacts = (events: CanonicalEvent[]): DailySleepFacts | undefined 
   const facts: DailySleepFacts = {};
 
   const totalMinutes = sleepEvents.reduce((sum, e) => sum + e.totalMinutes, 0);
-  if (totalMinutes > 0) {
-    facts.totalMinutes = totalMinutes;
-  }
+  facts.totalMinutes = totalMinutes;
 
-  const mainSleepMinutes = sleepEvents.reduce(
-    (sum, e) => (e.isMainSleep ? sum + e.totalMinutes : sum),
-    0,
-  );
-  if (mainSleepMinutes > 0) {
+  const mainEpisodes = sleepEvents.filter((e) => e.isMainSleep);
+
+  const mainSleepMinutes = mainEpisodes.reduce((sum, e) => sum + e.totalMinutes, 0);
+  if (mainEpisodes.length > 0) {
     facts.mainSleepMinutes = mainSleepMinutes;
   }
 
@@ -94,7 +91,27 @@ const buildSleepFacts = (events: CanonicalEvent[]): DailySleepFacts | undefined 
     facts.awakenings = awakenings;
   }
 
-  return Object.keys(facts).length > 0 ? facts : undefined;
+  const remStages = mainEpisodes.map((e) => e.remSleepMinutes).filter(isNumber);
+  const remSum = remStages.reduce((sum, v) => sum + v, 0);
+  if (remSum > 0) {
+    facts.remSleepMinutes = remSum;
+  }
+
+  const deepStages = mainEpisodes.map((e) => e.deepSleepMinutes).filter(isNumber);
+  const deepSum = deepStages.reduce((sum, v) => sum + v, 0);
+  if (deepSum > 0) {
+    facts.deepSleepMinutes = deepSum;
+  }
+
+  const primaryPool: SleepCanonicalEvent[] =
+    mainEpisodes.length > 0 ? mainEpisodes : sleepEvents;
+  let primary: SleepCanonicalEvent = primaryPool[0]!;
+  for (const e of primaryPool) {
+    if (e.totalMinutes > primary.totalMinutes) primary = e;
+  }
+  facts.primarySourceId = primary.sourceId;
+
+  return facts;
 };
 
 const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | undefined => {

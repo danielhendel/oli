@@ -3,7 +3,7 @@
 import crypto from "node:crypto"; // ✅ ADD
 import * as logger from "firebase-functions/logger";
 import { admin, db } from "../firebaseAdmin";
-import type { CanonicalEvent, StepsCanonicalEvent } from "../types/health";
+import type { CanonicalEvent, StepsCanonicalEvent, YmdDateString } from "../types/health";
 import { canonicalEquals, canonicalHash } from "./canonicalImmutability";
 
 /**
@@ -43,7 +43,12 @@ function mergeIntradayStepsCanonical(
 }
 
 export type WriteCanonicalResult =
-  | { ok: true; mode: "created" | "identical_noop" | "replaced" }
+  | {
+      ok: true;
+      mode: "created" | "identical_noop" | "replaced";
+      /** When a sleep canonical doc is replaced and `day` changed, recompute this prior day too. */
+      sleepDayMovedFrom?: YmdDateString;
+    }
   | {
       ok: false;
       mode: "conflict";
@@ -106,6 +111,43 @@ export async function writeCanonicalEventImmutable(params: {
       }
       tx.set(ref, merged);
       return { ok: true, mode: "replaced" } as const;
+    }
+
+    /**
+     * Sleep uses the same canonical id as the RawEvent (Oura idempotency). Mapper upgrades may add
+     * optional stage fields; a newer raw `receivedAt` → canonical `updatedAt` must supersede stale docs.
+     */
+    if (
+      existing.kind === "sleep" &&
+      canonical.kind === "sleep" &&
+      existing.id === canonical.id
+    ) {
+      const inT = canonical.updatedAt ?? "";
+      const exT = existing.updatedAt ?? "";
+      if (inT > exT) {
+        tx.set(ref, canonical);
+        const sleepDayMovedFrom =
+          existing.day !== canonical.day ? existing.day : undefined;
+        return {
+          ok: true,
+          mode: "replaced",
+          ...(sleepDayMovedFrom ? { sleepDayMovedFrom } : {}),
+        } as const;
+      }
+      if (inT < exT) {
+        return { ok: true, mode: "identical_noop" } as const;
+      }
+      if (canonicalEquals(existing, canonical)) {
+        return { ok: true, mode: "identical_noop" } as const;
+      }
+      tx.set(ref, canonical);
+      const sleepDayMovedFrom =
+        existing.day !== canonical.day ? existing.day : undefined;
+      return {
+        ok: true,
+        mode: "replaced",
+        ...(sleepDayMovedFrom ? { sleepDayMovedFrom } : {}),
+      } as const;
     }
 
     const existingHash = canonicalHash(existing);

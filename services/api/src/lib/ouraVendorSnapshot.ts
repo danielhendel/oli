@@ -120,7 +120,7 @@ export function fillSleepContributorsFromStored(data: StoredSleepSnapshotData): 
 
   const lat = data.latency;
   if (typeof lat === "number" && !Number.isNaN(lat) && lat >= 0 && !Object.prototype.hasOwnProperty.call(out, "latency")) {
-    const latMinutes = lat > 120 ? lat / 60 : lat;
+    const latMinutes = lat >= 60 ? lat / 60 : lat;
     out.latency = clampScore(Math.max(0, 100 - latMinutes * 2));
   }
 
@@ -180,7 +180,7 @@ function buildSleepContributors(doc: OuraSleepDocument): Record<string, number> 
 
   const lat = doc.latency;
   if (typeof lat === "number" && !Number.isNaN(lat) && lat >= 0 && !Object.prototype.hasOwnProperty.call(out, "latency")) {
-    const latMinutes = lat > 120 ? lat / 60 : lat;
+    const latMinutes = lat >= 60 ? lat / 60 : lat;
     out.latency = clampScore(Math.max(0, 100 - latMinutes * 2));
   }
 

@@ -18,6 +18,8 @@ export type RecoveryOuraWeeklyStripProps = {
   /** Used for accessibility strings only. */
   categoryLabel: "sleep" | "readiness";
   testIDPrefix?: string;
+  /** Stronger selected-day typography + softer unselected labels (Sleep polish). */
+  stripVariant?: "default" | "sleep";
 };
 
 export function RecoveryOuraWeeklyStrip({
@@ -26,6 +28,7 @@ export function RecoveryOuraWeeklyStrip({
   onDayPress,
   categoryLabel,
   testIDPrefix = "recovery-oura-weekly",
+  stripVariant = "default",
 }: RecoveryOuraWeeklyStripProps) {
   return (
     <View style={calendarWeeklyStripStyles.container}>
@@ -33,19 +36,24 @@ export function RecoveryOuraWeeklyStrip({
         {days.map((d) => {
           const hasOuraSnapshot = d.meta?.hasOuraSnapshot === true;
           const isSelected = selectedDay === d.day;
-          const noun = categoryLabel === "sleep" ? "sleep data" : "readiness data";
+          const accessibilityLabel =
+            categoryLabel === "sleep"
+              ? hasOuraSnapshot
+                ? `${d.day}, has sleep data`
+                : `${d.day}, no sleep data`
+              : hasOuraSnapshot
+                ? `${d.day}, has Oura readiness data`
+                : `${d.day}, no Oura readiness data`;
           return (
             <CalendarDayCell
               key={d.day}
               dayOfWeekLabel={calendarStripDayOfWeekLabel(d.day)}
               dayOfMonthLabel={calendarStripDayOfMonth(d.day)}
               isSelected={isSelected}
+              emphasizeSelectedTypography={stripVariant === "sleep"}
+              stripVariant={stripVariant === "sleep" ? "sleep" : "default"}
               onPress={() => onDayPress(d.day)}
-              accessibilityLabel={
-                hasOuraSnapshot
-                  ? `${d.day}, has Oura ${noun}`
-                  : `${d.day}, no Oura ${noun}`
-              }
+              accessibilityLabel={accessibilityLabel}
               ring={
                 <BodyDayRing
                   size={40}

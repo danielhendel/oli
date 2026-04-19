@@ -1,16 +1,18 @@
 // services/functions/src/normalization/mapRawEventToCanonical.ts
 import { localCalendarDayKeyFromIsoInTimeZone } from "@oli/contracts";
-import type {
-  CanonicalEvent,
-  RawEvent,
-  IsoDateTimeString,
-  SleepCanonicalEvent,
-  StepsCanonicalEvent,
-  WorkoutCanonicalEvent,
-  HrvCanonicalEvent,
-  StrengthWorkoutCanonicalEvent,
-  StrengthWorkoutCanonicalSet,
-  NutritionCanonicalEvent,
+import {
+  isYmdDateString,
+  type CanonicalEvent,
+  type RawEvent,
+  type IsoDateTimeString,
+  type SleepCanonicalEvent,
+  type StepsCanonicalEvent,
+  type WorkoutCanonicalEvent,
+  type HrvCanonicalEvent,
+  type StrengthWorkoutCanonicalEvent,
+  type StrengthWorkoutCanonicalSet,
+  type NutritionCanonicalEvent,
+  type YmdDateString,
 } from "../types/health";
 
 /**
@@ -77,6 +79,10 @@ type ManualSleepPayload = ManualWindowBase & {
   latencyMinutes?: number | null;
   awakenings?: number | null;
   isMainSleep: boolean;
+  remSleepMinutes?: number | null;
+  deepSleepMinutes?: number | null;
+  /** Oura API sleep `day` (YYYY-MM-DD); authoritative wake/metrics day when present. */
+  day?: string;
 };
 
 type ManualStepsPayload = ManualWindowBase & {
@@ -283,7 +289,29 @@ const mapManualSleep = (
   raw: RawEvent,
   payload: ManualSleepPayload,
 ): SleepCanonicalEvent | null => {
-  const day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
+  /**
+   * Manual / general ingest: attribute sleep to local calendar day of **episode start**
+   * (`payload.start` + timezone). Matches historical manual entry expectations.
+   *
+   * Oura ingested sleeps (`sourceId === "oura"`): align with Oura's sleep record — prefer API
+   * `payload.day` when valid; otherwise **wake day** (`payload.end`), matching overnight sessions
+   * whose UTC **bedtime** falls on the previous UTC date but whose logical "sleep day" / Today row
+   * is the wake morning (see Oura app + GET /sleep `day`).
+   */
+  let day: YmdDateString | null = null;
+  if (raw.sourceId === "oura") {
+    const apiDay =
+      typeof payload.day === "string" && isYmdDateString(payload.day) ? payload.day : null;
+    if (apiDay) {
+      day = apiDay;
+    } else {
+      day =
+        localCalendarDayKeyFromIsoInTimeZone(payload.end, payload.timezone) ??
+        localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
+    }
+  } else {
+    day = localCalendarDayKeyFromIsoInTimeZone(payload.start, payload.timezone);
+  }
   if (!day) return null;
 
   return {
@@ -303,6 +331,8 @@ const mapManualSleep = (
     latencyMinutes: payload.latencyMinutes ?? null,
     awakenings: payload.awakenings ?? null,
     isMainSleep: payload.isMainSleep,
+    remSleepMinutes: payload.remSleepMinutes ?? null,
+    deepSleepMinutes: payload.deepSleepMinutes ?? null,
   };
 };
 

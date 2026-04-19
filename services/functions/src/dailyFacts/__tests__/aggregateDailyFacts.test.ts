@@ -153,6 +153,7 @@ describe('aggregateDailyFactsForDay', () => {
     expect(sleep.totalMinutes).toBe(510);
     // main sleep minutes only
     expect(sleep.mainSleepMinutes).toBe(480);
+    expect(sleep.primarySourceId).toBe("source_manual_1");
 
     const activity = result.activity!;
     // Two non-apple step events, same updatedAt: lexicographic id tie-break (steps_1 before steps_2), do not sum
@@ -167,6 +168,35 @@ describe('aggregateDailyFactsForDay', () => {
     const recovery = result.recovery!;
     // average of 80 and 60 = 70
     expect(recovery.hrvRmssd).toBe(70);
+  });
+
+  it("aggregates REM/deep minutes from main sleep episodes only", () => {
+    const events: CanonicalEvent[] = [
+      makeSleep({
+        id: "sleep_main",
+        totalMinutes: 480,
+        isMainSleep: true,
+        remSleepMinutes: 90,
+        deepSleepMinutes: 70,
+        sourceId: "oura",
+      }),
+      makeSleep({
+        id: "sleep_nap",
+        totalMinutes: 20,
+        isMainSleep: false,
+        remSleepMinutes: 5,
+        deepSleepMinutes: 5,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: "user_123",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(result.sleep?.remSleepMinutes).toBe(90);
+    expect(result.sleep?.deepSleepMinutes).toBe(70);
+    expect(result.sleep?.primarySourceId).toBe("oura");
   });
 
   it('prefers apple_health steps over other sources for the same day', () => {
@@ -334,6 +364,30 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.body).toBeUndefined();
     expect(result.recovery).toBeUndefined();
     expect(result.strength).toBeUndefined();
+  });
+
+  it('still includes sleep when canonical sleep episodes exist but summed minutes are zero', () => {
+    const events: CanonicalEvent[] = [
+      makeSleep({
+        id: 'sleep_zero',
+        totalMinutes: 0,
+        efficiency: null,
+        latencyMinutes: null,
+        awakenings: null,
+        isMainSleep: false,
+        remSleepMinutes: null,
+        deepSleepMinutes: null,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.sleep).toBeDefined();
+    expect(result.sleep!.totalMinutes).toBe(0);
+    expect(result.sleep!.primarySourceId).toBe('source_manual_1');
   });
 
   it('includes body from factOnlyBody when no canonical weight events exist', () => {

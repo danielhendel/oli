@@ -1,13 +1,16 @@
 // services/functions/src/normalization/onRawEventUpdatedForNormalization.ts
 
 /**
- * Re-runs raw → canonical normalization when a steps rawEvent document is updated.
+ * Re-runs raw → canonical normalization when a steps or sleep rawEvent document is updated.
  *
  * Ingest uses deterministic raw doc ids (Idempotency-Key). After the first create,
  * replays return 202 without a second `onCreate`. If normalization failed under an
  * older mapper (e.g. apple_health steps), a subsequent replay must still be able to
  * produce canonical events. The API bumps `receivedAt` on steps replays; this
  * trigger picks up those writes.
+ *
+ * Sleep: payload may gain rem/deep stage minutes after mapper/ingest upgrades; operators patch
+ * raw docs with a newer `receivedAt` so canonical + DailyFacts can be refreshed.
  */
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
@@ -28,7 +31,8 @@ export const onRawEventUpdatedForNormalization = onDocumentUpdated(TRIGGER_OPTIO
   if (!change) return;
 
   const after = change.after.data() as Record<string, unknown> | undefined;
-  if (after?.["kind"] !== "steps") return;
+  const kind = after?.["kind"];
+  if (kind !== "steps" && kind !== "sleep") return;
 
   try {
     await processRawEventForNormalization({

@@ -462,6 +462,48 @@ export async function processRawEventForNormalization(params: {
       }
     }
 
+    /**
+     * Sleep: first create is followed by onCanonicalEventCreated → recompute. Superseding canonical
+     * (mapper/stage fields) uses tx.set → no onCreate; must recompute here.
+     */
+    if (rawEvent.kind === "sleep" && writeRes.mode === "replaced") {
+      const dayKey = canonical.day as YmdDateString;
+      const priorDay = writeRes.sleepDayMovedFrom;
+      try {
+        await recomputeDerivedTruthForDay({
+          db,
+          userId: rawEvent.userId,
+          dayKey,
+          canonicalAnchorDay: canonical.day as YmdDateString,
+          trigger: {
+            type: "realtime",
+            eventId: `${canonical.id}:sleep_norm_replaced`,
+          },
+        });
+        if (priorDay && priorDay !== dayKey) {
+          await recomputeDerivedTruthForDay({
+            db,
+            userId: rawEvent.userId,
+            dayKey: priorDay,
+            trigger: {
+              type: "realtime",
+              eventId: `${canonical.id}:sleep_norm_prior_day`,
+            },
+          });
+        }
+      } catch (err) {
+        logger.error("sleep_normalization_recompute_failed", {
+          msg: "sleep_normalization_recompute_failed",
+          userId: rawEvent.userId,
+          rawEventId: rawEvent.id,
+          dayKey,
+          priorDay: priorDay ?? null,
+          trigger,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     if (rawEvent.kind === "workout" || rawEvent.kind === "strength_workout") {
       try {
         const uiDay = deriveWorkoutDayKey({
