@@ -1,6 +1,7 @@
 // lib/contracts/dailyFacts.ts
 import { z } from "zod";
 import { dayKeySchema } from "./day";
+import { oliSleepScoreV1Schema } from "./oliSleepScore";
 
 const isoString = z.string().min(1);
 const confidenceSchema = z.record(z.string(), z.number().finite().min(0).max(1)).optional();
@@ -27,7 +28,21 @@ export const dailyFactsDtoSchema = z
     // new (contract)
     meta: computeMetaSchema.optional(),
 
-    sleep: z.object({ totalMinutes: z.number().finite().optional() }).strip().optional(),
+    sleep: z
+      .object({
+        totalMinutes: z.number().finite().optional(),
+        mainSleepMinutes: z.number().finite().optional(),
+        /** Aggregate mean of episode efficiencies (0–1), matches canonical sleep */
+        efficiency: z.number().finite().optional(),
+        latencyMinutes: z.number().finite().optional(),
+        awakenings: z.number().finite().optional(),
+        remSleepMinutes: z.number().finite().optional(),
+        deepSleepMinutes: z.number().finite().optional(),
+        primarySourceId: z.string().min(1).optional(),
+        oliSleepScore: oliSleepScoreV1Schema.optional(),
+      })
+      .strip()
+      .optional(),
     activity: z
       .object({
         steps: z.number().finite().optional(),

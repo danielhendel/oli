@@ -6,13 +6,14 @@ import express from "express";
 import request from "supertest";
 import ouraIngestRouter from "../ouraIngest";
 
-const docRefs: Record<string, { create: jest.Mock; get: jest.Mock }> = {};
+const docRefs: Record<string, { create: jest.Mock; get: jest.Mock; set: jest.Mock }> = {};
 
 function getDocRef(id: string) {
   if (!docRefs[id]) {
     docRefs[id] = {
       create: jest.fn().mockResolvedValue(undefined),
       get: jest.fn().mockResolvedValue({ exists: false }),
+      set: jest.fn().mockResolvedValue(undefined),
     };
   }
   return docRefs[id];
@@ -108,8 +109,8 @@ describe("POST /integrations/oura/ingest", () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.eventsCreated).toBe(1);
     const docRef = getDocRef("oura_sleep_1");
-    expect(docRef.create).toHaveBeenCalledTimes(1);
-    const written = docRef.create.mock.calls[0][0];
+    expect(docRef.set).toHaveBeenCalledTimes(1);
+    const written = docRef.set.mock.calls[0][0];
     expect(written.provider).toBe("manual");
     expect(written.sourceId).toBe("oura");
     expect(written.sourceType).toBe("oura");
@@ -157,7 +158,6 @@ describe("POST /integrations/oura/ingest", () => {
 
   it("skips duplicate idempotency key (eventsAlreadyExists)", async () => {
     const docRef = getDocRef("dup_key");
-    docRef.create.mockReset().mockRejectedValueOnce(new Error("ALREADY_EXISTS"));
     docRef.get.mockReset().mockResolvedValue({ exists: true });
 
     const res = await request(app)

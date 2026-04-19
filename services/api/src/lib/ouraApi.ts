@@ -3,8 +3,14 @@
  * Used by POST /integrations/oura/pull-now. OAuth token URL and scopes match integrations.ts.
  */
 
+import { localCalendarDayKeyFromIsoInTimeZone } from "@oli/contracts";
+import { logger } from "./logger";
+
 const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection";
+
+/** Follow `next_token` up to this many list API pages (Oura returns bounded `data` per call). */
+const OURA_SLEEP_FETCH_MAX_PAGES = 100;
 
 /** Oura token refresh returns new access_token and new refresh_token (single-use). */
 export type OuraTokenResult = {
@@ -16,6 +22,8 @@ export type OuraTokenResult = {
 /** Minimal Oura API v2 sleep document (from GET /v2/usercollection/sleep). */
 export type OuraSleepDocument = {
   id?: string;
+  /** Oura sleep period date (YYYY-MM-DD); aligns with app wake-day / nightly score row. */
+  day?: string;
   bed_time?: string;
   wake_time?: string;
   end_time?: string;
@@ -148,36 +156,81 @@ export async function refreshOuraAccessToken(
 }
 
 /**
- * GET /v2/usercollection/sleep?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+ * GET /v2/usercollection/sleep?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD[&next_token=...]
+ *
+ * Paginates with `next_token` from the JSON body until no further page. Repo bug was returning only
+ * the first page, so the newest sleep row was absent whenever it landed on page 2+.
  */
 export async function fetchOuraSleep(
   accessToken: string,
   startDate: string,
   endDate: string,
+  options?: { requestId?: string; uid?: string },
 ): Promise<OuraSleepDocument[]> {
-  const url = new URL(`${OURA_API_BASE}/sleep`);
-  url.searchParams.set("start_date", startDate);
-  url.searchParams.set("end_date", endDate);
+  const aggregated: OuraSleepDocument[] = [];
+  let nextRequestToken: string | undefined;
+  let pages = 0;
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  for (;;) {
+    const url = new URL(`${OURA_API_BASE}/sleep`);
+    url.searchParams.set("start_date", startDate);
+    url.searchParams.set("end_date", endDate);
+    if (nextRequestToken) {
+      url.searchParams.set("next_token", nextRequestToken);
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (res.status === 401) {
+      throw new OuraApiError("Unauthorized", "OURA_UNAUTHORIZED", 401);
+    }
+    if (res.status !== 200) {
+      const text = await res.text();
+      throw new OuraApiError(
+        text || `HTTP ${res.status}`,
+        "OURA_SLEEP_FETCH_FAILED",
+        res.status,
+      );
+    }
+
+    const json = (await res.json()) as { data?: OuraSleepDocument[]; next_token?: string };
+    const chunk = Array.isArray(json.data) ? json.data : [];
+    aggregated.push(...chunk);
+    pages += 1;
+
+    const responseNext =
+      typeof json.next_token === "string" && json.next_token.length > 0 ? json.next_token : undefined;
+
+    if (!responseNext) {
+      break;
+    }
+    if (pages >= OURA_SLEEP_FETCH_MAX_PAGES) {
+      logger.error({
+        msg: "oura_sleep_fetch_page_cap",
+        startDate,
+        endDate,
+        pages,
+        ...(options?.requestId ? { requestId: options.requestId } : {}),
+        ...(options?.uid ? { uid: options.uid } : {}),
+      });
+      break;
+    }
+    nextRequestToken = responseNext;
+  }
+
+  logger.info({
+    msg: "oura_sleep_fetch_complete",
+    startDate,
+    endDate,
+    pages,
+    rowCount: aggregated.length,
+    ...(options?.requestId ? { requestId: options.requestId } : {}),
+    ...(options?.uid ? { uid: options.uid } : {}),
   });
 
-  if (res.status === 401) {
-    throw new OuraApiError("Unauthorized", "OURA_UNAUTHORIZED", 401);
-  }
-  if (res.status !== 200) {
-    const text = await res.text();
-    throw new OuraApiError(
-      text || `HTTP ${res.status}`,
-      "OURA_SLEEP_FETCH_FAILED",
-      res.status,
-    );
-  }
-
-  const json = (await res.json()) as { data?: OuraSleepDocument[]; next_token?: string };
-  const data = Array.isArray(json.data) ? json.data : [];
-  return data;
+  return aggregated;
 }
 
 /**
@@ -373,6 +426,9 @@ export type OuraSleepIngestItem = {
   latencyMinutes?: number | null;
   awakenings?: number | null;
   isMainSleep: boolean;
+  /** Stage durations in minutes when Oura reports rem_sleep_duration / deep_sleep_duration */
+  remSleepMinutes?: number | null;
+  deepSleepMinutes?: number | null;
 };
 
 export type OuraHrvIngestItem = {
@@ -421,6 +477,10 @@ function toYmd(iso: string): string {
   return iso.slice(0, 10);
 }
 
+function isYmdDateString(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 /**
  * Normalize sleep window start from Oura sleep doc (supports bed_time, bedtime_start, start, end_time).
  * Oura API v2 can return bed_time/wake_time or bedtime_start/bedtime_end or start/end.
@@ -449,37 +509,85 @@ function getSleepEnd(doc: OuraSleepDocument): string | null {
   return typeof e === "string" && e.length > 0 ? e : null;
 }
 
+/**
+ * Wake-time ISO for pull-now diagnostics (same field resolution as ingest).
+ */
+export function ouraSleepWakeIsoForLog(doc: OuraSleepDocument): string | null {
+  return getSleepEnd(doc);
+}
+
+/**
+ * Align with GET /users/me/oura-sleep-view (`usersMe.ts`): Oura may return latency as seconds
+ * (typically ≥ 60); smaller values are treated as minutes.
+ */
+export function normalizeOuraLatencyRawToMinutes(latencyRaw: number): number {
+  return latencyRaw >= 60 ? Math.round(latencyRaw / 60) : Math.round(latencyRaw);
+}
+
 export function mapOuraSleepToIngestItem(doc: OuraSleepDocument): OuraSleepIngestItem | null {
   const start = getSleepStart(doc);
-  const end = getSleepEnd(doc);
+  let end = getSleepEnd(doc);
+  const totalSec = typeof doc.total_sleep_duration === "number" ? doc.total_sleep_duration : 0;
+  // When Oura omits wake/bedtime_end but provides duration, infer end so we still write a sleep rawEvent.
+  if (start && !end && totalSec > 0) {
+    const startMs = Date.parse(start);
+    if (!Number.isNaN(startMs)) {
+      end = new Date(startMs + totalSec * 1000).toISOString();
+    }
+  }
   if (!start || !end) return null;
 
-  const totalSec = doc.total_sleep_duration ?? 0;
   const totalMinutes = Math.round(totalSec / 60);
   const efficiencyRaw = doc.efficiency;
-  const efficiency =
-    typeof efficiencyRaw === "number" && efficiencyRaw >= 0 && efficiencyRaw <= 100
-      ? efficiencyRaw / 100
-      : null;
+  /** Oura may send 0–100 (percent) or 0–1 (ratio). */
+  let efficiency: number | null = null;
+  if (typeof efficiencyRaw === "number" && efficiencyRaw >= 0 && efficiencyRaw <= 100) {
+    efficiency = efficiencyRaw > 1 ? efficiencyRaw / 100 : efficiencyRaw;
+  }
   const latencyMinutes =
-    typeof doc.latency === "number" && doc.latency >= 0 ? Math.round(doc.latency) : null;
+    typeof doc.latency === "number" && doc.latency >= 0
+      ? normalizeOuraLatencyRawToMinutes(doc.latency)
+      : null;
   const awakenings =
     typeof (doc as { number_of_awakenings?: number }).number_of_awakenings === "number"
       ? (doc as { number_of_awakenings: number }).number_of_awakenings
       : null;
+
+  const remSec = typeof (doc as { rem_sleep_duration?: number }).rem_sleep_duration === "number"
+    ? (doc as { rem_sleep_duration: number }).rem_sleep_duration
+    : null;
+  const remSleepMinutes =
+    remSec != null && remSec >= 0 ? Math.round(remSec / 60) : null;
+
+  const deepSec = typeof (doc as { deep_sleep_duration?: number }).deep_sleep_duration === "number"
+    ? (doc as { deep_sleep_duration: number }).deep_sleep_duration
+    : null;
+  const deepSleepMinutes =
+    deepSec != null && deepSec >= 0 ? Math.round(deepSec / 60) : null;
+
   const id = doc.id ?? `oura_sleep_${start}`;
   const isMainSleep = doc.type === "long_sleep" || doc.type === "sleep";
+
+  const providerDay =
+    typeof doc.day === "string" && isYmdDateString(doc.day) ? doc.day : null;
+  /** Prefer Oura `day`; else wake calendar day in UTC (matches normalization fallback without API day). */
+  const rollupDay =
+    providerDay ??
+    localCalendarDayKeyFromIsoInTimeZone(end, "UTC") ??
+    toYmd(end);
 
   return {
     idempotencyKey: String(id),
     start,
     end,
     timezone: "UTC",
-    day: toYmd(start),
+    day: rollupDay,
     totalMinutes,
     ...(efficiency != null ? { efficiency } : {}),
     ...(latencyMinutes != null ? { latencyMinutes } : {}),
     ...(awakenings != null ? { awakenings } : {}),
+    ...(remSleepMinutes != null ? { remSleepMinutes } : {}),
+    ...(deepSleepMinutes != null ? { deepSleepMinutes } : {}),
     isMainSleep,
   };
 }

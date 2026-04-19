@@ -119,6 +119,9 @@ const manualSleepPayloadSchema = manualWindowBaseSchema
     latencyMinutes: z.number().finite().nonnegative().nullable().optional(),
     awakenings: z.number().finite().nonnegative().nullable().optional(),
     isMainSleep: z.boolean(),
+    /** Derived from vendor stage durations when available; minutes in-sleep */
+    remSleepMinutes: z.number().finite().nonnegative().nullable().optional(),
+    deepSleepMinutes: z.number().finite().nonnegative().nullable().optional(),
   })
   .strip();
 

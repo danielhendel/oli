@@ -1,5 +1,7 @@
 // services/functions/src/types/health.ts
 
+import type { OliSleepScoreV1 } from "@oli/contracts";
+
 /**
  * Oli Health OS — Canonical Schema v1 (Sprint 2 + Sprint 5 extensions + Sprint 6)
  *
@@ -181,6 +183,12 @@ export interface SleepCanonicalEvent extends BaseCanonicalEvent {
 
   /** Whether this is the primary/main sleep for the day */
   isMainSleep: boolean;
+
+  /** REM duration for this episode (minutes), when source provides stages */
+  remSleepMinutes?: number | null;
+
+  /** Deep sleep duration for this episode (minutes), when source provides stages */
+  deepSleepMinutes?: number | null;
 }
 
 /**
@@ -343,9 +351,19 @@ export type CanonicalEvent =
 export interface DailySleepFacts {
   totalMinutes?: number;
   mainSleepMinutes?: number;
+  /** Mean efficiency across contributing sleep episodes (0–1), same as canonical */
   efficiency?: number;
   latencyMinutes?: number;
   awakenings?: number;
+  /** Sum of REM minutes from main-sleep episodes when present */
+  remSleepMinutes?: number;
+  /** Sum of deep sleep minutes from main-sleep episodes when present */
+  deepSleepMinutes?: number;
+  /** Strongest contributing raw/source id for main sleep (e.g. oura), not a vendor-specific schema field */
+  primarySourceId?: string;
+
+  /** Oli Sleep Score v1 (derived from this block; set by recompute pipeline) */
+  oliSleepScore?: OliSleepScoreV1;
 }
 
 export interface DailyActivityFacts {

@@ -36,6 +36,12 @@ export const calendarWeeklyStripStyles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -0.12,
   },
+  /** Sleep strip: quieter weekdays when not selected. */
+  dayOfWeekSleepMuted: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#AEAEB2",
+  },
   dayCircle: {
     width: 40,
     height: 40,
@@ -61,5 +67,11 @@ export const calendarWeeklyStripStyles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 19,
     letterSpacing: -0.35,
+  },
+  /** Sleep strip: quieter date numerals when not selected. */
+  dayNumberSleepMuted: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#AEAEB2",
   },
 });

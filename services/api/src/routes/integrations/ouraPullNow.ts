@@ -34,6 +34,7 @@ import {
   type OuraSleepDocument,
   type OuraDailyReadinessDocument,
   OuraApiError,
+  ouraSleepWakeIsoForLog,
 } from "../../lib/ouraApi";
 import { writeOuraRawEvents } from "../../lib/ouraIngestWrite";
 import {
@@ -49,6 +50,11 @@ const router = Router();
 
 /** Pull last N days of data (sleep + readiness). */
 const WINDOW_DAYS = 30;
+
+/** Extra days before (today − WINDOW_DAYS) for sleep fetch only — idempotent refetch at rolling boundary. */
+const PULL_SLEEP_START_OVERLAP_DAYS = 2;
+/** Extend sleep `end_date` one UTC calendar day so wake-indexed rows land in range the same morning. */
+const PULL_SLEEP_END_OVERLAP_DAYS = 1;
 
 /** Backfill: total days to backfill and chunk size (idempotent, resumable). */
 const BACKFILL_TOTAL_DAYS = 90;
@@ -272,6 +278,27 @@ export async function performOuraPullNowCore(
   const startIso = startDate.toISOString();
   const endIso = endDate.toISOString();
 
+  const sleepRangeEnd = new Date(endDate);
+  sleepRangeEnd.setUTCDate(sleepRangeEnd.getUTCDate() + PULL_SLEEP_END_OVERLAP_DAYS);
+  const sleepRangeStart = new Date(endDate);
+  sleepRangeStart.setUTCDate(
+    sleepRangeStart.getUTCDate() - WINDOW_DAYS - PULL_SLEEP_START_OVERLAP_DAYS,
+  );
+  const sleepStartStr = toYmd(sleepRangeStart);
+  const sleepEndStr = toYmd(sleepRangeEnd);
+
+  logger.info({
+    msg: "oura_pull_sleep_date_window",
+    uid,
+    requestId,
+    sleepStartStr,
+    sleepEndStr,
+    coreStartStr: startStr,
+    coreEndStr: endStr,
+    sleepStartOverlapDays: PULL_SLEEP_START_OVERLAP_DAYS,
+    sleepEndOverlapDays: PULL_SLEEP_END_OVERLAP_DAYS,
+  });
+
   let sleepItems: OuraSleepIngestItem[] = [];
   let hrvItems: OuraHrvIngestItem[] = [];
   let stepsItems: OuraStepsIngestItem[] = [];
@@ -306,7 +333,7 @@ export async function performOuraPullNowCore(
       spo2Docs,
       heartrateDocs,
     ] = await Promise.all([
-      fetchOuraSleep(accessToken, startStr, endStr),
+      fetchOuraSleep(accessToken, sleepStartStr, sleepEndStr, { requestId, uid }),
       fetchOuraDailyReadiness(accessToken, startStr, endStr),
       safeFetch("personal_info", () => fetchOuraPersonalInfo(accessToken)),
       safeFetch("daily_activity", () => fetchOuraDailyActivity(accessToken, startStr, endStr)),
@@ -319,6 +346,28 @@ export async function performOuraPullNowCore(
 
     sleepDocs = sleepDocsFetched ?? [];
     readinessDocs = readinessDocsFetched ?? [];
+
+    let latestWakeIso: string | null = null;
+    let latestSleepId: string | null = null;
+    for (const d of sleepDocs) {
+      const w = ouraSleepWakeIsoForLog(d);
+      if (!w) continue;
+      const t = Date.parse(w);
+      if (Number.isNaN(t)) continue;
+      if (!latestWakeIso || t > Date.parse(latestWakeIso)) {
+        latestWakeIso = w;
+        latestSleepId = typeof d.id === "string" ? d.id : null;
+      }
+    }
+    logger.info({
+      msg: "oura_pull_sleep_latest_wake",
+      uid,
+      requestId,
+      latestWakeIso,
+      latestSleepId,
+      sleepDocCount: sleepDocs.length,
+    });
+
     logger.info({
       msg: "oura_fetch_counts",
       uid,
@@ -680,7 +729,7 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
 
     try {
       const [sleepDocsFetched, readinessDocsFetched] = await Promise.all([
-        fetchOuraSleep(accessToken, startStr, endStr),
+        fetchOuraSleep(accessToken, startStr, endStr, { requestId, uid }),
         fetchOuraDailyReadiness(accessToken, startStr, endStr),
       ]);
       const sleepDocs = sleepDocsFetched ?? [];

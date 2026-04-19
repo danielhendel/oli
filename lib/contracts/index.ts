@@ -51,3 +51,6 @@ export * from "./provenance";
 
 // Oura Tier 1 — vendor snapshots and view DTOs (Sleep & Readiness)
 export * from "./ouraVendor";
+
+// Oli Sleep Score v1 (derived from DailyFacts.sleep)
+export * from "./oliSleepScore";

@@ -13,6 +13,7 @@ import type {
 import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
 import { loadBodyFactsFromRawForDay } from "../dailyFacts/loadBodyFactsFromRawForDay";
+import { attachOliSleepScoreToSleepFacts } from "../sleep/computeOliSleepScoreV1";
 import { requireAdmin } from "./adminAuth";
 
 // ✅ Data Readiness Contract
@@ -160,6 +161,19 @@ export const recomputeDailyFactsAdminHttp = onRequest(
         history,
       });
 
+      const enrichedWithSleepScore: DailyFacts =
+        enriched.sleep !== undefined
+          ? {
+              ...enriched,
+              sleep: attachOliSleepScoreToSleepFacts(enriched.sleep, {
+                computedAt,
+                ...(enriched.confidence?.sleep !== undefined
+                  ? { domainConfidenceSleep: enriched.confidence.sleep }
+                  : {}),
+              }),
+            }
+          : enriched;
+
       /**
        * Write DailyFacts with readiness meta
        *
@@ -168,7 +182,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
        */
       const ref = userRef.collection("dailyFacts").doc(date);
       await ref.set({
-        ...enriched,
+        ...enrichedWithSleepScore,
         meta: buildPipelineMeta({
           computedAt: latestCanonicalEventAt,
           source: { eventsForDay: events.length },

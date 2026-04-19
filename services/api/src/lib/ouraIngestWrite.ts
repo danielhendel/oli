@@ -128,6 +128,8 @@ async function writeSleepLoop(
       ...(item.efficiency != null ? { efficiency: item.efficiency } : {}),
       ...(item.latencyMinutes != null ? { latencyMinutes: item.latencyMinutes } : {}),
       ...(item.awakenings != null ? { awakenings: item.awakenings } : {}),
+      ...(item.remSleepMinutes != null ? { remSleepMinutes: item.remSleepMinutes } : {}),
+      ...(item.deepSleepMinutes != null ? { deepSleepMinutes: item.deepSleepMinutes } : {}),
       isMainSleep: item.isMainSleep,
     };
     const doc = {
@@ -162,21 +164,22 @@ async function writeSleepLoop(
       continue;
     }
     try {
-      await rawEventsCol.doc(item.idempotencyKey).create(validated.data);
-      created += 1;
-    } catch (err: unknown) {
-      const existing = await rawEventsCol.doc(item.idempotencyKey).get();
-      if (existing.exists) {
+      const ref = rawEventsCol.doc(item.idempotencyKey);
+      const prior = await ref.get();
+      await ref.set(validated.data, { merge: true });
+      if (prior.exists) {
         alreadyExists += 1;
       } else {
-        logger.error({
-          msg: "oura_ingest_sleep_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
-          requestId,
-          err: err instanceof Error ? err.message : String(err),
-        });
+        created += 1;
       }
+    } catch (err: unknown) {
+      logger.error({
+        msg: "oura_ingest_sleep_write_error",
+        uid,
+        rawEventId: item.idempotencyKey,
+        requestId,
+        err: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return { created, alreadyExists };

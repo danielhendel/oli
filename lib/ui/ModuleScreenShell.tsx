@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { ScrollView, View, Text, StyleSheet, type RefreshControlProps } from "react-native";
 
 export type ModuleScreenShellProps = {
   title: string;
@@ -10,6 +10,8 @@ export type ModuleScreenShellProps = {
   compactHeader?: boolean;
   /** Optional sticky header content rendered under the title/subtitle and pinned while body scrolls. */
   headerContent?: React.ReactNode;
+  /** Passed to ScrollView (e.g. RefreshControl). */
+  refreshControl?: React.ReactElement<RefreshControlProps>;
   children: React.ReactNode;
 };
 
@@ -19,6 +21,7 @@ export function ModuleScreenShell({
   hideTitleChrome = false,
   compactHeader = false,
   headerContent,
+  refreshControl,
   children,
 }: ModuleScreenShellProps) {
   return (
@@ -35,7 +38,11 @@ export function ModuleScreenShell({
         </View>
       )}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        {...(refreshControl ? { refreshControl } : {})}
+      >
         <View style={styles.content}>{children}</View>
       </ScrollView>
     </View>
