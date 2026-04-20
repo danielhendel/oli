@@ -16,12 +16,21 @@ type ActivityDailyDetailsCardProps = {
   loading: boolean;
   error: { message: string; requestId: string | null; onRetry: () => void } | null;
   model: ActivityDailyDetailsCardModel | null;
+  /** Visible card heading (defaults to Today’s Steps). */
+  headingTitle?: string;
+  ratingTestID?: string;
+  stepsBarTestID?: string;
 };
 
 /** Parses `compactStatsSummary` for display only (e.g. `7,524 steps` → `7,524`). Hook output unchanged. */
 function primaryStepsFigureFromCompactSummary(compactStatsSummary: string): string | null {
   const m = compactStatsSummary.trim().match(/^([\d,]+)\s+steps$/i);
   return m?.[1] ?? null;
+}
+
+/** Header phrase for a11y (matches Today’s Steps → Today’s steps). */
+function headingSentenceLowerSteps(headingTitle: string): string {
+  return headingTitle.endsWith(" Steps") ? `${headingTitle.slice(0, -" Steps".length)} steps` : headingTitle;
 }
 
 function DetailsTierProgressTrack({ testID, tierIndex }: { testID: string; tierIndex: number | null }) {
@@ -38,17 +47,25 @@ function DetailsTierProgressTrack({ testID, tierIndex }: { testID: string; tierI
   );
 }
 
-export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDailyDetailsCardProps) {
+export function ActivityDailyDetailsCard({
+  loading,
+  error,
+  model,
+  headingTitle = "Today’s Steps",
+  ratingTestID = "activity-daily-details-rating",
+  stepsBarTestID = "activity-daily-details-steps-bar",
+}: ActivityDailyDetailsCardProps) {
   const digits = model != null ? primaryStepsFigureFromCompactSummary(model.compactStatsSummary) : null;
   const rating = digits != null ? getStepRating(stepsFromLocaleDigitString(digits)) : null;
+  const headingA11y = headingSentenceLowerSteps(headingTitle);
   const titleRowA11y =
     loading || model == null
-      ? "Today’s Steps"
+      ? headingTitle
       : digits != null
         ? rating != null
-          ? `Today’s steps, ${rating.label}, ${digits}`
-          : `Today’s steps, ${digits}`
-        : `Today’s steps, ${model.compactStatsSummary}`;
+          ? `${headingA11y}, ${rating.label}, ${digits}`
+          : `${headingA11y}, ${digits}`
+        : `${headingA11y}, ${model.compactStatsSummary}`;
 
   return (
     <View style={styles.card}>
@@ -60,7 +77,7 @@ export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDail
       >
         <View style={styles.labelPillCluster}>
           <Text style={styles.cardTitle} numberOfLines={1}>
-            Today’s Steps
+            {headingTitle}
           </Text>
           {!loading && model != null && rating != null ? (
             <ActivityRatingPill
@@ -68,7 +85,7 @@ export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDail
               color={rating.color}
               backgroundColor={rating.backgroundColor}
               emphasis="subtle"
-              testID="activity-daily-details-rating"
+              testID={ratingTestID}
             />
           ) : null}
         </View>
@@ -95,7 +112,7 @@ export function ActivityDailyDetailsCard({ loading, error, model }: ActivityDail
       {!loading && model != null ? (
         <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
           <DetailsTierProgressTrack
-            testID="activity-daily-details-steps-bar"
+            testID={stepsBarTestID}
             tierIndex={digits != null ? getStepRatingTierIndex(stepsFromLocaleDigitString(digits)) : null}
           />
         </View>

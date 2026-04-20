@@ -43,6 +43,14 @@ jest.mock("@/lib/data/useSleepDayView", () => ({
   useSleepDayView: jest.fn(),
 }));
 
+const mockPullToRefreshSleep = jest.fn().mockResolvedValue({ didVendorSyncAndRecompute: false });
+
+jest.mock("@/lib/data/useSleepPullToRefresh", () => ({
+  useSleepPullToRefresh: jest.fn(() => ({
+    pullToRefreshSleep: mockPullToRefreshSleep,
+  })),
+}));
+
 jest.mock("@/lib/data/useSleepWeekDataPresence", () => ({
   useSleepWeekDataPresence: () => ({
     status: "ready" as const,
@@ -102,7 +110,8 @@ const defaultOuraFallbackState = {
     isFallback: false,
     day: "2026-04-06",
     score: 72,
-    contributors: {},
+    totalMinutes: 420,
+    contributors: { total_sleep: 420, efficiency: 88 },
   },
   refetch: jest.fn(),
 };
@@ -110,6 +119,7 @@ const defaultOuraFallbackState = {
 describe("SleepScreen", () => {
   beforeEach(() => {
     mockRouterPush.mockClear();
+    mockPullToRefreshSleep.mockClear();
     mockUseLocalSearchParams.mockReset();
     mockUseLocalSearchParams.mockReturnValue({});
     navigationOptions = {};
@@ -203,11 +213,63 @@ describe("SleepScreen", () => {
     expect(str).toContain("Sleep Score");
     expect(str).toContain("88");
     expect(str).not.toContain("81");
-    expect(str).not.toContain("Computed by Oli from your sleep facts");
-    expect(str).not.toContain("Oli sleep facts");
+    expect(str).toContain("Sleep score from your device snapshot");
   });
 
-  it("Oli branch falls back honestly when vendor and Oli scores are unavailable", async () => {
+  it("Oli branch: headline unavailable when vendor score missing even if Oli has a score", async () => {
+    jest.mocked(useSleepDayView).mockReturnValue({
+      status: "oli",
+      requestedDay: "2026-04-06",
+      resolvedDay: "2026-04-06",
+      facts: { schemaVersion: 1, userId: "u", date: "2026-04-06", computedAt: "2026-01-01T00:00:00.000Z" },
+      sleep: {
+        totalMinutes: 420,
+        mainSleepMinutes: 420,
+        oliSleepScore: {
+          value: 81,
+          version: "sleep-score-v1.0.0",
+          computedAt: "2026-01-01T00:00:00.000Z",
+          confidence: 0.85,
+          components: {
+            duration: 0.9,
+            efficiency: 0.8,
+            latency: 0.7,
+            rem: 0.6,
+            deep: 0.5,
+          },
+          weights: {
+            duration: 0.4,
+            efficiency: 0.2,
+            latency: 0.15,
+            rem: 0.125,
+            deep: 0.125,
+          },
+          reasons: [],
+        },
+      },
+      insights: null,
+      vendorSleepView: {
+        requestedDay: "2026-04-06",
+        resolvedDay: "2026-04-06",
+        isFallback: false,
+        day: "2026-04-06",
+        score: null,
+        contributors: {},
+      },
+      refetch: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("Score unavailable");
+    expect(str).toContain("No sleep score from your device snapshot");
+    expect(str).not.toContain("Oli sleep score");
+  });
+
+  it("Oli branch: vendor headline unavailable copy when no vendor snapshot score", async () => {
     jest.mocked(useSleepDayView).mockReturnValue({
       status: "oli",
       requestedDay: "2026-04-06",
@@ -247,8 +309,63 @@ describe("SleepScreen", () => {
       await Promise.resolve();
     });
     const str = JSON.stringify(tree!.toJSON());
-    expect(str).toContain("Stage data was incomplete");
+    expect(str).toContain("Score unavailable");
+    expect(str).toContain("No sleep score from your device snapshot");
     expect(str).not.toContain("We'll show a score when Oura provides one.");
+  });
+
+  it("Oli path: metrics card still renders when headline vendor score is missing", async () => {
+    jest.mocked(useSleepDayView).mockReturnValue({
+      status: "oli",
+      requestedDay: "2026-04-06",
+      resolvedDay: "2026-04-06",
+      facts: { schemaVersion: 1, userId: "u", date: "2026-04-06", computedAt: "2026-01-01T00:00:00.000Z" },
+      sleep: {
+        totalMinutes: 420,
+        mainSleepMinutes: 420,
+        efficiency: 0.88,
+        oliSleepScore: {
+          value: 80,
+          version: "sleep-score-v1.0.0",
+          computedAt: "2026-01-01T00:00:00.000Z",
+          confidence: 0.9,
+          components: {
+            duration: 0.9,
+            efficiency: 0.85,
+            latency: 0.8,
+            rem: 0.75,
+            deep: 0.7,
+          },
+          weights: {
+            duration: 0.4,
+            efficiency: 0.2,
+            latency: 0.15,
+            rem: 0.125,
+            deep: 0.125,
+          },
+          reasons: [],
+        },
+      },
+      insights: null,
+      vendorSleepView: {
+        requestedDay: "2026-04-06",
+        resolvedDay: "2026-04-06",
+        isFallback: false,
+        day: "2026-04-06",
+        score: null,
+        contributors: {},
+      },
+      refetch: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("Score unavailable");
+    expect(str).toContain("Last night's sleep");
+    expect(str).toContain("Sleep efficiency");
   });
 
   it("metrics card titles Last night's sleep, omits rollup copy and awakenings, renders metric bars", async () => {
@@ -383,7 +500,7 @@ describe("SleepScreen", () => {
     expect(str).toContain("Try again");
   });
 
-  it("Oura fallback branch uses Sleep Score title without legacy footnote", async () => {
+  it("Oura fallback branch shows Sleep Score with honest Oura source footnote", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<SleepScreen />);
@@ -391,7 +508,33 @@ describe("SleepScreen", () => {
     });
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain("Sleep Score");
-    expect(str).not.toContain("Oura nightly score");
+    expect(str).toContain("Sleep score from your device snapshot");
     expect(str).not.toContain("Legacy Oura detail");
+    expect(str).toContain("Contributors");
   });
+
+  it("Oura cross-day fallback does not render contributors card", async () => {
+    jest.mocked(useSleepDayView).mockReturnValue({
+      status: "oura_fallback",
+      data: {
+        requestedDay: "2026-04-06",
+        resolvedDay: "2026-04-05",
+        isFallback: true,
+        day: "2026-04-05",
+        score: 80,
+        totalMinutes: 400,
+        contributors: { total_sleep: 400, efficiency: 90 },
+      },
+      refetch: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("Sleep Score");
+    expect(str).not.toContain("Contributors");
+  });
+
 });

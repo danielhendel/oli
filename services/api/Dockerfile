@@ -25,6 +25,10 @@ COPY . .
 WORKDIR /app/lib/contracts
 RUN npm run build && test -f dist/index.js && test -f dist/index.d.ts
 
+# Functions: shared recompute bundle consumed by oli-api (sleep-day-refresh)
+WORKDIR /app/services/functions
+RUN npm run build && test -f lib/index.js && test -f lib/recomputeForDayExport.js
+
 # Build the API and fail-closed if the entrypoint is missing
 WORKDIR /app/services/api
 RUN npm run build && test -f dist/src/server.js
@@ -38,6 +42,9 @@ ENV PORT=8080
 # API runtime artifacts
 COPY --from=build /app/services/api/dist ./services/api/dist
 COPY --from=build /app/services/api/package.json ./services/api/package.json
+
+# Shared recompute bundle (see loadRecomputeDerivedTruthForDay.ts path resolution)
+COPY --from=build /app/services/functions/lib/recomputeForDayExport.js ./services/functions/lib/recomputeForDayExport.js
 
 # Monorepo workspace runtime deps (prevents MODULE_NOT_FOUND for @oli/contracts)
 COPY --from=build /app/lib/contracts/dist ./lib/contracts/dist

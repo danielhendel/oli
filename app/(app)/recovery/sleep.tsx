@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useSleepDayView } from "@/lib/data/useSleepDayView";
+import { useSleepPullToRefresh } from "@/lib/data/useSleepPullToRefresh";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useSleepWeekDataPresence } from "@/lib/data/useSleepWeekDataPresence";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
@@ -30,13 +31,18 @@ import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStr
 import { SleepOliMetricsCard } from "@/lib/ui/recovery/SleepOliMetricsCard";
 import { SleepInsightsCard } from "@/lib/ui/recovery/SleepInsightsCard";
 import {
-  scoreToRatingLabel,
   contributorValueToProgress,
   contributorValueToRatingLabel,
   formatContributorDisplayValue,
   formatSleepDurationMinutes,
   SLEEP_CONTRIBUTOR_KEYS,
 } from "@/lib/format/ouraScore";
+import { pickLatestSleepWeekDayWithPresence } from "@/lib/data/sleep/pickLatestSleepWeekDayWithPresence";
+import { sleepOuraContributorsCardShouldRender } from "@/lib/ui/recovery/sleepOuraContributorsVisibility";
+import {
+  buildSleepHeadlineScoreCardModelForOliPath,
+  buildSleepHeadlineScoreCardModelForOuraFallbackPath,
+} from "@/lib/data/sleep/sleepHeadlineScoreCardModel";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
 
@@ -88,35 +94,75 @@ export default function SleepScreen() {
   const params = useLocalSearchParams<{ day?: string | string[] }>();
   const dayFromRoute = parseDayRouteParam(params.day);
   const [selectedDay, setSelectedDay] = useState(() => dayFromRoute ?? getTodayDayKeyLocal());
+  /** True after calendar route param or explicit strip tap — blocks auto “snap to latest” week day. */
+  const userPinnedSelectedDayRef = useRef(dayFromRoute != null);
 
   useEffect(() => {
     const d = parseDayRouteParam(params.day);
-    if (d != null) setSelectedDay(d);
+    if (d != null) {
+      userPinnedSelectedDayRef.current = true;
+      setSelectedDay(d);
+    }
   }, [params.day]);
+
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
   const weekStripPresence = useSleepWeekDataPresence(weekDayKeys);
   const refetchWeekStrip = weekStripPresence.refetch;
   const { refetch: refetchSleep, ...sleepState } = useSleepDayView(selectedDay);
   const ouraPresence = useOuraPresence();
 
+  const oliHeadlineScoreModel = useMemo(() => {
+    if (sleepState.status !== "oli") return null;
+    const vendorRaw = sleepState.vendorSleepView?.score;
+    const vendorScore =
+      typeof vendorRaw === "number" && Number.isFinite(vendorRaw) ? vendorRaw : null;
+    return buildSleepHeadlineScoreCardModelForOliPath(vendorScore);
+  }, [sleepState]);
+
+  const ouraFallbackHeadlineScoreModel = useMemo(() => {
+    if (sleepState.status !== "oura_fallback") return null;
+    const raw = sleepState.data.score ?? null;
+    const ouraScore = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+    return buildSleepHeadlineScoreCardModelForOuraFallbackPath(ouraScore);
+  }, [sleepState]);
+
+  const weekPresenceFingerprint = useMemo(() => {
+    if (weekStripPresence.status !== "ready") return "";
+    return weekDayKeys.map((k) => `${k}:${weekStripPresence.hasSleepDataByDay[k] === true ? 1 : 0}`).join("|");
+  }, [weekDayKeys, weekStripPresence]);
+
+  useEffect(() => {
+    if (userPinnedSelectedDayRef.current) return;
+    if (weekStripPresence.status !== "ready" || weekPresenceFingerprint.length === 0) return;
+    const map = weekStripPresence.hasSleepDataByDay;
+    if (map[selectedDay] === true) return;
+    const pivot = pickLatestSleepWeekDayWithPresence(weekDayKeys, map);
+    if (pivot != null && pivot !== selectedDay) {
+      setSelectedDay(pivot);
+    }
+  }, [weekPresenceFingerprint, weekStripPresence, selectedDay, weekDayKeys]);
+
+  const onStripDayPress = useCallback((day: string) => {
+    userPinnedSelectedDayRef.current = true;
+    setSelectedDay(day);
+  }, []);
+
   const [refreshing, setRefreshing] = useState(false);
 
-  const runSleepRefresh = useCallback(async () => {
-    const bust = Date.now();
-    await Promise.all([
-      refetchSleep({ cacheBust: `sleep:pull:${bust}` }),
-      refetchWeekStrip(),
-    ]);
-  }, [refetchSleep, refetchWeekStrip]);
+  const { pullToRefreshSleep } = useSleepPullToRefresh({
+    selectedDay,
+    refetchSleep,
+    refetchWeekStrip,
+  });
 
   const onSleepRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await runSleepRefresh();
+      await pullToRefreshSleep();
     } finally {
       setRefreshing(false);
     }
-  }, [runSleepRefresh]);
+  }, [pullToRefreshSleep]);
 
   const sleepRefreshControl = useMemo(
     () => (
@@ -138,7 +184,7 @@ export default function SleepScreen() {
     <RecoveryOuraWeeklyStrip
       days={stripDays}
       selectedDay={selectedDay}
-      onDayPress={setSelectedDay}
+      onDayPress={onStripDayPress}
       categoryLabel="sleep"
       stripVariant="sleep"
       testIDPrefix="sleep-weekly"
@@ -228,7 +274,7 @@ export default function SleepScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Retry loading sleep data"
-            onPress={() => void runSleepRefresh()}
+            onPress={() => void pullToRefreshSleep()}
             style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
           >
             <Text style={styles.retryLabel}>Try again</Text>
@@ -239,26 +285,7 @@ export default function SleepScreen() {
   }
 
   if (sleepState.status === "oli") {
-    const vendorRaw = sleepState.vendorSleepView?.score;
-    const vendorScore =
-      typeof vendorRaw === "number" && Number.isFinite(vendorRaw) ? vendorRaw : null;
-
-    const oliScore = sleepState.sleep.oliSleepScore;
-    const hasOliScoreDoc = oliScore != null;
-    const oliScoreValue =
-      oliScore?.value != null && typeof oliScore.value === "number" ? oliScore.value : null;
-
-    /** Vendor snapshot wins for side-by-side compare when the API returned a score. */
-    const displayScore = vendorScore ?? oliScoreValue;
-    const ratingLabel = displayScore != null ? scoreToRatingLabel(displayScore) : null;
-
-    const scoreUnavailableSubtitle =
-      displayScore == null
-        ? !hasOliScoreDoc
-          ? "Sleep score isn’t available for this day yet."
-          : (oliScore?.reasons?.[0] ??
-            "Score isn’t available — insufficient sleep data for this day.")
-        : null;
+    const headlineModel = oliHeadlineScoreModel!;
 
     const sleepInsightItems =
       sleepState.insights?.items.filter((i) => i.tags?.includes("sleep")) ?? [];
@@ -267,12 +294,12 @@ export default function SleepScreen() {
       <RecoveryShell title="Sleep" headerContent={headerStrip} refreshControl={sleepRefreshControl}>
         <View style={styles.content}>
           <RecoveryScoreCard
-            title="Sleep Score"
-            score={displayScore}
-            ratingLabel={ratingLabel}
+            title={headlineModel.title}
+            score={headlineModel.score}
+            ratingLabel={headlineModel.ratingLabel}
             fallbackMessage={null}
-            scoreFootnote={null}
-            scoreUnavailableSubtitle={scoreUnavailableSubtitle}
+            scoreFootnote={headlineModel.scoreFootnote}
+            scoreUnavailableSubtitle={headlineModel.scoreUnavailableSubtitle}
           />
           <SleepOliMetricsCard sleep={sleepState.sleep} />
           <SleepInsightsCard items={sleepInsightItems} />
@@ -293,6 +320,8 @@ export default function SleepScreen() {
 
   const view = sleepState.data;
   const score = view.score ?? null;
+  const headlineOuraModel = ouraFallbackHeadlineScoreModel!;
+
   const contributors =
     view.contributors && typeof view.contributors === "object"
       ? (view.contributors as Record<string, unknown>)
@@ -313,27 +342,27 @@ export default function SleepScreen() {
     ? `Showing latest available Oura sleep for ${formatResolvedDay(view.resolvedDay)}`
     : null;
 
+  const showContributorsCard = sleepOuraContributorsCardShouldRender(view, contributorRows);
+  const showOuraEmptyDetails =
+    !showContributorsCard && score == null && Object.keys(contributors).length === 0;
+
   return (
     <RecoveryShell title="Sleep" headerContent={headerStrip} refreshControl={sleepRefreshControl}>
       <View style={styles.content}>
         <RecoveryScoreCard
-          title="Sleep Score"
-          score={score}
-          ratingLabel={score != null ? scoreToRatingLabel(score) : null}
+          title={headlineOuraModel.title}
+          score={headlineOuraModel.score}
+          ratingLabel={headlineOuraModel.ratingLabel}
           fallbackMessage={fallbackMessage}
-          scoreFootnote={null}
-          scoreUnavailableSubtitle={
-            score == null
-              ? "No score in this Oura snapshot for this day. Try syncing or choose another day."
-              : null
-          }
+          scoreFootnote={headlineOuraModel.scoreFootnote}
+          scoreUnavailableSubtitle={headlineOuraModel.scoreUnavailableSubtitle}
         />
-        <RecoveryContributorsCard rows={contributorRows} />
-        {score == null && Object.keys(contributors).length === 0 && (
+        {showContributorsCard ? <RecoveryContributorsCard rows={contributorRows} /> : null}
+        {showOuraEmptyDetails ? (
           <View style={styles.messageCard}>
-            <Text style={styles.emptySubtitle}>No detailed metrics for this day.</Text>
+            <Text style={styles.emptySubtitle}>No detailed sleep metrics for this day.</Text>
           </View>
-        )}
+        ) : null}
       </View>
     </RecoveryShell>
   );

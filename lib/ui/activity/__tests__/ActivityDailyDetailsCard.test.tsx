@@ -60,4 +60,27 @@ describe("ActivityDailyDetailsCard", () => {
     });
     expect(JSON.stringify(tree.toJSON())).not.toContain("Other days may still show");
   });
+
+  it("supports custom heading title without changing numeric tier UI", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          headingTitle="Yesterday’s Steps"
+          loading={false}
+          error={null}
+          model={{
+            title: "Sat",
+            compactStatsSummary: "148 steps",
+            markerPosition01: 0.2,
+          }}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("Yesterday’s Steps");
+    expect(str).not.toContain("Today’s Steps");
+    expect(str).toContain("148");
+    expect(str).toContain("Low");
+  });
 });

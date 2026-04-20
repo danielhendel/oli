@@ -67,6 +67,15 @@ const defaultOverviewData = {
       markerPosition01: 0.12,
     },
   },
+  yesterdayDetails: {
+    loading: false,
+    error: null,
+    model: {
+      title: "Sat 4/5",
+      compactStatsSummary: "9,876 steps",
+      markerPosition01: 0.42,
+    },
+  },
 };
 
 const mockUseActivityOverviewScreenData = jest.fn(() => defaultOverviewData);
@@ -164,8 +173,9 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("Step Ratings");
     expect(str).toContain("activity-step-ratings-toggle");
     expect(str.indexOf("Step Ratings")).toBeLessThan(str.indexOf("Today’s Steps"));
+    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf("Yesterday’s Steps"));
     const overviewBarMarker = "activity-overview-steps-bar-day7";
-    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf(overviewBarMarker));
+    expect(str.indexOf("Yesterday’s Steps")).toBeLessThan(str.indexOf(overviewBarMarker));
     expect(str).toContain(overviewBarMarker);
     expect(str).toContain("Today’s Steps");
     expect(str).toContain("7 Day");
@@ -177,11 +187,13 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("Not enough data");
     expect(str).toContain("4,000");
     expect(str).toContain("1,234");
+    expect(str).toContain("9,876");
     expect(str).not.toMatch(/1,234 steps/);
     expect(str).not.toMatch(/\d+ steps · \d/);
     expect(str).toContain("activity-overview-steps-bar-day7");
     expect(str).toContain("activity-overview-steps-bar-month12");
     expect(str).toContain("activity-daily-details-steps-bar");
+    expect(str).toContain("activity-yesterday-details-steps-bar");
   });
 
   it("tapping a weekly strip day pushes activity day detail with local YYYY-MM-DD param", async () => {
