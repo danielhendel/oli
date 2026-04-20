@@ -40,3 +40,30 @@ await build({
 });
 
 console.log(`Built ${outFile}`);
+
+/** Standalone bundle for oli-api to run the same derived-truth recompute as Cloud Functions (shared logic). */
+const recomputeEntry = path.join(projectRoot, "src", "pipeline", "recomputeForDay.ts");
+const recomputeOut = path.join(projectRoot, "lib", "recomputeForDayExport.js");
+
+await build({
+  entryPoints: [recomputeEntry],
+  outfile: recomputeOut,
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node20",
+  sourcemap: true,
+  logLevel: "info",
+  alias: {
+    "@/lib": path.join(repoRoot, "lib"),
+    "@oli/contracts": path.join(repoRoot, "lib/contracts/index.ts"),
+  },
+  external: [
+    "firebase-functions",
+    "firebase-functions/*",
+    "firebase-admin",
+    "firebase-admin/*",
+  ],
+});
+
+console.log(`Built ${recomputeOut}`);

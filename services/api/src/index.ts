@@ -14,6 +14,7 @@ import integrationsRoutes, { handleOuraCallback } from "./routes/integrations";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
 import ouraIngestRouter from "./routes/integrations/ouraIngest";
 import ouraPullNowRouter from "./routes/integrations/ouraPullNow";
+import ouraSleepDayRefreshRouter from "./routes/integrations/ouraSleepDayRefresh";
 import ouraPullRouter from "./routes/ouraPull";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
@@ -158,6 +159,7 @@ app.get("/integrations/oura/complete", (_req: Request, res: Response) => {
 app.use("/integrations/oura/ingest", authMiddleware, ouraIngestRouter);
 app.use("/integrations/oura/pull", requireInvokerAuth, ouraPullRouter);
 app.use("/integrations/oura/pull-now", authMiddleware, ouraPullNowRouter);
+app.use("/integrations/oura/sleep-day-refresh", authMiddleware, ouraSleepDayRefreshRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.

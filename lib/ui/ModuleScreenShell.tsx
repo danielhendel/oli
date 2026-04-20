@@ -41,6 +41,7 @@ export function ModuleScreenShell({
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.container}
+        alwaysBounceVertical={Boolean(refreshControl)}
         {...(refreshControl ? { refreshControl } : {})}
       >
         <View style={styles.content}>{children}</View>

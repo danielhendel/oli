@@ -82,6 +82,15 @@ export function useActivityOverviewScreenData() {
     );
   }, [todayDayKey, displayRollup, stepsRollup]);
 
+  /** Local calendar yesterday — same completed-day anchor as Overview ({@link getActivityOverviewAnchorEndDay}). */
+  const yesterdayDayKey = overviewAnchorEndDay;
+
+  const rollupYesterdayEntryError = useMemo(() => {
+    return buildActivitySelectedDayRollupError(yesterdayDayKey, displayRollup, () =>
+      void stepsRollup.refetch({ cacheBust: `activityRollupYesterdayRetry:${Date.now()}` }),
+    );
+  }, [yesterdayDayKey, displayRollup, stepsRollup]);
+
   const overviewCardModel = useMemo(() => {
     return buildActivityOverviewCardModel({
       overviewAnchorEndDay,
@@ -189,6 +198,31 @@ export function useActivityOverviewScreenData() {
     [dailyDetailsLoading, dailyDetailsModel, dailyDetailsTodayError],
   );
 
+  const yesterdayDetailsModel = useMemo(() => {
+    if (!user) return null;
+    const entry = displayRollup[yesterdayDayKey];
+    if (entry === undefined || entry.kind === "error") return null;
+    return buildActivityDailyDetailsCardModel({
+      detailDayKey: yesterdayDayKey,
+      todayDayKey,
+      rollupByDay: displayRollup,
+    });
+  }, [user, yesterdayDayKey, todayDayKey, displayRollup]);
+
+  const yesterdayDetailsLoading = useMemo(() => {
+    if (!user) return false;
+    return displayRollup[yesterdayDayKey] === undefined;
+  }, [user, displayRollup, yesterdayDayKey]);
+
+  const yesterdayDetails = useMemo(
+    () => ({
+      loading: yesterdayDetailsLoading,
+      error: rollupYesterdayEntryError,
+      model: yesterdayDetailsModel,
+    }),
+    [rollupYesterdayEntryError, yesterdayDetailsLoading, yesterdayDetailsModel],
+  );
+
   return {
     user,
     initializing,
@@ -198,5 +232,6 @@ export function useActivityOverviewScreenData() {
     stepsRollup,
     overview,
     dailyDetails,
+    yesterdayDetails,
   };
 }

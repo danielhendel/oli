@@ -85,6 +85,15 @@ export default function ActivityOverviewScreen() {
             model={data.dailyDetails.model}
           />
           <View style={styles.cardSpacer} />
+          <ActivityDailyDetailsCard
+            headingTitle="Yesterday’s Steps"
+            ratingTestID="activity-yesterday-details-rating"
+            stepsBarTestID="activity-yesterday-details-steps-bar"
+            loading={data.yesterdayDetails.loading}
+            error={data.yesterdayDetails.error}
+            model={data.yesterdayDetails.model}
+          />
+          <View style={styles.cardSpacer} />
           <ActivityOverviewCard
             loading={data.overview.loading}
             error={data.overview.error}
