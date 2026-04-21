@@ -3,6 +3,7 @@ import {
   dashRecapPlacementMarker01,
 } from "@/lib/data/dash/dashRecapDisplayPlacement";
 import {
+  ACTIVITY_BASELINE_TRAILING_DAY_COUNT,
   ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT,
   ACTIVITY_OVERVIEW_TRAILING_30_DAY_COUNT,
   ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT,
@@ -19,11 +20,12 @@ import {
 import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { formatDayKeyWeekdayShortMonthDay } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import { stepsFromLocaleDigitString } from "@/lib/utils/activityStepRating";
 
 /** Same neutral display cap as Daily Recap steps bar — not a clinical target. */
 export const ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP = DASH_RECAP_DISPLAY_PLACEMENT_CAPS.steps;
 
-export type ActivityOverviewTimeframeKey = "day7" | "day30" | "ytd" | "month12";
+export type ActivityOverviewTimeframeKey = "yesterday" | "day7" | "day30" | "ytd" | "month12";
 
 export type ActivityOverviewRowModel = {
   key: ActivityOverviewTimeframeKey;
@@ -37,6 +39,31 @@ export type ActivityOverviewRowModel = {
 export type ActivityOverviewCardModel = {
   timeframes: ActivityOverviewRowModel[];
 };
+
+/** First Overview row: completed **yesterday** only (`overviewAnchorEndDay`), same rollup rules as Yesterday card. */
+function rowYesterdayOverview(input: {
+  overviewAnchorEndDay: DayKey;
+  rollupByDay: Readonly<ActivityStepsRollupMap>;
+}): ActivityOverviewRowModel {
+  const { overviewAnchorEndDay: end, rollupByDay } = input;
+  const entry = rollupByDay[end];
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  if (entry?.kind === "numeric") {
+    const steps = entry.steps;
+    return {
+      key: "yesterday",
+      label: "Yesterday",
+      compactStatsSummary: `${Math.round(steps).toLocaleString()} steps`,
+      markerPosition01: dashRecapPlacementMarker01(steps, cap),
+    };
+  }
+  return {
+    key: "yesterday",
+    label: "Yesterday",
+    compactStatsSummary: ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA,
+    markerPosition01: 0,
+  };
+}
 
 function rowFromFullCoverageWindow(input: {
   key: ActivityOverviewTimeframeKey;
@@ -130,6 +157,7 @@ export function buildActivityOverviewCardModel(input: {
   const ytdDays = activityYtdInclusiveThroughEndDay(end);
 
   const timeframes: ActivityOverviewRowModel[] = [
+    rowYesterdayOverview({ overviewAnchorEndDay: end, rollupByDay }),
     rowFromFullCoverageWindow({ key: "day7", label: "7 Day", days: d7, rollupByDay }),
     rowFromFullCoverageWindow({ key: "day30", label: "30 Day", days: d30, rollupByDay }),
     rowFromZeroFilledFixedDenominator({ key: "ytd", label: "YTD", days: ytdDays, rollupByDay }),
@@ -139,11 +167,61 @@ export function buildActivityOverviewCardModel(input: {
   return { timeframes };
 }
 
+/**
+ * Activity Baseline: mean steps/day over **exactly** {@link ACTIVITY_BASELINE_TRAILING_DAY_COUNT}
+ * **completed** local days from `start = addCalendarDaysToDayKey(overviewAnchorEndDay, -(90-1))`
+ * through `overviewAnchorEndDay` inclusive ({@link activityTrailingNDaysInclusive}).
+ *
+ * **Caller contract:** pass `overviewAnchorEndDay = getActivityOverviewAnchorEndDay(getTodayDayKeyLocal())`
+ * (local yesterday). Then `days` **excludes device today by construction** (today is the day after `end`);
+ * {@link meanNumericStepsForWindow} only sums those keys, so a numeric rollup for “today” in the map
+ * cannot affect the baseline.
+ *
+ * Sufficiency matches Overview 7/30: {@link stepsWindowHasFullNumericCoverage}.
+ */
+export function buildActivityBaselineCardModel(input: {
+  /** Local-calendar yesterday (last completed day); must not be device today. */
+  overviewAnchorEndDay: DayKey;
+  rollupByDay: Readonly<ActivityStepsRollupMap>;
+}): ActivityDailyDetailsCardModel {
+  const { overviewAnchorEndDay: end, rollupByDay } = input;
+  const cap = ACTIVITY_OVERVIEW_STEPS_PLACEMENT_CAP;
+  const days = activityTrailingNDaysInclusive(end, ACTIVITY_BASELINE_TRAILING_DAY_COUNT);
+  const sufficient = stepsWindowHasFullNumericCoverage(days, rollupByDay);
+  if (!sufficient) {
+    return {
+      title: "Activity Baseline",
+      compactStatsSummary: ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA,
+      markerPosition01: 0,
+    };
+  }
+  const avg = meanNumericStepsForWindow(days, rollupByDay);
+  const rounded = Math.round(avg);
+  return {
+    title: "Activity Baseline",
+    compactStatsSummary: `${rounded.toLocaleString()} steps`,
+    markerPosition01: dashRecapPlacementMarker01(avg, cap),
+  };
+}
+
 export type ActivityDailyDetailsCardModel = {
   title: string;
   compactStatsSummary: string;
   markerPosition01: number;
+  /** Today’s Steps only: `todaySteps - baselineMean` when both totals are numeric. */
+  deltaFromBaselineSteps?: number | null;
+  /** Today’s Steps only: derived from {@link deltaFromBaselineSteps}; omitted when delta cannot be computed. */
+  deltaFromBaselineLabel?: string | null;
 };
+
+/** Parses `{n} steps` summaries from daily/baseline cards (display strings only). */
+export function parseActivityDailyDetailsNumericSteps(compactStatsSummary: string): number | null {
+  const m = compactStatsSummary.trim().match(/^([\d,]+)\s+steps$/i);
+  if (!m?.[1]) return null;
+  const raw = stepsFromLocaleDigitString(m[1]);
+  if (!Number.isFinite(raw)) return null;
+  return Math.round(raw);
+}
 
 /** Today’s Steps row from a live HealthKit total (not daily-facts). */
 export function buildActivityTodayStepsLiveCardModel(input: { todayDayKey: DayKey; steps: number }): ActivityDailyDetailsCardModel {

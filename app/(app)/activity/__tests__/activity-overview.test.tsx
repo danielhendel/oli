@@ -29,8 +29,16 @@ const defaultOverviewData = {
   overview: {
     loading: false,
     error: null,
+    yesterdayRowLoading: false,
+    yesterdayRowError: null,
     model: {
       timeframes: [
+        {
+          key: "yesterday" as const,
+          label: "Yesterday",
+          compactStatsSummary: "9,876 steps",
+          markerPosition01: 0.42,
+        },
         {
           key: "day7" as const,
           label: "7 Day",
@@ -65,15 +73,17 @@ const defaultOverviewData = {
       title: "Sun 4/6",
       compactStatsSummary: "1,234 steps",
       markerPosition01: 0.12,
+      deltaFromBaselineSteps: -4321,
+      deltaFromBaselineLabel: "4,321 steps below your baseline",
     },
   },
-  yesterdayDetails: {
+  baselineDetails: {
     loading: false,
     error: null,
     model: {
-      title: "Sat 4/5",
-      compactStatsSummary: "9,876 steps",
-      markerPosition01: 0.42,
+      title: "Activity Baseline",
+      compactStatsSummary: "5,555 steps",
+      markerPosition01: 0.31,
     },
   },
 };
@@ -170,12 +180,15 @@ describe("ActivityOverviewScreen", () => {
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str).toContain("Step Ratings");
-    expect(str).toContain("activity-step-ratings-toggle");
-    expect(str.indexOf("Step Ratings")).toBeLessThan(str.indexOf("Today’s Steps"));
-    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf("Yesterday’s Steps"));
+    expect(str).not.toContain("Step Ratings");
+    expect(str).not.toContain("activity-step-ratings-toggle");
+    expect(str.indexOf("Activity Baseline")).toBeLessThan(str.indexOf("Today’s Steps"));
+    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf("Yesterday"));
     const overviewBarMarker = "activity-overview-steps-bar-day7";
-    expect(str.indexOf("Yesterday’s Steps")).toBeLessThan(str.indexOf(overviewBarMarker));
+    expect(str.indexOf("Yesterday")).toBeLessThan(str.indexOf(overviewBarMarker));
+    expect(str.indexOf("Your baseline is your average daily steps over the past 90 days")).toBeLessThan(
+      str.indexOf("Today’s Steps"),
+    );
     expect(str).toContain(overviewBarMarker);
     expect(str).toContain("Today’s Steps");
     expect(str).toContain("7 Day");
@@ -188,12 +201,20 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("4,000");
     expect(str).toContain("1,234");
     expect(str).toContain("9,876");
+    expect(str).toContain("5,555");
+    expect(str).toContain("Your baseline is your average daily steps over the past 90 days");
+    expect(str).toContain("activity-daily-details-delta-label");
+    expect(str).toContain("steps below your baseline");
+    expect(str).not.toContain("activity-baseline-tier-legend");
+    expect(str).not.toContain("under 5,000");
+    expect(str).not.toContain("15,000+");
     expect(str).not.toMatch(/1,234 steps/);
     expect(str).not.toMatch(/\d+ steps · \d/);
     expect(str).toContain("activity-overview-steps-bar-day7");
     expect(str).toContain("activity-overview-steps-bar-month12");
+    expect(str).toContain("activity-baseline-details-steps-bar");
     expect(str).toContain("activity-daily-details-steps-bar");
-    expect(str).toContain("activity-yesterday-details-steps-bar");
+    expect(str).toContain("activity-overview-steps-bar-yesterday");
   });
 
   it("tapping a weekly strip day pushes activity day detail with local YYYY-MM-DD param", async () => {

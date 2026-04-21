@@ -37,11 +37,20 @@ const ACTIVITY_STEP_RATING_TIER_META = [
  */
 export const ACTIVITY_STEP_RATING_TIERS: readonly ActivityStepRatingTierDefinition[] =
   ACTIVITY_STEP_RATING_TIER_META.map((m, i) => {
-    if (i === 3) {
+    if (i === 2) {
+      /** Moderately Active (Average): softer wash than default segment chrome for pill hierarchy. */
       return {
         ...m,
-        color: "#7FBF9F",
-        backgroundColor: "#EFF7F4",
+        color: "#D89550",
+        backgroundColor: "#FCFAF6",
+      };
+    }
+    if (i === 3) {
+      /** Active (Good): calmer than Very Active — same hue family, lower chroma for clearer tier ladder. */
+      return {
+        ...m,
+        color: "#6BA38A",
+        backgroundColor: "#F3F7F5",
       };
     }
     if (i === 4) {
@@ -98,5 +107,50 @@ export function getStepRating(steps: number): ActivityStepRating {
     label: d.label,
     color: d.color,
     backgroundColor: d.backgroundColor,
+  };
+}
+
+/**
+ * Activity module UI: tier thresholds and chrome match {@link getStepRating}; pill text uses
+ * public activity descriptors (Overview / Today / Yesterday / Activity tier legends).
+ */
+export const ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS = [
+  "Sedentary",
+  "Lightly Active",
+  "Moderately Active",
+  "Active",
+  "Very Active",
+  "Highly Active",
+] as const;
+
+/**
+ * Step bands for Activity tier legends (index matches {@link getStepRatingTierIndex}).
+ * Tier 0 uses public phrasing; tiers 1–5 reuse {@link ACTIVITY_STEP_RATING_TIERS} `rangeDisplay` so labels stay aligned
+ * with the thresholds in {@link getStepRatingTierIndex} (single numeric source of truth).
+ */
+export const ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES = [
+  "under 5,000",
+  ACTIVITY_STEP_RATING_TIERS[1]!.rangeDisplay,
+  ACTIVITY_STEP_RATING_TIERS[2]!.rangeDisplay,
+  ACTIVITY_STEP_RATING_TIERS[3]!.rangeDisplay,
+  ACTIVITY_STEP_RATING_TIERS[4]!.rangeDisplay,
+  ACTIVITY_STEP_RATING_TIERS[5]!.rangeDisplay,
+] as const;
+
+export function getActivityStepDescriptorLabelForTierIndex(tierIndex: number): string {
+  const clamped = Math.min(
+    Math.max(Math.floor(tierIndex), 0),
+    ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS.length - 1,
+  );
+  return ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS[clamped]!;
+}
+
+/** Same colors as {@link getStepRating}; label is {@link ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS} for the tier. */
+export function getStepRatingActivityDescriptorPill(steps: number): ActivityStepRating {
+  const base = getStepRating(steps);
+  const i = getStepRatingTierIndex(steps);
+  return {
+    ...base,
+    label: ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS[i]!,
   };
 }

@@ -3,9 +3,9 @@ import { StyleSheet, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOverviewScreenData";
+import { ACTIVITY_BASELINE_DEFINITION_SENTENCE } from "@/lib/ui/activity/activityBaselineCopy";
 import { ActivityDailyDetailsCard } from "@/lib/ui/activity/ActivityDailyDetailsCard";
 import { ActivityOverviewCard } from "@/lib/ui/activity/ActivityOverviewCard";
-import { ActivityStepRatingsCard } from "@/lib/ui/activity/ActivityStepRatingsCard";
 import { ActivityWeeklyStrip } from "@/lib/ui/activity/ActivityWeeklyStrip";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -77,27 +77,32 @@ export default function ActivityOverviewScreen() {
         headerContent={headerStrip}
       >
         <View style={styles.pageBody}>
-          <ActivityStepRatingsCard />
+          <ActivityDailyDetailsCard
+            headingTitle="Activity Baseline"
+            ratingTestID="activity-baseline-details-rating"
+            stepsBarTestID="activity-baseline-details-steps-bar"
+            loading={data.baselineDetails.loading}
+            error={data.baselineDetails.error}
+            model={data.baselineDetails.model}
+            footerCaption={ACTIVITY_BASELINE_DEFINITION_SENTENCE}
+          />
           <View style={styles.cardSpacer} />
           <ActivityDailyDetailsCard
             loading={data.dailyDetails.loading}
             error={data.dailyDetails.error}
             model={data.dailyDetails.model}
-          />
-          <View style={styles.cardSpacer} />
-          <ActivityDailyDetailsCard
-            headingTitle="Yesterday’s Steps"
-            ratingTestID="activity-yesterday-details-rating"
-            stepsBarTestID="activity-yesterday-details-steps-bar"
-            loading={data.yesterdayDetails.loading}
-            error={data.yesterdayDetails.error}
-            model={data.yesterdayDetails.model}
+            {...(data.dailyDetails.model?.deltaFromBaselineLabel != null &&
+            data.dailyDetails.model.deltaFromBaselineLabel.length > 0
+              ? { deltaLabel: data.dailyDetails.model.deltaFromBaselineLabel }
+              : {})}
           />
           <View style={styles.cardSpacer} />
           <ActivityOverviewCard
             loading={data.overview.loading}
             error={data.overview.error}
             model={data.overview.model}
+            yesterdayRowLoading={data.overview.yesterdayRowLoading}
+            yesterdayRowError={data.overview.yesterdayRowError}
           />
         </View>
       </ModuleScreenShell>
@@ -110,7 +115,7 @@ const styles = StyleSheet.create({
   pageBody: {
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 14,
     flexGrow: 1,
   },
   cardSpacer: { height: 16 },

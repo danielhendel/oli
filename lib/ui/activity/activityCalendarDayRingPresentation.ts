@@ -1,4 +1,8 @@
-import { ACTIVITY_STEP_RATING_TIERS, getStepRatingTierIndex } from "@/lib/utils/activityStepRating";
+import {
+  ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS,
+  getActivityStepDescriptorLabelForTierIndex,
+  getStepRatingTierIndex,
+} from "@/lib/utils/activityStepRating";
 
 /** Rollup slice used only to derive tier-colored rings (same thresholds as everywhere else). */
 export type ActivityRollupEntryLike = { kind: string; steps?: number } | undefined;
@@ -20,7 +24,7 @@ export type ActivityCalendarDayRingModel = {
   accessibilityDetail: string;
 };
 
-const TIER_COUNT = ACTIVITY_STEP_RATING_TIERS.length;
+const TIER_COUNT = ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS.length;
 
 function rollupEntryForTodayStrip(
   meta: { hasSteps?: boolean; ringTierIndex: number | null } | undefined,
@@ -46,7 +50,7 @@ function accessibilityDetailForPresentation(
     case "neutralFallback":
       return "no steps in daily rollup";
     case "tier": {
-      const label = ACTIVITY_STEP_RATING_TIERS[presentation.tierIndex]!.label;
+      const label = getActivityStepDescriptorLabelForTierIndex(presentation.tierIndex);
       return `${label}, steps in daily rollup`;
     }
   }

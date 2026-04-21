@@ -1,6 +1,10 @@
 import {
+  ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS,
+  ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES,
   ACTIVITY_STEP_RATING_TIERS,
+  getActivityStepDescriptorLabelForTierIndex,
   getStepRating,
+  getStepRatingActivityDescriptorPill,
   getStepRatingTierIndex,
   stepRatingTierMarkerPosition01,
   stepsFromLocaleDigitString,
@@ -38,6 +42,38 @@ describe("getStepRating", () => {
   it("stepsFromLocaleDigitString strips grouping commas", () => {
     expect(stepsFromLocaleDigitString("7,919")).toBe(7919);
     expect(getStepRating(stepsFromLocaleDigitString("7,919")).label).toBe("Average");
+  });
+});
+
+describe("getStepRatingActivityDescriptorPill", () => {
+  it("uses public activity labels at the same thresholds as getStepRating", () => {
+    expect(getStepRatingActivityDescriptorPill(4000).label).toBe("Sedentary");
+    expect(getStepRatingActivityDescriptorPill(8000).label).toBe("Moderately Active");
+    expect(getStepRatingActivityDescriptorPill(16000).label).toBe("Highly Active");
+  });
+
+  it("reuses getStepRating pill chrome", () => {
+    const a = getStepRatingActivityDescriptorPill(9200);
+    const b = getStepRating(9200);
+    expect(a.color).toBe(b.color);
+    expect(a.backgroundColor).toBe(b.backgroundColor);
+  });
+});
+
+describe("getActivityStepDescriptorLabelForTierIndex", () => {
+  it("clamps out-of-range tier indices", () => {
+    expect(getActivityStepDescriptorLabelForTierIndex(-5)).toBe("Sedentary");
+    expect(getActivityStepDescriptorLabelForTierIndex(100)).toBe("Highly Active");
+  });
+});
+
+describe("ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES", () => {
+  it("pairs with public descriptor labels and reuses tier rangeDisplay for bands 1–5", () => {
+    expect(ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES.length).toBe(ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS.length);
+    expect(ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES[0]).toBe("under 5,000");
+    for (let i = 1; i <= 5; i += 1) {
+      expect(ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES[i]).toBe(ACTIVITY_STEP_RATING_TIERS[i]!.rangeDisplay);
+    }
   });
 });
 

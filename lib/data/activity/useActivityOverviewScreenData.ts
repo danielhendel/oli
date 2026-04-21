@@ -6,10 +6,12 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import {
+  buildActivityBaselineCardModel,
   buildActivityDailyDetailsCardModel,
   buildActivityOverviewCardModel,
   buildActivityTodayStepsLiveCardModel,
 } from "@/lib/data/activity/activityOverviewCardModel";
+import { mergeTodayDetailsWithBaselineDelta } from "@/lib/data/activity/activityTodayBaselineDelta";
 import {
   buildActivityRollupAggregateError,
   buildActivitySelectedDayRollupError,
@@ -180,47 +182,58 @@ export function useActivityOverviewScreenData() {
     return stepsRollup.status === "partial";
   }, [hkToday.status, hasRollupForTodayCard, displayRollup, stepsRollup.status, user]);
 
+  const overviewYesterdayRowLoading = useMemo(() => {
+    if (!user) return false;
+    return displayRollup[yesterdayDayKey] === undefined;
+  }, [user, displayRollup, yesterdayDayKey]);
+
   const overview = useMemo(
     () => ({
       loading: false,
       error: rollupAggregateError,
       model: overviewCardModel,
+      yesterdayRowLoading: overviewYesterdayRowLoading,
+      yesterdayRowError: rollupYesterdayEntryError,
     }),
-    [overviewCardModel, rollupAggregateError],
+    [overviewCardModel, overviewYesterdayRowLoading, rollupAggregateError, rollupYesterdayEntryError],
+  );
+
+  const baselineDetailsLoading = useMemo(() => {
+    if (!user) return false;
+    return stepsRollup.status === "partial";
+  }, [user, stepsRollup.status]);
+
+  const baselineDetailsModel = useMemo(() => {
+    if (!user || stepsRollup.status === "partial") return null;
+    // Baseline: 90 completed local days ending `overviewAnchorEndDay` (= getActivityOverviewAnchorEndDay(today));
+    // never includes today — see buildActivityBaselineCardModel.
+    return buildActivityBaselineCardModel({
+      overviewAnchorEndDay,
+      rollupByDay: displayRollup,
+    });
+  }, [user, stepsRollup.status, overviewAnchorEndDay, displayRollup]);
+
+  const baselineDetails = useMemo(
+    () => ({
+      loading: baselineDetailsLoading,
+      error: null,
+      model: baselineDetailsModel,
+    }),
+    [baselineDetailsLoading, baselineDetailsModel],
+  );
+
+  const dailyDetailsModelMerged = useMemo(
+    () => mergeTodayDetailsWithBaselineDelta(dailyDetailsModel, baselineDetailsModel),
+    [dailyDetailsModel, baselineDetailsModel],
   );
 
   const dailyDetails = useMemo(
     () => ({
       loading: dailyDetailsLoading,
       error: dailyDetailsTodayError,
-      model: dailyDetailsModel,
+      model: dailyDetailsModelMerged,
     }),
-    [dailyDetailsLoading, dailyDetailsModel, dailyDetailsTodayError],
-  );
-
-  const yesterdayDetailsModel = useMemo(() => {
-    if (!user) return null;
-    const entry = displayRollup[yesterdayDayKey];
-    if (entry === undefined || entry.kind === "error") return null;
-    return buildActivityDailyDetailsCardModel({
-      detailDayKey: yesterdayDayKey,
-      todayDayKey,
-      rollupByDay: displayRollup,
-    });
-  }, [user, yesterdayDayKey, todayDayKey, displayRollup]);
-
-  const yesterdayDetailsLoading = useMemo(() => {
-    if (!user) return false;
-    return displayRollup[yesterdayDayKey] === undefined;
-  }, [user, displayRollup, yesterdayDayKey]);
-
-  const yesterdayDetails = useMemo(
-    () => ({
-      loading: yesterdayDetailsLoading,
-      error: rollupYesterdayEntryError,
-      model: yesterdayDetailsModel,
-    }),
-    [rollupYesterdayEntryError, yesterdayDetailsLoading, yesterdayDetailsModel],
+    [dailyDetailsLoading, dailyDetailsModelMerged, dailyDetailsTodayError],
   );
 
   return {
@@ -232,6 +245,6 @@ export function useActivityOverviewScreenData() {
     stepsRollup,
     overview,
     dailyDetails,
-    yesterdayDetails,
+    baselineDetails,
   };
 }

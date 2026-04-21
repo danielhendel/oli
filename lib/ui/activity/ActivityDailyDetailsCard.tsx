@@ -7,10 +7,15 @@ import {
   ActivityTierProgressTrack,
   activityTierProgressAccessibilityPercent,
 } from "@/lib/ui/activity/ActivityTierProgressTrack";
+import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { getStepRating, getStepRatingTierIndex, stepsFromLocaleDigitString } from "@/lib/utils/activityStepRating";
+import {
+  getStepRatingActivityDescriptorPill,
+  getStepRatingTierIndex,
+  stepsFromLocaleDigitString,
+} from "@/lib/utils/activityStepRating";
 
 type ActivityDailyDetailsCardProps = {
   loading: boolean;
@@ -20,6 +25,10 @@ type ActivityDailyDetailsCardProps = {
   headingTitle?: string;
   ratingTestID?: string;
   stepsBarTestID?: string;
+  /** Muted explainer below the progress track (e.g. Activity Baseline). */
+  footerCaption?: string;
+  /** Today’s Steps vs baseline insight (precomputed in data layer). */
+  deltaLabel?: string | null;
 };
 
 /** Parses `compactStatsSummary` for display only (e.g. `7,524 steps` → `7,524`). Hook output unchanged. */
@@ -54,9 +63,13 @@ export function ActivityDailyDetailsCard({
   headingTitle = "Today’s Steps",
   ratingTestID = "activity-daily-details-rating",
   stepsBarTestID = "activity-daily-details-steps-bar",
+  footerCaption,
+  deltaLabel,
 }: ActivityDailyDetailsCardProps) {
   const digits = model != null ? primaryStepsFigureFromCompactSummary(model.compactStatsSummary) : null;
-  const rating = digits != null ? getStepRating(stepsFromLocaleDigitString(digits)) : null;
+  const hasFooterCaption = footerCaption != null && footerCaption.length > 0;
+  const hasDeltaLabel = deltaLabel != null && deltaLabel.length > 0;
+  const rating = digits != null ? getStepRatingActivityDescriptorPill(stepsFromLocaleDigitString(digits)) : null;
   const headingA11y = headingSentenceLowerSteps(headingTitle);
   const titleRowA11y =
     loading || model == null
@@ -70,12 +83,12 @@ export function ActivityDailyDetailsCard({
   return (
     <View style={styles.card}>
       <View
-        style={[moduleOverviewMetricLayoutStyles.topRow, styles.titleNumberRow]}
+        style={[moduleOverviewMetricLayoutStyles.topRow, styles.activityRowTop, styles.titleNumberRow]}
         accessible
         accessibilityRole="header"
         accessibilityLabel={titleRowA11y}
       >
-        <View style={styles.labelPillCluster}>
+        <View style={styles.titlePillLeftGroup}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {headingTitle}
           </Text>
@@ -85,6 +98,8 @@ export function ActivityDailyDetailsCard({
               color={rating.color}
               backgroundColor={rating.backgroundColor}
               emphasis="subtle"
+              compactChrome
+              labelTypography={ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY}
               testID={ratingTestID}
             />
           ) : null}
@@ -110,11 +125,28 @@ export function ActivityDailyDetailsCard({
         />
       ) : null}
       {!loading && model != null ? (
-        <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
+        <View
+          style={[
+            moduleOverviewMetricLayoutStyles.metricBlock,
+            styles.activityDetailsMetricBlock,
+            styles.metricFooterStack,
+            hasFooterCaption
+              ? styles.metricFooterStackWithCaption
+              : hasDeltaLabel
+                ? styles.metricFooterStackWithDelta
+                : null,
+          ]}
+        >
           <DetailsTierProgressTrack
             testID={stepsBarTestID}
             tierIndex={digits != null ? getStepRatingTierIndex(stepsFromLocaleDigitString(digits)) : null}
           />
+          {hasDeltaLabel ? (
+            <Text style={styles.deltaInsight} testID="activity-daily-details-delta-label">
+              {deltaLabel}
+            </Text>
+          ) : null}
+          {hasFooterCaption ? <Text style={styles.footerCaption}>{footerCaption}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -125,38 +157,73 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 15,
+    gap: 11,
     ...elevatedCardSurfaceStyle,
   },
-  titleNumberRow: {
-    paddingBottom: 0,
+  activityDetailsMetricBlock: {
+    gap: 10,
   },
-  labelPillCluster: {
+  metricFooterStack: {
+    gap: 10,
+  },
+  metricFooterStackWithCaption: {
+    gap: 14,
+  },
+  metricFooterStackWithDelta: {
+    gap: 11,
+  },
+  deltaInsight: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "400",
+    color: "#8E8E93",
+    letterSpacing: -0.18,
+  },
+  activityRowTop: {
+    alignItems: "baseline",
+  },
+  titleNumberRow: {
+    paddingBottom: 2,
+  },
+  titlePillLeftGroup: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    alignItems: "baseline",
+    gap: 7,
   },
   cardTitle: {
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 21,
+    fontSize: 19,
+    lineHeight: 24,
     fontWeight: "600",
     color: "#1C1C1E",
-    letterSpacing: -0.38,
+    letterSpacing: -0.34,
+  },
+  footerCaption: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: "400",
+    color: "#8E8E93",
+    letterSpacing: -0.2,
+    marginBottom: 6,
   },
   stepCountFigure: {
     fontSize: 23,
-    fontWeight: "700",
+    lineHeight: 28,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
     color: "#1C1C1E",
-    letterSpacing: -0.42,
+    letterSpacing: -0.44,
     flexShrink: 0,
   },
   stepCountPlaceholder: {
     fontSize: 21,
+    lineHeight: 26,
     fontWeight: "600",
+    fontVariant: ["tabular-nums"],
     color: "#8E8E93",
     flexShrink: 0,
   },

@@ -25,7 +25,7 @@ describe("ActivityDailyDetailsCard", () => {
     });
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("148");
-    expect(str).toContain("Low");
+    expect(str).toContain("Sedentary");
     expect(str).not.toMatch(/148 steps/);
     expect(str).not.toContain("Couldn’t load steps for");
     expect(str).toContain("activity-daily-details-steps-bar");
@@ -45,6 +45,27 @@ describe("ActivityDailyDetailsCard", () => {
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("Today fetch failed");
     expect(str).not.toContain("148 steps");
+  });
+
+  it("renders precomputed delta label below the progress bar when deltaLabel is passed", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          loading={false}
+          error={null}
+          model={{
+            title: "Today",
+            compactStatsSummary: "5,000 steps",
+            markerPosition01: 0.3,
+          }}
+          deltaLabel="500 steps above your baseline"
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("activity-daily-details-delta-label");
+    expect(str).toContain("500 steps above your baseline");
   });
 
   it("does not duplicate overview-style partial failure copy when props omit aggregate error", () => {
@@ -81,6 +102,6 @@ describe("ActivityDailyDetailsCard", () => {
     expect(str).toContain("Yesterday’s Steps");
     expect(str).not.toContain("Today’s Steps");
     expect(str).toContain("148");
-    expect(str).toContain("Low");
+    expect(str).toContain("Sedentary");
   });
 });

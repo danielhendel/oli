@@ -36,6 +36,8 @@ describe("ActivityStepRatingsCard", () => {
     expect(str).toContain("activity-step-ratings-tier-0");
     expect(str).toContain("activity-step-ratings-tier-dot-0");
     expect(str).toContain("under 5,000");
+    expect(str).toContain("Sedentary");
+    expect(str).not.toContain("Below Avg");
     expect(str).not.toContain("activity-step-ratings-track");
   });
 });

@@ -35,8 +35,8 @@ export const STEP_TIER_FILL = {
   elite: 1.0,
 } as const satisfies Record<ActivityStepTierKey, number>;
 
-/** Neutral track trough — warm, light, same family as Activity/Body elevated cards. */
-export const STEP_TIER_TRACK_INNER_BACKGROUND = "#F4F2EE";
+/** Neutral track trough — warm, light; slightly lifted from fill for a lighter bar shell. */
+export const STEP_TIER_TRACK_INNER_BACKGROUND = "#F8F6F4";
 
 /** Hairline rim — SegmentedZoneTrack-adjacent neutral. */
 export const STEP_TIER_TRACK_RIM_BORDER = "rgba(60, 60, 67, 0.09)";
