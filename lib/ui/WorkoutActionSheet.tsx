@@ -21,6 +21,8 @@ type WorkoutActionSheetProps = {
   onRename: () => void;
   onEditDuration: () => void;
   onEditType: () => void;
+  /** When set, shows a destructive row (manual-ingest workouts only; caller decides eligibility). */
+  onDeleteWorkout?: () => void;
 };
 
 function Row({
@@ -29,13 +31,17 @@ function Row({
   onPress,
   showDivider = true,
   accessibilityLabel,
+  destructive,
 }: {
   label: string;
   icon: React.ComponentProps<typeof Ionicons>["name"];
   onPress: () => void;
   showDivider?: boolean;
   accessibilityLabel: string;
+  destructive?: boolean;
 }) {
+  const labelColor = destructive ? "#FF3B30" : "#1C1C1E";
+  const iconColor = destructive ? "#FF3B30" : "#1C1C1E";
   return (
     <Pressable
       onPress={onPress}
@@ -44,8 +50,8 @@ function Row({
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <View style={styles.rowLeft}>
-        <Ionicons name={icon} size={18} color="#1C1C1E" />
-        <Text style={styles.rowLabel}>{label}</Text>
+        <Ionicons name={icon} size={18} color={iconColor} />
+        <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
       </View>
       {showDivider ? <View style={styles.rowDivider} /> : null}
     </Pressable>
@@ -62,6 +68,7 @@ export function WorkoutActionSheet({
   onRename,
   onEditDuration,
   onEditType,
+  onDeleteWorkout,
 }: WorkoutActionSheetProps) {
   if (!visible) return null;
   const screenWidth = 390;
@@ -119,10 +126,22 @@ export function WorkoutActionSheet({
               label="Edit workout type"
               icon="barbell-outline"
               onPress={onEditType}
-              showDivider={false}
+              showDivider={onDeleteWorkout != null}
               accessibilityLabel="Edit workout type"
             />
           </View>
+          {onDeleteWorkout != null ? (
+            <View style={styles.section}>
+              <Row
+                label="Delete Workout"
+                icon="trash-outline"
+                onPress={onDeleteWorkout}
+                showDivider={false}
+                destructive
+                accessibilityLabel="Delete workout"
+              />
+            </View>
+          ) : null}
           <Pressable
             onPress={onClose}
             accessibilityRole="button"

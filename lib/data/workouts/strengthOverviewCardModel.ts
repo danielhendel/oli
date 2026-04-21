@@ -69,7 +69,8 @@ function monthYearFromMonthKey(monthKey: string): MonthYear | null {
   return { year, month };
 }
 
-function collectStrengthTabSessions(days: readonly WorkoutCalendarDayLike[]): ReconciledWorkoutSession[] {
+/** Strength Overview + Baseline: sessions that count toward Strength tabs (`sessionType === "strength"` only). */
+export function collectStrengthOverviewTabSessions(days: readonly WorkoutCalendarDayLike[]): ReconciledWorkoutSession[] {
   const out: ReconciledWorkoutSession[] = [];
   for (const d of days) {
     for (const s of reconcileWorkoutSessionsForDay(d.day, d.workouts)) {
@@ -77,6 +78,49 @@ function collectStrengthTabSessions(days: readonly WorkoutCalendarDayLike[]): Re
     }
   }
   return out;
+}
+
+/**
+ * Single source for Overview “This Week” + Strength This Week card: local calendar week slice through
+ * `weekCoverageEnd = max(weekStart, min(today, weekEnd))`, same strength-tab session rules.
+ */
+export function computeStrengthThisWeekWindowMetrics(input: {
+  strengthCalendarDays: readonly WorkoutCalendarDayLike[];
+  todayDayKey: DayKey;
+  weekStartDay: DayKey;
+  weekEndDay: DayKey;
+}): {
+  totalWorkouts: number;
+  avgWorkoutsPerWeek: number | null;
+  /** Denominator used for avg (≥1 when week slice is valid). */
+  elapsedCalendarDaysForAvg: number;
+} {
+  const sortedDays = [...input.strengthCalendarDays].sort((a, b) =>
+    a.day < b.day ? -1 : a.day > b.day ? 1 : 0,
+  );
+  const weekDays = filterWorkoutCalendarDaysInclusive(sortedDays, input.weekStartDay, input.weekEndDay);
+  const weekSessions = collectStrengthOverviewTabSessions(weekDays);
+  const weekCoverageEnd = maxDayKey(input.weekStartDay, minDayKey(input.todayDayKey, input.weekEndDay));
+  const weekElapsedDays =
+    weekCoverageEnd < input.weekStartDay ? 0 : enumerateDaysInclusive(input.weekStartDay, weekCoverageEnd).length;
+  const weekElapsedForMetrics = Math.max(weekElapsedDays, 1);
+  const weekMetrics = metricsForSessions(weekSessions, weekElapsedForMetrics);
+  return {
+    totalWorkouts: weekMetrics.totalWorkouts,
+    avgWorkoutsPerWeek: weekMetrics.avgWorkoutsPerWeek,
+    elapsedCalendarDaysForAvg: weekElapsedForMetrics,
+  };
+}
+
+/** Repo-truth: whether local `todayDayKey` has at least one strength-tab session in the hydrated calendar. */
+export function hasStrengthWorkoutLoggedToday(
+  strengthCalendarDays: readonly WorkoutCalendarDayLike[],
+  todayDayKey: DayKey,
+): boolean {
+  const sortedDays = [...strengthCalendarDays].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  const row = sortedDays.find((d) => d.day === todayDayKey);
+  if (row == null) return false;
+  return collectStrengthOverviewTabSessions([row]).length > 0;
 }
 
 function computeAvgPerWeekFromTotals(totalWorkouts: number, elapsedCalendarDays: number): number | null {
@@ -145,21 +189,21 @@ export function buildStrengthOverviewCardModel(input: {
     threeStart,
     todayDayKey,
   );
-  const threeSessions = collectStrengthTabSessions(threeDays);
+  const threeSessions = collectStrengthOverviewTabSessions(threeDays);
   const threeElapsed = enumerateDaysInclusive(threeStart, todayDayKey).length;
   const threeMetrics = metricsForSessions(threeSessions, threeElapsed);
 
-  const weekDays = filterWorkoutCalendarDaysInclusive(
-    [...input.strengthCalendarDays],
+  const weekMetricsBundle = computeStrengthThisWeekWindowMetrics({
+    strengthCalendarDays: input.strengthCalendarDays,
+    todayDayKey,
     weekStartDay,
     weekEndDay,
-  );
-  const weekSessions = collectStrengthTabSessions(weekDays);
-  const weekCoverageEnd = maxDayKey(weekStartDay, minDayKey(todayDayKey, weekEndDay));
-  const weekElapsedDays =
-    weekCoverageEnd < weekStartDay ? 0 : enumerateDaysInclusive(weekStartDay, weekCoverageEnd).length;
-  const weekElapsedForMetrics = Math.max(weekElapsedDays, 1);
-  const weekMetrics = metricsForSessions(weekSessions, weekElapsedForMetrics);
+  });
+  const weekMetrics = {
+    totalWorkouts: weekMetricsBundle.totalWorkouts,
+    avgWorkoutsPerWeek: weekMetricsBundle.avgWorkoutsPerWeek,
+  };
+  const weekElapsedForMetrics = weekMetricsBundle.elapsedCalendarDaysForAvg;
 
   const ytdRating = strengthOverviewTimeframeConsistencyRating({
     timeframe: "ytd",

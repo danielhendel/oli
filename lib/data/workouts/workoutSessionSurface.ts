@@ -1,4 +1,7 @@
-import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import {
+  resolveWorkoutIngestProvider,
+  type WorkoutHistoryItem,
+} from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 import { formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
@@ -16,7 +19,7 @@ import type { DayKey } from "@/lib/ui/calendar/types";
  * sorts first in {@link reconcileWorkoutSessionsForDay}).
  */
 export function pickWorkoutForSessionActions(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
-  const manual = session.workouts.find((w) => w.sourceId === "manual");
+  const manual = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "manual");
   return manual ?? session.workouts[0] ?? null;
 }
 
@@ -39,7 +42,7 @@ export function pickWorkoutOverrideForSession(
   for (const w of session.workouts) {
     const o = overridesByWorkoutId[w.id];
     if (!o || !overrideHasPatch(o)) continue;
-    if (w.sourceId === "manual") return o;
+    if (resolveWorkoutIngestProvider(w) === "manual") return o;
     if (!fallback) fallback = o;
   }
   return fallback;
@@ -51,7 +54,7 @@ export function pickDurableTitleForSession(
   durableTitlesByWorkoutId: Record<string, string | undefined> | undefined,
 ): string | null {
   if (!durableTitlesByWorkoutId) return null;
-  const manual = session.workouts.find((w) => w.sourceId === "manual");
+  const manual = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "manual");
   if (manual) {
     const t = durableTitlesByWorkoutId[manual.id]?.trim();
     if (t) return t;
@@ -109,7 +112,7 @@ export function pickJournalSummaryForStrengthSession(
 ): ManualWorkoutDaySummary | null {
   const sameDay = summaries.filter((s) => s.day === day);
   if (sameDay.length === 0) return null;
-  const manualMember = session.workouts.find((w) => w.sourceId === "manual");
+  const manualMember = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "manual");
   if (!manualMember) return null;
   const anchor = workoutAnchorMs(manualMember);
   if (anchor == null) return sameDay[0] ?? null;
@@ -131,7 +134,7 @@ export function pickJournalSummaryForStrengthSession(
 
 /** Apple / HealthKit row for duration, calories, distance, zones when present in a merged session. */
 export function pickMetricsWorkoutForSession(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
-  const apple = session.workouts.find((w) => w.sourceId === "apple_health");
+  const apple = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "apple_health");
   if (apple) return apple;
   const hk = session.workouts.find((w) => w.hk != null);
   return hk ?? null;

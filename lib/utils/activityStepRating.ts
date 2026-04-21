@@ -79,16 +79,49 @@ export type ActivityStepRating = {
 };
 
 /**
+ * Step lower bounds for tiers 1–5 (exclusive upper bound per band).
+ * {@link getStepRatingTierIndex} returns `i` when `floor(steps)` is in `[THRESHOLDS[i-1], THRESHOLDS[i])`
+ * for `i < THRESHOLDS.length`, else tier 5.
+ */
+export const ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS = [5000, 7500, 10000, 12500, 15000] as const;
+
+/**
+ * Display ruler end for Activity progress bars + baseline markers: bounded **0 → top tier threshold**
+ * (15k). Rating thresholds unchanged.
+ */
+export const ACTIVITY_BASELINE_THRESHOLD_MARKER_TRACK_MAX_STEPS =
+  ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS[ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS.length - 1]!;
+
+/**
+ * Baseline-only ruler ticks (steps): scale anchor at 0, mid-low anchor at 2.5k, then each canonical rating
+ * threshold. Display-only.
+ */
+export const ACTIVITY_BASELINE_MARKER_DISPLAY_STEP_STEPS = [
+  0,
+  2500,
+  ...ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS,
+] as const;
+
+/**
+ * Bounded 0 → {@link ACTIVITY_BASELINE_THRESHOLD_MARKER_TRACK_MAX_STEPS} fill for **all** Activity progress
+ * tracks (Today, Yesterday, overview windows, baseline). Clamps at 100% when steps ≥ max.
+ * Does not affect {@link getStepRatingTierIndex}.
+ */
+export function activityStepsDisplayScaleFill01(steps: number): number {
+  const max = ACTIVITY_BASELINE_THRESHOLD_MARKER_TRACK_MAX_STEPS;
+  const n = Number.isFinite(steps) ? Math.max(0, steps) : 0;
+  return Math.min(1, n / max);
+}
+
+/**
  * Tier index 0–5 for `steps` (Low → Elite).
  */
 export function getStepRatingTierIndex(steps: number): number {
   const n = Number.isFinite(steps) ? Math.max(0, Math.floor(steps)) : 0;
-  if (n < 5000) return 0;
-  if (n < 7500) return 1;
-  if (n < 10000) return 2;
-  if (n < 12500) return 3;
-  if (n < 15000) return 4;
-  return 5;
+  for (let i = 0; i < ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS.length; i++) {
+    if (n < ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS[i]!) return i;
+  }
+  return ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS.length;
 }
 
 /** Marker position along the 6-band ladder (center of the active band), 0–1. */

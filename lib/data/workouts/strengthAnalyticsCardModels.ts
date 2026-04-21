@@ -14,6 +14,7 @@ import {
   type StrengthMonthChartBar,
   type StrengthMonthScopedMetrics,
 } from "@/lib/data/workouts/strengthOverviewMonthAnalytics";
+import { buildStrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
   monthKeyFromDay,
@@ -21,7 +22,7 @@ import {
   type WorkoutAnalyticsMonthPoint,
   type WorkoutCalendarDayLike,
 } from "@/lib/data/workouts/workoutsCalendarModel";
-import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
+import { mapWorkoutCalendarDaysForDomain, type WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import type { ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 
@@ -46,6 +47,8 @@ export type StrengthAnalyticsCardModels = {
   yearChartPoints: WorkoutAnalyticsMonthPoint[];
   yearMetrics: WorkoutAnalyticsMetrics;
   focusStrengthMonthKey: string;
+  /** Same Strength Baseline rate as the overview card — for yearly chart reference only. */
+  strengthBaselineAvgWorkoutsPerWeek: number;
 };
 
 export function buildStrengthAnalyticsCardModels(
@@ -73,11 +76,17 @@ export function buildStrengthAnalyticsCardModels(
     analyticsContext: { customExerciseById: input.customExerciseById },
   });
 
+  const strengthBaselineModel = buildStrengthBaselineCardModel({
+    strengthCalendarDays: mapWorkoutCalendarDaysForDomain(input.analyticsDaysSlice, "strength"),
+    todayDayKey: input.todayDayKey,
+  });
+
   return {
     weeklyStrengthModel,
     strengthMonthOverview,
     yearChartPoints: bundle.chartPointsByTab.strength,
     yearMetrics: bundle.metricsByTab.strength,
     focusStrengthMonthKey,
+    strengthBaselineAvgWorkoutsPerWeek: strengthBaselineModel.avgWorkoutsPerWeek,
   };
 }

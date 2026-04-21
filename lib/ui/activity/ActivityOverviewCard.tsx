@@ -13,6 +13,7 @@ import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
+  activityStepsDisplayScaleFill01,
   getStepRatingActivityDescriptorPill,
   getStepRatingTierIndex,
   stepsFromLocaleDigitString,
@@ -40,12 +41,26 @@ function overviewRowFigureDisplay(compactStatsSummary: string): { numeric: true;
   return { numeric: false, text: s };
 }
 
-function ActivityOverviewTierProgressTrack({ testID, tierIndex }: { testID: string; tierIndex: number | null }) {
-  const pct = activityTierProgressAccessibilityPercent(tierIndex);
+function ActivityOverviewTierProgressTrack({
+  testID,
+  tierIndex,
+  rowSteps,
+}: {
+  testID: string;
+  tierIndex: number | null;
+  /** Parsed steps for bounded display fill; `null` when row is non-numeric. */
+  rowSteps: number | null;
+}) {
+  const boundedFill = rowSteps != null ? activityStepsDisplayScaleFill01(rowSteps) : null;
+  const pct = activityTierProgressAccessibilityPercent(
+    tierIndex,
+    boundedFill != null ? { fillWidth01Override: boundedFill } : undefined,
+  );
   return (
     <ActivityTierProgressTrack
       testID={testID}
       tierIndex={tierIndex}
+      fillWidth01Override={boundedFill}
       wrapperProps={{
         accessibilityRole: "progressbar",
         accessibilityValue: { now: pct, min: 0, max: 100 },
@@ -147,7 +162,11 @@ export function ActivityOverviewCard({
                     </Text>
                   )}
                 </View>
-                <ActivityOverviewTierProgressTrack testID={`activity-overview-steps-bar-${tf.key}`} tierIndex={tierIndex} />
+                <ActivityOverviewTierProgressTrack
+                  testID={`activity-overview-steps-bar-${tf.key}`}
+                  tierIndex={tierIndex}
+                  rowSteps={rowSteps}
+                />
               </View>
             );
           })}

@@ -1,5 +1,6 @@
 // services/api/src/routes/events.ts
 import { Router, type Response } from "express";
+import { z } from "zod";
 
 import { localCalendarDayKeyFromIsoInTimeZone, rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
@@ -499,6 +500,174 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
       requestId,
     });
   }
+});
+
+const rawEventDeleteParamsSchema = z
+  .object({
+    rawEventId: z.string().min(1),
+  })
+  .strip();
+
+/** Providers whose workout raw events users may remove from Oli only (Firestore doc delete; does not mutate Apple Health). Mirrors supported ingest providers for workouts. */
+const DELETABLE_WORKOUT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
+
+/**
+ * DELETE /ingest/:rawEventId
+ *
+ * Removes a user-owned RawEvent document (Admin SDK). Clients cannot delete via Firestore rules.
+ * Allowed only for kinds `workout` / `strength_workout` whose `provider` is accepted for deletion (manual + apple_health ingest).
+ */
+router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
+  const requestId = getRid(req);
+  const uid = req.uid;
+
+  if (!uid) {
+    return res.status(401).json({
+      ok: false as const,
+      error: "Unauthorized",
+      requestId,
+    });
+  }
+
+  const parsedParams = rawEventDeleteParamsSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "INVALID_PARAMS" as const,
+        message: "Invalid route params",
+        details: parsedParams.error.flatten(),
+      },
+      requestId,
+    });
+  }
+
+  const { rawEventId } = parsedParams.data;
+  const ref = userCollection(uid, "rawEvents").doc(rawEventId);
+
+  let snap;
+  try {
+    snap = await ref.get();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest_delete",
+        reasonCode: "RAW_EVENT_READ_FAILED",
+        message: "Failed to read RawEvent before delete",
+        day: dayUtcNow(),
+        requestId,
+        details: { rawEventId, err: message },
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(500).json({
+      ok: false as const,
+      error: {
+        code: "INTERNAL" as const,
+        message: "Failed to read workout record",
+      },
+      requestId,
+    });
+  }
+
+  if (!snap.exists) {
+    return res.status(404).json({
+      ok: false as const,
+      error: {
+        code: "NOT_FOUND" as const,
+        message: "Workout record not found",
+      },
+      requestId,
+    });
+  }
+
+  const data = snap.data();
+  const parsedDoc = rawEventDocSchema.safeParse(data);
+  if (!parsedDoc.success) {
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest_delete",
+        reasonCode: "INVALID_RAW_EVENT_CONTRACT",
+        message: "Stored RawEvent failed contract validation",
+        day: dayUtcNow(),
+        requestId,
+        details: { rawEventId, validation: parsedDoc.error.flatten() },
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(500).json({
+      ok: false as const,
+      error: {
+        code: "INVALID_STORED_RECORD" as const,
+        message: "Stored workout record is invalid",
+      },
+      requestId,
+    });
+  }
+
+  const doc = parsedDoc.data;
+  if (doc.kind !== "workout" && doc.kind !== "strength_workout") {
+    return res.status(400).json({
+      ok: false as const,
+      error: {
+        code: "NOT_DELETABLE_KIND" as const,
+        message: "Only workout entries can be removed with this action",
+      },
+      requestId,
+    });
+  }
+
+  if (!DELETABLE_WORKOUT_EVENT_PROVIDERS.has(doc.provider)) {
+    return res.status(403).json({
+      ok: false as const,
+      error: {
+        code: "DELETE_NOT_ALLOWED" as const,
+        message: "This workout can't be removed from Oli.",
+      },
+      requestId,
+    });
+  }
+
+  try {
+    await ref.delete();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await writeFailure({
+        userId: uid,
+        source: "ingestion",
+        stage: "ingest_delete",
+        reasonCode: "RAW_EVENT_DELETE_FAILED",
+        message: "Failed to delete RawEvent",
+        day: dayUtcNow(),
+        requestId,
+        details: { rawEventId, err: message },
+      });
+    } catch {
+      // do not throw
+    }
+    return res.status(500).json({
+      ok: false as const,
+      error: {
+        code: "DELETE_FAILED" as const,
+        message: "Could not remove workout record",
+      },
+      requestId,
+    });
+  }
+
+  return res.status(200).json({
+    ok: true as const,
+    rawEventId,
+    requestId,
+  });
 });
 
 export default router;

@@ -1,6 +1,9 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
-import { buildWorkoutOverviewAnalyticsFromCalendarDays } from "@/lib/data/workouts/workoutsCalendarModel";
+import {
+  WORKOUT_OVERVIEW_ANALYTICS_YEAR,
+  buildWorkoutOverviewAnalyticsFromCalendarDays,
+} from "@/lib/data/workouts/workoutsCalendarModel";
 import { buildStrengthMonthOverviewFromCalendarDays } from "@/lib/data/workouts/strengthOverviewMonthAnalytics";
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 
@@ -73,5 +76,39 @@ describe("Workout analytics cards", () => {
     const jsonMonth = JSON.stringify(tree.toJSON());
     expect(jsonMonth).toContain("Typical Volume");
     expect(jsonMonth).not.toContain("Avg per Month");
+  });
+
+  it("strengthYearly + fixed year omits summary metrics and keeps title + chart only", () => {
+    const bundle = buildWorkoutOverviewAnalyticsFromCalendarDays([]);
+    const monthBundle = buildStrengthMonthOverviewFromCalendarDays([], "2026-03", {
+      todayDayKey: "2026-03-15",
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutAnalyticsChart
+          layout="singleStrengthPeriod"
+          layoutVariant="strengthYearly"
+          fixedPeriod="year"
+          headerTitle={`${WORKOUT_OVERVIEW_ANALYTICS_YEAR} Strength Workouts`}
+          yearTabLabel="2026"
+          monthTabLabel="Mar"
+          yearlyStrengthVisualization={{
+            avgWorkoutsPerWeek: 3,
+            analyticsCalendarYear: WORKOUT_OVERVIEW_ANALYTICS_YEAR,
+            todayMonthKey: "2026-03",
+          }}
+          yearChartPoints={bundle.chartPointsByTab.strength}
+          yearMetrics={sampleMetrics.strength}
+          monthChartBars={monthBundle.chartBars}
+          monthMetrics={monthBundle.metrics}
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Strength Workouts");
+    expect(json).not.toContain("Total Workouts");
+    expect(json).not.toContain("Avg per Month");
+    expect(json).toContain("strength-yearly-chart-baseline-line");
   });
 });

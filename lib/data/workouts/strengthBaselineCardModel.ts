@@ -1,0 +1,62 @@
+import {
+  ACTIVITY_BASELINE_TRAILING_DAY_COUNT,
+  activityTrailingNDaysInclusive,
+  getActivityOverviewAnchorEndDay,
+} from "@/lib/data/activity/activityOverviewRanges";
+import {
+  strengthWeeklyFrequencyActivityTierIndexForBar,
+  strengthWeeklyFrequencyDisplayScaleFill01,
+  strengthWeeklyFrequencyRatingBucketFromAvg,
+  strengthWeeklyFrequencyRatingLabelFromBucket,
+  type StrengthWeeklyFrequencyRatingBucket,
+} from "@/lib/utils/strengthWeeklyFrequencyRating";
+import { collectStrengthOverviewTabSessions } from "@/lib/data/workouts/strengthOverviewCardModel";
+import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
+import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
+import type { DayKey } from "@/lib/ui/calendar/types";
+import { enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
+
+export type StrengthBaselineCardModel = {
+  /** Average strength sessions per week over the trailing completed-day window (see builder). */
+  avgWorkoutsPerWeek: number;
+  /** Primary figure for the header row (display: `X.X/wk`). */
+  compactValuePrimary: string;
+  ratingBucket: StrengthWeeklyFrequencyRatingBucket;
+  ratingLabel: string;
+  /** Pass to {@link ActivityTierProgressTrack} tier coloring. */
+  activityTierIndexForBar: number;
+  fillWidth01Override: number;
+};
+
+/**
+ * Strength Baseline: average strength-tab sessions per week over {@link ACTIVITY_BASELINE_TRAILING_DAY_COUNT}
+ * completed local days ending {@link getActivityOverviewAnchorEndDay}`(todayDayKey)` (local yesterday).
+ * Matches Activity Baseline completed-day semantics; today is excluded by construction.
+ *
+ * Uses the same strength-session rules as {@link buildStrengthOverviewCardModel} / Overview “3 Month”.
+ */
+export function buildStrengthBaselineCardModel(input: {
+  strengthCalendarDays: readonly WorkoutCalendarDayLike[];
+  todayDayKey: DayKey;
+}): StrengthBaselineCardModel {
+  const { strengthCalendarDays, todayDayKey } = input;
+  const anchorEnd = getActivityOverviewAnchorEndDay(todayDayKey);
+  const windowKeys = activityTrailingNDaysInclusive(anchorEnd, ACTIVITY_BASELINE_TRAILING_DAY_COUNT);
+  const windowStart = windowKeys[0]!;
+  const elapsedDays = enumerateDaysInclusive(windowStart, anchorEnd).length;
+  const sortedDays = [...strengthCalendarDays].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  const slice = filterWorkoutCalendarDaysInclusive(sortedDays, windowStart, anchorEnd);
+  const sessions = collectStrengthOverviewTabSessions(slice);
+  const total = sessions.length;
+  const avgWorkoutsPerWeek = elapsedDays > 0 ? (total * 7) / elapsedDays : 0;
+  const compactValuePrimary = `${avgWorkoutsPerWeek.toFixed(1)}/wk`;
+  const ratingBucket = strengthWeeklyFrequencyRatingBucketFromAvg(avgWorkoutsPerWeek);
+  return {
+    avgWorkoutsPerWeek,
+    compactValuePrimary,
+    ratingBucket,
+    ratingLabel: strengthWeeklyFrequencyRatingLabelFromBucket(ratingBucket),
+    activityTierIndexForBar: strengthWeeklyFrequencyActivityTierIndexForBar(ratingBucket),
+    fillWidth01Override: strengthWeeklyFrequencyDisplayScaleFill01(avgWorkoutsPerWeek),
+  };
+}

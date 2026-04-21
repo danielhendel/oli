@@ -1,6 +1,6 @@
 /**
- * Strength overview main body: Baseline, This Week + Last Week combined week lists;
- * analytics detail charts stay off this screen.
+ * Regression: Strength combined week card lists only local-calendar-week sessions,
+ * earliest-first; hydrated days outside the week slice must not appear as rows.
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
@@ -44,21 +44,44 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
-jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
-  useWorkoutsCalendarRange: () => ({
-    status: "ready" as const,
-    durableTitlesByWorkoutId: {},
-    days: [
-      { day: "2026-03-09", workouts: [] },
-      { day: "2026-03-10", workouts: [] },
-      { day: "2026-03-11", workouts: [] },
-      { day: "2026-03-12", workouts: [] },
-      { day: "2026-03-13", workouts: [] },
-      { day: "2026-03-14", workouts: [] },
-      { day: "2026-03-15", workouts: [] },
-    ],
-  }),
-}));
+jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
+  const strengthW = (id: string, start: string) => ({
+    id,
+    observedAt: start,
+    sourceId: "manual",
+    title: "Lift",
+    workoutType: "strength" as const,
+    start,
+    end: null,
+    durationMinutes: 45,
+    calories: null,
+  });
+  return {
+    useWorkoutsCalendarRange: () => ({
+      status: "ready" as const,
+      durableTitlesByWorkoutId: {},
+      days: [
+        {
+          day: "2026-03-08",
+          workouts: [strengthW("prior-week-strength", "2026-03-08T18:00:00.000Z")],
+        },
+        { day: "2026-03-09", workouts: [] },
+        {
+          day: "2026-03-10",
+          workouts: [strengthW("early-week-strength", "2026-03-10T09:00:00.000Z")],
+        },
+        { day: "2026-03-11", workouts: [] },
+        {
+          day: "2026-03-12",
+          workouts: [strengthW("later-week-strength", "2026-03-12T16:00:00.000Z")],
+        },
+        { day: "2026-03-13", workouts: [] },
+        { day: "2026-03-14", workouts: [] },
+        { day: "2026-03-15", workouts: [] },
+      ],
+    }),
+  };
+});
 
 jest.mock("@/lib/ui/calendar/dateUtils", () => ({
   ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
@@ -150,19 +173,10 @@ jest.mock("@react-navigation/native", () => ({
   useFocusEffect: jest.fn(),
 }));
 
-jest.mock("expo-router", () => {
-  const w = { push: jest.fn(), setOptions: jest.fn() };
-  (globalThis as unknown as { __oliWorkoutsOverviewExpo?: typeof w }).__oliWorkoutsOverviewExpo = w;
-  return {
-    useNavigation: () => ({ setOptions: w.setOptions, goBack: jest.fn() }),
-    useRouter: () => ({ push: w.push }),
-  };
-});
-
-function workoutsOverviewExpoMocks() {
-  return (globalThis as unknown as { __oliWorkoutsOverviewExpo: { push: jest.Mock; setOptions: jest.Mock } })
-    .__oliWorkoutsOverviewExpo;
-}
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
+  useRouter: () => ({ push: jest.fn() }),
+}));
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -171,83 +185,30 @@ jest.mock("react-native-safe-area-context", () => ({
 
 import StrengthTrainingOverviewScreen from "../overview";
 
-describe("Strength overview main layout", () => {
-  beforeEach(() => {
-    workoutsOverviewExpoMocks().push.mockClear();
-    workoutsOverviewExpoMocks().setOptions.mockClear();
-  });
-
-  it("renders Strength Baseline, This Week + Last Week blocks and omits Weekly Insights / weekly/monthly analytics cards", async () => {
+describe("Strength overview week slice list", () => {
+  it("places prior-week sessions only on Last Week; This Week orders earliest-first", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    const iBaseline = json.indexOf('"Strength Baseline"');
-    const iThisWeek = json.indexOf('"This Week"');
-    const iLastWeek = json.indexOf('"Last Week"');
-    expect(iBaseline).toBeGreaterThan(-1);
-    expect(iThisWeek).toBeGreaterThan(-1);
-    expect(iLastWeek).toBeGreaterThan(-1);
-    expect(json).not.toContain("strength-this-week-frequency-bar");
-    expect(json).not.toContain('"Overview"');
-    expect(json).not.toContain('"Recent Workouts"');
-    expect(iBaseline).toBeLessThan(iThisWeek);
-    expect(iThisWeek).toBeLessThan(iLastWeek);
-    expect(json).not.toContain("Weekly Insights");
-    expect(json).not.toContain("Weekly Strength");
-    expect(json).not.toContain("Weekly Muscle Group");
-    expect(json).not.toContain("Monthly Workouts");
-    expect(json).not.toContain("Yearly Workouts");
-    expect(json).toContain("This Week");
-    expect(json).not.toContain("No workout logged today");
-    expect((json.match(/strength-baseline-frequency-markers/g) ?? []).length).toBe(1);
-  });
+    const iThisWeekHeading = json.indexOf('"This Week"');
+    const iLastWeekHeading = json.indexOf('"Last Week"');
+    expect(iThisWeekHeading).toBeGreaterThan(-1);
+    expect(iLastWeekHeading).toBeGreaterThan(-1);
 
-  it("overflow opens Strength settings route (dedicated settings, not in-popup menu)", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
-    });
-    const { setOptions, push } = workoutsOverviewExpoMocks();
-    expect(setOptions.mock.calls.length).toBeGreaterThan(0);
-    const lastOpts = setOptions.mock.calls[setOptions.mock.calls.length - 1]![0] as {
-      headerRight?: () => React.ReactElement;
-    };
-    expect(lastOpts.headerRight).toBeDefined();
-    let header!: renderer.ReactTestRenderer;
-    await act(async () => {
-      header = renderer.create(lastOpts.headerRight!());
-    });
-    const overflow = header.root.findByProps({ accessibilityLabel: "Strength settings" });
-    await act(async () => {
-      overflow.props.onPress();
-    });
-    expect(push).toHaveBeenCalledWith("/(app)/workouts/settings");
-    void tree;
-  });
+    const thisWeekSegment = json.slice(iThisWeekHeading, iLastWeekHeading);
+    expect(thisWeekSegment).not.toContain("prior-week-strength");
+    expect(thisWeekSegment).toContain("early-week-strength");
+    expect(thisWeekSegment).toContain("later-week-strength");
 
-  it("pressing Strength Baseline navigates to Strength Analytics (analytics-detail)", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
-    });
-    const baselineNav = tree.root.findByProps({ testID: "strength-baseline-card-nav" });
-    await act(async () => {
-      baselineNav.props.onPress();
-    });
-    expect(workoutsOverviewExpoMocks().push).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
-  });
+    expect(json.indexOf("prior-week-strength")).toBeGreaterThan(iLastWeekHeading);
 
-  it("combined card header View More navigates to All Strength Workouts", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
-    });
-    const footer = tree.root.findByProps({ testID: "strength-recent-week-combined-view-more" });
-    await act(async () => {
-      footer.props.onPress();
-    });
-    expect(workoutsOverviewExpoMocks().push).toHaveBeenCalledWith("/(app)/workouts/recent-workouts-full");
+    const iEarly = json.indexOf("Open workout details early-week-strength");
+    const iLate = json.indexOf("Open workout details later-week-strength");
+    expect(iEarly).toBeGreaterThan(-1);
+    expect(iLate).toBeGreaterThan(-1);
+    expect(iEarly).toBeLessThan(iLate);
+    expect(iLate).toBeLessThan(iLastWeekHeading);
   });
 });

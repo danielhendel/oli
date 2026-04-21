@@ -27,7 +27,7 @@ export function overviewSharedRangeBounds(args: {
 }
 
 /**
- * Calendar hydrate bounds for the Strength **main tab** (Today, Recent, Weekly Insights only).
+ * Calendar hydrate bounds for the Strength **main tab** (combined week cards + workout list slice).
  * Omits the year-wide analytics window so the first open does not fetch Jan–Dec solely for charts
  * that live on Strength Analytics.
  */

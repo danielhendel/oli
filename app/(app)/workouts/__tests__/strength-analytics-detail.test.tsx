@@ -1,8 +1,9 @@
 /**
- * Strength Analytics screen shows the full analytics card stack.
+ * Strength Analytics screen shows the yearly strength workouts chart (`WORKOUT_OVERVIEW_ANALYTICS_YEAR`).
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { WORKOUT_OVERVIEW_ANALYTICS_YEAR } from "@/lib/data/workouts/workoutsCalendarModel";
 import { buildStrengthAnalyticsCardModels } from "@/lib/data/workouts/strengthAnalyticsCardModels";
 
 const mockSetParams = jest.fn();
@@ -64,24 +65,32 @@ describe("StrengthAnalyticsDetailScreen", () => {
     }
   });
 
-  it("renders weekly, muscle, monthly, and yearly sections", async () => {
+  it("renders only the yearly strength workouts section with calendar-year title", async () => {
     await act(async () => {
       mounted = renderer.create(<StrengthAnalyticsDetailScreen />);
     });
     const json = JSON.stringify(mounted!.toJSON());
-    expect(json).toContain("Weekly Strength");
-    expect(json).toContain("Weekly Muscle Group");
-    expect(json).toContain("Monthly Workouts");
-    expect(json).toContain("Yearly Workouts");
+    expect(json).toContain(`${WORKOUT_OVERVIEW_ANALYTICS_YEAR} Strength Workouts`);
+    expect(json).not.toContain("Weekly Strength");
+    expect(json).not.toContain("Weekly Muscle Group");
+    expect(json).not.toContain("Monthly Workouts");
+    expect(json).not.toContain("Yearly Workouts");
+    expect(json).not.toContain("Total Workouts");
+    expect(json).not.toContain("Avg per Month");
+    expect(json).not.toContain("Avg per Week");
+    expect(json).not.toContain("Avg Duration");
+    expect(json).toContain("strength-analytics-yearly");
+    expect(json).toContain("strength-yearly-chart-baseline-line");
   });
 
-  it("exposes section test ids for Weekly Strength and Weekly Muscle Group", async () => {
+  it("does not resurrect removed weekly/monthly analytics UI if strings regress", async () => {
     await act(async () => {
       mounted = renderer.create(<StrengthAnalyticsDetailScreen />);
     });
     const json = JSON.stringify(mounted!.toJSON());
-    expect(json).toContain("strength-analytics-weekly-strength");
-    expect(json).toContain("strength-analytics-weekly-muscle");
+    expect(json).not.toContain("strength-analytics-weekly-strength");
+    expect(json).not.toContain("strength-analytics-weekly-muscle");
+    expect(json).not.toContain("strength-analytics-monthly");
   });
 
   it("clears focus route params after models are ready and focus is present", async () => {

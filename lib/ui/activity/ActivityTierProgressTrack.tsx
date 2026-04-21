@@ -20,6 +20,11 @@ export type ActivityTierProgressTrackProps = {
   testID?: string;
   /** Tier 0–5 from {@link getStepRatingTierIndex}; `null` → empty bar (non-numeric / insufficient row). */
   tierIndex: number | null;
+  /**
+   * When set (Activity Baseline card only), bar width follows this 0–1 value instead of fixed tier-segment
+   * widths; tier still controls fill color.
+   */
+  fillWidth01Override?: number | null;
   barHeight?: number;
   trackRadius?: number;
   wrapperProps?: Omit<ViewProps, "children" | "onLayout" | "testID" | "style"> & {
@@ -34,13 +39,19 @@ export type ActivityTierProgressTrackProps = {
 export function ActivityTierProgressTrack({
   testID,
   tierIndex,
+  fillWidth01Override,
   barHeight = DEFAULT_BAR_HEIGHT,
   trackRadius = DEFAULT_TRACK_RADIUS,
   wrapperProps,
 }: ActivityTierProgressTrackProps) {
   const reduceMotion = useActivityReduceMotion();
   const visual = activityStepTierBarVisual(tierIndex);
-  const targetFill01 = visual?.fill01 ?? 0;
+  const targetFill01 =
+    visual != null &&
+    fillWidth01Override != null &&
+    Number.isFinite(fillWidth01Override)
+      ? Math.min(1, Math.max(0, fillWidth01Override))
+      : (visual?.fill01 ?? 0);
   const targetColor = visual?.fillColor ?? "rgba(0,0,0,0)";
 
   const fill01Anim = useRef(new Animated.Value(targetFill01)).current;
@@ -108,7 +119,7 @@ export function ActivityTierProgressTrack({
     return () => {
       anim.stop();
     };
-  }, [tierIndex, targetFill01, targetColor, reduceMotion, fill01Anim, colorBlend]);
+  }, [tierIndex, fillWidth01Override, targetFill01, targetColor, reduceMotion, fill01Anim, colorBlend]);
 
   const fillWidthStyle = useMemo(
     () => ({
@@ -198,9 +209,16 @@ export function ActivityTierProgressTrack({
 }
 
 /** Re-export for callers that set `accessibilityValue` on the wrapper (progressbar). */
-export function activityTierProgressAccessibilityPercent(tierIndex: number | null): number {
-  const v = activityStepTierBarVisual(tierIndex);
-  return v != null ? Math.round(v.fill01 * 100) : 0;
+export function activityTierProgressAccessibilityPercent(
+  tierIndex: number | null,
+  opts?: { fillWidth01Override?: number | null },
+): number {
+  const visual = activityStepTierBarVisual(tierIndex);
+  const o = opts?.fillWidth01Override;
+  if (visual != null && o != null && Number.isFinite(o)) {
+    return Math.round(Math.min(1, Math.max(0, o)) * 100);
+  }
+  return visual != null ? Math.round(visual.fill01 * 100) : 0;
 }
 
 const styles = StyleSheet.create({

@@ -1,7 +1,12 @@
 // lib/api/ingest.ts
 import type { ApiFailure } from "./http";
-import { apiPostZodAuthed } from "./validate";
-import { ingestAcceptedResponseDtoSchema, type IngestAcceptedResponseDto } from "@oli/contracts";
+import { apiDeleteZodAuthed, apiPostZodAuthed } from "./validate";
+import {
+  deleteRawEventResponseDtoSchema,
+  ingestAcceptedResponseDtoSchema,
+  type DeleteRawEventResponseDto,
+  type IngestAcceptedResponseDto,
+} from "@oli/contracts";
 
 export type IngestAccepted = IngestAcceptedResponseDto;
 
@@ -56,6 +61,49 @@ export async function ingestRawEventAuthed(
 
   if (res.ok) {
     return { ok: true, status: 202, data: res.json, requestId: res.requestId };
+  }
+
+  return {
+    ok: false,
+    status: res.status,
+    requestId: res.requestId,
+    kind: res.kind,
+    error: res.error,
+    ...(res.json !== undefined ? { json: res.json } : {}),
+  };
+}
+
+export type DeleteIngestedRawEventOk = {
+  ok: true;
+  status: 200;
+  data: DeleteRawEventResponseDto;
+  requestId: string | null;
+};
+
+export type DeleteIngestedRawEventFail = {
+  ok: false;
+  status: number;
+  requestId: string | null;
+  kind: ApiFailure["kind"];
+  error: string;
+  json?: ApiFailure["json"];
+};
+
+/**
+ * Delete a user-ingested workout RawEvent via DELETE /ingest/:rawEventId (server allows manual provider only).
+ */
+export async function deleteIngestedRawEventAuthed(
+  rawEventId: string,
+  idToken: string,
+  opts?: { timeoutMs?: number },
+): Promise<DeleteIngestedRawEventOk | DeleteIngestedRawEventFail> {
+  const path = `/ingest/${encodeURIComponent(rawEventId)}`;
+  const res = await apiDeleteZodAuthed(path, idToken, deleteRawEventResponseDtoSchema, {
+    ...(typeof opts?.timeoutMs === "number" ? { timeoutMs: opts.timeoutMs } : {}),
+  });
+
+  if (res.ok) {
+    return { ok: true, status: 200, data: res.json, requestId: res.requestId };
   }
 
   return {

@@ -29,6 +29,7 @@ describe("ActivityDailyDetailsCard", () => {
     expect(str).not.toMatch(/148 steps/);
     expect(str).not.toContain("Couldn’t load steps for");
     expect(str).toContain("activity-daily-details-steps-bar");
+    expect(str).not.toContain("activity-baseline-threshold-markers");
   });
 
   it("shows selected-day inline error when that day failed and model is absent", () => {
@@ -80,6 +81,31 @@ describe("ActivityDailyDetailsCard", () => {
       );
     });
     expect(JSON.stringify(tree.toJSON())).not.toContain("Other days may still show");
+  });
+
+  it("wraps the progress track and baseline threshold markers in a single cluster for the Activity Baseline card", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ActivityDailyDetailsCard
+          loading={false}
+          error={null}
+          model={{
+            title: "Baseline",
+            compactStatsSummary: "10,000 steps",
+            markerPosition01: 0.5,
+          }}
+          footerCaption="Explainer below."
+          showBaselineStepThresholdMarkers
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("activity-baseline-instrument-cluster");
+    expect(str).toContain("activity-baseline-threshold-markers");
+    expect(str).toContain("2.5k");
+    expect(str).toContain("5k");
+    expect(str).toContain("Explainer below.");
   });
 
   it("supports custom heading title without changing numeric tier UI", () => {

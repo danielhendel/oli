@@ -85,6 +85,7 @@ describe("ActivityOverviewCard", () => {
     expect(str).toContain("Sedentary");
     expect(str).not.toContain("Optimal");
     expect(str).not.toContain("Overview");
+    expect(str).not.toContain("activity-baseline-threshold-markers");
   });
 
   it("renders Not enough data copy when model supplies it", () => {

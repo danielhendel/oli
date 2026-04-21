@@ -40,6 +40,12 @@ export type PutOptions = {
   noStore?: boolean;
 };
 
+export type DeleteOptions = {
+  cacheBust?: string;
+  timeoutMs?: number;
+  noStore?: boolean;
+};
+
 function isJsonValue(v: unknown): v is JsonValue {
   if (v === null) return true;
   const t = typeof v;
@@ -432,4 +438,47 @@ export async function apiPutJsonAuthed<T>(
   const bodyStr = JSON.stringify(body);
 
   return apiFetchJson<T>(url, { method: "PUT", headers, body: bodyStr }, opts?.timeoutMs);
+}
+
+export async function apiDeleteJsonAuthed<T>(
+  path: string,
+  idToken: string,
+  opts?: DeleteOptions,
+): Promise<ApiResult<T>> {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
+
+  const base = normalizeBaseUrl(baseRaw);
+  let url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
+
+  if (isGatewayBaseUrl(base)) {
+    const apiKey = requireGatewayApiKey();
+    if (!apiKey) {
+      return {
+        ok: false,
+        status: 0,
+        kind: "unknown",
+        error: "Missing EXPO_PUBLIC_GATEWAY_API_KEY (required for API Gateway)",
+        requestId: null,
+      };
+    }
+    url = appendQueryParam(url, "key", apiKey);
+  }
+
+  const headerOpts: HeaderOptions = {};
+  if (opts?.noStore) headerOpts.noStore = true;
+
+  const headers = buildHeaders(headerOpts);
+  headers.Authorization = `Bearer ${idToken}`;
+
+  return apiFetchJson<T>(url, { method: "DELETE", headers }, opts?.timeoutMs);
 }
