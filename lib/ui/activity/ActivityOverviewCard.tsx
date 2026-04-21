@@ -2,29 +2,41 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { ActivityOverviewCardModel } from "@/lib/data/activity/activityOverviewCardModel";
+import type { ActivityRollupInlineError } from "@/lib/data/activity/activityRollupErrorSummary";
 import {
   ActivityTierProgressTrack,
   activityTierProgressAccessibilityPercent,
 } from "@/lib/ui/activity/ActivityTierProgressTrack";
+import { ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { getStepRating, getStepRatingTierIndex, stepsFromLocaleDigitString } from "@/lib/utils/activityStepRating";
+import {
+  getStepRatingActivityDescriptorPill,
+  getStepRatingTierIndex,
+  stepsFromLocaleDigitString,
+} from "@/lib/utils/activityStepRating";
 
 type ActivityOverviewCardProps = {
   loading: boolean;
   error: { message: string; requestId: string | null; onRetry: () => void } | null;
   model: ActivityOverviewCardModel | null;
+  /** Rollup wave: yesterday key not merged yet — show loading for that row only. */
+  yesterdayRowLoading?: boolean;
+  /** Yesterday daily-facts failure — replaces the Yesterday row body (retry preserved). */
+  yesterdayRowError?: ActivityRollupInlineError | null;
 };
 
 /**
- * View-only: model still ships `…/day`; strip suffix for large figure (matches Today’s Steps digit treatment).
+ * Parse overview row summaries: averages (`…/day`) or single-day totals (`… steps`) for Yesterday.
  */
 function overviewRowFigureDisplay(compactStatsSummary: string): { numeric: true; digits: string } | { numeric: false; text: string } {
   const s = compactStatsSummary.trim();
-  const m = s.match(/^([\d,]+)\/day$/);
-  if (m) return { numeric: true, digits: m[1]! };
+  const perDay = s.match(/^([\d,]+)\/day$/);
+  if (perDay) return { numeric: true, digits: perDay[1]! };
+  const steps = s.match(/^([\d,]+)\s+steps$/i);
+  if (steps) return { numeric: true, digits: steps[1]! };
   return { numeric: false, text: s };
 }
 
@@ -43,9 +55,15 @@ function ActivityOverviewTierProgressTrack({ testID, tierIndex }: { testID: stri
 }
 
 /**
- * Activity overview rows — fixed-tier step bars and rating pills (no section title; spacing via card gap).
+ * Activity overview — Yesterday first, then fixed windows (7d / 30d / YTD / 12m).
  */
-export function ActivityOverviewCard({ loading, error, model }: ActivityOverviewCardProps) {
+export function ActivityOverviewCard({
+  loading,
+  error,
+  model,
+  yesterdayRowLoading = false,
+  yesterdayRowError = null,
+}: ActivityOverviewCardProps) {
   return (
     <View style={styles.card}>
       {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
@@ -58,20 +76,52 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
         />
       ) : null}
       {!loading && model != null ? (
-        <View style={moduleOverviewMetricLayoutStyles.metricGroups}>
+        <View style={styles.metricGroups}>
           {model.timeframes.map((tf) => {
+            if (tf.key === "yesterday") {
+              if (yesterdayRowLoading) {
+                return (
+                  <View key="yesterday" style={styles.metricBlock}>
+                    <View style={[moduleOverviewMetricLayoutStyles.topRow, styles.activityRowTop]}>
+                      <Text style={styles.rowLabel} numberOfLines={1}>
+                        Yesterday
+                      </Text>
+                    </View>
+                    <LoadingState variant="inline" message="Loading steps…" />
+                  </View>
+                );
+              }
+              if (yesterdayRowError != null) {
+                return (
+                  <View key="yesterday" style={styles.metricBlock}>
+                    <View style={[moduleOverviewMetricLayoutStyles.topRow, styles.activityRowTop]}>
+                      <Text style={styles.rowLabel} numberOfLines={1}>
+                        Yesterday
+                      </Text>
+                    </View>
+                    <ErrorState
+                      variant="inline"
+                      message={yesterdayRowError.message}
+                      requestId={yesterdayRowError.requestId}
+                      onRetry={yesterdayRowError.onRetry}
+                    />
+                  </View>
+                );
+              }
+            }
+
             const figure = overviewRowFigureDisplay(tf.compactStatsSummary);
             const rowSteps = figure.numeric ? stepsFromLocaleDigitString(figure.digits) : null;
-            const rating = rowSteps != null ? getStepRating(rowSteps) : null;
+            const rating = rowSteps != null ? getStepRatingActivityDescriptorPill(rowSteps) : null;
             const tierIndex = rowSteps != null ? getStepRatingTierIndex(rowSteps) : null;
             const a11y =
               rating != null
                 ? `${tf.label}. ${rating.label}. ${tf.compactStatsSummary}.`
                 : `${tf.label}. ${tf.compactStatsSummary}.`;
             return (
-              <View key={tf.key} style={moduleOverviewMetricLayoutStyles.metricBlock} accessible accessibilityLabel={a11y}>
-                <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                  <View style={styles.labelPillCluster}>
+              <View key={tf.key} style={styles.metricBlock} accessible accessibilityLabel={a11y}>
+                <View style={[moduleOverviewMetricLayoutStyles.topRow, styles.activityRowTop]}>
+                  <View style={styles.titlePillLeftGroup}>
                     <Text style={styles.rowLabel} numberOfLines={1}>
                       {tf.label}
                     </Text>
@@ -81,6 +131,8 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
                         color={rating.color}
                         backgroundColor={rating.backgroundColor}
                         emphasis="subtle"
+                        compactChrome
+                        labelTypography={ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY}
                         testID={`activity-overview-rating-${tf.key}`}
                       />
                     ) : null}
@@ -105,35 +157,46 @@ export function ActivityOverviewCard({ loading, error, model }: ActivityOverview
   );
 }
 
-/** Matches Today’s Steps card title / step figure sizing (see ActivityDailyDetailsCard). */
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 15,
+    gap: 11,
     ...elevatedCardSurfaceStyle,
   },
-  labelPillCluster: {
+  metricGroups: {
+    gap: 12,
+  },
+  metricBlock: {
+    gap: 8,
+  },
+  activityRowTop: {
+    alignItems: "baseline",
+  },
+  titlePillLeftGroup: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    alignItems: "baseline",
+    gap: 7,
   },
   rowLabel: {
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 21,
+    fontSize: 19,
+    lineHeight: 24,
     fontWeight: "600",
     color: "#1C1C1E",
-    letterSpacing: -0.38,
+    letterSpacing: -0.34,
   },
   rowFigure: {
     fontSize: 23,
-    fontWeight: "700",
+    lineHeight: 28,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
     color: "#1C1C1E",
-    letterSpacing: -0.42,
+    letterSpacing: -0.44,
     flexShrink: 0,
   },
   rowNonNumeric: {

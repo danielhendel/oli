@@ -101,7 +101,7 @@ describe("buildActivityCalendarDayModelFromRollup", () => {
       rollupEntry: { kind: "numeric", steps: 9000 },
     });
     expect(m.presentation).toEqual({ kind: "tier", tierIndex: 2 });
-    expect(m.accessibilityDetail).toBe("Average, steps in daily rollup");
+    expect(m.accessibilityDetail).toBe("Moderately Active, steps in daily rollup");
   });
 });
 

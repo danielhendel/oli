@@ -19,6 +19,12 @@ export function activityTrailingNDaysInclusive(endDay: DayKey, dayCount: number)
 export const ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT = 7;
 /** Trailing 30-day overview row (inclusive of effective anchor day). */
 export const ACTIVITY_OVERVIEW_TRAILING_30_DAY_COUNT = 30;
+/**
+ * Activity Baseline card: **90 completed local calendar days**, inclusive of the
+ * **last completed day** (local yesterday from {@link getActivityOverviewAnchorEndDay}) and
+ * **never including device today**. Same `DayKey` space as the rest of Activity (`getTodayDayKeyLocal` + repo day arithmetic).
+ */
+export const ACTIVITY_BASELINE_TRAILING_DAY_COUNT = 90;
 /** “12 Month” = 365 trailing local days inclusive of effective anchor day. */
 export const ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT = 365;
 

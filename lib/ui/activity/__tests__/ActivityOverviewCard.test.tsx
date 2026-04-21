@@ -82,7 +82,7 @@ describe("ActivityOverviewCard", () => {
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("100");
     expect(str).toContain("activity-overview-steps-bar-day7");
-    expect(str).toContain("Low");
+    expect(str).toContain("Sedentary");
     expect(str).not.toContain("Optimal");
     expect(str).not.toContain("Overview");
   });

@@ -9,6 +9,11 @@ export type ActivityRatingPillProps = {
   backgroundColor: string;
   /** Smaller, quieter chrome for Activity tier labels (bars carry color). */
   emphasis?: "default" | "subtle";
+  /**
+   * Activity step cards only: tighter padding + rim so the pill reads as supporting context
+   * vs the step figure (Sleep and other callers omit).
+   */
+  compactChrome?: boolean;
   /** Optional override for label typography (e.g. Sleep metric pills). */
   labelTypography?: Pick<TextStyle, "fontSize" | "fontWeight" | "letterSpacing">;
   testID?: string;
@@ -23,20 +28,22 @@ export function ActivityRatingPill({
   color,
   backgroundColor,
   emphasis = "default",
+  compactChrome = false,
   labelTypography,
   testID,
 }: ActivityRatingPillProps) {
   const subtle = emphasis === "subtle";
+  const activityCompact = subtle && compactChrome;
   const os = typeof Platform !== "undefined" && Platform.OS != null ? Platform.OS : "ios";
   const subtleLift =
-    subtle && os === "ios"
+    subtle && !compactChrome && os === "ios"
       ? {
           shadowColor: "#000000",
           shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.06,
           shadowRadius: 2,
         }
-      : subtle && os === "android"
+      : subtle && !compactChrome && os === "android"
         ? { elevation: 1 }
         : {};
 
@@ -45,10 +52,14 @@ export function ActivityRatingPill({
       style={[
         styles.shell,
         subtle ? styles.shellSubtle : null,
+        activityCompact ? styles.shellSubtleActivityCompact : null,
+        activityCompact ? styles.shellActivityBaselineNudge : null,
         subtleLift,
         {
           backgroundColor,
-          borderColor: subtle ? withAlphaFromHex(color, 0.28) : withAlphaFromHex(color, 0.22),
+          borderColor: subtle
+            ? withAlphaFromHex(color, activityCompact ? 0.22 : 0.28)
+            : withAlphaFromHex(color, 0.22),
           borderWidth: subtle ? 1 : StyleSheet.hairlineWidth,
         },
       ]}
@@ -89,14 +100,23 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     minHeight: 30,
   },
+  shellSubtleActivityCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    minHeight: 26,
+  },
+  /** Optical alignment with baseline-aligned Activity row titles. */
+  shellActivityBaselineNudge: {
+    marginTop: 1,
+  },
   text: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
   },
   textSubtle: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: -0.05,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: -0.06,
   },
 });
