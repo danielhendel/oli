@@ -8,6 +8,7 @@ import {
   deriveOverviewTabSessionCounts,
   getRecentWorkoutsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
+  getStrengthOverviewTabSessionsForCalendarDaysAscending,
   sortWorkoutsChronologicalAsc,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
@@ -615,5 +616,46 @@ describe("workoutsCalendarModel", () => {
         cardioSessionCount: 1,
       });
     });
+  });
+
+  it("getStrengthOverviewTabSessionsForCalendarDaysAscending is earliest-first for strength-tab sessions", () => {
+    const days = [
+      {
+        day: "2026-03-10",
+        workouts: [
+          {
+            id: "later",
+            observedAt: "2026-03-10T20:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-03-10T20:00:00.000Z",
+            end: "2026-03-10T21:00:00.000Z",
+            durationMinutes: 60,
+            calories: null,
+          },
+        ],
+      },
+      {
+        day: "2026-03-09",
+        workouts: [
+          {
+            id: "earlier",
+            observedAt: "2026-03-09T08:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-03-09T08:00:00.000Z",
+            end: "2026-03-09T09:00:00.000Z",
+            durationMinutes: 60,
+            calories: null,
+          },
+        ],
+      },
+    ];
+    const asc = getStrengthOverviewTabSessionsForCalendarDaysAscending(days);
+    expect(asc.map((x) => x.session.workouts[0]?.id)).toEqual(["earlier", "later"]);
+    const newestFirst = getRecentWorkoutSessionsFromCalendarDays(days, 10);
+    expect(newestFirst[0]?.session.workouts[0]?.id).toBe("later");
   });
 });

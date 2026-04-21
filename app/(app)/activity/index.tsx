@@ -85,6 +85,7 @@ export default function ActivityOverviewScreen() {
             error={data.baselineDetails.error}
             model={data.baselineDetails.model}
             footerCaption={ACTIVITY_BASELINE_DEFINITION_SENTENCE}
+            showBaselineStepThresholdMarkers
           />
           <View style={styles.cardSpacer} />
           <ActivityDailyDetailsCard

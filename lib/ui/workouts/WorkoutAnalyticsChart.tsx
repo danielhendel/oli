@@ -14,6 +14,16 @@ import {
   formatWorkoutDurationLabel,
 } from "@/lib/data/workouts/workoutDisplay";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
+import {
+  STEP_TIER_COLORS,
+  STEP_TIER_TRACK_RIM_BORDER,
+} from "@/lib/utils/activityStepTierVisual";
+import { averageExpectedMonthlyWorkloadFromWeeklyBaseline } from "@/lib/data/workouts/strengthYearlyChartBaseline";
+import {
+  strengthMetricCardTitleTextStyle,
+  strengthYearlyAnalyticsCardShellStyle,
+} from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
+import { StrengthYearlyWorkloadBars } from "@/lib/ui/workouts/StrengthYearlyWorkloadBars";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import {
   WorkoutAnalyticsMonthBarChart,
@@ -26,6 +36,8 @@ export type WorkoutAnalyticsChartProps = {
   headerTitle: string;
   /** Omit to hide the header "View More" action (e.g. on the analytics destination screen). */
   onViewMore?: () => void;
+  /** When `"strengthYearly"`, card shell + title typography match Strength Baseline / metric cards. */
+  layoutVariant?: "default" | "strengthYearly";
 } & (
   | {
       layout: "dual";
@@ -47,6 +59,12 @@ export type WorkoutAnalyticsChartProps = {
       monthChartBars: StrengthMonthChartBar[];
       monthMetrics: StrengthMonthScopedMetrics;
       fixedPeriod?: StrengthPeriodTab;
+      /** Strength Analytics yearly card: baseline rate + scale + month highlight (presentation-only). */
+      yearlyStrengthVisualization?: {
+        avgWorkoutsPerWeek: number;
+        analyticsCalendarYear: number;
+        todayMonthKey: string;
+      };
     }
 );
 
@@ -54,6 +72,8 @@ export type WorkoutAnalyticsChartProps = {
 const CHART_MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"] as const;
 
 const BAR_TRACK_HEIGHT = 120;
+/** Taller plot for Strength Analytics yearly card — chart-forward layout (presentation-only). */
+const BAR_TRACK_HEIGHT_STRENGTH_YEARLY = 176;
 /** Symmetric horizontal inset so Jan/Dec balance inside the plot. */
 const CHART_PLOT_INSET_H = 8;
 /** Matches monthLabelsRow marginTop + single-line label height for column alignment. */
@@ -80,7 +100,7 @@ type MonthChartPoint = { key: string; displayLabel: string; value: number };
  * Training overview: dual-tab (legacy) or single-domain (Strength-only / Cardio-only product flows).
  */
 export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
-  const { headerTitle, onViewMore } = props;
+  const { headerTitle, onViewMore, layoutVariant = "default" } = props;
   const [dualTab, setDualTab] = useState<WorkoutOverviewMetricsTab>("strength");
   const [strengthPeriodTab, setStrengthPeriodTab] = useState<StrengthPeriodTab>("year");
 
@@ -171,7 +191,27 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
     resolved.monthChartPoints != null &&
     chartPoints.length > 0;
 
-  const max = Math.max(1, ...chartPoints.map((p) => p.value));
+  const isStrengthYearlyYearView =
+    layoutVariant === "strengthYearly" &&
+    resolved.kind === "singleStrengthPeriod" &&
+    resolved.strengthPeriodTab === "year";
+
+  const yearlyStrengthVisualization =
+    props.layout === "singleStrengthPeriod" ? props.yearlyStrengthVisualization : undefined;
+
+  const yearlyBaselineMonthly =
+    isStrengthYearlyYearView && yearlyStrengthVisualization != null
+      ? averageExpectedMonthlyWorkloadFromWeeklyBaseline(
+          yearlyStrengthVisualization.avgWorkoutsPerWeek,
+          yearlyStrengthVisualization.analyticsCalendarYear,
+        )
+      : null;
+
+  const max = Math.max(
+    1,
+    yearlyBaselineMonthly ?? 0,
+    ...chartPoints.map((p) => p.value),
+  );
   const axisMid = Math.round(max / 2);
 
   const pointKey = (p: YearChartPoint | MonthChartPoint): string =>
@@ -185,10 +225,29 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
       }))
     : [];
 
+  const barTrackHeight = isStrengthYearlyYearView ? BAR_TRACK_HEIGHT_STRENGTH_YEARLY : BAR_TRACK_HEIGHT;
+  /** Good-band tier green — same palette as Strength Baseline / tier fills ({@link STEP_TIER_COLORS}). */
+  const chartBarFillColor =
+    layoutVariant === "strengthYearly" && resolved.kind === "singleStrengthPeriod"
+      ? STEP_TIER_COLORS.good
+      : resolved.accent.barColor;
+
+  /** Strength Analytics yearly card is title + chart only ({@link layoutVariant} `"strengthYearly"`). */
+  const omitStrengthYearlySummaries =
+    layoutVariant === "strengthYearly" && resolved.kind === "singleStrengthPeriod";
+
   return (
-    <View style={styles.card}>
-      <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>{headerTitle}</Text>
+    <View style={[styles.card, layoutVariant === "strengthYearly" ? strengthYearlyAnalyticsCardShellStyle : null]}>
+      <View
+        style={[
+          workoutOverviewInCardHeaderStyles.row,
+          styles.inCardHeaderRowSpacing,
+          layoutVariant === "strengthYearly" && styles.inCardHeaderRowSpacingBaselineFamily,
+        ]}
+      >
+        <Text style={layoutVariant === "strengthYearly" ? strengthMetricCardTitleTextStyle : workoutOverviewInCardHeaderStyles.title}>
+          {headerTitle}
+        </Text>
         {onViewMore != null ? (
           <Pressable
             onPress={onViewMore}
@@ -303,10 +362,16 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
           </Pressable>
         </View>
       ) : (
-        <View style={styles.singleDomainChartSpacer} />
+        <View
+          style={
+            layoutVariant === "strengthYearly" ? styles.singleDomainChartSpacerBaselineFamilyTight : styles.singleDomainChartSpacer
+          }
+        />
       )}
       {chartPoints.length === 0 ? (
-        <Text style={styles.placeholder}>{resolved.chartEmptyMessage}</Text>
+        <Text style={[styles.placeholder, omitStrengthYearlySummaries && styles.placeholderStrengthYearly]}>
+          {resolved.chartEmptyMessage}
+        </Text>
       ) : useMonthFixedScaleBars ? (
         <View style={styles.chartPlotRow}>
           <View style={styles.yAxisColumn}>
@@ -321,14 +386,45 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
           </View>
           <View style={styles.chartBarsBlock}>
             <View style={[styles.chartBarsInner, styles.chartBarsInnerMonth]}>
-              <WorkoutAnalyticsMonthBarChart points={monthBarPoints} barColor={resolved.accent.barColor} />
+              <WorkoutAnalyticsMonthBarChart points={monthBarPoints} barColor={chartBarFillColor} />
+            </View>
+          </View>
+        </View>
+      ) : isStrengthYearlyYearView && yearlyStrengthVisualization != null ? (
+        <View style={[styles.chartPlotRowYearlyFill, { minHeight: barTrackHeight + MONTH_LABEL_STACK_HEIGHT + 26 + 12 }]}>
+          <View style={styles.chartBarsBlock}>
+            <View style={[styles.chartBarsInner, styles.chartBarsInnerStrengthYearly]}>
+              <StrengthYearlyWorkloadBars
+                points={resolved.yearPoints}
+                barTrackHeight={barTrackHeight}
+                fillColorGood={STEP_TIER_COLORS.good}
+                maxScale={max}
+                baselineMonthlyAvg={yearlyBaselineMonthly ?? 0}
+                todayMonthKey={yearlyStrengthVisualization.todayMonthKey}
+              />
+              <View style={styles.monthLabelsRow}>
+                {chartPoints.map((p) => (
+                  <View key={pointKey(p)} style={styles.monthLabelCol}>
+                    <Text
+                      style={styles.barLabel}
+                      accessibilityLabel={
+                        "monthKey" in p ? `Month ${p.monthKey}` : `Week ${p.displayLabel}`
+                      }
+                    >
+                      {p.displayLabel}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         </View>
       ) : (
-        <View style={styles.chartPlotRow}>
+        <View
+          style={[styles.chartPlotRow, isStrengthYearlyYearView && { minHeight: barTrackHeight + MONTH_LABEL_STACK_HEIGHT + 12 }]}
+        >
           <View style={styles.yAxisColumn}>
-            <View style={styles.yAxisTrack}>
+            <View style={[styles.yAxisTrack, { height: barTrackHeight }]}>
               <Text style={styles.yAxisTick}>{max}</Text>
               <Text style={styles.yAxisTick}>{axisMid}</Text>
               <Text style={styles.yAxisTick}>0</Text>
@@ -337,15 +433,23 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
           </View>
           <View style={styles.chartBarsBlock}>
             <View style={styles.chartBarsInner}>
-              <View style={styles.barsRow}>
+              <View
+                style={[
+                  styles.barsRow,
+                  { height: barTrackHeight },
+                  isStrengthYearlyYearView && {
+                    borderBottomColor: STEP_TIER_TRACK_RIM_BORDER,
+                  },
+                ]}
+              >
                 {chartPoints.map((p) => (
                   <View key={pointKey(p)} style={styles.barCol}>
                     <View
                       style={[
                         styles.bar,
                         {
-                          height: Math.max(6, Math.round((p.value / max) * BAR_TRACK_HEIGHT)),
-                          backgroundColor: resolved.accent.barColor,
+                          height: Math.max(6, Math.round((p.value / max) * barTrackHeight)),
+                          backgroundColor: chartBarFillColor,
                         },
                       ]}
                     />
@@ -371,7 +475,10 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
         </View>
       )}
 
-      {resolved.kind === "singleStrengthPeriod" && resolved.strengthPeriodTab === "month" && resolved.monthMetrics ? (
+      {resolved.kind === "singleStrengthPeriod" &&
+      resolved.strengthPeriodTab === "month" &&
+      resolved.monthMetrics &&
+      !omitStrengthYearlySummaries ? (
         <View style={styles.metricsGrid}>
           <View style={styles.metricsRow}>
             <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
@@ -398,7 +505,7 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
             </View>
           </View>
         </View>
-      ) : resolved.metrics != null ? (
+      ) : resolved.metrics != null && !omitStrengthYearlySummaries ? (
         <View style={styles.metricsGrid}>
           <View style={styles.metricsRow}>
             <View style={[styles.metricCell, { backgroundColor: resolved.accent.metricTileBg }]}>
@@ -435,7 +542,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   inCardHeaderRowSpacing: { marginBottom: 12 },
+  inCardHeaderRowSpacingBaselineFamily: { marginBottom: 14 },
   singleDomainChartSpacer: { height: 12 },
+  singleDomainChartSpacerBaselineFamily: { height: 8 },
+  /** Title → chart breathing room on Strength Analytics yearly card (fixed-period, no tabs). */
+  singleDomainChartSpacerBaselineFamilyTight: { height: 12 },
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#EBEBEF",
@@ -458,10 +569,18 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 15, fontWeight: "500", color: "#8E8E93" },
   tabTextActive: { fontWeight: "700" },
   placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", paddingVertical: 16 },
+  placeholderStrengthYearly: { paddingVertical: 12 },
   chartPlotRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
+    minHeight: 150,
+  },
+  /** Yearly Strength chart without left Y-axis ticks — single full-width plot column. */
+  chartPlotRowYearlyFill: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    width: "100%",
     minHeight: 150,
   },
   yAxisColumn: {
@@ -502,6 +621,10 @@ const styles = StyleSheet.create({
   chartBarsInnerMonth: {
     paddingLeft: 4,
     paddingRight: 4,
+  },
+  chartBarsInnerStrengthYearly: {
+    paddingLeft: 12,
+    paddingRight: 12,
   },
   barsRow: {
     flexDirection: "row",

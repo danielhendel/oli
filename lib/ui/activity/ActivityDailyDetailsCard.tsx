@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { ActivityDailyDetailsCardModel } from "@/lib/data/activity/activityOverviewCardModel";
 import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
+import { ActivityBaselineThresholdMarkers } from "@/lib/ui/activity/ActivityBaselineThresholdMarkers";
 import {
   ActivityTierProgressTrack,
   activityTierProgressAccessibilityPercent,
@@ -12,6 +13,7 @@ import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOvervi
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
+  activityStepsDisplayScaleFill01,
   getStepRatingActivityDescriptorPill,
   getStepRatingTierIndex,
   stepsFromLocaleDigitString,
@@ -29,6 +31,8 @@ type ActivityDailyDetailsCardProps = {
   footerCaption?: string;
   /** Today’s Steps vs baseline insight (precomputed in data layer). */
   deltaLabel?: string | null;
+  /** Activity Baseline only: subtle tier threshold ticks under the bar. */
+  showBaselineStepThresholdMarkers?: boolean;
 };
 
 /** Parses `compactStatsSummary` for display only (e.g. `7,524 steps` → `7,524`). Hook output unchanged. */
@@ -42,12 +46,25 @@ function headingSentenceLowerSteps(headingTitle: string): string {
   return headingTitle.endsWith(" Steps") ? `${headingTitle.slice(0, -" Steps".length)} steps` : headingTitle;
 }
 
-function DetailsTierProgressTrack({ testID, tierIndex }: { testID: string; tierIndex: number | null }) {
-  const pct = activityTierProgressAccessibilityPercent(tierIndex);
+function DetailsTierProgressTrack({
+  testID,
+  tierIndex,
+  fillWidth01Override,
+}: {
+  testID: string;
+  tierIndex: number | null;
+  /** Bounded 0 → 15k display fill when steps are numeric (`null` → empty bar). */
+  fillWidth01Override: number | null;
+}) {
+  const pct = activityTierProgressAccessibilityPercent(
+    tierIndex,
+    fillWidth01Override != null ? { fillWidth01Override } : undefined,
+  );
   return (
     <ActivityTierProgressTrack
       testID={testID}
       tierIndex={tierIndex}
+      fillWidth01Override={fillWidth01Override}
       wrapperProps={{
         accessibilityRole: "progressbar",
         accessibilityValue: { now: pct, min: 0, max: 100 },
@@ -65,11 +82,17 @@ export function ActivityDailyDetailsCard({
   stepsBarTestID = "activity-daily-details-steps-bar",
   footerCaption,
   deltaLabel,
+  showBaselineStepThresholdMarkers = false,
 }: ActivityDailyDetailsCardProps) {
   const digits = model != null ? primaryStepsFigureFromCompactSummary(model.compactStatsSummary) : null;
   const hasFooterCaption = footerCaption != null && footerCaption.length > 0;
   const hasDeltaLabel = deltaLabel != null && deltaLabel.length > 0;
+  const hasBaselineMarkers = showBaselineStepThresholdMarkers;
   const rating = digits != null ? getStepRatingActivityDescriptorPill(stepsFromLocaleDigitString(digits)) : null;
+  const stepsTierIndex =
+    digits != null ? getStepRatingTierIndex(stepsFromLocaleDigitString(digits)) : null;
+  const activityDisplayScaleFill01: number | null =
+    digits != null ? activityStepsDisplayScaleFill01(stepsFromLocaleDigitString(digits)) : null;
   const headingA11y = headingSentenceLowerSteps(headingTitle);
   const titleRowA11y =
     loading || model == null
@@ -130,17 +153,31 @@ export function ActivityDailyDetailsCard({
             moduleOverviewMetricLayoutStyles.metricBlock,
             styles.activityDetailsMetricBlock,
             styles.metricFooterStack,
-            hasFooterCaption
-              ? styles.metricFooterStackWithCaption
-              : hasDeltaLabel
-                ? styles.metricFooterStackWithDelta
-                : null,
+            hasFooterCaption && hasBaselineMarkers
+              ? styles.metricFooterStackBaselineWithMarkers
+              : hasFooterCaption
+                ? styles.metricFooterStackWithCaption
+                : hasDeltaLabel
+                  ? styles.metricFooterStackWithDelta
+                  : null,
           ]}
         >
-          <DetailsTierProgressTrack
-            testID={stepsBarTestID}
-            tierIndex={digits != null ? getStepRatingTierIndex(stepsFromLocaleDigitString(digits)) : null}
-          />
+          {hasBaselineMarkers ? (
+            <View style={styles.baselineInstrumentCluster} testID="activity-baseline-instrument-cluster">
+              <DetailsTierProgressTrack
+                testID={stepsBarTestID}
+                tierIndex={stepsTierIndex}
+                fillWidth01Override={activityDisplayScaleFill01}
+              />
+              <ActivityBaselineThresholdMarkers />
+            </View>
+          ) : (
+            <DetailsTierProgressTrack
+              testID={stepsBarTestID}
+              tierIndex={stepsTierIndex}
+              fillWidth01Override={activityDisplayScaleFill01}
+            />
+          )}
           {hasDeltaLabel ? (
             <Text style={styles.deltaInsight} testID="activity-daily-details-delta-label">
               {deltaLabel}
@@ -169,6 +206,13 @@ const styles = StyleSheet.create({
   },
   metricFooterStackWithCaption: {
     gap: 14,
+  },
+  /** Bar + markers live in `baselineInstrumentCluster`; this gap separates that unit from delta / explainer. */
+  metricFooterStackBaselineWithMarkers: {
+    gap: 12,
+  },
+  baselineInstrumentCluster: {
+    gap: 3,
   },
   metricFooterStackWithDelta: {
     gap: 11,

@@ -97,6 +97,19 @@ export const ingestAcceptedResponseDtoSchema = z
 
 export type IngestAcceptedResponseDto = z.infer<typeof ingestAcceptedResponseDtoSchema>;
 
+/**
+ * DELETE /ingest/:rawEventId — successful removal of an ingested RawEvent (manual workouts only; server-enforced).
+ */
+export const deleteRawEventResponseDtoSchema = z
+  .object({
+    ok: z.literal(true),
+    rawEventId: z.string().min(1),
+    requestId: z.string().min(1),
+  })
+  .strip();
+
+export type DeleteRawEventResponseDto = z.infer<typeof deleteRawEventResponseDtoSchema>;
+
 // -----------------------------
 // Payloads
 // -----------------------------

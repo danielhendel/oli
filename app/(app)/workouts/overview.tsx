@@ -17,6 +17,8 @@ import {
   NativeModules,
   AppState,
   InteractionManager,
+  Modal,
+  Alert,
 } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -49,6 +51,7 @@ import {
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
+  getStrengthOverviewTabSessionsForCalendarDaysAscending,
   WORKOUT_OVERVIEW_RECENT_SESSION_CAP,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
@@ -87,7 +90,7 @@ import {
   setAppleHealthWorkoutRangeBootstrapBuild,
   clearAppleHealthWorkoutRangeBootstrapBuild,
 } from "@/lib/integrations/appleHealth/storage";
-import { ingestRawEvent } from "@/lib/api/ingest";
+import { deleteIngestedRawEventAuthed, ingestRawEvent } from "@/lib/api/ingest";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 import {
@@ -102,29 +105,28 @@ import {
   pickWorkoutForSessionActions,
   pickWorkoutOverrideForSession,
 } from "@/lib/data/workouts/workoutSessionSurface";
-import { useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
+import { clearWorkoutOverride, useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import { resolveWorkoutIngestProvider, type WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
-import {
-  listCustomExercises,
-  type CustomExerciseRecord,
-} from "@/lib/workouts/exercises/customExerciseStore";
-import { buildWeeklyStrengthCardModel } from "@/lib/data/workouts/weeklyStrengthCardModel";
-import { buildWeeklyInsightsCardModel } from "@/lib/data/workouts/weeklyInsightsCardModel";
 import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
-import { buildStrengthOverviewCardModel } from "@/lib/data/workouts/strengthOverviewCardModel";
-import { StrengthOverviewCard } from "@/lib/ui/workouts/StrengthOverviewCard";
-import { WeeklyInsightsCard } from "@/lib/ui/workouts/WeeklyInsightsCard";
+import { buildStrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
+import {
+  buildStrengthLastWeekCardModel,
+  buildStrengthThisWeekCardModel,
+  formatStrengthLastWeekSessionsMicroCaption,
+  formatStrengthThisWeekSessionsMicroCaption,
+} from "@/lib/data/workouts/strengthThisWeekCardModel";
+import { StrengthBaselineCard } from "@/lib/ui/workouts/StrengthBaselineCard";
+import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { serializeStrengthAnalyticsFocusParams } from "@/lib/workouts/navigation/strengthAnalyticsNavigationIntent";
-
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
 type MaybeIsAvailable = { isAvailable?: unknown };
@@ -142,9 +144,6 @@ const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
 const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
-
-/** Strength overview “Recent Workouts” list: max visible rows (newest-first; source list still uses WORKOUT_OVERVIEW_RECENT_SESSION_CAP). */
-const STRENGTH_OVERVIEW_RECENT_DISPLAY_COUNT = 5;
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -175,6 +174,16 @@ function formatWorkoutDayLabel(dayKey: string): string {
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
   return `${wd} ${month}/${day}`;
+}
+
+/** Matches DELETE /ingest allowlist via {@link resolveWorkoutIngestProvider} (handles list hydrate rows that omit raw `provider`). */
+function strengthWorkoutEligibleForDeleteFromOli(workout: WorkoutHistoryItem | null | undefined): boolean {
+  if (!workout) return false;
+  const p = resolveWorkoutIngestProvider(workout);
+  if (p !== "manual" && p !== "apple_health") return false;
+  const k = workout.rawKind;
+  if (k === undefined) return true;
+  return k === "strength_workout" || k === "workout";
 }
 
 function countJournalSetsForDisplay(summary: ManualWorkoutDaySummary | null): number {
@@ -238,10 +247,9 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     session: ReconciledWorkoutSession;
   } | null>(null);
   const [workoutMenuAnchor, setWorkoutMenuAnchor] = useState<WorkoutActionAnchor | null>(null);
+  const [pendingDeleteWorkoutId, setPendingDeleteWorkoutId] = useState<string | null>(null);
+  const [deleteWorkoutSubmitting, setDeleteWorkoutSubmitting] = useState(false);
   const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
-  const [customExerciseById, setCustomExerciseById] = useState<ReadonlyMap<string, CustomExerciseRecord>>(
-    () => new Map(),
-  );
   const today = getTodayDayKeyLocal();
   const anchorDay = today;
   const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
@@ -298,6 +306,10 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const weekDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, weekStart, weekEnd),
     [domainSharedDays, weekStart, weekEnd],
+  );
+  const lastWeekDaysSlice = useMemo(
+    () => filterWorkoutCalendarDaysInclusive(domainSharedDays, prevWeekStart, prevWeekEnd),
+    [domainSharedDays, prevWeekStart, prevWeekEnd],
   );
   const recentDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, recentRangeStart, recentRangeEnd),
@@ -425,10 +437,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, WORKOUT_OVERVIEW_RECENT_SESSION_CAP);
   }, [overviewSharedRange.status, recentDaysSlice]);
 
-  const recentSessionsShownOnOverview = useMemo(() => {
-    if (domain !== "strength") return recentWorkouts;
-    return recentWorkouts.slice(0, STRENGTH_OVERVIEW_RECENT_DISPLAY_COUNT);
+  const recentSessionsShownOnOverview = useMemo((): typeof recentWorkouts => {
+    if (domain === "strength") return [];
+    return recentWorkouts;
   }, [domain, recentWorkouts]);
+
+  const strengthWeekSessionsAscending = useMemo(() => {
+    if (overviewSharedRange.status !== "ready" || domain !== "strength") return [];
+    return getStrengthOverviewTabSessionsForCalendarDaysAscending(weekDaysSlice);
+  }, [overviewSharedRange.status, domain, weekDaysSlice]);
+
+  const strengthLastWeekSessionsAscending = useMemo(() => {
+    if (overviewSharedRange.status !== "ready" || domain !== "strength") return [];
+    return getStrengthOverviewTabSessionsForCalendarDaysAscending(lastWeekDaysSlice);
+  }, [overviewSharedRange.status, domain, lastWeekDaysSlice]);
 
   const weekWorkoutIds = useMemo(
     () =>
@@ -438,17 +460,29 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     [weekDaysSlice],
   );
 
+  const lastWeekWorkoutIds = useMemo(
+    () =>
+      lastWeekDaysSlice.flatMap((d) =>
+        reconcileWorkoutSessionsForDay(d.day, d.workouts).flatMap((s) => s.workouts.map((w) => w.id)),
+      ),
+    [lastWeekDaysSlice],
+  );
+
   const recentWorkoutIds = useMemo(
-    () => recentSessionsShownOnOverview.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
-    [recentSessionsShownOnOverview],
+    () =>
+      domain === "strength"
+        ? strengthWeekSessionsAscending.flatMap((entry) => entry.session.workouts.map((w) => w.id))
+        : recentSessionsShownOnOverview.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
+    [domain, strengthWeekSessionsAscending, recentSessionsShownOnOverview],
   );
 
   const workoutIdsForOverrides = useMemo(() => {
     const uniq = new Set<string>();
     for (const id of recentWorkoutIds) uniq.add(id);
     for (const id of weekWorkoutIds) uniq.add(id);
+    for (const id of lastWeekWorkoutIds) uniq.add(id);
     return [...uniq];
-  }, [recentWorkoutIds, weekWorkoutIds]);
+  }, [recentWorkoutIds, weekWorkoutIds, lastWeekWorkoutIds]);
 
   const { overridesByWorkoutId, reload } = useWorkoutOverrides(workoutIdsForOverrides);
 
@@ -469,50 +503,39 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     };
   }, [overviewSharedRange.status, analyticsDaysSlice, today]);
 
-  const weeklyInsightsCardModel = useMemo(() => {
-    if (domain !== "strength") return null;
-    const analyticsCtx = { customExerciseById };
-    const currentWeek = buildWeeklyStrengthCardModel(manualWorkoutSummaries, {
-      weekStartDay: weekStart,
-      weekEndDay: weekEnd,
-      weekKey: `${weekStart}..${weekEnd}`,
-      sessionDisplayHints: [],
-      analyticsContext: analyticsCtx,
-    });
-    const previousWeek = buildWeeklyStrengthCardModel(manualWorkoutSummaries, {
-      weekStartDay: prevWeekStart,
-      weekEndDay: prevWeekEnd,
-      weekKey: `${prevWeekStart}..${prevWeekEnd}`,
-      sessionDisplayHints: [],
-      analyticsContext: analyticsCtx,
-    });
-    return buildWeeklyInsightsCardModel(currentWeek, previousWeek);
-  }, [domain, manualWorkoutSummaries, weekStart, weekEnd, prevWeekStart, prevWeekEnd, customExerciseById]);
-
   const overviewAnalytics =
     domain === "strength" ? workoutOverviewAnalyticsBundle.strength : workoutOverviewAnalyticsBundle.cardio;
 
-  const strengthOverviewModel = useMemo(() => {
+  const strengthBaselineModel = useMemo(() => {
     if (domain !== "strength") return null;
     if (overviewSharedRange.status !== "ready") return null;
-    return buildStrengthOverviewCardModel({
+    return buildStrengthBaselineCardModel({
       strengthCalendarDays: domainSharedDays,
-      analyticsDaysSlice,
+      todayDayKey: today,
+    });
+  }, [domain, overviewSharedRange.status, domainSharedDays, today]);
+
+  const strengthThisWeekModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildStrengthThisWeekCardModel({
+      strengthCalendarDays: domainSharedDays,
       todayDayKey: today,
       weekStartDay: weekStart,
       weekEndDay: weekEnd,
-      manualWorkoutSummaries,
     });
-  }, [
-    domain,
-    overviewSharedRange.status,
-    domainSharedDays,
-    analyticsDaysSlice,
-    today,
-    weekStart,
-    weekEnd,
-    manualWorkoutSummaries,
-  ]);
+  }, [domain, overviewSharedRange.status, domainSharedDays, today, weekStart, weekEnd]);
+
+  const strengthLastWeekModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildStrengthLastWeekCardModel({
+      strengthCalendarDays: domainSharedDays,
+      todayDayKey: today,
+      lastWeekStartDay: prevWeekStart,
+      lastWeekEndDay: prevWeekEnd,
+    });
+  }, [domain, overviewSharedRange.status, domainSharedDays, today, prevWeekStart, prevWeekEnd]);
 
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
@@ -563,29 +586,24 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     if (process.env.JEST_WORKER_ID) return;
     if (domain !== "strength") {
       setManualWorkoutSummaries([]);
-      setCustomExerciseById(new Map());
       return;
     }
     if (overviewSharedRange.status !== "ready") return;
     if (!user?.uid) {
       setManualWorkoutSummaries([]);
-      setCustomExerciseById(new Map());
       return;
     }
     const task = runAfterInteractionsSafe(() => {
-      void Promise.all([listManualWorkoutDaySummaries(user.uid), listCustomExercises(user.uid)]).then(
-        ([rows, customRows]) => {
-          if (cancelled) return;
-          setManualWorkoutSummaries(rows);
-          setCustomExerciseById(new Map(customRows.map((r) => [r.exerciseId, r])));
-        },
-      );
+      void listManualWorkoutDaySummaries(user.uid).then((rows) => {
+        if (cancelled) return;
+        setManualWorkoutSummaries(rows);
+      });
     });
     return () => {
       cancelled = true;
       task.cancel();
     };
-  }, [domain, overviewSharedRange.status, user?.uid]);
+  }, [domain, overviewSharedRange.status, user?.uid, workoutsCalendarRefreshEpoch]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -832,6 +850,50 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     setWorkoutMenuAnchor(null);
   }, []);
 
+  const beginDeleteStrengthWorkoutFromMenu = useCallback(() => {
+    if (!selectedWorkoutForMenu || domain !== "strength") return;
+    const workout = pickWorkoutForSessionActions(selectedWorkoutForMenu.session);
+    if (!strengthWorkoutEligibleForDeleteFromOli(workout)) return;
+    closeWorkoutMenu();
+    setPendingDeleteWorkoutId(workout!.id);
+  }, [selectedWorkoutForMenu, domain, closeWorkoutMenu]);
+
+  const confirmDeleteStrengthWorkout = useCallback(async () => {
+    if (!pendingDeleteWorkoutId) return;
+    const id = pendingDeleteWorkoutId;
+    const token = await getIdToken(false);
+    if (!token) {
+      setPendingDeleteWorkoutId(null);
+      Alert.alert("Couldn't delete workout", "Sign in again and try once more.");
+      return;
+    }
+    setDeleteWorkoutSubmitting(true);
+    const res = await deleteIngestedRawEventAuthed(id, token);
+    setDeleteWorkoutSubmitting(false);
+
+    if (res.ok) {
+      await clearWorkoutOverride(id);
+      await reload();
+      setPendingDeleteWorkoutId(null);
+      setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+      return;
+    }
+
+    setPendingDeleteWorkoutId(null);
+
+    let message = "Something went wrong. Your workouts were not changed.";
+    if (res.status === 403) {
+      message = "This workout can't be removed from Oli.";
+    } else if (res.status === 404) {
+      message = "That workout is no longer available.";
+    } else if (res.kind === "http" && typeof res.error === "string" && res.error.trim().length > 0) {
+      const short = res.error.trim();
+      if (short.length <= 140) message = short;
+    }
+
+    Alert.alert("Couldn't delete workout", message);
+  }, [pendingDeleteWorkoutId, getIdToken, reload]);
+
   const openEditRoute = useCallback(
     (mode: "rename" | "duration" | "type") => {
       if (!selectedWorkoutForMenu) return;
@@ -884,12 +946,266 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     ],
   );
 
-  const recentCard = (
+  const strengthRecentWeekCombinedCard =
+    domain === "strength" ? (
+      <View style={styles.strengthRecentCombinedCard}>
+        <StrengthFrequencyMetricCard
+          variant="embedded"
+          headingTitle="This Week"
+          loading={overviewSharedRange.status !== "ready"}
+          model={
+            strengthThisWeekModel != null
+              ? {
+                  compactValuePrimary: strengthThisWeekModel.compactValuePrimary,
+                  ratingLabel: strengthThisWeekModel.ratingLabel,
+                  activityTierIndexForBar: strengthThisWeekModel.activityTierIndexForBar,
+                  fillWidth01Override: strengthThisWeekModel.fillWidth01Override,
+                }
+              : null
+          }
+          footerCaption=""
+          showFrequencyTrack={false}
+          showFrequencyMarkers={false}
+          showFooterCaption={false}
+          compactTitlePillSpacing
+          mutedMicroCaption={
+            strengthThisWeekModel != null
+              ? formatStrengthThisWeekSessionsMicroCaption(strengthThisWeekModel.totalWorkoutsThisWeek)
+              : null
+          }
+          titleRowTrailing={
+            <Pressable
+              onPress={() => router.push(`${basePath}/recent-workouts-full`)}
+              accessibilityRole="button"
+              accessibilityLabel="View all"
+              hitSlop={8}
+              style={({ pressed }) => [
+                workoutOverviewInCardHeaderStyles.linkHit,
+                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+              ]}
+              testID="strength-recent-week-combined-view-more"
+            >
+              <Text style={workoutOverviewInCardHeaderStyles.link}>View All →</Text>
+            </Pressable>
+          }
+          ratingPillTestID="strength-this-week-rating-pill"
+          frequencyBarTestID="strength-this-week-frequency-bar"
+          instrumentClusterTestID="strength-this-week-instrument-cluster"
+        />
+        <View style={styles.strengthRecentSectionDivider} />
+        {overviewSharedRange.status !== "ready" ? null : strengthWeekSessionsAscending.length === 0 ? (
+          <Text style={styles.placeholder}>No strength workouts this week yet</Text>
+        ) : (
+          strengthWeekSessionsAscending.map(({ day, session }, rowIndex) => {
+            const representative = session.workouts[0];
+            if (!representative) return null;
+            const journalSummary = pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries);
+            const surface = buildWorkoutSessionSurfaceModel(
+              session,
+              overridesByWorkoutId,
+              "strength",
+              journalSummary,
+              durableTitlesByWorkoutId,
+            );
+            const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+            const resolvedMetrics = resolveWorkoutDisplay(
+              surface.metricsWorkout,
+              sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+            );
+            const durationLabel = formatWorkoutDurationLabel(
+              resolveWorkoutDisplayDurationMinutes({
+                overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
+                sessionDurationMinutes: null,
+                fallbackWorkoutDurationMinutes:
+                  surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
+              }),
+            );
+            const metaLine = formatRecentWorkoutMetaLine("strength", durationLabel, journalSummary);
+            return (
+              <Pressable
+                key={session.id}
+                style={({ pressed }) => [
+                  styles.recentRow,
+                  rowIndex === 0 && styles.recentRowFirst,
+                  pressed && styles.recentRowPressed,
+                ]}
+                onPress={() => {
+                  router.push({
+                    pathname: "/(app)/workouts/day/[day]",
+                    params: { day },
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
+              >
+                <View style={styles.recentRowTextCol}>
+                  <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                  <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
+                    {surface.displayTitle}
+                  </Text>
+                  <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
+                    {metaLine}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    const native = e?.nativeEvent;
+                    setWorkoutMenuAnchor({
+                      x: typeof native?.pageX === "number" ? native.pageX : 320,
+                      y: typeof native?.pageY === "number" ? native.pageY : 220,
+                      width: 24,
+                      height: 24,
+                    });
+                    setSelectedWorkoutForMenu({ day, session });
+                    setWorkoutMenuOpen(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
+                  hitSlop={10}
+                  style={styles.rowMenuBtn}
+                >
+                  <Text style={styles.rowMenuText}>•••</Text>
+                </Pressable>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+    ) : null;
+
+  const strengthLastWeekCombinedCard =
+    domain === "strength" ? (
+      <View style={styles.strengthRecentCombinedCard}>
+        <StrengthFrequencyMetricCard
+          variant="embedded"
+          headingTitle="Last Week"
+          loading={overviewSharedRange.status !== "ready"}
+          model={
+            strengthLastWeekModel != null
+              ? {
+                  compactValuePrimary: strengthLastWeekModel.compactValuePrimary,
+                  ratingLabel: strengthLastWeekModel.ratingLabel,
+                  activityTierIndexForBar: strengthLastWeekModel.activityTierIndexForBar,
+                  fillWidth01Override: strengthLastWeekModel.fillWidth01Override,
+                }
+              : null
+          }
+          footerCaption=""
+          showFrequencyTrack={false}
+          showFrequencyMarkers={false}
+          showFooterCaption={false}
+          compactTitlePillSpacing
+          mutedMicroCaption={
+            strengthLastWeekModel != null
+              ? formatStrengthLastWeekSessionsMicroCaption(strengthLastWeekModel.totalWorkoutsThisWeek)
+              : null
+          }
+          titleRowTrailing={
+            <Pressable
+              onPress={() => router.push(`${basePath}/recent-workouts-full`)}
+              accessibilityRole="button"
+              accessibilityLabel="View all"
+              hitSlop={8}
+              style={({ pressed }) => [
+                workoutOverviewInCardHeaderStyles.linkHit,
+                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+              ]}
+              testID="strength-recent-last-week-combined-view-more"
+            >
+              <Text style={workoutOverviewInCardHeaderStyles.link}>View All →</Text>
+            </Pressable>
+          }
+          ratingPillTestID="strength-last-week-rating-pill"
+          frequencyBarTestID="strength-last-week-frequency-bar"
+          instrumentClusterTestID="strength-last-week-instrument-cluster"
+        />
+        <View style={styles.strengthRecentSectionDivider} />
+        {overviewSharedRange.status !== "ready" ? null : strengthLastWeekSessionsAscending.length === 0 ? (
+          <Text style={styles.placeholder}>No strength workouts last week yet</Text>
+        ) : (
+          strengthLastWeekSessionsAscending.map(({ day, session }, rowIndex) => {
+            const representative = session.workouts[0];
+            if (!representative) return null;
+            const journalSummary = pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries);
+            const surface = buildWorkoutSessionSurfaceModel(
+              session,
+              overridesByWorkoutId,
+              "strength",
+              journalSummary,
+              durableTitlesByWorkoutId,
+            );
+            const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+            const resolvedMetrics = resolveWorkoutDisplay(
+              surface.metricsWorkout,
+              sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+            );
+            const durationLabel = formatWorkoutDurationLabel(
+              resolveWorkoutDisplayDurationMinutes({
+                overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
+                sessionDurationMinutes: null,
+                fallbackWorkoutDurationMinutes:
+                  surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
+              }),
+            );
+            const metaLine = formatRecentWorkoutMetaLine("strength", durationLabel, journalSummary);
+            return (
+              <Pressable
+                key={`last-${session.id}`}
+                style={({ pressed }) => [
+                  styles.recentRow,
+                  rowIndex === 0 && styles.recentRowFirst,
+                  pressed && styles.recentRowPressed,
+                ]}
+                onPress={() => {
+                  router.push({
+                    pathname: "/(app)/workouts/day/[day]",
+                    params: { day },
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
+              >
+                <View style={styles.recentRowTextCol}>
+                  <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                  <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
+                    {surface.displayTitle}
+                  </Text>
+                  <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
+                    {metaLine}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    const native = e?.nativeEvent;
+                    setWorkoutMenuAnchor({
+                      x: typeof native?.pageX === "number" ? native.pageX : 320,
+                      y: typeof native?.pageY === "number" ? native.pageY : 220,
+                      width: 24,
+                      height: 24,
+                    });
+                    setSelectedWorkoutForMenu({ day, session });
+                    setWorkoutMenuOpen(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
+                  hitSlop={10}
+                  style={styles.rowMenuBtn}
+                >
+                  <Text style={styles.rowMenuText}>•••</Text>
+                </Pressable>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+    ) : null;
+
+  const cardioRecentCard = (
     <View style={styles.card}>
       <View style={workoutOverviewInCardHeaderStyles.row}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>
-          {domain === "strength" ? "Recent Workouts" : "Recent cardio sessions"}
-        </Text>
+        <Text style={workoutOverviewInCardHeaderStyles.title}>Recent cardio sessions</Text>
         <Pressable
           onPress={() => router.push(`${basePath}/recent-workouts-full`)}
           accessibilityRole="button"
@@ -904,17 +1220,12 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         </Pressable>
       </View>
       {recentWorkouts.length === 0 ? (
-        <Text style={styles.placeholder}>
-          {domain === "strength" ? "No strength workouts yet" : "No cardio sessions yet"}
-        </Text>
+        <Text style={styles.placeholder}>No cardio sessions yet</Text>
       ) : (
         recentSessionsShownOnOverview.map(({ day, session }, rowIndex) => {
           const representative = session.workouts[0];
           if (!representative) return null;
-          const journalSummary =
-            domain === "strength"
-              ? pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries)
-              : null;
+          const journalSummary = null;
           const surface = buildWorkoutSessionSurfaceModel(
             session,
             overridesByWorkoutId,
@@ -946,10 +1257,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               ]}
               onPress={() => {
                 router.push({
-                  pathname:
-                    domain === "strength"
-                      ? "/(app)/workouts/day/[day]"
-                      : "/(app)/cardio/day/[day]",
+                  pathname: "/(app)/cardio/day/[day]",
                   params: { day },
                 });
               }}
@@ -996,23 +1304,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     <View style={styles.pageBody}>
       {domain === "strength" ? (
         <>
-          <StrengthOverviewCard
-            loading={overviewSharedRange.status !== "ready"}
-            model={strengthOverviewModel}
-            onViewMore={() => router.push(`${basePath}/analytics-detail`)}
-          />
-          {recentCard}
-          {weeklyInsightsCardModel != null ? (
-            <WeeklyInsightsCard
-              model={weeklyInsightsCardModel}
-              onInsightPress={(insight) =>
-                router.push({
-                  pathname: "/(app)/workouts/analytics-detail",
-                  params: serializeStrengthAnalyticsFocusParams(insight.destination),
-                })
-              }
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open strength analytics"
+            onPress={() => router.push(`${basePath}/analytics-detail`)}
+            style={({ pressed }) => [styles.strengthBaselineCardPressable, pressed && styles.strengthBaselineCardPressed]}
+            testID="strength-baseline-card-nav"
+          >
+            <StrengthBaselineCard
+              loading={overviewSharedRange.status !== "ready"}
+              model={strengthBaselineModel}
             />
-          ) : null}
+          </Pressable>
+          {strengthRecentWeekCombinedCard}
+          {strengthLastWeekCombinedCard}
         </>
       ) : (
         <>
@@ -1024,7 +1329,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             chartPoints={overviewAnalytics.chartPoints}
             metrics={overviewAnalytics.metrics}
           />
-          {recentCard}
+          {cardioRecentCard}
         </>
       )}
 
@@ -1049,7 +1354,58 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         onRename={() => openEditRoute("rename")}
         onEditDuration={() => openEditRoute("duration")}
         onEditType={() => openEditRoute("type")}
+        {...(domain === "strength" &&
+        selectedWorkoutForMenu &&
+        strengthWorkoutEligibleForDeleteFromOli(pickWorkoutForSessionActions(selectedWorkoutForMenu.session))
+          ? { onDeleteWorkout: beginDeleteStrengthWorkoutFromMenu }
+          : {})}
       />
+
+      <Modal
+        visible={pendingDeleteWorkoutId != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deleteWorkoutSubmitting) setPendingDeleteWorkoutId(null);
+        }}
+        presentationStyle="overFullScreen"
+      >
+        <Pressable
+          style={styles.deleteConfirmBackdrop}
+          onPress={() => {
+            if (!deleteWorkoutSubmitting) setPendingDeleteWorkoutId(null);
+          }}
+          accessibilityLabel="Close delete workout confirmation"
+        >
+          <Pressable style={styles.deleteConfirmCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.deleteConfirmTitle}>Delete workout?</Text>
+            <Text style={styles.deleteConfirmBody} accessibilityLabel="Delete workout confirmation body">
+              This will remove this workout from Oli and update your strength history.
+            </Text>
+            <View style={styles.deleteConfirmActions}>
+              <Pressable
+                onPress={() => {
+                  if (!deleteWorkoutSubmitting) setPendingDeleteWorkoutId(null);
+                }}
+                style={styles.deleteConfirmCancelBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel delete workout"
+              >
+                <Text style={styles.deleteConfirmCancelLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void confirmDeleteStrengthWorkout()}
+                disabled={deleteWorkoutSubmitting}
+                style={[styles.deleteConfirmDangerBtn, deleteWorkoutSubmitting && styles.deleteConfirmDangerBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm delete workout"
+              >
+                <Text style={styles.deleteConfirmDangerLabel}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 
@@ -1108,6 +1464,13 @@ const styles = StyleSheet.create({
   overviewRoot: {
     flex: 1,
   },
+  strengthBaselineCardPressable: {
+    alignSelf: "stretch",
+    borderRadius: RADIUS,
+  },
+  strengthBaselineCardPressed: {
+    opacity: 0.88,
+  },
   pageBody: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     marginHorizontal: -16,
@@ -1124,6 +1487,24 @@ const styles = StyleSheet.create({
     gap: 10,
     ...elevatedCardSurfaceStyle,
   },
+  /** Combined Strength “This Week” header (summary + inline View More) + in-week list — see StrengthFrequencyMetricCard `embedded`. */
+  strengthRecentCombinedCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: RADIUS,
+    paddingHorizontal: 16,
+    paddingTop: 15,
+    paddingBottom: 14,
+    /** Symmetric rhythm: header block | divider | list rows (same gap summary→divider as divider→first row). */
+    gap: 7,
+    ...elevatedCardSurfaceStyle,
+  },
+  strengthRecentSectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(60, 60, 67, 0.06)",
+    marginTop: 0,
+    marginBottom: 0,
+    alignSelf: "stretch",
+  },
   placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
   metricRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   metricLabel: { fontSize: 15, color: "#3C3C43" },
@@ -1131,9 +1512,9 @@ const styles = StyleSheet.create({
   recentRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: "rgba(60, 60, 67, 0.055)",
+    borderTopColor: "rgba(60, 60, 67, 0.045)",
     gap: 2,
   },
   /** Most recent session: no rule above so the list reads as one block from the header. */
@@ -1146,7 +1527,7 @@ const styles = StyleSheet.create({
   recentRowTextCol: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 4,
   },
   recentDate: {
     fontSize: 12,
@@ -1163,9 +1544,9 @@ const styles = StyleSheet.create({
   },
   recentMeta: {
     fontSize: 13,
-    fontWeight: "500",
-    color: "#6E6E73",
-    letterSpacing: -0.1,
+    fontWeight: "400",
+    color: "#8E8E93",
+    letterSpacing: -0.08,
   },
   rowMenuBtn: {
     paddingHorizontal: 6,
@@ -1198,4 +1579,42 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C1C1E",
   },
+  deleteConfirmBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  deleteConfirmCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 320,
+  },
+  deleteConfirmTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 8 },
+  deleteConfirmBody: { fontSize: 14, color: "#6E6E73", lineHeight: 20 },
+  deleteConfirmActions: { flexDirection: "row", gap: 12, marginTop: 16 },
+  deleteConfirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#F2F2F7",
+    alignItems: "center",
+  },
+  deleteConfirmCancelLabel: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
+  deleteConfirmDangerBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1,
+    borderColor: "#FFD6D6",
+    alignItems: "center",
+  },
+  deleteConfirmDangerBtnDisabled: { opacity: 0.55 },
+  deleteConfirmDangerLabel: { fontSize: 15, fontWeight: "700", color: "#FF3B30" },
 });

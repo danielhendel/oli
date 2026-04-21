@@ -1,5 +1,5 @@
 /**
- * Strength Analytics — weekly strength, muscle groups, monthly and yearly workout charts.
+ * Strength Analytics — yearly strength workouts chart for the overview analytics calendar year (`WORKOUT_OVERVIEW_ANALYTICS_YEAR`).
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -23,6 +23,18 @@ import {
 
 const EMPHASIS_CLEAR_MS = 2400;
 
+/** Weekly Insights still serialize legacy sections; map removed UI targets to the yearly card. */
+function normalizeStrengthAnalyticsSection(section: StrengthAnalyticsSectionTarget): StrengthAnalyticsSectionTarget {
+  if (
+    section === "weekly_strength" ||
+    section === "weekly_muscle_group" ||
+    section === "monthly_workouts"
+  ) {
+    return "yearly_workouts";
+  }
+  return section;
+}
+
 export default function StrengthAnalyticsDetailScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -41,9 +53,6 @@ export default function StrengthAnalyticsDetailScreen() {
   const lastConsumedFocusKeyRef = useRef<string | null>(null);
 
   const [emphasizedSection, setEmphasizedSection] = useState<StrengthAnalyticsSectionTarget | null>(null);
-  const [muscleGroupInitialTab, setMuscleGroupInitialTab] = useState<"volume" | "sets" | undefined>(
-    undefined,
-  );
 
   const tryScrollToSection = useCallback((section: StrengthAnalyticsSectionTarget) => {
     const y = sectionYRef.current[section];
@@ -73,7 +82,16 @@ export default function StrengthAnalyticsDetailScreen() {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-      title: "Strength Analytics",
+      title: "",
+      headerTitle: "",
+      headerStyle: {
+        backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
+        borderBottomWidth: 0,
+        elevation: 0,
+        shadowOpacity: 0,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      headerShadowVisible: false,
     });
   }, [navigation]);
 
@@ -100,16 +118,11 @@ export default function StrengthAnalyticsDetailScreen() {
     if (lastConsumedFocusKeyRef.current === focusKey) return;
     lastConsumedFocusKeyRef.current = focusKey;
 
-    pendingScrollSectionRef.current = dest.section;
-    setEmphasizedSection(dest.section);
-    if (dest.section === "weekly_muscle_group") {
-      if (dest.emphasis === "sets") setMuscleGroupInitialTab("sets");
-      else setMuscleGroupInitialTab("volume");
-    } else {
-      setMuscleGroupInitialTab(undefined);
-    }
+    const canonicalSection = normalizeStrengthAnalyticsSection(dest.section);
+    pendingScrollSectionRef.current = canonicalSection;
+    setEmphasizedSection(canonicalSection);
 
-    tryScrollToSection(dest.section);
+    tryScrollToSection(canonicalSection);
     router.setParams(clearedStrengthAnalyticsFocusParams());
 
     const t = setTimeout(() => setEmphasizedSection(null), EMPHASIS_CLEAR_MS);
@@ -159,7 +172,6 @@ export default function StrengthAnalyticsDetailScreen() {
         models={models}
         emphasizedSection={emphasizedSection}
         onAnalyticsSectionLayout={onAnalyticsSectionLayout}
-        {...(muscleGroupInitialTab != null ? { muscleGroupInitialTab } : {})}
       />
     </ScrollView>
   );

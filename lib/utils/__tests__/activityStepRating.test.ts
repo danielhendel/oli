@@ -1,10 +1,14 @@
 import {
+  ACTIVITY_BASELINE_MARKER_DISPLAY_STEP_STEPS,
+  ACTIVITY_BASELINE_THRESHOLD_MARKER_TRACK_MAX_STEPS,
   ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS,
   ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES,
   ACTIVITY_STEP_RATING_TIERS,
+  ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS,
   getActivityStepDescriptorLabelForTierIndex,
   getStepRating,
   getStepRatingActivityDescriptorPill,
+  activityStepsDisplayScaleFill01,
   getStepRatingTierIndex,
   stepRatingTierMarkerPosition01,
   stepsFromLocaleDigitString,
@@ -74,6 +78,37 @@ describe("ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES", () => {
     for (let i = 1; i <= 5; i += 1) {
       expect(ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES[i]).toBe(ACTIVITY_STEP_RATING_TIERS[i]!.rangeDisplay);
     }
+  });
+});
+
+describe("ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS", () => {
+  it("lists five ascending bounds consistent with getStepRatingTierIndex bands", () => {
+    expect(ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS).toEqual([5000, 7500, 10000, 12500, 15000]);
+    expect(getStepRatingTierIndex(4999)).toBe(0);
+    expect(getStepRatingTierIndex(5000)).toBe(1);
+    expect(getStepRatingTierIndex(14999)).toBe(4);
+    expect(getStepRatingTierIndex(15000)).toBe(5);
+    expect(ACTIVITY_BASELINE_THRESHOLD_MARKER_TRACK_MAX_STEPS).toBe(
+      ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS[ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS.length - 1]!,
+    );
+  });
+});
+
+describe("activityStepsDisplayScaleFill01", () => {
+  it("scales linearly below the bounded max and clamps at 1 for steps ≥ max", () => {
+    expect(activityStepsDisplayScaleFill01(0)).toBe(0);
+    expect(activityStepsDisplayScaleFill01(7500)).toBe(0.5);
+    expect(activityStepsDisplayScaleFill01(15000)).toBe(1);
+    expect(activityStepsDisplayScaleFill01(20000)).toBe(1);
+  });
+});
+
+describe("ACTIVITY_BASELINE_MARKER_DISPLAY_STEP_STEPS", () => {
+  it("extends canonical thresholds with 0 and 2.5k anchors", () => {
+    expect(ACTIVITY_BASELINE_MARKER_DISPLAY_STEP_STEPS).toEqual([0, 2500, 5000, 7500, 10000, 12500, 15000]);
+    expect(ACTIVITY_BASELINE_MARKER_DISPLAY_STEP_STEPS.length).toBe(
+      2 + ACTIVITY_STEP_RATING_TIER_THRESHOLD_STEPS.length,
+    );
   });
 });
 

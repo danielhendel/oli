@@ -7,7 +7,7 @@ import {
   postWorkoutDaySummariesRebuild,
 } from "@/lib/api/usersMe";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
-import { parseWorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import { parseWorkoutHistoryItem, resolveWorkoutIngestProvider } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { isValidDayKey } from "@/lib/ui/calendar/types";
 import { addCalendarDaysToDayKey, enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
@@ -269,12 +269,13 @@ function rawListItemIncludesPayload(
 
 /** Enough for {@link parseWorkoutHistoryItem} + {@link deriveWorkoutDayKey} on this path. */
 function rawListItemToParseableDoc(item: RawEventListItem & { payload: unknown }): RawEventDoc {
+  const resolvedProvider = resolveWorkoutIngestProvider({ provider: "", sourceId: item.sourceId }) ?? "";
   return {
     schemaVersion: 1,
     id: item.id,
     userId: item.userId,
     sourceId: item.sourceId,
-    provider: "",
+    provider: resolvedProvider,
     sourceType: "",
     kind: item.kind,
     observedAt: item.observedAt,

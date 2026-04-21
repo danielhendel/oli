@@ -2,6 +2,7 @@ import { addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
   buildStrengthOverviewCardModel,
+  computeStrengthThisWeekWindowMetrics,
   formatStrengthOverviewCompactStatsLine,
   STRENGTH_OVERVIEW_THREE_MONTH_ROLLING_DAYS,
 } from "../strengthOverviewCardModel";
@@ -187,6 +188,38 @@ describe("buildStrengthOverviewCardModel", () => {
     }
   });
 
+  it("computeStrengthThisWeekWindowMetrics matches Overview This Week row (single source of truth)", () => {
+    const days = [
+      {
+        day: weekStart,
+        workouts: [
+          {
+            id: "w",
+            observedAt: "2026-03-30T10:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-03-30T10:00:00.000Z",
+            end: "2026-03-30T10:30:00.000Z",
+            durationMinutes: 30,
+            calories: null,
+          },
+        ],
+      },
+    ];
+    const input = baseInput({ strengthCalendarDays: days, analyticsDaysSlice: days });
+    const m = buildStrengthOverviewCardModel(input);
+    const w = m.timeframes.find((t) => t.key === "thisWeek")!;
+    const c = computeStrengthThisWeekWindowMetrics({
+      strengthCalendarDays: input.strengthCalendarDays,
+      todayDayKey: input.todayDayKey,
+      weekStartDay: input.weekStartDay,
+      weekEndDay: input.weekEndDay,
+    });
+    expect(c.totalWorkouts).toBe(w.totalWorkouts);
+    expect(c.avgWorkoutsPerWeek).toBe(w.avgWorkoutsPerWeek);
+  });
+
   it("This Week counts only strength sessions in the calendar week slice", () => {
     const days = [
       {
@@ -226,6 +259,35 @@ describe("buildStrengthOverviewCardModel", () => {
 
   it("documents 3-month rolling span constant", () => {
     expect(STRENGTH_OVERVIEW_THREE_MONTH_ROLLING_DAYS).toBe(90);
+  });
+
+  it("regresses if today were excluded from the weekly slice: strength session only on today still counts", () => {
+    const days = [
+      {
+        day: today,
+        workouts: [
+          {
+            id: "today-only",
+            observedAt: "2026-04-04T10:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Lift",
+            workoutType: "strength" as const,
+            start: "2026-04-04T10:00:00.000Z",
+            end: "2026-04-04T10:30:00.000Z",
+            durationMinutes: 30,
+            calories: null,
+          },
+        ],
+      },
+    ];
+    const input = baseInput({ strengthCalendarDays: days, analyticsDaysSlice: days });
+    const c = computeStrengthThisWeekWindowMetrics({
+      strengthCalendarDays: input.strengthCalendarDays,
+      todayDayKey: input.todayDayKey,
+      weekStartDay: input.weekStartDay,
+      weekEndDay: input.weekEndDay,
+    });
+    expect(c.totalWorkouts).toBe(1);
   });
 });
 

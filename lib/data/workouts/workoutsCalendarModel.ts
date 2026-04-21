@@ -420,6 +420,34 @@ export function getRecentWorkoutSessionsFromCalendarDays(
   return entries.slice(0, maxCount);
 }
 
+/**
+ * Strength overview tab sessions only ({@link sessionMatchesOverviewStrengthTab}), ordered **earliest first**
+ * (reverse of {@link getRecentWorkoutSessionsFromCalendarDays}). Use with domain-filtered days for the local week slice.
+ */
+export function getStrengthOverviewTabSessionsForCalendarDaysAscending(
+  days: readonly WorkoutCalendarDayLike[],
+): RecentWorkoutSessionEntry[] {
+  const entries: RecentWorkoutSessionEntry[] = [];
+  for (const d of days) {
+    for (const session of reconcileWorkoutSessionsForDay(d.day, d.workouts)) {
+      if (sessionMatchesOverviewStrengthTab(session)) {
+        entries.push({ day: d.day, session });
+      }
+    }
+  }
+  entries.sort((a, b) => {
+    const ka = a.session.start ?? a.session.workouts[0]?.observedAt ?? "";
+    const kb = b.session.start ?? b.session.workouts[0]?.observedAt ?? "";
+    if (!ka && !kb) return a.session.id.localeCompare(b.session.id);
+    if (!ka) return -1;
+    if (!kb) return 1;
+    const t = ka.localeCompare(kb);
+    if (t !== 0) return t;
+    return a.session.id.localeCompare(b.session.id);
+  });
+  return entries;
+}
+
 function sessionMatchesTab(session: ReconciledWorkoutSession, tab: WorkoutAnalyticsTab): boolean {
   if (tab === "all") return true;
   if (tab === "strength") return session.sessionType === "strength" || session.sessionType === "mixed";

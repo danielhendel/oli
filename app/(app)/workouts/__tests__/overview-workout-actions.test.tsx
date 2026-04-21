@@ -1,10 +1,18 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
 import TrainingOverviewScreen from "../overview";
 
 const mockPush = jest.fn();
 const mockSetOptions = jest.fn();
 const mockSaveOverride = jest.fn(async () => undefined);
+const mockClearWorkoutOverride = jest.fn(async () => undefined);
+const mockDeleteIngestedRawEventAuthed = jest.fn(async () => ({
+  ok: true as const,
+  status: 200 as const,
+  data: { ok: true as const, rawEventId: "w1", requestId: "rid" },
+  requestId: "rid" as string | null,
+}));
 let mockOverridesState: Record<string, unknown> = {};
 
 jest.mock("@/lib/api/usersMe", () => ({
@@ -72,27 +80,117 @@ jest.mock("@/lib/workouts/gymRegistry", () => ({
 }));
 
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
-  useWorkoutsCalendarRange: () => ({
-    status: "ready",
-    durableTitlesByWorkoutId: {},
-    days: [
-      { day: "2026-03-09", workouts: [] },
-      {
-        day: "2026-03-10",
-        workouts: [
-          { id: "w1", observedAt: "2026-03-10T10:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T10:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w2", observedAt: "2026-03-10T09:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T09:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w3", observedAt: "2026-03-10T08:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T08:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w4", observedAt: "2026-03-10T07:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T07:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w5", observedAt: "2026-03-10T06:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T06:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w6", observedAt: "2026-03-10T05:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T05:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w7", observedAt: "2026-03-10T04:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T04:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-          { id: "w8", observedAt: "2026-03-10T03:00:00.000Z", sourceId: "manual", title: "Lift", workoutType: "strength", start: "2026-03-10T03:00:00.000Z", end: null, durationMinutes: 20, calories: 200 },
-        ],
-      },
-    ],
-  }),
+  useWorkoutsCalendarRange: jest.fn(),
 }));
+
+const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
+  status: "ready" as const,
+  durableTitlesByWorkoutId: {},
+  days: [
+    { day: "2026-03-09", workouts: [] },
+    {
+      day: "2026-03-10",
+      workouts: [
+        {
+          id: "w1",
+          provider: "manual",
+          observedAt: "2026-03-10T10:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T10:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w2",
+          provider: "manual",
+          observedAt: "2026-03-10T09:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T09:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w3",
+          provider: "manual",
+          observedAt: "2026-03-10T08:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T08:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w4",
+          provider: "manual",
+          observedAt: "2026-03-10T07:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T07:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w5",
+          provider: "manual",
+          observedAt: "2026-03-10T06:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T06:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w6",
+          provider: "manual",
+          observedAt: "2026-03-10T05:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T05:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w7",
+          provider: "manual",
+          observedAt: "2026-03-10T04:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T04:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+        {
+          id: "w8",
+          provider: "manual",
+          observedAt: "2026-03-10T03:00:00.000Z",
+          sourceId: "manual",
+          title: "Lift",
+          workoutType: "strength",
+          start: "2026-03-10T03:00:00.000Z",
+          end: null,
+          durationMinutes: 20,
+          calories: 200,
+        },
+      ],
+    },
+  ],
+};
 
 jest.mock("@/lib/ui/calendar/dateUtils", () => ({
   ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
@@ -110,11 +208,12 @@ jest.mock("@/lib/ui/calendar/dateUtils", () => ({
 }));
 
 jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
+  clearWorkoutOverride: (...args: unknown[]) => mockClearWorkoutOverride(...args),
   useWorkoutOverrides: () => ({
     loaded: true,
     overridesByWorkoutId: mockOverridesState,
     saveOverride: mockSaveOverride,
-    reload: jest.fn(),
+    reload: jest.fn(async () => undefined),
   }),
 }));
 
@@ -176,6 +275,7 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
 
 jest.mock("@/lib/api/ingest", () => ({
   ingestRawEvent: jest.fn(),
+  deleteIngestedRawEventAuthed: (...args: unknown[]) => mockDeleteIngestedRawEventAuthed(...args),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -211,6 +311,13 @@ describe("overview workout actions", () => {
   beforeEach(() => {
     mockOverridesState = {};
     jest.clearAllMocks();
+    jest.mocked(useWorkoutsCalendarRange).mockReturnValue(DEFAULT_WORKOUTS_CALENDAR_RANGE as never);
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: true as const,
+      status: 200 as const,
+      data: { ok: true as const, rawEventId: "w1", requestId: "rid" },
+      requestId: "rid" as string | null,
+    });
   });
 
   it("view details keeps day navigation", async () => {
@@ -250,6 +357,7 @@ describe("overview workout actions", () => {
     expect(test.root.findByProps({ accessibilityLabel: "Rename workout" })).toBeTruthy();
     expect(test.root.findByProps({ accessibilityLabel: "Edit duration" })).toBeTruthy();
     expect(test.root.findByProps({ accessibilityLabel: "Edit workout type" })).toBeTruthy();
+    expect(test.root.findByProps({ accessibilityLabel: "Delete workout" })).toBeTruthy();
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Close workout menu" }).props.onPress();
     });
@@ -264,34 +372,34 @@ describe("overview workout actions", () => {
     expect(json).not.toContain("Manual");
   });
 
-  it("shows at most five recent strength sessions on the overview (newest first)", async () => {
+  it("lists all strength-tab sessions in the local calendar week on the overview (earliest first)", async () => {
     const test = await mountTrainingOverview();
     const rowButtons = test.root.findAll(
       (n) =>
         typeof n.props?.accessibilityLabel === "string" &&
         n.props.accessibilityLabel.startsWith("Open workout details "),
     );
-    expect(rowButtons).toHaveLength(5);
+    expect(rowButtons).toHaveLength(8);
   });
 
-  it("fifth visible row still supports row tap and action menu", async () => {
+  it("fifth visible row (earliest-first order) still supports row tap and action menu", async () => {
     const test = await mountTrainingOverview();
     act(() => {
-      test.root.findByProps({ accessibilityLabel: "Open workout details w5" }).props.onPress();
+      test.root.findByProps({ accessibilityLabel: "Open workout details w4" }).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/day/[day]",
       params: { day: "2026-03-10" },
     });
     act(() => {
-      test.root.findByProps({ accessibilityLabel: "Workout actions w5" }).props.onPress();
+      test.root.findByProps({ accessibilityLabel: "Workout actions w4" }).props.onPress();
     });
     act(() => {
       test.root.findByProps({ accessibilityLabel: "Edit workout type" }).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/edit/type",
-      params: expect.objectContaining({ workoutId: "w5" }),
+      params: expect.objectContaining({ workoutId: "w4" }),
     });
   });
 
@@ -333,5 +441,159 @@ describe("overview workout actions", () => {
       pathname: "/(app)/workouts/edit/type",
       params: expect.objectContaining({ workoutId: "w1" }),
     });
+  });
+
+  it("delete workout requires confirmation and calls delete with the selected workout id", async () => {
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w4" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    expect(mockDeleteIngestedRawEventAuthed).not.toHaveBeenCalled();
+
+    expect(test.root.findByProps({ accessibilityLabel: "Confirm delete workout" })).toBeTruthy();
+
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockDeleteIngestedRawEventAuthed).toHaveBeenCalledWith("w4", "token");
+    expect(mockClearWorkoutOverride).toHaveBeenCalledWith("w4");
+  });
+
+  it("cancel on delete confirmation does not call delete", async () => {
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w1" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Cancel delete workout" }).props.onPress();
+    });
+    expect(mockDeleteIngestedRawEventAuthed).not.toHaveBeenCalled();
+  });
+
+  it("shows Delete Workout for Apple Health imports when raw-events list omitted provider (sourceId healthkit only)", async () => {
+    jest.mocked(useWorkoutsCalendarRange).mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      days: [
+        {
+          day: "2026-03-09",
+          workouts: [],
+        },
+        {
+          day: "2026-03-10",
+          workouts: [
+            {
+              id: "hk1",
+              observedAt: "2026-03-10T10:00:00.000Z",
+              sourceId: "healthkit",
+              rawKind: "strength_workout",
+              title: "Strength",
+              workoutType: "strength",
+              start: "2026-03-10T10:00:00.000Z",
+              end: null,
+              durationMinutes: 45,
+              calories: null,
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions hk1" }).props.onPress();
+    });
+    expect(test.root.findByProps({ accessibilityLabel: "Delete workout" })).toBeTruthy();
+  });
+
+  it("shows Delete Workout for manual rows when provider field omitted (sourceId manual only)", async () => {
+    jest.mocked(useWorkoutsCalendarRange).mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      days: [
+        { day: "2026-03-09", workouts: [] },
+        {
+          day: "2026-03-10",
+          workouts: [
+            {
+              id: "md1",
+              observedAt: "2026-03-10T11:00:00.000Z",
+              sourceId: "manual",
+              rawKind: "strength_workout",
+              title: "Lift",
+              workoutType: "strength",
+              start: "2026-03-10T11:00:00.000Z",
+              end: null,
+              durationMinutes: 30,
+              calories: null,
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions md1" }).props.onPress();
+    });
+    expect(test.root.findByProps({ accessibilityLabel: "Delete workout" })).toBeTruthy();
+  });
+
+  it("hides Delete Workout for unsupported workout providers", async () => {
+    jest.mocked(useWorkoutsCalendarRange).mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      days: [
+        {
+          day: "2026-03-09",
+          workouts: [],
+        },
+        {
+          day: "2026-03-10",
+          workouts: [
+            {
+              id: "vx1",
+              provider: "vendor_xyz",
+              observedAt: "2026-03-10T10:00:00.000Z",
+              sourceId: "vendor_xyz",
+              rawKind: "strength_workout",
+              title: "Strength",
+              workoutType: "strength",
+              start: "2026-03-10T10:00:00.000Z",
+              end: null,
+              durationMinutes: 45,
+              calories: null,
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions vx1" }).props.onPress();
+    });
+    expect(() => test.root.findByProps({ accessibilityLabel: "Delete workout" })).toThrow();
+  });
+
+  it("delete confirmation copy describes removing from Oli (not Apple Health source deletion)", async () => {
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w1" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    const body = test.root.findByProps({ accessibilityLabel: "Delete workout confirmation body" });
+    expect(String(body.props.children)).toContain("from Oli");
+    expect(String(body.props.children)).not.toContain("Apple Health");
   });
 });

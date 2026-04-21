@@ -1,5 +1,5 @@
 import type { RawEventDoc } from "@oli/contracts";
-import { parseWorkoutHistoryItem } from "../parseWorkoutFromRawEvent";
+import { parseWorkoutHistoryItem, resolveWorkoutIngestProvider } from "../parseWorkoutFromRawEvent";
 
 function minimalRaw(overrides: Partial<{ id: string; observedAt: string; receivedAt: string; sourceId: string; payload: unknown }>): RawEventDoc {
   return {
@@ -21,8 +21,9 @@ describe("parseWorkoutHistoryItem", () => {
   it("full payload workout parses expected fields including hk", () => {
     const raw = minimalRaw({
       id: "ev-1",
+      provider: "apple_health",
       observedAt: "2024-06-01T10:00:00Z",
-      sourceId: "apple_health",
+      sourceId: "healthkit",
       payload: {
         start: "2024-06-01T10:00:00Z",
         end: "2024-06-01T11:30:00Z",
@@ -34,14 +35,30 @@ describe("parseWorkoutHistoryItem", () => {
     });
     const item = parseWorkoutHistoryItem(raw);
     expect(item.id).toBe("ev-1");
+    expect(item.provider).toBe("apple_health");
     expect(item.observedAt).toBe("2024-06-01T10:00:00Z");
-    expect(item.sourceId).toBe("apple_health");
+    expect(item.sourceId).toBe("healthkit");
     expect(item.title).toBe("Running");
     expect(item.start).toBe("2024-06-01T10:00:00Z");
     expect(item.end).toBe("2024-06-01T11:30:00Z");
     expect(item.durationMinutes).toBe(90);
     expect(item.calories).toBe(450);
     expect(item.hk).toEqual({ sourceId: "HK", activityId: 12345 });
+  });
+
+  it("infers apple_health when GET /raw-events list omitted provider but sourceId is healthkit", () => {
+    const raw = minimalRaw({
+      provider: "",
+      sourceId: "healthkit",
+      payload: {
+        start: "2024-06-01T10:00:00Z",
+        end: "2024-06-01T11:30:00Z",
+        sport: "Traditional Strength Training",
+        durationMinutes: 30,
+      },
+    }) as RawEventDoc;
+    expect(resolveWorkoutIngestProvider(raw)).toBe("apple_health");
+    expect(parseWorkoutHistoryItem(raw).provider).toBe("apple_health");
   });
 
   it("payload.name wins over sport for display title", () => {

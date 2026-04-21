@@ -7,10 +7,27 @@ import type { ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manual
 /** Best-effort minutes per zone (1–5) when present on raw payload; not part of strict ingest schema. */
 export type HeartRateZoneMinutes5 = readonly [number, number, number, number, number];
 
+/**
+ * Resolves ingestion `provider` for UI and delete eligibility.
+ * GET /users/me/raw-events list rows omit `provider`; calendar hydrate synthesizes docs with empty provider — infer from `sourceId`
+ * (HealthKit imports use `sourceId` "healthkit" with Firestore `provider` "apple_health"; manual uses `sourceId` "manual").
+ */
+export function resolveWorkoutIngestProvider(raw: { provider?: string; sourceId?: string }): string | undefined {
+  const trimmed = typeof raw.provider === "string" ? raw.provider.trim() : "";
+  if (trimmed === "manual" || trimmed === "apple_health") return trimmed;
+  if (trimmed.length > 0) return trimmed;
+  const sid = typeof raw.sourceId === "string" ? raw.sourceId : "";
+  if (sid === "manual") return "manual";
+  if (sid === "healthkit" || sid === "apple_health") return "apple_health";
+  return undefined;
+}
+
 export type WorkoutHistoryItem = {
   id: string;
   observedAt: string;
   sourceId: string;
+  /** RawEvent ingestion provider (e.g. `manual`, `apple_health`); aligns with DELETE /ingest eligibility. */
+  provider?: string;
   /** Original RawEvent kind (e.g. `strength_workout`, `workout`) for domain routing. */
   rawKind?: string;
   title: string;
@@ -133,6 +150,7 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
   const id = raw.id;
   const observedAt = raw.observedAt ?? raw.receivedAt;
   const sourceId = raw.sourceId ?? "unknown";
+  const resolvedProvider = resolveWorkoutIngestProvider(raw);
 
   const rawPayload: unknown = raw.payload;
   const payload = isRecord(rawPayload) ? rawPayload : null;
@@ -216,6 +234,7 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     id,
     observedAt,
     sourceId,
+    ...(resolvedProvider !== undefined ? { provider: resolvedProvider } : {}),
     rawKind: raw.kind,
     title,
     ...(workoutType != null ? { workoutType } : {}),

@@ -186,7 +186,7 @@ describe("ActivityOverviewScreen", () => {
     expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf("Yesterday"));
     const overviewBarMarker = "activity-overview-steps-bar-day7";
     expect(str.indexOf("Yesterday")).toBeLessThan(str.indexOf(overviewBarMarker));
-    expect(str.indexOf("Your baseline is your average daily steps over the past 90 days")).toBeLessThan(
+    expect(str.indexOf("Your typical daily activity level based on the past 90 days")).toBeLessThan(
       str.indexOf("Today’s Steps"),
     );
     expect(str).toContain(overviewBarMarker);
@@ -202,7 +202,7 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("1,234");
     expect(str).toContain("9,876");
     expect(str).toContain("5,555");
-    expect(str).toContain("Your baseline is your average daily steps over the past 90 days");
+    expect(str).toContain("Your typical daily activity level based on the past 90 days");
     expect(str).toContain("activity-daily-details-delta-label");
     expect(str).toContain("steps below your baseline");
     expect(str).not.toContain("activity-baseline-tier-legend");
@@ -213,6 +213,8 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("activity-overview-steps-bar-day7");
     expect(str).toContain("activity-overview-steps-bar-month12");
     expect(str).toContain("activity-baseline-details-steps-bar");
+    expect(str).toContain("activity-baseline-threshold-markers");
+    expect(str).toContain("7.5k");
     expect(str).toContain("activity-daily-details-steps-bar");
     expect(str).toContain("activity-overview-steps-bar-yesterday");
   });
