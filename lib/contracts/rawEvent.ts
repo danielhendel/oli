@@ -104,16 +104,47 @@ export type IngestAcceptedResponseDto = z.infer<typeof ingestAcceptedResponseDto
 
 /**
  * DELETE /ingest/:rawEventId — successful removal of an ingested RawEvent (manual workouts only; server-enforced).
+ * `suppressionWritten` is true when an Apple Health v2 workout tombstone was persisted at
+ * `users/{uid}/rawEventIngestSuppressions/{rawEventId}` (blocks re-ingest); false when not applicable (e.g. manual id).
+ *
+ * `requestId` may be omitted in some proxy paths; clients fall back to the `x-request-id` header (see lib/api/ingest.ts).
  */
 export const deleteRawEventResponseDtoSchema = z
   .object({
     ok: z.literal(true),
     rawEventId: z.string().min(1),
-    requestId: z.string().min(1),
+    requestId: z.string().min(1).optional().nullable(),
+    suppressionWritten: z.boolean(),
+  })
+  .strip()
+  .transform((o) => ({
+    ok: true as const,
+    rawEventId: o.rawEventId,
+    requestId:
+      o.requestId != null && String(o.requestId).trim().length > 0
+        ? String(o.requestId).trim()
+        : "unknown",
+    suppressionWritten: o.suppressionWritten,
+  }));
+
+export type DeleteRawEventResponseDto = z.infer<typeof deleteRawEventResponseDtoSchema>;
+
+/** HTTP 404 body from DELETE /ingest/:rawEventId (doc already absent; may still write suppression). */
+export const deleteRawEventDelete404ResponseBodySchema = z
+  .object({
+    ok: z.literal(false),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string().optional(),
+      })
+      .optional(),
+    requestId: z.string(),
+    suppressionWritten: z.boolean(),
   })
   .strip();
 
-export type DeleteRawEventResponseDto = z.infer<typeof deleteRawEventResponseDtoSchema>;
+export type DeleteRawEventDelete404ResponseBody = z.infer<typeof deleteRawEventDelete404ResponseBodySchema>;
 
 // -----------------------------
 // Payloads

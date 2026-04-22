@@ -74,6 +74,9 @@ describe("Apple Health workout suppression — DELETE 404 then POST exact id", (
       );
       expect(delRes.status).toBe(404);
       expect(suppressSetMock).toHaveBeenCalledTimes(1);
+      const delJson = (await delRes.json()) as { suppressionWritten?: boolean; error?: { code: string } };
+      expect(delJson.suppressionWritten).toBe(true);
+      expect(delJson.error?.code).toBe("NOT_FOUND");
 
       suppressGetMock.mockResolvedValue({ exists: true });
 

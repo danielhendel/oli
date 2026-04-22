@@ -5,6 +5,7 @@ import { AddressInfo } from "net";
 
 import eventsRoutes from "../events";
 import { userCollection } from "../../db";
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -78,9 +79,10 @@ describe("DELETE /ingest/:rawEventId", () => {
     const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
 
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { ok: boolean; rawEventId: string };
+    const json = (await res.json()) as { ok: boolean; rawEventId: string; suppressionWritten: boolean };
     expect(json.ok).toBe(true);
     expect(json.rawEventId).toBe(rawEventId);
+    expect(json.suppressionWritten).toBe(false);
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(suppressSetMock).not.toHaveBeenCalled();
   });
@@ -126,6 +128,8 @@ describe("DELETE /ingest/:rawEventId", () => {
     const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
 
     expect(res.status).toBe(200);
+    const json200 = (await res.json()) as { suppressionWritten: boolean };
+    expect(json200.suppressionWritten).toBe(true);
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(suppressSetMock).toHaveBeenCalledTimes(1);
   });
@@ -150,6 +154,110 @@ describe("DELETE /ingest/:rawEventId", () => {
 
     expect(res.status).toBe(404);
     expect(suppressSetMock).toHaveBeenCalledTimes(1);
+    const json404 = (await res.json()) as { suppressionWritten: boolean; error?: { code: string } };
+    expect(json404.suppressionWritten).toBe(true);
+    expect(json404.error?.code).toBe("NOT_FOUND");
+  });
+
+  test("404 delete returns suppressionWritten false and does not write tombstone for non-Apple-workout doc ids", async () => {
+    const rawEventId = "manual_missing_doc_1";
+    const suppressSetMock = jest.fn(async () => undefined);
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: false }) as const,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+    expect(suppressSetMock).not.toHaveBeenCalled();
+    const body = (await res.json()) as { suppressionWritten: boolean };
+    expect(body.suppressionWritten).toBe(false);
+  });
+
+  test("Apple Health workout DELETE 404 returns 500 when suppression set() throws (failure not swallowed)", async () => {
+    allowConsoleForThisTest({ error: [/raw_event_suppression_write_failed/] });
+    const rawEventId = "appleHealth:v2:workout:fail_suppress_write_50_com.example.app";
+    const suppressSetMock = jest.fn(async () => {
+      throw new Error("permission_denied");
+    });
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: false }) as const,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
+    expect(res.status).toBe(500);
+    expect(suppressSetMock).toHaveBeenCalledTimes(1);
+    const errBody = (await res.json()) as {
+      suppressionWritten: boolean;
+      error?: { code: string; details?: { message: string } };
+    };
+    expect(errBody.suppressionWritten).toBe(false);
+    expect(errBody.error?.code).toBe("SUPPRESSION_WRITE_FAILED");
+    expect(errBody.error?.details?.message).toContain("permission_denied");
+  });
+
+  test("DELETE 200 returns 500 when Apple suppression write fails after raw delete", async () => {
+    allowConsoleForThisTest({ error: [/raw_event_suppression_write_failed/] });
+    const rawEventId = "appleHealth:v2:workout:post_delete_suppress_fail_50_com.example.app";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      sourceType: "apple_health",
+      kind: "strength_workout",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        startedAt: "2025-01-02T00:00:00.000Z",
+        timeZone: "America/New_York",
+        exercises: [{ name: "Squat", sets: [{ reps: 5, load: 60, unit: "kg" as const }] }],
+      },
+    };
+
+    const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => {
+      throw new Error("after_delete_tombstone_failed");
+    });
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () =>
+            ({
+              exists: true,
+              data: () => rawEvent,
+            }) as const,
+          delete: deleteMock,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
+    expect(res.status).toBe(500);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(suppressSetMock).toHaveBeenCalledTimes(1);
+    const failBody = (await res.json()) as { suppressionWritten: boolean; error?: { code: string } };
+    expect(failBody.suppressionWritten).toBe(false);
+    expect(failBody.error?.code).toBe("SUPPRESSION_WRITE_FAILED");
   });
 
   test("rejects delete for unsupported workout provider", async () => {

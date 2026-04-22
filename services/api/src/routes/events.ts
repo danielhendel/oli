@@ -1,8 +1,9 @@
 // services/api/src/routes/events.ts
 //
 // Apple Health workout delete + re-sync: tombstones live under users/{uid}/rawEventIngestSuppressions/{id}.
-// Optional audit logs (exact id match): set RAW_EVENT_SUPPRESSION_AUDIT_IDS=comma,separated,ids
-// (use for one incident; correlates with x-request-id in Cloud Logging).
+// Every attempted tombstone write logs raw_event_suppression_write_success or raw_event_suppression_write_failed;
+// failures propagate (DELETE returns 500 SUPPRESSION_WRITE_FAILED) — never swallowed.
+// Optional ingest precheck audit: RAW_EVENT_SUPPRESSION_AUDIT_IDS=comma,separated,ids
 import { Router, type Response } from "express";
 import { z } from "zod";
 
@@ -20,27 +21,33 @@ import { userCollection } from "../db";
 
 const router = Router();
 
+/**
+ * Writes tombstone at `users/{uid}/rawEventIngestSuppressions/{rawEventId}` (ref.path is that exact path).
+ * @returns true if Firestore set() ran for an Apple Health v2 workout id; false if id does not use suppression.
+ * @throws on Firestore/set failure (caller must surface — never swallow).
+ */
 async function recordAppleHealthWorkoutIngestSuppression(
   uid: string,
   rawEventId: string,
   requestId: string,
   context: "delete_404" | "delete_200",
-): Promise<void> {
-  if (!isAppleHealthWorkoutIngestSuppressionDocId(rawEventId)) return;
-  const audit = shouldLogSuppressionAuditForId(rawEventId);
+): Promise<boolean> {
+  if (!isAppleHealthWorkoutIngestSuppressionDocId(rawEventId)) {
+    return false;
+  }
+  const ref = userCollection(uid, "rawEventIngestSuppressions").doc(rawEventId);
+  const firestorePath = ref.path;
   try {
-    await userCollection(uid, "rawEventIngestSuppressions")
-      .doc(rawEventId)
-      .set({ suppressedAt: new Date().toISOString() });
-    if (audit) {
-      logger.info({
-        msg: "raw_event_suppression_write_ok",
-        rid: requestId,
-        uid,
-        rawEventId,
-        context,
-      });
-    }
+    await ref.set({ suppressedAt: new Date().toISOString() });
+    logger.info({
+      msg: "raw_event_suppression_write_success",
+      rid: requestId,
+      uid,
+      rawEventId,
+      context,
+      firestorePath,
+    });
+    return true;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({
@@ -49,8 +56,10 @@ async function recordAppleHealthWorkoutIngestSuppression(
       uid,
       rawEventId,
       context,
+      firestorePath,
       err: message,
     });
+    throw err;
   }
 }
 
@@ -92,6 +101,20 @@ async function isAppleHealthWorkoutIngestSuppressed(
  */
 function getRid(req: AuthedRequest): string {
   return (req as RequestWithRid).rid ?? (req.header("x-request-id") ?? "unknown").toString();
+}
+
+function respondIngestDeleteSuppressionFailure(res: Response, requestId: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  res.status(500).json({
+    ok: false as const,
+    error: {
+      code: "SUPPRESSION_WRITE_FAILED" as const,
+      message: "Could not record workout deletion tombstone. Retry deletion or contact support.",
+      details: { message },
+    },
+    requestId,
+    suppressionWritten: false as const,
+  });
 }
 
 /** Day key YYYY-MM-DD in UTC (for failure entries when event day is not available). */
@@ -617,6 +640,19 @@ const DELETABLE_WORKOUT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
  */
 router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   const requestId = getRid(req);
+  const urlPath =
+    typeof req.originalUrl === "string"
+      ? req.originalUrl.split("?")[0] ?? req.originalUrl
+      : req.path;
+  logger.info({
+    msg: "delete_raw_event_enter",
+    rid: requestId,
+    uid: typeof req.uid === "string" ? req.uid : null,
+    path: req.path,
+    urlPath,
+    rawEventIdParam: req.params.rawEventId,
+  });
+
   const uid = req.uid;
 
   if (!uid) {
@@ -673,7 +709,18 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   if (!snap.exists) {
-    await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId, requestId, "delete_404");
+    let suppressionWritten = false;
+    try {
+      suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
+        uid,
+        rawEventId,
+        requestId,
+        "delete_404",
+      );
+    } catch (err: unknown) {
+      respondIngestDeleteSuppressionFailure(res, requestId, err);
+      return;
+    }
     return res.status(404).json({
       ok: false as const,
       error: {
@@ -681,6 +728,7 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
         message: "Workout record not found",
       },
       requestId,
+      suppressionWritten,
     });
   }
 
@@ -762,12 +810,24 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
     });
   }
 
-  await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId, requestId, "delete_200");
+  let suppressionWritten = false;
+  try {
+    suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
+      uid,
+      rawEventId,
+      requestId,
+      "delete_200",
+    );
+  } catch (err: unknown) {
+    respondIngestDeleteSuppressionFailure(res, requestId, err);
+    return;
+  }
 
   return res.status(200).json({
     ok: true as const,
     rawEventId,
     requestId,
+    suppressionWritten,
   });
 });
 

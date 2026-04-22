@@ -21,20 +21,46 @@ Environment:
 ### 1.1 Build image
 ```bash
 scripts/deploy/phase3a-withings-build-api-image.sh
-1.2 Deploy Cloud Run
+```
+
+### 1.2 Deploy Cloud Run
+```bash
 scripts/deploy/phase3a-withings-deploy-cloudrun.sh <commit_short_sha>
-1.3 Deploy Gateway
+```
+
+### 1.3 Deploy Gateway (repo `infra/gateway/openapi.yaml` → new api-config → `oli-gateway`)
+```bash
+# Preflight: gcloud project must be oli-staging-fdbba (the script exits otherwise).
 scripts/deploy/phase3a-withings-deploy-gateway.sh
-2. Confirm Active Revision
+```
+
+## 2. Confirm active revision
+```bash
 gcloud run services describe oli-api \
   --region us-central1 \
+  --project oli-staging-fdbba \
   --format="value(status.traffic[0].revisionName,status.url)"
-3. Confirm Gateway Config
+```
+
+## 3. Confirm gateway config
+```bash
 gcloud api-gateway gateways describe oli-gateway \
   --location us-central1 \
   --project oli-staging-fdbba \
   --format="yaml(apiConfig,defaultHostname,state)"
-4. 401 vs 403 Diagnosis
+```
+
+### Log correlation: `apiConfig` vs `serviceConfigId`
+`gateways describe` returns **`apiConfig`** like `.../configs/oli-api-config-YYYYMMDD-HHMMSS`. ESP / GFE logs often show a longer **`serviceConfigId`** (same base id plus a Google-managed suffix). They refer to the same rollout when `api-configs describe` reports that `serviceConfigId`:
+
+```bash
+gcloud api-gateway api-configs describe oli-api-config-YYYYMMDD-HHMMSS \
+  --api=oli-api \
+  --project=oli-staging-fdbba \
+  --format="yaml(name,serviceConfigId,createTime,state)"
+```
+
+## 4. 401 vs 403 diagnosis
 401 from Gateway
 
 Cause:
@@ -112,6 +138,16 @@ Route missing from openapi.yaml
 Gateway not redeployed
 
 Wrong hostname used
+
+If Gateway / ESPv2 shows **`api_method: "<Unknown Operation Name>"`** and **`response_code_detail: "direct_response"`**, the request **did not match any OpenAPI path** (no `operationId`). The rejection happens **before** Cloud Run. Typical causes: the method + path is missing from the **deployed** api-config (OpenAPI never redeployed after a repo change), or the wrong hostname was used.
+
+Workout delete example: **`DELETE /ingest/{rawEventId}`** must be declared separately from **`POST /ingest`** in `infra/gateway/openapi.yaml`, then **`scripts/deploy/phase3a-withings-deploy-gateway.sh`** must be run so that config is live. To prove what was bundled into an existing api-config timestamp, compare the repo at deploy time, for example:
+
+```bash
+git show <commit_or_date_ref>:infra/gateway/openapi.yaml | sed -n '/^  \\/ingest/,/^  \\/export/p'
+```
+
+Regression coverage: `services/api/src/routes/__tests__/gateway-openapi-ingest-delete.contract.test.ts` (runs under `npm test` with other `services/api/src/routes/__tests__` suites).
 
 6. Confirm PUBLIC_BASE_URL
 gcloud run services describe oli-api \

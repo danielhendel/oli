@@ -9,7 +9,7 @@ const mockClearWorkoutOverride = jest.fn(async () => undefined);
 const mockDeleteIngestedRawEventAuthed = jest.fn(async () => ({
   ok: true as const,
   status: 200 as const,
-  data: { ok: true as const, rawEventId: "w1", requestId: "rid" },
+  data: { ok: true as const, rawEventId: "w1", requestId: "rid", suppressionWritten: false },
   requestId: "rid" as string | null,
 }));
 let mockOverridesState: Record<string, unknown> = {};
@@ -349,7 +349,7 @@ describe("overview workout actions", () => {
     mockDeleteIngestedRawEventAuthed.mockResolvedValue({
       ok: true as const,
       status: 200 as const,
-      data: { ok: true as const, rawEventId: "w1", requestId: "rid" },
+      data: { ok: true as const, rawEventId: "w1", requestId: "rid", suppressionWritten: false },
       requestId: "rid" as string | null,
     });
   });
@@ -497,15 +497,20 @@ describe("overview workout actions", () => {
     expect(mockDeleteIngestedRawEventAuthed).toHaveBeenCalledWith("w4", "token");
     expect(mockClearWorkoutOverride).toHaveBeenCalledWith("w4");
     expect(applyDeletionMock).toHaveBeenCalledWith("u1", "w4");
+    expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
   });
 
   it("delete 404 still evicts locally and does not show a blocking failure alert", async () => {
     mockDeleteIngestedRawEventAuthed.mockResolvedValue({
-      ok: false as const,
-      status: 404,
-      requestId: "rid-404",
-      kind: "http",
-      error: "Not found",
+      ok: true as const,
+      status: 404 as const,
+      data: {
+        ok: true as const,
+        rawEventId: "w2",
+        requestId: "rid-404",
+        suppressionWritten: false,
+      },
+      requestId: "rid-404" as string | null,
     });
     const test = await mountTrainingOverview();
     act(() => {
@@ -519,6 +524,52 @@ describe("overview workout actions", () => {
       await Promise.resolve();
     });
     expect(applyDeletionMock).toHaveBeenCalledWith("u1", "w2");
+    expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
+  });
+
+  it("delete HTTP 500 does not evict locally and shows an error alert", async () => {
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: false as const,
+      status: 500,
+      requestId: "rid-500",
+      kind: "http",
+      error: "HTTP 500",
+    });
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w6" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(applyDeletionMock).not.toHaveBeenCalled();
+    expect(jest.mocked(Alert.alert)).toHaveBeenCalled();
+  });
+
+  it("delete HTTP 401 does not evict locally and does not show an error alert", async () => {
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: false as const,
+      status: 401,
+      requestId: "rid-401",
+      kind: "http",
+      error: "Unauthorized",
+    });
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w7" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(applyDeletionMock).not.toHaveBeenCalled();
     expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
   });
 
