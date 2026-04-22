@@ -15,6 +15,10 @@ type HealthOk = {
   service: "oli-api";
   env?: string;
   requestId?: string;
+  /** Cloud Run revision (K_REVISION) when running on Cloud Run — verify deployed binary. */
+  revision?: string;
+  /** Optional CI/deploy stamp (OLI_API_BUILD_ID) when set at build time. */
+  buildId?: string;
   timestamp: string;
   uptimeSec: number;
 };
@@ -24,6 +28,8 @@ type HealthAuthOk = {
   service: "oli-api";
   env?: string;
   requestId: string;
+  revision?: string;
+  buildId?: string;
   timestamp: string;
   uptimeSec: number;
   uid: string;
@@ -43,6 +49,11 @@ const buildBody = (req: Request): HealthOk => {
 
   const env = process.env.APP_ENV?.trim();
   if (env) body.env = env;
+
+  const revision = process.env.K_REVISION?.trim();
+  if (revision) body.revision = revision;
+  const buildId = process.env.OLI_API_BUILD_ID?.trim();
+  if (buildId) body.buildId = buildId;
 
   // Prefer app-level request id (set by requestIdMiddleware)
   const rid = (req as RequestWithRid).rid?.trim();
@@ -93,10 +104,15 @@ router.get("/live", publicHealthHandler);
 router.get("/health/auth", authMiddleware, (req: AuthedRequest, res: Response) => {
   const env = process.env.APP_ENV?.trim();
 
+  const revision = process.env.K_REVISION?.trim();
+  const buildId = process.env.OLI_API_BUILD_ID?.trim();
+
   const out: HealthAuthOk = {
     ok: true,
     service: "oli-api",
     ...(env ? { env } : {}),
+    ...(revision ? { revision } : {}),
+    ...(buildId ? { buildId } : {}),
     requestId: (req as RequestWithRid).rid ?? "unknown",
     timestamp: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
