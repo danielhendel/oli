@@ -198,6 +198,43 @@ paths:
         200:
           description: OK
 
+  # DELETE workout raw event (path param is percent-encoded in requests, e.g. %3A for ':').
+  # Must be declared separately from POST /ingest so API Gateway matches DELETE /ingest/{rawEventId}.
+  /ingest/{rawEventId}:
+    parameters:
+      - name: rawEventId
+        in: path
+        required: true
+        type: string
+        description: >
+          Firestore rawEvents document id (URL path segment; encode reserved chars per RFC 3986).
+          Gateway forwards path to Cloud Run with APPEND_PATH_TO_ADDRESS; ESPv2 decodes the segment for the backend.
+    options:
+      operationId: ingestByRawEventIdOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    delete:
+      operationId: ingestRawEventDelete
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK — workout removed from Oli
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Not Found — no raw doc (tombstone may still be written for Apple Health v2 workout ids)
+        500:
+          description: Server Error
+
   /export:
     options:
       operationId: exportOptions

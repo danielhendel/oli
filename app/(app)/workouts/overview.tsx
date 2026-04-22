@@ -893,23 +893,21 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       return;
     }
 
-    if (res.status === 404) {
-      if (user?.uid) {
-        applyAuthoritativeWorkoutDeletionLocal(user.uid, id);
-      }
-      await clearWorkoutOverride(id);
-      await reload();
-      setPendingDeleteWorkoutId(null);
-      setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+    setPendingDeleteWorkoutId(null);
+
+    const showDeleteFailureAlert =
+      res.kind === "network" || res.status === 500 || res.status === 403;
+    if (!showDeleteFailureAlert) {
       return;
     }
-
-    setPendingDeleteWorkoutId(null);
 
     let message = "Something went wrong. Your workouts were not changed.";
     if (res.status === 403) {
       message = "This workout can't be removed from Oli.";
     } else if (res.kind === "http" && typeof res.error === "string" && res.error.trim().length > 0) {
+      const short = res.error.trim();
+      if (short.length <= 140) message = short;
+    } else if (res.kind === "network" && typeof res.error === "string" && res.error.trim().length > 0) {
       const short = res.error.trim();
       if (short.length <= 140) message = short;
     }
