@@ -57,16 +57,22 @@ describe("DELETE /ingest/:rawEventId", () => {
     };
 
     const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => undefined);
 
-    (userCollection as jest.Mock).mockReturnValue({
-      doc: () => ({
-        get: async () =>
-          ({
-            exists: true,
-            data: () => rawEvent,
-          }) as const,
-        delete: deleteMock,
-      }),
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () =>
+            ({
+              exists: true,
+              data: () => rawEvent,
+            }) as const,
+          delete: deleteMock,
+        }),
+      };
     });
 
     const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
@@ -76,10 +82,11 @@ describe("DELETE /ingest/:rawEventId", () => {
     expect(json.ok).toBe(true);
     expect(json.rawEventId).toBe(rawEventId);
     expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(suppressSetMock).not.toHaveBeenCalled();
   });
 
   test("deletes an apple_health strength_workout raw event (removes Oli record only)", async () => {
-    const rawEventId = "apple_hk_str_1";
+    const rawEventId = "appleHealth:v2:workout:2025-01-02T00_2025-01-02T01_50_com.example.app";
     const rawEvent = {
       schemaVersion: 1,
       id: rawEventId,
@@ -98,22 +105,51 @@ describe("DELETE /ingest/:rawEventId", () => {
     };
 
     const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => undefined);
 
-    (userCollection as jest.Mock).mockReturnValue({
-      doc: () => ({
-        get: async () =>
-          ({
-            exists: true,
-            data: () => rawEvent,
-          }) as const,
-        delete: deleteMock,
-      }),
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () =>
+            ({
+              exists: true,
+              data: () => rawEvent,
+            }) as const,
+          delete: deleteMock,
+        }),
+      };
     });
 
-    const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
 
     expect(res.status).toBe(200);
     expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(suppressSetMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("404 delete still records Apple Health workout suppression for resurrection guard", async () => {
+    const rawEventId = "appleHealth:v2:workout:gone_but_suppress_50_com.example.app";
+    const suppressSetMock = jest.fn(async () => undefined);
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: false }) as const,
+          delete: jest.fn(),
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    expect(suppressSetMock).toHaveBeenCalledTimes(1);
   });
 
   test("rejects delete for unsupported workout provider", async () => {
@@ -138,21 +174,28 @@ describe("DELETE /ingest/:rawEventId", () => {
     };
 
     const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => undefined);
 
-    (userCollection as jest.Mock).mockReturnValue({
-      doc: () => ({
-        get: async () =>
-          ({
-            exists: true,
-            data: () => rawEvent,
-          }) as const,
-        delete: deleteMock,
-      }),
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () =>
+            ({
+              exists: true,
+              data: () => rawEvent,
+            }) as const,
+          delete: deleteMock,
+        }),
+      };
     });
 
     const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
 
     expect(res.status).toBe(403);
     expect(deleteMock).not.toHaveBeenCalled();
+    expect(suppressSetMock).not.toHaveBeenCalled();
   });
 });

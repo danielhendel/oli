@@ -6,6 +6,7 @@ import {
   buildWorkoutSessionSurfaceModel,
   pickJournalSummaryForStrengthSession,
   pickMetricsWorkoutForSession,
+  pickStrengthDeleteTargetWorkout,
   pickWorkoutForSessionActions,
   pickWorkoutOverrideForSession,
   resolveStrengthSessionExerciseDisplay,
@@ -433,5 +434,74 @@ describe("workoutSessionSurface", () => {
     expect(out.exercises[0]!.name).toBe("Squat");
     expect(out.totalVolume).toBe(100);
     expect(out.avgIntensity).toBe(7);
+  });
+});
+
+describe("pickStrengthDeleteTargetWorkout", () => {
+  it("prefers hydrate-backed manual over hydrate-backed apple", () => {
+    const day = "2026-03-11";
+    const workouts = [
+      item({
+        id: "apple1",
+        sourceId: "apple_health",
+        rawKind: "workout",
+        isDeletableRawEvent: true,
+        title: "Traditional Strength Training",
+        start: "2026-03-11T14:00:00.000Z",
+        workoutType: "strength",
+      }),
+      item({
+        id: "man1",
+        sourceId: "manual",
+        rawKind: "strength_workout",
+        isDeletableRawEvent: true,
+        title: "Bench Press",
+        start: "2026-03-11T14:05:00.000Z",
+        workoutType: "strength",
+      }),
+    ];
+    const [session] = reconcileWorkoutSessionsForDay(day, workouts);
+    expect(pickStrengthDeleteTargetWorkout(session!)?.id).toBe("man1");
+  });
+
+  it("skips manual without hydrate flag and picks apple when only apple is deletable", () => {
+    const day = "2026-03-11";
+    const workouts = [
+      item({
+        id: "apple1",
+        sourceId: "apple_health",
+        rawKind: "workout",
+        isDeletableRawEvent: true,
+        title: "Traditional Strength Training",
+        start: "2026-03-11T14:00:00.000Z",
+        workoutType: "strength",
+      }),
+      item({
+        id: "man1",
+        sourceId: "manual",
+        rawKind: "strength_workout",
+        title: "Bench Press",
+        start: "2026-03-11T14:05:00.000Z",
+        workoutType: "strength",
+      }),
+    ];
+    const [session] = reconcileWorkoutSessionsForDay(day, workouts);
+    expect(pickStrengthDeleteTargetWorkout(session!)?.id).toBe("apple1");
+  });
+
+  it("returns null when no session member is hydrate-backed deletable", () => {
+    const day = "2026-03-11";
+    const workouts = [
+      item({
+        id: "man1",
+        sourceId: "manual",
+        rawKind: "strength_workout",
+        title: "Bench Press",
+        start: "2026-03-11T14:05:00.000Z",
+        workoutType: "strength",
+      }),
+    ];
+    const [session] = reconcileWorkoutSessionsForDay(day, workouts);
+    expect(pickStrengthDeleteTargetWorkout(session!)).toBeNull();
   });
 });

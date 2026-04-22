@@ -12,6 +12,32 @@ import { userCollection } from "../db";
 
 const router = Router();
 
+/** Firestore doc id / Idempotency-Key for Apple Health workout rows (client + server aligned). */
+function isAppleHealthWorkoutRawEventDocId(rawEventId: string): boolean {
+  return rawEventId.startsWith("appleHealth:v2:workout:");
+}
+
+async function recordAppleHealthWorkoutIngestSuppression(uid: string, rawEventId: string): Promise<void> {
+  if (!isAppleHealthWorkoutRawEventDocId(rawEventId)) return;
+  try {
+    await userCollection(uid, "rawEventIngestSuppressions")
+      .doc(rawEventId)
+      .set({ suppressedAt: new Date().toISOString() });
+  } catch {
+    // best-effort: deletion already succeeded or 404 response is still correct without tombstone
+  }
+}
+
+async function isAppleHealthWorkoutIngestSuppressed(uid: string, idempotencyKey: string): Promise<boolean> {
+  if (!isAppleHealthWorkoutRawEventDocId(idempotencyKey)) return false;
+  try {
+    const snap = await userCollection(uid, "rawEventIngestSuppressions").doc(idempotencyKey).get();
+    return snap.exists;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Request id from middleware (same source as other routes).
  */
@@ -365,6 +391,21 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     day = canonicalDayKeyFromObservedAt(observedAt, timeZone);
   }
 
+  if (
+    body.provider === "apple_health" &&
+    (body.kind === "workout" || body.kind === "strength_workout") &&
+    (await isAppleHealthWorkoutIngestSuppressed(uid, idempotencyKey))
+  ) {
+    return res.status(202).json({
+      ok: true as const,
+      rawEventId: idempotencyKey,
+      day,
+      idempotentReplay: true as const,
+      ingestSuppressed: true as const,
+      requestId,
+    });
+  }
+
   // Phase 1: gateway currently represents manual ingestion
   const sourceType = "manual" as const;
   const schemaVersion = 1 as const;
@@ -575,6 +616,7 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   if (!snap.exists) {
+    await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId);
     return res.status(404).json({
       ok: false as const,
       error: {
@@ -662,6 +704,8 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
       requestId,
     });
   }
+
+  await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId);
 
   return res.status(200).json({
     ok: true as const,

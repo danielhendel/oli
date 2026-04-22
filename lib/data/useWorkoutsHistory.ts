@@ -37,7 +37,9 @@ async function hydrateInOrder(
   for (let i = 0; i < ids.length; i += concurrency) {
     const chunk = ids.slice(i, i + concurrency);
     const results = await Promise.all(chunk.map((id) => getRawEvent(id, idToken)));
-    for (const res of results) {
+    for (let j = 0; j < chunk.length; j += 1) {
+      const listId = chunk[j]!;
+      const res = results[j];
       if (!res) continue;
       if (!res.ok) {
         return {
@@ -46,7 +48,9 @@ async function hydrateInOrder(
           requestId: res.requestId,
         };
       }
-      items.push(parseWorkoutHistoryItem(res.json));
+      items.push(
+        parseWorkoutHistoryItem(res.json, { authoritativeRawEventId: listId, isDeletableRawEvent: true }),
+      );
     }
   }
   return { items };

@@ -92,6 +92,11 @@ export const ingestAcceptedResponseDtoSchema = z
     idempotentReplay: z.literal(true).optional(),
     /** Set when an existing apple_health workout doc had distanceMeters added without creating a duplicate. */
     payloadEnriched: z.literal(true).optional(),
+    /**
+     * Apple Health workout was not written because this idempotency key was suppressed after the user
+     * removed the workout from Oli (DELETE /ingest), blocking HealthKit re-sync from resurrecting it.
+     */
+    ingestSuppressed: z.literal(true).optional(),
   })
   .strip();
 

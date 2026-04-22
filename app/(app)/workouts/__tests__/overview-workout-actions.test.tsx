@@ -1,7 +1,6 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
-import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
-import TrainingOverviewScreen from "../overview";
+import { Alert } from "react-native";
 
 const mockPush = jest.fn();
 const mockSetOptions = jest.fn();
@@ -79,9 +78,27 @@ jest.mock("@/lib/workouts/gymRegistry", () => ({
   getGymMenuOptions: () => [],
 }));
 
-jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
-  useWorkoutsCalendarRange: jest.fn(),
-}));
+jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
+  const actual = jest.requireActual<typeof import("@/lib/data/workouts/useWorkoutsCalendar")>(
+    "@/lib/data/workouts/useWorkoutsCalendar",
+  );
+  const applyAuthoritativeWorkoutDeletionLocal = jest.fn();
+  return {
+    ...actual,
+    useWorkoutsCalendarRange: jest.fn(),
+    applyAuthoritativeWorkoutDeletionLocal,
+  };
+});
+
+const mockedWorkoutCal = jest.requireMock<typeof import("@/lib/data/workouts/useWorkoutsCalendar")>(
+  "@/lib/data/workouts/useWorkoutsCalendar",
+);
+const useWorkoutsCalendarRange = jest.mocked(mockedWorkoutCal.useWorkoutsCalendarRange);
+const applyDeletionMock = jest.mocked(mockedWorkoutCal.applyAuthoritativeWorkoutDeletionLocal);
+
+// `require` after mocks so the screen binds to the mocked `applyAuthoritativeWorkoutDeletionLocal`.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const TrainingOverviewScreen: typeof import("../overview").default = require("../overview").default;
 
 const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
   status: "ready" as const,
@@ -102,6 +119,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w2",
@@ -114,6 +133,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w3",
@@ -126,6 +147,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w4",
@@ -138,6 +161,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w5",
@@ -150,6 +175,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w6",
@@ -162,6 +189,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w7",
@@ -174,6 +203,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
         {
           id: "w8",
@@ -186,6 +217,8 @@ const DEFAULT_WORKOUTS_CALENDAR_RANGE = {
           end: null,
           durationMinutes: 20,
           calories: 200,
+          rawKind: "strength_workout",
+          isDeletableRawEvent: true,
         },
       ],
     },
@@ -311,6 +344,7 @@ describe("overview workout actions", () => {
   beforeEach(() => {
     mockOverridesState = {};
     jest.clearAllMocks();
+    applyDeletionMock.mockImplementation(() => undefined);
     jest.mocked(useWorkoutsCalendarRange).mockReturnValue(DEFAULT_WORKOUTS_CALENDAR_RANGE as never);
     mockDeleteIngestedRawEventAuthed.mockResolvedValue({
       ok: true as const,
@@ -462,6 +496,76 @@ describe("overview workout actions", () => {
 
     expect(mockDeleteIngestedRawEventAuthed).toHaveBeenCalledWith("w4", "token");
     expect(mockClearWorkoutOverride).toHaveBeenCalledWith("w4");
+    expect(applyDeletionMock).toHaveBeenCalledWith("u1", "w4");
+  });
+
+  it("delete 404 still evicts locally and does not show a blocking failure alert", async () => {
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: false as const,
+      status: 404,
+      requestId: "rid-404",
+      kind: "http",
+      error: "Not found",
+    });
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w2" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(applyDeletionMock).toHaveBeenCalledWith("u1", "w2");
+    expect(jest.mocked(Alert.alert)).not.toHaveBeenCalled();
+  });
+
+  it("delete 403 does not evict locally and shows an error alert", async () => {
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: false as const,
+      status: 403,
+      requestId: "rid-403",
+      kind: "http",
+      error: "Forbidden",
+    });
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w3" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(applyDeletionMock).not.toHaveBeenCalled();
+    expect(jest.mocked(Alert.alert)).toHaveBeenCalled();
+  });
+
+  it("delete network failure does not evict locally", async () => {
+    mockDeleteIngestedRawEventAuthed.mockResolvedValue({
+      ok: false as const,
+      status: 0,
+      requestId: null,
+      kind: "network",
+      error: "offline",
+    });
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions w5" }).props.onPress();
+    });
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Delete workout" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Confirm delete workout" }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(applyDeletionMock).not.toHaveBeenCalled();
+    expect(jest.mocked(Alert.alert)).toHaveBeenCalled();
   });
 
   it("cancel on delete confirmation does not call delete", async () => {
@@ -495,6 +599,7 @@ describe("overview workout actions", () => {
               observedAt: "2026-03-10T10:00:00.000Z",
               sourceId: "healthkit",
               rawKind: "strength_workout",
+              isDeletableRawEvent: true,
               title: "Strength",
               workoutType: "strength",
               start: "2026-03-10T10:00:00.000Z",
@@ -528,6 +633,7 @@ describe("overview workout actions", () => {
               observedAt: "2026-03-10T11:00:00.000Z",
               sourceId: "manual",
               rawKind: "strength_workout",
+              isDeletableRawEvent: true,
               title: "Lift",
               workoutType: "strength",
               start: "2026-03-10T11:00:00.000Z",
@@ -545,6 +651,40 @@ describe("overview workout actions", () => {
       test.root.findByProps({ accessibilityLabel: "Workout actions md1" }).props.onPress();
     });
     expect(test.root.findByProps({ accessibilityLabel: "Delete workout" })).toBeTruthy();
+  });
+
+  it("hides Delete Workout when row is not hydrate-backed (isDeletableRawEvent unset)", async () => {
+    jest.mocked(useWorkoutsCalendarRange).mockReturnValue({
+      status: "ready",
+      durableTitlesByWorkoutId: {},
+      days: [
+        { day: "2026-03-09", workouts: [] },
+        {
+          day: "2026-03-10",
+          workouts: [
+            {
+              id: "ghost",
+              provider: "manual",
+              observedAt: "2026-03-10T12:00:00.000Z",
+              sourceId: "manual",
+              rawKind: "strength_workout",
+              title: "Synthetic",
+              workoutType: "strength",
+              start: "2026-03-10T12:00:00.000Z",
+              end: null,
+              durationMinutes: 30,
+              calories: null,
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const test = await mountTrainingOverview();
+    act(() => {
+      test.root.findByProps({ accessibilityLabel: "Workout actions ghost" }).props.onPress();
+    });
+    expect(() => test.root.findByProps({ accessibilityLabel: "Delete workout" })).toThrow();
   });
 
   it("hides Delete Workout for unsupported workout providers", async () => {
