@@ -339,4 +339,103 @@ describe("GET /users/me/raw-events", () => {
   // NOTE: workouts calendar currently uses the gateway without advanced filters.
   // Contract for filters (start/end, kinds) is validated in other tests; here
   // we only assert that the basic limit-only contract remains stable.
+
+  const myzoneAppleHealthWorkoutId =
+    "appleHealth:v2:workout:2026-04-18T08:09:59.736-0400_2026-04-18T08:12:42.433-0400_50_com.myzonemoves.app.MYZONE";
+
+  test("list omits Apple Health v2 workout id when rawEventIngestSuppressions tombstone exists", async () => {
+    const docs: DocSnap[] = [
+      {
+        exists: true,
+        id: "raw_weight_keep",
+        data: () => ({
+          schemaVersion: 1,
+          id: "raw_weight_keep",
+          userId: "user_123",
+          sourceId: "manual",
+          kind: "weight",
+          observedAt: "2025-01-02T12:00:00.000Z",
+          receivedAt: "2025-01-02T12:01:00.000Z",
+        }),
+      },
+      {
+        exists: true,
+        id: myzoneAppleHealthWorkoutId,
+        data: () => ({
+          schemaVersion: 1,
+          id: myzoneAppleHealthWorkoutId,
+          userId: "user_123",
+          sourceId: "apple_health",
+          kind: "workout",
+          observedAt: "2026-04-18T12:00:00.000Z",
+          receivedAt: "2026-04-18T12:01:00.000Z",
+        }),
+      },
+    ];
+
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEvents") {
+        return {
+          orderBy: q.orderBy,
+          where: q.where,
+          limit: q.limit,
+          startAfter: q.startAfter,
+          get: q.get,
+          doc: () => ({ get: async () => ({ exists: false }) }),
+        };
+      }
+      if (name === "rawEventIngestSuppressions") {
+        return {
+          doc: (id: string) => ({
+            get: async () => ({ exists: id === myzoneAppleHealthWorkoutId }),
+          }),
+        };
+      }
+      return { doc: () => ({ get: async () => ({ exists: false }) }) };
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/raw-events?limit=10`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items.map((x: { id: string }) => x.id)).toEqual(["raw_weight_keep"]);
+  });
+
+  test("GET /rawEvents/:id returns 404 when ingest suppression tombstone exists (even if rawEvents doc exists)", async () => {
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return {
+          doc: (id: string) => ({
+            get: async () => ({ exists: id === myzoneAppleHealthWorkoutId }),
+          }),
+        };
+      }
+      if (name === "rawEvents") {
+        return {
+          doc: (id: string) => ({
+            get: async () => ({
+              exists: id === myzoneAppleHealthWorkoutId,
+              data: () => ({
+                schemaVersion: 1,
+                id: myzoneAppleHealthWorkoutId,
+                userId: "user_123",
+                sourceId: "apple_health",
+                kind: "workout",
+                observedAt: "2026-04-18T12:00:00.000Z",
+                receivedAt: "2026-04-18T12:01:00.000Z",
+              }),
+            }),
+          }),
+        };
+      }
+      return { doc: () => ({ get: async () => ({ exists: false }) }) };
+    });
+
+    const pathId = encodeURIComponent(myzoneAppleHealthWorkoutId);
+    const res = await fetch(`${baseUrl}/users/me/rawEvents/${pathId}`);
+    expect(res.status).toBe(404);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error?.code).toBe("NOT_FOUND");
+  });
 });

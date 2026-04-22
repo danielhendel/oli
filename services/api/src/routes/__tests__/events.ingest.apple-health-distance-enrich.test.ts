@@ -16,9 +16,18 @@ const mockColRef = {
   doc: jest.fn(() => mockDocRef),
 };
 
+const mockSuppressDocRef = {
+  get: jest.fn().mockResolvedValue({ exists: false }),
+  set: jest.fn().mockResolvedValue(undefined),
+};
+const mockSuppressColRef = {
+  doc: jest.fn(() => mockSuppressDocRef),
+};
+
 jest.mock("../../db", () => ({
   userCollection: (...args: unknown[]) => {
     if (args[1] === "rawEvents") return mockColRef;
+    if (args[1] === "rawEventIngestSuppressions") return mockSuppressColRef;
     return {};
   },
 }));

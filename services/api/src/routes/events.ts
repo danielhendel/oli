@@ -1,39 +1,88 @@
 // services/api/src/routes/events.ts
+//
+// Apple Health workout delete + re-sync: tombstones live under users/{uid}/rawEventIngestSuppressions/{id}.
+// Optional audit logs (exact id match): set RAW_EVENT_SUPPRESSION_AUDIT_IDS=comma,separated,ids
+// (use for one incident; correlates with x-request-id in Cloud Logging).
 import { Router, type Response } from "express";
 import { z } from "zod";
 
 import { localCalendarDayKeyFromIsoInTimeZone, rawEventDocSchema } from "@oli/contracts";
 import type { AuthedRequest } from "../middleware/auth";
-import type { RequestWithRid } from "../lib/logger";
+import { logger, type RequestWithRid } from "../lib/logger";
 import { writeFailure } from "../lib/writeFailure";
 import { mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded } from "../lib/mergeAppleHealthWorkoutDistance";
+import {
+  isAppleHealthWorkoutIngestSuppressionDocId,
+  shouldLogSuppressionAuditForId,
+} from "../lib/rawEventIngestSuppression";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
 const router = Router();
 
-/** Firestore doc id / Idempotency-Key for Apple Health workout rows (client + server aligned). */
-function isAppleHealthWorkoutRawEventDocId(rawEventId: string): boolean {
-  return rawEventId.startsWith("appleHealth:v2:workout:");
-}
-
-async function recordAppleHealthWorkoutIngestSuppression(uid: string, rawEventId: string): Promise<void> {
-  if (!isAppleHealthWorkoutRawEventDocId(rawEventId)) return;
+async function recordAppleHealthWorkoutIngestSuppression(
+  uid: string,
+  rawEventId: string,
+  requestId: string,
+  context: "delete_404" | "delete_200",
+): Promise<void> {
+  if (!isAppleHealthWorkoutIngestSuppressionDocId(rawEventId)) return;
+  const audit = shouldLogSuppressionAuditForId(rawEventId);
   try {
     await userCollection(uid, "rawEventIngestSuppressions")
       .doc(rawEventId)
       .set({ suppressedAt: new Date().toISOString() });
-  } catch {
-    // best-effort: deletion already succeeded or 404 response is still correct without tombstone
+    if (audit) {
+      logger.info({
+        msg: "raw_event_suppression_write_ok",
+        rid: requestId,
+        uid,
+        rawEventId,
+        context,
+      });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({
+      msg: "raw_event_suppression_write_failed",
+      rid: requestId,
+      uid,
+      rawEventId,
+      context,
+      err: message,
+    });
   }
 }
 
-async function isAppleHealthWorkoutIngestSuppressed(uid: string, idempotencyKey: string): Promise<boolean> {
-  if (!isAppleHealthWorkoutRawEventDocId(idempotencyKey)) return false;
+async function isAppleHealthWorkoutIngestSuppressed(
+  uid: string,
+  idempotencyKey: string,
+  requestId: string,
+): Promise<boolean> {
+  if (!isAppleHealthWorkoutIngestSuppressionDocId(idempotencyKey)) return false;
+  const audit = shouldLogSuppressionAuditForId(idempotencyKey);
   try {
     const snap = await userCollection(uid, "rawEventIngestSuppressions").doc(idempotencyKey).get();
-    return snap.exists;
-  } catch {
+    const suppressed = snap.exists;
+    if (audit) {
+      logger.info({
+        msg: "raw_event_suppression_ingest_precheck",
+        rid: requestId,
+        uid,
+        rawEventId: idempotencyKey,
+        suppressed,
+      });
+    }
+    return suppressed;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({
+      msg: "raw_event_suppression_read_failed",
+      rid: requestId,
+      uid,
+      rawEventId: idempotencyKey,
+      err: message,
+    });
     return false;
   }
 }
@@ -394,8 +443,16 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
   if (
     body.provider === "apple_health" &&
     (body.kind === "workout" || body.kind === "strength_workout") &&
-    (await isAppleHealthWorkoutIngestSuppressed(uid, idempotencyKey))
+    (await isAppleHealthWorkoutIngestSuppressed(uid, idempotencyKey, requestId))
   ) {
+    if (shouldLogSuppressionAuditForId(idempotencyKey)) {
+      logger.info({
+        msg: "raw_event_ingest_blocked_by_suppression",
+        rid: requestId,
+        uid,
+        rawEventId: idempotencyKey,
+      });
+    }
     return res.status(202).json({
       ok: true as const,
       rawEventId: idempotencyKey,
@@ -616,7 +673,7 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   if (!snap.exists) {
-    await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId);
+    await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId, requestId, "delete_404");
     return res.status(404).json({
       ok: false as const,
       error: {
@@ -705,7 +762,7 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
     });
   }
 
-  await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId);
+  await recordAppleHealthWorkoutIngestSuppression(uid, rawEventId, requestId, "delete_200");
 
   return res.status(200).json({
     ok: true as const,
