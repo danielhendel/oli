@@ -22,7 +22,35 @@ export function resolveWorkoutIngestProvider(raw: { provider?: string; sourceId?
   return undefined;
 }
 
+/**
+ * Strength overview DELETE /ingest eligibility: deletable raw row (hydrate-backed) + provider allowlist + workout kinds.
+ */
+export function strengthWorkoutRowEligibleForDeleteFromOli(workout: WorkoutHistoryItem | null | undefined): boolean {
+  if (!workout) return false;
+  if (workout.isDeletableRawEvent !== true) return false;
+  const p = resolveWorkoutIngestProvider(workout);
+  if (p !== "manual" && p !== "apple_health") return false;
+  const k = workout.rawKind;
+  if (k === undefined) return true;
+  return k === "strength_workout" || k === "workout";
+}
+
+export type ParseWorkoutHistoryItemOptions = {
+  /**
+   * Firestore document id from the listing query (path `rawEvents/{id}`).
+   * When the stored document body's `id` field can diverge from the doc ref (legacy / partial writes),
+   * this must be the id used for DELETE /ingest/:rawEventId and other raw-targeted APIs.
+   */
+  authoritativeRawEventId?: string;
+  /**
+   * When true, this item was produced from GET /users/me/raw-events hydration (listed doc id in `id`).
+   * Omit for summary-only or synthetic parses so Strength Delete stays hidden.
+   */
+  isDeletableRawEvent?: boolean;
+};
+
 export type WorkoutHistoryItem = {
+  /** Firestore `users/{uid}/rawEvents/{id}` document id (authoritative for DELETE /ingest). */
   id: string;
   observedAt: string;
   sourceId: string;
@@ -52,6 +80,11 @@ export type WorkoutHistoryItem = {
   strengthIngestExercises?: ManualWorkoutExerciseSummary[];
   /** Present only when `strength_workout` payload included `displayName` (title resolution vs exercise-derived title). */
   strengthIngestDisplayName?: string;
+  /**
+   * Set only for rows produced from raw-events calendar hydrate (listed doc existed at fetch time).
+   * Strength Delete requires this to be true alongside provider allowlist.
+   */
+  isDeletableRawEvent?: boolean;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -146,8 +179,10 @@ function parseHeartRateZoneMinutesFromPayload(payload: Record<string, unknown> |
  * Never throws. If payload is missing/unexpected, returns minimal item.
  * Treats payload as unknown record to support multiple sources (manual, HK, etc.).
  */
-export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
-  const id = raw.id;
+export function parseWorkoutHistoryItem(raw: RawEventDoc, options?: ParseWorkoutHistoryItemOptions): WorkoutHistoryItem {
+  const auth =
+    typeof options?.authoritativeRawEventId === "string" ? options.authoritativeRawEventId.trim() : "";
+  const id = auth.length > 0 ? auth : raw.id;
   const observedAt = raw.observedAt ?? raw.receivedAt;
   const sourceId = raw.sourceId ?? "unknown";
   const resolvedProvider = resolveWorkoutIngestProvider(raw);
@@ -254,5 +289,6 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc): WorkoutHistoryItem {
     ...(strengthIngestDisplayName != null && strengthIngestDisplayName.length > 0
       ? { strengthIngestDisplayName }
       : {}),
+    ...(options?.isDeletableRawEvent === true ? { isDeletableRawEvent: true as const } : {}),
   };
 }

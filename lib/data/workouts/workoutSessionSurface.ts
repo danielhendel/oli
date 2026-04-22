@@ -1,5 +1,6 @@
 import {
   resolveWorkoutIngestProvider,
+  strengthWorkoutRowEligibleForDeleteFromOli,
   type WorkoutHistoryItem,
 } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
@@ -21,6 +22,18 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 export function pickWorkoutForSessionActions(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
   const manual = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "manual");
   return manual ?? session.workouts[0] ?? null;
+}
+
+/**
+ * Strength DELETE target: prefer a hydrate-backed manual row, else any hydrate-backed deletable row.
+ * Unlike {@link pickWorkoutForSessionActions}, skips rows without `isDeletableRawEvent` (non–raw-events list).
+ */
+export function pickStrengthDeleteTargetWorkout(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
+  const manual = session.workouts.find(
+    (w) => resolveWorkoutIngestProvider(w) === "manual" && strengthWorkoutRowEligibleForDeleteFromOli(w),
+  );
+  if (manual) return manual;
+  return session.workouts.find((w) => strengthWorkoutRowEligibleForDeleteFromOli(w)) ?? null;
 }
 
 function overrideHasPatch(o: WorkoutOverride): boolean {

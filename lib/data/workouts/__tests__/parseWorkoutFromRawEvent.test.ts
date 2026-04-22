@@ -1,5 +1,9 @@
 import type { RawEventDoc } from "@oli/contracts";
-import { parseWorkoutHistoryItem, resolveWorkoutIngestProvider } from "../parseWorkoutFromRawEvent";
+import {
+  parseWorkoutHistoryItem,
+  resolveWorkoutIngestProvider,
+  strengthWorkoutRowEligibleForDeleteFromOli,
+} from "../parseWorkoutFromRawEvent";
 
 function minimalRaw(overrides: Partial<{ id: string; observedAt: string; receivedAt: string; sourceId: string; payload: unknown }>): RawEventDoc {
   return {
@@ -18,6 +22,54 @@ function minimalRaw(overrides: Partial<{ id: string; observedAt: string; receive
 }
 
 describe("parseWorkoutHistoryItem", () => {
+  it("sets isDeletableRawEvent when hydrate opts in", () => {
+    const raw = minimalRaw({
+      id: "ev-1",
+      provider: "manual",
+      payload: {
+        start: "2024-06-01T10:00:00Z",
+        end: "2024-06-01T11:00:00Z",
+        sport: "Run",
+        durationMinutes: 60,
+      },
+    });
+    const item = parseWorkoutHistoryItem(raw, { isDeletableRawEvent: true });
+    expect(item.isDeletableRawEvent).toBe(true);
+    expect(strengthWorkoutRowEligibleForDeleteFromOli(item)).toBe(true);
+  });
+
+  it("strength delete eligibility is false without isDeletableRawEvent even for manual provider", () => {
+    const raw = minimalRaw({
+      id: "ev-1",
+      provider: "manual",
+      payload: {
+        start: "2024-06-01T10:00:00Z",
+        end: "2024-06-01T11:00:00Z",
+        sport: "Run",
+        durationMinutes: 60,
+      },
+    });
+    const item = parseWorkoutHistoryItem(raw);
+    expect(item.isDeletableRawEvent).toBeUndefined();
+    expect(strengthWorkoutRowEligibleForDeleteFromOli(item)).toBe(false);
+  });
+
+  it("uses authoritativeRawEventId when stored body id disagrees with Firestore doc ref (DELETE /ingest target)", () => {
+    const raw = minimalRaw({
+      id: "wrong-embedded-id",
+      provider: "apple_health",
+      sourceId: "healthkit",
+      payload: {
+        start: "2024-06-01T10:00:00Z",
+        end: "2024-06-01T11:00:00Z",
+        sport: "Running",
+        durationMinutes: 60,
+      },
+    });
+    const item = parseWorkoutHistoryItem(raw, { authoritativeRawEventId: "appleHealth:v2:workout:abc" });
+    expect(item.id).toBe("appleHealth:v2:workout:abc");
+  });
+
   it("full payload workout parses expected fields including hk", () => {
     const raw = minimalRaw({
       id: "ev-1",

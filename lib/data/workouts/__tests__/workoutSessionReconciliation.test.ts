@@ -1,7 +1,9 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
   deriveSessionTypeFlags,
+  matchReconciledWorkoutSessionToLatestDayWorkouts,
   reconcileWorkoutSessionsForDay,
+  resolveReconciledSessionWithLatestCalendarDays,
 } from "@/lib/data/workouts/workoutSessionReconciliation";
 
 function w(overrides: Partial<WorkoutHistoryItem>): WorkoutHistoryItem {
@@ -145,5 +147,35 @@ describe("workoutSessionReconciliation", () => {
       w({ id: "a1", sourceId: "apple_health", workoutType: "strength", durationMinutes: 200, start: "2026-03-20T10:20:00.000Z" }),
     ]);
     expect(sessions[0]?.durationMinutes).toBe(50);
+  });
+
+  it("matchReconciledWorkoutSessionToLatestDayWorkouts rebinds when merged session loses a member (session id changes)", () => {
+    const day = "2026-03-20";
+    const both = [
+      w({ id: "manual-1", sourceId: "manual", workoutType: "strength", start: "2026-03-20T17:00:00.000Z", durationMinutes: 60 }),
+      w({
+        id: "apple-1",
+        sourceId: "apple_health",
+        title: "TraditionalStrengthTraining",
+        workoutType: "strength",
+        start: "2026-03-20T17:20:00.000Z",
+        durationMinutes: 50,
+      }),
+    ];
+    const stale = reconcileWorkoutSessionsForDay(day, both)[0]!;
+    const onlyApple = both.filter((x) => x.id === "apple-1");
+    const matched = matchReconciledWorkoutSessionToLatestDayWorkouts(day, stale, onlyApple);
+    expect(matched).not.toBeNull();
+    expect(matched!.id).not.toBe(stale.id);
+    expect(matched!.workouts.map((x) => x.id)).toEqual(["apple-1"]);
+  });
+
+  it("resolveReconciledSessionWithLatestCalendarDays returns same session when day bucket unchanged", () => {
+    const day = "2026-03-20";
+    const workouts = [w({ id: "solo", sourceId: "manual", workoutType: "strength", start: "2026-03-20T08:00:00.000Z", durationMinutes: 40 })];
+    const stale = reconcileWorkoutSessionsForDay(day, workouts)[0]!;
+    const out = resolveReconciledSessionWithLatestCalendarDays([{ day, workouts }], { day, session: stale });
+    expect(out.id).toBe(stale.id);
+    expect(out.workouts.map((x) => x.id)).toEqual(["solo"]);
   });
 });

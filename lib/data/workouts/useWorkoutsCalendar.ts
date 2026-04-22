@@ -38,7 +38,10 @@ import {
 import { clearAllWorkoutCalendarMarkerCaches } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
 import { WORKOUT_DAY_SUMMARY_EXPECTED } from "@oli/contracts";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
-import { subscribeWorkoutCalendarHydrateInvalidate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
+import {
+  invalidateWorkoutCalendarHydrate,
+  subscribeWorkoutCalendarHydrateInvalidate,
+} from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
 import {
   durableTitleOverrideMapToRecord,
   mergeWorkoutTitleOverrideListRow,
@@ -101,7 +104,7 @@ export type WorkoutCalendarRangeState =
     }
   | { status: "error"; error: string; requestId: string | null };
 
-type CachedWorkoutCalendarRange = {
+export type CachedWorkoutCalendarRange = {
   days: WorkoutCalendarDay[];
   markerFlagsByDay?: Record<DayKey, WorkoutMarkerFlags>;
   durableTitlesByWorkoutId: Record<string, string>;
@@ -121,12 +124,98 @@ function clearRangeCachesForUidPrefix(uid: string): void {
   for (const k of lastGoodRangeByShape.keys()) {
     if (k.startsWith(p)) lastGoodRangeByShape.delete(k);
   }
+  deleteMergeTrustDaysByUid.delete(uid);
+}
+
+/**
+ * Calendar days explicitly affected by a successful or 404-equivalent raw-event delete.
+ * For these days only, an incoming hydrate bucket with `workouts.length === 0` replaces the
+ * per-day cache instead of preserving it (see `mergeWorkoutsIntoDayCache`).
+ */
+const deleteMergeTrustDaysByUid = new Map<string, Set<DayKey>>();
+
+function registerDeleteMergeTrustDays(uid: string, days: Iterable<DayKey>): void {
+  let set = deleteMergeTrustDaysByUid.get(uid);
+  if (!set) {
+    set = new Set();
+    deleteMergeTrustDaysByUid.set(uid, set);
+  }
+  for (const d of days) {
+    set.add(d);
+  }
+  if (set.size === 0) {
+    deleteMergeTrustDaysByUid.delete(uid);
+  }
+}
+
+/**
+ * After DELETE /ingest/:rawEventId returns 200 or 404, evict the id from per-day cache and from
+ * every cached range shape for this uid, register merge-trust for affected days, and fan out
+ * hydrate invalidation so mounted ranges refetch against server truth.
+ */
+export function applyAuthoritativeWorkoutDeletionLocal(uid: string, rawEventId: string): DayKey[] {
+  const id = rawEventId.trim();
+  if (!uid || !id) return [];
+
+  const affectedFromDayMap = evictRawEventIdFromWorkoutDayMap(uid, id);
+  const affectedFromRanges = optimisticallyRemoveWorkoutFromLastGoodRanges(uid, id);
+  const affected = [...new Set<DayKey>([...affectedFromDayMap, ...affectedFromRanges])];
+  if (affected.length > 0) {
+    registerDeleteMergeTrustDays(uid, affected);
+  }
+  invalidateWorkoutCalendarHydrate();
+  return affected;
+}
+
+function evictRawEventIdFromWorkoutDayMap(uid: string, rawEventId: string): DayKey[] {
+  const prefix = `${uid}|`;
+  const affected: DayKey[] = [];
+  for (const [key, workouts] of [...dayWorkoutsByUidDay.entries()]) {
+    if (!key.startsWith(prefix)) continue;
+    const day = key.slice(prefix.length) as DayKey;
+    const filtered = workouts.filter((w) => w.id !== rawEventId);
+    if (filtered.length === workouts.length) continue;
+    affected.push(day);
+    if (filtered.length === 0) {
+      dayWorkoutsByUidDay.delete(key);
+    } else {
+      dayWorkoutsByUidDay.set(key, sortWorkoutsChronologicalAsc(filtered));
+    }
+  }
+  return affected;
+}
+
+function optimisticallyRemoveWorkoutFromLastGoodRanges(uid: string, rawEventId: string): DayKey[] {
+  const p = `${uid}|`;
+  const affected: DayKey[] = [];
+  for (const [key, entry] of [...lastGoodRangeByShape.entries()]) {
+    if (!key.startsWith(p)) continue;
+    let changed = false;
+    const nextDays = entry.days.map((d) => {
+      const filtered = d.workouts.filter((w) => w.id !== rawEventId);
+      if (filtered.length !== d.workouts.length) {
+        changed = true;
+        affected.push(d.day);
+      }
+      return { day: d.day, workouts: filtered };
+    });
+    if (!changed) continue;
+    const durableTitlesByWorkoutId = { ...entry.durableTitlesByWorkoutId };
+    delete durableTitlesByWorkoutId[rawEventId];
+    lastGoodRangeByShape.set(key, {
+      ...entry,
+      days: nextDays,
+      durableTitlesByWorkoutId,
+    });
+  }
+  return affected;
 }
 
 /** Clears in-memory range/day caches (Jest tests only; avoids cross-test leakage). */
 export function resetWorkoutsCalendarCachesForTests(): void {
   lastGoodRangeByShape.clear();
   dayWorkoutsByUidDay.clear();
+  deleteMergeTrustDaysByUid.clear();
   void clearAllWorkoutCalendarMarkerCaches();
 }
 
@@ -151,22 +240,35 @@ export function getCachedWorkoutsForDay(uid: string, day: DayKey): WorkoutHistor
 function mergeWorkoutsIntoDayCache(uid: string, days: WorkoutCalendarDay[]): void {
   for (const d of days) {
     const k = dayCacheKey(uid, d.day);
+    const deleteTrust = deleteMergeTrustDaysByUid.get(uid);
+    const emptyTrustsAuthoritativeClear = Boolean(deleteTrust?.has(d.day));
     if (workoutDayDebugEnabled() && isWorkoutDayDebugDate(d.day)) {
       logWorkoutDayDebug("merge-cache-row", {
         day: d.day,
         incomingHydrateWorkoutIds: d.workouts.map((w) => w.id),
         perDayCacheIdsBeforeMerge: getCachedWorkoutsForDay(uid, d.day).map((w) => w.id),
-        emptyIncomingPreservesCache: true,
+        emptyIncomingPreservesCache: d.workouts.length === 0 ? !emptyTrustsAuthoritativeClear : false,
       });
     }
     if (d.workouts.length === 0) {
+      if (deleteTrust?.has(d.day)) {
+        deleteTrust.delete(d.day);
+        if (deleteTrust.size === 0) {
+          deleteMergeTrustDaysByUid.delete(uid);
+        }
+        dayWorkoutsByUidDay.delete(k);
+      }
       /**
-       * Do not delete existing per-day cache. An empty bucket usually means the `observedAt`
-       * list window missed raw docs that still belong on this calendar day (see
+       * Without delete-trust: do not delete existing per-day cache. An empty bucket usually means
+       * the `observedAt` list window missed raw docs that still belong on this calendar day (see
        * `deriveWorkoutDayKey` vs API filter), not that the user has zero workouts. Overview
        * hydrates may have populated this key from a wider window.
        */
       continue;
+    }
+    deleteMergeTrustDaysByUid.get(uid)?.delete(d.day);
+    if (deleteMergeTrustDaysByUid.get(uid)?.size === 0) {
+      deleteMergeTrustDaysByUid.delete(uid);
     }
     const prev = dayWorkoutsByUidDay.get(k) ?? [];
     const byId = new Map<string, WorkoutHistoryItem>();
@@ -180,6 +282,31 @@ function mergeWorkoutsIntoDayCache(uid: string, days: WorkoutCalendarDay[]): voi
       });
     }
   }
+}
+
+/** Jest-only hook: run the same per-day cache merge as a successful range hydrate. */
+export function mergeWorkoutsIntoDayCacheForTests(uid: string, days: WorkoutCalendarDay[]): void {
+  mergeWorkoutsIntoDayCache(uid, days);
+}
+
+/** Jest-only: seed `lastGoodRangeByShape` the way a successful hydrate would. */
+export function seedLastGoodWorkoutCalendarRangeForTests(
+  uid: string,
+  start: DayKey,
+  end: DayKey,
+  kindsSig: string,
+  entry: CachedWorkoutCalendarRange,
+): void {
+  lastGoodRangeByShape.set(rangeShapeKey(uid, start, end, kindsSig), entry);
+}
+
+export function getLastGoodWorkoutCalendarRangeForTests(
+  uid: string,
+  start: DayKey,
+  end: DayKey,
+  kindsSig: string,
+): CachedWorkoutCalendarRange | undefined {
+  return lastGoodRangeByShape.get(rangeShapeKey(uid, start, end, kindsSig));
 }
 
 function workoutTruthPayloadPreview(payload: unknown): Record<string, unknown> {
@@ -582,7 +709,10 @@ async function hydrateWorkoutsForRange(
             continue;
           }
 
-          const item = parseWorkoutHistoryItem(resJson as never);
+          const item = parseWorkoutHistoryItem(resJson as never, {
+            authoritativeRawEventId: id,
+            isDeletableRawEvent: true,
+          });
           grouped.push({ day: derivedDayKey, workout: item });
           if (dbgTouch) {
             logWorkoutDayDebug("pipeline-row", {

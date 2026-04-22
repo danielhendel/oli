@@ -33,8 +33,9 @@ import {
 } from "@/lib/ui/headers/workoutsStackHeader";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
-import type { CalendarDay, WorkoutDayMarker } from "@/lib/ui/calendar/types";
+import type { CalendarDay, DayKey, WorkoutDayMarker } from "@/lib/ui/calendar/types";
 import {
+  applyAuthoritativeWorkoutDeletionLocal,
   DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
   useWorkoutsCalendarRange,
 } from "@/lib/data/workouts/useWorkoutsCalendar";
@@ -98,10 +99,15 @@ import {
   resolveWorkoutDisplay,
   resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
-import { deriveSessionTypeFlags, reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
+import {
+  deriveSessionTypeFlags,
+  reconcileWorkoutSessionsForDay,
+  resolveReconciledSessionWithLatestCalendarDays,
+} from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
   buildWorkoutSessionSurfaceModel,
   pickJournalSummaryForStrengthSession,
+  pickStrengthDeleteTargetWorkout,
   pickWorkoutForSessionActions,
   pickWorkoutOverrideForSession,
 } from "@/lib/data/workouts/workoutSessionSurface";
@@ -109,7 +115,6 @@ import { clearWorkoutOverride, useWorkoutOverrides } from "@/lib/data/workouts/w
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
-import { resolveWorkoutIngestProvider, type WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
@@ -174,16 +179,6 @@ function formatWorkoutDayLabel(dayKey: string): string {
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
   return `${wd} ${month}/${day}`;
-}
-
-/** Matches DELETE /ingest allowlist via {@link resolveWorkoutIngestProvider} (handles list hydrate rows that omit raw `provider`). */
-function strengthWorkoutEligibleForDeleteFromOli(workout: WorkoutHistoryItem | null | undefined): boolean {
-  if (!workout) return false;
-  const p = resolveWorkoutIngestProvider(workout);
-  if (p !== "manual" && p !== "apple_health") return false;
-  const k = workout.rawKind;
-  if (k === undefined) return true;
-  return k === "strength_workout" || k === "workout";
 }
 
 function countJournalSetsForDisplay(summary: ManualWorkoutDaySummary | null): number {
@@ -302,6 +297,19 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     () => mapWorkoutCalendarDaysForDomain(sharedDays, domain),
     [sharedDays, domain],
   );
+
+  /** Re-resolve menu session against latest hydrate so delete/edit ids stay valid after refresh while menu is open. */
+  const overviewMenuSessionResolved = useMemo(() => {
+    if (!selectedWorkoutForMenu) return null;
+    if (overviewSharedRange.status !== "ready") return selectedWorkoutForMenu.session;
+    return resolveReconciledSessionWithLatestCalendarDays(domainSharedDays, {
+      day: selectedWorkoutForMenu.day as DayKey,
+      session: selectedWorkoutForMenu.session,
+    });
+  }, [selectedWorkoutForMenu, domainSharedDays, overviewSharedRange.status]);
+
+  const overviewMenuSessionRef = useRef(overviewMenuSessionResolved);
+  overviewMenuSessionRef.current = overviewMenuSessionResolved;
 
   const weekDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, weekStart, weekEnd),
@@ -852,10 +860,13 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const beginDeleteStrengthWorkoutFromMenu = useCallback(() => {
     if (!selectedWorkoutForMenu || domain !== "strength") return;
-    const workout = pickWorkoutForSessionActions(selectedWorkoutForMenu.session);
-    if (!strengthWorkoutEligibleForDeleteFromOli(workout)) return;
+    const session = overviewMenuSessionRef.current ?? selectedWorkoutForMenu.session;
+    const workout = pickStrengthDeleteTargetWorkout(session);
+    if (!workout) return;
+    const rawEventId = (workout.id ?? "").trim();
+    if (!rawEventId) return;
     closeWorkoutMenu();
-    setPendingDeleteWorkoutId(workout!.id);
+    setPendingDeleteWorkoutId(rawEventId);
   }, [selectedWorkoutForMenu, domain, closeWorkoutMenu]);
 
   const confirmDeleteStrengthWorkout = useCallback(async () => {
@@ -872,6 +883,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     setDeleteWorkoutSubmitting(false);
 
     if (res.ok) {
+      if (user?.uid) {
+        applyAuthoritativeWorkoutDeletionLocal(user.uid, id);
+      }
+      await clearWorkoutOverride(id);
+      await reload();
+      setPendingDeleteWorkoutId(null);
+      setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+      return;
+    }
+
+    if (res.status === 404) {
+      if (user?.uid) {
+        applyAuthoritativeWorkoutDeletionLocal(user.uid, id);
+      }
       await clearWorkoutOverride(id);
       await reload();
       setPendingDeleteWorkoutId(null);
@@ -884,20 +909,19 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     let message = "Something went wrong. Your workouts were not changed.";
     if (res.status === 403) {
       message = "This workout can't be removed from Oli.";
-    } else if (res.status === 404) {
-      message = "That workout is no longer available.";
     } else if (res.kind === "http" && typeof res.error === "string" && res.error.trim().length > 0) {
       const short = res.error.trim();
       if (short.length <= 140) message = short;
     }
 
     Alert.alert("Couldn't delete workout", message);
-  }, [pendingDeleteWorkoutId, getIdToken, reload]);
+  }, [pendingDeleteWorkoutId, getIdToken, reload, user?.uid]);
 
   const openEditRoute = useCallback(
     (mode: "rename" | "duration" | "type") => {
       if (!selectedWorkoutForMenu) return;
-      const { day: sessionDay, session } = selectedWorkoutForMenu;
+      const { day: sessionDay, session: staleSession } = selectedWorkoutForMenu;
+      const session = overviewMenuSessionResolved ?? staleSession;
       const workout = pickWorkoutForSessionActions(session);
       if (!workout) return;
       const journalSummary =
@@ -943,6 +967,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       domain,
       manualWorkoutSummaries,
       durableTitlesByWorkoutId,
+      overviewMenuSessionResolved,
     ],
   );
 
@@ -1355,8 +1380,8 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         onEditDuration={() => openEditRoute("duration")}
         onEditType={() => openEditRoute("type")}
         {...(domain === "strength" &&
-        selectedWorkoutForMenu &&
-        strengthWorkoutEligibleForDeleteFromOli(pickWorkoutForSessionActions(selectedWorkoutForMenu.session))
+        overviewMenuSessionResolved &&
+        pickStrengthDeleteTargetWorkout(overviewMenuSessionResolved) != null
           ? { onDeleteWorkout: beginDeleteStrengthWorkoutFromMenu }
           : {})}
       />

@@ -258,3 +258,41 @@ export function deriveSessionTypeFlags(
   }
   return { hasStrength, hasCardio };
 }
+
+/**
+ * Re-match a reconciled session from a previous render to the current day's workouts after hydrate/refresh.
+ * UI code often keeps `ReconciledWorkoutSession` in React state while `workouts` on that day update
+ * (merge, delete, sync). Session `id` is derived from member raw ids, so it can change when membership changes.
+ */
+export function matchReconciledWorkoutSessionToLatestDayWorkouts(
+  day: DayKey,
+  staleSession: ReconciledWorkoutSession,
+  latestDayWorkouts: WorkoutHistoryItem[],
+): ReconciledWorkoutSession | null {
+  const freshSessions = reconcileWorkoutSessionsForDay(day, latestDayWorkouts);
+  const exact = freshSessions.find((s) => s.id === staleSession.id);
+  if (exact) return exact;
+  const staleIds = new Set(staleSession.workouts.map((w) => w.id));
+  return freshSessions.find((s) => s.workouts.some((w) => staleIds.has(w.id))) ?? null;
+}
+
+export type WorkoutCalendarDayLikeForSessionResolve = {
+  day: DayKey;
+  workouts: WorkoutHistoryItem[];
+};
+
+/**
+ * Strength/Cardio overview menus: resolve `selectedWorkoutForMenu.session` against latest calendar rows
+ * so delete/edit targets stay aligned after background refetch while the overflow menu stays open.
+ */
+export function resolveReconciledSessionWithLatestCalendarDays(
+  days: readonly WorkoutCalendarDayLikeForSessionResolve[],
+  selection: { day: DayKey; session: ReconciledWorkoutSession },
+): ReconciledWorkoutSession {
+  const row = days.find((d) => d.day === selection.day);
+  if (!row) return selection.session;
+  return (
+    matchReconciledWorkoutSessionToLatestDayWorkouts(selection.day, selection.session, row.workouts) ??
+    selection.session
+  );
+}
