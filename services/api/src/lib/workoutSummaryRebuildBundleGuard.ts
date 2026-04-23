@@ -43,7 +43,7 @@ export function assertWorkoutSummaryRebuildBundleReady(serverSrcDir: string): vo
     const actualHex = crypto.createHash("sha256").update(bytes).digest("hex");
     if (actualHex !== expectedHex) {
       throw new Error(
-        `Workout summary rebuild bundle checksum mismatch at ${bundlePath}. Expected ${expectedHex}, got ${actualHex}. Rebuild with npm run -w api build and ensure dist copy is in sync.`,
+        `Workout summary rebuild bundle checksum mismatch at ${bundlePath}. Expected ${expectedHex}, got ${actualHex}. Re-run a full API build on this platform (\`npm run -w api build\`) so the sidecar .sha256 is generated from the same on-disk bundle that is copied into dist (Linux vs macOS produce different bundles).`,
       );
     }
   }

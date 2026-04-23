@@ -3,16 +3,16 @@
 ## Bundle artifact (drift control)
 
 - **Source of truth** is the TypeScript entry `services/api/scripts/workout-day-summary-rebuild.entry.ts` and the shared app code it pulls in (e.g. `lib/data/workouts/workoutDaySummaryCompute`, `services/functions/src/workouts/recomputeWorkoutDaySummary.ts`).
-- **Build** always runs the esbuild step first: `npm run -w api build` (or `npm run -w api bundle:workout-summary-rebuild` for the CJS artifact only).
-- Generated output **`services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs`** remains gitignored for noise; **the committed fingerprint is** `services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256`.
-- After any change that affects bundled code paths, regenerate the fingerprint:
+- **Build** runs esbuild, then **writes the SHA-256 from the on-disk bundle** (same bytes copied to `dist/`), then `tsc`, then copy: `npm run -w api build`. (`bundle:workout-summary-rebuild` alone only produces the `.cjs`; use `bundle:workout-summary-rebuild:checksum` after it if you are not running a full build.)
+- Generated **`services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs`** remains gitignored; **committed** `services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256` is a convenience fingerprint for review/diff — **Docker/CI always regenerate it during build** so it matches the Linux-built artifact (macOS vs Linux bundles differ).
+- After changing bundled code paths, run a full API build and commit the updated fingerprint if you want the repo to reflect your machine’s hash:
 
 ```bash
-npm run -w api bundle:workout-summary-rebuild:checksum
+npm run -w api build
 git add services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
 ```
 
-- CI runs `npm run check:workout-summary-rebuild-bundle` after `npm run -w api build`; a mismatch fails the pipeline.
+- CI runs `npm run -w api build` then `npm run check:workout-summary-rebuild-bundle`, which verifies **`dist/src/lib/*.cjs` bytes match `dist/src/lib/*.sha256`** (same layout as Cloud Run), not a second esbuild pass.
 
 ## Recompute / backfill (Firestore only — existing collections)
 

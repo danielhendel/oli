@@ -27,8 +27,12 @@ fs.mkdirSync(destDir, { recursive: true });
 fs.copyFileSync(srcBundle, path.join(destDir, bundleName));
 
 const srcChecksum = path.join(srcDir, checksumName);
-if (fs.existsSync(srcChecksum)) {
-  fs.copyFileSync(srcChecksum, path.join(destDir, checksumName));
+if (!fs.existsSync(srcChecksum)) {
+  console.error(
+    `copy-workout-summary-rebuild-bundle-to-dist: missing ${srcChecksum}. The API build must run write-workout-summary-rebuild-bundle-checksum after esbuild (see npm run build in services/api/package.json).`,
+  );
+  process.exit(1);
 }
+fs.copyFileSync(srcChecksum, path.join(destDir, checksumName));
 
-console.log(`Copied ${bundleName} to ${destDir}`);
+console.log(`Copied ${bundleName} and ${checksumName} to ${destDir}`);

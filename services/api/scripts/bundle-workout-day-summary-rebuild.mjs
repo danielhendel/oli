@@ -14,3 +14,6 @@ fs.mkdirSync(path.dirname(outFile), { recursive: true });
 await writeWorkoutSummaryRebuildBundle(outFile);
 
 console.log(`Built ${outFile}`);
+console.log(
+  "Next: npm run -w api bundle:workout-summary-rebuild:checksum (or full `npm run -w api build`, which hashes this artifact automatically).",
+);
