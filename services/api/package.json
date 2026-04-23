@@ -5,8 +5,8 @@
   "main": "dist/src/server.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "node scripts/bundle-workout-day-summary-rebuild.mjs && node -r ts-node/register/transpile-only src/server.ts",
-    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && tsc -b tsconfig.json && node scripts/copy-workout-summary-rebuild-bundle-to-dist.mjs",
+    "dev": "node scripts/bundle-workout-day-summary-rebuild.mjs && node scripts/write-workout-summary-rebuild-bundle-checksum.mjs && node -r ts-node/register/transpile-only src/server.ts",
+    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && node scripts/write-workout-summary-rebuild-bundle-checksum.mjs && tsc -b tsconfig.json && node scripts/copy-workout-summary-rebuild-bundle-to-dist.mjs",
     "bundle:workout-summary-rebuild": "node scripts/bundle-workout-day-summary-rebuild.mjs",
     "bundle:workout-summary-rebuild:checksum": "node scripts/write-workout-summary-rebuild-bundle-checksum.mjs",
     "verify:workout-summary-rebuild-bundle": "node scripts/verify-workout-summary-rebuild-bundle.mjs",
