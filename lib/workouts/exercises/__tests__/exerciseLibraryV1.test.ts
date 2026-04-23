@@ -1,8 +1,28 @@
+import { CONFIRMED_UNUSED_BUNDLED_EXERCISE_IDS } from "../bundledExerciseConfirmedUnused";
 import { EXERCISE_LIBRARY_V1 } from "../library.v1";
-import { EXERCISE_CATALOG_V1 } from "../catalog";
+import {
+  EXERCISE_CATALOG_V1,
+  EXERCISE_CATALOG_FOR_PICKER_V1,
+  isBundledExerciseSelectableInPickerStatus,
+} from "../catalog";
 import { getExerciseMeta } from "../metadata";
 
 describe("exercise library v1", () => {
+  it("bundled definitions use active, archived, or retired lifecycle only", () => {
+    expect(
+      EXERCISE_LIBRARY_V1.every(
+        (x) => x.status === "active" || x.status === "archived" || x.status === "retired",
+      ),
+    ).toBe(true);
+  });
+
+  it("operator-confirmed unused ids are archived (sync gate)", () => {
+    for (const id of CONFIRMED_UNUSED_BUNDLED_EXERCISE_IDS) {
+      const row = EXERCISE_LIBRARY_V1.find((x) => x.exerciseId === id);
+      expect(row?.status).toBe("archived");
+    }
+  });
+
   it("has 450+ exercises", () => {
     expect(EXERCISE_LIBRARY_V1.length).toBeGreaterThanOrEqual(450);
   });
@@ -19,6 +39,13 @@ describe("exercise library v1", () => {
     for (const item of EXERCISE_CATALOG_V1) {
       expect(byId.get(item.exerciseId)).toBe(item.name);
     }
+  });
+
+  it("picker catalog is exactly the active bundled subset", () => {
+    const activeBundled = EXERCISE_LIBRARY_V1.filter((x) =>
+      isBundledExerciseSelectableInPickerStatus(x.status),
+    ).length;
+    expect(EXERCISE_CATALOG_FOR_PICKER_V1.length).toBe(activeBundled);
   });
 
   it("every catalog item has metadata with stable primary bucket", () => {

@@ -6,6 +6,7 @@
  */
 
 import { logger } from "./lib/logger";
+import { assertWorkoutSummaryRebuildBundleReady } from "./lib/workoutSummaryRebuildBundleGuard";
 
 const assertNoEmulators = (): void => {
   const offenders: string[] = [];
@@ -34,6 +35,8 @@ const main = async (): Promise<void> => {
 
   // Initialize Firebase Admin lazily-safe module (should not throw at import-time)
   await import("./lib/firebaseAdmin");
+
+  assertWorkoutSummaryRebuildBundleReady(__dirname);
 
   // Import Express app after firebase-admin init
   const mod = await import("./index");

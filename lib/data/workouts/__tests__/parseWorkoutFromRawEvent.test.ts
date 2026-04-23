@@ -1,5 +1,6 @@
 import type { RawEventDoc } from "@oli/contracts";
 import {
+  parseStrengthIngestExercisesFromPayload,
   parseWorkoutHistoryItem,
   resolveWorkoutIngestProvider,
   strengthWorkoutRowEligibleForDeleteFromOli,
@@ -261,5 +262,35 @@ describe("parseWorkoutHistoryItem", () => {
     expect(item.durationMinutes).toBeNull();
     expect(item.calories).toBeNull();
     expect(item.hk).toBeUndefined();
+  });
+});
+
+describe("parseStrengthIngestExercisesFromPayload", () => {
+  it("uses synthetic exerciseId when payload has no exerciseId (legacy)", () => {
+    const out = parseStrengthIngestExercisesFromPayload("raw-abc", {
+      exercises: [
+        {
+          name: "Bench Press",
+          sets: [{ reps: 5, load: 60, unit: "kg" }],
+        },
+      ],
+    });
+    expect(out).toBeDefined();
+    expect(out![0]!.exerciseId).toBe("exercise:ingested:raw-abc:0");
+    expect(out![0]!.name).toBe("Bench Press");
+  });
+
+  it("preserves stable exerciseId from payload when present", () => {
+    const out = parseStrengthIngestExercisesFromPayload("raw-xyz", {
+      exercises: [
+        {
+          name: "Bench Press",
+          exerciseId: "bench_press",
+          sets: [{ reps: 5, load: 60, unit: "kg" }],
+        },
+      ],
+    });
+    expect(out![0]!.exerciseId).toBe("bench_press");
+    expect(out![0]!.name).toBe("Bench Press");
   });
 });

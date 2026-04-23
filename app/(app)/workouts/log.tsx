@@ -71,7 +71,7 @@ import {
   setEnrichSessionPointer,
 } from "@/lib/workouts/sessionEngine/enrichSessionStorage";
 import type { WorkoutLogFlowMode } from "@/lib/workouts/sessionEngine/workoutLogFlowMode";
-import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
+import { EXERCISE_LIBRARY_V1 } from "@/lib/workouts/exercises/library.v1";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { useRestTimer } from "@/lib/workouts/restTimer";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
@@ -1344,7 +1344,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
 
   const catalogNameById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const item of EXERCISE_CATALOG_V1) m.set(item.exerciseId, item.name);
+    for (const item of EXERCISE_LIBRARY_V1) m.set(item.exerciseId, item.name);
     for (const [exerciseId, row] of Object.entries(customExercisesById)) m.set(exerciseId, row.name);
     return m;
   }, [customExercisesById]);

@@ -36,7 +36,7 @@ import {
   workoutDayDebugRowTouchesAuditDates,
 } from "@/lib/debug/workoutDayDebug";
 import { clearAllWorkoutCalendarMarkerCaches } from "@/lib/data/workouts/workoutsCalendarMarkerCache";
-import { WORKOUT_DAY_SUMMARY_EXPECTED } from "@oli/contracts";
+import { isAcceptedWorkoutDaySummaryRow } from "@oli/contracts";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import {
   invalidateWorkoutCalendarHydrate,
@@ -1052,10 +1052,7 @@ export function useWorkoutsCalendarRange(
         let versionsOk = true;
         const markerFlagsByDay: Record<DayKey, WorkoutMarkerFlags> = {};
         for (const it of sumRes.json.items) {
-          if (
-            it.schemaVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion ||
-            it.reconcileVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.reconcileVersion
-          ) {
+          if (!isAcceptedWorkoutDaySummaryRow(it)) {
             versionsOk = false;
             break;
           }

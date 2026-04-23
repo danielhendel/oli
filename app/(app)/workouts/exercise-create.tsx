@@ -5,6 +5,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { Equipment, PrimaryBucket } from "@/lib/workouts/exercises/taxonomy";
+import { createExerciseDefinition } from "@/lib/api/exerciseDefinitions";
 import {
   createCustomExercise,
   type CustomExerciseLoggingType,
@@ -55,7 +56,7 @@ export default function CreateExerciseScreen() {
     sessionAnchorIso?: string;
     journalSessionId?: string;
   }>();
-  const { user, initializing } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
 
   useEffect(() => {
     navigation.setOptions({
@@ -102,6 +103,16 @@ export default function CreateExerciseScreen() {
         primary,
         loggingType,
       });
+      const token = await getIdToken(false);
+      if (token) {
+        void createExerciseDefinition(token, {
+          name: created.name,
+          equipment: created.equipment,
+          primary: created.primary,
+          loggingType: created.loggingType,
+          exerciseId: created.exerciseId,
+        });
+      }
       const pathname = returnToEnrich ? "/(app)/workouts/enrich" : "/(app)/workouts/log";
       const nextParams: Record<string, string> = {
         sessionId,

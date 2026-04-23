@@ -121,6 +121,33 @@ describe("buildWeeklyStrengthCardModel", () => {
     expect(Math.round(byGroup.get("core") ?? 0)).toBe(50);
   });
 
+  it("resolves synthetic exerciseId using logged exercise name for catalog intelligence", () => {
+    const rows: ManualWorkoutDaySummary[] = [
+      summary({
+        sessionId: "s1",
+        day: "2026-03-23",
+        totalVolume: 1000,
+        exercises: [
+          {
+            exerciseId: "exercise:ingested:legacy:1",
+            name: "Bench Press",
+            sets: [{ reps: 10, weightKg: 100 }],
+          },
+        ],
+      }),
+    ];
+
+    const out = buildWeeklyStrengthCardModel(rows, {
+      weekStartDay: "2026-03-23",
+      weekEndDay: "2026-03-29",
+    });
+    const byGroup = new Map(out.muscleGroups.map((row) => [row.muscleGroup, row.totalVolume]));
+
+    expect(Math.round(byGroup.get("chest") ?? 0)).toBe(550);
+    expect(Math.round(byGroup.get("triceps") ?? 0)).toBe(250);
+    expect(Math.round(byGroup.get("shoulders") ?? 0)).toBe(200);
+  });
+
   it("omits muscle rollups for custom exercises with no resolvable primary group", () => {
     const rows: ManualWorkoutDaySummary[] = [
       summary({

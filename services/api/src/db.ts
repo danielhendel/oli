@@ -56,6 +56,7 @@ export function userCollection<T = FirebaseFirestore.DocumentData>(
     | "dailyFacts"
     | "insights"
     | "intelligenceContext"
+    | "exerciseDefinitions"
     | string,
 ): CollectionReference<T> {
   return userDoc(uid).collection(name) as CollectionReference<T>;

@@ -4,7 +4,9 @@ import {
   type ExerciseAnalyticsResolutionContext,
 } from "../exerciseAnalyticsIntelligence";
 
-function customRecord(partial: Partial<CustomExerciseRecord> & Pick<CustomExerciseRecord, "exerciseId" | "name">): CustomExerciseRecord {
+function customRecord(
+  partial: Partial<CustomExerciseRecord> & Pick<CustomExerciseRecord, "exerciseId" | "name">,
+): CustomExerciseRecord {
   const now = "2026-01-01T00:00:00.000Z";
   return {
     equipment: "Dumbbell",
@@ -135,5 +137,46 @@ describe("resolveExerciseIntelligenceForAnalytics", () => {
     const r = resolveExerciseIntelligenceForAnalytics("custom_u1_only_map", ctx);
     expect(r.primaryMuscleGroup).toBe("calves");
     expect(r.classificationSource).toBe("custom");
+  });
+
+  it("uses fallback display name when exercise id is synthetic but name matches catalog", () => {
+    const r = resolveExerciseIntelligenceForAnalytics("exercise:ingested:test", undefined, {
+      fallbackLoggedExerciseName: "Bench Press",
+    });
+    expect(r.exerciseId).toBe("exercise:ingested:test");
+    expect(r.resolutionExerciseId).toBe("bench_press");
+    expect(r.primaryMuscleGroup).toBe("chest");
+    expect(r.classificationSource).toBe("classification");
+  });
+
+  it("resolves legacy display names (aliases + normalization) on synthetic ids", () => {
+    const r = resolveExerciseIntelligenceForAnalytics("exercise:ingested:raw1:0", undefined, {
+      fallbackLoggedExerciseName: "Standing Barbell Shoulder Press",
+    });
+    expect(r.resolutionExerciseId).toBe("overhead_press");
+    expect(r.primaryMuscleGroup).toBe("shoulders");
+  });
+
+  it("uses custom muscleContributions when present", () => {
+    const ctx: ExerciseAnalyticsResolutionContext = {
+      customExerciseById: new Map([
+        [
+          "custom_u1_mc",
+          customRecord({
+            exerciseId: "custom_u1_mc",
+            name: "Zebra move",
+            primary: "Legs",
+            muscleContributions: [
+              { subgroup: "gastrocnemius", weight: 0.6 },
+              { subgroup: "soleus", weight: 0.4 },
+            ],
+          }),
+        ],
+      ]),
+    };
+    const r = resolveExerciseIntelligenceForAnalytics("custom_u1_mc", ctx);
+    expect(r.primaryMuscleGroup).toBe("calves");
+    expect(r.hasContributionMap).toBe(true);
+    expect(r.classificationSource).toBe("contribution");
   });
 });

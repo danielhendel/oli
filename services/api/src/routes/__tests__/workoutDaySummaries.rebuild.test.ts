@@ -2,6 +2,9 @@
 import express from "express";
 import type http from "http";
 import { AddressInfo } from "net";
+import { WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS } from "@oli/contracts";
+import { addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 jest.mock("../../db", () => ({
   db: {},
@@ -42,5 +45,19 @@ describe("POST /users/me/workout-day-summaries/rebuild", () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { ok?: boolean };
     expect(json.ok).toBe(false);
+  });
+
+  it("returns 400 when calendar range exceeds policy max days", async () => {
+    const start = "2025-01-01" as DayKey;
+    let end: DayKey = start;
+    for (let i = 0; i < WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS; i += 1) {
+      end = addCalendarDaysToDayKey(end, 1);
+    }
+    const res = await fetch(`${baseUrl}/users/me/workout-day-summaries/rebuild`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start, end }),
+    });
+    expect(res.status).toBe(400);
   });
 });

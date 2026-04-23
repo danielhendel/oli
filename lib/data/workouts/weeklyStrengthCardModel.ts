@@ -1,14 +1,11 @@
-import type {
-  ExerciseAnalyticsResolutionContext,
-  ResolvedExerciseAnalytics,
-} from "@/lib/workouts/exercises/exerciseAnalyticsIntelligence";
-import { resolveExerciseIntelligenceForAnalytics } from "@/lib/workouts/exercises/exerciseAnalyticsIntelligence";
-import { getMuscleGroupForSubgroup, type MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
+import type { ExerciseAnalyticsResolutionContext } from "@/lib/workouts/exercises/exerciseAnalyticsIntelligence";
+import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
 import type { ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 import {
-  trainingVolumeKgForManualExercise,
-  trainingVolumeKgForManualExercises,
-} from "@/lib/workouts/strength/strengthVolumeKg";
+  createEmptyStrengthTaxonomyMaps,
+  mergeManualExercisesIntoStrengthTaxonomyMaps,
+} from "@/lib/data/workouts/strengthTaxonomySummaryAggregate";
+import { trainingVolumeKgForManualExercises } from "@/lib/workouts/strength/strengthVolumeKg";
 import { enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
@@ -222,15 +219,6 @@ function mergeAnalyticsContext(options: BuildWeeklyStrengthCardModelOptions): Ex
   return out;
 }
 
-function countedSetCountForSetsTab(summaryExercise: ManualWorkoutDaySummary["exercises"][number]): number {
-  let count = 0;
-  for (const set of summaryExercise.sets) {
-    if (set.isWarmup === true) continue;
-    count += 1;
-  }
-  return count;
-}
-
 /** Builds deterministic weekly strength card data from weekly manual workout summaries. */
 export function buildWeeklyStrengthCardModel(
   summaries: ManualWorkoutDaySummary[],
@@ -238,15 +226,6 @@ export function buildWeeklyStrengthCardModel(
 ): WeeklyStrengthCardModel {
   const sessionDisplayHints = options.sessionDisplayHints ?? [];
   const analyticsCtx = mergeAnalyticsContext(options);
-  const resolvedByExerciseId = new Map<string, ResolvedExerciseAnalytics>();
-  const resolveCached = (exerciseId: string) => {
-    let row = resolvedByExerciseId.get(exerciseId);
-    if (row == null) {
-      row = resolveExerciseIntelligenceForAnalytics(exerciseId, analyticsCtx);
-      resolvedByExerciseId.set(exerciseId, row);
-    }
-    return row;
-  };
   const daysInWeek = new Set(enumerateDaysInclusive(options.weekStartDay, options.weekEndDay));
   const weeklySummaries = summaries.filter((summary) => daysInWeek.has(summary.day));
 
@@ -259,46 +238,12 @@ export function buildWeeklyStrengthCardModel(
   const workouts = sortWorkoutRowsByCompletionChronology(workoutRows, weeklySummaries);
   const totalVolume = workouts.reduce((sum, row) => sum + row.totalVolume, 0);
 
-  const muscleTotals = new Map<MuscleGroup, number>();
-  const muscleSetsTotals = new Map<MuscleGroup, number>();
-  for (const group of CANONICAL_MUSCLE_GROUP_ORDER) {
-    muscleTotals.set(group, 0);
-    muscleSetsTotals.set(group, 0);
-  }
-
+  const taxonomyMaps = createEmptyStrengthTaxonomyMaps();
   for (const summary of weeklySummaries) {
-    for (const exercise of summary.exercises) {
-      const volumeKg = trainingVolumeKgForManualExercise(exercise);
-      const exerciseId = normalizeName(exercise.exerciseId);
-      if (!exerciseId) continue;
-      const resolved = resolveCached(exerciseId);
-      const contributions = resolved.contributions;
-
-      if (
-        resolved.hasContributionMap &&
-        contributions != null &&
-        contributions.length > 0 &&
-        Number.isFinite(volumeKg) &&
-        volumeKg > 0
-      ) {
-        for (const contribution of contributions) {
-          const group = getMuscleGroupForSubgroup(contribution.subgroup);
-          muscleTotals.set(group, (muscleTotals.get(group) ?? 0) + volumeKg * contribution.weight);
-        }
-      } else if (resolved.primaryMuscleGroup != null && Number.isFinite(volumeKg) && volumeKg > 0) {
-        const g = resolved.primaryMuscleGroup;
-        muscleTotals.set(g, (muscleTotals.get(g) ?? 0) + volumeKg);
-      }
-
-      const primary = resolved.primaryMuscleGroup;
-      if (primary != null) {
-        const contributingSets = countedSetCountForSetsTab(exercise);
-        if (contributingSets > 0) {
-          muscleSetsTotals.set(primary, (muscleSetsTotals.get(primary) ?? 0) + contributingSets);
-        }
-      }
-    }
+    mergeManualExercisesIntoStrengthTaxonomyMaps(taxonomyMaps, summary.exercises, analyticsCtx);
   }
+  const muscleTotals = taxonomyMaps.muscleVolumeKg;
+  const muscleSetsTotals = taxonomyMaps.muscleSets;
 
   const muscleGroups = stableSortByVolumeDesc(
     CANONICAL_MUSCLE_GROUP_ORDER.map((muscleGroup) => ({

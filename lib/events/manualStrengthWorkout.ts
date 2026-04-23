@@ -12,10 +12,17 @@ type StrengthSet = {
   notes?: string;
 };
 
+export type ManualStrengthExercisePayload = {
+  name: string;
+  sets: StrengthSet[];
+  /** Stable identity (bundled catalog id or custom_*); omitted when unknown for legacy flows. */
+  exerciseId?: string;
+};
+
 export type ManualStrengthWorkoutPayload = {
   startedAt: string;
   timeZone: string;
-  exercises: { name: string; sets: StrengthSet[] }[];
+  exercises: ManualStrengthExercisePayload[];
   /** Optional user label; persisted on rawEvents.payload (survives reinstall vs AsyncStorage overrides). */
   displayName?: string;
 };
@@ -23,7 +30,7 @@ export type ManualStrengthWorkoutPayload = {
 export type ManualStrengthWorkoutInput = {
   startedAt: string;
   timeZone: string;
-  exercises: { name: string; sets: StrengthSet[] }[];
+  exercises: ManualStrengthExercisePayload[];
   displayName?: string;
 };
 
@@ -39,18 +46,23 @@ const roundLoad = (n: number): number => Math.round(n * 100) / 100;
 export const buildManualStrengthWorkoutPayload = (
   input: ManualStrengthWorkoutInput,
 ): ManualStrengthWorkoutPayload => {
-  const exercises = input.exercises.map((ex) => ({
-    name: ex.name.trim(),
-    sets: ex.sets.map((s) => ({
-      reps: s.reps,
-      load: roundLoad(s.load),
-      unit: s.unit,
-      ...(s.isWarmup !== undefined ? { isWarmup: s.isWarmup } : {}),
-      ...(s.rpe !== undefined ? { rpe: s.rpe } : {}),
-      ...(s.rir !== undefined ? { rir: s.rir } : {}),
-      ...(s.notes !== undefined && s.notes.trim() !== "" ? { notes: s.notes.trim().slice(0, 256) } : {}),
-    })),
-  }));
+  const exercises = input.exercises.map((ex) => {
+    const base = {
+      name: ex.name.trim(),
+      sets: ex.sets.map((s) => ({
+        reps: s.reps,
+        load: roundLoad(s.load),
+        unit: s.unit,
+        ...(s.isWarmup !== undefined ? { isWarmup: s.isWarmup } : {}),
+        ...(s.rpe !== undefined ? { rpe: s.rpe } : {}),
+        ...(s.rir !== undefined ? { rir: s.rir } : {}),
+        ...(s.notes !== undefined && s.notes.trim() !== "" ? { notes: s.notes.trim().slice(0, 256) } : {}),
+      })),
+    };
+    const id =
+      typeof ex.exerciseId === "string" ? ex.exerciseId.trim().slice(0, 200) : "";
+    return id.length > 0 ? { ...base, exerciseId: id } : base;
+  });
 
   const displayName =
     typeof input.displayName === "string" ? input.displayName.trim().slice(0, 120) : "";

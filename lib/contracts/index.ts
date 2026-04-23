@@ -19,6 +19,9 @@ export * from "./preferences";
 export * from "./userProfileMain";
 export * from "./bodyReadSources";
 
+// User-owned exercise definitions (`users/{uid}/exerciseDefinitions/{exerciseId}`)
+export * from "./exerciseDefinition";
+
 // ✅ Labs Biomarkers v0 ( Sprint 2.9 )
 export * from "./labResults";
 
@@ -30,6 +33,9 @@ export * from "./workoutMonthSummary";
 
 // Sprint 1 — Retrieval Surfaces
 export * from "./retrieval";
+
+// Workout summary rebuild bounds (range validation + helpers)
+export * from "./workoutSummaryRebuildLimits";
 
 // Sprint 2.8 — Uploads Presence
 export * from "./uploads";

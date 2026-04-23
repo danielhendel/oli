@@ -259,4 +259,65 @@ describe("GET/PUT /preferences", () => {
     expect(json.selectedGymId).toBe(null);
     expect(setMock).toHaveBeenCalledTimes(1);
   });
+
+  test("PUT can set workoutPickerBundledAllowlistExerciseIds", async () => {
+    const setMock = jest.fn(async () => undefined);
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workoutPickerBundledAllowlistExerciseIds: ["bench_press", "squat"] }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.workoutPickerBundledAllowlistExerciseIds).toEqual(["bench_press", "squat"]);
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("PUT can clear workoutPickerBundledAllowlistExerciseIds with null", async () => {
+    const setMock = jest.fn(async () => undefined);
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+              workoutPickerBundledAllowlistExerciseIds: ["bench_press"],
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workoutPickerBundledAllowlistExerciseIds: null }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.workoutPickerBundledAllowlistExerciseIds == null).toBe(true);
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
 });

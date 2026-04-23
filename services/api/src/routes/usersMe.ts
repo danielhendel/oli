@@ -15,13 +15,15 @@ import {
   workoutDaySummariesRebuildRequestDtoSchema,
   workoutDaySummariesRebuildResponseDtoSchema,
   workoutDaySummaryItemDtoSchema,
-  WORKOUT_DAY_SUMMARY_EXPECTED,
+  isAcceptedWorkoutDaySummaryRow,
   workoutMonthSummariesQuerySchema,
   workoutMonthSummariesResponseDtoSchema,
   workoutMonthSummaryItemDtoSchema,
   workoutMonthSummariesRebuildRequestDtoSchema,
   workoutMonthSummariesRebuildResponseDtoSchema,
-  WORKOUT_MONTH_SUMMARY_EXPECTED,
+  workoutMonthSummariesRebuildRangeRequestDtoSchema,
+  workoutMonthSummariesRebuildRangeResponseDtoSchema,
+  isAcceptedWorkoutMonthSummaryRow,
 } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
@@ -987,18 +989,6 @@ router.get(
 
     const { start, end } = parsed.data;
     const dayKeys = enumerateDayKeysInclusive(start, end);
-    const MAX_DAYS = 900;
-    if (dayKeys.length > MAX_DAYS) {
-      res.status(400).json({
-        ok: false,
-        error: {
-          code: "INVALID_QUERY",
-          message: `Range too large (max ${MAX_DAYS} days)`,
-          requestId: getRid(req),
-        },
-      });
-      return;
-    }
 
     const items: z.infer<typeof workoutDaySummaryItemDtoSchema>[] = [];
     let complete = true;
@@ -1024,10 +1014,7 @@ router.get(
         complete = false;
         continue;
       }
-      if (
-        item.schemaVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.schemaVersion ||
-        item.reconcileVersion !== WORKOUT_DAY_SUMMARY_EXPECTED.reconcileVersion
-      ) {
+      if (!isAcceptedWorkoutDaySummaryRow(item)) {
         complete = false;
         continue;
       }
@@ -1058,6 +1045,7 @@ router.get(
 // ----------------------------
 // POST /users/me/workout-day-summaries/rebuild
 // Rebuilds summary docs from raw truth (same compute as Cloud Functions). Lazy-requires esbuild bundle.
+// Bundle fingerprint: services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256 (`npm run check:workout-summary-rebuild-bundle`).
 // ----------------------------
 
 router.post(
@@ -1081,19 +1069,6 @@ router.post(
     }
 
     const { start, end } = parsed.data;
-    const dayKeys = enumerateDayKeysInclusive(start, end);
-    const MAX_DAYS = 900;
-    if (dayKeys.length > MAX_DAYS) {
-      res.status(400).json({
-        ok: false,
-        error: {
-          code: "INVALID_BODY",
-          message: `Range too large (max ${MAX_DAYS} days)`,
-          requestId: getRid(req),
-        },
-      });
-      return;
-    }
 
     const t0 = Date.now();
 
@@ -1191,10 +1166,7 @@ router.get(
         complete = false;
         continue;
       }
-      if (
-        item.schemaVersion !== WORKOUT_MONTH_SUMMARY_EXPECTED.schemaVersion ||
-        item.reconcileVersion !== WORKOUT_MONTH_SUMMARY_EXPECTED.reconcileVersion
-      ) {
+      if (!isAcceptedWorkoutMonthSummaryRow(item)) {
         complete = false;
         continue;
       }
@@ -1276,6 +1248,70 @@ router.post(
       uid,
       year,
       monthsProcessed,
+      durationMs: Date.now() - t0,
+    });
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// POST /users/me/workout-month-summaries/rebuild-range
+// ----------------------------
+
+router.post(
+  "/workout-month-summaries/rebuild-range",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = workoutMonthSummariesRebuildRangeRequestDtoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_BODY",
+          message: "Invalid request body",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { startMonthKey, endMonthKey } = parsed.data;
+    const t0 = Date.now();
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { rebuildWorkoutMonthSummariesForMonthRange } = require("../lib/workoutDaySummaryRebuild.bundled.cjs") as {
+      rebuildWorkoutMonthSummariesForMonthRange: (args: {
+        db: typeof db;
+        userId: string;
+        startMonthKey: string;
+        endMonthKey: string;
+      }) => Promise<{ startMonthKey: string; endMonthKey: string; monthsProcessed: number }>;
+    };
+
+    const result = await rebuildWorkoutMonthSummariesForMonthRange({
+      db,
+      userId: uid,
+      startMonthKey,
+      endMonthKey,
+    });
+
+    const validated = workoutMonthSummariesRebuildRangeResponseDtoSchema.safeParse(result);
+    if (!validated.success) {
+      invalidDoc500(req, res, "workoutMonthSummariesRebuildRangeResponse", validated.error.flatten());
+      return;
+    }
+
+    logger.info({
+      msg: "workout_month_summaries_rebuild_range_complete",
+      rid: getRid(req),
+      uid,
+      startMonthKey,
+      endMonthKey,
+      monthsProcessed: result.monthsProcessed,
       durationMs: Date.now() - t0,
     });
 

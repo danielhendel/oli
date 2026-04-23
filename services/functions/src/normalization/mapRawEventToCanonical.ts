@@ -121,6 +121,7 @@ type ManualStrengthWorkoutSetPayload = {
 
 type ManualStrengthWorkoutExercisePayload = {
   name: string;
+  exerciseId?: string;
   sets: ManualStrengthWorkoutSetPayload[];
 };
 
@@ -227,6 +228,9 @@ const isManualStrengthWorkoutPayload = (
   if (!Array.isArray(exs) || exs.length === 0) return false;
   for (const ex of exs) {
     if (!isRecord(ex) || !hasString(ex, "name")) return false;
+    if ("exerciseId" in ex && ex.exerciseId !== undefined) {
+      if (typeof ex.exerciseId !== "string" || ex.exerciseId.trim() === "") return false;
+    }
     const sets = ex.sets;
     if (!Array.isArray(sets) || sets.length === 0) return false;
     for (const s of sets) {
@@ -471,6 +475,10 @@ const mapManualStrengthWorkout = (
 
   const exercises: StrengthWorkoutCanonicalSet[] = [];
   for (const ex of payload.exercises) {
+    const stableId =
+      typeof ex.exerciseId === "string" && ex.exerciseId.trim().length > 0
+        ? ex.exerciseId.trim()
+        : "";
     for (const s of ex.sets) {
       const set: StrengthWorkoutCanonicalSet = {
         exercise: ex.name,
@@ -478,6 +486,7 @@ const mapManualStrengthWorkout = (
         load: s.load,
         unit: s.unit,
       };
+      if (stableId.length > 0) set.exerciseId = stableId;
       if (s.isWarmup !== undefined) set.isWarmup = s.isWarmup;
       if (s.rpe !== undefined) set.rpe = s.rpe;
       else if (s.rir !== undefined) set.rir = s.rir;

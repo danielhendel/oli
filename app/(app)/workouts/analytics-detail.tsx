@@ -43,8 +43,8 @@ export default function StrengthAnalyticsDetailScreen() {
     focusEmphasis?: string;
     focusMuscle?: string;
   }>();
-  const { user, initializing } = useAuth();
-  const { models, calendarReady } = useStrengthAnalyticsDetailScreenData(user?.uid);
+  const { user, initializing, getIdToken } = useAuth();
+  const { models, calendarReady } = useStrengthAnalyticsDetailScreenData(user?.uid, () => getIdToken(false));
 
   const scrollRef = useRef<ScrollView>(null);
   const scrollRafRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);

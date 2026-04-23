@@ -546,6 +546,63 @@ paths:
         200:
           description: OK
 
+  # User-owned exercise definitions — users/{uid}/exerciseDefinitions/* (Firebase required)
+  /exercise-definitions:
+    options:
+      operationId: exerciseDefinitionsCollectionOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: exerciseDefinitionsList
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+        401:
+          description: Unauthorized
+    post:
+      operationId: exerciseDefinitionsCreate
+      security:
+        - firebase: []
+      responses:
+        201:
+          description: Created
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        409:
+          description: Conflict
+
+  /exercise-definitions/{exerciseId}:
+    parameters:
+      - name: exerciseId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: exerciseDefinitionsItemOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    put:
+      operationId: exerciseDefinitionsUpdate
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: OK
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+
   # Profile main — users/{uid}/profile/main via Cloud Run (Firebase required)
   /profile/main:
     options:

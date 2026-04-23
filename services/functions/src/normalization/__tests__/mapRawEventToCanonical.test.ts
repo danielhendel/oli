@@ -491,6 +491,68 @@ describe("mapRawEventToCanonical", () => {
       unit: "kg",
       isWarmup: true,
     });
+    expect(strength.exercises[0]?.exerciseId).toBeUndefined();
+  });
+
+  it("maps strength_workout exerciseId onto each canonical set when payload includes it", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_strength_ids",
+      provider: "manual",
+      kind: "strength_workout",
+      payload: {
+        startedAt: "2025-01-01T18:00:00.000Z",
+        timeZone: "America/New_York",
+        exercises: [
+          {
+            name: "Bench Press",
+            exerciseId: "bench_press",
+            sets: [
+              { reps: 10, load: 135, unit: "lb" },
+              { reps: 8, load: 155, unit: "lb", rpe: 8 },
+            ],
+          },
+          {
+            name: "Squat",
+            exerciseId: "squat",
+            sets: [{ reps: 5, load: 100, unit: "kg", isWarmup: true }],
+          },
+        ],
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    if (canonical.kind !== "strength_workout") throw new Error("Expected strength_workout kind");
+    const strength = canonical as Extract<CanonicalEvent, { kind: "strength_workout" }>;
+
+    expect(strength.exercises).toHaveLength(3);
+    expect(strength.exercises[0]).toMatchObject({
+      exercise: "Bench Press",
+      exerciseId: "bench_press",
+      reps: 10,
+      load: 135,
+      unit: "lb",
+    });
+    expect(strength.exercises[1]).toMatchObject({
+      exercise: "Bench Press",
+      exerciseId: "bench_press",
+      reps: 8,
+      load: 155,
+      unit: "lb",
+      rpe: 8,
+    });
+    expect(strength.exercises[2]).toMatchObject({
+      exercise: "Squat",
+      exerciseId: "squat",
+      reps: 5,
+      load: 100,
+      unit: "kg",
+      isWarmup: true,
+    });
   });
 
   it("returns ok:false MALFORMED_PAYLOAD for invalid strength_workout payload", () => {

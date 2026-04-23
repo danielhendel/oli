@@ -93,6 +93,31 @@ describe("manualStrengthWorkout", () => {
       expect(payload.exercises[1]?.name).toBe("Deadlift");
       expect(payload.exercises[1]?.sets[0]?.rir).toBe(2);
     });
+
+    it("includes exerciseId when provided", () => {
+      const payload = buildManualStrengthWorkoutPayload({
+        ...baseInput,
+        exercises: [
+          {
+            name: "Bench Press",
+            exerciseId: "bench_press",
+            sets: [{ reps: 5, load: 60, unit: "kg" }],
+          },
+        ],
+      });
+      expect(payload.exercises[0]?.exerciseId).toBe("bench_press");
+    });
+
+    it("omits exerciseId when absent or whitespace", () => {
+      const noId = buildManualStrengthWorkoutPayload(baseInput);
+      expect(noId.exercises[0]).not.toHaveProperty("exerciseId");
+
+      const blank = buildManualStrengthWorkoutPayload({
+        ...baseInput,
+        exercises: [{ name: "Squat", exerciseId: "   ", sets: [{ reps: 5, load: 100, unit: "kg" }] }],
+      });
+      expect(blank.exercises[0]).not.toHaveProperty("exerciseId");
+    });
   });
 
   describe("manualStrengthWorkoutIdempotencyKey", () => {
@@ -146,6 +171,25 @@ describe("manualStrengthWorkout", () => {
         exercises: [{ name: "Deadlift", sets: [{ reps: 5, load: 225, unit: "lb" }] }],
       });
       expect(manualStrengthWorkoutIdempotencyKey(p1)).not.toBe(manualStrengthWorkoutIdempotencyKey(p2));
+    });
+
+    it("produces different keys when exerciseId is added", () => {
+      const withoutId = buildManualStrengthWorkoutPayload(baseInput);
+      const withId = buildManualStrengthWorkoutPayload({
+        ...baseInput,
+        exercises: [
+          {
+            name: "Bench Press",
+            exerciseId: "bench_press",
+            sets: [
+              { reps: 10, load: 135.5, unit: "lb" },
+              { reps: 8, load: 155, unit: "lb", isWarmup: true },
+              { reps: 5, load: 185.12, unit: "lb", rpe: 8.5, notes: "felt strong" },
+            ],
+          },
+        ],
+      });
+      expect(manualStrengthWorkoutIdempotencyKey(withoutId)).not.toBe(manualStrengthWorkoutIdempotencyKey(withId));
     });
 
     it("produces different keys for different startedAt", () => {

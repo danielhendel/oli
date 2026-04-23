@@ -1,5 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { computeWorkoutMonthSummaryPayload, observedIsoWindowForMonthKeys } from "@/lib/data/workouts/workoutMonthSummaryCompute";
+import { enumerateMonthKeysInclusive } from "@/lib/data/workouts/workoutSummaryRebuildPolicy";
 import { monthKeyFromDay, WORKOUT_OVERVIEW_ANALYTICS_YEAR } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { fetchWorkoutRawDocsForObservedAtIsoWindow } from "./recomputeWorkoutDaySummary";
@@ -28,6 +29,21 @@ export async function recomputeWorkoutMonthSummariesForYear(args: {
     await recomputeAndWriteWorkoutMonthSummaryForMonthKey({ db, userId, monthKey });
   }
   return { monthsProcessed: 12 };
+}
+
+/** Inclusive month span (API `POST .../workout-month-summaries/rebuild-range`). Idempotent per month key. */
+export async function rebuildWorkoutMonthSummariesForMonthRange(args: {
+  db: Firestore;
+  userId: string;
+  startMonthKey: string;
+  endMonthKey: string;
+}): Promise<{ startMonthKey: string; endMonthKey: string; monthsProcessed: number }> {
+  const { db, userId, startMonthKey, endMonthKey } = args;
+  const keys = enumerateMonthKeysInclusive(startMonthKey, endMonthKey);
+  for (const mk of keys) {
+    await recomputeAndWriteWorkoutMonthSummaryForMonthKey({ db, userId, monthKey: mk });
+  }
+  return { startMonthKey, endMonthKey, monthsProcessed: keys.length };
 }
 
 /**

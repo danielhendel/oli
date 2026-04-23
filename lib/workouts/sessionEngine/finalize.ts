@@ -25,9 +25,12 @@ function buildPayloadFromReducedSession(
         ...(set.note != null && set.note.trim().length > 0 ? { notes: set.note.trim() } : {}),
       }));
     if (sets.length === 0) continue;
+    const name = resolveExerciseDisplayName(exercise.exerciseId, customExerciseNameById);
+    const id = exercise.exerciseId.trim();
     exercises.push({
-      name: resolveExerciseDisplayName(exercise.exerciseId, customExerciseNameById),
+      name,
       sets,
+      ...(id.length > 0 ? { exerciseId: id } : {}),
     });
   }
 
@@ -59,7 +62,7 @@ export async function persistCompletedSessionToHistory(
   if (reduced.status !== "completed") {
     throw new Error("Cannot persist history for a non-completed session.");
   }
-  const customExerciseNameById = await loadCustomExerciseNameById(uid);
+  const customExerciseNameById = await loadCustomExerciseNameById(uid, async () => idToken);
   const payload = buildPayloadFromReducedSession(reduced, customExerciseNameById);
   if (payload == null) return { kind: "skipped_no_sets" };
   const res = await logStrengthWorkout(payload, idToken);

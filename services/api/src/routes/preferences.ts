@@ -62,6 +62,11 @@ const preferencesPatchSchema = z
     selectedGymId: z.string().nullable().optional(),
     /** Data Sources: metricId -> sourceId; null value means clear that metric's preference. */
     metricSources: z.record(z.string().min(1), z.string().min(1).nullable()).optional(),
+    /** null clears allowlist → full bundled catalog in picker */
+    workoutPickerBundledAllowlistExerciseIds: z
+      .array(z.string().regex(/^[a-z0-9]+(_[a-z0-9]+)*$/))
+      .nullable()
+      .optional(),
   })
   .strip();
 
@@ -233,6 +238,11 @@ router.put(
       }
     }
 
+    const mergedAllowlist =
+      patch.workoutPickerBundledAllowlistExerciseIds !== undefined
+        ? patch.workoutPickerBundledAllowlistExerciseIds
+        : base.workoutPickerBundledAllowlistExerciseIds;
+
     const candidate = {
       units: {
         mass: patch.units?.mass ?? base.units.mass,
@@ -248,6 +258,7 @@ router.put(
       },
       selectedGymId: patch.selectedGymId !== undefined ? patch.selectedGymId : base.selectedGymId,
       metricSources: nextMetricSources,
+      ...(mergedAllowlist !== undefined ? { workoutPickerBundledAllowlistExerciseIds: mergedAllowlist } : {}),
     };
 
     const normalizedMetricSources = normalizeMetricSourcesForAppleHealthOnly(candidate.metricSources);

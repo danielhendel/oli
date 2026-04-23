@@ -12,15 +12,22 @@ import {
   type MergedExerciseIntelligenceView,
 } from "./classificationResolvers";
 import type { CustomExerciseRecord } from "./customExerciseStore";
-import { resolveCatalogExerciseIdByName, resolveCustomExercisePrimaryMuscleGroup } from "./customExerciseStore";
+import {
+  resolveCatalogExerciseIdByName,
+  resolveCatalogExerciseIdFromCustomRecord,
+  resolveCustomExercisePrimaryMuscleGroup,
+} from "./customExerciseStore";
 import {
   getExerciseMuscleContributions,
   getPrimaryMuscleGroupsForExercise,
+  getPrimaryMuscleGroupsFromContributionList,
 } from "./muscleContributions";
 import { assignLegsExerciseToLowerBodySlice } from "./lowerBodySliceRules";
 import type { ExerciseLibraryItemV1 } from "./library.v1";
+import { resolveBundledExerciseIdForAnalyticsIntelligence } from "./taxonomyResolve";
 
 import type { MuscleContribution, MuscleGroup, MuscleGroupCoarse } from "./taxonomy";
+import { validateMuscleContributions } from "./taxonomy";
 
 export type ExerciseAnalyticsClassificationSource =
   | "classification"
@@ -49,6 +56,15 @@ export type ExerciseAnalyticsResolutionContext = {
    * Legacy fallback when a custom id has no row in `customExerciseById` (tests / gradual migration).
    */
   customPrimaryMuscleGroupByExerciseId?: ReadonlyMap<string, MuscleGroup>;
+};
+
+/** Optional tuning for legacy / ingested summaries where `exerciseId` is not a catalog id. */
+export type ExerciseAnalyticsResolveOptions = {
+  /**
+   * Logged exercise display name (e.g. canonical name snapshot). Used only when the id does not
+   * resolve to bundled or user definitions — best-effort match to bundled catalog by name/alias.
+   */
+  fallbackLoggedExerciseName?: string;
 };
 
 type ClassificationSliceKey =
@@ -98,12 +114,14 @@ function pickPrimaryClassificationSlice(
   merged: MergedExerciseIntelligenceView,
   resolutionExerciseId: string,
   libraryItem: ExerciseLibraryItemV1 | null,
+  leadMuscleFromContributions: MuscleGroup | null,
 ): ExerciseClassificationV1 | null {
   const slices = collectClassificationSlices(merged);
   if (slices.length === 0) return null;
   if (slices.length === 1) return slices[0]!;
 
-  const leadFromContributions = getPrimaryMuscleGroupsForExercise(resolutionExerciseId)[0];
+  const leadFromContributions =
+    leadMuscleFromContributions ?? getPrimaryMuscleGroupsForExercise(resolutionExerciseId)[0] ?? null;
   if (leadFromContributions != null) {
     const match = slices.find((s) => s.primaryMuscleGroup === leadFromContributions);
     if (match != null) return match;
@@ -168,6 +186,7 @@ function libraryBucketFallbackMuscleGroup(libraryItem: ExerciseLibraryItemV1): M
 export function resolveExerciseIntelligenceForAnalytics(
   exerciseId: string,
   context?: ExerciseAnalyticsResolutionContext,
+  opts?: ExerciseAnalyticsResolveOptions,
 ): ResolvedExerciseAnalytics {
   const trimmed = exerciseId.trim();
   if (trimmed.length === 0) {
@@ -184,20 +203,41 @@ export function resolveExerciseIntelligenceForAnalytics(
   }
 
   const customRow = context?.customExerciseById?.get(trimmed);
-  const libraryItemLogged = getLibraryItemByExerciseId(trimmed);
 
-  let resolutionExerciseId = trimmed;
-  if (libraryItemLogged == null && customRow != null) {
-    const alias = resolveCatalogExerciseIdByName(customRow.name);
+  let resolutionExerciseId = resolveBundledExerciseIdForAnalyticsIntelligence(trimmed);
+  if (getLibraryItemByExerciseId(resolutionExerciseId) == null && customRow != null) {
+    const alias = resolveCatalogExerciseIdFromCustomRecord(customRow);
     if (alias != null) resolutionExerciseId = alias;
+  }
+  if (getLibraryItemByExerciseId(resolutionExerciseId) == null && customRow == null) {
+    const fb = opts?.fallbackLoggedExerciseName?.trim();
+    if (fb != null && fb.length > 0) {
+      const byName = resolveCatalogExerciseIdByName(fb);
+      if (byName != null) resolutionExerciseId = byName;
+    }
   }
 
   const merged = mergeExerciseIntelligenceForId(resolutionExerciseId);
   const libraryItem = merged.libraryItem;
-  const contributions = getExerciseMuscleContributions(resolutionExerciseId);
+  const userContributions =
+    customRow?.muscleContributions != null && validateMuscleContributions(customRow.muscleContributions)
+      ? customRow.muscleContributions
+      : null;
+  const catalogContributions = getExerciseMuscleContributions(resolutionExerciseId);
+  const contributions = userContributions ?? catalogContributions;
   const hasContributionMap = contributions != null && contributions.length > 0;
 
-  const primarySlice = pickPrimaryClassificationSlice(merged, resolutionExerciseId, libraryItem);
+  const leadMuscleFromContributions =
+    hasContributionMap && contributions != null
+      ? getPrimaryMuscleGroupsFromContributionList(contributions)[0] ?? null
+      : null;
+
+  const primarySlice = pickPrimaryClassificationSlice(
+    merged,
+    resolutionExerciseId,
+    libraryItem,
+    leadMuscleFromContributions,
+  );
 
   let primaryMuscleGroup: MuscleGroup | null = primarySlice?.primaryMuscleGroup ?? null;
   let classificationSource: ExerciseAnalyticsClassificationSource = "unknown";
@@ -205,7 +245,7 @@ export function resolveExerciseIntelligenceForAnalytics(
   if (primaryMuscleGroup != null) {
     classificationSource = "classification";
   } else if (hasContributionMap) {
-    primaryMuscleGroup = getPrimaryMuscleGroupsForExercise(resolutionExerciseId)[0] ?? null;
+    primaryMuscleGroup = leadMuscleFromContributions;
     if (primaryMuscleGroup != null) classificationSource = "contribution";
   } else if (libraryItem != null) {
     primaryMuscleGroup = libraryBucketFallbackMuscleGroup(libraryItem);
@@ -230,7 +270,7 @@ export function resolveExerciseIntelligenceForAnalytics(
   const movementPattern =
     primarySlice != null
       ? primarySlice.primaryPattern
-      : merged.meta.movement;
+      : customRow?.movementPattern ?? merged.meta.movement;
 
   return {
     exerciseId: trimmed,

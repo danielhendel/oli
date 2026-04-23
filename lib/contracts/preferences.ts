@@ -39,6 +39,15 @@ export const preferencesSchema = z
      * Absent key = use default / not set.
      */
     metricSources: z.record(z.string().min(1), z.string().min(1)).optional(),
+
+    /**
+     * When an array (possibly empty), exercise picker lists only these bundled exercise ids plus all custom exercises.
+     * `null` or omitted (after merge) = show full bundled catalog.
+     */
+    workoutPickerBundledAllowlistExerciseIds: z
+      .array(z.string().regex(/^[a-z0-9]+(_[a-z0-9]+)*$/))
+      .nullable()
+      .optional(),
   })
   .strip()
   .superRefine((val, ctx) => {

@@ -602,7 +602,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       return;
     }
     const task = runAfterInteractionsSafe(() => {
-      void listManualWorkoutDaySummaries(user.uid).then((rows) => {
+      void listManualWorkoutDaySummaries(user.uid, () => getIdToken(false)).then((rows) => {
         if (cancelled) return;
         setManualWorkoutSummaries(rows);
       });
@@ -611,7 +611,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       cancelled = true;
       task.cancel();
     };
-  }, [domain, overviewSharedRange.status, user?.uid, workoutsCalendarRefreshEpoch]);
+  }, [domain, overviewSharedRange.status, user?.uid, workoutsCalendarRefreshEpoch, getIdToken]);
 
   useEffect(() => {
     navigation.setOptions({
