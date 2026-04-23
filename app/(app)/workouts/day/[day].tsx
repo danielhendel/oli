@@ -47,7 +47,7 @@ import {
 } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
 import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthSetDisplay";
-import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
 import { resolveStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 import { SYSTEM_ACCENT, SYSTEM_METRIC_SECONDARY } from "@/lib/ui/theme/systemAccent";
@@ -139,7 +139,7 @@ function isStrengthLikeSession(
 export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, getIdToken } = useAuth();
   const params = useLocalSearchParamsSafe<{ day?: string }>();
   const dayParam = params.day ?? "";
   const isDayKey = /^\d{4}-\d{2}-\d{2}$/.test(dayParam);
@@ -301,7 +301,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
       setManualWorkoutSummaries([]);
       return;
     }
-    void listManualWorkoutDaySummaries(user.uid).then((all) => {
+    void listManualWorkoutDaySummaries(user.uid, () => getIdToken(false)).then((all) => {
       if (cancelled) return;
       setManualWorkoutSummaries(all);
       logWorkoutDayDebugJournalForDay(day, all);
@@ -309,7 +309,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, day, isDayKey]);
+  }, [user?.uid, day, isDayKey, getIdToken]);
 
   useEffect(() => {
     if (process.env.JEST_WORKER_ID) return;
@@ -318,7 +318,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
       return;
     }
     let cancelled = false;
-    listCustomExercises(user.uid)
+    listMergedCustomExerciseRecords(user.uid, () => getIdToken(false))
       .then((rows) => {
         if (cancelled) return;
         const next: Record<string, string> = {};
@@ -331,7 +331,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid]);
+  }, [user?.uid, getIdToken]);
 
   /** Stack header already sits below status bar; omit top safe-area to avoid a gray band under the nav bar. */
   const screenEdges = ["left", "right", "bottom"] as const;

@@ -18,6 +18,12 @@ import {
   uncertaintyStateSchema,
   provenanceSchema,
 } from "./rawEvent";
+import {
+  WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS,
+  WORKOUT_MONTH_SUMMARY_REBUILD_RANGE_MAX_MONTHS,
+  countInclusiveCalendarDays,
+  enumerateMonthKeysInclusive,
+} from "./workoutSummaryRebuildLimits";
 
 const isoDateTimeSchema = z
   .string()
@@ -299,9 +305,22 @@ export const lineageQuerySchema = z
 // Workout day summaries (Calendar markers read model)
 // -----------------------------
 
+const finiteNonnegRecordSchema = z.record(z.string(), z.number().finite().nonnegative());
+
+/** Aggregated strength taxonomy (no per-exercise blobs). Same shape on day + month summaries. */
+export const workoutSummaryStrengthTaxonomySchema = z
+  .object({
+    muscleVolumeKgByGroup: finiteNonnegRecordSchema,
+    muscleSetCountByGroup: finiteNonnegRecordSchema,
+    movementVolumeKg: finiteNonnegRecordSchema,
+    equipmentVolumeKg: finiteNonnegRecordSchema,
+    strengthTrainingVolumeKg: z.number().finite().nonnegative(),
+  })
+  .strip();
+
 export const workoutDaySummaryItemDtoSchema = z
   .object({
-    schemaVersion: z.literal(WORKOUT_DAY_SUMMARY_SCHEMA_VERSION),
+    schemaVersion: z.union([z.literal(2), z.literal(WORKOUT_DAY_SUMMARY_SCHEMA_VERSION)]),
     day: dayKeySchema,
     computedAt: isoDateTimeSchema,
     reconcileVersion: z.string().min(1),
@@ -312,6 +331,7 @@ export const workoutDaySummaryItemDtoSchema = z
     strengthSessionCount: z.number().int().nonnegative(),
     /** Overview Cardio tab: reconciled sessions with sessionType "cardio" only. */
     cardioSessionCount: z.number().int().nonnegative(),
+    strengthTaxonomy: workoutSummaryStrengthTaxonomySchema.optional(),
   })
   .strip();
 
@@ -331,7 +351,13 @@ export const workoutDaySummariesQuerySchema = z
     end: dayKeySchema,
   })
   .strip()
-  .refine((v) => v.start <= v.end, { message: "start must be <= end" });
+  .refine((v) => v.start <= v.end, { message: "start must be <= end" })
+  .refine(
+    (v) => countInclusiveCalendarDays(v.start, v.end) <= WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS,
+    {
+      message: `Range too large (max ${WORKOUT_DAY_SUMMARY_REBUILD_MAX_DAYS} days)`,
+    },
+  );
 
 /** POST body: same shape as list query (inclusive calendar-day range). */
 export const workoutDaySummariesRebuildRequestDtoSchema = workoutDaySummariesQuerySchema;
@@ -352,12 +378,12 @@ export type WorkoutDaySummariesRebuildResponseDto = z.infer<typeof workoutDaySum
 // Workout month summaries (Overview analytics — fixed calendar year)
 // -----------------------------
 
-const monthKeySchema = z.string().regex(/^\d{4}-\d{2}$/);
+export const workoutMonthKeySchema = z.string().regex(/^\d{4}-\d{2}$/);
 
 export const workoutMonthSummaryItemDtoSchema = z
   .object({
-    schemaVersion: z.literal(WORKOUT_MONTH_SUMMARY_SCHEMA_VERSION),
-    monthKey: monthKeySchema,
+    schemaVersion: z.union([z.literal(1), z.literal(WORKOUT_MONTH_SUMMARY_SCHEMA_VERSION)]),
+    monthKey: workoutMonthKeySchema,
     computedAt: isoDateTimeSchema,
     reconcileVersion: z.string().min(1),
     strengthSessionCount: z.number().int().nonnegative(),
@@ -368,6 +394,7 @@ export const workoutMonthSummaryItemDtoSchema = z
     strengthDurationCountCapped: z.number().int().nonnegative(),
     cardioDurationSumCapped: z.number().finite().nonnegative(),
     cardioDurationCountCapped: z.number().int().nonnegative(),
+    strengthTaxonomy: workoutSummaryStrengthTaxonomySchema.optional(),
   })
   .strip();
 
@@ -395,6 +422,45 @@ export const workoutMonthSummariesRebuildResponseDtoSchema = z
   })
   .strip();
 
+/** POST /users/me/workout-month-summaries/rebuild-range — recompute month rows from raw truth only. */
+export const workoutMonthSummariesRebuildRangeRequestDtoSchema = z
+  .object({
+    startMonthKey: workoutMonthKeySchema,
+    endMonthKey: workoutMonthKeySchema,
+  })
+  .strip()
+  .refine((v) => v.startMonthKey <= v.endMonthKey, { message: "startMonthKey must be <= endMonthKey" })
+  .superRefine((val, ctx) => {
+    const keys = enumerateMonthKeysInclusive(val.startMonthKey, val.endMonthKey);
+    if (keys.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid or empty month range",
+      });
+      return;
+    }
+    if (keys.length > WORKOUT_MONTH_SUMMARY_REBUILD_RANGE_MAX_MONTHS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Range too large (max ${WORKOUT_MONTH_SUMMARY_REBUILD_RANGE_MAX_MONTHS} months)`,
+      });
+    }
+  });
+
+export const workoutMonthSummariesRebuildRangeResponseDtoSchema = z
+  .object({
+    startMonthKey: workoutMonthKeySchema,
+    endMonthKey: workoutMonthKeySchema,
+    monthsProcessed: z.number().int().nonnegative(),
+  })
+  .strip();
+
 export type WorkoutMonthSummaryItemDto = z.infer<typeof workoutMonthSummaryItemDtoSchema>;
 export type WorkoutMonthSummariesResponseDto = z.infer<typeof workoutMonthSummariesResponseDtoSchema>;
 export type WorkoutMonthSummariesRebuildResponseDto = z.infer<typeof workoutMonthSummariesRebuildResponseDtoSchema>;
+export type WorkoutMonthSummariesRebuildRangeRequestDto = z.infer<
+  typeof workoutMonthSummariesRebuildRangeRequestDtoSchema
+>;
+export type WorkoutMonthSummariesRebuildRangeResponseDto = z.infer<
+  typeof workoutMonthSummariesRebuildRangeResponseDtoSchema
+>;

@@ -1,9 +1,5 @@
-import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
-import { listCustomExercises } from "@/lib/workouts/exercises/customExerciseStore";
-
-const CATALOG_NAME_BY_ID: ReadonlyMap<string, string> = new Map(
-  EXERCISE_CATALOG_V1.map((entry) => [entry.exerciseId, entry.name]),
-);
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import { getBundledExerciseNameById } from "@/lib/workouts/exercises/taxonomyResolve";
 
 function toTitleCaseWords(s: string): string {
   return s
@@ -26,14 +22,17 @@ export function resolveExerciseDisplayName(
   exerciseId: string,
   customExerciseNameById?: ReadonlyMap<string, string>,
 ): string {
-  const catalogName = CATALOG_NAME_BY_ID.get(exerciseId)?.trim();
+  const catalogName = getBundledExerciseNameById(exerciseId)?.trim();
   if (catalogName) return catalogName;
   const customName = customExerciseNameById?.get(exerciseId)?.trim();
   if (customName) return customName;
   return safeFallbackExerciseDisplayName(exerciseId);
 }
 
-export async function loadCustomExerciseNameById(uid: string): Promise<ReadonlyMap<string, string>> {
-  const rows = await listCustomExercises(uid).catch(() => []);
+export async function loadCustomExerciseNameById(
+  uid: string,
+  getIdToken?: () => Promise<string | null>,
+): Promise<ReadonlyMap<string, string>> {
+  const rows = await listMergedCustomExerciseRecords(uid, getIdToken).catch(() => []);
   return new Map(rows.map((row) => [row.exerciseId, row.name]));
 }

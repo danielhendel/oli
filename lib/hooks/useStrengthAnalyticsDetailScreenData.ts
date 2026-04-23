@@ -28,10 +28,8 @@ import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
-import {
-  listCustomExercises,
-  type CustomExerciseRecord,
-} from "@/lib/workouts/exercises/customExerciseStore";
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import type { CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import {
   buildWorkoutSessionSurfaceModel,
@@ -61,7 +59,10 @@ export type StrengthAnalyticsDetailScreenData = {
  * Loads the same derived calendar slice + manual summaries as the Strength overview
  * so analytics cards match overview behavior without duplicating presentation.
  */
-export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): StrengthAnalyticsDetailScreenData {
+export function useStrengthAnalyticsDetailScreenData(
+  uid: string | undefined,
+  getIdToken?: () => Promise<string | null>,
+): StrengthAnalyticsDetailScreenData {
   const today = getTodayDayKeyLocal();
   const weekDaysFull = getWeekDaysForAnchor(today);
   const weekStart = weekDaysFull[0]!;
@@ -171,7 +172,10 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
       return;
     }
     const task = runAfterInteractionsSafe(() => {
-      void Promise.all([listManualWorkoutDaySummaries(uid), listCustomExercises(uid)]).then(([rows, customRows]) => {
+      void Promise.all([
+        listManualWorkoutDaySummaries(uid, getIdToken),
+        listMergedCustomExerciseRecords(uid, getIdToken),
+      ]).then(([rows, customRows]) => {
         if (cancelled) return;
         setManualWorkoutSummaries(rows);
         setCustomExerciseById(new Map(customRows.map((r) => [r.exerciseId, r])));
@@ -181,7 +185,7 @@ export function useStrengthAnalyticsDetailScreenData(uid: string | undefined): S
       cancelled = true;
       task.cancel();
     };
-  }, [overviewSharedRange.status, uid]);
+  }, [overviewSharedRange.status, uid, getIdToken]);
 
   const weeklySessionDisplayHints = useMemo<WeeklySessionDisplayHint[]>(() => {
     return weekDaysSlice.flatMap((d) =>

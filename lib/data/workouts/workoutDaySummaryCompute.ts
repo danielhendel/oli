@@ -1,7 +1,16 @@
 import type { RawEventDoc } from "@oli/contracts";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { deriveWorkoutDayKey } from "@/lib/data/workouts/workoutsCalendarDayKey";
-import { parseWorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import {
+  mergeManualExercisesIntoStrengthTaxonomyMaps,
+  createEmptyStrengthTaxonomyMaps,
+  serializeStrengthTaxonomyMaps,
+  type StrengthTaxonomySerialized,
+} from "@/lib/data/workouts/strengthTaxonomySummaryAggregate";
+import {
+  parseStrengthIngestExercisesFromPayload,
+  parseWorkoutHistoryItem,
+} from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
   deriveSessionTypeFlags,
   reconcileWorkoutSessionsForDay,
@@ -25,6 +34,25 @@ function isWorkoutCalendarKind(kind: string): kind is WorkoutCalendarRawEventKin
   return KIND_SET.has(kind);
 }
 
+function computeStrengthTaxonomyForUiDay(uiDay: DayKey, rawDocs: RawEventDoc[]): StrengthTaxonomySerialized | undefined {
+  const maps = createEmptyStrengthTaxonomyMaps();
+  for (const doc of rawDocs) {
+    if (!isWorkoutCalendarKind(doc.kind)) continue;
+    if (deriveWorkoutDayKey(doc) !== uiDay) continue;
+    if (doc.kind !== "strength_workout") continue;
+    const payloadRaw = doc.payload;
+    const payload = payloadRaw != null && typeof payloadRaw === "object" && !Array.isArray(payloadRaw)
+      ? (payloadRaw as Record<string, unknown>)
+      : null;
+    if (payload == null) continue;
+    const exercises = parseStrengthIngestExercisesFromPayload(doc.id, payload);
+    if (exercises == null || exercises.length === 0) continue;
+    mergeManualExercisesIntoStrengthTaxonomyMaps(maps, exercises, undefined);
+  }
+  const serialized = serializeStrengthTaxonomyMaps(maps);
+  return serialized ?? undefined;
+}
+
 export type WorkoutDaySummaryPayload = {
   schemaVersion: typeof WORKOUT_DAY_SUMMARY_SCHEMA_VERSION;
   day: DayKey;
@@ -37,6 +65,8 @@ export type WorkoutDaySummaryPayload = {
   strengthSessionCount: number;
   /** Count of reconciled sessions with `sessionType === "cardio"` (overview Cardio tab). */
   cardioSessionCount: number;
+  /** Optional aggregated strength taxonomy derived from parsed `strength_workout` payloads (PR 4). */
+  strengthTaxonomy?: StrengthTaxonomySerialized;
 };
 
 /**
@@ -60,6 +90,7 @@ export function computeWorkoutDaySummaryPayload(
   const sessions = reconcileWorkoutSessionsForDay(uiDay, sorted);
   const flags = deriveSessionTypeFlags(sessions);
   const tabCounts = deriveOverviewTabSessionCounts(sessions);
+  const strengthTaxonomy = computeStrengthTaxonomyForUiDay(uiDay, rawDocs);
   return {
     schemaVersion: WORKOUT_DAY_SUMMARY_SCHEMA_VERSION,
     day: uiDay,
@@ -70,5 +101,6 @@ export function computeWorkoutDaySummaryPayload(
     rawWorkoutCount: sorted.length,
     strengthSessionCount: tabCounts.strengthSessionCount,
     cardioSessionCount: tabCounts.cardioSessionCount,
+    ...(strengthTaxonomy != null ? { strengthTaxonomy } : {}),
   };
 }

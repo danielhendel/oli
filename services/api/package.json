@@ -6,7 +6,10 @@
   "type": "commonjs",
   "scripts": {
     "dev": "node scripts/bundle-workout-day-summary-rebuild.mjs && node -r ts-node/register/transpile-only src/server.ts",
-    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && tsc -b tsconfig.json",
+    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && tsc -b tsconfig.json && node scripts/copy-workout-summary-rebuild-bundle-to-dist.mjs",
+    "bundle:workout-summary-rebuild": "node scripts/bundle-workout-day-summary-rebuild.mjs",
+    "bundle:workout-summary-rebuild:checksum": "node scripts/write-workout-summary-rebuild-bundle-checksum.mjs",
+    "verify:workout-summary-rebuild-bundle": "node scripts/verify-workout-summary-rebuild-bundle.mjs",
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit"
   },

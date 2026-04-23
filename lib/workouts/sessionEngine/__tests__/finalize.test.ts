@@ -12,9 +12,14 @@ jest.mock("@/lib/workouts/exercises/customExerciseStore", () => ({
   listCustomExercises: jest.fn(),
 }));
 
+jest.mock("@/lib/api/exerciseDefinitions", () => ({
+  listExerciseDefinitions: jest.fn(),
+}));
+
 const selectors = require("@/lib/workouts/sessionEngine/selectors");
 const usersMeApi = require("@/lib/api/usersMe");
 const customExerciseStore = require("@/lib/workouts/exercises/customExerciseStore");
+const exerciseDefinitionsApi = require("@/lib/api/exerciseDefinitions");
 
 describe("persistCompletedSessionToHistory", () => {
   beforeEach(() => {
@@ -22,6 +27,13 @@ describe("persistCompletedSessionToHistory", () => {
     usersMeApi.logStrengthWorkout.mockReset();
     customExerciseStore.listCustomExercises.mockReset();
     customExerciseStore.listCustomExercises.mockResolvedValue([]);
+    exerciseDefinitionsApi.listExerciseDefinitions.mockReset();
+    exerciseDefinitionsApi.listExerciseDefinitions.mockResolvedValue({
+      ok: true,
+      status: 200,
+      requestId: null,
+      json: { items: [] },
+    });
   });
 
   it("persists completed journal session to strength_workout ingest payload", async () => {
@@ -72,6 +84,7 @@ describe("persistCompletedSessionToHistory", () => {
         exercises: [
           expect.objectContaining({
             name: "Bench Press",
+            exerciseId: "bench_press",
             sets: [expect.objectContaining({ reps: 5, load: 100, unit: "kg", rpe: 8 })],
           }),
         ],
@@ -134,7 +147,12 @@ describe("persistCompletedSessionToHistory", () => {
 
     expect(usersMeApi.logStrengthWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
-        exercises: [expect.objectContaining({ name: "My Special Press" })],
+        exercises: [
+          expect.objectContaining({
+            name: "My Special Press",
+            exerciseId: "custom_u1_my_special_press",
+          }),
+        ],
       }),
       "token-1",
     );

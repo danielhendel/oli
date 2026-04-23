@@ -60,8 +60,8 @@ describe("computeWorkoutDaySummaryPayload", () => {
     expect(summary.cardioSessionCount).toBe(tabCounts.cardioSessionCount);
     expect(summary.cardioSessionCount).toBe(1);
     expect(summary.strengthSessionCount).toBe(0);
-    expect(summary.reconcileVersion).toBe("2");
-    expect(summary.schemaVersion).toBe(2);
+    expect(summary.reconcileVersion).toBe("3");
+    expect(summary.schemaVersion).toBe(3);
   });
 
   it("returns zero counts for empty day input", () => {
@@ -93,5 +93,76 @@ describe("computeWorkoutDaySummaryPayload", () => {
     expect(summary.strengthSessionCount).toBe(1);
     expect(summary.cardioSessionCount).toBe(0);
     expect(summary.hasStrength).toBe(true);
+  });
+
+  it("includes strengthTaxonomy when ingest uses stable exerciseId + sets array", () => {
+    const day = "2026-03-14";
+    const docs: RawEventDoc[] = [
+      minimalWorkoutRaw(
+        "r1",
+        "strength_workout",
+        {
+          day,
+          startedAt: `${day}T18:00:00.000Z`,
+          timeZone: "UTC",
+          exercises: [
+            {
+              exerciseId: "bench_press",
+              name: "Bench Press",
+              sets: [{ reps: 10, load: 100, unit: "kg" }],
+            },
+          ],
+        },
+        `${day}T18:00:00.000Z`,
+      ),
+    ];
+    const summary = computeWorkoutDaySummaryPayload(day, docs, "2026-03-14T12:00:00.000Z");
+    expect(summary.strengthTaxonomy).toBeDefined();
+    expect(summary.strengthTaxonomy!.strengthTrainingVolumeKg).toBeGreaterThan(0);
+  });
+
+  it("includes strengthTaxonomy for legacy name-only ingest (taxonomyResolve)", () => {
+    const day = "2026-03-15";
+    const docs: RawEventDoc[] = [
+      minimalWorkoutRaw(
+        "r2",
+        "strength_workout",
+        {
+          day,
+          startedAt: `${day}T18:00:00.000Z`,
+          timeZone: "UTC",
+          exercises: [
+            {
+              name: "Bench Press",
+              sets: [{ reps: 5, load: 60, unit: "kg" }],
+            },
+          ],
+        },
+        `${day}T18:00:00.000Z`,
+      ),
+    ];
+    const summary = computeWorkoutDaySummaryPayload(day, docs, "2026-03-15T12:00:00.000Z");
+    expect(summary.strengthTaxonomy).toBeDefined();
+    expect(summary.strengthTaxonomy!.strengthTrainingVolumeKg).toBeGreaterThan(0);
+  });
+
+  it("is deterministic for fixed raw inputs and computedAt", () => {
+    const day = "2026-05-01";
+    const docs: RawEventDoc[] = [
+      minimalWorkoutRaw(
+        "r1",
+        "workout",
+        {
+          start: `${day}T10:00:00.000Z`,
+          timezone: "UTC",
+          name: "Run",
+        },
+        `${day}T10:00:00.000Z`,
+      ),
+    ];
+    const computedAt = "2026-05-01T12:00:00.000Z";
+    const a = computeWorkoutDaySummaryPayload(day, docs, computedAt);
+    const b = computeWorkoutDaySummaryPayload(day, docs, computedAt);
+    expect(a).toEqual(b);
   });
 });

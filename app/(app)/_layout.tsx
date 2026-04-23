@@ -150,6 +150,10 @@ export default function AppLayout() {
             name="workouts/exercise-picker"
             options={{ title: "Add exercise", ...workoutsStackNavigationOptions("task") }}
           />
+          <Stack.Screen
+            name="workouts/exercise-edit"
+            options={{ title: "Edit exercise", ...workoutsStackNavigationOptions("task") }}
+          />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
           <Stack.Screen
             name="workouts/settings"

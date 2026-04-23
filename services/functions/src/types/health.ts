@@ -309,6 +309,8 @@ export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
  */
 export interface StrengthWorkoutCanonicalSet {
   exercise: string;
+  /** Stable id when ingest included it (catalog or custom_*); absent on legacy rows. */
+  exerciseId?: string;
   reps: number;
   load: number;
   unit: "lb" | "kg";

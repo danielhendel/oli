@@ -135,6 +135,17 @@ service cloud.firestore {
       }
 
       // ----------------------------------------------------------
+      // EXERCISE DEFINITIONS (USER-OWNED CUSTOM EXERCISES)
+      //
+      // Reads are owner-scoped. Writes go through Cloud Run API only.
+      // ----------------------------------------------------------
+      match /exerciseDefinitions/{exerciseId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+        allow create, update, delete: if false;
+      }
+
+      // ----------------------------------------------------------
       // PROFILE (APP-OWNED PERSONALIZATION)
       //
       // Reads are owner-scoped. Writes go through the verified API

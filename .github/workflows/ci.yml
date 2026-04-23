@@ -43,6 +43,9 @@ jobs:
       - name: Build API (for assert-api-routes)
         run: npm run -w api build
 
+      - name: Workout summary rebuild bundle checksum
+        run: npm run check:workout-summary-rebuild-bundle
+
       - name: API route invariants
         run: node scripts/ci/assert-api-routes.mjs
 

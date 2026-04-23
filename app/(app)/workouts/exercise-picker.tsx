@@ -21,7 +21,10 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { EXERCISE_CATALOG_V1 } from "@/lib/workouts/exercises/catalog";
+import { EXERCISE_CATALOG_FOR_PICKER_V1 } from "@/lib/workouts/exercises/catalog";
+import { EXERCISE_LIBRARY_V1 } from "@/lib/workouts/exercises/library.v1";
+import { bundledCatalogItemsForWorkoutPicker } from "@/lib/workouts/exercises/pickerBundledCatalog";
+import { isUserScopedCustomExerciseId } from "@oli/contracts";
 import { getGymLabel, isExerciseAvailableAtGym } from "@/lib/workouts/gymRegistry";
 import { searchExercises } from "@/lib/workouts/exercises/search";
 import { buildExerciseLibrarySections } from "@/lib/workouts/exercises/librarySections";
@@ -30,10 +33,9 @@ import type { ExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
-import {
-  listCustomExercises,
-  type CustomExerciseRecord,
-} from "@/lib/workouts/exercises/customExerciseStore";
+import type { CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import { migrateLocalCustomExercisesToBackend } from "@/lib/workouts/exercises/migrateCustomExercisesToBackend";
 import { normalizeStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
@@ -177,7 +179,7 @@ function customMetaFromRecord(record: CustomExerciseRecord): ExerciseMeta {
   return {
     equipment: record.equipment,
     primary: record.primary === "Other" ? "Full body" : record.primary,
-    movement: "isolation",
+    movement: record.movementPattern ?? "isolation",
     trainingType: "strength",
     cues: [
       "Move with control",
@@ -237,7 +239,7 @@ const TRAINING_TYPE_OPTIONS: { value: TrainingType; label: string }[] = [
 ];
 
 export default function ExercisePickerScreen() {
-  const { user, initializing } = useAuth();
+  const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
   const router = useRouter();
   const navigation = useNavigation();
@@ -296,21 +298,31 @@ export default function ExercisePickerScreen() {
   useEffect(() => {
     if (!user || initializing) return;
     let cancelled = false;
-    listCustomExercises(user.uid)
-      .catch(() => [])
-      .then((rows) => {
-        if (!cancelled) {
-          setCustomExercises(
-            rows
-              .filter((row) => isSupportedLoggingTypeForPicker(row.loggingType))
-              .map((row) => ({ ...row, loggingType: normalizeStrengthLoggingType(row.loggingType) })),
-          );
-        }
+    const loadMerged = (): Promise<void> =>
+      listMergedCustomExerciseRecords(user.uid, () => getIdToken(false))
+        .catch(() => [])
+        .then((rows) => {
+          if (!cancelled) {
+            setCustomExercises(
+              rows
+                .filter((row) => isSupportedLoggingTypeForPicker(row.loggingType))
+                .map((row) => ({ ...row, loggingType: normalizeStrengthLoggingType(row.loggingType) })),
+            );
+          }
+        });
+
+    void loadMerged().then(() => {
+      if (cancelled) return;
+      void migrateLocalCustomExercisesToBackend(user.uid, () => getIdToken(false)).then(() => {
+        if (cancelled) return;
+        void loadMerged();
       });
+    });
+
     return () => {
       cancelled = true;
     };
-  }, [user, initializing]);
+  }, [user, initializing, getIdToken]);
 
   const customById = useMemo(() => {
     const m = new Map<string, CustomExerciseRecord>();
@@ -318,16 +330,28 @@ export default function ExercisePickerScreen() {
     return m;
   }, [customExercises]);
 
+  /** Optional per-user restriction: only these bundled ids (plus all custom exercises). */
+  const workoutPickerBundledAllowlist = prefState.preferences.workoutPickerBundledAllowlistExerciseIds;
+
+  const bundledCatalogForPicker = useMemo(
+    () =>
+      bundledCatalogItemsForWorkoutPicker(
+        EXERCISE_CATALOG_FOR_PICKER_V1,
+        workoutPickerBundledAllowlist == null ? undefined : workoutPickerBundledAllowlist,
+      ),
+    [workoutPickerBundledAllowlist],
+  );
+
   const mergedCatalog = useMemo(
     () => [
-      ...EXERCISE_CATALOG_V1,
+      ...bundledCatalogForPicker,
       ...customExercises.map((row) => ({
         exerciseId: row.exerciseId,
         name: row.name,
-        aliases: [row.name],
+        aliases: row.aliases != null && row.aliases.length > 0 ? [...row.aliases, row.name] : [row.name],
       })),
     ],
-    [customExercises],
+    [bundledCatalogForPicker, customExercises],
   );
 
   const allSorted = useMemo(
@@ -393,12 +417,24 @@ export default function ExercisePickerScreen() {
 
   const catalogNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const item of mergedCatalog) m[item.exerciseId] = item.name;
+    for (const row of EXERCISE_LIBRARY_V1) m[row.exerciseId] = row.name;
+    for (const row of customExercises) m[row.exerciseId] = row.name;
     return m;
-  }, [mergedCatalog]);
+  }, [customExercises]);
 
   /** Recent tab: recent IDs only. No gym restriction. */
   const recentDisplayIds = sections.recentIds;
+
+  const mergedCatalogExerciseIdSet = useMemo(
+    () => new Set(mergedCatalog.map((x) => x.exerciseId)),
+    [mergedCatalog],
+  );
+
+  /** Drops bundled ids not in the merged picker catalog (e.g. allowlisted picker). */
+  const recentIdsForPicker = useMemo(
+    () => recentDisplayIds.filter((id) => mergedCatalogExerciseIdSet.has(id)),
+    [recentDisplayIds, mergedCatalogExerciseIdSet],
+  );
 
   const onAddToWorkout = useCallback(
     (exerciseId: string) => {
@@ -462,6 +498,39 @@ export default function ExercisePickerScreen() {
     router,
   ]);
 
+  const onOpenEditExercise = useCallback(
+    (exerciseIdToEdit: string) => {
+      if (sessionId == null || user == null) return;
+      if (!isUserScopedCustomExerciseId(user.uid, exerciseIdToEdit)) return;
+      setSelectedExerciseId(null);
+      const nextParams: Record<string, string> = { sessionId, exerciseId: exerciseIdToEdit };
+      if (blockId != null) nextParams.blockId = blockId;
+      if (params.logReturnPath === "enrich") {
+        nextParams.logReturnPath = "enrich";
+        const d = typeof params.enrichDay === "string" ? params.enrichDay : "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) nextParams.enrichDay = d;
+        const t = typeof params.enrichTargetId === "string" ? params.enrichTargetId.trim() : "";
+        if (t.length > 0) nextParams.enrichTargetId = t;
+        const a = typeof params.sessionAnchorIso === "string" ? params.sessionAnchorIso.trim() : "";
+        if (a.length > 0) nextParams.sessionAnchorIso = a;
+        const j = typeof params.journalSessionId === "string" ? params.journalSessionId.trim() : "";
+        if (j.length > 0) nextParams.journalSessionId = j;
+      }
+      router.push({ pathname: "/(app)/workouts/exercise-edit", params: nextParams });
+    },
+    [
+      sessionId,
+      blockId,
+      user,
+      params.logReturnPath,
+      params.enrichDay,
+      params.enrichTargetId,
+      params.sessionAnchorIso,
+      params.journalSessionId,
+      router,
+    ],
+  );
+
   const listData = useMemo((): ListEntry[] => {
     const hasQuery = query.trim() !== "";
     const entries: ListEntry[] = [{ type: "header" }];
@@ -476,7 +545,7 @@ export default function ExercisePickerScreen() {
           entries.push({ type: "row", exerciseId: e.exerciseId });
         }
       } else if (activeTab === "recent") {
-        for (const id of recentDisplayIds) {
+        for (const id of recentIdsForPicker) {
           entries.push({ type: "row", exerciseId: id });
         }
       } else {
@@ -493,7 +562,7 @@ export default function ExercisePickerScreen() {
     query,
     activeTab,
     displaySearchResults,
-    recentDisplayIds,
+    recentIdsForPicker,
     allDisplaySorted,
     myGymFilteredAll,
     effectiveGymId,
@@ -897,6 +966,18 @@ export default function ExercisePickerScreen() {
                   <Text style={styles.missingSessionText}>Missing session id</Text>
                 ) : null}
                 <View style={styles.modalActions}>
+                  {selectedCustom != null &&
+                  user != null &&
+                  isUserScopedCustomExerciseId(user.uid, selectedExerciseId) ? (
+                    <Pressable
+                      onPress={() => onOpenEditExercise(selectedExerciseId)}
+                      style={styles.editExerciseButton}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit exercise"
+                    >
+                      <Text style={styles.editExerciseButtonText}>Edit exercise</Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     onPress={() => sessionId != null && onAddToWorkout(selectedExerciseId)}
                     style={[styles.addButton, sessionId == null && styles.addButtonDisabled]}
@@ -1149,6 +1230,19 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: 10,
+  },
+  editExerciseButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: SYSTEM_ACCENT,
+    backgroundColor: "#FFFFFF",
+  },
+  editExerciseButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: SYSTEM_ACCENT,
   },
   addButton: {
     backgroundColor: SYSTEM_ACCENT,

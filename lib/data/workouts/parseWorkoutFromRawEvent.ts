@@ -121,6 +121,9 @@ export function parseStrengthIngestExercisesFromPayload(
     if (!isRecord(ex)) continue;
     const nameRaw = ex.name;
     const name = typeof nameRaw === "string" ? nameRaw.trim() : "";
+    const idRaw = ex.exerciseId;
+    const stableExerciseId =
+      typeof idRaw === "string" && idRaw.trim().length > 0 ? idRaw.trim() : null;
     const setsRaw = ex.sets;
     if (!Array.isArray(setsRaw)) continue;
     const sets: ManualWorkoutExerciseSummary["sets"] = [];
@@ -143,7 +146,8 @@ export function parseStrengthIngestExercisesFromPayload(
     }
     if (sets.length === 0) continue;
     out.push({
-      exerciseId: `exercise:ingested:${rawEventId}:${exIdx}`,
+      exerciseId:
+        stableExerciseId ?? `exercise:ingested:${rawEventId}:${exIdx}`,
       name: name.length > 0 ? name : `Exercise ${exIdx + 1}`,
       sets,
     });

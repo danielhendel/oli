@@ -7,6 +7,9 @@ import type {
   MuscleGroupDetailed,
 } from "./taxonomy";
 
+/** Lifecycle for bundled preload rows; UI filtering is deferred until consumers opt in. */
+export type ExerciseDefinitionStatus = "active" | "archived" | "retired";
+
 export type ExerciseLibraryItemV1 = {
   exerciseId: string;
   name: string;
@@ -23,6 +26,9 @@ export type ExerciseLibraryItemV1 = {
   secondaryDetailed: MuscleGroupDetailed[];
   cues?: string[];
   description?: string;
+  status: ExerciseDefinitionStatus;
+  /** When `status` is `retired`, analytics may follow this bundled catalog id (optional). */
+  successorExerciseId?: string;
 };
 
 function assertSnakeCase(id: string): void {
@@ -36,13 +42,17 @@ function item(x: ExerciseLibraryItemV1): ExerciseLibraryItemV1 {
   return x;
 }
 
-function make(x: ExerciseLibraryItemV1): ExerciseLibraryItemV1 {
-  return item(x);
+function make(x: Omit<ExerciseLibraryItemV1, "status"> & { status?: ExerciseDefinitionStatus }): ExerciseLibraryItemV1 {
+  return item({ ...x, status: x.status ?? "active" });
 }
 
 /**
  * Single source of truth for exercise library v1.
  * Includes all existing catalog IDs to preserve UI; 450+ total.
+ *
+ * **Bundled archive:** set `status: "archived"` only for ids listed in `bundledExerciseConfirmedUnused.ts`
+ * after operator-confirmed DISTINCT usage audit (Firestore + journal export). Never delete rows.
+ * Ambiguous ids (see `bundledExerciseArchiveAudit.ts`) must not be archived automatically from name-only evidence.
  */
 export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   // --- Existing 30 (exact exerciseIds from EXERCISE_CATALOG_V1) ---
@@ -88,7 +98,14 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "overhead_press",
     name: "Overhead Press",
-    aliases: ["ohp", "military press", "standing press"],
+    aliases: [
+      "ohp",
+      "military press",
+      "standing press",
+      "standing barbell shoulder press",
+      "standing shoulder press",
+      "barbell shoulder press",
+    ],
     equipment: "Barbell",
     primaryBucket: "Shoulders",
     movement: "push",
@@ -205,7 +222,7 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "leg_extension",
     name: "Leg Extension",
-    aliases: ["quad extension"],
+    aliases: ["quad extension", "quad extensions"],
     equipment: "Machine",
     primaryBucket: "Legs",
     movement: "isolation",
@@ -218,7 +235,7 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "leg_curl",
     name: "Leg Curl",
-    aliases: ["hamstring curl"],
+    aliases: ["hamstring curl", "hamstring curls"],
     equipment: "Machine",
     primaryBucket: "Legs",
     movement: "hinge",
@@ -231,7 +248,7 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "calf_raise",
     name: "Calf Raise",
-    aliases: ["standing calf raise", "seated calf raise"],
+    aliases: ["standing calf raise"],
     equipment: "Machine",
     primaryBucket: "Legs",
     movement: "isolation",
@@ -296,7 +313,7 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "seated_cable_row",
     name: "Seated Cable Row",
-    aliases: ["cable row"],
+    aliases: ["cable row", "seated cable close row", "seated close grip cable row", "close grip seated cable row"],
     equipment: "Machine",
     primaryBucket: "Back",
     movement: "pull",
@@ -348,7 +365,16 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "tricep_pushdown",
     name: "Tricep Pushdown",
-    aliases: ["cable pushdown", "triceps pushdown"],
+    aliases: [
+      "cable pushdown",
+      "triceps pushdown",
+      "straight bar tricep extensions",
+      "straight bar tricep extension",
+      "straight bar triceps extension",
+      "bar tricep extension",
+      "bar pushdown",
+      "tricep cable straight bar pushdown",
+    ],
     equipment: "Machine",
     primaryBucket: "Triceps",
     movement: "isolation",
@@ -387,7 +413,7 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({
     exerciseId: "lateral_raise",
     name: "Lateral Raise",
-    aliases: ["side raise", "db lateral raise"],
+    aliases: ["side raise", "db lateral raise", "incline single arm lateral raise"],
     equipment: "Dumbbell",
     primaryBucket: "Shoulders",
     movement: "isolation",
@@ -470,7 +496,19 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "dumbbell_decline_bench_press", name: "Dumbbell Decline Bench Press", aliases: [], equipment: "Dumbbell", primaryBucket: "Chest", movement: "push", trainingType: "strength", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders", "Triceps"], primaryDetailed: ["LowerPecs"], secondaryDetailed: ["DeltsAnterior", "Triceps"] }),
   make({ exerciseId: "dumbbell_fly", name: "Dumbbell Fly", aliases: ["db fly", "pec fly"], equipment: "Dumbbell", primaryBucket: "Chest", movement: "push", trainingType: "isolation", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders"], primaryDetailed: ["Pecs"], secondaryDetailed: ["DeltsAnterior"] }),
   make({ exerciseId: "dumbbell_incline_fly", name: "Dumbbell Incline Fly", aliases: [], equipment: "Dumbbell", primaryBucket: "Chest", movement: "push", trainingType: "isolation", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders"], primaryDetailed: ["UpperPecs"], secondaryDetailed: ["DeltsAnterior"] }),
-  make({ exerciseId: "dumbbell_pullover", name: "Dumbbell Pullover", aliases: [], equipment: "Dumbbell", primaryBucket: "Chest", movement: "pull", trainingType: "isolation", primaryCoarse: ["Chest", "Back"], secondaryCoarse: [], primaryDetailed: ["Pecs", "Lats"], secondaryDetailed: [] }),
+  make({
+    exerciseId: "dumbbell_pullover",
+    name: "Dumbbell Pullover",
+    aliases: ["straight bar cable lat pullover", "straight bar lat pullover"],
+    equipment: "Dumbbell",
+    primaryBucket: "Chest",
+    movement: "pull",
+    trainingType: "isolation",
+    primaryCoarse: ["Chest", "Back"],
+    secondaryCoarse: [],
+    primaryDetailed: ["Pecs", "Lats"],
+    secondaryDetailed: [],
+  }),
   make({ exerciseId: "dumbbell_overhead_press", name: "Dumbbell Overhead Press", aliases: [], equipment: "Dumbbell", primaryBucket: "Shoulders", movement: "push", trainingType: "strength", primaryCoarse: ["Shoulders"], secondaryCoarse: ["Triceps", "Core"], primaryDetailed: ["DeltsAnterior"], secondaryDetailed: ["Triceps", "Abs"] }),
   make({ exerciseId: "arnold_press", name: "Arnold Press", aliases: [], equipment: "Dumbbell", primaryBucket: "Shoulders", movement: "push", trainingType: "strength", primaryCoarse: ["Shoulders"], secondaryCoarse: ["Triceps"], primaryDetailed: ["DeltsAnterior", "DeltsMedial"], secondaryDetailed: ["Triceps"] }),
   make({ exerciseId: "dumbbell_front_raise", name: "Dumbbell Front Raise", aliases: [], equipment: "Dumbbell", primaryBucket: "Shoulders", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Shoulders"], secondaryCoarse: [], primaryDetailed: ["DeltsAnterior"], secondaryDetailed: [] }),
@@ -510,7 +548,20 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "machine_rear_delt_fly", name: "Machine Rear Delt Fly", aliases: ["reverse pec deck"], equipment: "Machine", equipmentSubtype: "RearDeltFly", primaryBucket: "Shoulders", movement: "pull", trainingType: "isolation", primaryCoarse: ["Shoulders"], secondaryCoarse: ["Back"], primaryDetailed: ["DeltsPosterior"], secondaryDetailed: ["MidTraps"] }),
   make({ exerciseId: "machine_leg_press_vertical", name: "Vertical Leg Press", aliases: [], equipment: "Machine", equipmentSubtype: "LegPress", primaryBucket: "Legs", movement: "squat", trainingType: "strength", primaryCoarse: ["Quads", "Glutes"], secondaryCoarse: ["Hamstrings"], primaryDetailed: ["Quads", "GluteMax"], secondaryDetailed: ["Hamstrings"] }),
   make({ exerciseId: "machine_leg_extension", name: "Machine Leg Extension", aliases: [], equipment: "Machine", equipmentSubtype: "LegExtension", primaryBucket: "Legs", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Quads"], secondaryCoarse: [], primaryDetailed: ["Quads"], secondaryDetailed: [] }),
-  make({ exerciseId: "machine_leg_curl_lying", name: "Lying Leg Curl", aliases: [], equipment: "Machine", equipmentSubtype: "LegCurl", primaryBucket: "Legs", movement: "hinge", trainingType: "isolation", primaryCoarse: ["Hamstrings"], secondaryCoarse: [], primaryDetailed: ["Hamstrings"], secondaryDetailed: [] }),
+  make({
+    exerciseId: "machine_leg_curl_lying",
+    name: "Lying Leg Curl",
+    aliases: ["lying hamstring curls"],
+    equipment: "Machine",
+    equipmentSubtype: "LegCurl",
+    primaryBucket: "Legs",
+    movement: "hinge",
+    trainingType: "isolation",
+    primaryCoarse: ["Hamstrings"],
+    secondaryCoarse: [],
+    primaryDetailed: ["Hamstrings"],
+    secondaryDetailed: [],
+  }),
   make({ exerciseId: "machine_leg_curl_seated", name: "Seated Leg Curl", aliases: [], equipment: "Machine", equipmentSubtype: "LegCurl", primaryBucket: "Legs", movement: "hinge", trainingType: "isolation", primaryCoarse: ["Hamstrings"], secondaryCoarse: [], primaryDetailed: ["Hamstrings"], secondaryDetailed: [] }),
   make({ exerciseId: "machine_calf_raise_standing", name: "Standing Machine Calf Raise", aliases: [], equipment: "Machine", equipmentSubtype: "CalfRaise", primaryBucket: "Legs", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Calves"], secondaryCoarse: [], primaryDetailed: ["Calves"], secondaryDetailed: [] }),
   make({ exerciseId: "machine_calf_raise_seated", name: "Seated Machine Calf Raise", aliases: [], equipment: "Machine", equipmentSubtype: "CalfRaise", primaryBucket: "Legs", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Calves"], secondaryCoarse: [], primaryDetailed: ["Calves"], secondaryDetailed: [] }),
@@ -527,7 +578,19 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "cable_fly", name: "Cable Fly", aliases: [], equipment: "Cable", primaryBucket: "Chest", movement: "push", trainingType: "isolation", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders"], primaryDetailed: ["Pecs"], secondaryDetailed: ["DeltsAnterior"] }),
   make({ exerciseId: "cable_chest_press", name: "Cable Chest Press", aliases: [], equipment: "Cable", primaryBucket: "Chest", movement: "push", trainingType: "strength", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders", "Triceps"], primaryDetailed: ["Pecs"], secondaryDetailed: ["DeltsAnterior", "Triceps"] }),
   make({ exerciseId: "cable_lateral_raise", name: "Cable Lateral Raise", aliases: [], equipment: "Cable", primaryBucket: "Shoulders", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Shoulders"], secondaryCoarse: [], primaryDetailed: ["DeltsMedial"], secondaryDetailed: [] }),
-  make({ exerciseId: "cable_front_raise", name: "Cable Front Raise", aliases: [], equipment: "Cable", primaryBucket: "Shoulders", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Shoulders"], secondaryCoarse: [], primaryDetailed: ["DeltsAnterior"], secondaryDetailed: [] }),
+  make({
+    exerciseId: "cable_front_raise",
+    name: "Cable Front Raise",
+    aliases: ["standing cable straight bar front raise"],
+    equipment: "Cable",
+    primaryBucket: "Shoulders",
+    movement: "isolation",
+    trainingType: "isolation",
+    primaryCoarse: ["Shoulders"],
+    secondaryCoarse: [],
+    primaryDetailed: ["DeltsAnterior"],
+    secondaryDetailed: [],
+  }),
   make({ exerciseId: "cable_face_pull", name: "Cable Face Pull", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back", "Shoulders"], secondaryCoarse: ["Biceps"], primaryDetailed: ["DeltsPosterior", "MidTraps"], secondaryDetailed: ["Biceps"] }),
   make({ exerciseId: "cable_row_straight_bar", name: "Straight Bar Cable Row", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["MidTraps", "Lats"], secondaryDetailed: ["Biceps"] }),
   make({ exerciseId: "cable_pulldown", name: "Cable Pulldown", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["Lats"], secondaryDetailed: ["Biceps"] }),
@@ -580,7 +643,19 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "kettlebell_figure_eight", name: "Kettlebell Figure Eight", aliases: [], equipment: "Kettlebell", primaryBucket: "Core", movement: "rotation", trainingType: "functional", primaryCoarse: ["Core"], secondaryCoarse: ["Shoulders"], primaryDetailed: ["Obliques", "Abs"], secondaryDetailed: ["DeltsAnterior"] }),
   make({ exerciseId: "kettlebell_suitcase_carry", name: "Kettlebell Suitcase Carry", aliases: [], equipment: "Kettlebell", primaryBucket: "Core", movement: "carry", trainingType: "functional", primaryCoarse: ["Core"], secondaryCoarse: ["Back"], primaryDetailed: ["Obliques", "Abs"], secondaryDetailed: ["SpinalErectors"] }),
   make({ exerciseId: "kettlebell_farmer_carry", name: "Kettlebell Farmer Carry", aliases: [], equipment: "Kettlebell", primaryBucket: "Full body", movement: "carry", trainingType: "functional", primaryCoarse: ["Core", "Back"], secondaryCoarse: ["Forearms"], primaryDetailed: ["Abs", "SpinalErectors"], secondaryDetailed: ["ForearmFlexors"] }),
-  make({ exerciseId: "kettlebell_lunge", name: "Kettlebell Lunge", aliases: [], equipment: "Kettlebell", primaryBucket: "Legs", movement: "lunge", trainingType: "strength", primaryCoarse: ["Quads", "Glutes"], secondaryCoarse: ["Hamstrings"], primaryDetailed: ["Quads", "GluteMax"], secondaryDetailed: ["Hamstrings"] }),
+  make({
+    exerciseId: "kettlebell_lunge",
+    name: "Kettlebell Lunge",
+    aliases: ["walking lunges", "walking lunge", "walking kettlebell lunges"],
+    equipment: "Kettlebell",
+    primaryBucket: "Legs",
+    movement: "lunge",
+    trainingType: "strength",
+    primaryCoarse: ["Quads", "Glutes"],
+    secondaryCoarse: ["Hamstrings"],
+    primaryDetailed: ["Quads", "GluteMax"],
+    secondaryDetailed: ["Hamstrings"],
+  }),
   make({ exerciseId: "kettlebell_curl", name: "Kettlebell Curl", aliases: [], equipment: "Kettlebell", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps"], secondaryCoarse: ["Forearms"], primaryDetailed: ["Biceps"], secondaryDetailed: ["ForearmFlexors"] }),
   make({ exerciseId: "kettlebell_floor_press", name: "Kettlebell Floor Press", aliases: [], equipment: "Kettlebell", primaryBucket: "Chest", movement: "push", trainingType: "strength", primaryCoarse: ["Chest", "Triceps"], secondaryCoarse: ["Shoulders"], primaryDetailed: ["Pecs", "Triceps"], secondaryDetailed: ["DeltsAnterior"] }),
   // --- Band ---
@@ -714,12 +789,37 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "smith_machine_squat", name: "Smith Machine Squat", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Legs", movement: "squat", trainingType: "strength", primaryCoarse: ["Quads", "Glutes"], secondaryCoarse: ["Core"], primaryDetailed: ["Quads", "GluteMax"], secondaryDetailed: ["Abs"] }),
   make({ exerciseId: "smith_machine_incline_bench", name: "Smith Machine Incline Bench", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Chest", movement: "push", trainingType: "strength", primaryCoarse: ["Chest"], secondaryCoarse: ["Shoulders", "Triceps"], primaryDetailed: ["UpperPecs"], secondaryDetailed: ["DeltsAnterior", "Triceps"] }),
   make({ exerciseId: "smith_machine_shoulder_press", name: "Smith Machine Shoulder Press", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Shoulders", movement: "push", trainingType: "strength", primaryCoarse: ["Shoulders"], secondaryCoarse: ["Triceps"], primaryDetailed: ["DeltsAnterior"], secondaryDetailed: ["Triceps"] }),
-  make({ exerciseId: "smith_machine_row", name: "Smith Machine Row", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["Lats", "MidTraps"], secondaryDetailed: ["Biceps"] }),
+  make({
+    exerciseId: "smith_machine_row",
+    name: "Smith Machine Row",
+    aliases: ["smith underhand grip bent over row"],
+    equipment: "Machine",
+    equipmentSubtype: "SmithMachine",
+    primaryBucket: "Back",
+    movement: "pull",
+    trainingType: "strength",
+    primaryCoarse: ["Back"],
+    secondaryCoarse: ["Biceps"],
+    primaryDetailed: ["Lats", "MidTraps"],
+    secondaryDetailed: ["Biceps"],
+  }),
   make({ exerciseId: "smith_machine_deadlift", name: "Smith Machine Deadlift", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Back", movement: "hinge", trainingType: "strength", primaryCoarse: ["Back", "Hamstrings"], secondaryCoarse: ["Glutes"], primaryDetailed: ["SpinalErectors", "Hamstrings"], secondaryDetailed: ["GluteMax"] }),
   make({ exerciseId: "smith_machine_calf_raise", name: "Smith Machine Calf Raise", aliases: [], equipment: "Machine", equipmentSubtype: "SmithMachine", primaryBucket: "Legs", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Calves"], secondaryCoarse: [], primaryDetailed: ["Calves"], secondaryDetailed: [] }),
   make({ exerciseId: "cable_one_arm_row", name: "One Arm Cable Row", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["Lats", "Rhomboids"], secondaryDetailed: ["Biceps"] }),
   make({ exerciseId: "cable_pulldown_wide", name: "Wide Grip Cable Pulldown", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["Lats"], secondaryDetailed: ["Biceps"] }),
-  make({ exerciseId: "cable_pulldown_close", name: "Close Grip Cable Pulldown", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: ["Biceps"], primaryDetailed: ["Lats"], secondaryDetailed: ["Biceps"] }),
+  make({
+    exerciseId: "cable_pulldown_close",
+    name: "Close Grip Cable Pulldown",
+    aliases: ["seated v grip lat pulldown"],
+    equipment: "Cable",
+    primaryBucket: "Back",
+    movement: "pull",
+    trainingType: "strength",
+    primaryCoarse: ["Back"],
+    secondaryCoarse: ["Biceps"],
+    primaryDetailed: ["Lats"],
+    secondaryDetailed: ["Biceps"],
+  }),
   make({ exerciseId: "cable_shrug", name: "Cable Shrug", aliases: [], equipment: "Cable", primaryBucket: "Back", movement: "pull", trainingType: "strength", primaryCoarse: ["Back"], secondaryCoarse: [], primaryDetailed: ["UpperTraps"], secondaryDetailed: [] }),
   make({ exerciseId: "cable_curl_high", name: "High Cable Curl", aliases: [], equipment: "Cable", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps"], secondaryCoarse: [], primaryDetailed: ["Biceps"], secondaryDetailed: [] }),
   make({ exerciseId: "cable_hammer_curl", name: "Cable Hammer Curl", aliases: [], equipment: "Cable", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps", "Forearms"], secondaryCoarse: [], primaryDetailed: ["Brachialis", "Biceps"], secondaryDetailed: [] }),
@@ -828,7 +928,19 @@ export const EXERCISE_LIBRARY_V1: ExerciseLibraryItemV1[] = [
   make({ exerciseId: "cable_rope_curl", name: "Cable Rope Curl", aliases: [], equipment: "Cable", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps"], secondaryCoarse: [], primaryDetailed: ["Biceps"], secondaryDetailed: [] }),
   make({ exerciseId: "cable_concentration_curl", name: "Cable Concentration Curl", aliases: [], equipment: "Cable", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps"], secondaryCoarse: [], primaryDetailed: ["Biceps"], secondaryDetailed: [] }),
   make({ exerciseId: "dumbbell_incline_hammer_curl", name: "Incline Hammer Curl", aliases: [], equipment: "Dumbbell", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps", "Forearms"], secondaryCoarse: [], primaryDetailed: ["Brachialis", "Biceps"], secondaryDetailed: ["ForearmFlexors"] }),
-  make({ exerciseId: "ez_bar_preacher_curl", name: "EZ Bar Preacher Curl", aliases: [], equipment: "Barbell", primaryBucket: "Biceps", movement: "pull", trainingType: "isolation", primaryCoarse: ["Biceps"], secondaryCoarse: ["Forearms"], primaryDetailed: ["Biceps"], secondaryDetailed: ["ForearmFlexors"] }),
+  make({
+    exerciseId: "ez_bar_preacher_curl",
+    name: "EZ Bar Preacher Curl",
+    aliases: ["ez bar standing preacher curl", "ez bar standing preacher curls"],
+    equipment: "Barbell",
+    primaryBucket: "Biceps",
+    movement: "pull",
+    trainingType: "isolation",
+    primaryCoarse: ["Biceps"],
+    secondaryCoarse: ["Forearms"],
+    primaryDetailed: ["Biceps"],
+    secondaryDetailed: ["ForearmFlexors"],
+  }),
   make({ exerciseId: "close_grip_ez_bar_skull_crusher", name: "Close Grip EZ Bar Skull Crusher", aliases: [], equipment: "Barbell", primaryBucket: "Triceps", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Triceps"], secondaryCoarse: [], primaryDetailed: ["Triceps"], secondaryDetailed: [] }),
   make({ exerciseId: "dumbbell_overhead_tricep_extension_seated", name: "Seated Overhead Dumbbell Tricep Extension", aliases: [], equipment: "Dumbbell", primaryBucket: "Triceps", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Triceps"], secondaryCoarse: [], primaryDetailed: ["Triceps"], secondaryDetailed: [] }),
   make({ exerciseId: "cable_single_arm_overhead_extension", name: "Single Arm Cable Overhead Extension", aliases: [], equipment: "Cable", primaryBucket: "Triceps", movement: "isolation", trainingType: "isolation", primaryCoarse: ["Triceps"], secondaryCoarse: [], primaryDetailed: ["Triceps"], secondaryDetailed: [] }),

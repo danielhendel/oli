@@ -62,10 +62,12 @@ import {
   workoutDaySummariesRebuildResponseDtoSchema,
   workoutMonthSummariesResponseDtoSchema,
   workoutMonthSummariesRebuildResponseDtoSchema,
+  workoutMonthSummariesRebuildRangeResponseDtoSchema,
   type WorkoutDaySummariesResponseDto,
   type WorkoutDaySummariesRebuildResponseDto,
   type WorkoutMonthSummariesResponseDto,
   type WorkoutMonthSummariesRebuildResponseDto,
+  type WorkoutMonthSummariesRebuildRangeResponseDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -415,6 +417,24 @@ export const postWorkoutMonthSummariesRebuild = async (
     { year: opts.year },
     idToken,
     workoutMonthSummariesRebuildResponseDtoSchema,
+    {
+      ...truthGetOpts(opts),
+      timeoutMs: 120_000,
+      ...postOpts,
+    },
+  );
+};
+
+export const postWorkoutMonthSummariesRebuildRange = async (
+  idToken: string,
+  opts: { startMonthKey: string; endMonthKey: string } & TruthGetOptions,
+  postOpts?: PostOptions,
+): Promise<ApiResult<WorkoutMonthSummariesRebuildRangeResponseDto>> => {
+  return apiPostZodAuthed(
+    "/users/me/workout-month-summaries/rebuild-range",
+    { startMonthKey: opts.startMonthKey, endMonthKey: opts.endMonthKey },
+    idToken,
+    workoutMonthSummariesRebuildRangeResponseDtoSchema,
     {
       ...truthGetOpts(opts),
       timeoutMs: 120_000,

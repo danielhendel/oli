@@ -297,10 +297,12 @@ const strengthWorkoutExerciseSchema = z
   .object({
     name: z.string().min(1),
     sets: z.array(strengthWorkoutSetSchema).min(1),
+    /** Stable catalog or user-defined id; optional for backward compatibility. */
+    exerciseId: z.string().min(1).max(200).optional(),
   })
   .strip();
 
-const manualStrengthWorkoutPayloadSchema = z
+export const manualStrengthWorkoutPayloadSchema = z
   .object({
     startedAt: isoDateTimeStringSchema,
     timeZone: z.string().min(1),

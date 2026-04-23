@@ -76,9 +76,12 @@ export function computeStrengthMetricsFromExercises(
   };
 }
 
-export async function listManualWorkoutDaySummaries(uid: string): Promise<ManualWorkoutDaySummary[]> {
+export async function listManualWorkoutDaySummaries(
+  uid: string,
+  getIdToken?: () => Promise<string | null>,
+): Promise<ManualWorkoutDaySummary[]> {
   const sessionIds = await listWorkoutJournalSessionIds(uid);
-  const customExerciseNameById = await loadCustomExerciseNameById(uid);
+  const customExerciseNameById = await loadCustomExerciseNameById(uid, getIdToken);
   const out: ManualWorkoutDaySummary[] = [];
   for (const sessionId of sessionIds) {
     const events = await listWorkoutJournalEvents(uid, sessionId).catch(() => []);

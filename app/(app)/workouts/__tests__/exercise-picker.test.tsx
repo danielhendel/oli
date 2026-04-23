@@ -52,10 +52,13 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
     user: { uid: "u1" },
     initializing: false,
+    getIdToken: jest.fn().mockResolvedValue(null),
   }),
 }));
 
 let mockSelectedGymId: string | null = null;
+/** undefined = full bundled catalog; array = allowlist; null = full catalog (same as unset for picker) */
+let mockWorkoutPickerBundledAllowlist: string[] | null | undefined = undefined;
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
     state: {
@@ -63,8 +66,12 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
       preferences: {
         units: { mass: "lb" },
         timezone: { mode: "recorded" },
+        metricSources: {},
         get selectedGymId() {
           return mockSelectedGymId;
+        },
+        get workoutPickerBundledAllowlistExerciseIds() {
+          return mockWorkoutPickerBundledAllowlist;
         },
       },
     },
@@ -155,7 +162,12 @@ describe("workouts/exercise-picker", () => {
     mockReplace.mockClear();
     mockPush.mockClear();
     mockSelectedGymId = null;
+    mockWorkoutPickerBundledAllowlist = undefined;
     mockPickerParams = { sessionId: "s1" };
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -431,7 +443,7 @@ describe("workouts/exercise-picker", () => {
       /* flush React state after async effects */
     });
     expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
     expect(scopeLabel.props.children).toBe("Full library");
   });
@@ -454,7 +466,7 @@ describe("workouts/exercise-picker", () => {
     expect(scopeLabel.props.children).toContain("Filtered for");
     expect(scopeLabel.props.children).toContain("Bodyweight only (home)");
     expect(findByA11yLabel(test!.root, "Pick Bench Press")).toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
   });
 
   it("no gym selected: does not show gym filtering explanation", async () => {
@@ -550,7 +562,7 @@ describe("workouts/exercise-picker", () => {
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
     expect(scopeLabel.props.children).toBe("Full library");
     expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Push-Up")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
   });
 
   it("My Gym tab with no gym selected: shows hint to select gym", async () => {
@@ -569,6 +581,17 @@ describe("workouts/exercise-picker", () => {
     });
     const hintNode = test!.root.findByProps({ accessibilityLabel: "My Gym tab no gym selected hint" });
     expect(hintNode).not.toBeNull();
+  });
+
+  it("workout picker bundled allowlist hides unlisted bundled exercises", async () => {
+    mockWorkoutPickerBundledAllowlist = ["bench_press"];
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Pick Deadlift")).toBeNull();
   });
 
   it("My Gym tab uses workout-flow gym from gymId param when present even if preferences have no gym", async () => {

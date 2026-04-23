@@ -91,6 +91,7 @@ ui-debug.log
 # ----------------------------------------
 # Local archives / audit artifacts
 # ----------------------------------------
+artifacts/bundled-exercise-usage/
 *.zip
 oli-project-src/
 oli-project-src.zip

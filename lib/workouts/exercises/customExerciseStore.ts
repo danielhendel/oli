@@ -1,7 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getPrimaryMuscleGroupForExercise } from "./muscleContributions";
+import { buildStableCustomExerciseId, type ExerciseDefinitionRow } from "@oli/contracts";
+import {
+  getPrimaryMuscleGroupForExercise,
+  getPrimaryMuscleGroupsFromContributionList,
+} from "./muscleContributions";
+import { resolveDeterministicMovementRedirect } from "./catalogMovementRedirects";
 import { EXERCISE_LIBRARY_V1 } from "./library.v1";
-import type { Equipment, MuscleGroup, PrimaryBucket } from "./taxonomy";
+import type { MovementPattern } from "./metadata";
+import type {
+  Equipment,
+  MuscleContribution,
+  MuscleGroup,
+  MuscleGroupDetailed,
+  PrimaryBucket,
+} from "./taxonomy";
+import { isMuscleSubgroup, validateMuscleContributions } from "./taxonomy";
 
 export type CustomExerciseLoggingType =
   | "weight_reps"
@@ -19,6 +32,14 @@ export type CustomExerciseRecord = {
   loggingType: CustomExerciseLoggingType;
   createdAt: string;
   updatedAt: string;
+  aliases?: string[];
+  movementPattern?: MovementPattern;
+  primaryMusclesDetailed?: MuscleGroupDetailed[];
+  secondaryMusclesDetailed?: MuscleGroupDetailed[];
+  muscleContributions?: MuscleContribution[];
+  imageUrl?: string;
+  videoUrl?: string;
+  mediaUrl?: string;
 };
 
 const KEY_PREFIX = "workouts:customExercises:v1";
@@ -62,6 +83,64 @@ function isEquipment(v: unknown): v is Equipment {
   );
 }
 
+const MOVEMENT_PATTERN_SET = new Set<string>([
+  "push",
+  "pull",
+  "squat",
+  "hinge",
+  "carry",
+  "core",
+  "isolation",
+  "lunge",
+  "rotation",
+  "gait",
+]);
+
+function optionalMovementPattern(v: unknown): MovementPattern | undefined {
+  return typeof v === "string" && MOVEMENT_PATTERN_SET.has(v) ? (v as MovementPattern) : undefined;
+}
+
+function optionalStringList(v: unknown, maxItems: number, maxLen: number): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: string[] = [];
+  for (const el of v) {
+    if (typeof el !== "string") continue;
+    const s = el.trim();
+    if (s.length === 0 || s.length > maxLen) continue;
+    out.push(s);
+    if (out.length >= maxItems) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function optionalDetailedList(v: unknown): MuscleGroupDetailed[] | undefined {
+  const list = optionalStringList(v, 40, 64);
+  return list != null ? (list as MuscleGroupDetailed[]) : undefined;
+}
+
+function optionalMuscleContributions(v: unknown): MuscleContribution[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: MuscleContribution[] = [];
+  for (const el of v) {
+    if (!el || typeof el !== "object") continue;
+    const o = el as Record<string, unknown>;
+    const subgroup = typeof o.subgroup === "string" ? o.subgroup.trim() : "";
+    const weight = typeof o.weight === "number" ? o.weight : Number.NaN;
+    if (!isMuscleSubgroup(subgroup)) continue;
+    if (!Number.isFinite(weight) || weight < 0) continue;
+    out.push({ subgroup, weight });
+  }
+  if (out.length === 0) return undefined;
+  return validateMuscleContributions(out) ? out : undefined;
+}
+
+function optionalUrlField(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  if (s.length === 0 || s.length > 2048) return undefined;
+  return s;
+}
+
 function isPrimary(v: unknown): v is PrimaryBucket | "Other" {
   return (
     v === "Chest" ||
@@ -97,7 +176,7 @@ function normalizeRecords(raw: unknown): CustomExerciseRecord[] {
     ) {
       continue;
     }
-    out.push({
+    const record: CustomExerciseRecord = {
       exerciseId,
       name,
       equipment: row.equipment,
@@ -105,7 +184,24 @@ function normalizeRecords(raw: unknown): CustomExerciseRecord[] {
       loggingType: row.loggingType,
       createdAt,
       updatedAt,
-    });
+    };
+    const aliases = optionalStringList(row.aliases, 40, 80);
+    if (aliases != null) record.aliases = aliases;
+    const movementPattern = optionalMovementPattern(row.movementPattern);
+    if (movementPattern != null) record.movementPattern = movementPattern;
+    const primaryMusclesDetailed = optionalDetailedList(row.primaryMusclesDetailed);
+    if (primaryMusclesDetailed != null) record.primaryMusclesDetailed = primaryMusclesDetailed;
+    const secondaryMusclesDetailed = optionalDetailedList(row.secondaryMusclesDetailed);
+    if (secondaryMusclesDetailed != null) record.secondaryMusclesDetailed = secondaryMusclesDetailed;
+    const muscleContributions = optionalMuscleContributions(row.muscleContributions);
+    if (muscleContributions != null) record.muscleContributions = muscleContributions;
+    const imageUrl = optionalUrlField(row.imageUrl);
+    if (imageUrl != null) record.imageUrl = imageUrl;
+    const videoUrl = optionalUrlField(row.videoUrl);
+    if (videoUrl != null) record.videoUrl = videoUrl;
+    const mediaUrl = optionalUrlField(row.mediaUrl);
+    if (mediaUrl != null) record.mediaUrl = mediaUrl;
+    out.push(record);
   }
   return out;
 }
@@ -114,14 +210,32 @@ export function sanitizeCustomExerciseName(name: string): string {
   return name.trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
-function slugFromName(name: string): string {
-  const slug = sanitizeCustomExerciseName(name)
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_")
-    .replace(/[^a-z0-9_]/g, "")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return slug.length > 0 ? slug.slice(0, 48) : "exercise";
+/** Maps API row → device record shape without assigning explicit `undefined` optional keys. */
+export function customExerciseRecordFromDefinitionRow(row: ExerciseDefinitionRow): CustomExerciseRecord {
+  const out: CustomExerciseRecord = {
+    exerciseId: row.exerciseId,
+    name: row.name,
+    equipment: row.equipment,
+    primary: row.primary,
+    loggingType: row.loggingType,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+  if (row.aliases !== undefined) out.aliases = row.aliases;
+  if (row.movementPattern !== undefined) out.movementPattern = row.movementPattern;
+  if (row.primaryMusclesDetailed !== undefined) {
+    out.primaryMusclesDetailed = row.primaryMusclesDetailed as MuscleGroupDetailed[];
+  }
+  if (row.secondaryMusclesDetailed !== undefined) {
+    out.secondaryMusclesDetailed = row.secondaryMusclesDetailed as MuscleGroupDetailed[];
+  }
+  if (row.muscleContributions !== undefined) {
+    out.muscleContributions = row.muscleContributions as MuscleContribution[];
+  }
+  if (row.imageUrl !== undefined) out.imageUrl = row.imageUrl;
+  if (row.videoUrl !== undefined) out.videoUrl = row.videoUrl;
+  if (row.mediaUrl !== undefined) out.mediaUrl = row.mediaUrl;
+  return out;
 }
 
 export async function listCustomExercises(uid: string): Promise<CustomExerciseRecord[]> {
@@ -132,22 +246,6 @@ export async function listCustomExercises(uid: string): Promise<CustomExerciseRe
 
 async function writeCustomExercises(uid: string, rows: CustomExerciseRecord[]): Promise<void> {
   await AsyncStorage.setItem(key(uid), JSON.stringify(rows));
-}
-
-function buildStableExerciseId(
-  uid: string,
-  name: string,
-  existingIds: Set<string>,
-): string {
-  const uidPart = uid.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toLowerCase() || "user";
-  const base = `custom_${uidPart}_${slugFromName(name)}`;
-  if (!existingIds.has(base)) return base;
-  let i = 2;
-  for (;;) {
-    const candidate = `${base}_${i}`;
-    if (!existingIds.has(candidate)) return candidate;
-    i += 1;
-  }
 }
 
 export async function createCustomExercise(
@@ -166,7 +264,7 @@ export async function createCustomExercise(
   }
   const existing = await listCustomExercises(uid);
   const existingIds = new Set(existing.map((x) => x.exerciseId));
-  const exerciseId = buildStableExerciseId(uid, name, existingIds);
+  const exerciseId = buildStableCustomExerciseId(uid, name, existingIds);
   const row: CustomExerciseRecord = {
     exerciseId,
     name,
@@ -180,16 +278,125 @@ export async function createCustomExercise(
   return row;
 }
 
-function normalizeLookupName(input: string): string {
-  return input.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+export type CustomExerciseUpdatePatch = Partial<
+  Omit<CustomExerciseRecord, "exerciseId" | "createdAt">
+> & { updatedAt?: string };
+
+/**
+ * Updates a device-local custom exercise row (AsyncStorage). Used after API edits and for offline-first UX.
+ */
+export async function updateCustomExercise(
+  uid: string,
+  exerciseId: string,
+  patch: CustomExerciseUpdatePatch,
+): Promise<CustomExerciseRecord | null> {
+  const id = exerciseId.trim();
+  if (id.length === 0) return null;
+  const rows = await listCustomExercises(uid);
+  const idx = rows.findIndex((r) => r.exerciseId === id);
+  if (idx < 0) return null;
+  const cur = rows[idx]!;
+  const nextUpdatedAt = patch.updatedAt ?? new Date().toISOString();
+  const { updatedAt: _ignoreUpdatedAt, ...restPatch } = patch;
+  void _ignoreUpdatedAt;
+  const next: CustomExerciseRecord = { ...cur, ...restPatch, updatedAt: nextUpdatedAt };
+  const copy = [...rows];
+  copy[idx] = next;
+  await writeCustomExercises(uid, copy);
+  return next;
+}
+
+/** Deterministic spelling fixes for legacy logged names (exact tokens only). */
+function applyDeterministicLegacyTypoRewrites(raw: string): string {
+  let s = raw;
+  s = s.replace(/\baresenal\b/gi, "arsenal");
+  s = s.replace(/\bstrentgh\b/gi, "strength");
+  s = s.replace(/\bhanmer\b/gi, "hammer");
+  s = s.replace(/\bimcline\b/gi, "incline");
+  s = s.replace(/\bextebsions\b/gi, "extensions");
+  return s;
+}
+
+/**
+ * Strip gym brands / stack labels before alias + catalog matching (deterministic word list).
+ */
+function stripGymBrandAndDescriptorNoise(raw: string): string {
+  let s = raw.trim().toLowerCase().replace(/-/g, " ");
+  // Preserve disambiguation vs flat bench: "Smith Machine Bench Press" → "smith bench press", not "bench press".
+  s = s.replace(/\bsmith\s+machine\b/gi, "smith");
+  const noise: RegExp[] = [
+    /\bhammer\s+strength\b/gi,
+    /\blife\s+fitness\b/gi,
+    /\bhoist\b/gi,
+    /\batlantis\b/gi,
+    /\bcybex\b/gi,
+    /\barsenal\b/gi,
+    /\bnautilus\b/gi,
+    /\bprecor\b/gi,
+    /\bmatrix\b/gi,
+    /\btechnogym\b/gi,
+    /\bplate\s+loaded\b/gi,
+    /\bmachine\b/gi,
+    /\blinear\b/gi,
+    /\bangled\b/gi,
+    /\biso[\s-]lateral\b/gi,
+    /\biso\b/gi,
+  ];
+  for (const re of noise) s = s.replace(re, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Conservative normalization for **library** strings when building the catalog map (no brand/machine stripping).
+ */
+function normalizeLibraryEntryForMapKey(input: string): string {
+  let s = input.trim().toLowerCase().replace(/-/g, " ");
+  s = s.replace(/[\u2018\u2019\u201c\u201d]/g, "'");
+  s = s.replace(
+    /\(\s*(kettlebells?|kbs?|ez\s*bars?|straight\s*bars?|straight\s*bar|trap\s*bars?|trap\s*bar|cables?|ropes?|bands?|smith\s*machine|close\s*grips?)\s*\)/gi,
+    " ",
+  );
+  s = s.replace(/[,•]/g, " ");
+  s = s.replace(/[\s_-]+/g, " ");
+  return s.trim();
+}
+
+/**
+ * Aggressive normalization for **logged** exercise names (`resolveCatalogExerciseIdByName`).
+ * Strips brands/machine noise → curly quotes → listed parenthetical equipment tags → collapse whitespace.
+ */
+export function normalizeExerciseNameForCatalogLookup(input: string): string {
+  let s = applyDeterministicLegacyTypoRewrites(input.trim());
+  s = stripGymBrandAndDescriptorNoise(s);
+  s = s.replace(/[\u2018\u2019\u201c\u201d]/g, "'");
+  // Strip parenthetical equipment/modifier tags users append to logged names (does not strip (barbell)/(dumbbell) etc.)
+  s = s.replace(
+    /\(\s*(kettlebells?|kbs?|ez\s*bars?|straight\s*bars?|straight\s*bar|trap\s*bars?|trap\s*bar|cables?|ropes?|bands?|smith\s*machine|close\s*grips?)\s*\)/gi,
+    " ",
+  );
+  s = s.replace(/\(\s*\)/g, " ");
+  s = s.replace(/\b(bicep|biceps)\s+curls\b/gi, "$1 curl");
+  s = s.replace(/\bhamstring curls\b/gi, "hamstring curl");
+  s = s.replace(/\bsitting\b/g, "seated");
+  s = s.replace(/[,•]/g, " ");
+  s = s.replace(/[\s_-]+/g, " ");
+  return s.trim();
 }
 
 const CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME: ReadonlyMap<string, string> = (() => {
   const out = new Map<string, string>();
+  const addAllKeysForLabel = (label: string, exerciseId: string): void => {
+    const conservative = normalizeLibraryEntryForMapKey(label);
+    const aggressive = normalizeExerciseNameForCatalogLookup(label);
+    for (const k of [conservative, aggressive]) {
+      if (k.length === 0) continue;
+      if (!out.has(k)) out.set(k, exerciseId);
+    }
+  };
   for (const entry of EXERCISE_LIBRARY_V1) {
-    out.set(normalizeLookupName(entry.name), entry.exerciseId);
+    addAllKeysForLabel(entry.name, entry.exerciseId);
     for (const alias of entry.aliases) {
-      out.set(normalizeLookupName(alias), entry.exerciseId);
+      addAllKeysForLabel(alias, entry.exerciseId);
     }
   }
   return out;
@@ -197,9 +404,27 @@ const CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME: ReadonlyMap<string, string> = (() 
 
 /** Best-effort canonical catalog id lookup from free-text custom exercise name. */
 export function resolveCatalogExerciseIdByName(name: string): string | null {
-  const keyName = normalizeLookupName(name);
-  if (keyName.length === 0) return null;
-  return CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME.get(keyName) ?? null;
+  const kAgg = normalizeExerciseNameForCatalogLookup(name);
+  const kLib = normalizeLibraryEntryForMapKey(name);
+  const keyForRedirect = kAgg.length > 0 ? kAgg : kLib;
+  return (
+    (kAgg.length > 0 ? CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME.get(kAgg) : null) ??
+    (kLib.length > 0 ? CATALOG_EXERCISE_ID_BY_NORMALIZED_NAME.get(kLib) : null) ??
+    (keyForRedirect.length > 0 ? resolveDeterministicMovementRedirect(keyForRedirect) : null)
+  );
+}
+
+/** Name or optional aliases → bundled catalog id (full library, including archived/retired). */
+export function resolveCatalogExerciseIdFromCustomRecord(row: CustomExerciseRecord): string | null {
+  const fromName = resolveCatalogExerciseIdByName(row.name);
+  if (fromName != null) return fromName;
+  const aliases = row.aliases;
+  if (aliases == null) return null;
+  for (const alias of aliases) {
+    const hit = resolveCatalogExerciseIdByName(alias);
+    if (hit != null) return hit;
+  }
+  return null;
 }
 
 function fallbackMuscleGroupFromPrimaryBucket(primary: PrimaryBucket | "Other"): MuscleGroup | null {
@@ -219,6 +444,10 @@ function fallbackMuscleGroupFromPrimaryBucket(primary: PrimaryBucket | "Other"):
  * 2) fallback to explicit custom `primary` bucket when it maps 1:1 to a top-level group
  */
 export function resolveCustomExercisePrimaryMuscleGroup(row: CustomExerciseRecord): MuscleGroup | null {
+  if (row.muscleContributions != null && validateMuscleContributions(row.muscleContributions)) {
+    const g = getPrimaryMuscleGroupsFromContributionList(row.muscleContributions)[0];
+    if (g != null) return g;
+  }
   const catalogExerciseId = resolveCatalogExerciseIdByName(row.name);
   if (catalogExerciseId != null) {
     const primary = getPrimaryMuscleGroupForExercise(catalogExerciseId);

@@ -32,6 +32,7 @@ async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: 
   // Keep accountDeletion here to clean up any legacy docs from earlier versions.
   const collections = [
     "profile",
+    "exerciseDefinitions",
     "rawEvents",
     "rawEventIngestSuppressions",
     "events",

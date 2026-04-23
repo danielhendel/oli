@@ -6,7 +6,16 @@ import {
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { addCalendarDaysToDayKey, enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
 import { deriveWorkoutDayKey } from "@/lib/data/workouts/workoutsCalendarDayKey";
-import { parseWorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import {
+  createEmptyStrengthTaxonomyMaps,
+  mergeManualExercisesIntoStrengthTaxonomyMaps,
+  serializeStrengthTaxonomyMaps,
+  type StrengthTaxonomySerialized,
+} from "@/lib/data/workouts/strengthTaxonomySummaryAggregate";
+import {
+  parseStrengthIngestExercisesFromPayload,
+  parseWorkoutHistoryItem,
+} from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
   sessionMatchesOverviewCardioTab,
@@ -29,6 +38,7 @@ export type WorkoutMonthSummaryPayload = {
   strengthDurationCountCapped: number;
   cardioDurationSumCapped: number;
   cardioDurationCountCapped: number;
+  strengthTaxonomy?: StrengthTaxonomySerialized;
 };
 
 function monthFirstAndLastDayKeys(monthKey: string): { first: DayKey; last: DayKey } {
@@ -53,6 +63,28 @@ export function observedIsoWindowForMonthKeys(monthKey: string): { startIso: str
     startIso: `${startDay}T00:00:00.000Z`,
     endIso: `${endDay}T23:59:59.999Z`,
   };
+}
+
+function mergeStrengthTaxonomyFromRawDocsForMonth(
+  monthKey: string,
+  rawDocs: RawEventDoc[],
+): StrengthTaxonomySerialized | undefined {
+  const { first, last } = monthFirstAndLastDayKeys(monthKey);
+  const maps = createEmptyStrengthTaxonomyMaps();
+  for (const doc of rawDocs) {
+    if (doc.kind !== "strength_workout") continue;
+    const dk = deriveWorkoutDayKey(doc);
+    if (dk == null || dk < first || dk > last) continue;
+    const payloadRaw = doc.payload;
+    const payload = payloadRaw != null && typeof payloadRaw === "object" && !Array.isArray(payloadRaw)
+      ? (payloadRaw as Record<string, unknown>)
+      : null;
+    if (payload == null) continue;
+    const exercises = parseStrengthIngestExercisesFromPayload(doc.id, payload);
+    if (exercises == null || exercises.length === 0) continue;
+    mergeManualExercisesIntoStrengthTaxonomyMaps(maps, exercises, undefined);
+  }
+  return serializeStrengthTaxonomyMaps(maps) ?? undefined;
 }
 
 function groupWorkoutRawByUiDay(rawDocs: RawEventDoc[]): Map<DayKey, RawEventDoc[]> {
@@ -127,6 +159,8 @@ export function computeWorkoutMonthSummaryPayload(
     }
   }
 
+  const strengthTaxonomy = mergeStrengthTaxonomyFromRawDocsForMonth(monthKey, rawDocs);
+
   return {
     schemaVersion: WORKOUT_MONTH_SUMMARY_SCHEMA_VERSION,
     monthKey,
@@ -140,5 +174,6 @@ export function computeWorkoutMonthSummaryPayload(
     strengthDurationCountCapped,
     cardioDurationSumCapped,
     cardioDurationCountCapped,
+    ...(strengthTaxonomy != null ? { strengthTaxonomy } : {}),
   };
 }

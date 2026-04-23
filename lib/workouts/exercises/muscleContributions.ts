@@ -163,9 +163,11 @@ export function getExerciseMuscleContributions(
   return EXERCISE_MUSCLE_CONTRIBUTIONS_BY_ID[exerciseId] ?? null;
 }
 
-export function getPrimaryMuscleGroupsForExercise(exerciseId: string): MuscleGroup[] {
-  const contributions = getExerciseMuscleContributions(exerciseId);
-  if (!contributions || contributions.length === 0) return [];
+/** Top-level muscle groups ordered by summed contribution weight (ties broken by group name). */
+export function getPrimaryMuscleGroupsFromContributionList(
+  contributions: readonly MuscleContribution[],
+): MuscleGroup[] {
+  if (contributions.length === 0) return [];
   const byGroup = new Map<MuscleGroup, number>();
   for (const entry of contributions) {
     const group = getMuscleGroupForSubgroup(entry.subgroup);
@@ -177,6 +179,12 @@ export function getPrimaryMuscleGroupsForExercise(exerciseId: string): MuscleGro
       return a[0].localeCompare(b[0]);
     })
     .map(([group]) => group);
+}
+
+export function getPrimaryMuscleGroupsForExercise(exerciseId: string): MuscleGroup[] {
+  const contributions = getExerciseMuscleContributions(exerciseId);
+  if (!contributions || contributions.length === 0) return [];
+  return getPrimaryMuscleGroupsFromContributionList(contributions);
 }
 
 function fallbackPrimaryGroupFromLibraryBucket(exerciseId: string): MuscleGroup | null {
