@@ -1,5 +1,7 @@
 // app/_layout.tsx
+import "react-native-gesture-handler";
 import React, { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
@@ -43,27 +45,29 @@ function RouteGuard() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <PreferencesProvider>
-        <UserProfileMainProvider>
-          <StatusBar style="auto" />
-          <AppleHealthForcedYesterdayFinalizeRunner />
-          <RouteGuard />
-          <Stack screenOptions={{ headerShown: false }}>
-            {/* Auth flow */}
-            <Stack.Screen name="(auth)" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <PreferencesProvider>
+          <UserProfileMainProvider>
+            <StatusBar style="auto" />
+            <AppleHealthForcedYesterdayFinalizeRunner />
+            <RouteGuard />
+            <Stack screenOptions={{ headerShown: false }}>
+              {/* Auth flow */}
+              <Stack.Screen name="(auth)" />
 
-            {/* Product shell */}
-            <Stack.Screen name="(app)" />
+              {/* Product shell */}
+              <Stack.Screen name="(app)" />
 
-            {/* Root index exists (can be used for deep-links / legacy) */}
-            <Stack.Screen name="index" />
+              {/* Root index exists (can be used for deep-links / legacy) */}
+              <Stack.Screen name="index" />
 
-            {/* Debug area — development only */}
-            {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
-          </Stack>
-        </UserProfileMainProvider>
-      </PreferencesProvider>
-    </AuthProvider>
+              {/* Debug area — development only */}
+              {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
+            </Stack>
+          </UserProfileMainProvider>
+        </PreferencesProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

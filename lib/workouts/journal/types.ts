@@ -64,6 +64,9 @@ export const workoutExerciseAddedSchema = baseWorkoutEventSchema.extend({
     exerciseId: z.string().min(1),
     position: z.number().int().nonnegative(),
     note: z.string().max(2000).optional(),
+    /** Snapshot URLs when adding (e.g. from merged custom definition). Log UI still resolves latest by exerciseId. */
+    imageUrl: z.string().max(4096).optional(),
+    videoUrl: z.string().max(4096).optional(),
   }),
 });
 export type WorkoutExerciseAdded = z.infer<typeof workoutExerciseAddedSchema>;
@@ -208,6 +211,9 @@ export type ReducedSessionV1 = {
     exerciseId: string;
     position: number;
     removed: boolean;
+    /** From `workout_exercise_added` snapshot when present (optional for older journals). */
+    imageUrl?: string;
+    videoUrl?: string;
     sets: {
       setId: string;
       ordinal: number;

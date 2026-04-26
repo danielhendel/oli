@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { Equipment, PrimaryBucket } from "@/lib/workouts/exercises/taxonomy";
 import { createExerciseDefinition } from "@/lib/api/exerciseDefinitions";
@@ -11,6 +11,11 @@ import {
   type CustomExerciseLoggingType,
 } from "@/lib/workouts/exercises/customExerciseStore";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  WORKOUT_LOGGER_COLORS,
+  WORKOUT_LOGGER_LAYOUT,
+  workoutLoggerTypography,
+} from "@/lib/workouts/ui/workoutLoggerTheme";
 
 const EQUIPMENT_OPTIONS: Equipment[] = [
   "Barbell",
@@ -60,8 +65,7 @@ export default function CreateExerciseScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      ...workoutsStackNavigationOptions("task"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -138,131 +142,183 @@ export default function CreateExerciseScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.card}>
-        <Text style={styles.title}>Create exercise</Text>
-        <Text style={styles.subtitle}>Create it now and add it directly to this workout.</Text>
-
-        <Text style={styles.label}>Exercise name</Text>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Leg Press Wide Stance"
-          style={styles.input}
-          accessibilityLabel="Exercise name"
-          autoCapitalize="words"
-          autoCorrect={false}
-          returnKeyType="done"
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={styles.screen}>
+        <WorkoutsNavBar
+          hideTitle
+          surface="flush"
+          contentPaddingHorizontal={16}
+          rowMinHeight={56}
+          leftColumnWidth={56}
+          backButtonSize="large"
+          onBackPress={() => router.back()}
         />
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.pageTitle}>Create exercise</Text>
+          <Text style={styles.pageSubtitle}>Create it now and add it directly to this workout.</Text>
 
-        <Text style={styles.label}>Equipment type</Text>
-        <View style={styles.chipRow}>
-          {EQUIPMENT_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt}
-              onPress={() => setEquipment(opt)}
-              style={[styles.chip, equipment === opt && styles.chipSelected]}
-              accessibilityRole="button"
-              accessibilityLabel={`Equipment ${opt}`}
-            >
-              <Text style={[styles.chipText, equipment === opt && styles.chipTextSelected]}>{opt}</Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={styles.section} testID="exercise-create-section-name">
+            <Text style={styles.sectionLabel}>Exercise name</Text>
+            <Text style={styles.fieldLabel}>Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Leg Press Wide Stance"
+              placeholderTextColor={WORKOUT_LOGGER_COLORS.textSecondary}
+              style={styles.input}
+              accessibilityLabel="Exercise name"
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+          </View>
 
-        <Text style={styles.label}>Primary muscle group</Text>
-        <View style={styles.chipRow}>
-          {PRIMARY_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt}
-              onPress={() => setPrimary(opt)}
-              style={[styles.chip, primary === opt && styles.chipSelected]}
-              accessibilityRole="button"
-              accessibilityLabel={`Primary muscle ${opt}`}
-            >
-              <Text style={[styles.chipText, primary === opt && styles.chipTextSelected]}>{opt}</Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Equipment</Text>
+            <Text style={styles.fieldLabel}>Type</Text>
+            <View style={styles.chipRow}>
+              {EQUIPMENT_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => setEquipment(opt)}
+                  style={[styles.chip, equipment === opt && styles.chipSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Equipment ${opt}`}
+                >
+                  <Text style={[styles.chipText, equipment === opt && styles.chipTextSelected]}>{opt}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
-        <Text style={styles.label}>Logging type</Text>
-        <View style={styles.chipRow}>
-          {LOGGING_TYPE_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => setLoggingType(opt.value)}
-              style={[styles.chip, loggingType === opt.value && styles.chipSelected]}
-              accessibilityRole="button"
-              accessibilityLabel={`Logging type ${opt.label}`}
-            >
-              <Text style={[styles.chipText, loggingType === opt.value && styles.chipTextSelected]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Primary muscle</Text>
+            <Text style={styles.fieldLabel}>Target</Text>
+            <View style={styles.chipRow}>
+              {PRIMARY_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => setPrimary(opt)}
+                  style={[styles.chip, primary === opt && styles.chipSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Primary muscle ${opt}`}
+                >
+                  <Text style={[styles.chipText, primary === opt && styles.chipTextSelected]}>{opt}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Logging</Text>
+            <Text style={styles.fieldLabel}>Type</Text>
+            <View style={styles.chipRow}>
+              {LOGGING_TYPE_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setLoggingType(opt.value)}
+                  style={[styles.chip, loggingType === opt.value && styles.chipSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Logging type ${opt.label}`}
+                >
+                  <Text style={[styles.chipText, loggingType === opt.value && styles.chipTextSelected]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
-        <Pressable
-          onPress={() => void onSave()}
-          disabled={!canSave}
-          style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-          accessibilityRole="button"
-          accessibilityLabel="Save exercise"
-        >
-          <Text style={styles.saveButtonText}>{status === "saving" ? "Saving..." : "Save exercise"}</Text>
-        </Pressable>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <Pressable
+            onPress={() => void onSave()}
+            disabled={!canSave}
+            style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+            accessibilityRole="button"
+            accessibilityLabel="Save exercise"
+          >
+            <Text style={styles.saveButtonText}>{status === "saving" ? "Saving..." : "Save exercise"}</Text>
+          </Pressable>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+  },
+  screen: {
+    flex: 1,
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+  },
   content: {
     flexGrow: 1,
-    backgroundColor: "#F2F2F7",
-    padding: 16,
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+    paddingHorizontal: 16,
+    paddingTop: 10,
     paddingBottom: 28,
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+    letterSpacing: -0.4,
   },
-  title: { fontSize: 24, fontWeight: "800", color: "#1C1C1E" },
-  subtitle: { fontSize: 14, color: "#6E6E73", marginBottom: 8 },
-  label: { fontSize: 13, fontWeight: "700", color: "#3A3A3C", marginTop: 4 },
+  pageSubtitle: {
+    ...workoutLoggerTypography.optionDescription,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    ...workoutLoggerTypography.sectionEyebrow,
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+    marginBottom: 8,
+  },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#C6C6C8",
-    borderRadius: 10,
+    borderColor: "rgba(60, 60, 67, 0.2)",
+    borderRadius: WORKOUT_LOGGER_LAYOUT.cancelOutlineRadius,
     backgroundColor: "#FFFFFF",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     fontSize: 16,
-    color: "#1C1C1E",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    backgroundColor: "#E5E5EA",
-    borderRadius: 16,
+    backgroundColor: "rgba(60, 60, 67, 0.08)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.1)",
+    borderRadius: 18,
     paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
   chipSelected: { backgroundColor: SYSTEM_ACCENT },
-  chipText: { fontSize: 13, fontWeight: "600", color: "#1C1C1E" },
+  chipText: { fontSize: 15, fontWeight: "500", color: WORKOUT_LOGGER_COLORS.textPrimary, letterSpacing: -0.2 },
   chipTextSelected: { color: "#FFFFFF" },
-  error: { color: "#B00020", fontSize: 13, fontWeight: "600", marginTop: 4 },
+  error: { color: "#B00020", fontSize: 13, fontWeight: "600", marginTop: 4, marginBottom: 6 },
   saveButton: {
-    marginTop: 10,
+    marginTop: 6,
     backgroundColor: SYSTEM_ACCENT,
-    borderRadius: 12,
+    borderRadius: WORKOUT_LOGGER_LAYOUT.cancelOutlineRadius,
     minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   saveButtonDisabled: { opacity: 0.45 },
-  saveButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  saveButtonText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700", letterSpacing: -0.22 },
 });

@@ -345,7 +345,14 @@ export async function removeBlock(
 export async function addExercise(
   uid: string,
   sessionId: string,
-  params: { exerciseId: string; position: number; slotId?: string; blockId?: string },
+  params: {
+    exerciseId: string;
+    position: number;
+    slotId?: string;
+    blockId?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+  },
   deps?: Partial<SessionEngineDeps>,
 ): Promise<{ slotId: string }> {
   assertNonEmpty("uid", uid);
@@ -360,17 +367,30 @@ export async function addExercise(
 
   const d = resolveDeps(deps);
   const slotId = params.slotId ?? d.makeId("slot");
+  const payload: {
+    slotId: string;
+    exerciseId: string;
+    position: number;
+    blockId?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+  } = {
+    slotId,
+    exerciseId: params.exerciseId,
+    position: Math.floor(params.position),
+    ...(params.blockId != null ? { blockId: params.blockId } : {}),
+  };
+  const iu = typeof params.imageUrl === "string" ? params.imageUrl.trim() : "";
+  const vu = typeof params.videoUrl === "string" ? params.videoUrl.trim() : "";
+  if (iu.length > 0) payload.imageUrl = iu;
+  if (vu.length > 0) payload.videoUrl = vu;
+
   const ev = mkBaseEvent({
     uid,
     sessionId,
     deps: d,
     kind: "workout_exercise_added",
-    payload: {
-      slotId,
-      exerciseId: params.exerciseId,
-      position: Math.floor(params.position),
-      blockId: params.blockId,
-    },
+    payload,
     idempotencyKey: `session:addExercise:${sessionId}:${slotId}`,
   });
   await appendWorkoutJournalEvent(uid, sessionId, ev);

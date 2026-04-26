@@ -338,6 +338,8 @@ describe("workouts/exercise-edit", () => {
         movementPattern: "push",
         stability: "free",
         laterality: "bilateral",
+        imageUrl: "https://example.com/i.jpg",
+        videoUrl: "",
       }),
     );
     expect(mockUpdateCustomExercise).toHaveBeenCalled();
@@ -371,6 +373,13 @@ describe("workouts/exercise-edit", () => {
     expect(mockUploadExerciseDefinitionMediaFile).toHaveBeenCalled();
     const tree = JSON.stringify(test!.toJSON());
     expect(tree).toContain("https://firebasestorage.example");
+    expect(mockUpdateCustomExercise).toHaveBeenCalledWith(
+      "u1",
+      "custom_u1_landmine",
+      expect.objectContaining({
+        imageUrl: "https://firebasestorage.example/o/new.png?alt=media&token=abc",
+      }),
+    );
   });
 
   it("choosing library video uploads and updates stored video URL in UI", async () => {
@@ -405,6 +414,13 @@ describe("workouts/exercise-edit", () => {
       }),
     );
     expect(JSON.stringify(test!.toJSON())).toContain("Image · Video");
+    expect(mockUpdateCustomExercise).toHaveBeenCalledWith(
+      "u1",
+      "custom_u1_landmine",
+      expect.objectContaining({
+        videoUrl: "https://firebasestorage.example/o/vid.mp4?alt=media&token=vid",
+      }),
+    );
   });
 
   it("remove image then Save changes persists cleared imageUrl", async () => {

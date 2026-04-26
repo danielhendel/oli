@@ -40,7 +40,6 @@ import {
   type MuscleContribution,
 } from "@/lib/workouts/exercises/taxonomy";
 import type { MovementPattern } from "@/lib/workouts/exercises/metadata";
-import { uploadExerciseDefinitionMediaFile } from "@/lib/api/exerciseDefinitionMedia";
 import { updateExerciseDefinition } from "@/lib/api/exerciseDefinitions";
 import {
   updateCustomExercise,
@@ -52,9 +51,9 @@ import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeC
 import {
   captureExerciseMediaWithCamera,
   pickExerciseMediaFromLibrary,
-  readLocalUriAsBase64,
   type ExerciseMediaSlot,
 } from "@/lib/workouts/exercises/pickExerciseMedia";
+import { uploadExerciseDefinitionSlotMediaFromPick } from "@/lib/workouts/exercises/uploadExerciseDefinitionSlotMediaFromPick";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
@@ -523,20 +522,19 @@ export default function EditExerciseScreen() {
           mimeType: picked.mimeType,
           filename: picked.filename,
         });
-        const b64 = await readLocalUriAsBase64(picked.uri);
-        const token = await getIdToken(false);
-        if (!token) throw new Error("Sign in required to upload.");
-        // Upload diagnostics: structured logs with prefix [exercise-media-debug] in lib/api/exerciseDefinitionMedia.ts
-        const res = await uploadExerciseDefinitionMediaFile(token, exerciseId, {
-          slot,
-          fileBase64: b64,
-          mimeType: picked.mimeType,
-          filename: picked.filename,
-        });
-        if (!res.ok) throw new Error(res.error ?? "Upload failed.");
-        if (slot === "image") setImageUrl(res.json.url);
-        else setVideoUrl(res.json.url);
-        console.info("[exercise-media] upload finish", { slot, url: res.json.url });
+        const url = await uploadExerciseDefinitionSlotMediaFromPick(exerciseId, slot, picked, getIdToken);
+        if (slot === "image") setImageUrl(url);
+        else setVideoUrl(url);
+        if (user?.uid) {
+          const mediaPatch: CustomExerciseUpdatePatch =
+            slot === "image" ? { imageUrl: url } : { videoUrl: url };
+          try {
+            await updateCustomExercise(user.uid, exerciseId, mediaPatch);
+          } catch {
+            // Local cache only; Save changes still syncs to API. Picker may lag until Save if this fails.
+          }
+        }
+        console.info("[exercise-media] upload finish", { slot, url });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "Upload failed.";
         console.error("[exercise-media] upload failed", { slot, message });
@@ -546,7 +544,7 @@ export default function EditExerciseScreen() {
         setBusy(false);
       }
     },
-    [exerciseId, getIdToken],
+    [exerciseId, getIdToken, user?.uid],
   );
 
   const pickAndUploadMedia = useCallback(

@@ -13,6 +13,7 @@ import {
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import type { RequestWithRid } from "../lib/logger";
+import { requireFirebaseStorageBucketId } from "../lib/firebaseStorageBucketId";
 import { logger } from "../lib/logger";
 import { userCollection } from "../db";
 import { admin } from "../firebaseAdmin";
@@ -78,14 +79,6 @@ function jsonError(
     },
   });
 }
-
-const requireStorageBucket = (): string => {
-  const bucket = (process.env.FIREBASE_STORAGE_BUCKET ?? "").trim();
-  if (!bucket) {
-    throw new Error("Missing FIREBASE_STORAGE_BUCKET env var");
-  }
-  return bucket;
-};
 
 function safeExerciseMediaFilename(name: string): string {
   return name.replace(/[/\\]/g, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "upload.bin";
@@ -193,7 +186,7 @@ router.post(
 
     let bucket: string;
     try {
-      bucket = requireStorageBucket();
+      bucket = requireFirebaseStorageBucketId();
     } catch (err: unknown) {
       const internal = err instanceof Error ? err.message : String(err);
       emitMediaDiag(req, "storage_bucket_missing", { internal });

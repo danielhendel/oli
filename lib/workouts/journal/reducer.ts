@@ -12,6 +12,9 @@ type ExerciseSlotState = {
   exerciseId: string;
   position: number;
   removed: boolean;
+  /** Snapshot from last `workout_exercise_added` for this slot (optional). */
+  mediaImageUrl?: string;
+  mediaVideoUrl?: string;
   // base set logs by setId
   setsById: Map<string, StrengthSetLogged>;
   // corrections by setId (last write wins, deterministically by sorted order)
@@ -127,6 +130,16 @@ export function reduceWorkoutSessionV1(events: WorkoutEventV1[]): ReducedSession
         next.position = e.payload.position;
         next.removed = false;
         next.blockId = e.payload.blockId ?? null;
+        if (e.payload.imageUrl !== undefined) {
+          const t = typeof e.payload.imageUrl === "string" ? e.payload.imageUrl.trim() : "";
+          if (t.length > 0) next.mediaImageUrl = t;
+          else delete next.mediaImageUrl;
+        }
+        if (e.payload.videoUrl !== undefined) {
+          const t = typeof e.payload.videoUrl === "string" ? e.payload.videoUrl.trim() : "";
+          if (t.length > 0) next.mediaVideoUrl = t;
+          else delete next.mediaVideoUrl;
+        }
         slots.set(next.slotId, next);
         break;
       }
@@ -223,6 +236,8 @@ export function reduceWorkoutSessionV1(events: WorkoutEventV1[]): ReducedSession
         exerciseId: s.exerciseId,
         position: s.position,
         removed: s.removed,
+        ...(s.mediaImageUrl != null && s.mediaImageUrl.length > 0 ? { imageUrl: s.mediaImageUrl } : {}),
+        ...(s.mediaVideoUrl != null && s.mediaVideoUrl.length > 0 ? { videoUrl: s.mediaVideoUrl } : {}),
         sets,
       };
     });

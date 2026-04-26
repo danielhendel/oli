@@ -48,11 +48,10 @@ jest.mock("react-native", () => {
     Image: "Image",
     StyleSheet: { create: (s: unknown) => s },
     Animated: {
-      View: "Animated.View",
+      View: RN.Animated.View,
       Value: RN.Animated.Value,
-      spring: jest.fn(() => ({ start: jest.fn() })),
+      spring: RN.Animated.spring,
     },
-    PanResponder: { create: jest.fn(() => ({ panHandlers: {} })) },
     Modal: "Modal",
     Platform: RN.Platform ?? { OS: "ios" },
     UIManager: RN.UIManager ?? {},
@@ -61,19 +60,68 @@ jest.mock("react-native", () => {
   };
 });
 
+jest.mock("react-native-gesture-handler", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const Swipeable = React.forwardRef(
+    (
+      {
+        children,
+        renderRightActions,
+      }: { children?: React.ReactNode; renderRightActions?: () => React.ReactNode },
+      ref: unknown,
+    ) => {
+    const [rightOpen, setRightOpen] = React.useState(false);
+    React.useImperativeHandle(ref, () => ({
+      close: () => setRightOpen(false),
+      openRight: () => setRightOpen(true),
+      openLeft: jest.fn(),
+    }));
+    const right = rightOpen && renderRightActions ? renderRightActions() : null;
+    return React.createElement(
+      View,
+      null,
+      React.createElement(
+        View,
+        { style: { flexDirection: "row" } },
+        React.createElement(View, { style: { flex: 1 } }, children),
+        right,
+      ),
+    );
+  }
+  );
+  const GestureHandlerRootView = ({
+    children,
+    style,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    style?: unknown;
+  }) => React.createElement(View, { style: [{ flex: 1 }, style], ...rest }, children);
+  return { GestureHandlerRootView, Swipeable };
+});
+
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockRouterDismissTo = jest.fn();
 let mockLogSearchParams: Record<string, string> = {};
-jest.mock("expo-router", () => ({
-  useRouter: () => ({
-    push: mockRouterPush,
-    replace: mockRouterReplace,
-    dismissTo: mockRouterDismissTo,
-    back: jest.fn(),
-  }),
-  useLocalSearchParams: () => mockLogSearchParams,
-}));
+jest.mock("expo-router", () => {
+  const React = require("react");
+  return {
+    useRouter: () => ({
+      push: mockRouterPush,
+      replace: mockRouterReplace,
+      dismissTo: mockRouterDismissTo,
+      back: jest.fn(),
+    }),
+    useLocalSearchParams: () => mockLogSearchParams,
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      React.useEffect(() => {
+        return callback();
+      }, []);
+    },
+  };
+});
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -118,6 +166,10 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
       mockSelectedGymId = id;
     }),
   }),
+}));
+
+jest.mock("@/lib/workouts/exercises/mergeCustomExerciseSources", () => ({
+  listMergedCustomExerciseRecords: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("@/lib/workouts/sessionEngine/commands", () => ({
@@ -230,6 +282,7 @@ jest.mock("@/lib/workouts/restTimer", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock("@expo/vector-icons", () => ({
@@ -261,6 +314,13 @@ function findByA11yLabel(
     (n) => typeof n.props?.accessibilityLabel === "string" && n.props.accessibilityLabel === label,
   );
   return nodes[0] ?? null;
+}
+
+function flattenResolvedStyle(style: unknown): Record<string, unknown> {
+  const { StyleSheet } = jest.requireActual<typeof import("react-native")>("react-native");
+  const resolved = typeof style === "function" ? (style as (a: { pressed: boolean }) => unknown)({ pressed: false }) : style;
+  const out = StyleSheet.flatten(resolved as Parameters<typeof StyleSheet.flatten>[0]);
+  return (out ?? {}) as Record<string, unknown>;
 }
 
 function findByA11yLabelPrefix(
@@ -565,6 +625,33 @@ describe("workouts/log session UI", () => {
     expect(addBlockBtn).not.toBeNull();
   });
 
+  it("empty state is inline on page background with compact first-block CTA", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [];
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const empty = test!.root.findByProps({ testID: "workout-log-empty-state" });
+    expect(empty).toBeTruthy();
+    const emptyFlat = flattenResolvedStyle(empty.props.style);
+    expect(emptyFlat.backgroundColor).not.toBe("#FFFFFF");
+    expect(test!.root.findByProps({ testID: "workout-log-empty-add-block" })).toBeTruthy();
+    const tree = test!.toJSON();
+    const s = tree ? JSON.stringify(tree) : "";
+    expect(s).toContain("Start your workout");
+    expect(s).toContain("Add your first block");
+    const firstBlockCta = test!.root.findByProps({ testID: "workout-log-empty-add-block" });
+    act(() => {
+      firstBlockCta.props.onPress();
+    });
+    expect(test!.root.findByProps({ testID: "workout-log-add-block-sheet" })).toBeTruthy();
+  });
+
   it("Add block opens modal with block type options", async () => {
     mockActiveSessionId = "s1";
     act(() => {
@@ -615,7 +702,7 @@ describe("workouts/log session UI", () => {
     expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
-  it("when a block exists, Add exercise Sets button is shown", async () => {
+  it("when a block exists, block header shows label only (no inline add exercise control)", async () => {
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockActiveSessionId = "s1";
     act(() => {
@@ -626,8 +713,9 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const addExerciseSets = findByA11yLabel(test!.root, "Add exercise Sets");
-    expect(addExerciseSets).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Add exercise Sets")).toBeNull();
+    expect(findByA11yLabel(test!.root, "Block options SETS")).not.toBeNull();
+    expect(test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" })).toBeTruthy();
   });
 
   it("navigation to exercise picker includes workout-flow gym when gym was selected on Start Workout", async () => {
@@ -650,10 +738,9 @@ describe("workouts/log session UI", () => {
     });
     await flushEventLoop();
     await flushEventLoop();
-    const addExerciseSets = findByA11yLabel(test!.root, "Add exercise Sets");
-    expect(addExerciseSets).not.toBeNull();
+    const bottomAddExercise = test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" });
     act(() => {
-      addExerciseSets!.props.onPress();
+      bottomAddExercise.props.onPress();
     });
     expect(mockRouterPush).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1003,6 +1090,170 @@ describe("workouts/log session UI", () => {
     const str = tree ? JSON.stringify(tree) : "";
     expect(str).toContain("+ Set");
     expect(str).toContain("History");
+  });
+
+  it("expanded exercise formats large set volume with grouping (e.g. 2,700)", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [
+          {
+            setId: "set1",
+            ordinal: 1,
+            reps: 10,
+            loadKg: 122.47,
+            rpe: 8,
+            tempo: null,
+            isWarmup: false,
+            note: null,
+            occurredAt: "2026-03-01T10:00:00.000Z",
+          },
+        ],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const tree = test!.toJSON();
+    const str = tree ? JSON.stringify(tree) : "";
+    expect(str).toContain("2,700");
+  });
+
+  it("+ Set and History use compact pill affordances", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const addSetBtn = findByA11yLabel(test!.root, "Add draft set");
+    const historyBtn = findByA11yLabel(test!.root, "Exercise history");
+    expect(addSetBtn).not.toBeNull();
+    expect(historyBtn).not.toBeNull();
+    const addFlat = flattenResolvedStyle(addSetBtn!.props.style);
+    expect(addFlat.borderRadius).toBe(20);
+    expect(addFlat.height).toBe(38);
+    const histFlat = flattenResolvedStyle(historyBtn!.props.style);
+    expect(histFlat.borderRadius).toBe(20);
+    expect(histFlat.height).toBe(38);
+  });
+
+  it("+ Set and History labels use secondary gray (not red)", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { WORKOUT_LOGGER_COLORS } = require("@/lib/workouts/ui/workoutLoggerTheme");
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const pillLabels = test!.root.findAll(
+      (n) => n.type === "Text" && (n.props.children === "+ Set" || n.props.children === "History"),
+    );
+    expect(pillLabels.length).toBeGreaterThanOrEqual(2);
+    for (const node of pillLabels) {
+      const c = flattenResolvedStyle(node.props.style).color;
+      expect(c).toBe(WORKOUT_LOGGER_COLORS.textSecondary);
+    }
+  });
+
+  it("expanded inline panel is neutral; selected block uses subtle system blue", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const blockWrap = test!.root.findAll(
+      (n) => n.props?.testID === "workout-log-block-wrap-block:sets:1",
+    )[0];
+    expect(blockWrap).toBeTruthy();
+    act(() => {
+      blockWrap.props.onPress();
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const inline = findByA11yLabel(test!.root, "Exercise logger inline slot1");
+    expect(inline).not.toBeNull();
+    const inlineFlat = flattenResolvedStyle(inline!.props.style);
+    expect(inlineFlat.borderColor).toBe("#E5E5EA");
+    const blockFlat = flattenResolvedStyle(blockWrap.props.style);
+    expect(blockFlat.borderColor).toBe("rgba(0, 122, 255, 0.4)");
+    expect(blockFlat.backgroundColor).toBe("rgba(0, 122, 255, 0.05)");
+  });
+
+  it("expanded exercise title uses shared workoutLoggerTypography exerciseInlineTitle", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { workoutLoggerTypography } = require("@/lib/workouts/ui/workoutLoggerTheme");
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      { slotId: "slot1", blockId: "block:sets:1", exerciseId: "bench_press", position: 0, removed: false, sets: [] },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const titleNode = test!.root.find(
+      (n) => n.type === "Text" && n.props.children === "Bench Press",
+    );
+    const tflat = flattenResolvedStyle(titleNode.props.style);
+    expect(tflat.fontSize).toBe(workoutLoggerTypography.exerciseInlineTitle.fontSize);
+    expect(tflat.fontWeight).toBe(workoutLoggerTypography.exerciseInlineTitle.fontWeight);
   });
 
   it("inline Last summary is not rendered; utility row has History and + Set", async () => {
@@ -1974,10 +2225,68 @@ describe("workouts/log session UI", () => {
     expect(setOptionsBtn).toBeNull();
     const editRepsBtn = findByA11yLabel(test!.root, "Edit set set1 reps");
     expect(editRepsBtn).not.toBeNull();
-    const deleteSetBtn = findByA11yLabel(test!.root, "Delete set set1");
-    expect(deleteSetBtn).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Delete set set1")).toBeNull();
+    const loggedRow = findByA11yLabel(test!.root, "Logged set row set1");
+    expect(loggedRow).not.toBeNull();
+    const rowStyle = flattenResolvedStyle(loggedRow!.props.style);
+    expect(rowStyle.backgroundColor).toBe("#F4F4F6");
     const tree = test!.toJSON();
     expect(tree && JSON.stringify(tree)).not.toMatch(/\bDone\b/);
+  });
+
+  it("swiping left reveals delete action and tapping it removes the set", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [
+      {
+        slotId: "slot1",
+        blockId: "block:sets:1",
+        exerciseId: "bench_press",
+        position: 0,
+        removed: false,
+        sets: [
+          {
+            setId: "set1",
+            ordinal: 1,
+            reps: 5,
+            loadKg: 100,
+            rpe: 8,
+            tempo: null,
+            isWarmup: false,
+            note: null,
+            occurredAt: "2026-03-01T10:00:00.000Z",
+          },
+        ],
+      },
+    ];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const openExerciseBtn = findByA11yLabel(test!.root, "Open exercise Bench Press");
+    act(() => {
+      openExerciseBtn!.props.onPress();
+    });
+    const loggedRow = findByA11yLabel(test!.root, "Logged set row set1");
+    expect(loggedRow).not.toBeNull();
+    act(() => {
+      loggedRow!.props.onAccessibilityAction?.({ nativeEvent: { actionName: "activate" } });
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const deleteSetBtn = findByA11yLabel(test!.root, "Delete set set1");
+    expect(deleteSetBtn).not.toBeNull();
+    const treeAfterSwipe = test!.toJSON();
+    const strAfterSwipe = treeAfterSwipe ? JSON.stringify(treeAfterSwipe) : "";
+    expect(strAfterSwipe).toContain("Delete");
+    act(() => {
+      deleteSetBtn!.props.onPress();
+    });
+    expect(commands.removeStrengthSet).toHaveBeenCalledWith("u1", "s1", "set1");
   });
 
   it("tapping completed set reps opens picker and selecting value calls correctStrengthSet", async () => {
@@ -2055,6 +2364,221 @@ describe("workouts/log session UI", () => {
     const finishBtn = findByA11yLabel(test!.root, "Finish workout");
     expect(finishBtn).not.toBeNull();
     expect(test!.root.findAll((n) => n.props?.testID === "workout-log-live-timer").length).toBeGreaterThan(0);
+  });
+
+  it("live workout bottom bar uses frosted wrap, grouped slots, shared icon chrome, and Finish not blue", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const wrap = test!.root.findByProps({ testID: "workout-log-bottom-toolbar-wrap" });
+    expect(wrap).toBeTruthy();
+    const wrapFlat = flattenResolvedStyle(wrap.props.style);
+    expect(wrapFlat.borderRadius).toBe(38);
+    expect(wrapFlat.backgroundColor).toBe("rgba(255, 255, 255, 0.56)");
+    expect(wrapFlat.borderWidth === undefined || wrapFlat.borderWidth === 0).toBe(true);
+    expect(test!.root.findByProps({ testID: "workout-log-bottom-command-bar" })).toBeTruthy();
+    expect(test!.root.findByProps({ testID: "workout-log-bottom-add-block" })).toBeTruthy();
+    const finish = test!.root.findByProps({ testID: "workout-log-bottom-finish" });
+    expect(finish).toBeTruthy();
+    const finishFlat = flattenResolvedStyle(finish.props.style);
+    expect(finishFlat.backgroundColor).not.toBe("#3A5BDB");
+    expect(test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" })).toBeTruthy();
+    const blockIcon = flattenResolvedStyle(
+      test!.root.findByProps({ testID: "workout-log-bottom-block-icon-wrap" }).props.style,
+    );
+    const finishIcon = flattenResolvedStyle(
+      test!.root.findByProps({ testID: "workout-log-bottom-finish-icon-wrap" }).props.style,
+    );
+    const exerciseIcon = flattenResolvedStyle(
+      test!.root.findByProps({ testID: "workout-log-bottom-exercise-icon-wrap" }).props.style,
+    );
+    expect(blockIcon.backgroundColor).toBe(finishIcon.backgroundColor);
+    expect(finishIcon.backgroundColor).toBe(exerciseIcon.backgroundColor);
+    expect(blockIcon.width).toBe(44);
+    expect(blockIcon.height).toBe(44);
+    expect(finishIcon.width).toBe(44);
+    const tree = test!.toJSON();
+    const s = tree ? JSON.stringify(tree) : "";
+    expect(s).toContain("Block");
+    expect(s).toContain("Exercise");
+    expect(s).toContain("Finish");
+  });
+
+  it("bottom Add exercise is disabled when there are no blocks", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [];
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const bottomEx = test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" });
+    expect(bottomEx.props.accessibilityState?.disabled).toBe(true);
+    const exFlat = flattenResolvedStyle(bottomEx.props.style);
+    expect(exFlat.opacity).toBe(0.45);
+    expect(test!.root.findByProps({ testID: "workout-log-bottom-exercise-icon-wrap" })).toBeTruthy();
+  });
+
+  it("add block sheet shows option cards with titles and descriptions", async () => {
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const addBlockBtn = findByA11yLabel(test!.root, "Add block");
+    expect(addBlockBtn).not.toBeNull();
+    act(() => {
+      addBlockBtn!.props.onPress();
+    });
+    expect(test!.root.findByProps({ testID: "workout-log-add-block-sheet" })).toBeTruthy();
+    const tree = test!.toJSON();
+    const s = tree ? JSON.stringify(tree) : "";
+    expect(s).toContain("Add a block");
+    expect(s).toContain("Classic strength blocks");
+    expect(s).toContain("Warm Up");
+  });
+
+  it("live header has back, centered workout timer text, and rest timer control on the right", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    expect(test!.root.findByProps({ testID: "workout-log-live-nav-back" })).toBeTruthy();
+    expect(test!.root.findAll((n) => n.props?.testID === "workout-log-live-timer").length).toBeGreaterThan(0);
+    expect(test!.root.findByProps({ testID: "workout-log-rest-timer-header" })).toBeTruthy();
+    expect(findByA11yLabel(test!.root, "Rest timer")).not.toBeNull();
+  });
+
+  it("bottom Add exercise uses last block when none is selected", async () => {
+    mockReduced.blocks = [
+      { blockId: "block:sets:1", blockType: "sets", position: 0, title: "A", removed: false },
+      { blockId: "block:warmup:1", blockType: "warmup", position: 1, title: "B", removed: false },
+    ];
+    mockActiveSessionId = "s1";
+    mockRouterPush.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const bottomAdd = test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" });
+    act(() => {
+      bottomAdd.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: "/(app)/workouts/exercise-picker",
+        params: expect.objectContaining({ sessionId: "s1", blockId: "block:warmup:1" }),
+      }),
+    );
+  });
+
+  it("shows compact empty-block hint when block is selected and has no exercises", async () => {
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [];
+    mockActiveSessionId = "s1";
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const selectBlock1 = findByA11yLabel(test!.root, "Select block 1");
+    expect(selectBlock1).not.toBeNull();
+    act(() => {
+      selectBlock1!.props.onPress();
+    });
+    const tree = test!.toJSON();
+    expect(tree && JSON.stringify(tree)).toContain("Add an exercise to this block");
+  });
+
+  it("tapping Select block then bottom Add exercise targets that block", async () => {
+    mockReduced.blocks = [
+      { blockId: "block:sets:1", blockType: "sets", position: 0, title: "A", removed: false },
+      { blockId: "block:warmup:1", blockType: "warmup", position: 1, title: "B", removed: false },
+    ];
+    mockActiveSessionId = "s1";
+    mockRouterPush.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const selectBlock1 = findByA11yLabel(test!.root, "Select block 1");
+    expect(selectBlock1).not.toBeNull();
+    act(() => {
+      selectBlock1!.props.onPress();
+    });
+    const bottomAdd = test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" });
+    act(() => {
+      bottomAdd.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: "/(app)/workouts/exercise-picker",
+        params: expect.objectContaining({ sessionId: "s1", blockId: "block:sets:1" }),
+      }),
+    );
+  });
+
+  it("tapping Select block 2 then bottom Add exercise targets the second block", async () => {
+    mockReduced.blocks = [
+      { blockId: "block:sets:1", blockType: "sets", position: 0, title: "A", removed: false },
+      { blockId: "block:warmup:1", blockType: "warmup", position: 1, title: "B", removed: false },
+    ];
+    mockActiveSessionId = "s1";
+    mockRouterPush.mockClear();
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      void 0;
+    });
+    const selectBlock2 = findByA11yLabel(test!.root, "Select block 2");
+    expect(selectBlock2).not.toBeNull();
+    act(() => {
+      selectBlock2!.props.onPress();
+    });
+    const bottomAdd = test!.root.findByProps({ testID: "workout-log-bottom-add-exercise" });
+    act(() => {
+      bottomAdd.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: "/(app)/workouts/exercise-picker",
+        params: expect.objectContaining({ sessionId: "s1", blockId: "block:warmup:1" }),
+      }),
+    );
   });
 
   it("backfill active session hides live timer and shows Add exercises header", async () => {
@@ -2290,13 +2814,15 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options Sets");
+    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options SETS");
     expect(blockOptionsBtn).not.toBeNull();
     act(() => {
       blockOptionsBtn!.props.onPress();
     });
     const sheetSub = findByA11yLabel(test!.root, "Block type Sets");
     expect(sheetSub).not.toBeNull();
+    expect(test!.root.findByProps({ testID: "workout-log-block-edit-sheet" })).toBeTruthy();
+    expect(test!.root.findByProps({ testID: "workout-log-block-edit-footer" })).toBeTruthy();
   });
 
   it("selecting block type calls updateBlock", async () => {
@@ -2311,7 +2837,7 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options Sets");
+    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options SETS");
     act(() => {
       blockOptionsBtn!.props.onPress();
     });
@@ -2345,7 +2871,7 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options Superset");
+    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options SUPERSET");
     expect(blockOptionsBtn).not.toBeNull();
     const titleNodes = test!.root.findAll(
       (n) => n.type === "Text" && n.props?.children === "SUPERSET",
@@ -2368,19 +2894,21 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options Sets");
+    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options SETS");
     act(() => {
       blockOptionsBtn!.props.onPress();
     });
+    expect(test!.root.findByProps({ testID: "workout-log-block-edit-footer" })).toBeTruthy();
     const deleteBlockBtn = findByA11yLabel(test!.root, "Delete block");
     expect(deleteBlockBtn).not.toBeNull();
     act(() => {
       deleteBlockBtn!.props.onPress();
     });
-    const confirmDeleteBtn = findByA11yLabel(test!.root, "Delete");
-    expect(confirmDeleteBtn).not.toBeNull();
+    expect(test!.root.findByProps({ testID: "workout-log-delete-block-sheet" })).toBeTruthy();
+    const confirmDeleteBtn = test!.root.findByProps({ testID: "workout-log-delete-block-confirm" });
+    expect(confirmDeleteBtn).toBeTruthy();
     act(() => {
-      confirmDeleteBtn!.props.onPress();
+      confirmDeleteBtn.props.onPress();
     });
     await flushEventLoop();
     expect(commands.removeExercise).toHaveBeenCalledWith("u1", "s1", "slot1");
@@ -2388,7 +2916,7 @@ describe("workouts/log session UI", () => {
     expect(commands.removeBlock).toHaveBeenCalledWith("u1", "s1", "block:sets:1");
   });
 
-  it("tapping Block options Sets and choosing Delete block calls removeBlock", async () => {
+  it("tapping Block options SETS and choosing Delete block calls removeBlock", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [];
@@ -2400,7 +2928,7 @@ describe("workouts/log session UI", () => {
     act(() => {
       void 0;
     });
-    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options Sets");
+    const blockOptionsBtn = findByA11yLabel(test!.root, "Block options SETS");
     expect(blockOptionsBtn).not.toBeNull();
     act(() => {
       blockOptionsBtn!.props.onPress();
@@ -2410,12 +2938,45 @@ describe("workouts/log session UI", () => {
     act(() => {
       deleteBlockBtn!.props.onPress();
     });
-    const confirmDeleteBtn = findByA11yLabel(test!.root, "Delete");
-    expect(confirmDeleteBtn).not.toBeNull();
+    const confirmDeleteBtn = test!.root.findByProps({ testID: "workout-log-delete-block-confirm" });
+    expect(confirmDeleteBtn).toBeTruthy();
     act(() => {
-      confirmDeleteBtn!.props.onPress();
+      confirmDeleteBtn.props.onPress();
     });
     await flushEventLoop();
     expect(commands.removeBlock).toHaveBeenCalledWith("u1", "s1", "block:sets:1");
+  });
+
+  describe("getLoggedSetBarColor", () => {
+    it("uses system blue rgba for all RPE and null (no default red)", () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { getLoggedSetBarColor } = require("../log");
+      expect(getLoggedSetBarColor(null)).toMatch(/^rgba\(0,\s*122,\s*255,/);
+      for (let rpe = 0; rpe <= 10; rpe += 1) {
+        const c = getLoggedSetBarColor(rpe);
+        expect(c).toMatch(/^rgba\(0,\s*122,\s*255,/);
+        expect(c.toLowerCase()).not.toContain("255, 59, 48");
+        expect(c).not.toContain("#FF3B30");
+      }
+    });
+  });
+});
+
+describe("logBlockTitleForDisplay", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { logBlockTitleForDisplay } = require("../log");
+
+  it("strips trailing numeric uniqueness and uppercases", () => {
+    expect(logBlockTitleForDisplay("Sets 4", "sets")).toBe("SETS");
+    expect(logBlockTitleForDisplay("Superset 2", "superset")).toBe("SUPERSET");
+  });
+
+  it("strips trailing single-letter uniqueness and uppercases", () => {
+    expect(logBlockTitleForDisplay("Superset A", "superset")).toBe("SUPERSET");
+  });
+
+  it("falls back to type label when title is empty or whitespace", () => {
+    expect(logBlockTitleForDisplay("", "sets")).toBe("SETS");
+    expect(logBlockTitleForDisplay(null, "circuit")).toBe("CIRCUIT");
   });
 });

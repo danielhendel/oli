@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { z } from "zod";
 
 import type { AuthedRequest } from "../middleware/auth";
+import { requireFirebaseStorageBucketId } from "../lib/firebaseStorageBucketId";
 import { userCollection } from "../db";
 import { rawEventDocSchema } from "@oli/contracts";
 import { admin } from "../firebaseAdmin";
@@ -45,17 +46,6 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
     (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
 
   return fromMiddleware ?? fromHeader ?? undefined;
-};
-
-const requireStorageBucket = (): string => {
-  const bucket = (process.env.FIREBASE_STORAGE_BUCKET ?? "").trim();
-  if (!bucket) {
-    // We do NOT guess a default bucket name here.
-    // Your firebaseAdmin.ts does not set storageBucket in initializeApp(),
-    // so admin.storage().bucket() has no canonical default.
-    throw new Error("Missing FIREBASE_STORAGE_BUCKET env var");
-  }
-  return bucket;
 };
 
 // --------- Storage write ---------
@@ -159,7 +149,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   let bucket: string;
   try {
-    bucket = requireStorageBucket();
+    bucket = requireFirebaseStorageBucketId();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown configuration error";
     return res.status(500).json({

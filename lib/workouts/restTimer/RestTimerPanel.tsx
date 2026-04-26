@@ -14,6 +14,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRestTimer } from "./RestTimerContext";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  WORKOUT_LOGGER_COLORS,
+  WORKOUT_LOGGER_LAYOUT,
+  workoutLoggerTypography,
+} from "@/lib/workouts/ui/workoutLoggerTheme";
 
 /** Preset durations in seconds; 2m = 120 */
 const PRESETS_SEC = [30, 45, 60, 90, 120];
@@ -240,19 +245,19 @@ const styles = StyleSheet.create({
   barIcon: { fontSize: 18 },
   barText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
   panel: {
-    backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    paddingHorizontal: 20,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
+    borderBottomLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderBottomRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
     paddingBottom: 24,
     borderWidth: StyleSheet.hairlineWidth,
     borderTopWidth: 0,
     borderColor: "#E5E5EA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   grabberWrap: {
     alignItems: "center",
@@ -262,13 +267,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#C7C7CC",
+    backgroundColor: WORKOUT_LOGGER_COLORS.grabber,
   },
   presetGrid: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
     paddingVertical: 4,
   },
   presetBtn: {
@@ -286,7 +291,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#34C759",
   },
-  presetBtnText: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
+  presetBtnText: {
+    ...workoutLoggerTypography.optionDescription,
+    fontWeight: "700",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+  },
   presetBtnTextHighlight: { color: "#2E7D32" },
   activeRow: {
     flexDirection: "row",
@@ -333,5 +342,9 @@ const styles = StyleSheet.create({
   activeBtnText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
   activeBtnTextSecondary: { fontSize: 15, fontWeight: "600", color: "#6E6E73" },
   dismissHint: { marginTop: 8, alignItems: "center" },
-  dismissHintText: { fontSize: 13, color: "#8E8E93" },
+  dismissHintText: {
+    fontSize: 13,
+    fontWeight: "400",
+    color: WORKOUT_LOGGER_COLORS.textSecondary,
+  },
 });

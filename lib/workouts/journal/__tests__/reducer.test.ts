@@ -128,6 +128,27 @@ describe("reduceWorkoutSessionV1", () => {
     expect(out.exercises[0]!.sets).toHaveLength(0);
   });
 
+  it("includes optional imageUrl/videoUrl on reduced exercise from workout_exercise_added snapshot", () => {
+    const events: WorkoutEventV1[] = [
+      e({
+        kind: "workout_exercise_added",
+        eventId: "e1",
+        idempotencyKey: "k1",
+        payload: {
+          slotId: "slot1",
+          exerciseId: "custom_u1_angled",
+          position: 0,
+          imageUrl: "https://example.com/snap.png",
+          videoUrl: "https://example.com/snap.mp4",
+        },
+      }),
+    ];
+    const out = reduceWorkoutSessionV1(events);
+    expect(out.exercises).toHaveLength(1);
+    expect(out.exercises[0]!.imageUrl).toBe("https://example.com/snap.png");
+    expect(out.exercises[0]!.videoUrl).toBe("https://example.com/snap.mp4");
+  });
+
   it("preserves blockId from workout_exercise_added in reduced exercises", () => {
     const events: WorkoutEventV1[] = [
       e({

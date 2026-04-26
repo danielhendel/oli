@@ -11,15 +11,15 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-  Image,
-  Animated,
-  PanResponder,
   findNodeHandle,
   Alert,
   type PressableAndroidRippleConfig,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Swipeable } from "react-native-gesture-handler";
 import { WheelPicker } from "@/components/workouts/WheelPicker";
+import { headerChromeCircleShell } from "@/lib/ui/headerChrome";
 import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 
 if (
@@ -35,7 +35,7 @@ const START_GYM_ROW_RIPPLE: PressableAndroidRippleConfig = {
   foreground: true,
   borderless: false,
 };
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { isUserScopedCustomExerciseId } from "@oli/contracts";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -76,20 +76,35 @@ import { EXERCISE_LIBRARY_V1 } from "@/lib/workouts/exercises/library.v1";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { useRestTimer } from "@/lib/workouts/restTimer";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
-import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
-import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
-import {
-  listCustomExercises,
-  type CustomExerciseRecord,
-} from "@/lib/workouts/exercises/customExerciseStore";
+import { type CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import type { SessionExerciseMediaSnapshot } from "@/lib/workouts/exercises/workoutExerciseMediaResolve";
 import {
   resolveStrengthLoggingType,
   supportsLoadEntry,
   type StrengthLoggingType,
 } from "@/lib/workouts/exercises/loggingType";
+import { WORKOUT_LOG_HERO_MEDIA_CONTAINER } from "@/lib/workouts/ui/workoutLogHeroMediaLayout";
 import { exitLiveWorkoutLogToOverview } from "@/lib/workouts/navigation/exitWorkoutLogFlow";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
+import {
+  WORKOUT_LOGGER_BOTTOM_BAR,
+  WORKOUT_LOGGER_COLORS,
+  WORKOUT_LOGGER_LAYOUT,
+  workoutLoggerBottomBarShadow,
+  workoutLoggerCancelOutline,
+  workoutLoggerCancelOutlineText,
+  workoutLoggerCancelTextButton,
+  workoutLoggerDestructivePrimary,
+  workoutLoggerDestructivePrimaryText,
+  workoutLoggerGrabberStyle,
+  workoutLoggerOptionCardCurrent,
+  workoutLoggerOptionCardShadow,
+  workoutLoggerTypography,
+} from "@/lib/workouts/ui/workoutLoggerTheme";
+import { resolveAddExerciseTargetBlockId } from "@/lib/workouts/ui/logAddExerciseTarget";
+import { formatWorkoutLogDecimal, formatWorkoutLogInteger } from "@/lib/workouts/ui/formatWorkoutLogNumber";
 
 const KG_PER_LB = 0.45359237;
 const LB_PER_KG = 1 / KG_PER_LB;
@@ -105,6 +120,18 @@ export function getPrecomputedWeightListLb(): number[] {
 }
 
 const PRECOMPUTED_WEIGHTS_LB = getPrecomputedWeightListLb();
+
+function sessionMediaSnapshotFromExercise(
+  ex: ReducedSessionV1["exercises"][number],
+): SessionExerciseMediaSnapshot | null {
+  const iu = typeof ex.imageUrl === "string" ? ex.imageUrl.trim() : "";
+  const vu = typeof ex.videoUrl === "string" ? ex.videoUrl.trim() : "";
+  if (iu.length === 0 && vu.length === 0) return null;
+  const out: SessionExerciseMediaSnapshot = {};
+  if (iu.length > 0) out.imageUrl = iu;
+  if (vu.length > 0) out.videoUrl = vu;
+  return out;
+}
 
 /** Reps 1–100 for wheel picker. */
 const REP_OPTIONS = Array.from({ length: 100 }, (_, i) => i + 1);
@@ -138,7 +165,7 @@ function formatActiveWeightDisplay(loadText: string): string {
   if (!t) return "";
   const n = parseFloat(t);
   if (Number.isNaN(n)) return t;
-  const s = Number.isInteger(n) ? String(n) : t;
+  const s = Number.isInteger(n) ? formatWorkoutLogInteger(Math.round(n)) : formatWorkoutLogDecimal(n, 1);
   return `${s} lb`;
 }
 
@@ -151,8 +178,8 @@ function formatLoggedSetWeightLabel(loadKg: number | null): string {
   if (loadKg == null || loadKg <= 0) return "BW";
   const lb = loadKg * LB_PER_KG;
   const roundedInt = Math.round(lb);
-  if (Math.abs(lb - roundedInt) < 0.05) return `${roundedInt} lb`;
-  return `${lb.toFixed(1)} lb`;
+  if (Math.abs(lb - roundedInt) < 0.05) return `${formatWorkoutLogInteger(roundedInt)} lb`;
+  return `${formatWorkoutLogDecimal(lb, 1)} lb`;
 }
 
 function formatBodyweightSetLoadLabel(loadKg: number | null): string {
@@ -160,14 +187,14 @@ function formatBodyweightSetLoadLabel(loadKg: number | null): string {
   return `BW + ${formatLoggedSetWeightLabel(loadKg)}`;
 }
 
-function getLoggedSetBarColor(rpe: number | null): string {
-  if (rpe == null || !Number.isFinite(rpe)) return "#8E8E93";
+/** Progress fill: system blue only (opacity scales with RPE); avoids red/yellow/green RPE noise in normal state. */
+export function getLoggedSetBarColor(rpe: number | null): string {
+  if (rpe == null || !Number.isFinite(rpe)) return "rgba(0, 122, 255, 0.38)";
   const value = Math.max(0, Math.min(10, rpe));
-  if (value <= 2) return "#8E8E93";
-  if (value <= 4) return "#FFD60A";
-  if (value <= 6) return "#32D74B";
-  if (value <= 8) return "#0A84FF";
-  return "#FF3B30";
+  const minA = 0.42;
+  const maxA = 0.82;
+  const a = minA + (maxA - minA) * (value / 10);
+  return `rgba(0, 122, 255, ${a.toFixed(2)})`;
 }
 
 /** UI-only draft set before logging via logStrengthSet. */
@@ -216,7 +243,39 @@ function blockHeaderLabel(type: BlockTypeId | null): string {
   return "Block";
 }
 
+/** UI block chip label: strip internal uniqueness suffixes (e.g. "Sets 4", "Superset A") then uppercase. */
+export function logBlockTitleForDisplay(blockTitle: string | null | undefined, type: BlockTypeId | null): string {
+  const raw = (typeof blockTitle === "string" ? blockTitle : "").trim();
+  const stripped = raw.replace(/\s+\d+$/u, "").replace(/\s+[A-Za-z]$/u, "").trim();
+  const base = blockHeaderLabel(type);
+  const candidate = stripped.length > 0 ? stripped : base;
+  return candidate.toUpperCase();
+}
+
+const ADD_BLOCK_SHEET_ROWS: { type: BlockTypeId; emoji: string; title: string; subtitle: string }[] = [
+  { type: "warmup", emoji: "🔥", title: "Warm Up", subtitle: "Ease in before heavier work." },
+  { type: "sets", emoji: "💪", title: "Sets", subtitle: "Classic strength blocks with sets and reps." },
+  { type: "superset", emoji: "↕️", title: "Superset", subtitle: "Pair exercises with minimal rest between." },
+  { type: "circuit", emoji: "🔁", title: "Circuit", subtitle: "Rotate through a sequence of stations." },
+  { type: "cooldown", emoji: "🧘", title: "Cool Down", subtitle: "Lower intensity finish and mobility." },
+  { type: "cardio", emoji: "❤️", title: "Cardio", subtitle: "Conditioning and heart-rate work." },
+];
+
 const SWIPE_REVEAL_WIDTH = 72;
+
+/** Block edit sheet: cap scroll region so sticky footer stays on-screen (Jest RN mock has no Dimensions). */
+function workoutLogInitialWindowHeight(): number {
+  try {
+    /* Avoid static `Dimensions` import: Jest's partial react-native mock omits it. */
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const { Dimensions: dims } = require("react-native") as typeof import("react-native");
+    return dims?.get?.("window")?.height ?? 844;
+  } catch {
+    return 844;
+  }
+}
+const BLOCK_EDIT_SHEET_MAX_HEIGHT = Math.round(workoutLogInitialWindowHeight() * 0.88);
+const BLOCK_EDIT_SCROLL_MAX_HEIGHT = Math.max(160, BLOCK_EDIT_SHEET_MAX_HEIGHT - 240);
 
 function SwipeableSetRow({
   setId,
@@ -227,53 +286,50 @@ function SwipeableSetRow({
   onDelete: () => void;
   rowContent: React.ReactNode;
 }) {
-  const translateX = useRef(new Animated.Value(0)).current;
+  const swipeableRef = useRef<InstanceType<typeof Swipeable> | null>(null);
 
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8,
-        onPanResponderGrant: () => {
-          /* no-op; gesture position tracked in onPanResponderMove */
-        },
-        onPanResponderMove: (_, g) => {
-          const maxDrag = SWIPE_REVEAL_WIDTH;
-          const x = Math.min(0, Math.max(-maxDrag, g.dx));
-          translateX.setValue(x);
-        },
-        onPanResponderRelease: (_, g) => {
-          const threshold = SWIPE_REVEAL_WIDTH / 2;
-          const toValue = g.dx < -threshold ? -SWIPE_REVEAL_WIDTH : 0;
-          Animated.spring(translateX, {
-            toValue,
-            useNativeDriver: true,
-            speed: 20,
-            bounciness: 0,
-          }).start();
-        },
-      }),
-    [translateX],
-  );
-
-  return (
-    <View style={styles.swipeableRowWrap}>
-      <View style={styles.swipeableRowDeleteBg}>
+  const renderRightActions = useCallback(() => {
+    return (
+      <View style={styles.swipeableRightActionRoot}>
         <Pressable
-          onPress={onDelete}
           style={styles.swipeableRowDeleteBtn}
+          onPress={() => {
+            swipeableRef.current?.close();
+            onDelete();
+          }}
           accessibilityRole="button"
           accessibilityLabel={`Delete set ${setId}`}
         >
+          <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
           <Text style={styles.swipeableRowDeleteText}>Delete</Text>
         </Pressable>
       </View>
-      <Animated.View
-        style={[styles.setRowCompleted, { transform: [{ translateX }] }]}
-        {...pan.panHandlers}
+    );
+  }, [onDelete, setId]);
+
+  return (
+    <View style={styles.swipeableRowWrap}>
+      <Swipeable
+        ref={swipeableRef}
+        friction={2}
+        overshootRight={false}
+        rightThreshold={SWIPE_REVEAL_WIDTH / 2}
+        renderRightActions={renderRightActions}
+        containerStyle={styles.swipeableSwipeContainer}
+        childrenContainerStyle={styles.swipeableSwipeChildren}
       >
-        {rowContent}
-      </Animated.View>
+        <View
+          style={styles.setRowCompleted}
+          accessibilityLabel={`Logged set row ${setId}`}
+          accessibilityActions={[{ name: "activate", label: "Reveal delete action" }]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName !== "activate") return;
+            swipeableRef.current?.openRight();
+          }}
+        >
+          {rowContent}
+        </View>
+      </Swipeable>
     </View>
   );
 }
@@ -281,16 +337,19 @@ function SwipeableSetRow({
 function ExerciseListRow({
   ex,
   displayName,
+  customRecord,
   onToggleExpand,
   onDelete,
 }: {
   ex: ReducedSessionV1["exercises"][number];
   displayName: string;
+  customRecord?: CustomExerciseRecord | null;
   onToggleExpand: (slotId: string) => void;
   onDelete: (slotId: string) => void;
 }) {
   const setCount = ex.sets.length;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const sessionMedia = sessionMediaSnapshotFromExercise(ex);
   return (
     <>
       <Pressable
@@ -299,18 +358,14 @@ function ExerciseListRow({
         accessibilityRole="button"
         accessibilityLabel={`Open exercise ${displayName}`}
       >
-        {hasBundledExerciseAsset(ex.exerciseId) ? (
-          <View style={styles.exerciseListRowThumbnailContainer}>
-            <Image
-              source={getBundledExerciseAsset(ex.exerciseId)}
-              style={styles.exerciseListRowThumbnailImage}
-              resizeMode="contain"
-              accessibilityLabel={`${displayName} thumbnail`}
-            />
-          </View>
-        ) : (
-          <ThumbnailPlaceholderView width={120} height={68} />
-        )}
+        <ExerciseMediaPreview
+          exerciseId={ex.exerciseId}
+          sessionMedia={sessionMedia}
+          customRecord={customRecord ?? null}
+          preferStillThumbnail
+          style={{ marginRight: 14 }}
+          containerBackgroundColor="#FFFFFF"
+        />
         <View style={styles.exerciseListRowCenter}>
           <Text style={styles.exerciseListRowName}>{displayName}</Text>
           <Text style={styles.exerciseListRowSets}>
@@ -381,6 +436,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     | { status: "error"; message: string; canRetryFinishPersist?: boolean };
 
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     pickedExerciseId?: string;
     blockId?: string;
@@ -422,6 +478,8 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const { panelVisible: restTimerPanelVisible, setPanelVisible: setRestTimerPanelVisible } = useRestTimer();
   const [expandedSlotId, setExpandedSlotId] = useState<string | null>(null);
+  /** Block targeted by bottom "+ Exercise"; cleared when that block is removed. */
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [exerciseMenuSlotId, setExerciseMenuSlotId] = useState<string | null>(null);
   const [draftSetsBySlotId, setDraftSetsBySlotId] = useState<Record<string, DraftSet[]>>({});
   const [bodyweightLoadEnabledBySlotId, setBodyweightLoadEnabledBySlotId] = useState<Record<string, boolean>>({});
@@ -872,10 +930,16 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       if (!user || !sessionId) return;
       try {
         const pos = reduced?.exercises ? reduced.exercises.filter((e) => !e.removed).length : 0;
+        const rows = await listMergedCustomExerciseRecords(user.uid, () => getIdToken(false)).catch(() => []);
+        const row = rows.find((r) => r.exerciseId === exerciseId);
+        const imageUrl = typeof row?.imageUrl === "string" ? row.imageUrl.trim() : "";
+        const videoUrl = typeof row?.videoUrl === "string" ? row.videoUrl.trim() : "";
         await addExercise(user.uid, sessionId, {
           exerciseId,
           position: pos,
           ...(blockId != null ? { blockId } : {}),
+          ...(imageUrl.length > 0 ? { imageUrl } : {}),
+          ...(videoUrl.length > 0 ? { videoUrl } : {}),
         });
         await refreshReduced(user.uid, sessionId);
       } catch (e: unknown) {
@@ -883,7 +947,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         setUi({ status: "error", message: msg });
       }
     },
-    [user, sessionId, reduced?.exercises, refreshReduced],
+    [user, sessionId, reduced?.exercises, refreshReduced, getIdToken],
   );
 
   const onRemoveExercise = useCallback(
@@ -1223,7 +1287,14 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     if (!user || ui.status !== "active" || !sessionId) return;
     if (appliedPickRef.current === pickedExerciseIdParam) return;
     appliedPickRef.current = pickedExerciseIdParam;
-    void onPickExercise(pickedExerciseIdParam, blockIdParam).finally(() => {
+    const displayBlockIdsForPick =
+      ui.status === "active"
+        ? ui.reduced.blocks.filter((b) => !b.removed).map((b) => b.blockId)
+        : [];
+    const resolvedPickBlockId =
+      blockIdParam ?? resolveAddExerciseTargetBlockId(displayBlockIdsForPick, selectedBlockId);
+
+    void onPickExercise(pickedExerciseIdParam, resolvedPickBlockId).finally(() => {
       const returnPath = isEnrichmentEntry ? "/(app)/workouts/enrich" : "/(app)/workouts/log";
       const e =
         typeof params.enrichDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.enrichDay)
@@ -1254,6 +1325,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
   }, [
     pickedExerciseIdParam,
     blockIdParam,
+    selectedBlockId,
     user,
     ui.status,
     sessionId,
@@ -1266,22 +1338,23 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     isEnrichmentEntry,
   ]);
 
-  useEffect(() => {
-    if (!user || initializing) return;
-    if (ui.status !== "active" && ui.status !== "completed") return;
-    let cancelled = false;
-    listCustomExercises(user.uid)
-      .catch(() => [])
-      .then((rows) => {
+  useFocusEffect(
+    useCallback(() => {
+      if (!user || initializing) return;
+      if (ui.status !== "active" && ui.status !== "completed") return;
+      let cancelled = false;
+      void (async () => {
+        const rows = await listMergedCustomExerciseRecords(user.uid, () => getIdToken(false)).catch(() => []);
         if (cancelled) return;
         const byId: Record<string, CustomExerciseRecord> = {};
         for (const row of rows) byId[row.exerciseId] = row;
         setCustomExercisesById(byId);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, initializing, ui.status]);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [user, initializing, ui.status, getIdToken]),
+  );
 
   useEffect(() => {
     if (ui.status !== "active" || !reduced?.startedAt) return;
@@ -1355,6 +1428,56 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
 
   const hasZeroBlocks = displayBlocks.length === 0;
 
+  const displayBlockIds = useMemo(() => displayBlocks.map((b) => b.blockId), [displayBlocks]);
+
+  useEffect(() => {
+    if (selectedBlockId == null) return;
+    if (!displayBlockIds.includes(selectedBlockId)) setSelectedBlockId(null);
+  }, [displayBlockIds, selectedBlockId]);
+
+  const exercisePickerEnrichRouteParams = useMemo(() => {
+    if (!isEnrichmentEntry) return {};
+    return {
+      logReturnPath: "enrich" as const,
+      ...(typeof params.enrichDay === "string" ? { enrichDay: params.enrichDay } : {}),
+      ...(typeof params.enrichTargetId === "string" ? { enrichTargetId: params.enrichTargetId } : {}),
+      ...(typeof params.sessionAnchorIso === "string" && params.sessionAnchorIso.trim().length > 0
+        ? { sessionAnchorIso: params.sessionAnchorIso.trim() }
+        : {}),
+      ...(typeof params.journalSessionId === "string" && params.journalSessionId.trim().length > 0
+        ? { journalSessionId: params.journalSessionId.trim() }
+        : {}),
+    };
+  }, [
+    isEnrichmentEntry,
+    params.enrichDay,
+    params.enrichTargetId,
+    params.sessionAnchorIso,
+    params.journalSessionId,
+  ]);
+
+  const targetBlockIdForAddExercise = useMemo(
+    () => resolveAddExerciseTargetBlockId(displayBlockIds, selectedBlockId) ?? null,
+    [displayBlockIds, selectedBlockId],
+  );
+
+  const navigateToExercisePicker = useCallback(
+    (blockId: string) => {
+      if (sessionId == null) return;
+      setSelectedBlockId(blockId);
+      router.push({
+        pathname: "/(app)/workouts/exercise-picker",
+        params: {
+          sessionId,
+          blockId,
+          ...(sessionGymId != null ? { gymId: sessionGymId } : {}),
+          ...exercisePickerEnrichRouteParams,
+        },
+      });
+    },
+    [sessionId, sessionGymId, exercisePickerEnrichRouteParams, router],
+  );
+
   const catalogNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const item of EXERCISE_LIBRARY_V1) m.set(item.exerciseId, item.name);
@@ -1401,11 +1524,39 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
             testID="workout-log-backfill-nav"
           />
         ) : (
-          <View style={styles.headerTimerWrap} testID="workout-log-live-timer-wrap">
-            <Text style={styles.headerTimer} testID="workout-log-live-timer">
-              {timerLabel}
-            </Text>
-          </View>
+          <WorkoutsNavBar
+            hideTitle
+            surface="flush"
+            contentPaddingHorizontal={16}
+            rowMinHeight={56}
+            leftColumnWidth={56}
+            backButtonSize="large"
+            onBackPress={() => setCancelModalVisible(true)}
+            centerSlot={
+              <Text
+                testID="workout-log-live-timer"
+                style={styles.headerTimerCentered}
+                numberOfLines={1}
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={`Workout time ${timerLabel}`}
+              >
+                {timerLabel}
+              </Text>
+            }
+            rightSlot={
+              <Pressable
+                onPress={() => setRestTimerPanelVisible(!restTimerPanelVisible)}
+                style={styles.headerRestChrome}
+                accessibilityRole="button"
+                accessibilityLabel="Rest timer"
+                testID="workout-log-rest-timer-header"
+              >
+                <Ionicons name="timer-outline" size={22} color="#1C1C1E" />
+              </Pressable>
+            }
+            rightSlotWidth={56}
+            testID="workout-log-live-nav-back"
+          />
         )
       ) : ui.status === "starting" && isEnrichmentEntry ? (
         <WorkoutsNavBar
@@ -1418,7 +1569,13 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       ) : null}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={idleStartChrome ? styles.contentIdleStart : styles.content}
+        contentContainerStyle={
+          idleStartChrome
+            ? styles.contentIdleStart
+            : ui.status === "active" && reduced != null
+              ? [styles.content, { paddingBottom: 32 + 88 + Math.max(insets.bottom, 12) }]
+              : styles.content
+        }
         style={idleStartChrome ? styles.scrollIdleStart : undefined}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
@@ -1587,11 +1744,30 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       {ui.status === "active" && reduced ? (
         <>
           {hasZeroBlocks ? (
-            <View style={styles.card}>
-              <Text style={styles.muted}>No blocks yet. Add a block above to start logging exercises.</Text>
+            <View
+              style={styles.workoutLogEmptyWrap}
+              accessibilityRole="summary"
+              testID="workout-log-empty-state"
+            >
+              <Text style={styles.workoutLogEmptyTitle}>Start your workout</Text>
+              <Text style={styles.workoutLogEmptyBody}>
+                Add a block to structure your session, then pick exercises for each block.
+              </Text>
+              <Pressable
+                onPress={() => setAddBlockModalVisible(true)}
+                style={({ pressed }) => [styles.workoutLogEmptyCta, pressed && styles.workoutLogEmptyCtaPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="+ Add your first block"
+                testID="workout-log-empty-add-block"
+              >
+                <View style={styles.workoutLogEmptyCtaIconWrap}>
+                  <Ionicons name="add" size={22} color={SYSTEM_ACCENT} />
+                </View>
+                <Text style={styles.workoutLogEmptyCtaLabel}>Add your first block</Text>
+              </Pressable>
             </View>
           ) : (
-            displayBlocks.map((block) => {
+            displayBlocks.map((block, blockIndex) => {
               const bid = block.blockId;
               const type =
                 block.blockType === "warmup" ||
@@ -1602,60 +1778,47 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                 block.blockType === "cardio"
                   ? (block.blockType as BlockTypeId)
                   : blockTypeFromId(block.blockId) ?? null;
-              const blockTitle = block.title ?? blockHeaderLabel(type);
+              const blockDisplayTitle = logBlockTitleForDisplay(block.title, type);
               const blockExercises = exercisesByBlockId.get(bid) ?? [];
+              const isBlockSelected = selectedBlockId === bid;
               return (
-                <View key={bid} style={styles.blockSection}>
+                <Pressable
+                  key={bid}
+                  style={[
+                    styles.blockSection,
+                    isBlockSelected ? styles.blockSectionSelected : styles.blockSectionUnselected,
+                  ]}
+                  onPress={() => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setSelectedBlockId(bid);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select block ${blockIndex + 1}`}
+                  accessibilityState={{ selected: isBlockSelected }}
+                  testID={`workout-log-block-wrap-${bid}`}
+                >
                   <View style={styles.blockHeaderRow}>
                     <Pressable
-                      onPress={() =>
+                      onPress={() => {
+                        setSelectedBlockId(bid);
                         setBlockOptions({
                           blockId: bid,
-                          title: blockTitle,
+                          title: blockDisplayTitle,
                           blockType: block.blockType ?? "sets",
-                        })
-                      }
+                        });
+                      }}
                       style={styles.blockTitlePill}
                       accessibilityRole="button"
-                      accessibilityLabel={`Block options ${blockTitle}`}
+                      accessibilityLabel={`Block options ${blockDisplayTitle}`}
                     >
-                      <Text style={styles.blockTitlePillText}>{blockTitle.toUpperCase()}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() =>
-                        router.push({
-                          pathname: "/(app)/workouts/exercise-picker",
-                          params: {
-                            sessionId,
-                            blockId: bid,
-                            ...(sessionGymId != null ? { gymId: sessionGymId } : {}),
-                            ...(isEnrichmentEntry
-                              ? {
-                                  logReturnPath: "enrich",
-                                  ...(typeof params.enrichDay === "string" ? { enrichDay: params.enrichDay } : {}),
-                                  ...(typeof params.enrichTargetId === "string"
-                                    ? { enrichTargetId: params.enrichTargetId }
-                                    : {}),
-                                  ...(typeof params.sessionAnchorIso === "string" &&
-                                  params.sessionAnchorIso.trim().length > 0
-                                    ? { sessionAnchorIso: params.sessionAnchorIso.trim() }
-                                    : {}),
-                                  ...(typeof params.journalSessionId === "string" &&
-                                  params.journalSessionId.trim().length > 0
-                                    ? { journalSessionId: params.journalSessionId.trim() }
-                                    : {}),
-                                }
-                              : {}),
-                          },
-                        })
-                      }
-                      style={styles.addExercisePill}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add exercise ${blockTitle}`}
-                    >
-                      <Text style={styles.addExercisePillText}>+ exercise</Text>
+                      <Text style={styles.blockTitlePillText}>{blockDisplayTitle}</Text>
                     </Pressable>
                   </View>
+                  {isBlockSelected && blockExercises.length === 0 ? (
+                    <View style={styles.blockEmptyHint} accessibilityRole="text">
+                      <Text style={styles.blockEmptyHintText}>Add an exercise to this block</Text>
+                    </View>
+                  ) : null}
                   {blockExercises.map((ex) => {
                     const slotId = ex.slotId;
                     const isExpanded = expandedSlotId === slotId;
@@ -1745,6 +1908,8 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                               <View style={styles.heroMediaContainer}>
                                 <ExerciseMediaPreview
                                   exerciseId={ex.exerciseId}
+                                  sessionMedia={sessionMediaSnapshotFromExercise(ex)}
+                                  customRecord={customExercisesById[ex.exerciseId] ?? null}
                                   style={styles.heroMediaFill}
                                   containerBackgroundColor="#FFFFFF"
                                 />
@@ -1752,79 +1917,83 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                             </View>
                             <View style={styles.loggerInlineContent}>
                               <View style={styles.loggerUtilityRow}>
-                                <Pressable
-                                  onPress={() => {
-                                    setDraftSetsBySlotId((prev) => {
-                                      const list = prev[slotId] ?? [];
-                                      const id = `${slotId}:draft:${list.length}`;
-                                      const lastLogged = loggedSets[loggedSets.length - 1] ?? null;
-                                      const prefLoadText =
-                                        showLoadField && lastLogged?.loadKg != null && lastLogged.loadKg > 0
-                                          ? String(Math.round(lastLogged.loadKg * LB_PER_KG * 10) / 10)
-                                          : "";
-                                      return {
-                                        ...prev,
-                                        [slotId]: [...list, { id, repsText: "", loadText: prefLoadText, rpeText: "" }],
-                                      };
-                                    });
-                                  }}
-                                  style={styles.loggerUtilityAction}
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Add draft set"
-                                >
-                                  <Text style={styles.loggerUtilityActionText}>+ Set</Text>
-                                </Pressable>
-                                <Pressable
-                                  onPress={() => {
-                                    router.push({
-                                      pathname: "/(app)/workouts/exercise-history",
-                                      params: { exerciseId: ex.exerciseId },
-                                    });
-                                  }}
-                                  style={styles.loggerUtilityAction}
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Exercise history"
-                                >
-                                  <Text style={styles.loggerUtilityActionText}>History</Text>
-                                </Pressable>
-                                {exerciseLoggingType === "bodyweight_reps" ? (
+                                <View style={styles.loggerUtilityPrimaryRow}>
                                   <Pressable
                                     onPress={() => {
-                                      setBodyweightLoadEnabledBySlotId((prev) => {
-                                        const nextEnabled = !prev[slotId];
-                                        if (!nextEnabled) {
-                                          setDraftSetsBySlotId((draftPrev) => {
-                                            const list = draftPrev[slotId] ?? [];
-                                            if (list.length === 0) return draftPrev;
-                                            return {
-                                              ...draftPrev,
-                                              [slotId]: list.map((row) => ({ ...row, loadText: "" })),
-                                            };
-                                          });
-                                        }
-                                        return { ...prev, [slotId]: nextEnabled };
+                                      setDraftSetsBySlotId((prev) => {
+                                        const list = prev[slotId] ?? [];
+                                        const id = `${slotId}:draft:${list.length}`;
+                                        const lastLogged = loggedSets[loggedSets.length - 1] ?? null;
+                                        const prefLoadText =
+                                          showLoadField && lastLogged?.loadKg != null && lastLogged.loadKg > 0
+                                            ? String(Math.round(lastLogged.loadKg * LB_PER_KG * 10) / 10)
+                                            : "";
+                                        return {
+                                          ...prev,
+                                          [slotId]: [...list, { id, repsText: "", loadText: prefLoadText, rpeText: "" }],
+                                        };
                                       });
                                     }}
-                                    style={[
-                                      styles.loggerUtilityAction,
-                                      bodyweightLoadEnabled && styles.loggerUtilityActionActive,
-                                    ]}
+                                    style={styles.loggerUtilityPill}
                                     accessibilityRole="button"
-                                    accessibilityLabel={
-                                      bodyweightLoadEnabled
-                                        ? "Disable bodyweight external load"
-                                        : "Enable bodyweight external load"
-                                    }
+                                    accessibilityLabel="Add draft set"
                                   >
-                                    <Text
-                                      style={[
-                                        styles.loggerUtilityActionText,
-                                        bodyweightLoadEnabled && styles.loggerUtilityActionTextActive,
-                                      ]}
-                                    >
-                                      {bodyweightLoadEnabled ? "Weighted" : "+ Add weight"}
-                                    </Text>
+                                    <Text style={styles.loggerUtilityPillText}>+ Set</Text>
                                   </Pressable>
+                                  <Pressable
+                                    onPress={() => {
+                                      router.push({
+                                        pathname: "/(app)/workouts/exercise-history",
+                                        params: { exerciseId: ex.exerciseId },
+                                      });
+                                    }}
+                                    style={styles.loggerUtilityPill}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Exercise history"
+                                  >
+                                    <Text style={styles.loggerUtilityPillText}>History</Text>
+                                  </Pressable>
+                                </View>
+                                {exerciseLoggingType === "bodyweight_reps" ? (
+                                  <View style={styles.loggerUtilitySecondaryRow}>
+                                    <Pressable
+                                      onPress={() => {
+                                        setBodyweightLoadEnabledBySlotId((prev) => {
+                                          const nextEnabled = !prev[slotId];
+                                          if (!nextEnabled) {
+                                            setDraftSetsBySlotId((draftPrev) => {
+                                              const list = draftPrev[slotId] ?? [];
+                                              if (list.length === 0) return draftPrev;
+                                              return {
+                                                ...draftPrev,
+                                                [slotId]: list.map((row) => ({ ...row, loadText: "" })),
+                                              };
+                                            });
+                                          }
+                                          return { ...prev, [slotId]: nextEnabled };
+                                        });
+                                      }}
+                                      style={[
+                                        styles.loggerUtilityPill,
+                                        bodyweightLoadEnabled && styles.loggerUtilityPillActive,
+                                      ]}
+                                      accessibilityRole="button"
+                                      accessibilityLabel={
+                                        bodyweightLoadEnabled
+                                          ? "Disable bodyweight external load"
+                                          : "Enable bodyweight external load"
+                                      }
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.loggerUtilityPillText,
+                                          bodyweightLoadEnabled && styles.loggerUtilityPillTextActive,
+                                        ]}
+                                      >
+                                        {bodyweightLoadEnabled ? "Weighted" : "+ Add weight"}
+                                      </Text>
+                                    </Pressable>
+                                  </View>
                                 ) : null}
                               </View>
                               <View style={styles.setListInModal}>
@@ -1869,7 +2038,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                                   accessibilityRole="button"
                                                   accessibilityLabel={`Edit set ${s.setId} reps`}
                                                 >
-                                                  <Text style={styles.loggedSetSummaryText}>{`Set ${s.ordinal} - ${s.reps} reps`}</Text>
+                                                  <Text style={styles.loggedSetSummaryLead}>{`Set ${s.ordinal} - ${formatWorkoutLogInteger(s.reps)} reps`}</Text>
                                                 </Pressable>
                                                 {weightLabel != null ? (
                                                   canEditLoad ? (
@@ -1880,10 +2049,10 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                                       accessibilityRole="button"
                                                       accessibilityLabel={`Edit set ${s.setId} weight`}
                                                     >
-                                                      <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
+                                                      <Text style={styles.loggedSetSummaryLead}>{` x ${weightLabel}`}</Text>
                                                     </Pressable>
                                                   ) : (
-                                                    <Text style={styles.loggedSetSummaryText}>{` x ${weightLabel}`}</Text>
+                                                    <Text style={styles.loggedSetSummaryLead}>{` x ${weightLabel}`}</Text>
                                                   )
                                                 ) : null}
                                                 <Pressable
@@ -1893,14 +2062,14 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                                   accessibilityRole="button"
                                                   accessibilityLabel={`Edit set ${s.setId} RPE`}
                                                 >
-                                                  <Text style={styles.loggedSetSummaryText}>{` @ ${rpeLabel} RPE`}</Text>
+                                                  <Text style={styles.loggedSetSummaryMeta}>{` @ ${rpeLabel} RPE`}</Text>
                                                 </Pressable>
                                               </View>
                                               <Text style={styles.loggedSetVolumeText}>
                                                 {rightValue > 0
                                                   ? useLoadMetrics
-                                                    ? String(rightValue)
-                                                    : `${rightValue}r`
+                                                    ? formatWorkoutLogInteger(Math.round(rightValue))
+                                                    : `${formatWorkoutLogInteger(rightValue)}r`
                                                   : "—"}
                                               </Text>
                                             </View>
@@ -1999,13 +2168,14 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                       <ExerciseListRow
                         ex={ex}
                         displayName={displayName}
+                        customRecord={customExercisesById[ex.exerciseId] ?? null}
                         onToggleExpand={onToggleExpandWithLayout}
                         onDelete={(id) => void onRemoveExercise(id)}
                       />
                     </View>
                   );
                 })}
-                </View>
+                </Pressable>
               );
             })
           )}
@@ -2019,7 +2189,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         setDraftFieldPicker(null);
         setCompletedSetPicker(null);
       }}
-      presentationStyle="pageSheet"
+      presentationStyle="overFullScreen"
     >
       <Pressable
         style={styles.sheetBackdrop}
@@ -2234,44 +2404,40 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
             animationType="slide"
             onRequestClose={() => setAddBlockModalVisible(false)}
             presentationStyle="overFullScreen"
+            hardwareAccelerated
           >
             <Pressable style={styles.sheetBackdrop} onPress={() => setAddBlockModalVisible(false)}>
-              <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+              <Pressable style={styles.sheetPremium} onPress={(e) => e.stopPropagation()}>
                 <View style={styles.sheetGrabber} />
-                <Text style={styles.sheetTitle}>Block type</Text>
-                <Text style={styles.muted}>Choose a block to add exercises to.</Text>
-                <View style={styles.blockTypeList}>
-                  {(["warmup", "sets", "superset", "circuit", "cooldown", "cardio"] as const).map((type) => (
+                <Text style={styles.sheetPremiumTitle}>Add a block</Text>
+                <Text style={styles.sheetPremiumHelper}>
+                  Pick a structure for this part of your workout. You can add more blocks anytime.
+                </Text>
+                <View style={styles.blockTypeSheetList} testID="workout-log-add-block-sheet">
+                  {ADD_BLOCK_SHEET_ROWS.map((row) => (
                     <Pressable
-                      key={type}
-                      onPress={() => onAddBlockChoose(type)}
-                      style={styles.blockTypeBtn}
+                      key={row.type}
+                      onPress={() => onAddBlockChoose(row.type)}
+                      style={({ pressed }) => [styles.blockTypeSheetCard, pressed && styles.blockTypeSheetCardPressed]}
                       accessibilityRole="button"
-                      accessibilityLabel={`Block type ${type === "warmup" ? "Warm Up" : type === "sets" ? "Sets" : type === "cooldown" ? "Cool Down" : type === "superset" ? "Superset" : type === "circuit" ? "Circuit" : "Cardio"}`}
+                      accessibilityLabel={`Block type ${row.title}`}
                     >
-                      <Text style={styles.primaryBtnText}>
-                        {type === "warmup"
-                          ? "Warm Up"
-                          : type === "sets"
-                            ? "Sets"
-                            : type === "cooldown"
-                              ? "Cool Down"
-                              : type === "superset"
-                                ? "Superset"
-                                : type === "circuit"
-                                  ? "Circuit"
-                                  : "Cardio"}
-                      </Text>
+                      <Text style={styles.blockTypeSheetEmoji}>{row.emoji}</Text>
+                      <View style={styles.blockTypeSheetCardText}>
+                        <Text style={styles.blockTypeSheetCardTitle}>{row.title}</Text>
+                        <Text style={styles.blockTypeSheetCardSubtitle}>{row.subtitle}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
                     </Pressable>
                   ))}
                 </View>
                 <Pressable
                   onPress={() => setAddBlockModalVisible(false)}
-                  style={styles.secondaryBtn}
+                  style={styles.sheetCancelOutline}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel block choice"
                 >
-                  <Text style={styles.secondaryBtnText}>Cancel</Text>
+                  <Text style={styles.sheetCancelOutlineText}>Cancel</Text>
                 </Pressable>
               </Pressable>
             </Pressable>
@@ -2280,65 +2446,111 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           <Modal
             visible={blockOptions != null}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={() => setBlockOptions(null)}
             presentationStyle="overFullScreen"
+            hardwareAccelerated
           >
             <Pressable style={styles.sheetBackdrop} onPress={() => setBlockOptions(null)}>
-              <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-                <View style={styles.sheetGrabber} />
-                <Text style={styles.sheetTitle}>Block</Text>
-                {blockOptions ? (
-                  <Text style={styles.sheetSub} accessibilityLabel={`Block type ${blockOptions.title}`}>
-                    {blockOptions.title} · {blockHeaderLabel(blockOptions.blockType as BlockTypeId)}
+              <Pressable
+                style={[styles.sheetEditShell, { maxHeight: BLOCK_EDIT_SHEET_MAX_HEIGHT }]}
+                onPress={(e) => e.stopPropagation()}
+              >
+                <ScrollView
+                  style={[styles.sheetEditScroll, { maxHeight: BLOCK_EDIT_SCROLL_MAX_HEIGHT }]}
+                  contentContainerStyle={styles.sheetEditScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.sheetGrabber} />
+                  <Text style={styles.sheetPremiumTitle}>Edit block</Text>
+                  <Text style={styles.sheetPremiumHelper}>
+                    Choose how this block is labeled. Changing type updates the default title.
                   </Text>
-                ) : null}
-                {(["warmup", "sets", "superset", "circuit", "cooldown", "cardio"] as const).map((bt) => (
+                  {blockOptions ? (
+                    <Text
+                      style={styles.sheetPremiumCurrent}
+                      accessibilityLabel={`Block type ${blockHeaderLabel(blockOptions.blockType as BlockTypeId)}`}
+                    >
+                      Current: {blockOptions.title}
+                    </Text>
+                  ) : null}
+                  <View style={styles.blockTypeSheetList} testID="workout-log-block-edit-sheet">
+                    {ADD_BLOCK_SHEET_ROWS.map((row) => {
+                      const isCurrent = blockOptions?.blockType === row.type;
+                      return (
+                        <Pressable
+                          key={row.type}
+                          onPress={async () => {
+                            if (!blockOptions || !user || !sessionId) return;
+                            try {
+                              await updateBlock(user.uid, sessionId, {
+                                blockId: blockOptions.blockId,
+                                patch: { blockType: row.type, title: blockHeaderLabel(row.type) },
+                              });
+                              setBlockOptions(null);
+                              await refreshReduced(user.uid, sessionId);
+                            } catch (e: unknown) {
+                              const msg = e instanceof Error ? e.message : "Unknown error";
+                              setUi({ status: "error", message: msg });
+                            }
+                          }}
+                          style={({ pressed }) => [
+                            styles.blockTypeSheetCard,
+                            isCurrent && styles.blockTypeSheetCardCurrent,
+                            pressed && styles.blockTypeSheetCardPressed,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Change to ${row.title}`}
+                          accessibilityState={{ selected: isCurrent }}
+                        >
+                          <Text style={styles.blockTypeSheetEmoji}>{row.emoji}</Text>
+                          <View style={styles.blockTypeSheetCardText}>
+                            <Text style={styles.blockTypeSheetCardTitle}>{row.title}</Text>
+                            <Text style={styles.blockTypeSheetCardSubtitle}>{row.subtitle}</Text>
+                          </View>
+                          {isCurrent ? (
+                            <Ionicons name="checkmark-circle" size={22} color={SYSTEM_ACCENT} />
+                          ) : (
+                            <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                <View
+                  style={[styles.sheetEditFooter, { paddingBottom: 20 + Math.max(insets.bottom, 16) }]}
+                  testID="workout-log-block-edit-footer"
+                >
+                  <View style={styles.sheetEditFooterDestructive}>
+                    <Text style={styles.sheetDestructiveTitle}>Remove block</Text>
+                    <Text style={styles.sheetDestructiveBody}>
+                      Deletes this block and every exercise logged in it.
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        if (blockOptions) {
+                          setConfirmDeleteBlock({ blockId: blockOptions.blockId, title: blockOptions.title });
+                          setBlockOptions(null);
+                        }
+                      }}
+                      style={styles.blockDeletePrimaryRed}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete block"
+                    >
+                      <Text style={styles.blockDeletePrimaryRedText}>Delete block</Text>
+                    </Pressable>
+                  </View>
                   <Pressable
-                    key={bt}
-                    onPress={async () => {
-                      if (!blockOptions || !user || !sessionId) return;
-                      try {
-                        await updateBlock(user.uid, sessionId, {
-                          blockId: blockOptions.blockId,
-                          patch: { blockType: bt, title: blockHeaderLabel(bt) },
-                        });
-                        setBlockOptions(null);
-                        await refreshReduced(user.uid, sessionId);
-                      } catch (e: unknown) {
-                        const msg = e instanceof Error ? e.message : "Unknown error";
-                        setUi({ status: "error", message: msg });
-                      }
-                    }}
-                    style={styles.blockTypeOption}
+                    onPress={() => setBlockOptions(null)}
+                    style={styles.sheetCancelTextOnly}
                     accessibilityRole="button"
-                    accessibilityLabel={`Change to ${blockHeaderLabel(bt)}`}
+                    accessibilityLabel="Cancel block options"
                   >
-                    <Text style={styles.blockTypeOptionText}>{blockHeaderLabel(bt)}</Text>
+                    <Text style={styles.sheetCancelTextOnlyLabel}>Cancel</Text>
                   </Pressable>
-                ))}
-                <View style={styles.sheetDivider} />
-                <Pressable
-                  onPress={() => {
-                    if (blockOptions) {
-                      setConfirmDeleteBlock({ blockId: blockOptions.blockId, title: blockOptions.title });
-                      setBlockOptions(null);
-                    }
-                  }}
-                  style={styles.dangerBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete block"
-                >
-                  <Text style={styles.dangerBtnText}>Delete block…</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setBlockOptions(null)}
-                  style={styles.secondaryBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel block options"
-                >
-                  <Text style={styles.secondaryBtnText}>Cancel</Text>
-                </Pressable>
+                </View>
               </Pressable>
             </Pressable>
           </Modal>
@@ -2346,51 +2558,54 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           <Modal
             visible={confirmDeleteBlock != null}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={() => setConfirmDeleteBlock(null)}
             presentationStyle="overFullScreen"
+            hardwareAccelerated
           >
             <Pressable style={styles.sheetBackdrop} onPress={() => setConfirmDeleteBlock(null)}>
-              <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-                <Text style={styles.sheetTitle}>Delete block?</Text>
-                <Text style={styles.sheetSub}>
-                  This will remove the block and all exercises inside it.
+              <Pressable style={styles.sheetPremium} onPress={(e) => e.stopPropagation()} testID="workout-log-delete-block-sheet">
+                <View style={styles.sheetGrabber} />
+                <Text style={styles.sheetPremiumTitle}>Delete this block?</Text>
+                <Text style={styles.sheetDeleteConfirmBody}>
+                  {confirmDeleteBlock
+                    ? `“${confirmDeleteBlock.title}” and all exercises inside it will be removed. This cannot be undone.`
+                    : "This block and all exercises inside it will be removed. This cannot be undone."}
                 </Text>
-                <View style={styles.confirmModalActions}>
-                  <Pressable
-                    onPress={() => setConfirmDeleteBlock(null)}
-                    style={styles.secondaryBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel"
-                  >
-                    <Text style={styles.secondaryBtnText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={async () => {
-                      if (!confirmDeleteBlock || !user || !sessionId || !reduced) return;
-                      const { blockId } = confirmDeleteBlock;
-                      const slotIds = reduced.exercises
-                        .filter((ex) => ex.blockId === blockId && !ex.removed)
-                        .map((ex) => ex.slotId);
-                      try {
-                        for (const slotId of slotIds) {
-                          await removeExercise(user.uid, sessionId, slotId);
-                        }
-                        await removeBlock(user.uid, sessionId, blockId);
-                        setConfirmDeleteBlock(null);
-                        await refreshReduced(user.uid, sessionId);
-                      } catch (e: unknown) {
-                        const msg = e instanceof Error ? e.message : "Unknown error";
-                        setUi({ status: "error", message: msg });
+                <Pressable
+                  onPress={async () => {
+                    if (!confirmDeleteBlock || !user || !sessionId || !reduced) return;
+                    const { blockId } = confirmDeleteBlock;
+                    const slotIds = reduced.exercises
+                      .filter((ex) => ex.blockId === blockId && !ex.removed)
+                      .map((ex) => ex.slotId);
+                    try {
+                      for (const slotId of slotIds) {
+                        await removeExercise(user.uid, sessionId, slotId);
                       }
-                    }}
-                    style={styles.dangerBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Delete"
-                  >
-                    <Text style={styles.dangerBtnText}>Delete</Text>
-                  </Pressable>
-                </View>
+                      await removeBlock(user.uid, sessionId, blockId);
+                      setConfirmDeleteBlock(null);
+                      await refreshReduced(user.uid, sessionId);
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : "Unknown error";
+                      setUi({ status: "error", message: msg });
+                    }
+                  }}
+                  style={styles.sheetDeleteConfirmPrimary}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm delete block"
+                  testID="workout-log-delete-block-confirm"
+                >
+                  <Text style={styles.sheetDeleteConfirmPrimaryText}>Delete block</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setConfirmDeleteBlock(null)}
+                  style={styles.sheetCancelOutline}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel delete block"
+                >
+                  <Text style={styles.sheetCancelOutlineText}>Cancel</Text>
+                </Pressable>
               </Pressable>
             </Pressable>
           </Modal>
@@ -2410,36 +2625,60 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       </ScrollView>
 
       {ui.status === "active" && reduced ? (
-        <View style={styles.bottomNav}>
-          <View style={styles.bottomNavInner}>
-            <Pressable
-              onPress={() => setAddBlockModalVisible(true)}
-              style={styles.circleBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Add block"
-            >
-              <Text style={styles.circleBtnText}>＋</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setFinishModalVisible(true)}
-              style={styles.finishBtn}
-              accessibilityRole="button"
-              accessibilityLabel={isBackfillFlow ? "Save exercises" : "Finish workout"}
-            >
-              <Text style={styles.finishBtnText}>{isBackfillFlow ? "Save" : "Finish"}</Text>
-            </Pressable>
-            {isBackfillFlow ? (
-              <View style={styles.circleBtnSpacer} accessibilityElementsHidden />
-            ) : (
+        <View style={[styles.bottomNav, { paddingBottom: 10 + Math.max(insets.bottom, 10) }]}>
+          <View style={styles.bottomToolbarWrap} testID="workout-log-bottom-toolbar-wrap">
+            <View style={styles.bottomToolbar} testID="workout-log-bottom-command-bar">
               <Pressable
-                onPress={() => setRestTimerPanelVisible(!restTimerPanelVisible)}
-                style={styles.circleBtn}
+                onPress={() => setAddBlockModalVisible(true)}
+                style={({ pressed }) => [styles.bottomToolSlot, pressed && styles.bottomToolSlotPressed]}
                 accessibilityRole="button"
-                accessibilityLabel="Timer"
+                accessibilityLabel="Add block"
+                testID="workout-log-bottom-add-block"
               >
-                <Text style={styles.circleBtnText}>⏱</Text>
+                <View style={styles.bottomToolIconWrap} testID="workout-log-bottom-block-icon-wrap">
+                  <Ionicons name="add" size={22} color="#3C3C43" />
+                </View>
+                <Text style={styles.bottomToolSlotLabel}>Block</Text>
               </Pressable>
-            )}
+              <Pressable
+                onPress={() => setFinishModalVisible(true)}
+                style={({ pressed }) => [styles.bottomToolSlot, pressed && styles.bottomToolSlotPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={isBackfillFlow ? "Save exercises" : "Finish workout"}
+                testID="workout-log-bottom-finish"
+              >
+                <View style={styles.bottomToolIconWrap} testID="workout-log-bottom-finish-icon-wrap">
+                  <Ionicons
+                    name={isBackfillFlow ? "save-outline" : "checkmark"}
+                    size={24}
+                    color="#FF3B30"
+                  />
+                </View>
+                <Text style={styles.bottomToolSlotLabel}>{isBackfillFlow ? "Save" : "Finish"}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (targetBlockIdForAddExercise != null) navigateToExercisePicker(targetBlockIdForAddExercise);
+                }}
+                disabled={hasZeroBlocks}
+                style={({ pressed }) => [
+                  styles.bottomToolSlot,
+                  hasZeroBlocks && styles.bottomToolSlotDisabled,
+                  !hasZeroBlocks && pressed && styles.bottomToolSlotPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Add exercise"
+                accessibilityState={{ disabled: hasZeroBlocks }}
+                testID="workout-log-bottom-add-exercise"
+              >
+                <View style={styles.bottomToolIconWrap} testID="workout-log-bottom-exercise-icon-wrap">
+                  <Ionicons name="add" size={22} color={hasZeroBlocks ? "#C7C7CC" : "#3C3C43"} />
+                </View>
+                <Text style={[styles.bottomToolSlotLabel, hasZeroBlocks && styles.bottomToolSlotLabelDisabled]}>
+                  Exercise
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       ) : null}
@@ -2746,8 +2985,8 @@ export default function WorkoutLogRoute() {
 const GRID_COL_SET = 26;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F2F2F7" },
-  screen: { flex: 1, backgroundColor: "#F2F2F7" },
+  safe: { flex: 1, backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
+  screen: { flex: 1, backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
   safeIdleStart: { backgroundColor: "#FFFFFF" },
   screenIdleStart: { backgroundColor: "#FFFFFF" },
   scrollIdleStart: { flex: 1, backgroundColor: "#FFFFFF" },
@@ -2765,13 +3004,17 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: "center",
   },
-  headerTimerWrap: {
+  headerTimerCentered: {
+    ...workoutLoggerTypography.pageTimer,
+  },
+  headerRestChrome: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 36,
-    marginBottom: 12,
+    ...headerChromeCircleShell,
   },
-  headerTimer: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
   topBarText: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
   startCtaBlock: {
     marginTop: 100,
@@ -2877,65 +3120,125 @@ const styles = StyleSheet.create({
   startGymOptionRowSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: SYSTEM_ACCENT_OVERLAY_08 },
   startGymOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
   startGymOptionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
-  content: { padding: 16, paddingBottom: 110, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24, gap: 12 },
+  workoutLogEmptyWrap: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    paddingTop: 28,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    gap: 0,
+  },
+  workoutLogEmptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    textAlign: "center",
+    letterSpacing: -0.28,
+    marginBottom: 10,
+    maxWidth: 320,
+  },
+  workoutLogEmptyBody: {
+    fontSize: 15,
+    fontWeight: "400",
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 22,
+    letterSpacing: -0.15,
+    marginBottom: 22,
+    maxWidth: 320,
+  },
+  workoutLogEmptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.12)",
+    ...(Platform.OS === "ios"
+      ? {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+        }
+      : { elevation: 2 }),
+  },
+  workoutLogEmptyCtaPressed: { opacity: 0.88 },
+  workoutLogEmptyCtaIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: SYSTEM_ACCENT_OVERLAY_08,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(58, 91, 219, 0.2)",
+  },
+  workoutLogEmptyCtaLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.22,
+  },
   bottomNav: {
     position: "absolute",
-    bottom: 24,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
   },
-  bottomNavInner: {
+  bottomToolbarWrap: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: WORKOUT_LOGGER_BOTTOM_BAR.borderRadius,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: WORKOUT_LOGGER_BOTTOM_BAR.backgroundColor,
+    ...workoutLoggerBottomBarShadow(),
+  },
+  bottomToolbar: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "center",
-    gap: 28,
+    width: "100%",
+    gap: 10,
+    paddingHorizontal: 4,
+    paddingTop: 0,
   },
-  circleBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#F2F2F7",
+  bottomToolSlot: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 112,
     alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    ...(Platform.OS === "android" ? { elevation: 3 } : {}),
+    justifyContent: "flex-end",
+    paddingBottom: 2,
+    paddingTop: 2,
   },
-  circleBtnSpacer: {
-    width: 48,
-    height: 48,
-  },
-  circleBtnText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
-  finishBtn: {
-    backgroundColor: SYSTEM_ACCENT,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
+  bottomToolSlotPressed: { opacity: 0.82 },
+  bottomToolSlotDisabled: { opacity: 0.45 },
+  bottomToolIconWrap: {
+    width: 44,
+    height: 44,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    ...(Platform.OS === "ios"
-      ? {
-          shadowColor: "#000",
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 6 },
-        }
-      : { elevation: 3 }),
+    ...headerChromeCircleShell,
   },
-  finishBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+  bottomToolSlotLabel: {
+    marginTop: 5,
+    ...workoutLoggerTypography.commandBarLabel,
   },
+  bottomToolSlotLabelDisabled: { color: "#C7C7CC" },
   finishConfirmRedBtn: {
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -3099,50 +3402,51 @@ const styles = StyleSheet.create({
   secondaryBtnText: { fontSize: 14, fontWeight: "700", color: "#3C3C43" },
   actionRow: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8 },
   setList: { gap: 4 },
-  blockSection: { marginBottom: 16 },
+  blockSection: { marginBottom: 10 },
+  blockSectionUnselected: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
+  },
+  blockSectionSelected: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 122, 255, 0.4)",
+    backgroundColor: "rgba(0, 122, 255, 0.05)",
+  },
   blockHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 8,
+    justifyContent: "flex-start",
+    marginBottom: 6,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    backgroundColor: "transparent",
+  },
+  blockEmptyHint: {
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#E8E8ED",
-    borderRadius: 12,
+    marginBottom: 6,
+  },
+  blockEmptyHintText: {
+    fontSize: 15,
+    fontWeight: "400",
+    color: "#8E8E93",
+    textAlign: "center",
+    letterSpacing: -0.15,
   },
   blockTitlePill: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(60, 60, 67, 0.06)",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.1)",
   },
   blockTitlePillText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#1C1C1E",
-    letterSpacing: 0.8,
-  },
-  addExercisePill: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  addExercisePillText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.sectionChip,
   },
   addExerciseIconBtn: {
     width: 36,
@@ -3187,29 +3491,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
   },
-  exerciseListRowThumbnailContainer: {
-    width: 120,
-    height: 68,
-    borderRadius: 6,
-    marginRight: 12,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  exerciseListRowThumbnailImage: {
-    width: "100%",
-    height: "100%",
-  },
   exerciseListRowCenter: { flex: 1 },
-  exerciseListRowName: { fontSize: 16, fontWeight: "600", color: "#1C1C1E" },
-  exerciseListRowSets: { fontSize: 13, color: "#6E6E73", marginTop: 2 },
+  exerciseListRowName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", letterSpacing: -0.22 },
+  exerciseListRowSets: { fontSize: 15, fontWeight: "400", color: "#8E8E93", marginTop: 2, letterSpacing: -0.15 },
   exerciseListRowMore: { padding: 8 },
   moreDots: { fontSize: 16, fontWeight: "700", color: "#8E8E93" },
   exerciseCardWrap: { marginBottom: 8 },
   loggerInlinePanel: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
@@ -3218,15 +3508,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 17,
+    paddingVertical: 10,
     minHeight: 44,
   },
   exerciseCardHeaderTitle: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.exerciseInlineTitle,
     marginRight: 8,
   },
   exerciseCardHeaderMenuBtn: {
@@ -3242,94 +3530,108 @@ const styles = StyleSheet.create({
   },
   heroContainerWithSpacing: {
     width: "100%",
-    marginTop: 16,
+    marginTop: 8,
+    paddingHorizontal: 17,
   },
   heroMediaContainer: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    ...WORKOUT_LOG_HERO_MEDIA_CONTAINER,
   },
   heroMediaFill: {
     width: "100%",
-    height: "100%",
   },
-  loggerInlineContent: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 16 },
+  loggerInlineContent: { paddingHorizontal: 17, paddingTop: 12, paddingBottom: 17 },
   exerciseLoggerBackBtn: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 0 },
   exerciseLoggerScroll: { flex: 1 },
   exerciseLoggerScrollContent: { padding: 16, paddingBottom: 32 },
-  exerciseLoggerName: { fontSize: 22, fontWeight: "800", color: "#1C1C1E", marginBottom: 4 },
-  exerciseLoggerBlockLabel: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  exerciseLoggerName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", marginBottom: 4, letterSpacing: -0.22 },
+  exerciseLoggerBlockLabel: {
+    ...workoutLoggerTypography.sectionChip,
+  },
   loggerUtilityRow: {
+    marginBottom: 12,
+    gap: 10,
+  },
+  loggerUtilityPrimaryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 12,
-    marginBottom: 14,
-    paddingVertical: 8,
+    width: "100%",
   },
-  loggerUtilityAction: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    minHeight: 44,
+  loggerUtilitySecondaryRow: {
+    alignItems: "stretch",
+  },
+  loggerUtilityPill: {
+    paddingHorizontal: 16,
+    height: 38,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.1)",
   },
-  loggerUtilityActionText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#FF3B30",
+  loggerUtilityPillActive: {
+    backgroundColor: "rgba(0, 122, 255, 0.08)",
+    borderColor: "rgba(0, 122, 255, 0.22)",
   },
-  loggerUtilityActionActive: {
-    backgroundColor: "#FF3B30",
-    borderRadius: 12,
+  loggerUtilityPillText: {
+    ...workoutLoggerTypography.exerciseActionPillLabel,
+    color: WORKOUT_LOGGER_COLORS.textSecondary,
   },
-  loggerUtilityActionTextActive: {
-    color: "#FFFFFF",
+  loggerUtilityPillTextActive: {
+    color: "rgba(0, 122, 255, 0.95)",
   },
-  setListInModal: { gap: 4, marginBottom: 12 },
+  setListInModal: { gap: 8, marginBottom: 10 },
   setColSet: { width: GRID_COL_SET },
   setPlaceholderCell: { minHeight: 40, justifyContent: "center" },
   swipeableRowWrap: {
     minHeight: 40,
-    overflow: "hidden",
-    marginBottom: 4,
-    borderRadius: 10,
+    marginBottom: 0,
+    borderRadius: 12,
   },
-  swipeableRowDeleteBg: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
+  swipeableSwipeContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  swipeableSwipeChildren: {
+    backgroundColor: "transparent",
+  },
+  swipeableRightActionRoot: {
+    width: SWIPE_REVEAL_WIDTH,
+    minHeight: 52,
     backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "stretch",
   },
   swipeableRowDeleteBtn: {
-    width: SWIPE_REVEAL_WIDTH,
-    height: "100%",
+    flex: 1,
+    minHeight: 52,
     justifyContent: "center",
     alignItems: "center",
+    gap: 4,
   },
   swipeableRowDeleteText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: "#FFFFFF",
   },
   setRowCompleted: {
-    minHeight: 56,
-    paddingVertical: 10,
+    minHeight: 52,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#F7F7F8",
-    borderRadius: 10,
+    backgroundColor: "#F4F4F6",
+    borderRadius: 12,
   },
-  setOrdinalCell: { fontSize: 15, fontWeight: "500", color: "#6B7280", textAlign: "left" },
-  loggedSetSummaryContent: { gap: 8 },
+  setOrdinalCell: {
+    ...workoutLoggerTypography.exerciseSetRowMeta,
+    fontWeight: "500",
+    color: "#6E6E73",
+    textAlign: "left",
+  },
+  loggedSetSummaryContent: { gap: 6 },
   loggedSetSummaryTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -3338,37 +3640,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
+    paddingRight: 8,
   },
-  loggedSetSummaryText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1C1C1E",
+  loggedSetSummaryLead: {
+    ...workoutLoggerTypography.exerciseSetRowPrimary,
+  },
+  loggedSetSummaryMeta: {
+    ...workoutLoggerTypography.exerciseSetRowMeta,
+    fontSize: 14,
   },
   loggedSetVolumeText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#3A3A3C",
-    minWidth: 40,
+    ...workoutLoggerTypography.exerciseSetRowPrimary,
+    fontSize: 15,
+    fontWeight: "500",
+    fontVariant: ["tabular-nums"],
+    color: "#3C3C43",
+    minWidth: 56,
     textAlign: "right",
+    paddingTop: 1,
+    marginLeft: 8,
   },
   loggedSetBarTrack: {
-    height: 6,
-    backgroundColor: "#E5E5EA",
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: "#EBEBF0",
+    borderRadius: 2,
     overflow: "hidden",
   },
   loggedSetBarFill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 2,
   },
   setRowActive: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 48,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    gap: 6,
-    marginTop: 8,
+    minHeight: 40,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    gap: 5,
+    marginTop: 9,
   },
   draftInput: {
     flex: 0,
@@ -3397,42 +3706,39 @@ const styles = StyleSheet.create({
   draftTapTarget: {
     flex: 1,
     minWidth: 52,
-    minHeight: 44,
+    height: 40,
+    minHeight: 40,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 6,
     paddingHorizontal: 6,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    backgroundColor: "rgba(118, 118, 128, 0.06)",
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    ...(Platform.OS === "android" ? { elevation: 2 } : {}),
+    borderColor: "rgba(60, 60, 67, 0.08)",
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    ...(Platform.OS === "android" ? { elevation: 0 } : {}),
   },
   draftTapTargetPressed: {
     opacity: 0.92,
-    backgroundColor: "#F5F5F7",
+    backgroundColor: "rgba(118, 118, 128, 0.1)",
   },
   draftTapFieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.exerciseInlineFieldLabel,
     textAlign: "center",
   },
   draftTapFieldValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.exerciseInlineFieldValue,
     textAlign: "center",
   },
   draftPickerSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 16,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetChromeBackground,
+    borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
     paddingTop: 8,
     paddingBottom: 24,
     maxHeight: "70%",
@@ -3462,14 +3768,14 @@ const styles = StyleSheet.create({
   },
   draftPickerDoneBtnText: { fontSize: 17, fontWeight: "600", color: SYSTEM_ACCENT },
   logDraftBtn: {
-    width: 56,
-    minHeight: 44,
+    minWidth: 56,
+    height: 40,
     paddingVertical: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 12,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1677FF",
-    borderRadius: 10,
+    backgroundColor: SYSTEM_ACCENT,
+    borderRadius: 12,
   },
   setColActionWrap: {
     width: 56,
@@ -3478,7 +3784,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logDraftBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
+  logDraftBtnText: { fontSize: 15, fontWeight: "600", color: "#FFFFFF", letterSpacing: -0.18 },
   addSetRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -3494,7 +3800,7 @@ const styles = StyleSheet.create({
   addSetSmallBtnText: { fontSize: 16, fontWeight: "600", color: SYSTEM_ACCENT },
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetBackdrop,
     justifyContent: "flex-end",
   },
   finishBackdrop: {
@@ -3513,63 +3819,165 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
-  finishSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  sheetPremium: {
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetChromeBackground,
+    borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
+    paddingTop: 10,
+    paddingBottom: 28,
+    maxHeight: "88%",
+  },
+  sheetEditShell: {
+    width: "100%",
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetChromeBackground,
+    borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    overflow: "hidden",
+  },
+  sheetEditScroll: {},
+  sheetEditScrollContent: {
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  sheetEditFooter: {
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
+    paddingTop: 10,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetChromeBackground,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(60, 60, 67, 0.12)",
+  },
+  sheetEditFooterDestructive: {
+    gap: 6,
+    paddingTop: 4,
+  },
+  sheetCancelTextOnly: {
+    marginTop: 10,
+    alignSelf: "center",
+    paddingVertical: 10,
     paddingHorizontal: 20,
+  },
+  sheetCancelTextOnlyLabel: {
+    ...workoutLoggerCancelTextButton,
+  },
+  sheetPremiumTitle: {
+    ...workoutLoggerTypography.sheetTitle,
+    marginBottom: 8,
+  },
+  sheetPremiumHelper: {
+    ...workoutLoggerTypography.sheetBody,
+    marginBottom: 16,
+  },
+  blockTypeSheetList: { gap: 10, marginBottom: 4 },
+  blockTypeSheetCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: WORKOUT_LOGGER_LAYOUT.optionCardRadius,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.12)",
+    gap: 12,
+    ...workoutLoggerOptionCardShadow(),
+  },
+  blockTypeSheetCardPressed: { backgroundColor: "#F7F7FA" },
+  blockTypeSheetEmoji: { fontSize: 22, width: 36, textAlign: "center" },
+  blockTypeSheetCardText: { flex: 1, minWidth: 0 },
+  blockTypeSheetCardTitle: {
+    ...workoutLoggerTypography.optionTitle,
+  },
+  blockTypeSheetCardSubtitle: {
+    ...workoutLoggerTypography.optionDescription,
+    marginTop: 3,
+  },
+  sheetCancelOutline: {
+    ...workoutLoggerCancelOutline,
+  },
+  sheetCancelOutlineText: {
+    ...workoutLoggerCancelOutlineText,
+  },
+  sheetPremiumCurrent: {
+    ...workoutLoggerTypography.sectionChip,
+    marginBottom: 12,
+  },
+  blockTypeSheetCardCurrent: {
+    ...workoutLoggerOptionCardCurrent,
+  },
+  sheetDestructiveSection: {
+    marginTop: 20,
+    paddingTop: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(60, 60, 67, 0.12)",
+    gap: 6,
+  },
+  sheetDestructiveTitle: {
+    ...workoutLoggerTypography.sectionEyebrow,
+  },
+  sheetDestructiveBody: {
+    ...workoutLoggerTypography.sheetBody,
+    marginBottom: 4,
+  },
+  blockDeletePrimaryRed: {
+    ...workoutLoggerDestructivePrimary,
+    marginTop: 8,
+  },
+  blockDeletePrimaryRedText: {
+    ...workoutLoggerDestructivePrimaryText,
+  },
+  sheetDeleteConfirmBody: {
+    ...workoutLoggerTypography.sheetBody,
+    marginBottom: 22,
+  },
+  sheetDeleteConfirmPrimary: {
+    ...workoutLoggerDestructivePrimary,
+    marginBottom: 12,
+  },
+  sheetDeleteConfirmPrimaryText: {
+    ...workoutLoggerDestructivePrimaryText,
+  },
+  finishSheet: {
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
+    borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
     paddingTop: 14,
     paddingBottom: 24,
     marginBottom: 0,
   },
   sheetContainer: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    padding: 16,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
+    borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
+    paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
+    paddingTop: 12,
     paddingBottom: 24,
     maxHeight: "78%",
   },
   sheetGrabber: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#C7C7CC",
-    marginBottom: 12,
+    ...workoutLoggerGrabberStyle,
   },
   finishSheetTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.sheetTitle,
     textAlign: "center",
     marginBottom: 8,
   },
   finishSheetSubtitle: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#6B7280",
-    lineHeight: 22,
+    ...workoutLoggerTypography.sheetBody,
     textAlign: "center",
   },
-  sheetTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 12 },
+  sheetTitle: {
+    ...workoutLoggerTypography.sheetTitle,
+    marginBottom: 12,
+  },
   draftPickerSheetTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1C1C1E",
+    ...workoutLoggerTypography.sheetTitle,
     marginBottom: 12,
     textAlign: "center",
   },
   sheetSub: { fontSize: 14, color: "#6E6E73", marginBottom: 12 },
   sheetDivider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 12 },
-  blockTypeOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: "#F2F2F7",
-    marginBottom: 8,
-  },
-  blockTypeOptionText: { fontSize: 16, fontWeight: "600", color: "#1C1C1E" },
   fieldLabel: {
     fontSize: 12,
     fontWeight: "700",
@@ -3609,22 +4017,18 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   confirmModalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
     borderRadius: 16,
     padding: 20,
     width: "100%",
     maxWidth: 320,
   },
-  confirmModalTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 8 },
-  confirmModalActions: { flexDirection: "row", gap: 12, marginTop: 16 },
-  blockTypeList: { gap: 10, marginTop: 12, marginBottom: 12 },
-  blockTypeBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: SYSTEM_ACCENT,
-    borderRadius: 10,
-    alignItems: "center",
+  confirmModalTitle: {
+    ...workoutLoggerTypography.sheetTitle,
+    marginBottom: 8,
+    textAlign: "center",
   },
+  confirmModalActions: { flexDirection: "row", gap: 12, marginTop: 16 },
   cancelConfirmBtn: {
     flex: 1,
     paddingVertical: 10,
