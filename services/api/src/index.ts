@@ -90,12 +90,17 @@ app.use(
 // Optional hardening: prevent accidental huge payloads (exercise media uses larger POST bodies).
 const jsonParserDefault = express.json({ limit: "1mb" });
 const jsonParserExerciseMedia = express.json({ limit: "35mb" });
+
+/** Match media POST regardless of how `req.path` is normalized behind proxies (35mb JSON body). */
+function isExerciseDefinitionMediaPost(req: Request): boolean {
+  if (req.method !== "POST") return false;
+  const pathname = (req.originalUrl ?? req.url ?? "").split("?")[0] ?? "";
+  return /\/exercise-definitions\/.+\/media$/.test(pathname);
+}
+
 app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.method === "POST" && typeof req.path === "string") {
-    const p = req.path.split("?")[0] ?? req.path;
-    if (p.includes("/exercise-definitions/") && p.endsWith("/media")) {
-      return jsonParserExerciseMedia(req, res, next);
-    }
+  if (isExerciseDefinitionMediaPost(req)) {
+    return jsonParserExerciseMedia(req, res, next);
   }
   return jsonParserDefault(req, res, next);
 });
