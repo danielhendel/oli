@@ -15,11 +15,11 @@ export function getWorkoutTruthTargetConfig(): WorkoutTruthTargetConfig | null {
   if (!__DEV__ || process.env.JEST_WORKER_ID) return null;
   const exact = (process.env.EXPO_PUBLIC_WORKOUT_TRUTH_TARGET_RAW_EVENT_IDS ?? "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean);
   const prefixes = (process.env.EXPO_PUBLIC_WORKOUT_TRUTH_TARGET_RAW_EVENT_ID_PREFIXES ?? "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean);
   if (exact.length === 0 && prefixes.length === 0) return null;
   return { exactIds: new Set(exact), prefixes };

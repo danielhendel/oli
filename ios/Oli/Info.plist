@@ -55,6 +55,12 @@
     <string>Oli reads steps, workouts, resting heart rate, exercise time, and active energy for your workouts overview.</string>
     <key>NSHealthUpdateUsageDescription</key>
     <string>Oli does not write health data.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Oli uses photos you choose as optional exercise reference images and videos.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Oli uses the camera for optional exercise reference photos and videos.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Oli uses the microphone when you record exercise reference videos.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

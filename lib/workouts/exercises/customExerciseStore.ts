@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { buildStableCustomExerciseId, type ExerciseDefinitionRow } from "@oli/contracts";
+import {
+  buildStableCustomExerciseId,
+  type ExerciseDefinitionLaterality,
+  type ExerciseDefinitionRow,
+  type ExerciseDefinitionStability,
+} from "@oli/contracts";
 import {
   getPrimaryMuscleGroupForExercise,
   getPrimaryMuscleGroupsFromContributionList,
@@ -15,6 +20,7 @@ import type {
   PrimaryBucket,
 } from "./taxonomy";
 import { isMuscleSubgroup, validateMuscleContributions } from "./taxonomy";
+import { resolveStrengthLoggingType } from "./loggingType";
 
 export type CustomExerciseLoggingType =
   | "weight_reps"
@@ -37,6 +43,9 @@ export type CustomExerciseRecord = {
   primaryMusclesDetailed?: MuscleGroupDetailed[];
   secondaryMusclesDetailed?: MuscleGroupDetailed[];
   muscleContributions?: MuscleContribution[];
+  /** Machine-supported vs free-motion (see @oli/contracts exerciseDefinition). */
+  stability?: ExerciseDefinitionStability | null;
+  laterality?: ExerciseDefinitionLaterality | null;
   imageUrl?: string;
   videoUrl?: string;
   mediaUrl?: string;
@@ -134,6 +143,21 @@ function optionalMuscleContributions(v: unknown): MuscleContribution[] | undefin
   return validateMuscleContributions(out) ? out : undefined;
 }
 
+const STABILITY_SET = new Set<string>(["machine", "free"]);
+const LATERALITY_SET = new Set<string>(["unilateral", "bilateral"]);
+
+function optionalStability(v: unknown): ExerciseDefinitionStability | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== "string") return undefined;
+  return STABILITY_SET.has(v) ? (v as ExerciseDefinitionStability) : undefined;
+}
+
+function optionalLaterality(v: unknown): ExerciseDefinitionLaterality | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== "string") return undefined;
+  return LATERALITY_SET.has(v) ? (v as ExerciseDefinitionLaterality) : undefined;
+}
+
 function optionalUrlField(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim();
@@ -195,6 +219,10 @@ function normalizeRecords(raw: unknown): CustomExerciseRecord[] {
     if (secondaryMusclesDetailed != null) record.secondaryMusclesDetailed = secondaryMusclesDetailed;
     const muscleContributions = optionalMuscleContributions(row.muscleContributions);
     if (muscleContributions != null) record.muscleContributions = muscleContributions;
+    const stability = optionalStability(row.stability);
+    if (stability !== undefined) record.stability = stability;
+    const laterality = optionalLaterality(row.laterality);
+    if (laterality !== undefined) record.laterality = laterality;
     const imageUrl = optionalUrlField(row.imageUrl);
     if (imageUrl != null) record.imageUrl = imageUrl;
     const videoUrl = optionalUrlField(row.videoUrl);
@@ -232,6 +260,8 @@ export function customExerciseRecordFromDefinitionRow(row: ExerciseDefinitionRow
   if (row.muscleContributions !== undefined) {
     out.muscleContributions = row.muscleContributions as MuscleContribution[];
   }
+  if (row.stability !== undefined) out.stability = row.stability;
+  if (row.laterality !== undefined) out.laterality = row.laterality;
   if (row.imageUrl !== undefined) out.imageUrl = row.imageUrl;
   if (row.videoUrl !== undefined) out.videoUrl = row.videoUrl;
   if (row.mediaUrl !== undefined) out.mediaUrl = row.mediaUrl;
@@ -274,6 +304,50 @@ export async function createCustomExercise(
     createdAt: now,
     updatedAt: now,
   };
+  await writeCustomExercises(uid, [...existing, row]);
+  return row;
+}
+
+/**
+ * Creates a user-owned custom exercise seeded from a bundled `EXERCISE_LIBRARY_V1` row.
+ * Does not modify the bundled catalog. Caller should sync to backend via `createExerciseDefinition` when online.
+ */
+export async function createCustomExerciseSeededFromBundled(
+  uid: string,
+  bundledExerciseId: string,
+): Promise<CustomExerciseRecord> {
+  const item = EXERCISE_LIBRARY_V1.find((x) => x.exerciseId === bundledExerciseId);
+  if (item == null) {
+    throw new Error(`Not a bundled library exercise: ${bundledExerciseId}`);
+  }
+  const name = sanitizeCustomExerciseName(item.name);
+  if (name.length === 0) {
+    throw new Error("Exercise name is required.");
+  }
+  const existing = await listCustomExercises(uid);
+  const existingIds = new Set(existing.map((x) => x.exerciseId));
+  const exerciseId = buildStableCustomExerciseId(uid, name, existingIds);
+  const loggingType = resolveStrengthLoggingType(bundledExerciseId) as CustomExerciseLoggingType;
+  const now = new Date().toISOString();
+  const row: CustomExerciseRecord = {
+    exerciseId,
+    name,
+    equipment: item.equipment,
+    primary: item.primaryBucket,
+    loggingType,
+    createdAt: now,
+    updatedAt: now,
+    movementPattern: item.movement,
+  };
+  if (item.aliases.length > 0) {
+    row.aliases = [...item.aliases];
+  }
+  if (item.primaryDetailed.length > 0) {
+    row.primaryMusclesDetailed = [...item.primaryDetailed];
+  }
+  if (item.secondaryDetailed.length > 0) {
+    row.secondaryMusclesDetailed = [...item.secondaryDetailed];
+  }
   await writeCustomExercises(uid, [...existing, row]);
   return row;
 }

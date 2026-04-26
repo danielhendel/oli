@@ -10,6 +10,7 @@ import usersMeRoutes from "./routes/usersMe";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
 import profileMainRoutes from "./routes/profileMain";
+import exerciseDefinitionMediaUploadRoutes from "./routes/exerciseDefinitionMediaUpload";
 import exerciseDefinitionsRoutes from "./routes/exerciseDefinitions";
 import integrationsRoutes, { handleOuraCallback } from "./routes/integrations";
 import appleHealthStatusRouter from "./routes/integrations/appleHealthStatus";
@@ -86,8 +87,18 @@ app.use(
   }),
 );
 
-// Optional hardening: prevent accidental huge payloads
-app.use(express.json({ limit: "1mb" }));
+// Optional hardening: prevent accidental huge payloads (exercise media uses larger POST bodies).
+const jsonParserDefault = express.json({ limit: "1mb" });
+const jsonParserExerciseMedia = express.json({ limit: "35mb" });
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.method === "POST" && typeof req.path === "string") {
+    const p = req.path.split("?")[0] ?? req.path;
+    if (p.includes("/exercise-definitions/") && p.endsWith("/media")) {
+      return jsonParserExerciseMedia(req, res, next);
+    }
+  }
+  return jsonParserDefault(req, res, next);
+});
 
 // Unauthed health endpoints
 app.use(healthRouter);
@@ -126,7 +137,10 @@ app.use("/profile", authMiddleware, profileMainRoutes);
 
 /**
  * User-owned exercise definitions (`users/{uid}/exerciseDefinitions/*`).
+ * Media upload lives in a separate router module so Jest suites that import the CRUD router
+ * do not eagerly load firebase-admin.
  */
+app.use("/exercise-definitions", authMiddleware, exerciseDefinitionMediaUploadRoutes);
 app.use("/exercise-definitions", authMiddleware, exerciseDefinitionsRoutes);
 
 /**

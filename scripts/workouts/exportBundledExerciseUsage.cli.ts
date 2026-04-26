@@ -147,6 +147,8 @@ function exerciseDefinitionRowToCustomExerciseRecord(r: ExerciseDefinitionRow): 
     ...(r.primaryMusclesDetailed != null ? { primaryMusclesDetailed: r.primaryMusclesDetailed } : {}),
     ...(r.secondaryMusclesDetailed != null ? { secondaryMusclesDetailed: r.secondaryMusclesDetailed } : {}),
     ...(r.muscleContributions != null ? { muscleContributions: r.muscleContributions } : {}),
+    ...(r.stability !== undefined ? { stability: r.stability } : {}),
+    ...(r.laterality !== undefined ? { laterality: r.laterality } : {}),
     ...(r.imageUrl != null ? { imageUrl: r.imageUrl } : {}),
     ...(r.videoUrl != null ? { videoUrl: r.videoUrl } : {}),
     ...(r.mediaUrl != null ? { mediaUrl: r.mediaUrl } : {}),

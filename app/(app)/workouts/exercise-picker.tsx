@@ -14,6 +14,8 @@ import {
   Modal,
   ListRenderItem,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -33,8 +35,12 @@ import type { ExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
 import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
-import type { CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
+import {
+  createCustomExerciseSeededFromBundled,
+  type CustomExerciseRecord,
+} from "@/lib/workouts/exercises/customExerciseStore";
 import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import { createExerciseDefinition } from "@/lib/api/exerciseDefinitions";
 import { migrateLocalCustomExercisesToBackend } from "@/lib/workouts/exercises/migrateCustomExercisesToBackend";
 import { normalizeStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
@@ -274,6 +280,7 @@ export default function ExercisePickerScreen() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [customizeInFlight, setCustomizeInFlight] = useState(false);
   const [sections, setSections] = useState<{ recentIds: string[]; popularIds: string[] }>({
     recentIds: [],
     popularIds: [],
@@ -531,6 +538,46 @@ export default function ExercisePickerScreen() {
     ],
   );
 
+  const onCustomizeBundledExercise = useCallback(
+    async (bundledExerciseId: string) => {
+      if (sessionId == null || user == null) return;
+      if (customById.has(bundledExerciseId)) return;
+      setCustomizeInFlight(true);
+      try {
+        const row = await createCustomExerciseSeededFromBundled(user.uid, bundledExerciseId);
+        const token = await getIdToken(false);
+        if (token) {
+          void createExerciseDefinition(token, {
+            name: row.name,
+            equipment: row.equipment,
+            primary: row.primary,
+            loggingType: row.loggingType,
+            exerciseId: row.exerciseId,
+            ...(row.movementPattern != null ? { movementPattern: row.movementPattern } : {}),
+            ...(row.aliases != null && row.aliases.length > 0 ? { aliases: row.aliases } : {}),
+            ...(row.primaryMusclesDetailed != null && row.primaryMusclesDetailed.length > 0
+              ? { primaryMusclesDetailed: row.primaryMusclesDetailed }
+              : {}),
+            ...(row.secondaryMusclesDetailed != null && row.secondaryMusclesDetailed.length > 0
+              ? { secondaryMusclesDetailed: row.secondaryMusclesDetailed }
+              : {}),
+            ...(row.muscleContributions != null ? { muscleContributions: row.muscleContributions } : {}),
+            ...(row.stability != null ? { stability: row.stability } : {}),
+            ...(row.laterality != null ? { laterality: row.laterality } : {}),
+          });
+        }
+        setSelectedExerciseId(null);
+        onOpenEditExercise(row.exerciseId);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        Alert.alert("Couldn't customize exercise", message);
+      } finally {
+        setCustomizeInFlight(false);
+      }
+    },
+    [sessionId, user, customById, getIdToken, onOpenEditExercise],
+  );
+
   const listData = useMemo((): ListEntry[] => {
     const hasQuery = query.trim() !== "";
     const entries: ListEntry[] = [{ type: "header" }];
@@ -660,7 +707,7 @@ export default function ExercisePickerScreen() {
           )
         ) : (
           <Text style={styles.gymStatus} accessibilityLabel="Exercise library scope">
-            Full library
+            My Exercise Library
           </Text>
         )}
         {showMicroline && microlineText ? (
@@ -703,33 +750,70 @@ export default function ExercisePickerScreen() {
         ? renderHighlightedText(name, tokensForHighlight(query), styles)
         : <Text style={styles.rowTitle}>{name}</Text>;
 
+      const isOwnedCustom =
+        user != null && custom != null && isUserScopedCustomExerciseId(user.uid, exerciseId);
+      const canQuickAdd = sessionId != null;
+
       return (
-        <Pressable
-          onPress={() => setSelectedExerciseId(exerciseId)}
-          onLongPress={() => {
-            if (sessionId != null) onAddToWorkout(exerciseId);
-          }}
-          style={[styles.row, listItemStyle]}
-          accessibilityRole="button"
-          accessibilityLabel={`Pick ${name}`}
-        >
-          {hasThumbnail ? (
-            <View style={styles.rowThumbnailContainer}>
-              <Image
-                source={getBundledExerciseAsset(exerciseId)}
-                style={styles.rowThumbnailImage}
-                resizeMode="contain"
-                accessibilityLabel={`${name} image`}
-              />
+        <View style={[styles.row, listItemStyle]}>
+          <Pressable
+            onPress={() => {
+              if (sessionId != null) onAddToWorkout(exerciseId);
+            }}
+            onLongPress={
+              isOwnedCustom && sessionId != null
+                ? () => {
+                    onOpenEditExercise(exerciseId);
+                  }
+                : undefined
+            }
+            disabled={!canQuickAdd}
+            style={styles.rowMainHit}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${name} to workout`}
+            accessibilityHint={
+              isOwnedCustom && sessionId != null
+                ? "Long press to edit this custom exercise"
+                : "Opens actions menu from the button on the right"
+            }
+            accessibilityState={{ disabled: !canQuickAdd }}
+          >
+            {hasThumbnail ? (
+              <View style={styles.rowThumbnailContainer}>
+                <Image
+                  source={getBundledExerciseAsset(exerciseId)}
+                  style={styles.rowThumbnailImage}
+                  resizeMode="contain"
+                  accessibilityLabel={`${name} image`}
+                />
+              </View>
+            ) : (
+              <ThumbnailPlaceholderView width={120} height={68} />
+            )}
+            <View style={styles.rowContent}>
+              <View style={styles.rowTitleRow}>
+                {titleNode}
+                {custom != null ? (
+                  <View style={styles.customBadge} accessibilityLabel="Custom exercise">
+                    <Text style={styles.customBadgeText}>Custom</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.rowMeta}>{subtitle}</Text>
             </View>
-          ) : (
-            <ThumbnailPlaceholderView width={120} height={68} />
-          )}
-          <View style={styles.rowContent}>
-            {titleNode}
-            <Text style={styles.rowMeta}>{subtitle}</Text>
-          </View>
-        </Pressable>
+          </Pressable>
+          <Pressable
+            onPress={() => setSelectedExerciseId(exerciseId)}
+            style={styles.rowMenuBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Exercise actions, ${name}`}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.rowMenuIcon} accessibilityElementsHidden>
+              ⋯
+            </Text>
+          </Pressable>
+        </View>
       );
     },
     [
@@ -737,7 +821,9 @@ export default function ExercisePickerScreen() {
       listData.length,
       query,
       sessionId,
+      user,
       onAddToWorkout,
+      onOpenEditExercise,
       renderHeaderContent,
       customById,
     ],
@@ -765,6 +851,11 @@ export default function ExercisePickerScreen() {
   const selectedName = selectedExerciseId
     ? (catalogNameById[selectedExerciseId] ?? selectedExerciseId)
     : "";
+
+  const bundledSourceExercise = useMemo(() => {
+    if (selectedExerciseId == null) return null;
+    return EXERCISE_LIBRARY_V1.find((x) => x.exerciseId === selectedExerciseId) ?? null;
+  }, [selectedExerciseId]);
 
   const showGymAwareEmptyHint =
     activeTab === "myGym" &&
@@ -965,6 +1056,12 @@ export default function ExercisePickerScreen() {
                 {sessionId == null ? (
                   <Text style={styles.missingSessionText}>Missing session id</Text>
                 ) : null}
+                {selectedCustom == null && bundledSourceExercise != null ? (
+                  <Text style={styles.modalBundledHint}>
+                    Built-in exercises cannot be edited directly. Use Customize to make an editable copy in your
+                    library.
+                  </Text>
+                ) : null}
                 <View style={styles.modalActions}>
                   {selectedCustom != null &&
                   user != null &&
@@ -976,6 +1073,26 @@ export default function ExercisePickerScreen() {
                       accessibilityLabel="Edit exercise"
                     >
                       <Text style={styles.editExerciseButtonText}>Edit exercise</Text>
+                    </Pressable>
+                  ) : null}
+                  {selectedCustom == null && bundledSourceExercise != null ? (
+                    <Pressable
+                      onPress={() => {
+                        if (selectedExerciseId != null) void onCustomizeBundledExercise(selectedExerciseId);
+                      }}
+                      disabled={sessionId == null || customizeInFlight}
+                      style={[
+                        styles.editExerciseButton,
+                        (sessionId == null || customizeInFlight) && styles.editExerciseButtonDisabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Customize exercise"
+                    >
+                      {customizeInFlight ? (
+                        <ActivityIndicator color={SYSTEM_ACCENT} />
+                      ) : (
+                        <Text style={styles.editExerciseButtonText}>Customize exercise</Text>
+                      )}
                     </Pressable>
                   ) : null}
                   <Pressable
@@ -1140,11 +1257,50 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#C6C6C8",
+  },
+  rowMainHit: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+  },
+  rowMenuBtn: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingLeft: 4,
+    paddingVertical: 4,
+    minWidth: 40,
+  },
+  rowMenuIcon: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#8E8E93",
+    lineHeight: 24,
+  },
+  rowTitleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
+  customBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "#E8E8ED",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#D1D1D6",
+  },
+  customBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#636366",
+    letterSpacing: 0.3,
   },
   rowThumbnailContainer: {
     width: 120,
@@ -1243,6 +1399,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: SYSTEM_ACCENT,
+  },
+  editExerciseButtonDisabled: {
+    opacity: 0.45,
+  },
+  modalBundledHint: {
+    fontSize: 13,
+    color: "#6E6E73",
+    lineHeight: 18,
+    marginBottom: 4,
   },
   addButton: {
     backgroundColor: SYSTEM_ACCENT,

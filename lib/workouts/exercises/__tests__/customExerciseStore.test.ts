@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createCustomExercise,
+  createCustomExerciseSeededFromBundled,
   listCustomExercises,
   resolveCatalogExerciseIdByName,
   resolveCustomExercisePrimaryMuscleGroup,
@@ -74,5 +75,25 @@ describe("customExerciseStore", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
     expect(group).toBe("biceps");
+  });
+
+  it("createCustomExerciseSeededFromBundled copies bundled metadata", async () => {
+    const row = await createCustomExerciseSeededFromBundled("user_123", "bench_press");
+    expect(row.name).toBe("Bench Press");
+    expect(row.equipment).toBe("Barbell");
+    expect(row.primary).toBe("Chest");
+    expect(row.loggingType).toBe("weight_reps");
+    expect(row.movementPattern).toBe("push");
+    expect(row.aliases?.length).toBeGreaterThan(0);
+    expect(row.primaryMusclesDetailed).toEqual(["Pecs"]);
+    expect(row.secondaryMusclesDetailed).toEqual(["DeltsAnterior", "Triceps"]);
+    const listed = await listCustomExercises("user_123");
+    expect(listed.some((r) => r.exerciseId === row.exerciseId)).toBe(true);
+  });
+
+  it("createCustomExerciseSeededFromBundled rejects unknown ids", async () => {
+    await expect(createCustomExerciseSeededFromBundled("user_123", "not_a_real_exercise_id")).rejects.toThrow(
+      /Not a bundled library exercise/,
+    );
   });
 });

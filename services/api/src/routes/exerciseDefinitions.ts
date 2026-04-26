@@ -157,6 +157,8 @@ router.post(
     if (data.secondaryMusclesDetailed !== undefined)
       row.secondaryMusclesDetailed = data.secondaryMusclesDetailed;
     if (data.muscleContributions !== undefined) row.muscleContributions = data.muscleContributions;
+    if (data.stability !== undefined) row.stability = data.stability;
+    if (data.laterality !== undefined) row.laterality = data.laterality;
     if (data.imageUrl !== undefined) row.imageUrl = data.imageUrl;
     if (data.videoUrl !== undefined) row.videoUrl = data.videoUrl;
     if (data.mediaUrl !== undefined) row.mediaUrl = data.mediaUrl;
@@ -248,6 +250,8 @@ router.put(
         ? { secondaryMusclesDetailed: patch.secondaryMusclesDetailed }
         : {}),
       ...(patch.muscleContributions !== undefined ? { muscleContributions: patch.muscleContributions } : {}),
+      ...(patch.stability !== undefined ? { stability: patch.stability } : {}),
+      ...(patch.laterality !== undefined ? { laterality: patch.laterality } : {}),
       ...(patch.imageUrl !== undefined ? { imageUrl: patch.imageUrl } : {}),
       ...(patch.videoUrl !== undefined ? { videoUrl: patch.videoUrl } : {}),
       ...(patch.mediaUrl !== undefined ? { mediaUrl: patch.mediaUrl } : {}),
