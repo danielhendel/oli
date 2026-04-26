@@ -18,6 +18,7 @@ function makeContractFailure(
   requestId: string | null,
   errorMessage: string,
   parsed: { error: { issues: { path: (string | number)[]; message: string }[] } },
+  meta?: { responseContentType?: string | null },
 ): ApiFailure {
   const json: JsonValue = {
     issues: parsed.error.issues.map((i) => ({
@@ -32,6 +33,7 @@ function makeContractFailure(
     error: errorMessage,
     requestId,
     json,
+    ...(meta?.responseContentType !== undefined ? { responseContentType: meta.responseContentType } : {}),
   };
 }
 
@@ -47,7 +49,13 @@ export async function apiGetZodAuthed<T>(
 
   const parsed = schema.safeParse(res.json);
   if (!parsed.success) {
-    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
   }
 
   return {
@@ -55,6 +63,7 @@ export async function apiGetZodAuthed<T>(
     status: res.status,
     requestId: res.requestId,
     json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
   };
 }
 
@@ -84,7 +93,13 @@ export async function apiGetZodAuthedDefaultOn404<T>(
 
   const parsed = schema.safeParse(res.json);
   if (!parsed.success) {
-    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
   }
 
   return {
@@ -92,6 +107,7 @@ export async function apiGetZodAuthedDefaultOn404<T>(
     status: res.status,
     requestId: res.requestId,
     json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
   };
 }
 
@@ -108,7 +124,13 @@ export async function apiPostZodAuthed<T>(
 
   const parsed = schema.safeParse(res.json);
   if (!parsed.success) {
-    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
   }
 
   return {
@@ -116,6 +138,7 @@ export async function apiPostZodAuthed<T>(
     status: res.status,
     requestId: res.requestId,
     json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
   };
 }
 
@@ -132,7 +155,13 @@ export async function apiPutZodAuthed<T>(
 
   const parsed = schema.safeParse(res.json);
   if (!parsed.success) {
-    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
   }
 
   return {
@@ -140,6 +169,7 @@ export async function apiPutZodAuthed<T>(
     status: res.status,
     requestId: res.requestId,
     json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
   };
 }
 
@@ -155,7 +185,13 @@ export async function apiDeleteZodAuthed<T>(
 
   const parsed = schema.safeParse(res.json);
   if (!parsed.success) {
-    return makeContractFailure(res.status, res.requestId, "Invalid response shape", parsed) as ApiResult<T>;
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
   }
 
   return {
@@ -163,5 +199,6 @@ export async function apiDeleteZodAuthed<T>(
     status: res.status,
     requestId: res.requestId,
     json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
   };
 }

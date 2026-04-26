@@ -526,6 +526,7 @@ export default function EditExerciseScreen() {
         const b64 = await readLocalUriAsBase64(picked.uri);
         const token = await getIdToken(false);
         if (!token) throw new Error("Sign in required to upload.");
+        // Upload diagnostics: structured logs with prefix [exercise-media-debug] in lib/api/exerciseDefinitionMedia.ts
         const res = await uploadExerciseDefinitionMediaFile(token, exerciseId, {
           slot,
           fileBase64: b64,

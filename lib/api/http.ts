@@ -9,6 +9,8 @@ export type ApiOk<T> = {
   status: number;
   requestId: string | null;
   json: T;
+  /** Response Content-Type when available (diagnostics / audits). */
+  responseContentType?: string | null;
 };
 
 export type ApiFailure = {
@@ -18,6 +20,9 @@ export type ApiFailure = {
   error: string;
   requestId: string | null;
   json?: JsonValue; // optional, only present when we actually have one
+  responseContentType?: string | null;
+  /** First ~500 chars of response body (never secrets; may duplicate error for HTML). */
+  bodySnippet?: string;
 };
 
 export type ApiResult<T> = ApiOk<T> | ApiFailure;
@@ -74,6 +79,8 @@ function snippet(text: string, max = 300): string {
   if (!trimmed) return "";
   return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
 }
+
+const BODY_SNIPPET_DEBUG_MAX = 500;
 
 /** Human-friendly message for 401/403 when body is HTML (e.g. Cloud Run / gateway error page). */
 function authErrorFriendlyMessage(status: number, bodyText: string): string {
@@ -159,6 +166,23 @@ function requireGatewayApiKey(): string | null {
   return trimmed;
 }
 
+/**
+ * Redacted absolute URL for diagnostics (same base + `?key=` rules as authed GET/POST).
+ * Never log raw gateway API keys — output is safe for device logs.
+ */
+export function debugRedactedAuthedUrl(path: string, opts?: { cacheBust?: string }): string {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  if (!baseRaw) return "(missing EXPO_PUBLIC_BACKEND_BASE_URL)";
+  const base = normalizeBaseUrl(baseRaw);
+  let url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
+  if (isGatewayBaseUrl(base)) {
+    const apiKey = requireGatewayApiKey();
+    if (!apiKey) return "(missing EXPO_PUBLIC_GATEWAY_API_KEY)";
+    url = appendQueryParam(url, "key", apiKey);
+  }
+  return redactUrlForLogs(url);
+}
+
 async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
   const controller = new AbortController();
   const t = timeoutMs ?? 15000;
@@ -185,6 +209,7 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
 
     const rid = res.headers.get("x-request-id") ?? null;
     const status = res.status;
+    const responseContentType = res.headers.get("content-type");
 
     // ---- instrumentation (privacy-safe) ----
     safeNetTraceLog({
@@ -223,6 +248,8 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
             kind: "http",
             error,
             requestId: rid,
+            responseContentType,
+            ...(text.trim().length > 0 ? { bodySnippet: snippet(text, BODY_SNIPPET_DEBUG_MAX) } : {}),
           };
         }
         return {
@@ -231,6 +258,8 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
           kind: "parse",
           error: "Invalid JSON response",
           requestId: rid,
+          responseContentType,
+          ...(text.trim().length > 0 ? { bodySnippet: snippet(text, BODY_SNIPPET_DEBUG_MAX) } : {}),
         };
       }
     }
@@ -245,16 +274,30 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
         kind: "http",
         error,
         requestId: rid,
+        responseContentType,
+        ...(text.trim().length > 0 ? { bodySnippet: snippet(text, BODY_SNIPPET_DEBUG_MAX) } : {}),
         ...(parsedJson !== undefined ? { json: parsedJson } : {}),
       };
     }
 
     // Success: if no body, return null as T.
     if (parsedUnknown === null) {
-      return { ok: true, status, requestId: rid, json: null as unknown as T };
+      return {
+        ok: true,
+        status,
+        requestId: rid,
+        json: null as unknown as T,
+        responseContentType,
+      };
     }
 
-    return { ok: true, status, requestId: rid, json: parsedUnknown as T };
+    return {
+      ok: true,
+      status,
+      requestId: rid,
+      json: parsedUnknown as T,
+      responseContentType,
+    };
   } catch (e: unknown) {
     // Make aborts/timeouts explicit (fetch throws AbortError in most environments)
     const isAbort =
