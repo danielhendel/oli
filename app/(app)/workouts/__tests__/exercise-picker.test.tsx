@@ -1,5 +1,7 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import { workoutLoggerTypography } from "@/lib/workouts/ui/workoutLoggerTheme";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => {
@@ -11,17 +13,31 @@ jest.mock("react-native", () => {
     Pressable: "Pressable",
     Image: "Image",
     ScrollView: "ScrollView",
+    Platform: {
+      OS: "ios",
+      select: <T,>(s: { ios?: T; android?: T; default?: T }) => s.ios ?? s.android ?? s.default,
+    },
     FlatList: function FlatList({
       data,
       renderItem,
       keyExtractor,
+      ListHeaderComponent,
       ListFooterComponent,
     }: {
       data: unknown[];
       renderItem: (info: { item: unknown; index: number }) => React.ReactNode;
       keyExtractor: (item: unknown, index: number) => string;
+      ListHeaderComponent?: React.ReactElement | null | (() => React.ReactElement | null);
       ListFooterComponent?: React.ReactElement | null;
     }) {
+      const header =
+        ListHeaderComponent == null
+          ? null
+          : React.createElement(
+              React.Fragment,
+              { key: "list-header" },
+              typeof ListHeaderComponent === "function" ? ListHeaderComponent() : ListHeaderComponent,
+            );
       const body = (data || []).map((item, index) =>
         React.createElement(
           React.Fragment,
@@ -32,7 +48,7 @@ jest.mock("react-native", () => {
       const footer = ListFooterComponent
         ? React.createElement(React.Fragment, { key: "footer" }, ListFooterComponent)
         : null;
-      return React.createElement("View", {}, [...body, footer]);
+      return React.createElement("View", {}, [header, ...body, footer]);
     },
     Modal: function Modal({ children, visible }: { children: React.ReactNode; visible: boolean }) {
       if (!visible) return null;
@@ -97,8 +113,9 @@ let mockPickerParams: {
   sessionAnchorIso?: string;
   journalSessionId?: string;
 } = { sessionId: "s1" };
+const mockBack = jest.fn();
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush, back: mockBack }),
   useLocalSearchParams: () => mockPickerParams,
   useNavigation: () => ({
     setOptions: jest.fn(),
@@ -106,13 +123,35 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaView: function MockSafeAreaView({ children }: { children: React.ReactNode }) {
+    const React = require("react");
+    return React.createElement("View", { testID: "mock-safe-area" }, children);
+  },
+}));
+
 jest.mock("@/lib/workouts/exercises/customExerciseStore", () => {
   const actual = jest.requireActual("@/lib/workouts/exercises/customExerciseStore");
   return {
     ...actual,
     listCustomExercises: jest.fn(),
+    updateCustomExercise: jest.fn().mockResolvedValue(undefined),
   };
 });
+
+const mockPickExerciseMediaFromLibrary = jest.fn();
+jest.mock("@/lib/workouts/exercises/pickExerciseMedia", () => ({
+  pickExerciseMediaFromLibrary: (...args: unknown[]) => mockPickExerciseMediaFromLibrary(...args),
+  readLocalUriAsBase64: jest.fn().mockResolvedValue(""),
+  captureExerciseMediaWithCamera: jest.fn(),
+  ensureExerciseMediaLibraryPermission: jest.fn(async () => false),
+  ensureExerciseMediaCameraPermission: jest.fn(async () => false),
+}));
+
+const mockUploadExerciseSlotFromPick = jest.fn();
+jest.mock("@/lib/workouts/exercises/uploadExerciseDefinitionSlotMediaFromPick", () => ({
+  uploadExerciseDefinitionSlotMediaFromPick: (...args: unknown[]) => mockUploadExerciseSlotFromPick(...args),
+}));
 
 jest.mock("@/lib/api/exerciseDefinitions", () => ({
   createExerciseDefinition: jest.fn().mockResolvedValue({
@@ -163,8 +202,9 @@ jest.mock("expo-video", () => {
 });
 
 jest.mock("@expo/vector-icons", () => ({
-  Ionicons: function MockIonicons() {
-    return require("react").createElement("View", { testID: "mock-icon" });
+  Ionicons: function MockIonicons({ name }: { name?: string }) {
+    const React = require("react");
+    return React.createElement("View", { testID: `mock-ionicon-${name ?? "none"}` });
   },
 }));
 
@@ -183,6 +223,17 @@ function findByA11yLabel(
   return pressables.find((p) => p.props.accessibilityLabel === label) ?? null;
 }
 
+function findByTestId(
+  root: renderer.ReactTestRenderer["root"],
+  testID: string,
+): renderer.ReactTestInstance | null {
+  try {
+    return root.findByProps({ testID });
+  } catch {
+    return null;
+  }
+}
+
 async function flushEventLoop(): Promise<void> {
   await new Promise<void>((r) => setImmediate(r));
 }
@@ -192,8 +243,12 @@ describe("workouts/exercise-picker", () => {
 
   beforeEach(() => {
     allowConsoleForThisTest({ error: [/act\(\.\.\.\)/, /not wrapped in act/] });
+    mockPickExerciseMediaFromLibrary.mockReset();
+    mockPickExerciseMediaFromLibrary.mockResolvedValue(null);
+    mockUploadExerciseSlotFromPick.mockReset();
     mockReplace.mockClear();
     mockPush.mockClear();
+    mockBack.mockClear();
     mockSelectedGymId = null;
     mockWorkoutPickerBundledAllowlist = undefined;
     mockPickerParams = { sessionId: "s1" };
@@ -234,21 +289,244 @@ describe("workouts/exercise-picker", () => {
     expect(pickBench).not.toBeNull();
   });
 
-  it("shows Create exercise CTA above search and opens create screen", async () => {
+  it("header create icon opens create exercise flow", async () => {
     act(() => {
       test = renderer.create(<ExercisePickerScreen />);
     });
     await flushEventLoop();
     await flushEventLoop();
-    const createBtn = findByA11yLabel(test!.root, "Create exercise");
-    expect(createBtn).not.toBeNull();
+    const createBtn = test!.root.findByProps({ testID: "exercise-picker-header-create" });
+    expect(createBtn).toBeTruthy();
     act(() => {
-      createBtn!.props.onPress();
+      createBtn.props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/exercise-create",
       params: { sessionId: "s1" },
     });
+  });
+
+  it("does not render stack title Add exercise in screen tree", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const texts = test!.root.findAllByType("Text").map((t) => (typeof t.props.children === "string" ? t.props.children : ""));
+    expect(texts.some((s) => s === "Add exercise")).toBe(false);
+  });
+
+  it("search field lives in header center slot", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(test!.root.findByProps({ testID: "exercise-picker-search-input" })).toBeTruthy();
+  });
+
+  it("header search TextInput shows Search exercises placeholder", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const input = test!.root.findByProps({ testID: "exercise-picker-search-input" });
+    expect(input.props.placeholder).toBe("Search exercises");
+  });
+
+  it("search input onChangeText filters list rows (bench hidden for deadlift query)", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    expect(findByTestId(test!.root, "exercise-picker-row-bench_press")).not.toBeNull();
+    const searchInput = test!.root.findByProps({ testID: "exercise-picker-search-input" });
+    act(() => {
+      searchInput.props.onChangeText("deadlift");
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(findByTestId(test!.root, "exercise-picker-row-bench_press")).toBeNull();
+    expect(findByTestId(test!.root, "exercise-picker-row-deadlift")).not.toBeNull();
+  });
+
+  it("list rows are full-width rows without grouped card corner radii", async () => {
+    const { StyleSheet } = jest.requireActual("react-native");
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const row = findByTestId(test!.root, "exercise-picker-row-bench_press");
+    expect(row).not.toBeNull();
+    const flat = StyleSheet.flatten(row!.props.style) as Record<string, unknown>;
+    expect(flat.borderTopLeftRadius).toBeUndefined();
+    expect(flat.borderTopRightRadius).toBeUndefined();
+    expect(flat.backgroundColor).toBe("transparent");
+  });
+
+  it("tab chips use blue fill when selected and soft neutral when unselected", async () => {
+    const { StyleSheet } = jest.requireActual("react-native");
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    const allTab = test!.root.findByProps({ testID: "exercise-picker-tab-all" });
+    const recentTab = test!.root.findByProps({ testID: "exercise-picker-tab-recent" });
+    const allFlat = StyleSheet.flatten(allTab.props.style) as Record<string, unknown>;
+    const recentFlat = StyleSheet.flatten(recentTab.props.style) as Record<string, unknown>;
+    expect(allFlat.backgroundColor).toBe(SYSTEM_ACCENT);
+    expect(recentFlat.backgroundColor).toBe("rgba(60, 60, 67, 0.08)");
+    const allText = allTab.findByType("Text");
+    const recentText = recentTab.findByType("Text");
+    const allTextFlat = StyleSheet.flatten(allText.props.style) as Record<string, unknown>;
+    const recentTextFlat = StyleSheet.flatten(recentText.props.style) as Record<string, unknown>;
+    expect(allTextFlat.fontSize).toBe(15);
+    expect(recentTextFlat.fontSize).toBe(15);
+    expect(recentTextFlat.fontWeight).toBe("500");
+  });
+
+  it("bundled exercise row does not expose library add-image thumbnail control", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    act(() => {
+      /* flush React state after async effects */
+    });
+    expect(findByTestId(test!.root, "exercise-picker-thumb-add-bench_press")).toBeNull();
+  });
+
+  it("owned custom exercise without image exposes add-image thumbnail control", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_my_special",
+        name: "My Special",
+        equipment: "Dumbbell",
+        primary: "Chest",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(findByTestId(test!.root, "exercise-picker-thumb-add-custom_u1_my_special")).not.toBeNull();
+  });
+
+  it("tap add-image thumbnail on custom exercise runs pick, upload, and store update", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_my_special",
+        name: "My Special",
+        equipment: "Dumbbell",
+        primary: "Chest",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    mockPickExerciseMediaFromLibrary.mockResolvedValue({
+      uri: "file:///tmp/picked.jpg",
+      mimeType: "image/jpeg",
+      filename: "picked.jpg",
+    });
+    mockUploadExerciseSlotFromPick.mockResolvedValue("https://storage.example/u1/special.png");
+    const storeMock = jest.requireMock("@/lib/workouts/exercises/customExerciseStore") as {
+      updateCustomExercise: jest.Mock;
+    };
+    storeMock.updateCustomExercise.mockClear();
+
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const thumb = findByTestId(test!.root, "exercise-picker-thumb-add-custom_u1_my_special");
+    expect(thumb).not.toBeNull();
+    act(() => {
+      thumb!.props.onPress();
+    });
+    for (let i = 0; i < 25; i++) {
+      await flushEventLoop();
+      if (mockUploadExerciseSlotFromPick.mock.calls.length > 0) break;
+    }
+    expect(mockPickExerciseMediaFromLibrary).toHaveBeenCalledWith("image");
+    expect(mockUploadExerciseSlotFromPick).toHaveBeenCalled();
+    expect(storeMock.updateCustomExercise).toHaveBeenCalledWith(
+      "u1",
+      "custom_u1_my_special",
+      expect.objectContaining({ imageUrl: "https://storage.example/u1/special.png" }),
+    );
+  });
+
+  it("filter sheet title uses workout logger sheet title typography", async () => {
+    const { StyleSheet } = jest.requireActual("react-native");
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const openFilters = findByA11yLabel(test!.root, "Open filters");
+    expect(openFilters).not.toBeNull();
+    act(() => {
+      openFilters!.props.onPress();
+    });
+    const title = test!.root.findAllByType("Text").find((t) => t.props.children === "Filters");
+    expect(title).toBeDefined();
+    const flat = StyleSheet.flatten(title!.props.style) as Record<string, unknown>;
+    expect(flat.fontSize).toBe(workoutLoggerTypography.sheetTitle.fontSize);
+    expect(flat.fontWeight).toBe(workoutLoggerTypography.sheetTitle.fontWeight);
+  });
+
+  it("filter control uses icon button not Filter label text", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(test!.root.findByProps({ testID: "exercise-picker-filter-button" })).toBeTruthy();
+    const openFilters = findByA11yLabel(test!.root, "Open filters");
+    expect(openFilters).not.toBeNull();
+    const labelTexts = openFilters!.findAllByType("Text").map((t) => t.props?.children);
+    expect(labelTexts.some((c) => c === "Filter")).toBe(false);
+  });
+
+  it("bundled and placeholder thumbnails share outer frame colors", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const thumbs = test!.root.findAll((n) => n.props?.testID === "ExerciseMediaThumbnail");
+    expect(thumbs.length).toBeGreaterThanOrEqual(2);
+    const { StyleSheet } = jest.requireActual("react-native");
+    const a = StyleSheet.flatten(thumbs[0]!.props.style) as Record<string, unknown>;
+    const b = StyleSheet.flatten(thumbs[1]!.props.style) as Record<string, unknown>;
+    expect(a.backgroundColor).toBe(b.backgroundColor);
+    expect(a.borderColor).toBe(b.borderColor);
   });
 
   it("switching tabs updates visible rows", async () => {
@@ -456,6 +734,13 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       actionsBench!.props.onPress();
     });
+    const previewSheet = test!.root.findByProps({ testID: "exercise-picker-preview-sheet" });
+    expect(previewSheet).toBeTruthy();
+    expect(previewSheet.props.style?.maxHeight).toBe("90%");
+    expect(previewSheet.props.style?.minHeight).toBe("88%");
+    expect(previewSheet.props.style?.backgroundColor).toBe("#F2F2F7");
+    const previewGrabber = test!.root.findByProps({ testID: "exercise-picker-preview-grabber" });
+    expect(previewGrabber).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
     const addButton = findByA11yLabel(test!.root, "Add to workout");
     expect(addButton).not.toBeNull();
@@ -467,6 +752,44 @@ describe("workouts/exercise-picker", () => {
       pathname: "/(app)/workouts/log",
       params: { sessionId: "s1", pickedExerciseId: "bench_press" },
     });
+  });
+
+  it("preview renders media when custom exercise has imageUrl", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    const thumbUri = "https://storage.example/custom/sled-push.png";
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_sled_push",
+        name: "Sled Push",
+        equipment: "Machine",
+        primary: "Legs",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        imageUrl: thumbUri,
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const actionsCustom = findByA11yLabel(test!.root, "Exercise actions, Sled Push");
+    expect(actionsCustom).not.toBeNull();
+    act(() => {
+      actionsCustom!.props.onPress();
+    });
+    const previewMedia = test!.root.findByProps({ testID: "exercise-picker-preview-media" });
+    expect(previewMedia).toBeTruthy();
+    expect(previewMedia.props.style?.height).toBe(200);
+    const previewHeader = test!.root.findByProps({ testID: "exercise-picker-preview-header" });
+    expect(previewHeader.findAllByType("Text").length).toBe(0);
+    const modalImages = test!.root.findAllByType("Image");
+    expect(modalImages.some((img) => img.props.source?.uri === thumbUri)).toBe(true);
+    const previewDescription = test!.root.findByProps({ testID: "exercise-picker-preview-description" });
+    expect(previewDescription).toBeTruthy();
   });
 
   it("no gym (selectedGymId null): full library visible, status shows My Exercise Library", async () => {
@@ -678,6 +1001,40 @@ describe("workouts/exercise-picker", () => {
     expect(flatText.some((s) => s.includes("Custom"))).toBe(true);
     const addMine = findByA11yLabel(test!.root, rowAddLabel("My Special"));
     expect(addMine).not.toBeNull();
+  });
+
+  it("custom exercise row with imageUrl renders remote Image thumbnail (not only placeholder)", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    const thumbUri = "https://storage.example/custom/angled-leg-press.png";
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_angled_leg_press",
+        name: "Angled Leg Press",
+        equipment: "Machine",
+        primary: "Legs",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        imageUrl: thumbUri,
+        videoUrl: "",
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const addRow = findByTestId(test!.root, "exercise-picker-row-custom_u1_angled_leg_press");
+    expect(addRow).not.toBeNull();
+    const rowImages = addRow!.findAllByType("Image");
+    const remoteThumb = rowImages.find((img) => img.props.source?.uri === thumbUri);
+    expect(remoteThumb).toBeDefined();
+    expect(remoteThumb!.props.resizeMode).toBe("contain");
+    expect(remoteThumb!.props.accessible).toBe(false);
+    const thumbHost = addRow!.findAllByProps({ accessibilityLabel: "Angled Leg Press reference image" });
+    expect(thumbHost.length).toBeGreaterThan(0);
   });
 
   it("long press on owned custom row opens exercise edit", async () => {

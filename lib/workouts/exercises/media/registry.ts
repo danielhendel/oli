@@ -7,7 +7,6 @@ const REGISTRY: Record<string, number> = {
   squat: require("../../../../assets/exercises/squat.png"),
   bench_press: require("../../../../assets/exercises/bench_press/thumb.png"),
   deadlift: require("../../../../assets/exercises/deadlift.png"),
-  pull_up: require("../../../../assets/exercises/pull_up.png"),
   overhead_press: require("../../../../assets/exercises/overhead_press.png"),
   barbell_row: require("../../../../assets/exercises/barbell_row.png"),
   bicep_curl: require("../../../../assets/exercises/bicep_curl.png"),

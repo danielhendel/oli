@@ -9,12 +9,16 @@ import { UI_HEADER_CHROME_BG, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 export const HEADER_BACK_BUTTON_BG = UI_HEADER_CHROME_BG;
 export const HEADER_BACK_BUTTON_ICON = UI_TEXT_PRIMARY;
 
-const VISUAL_SIZE = 40;
-const ICON_SIZE = 20;
+const VISUAL_DEFAULT = 40;
+const ICON_DEFAULT = 20;
+const VISUAL_LARGE = 48;
+const ICON_LARGE = 22;
 
 export type HeaderBackButtonProps = {
   onPress: () => void;
   accessibilityLabel?: string;
+  /** Larger circle for workout logger and other dense chrome. */
+  size?: "default" | "large";
   /** Applied after base styles; use `{ marginLeft: 0 }` inside custom in-screen chrome. */
   style?: ViewStyle;
   testID?: string;
@@ -22,14 +26,17 @@ export type HeaderBackButtonProps = {
 
 /**
  * Soft circular back control for stack headers and workout flows.
- * Touch target: 40pt circle + default hitSlop (native minimum ~44pt effective).
+ * Default: 40pt circle (`large`: 48pt) + default hitSlop (native minimum ~44pt effective).
  */
 export function HeaderBackButton({
   onPress,
   accessibilityLabel = "Go back",
+  size = "default",
   style,
   testID,
 }: HeaderBackButtonProps) {
+  const visual = size === "large" ? VISUAL_LARGE : VISUAL_DEFAULT;
+  const icon = size === "large" ? ICON_LARGE : ICON_DEFAULT;
   return (
     <Pressable
       onPress={onPress}
@@ -37,18 +44,20 @@ export function HeaderBackButton({
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
       testID={testID}
-      style={({ pressed }) => [styles.base, pressed && styles.pressed, style]}
+      style={({ pressed }) => [
+        styles.base,
+        { width: visual, height: visual, borderRadius: visual / 2 },
+        pressed && styles.pressed,
+        style,
+      ]}
     >
-      <Ionicons name="chevron-back" size={ICON_SIZE} color={HEADER_BACK_BUTTON_ICON} />
+      <Ionicons name="chevron-back" size={icon} color={HEADER_BACK_BUTTON_ICON} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    width: VISUAL_SIZE,
-    height: VISUAL_SIZE,
-    borderRadius: VISUAL_SIZE / 2,
     marginLeft: 12,
     alignItems: "center",
     justifyContent: "center",

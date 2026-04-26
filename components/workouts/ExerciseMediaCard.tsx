@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 import { Ionicons } from "@expo/vector-icons";
+import { ExerciseMediaThumbnail } from "@/components/workouts/ExerciseMediaThumbnail";
 
 export type ExerciseMediaCardProps = {
   testID?: string;
@@ -33,21 +34,25 @@ export function ExerciseMediaCard({
       <Text style={styles.cardTitle}>{title}</Text>
       <View style={styles.previewWrap}>
         {uploading ? (
-          <View style={styles.placeholder} accessibilityLabel="Uploading">
+          <View style={styles.previewFrameUploading} accessibilityLabel="Uploading">
             <ActivityIndicator size="large" color={SYSTEM_ACCENT} />
             <Text style={styles.uploadingText}>Uploading…</Text>
           </View>
-        ) : hasPreview && slot === "image" ? (
-          <Image source={{ uri: previewUri! }} style={styles.imagePreview} resizeMode="cover" accessibilityLabel="Image preview" />
-        ) : hasPreview && slot === "video" ? (
-          <View style={styles.videoPreview} accessibilityLabel="Video attached">
+        ) : slot === "image" ? (
+          <ExerciseMediaThumbnail
+            size="preview"
+            accessibilityLabel={hasPreview ? "Exercise image preview" : "No exercise image yet"}
+            {...(hasPreview ? { imageUrl: previewUri! } : {})}
+          />
+        ) : hasPreview ? (
+          <View style={styles.previewFrame} accessibilityLabel="Video attached">
             <Ionicons name="videocam" size={40} color={SYSTEM_ACCENT} />
             <Text style={styles.videoHint}>Video ready</Text>
           </View>
         ) : (
-          <View style={styles.placeholder} accessibilityLabel="No media">
-            <Ionicons name={slot === "image" ? "image-outline" : "film-outline"} size={36} color="#C7C7CC" />
-            <Text style={styles.placeholderText}>{slot === "image" ? "No image yet" : "No video yet"}</Text>
+          <View style={styles.previewFrame} accessibilityLabel="No video yet">
+            <Ionicons name="film-outline" size={36} color="#C7C7CC" />
+            <Text style={styles.placeholderText}>No video yet</Text>
           </View>
         )}
       </View>
@@ -75,7 +80,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 14,
   },
   cardTitle: {
     fontSize: 13,
@@ -83,34 +88,39 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
   },
   previewWrap: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+  previewFrame: {
+    width: "100%",
+    height: 228,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "rgba(60, 60, 67, 0.06)",
-    minHeight: 140,
-  },
-  imagePreview: {
-    width: "100%",
-    height: 160,
-    backgroundColor: "#E5E5EA",
-  },
-  videoPreview: {
-    minHeight: 140,
+    backgroundColor: "#F4F4F6",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E5E5EA",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 24,
+    paddingVertical: 16,
+  },
+  previewFrameUploading: {
+    width: "100%",
+    height: 228,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#E8E8ED",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
   },
   videoHint: {
     fontSize: 14,
     fontWeight: "600",
     color: UI_TEXT_MUTED,
-  },
-  placeholder: {
-    minHeight: 140,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 24,
   },
   placeholderText: {
     fontSize: 14,

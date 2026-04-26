@@ -17,6 +17,8 @@ fi
 # Image tag: first arg, or SHORT_SHA from git.
 TAG="${1:-$(git rev-parse --short HEAD 2>/dev/null || echo "12aaa43")}"
 IMAGE="us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/oli-api:${TAG}"
+# Default Firebase Storage bucket id (matches FIREBASE_CONFIG.storageBucket for this project).
+FIREBASE_STORAGE_BUCKET="${FIREBASE_STORAGE_BUCKET:-${PROJECT_ID}.firebasestorage.app}"
 
 echo "Deploying Cloud Run service..."
 echo "  Project: $PROJECT_ID"
@@ -24,13 +26,15 @@ echo "  Region:  $REGION"
 echo "  Service: $SERVICE"
 echo "  Image:   $IMAGE"
 echo "  SA:      $SA"
+echo "  Env:     FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET (merged via --update-env-vars)"
 echo ""
 
 gcloud run deploy "$SERVICE" \
   --project="$PROJECT_ID" \
   --region="$REGION" \
   --image="$IMAGE" \
-  --service-account="$SA"
+  --service-account="$SA" \
+  --update-env-vars="FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}"
 
 echo ""
 echo "Service URL:"

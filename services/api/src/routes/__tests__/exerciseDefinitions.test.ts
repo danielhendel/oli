@@ -414,9 +414,15 @@ describe("exerciseDefinitions routes", () => {
       expect(json.error?.message).toBe("Could not load exercise definition");
     });
 
-    test("POST media returns 500 STORAGE_CONFIG when bucket env is missing", async () => {
-      const prev = process.env.FIREBASE_STORAGE_BUCKET;
+    test("POST media returns 500 STORAGE_CONFIG when bucket cannot be resolved", async () => {
+      const prevBucket = process.env.FIREBASE_STORAGE_BUCKET;
+      const prevGcp = process.env.GOOGLE_CLOUD_PROJECT;
+      const prevFbp = process.env.FIREBASE_PROJECT_ID;
+      const prevGc = process.env.GCLOUD_PROJECT;
       delete process.env.FIREBASE_STORAGE_BUCKET;
+      delete process.env.GOOGLE_CLOUD_PROJECT;
+      delete process.env.FIREBASE_PROJECT_ID;
+      delete process.env.GCLOUD_PROJECT;
       try {
         (userCollection as jest.Mock).mockReturnValue({
           doc: () => ({
@@ -442,7 +448,55 @@ describe("exerciseDefinitions routes", () => {
         expect(json.error?.code).toBe("STORAGE_CONFIG");
         expect(json.error?.message).toBe("Exercise media upload is temporarily unavailable");
       } finally {
-        process.env.FIREBASE_STORAGE_BUCKET = prev ?? "unit-test-bucket";
+        if (prevBucket !== undefined) process.env.FIREBASE_STORAGE_BUCKET = prevBucket;
+        else process.env.FIREBASE_STORAGE_BUCKET = "unit-test-bucket";
+        if (prevGcp !== undefined) process.env.GOOGLE_CLOUD_PROJECT = prevGcp;
+        if (prevFbp !== undefined) process.env.FIREBASE_PROJECT_ID = prevFbp;
+        if (prevGc !== undefined) process.env.GCLOUD_PROJECT = prevGc;
+      }
+    });
+
+    test("POST media returns 200 when FIREBASE_STORAGE_BUCKET unset but GOOGLE_CLOUD_PROJECT derives bucket", async () => {
+      const prevBucket = process.env.FIREBASE_STORAGE_BUCKET;
+      const prevGcp = process.env.GOOGLE_CLOUD_PROJECT;
+      const prevFbp = process.env.FIREBASE_PROJECT_ID;
+      const prevGc = process.env.GCLOUD_PROJECT;
+      delete process.env.FIREBASE_STORAGE_BUCKET;
+      delete process.env.FIREBASE_PROJECT_ID;
+      delete process.env.GCLOUD_PROJECT;
+      process.env.GOOGLE_CLOUD_PROJECT = "unit_test_gcp_proj";
+      try {
+        (userCollection as jest.Mock).mockReturnValue({
+          doc: () => ({
+            get: async () => ({ exists: true, data: () => existingZPress }),
+          }),
+        } satisfies Pick<ColRef, "doc">);
+
+        const res = await fetch(
+          `${baseUrl}/exercise-definitions/${encodeURIComponent("custom_userab12_z_press")}/media`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slot: "image",
+              fileBase64: tinyPng,
+              mimeType: "image/png",
+              filename: "dot.png",
+            }),
+          },
+        );
+        expect(res.status).toBe(200);
+        const json = (await res.json()) as { url: string; slot: string };
+        expect(json.slot).toBe("image");
+        expect(json.url).toContain("firebasestorage.googleapis.com");
+        expect(json.url).toContain(encodeURIComponent("unit_test_gcp_proj.firebasestorage.app"));
+      } finally {
+        if (prevBucket !== undefined) process.env.FIREBASE_STORAGE_BUCKET = prevBucket;
+        else process.env.FIREBASE_STORAGE_BUCKET = "unit-test-bucket";
+        if (prevGcp !== undefined) process.env.GOOGLE_CLOUD_PROJECT = prevGcp;
+        else delete process.env.GOOGLE_CLOUD_PROJECT;
+        if (prevFbp !== undefined) process.env.FIREBASE_PROJECT_ID = prevFbp;
+        if (prevGc !== undefined) process.env.GCLOUD_PROJECT = prevGc;
       }
     });
 

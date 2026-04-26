@@ -61,6 +61,25 @@ describe("sessionEngine commands", () => {
     } satisfies Partial<SessionEngineError>);
   });
 
+  it("addExercise persists optional imageUrl into reduced session", async () => {
+    const deps = mkDeps();
+    const { sessionId } = await createSessionDraft("u1", deps);
+    await startSession("u1", sessionId, deps);
+    await addExercise(
+      "u1",
+      sessionId,
+      {
+        exerciseId: "custom_u1_angled",
+        position: 0,
+        imageUrl: " https://cdn.example/i.jpg ",
+      },
+      deps,
+    );
+    const reduced = await loadReducedSession("u1", sessionId);
+    expect(reduced.exercises[0]!.exerciseId).toBe("custom_u1_angled");
+    expect(reduced.exercises[0]!.imageUrl).toBe("https://cdn.example/i.jpg");
+  });
+
   it("can add an exercise then log a set; reducer sees it deterministically", async () => {
     const deps = mkDeps();
     const { sessionId } = await createSessionDraft("u1", deps);

@@ -28,6 +28,8 @@ scripts/deploy/phase3a-withings-build-api-image.sh
 scripts/deploy/phase3a-withings-deploy-cloudrun.sh <commit_short_sha>
 ```
 
+The deploy script sets **`FIREBASE_STORAGE_BUCKET`** via `--update-env-vars` (default **`oli-staging-fdbba.firebasestorage.app`**, overridable with env `FIREBASE_STORAGE_BUCKET` before invoking the script). The API uses this for `POST /uploads` and `POST /exercise-definitions/:id/media`. At runtime, if the variable is unset, the service derives **`${GOOGLE_CLOUD_PROJECT}.firebasestorage.app`** when `GOOGLE_CLOUD_PROJECT` / `FIREBASE_PROJECT_ID` is set (normal on Cloud Run).
+
 ### 1.3 Deploy Gateway (repo `infra/gateway/openapi.yaml` → new api-config → `oli-gateway`)
 ```bash
 # Preflight: gcloud project must be oli-staging-fdbba (the script exits otherwise).

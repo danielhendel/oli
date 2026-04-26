@@ -13,13 +13,17 @@ import {
   FlatList,
   Modal,
   ListRenderItem,
-  Image,
   Alert,
   ActivityIndicator,
+  Platform,
+  ScrollView,
 } from "react-native";
-import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
+import { headerChromeCircleShell, headerChromeShadow } from "@/lib/ui/headerChrome";
+import { UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER } from "@/lib/ui/theme/uiTokens";
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -32,18 +36,28 @@ import { searchExercises } from "@/lib/workouts/exercises/search";
 import { buildExerciseLibrarySections } from "@/lib/workouts/exercises/librarySections";
 import { getExerciseMeta } from "@/lib/workouts/exercises/metadata";
 import type { ExerciseMeta } from "@/lib/workouts/exercises/metadata";
-import { getBundledExerciseAsset, hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
+import { hasBundledExerciseAsset } from "@/lib/workouts/exercises/media/registry";
 import { ExerciseMediaPreview } from "@/components/workouts/ExerciseMediaPreview";
-import { ThumbnailPlaceholderView } from "@/components/workouts/ThumbnailPlaceholderView";
+import { ExercisePickerRowMedia } from "@/components/workouts/ExercisePickerRowMedia";
 import {
   createCustomExerciseSeededFromBundled,
+  updateCustomExercise,
   type CustomExerciseRecord,
 } from "@/lib/workouts/exercises/customExerciseStore";
 import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
 import { createExerciseDefinition } from "@/lib/api/exerciseDefinitions";
 import { migrateLocalCustomExercisesToBackend } from "@/lib/workouts/exercises/migrateCustomExercisesToBackend";
 import { normalizeStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
+import { pickExerciseMediaFromLibrary } from "@/lib/workouts/exercises/pickExerciseMedia";
+import { uploadExerciseDefinitionSlotMediaFromPick } from "@/lib/workouts/exercises/uploadExerciseDefinitionSlotMediaFromPick";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  WORKOUT_LOGGER_COLORS,
+  WORKOUT_LOGGER_LAYOUT,
+  workoutLoggerCancelOutline,
+  workoutLoggerCancelOutlineText,
+  workoutLoggerTypography,
+} from "@/lib/workouts/ui/workoutLoggerTheme";
 
 type Equipment = "any" | "barbell" | "dumbbell" | "machine" | "bodyweight";
 type Muscle = "any" | "chest" | "back" | "legs" | "shoulders" | "biceps" | "triceps" | "core";
@@ -77,9 +91,7 @@ function isSupportedLoggingTypeForPicker(value: string): boolean {
 
 type TabId = "all" | "recent" | "myGym";
 
-type ListEntry =
-  | { type: "header" }
-  | { type: "row"; exerciseId: string };
+type RowEntry = { exerciseId: string };
 
 function normForHighlight(s: string): string {
   return s
@@ -204,6 +216,17 @@ function customSubtitle(record: CustomExerciseRecord): string {
   return `Custom · ${record.equipment} · ${record.primary}`;
 }
 
+/** Remote thumbnail for custom rows (bundled assets use registry thumbnails when present). */
+function customExerciseThumbnailUri(record: CustomExerciseRecord): string | null {
+  const img = typeof record.imageUrl === "string" ? record.imageUrl.trim() : "";
+  if (img.length > 0) return img;
+  const media = typeof record.mediaUrl === "string" ? record.mediaUrl.trim() : "";
+  if (media.length > 0) return media;
+  const vid = typeof record.videoUrl === "string" ? record.videoUrl.trim() : "";
+  if (vid.length > 0) return vid;
+  return null;
+}
+
 const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: "any", label: "Any" },
   { value: "barbell", label: "Barbell" },
@@ -248,14 +271,6 @@ export default function ExercisePickerScreen() {
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
   const router = useRouter();
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("task"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-    });
-  }, [navigation]);
   const params = useLocalSearchParams<{
     sessionId?: string;
     blockId?: string;
@@ -286,8 +301,19 @@ export default function ExercisePickerScreen() {
     popularIds: [],
   });
   const [customExercises, setCustomExercises] = useState<CustomExerciseRecord[]>([]);
+  const [pickerImageUploadingId, setPickerImageUploadingId] = useState<string | null>(null);
 
   const isSignedIn = Boolean(user) && !initializing;
+
+  const reloadMergedCustom = useCallback(async () => {
+    if (!user) return;
+    const rows = await listMergedCustomExerciseRecords(user.uid, () => getIdToken(false)).catch(() => []);
+    setCustomExercises(
+      rows
+        .filter((row) => isSupportedLoggingTypeForPicker(row.loggingType))
+        .map((row) => ({ ...row, loggingType: normalizeStrengthLoggingType(row.loggingType) })),
+    );
+  }, [user, getIdToken]);
 
   useEffect(() => {
     if (!user || initializing) return;
@@ -538,6 +564,27 @@ export default function ExercisePickerScreen() {
     ],
   );
 
+  const onPickerAddExerciseImage = useCallback(
+    async (exerciseId: string) => {
+      if (user == null || sessionId == null) return;
+      if (!isUserScopedCustomExerciseId(user.uid, exerciseId)) return;
+      try {
+        const picked = await pickExerciseMediaFromLibrary("image");
+        if (picked == null) return;
+        setPickerImageUploadingId(exerciseId);
+        const url = await uploadExerciseDefinitionSlotMediaFromPick(exerciseId, "image", picked, getIdToken);
+        await updateCustomExercise(user.uid, exerciseId, { imageUrl: url });
+        await reloadMergedCustom();
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Upload failed.";
+        Alert.alert("Could not add image", message);
+      } finally {
+        setPickerImageUploadingId(null);
+      }
+    },
+    [user, sessionId, getIdToken, reloadMergedCustom],
+  );
+
   const onCustomizeBundledExercise = useCallback(
     async (bundledExerciseId: string) => {
       if (sessionId == null || user == null) return;
@@ -578,30 +625,25 @@ export default function ExercisePickerScreen() {
     [sessionId, user, customById, getIdToken, onOpenEditExercise],
   );
 
-  const listData = useMemo((): ListEntry[] => {
+  const rowEntries = useMemo((): RowEntry[] => {
     const hasQuery = query.trim() !== "";
-    const entries: ListEntry[] = [{ type: "header" }];
+    const entries: RowEntry[] = [];
 
     if (hasQuery) {
       for (const e of displaySearchResults) {
-        entries.push({ type: "row", exerciseId: e.exerciseId });
+        entries.push({ exerciseId: e.exerciseId });
       }
-    } else {
-      if (activeTab === "all") {
-        for (const e of allDisplaySorted) {
-          entries.push({ type: "row", exerciseId: e.exerciseId });
-        }
-      } else if (activeTab === "recent") {
-        for (const id of recentIdsForPicker) {
-          entries.push({ type: "row", exerciseId: id });
-        }
-      } else {
-        // My Gym tab
-        if (effectiveGymId != null) {
-          for (const e of myGymFilteredAll) {
-            entries.push({ type: "row", exerciseId: e.exerciseId });
-          }
-        }
+    } else if (activeTab === "all") {
+      for (const e of allDisplaySorted) {
+        entries.push({ exerciseId: e.exerciseId });
+      }
+    } else if (activeTab === "recent") {
+      for (const id of recentIdsForPicker) {
+        entries.push({ exerciseId: id });
+      }
+    } else if (effectiveGymId != null) {
+      for (const e of myGymFilteredAll) {
+        entries.push({ exerciseId: e.exerciseId });
       }
     }
     return entries;
@@ -615,7 +657,7 @@ export default function ExercisePickerScreen() {
     effectiveGymId,
   ]);
 
-  const listRowCount = listData.length - 1;
+  const listRowCount = rowEntries.length;
   const showMicroline = query.trim() !== "" || activeFilterCountNum > 0;
   const microlineParts = useMemo((): string[] => {
     if (!showMicroline) return [];
@@ -631,50 +673,9 @@ export default function ExercisePickerScreen() {
     [catalogNameById],
   );
 
-  const renderHeaderContent = useCallback(
+  const renderListHeader = useCallback(
     () => (
-      <View style={styles.header}>
-        <Pressable
-          onPress={onOpenCreateExercise}
-          style={styles.createExerciseCta}
-          accessibilityRole="button"
-          accessibilityLabel="Create exercise"
-        >
-          <Text style={styles.createExerciseCtaText}>+ Create exercise</Text>
-        </Pressable>
-        <View style={styles.searchRow}>
-          <Text style={styles.magnifier}>⌕</Text>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search exercises"
-            style={styles.input}
-            accessibilityLabel="Exercise search"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              onPress={() => setQuery("")}
-              style={styles.clearBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-            >
-              <Text style={styles.clearBtnText}>Clear</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            onPress={() => setIsFilterOpen(true)}
-            style={styles.filterButton}
-            accessibilityRole="button"
-            accessibilityLabel="Open filters"
-          >
-            <Text style={styles.filterIcon}>Filter</Text>
-            {activeFilterCountNum > 0 ? (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{String(activeFilterCountNum)}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
+      <View style={styles.listHeader}>
         <View style={styles.tabRow}>
           {(["all", "recent", "myGym"] as const).map((tab) => (
             <Pressable
@@ -682,6 +683,7 @@ export default function ExercisePickerScreen() {
               onPress={() => setActiveTab(tab)}
               style={[styles.chip, activeTab === tab && styles.chipSelected]}
               accessibilityRole="button"
+              testID={`exercise-picker-tab-${tab}`}
               accessibilityLabel={`Tab ${tab === "myGym" ? "My Gym" : tab.charAt(0).toUpperCase() + tab.slice(1)}`}
             >
               <Text style={[styles.chipText, activeTab === tab && styles.chipTextSelected]}>
@@ -715,37 +717,68 @@ export default function ExercisePickerScreen() {
         ) : null}
       </View>
     ),
-    [
-      query,
-      activeTab,
-      showMicroline,
-      microlineText,
-      activeFilterCountNum,
-      effectiveGymId,
-      onOpenCreateExercise,
-    ],
+    [activeTab, showMicroline, microlineText, effectiveGymId],
   );
 
-  const renderItem: ListRenderItem<ListEntry> = useCallback(
-    ({ item: entry, index }) => {
-      if (entry.type === "header") {
-        return renderHeaderContent();
-      }
-      const isFirstRow = index === 1;
-      const isLastRow = index === listData.length - 1;
-      const listItemStyle = [
-        styles.listItem,
-        isFirstRow && styles.listItemFirst,
-        isLastRow && styles.listItemLast,
-      ];
+  const pickerHeaderCenter = useMemo(
+    () => (
+      <View style={styles.navSearchShell} pointerEvents="box-none">
+        <Ionicons name="search" size={22} color={WORKOUT_LOGGER_COLORS.textSecondaryMuted} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search exercises"
+          placeholderTextColor={WORKOUT_LOGGER_COLORS.textSecondary}
+          style={styles.navSearchInput}
+          accessibilityLabel="Exercise search"
+          testID="exercise-picker-search-input"
+          returnKeyType="search"
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="never"
+        />
+        {query.length > 0 ? (
+          <Pressable
+            onPress={() => setQuery("")}
+            style={styles.navClearBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={8}
+          >
+            <Text style={styles.navClearBtnText}>Clear</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={() => setIsFilterOpen(true)}
+          style={styles.navFilterIconBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open filters"
+          testID="exercise-picker-filter-button"
+          hitSlop={4}
+        >
+          <Ionicons name="options-outline" size={22} color="#3C3C43" />
+          {activeFilterCountNum > 0 ? (
+            <View style={styles.filterBadgeMini} accessibilityElementsHidden>
+              <Text style={styles.filterBadgeText}>{String(activeFilterCountNum)}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
+    ),
+    [query, activeFilterCountNum],
+  );
+
+  const renderItem: ListRenderItem<RowEntry> = useCallback(
+    ({ item: entry }) => {
       const exerciseId = entry.exerciseId;
       const custom = customById.get(exerciseId) ?? null;
       const name = getRowName(exerciseId);
       const meta = custom ? customMetaFromRecord(custom) : getExerciseMeta(exerciseId);
       const subtitle = custom ? customSubtitle(custom) : `${meta.equipment} · ${meta.primary}`;
-      const hasThumbnail = !custom && hasBundledExerciseAsset(exerciseId);
+      const customThumbUri = custom != null ? customExerciseThumbnailUri(custom) : null;
+      const hasBundledThumb = custom == null && hasBundledExerciseAsset(exerciseId);
 
-      const showHighlight = query.trim() !== "" && entry.type === "row";
+      const showHighlight = query.trim() !== "";
       const titleNode = showHighlight
         ? renderHighlightedText(name, tokensForHighlight(query), styles)
         : <Text style={styles.rowTitle}>{name}</Text>;
@@ -755,7 +788,18 @@ export default function ExercisePickerScreen() {
       const canQuickAdd = sessionId != null;
 
       return (
-        <View style={[styles.row, listItemStyle]}>
+        <View style={styles.row} testID={`exercise-picker-row-${exerciseId}`}>
+          <ExercisePickerRowMedia
+            exerciseId={exerciseId}
+            name={name}
+            customThumbUri={customThumbUri}
+            hasBundledThumb={hasBundledThumb}
+            isOwnedCustom={isOwnedCustom}
+            sessionId={sessionId}
+            uploading={pickerImageUploadingId === exerciseId}
+            thumbnailStyle={styles.rowThumbnailSlot}
+            onAddImage={onPickerAddExerciseImage}
+          />
           <Pressable
             onPress={() => {
               if (sessionId != null) onAddToWorkout(exerciseId);
@@ -778,18 +822,6 @@ export default function ExercisePickerScreen() {
             }
             accessibilityState={{ disabled: !canQuickAdd }}
           >
-            {hasThumbnail ? (
-              <View style={styles.rowThumbnailContainer}>
-                <Image
-                  source={getBundledExerciseAsset(exerciseId)}
-                  style={styles.rowThumbnailImage}
-                  resizeMode="contain"
-                  accessibilityLabel={`${name} image`}
-                />
-              </View>
-            ) : (
-              <ThumbnailPlaceholderView width={120} height={68} />
-            )}
             <View style={styles.rowContent}>
               <View style={styles.rowTitleRow}>
                 {titleNode}
@@ -818,27 +850,29 @@ export default function ExercisePickerScreen() {
     },
     [
       getRowName,
-      listData.length,
+      rowEntries.length,
       query,
       sessionId,
       user,
       onAddToWorkout,
       onOpenEditExercise,
-      renderHeaderContent,
       customById,
+      pickerImageUploadingId,
+      onPickerAddExerciseImage,
     ],
   );
 
-  const keyExtractor = useCallback((item: ListEntry, index: number): string => {
-    if (item.type === "header") return "header-0";
-    return `${item.type}-${item.exerciseId}-${index}`;
+  const keyExtractor = useCallback((item: RowEntry, index: number): string => {
+    return `row-${item.exerciseId}-${index}`;
   }, []);
 
   if (!isSignedIn) {
     return (
-      <View style={styles.screen}>
-        <EmptyState title="Sign in to add exercises" description="Sign in to use the exercise picker." />
-      </View>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.screen}>
+          <EmptyState title="Sign in to add exercises" description="Sign in to use the exercise picker." />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -866,41 +900,67 @@ export default function ExercisePickerScreen() {
     activeTab === "myGym" && effectiveGymId == null && listRowCount === 0;
 
   return (
-    <View style={styles.screen}>
-      <FlatList
-        data={listData}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        stickyHeaderIndices={[0]}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        ListFooterComponent={
-          listRowCount === 0 ? (
-            <View style={styles.emptyStateFooter}>
-              {showMyGymNoGymHint ? (
-                <Text
-                  style={styles.emptyStateGymHint}
-                  accessibilityLabel="My Gym tab no gym selected hint"
-                >
-                  Select a gym in Start Workout to see exercises available at your location.
-                </Text>
-              ) : (
-                <>
-                  <Text style={styles.rowTitle}>No results</Text>
-                  {showGymAwareEmptyHint ? (
-                    <Text
-                      style={styles.emptyStateGymHint}
-                      accessibilityLabel="Gym filtering empty state hint"
-                    >
-                      Some exercises may be hidden because your gym doesn't have the required equipment.
-                    </Text>
-                  ) : null}
-                </>
-              )}
-            </View>
-          ) : null
-        }
-      />
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={styles.screen}>
+        <WorkoutsNavBar
+          hideTitle
+          surface="flush"
+          contentPaddingHorizontal={16}
+          rowMinHeight={56}
+          leftColumnWidth={56}
+          backButtonSize="large"
+          centerSlotLayout="fill"
+          onBackPress={() => router.back()}
+          centerSlot={pickerHeaderCenter}
+          rightSlot={
+            <Pressable
+              onPress={onOpenCreateExercise}
+              style={styles.navCreateIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Create exercise"
+              testID="exercise-picker-header-create"
+            >
+              <Ionicons name="add-circle-outline" size={26} color="#1C1C1E" />
+            </Pressable>
+          }
+          rightSlotWidth={56}
+        />
+        <FlatList
+          style={styles.listFlex}
+          data={rowEntries}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={renderListHeader}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={
+            listRowCount === 0 ? (
+              <View style={styles.emptyStateFooter}>
+                {showMyGymNoGymHint ? (
+                  <Text
+                    style={styles.emptyStateGymHint}
+                    accessibilityLabel="My Gym tab no gym selected hint"
+                  >
+                    Select a gym in Start Workout to see exercises available at your location.
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={styles.rowTitle}>No results</Text>
+                    {showGymAwareEmptyHint ? (
+                      <Text
+                        style={styles.emptyStateGymHint}
+                        accessibilityLabel="Gym filtering empty state hint"
+                      >
+                        Some exercises may be hidden because your gym doesn't have the required equipment.
+                      </Text>
+                    ) : null}
+                  </>
+                )}
+              </View>
+            ) : null
+          }
+        />
+      </View>
 
       <Modal
         visible={isFilterOpen}
@@ -911,103 +971,111 @@ export default function ExercisePickerScreen() {
         <Pressable style={styles.filterBackdrop} onPress={() => setIsFilterOpen(false)}>
           <Pressable style={styles.filterPanel} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.filterPanelTitle}>Filters</Text>
-            <Text style={styles.filterSectionLabel}>Equipment</Text>
-            <View style={styles.filterChipRow}>
-              {EQUIPMENT_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setFilters((prev) => ({ ...prev, equipment: opt.value }))}
-                  style={[styles.filterChip, filters.equipment === opt.value && styles.chipSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Equipment ${opt.label}`}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      filters.equipment === opt.value && styles.chipTextSelected,
-                    ]}
+            <View style={[styles.filterSection, styles.filterSectionFirst]}>
+              <Text style={styles.filterSectionLabel}>Equipment</Text>
+              <View style={styles.filterChipRow}>
+                {EQUIPMENT_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setFilters((prev) => ({ ...prev, equipment: opt.value }))}
+                    style={[styles.filterChip, filters.equipment === opt.value && styles.chipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Equipment ${opt.label}`}
                   >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        filters.equipment === opt.value && styles.chipTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-            <Text style={styles.filterSectionLabel}>Primary muscle</Text>
-            <View style={styles.filterChipRow}>
-              {MUSCLE_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setFilters((prev) => ({ ...prev, primary: opt.value }))}
-                  style={[styles.filterChip, filters.primary === opt.value && styles.chipSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Primary muscle ${opt.label}`}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      filters.primary === opt.value && styles.chipTextSelected,
-                    ]}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionLabel}>Primary muscle</Text>
+              <View style={styles.filterChipRow}>
+                {MUSCLE_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setFilters((prev) => ({ ...prev, primary: opt.value }))}
+                    style={[styles.filterChip, filters.primary === opt.value && styles.chipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Primary muscle ${opt.label}`}
                   >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        filters.primary === opt.value && styles.chipTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-            <Text style={styles.filterSectionLabel}>Movement pattern</Text>
-            <View style={styles.filterChipRow}>
-              {MOVEMENT_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setFilters((prev) => ({ ...prev, movement: opt.value }))}
-                  style={[styles.filterChip, filters.movement === opt.value && styles.chipSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Movement ${opt.label}`}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      filters.movement === opt.value && styles.chipTextSelected,
-                    ]}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionLabel}>Movement pattern</Text>
+              <View style={styles.filterChipRow}>
+                {MOVEMENT_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setFilters((prev) => ({ ...prev, movement: opt.value }))}
+                    style={[styles.filterChip, filters.movement === opt.value && styles.chipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Movement ${opt.label}`}
                   >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        filters.movement === opt.value && styles.chipTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-            <Text style={styles.filterSectionLabel}>Exercise type</Text>
-            <View style={styles.filterChipRow}>
-              {TRAINING_TYPE_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() =>
-                    setFilters((prev) => ({ ...prev, trainingType: opt.value }))
-                  }
-                  style={[
-                    styles.filterChip,
-                    filters.trainingType === opt.value && styles.chipSelected,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Exercise type ${opt.label}`}
-                >
-                  <Text
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionLabel}>Exercise type</Text>
+              <View style={styles.filterChipRow}>
+                {TRAINING_TYPE_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() =>
+                      setFilters((prev) => ({ ...prev, trainingType: opt.value }))
+                    }
                     style={[
-                      styles.filterChipText,
-                      filters.trainingType === opt.value && styles.chipTextSelected,
+                      styles.filterChip,
+                      filters.trainingType === opt.value && styles.chipSelected,
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Exercise type ${opt.label}`}
                   >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        filters.trainingType === opt.value && styles.chipTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
             <View style={styles.filterPanelActions}>
               <Pressable
                 onPress={() => setFilters(DEFAULT_FILTERS)}
-                style={styles.filterClearButton}
+                style={[workoutLoggerCancelOutline, styles.filterClearButton]}
                 accessibilityRole="button"
                 accessibilityLabel="Clear filters"
               >
-                <Text style={styles.filterClearText}>Clear</Text>
+                <Text style={workoutLoggerCancelOutlineText}>Clear</Text>
               </Pressable>
               <Pressable
                 onPress={() => setIsFilterOpen(false)}
@@ -1029,40 +1097,60 @@ export default function ExercisePickerScreen() {
         onRequestClose={() => setSelectedExerciseId(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setSelectedExerciseId(null)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            {selectedExerciseId && selectedMeta && (
-              <>
-                <Text style={styles.modalTitle}>{selectedName}</Text>
-                <Text style={styles.modalMeta}>
-                  {selectedMeta.equipment} · {selectedMeta.primary}
-                </Text>
-                {selectedCustom == null ? (
-                  <View style={styles.modalMediaContainer}>
+          <SafeAreaView style={styles.previewSheet} edges={[]} testID="exercise-picker-preview-sheet">
+            <Pressable style={styles.previewScreen} onPress={(e) => e.stopPropagation()} testID="exercise-picker-preview-screen">
+              <View style={styles.previewGrabber} testID="exercise-picker-preview-grabber" />
+              <View style={styles.previewHeader} testID="exercise-picker-preview-header">
+                <Pressable
+                  onPress={() => setSelectedExerciseId(null)}
+                  style={styles.previewCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                >
+                  <Ionicons name="chevron-back" size={22} color={WORKOUT_LOGGER_COLORS.textPrimary} />
+                </Pressable>
+              </View>
+              {selectedExerciseId && selectedMeta ? (
+                <ScrollView contentContainerStyle={styles.previewContent} keyboardShouldPersistTaps="handled">
+                  <View style={styles.previewTitleRow}>
+                    <Text style={styles.modalTitle}>{selectedName}</Text>
+                    {selectedCustom != null ? (
+                      <View style={styles.customBadge} accessibilityLabel="Custom exercise">
+                        <Text style={styles.customBadgeText}>Custom</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.modalMeta}>
+                    {selectedMeta.equipment} · {selectedMeta.primary}
+                  </Text>
+                  <View style={styles.previewMediaContainer} testID="exercise-picker-preview-media">
                     <ExerciseMediaPreview
                       exerciseId={selectedExerciseId}
+                      customRecord={selectedCustom}
                       style={styles.modalMediaFill}
                       containerBackgroundColor="#FFFFFF"
                     />
                   </View>
-                ) : null}
-                <Text style={styles.modalDescription}>{selectedMeta.description}</Text>
-                <View style={styles.cuesBlock}>
-                  {selectedMeta.cues.slice(0, 3).map((cue, i) => (
-                    <Text key={i} style={styles.cueItem}>
-                      • {cue}
-                    </Text>
-                  ))}
-                </View>
-                {sessionId == null ? (
-                  <Text style={styles.missingSessionText}>Missing session id</Text>
-                ) : null}
-                {selectedCustom == null && bundledSourceExercise != null ? (
-                  <Text style={styles.modalBundledHint}>
-                    Built-in exercises cannot be edited directly. Use Customize to make an editable copy in your
-                    library.
+                  <Text style={styles.modalDescription} testID="exercise-picker-preview-description">
+                    {selectedMeta.description}
                   </Text>
-                ) : null}
-                <View style={styles.modalActions}>
+                  <View style={styles.cuesBlock}>
+                    {selectedMeta.cues.slice(0, 3).map((cue, i) => (
+                      <Text key={i} style={styles.cueItem}>
+                        • {cue}
+                      </Text>
+                    ))}
+                  </View>
+                  {sessionId == null ? (
+                    <Text style={styles.missingSessionText}>Missing session id</Text>
+                  ) : null}
+                  {selectedCustom == null && bundledSourceExercise != null ? (
+                    <Text style={styles.modalBundledHint}>
+                      Built-in exercises cannot be edited directly. Use Customize to make an editable copy in your
+                      library.
+                    </Text>
+                  ) : null}
+                  <View style={styles.modalActions}>
                   {selectedCustom != null &&
                   user != null &&
                   isUserScopedCustomExerciseId(user.uid, selectedExerciseId) ? (
@@ -1104,106 +1192,102 @@ export default function ExercisePickerScreen() {
                   >
                     <Text style={styles.addButtonText}>Add to workout</Text>
                   </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedExerciseId(null)}
-                    style={styles.closeButton}
-                    accessibilityRole="button"
-                    accessibilityLabel="Close"
-                  >
-                    <Text style={styles.closeButtonText}>Close</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </Pressable>
+                  </View>
+                </ScrollView>
+              ) : null}
+            </Pressable>
+          </SafeAreaView>
         </Pressable>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+  },
   screen: {
     flex: 1,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
   },
-  header: {
-    padding: 16,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  createExerciseCta: {
-    minHeight: 46,
-    borderRadius: 10,
+  listFlex: { flex: 1 },
+  navSearchShell: {
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 44,
+    borderRadius: 22,
+    backgroundColor: UI_HEADER_CHROME_BG,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#C6C6C8",
-    backgroundColor: "#FFFFFF",
+    borderColor: UI_HEADER_CHROME_BORDER,
+    ...headerChromeShadow,
+    paddingLeft: 12,
+    paddingRight: 6,
+    gap: 8,
+  },
+  navSearchInput: {
+    flex: 1,
+    minWidth: 0,
+    flexGrow: 1,
+    fontSize: 16,
+    paddingVertical: Platform.OS === "ios" ? 10 : 8,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+  },
+  navClearBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  navClearBtnText: {
+    fontSize: 14,
+    color: SYSTEM_ACCENT,
+    fontWeight: "600",
+  },
+  navFilterIconBtn: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 14,
+    position: "relative",
   },
-  createExerciseCtaText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: SYSTEM_ACCENT,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-    flexGrow: 1,
-  },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#C6C6C8",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  magnifier: {
-    fontSize: 16,
-    color: "#6E6E73",
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    paddingVertical: 6,
-    color: "#1C1C1E",
-  },
-  clearBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  clearBtnText: {
-    fontSize: 14,
-    color: SYSTEM_ACCENT,
-    fontWeight: "600",
-  },
-  filterButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  filterIcon: {
-    fontSize: 14,
-    color: SYSTEM_ACCENT,
-    fontWeight: "600",
-  },
-  filterBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+  filterBadgeMini: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
     backgroundColor: SYSTEM_ACCENT,
     justifyContent: "center",
     alignItems: "center",
   },
+  navCreateIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    ...headerChromeCircleShell,
+  },
+  listHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  listContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 24,
+    flexGrow: 1,
+  },
   filterBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1213,55 +1297,49 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   gymStatus: {
-    fontSize: 12,
-    color: "#6E6E73",
-    marginTop: 4,
+    ...workoutLoggerTypography.optionDescription,
+    marginTop: 2,
   },
   gymExplanation: {
-    fontSize: 12,
-    color: "#8E8E93",
+    ...workoutLoggerTypography.optionDescription,
     marginTop: 2,
   },
   microline: {
-    fontSize: 12,
-    color: "#6E6E73",
+    ...workoutLoggerTypography.sheetBody,
+    fontSize: 13,
     marginTop: 4,
   },
   chip: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "#E5E5EA",
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: "rgba(60, 60, 67, 0.08)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.1)",
   },
   chipSelected: {
     backgroundColor: SYSTEM_ACCENT,
+    borderColor: SYSTEM_ACCENT,
   },
   chipText: {
-    fontSize: 14,
-    color: "#1C1C1E",
+    fontSize: 15,
     fontWeight: "500",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+    letterSpacing: -0.2,
   },
   chipTextSelected: {
     color: "#FFFFFF",
-  },
-  listItem: {
-    backgroundColor: "#FFFFFF",
-  },
-  listItemFirst: {
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  listItemLast: {
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    fontWeight: "600",
+    fontSize: 15,
   },
   row: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#C6C6C8",
+    borderBottomColor: "rgba(60, 60, 67, 0.12)",
   },
   rowMainHit: {
     flex: 1,
@@ -1290,40 +1368,37 @@ const styles = StyleSheet.create({
   },
   customBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: "#E8E8ED",
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(60, 60, 67, 0.08)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#D1D1D6",
+    borderColor: "rgba(60, 60, 67, 0.12)",
   },
   customBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#636366",
-    letterSpacing: 0.3,
+    ...workoutLoggerTypography.sectionChip,
+    color: WORKOUT_LOGGER_COLORS.textSecondary,
   },
-  rowThumbnailContainer: {
-    width: 120,
-    height: 68,
-    borderRadius: 10,
-    marginRight: 12,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  rowThumbnailImage: {
-    width: "100%",
-    height: "100%",
+  rowThumbnailSlot: {
+    marginRight: 14,
   },
   rowContent: { flex: 1 },
-  rowTitle: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  rowTitleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  rowTitleHit: { fontSize: 15, fontWeight: "800", color: "#1C1C1E" },
-  rowMeta: { fontSize: 12, color: "#6E6E73", marginTop: 2 },
+  rowTitle: {
+    ...workoutLoggerTypography.optionTitle,
+  },
+  rowTitleText: {
+    ...workoutLoggerTypography.optionTitle,
+  },
+  rowTitleHit: {
+    ...workoutLoggerTypography.optionTitle,
+    fontWeight: "800",
+  },
+  rowMeta: {
+    ...workoutLoggerTypography.optionDescription,
+    marginTop: 4,
+  },
   emptyStateFooter: {
     paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 8,
   },
   emptyStateGymHint: {
@@ -1332,34 +1407,76 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.34)",
     justifyContent: "flex-end",
   },
-  modalContent: {
+  previewSheet: {
+    maxHeight: "90%",
+    minHeight: "88%",
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  previewScreen: {
+    flex: 1,
+    backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground,
+  },
+  previewGrabber: {
+    alignSelf: "center",
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: WORKOUT_LOGGER_COLORS.grabber,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  previewHeader: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  previewCloseBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    ...headerChromeCircleShell,
+  },
+  previewContent: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 40,
+  },
+  previewMediaContainer: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 18,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    paddingBottom: 34,
+  },
+  previewTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 4,
+    ...workoutLoggerTypography.sheetTitle,
+    marginBottom: 10,
   },
   modalMeta: {
-    fontSize: 14,
-    color: "#6E6E73",
-    marginBottom: 12,
-  },
-  modalMediaContainer: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    overflow: "hidden",
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    marginBottom: 12,
+    ...workoutLoggerTypography.optionDescription,
+    marginBottom: 16,
   },
   modalMediaFill: {
     width: "100%",
@@ -1369,10 +1486,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1C1C1E",
     lineHeight: 20,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   cuesBlock: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   cueItem: {
     fontSize: 14,
@@ -1385,7 +1502,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalActions: {
-    gap: 10,
+    gap: 12,
+    marginTop: 4,
   },
   editExerciseButton: {
     paddingVertical: 14,
@@ -1423,17 +1541,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   },
-  closeButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#C6C6C8",
-  },
-  closeButtonText: {
-    fontSize: 17,
-    color: "#1C1C1E",
-  },
   filterBackdrop: {
     flex: 1,
     flexDirection: "row",
@@ -1443,69 +1550,70 @@ const styles = StyleSheet.create({
   filterPanel: {
     width: "85%",
     maxWidth: 360,
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    paddingTop: 56,
+    backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
+    paddingHorizontal: 22,
+    paddingTop: 52,
+    paddingBottom: 28,
   },
   filterPanelTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 16,
+    ...workoutLoggerTypography.sheetTitle,
+    marginBottom: 20,
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterSectionFirst: {
+    marginTop: 0,
   },
   filterSectionLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6E6E73",
-    marginBottom: 8,
-    marginTop: 12,
+    ...workoutLoggerTypography.sectionEyebrow,
+    marginBottom: 10,
   },
   filterChipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
   },
   filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "#E5E5EA",
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: "rgba(60, 60, 67, 0.08)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(60, 60, 67, 0.1)",
   },
   filterChipText: {
-    fontSize: 14,
-    color: "#1C1C1E",
+    fontSize: 15,
     fontWeight: "500",
+    color: WORKOUT_LOGGER_COLORS.textPrimary,
+    letterSpacing: -0.2,
   },
   filterPanelActions: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 24,
-    paddingTop: 16,
+    gap: 10,
+    marginTop: 22,
+    paddingTop: 18,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#C6C6C8",
+    borderTopColor: WORKOUT_LOGGER_COLORS.grabber,
   },
   filterClearButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#C6C6C8",
-  },
-  filterClearText: {
-    fontSize: 16,
-    color: "#1C1C1E",
-    fontWeight: "600",
+    flex: 1,
+    marginTop: 0,
   },
   filterDoneButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 14,
+    borderRadius: WORKOUT_LOGGER_LAYOUT.cancelOutlineRadius,
     backgroundColor: SYSTEM_ACCENT,
     alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0, 0, 0, 0.08)",
   },
   filterDoneText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
 });
