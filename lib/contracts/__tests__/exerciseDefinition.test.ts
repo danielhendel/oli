@@ -1,6 +1,7 @@
 import {
   buildStableCustomExerciseId,
   exerciseDefinitionCreateBodySchema,
+  exerciseDefinitionRowSchema,
   exerciseDefinitionUpdateBodySchema,
   exerciseDefinitionUidPart,
   isUserScopedCustomExerciseId,
@@ -38,5 +39,25 @@ describe("exerciseDefinition contracts", () => {
   it("update body requires at least one field", () => {
     expect(exerciseDefinitionUpdateBodySchema.safeParse({}).success).toBe(false);
     expect(exerciseDefinitionUpdateBodySchema.safeParse({ name: "X" }).success).toBe(true);
+  });
+
+  it("row schema accepts optional stability and laterality", () => {
+    const parsed = exerciseDefinitionRowSchema.safeParse({
+      exerciseId: "custom_userab12_move",
+      name: "Move",
+      equipment: "Cable",
+      primary: "Back",
+      loggingType: "weight_reps",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      stability: "machine",
+      laterality: "bilateral",
+      muscleContributions: [{ subgroup: "lats", weight: 1 }],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.stability).toBe("machine");
+      expect(parsed.data.laterality).toBe("bilateral");
+    }
   });
 });

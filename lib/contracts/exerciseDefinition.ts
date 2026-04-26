@@ -50,6 +50,19 @@ export const exerciseDefinitionMovementPatternSchema = z.enum([
   "gait",
 ]);
 
+/**
+ * Support / stability context for analytics (orthogonal to equipment "Machine").
+ * - `machine`: fixed path / external support (selectorized, Smith locked track, etc.)
+ * - `free`: free-weight or self-stabilized motion
+ */
+export const exerciseDefinitionStabilitySchema = z.enum(["machine", "free"]);
+
+export type ExerciseDefinitionStability = z.infer<typeof exerciseDefinitionStabilitySchema>;
+
+export const exerciseDefinitionLateralitySchema = z.enum(["unilateral", "bilateral"]);
+
+export type ExerciseDefinitionLaterality = z.infer<typeof exerciseDefinitionLateralitySchema>;
+
 const urlishStringSchema = z.string().max(2048);
 
 export const exerciseDefinitionMuscleContributionEntrySchema = z
@@ -74,6 +87,8 @@ export const exerciseDefinitionRowSchema = z
     primaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     secondaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     muscleContributions: z.array(exerciseDefinitionMuscleContributionEntrySchema).max(40).optional(),
+    stability: exerciseDefinitionStabilitySchema.nullable().optional(),
+    laterality: exerciseDefinitionLateralitySchema.nullable().optional(),
     imageUrl: urlishStringSchema.optional(),
     videoUrl: urlishStringSchema.optional(),
     mediaUrl: urlishStringSchema.optional(),
@@ -110,6 +125,8 @@ export const exerciseDefinitionCreateBodySchema = z
     primaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     secondaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     muscleContributions: z.array(exerciseDefinitionMuscleContributionEntrySchema).max(40).optional(),
+    stability: exerciseDefinitionStabilitySchema.nullable().optional(),
+    laterality: exerciseDefinitionLateralitySchema.nullable().optional(),
     imageUrl: urlishStringSchema.optional(),
     videoUrl: urlishStringSchema.optional(),
     mediaUrl: urlishStringSchema.optional(),
@@ -129,6 +146,8 @@ export const exerciseDefinitionUpdateBodySchema = z
     primaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     secondaryMusclesDetailed: z.array(z.string().min(1).max(64)).max(40).optional(),
     muscleContributions: z.array(exerciseDefinitionMuscleContributionEntrySchema).max(40).optional(),
+    stability: exerciseDefinitionStabilitySchema.nullable().optional(),
+    laterality: exerciseDefinitionLateralitySchema.nullable().optional(),
     imageUrl: urlishStringSchema.optional(),
     videoUrl: urlishStringSchema.optional(),
     mediaUrl: urlishStringSchema.optional(),
@@ -145,6 +164,8 @@ export const exerciseDefinitionUpdateBodySchema = z
       o.primaryMusclesDetailed !== undefined ||
       o.secondaryMusclesDetailed !== undefined ||
       o.muscleContributions !== undefined ||
+      o.stability !== undefined ||
+      o.laterality !== undefined ||
       o.imageUrl !== undefined ||
       o.videoUrl !== undefined ||
       o.mediaUrl !== undefined,
@@ -152,6 +173,30 @@ export const exerciseDefinitionUpdateBodySchema = z
   );
 
 export type ExerciseDefinitionUpdateBody = z.infer<typeof exerciseDefinitionUpdateBodySchema>;
+
+/** POST /exercise-definitions/:exerciseId/media — Firebase Storage URL with download token. */
+export const exerciseDefinitionMediaSlotSchema = z.enum(["image", "video"]);
+export type ExerciseDefinitionMediaSlot = z.infer<typeof exerciseDefinitionMediaSlotSchema>;
+
+export const exerciseDefinitionMediaUploadBodySchema = z
+  .object({
+    slot: exerciseDefinitionMediaSlotSchema,
+    fileBase64: z.string().min(1),
+    mimeType: z.string().min(3).max(120),
+    filename: z.string().min(1).max(200),
+  })
+  .strict();
+
+export type ExerciseDefinitionMediaUploadBody = z.infer<typeof exerciseDefinitionMediaUploadBodySchema>;
+
+export const exerciseDefinitionMediaUploadResponseSchema = z
+  .object({
+    url: urlishStringSchema,
+    slot: exerciseDefinitionMediaSlotSchema,
+  })
+  .strict();
+
+export type ExerciseDefinitionMediaUploadResponse = z.infer<typeof exerciseDefinitionMediaUploadResponseSchema>;
 
 // ---------------------------------------------------------------------------
 // Stable custom_* id helpers (shared with client AsyncStorage store)

@@ -10,13 +10,26 @@
       "url": "https://u.expo.dev/c7719da7-49dd-439f-bc64-826ce5f789d2"
     },
     "ios": {
-      "bundleIdentifier": "com.olifitness.oli"
+      "bundleIdentifier": "com.olifitness.oli",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Oli uses photos you choose as optional exercise reference images and videos.",
+        "NSCameraUsageDescription": "Oli uses the camera for optional exercise reference photos and videos.",
+        "NSMicrophoneUsageDescription": "Oli uses the microphone when you record exercise reference videos."
+      }
     },
     "android": {
       "package": "com.olifitness.oli"
     },
     "plugins": [
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Oli uses photos you choose as optional exercise reference images and videos.",
+          "cameraPermission": "Oli uses the camera for optional exercise reference photos and videos.",
+          "microphonePermission": "Oli uses the microphone when you record exercise reference videos."
+        }
+      ],
       [
         "react-native-health",
         {

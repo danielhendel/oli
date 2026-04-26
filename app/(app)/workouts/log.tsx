@@ -36,6 +36,7 @@ const START_GYM_ROW_RIPPLE: PressableAndroidRippleConfig = {
   borderless: false,
 };
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { isUserScopedCustomExerciseId } from "@oli/contracts";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { getGymLabel, getGymMenuOptions } from "@/lib/workouts/gymRegistry";
@@ -1340,6 +1341,18 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     return byBlock;
   }, [visibleExercises]);
 
+  const exerciseContextForSlotId = useCallback(
+    (slotId: string) => {
+      for (const ex of visibleExercises) {
+        if (ex.slotId === slotId) {
+          return { exerciseId: ex.exerciseId, blockId: ex.blockId ?? "block:sets:1" };
+        }
+      }
+      return null;
+    },
+    [visibleExercises],
+  );
+
   const hasZeroBlocks = displayBlocks.length === 0;
 
   const catalogNameById = useMemo(() => {
@@ -2442,6 +2455,58 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           <Pressable style={styles.confirmModalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.confirmModalTitle}>Exercise</Text>
             <View style={styles.confirmModalActions}>
+              {exerciseMenuSlotId != null &&
+              user != null &&
+              sessionId != null &&
+              (() => {
+                const ctx = exerciseContextForSlotId(exerciseMenuSlotId);
+                if (ctx == null || !isUserScopedCustomExerciseId(user.uid, ctx.exerciseId)) return null;
+                return (
+                  <Pressable
+                    onPress={() => {
+                      const slot = exerciseMenuSlotId;
+                      setExerciseMenuSlotId(null);
+                      if (!slot || !sessionId || !user) return;
+                      const c = exerciseContextForSlotId(slot);
+                      if (c == null || !isUserScopedCustomExerciseId(user.uid, c.exerciseId)) return;
+                      const enrichParams =
+                        isEnrichmentEntry
+                          ? {
+                              logReturnPath: "enrich" as const,
+                              ...(typeof params.enrichDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.enrichDay)
+                                ? { enrichDay: params.enrichDay }
+                                : {}),
+                              ...(typeof params.enrichTargetId === "string" && params.enrichTargetId.trim().length > 0
+                                ? { enrichTargetId: params.enrichTargetId.trim() }
+                                : {}),
+                              ...(typeof params.sessionAnchorIso === "string" &&
+                              params.sessionAnchorIso.trim().length > 0
+                                ? { sessionAnchorIso: params.sessionAnchorIso.trim() }
+                                : {}),
+                              ...(typeof params.journalSessionId === "string" &&
+                              params.journalSessionId.trim().length > 0
+                                ? { journalSessionId: params.journalSessionId.trim() }
+                                : {}),
+                            }
+                          : {};
+                      router.push({
+                        pathname: "/(app)/workouts/exercise-edit",
+                        params: {
+                          sessionId,
+                          exerciseId: c.exerciseId,
+                          blockId: c.blockId,
+                          ...enrichParams,
+                        },
+                      });
+                    }}
+                    style={styles.cancelConfirmBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit exercise details"
+                  >
+                    <Text style={styles.primaryBtnText}>Edit exercise details</Text>
+                  </Pressable>
+                );
+              })()}
               <Pressable
                 onPress={() => {
                   const sid = exerciseMenuSlotId;

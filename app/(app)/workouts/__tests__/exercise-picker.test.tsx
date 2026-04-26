@@ -38,6 +38,10 @@ jest.mock("react-native", () => {
       if (!visible) return null;
       return React.createElement("View", {}, children);
     },
+    Alert: { alert: jest.fn() },
+    ActivityIndicator: function ActivityIndicatorMock() {
+      return React.createElement("View", { testID: "activity-indicator-mock" });
+    },
     StyleSheet: { create: (s: unknown) => s },
   };
 });
@@ -102,8 +106,33 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-jest.mock("@/lib/workouts/exercises/customExerciseStore", () => ({
-  listCustomExercises: jest.fn().mockResolvedValue([]),
+jest.mock("@/lib/workouts/exercises/customExerciseStore", () => {
+  const actual = jest.requireActual("@/lib/workouts/exercises/customExerciseStore");
+  return {
+    ...actual,
+    listCustomExercises: jest.fn(),
+  };
+});
+
+jest.mock("@/lib/api/exerciseDefinitions", () => ({
+  createExerciseDefinition: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 201,
+    requestId: null,
+    json: {
+      exerciseId: "placeholder",
+      name: "Placeholder",
+      equipment: "Barbell",
+      primary: "Chest",
+      loggingType: "weight_reps",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+  }),
+}));
+
+jest.mock("@/lib/workouts/exercises/mergeCustomExerciseSources", () => ({
+  listMergedCustomExerciseRecords: jest.fn(),
 }));
 
 jest.mock("@/lib/workouts/exercises/librarySections", () => ({
@@ -142,6 +171,10 @@ jest.mock("@expo/vector-icons", () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ExercisePickerScreen = require("../exercise-picker").default;
 
+function rowAddLabel(exerciseDisplayName: string): string {
+  return `Add ${exerciseDisplayName} to workout`;
+}
+
 function findByA11yLabel(
   root: renderer.ReactTestRenderer["root"],
   label: string,
@@ -168,6 +201,14 @@ describe("workouts/exercise-picker", () => {
       listMergedCustomExerciseRecords: jest.Mock;
     };
     mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([]);
+    const storeMock = jest.requireMock("@/lib/workouts/exercises/customExerciseStore") as {
+      listCustomExercises: jest.Mock;
+    };
+    storeMock.listCustomExercises.mockResolvedValue([]);
+    const apiMock = jest.requireMock("@/lib/api/exerciseDefinitions") as {
+      createExerciseDefinition: jest.Mock;
+    };
+    apiMock.createExerciseDefinition.mockClear();
   });
 
   afterEach(() => {
@@ -180,7 +221,7 @@ describe("workouts/exercise-picker", () => {
     }
   });
 
-  it("expect Pick Bench Press still exists", async () => {
+  it("expect Add Bench Press row still exists", async () => {
     act(() => {
       test = renderer.create(<ExercisePickerScreen />);
     });
@@ -189,7 +230,7 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       /* flush React state after async effects */
     });
-    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
+    const pickBench = findByA11yLabel(test!.root, rowAddLabel("Bench Press"));
     expect(pickBench).not.toBeNull();
   });
 
@@ -226,7 +267,7 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       tabRecent!.props.onPress();
     });
-    const pickBenchRecent = findByA11yLabel(test!.root, "Pick Bench Press");
+    const pickBenchRecent = findByA11yLabel(test!.root, rowAddLabel("Bench Press"));
     expect(pickBenchRecent).not.toBeNull();
     mockSelectedGymId = "edge_fitness_manchester_ct";
     act(() => {
@@ -235,11 +276,11 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       test!.update(<ExercisePickerScreen />);
     });
-    const pickSquat = findByA11yLabel(test!.root, "Pick Back Squat");
+    const pickSquat = findByA11yLabel(test!.root, rowAddLabel("Back Squat"));
     expect(pickSquat).not.toBeNull();
   });
 
-  it("long press triggers router.replace", async () => {
+  it("tap row triggers router.replace (quick add)", async () => {
     act(() => {
       test = renderer.create(<ExercisePickerScreen />);
     });
@@ -249,10 +290,10 @@ describe("workouts/exercise-picker", () => {
       /* flush React state after async effects */
     });
     expect(mockReplace).not.toHaveBeenCalled();
-    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
+    const pickBench = findByA11yLabel(test!.root, rowAddLabel("Bench Press"));
     expect(pickBench).not.toBeNull();
     act(() => {
-      pickBench!.props.onLongPress?.();
+      pickBench!.props.onPress();
     });
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith({
@@ -261,7 +302,7 @@ describe("workouts/exercise-picker", () => {
     });
   });
 
-  it("Add to workout replaces to enrich when logReturnPath is enrich", async () => {
+  it("quick add replaces to enrich when logReturnPath is enrich", async () => {
     mockPickerParams = {
       sessionId: "s1",
       logReturnPath: "enrich",
@@ -275,13 +316,9 @@ describe("workouts/exercise-picker", () => {
     });
     await flushEventLoop();
     await flushEventLoop();
-    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
+    const pickBench = findByA11yLabel(test!.root, rowAddLabel("Bench Press"));
     act(() => {
       pickBench!.props.onPress();
-    });
-    const addButton = findByA11yLabel(test!.root, "Add to workout");
-    act(() => {
-      addButton!.props.onPress();
     });
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/enrich",
@@ -395,7 +432,7 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       /* flush after search state */
     });
-    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
+    const pickBench = findByA11yLabel(test!.root, rowAddLabel("Bench Press"));
     expect(pickBench).not.toBeNull();
     const texts = pickBench!.findAllByType("Text");
     const titleWithNested = texts.find(
@@ -404,7 +441,7 @@ describe("workouts/exercise-picker", () => {
     expect(titleWithNested).toBeDefined();
   });
 
-  it("row press opens modal; Add to workout calls router.replace with pathname and pickedExerciseId", async () => {
+  it("actions menu opens modal; Add to workout from sheet still replaces", async () => {
     act(() => {
       test = renderer.create(<ExercisePickerScreen />);
     });
@@ -414,10 +451,10 @@ describe("workouts/exercise-picker", () => {
       /* flush React state after async effects */
     });
     expect(mockReplace).not.toHaveBeenCalled();
-    const pickBench = findByA11yLabel(test!.root, "Pick Bench Press");
-    expect(pickBench).not.toBeNull();
+    const actionsBench = findByA11yLabel(test!.root, "Exercise actions, Bench Press");
+    expect(actionsBench).not.toBeNull();
     act(() => {
-      pickBench!.props.onPress();
+      actionsBench!.props.onPress();
     });
     expect(mockReplace).not.toHaveBeenCalled();
     const addButton = findByA11yLabel(test!.root, "Add to workout");
@@ -432,7 +469,7 @@ describe("workouts/exercise-picker", () => {
     });
   });
 
-  it("no gym (selectedGymId null): full library visible, status shows Full library", async () => {
+  it("no gym (selectedGymId null): full library visible, status shows My Exercise Library", async () => {
     mockSelectedGymId = null;
     act(() => {
       test = renderer.create(<ExercisePickerScreen />);
@@ -442,10 +479,10 @@ describe("workouts/exercise-picker", () => {
     act(() => {
       /* flush React state after async effects */
     });
-    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Bench Press"))).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Pull-Up"))).not.toBeNull();
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
-    expect(scopeLabel.props.children).toBe("Full library");
+    expect(scopeLabel.props.children).toBe("My Exercise Library");
   });
 
   it("My Gym tab with bodyweight_only_home: filtered status and only bodyweight exercises visible", async () => {
@@ -465,8 +502,8 @@ describe("workouts/exercise-picker", () => {
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
     expect(scopeLabel.props.children).toContain("Filtered for");
     expect(scopeLabel.props.children).toContain("Bodyweight only (home)");
-    expect(findByA11yLabel(test!.root, "Pick Bench Press")).toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Bench Press"))).toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Pull-Up"))).not.toBeNull();
   });
 
   it("no gym selected: does not show gym filtering explanation", async () => {
@@ -560,9 +597,9 @@ describe("workouts/exercise-picker", () => {
       /* flush React state after async effects */
     });
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
-    expect(scopeLabel.props.children).toBe("Full library");
-    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Pull-Up")).not.toBeNull();
+    expect(scopeLabel.props.children).toBe("My Exercise Library");
+    expect(findByA11yLabel(test!.root, rowAddLabel("Bench Press"))).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Pull-Up"))).not.toBeNull();
   });
 
   it("My Gym tab with no gym selected: shows hint to select gym", async () => {
@@ -590,8 +627,8 @@ describe("workouts/exercise-picker", () => {
     });
     await flushEventLoop();
     await flushEventLoop();
-    expect(findByA11yLabel(test!.root, "Pick Bench Press")).not.toBeNull();
-    expect(findByA11yLabel(test!.root, "Pick Deadlift")).toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Bench Press"))).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Deadlift"))).toBeNull();
   });
 
   it("My Gym tab uses workout-flow gym from gymId param when present even if preferences have no gym", async () => {
@@ -612,6 +649,143 @@ describe("workouts/exercise-picker", () => {
     const scopeLabel = test!.root.findByProps({ accessibilityLabel: "Exercise library scope" });
     expect(scopeLabel.props.children).toContain("Filtered for");
     expect(scopeLabel.props.children).toContain("Edge Fitness Manchester CT");
-    expect(findByA11yLabel(test!.root, "Pick Back Squat")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, rowAddLabel("Back Squat"))).not.toBeNull();
+  });
+
+  it("shows Custom badge for user custom exercises (local merge path)", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_my_special",
+        name: "My Special",
+        equipment: "Dumbbell",
+        primary: "Chest",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const flatText = test!.root
+      .findAllByType("Text")
+      .map((t) => (typeof t.props.children === "string" ? t.props.children : ""));
+    expect(flatText.some((s) => s.includes("Custom"))).toBe(true);
+    const addMine = findByA11yLabel(test!.root, rowAddLabel("My Special"));
+    expect(addMine).not.toBeNull();
+  });
+
+  it("long press on owned custom row opens exercise edit", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_my_special",
+        name: "My Special",
+        equipment: "Dumbbell",
+        primary: "Chest",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const addMine = findByA11yLabel(test!.root, rowAddLabel("My Special"));
+    expect(addMine).not.toBeNull();
+    act(() => {
+      addMine!.props.onLongPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/exercise-edit",
+      params: { sessionId: "s1", exerciseId: "custom_u1_my_special" },
+    });
+  });
+
+  it("bundled exercise action sheet shows Customize exercise (not Edit)", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const actionsBench = findByA11yLabel(test!.root, "Exercise actions, Bench Press");
+    expect(actionsBench).not.toBeNull();
+    act(() => {
+      actionsBench!.props.onPress();
+    });
+    expect(findByA11yLabel(test!.root, "Customize exercise")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Edit exercise")).toBeNull();
+  });
+
+  it("Customize exercise creates user copy and routes to edit", async () => {
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const actionsBench = findByA11yLabel(test!.root, "Exercise actions, Bench Press");
+    act(() => {
+      actionsBench!.props.onPress();
+    });
+    const customize = findByA11yLabel(test!.root, "Customize exercise");
+    expect(customize).not.toBeNull();
+    act(() => {
+      customize!.props.onPress();
+    });
+    for (let i = 0; i < 40; i++) {
+      // createCustomExerciseSeededFromBundled is async; onPress does not return its promise
+      await flushEventLoop();
+      if (mockPush.mock.calls.length > 0) break;
+    }
+    expect(mockPush).toHaveBeenCalled();
+    const pushed = mockPush.mock.calls[mockPush.mock.calls.length - 1]![0] as {
+      pathname: string;
+      params: Record<string, string>;
+    };
+    expect(pushed.pathname).toBe("/(app)/workouts/exercise-edit");
+    expect(pushed.params.sessionId).toBe("s1");
+    expect(pushed.params.exerciseId).toMatch(/^custom_u1_bench_press/);
+    const apiMock = jest.requireMock("@/lib/api/exerciseDefinitions") as {
+      createExerciseDefinition: jest.Mock;
+    };
+    expect(apiMock.createExerciseDefinition).not.toHaveBeenCalled();
+  });
+
+  it("custom exercise action sheet shows Edit exercise not Customize", async () => {
+    const mergeMock = jest.requireMock("@/lib/workouts/exercises/mergeCustomExerciseSources") as {
+      listMergedCustomExerciseRecords: jest.Mock;
+    };
+    mergeMock.listMergedCustomExerciseRecords.mockResolvedValue([
+      {
+        exerciseId: "custom_u1_my_special",
+        name: "My Special",
+        equipment: "Dumbbell",
+        primary: "Chest",
+        loggingType: "weight_reps",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    act(() => {
+      test = renderer.create(<ExercisePickerScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const actions = findByA11yLabel(test!.root, "Exercise actions, My Special");
+    expect(actions).not.toBeNull();
+    act(() => {
+      actions!.props.onPress();
+    });
+    expect(findByA11yLabel(test!.root, "Edit exercise")).not.toBeNull();
+    expect(findByA11yLabel(test!.root, "Customize exercise")).toBeNull();
   });
 });
