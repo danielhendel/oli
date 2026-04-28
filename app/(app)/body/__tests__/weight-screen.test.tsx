@@ -16,6 +16,23 @@ jest.mock("react-native", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
 }));
+jest.mock("react-native-svg", () => {
+  const React = require("react");
+  const mk =
+    (name: string) =>
+    (props: { children?: unknown; [k: string]: unknown }) =>
+      React.createElement(name, props, props.children);
+  return {
+    __esModule: true,
+    default: mk("Svg"),
+    Defs: mk("Defs"),
+    LinearGradient: mk("LinearGradient"),
+    Stop: mk("Stop"),
+    Path: mk("Path"),
+    Rect: mk("Rect"),
+    Circle: mk("Circle"),
+  };
+});
 
 const mockPush = jest.fn();
 
@@ -83,22 +100,18 @@ function buildPoint(dayKey: string, observedAt = `${dayKey}T07:00:00.000Z`): Wei
   return { dayKey, observedAt, weightKg: 80, sourceId: "healthkit" };
 }
 
-function defaultTrendsV1() {
+function weightBaselineReadyMaintaining(kg: number) {
   return {
-    latest: {
-      currentKg: null as number | null,
-      seriesStatus: "ready" as const,
-      weeklyDeltaKg: null as number | null,
-    },
-    ytd: {
-      trendYear: 2026,
-      windowLabel: "2026-01-01 → 2026-04-07",
-      trendsStatus: "ready" as const,
-      changeKg: null as number | null,
-      bandLowKg: null as number | null,
-      bandHighKg: null as number | null,
-      bandCurrentKg: null as number | null,
-      sampleCount: 0 as number | null,
+    status: "ready" as const,
+    model: {
+      kind: "ready" as const,
+      currentWeightKg: kg,
+      referenceWeightKg: kg,
+      ninetyDayLowKg: kg,
+      ninetyDayHighKg: kg,
+      changeFromReferenceKg: 0,
+      classification: "maintaining" as const,
+      markerFill01: 0.5,
     },
   };
 }
@@ -108,8 +121,10 @@ function buildBody(overrides: Record<string, unknown> = {}) {
     today: "2026-03-31",
     peek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
     snapshotDayPeek: { status: "ready" as const, items: [] as unknown[], refetch: jest.fn() },
-    trendsWeightYtd: { refetch: jest.fn(), status: "ready" as const },
-    trendsV1: defaultTrendsV1(),
+    weightBaseline: {
+      status: "ready" as const,
+      model: { kind: "insufficient_data" as const, reason: "no_samples_in_window" as const },
+    },
     series: {
       status: "ready" as const,
       data: { points: [] as WeightPoint[], latest: null },
@@ -150,16 +165,18 @@ describe("Body Composition main screen", () => {
     });
   });
 
-  it("renders Overview empty state when all metrics absent", () => {
+  it("renders Body Composition empty state card when all metrics absent", () => {
     mockHook.mockReturnValue(buildBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Overview");
+    expect(text).toContain("Weight Baseline");
+    expect(text.indexOf("Weight Baseline")).toBeLessThan(text.indexOf("Body Composition"));
+    expect(text).toContain("Body Composition");
+    expect(text).not.toContain("Overview");
     expect(text).toContain("No overview data yet");
-    expect(text).toContain("2026 Weight Trend");
     expect(text).not.toContain("Recent");
   });
 
@@ -178,6 +195,7 @@ describe("Body Composition main screen", () => {
         },
         byDay: new Map([[day, [buildPoint(day)]]]),
         weekDays: [{ day, meta: { hasMeasurement: true } }],
+        weightBaseline: weightBaselineReadyMaintaining(80),
         series: {
           status: "ready",
           data: { points: [buildPoint(day)], latest: buildPoint(day) },
@@ -208,6 +226,7 @@ describe("Body Composition main screen", () => {
         },
         byDay: new Map([[day, [buildPoint(day)]]]),
         weekDays: [{ day, meta: { hasMeasurement: true } }],
+        weightBaseline: weightBaselineReadyMaintaining(80),
         series: {
           status: "ready",
           data: { points: [buildPoint(day)], latest: buildPoint(day) },
@@ -248,6 +267,7 @@ describe("Body Composition main screen", () => {
         },
         byDay: new Map([[day, [buildPoint(day)]]]),
         weekDays: [{ day, meta: { hasMeasurement: true } }],
+        weightBaseline: weightBaselineReadyMaintaining(80),
         series: {
           status: "ready",
           data: { points: [buildPoint(day)], latest: buildPoint(day) },
@@ -302,6 +322,7 @@ describe("Body Composition main screen", () => {
           hasAnyMetric: true,
         },
         series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
+        weightBaseline: weightBaselineReadyMaintaining(80),
         dayFacts: {
           status: "ready",
           data: {
@@ -345,6 +366,7 @@ describe("Body Composition main screen", () => {
         },
         byDay: new Map([[day, [buildPoint(day)]]]),
         weekDays: [{ day, meta: { hasMeasurement: true } }],
+        weightBaseline: weightBaselineReadyMaintaining(80),
         series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
       }),
     );
@@ -374,6 +396,7 @@ describe("Body Composition main screen", () => {
         weekDays: [{ day, meta: { hasMeasurement: true } }],
         markedDays: new Set<string>([day]),
         byDay: new Map([[day, [buildPoint(day)]]]),
+        weightBaseline: weightBaselineReadyMaintaining(80),
         series: { status: "ready", data: { points: [buildPoint(day)], latest: buildPoint(day) }, refetch: jest.fn() },
       }),
     );

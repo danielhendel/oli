@@ -1,4 +1,6 @@
 // app/(app)/(tabs)/__tests__/dash-recap.test.tsx
+// Dash Activity baseline card (replaces former Daily Recap slot).
+
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
@@ -9,10 +11,18 @@ jest.mock("react-native", () => ({
   ScrollView: "ScrollView",
   StyleSheet: { create: (s: unknown) => s },
   ActivityIndicator: "ActivityIndicator",
+  Easing: {
+    out: (e: (t: number) => number) => e,
+    cubic: (t: number) => t * t * t,
+  },
   Animated: {
     View: "Animated.View",
     Value: function (initial: number) {
-      return { _value: initial };
+      return {
+        _value: initial,
+        interpolate: () => "0%",
+        setValue: jest.fn(),
+      };
     },
     timing: function () {
       return { start: jest.fn() };
@@ -33,9 +43,19 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
 }));
 
-const mockUseDashRecapData = jest.fn();
-jest.mock("@/lib/data/dash/useDashRecapData", () => ({
-  useDashRecapData: () => mockUseDashRecapData(),
+const mockUseActivityBaseline = jest.fn();
+jest.mock("@/lib/hooks/useActivityBaseline", () => ({
+  useActivityBaseline: () => mockUseActivityBaseline(),
+}));
+
+jest.mock("@/lib/hooks/useStrengthBaseline", () => ({
+  useStrengthBaseline: () => ({
+    user: { uid: "u1" },
+    initializing: false,
+    loading: true,
+    error: null,
+    model: null,
+  }),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -60,32 +80,23 @@ function findPressableWithA11y(root: renderer.ReactTestInstance, label: string):
   return null;
 }
 
-describe("Dash Recap card", () => {
+describe("Dash Activity baseline card", () => {
   beforeEach(() => {
     mockPush.mockClear();
-    mockUseDashRecapData.mockReset();
+    mockUseActivityBaseline.mockReset();
   });
 
-  it("renders Stacks and tagline before Daily Recap when model is ready", () => {
-    mockUseDashRecapData.mockReturnValue({
-      kind: "ready",
-      dayKey: "2026-04-05",
-      rows: [
-        {
-          id: "weight",
-          label: "Weight",
-          valueText: "176.4 lb",
-          isPlaceholder: false,
-          bar: { kind: "none" },
-        },
-        {
-          id: "cardioSessions",
-          label: "Cardio Sessions",
-          valueText: "2",
-          isPlaceholder: false,
-          bar: { kind: "placement", markerPosition01: 0.33 },
-        },
-      ],
+  it("renders Dash heading and tagline before Activity baseline when model is ready", () => {
+    mockUseActivityBaseline.mockReturnValue({
+      user: { uid: "u1" },
+      initializing: false,
+      loading: false,
+      error: null,
+      model: {
+        title: "Activity Baseline",
+        compactStatsSummary: "12,130 steps",
+        markerPosition01: 0.55,
+      },
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -93,57 +104,36 @@ describe("Dash Recap card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    const idxRecap = text.indexOf("Daily Recap");
-    const idxStacks = text.indexOf("Stacks");
-    const idxTagline = text.indexOf("Optimize your health and fitness — all in one place.");
-    expect(idxRecap).toBeGreaterThan(-1);
-    expect(text).toContain("View More");
-    expect(idxStacks).toBeGreaterThan(-1);
+    const idxActivityTitle = text.indexOf("Activity");
+    const idxDashHeading = text.indexOf("Dash");
+    const idxTagline = text.indexOf("Track, understand, and improve every part of your health.");
+    const idxSubtitle = text.indexOf("90-day average steps");
+    expect(idxDashHeading).toBeGreaterThan(-1);
     expect(idxTagline).toBeGreaterThan(-1);
-    expect(idxStacks).toBeLessThan(idxTagline);
-    expect(idxTagline).toBeLessThan(idxRecap);
-    expect(text).toContain("176.4 lb");
-    expect(text).toContain("Cardio Sessions");
-    expect(text).toContain("2");
+    expect(idxActivityTitle).toBeGreaterThan(-1);
+    expect(idxSubtitle).toBeGreaterThan(-1);
+    expect(idxDashHeading).toBeLessThan(idxTagline);
+    expect(idxTagline).toBeLessThan(idxActivityTitle);
+    expect(text).toContain("12,130");
 
-    const vm = findPressableWithA11y(test.root, "View more daily recap");
+    const vm = findPressableWithA11y(
+      test.root,
+      "Activity. Active. 90-day average steps 12,130. Opens Activity.",
+    );
     expect(vm).not.toBeNull();
     act(() => {
       (vm as renderer.ReactTestInstance).props.onPress();
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/dash/daily-recap");
+    expect(mockPush).toHaveBeenCalledWith("/(app)/activity");
   });
 
-  it("shows loading copy when recap model is loading", () => {
-    mockUseDashRecapData.mockReturnValue({ kind: "loading" });
-
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    const text = collectAllText(test);
-    expect(text).toContain("Daily Recap");
-    expect(text).toContain("Loading yesterday's summary");
-  });
-
-  it("shows missing-doc hint when model is missing_doc", () => {
-    mockUseDashRecapData.mockReturnValue({
-      kind: "missing_doc",
-      dayKey: "2026-04-05",
-      rows: [
-        { id: "weight", label: "Weight", valueText: "—", isPlaceholder: true, bar: { kind: "none" } },
-        { id: "sleep", label: "Sleep", valueText: "—", isPlaceholder: true, bar: { kind: "none" } },
-        { id: "steps", label: "Steps", valueText: "—", isPlaceholder: true, bar: { kind: "none" } },
-        {
-          id: "strengthWorkouts",
-          label: "Strength Workouts",
-          valueText: "—",
-          isPlaceholder: true,
-          bar: { kind: "none" },
-        },
-        { id: "cardioSessions", label: "Cardio Sessions", valueText: "—", isPlaceholder: true, bar: { kind: "none" } },
-        { id: "calories", label: "Calories", valueText: "—", isPlaceholder: true, bar: { kind: "none" } },
-      ],
+  it("shows loading copy when baseline is loading", () => {
+    mockUseActivityBaseline.mockReturnValue({
+      user: { uid: "u1" },
+      initializing: false,
+      loading: true,
+      error: null,
+      model: null,
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -151,6 +141,23 @@ describe("Dash Recap card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("No daily rollup for yesterday yet");
+    expect(text).toContain("Loading steps");
+  });
+
+  it("shows sign-in hint when there is no user", () => {
+    mockUseActivityBaseline.mockReturnValue({
+      user: null,
+      initializing: false,
+      loading: false,
+      error: null,
+      model: null,
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("Sign in to see your 90-day step baseline");
   });
 });

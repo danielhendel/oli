@@ -6,6 +6,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { ActivityRollupProvider } from "../lib/data/activity/ActivityRollupProvider";
 import { useAppleHealthForcedYesterdayFinalize } from "../lib/data/activity/useAppleHealthForcedYesterdayFinalize";
 import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
 import { UserProfileMainProvider } from "../lib/data/profile/useUserProfileMain";
@@ -47,26 +48,28 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <PreferencesProvider>
-          <UserProfileMainProvider>
-            <StatusBar style="auto" />
-            <AppleHealthForcedYesterdayFinalizeRunner />
-            <RouteGuard />
-            <Stack screenOptions={{ headerShown: false }}>
-              {/* Auth flow */}
-              <Stack.Screen name="(auth)" />
+        <ActivityRollupProvider>
+          <PreferencesProvider>
+            <UserProfileMainProvider>
+              <StatusBar style="auto" />
+              <AppleHealthForcedYesterdayFinalizeRunner />
+              <RouteGuard />
+              <Stack screenOptions={{ headerShown: false }}>
+                {/* Auth flow */}
+                <Stack.Screen name="(auth)" />
 
-              {/* Product shell */}
-              <Stack.Screen name="(app)" />
+                {/* Product shell */}
+                <Stack.Screen name="(app)" />
 
-              {/* Root index exists (can be used for deep-links / legacy) */}
-              <Stack.Screen name="index" />
+                {/* Root index exists (can be used for deep-links / legacy) */}
+                <Stack.Screen name="index" />
 
-              {/* Debug area — development only */}
-              {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
-            </Stack>
-          </UserProfileMainProvider>
-        </PreferencesProvider>
+                {/* Debug area — development only */}
+                {__DEV__ && <Stack.Screen name="debug" options={{ headerShown: false }} />}
+              </Stack>
+            </UserProfileMainProvider>
+          </PreferencesProvider>
+        </ActivityRollupProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

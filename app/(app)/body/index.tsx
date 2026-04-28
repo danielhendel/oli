@@ -26,9 +26,10 @@ import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useBodyCompositionInterpretation } from "@/lib/data/body/useBodyCompositionInterpretation";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
+import { rollingLookbackWindowForAnchorDay } from "@/lib/data/body/bodyHistoryRange";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
-import { BodyTrendsCard } from "@/lib/ui/body/BodyTrendsCard";
+import { WeightBaselineCard } from "@/lib/ui/body/WeightBaselineCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 /** @internal — tests assert on these hrefs */
@@ -51,7 +52,6 @@ export default function BodyOverviewScreen() {
     void body.peek.refetch({ cacheBust: `bodyBackfillPeek:${Date.now()}` });
     void body.snapshotDayPeek.refetch({ cacheBust: `bodyBackfillSnapshotPeek:${Date.now()}` });
     void body.dayFacts.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
-    void body.trendsWeightYtd.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
   });
   const access = useAppleHealthBodyAccessState({
     syncAppleHealthBodyNow: body.syncAppleHealthBodyNow,
@@ -104,6 +104,16 @@ export default function BodyOverviewScreen() {
         : null;
 
   const { overview } = body;
+  const baselineChartPoints = useMemo(() => {
+    const anchor = overview.overviewDay ?? body.today;
+    const bounds = rollingLookbackWindowForAnchorDay(anchor, 90);
+    const pts = Array.from(body.byDay.values())
+      .flatMap((arr) => arr)
+      .filter((p) => p.dayKey >= bounds.start && p.dayKey <= bounds.end)
+      .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
+      .map((p) => ({ observedAt: p.observedAt, weightKg: p.weightKg }));
+    return pts;
+  }, [body.byDay, body.today, overview.overviewDay]);
   const compositionIx = useBodyCompositionInterpretation(overview);
   const overviewRows = useMemo(
     () => [
@@ -240,9 +250,16 @@ export default function BodyOverviewScreen() {
               <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
             </View>
           ) : null}
+          <WeightBaselineCard
+            unit={unit}
+            loading={body.weightBaseline.status === "partial"}
+            error={null}
+            model={body.weightBaseline.status === "ready" ? body.weightBaseline.model : null}
+            chartPoints={baselineChartPoints}
+          />
           <View style={styles.card}>
             <View style={[styles.overviewHeader, workoutOverviewInCardHeaderStyles.row]}>
-              <Text style={workoutOverviewInCardHeaderStyles.title}>Overview</Text>
+              <Text style={styles.cardTitle}>Body Composition</Text>
               {overview.overviewDay != null ? (
                 <Text style={styles.asOfLabel} accessibilityLabel={formatOverviewAsOfLabel(overview.overviewDay)}>
                   {formatOverviewAsOfLabel(overview.overviewDay)}
@@ -278,22 +295,22 @@ export default function BodyOverviewScreen() {
                   >
                     <View style={moduleOverviewMetricLayoutStyles.metricBlock}>
                       <View style={moduleOverviewMetricLayoutStyles.topRow}>
-                        <View style={styles.bodyMetricLeftSummary}>
+                        <View style={styles.bodyMetricLeftGroup}>
                           <Text style={styles.bodyMetricLabel} numberOfLines={1}>
                             {row.label}
                           </Text>
-                          <Text
-                            style={[
-                              styles.bodyMetricValue,
-                              row.value === "—" ? styles.bodyMetricValueEmpty : null,
-                            ]}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {row.value}
-                          </Text>
+                          <InterpretationRatingPill bar={row.bar} shellStyle={styles.bodyRatingPillInline} />
                         </View>
-                        <InterpretationRatingPill bar={row.bar} shellStyle={styles.bodyRatingPillTrailing} />
+                        <Text
+                          style={[
+                            styles.bodyMetricValue,
+                            row.value === "—" ? styles.bodyMetricValueEmpty : null,
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {row.value}
+                        </Text>
                       </View>
                       <InterpretationQualityBar bar={row.bar} />
                     </View>
@@ -302,8 +319,6 @@ export default function BodyOverviewScreen() {
               </View>
             )}
           </View>
-
-          <BodyTrendsCard unit={unit} trends={body.trendsV1} onRetryYtd={() => void body.trendsWeightYtd.refetch()} />
         </View>
       </ModuleScreenShell>
     </View>
@@ -323,8 +338,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 15,
+    gap: 11,
     ...elevatedCardSurfaceStyle,
   },
   overviewHeader: {
@@ -332,41 +347,51 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingBottom: 2,
   },
-  asOfLabel: { fontSize: 14, fontWeight: "600", color: "#6E6E73" },
+  cardTitle: {
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.34,
+  },
+  asOfLabel: { fontSize: 12, fontWeight: "500", color: "#8E8E93" },
   metricRowPressable: { borderRadius: 8 },
   metricRowPressed: { opacity: 0.75 },
-  /** Matches Strength overview “label + result” scan line; pill trails right. */
-  bodyMetricLeftSummary: {
+  bodyMetricLeftGroup: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingRight: 8,
+    alignItems: "baseline",
+    gap: 7,
+    paddingRight: 10,
   },
   bodyMetricLabel: {
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: "600",
-    color: "#6E6E73",
-    letterSpacing: -0.12,
+    color: "#1C1C1E",
+    letterSpacing: -0.2,
     flexShrink: 0,
   },
   bodyMetricValue: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: "600",
-    color: "#3C3C43",
-    letterSpacing: -0.15,
+    color: "#1C1C1E",
+    letterSpacing: -0.22,
+    fontVariant: ["tabular-nums"],
+    flexShrink: 0,
+    maxWidth: "40%",
+    textAlign: "right",
   },
   bodyMetricValueEmpty: {
     color: "#AEAEB2",
     fontWeight: "600",
   },
-  bodyRatingPillTrailing: {
+  bodyRatingPillInline: {
     flexShrink: 0,
-    maxWidth: "40%",
-    alignSelf: "center",
+    maxWidth: "45%",
+    alignSelf: "baseline",
   },
   syncBanner: {
     backgroundColor: SYSTEM_ACCENT_OVERLAY_10,

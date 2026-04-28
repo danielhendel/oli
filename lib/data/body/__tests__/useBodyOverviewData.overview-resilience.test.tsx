@@ -12,32 +12,6 @@ import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useBodyOverviewPeek } from "../useBodyOverviewPeek";
 import { useAppleHealthBodySync } from "../useAppleHealthBodySync";
 
-jest.mock("../useBodyMetricTrends", () => ({
-  useBodyMetricTrends: jest.fn(() => {
-    const z = { change: null, avg: null, high: null, low: null };
-    return {
-      status: "ready" as const,
-      data: {
-        byMetric: {
-          weight: [],
-          body_fat_percent: [],
-          bmi: [],
-          lean_body_mass: [],
-          resting_metabolic_rate: [],
-        },
-        statsByMetric: {
-          weight: { ...z },
-          body_fat_percent: { ...z },
-          bmi: { ...z },
-          lean_body_mass: { ...z },
-          resting_metabolic_rate: { ...z },
-        },
-      },
-      refetch: jest.fn(),
-    };
-  }),
-}));
-
 jest.mock("@/lib/data/useWeightSeries", () => ({
   useWeightSeries: jest.fn(),
 }));

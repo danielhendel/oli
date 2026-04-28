@@ -27,9 +27,10 @@ export type SegmentedZoneTrackProps = {
   trackRadius?: number;
   /**
    * `elevated` — white halo + soft shadow + vertical centering (Strength + Body overview markers).
+   * `tick` — vertical hash marker centered on position (Body Composition overview).
    * Default keeps the compact hairline ring for Dash recap.
    */
-  markerStyle?: "default" | "elevated";
+  markerStyle?: "default" | "elevated" | "tick";
   /** Applied to the outer wrapper (layout + testID are owned by this component). */
   wrapperProps?: Omit<ViewProps, "children" | "onLayout" | "testID" | "style"> & {
     style?: ViewProps["style"];
@@ -67,6 +68,7 @@ export function SegmentedZoneTrack({
   const os = typeof Platform !== "undefined" && Platform.OS != null ? Platform.OS : "ios";
 
   const markerElevated = markerStyle === "elevated";
+  const markerTick = markerStyle === "tick";
   const dotTop = markerElevated ? (barHeight - dotSize) / 2 : 0;
 
   const markerDotShadow =
@@ -133,16 +135,36 @@ export function SegmentedZoneTrack({
       {dotLeft != null ? (
         <View
           style={[
-            markerElevated ? styles.markerDotElevated : styles.markerDot,
-            {
-              left: dotLeft,
-              top: dotTop,
-              width: dotSize,
-              height: dotSize,
-              borderRadius: dotSize / 2,
-              backgroundColor: markerBackgroundColor,
-              ...markerDotShadow,
-            },
+            markerTick
+              ? [
+                  styles.markerTick,
+                  {
+                    left: dotLeft + (dotSize - 4) / 2,
+                    top: (barHeight - (barHeight + 10)) / 2,
+                    width: 4,
+                    height: barHeight + 10,
+                    borderRadius: 2,
+                    backgroundColor: "#FFFFFF",
+                    borderColor: markerBackgroundColor,
+                    shadowColor: "#000000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.14,
+                    shadowRadius: 1.5,
+                    elevation: 2,
+                  },
+                ]
+              : [
+                  markerElevated ? styles.markerDotElevated : styles.markerDot,
+                  {
+                    left: dotLeft,
+                    top: dotTop,
+                    width: dotSize,
+                    height: dotSize,
+                    borderRadius: dotSize / 2,
+                    backgroundColor: markerBackgroundColor,
+                    ...markerDotShadow,
+                  },
+                ],
           ]}
           importantForAccessibility="no"
           {...(markerTestID != null ? { testID: markerTestID } : {})}
@@ -183,5 +205,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     borderWidth: 2,
     borderColor: "#FFFFFF",
+  },
+  markerTick: {
+    position: "absolute",
+    borderWidth: 1.5,
+    zIndex: 3,
   },
 });

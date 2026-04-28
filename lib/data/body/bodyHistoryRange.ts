@@ -55,6 +55,19 @@ export function ytdBoundsForAnchorDay(anchorDayKey: string): { start: string; en
 }
 
 /**
+ * Rolling calendar window ending at `anchorDayKey` with the same `end` buffer as bounded raw-events queries
+ * (mirrors {@link rangeToStartEnd} horizons, but anchored on the overview snapshot day instead of “today”).
+ */
+export function rollingLookbackWindowForAnchorDay(
+  anchorDayKey: string,
+  lookbackCalendarDays: number,
+): { start: string; end: string } {
+  const start = addDaysToDayKey(anchorDayKey, -lookbackCalendarDays);
+  const end = addDaysToDayKey(anchorDayKey, RAW_EVENTS_QUERY_END_DAY_BUFFER);
+  return { start, end };
+}
+
+/**
  * Calendar day window [start, end] for raw-events `start`/`end` query params, or `"all"` for legacy unbounded pagination.
  */
 export function rangeToStartEnd(range: WeightRangeKey): { start: string; end: string } | "all" {

@@ -45,10 +45,7 @@ import {
   workoutDayDebugEnabled,
   workoutDayDebugFixRevision,
 } from "@/lib/debug/workoutDayDebug";
-import {
-  filterWorkoutCalendarDaysInclusive,
-  overviewSharedRangeBounds,
-} from "@/lib/data/workouts/overviewCalendarRangeSlices";
+import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
@@ -123,6 +120,7 @@ import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
 import { buildStrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
+import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
 import {
   buildStrengthLastWeekCardModel,
   buildStrengthThisWeekCardModel,
@@ -261,16 +259,8 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const analyticsRangeStart = WORKOUT_OVERVIEW_ANALYTICS_RANGE_START;
   const analyticsRangeEnd = WORKOUT_OVERVIEW_ANALYTICS_RANGE_END;
   const { start: overviewRangeStart, end: overviewRangeEnd } = useMemo(
-    () =>
-      overviewSharedRangeBounds({
-        weekStart,
-        weekEnd,
-        recentStart: recentRangeStart,
-        recentEnd: recentRangeEnd,
-        analyticsStart: analyticsRangeStart,
-        analyticsEnd: analyticsRangeEnd,
-      }),
-    [weekStart, weekEnd, recentRangeStart, recentRangeEnd, analyticsRangeStart, analyticsRangeEnd],
+    () => computeWorkoutOverviewSharedCalendarRange(today),
+    [today],
   );
 
   const calendarRangeOptionsShared = useMemo(

@@ -4,8 +4,24 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-jest.mock("@/lib/data/dash/useDashRecapData", () => ({
-  useDashRecapData: () => ({ kind: "loading" as const }),
+jest.mock("@/lib/hooks/useActivityBaseline", () => ({
+  useActivityBaseline: () => ({
+    user: { uid: "u1" },
+    initializing: false,
+    loading: true,
+    error: null,
+    model: null,
+  }),
+}));
+
+jest.mock("@/lib/hooks/useStrengthBaseline", () => ({
+  useStrengthBaseline: () => ({
+    user: { uid: "u1" },
+    initializing: false,
+    loading: true,
+    error: null,
+    model: null,
+  }),
 }));
 
 jest.mock("react-native", () => ({
@@ -15,10 +31,18 @@ jest.mock("react-native", () => ({
   ScrollView: "ScrollView",
   ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
+  Easing: {
+    out: (e: (t: number) => number) => e,
+    cubic: (t: number) => t * t * t,
+  },
   Animated: {
     View: "Animated.View",
     Value: function (initial: number) {
-      return { _value: initial };
+      return {
+        _value: initial,
+        interpolate: () => "0%",
+        setValue: jest.fn(),
+      };
     },
     timing: function () {
       return { start: jest.fn() };
@@ -61,6 +85,18 @@ describe("Dash accessibility", () => {
     expect(settings.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("exposes Activity baseline loading label with navigation intent", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const activity = findPressablesWithLabel(
+      test.root,
+      "Activity. Loading 90-day average steps. Opens Activity.",
+    );
+    expect(activity.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("exposes accessibilityLabel on Body Composition card", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -68,29 +104,29 @@ describe("Dash accessibility", () => {
     });
     const body = findPressablesWithLabel(
       test.root,
-      "Body Composition. Log and track weight and body metrics"
+      "Body Composition. Log and track weight and body metrics. Opens Body Composition.",
     );
     expect(body.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("exposes accessibilityLabel on Strength and Cardio cards", () => {
+  it("exposes accessibilityLabel on Strength baseline and Cardio cards", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const strength = findPressablesWithLabel(
       test.root,
-      "Strength. Lift, log sessions, and review training"
+      "Strength. Loading 90-day average workouts per week. Opens Strength.",
     );
     expect(strength.length).toBeGreaterThanOrEqual(1);
     const cardio = findPressablesWithLabel(
       test.root,
-      "Cardio. Runs, rides, and Apple Health sessions"
+      "Cardio. Runs, rides, and Apple Health sessions. Opens Cardio.",
     );
     expect(cardio.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows Stacks section heading", () => {
+  it("shows Dash section heading", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -101,7 +137,7 @@ describe("Dash accessibility", () => {
         (n.children as (string | number)[]).filter((c) => typeof c === "string" || typeof c === "number").join("")
       )
       .join(" ");
-    expect(text).toContain("Stacks");
+    expect(text).toContain("Dash");
   });
 
   it("exposes accessibilityRole button on Settings and all cards", () => {

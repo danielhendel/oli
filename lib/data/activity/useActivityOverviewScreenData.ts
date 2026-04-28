@@ -5,8 +5,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
+import { resolveActivityBaselineCardState } from "@/lib/data/activity/activityBaselineCardState";
 import {
-  buildActivityBaselineCardModel,
   buildActivityDailyDetailsCardModel,
   buildActivityOverviewCardModel,
   buildActivityTodayStepsLiveCardModel,
@@ -17,7 +17,7 @@ import {
   buildActivitySelectedDayRollupError,
 } from "@/lib/data/activity/activityRollupErrorSummary";
 import { getActivityOverviewAnchorEndDay } from "@/lib/data/activity/activityOverviewRanges";
-import { useActivityStepsRollupMap } from "@/lib/data/activity/useActivityStepsRollupMap";
+import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
 import type { ActivityDayStripMeta } from "@/lib/data/activity/activityDayStripMeta";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
@@ -198,33 +198,23 @@ export function useActivityOverviewScreenData() {
     [overviewCardModel, overviewYesterdayRowLoading, rollupAggregateError, rollupYesterdayEntryError],
   );
 
-  const baselineDetailsLoading = useMemo(() => {
-    if (!user) return false;
-    return stepsRollup.status === "partial";
-  }, [user, stepsRollup.status]);
-
-  const baselineDetailsModel = useMemo(() => {
-    if (!user || stepsRollup.status === "partial") return null;
-    // Baseline: 90 completed local days ending `overviewAnchorEndDay` (= getActivityOverviewAnchorEndDay(today));
-    // never includes today — see buildActivityBaselineCardModel.
-    return buildActivityBaselineCardModel({
+  const baselineDetails = useMemo(() => {
+    const { loading, model } = resolveActivityBaselineCardState({
+      user,
+      stepsRollupStatus: stepsRollup.status,
       overviewAnchorEndDay,
-      rollupByDay: displayRollup,
+      rollupDisplayByDay: displayRollup,
     });
+    return {
+      loading,
+      error: null,
+      model,
+    };
   }, [user, stepsRollup.status, overviewAnchorEndDay, displayRollup]);
 
-  const baselineDetails = useMemo(
-    () => ({
-      loading: baselineDetailsLoading,
-      error: null,
-      model: baselineDetailsModel,
-    }),
-    [baselineDetailsLoading, baselineDetailsModel],
-  );
-
   const dailyDetailsModelMerged = useMemo(
-    () => mergeTodayDetailsWithBaselineDelta(dailyDetailsModel, baselineDetailsModel),
-    [dailyDetailsModel, baselineDetailsModel],
+    () => mergeTodayDetailsWithBaselineDelta(dailyDetailsModel, baselineDetails.model),
+    [dailyDetailsModel, baselineDetails.model],
   );
 
   const dailyDetails = useMemo(
