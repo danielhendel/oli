@@ -12,6 +12,7 @@ import {
   addDaysToDayKey,
   rangeToStartEnd,
   resolveBodyHistoryQueryWindow,
+  rollingLookbackWindowForAnchorDay,
   ytdBoundsForAnchorDay,
 } from "../bodyHistoryRange";
 
@@ -45,5 +46,12 @@ describe("bodyHistoryRange", () => {
     expect(resolveBodyHistoryQueryWindow("YTD", { anchorDayKey: "2025-11-02" })).toEqual(
       ytdBoundsForAnchorDay("2025-11-02"),
     );
+  });
+
+  it("rollingLookbackWindowForAnchorDay mirrors bounded end buffer and lookback from anchor", () => {
+    expect(rollingLookbackWindowForAnchorDay("2026-03-20", 90)).toEqual({
+      start: addDaysToDayKey("2026-03-20", -90),
+      end: addDaysToDayKey("2026-03-20", RAW_EVENTS_QUERY_END_DAY_BUFFER),
+    });
   });
 });

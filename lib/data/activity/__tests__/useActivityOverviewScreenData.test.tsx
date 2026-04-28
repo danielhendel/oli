@@ -19,7 +19,7 @@ jest.mock("@/lib/ui/calendar/dateUtils", () => {
 
 const mockUseActivityStepsRollupMap = jest.fn();
 
-jest.mock("@/lib/data/activity/useActivityStepsRollupMap", () => ({
+jest.mock("@/lib/data/activity/ActivityRollupProvider", () => ({
   useActivityStepsRollupMap: () => mockUseActivityStepsRollupMap(),
 }));
 

@@ -7,7 +7,7 @@ export const UI_TEXT_SECONDARY = "#3C3C43";
 export const UI_TEXT_MUTED = "#6E6E73";
 export const UI_TEXT_TERTIARY_LABEL = "#8E8E93";
 
-/** Cool blue-gray secondary line on grouped sheets (e.g. Dash Stacks tagline) — calm, not marketing blue. */
+/** Cool blue-gray secondary line on grouped sheets (e.g. Dash section tagline) — calm, not marketing blue. */
 export const UI_TEXT_SLATE_COOL = "#5B6C8A";
 
 /** Header back / toolbar pill fill (iOS grouped background family). */

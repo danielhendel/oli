@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: tab header, Stacks section (subtitle + Daily Recap + stack cards); recap reads as summary of Stacks.
+// Oli — Dash: tab header, section heading + tagline, Activity/Strength baselines, category cards.
 import React, { useRef } from "react";
 import {
   ScrollView,
@@ -11,35 +11,69 @@ import {
 } from "react-native";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import { DashRecapCard } from "@/lib/ui/dash/DashRecapCard";
-import { useDashRecapData } from "@/lib/data/dash/useDashRecapData";
+import { ActivityBaselineDashCard } from "@/components/dashboard/ActivityBaselineDashCard";
+import { StrengthBaselineDashCard } from "@/components/dashboard/StrengthBaselineDashCard";
+import { useActivityBaseline } from "@/lib/hooks/useActivityBaseline";
+import { useStrengthBaseline } from "@/lib/hooks/useStrengthBaseline";
+import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import {
   UI_APP_SCREEN_BG,
   UI_CARD_SURFACE,
-  UI_DASH_CATEGORY_CARD_RADIUS,
   UI_HEADER_CHROME_BG,
   UI_TAB_ROOT_CONTENT_GUTTER,
   UI_TAB_ROOT_INSET,
-  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
   UI_TEXT_SLATE_COOL,
+  UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 
 /** Cards that navigate to existing routes only. */
 const MANAGE_DATA_CARDS = [
-  { id: "body", title: "Body Composition", subtitle: "Log and track weight and body metrics", route: "/(app)/body/weight" as const },
-  { id: "activity", title: "Activity", subtitle: "Track steps and daily movement", route: "/(app)/activity" as const },
-  { id: "strength", title: "Strength", subtitle: "Lift, log sessions, and review training", route: "/(app)/workouts" as const },
-  { id: "cardio", title: "Cardio", subtitle: "Runs, rides, and Apple Health sessions", route: "/(app)/cardio" as const },
-  { id: "nutrition", title: "Nutrition", subtitle: "Log meals and set targets", route: "/(app)/nutrition" as const },
-  { id: "sleep", title: "Sleep", subtitle: "View and manage sleep data", route: "/(app)/recovery/sleep" as const },
-  { id: "readiness", title: "Readiness", subtitle: "Recovery and readiness metrics", route: "/(app)/recovery/readiness" as const },
-  { id: "labs", title: "Labs", subtitle: "Lab results and biomarkers", route: "/(app)/labs" as const },
+  {
+    id: "body",
+    title: "Body Composition",
+    subtitle: "Log and track weight and body metrics",
+    route: "/(app)/body/weight" as const,
+    opensLabel: "Body Composition",
+  },
+  {
+    id: "cardio",
+    title: "Cardio",
+    subtitle: "Runs, rides, and Apple Health sessions",
+    route: "/(app)/cardio" as const,
+    opensLabel: "Cardio",
+  },
+  {
+    id: "nutrition",
+    title: "Nutrition",
+    subtitle: "Log meals and set targets",
+    route: "/(app)/nutrition" as const,
+    opensLabel: "Nutrition",
+  },
+  {
+    id: "sleep",
+    title: "Sleep",
+    subtitle: "View and manage sleep data",
+    route: "/(app)/recovery/sleep" as const,
+    opensLabel: "Sleep",
+  },
+  {
+    id: "readiness",
+    title: "Readiness",
+    subtitle: "Recovery and readiness metrics",
+    route: "/(app)/recovery/readiness" as const,
+    opensLabel: "Readiness",
+  },
+  {
+    id: "labs",
+    title: "Labs",
+    subtitle: "Lab results and biomarkers",
+    route: "/(app)/labs" as const,
+    opensLabel: "Labs",
+  },
 ] as const;
 
 const CATEGORY_CARD_PRESSED_BG = UI_HEADER_CHROME_BG;
@@ -47,7 +81,7 @@ const CATEGORY_CARD_PRESSED_BG = UI_HEADER_CHROME_BG;
 const SCALE_PRESSED = 0.98;
 const ANIM_DURATION = 100;
 
-const STACKS_TAGLINE = "Optimize your health and fitness — all in one place.";
+const DASH_SECTION_TAGLINE = "Track, understand, and improve every part of your health.";
 
 type DashCardProps = {
   title: string;
@@ -88,14 +122,9 @@ function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProp
       accessibilityRole="button"
     >
       <Animated.View style={[styles.cardInner, { transform: [{ scale }] }]}>
-        <View style={styles.cardRow}>
-          <View style={styles.cardTextBlock}>
-            <Text style={styles.cardTitle}>{title}</Text>
-            <Text style={styles.cardSubtitle}>{subtitle}</Text>
-          </View>
-          <View style={styles.cardChevronWrap}>
-            <Ionicons name="chevron-forward" size={21} color={UI_TEXT_SECONDARY} />
-          </View>
+        <View style={styles.cardTextBlock}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSubtitle}>{subtitle}</Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -104,7 +133,8 @@ function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProp
 
 export default function DashScreen() {
   const router = useRouter();
-  const recapModel = useDashRecapData();
+  const activityBaseline = useActivityBaseline();
+  const strengthBaseline = useStrengthBaseline();
 
   return (
     <ScreenContainer padded={false}>
@@ -119,12 +149,25 @@ export default function DashScreen() {
           <View style={styles.stacksSection}>
             <View style={styles.stacksHeaderInset}>
               <Text style={styles.sectionHeading} accessibilityRole="header">
-                Stacks
+                Dash
               </Text>
-              <Text style={styles.stacksTagline}>{STACKS_TAGLINE}</Text>
+              <Text style={styles.stacksTagline}>{DASH_SECTION_TAGLINE}</Text>
             </View>
-            <View style={styles.recapInStacksSection}>
-              <DashRecapCard model={recapModel} onViewMore={() => router.push("/(app)/dash/daily-recap")} />
+            <View style={styles.baselineCardsColumn}>
+              <ActivityBaselineDashCard
+                hasUser={activityBaseline.user != null}
+                loading={activityBaseline.loading}
+                error={activityBaseline.error}
+                model={activityBaseline.model}
+                onPress={() => router.push("/(app)/activity")}
+              />
+              <StrengthBaselineDashCard
+                hasUser={strengthBaseline.user != null}
+                loading={strengthBaseline.loading}
+                error={strengthBaseline.error}
+                model={strengthBaseline.model}
+                onPress={() => router.push("/(app)/workouts")}
+              />
             </View>
             <View style={styles.cards}>
               {MANAGE_DATA_CARDS.map((card) => (
@@ -133,7 +176,7 @@ export default function DashScreen() {
                   title={card.title}
                   subtitle={card.subtitle}
                   onPress={() => router.push(card.route)}
-                  accessibilityLabel={`${card.title}. ${card.subtitle}`}
+                  accessibilityLabel={`${card.title}. ${card.subtitle}. Opens ${card.opensLabel}.`}
                 />
               ))}
             </View>
@@ -160,9 +203,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },
-  /** Stacks = parent section: heading, tagline, Daily Recap (section summary), then module cards. */
+  /** Section: heading, tagline, Activity + Strength baseline cards, then category cards. */
   stacksSection: {},
-  /** Inset matches card inner padding so “Stacks” / tagline align with category row titles. */
+  /** Inset matches card inner padding so heading / tagline align with category row titles. */
   stacksHeaderInset: {
     paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
   },
@@ -182,9 +225,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 26,
     letterSpacing: 0.15,
+    flexShrink: 1,
+    alignSelf: "stretch",
   },
-  /** Daily Recap sits inside Stacks — spacing after subtitle, before stack cards. */
-  recapInStacksSection: {
+  /** Activity + Strength baseline cards — spacing after subtitle, before stack cards. */
+  baselineCardsColumn: {
+    gap: 14,
     marginBottom: 16,
   },
   cards: {
@@ -193,29 +239,20 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     ...elevatedCardSurfaceStyle,
-    borderRadius: UI_DASH_CATEGORY_CARD_RADIUS,
-    paddingVertical: 16,
-    paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
-    minHeight: 68,
+    /** Matches {@link ActivityDailyDetailsCard} / {@link StrengthFrequencyMetricCard} elevated shells. */
+    borderRadius: 12,
+    padding: 15,
+    minHeight: 44,
     justifyContent: "center",
   },
   cardInner: {},
-  cardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  cardTextBlock: { flex: 1, minWidth: 0, paddingRight: 10 },
-  cardChevronWrap: {
-    justifyContent: "center",
-    alignSelf: "center",
-    paddingRight: 4,
-  },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: UI_TEXT_PRIMARY },
+  cardTextBlock: { flex: 1, minWidth: 0, gap: 5 },
+  cardTitle: strengthMetricCardTitleTextStyle,
   cardSubtitle: {
-    fontSize: 13,
-    color: UI_TEXT_MUTED,
-    marginTop: 4,
-    lineHeight: 19,
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: "400",
+    color: UI_TEXT_TERTIARY_LABEL,
+    letterSpacing: -0.2,
   },
 });

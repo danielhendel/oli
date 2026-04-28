@@ -4,8 +4,6 @@ import { getDailyFacts } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { interpretDailyFactsStepsRollupEntry } from "@/lib/data/activity/dailyFactsStepsRollupEntry";
-import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
-import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 type RollupInternalState = {
@@ -29,6 +27,8 @@ const emptyRollup = (): ActivityStepsRollupMap => ({});
 /**
  * Fetches GET /users/me/daily-facts for each key in `dayKeys` (parallel requests, merged incrementally).
  * Per-day entries are persisted server rollups only (no client raw-event math).
+ *
+ * Activity overview + Dash share one instance via `ActivityRollupProvider` + `useActivityStepsRollupMap`.
  */
 export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): ActivityStepsRollupHookState {
   const { user, initializing, getIdToken } = useAuth();
@@ -177,17 +177,4 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): Activ
     }),
     [state, status, rollupDisplayByDay, refetch],
   );
-}
-
-/**
- * Overview screen: union of overview windows (no future keys except strip-selected future day), always including
- * device today so Today’s Steps can load current-day rollups while the strip anchor is historical.
- */
-export function useActivityStepsRollupMap(selectedDay: DayKey): ActivityStepsRollupHookState {
-  const todayDayKey = getTodayDayKeyLocal();
-  const keys = useMemo(
-    () => computeActivityOverviewFetchDayKeys(selectedDay, todayDayKey),
-    [selectedDay, todayDayKey],
-  );
-  return useActivityStepsRollupForKeys(keys);
 }

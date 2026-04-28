@@ -62,7 +62,7 @@ describe("InterpretationQualityBar", () => {
     expect(track.props.markerPosition01).toBeGreaterThanOrEqual(0.6);
     expect(track.props.markerPosition01).toBeLessThanOrEqual(0.8);
     expect(track.props.markerBackgroundColor).toBe("#5EC08C");
-    expect(track.props.markerStyle).toBe("elevated");
+    expect(track.props.markerStyle).toBe("tick");
   });
 
   it("does not render a separate rating label under the track", () => {

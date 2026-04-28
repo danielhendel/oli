@@ -4,9 +4,39 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-jest.mock("@/lib/data/dash/useDashRecapData", () => ({
-  useDashRecapData: () => ({ kind: "loading" as const }),
+jest.mock("@/lib/hooks/useActivityBaseline", () => ({
+  useActivityBaseline: () => ({
+    user: { uid: "test-user" },
+    initializing: false,
+    loading: false,
+    error: null,
+    model: {
+      title: "Activity Baseline",
+      compactStatsSummary: "8,432 steps",
+      markerPosition01: 0.42,
+    },
+  }),
 }));
+
+jest.mock("@/lib/hooks/useStrengthBaseline", () => {
+  const { buildStrengthBaselineCardModel } =
+    jest.requireActual<typeof import("@/lib/data/workouts/strengthBaselineCardModel")>(
+      "@/lib/data/workouts/strengthBaselineCardModel",
+    );
+  const model = buildStrengthBaselineCardModel({
+    strengthCalendarDays: [],
+    todayDayKey: "2026-04-14",
+  });
+  return {
+    useStrengthBaseline: () => ({
+      user: { uid: "test-user" },
+      initializing: false,
+      loading: false,
+      error: null,
+      model,
+    }),
+  };
+});
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -15,10 +45,18 @@ jest.mock("react-native", () => ({
   ScrollView: "ScrollView",
   ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
+  Easing: {
+    out: (e: (t: number) => number) => e,
+    cubic: (t: number) => t * t * t,
+  },
   Animated: {
     View: "Animated.View",
     Value: function (initial: number) {
-      return { _value: initial };
+      return {
+        _value: initial,
+        interpolate: () => "0%",
+        setValue: jest.fn(),
+      };
     },
     timing: function () {
       return { start: jest.fn() };
@@ -64,35 +102,50 @@ function findPressableWithLabel(
   return null;
 }
 
+function countDashIconPlaceholders(root: renderer.ReactTestInstance): number {
+  return root.findAll(
+    (n) => (n.props as { "data-testid"?: string } | undefined)?.["data-testid"] === "icon",
+  ).length;
+}
+
 describe("Dash provenance", () => {
   beforeEach(() => {
     mockPush.mockClear();
   });
 
-  it("shows Oli title and Stacks tagline", () => {
+  it("shows Oli title and Dash section tagline", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
     expect(text).toContain("Oli");
-    expect(text).toContain("Optimize your health and fitness — all in one place.");
-    expect(text).toContain("Daily Recap");
-    expect(text).toContain("View More");
+    expect(text).toContain("Track, understand, and improve every part of your health.");
+    expect(text).toContain("90-day average steps");
   });
 
-  it("shows Stacks section heading, tagline, and cards", () => {
+  it("renders only non-chevron vector icons on Dash (e.g. Settings gear)", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    expect(countDashIconPlaceholders(test.root)).toBe(1);
+  });
+
+  it("shows Dash section heading, tagline, and cards", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Stacks");
-    expect(text).toContain("Optimize your health and fitness — all in one place.");
+    expect(text).toContain("Dash");
+    expect(text).toContain("Track, understand, and improve every part of your health.");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Activity");
-    expect(text).toContain("Track steps and daily movement");
+    expect(text).toContain("Moderately Active");
     expect(text).toContain("Strength");
+    expect(text).toContain("90-day average workouts per week");
+    expect(text).not.toContain("/wk");
     expect(text).toContain("Cardio");
     expect(text).toContain("Nutrition");
     expect(text).toContain("Sleep");
@@ -100,35 +153,55 @@ describe("Dash provenance", () => {
     expect(text).toContain("Labs");
   });
 
-  it("orders Activity between Body Composition and Strength", () => {
+  it("orders Activity baseline before Body Composition in reading order", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    const bodyIdx = text.indexOf("Body Composition");
     const activityIdx = text.indexOf("Activity");
-    const strengthIdx = text.indexOf("Strength");
-    expect(bodyIdx).not.toBe(-1);
+    const bodyIdx = text.indexOf("Body Composition");
     expect(activityIdx).not.toBe(-1);
-    expect(strengthIdx).not.toBe(-1);
-    expect(bodyIdx < activityIdx && activityIdx < strengthIdx).toBe(true);
+    expect(bodyIdx).not.toBe(-1);
+    expect(activityIdx).toBeLessThan(bodyIdx);
   });
 
-  it("pressing Activity card navigates to activity overview", () => {
+  it("pressing Activity baseline card navigates to activity overview", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const card = findPressableWithLabel(
       test.root,
-      "Activity. Track steps and daily movement",
+      "Activity. Moderately Active. 90-day average steps 8,432. Opens Activity.",
     );
     expect(card).not.toBeNull();
     act(() => {
       (card as renderer.ReactTestInstance).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith("/(app)/activity");
+  });
+
+  it("pressing Strength baseline card navigates to workouts overview", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const { buildStrengthBaselineCardModel } =
+      jest.requireActual<typeof import("@/lib/data/workouts/strengthBaselineCardModel")>(
+        "@/lib/data/workouts/strengthBaselineCardModel",
+      );
+    const model = buildStrengthBaselineCardModel({
+      strengthCalendarDays: [],
+      todayDayKey: "2026-04-14",
+    });
+    const label = `Strength. ${model.ratingLabel}. 90-day average workouts per week ${model.avgWorkoutsPerWeek.toFixed(1)}. Opens Strength.`;
+    const card = findPressableWithLabel(test.root, label);
+    expect(card).not.toBeNull();
+    act(() => {
+      (card as renderer.ReactTestInstance).props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/workouts");
   });
 
   it("pressing Body Composition card navigates to body/weight", () => {
@@ -138,7 +211,7 @@ describe("Dash provenance", () => {
     });
     const card = findPressableWithLabel(
       test.root,
-      "Body Composition. Log and track weight and body metrics"
+      "Body Composition. Log and track weight and body metrics. Opens Body Composition.",
     );
     expect(card).not.toBeNull();
     act(() => {
@@ -154,7 +227,7 @@ describe("Dash provenance", () => {
     });
     const card = findPressableWithLabel(
       test.root,
-      "Labs. Lab results and biomarkers"
+      "Labs. Lab results and biomarkers. Opens Labs.",
     );
     expect(card).not.toBeNull();
     act(() => {
