@@ -27,6 +27,11 @@ const STRENGTH_TERMS = [
 const CARDIO_TERMS = [
   "running",
   "walking",
+  /** Matches compacted "IndoorWalk", "OutdoorWalk" (Apple Fitness / HK strings). */
+  "indoorwalk",
+  "outdoorwalk",
+  "indoordrun",
+  "outdoorrun",
   "hiking",
   "cycling",
   "biking",

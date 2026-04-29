@@ -259,8 +259,45 @@ describe("workoutSessionSurface", () => {
       }),
     ];
     const [session] = reconcileWorkoutSessionsForDay(day, workouts);
-    const m = pickMetricsWorkoutForSession(session!);
+    const m = pickMetricsWorkoutForSession(session!, "strength");
     expect(m?.id).toBe("apple1");
+  });
+
+  it("pickMetricsWorkoutForSession for cardio prefers distance-bearing Apple row over companion Other", () => {
+    const day = "2026-04-28";
+    const workouts = [
+      item({
+        id: "otherDup",
+        sourceId: "apple_health",
+        provider: "apple_health",
+        title: "Other",
+        sport: "Other",
+        start: "2026-04-28T14:00:00.000Z",
+        end: "2026-04-28T14:39:00.000Z",
+        durationMinutes: 39,
+        workoutType: "cardio",
+        rawKind: "workout",
+        hk: { sourceId: "com.apple.health", activityId: 3000 },
+      }),
+      item({
+        id: "walkMain",
+        sourceId: "apple_health",
+        provider: "apple_health",
+        title: "Walking",
+        sport: "Walking",
+        start: "2026-04-28T14:00:05.000Z",
+        end: "2026-04-28T14:31:00.000Z",
+        durationMinutes: 31,
+        workoutType: "cardio",
+        rawKind: "workout",
+        distanceMeters: 5000,
+        hk: { sourceId: "com.apple.health", activityId: 52 },
+      }),
+    ];
+    const [session] = reconcileWorkoutSessionsForDay(day, workouts);
+    expect(session?.workouts).toHaveLength(2);
+    const m = pickMetricsWorkoutForSession(session!, "cardio");
+    expect(m?.id).toBe("walkMain");
   });
 
   it("pickJournalSummaryForStrengthSession picks journal closest to manual raw anchor when two share a day", () => {

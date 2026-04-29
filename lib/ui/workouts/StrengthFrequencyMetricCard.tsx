@@ -252,13 +252,14 @@ const styles = StyleSheet.create({
     ...strengthMetricCardTitleTextStyle,
   },
   primaryValueFigure: {
-    fontSize: 23,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
     color: "#1C1C1E",
-    letterSpacing: -0.44,
-    flexShrink: 0,
+    letterSpacing: -0.28,
+    flexShrink: 1,
+    textAlign: "right",
   },
   footerCaption: {
     fontSize: 14,

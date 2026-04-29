@@ -12,6 +12,10 @@ import {
 } from "@/lib/utils/strengthWeeklyFrequencyRating";
 import { collectStrengthOverviewTabSessions } from "@/lib/data/workouts/strengthOverviewCardModel";
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
+import {
+  formatStrengthWeeklyWorkoutsAndMinutes,
+  strengthSessionDurationMinutes,
+} from "@/lib/data/workouts/strengthSessionPresentation";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
@@ -21,6 +25,8 @@ export type StrengthBaselineCardModel = {
   avgWorkoutsPerWeek: number;
   /** Primary figure for the header row (display: `X.X/wk`). */
   compactValuePrimary: string;
+  totalMinutes90d: number;
+  avgMinutesPerWeek: number;
   ratingBucket: StrengthWeeklyFrequencyRatingBucket;
   ratingLabel: string;
   /** Pass to {@link ActivityTierProgressTrack} tier coloring. */
@@ -48,12 +54,22 @@ export function buildStrengthBaselineCardModel(input: {
   const slice = filterWorkoutCalendarDaysInclusive(sortedDays, windowStart, anchorEnd);
   const sessions = collectStrengthOverviewTabSessions(slice);
   const total = sessions.length;
+  const totalMinutes90d = sessions.reduce((sum, session) => {
+    const minutes = strengthSessionDurationMinutes(session);
+    return sum + (minutes ?? 0);
+  }, 0);
   const avgWorkoutsPerWeek = elapsedDays > 0 ? (total * 7) / elapsedDays : 0;
-  const compactValuePrimary = `${avgWorkoutsPerWeek.toFixed(1)}/wk`;
+  const avgMinutesPerWeek = elapsedDays > 0 ? (totalMinutes90d * 7) / elapsedDays : 0;
+  const compactValuePrimary = formatStrengthWeeklyWorkoutsAndMinutes({
+    averageWorkoutsPerWeek: avgWorkoutsPerWeek,
+    averageMinutesPerWeek: avgMinutesPerWeek,
+  });
   const ratingBucket = strengthWeeklyFrequencyRatingBucketFromAvg(avgWorkoutsPerWeek);
   return {
     avgWorkoutsPerWeek,
     compactValuePrimary,
+    totalMinutes90d,
+    avgMinutesPerWeek,
     ratingBucket,
     ratingLabel: strengthWeeklyFrequencyRatingLabelFromBucket(ratingBucket),
     activityTierIndexForBar: strengthWeeklyFrequencyActivityTierIndexForBar(ratingBucket),

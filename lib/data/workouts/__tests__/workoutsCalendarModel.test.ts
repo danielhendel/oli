@@ -8,6 +8,7 @@ import {
   deriveOverviewTabSessionCounts,
   getRecentWorkoutsFromCalendarDays,
   getRecentWorkoutSessionsFromCalendarDays,
+  getCardioOverviewTabSessionsForCalendarDaysNewestFirst,
   getStrengthOverviewTabSessionsForCalendarDaysAscending,
   sortWorkoutsChronologicalAsc,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
@@ -182,6 +183,29 @@ describe("workoutsCalendarModel", () => {
     ]);
     expect(monthly).toHaveLength(1);
     expect(monthly[0]?.workouts).toBe(1);
+  });
+
+  it("cardio overview week list is not truncated by getRecentWorkoutSessions global cap", () => {
+    const mk = (id: string, day: string): WorkoutHistoryItem => ({
+      id,
+      observedAt: `${day}T10:00:00.000Z`,
+      sourceId: "apple_health",
+      title: "Running",
+      workoutType: "cardio",
+      rawKind: "workout",
+      start: `${day}T10:00:00.000Z`,
+      end: null,
+      durationMinutes: 30,
+      calories: null,
+    });
+    const days = Array.from({ length: 15 }, (_, i) => {
+      const day = `2026-04-${String(10 + i).padStart(2, "0")}`;
+      return { day: day as `${string}-${string}-${string}`, workouts: [mk(`w${i}`, day)] };
+    });
+    const cardioAll = getCardioOverviewTabSessionsForCalendarDaysNewestFirst(days);
+    const recentLimited = getRecentWorkoutSessionsFromCalendarDays(days, 14);
+    expect(cardioAll.length).toBe(15);
+    expect(recentLimited.length).toBe(14);
   });
 
   it("monthly analytics and recent sessions use the same reconciled session count from shared days", () => {

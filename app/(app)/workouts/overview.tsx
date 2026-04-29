@@ -48,12 +48,10 @@ import {
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import {
   buildWorkoutOverviewAnalyticsFromCalendarDays,
-  getRecentWorkoutSessionsFromCalendarDays,
+  getCardioOverviewTabSessionsForCalendarDaysNewestFirst,
   getStrengthOverviewTabSessionsForCalendarDaysAscending,
-  WORKOUT_OVERVIEW_RECENT_SESSION_CAP,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_END,
   WORKOUT_OVERVIEW_ANALYTICS_RANGE_START,
-  WORKOUT_OVERVIEW_ANALYTICS_YEAR,
 } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { mapWorkoutCalendarDaysForDomain } from "@/lib/data/workouts/workoutDomain";
@@ -97,6 +95,18 @@ import {
   resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
 import {
+  cardioDistanceTierFromWeeklyMiles,
+  cardioDistanceTierIndexForBar,
+  cardioDistanceTierLabel,
+  cardioSessionDistanceMeters,
+  cardioWeeklyMilesScaleFill01,
+  formatCardioSessionHeadline,
+  formatCardioSessionSubtitle,
+  formatThisWeekCardioDistanceSummary,
+  getThisWeekCardioSessions,
+  sumDisplayableCardioDistanceMilesForWeekEntries,
+} from "@/lib/data/workouts/cardioSessionPresentation";
+import {
   deriveSessionTypeFlags,
   reconcileWorkoutSessionsForDay,
   resolveReconciledSessionWithLatestCalendarDays,
@@ -116,19 +126,22 @@ import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
-import { WorkoutAnalyticsChart } from "@/lib/ui/workouts/WorkoutAnalyticsChart";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { WorkoutsOverviewBottomNav } from "@/lib/ui/workouts/WorkoutsOverviewBottomNav";
 import { buildStrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
 import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
 import {
-  buildStrengthLastWeekCardModel,
   buildStrengthThisWeekCardModel,
-  formatStrengthLastWeekSessionsMicroCaption,
   formatStrengthThisWeekSessionsMicroCaption,
 } from "@/lib/data/workouts/strengthThisWeekCardModel";
 import { StrengthBaselineCard } from "@/lib/ui/workouts/StrengthBaselineCard";
 import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
+import { buildStrengthHistorySummaryModel } from "@/lib/data/workouts/strengthHistorySummaryModel";
+import { StrengthHistorySummaryCard } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
+import { buildCardioBaselineCardModel } from "@/lib/data/workouts/cardioBaselineCardModel";
+import { buildCardioHistorySummaryModel } from "@/lib/data/workouts/cardioHistorySummaryModel";
+import { CardioBaselineCard } from "@/lib/ui/workouts/CardioBaselineCard";
+import { CardioHistorySummaryCard } from "@/lib/ui/workouts/CardioHistorySummaryCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -252,8 +265,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const weekDaysFull = getWeekDaysForAnchor(anchorDay);
   const weekStart = weekDaysFull[0]!;
   const weekEnd = weekDaysFull[weekDaysFull.length - 1]!;
-  const prevWeekStart = useMemo(() => addCalendarDaysToDayKey(weekStart, -7), [weekStart]);
-  const prevWeekEnd = useMemo(() => addCalendarDaysToDayKey(weekEnd, -7), [weekEnd]);
   const recentRangeStart = addCalendarDaysToDayKey(today, -120);
   const recentRangeEnd = today;
   const analyticsRangeStart = WORKOUT_OVERVIEW_ANALYTICS_RANGE_START;
@@ -304,10 +315,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const weekDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, weekStart, weekEnd),
     [domainSharedDays, weekStart, weekEnd],
-  );
-  const lastWeekDaysSlice = useMemo(
-    () => filterWorkoutCalendarDaysInclusive(domainSharedDays, prevWeekStart, prevWeekEnd),
-    [domainSharedDays, prevWeekStart, prevWeekEnd],
   );
   const recentDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, recentRangeStart, recentRangeEnd),
@@ -430,25 +437,10 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     [overviewSharedRange.status, weekDaysSlice, weekDaysFull],
   );
 
-  const recentWorkouts = useMemo(() => {
-    if (overviewSharedRange.status !== "ready") return [];
-    return getRecentWorkoutSessionsFromCalendarDays(recentDaysSlice, WORKOUT_OVERVIEW_RECENT_SESSION_CAP);
-  }, [overviewSharedRange.status, recentDaysSlice]);
-
-  const recentSessionsShownOnOverview = useMemo((): typeof recentWorkouts => {
-    if (domain === "strength") return [];
-    return recentWorkouts;
-  }, [domain, recentWorkouts]);
-
   const strengthWeekSessionsAscending = useMemo(() => {
     if (overviewSharedRange.status !== "ready" || domain !== "strength") return [];
     return getStrengthOverviewTabSessionsForCalendarDaysAscending(weekDaysSlice);
   }, [overviewSharedRange.status, domain, weekDaysSlice]);
-
-  const strengthLastWeekSessionsAscending = useMemo(() => {
-    if (overviewSharedRange.status !== "ready" || domain !== "strength") return [];
-    return getStrengthOverviewTabSessionsForCalendarDaysAscending(lastWeekDaysSlice);
-  }, [overviewSharedRange.status, domain, lastWeekDaysSlice]);
 
   const weekWorkoutIds = useMemo(
     () =>
@@ -458,29 +450,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     [weekDaysSlice],
   );
 
-  const lastWeekWorkoutIds = useMemo(
-    () =>
-      lastWeekDaysSlice.flatMap((d) =>
-        reconcileWorkoutSessionsForDay(d.day, d.workouts).flatMap((s) => s.workouts.map((w) => w.id)),
-      ),
-    [lastWeekDaysSlice],
-  );
-
   const recentWorkoutIds = useMemo(
     () =>
       domain === "strength"
         ? strengthWeekSessionsAscending.flatMap((entry) => entry.session.workouts.map((w) => w.id))
-        : recentSessionsShownOnOverview.flatMap((entry) => entry.session.workouts.map((w) => w.id)),
-    [domain, strengthWeekSessionsAscending, recentSessionsShownOnOverview],
+        : [],
+    [domain, strengthWeekSessionsAscending],
   );
 
   const workoutIdsForOverrides = useMemo(() => {
     const uniq = new Set<string>();
     for (const id of recentWorkoutIds) uniq.add(id);
     for (const id of weekWorkoutIds) uniq.add(id);
-    for (const id of lastWeekWorkoutIds) uniq.add(id);
     return [...uniq];
-  }, [recentWorkoutIds, weekWorkoutIds, lastWeekWorkoutIds]);
+  }, [recentWorkoutIds, weekWorkoutIds]);
 
   const { overridesByWorkoutId, reload } = useWorkoutOverrides(workoutIdsForOverrides);
 
@@ -524,16 +507,51 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     });
   }, [domain, overviewSharedRange.status, domainSharedDays, today, weekStart, weekEnd]);
 
-  const strengthLastWeekModel = useMemo(() => {
+  const strengthHistorySummaryModel = useMemo(() => {
     if (domain !== "strength") return null;
     if (overviewSharedRange.status !== "ready") return null;
-    return buildStrengthLastWeekCardModel({
+    return buildStrengthHistorySummaryModel({
       strengthCalendarDays: domainSharedDays,
       todayDayKey: today,
-      lastWeekStartDay: prevWeekStart,
-      lastWeekEndDay: prevWeekEnd,
+      availableRangeStart: overviewRangeStart,
+      availableRangeEnd: overviewRangeEnd,
     });
-  }, [domain, overviewSharedRange.status, domainSharedDays, today, prevWeekStart, prevWeekEnd]);
+  }, [domain, overviewSharedRange.status, domainSharedDays, today, overviewRangeStart, overviewRangeEnd]);
+
+  const cardioBaselineModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildCardioBaselineCardModel({
+      cardioCalendarDays: domainSharedDays,
+      todayDayKey: today,
+    });
+  }, [domain, overviewSharedRange.status, domainSharedDays, today]);
+
+  const cardioHistorySummaryModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildCardioHistorySummaryModel({
+      cardioCalendarDays: domainSharedDays,
+      todayDayKey: today,
+      availableRangeStart: overviewRangeStart,
+      availableRangeEnd: overviewRangeEnd,
+    });
+  }, [domain, overviewSharedRange.status, domainSharedDays, today, overviewRangeStart, overviewRangeEnd]);
+
+  const cardioWeekSessionsNewestFirst = useMemo(() => {
+    if (overviewSharedRange.status !== "ready" || domain !== "cardio") return [];
+    return getCardioOverviewTabSessionsForCalendarDaysNewestFirst(weekDaysSlice);
+  }, [overviewSharedRange.status, domain, weekDaysSlice]);
+
+  const cardioThisWeekSessions = useMemo(
+    () => getThisWeekCardioSessions(cardioWeekSessionsNewestFirst, weekDaysFull),
+    [cardioWeekSessionsNewestFirst, weekDaysFull],
+  );
+
+  const cardioThisWeekTotalMiles = useMemo(
+    () => sumDisplayableCardioDistanceMilesForWeekEntries(cardioWeekSessionsNewestFirst),
+    [cardioWeekSessionsNewestFirst],
+  );
 
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
@@ -1087,33 +1105,33 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       </View>
     ) : null;
 
-  const strengthLastWeekCombinedCard =
-    domain === "strength" ? (
+  const cardioThisWeekCard =
+    domain === "cardio" ? (
       <View style={styles.strengthRecentCombinedCard}>
         <StrengthFrequencyMetricCard
           variant="embedded"
-          headingTitle="Last Week"
+          headingTitle="This Week"
           loading={overviewSharedRange.status !== "ready"}
           model={
-            strengthLastWeekModel != null
-              ? {
-                  compactValuePrimary: strengthLastWeekModel.compactValuePrimary,
-                  ratingLabel: strengthLastWeekModel.ratingLabel,
-                  activityTierIndexForBar: strengthLastWeekModel.activityTierIndexForBar,
-                  fillWidth01Override: strengthLastWeekModel.fillWidth01Override,
+            overviewSharedRange.status !== "ready"
+              ? null
+              : {
+                  compactValuePrimary: `${cardioThisWeekTotalMiles.toFixed(1)} mi`,
+                  ratingLabel: cardioDistanceTierLabel(
+                    cardioDistanceTierFromWeeklyMiles(cardioThisWeekTotalMiles),
+                  ),
+                  activityTierIndexForBar: cardioDistanceTierIndexForBar(
+                    cardioDistanceTierFromWeeklyMiles(cardioThisWeekTotalMiles),
+                  ),
+                  fillWidth01Override: cardioWeeklyMilesScaleFill01(cardioThisWeekTotalMiles),
                 }
-              : null
           }
           footerCaption=""
           showFrequencyTrack={false}
           showFrequencyMarkers={false}
           showFooterCaption={false}
           compactTitlePillSpacing
-          mutedMicroCaption={
-            strengthLastWeekModel != null
-              ? formatStrengthLastWeekSessionsMicroCaption(strengthLastWeekModel.totalWorkoutsThisWeek)
-              : null
-          }
+          mutedMicroCaption={formatThisWeekCardioDistanceSummary(cardioThisWeekTotalMiles)}
           titleRowTrailing={
             <Pressable
               onPress={() => router.push(`${basePath}/recent-workouts-full`)}
@@ -1124,27 +1142,27 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 workoutOverviewInCardHeaderStyles.linkHit,
                 pressed && workoutOverviewInCardHeaderStyles.linkPressed,
               ]}
-              testID="strength-recent-last-week-combined-view-more"
+              testID="cardio-this-week-view-more"
             >
               <Text style={workoutOverviewInCardHeaderStyles.link}>View All →</Text>
             </Pressable>
           }
-          ratingPillTestID="strength-last-week-rating-pill"
-          frequencyBarTestID="strength-last-week-frequency-bar"
-          instrumentClusterTestID="strength-last-week-instrument-cluster"
+          ratingPillTestID="cardio-this-week-rating-pill"
+          frequencyBarTestID="cardio-this-week-frequency-bar"
+          instrumentClusterTestID="cardio-this-week-instrument-cluster"
         />
         <View style={styles.strengthRecentSectionDivider} />
-        {overviewSharedRange.status !== "ready" ? null : strengthLastWeekSessionsAscending.length === 0 ? (
-          <Text style={styles.placeholder}>No strength workouts last week yet</Text>
+        {overviewSharedRange.status !== "ready" ? null : cardioThisWeekSessions.length === 0 ? (
+          <Text style={styles.placeholder}>No cardio sessions this week yet</Text>
         ) : (
-          strengthLastWeekSessionsAscending.map(({ day, session }, rowIndex) => {
+          cardioThisWeekSessions.map(({ day, session }, rowIndex) => {
             const representative = session.workouts[0];
             if (!representative) return null;
-            const journalSummary = pickJournalSummaryForStrengthSession(day, session, manualWorkoutSummaries);
+            const journalSummary = null;
             const surface = buildWorkoutSessionSurfaceModel(
               session,
               overridesByWorkoutId,
-              "strength",
+              domain,
               journalSummary,
               durableTitlesByWorkoutId,
             );
@@ -1153,18 +1171,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               surface.metricsWorkout,
               sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
             );
-            const durationLabel = formatWorkoutDurationLabel(
-              resolveWorkoutDisplayDurationMinutes({
-                overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
-                sessionDurationMinutes: null,
-                fallbackWorkoutDurationMinutes:
-                  surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
-              }),
-            );
-            const metaLine = formatRecentWorkoutMetaLine("strength", durationLabel, journalSummary);
+            const resolvedDuration = resolveWorkoutDisplayDurationMinutes({
+              overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
+              sessionDurationMinutes: null,
+              fallbackWorkoutDurationMinutes:
+                surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
+            });
+            const headline = formatCardioSessionHeadline({
+              distanceMeters: cardioSessionDistanceMeters(session),
+              durationMinutes: resolvedDuration,
+            });
+            const subtitle = formatCardioSessionSubtitle(session);
             return (
               <Pressable
-                key={`last-${session.id}`}
+                key={`week-${session.id}`}
                 style={({ pressed }) => [
                   styles.recentRow,
                   rowIndex === 0 && styles.recentRowFirst,
@@ -1172,7 +1192,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 ]}
                 onPress={() => {
                   router.push({
-                    pathname: "/(app)/workouts/day/[day]",
+                    pathname: "/(app)/cardio/day/[day]",
                     params: { day },
                   });
                 }}
@@ -1182,10 +1202,10 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 <View style={styles.recentRowTextCol}>
                   <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
                   <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {surface.displayTitle}
+                    {headline}
                   </Text>
                   <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
-                    {metaLine}
+                    {subtitle}
                   </Text>
                 </View>
                 <Pressable
@@ -1215,104 +1235,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       </View>
     ) : null;
 
-  const cardioRecentCard = (
-    <View style={styles.card}>
-      <View style={workoutOverviewInCardHeaderStyles.row}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>Recent cardio sessions</Text>
-        <Pressable
-          onPress={() => router.push(`${basePath}/recent-workouts-full`)}
-          accessibilityRole="button"
-          accessibilityLabel="View more"
-          hitSlop={8}
-          style={({ pressed }) => [
-            workoutOverviewInCardHeaderStyles.linkHit,
-            pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-          ]}
-        >
-          <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
-        </Pressable>
-      </View>
-      {recentWorkouts.length === 0 ? (
-        <Text style={styles.placeholder}>No cardio sessions yet</Text>
-      ) : (
-        recentSessionsShownOnOverview.map(({ day, session }, rowIndex) => {
-          const representative = session.workouts[0];
-          if (!representative) return null;
-          const journalSummary = null;
-          const surface = buildWorkoutSessionSurfaceModel(
-            session,
-            overridesByWorkoutId,
-            domain,
-            journalSummary,
-            durableTitlesByWorkoutId,
-          );
-          const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
-          const resolvedMetrics = resolveWorkoutDisplay(
-            surface.metricsWorkout,
-            sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
-          );
-          const durationLabel = formatWorkoutDurationLabel(
-            resolveWorkoutDisplayDurationMinutes({
-              overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
-              sessionDurationMinutes: null,
-              fallbackWorkoutDurationMinutes:
-                surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
-            }),
-          );
-          const metaLine = formatRecentWorkoutMetaLine(domain, durationLabel, journalSummary);
-          return (
-            <Pressable
-              key={session.id}
-              style={({ pressed }) => [
-                styles.recentRow,
-                rowIndex === 0 && styles.recentRowFirst,
-                pressed && styles.recentRowPressed,
-              ]}
-              onPress={() => {
-                router.push({
-                  pathname: "/(app)/cardio/day/[day]",
-                  params: { day },
-                });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
-            >
-              <View style={styles.recentRowTextCol}>
-                <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
-                <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
-                  {surface.displayTitle}
-                </Text>
-                <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
-                  {metaLine}
-                </Text>
-              </View>
-              <Pressable
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  const native = e?.nativeEvent;
-                  setWorkoutMenuAnchor({
-                    x: typeof native?.pageX === "number" ? native.pageX : 320,
-                    y: typeof native?.pageY === "number" ? native.pageY : 220,
-                    width: 24,
-                    height: 24,
-                  });
-                  setSelectedWorkoutForMenu({ day, session });
-                  setWorkoutMenuOpen(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
-                hitSlop={10}
-                style={styles.rowMenuBtn}
-              >
-                <Text style={styles.rowMenuText}>•••</Text>
-              </Pressable>
-            </Pressable>
-          );
-        })
-      )}
-    </View>
-  );
-
   const content = (
     <View style={styles.pageBody}>
       {domain === "strength" ? (
@@ -1330,19 +1252,24 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             />
           </Pressable>
           {strengthRecentWeekCombinedCard}
-          {strengthLastWeekCombinedCard}
+          {strengthHistorySummaryModel ? <StrengthHistorySummaryCard model={strengthHistorySummaryModel} /> : null}
         </>
       ) : (
         <>
-          <WorkoutAnalyticsChart
-            layout="single"
-            domain={domain}
-            headerTitle={String(WORKOUT_OVERVIEW_ANALYTICS_YEAR)}
-            onViewMore={() => router.push(`${basePath}/analytics-detail`)}
-            chartPoints={overviewAnalytics.chartPoints}
-            metrics={overviewAnalytics.metrics}
-          />
-          {cardioRecentCard}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open cardio analytics"
+            onPress={() => router.push(`${basePath}/analytics-detail`)}
+            style={({ pressed }) => [styles.strengthBaselineCardPressable, pressed && styles.strengthBaselineCardPressed]}
+            testID="cardio-baseline-card-nav"
+          >
+            <CardioBaselineCard
+              loading={overviewSharedRange.status !== "ready"}
+              model={cardioBaselineModel}
+            />
+          </Pressable>
+          {cardioThisWeekCard}
+          {cardioHistorySummaryModel ? <CardioHistorySummaryCard model={cardioHistorySummaryModel} /> : null}
         </>
       )}
 

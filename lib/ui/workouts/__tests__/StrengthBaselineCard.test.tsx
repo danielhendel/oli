@@ -38,11 +38,14 @@ describe("StrengthBaselineCard", () => {
     expect(json).toContain("Strength Baseline");
     expect(json).toContain("strength-baseline-frequency-bar");
     expect(json).toContain("strength-baseline-frequency-markers");
+    expect(json).toContain("90 Day Avg");
     for (const d of [0, 1, 2, 3, 4, 5, 6, 7] as const) {
       expect(json).toContain(`"children":["${d}"]`);
     }
     expect(json).toContain(STRENGTH_BASELINE_CARD_DEFINITION_SENTENCE);
     expect(json).toContain("/wk");
+    expect(json).toContain("wo");
+    expect(json).toContain("min/wk");
     expect(json).not.toContain("workouts / week");
   });
 });

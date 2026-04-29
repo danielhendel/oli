@@ -421,6 +421,35 @@ export function getRecentWorkoutSessionsFromCalendarDays(
 }
 
 /**
+ * Cardio Overview “This Week”: every **cardio** reconciled session in the calendar slice, newest-first,
+ * with **no global session cap** (unlike {@link getRecentWorkoutSessionsFromCalendarDays}, which truncates
+ * cross-domain lists). Aligns with Strength’s uncapped weekly tab sessions.
+ */
+export function getCardioOverviewTabSessionsForCalendarDaysNewestFirst(
+  days: readonly WorkoutCalendarDayLike[],
+): RecentWorkoutSessionEntry[] {
+  const entries: RecentWorkoutSessionEntry[] = [];
+  for (const d of days) {
+    const sessions = reconcileWorkoutSessionsForDay(d.day, d.workouts);
+    for (const session of sessions) {
+      if (session.sessionType !== "cardio") continue;
+      entries.push({ day: d.day, session });
+    }
+  }
+  entries.sort((a, b) => {
+    const ka = a.session.start ?? a.session.workouts[0]?.observedAt ?? "";
+    const kb = b.session.start ?? b.session.workouts[0]?.observedAt ?? "";
+    if (!ka && !kb) return a.session.id.localeCompare(b.session.id);
+    if (!ka) return 1;
+    if (!kb) return -1;
+    const t = kb.localeCompare(ka);
+    if (t !== 0) return t;
+    return a.session.id.localeCompare(b.session.id);
+  });
+  return entries;
+}
+
+/**
  * Strength overview tab sessions only ({@link sessionMatchesOverviewStrengthTab}), ordered **earliest first**
  * (reverse of {@link getRecentWorkoutSessionsFromCalendarDays}). Use with domain-filtered days for the local week slice.
  */

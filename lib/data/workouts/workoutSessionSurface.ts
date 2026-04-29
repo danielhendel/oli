@@ -7,6 +7,7 @@ import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 import { formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
+import { HK_WORKOUT_ACTIVITY_TYPE_OTHER } from "@/lib/data/workouts/appleHealthKitWorkoutActivityType";
 import {
   computeStrengthMetricsFromExercises,
   type ManualWorkoutDaySummary,
@@ -145,8 +146,45 @@ export function pickJournalSummaryForStrengthSession(
   return best;
 }
 
-/** Apple / HealthKit row for duration, calories, distance, zones when present in a merged session. */
-export function pickMetricsWorkoutForSession(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
+function scoreAppleHealthCardioMetricsCandidate(w: WorkoutHistoryItem): number {
+  let score = 0;
+  if (typeof w.distanceMeters === "number" && Number.isFinite(w.distanceMeters) && w.distanceMeters > 0) {
+    score += 10_000 + Math.min(w.distanceMeters, 500_000) / 1000;
+  }
+  const aid = w.hk?.activityId;
+  if (typeof aid === "number" && Number.isFinite(aid)) {
+    if (Math.trunc(aid) === HK_WORKOUT_ACTIVITY_TYPE_OTHER) score -= 5000;
+    else score += 500;
+  }
+  const blob = `${w.activityName ?? ""} ${w.sport ?? ""} ${w.title ?? ""}`.toLowerCase();
+  if (blob.includes("other")) score -= 2000;
+  if (typeof w.durationMinutes === "number" && Number.isFinite(w.durationMinutes) && w.durationMinutes > 0) {
+    score += Math.min(w.durationMinutes, 600);
+  }
+  return score;
+}
+
+/**
+ * Apple / HealthKit row for duration, calories, distance, zones when present in a merged session.
+ * Cardio: when multiple Apple rows were merged, prefer the sample with distance and a specific HK activity type
+ * over companion “Other” / duplicate rows so duration and distance match the watch-backed workout.
+ */
+export function pickMetricsWorkoutForSession(
+  session: ReconciledWorkoutSession,
+  domain: WorkoutProductDomain = "strength",
+): WorkoutHistoryItem | null {
+  if (domain === "cardio") {
+    const candidates = session.workouts.filter(
+      (w) => resolveWorkoutIngestProvider(w) === "apple_health" || w.hk != null,
+    );
+    if (candidates.length > 1) {
+      const ranked = [...candidates].sort(
+        (a, b) => scoreAppleHealthCardioMetricsCandidate(b) - scoreAppleHealthCardioMetricsCandidate(a),
+      );
+      return ranked[0] ?? null;
+    }
+    if (candidates.length === 1) return candidates[0] ?? null;
+  }
   const apple = session.workouts.find((w) => resolveWorkoutIngestProvider(w) === "apple_health");
   if (apple) return apple;
   const hk = session.workouts.find((w) => w.hk != null);
@@ -201,7 +239,7 @@ export function buildWorkoutSessionSurfaceModel(
     throw new Error("buildWorkoutSessionSurfaceModel: session has no workouts");
   }
   const actionWorkout = pickWorkoutForSessionActions(session) ?? representative;
-  const metricsWorkout = pickMetricsWorkoutForSession(session) ?? representative;
+  const metricsWorkout = pickMetricsWorkoutForSession(session, domain) ?? representative;
   const displayTitle = resolveWorkoutSessionSurfaceTitle(
     session,
     representative,
