@@ -44,6 +44,24 @@ describe("deriveWorkoutMarkerFlags", () => {
     ).toBe("cardio");
   });
 
+  it("classifies Indoor Walk compact token as cardio", () => {
+    expect(
+      classifyWorkoutType({
+        rawKind: "workout",
+        sport: "Indoor Walk",
+      }),
+    ).toBe("cardio");
+  });
+
+  it("classifies Outdoor Run compact token as cardio", () => {
+    expect(
+      classifyWorkoutType({
+        rawKind: "workout",
+        sport: "Outdoor Run",
+      }),
+    ).toBe("cardio");
+  });
+
   it("marks strength-only days", () => {
     expect(deriveWorkoutMarkerFlags([workout({ workoutType: "strength" })])).toEqual({
       hasStrength: true,

@@ -1,7 +1,3 @@
-/**
- * Regression: Strength This Week card lists only local-calendar-week sessions,
- * earliest-first; hydrated days outside the week slice must not appear as rows.
- */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
@@ -44,50 +40,93 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
-jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
-  const strengthW = (id: string, start: string) => ({
-    id,
-    observedAt: start,
-    sourceId: "manual",
-    title: "Lift",
-    workoutType: "strength" as const,
-    start,
-    end: null,
-    durationMinutes: 45,
-    calories: null,
-  });
-  return {
-    useWorkoutsCalendarRange: () => ({
-      status: "ready" as const,
-      durableTitlesByWorkoutId: {},
-      days: [
-        {
-          day: "2026-03-08",
-          workouts: [strengthW("prior-week-strength", "2026-03-08T18:00:00.000Z")],
-        },
-        { day: "2026-03-09", workouts: [] },
-        {
-          day: "2026-03-10",
-          workouts: [strengthW("early-week-strength", "2026-03-10T09:00:00.000Z")],
-        },
-        { day: "2026-03-11", workouts: [] },
-        {
-          day: "2026-03-12",
-          workouts: [strengthW("later-week-strength", "2026-03-12T16:00:00.000Z")],
-        },
-        { day: "2026-03-13", workouts: [] },
-        { day: "2026-03-14", workouts: [] },
-        { day: "2026-03-15", workouts: [] },
-      ],
-    }),
-  };
-});
+jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
+  useWorkoutsCalendarRange: () => ({
+    status: "ready" as const,
+    durableTitlesByWorkoutId: {},
+    days: [
+      {
+        day: "2026-03-08",
+        workouts: [
+          {
+            id: "c4",
+            observedAt: "2026-03-08T07:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Running",
+            workoutType: "cardio" as const,
+            start: "2026-03-08T07:00:00.000Z",
+            end: "2026-03-08T07:40:00.000Z",
+            durationMinutes: null,
+            calories: null,
+            distanceMeters: 4956.77952,
+            activityName: "Running",
+          },
+        ],
+      },
+      {
+        day: "2026-03-09",
+        workouts: [
+          {
+            id: "c3",
+            observedAt: "2026-03-09T12:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Other",
+            workoutType: "cardio" as const,
+            start: "2026-03-09T12:00:00.000Z",
+            end: "2026-03-09T12:31:00.000Z",
+            durationMinutes: 31,
+            calories: null,
+            distanceMeters: 16093.44,
+            activityName: "Other",
+          },
+        ],
+      },
+      {
+        day: "2026-03-10",
+        workouts: [
+          {
+            id: "c2",
+            observedAt: "2026-03-10T09:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Cycling",
+            workoutType: "cardio" as const,
+            start: "2026-03-10T09:00:00.000Z",
+            end: "2026-03-10T09:22:00.000Z",
+            durationMinutes: 22,
+            calories: null,
+            distanceMeters: 4377.41568,
+            activityName: "Cycling",
+          },
+        ],
+      },
+      {
+        day: "2026-03-11",
+        workouts: [
+          {
+            id: "c1",
+            observedAt: "2026-03-11T10:00:00.000Z",
+            sourceId: "apple_health",
+            title: "Walking",
+            workoutType: "cardio" as const,
+            start: "2026-03-11T10:00:00.000Z",
+            end: "2026-03-11T10:31:00.000Z",
+            durationMinutes: 31,
+            calories: null,
+            distanceMeters: 4956.77952,
+            activityName: "Walking",
+          },
+        ],
+      },
+    ],
+  }),
+}));
 
 jest.mock("@/lib/ui/calendar/dateUtils", () => ({
   ...jest.requireActual("@/lib/ui/calendar/dateUtils"),
   getTodayDayKeyLocal: () => "2026-03-12" as const,
   getWeekDaysForAnchor: () =>
     [
+      "2026-03-08",
       "2026-03-09",
       "2026-03-10",
       "2026-03-11",
@@ -165,10 +204,6 @@ jest.mock("@/lib/data/workouts/workoutOverrides", () => ({
   useWorkoutOverrides: () => ({ overridesByWorkoutId: {}, reload: jest.fn() }),
 }));
 
-jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
-  listManualWorkoutDaySummaries: jest.fn().mockResolvedValue([]),
-}));
-
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: jest.fn(),
 }));
@@ -183,33 +218,42 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import StrengthTrainingOverviewScreen from "../overview";
+import CardioOverviewScreen from "@/app/(app)/cardio/index";
 
-describe("Strength overview week slice list", () => {
-  it("shows This Week in ascending order and excludes prior-week rows", async () => {
+describe("Cardio overview baseline layout", () => {
+  it("renders Cardio Baseline + This Week + Cardio history summary and removes recent card", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+      tree = renderer.create(<CardioOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    const iThisWeekHeading = json.indexOf('"This Week"');
-    const iHistoryHeading = json.indexOf('"7 Day"');
-    expect(iThisWeekHeading).toBeGreaterThan(-1);
-    expect(iHistoryHeading).toBeGreaterThan(-1);
-
-    const thisWeekSegment = json.slice(iThisWeekHeading, iHistoryHeading);
-    expect(thisWeekSegment).not.toContain("prior-week-strength");
-    expect(thisWeekSegment).toContain("early-week-strength");
-    expect(thisWeekSegment).toContain("later-week-strength");
-
-    expect(json).not.toContain("Open workout details prior-week-strength");
-    expect(json).not.toContain('"Last Week"');
-
-    const iEarly = json.indexOf("Open workout details early-week-strength");
-    const iLate = json.indexOf("Open workout details later-week-strength");
-    expect(iEarly).toBeGreaterThan(-1);
-    expect(iLate).toBeGreaterThan(-1);
-    expect(iEarly).toBeLessThan(iLate);
-    expect(iLate).toBeLessThan(iHistoryHeading);
+    expect(json).toContain("Cardio Baseline");
+    expect(json).toContain("mi ·");
+    expect(json).toContain("min/wk");
+    expect(json).toContain("This Week");
+    expect(json).toContain("18.9 mi this week");
+    expect(json).not.toContain("Recent cardio sessions");
+    expect(json).toContain("7 Day");
+    expect(json).toContain("30 Day");
+    expect(json).toContain("YTD");
+    expect(json).toContain("12 Month");
+    expect(json).toContain("mi ·");
+    expect(json).toContain("cardio-history-progress-day7");
+    expect(json).toContain("cardio-history-progress-day30");
+    expect(json).toContain("cardio-history-progress-ytd");
+    expect(json).toContain("cardio-history-progress-month12");
+    expect(json).toContain("Data will appear when enough history is available");
+    expect(json).toContain("—");
+    expect(json).toContain("Sun 3/8");
+    expect(json).toContain("Tue 3/10");
+    expect(json).toContain("Wed 3/11");
+    expect(json.indexOf("Sun 3/8")).toBeLessThan(json.indexOf("Tue 3/10"));
+    expect(json.indexOf("Tue 3/10")).toBeLessThan(json.indexOf("Wed 3/11"));
+    expect(json).toContain("3.08 mi / 31 min");
+    expect(json).toContain("Walking");
+    expect(json).toContain("31 min");
+    expect(json).toContain("3.08 mi");
+    expect(json).not.toContain("undefined");
+    expect(json).not.toContain('"children":["2026"]');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Strength overview main body: Baseline, This Week + Last Week combined week lists;
+ * Strength overview main body: Baseline, This Week + Strength history summary;
  * analytics detail charts stay off this screen.
  */
 import React from "react";
@@ -177,7 +177,7 @@ describe("Strength overview main layout", () => {
     workoutsOverviewExpoMocks().setOptions.mockClear();
   });
 
-  it("renders Strength Baseline, This Week + Last Week blocks and omits Weekly Insights / weekly/monthly analytics cards", async () => {
+  it("renders Strength Baseline, This Week, and Strength history summary", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
@@ -185,15 +185,21 @@ describe("Strength overview main layout", () => {
     const json = JSON.stringify(tree.toJSON());
     const iBaseline = json.indexOf('"Strength Baseline"');
     const iThisWeek = json.indexOf('"This Week"');
-    const iLastWeek = json.indexOf('"Last Week"');
+    const iHistory7 = json.indexOf('"7 Day"');
     expect(iBaseline).toBeGreaterThan(-1);
     expect(iThisWeek).toBeGreaterThan(-1);
-    expect(iLastWeek).toBeGreaterThan(-1);
+    expect(iHistory7).toBeGreaterThan(-1);
     expect(json).not.toContain("strength-this-week-frequency-bar");
     expect(json).not.toContain('"Overview"');
     expect(json).not.toContain('"Recent Workouts"');
     expect(iBaseline).toBeLessThan(iThisWeek);
-    expect(iThisWeek).toBeLessThan(iLastWeek);
+    expect(iThisWeek).toBeLessThan(iHistory7);
+    expect(json).not.toContain("Last Week");
+    expect(json).toContain("30 Day");
+    expect(json).toContain("YTD");
+    expect(json).toContain("12 Month");
+    expect(json).toContain("strength-history-summary-card");
+    expect(json).toContain("wo");
     expect(json).not.toContain("Weekly Insights");
     expect(json).not.toContain("Weekly Strength");
     expect(json).not.toContain("Weekly Muscle Group");

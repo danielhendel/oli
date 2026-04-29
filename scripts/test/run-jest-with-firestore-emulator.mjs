@@ -130,6 +130,22 @@ function runAndGetExitCode(cmd, args, env = {}) {
   });
 }
 
+function isErrnoException(err) {
+  return typeof err === "object" && err !== null && "code" in err;
+}
+
+function canSignalProcess(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ESRCH") {
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function main() {
   const repoRoot = findRepoRoot(process.cwd());
   const firebaseJsonPath = path.join(repoRoot, "firebase.json");
@@ -201,6 +217,7 @@ async function main() {
   };
 
   let emulatorChild = null;
+  let emulatorExited = false;
 
   try {
     // Start emulator in background so we control exit code (emulator can exit 2 on shutdown).
@@ -222,6 +239,9 @@ async function main() {
     );
     emulatorChild.on("error", (err) => {
       console.error("[emulator] spawn error", err);
+    });
+    emulatorChild.on("exit", () => {
+      emulatorExited = true;
     });
 
     await waitForPort(firestorePort, "127.0.0.1");
@@ -246,8 +266,14 @@ async function main() {
     );
     return restExit;
   } finally {
-    if (emulatorChild?.pid) {
-      process.kill(emulatorChild.pid, "SIGTERM");
+    if (emulatorChild?.pid && !emulatorExited && canSignalProcess(emulatorChild.pid)) {
+      try {
+        process.kill(emulatorChild.pid, "SIGTERM");
+      } catch (err) {
+        if (!(isErrnoException(err) && err.code === "ESRCH")) {
+          throw err;
+        }
+      }
       // Give it a moment to shut down; don't await indefinitely.
       await new Promise((r) => setTimeout(r, 2000));
     }
