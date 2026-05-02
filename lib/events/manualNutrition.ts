@@ -6,6 +6,11 @@
 
 import { addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import type { MealSlot } from "@/lib/nutrition/mealSlot";
+
+export type NutritionLogScope = "day_aggregate" | "meal";
+
+export type NutritionIngestSource = "manual" | "search" | "barcode";
 
 export type ManualNutritionPayload = {
   start: string;
@@ -17,6 +22,20 @@ export type ManualNutritionPayload = {
   carbsG: number;
   fatG: number;
   fiberG?: number | null;
+  /** When `meal`, daily rollups count meals and first/last anchors (see aggregateDailyFacts). */
+  logScope?: NutritionLogScope;
+  nutritionIngestSource?: NutritionIngestSource;
+  externalFoodId?: string;
+  foodLabel?: string;
+  /** Raw-only vendor/catalog JSON; never copied into canonical events. */
+  providerResponse?: Record<string, unknown>;
+  sugarG?: number | null;
+  sodiumMg?: number | null;
+  potassiumMg?: number | null;
+  /** Oli fingerprint for dedupe / UX; raw-only vendor blobs stay in providerResponse. */
+  foodHash?: string;
+  /** Optional meal occasion (tracked meals). */
+  mealSlot?: MealSlot;
 };
 
 export function getDeviceIanaTimeZone(): string {

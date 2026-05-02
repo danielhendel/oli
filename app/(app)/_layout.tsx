@@ -85,8 +85,28 @@ export default function AppLayout() {
             options={{ title: "Nutrition analytics", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="nutrition/library"
+            options={{ title: "Food Library", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="nutrition/log"
             options={{ title: "Log nutrition", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/search"
+            options={{ title: "Search food", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/scan"
+            options={{ title: "Scan barcode", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/food/[foodId]"
+            options={{ title: "Confirm meal", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/build-meal"
+            options={{ title: "Build meal", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="nutrition/targets"

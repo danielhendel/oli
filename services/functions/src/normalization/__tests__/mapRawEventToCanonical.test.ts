@@ -670,4 +670,42 @@ describe("mapRawEventToCanonical", () => {
       ),
     );
   });
+
+  it("maps manual tracked meal nutrition (meal scope + optional macros) without leaking providerResponse", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_nutrition_meal_1",
+      provider: "manual",
+      kind: "nutrition",
+      payload: {
+        start: "2025-01-01T12:00:00.000Z",
+        end: "2025-01-01T12:00:01.000Z",
+        timezone: "America/New_York",
+        day: "2025-01-01",
+        totalKcal: 400,
+        proteinG: 30,
+        carbsG: 40,
+        fatG: 12,
+        fiberG: 4,
+        sugarG: 6,
+        sodiumMg: 120,
+        logScope: "meal",
+        nutritionIngestSource: "search",
+        externalFoodId: "dev_food_1",
+        foodLabel: "Test food",
+        providerResponse: { vendor: "dev", hits: [{ id: "x" }] },
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    if (canonical.kind !== "nutrition") throw new Error("Expected nutrition kind");
+    expect(canonical.logScope).toBe("meal");
+    expect(canonical.sugarG).toBe(6);
+    expect(canonical.sodiumMg).toBe(120);
+    expect((canonical as unknown as Record<string, unknown>).providerResponse).toBeUndefined();
+  });
 });

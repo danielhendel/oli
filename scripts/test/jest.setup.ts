@@ -21,6 +21,14 @@ jest.mock("@expo/vector-icons", () => {
   };
 });
 
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: {
+    fetch: jest.fn(async () => ({ isConnected: true, isInternetReachable: true })),
+    addEventListener: jest.fn(() => jest.fn()),
+  },
+}));
+
 jest.mock("@react-native-async-storage/async-storage", () => {
   const store = new Map<string, string>();
   return {
@@ -58,6 +66,17 @@ jest.mock("@/lib/data/activity/appleHealthStepsRepairCoordinator", () => ({
   scheduleAppleHealthStepsRepair: jest.fn(),
   executeAppleHealthStepsRepair: jest.fn(async () => undefined),
 }));
+
+jest.mock("expo-camera", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const CameraView = () => React.createElement(View, { testID: "mock-camera-view" });
+  return {
+    __esModule: true,
+    CameraView,
+    useCameraPermissions: () => [{ granted: false, canAskAgain: true }, jest.fn(async () => ({ granted: true }))],
+  };
+});
 
 installConsoleGuard();
 

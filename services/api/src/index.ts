@@ -7,6 +7,7 @@ import firebaseRoutes from "./routes/firebase";
 import eventsRoutes from "./routes/events";
 import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
+import nutritionUserMetaRoutes from "./routes/nutritionUserMeta";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
 import profileMainRoutes from "./routes/profileMain";
@@ -152,6 +153,7 @@ app.use("/exercise-definitions", authMiddleware, exerciseDefinitionsRoutes);
  * AUTHENTICATED READ BOUNDARY
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
+app.use("/users/me", authMiddleware, nutritionUserMetaRoutes);
 
 /**
  * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).

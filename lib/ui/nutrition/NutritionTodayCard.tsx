@@ -6,24 +6,37 @@ import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOver
 import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 import { NUTRITION_ACCENT, NUTRITION_PROGRESS_TRACK_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
+import { friendlyNutritionOverviewErrorMessage } from "@/lib/ui/nutrition/nutritionOverviewErrors";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+
+const PROGRESS_H = 6;
+const PROGRESS_R = 4;
 
 type NutritionTodayCardProps = {
   model: NutritionTodayCardModel;
   todayFacts: NutritionTodayFactsUi;
+  /** Main heading — usually "Today" when the strip selection matches the calendar anchor day. */
+  headingTitle?: string;
   onRetryFacts?: () => void;
   onViewMore?: () => void;
 };
 
-export function NutritionTodayCard({ model, todayFacts, onRetryFacts, onViewMore }: NutritionTodayCardProps) {
+export function NutritionTodayCard({
+  model,
+  todayFacts,
+  headingTitle = "Today",
+  onRetryFacts,
+  onViewMore,
+}: NutritionTodayCardProps) {
   return (
     <View style={styles.card}>
       <View style={workoutOverviewInCardHeaderStyles.row}>
-        <Text style={workoutOverviewInCardHeaderStyles.title}>Today</Text>
+        <Text style={workoutOverviewInCardHeaderStyles.title}>{headingTitle}</Text>
         {onViewMore != null ? (
           <Pressable
             onPress={onViewMore}
             accessibilityRole="button"
-            accessibilityLabel="View more nutrition analytics"
+            accessibilityLabel="View more for this day"
             hitSlop={8}
             style={({ pressed }) => [
               workoutOverviewInCardHeaderStyles.linkHit,
@@ -39,27 +52,32 @@ export function NutritionTodayCard({ model, todayFacts, onRetryFacts, onViewMore
       ) : todayFacts.readiness === "error" ? (
         <ErrorState
           variant="inline"
-          title="Could not load summary"
-          message={todayFacts.message}
+          title="Could not load today’s summary"
+          message={friendlyNutritionOverviewErrorMessage(todayFacts.message)}
           requestId={todayFacts.requestId}
           {...(onRetryFacts != null ? { onRetry: onRetryFacts } : {})}
         />
       ) : (
         <>
           {todayFacts.readiness === "missing" ? (
-            <Text style={styles.missingHint}>No daily rollup for today yet — macros will appear after data syncs.</Text>
+            <Text style={styles.missingHint}>
+              No macros logged for this day yet — log a meal to see progress here.
+            </Text>
           ) : null}
           <View style={styles.rows}>
             {model.rows.map((row) => (
               <View key={row.key} style={styles.row}>
-                <View style={styles.rowTop}>
-                  <Text style={styles.label}>{row.label}</Text>
-                  <Text style={styles.value}>{row.valueLabel}</Text>
+                <View style={styles.metricRow}>
+                  <Text style={styles.metricLabel}>{row.label}</Text>
+                  <Text style={styles.metricValue}>{row.valueLabel}</Text>
                 </View>
                 <LinearProgressBar
                   progress={row.progress}
                   trackColor={NUTRITION_PROGRESS_TRACK_BG}
                   fillColor={NUTRITION_ACCENT}
+                  height={PROGRESS_H}
+                  borderRadius={PROGRESS_R}
+                  testID={`nutrition-today-progress-${row.key}`}
                 />
               </View>
             ))}
@@ -74,8 +92,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 15,
+    gap: 11,
+    ...elevatedCardSurfaceStyle,
   },
   missingHint: {
     fontSize: 14,
@@ -85,25 +104,33 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   rows: {
-    gap: 10,
+    gap: 12,
   },
   row: {
-    gap: 6,
+    gap: 5,
   },
-  rowTop: {
+  metricRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
+    alignItems: "baseline",
+    gap: 12,
+    paddingTop: 1,
   },
-  label: {
-    fontSize: 14,
+  metricLabel: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "500",
+    color: "#8E8E93",
+    letterSpacing: -0.08,
+  },
+  metricValue: {
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: "600",
-    color: "#3C3C43",
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: "700",
     color: "#1C1C1E",
+    letterSpacing: -0.28,
+    fontVariant: ["tabular-nums"],
+    textAlign: "right",
+    flexShrink: 1,
   },
 });

@@ -1,29 +1,32 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NutritionRecentCardModel } from "@/lib/data/nutrition/nutritionRecentCardModel";
-import type { NutritionEventsUi } from "@/lib/data/nutrition/nutritionOverviewUi";
+import type { NutritionRecentRawUi } from "@/lib/hooks/useNutritionOverviewScreenData";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
-import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
-
-const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function formatNutritionDayLabel(dayKey: string): string {
-  const d = new Date(`${dayKey}T12:00:00.000Z`);
-  const wd = WEEKDAY_SHORT[d.getUTCDay()] ?? "";
-  const month = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
-  return `${wd} ${month}/${day}`;
-}
+import { LoadingState } from "@/lib/ui/ScreenStates";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 type NutritionRecentCardProps = {
   model: NutritionRecentCardModel;
-  events: NutritionEventsUi;
-  onRetryEvents?: () => void;
+  /** Raw-event fetch for the selected day (meal labels). */
+  recentRaw: NutritionRecentRawUi;
+  hasDayRollup: boolean;
   onViewMore: () => void;
   onEntryPress: (dayKey: string) => void;
+  /** Calendar day the rows belong to (selected overview day). */
+  dayKey: string;
 };
 
-export function NutritionRecentCard({ model, events, onRetryEvents, onViewMore, onEntryPress }: NutritionRecentCardProps) {
+export function NutritionRecentCard({
+  model,
+  recentRaw,
+  hasDayRollup,
+  onViewMore,
+  onEntryPress,
+  dayKey,
+}: NutritionRecentCardProps) {
+  const loading = recentRaw.readiness === "partial";
+
   return (
     <View style={styles.card}>
       <View style={workoutOverviewInCardHeaderStyles.row}>
@@ -31,7 +34,7 @@ export function NutritionRecentCard({ model, events, onRetryEvents, onViewMore, 
         <Pressable
           onPress={onViewMore}
           accessibilityRole="button"
-          accessibilityLabel="View nutrition analytics"
+          accessibilityLabel="View day details"
           hitSlop={8}
           style={({ pressed }) => [
             workoutOverviewInCardHeaderStyles.linkHit,
@@ -41,38 +44,47 @@ export function NutritionRecentCard({ model, events, onRetryEvents, onViewMore, 
           <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
         </Pressable>
       </View>
-      {events.isLoading ? (
-        <LoadingState message="Loading recent logs…" variant="inline" />
-      ) : events.readiness === "error" ? (
-        <ErrorState
-          variant="inline"
-          title="Could not load logs"
-          message={events.message}
-          requestId={events.requestId}
-          {...(onRetryEvents != null ? { onRetry: onRetryEvents } : {})}
-        />
-      ) : model.entries.length === 0 ? (
-        <Text style={styles.placeholder}>No nutrition logs yet</Text>
-      ) : (
-        model.entries.map((entry) => (
+
+      {loading ? (
+        <LoadingState message="Loading meals…" variant="inline" />
+      ) : model.rows.length > 0 ? (
+        model.rows.map((row, index) => (
           <Pressable
-            key={entry.id}
-            style={({ pressed }) => [styles.recentRow, pressed && styles.recentRowPressed]}
-            onPress={() => onEntryPress(entry.dayKey)}
+            key={row.id}
+            style={({ pressed }) => [
+              styles.mealRow,
+              index === 0 && styles.mealRowFirst,
+              pressed && styles.mealRowPressed,
+            ]}
+            onPress={() => onEntryPress(dayKey)}
             accessibilityRole="button"
-            accessibilityLabel={`Open nutrition for ${entry.dayKey}`}
+            accessibilityLabel={`${row.title}, ${row.subtitle}`}
           >
-            <Text style={styles.recentDate}>{formatNutritionDayLabel(entry.dayKey)}</Text>
-            <View style={styles.recentMain}>
-              <Text style={styles.recentTitle} numberOfLines={1}>
-                {entry.title}
+            <View style={styles.mealTextCol}>
+              <Text style={styles.mealTitle} numberOfLines={2}>
+                {row.title}
               </Text>
-              <Text style={styles.recentMeta} numberOfLines={1}>
-                {entry.metaLine}
+              <Text style={styles.mealMeta} numberOfLines={1}>
+                {row.subtitle}
               </Text>
             </View>
+            {row.kcalLabel != null ? (
+              <Text style={styles.kcal} numberOfLines={1}>
+                {row.kcalLabel}
+              </Text>
+            ) : null}
           </Pressable>
         ))
+      ) : hasDayRollup ? (
+        <View style={styles.messageBlock} accessibilityRole="text" testID="nutrition-recent-syncing">
+          <Text style={styles.messageTitle}>Meal list syncing</Text>
+          <Text style={styles.messageBody}>Your totals are updated. Foods will appear shortly.</Text>
+        </View>
+      ) : (
+        <View style={styles.messageBlock} accessibilityRole="text" testID="nutrition-recent-empty">
+          <Text style={styles.messageTitle}>No meals logged yet</Text>
+          <Text style={styles.messageBody}>Tap + to log your first meal.</Text>
+        </View>
       )}
     </View>
   );
@@ -82,22 +94,58 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 15,
+    gap: 11,
+    ...elevatedCardSurfaceStyle,
   },
-  placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  recentRow: {
+  messageBlock: { gap: 6 },
+  messageTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#3C3C43",
+    letterSpacing: -0.1,
+  },
+  messageBody: {
+    fontSize: 15,
+    fontWeight: "400",
+    color: "#8E8E93",
+    lineHeight: 21,
+    letterSpacing: -0.1,
+  },
+  mealRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
     paddingVertical: 12,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#E5E5EA",
+    minHeight: 56,
   },
-  recentRowPressed: {
-    opacity: 0.7,
+  mealRowFirst: {
+    borderTopWidth: 0,
+    paddingTop: 4,
   },
-  recentDate: { width: 84, fontSize: 13, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
-  recentMain: { flex: 1, gap: 2 },
-  recentTitle: { fontSize: 15, fontWeight: "500", color: "#1C1C1E", letterSpacing: -0.2 },
-  recentMeta: { fontSize: 12, fontWeight: "400", color: "#AEAEB2", letterSpacing: -0.05 },
+  mealRowPressed: { opacity: 0.72 },
+  mealTextCol: { flex: 1, minWidth: 0, gap: 4 },
+  mealTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.28,
+    lineHeight: 21,
+  },
+  mealMeta: {
+    fontSize: 13,
+    fontWeight: "400",
+    color: "#8E8E93",
+    letterSpacing: -0.08,
+  },
+  kcal: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    letterSpacing: -0.2,
+    fontVariant: ["tabular-nums"],
+  },
 });

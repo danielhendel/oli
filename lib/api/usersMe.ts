@@ -3,6 +3,7 @@ import type { ApiResult } from "@/lib/api/http";
 import type { PostOptions } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
 import { apiGetZodAuthed } from "@/lib/api/validate";
+import { apiPutZodAuthed } from "@/lib/api/validate";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 import {
   manualStrengthWorkoutIdempotencyKey,
@@ -12,6 +13,7 @@ import {
   manualNutritionIdempotencyKey,
   type ManualNutritionPayload,
 } from "@/lib/events/manualNutrition";
+import { trackedMealNutritionIdempotencyKey } from "@/lib/nutrition/trackedMealNutritionPayload";
 import {
   buildWorkoutTitleOverridePayload,
   workoutTitleOverrideIdempotencyKey,
@@ -68,6 +70,12 @@ import {
   type WorkoutMonthSummariesResponseDto,
   type WorkoutMonthSummariesRebuildResponseDto,
   type WorkoutMonthSummariesRebuildRangeResponseDto,
+  nutritionFoodSearchResponseDtoSchema,
+  nutritionFoodDetailResponseDtoSchema,
+  type NutritionFoodSearchResponseDto,
+  type NutritionFoodDetailResponseDto,
+  nutritionMetaDtoSchema,
+  type NutritionMetaDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -152,6 +160,91 @@ export const logNutrition = async (
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualNutritionIdempotencyKey(payload),
+  });
+};
+
+/**
+ * Tracked meal (search / barcode) — same POST /ingest nutrition path with meal-scoped idempotency.
+ */
+export const logTrackedMealNutrition = async (
+  payload: ManualNutritionPayload,
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
+  const ingestBody = {
+    provider: "manual" as const,
+    kind: "nutrition" as const,
+    observedAt: payload.start,
+    sourceId: "manual",
+    timeZone: payload.timezone,
+    payload,
+  };
+
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey: trackedMealNutritionIdempotencyKey(payload),
+  });
+};
+
+export const searchNutritionFoods = async (
+  query: string,
+  idToken: string,
+): Promise<ApiResult<NutritionFoodSearchResponseDto>> => {
+  const q = query.trim();
+  const path =
+    q.length === 0
+      ? "/users/me/nutrition/food-search"
+      : `/users/me/nutrition/food-search?q=${encodeURIComponent(q)}`;
+  return apiGetZodAuthed(path, idToken, nutritionFoodSearchResponseDtoSchema, {
+    noStore: true,
+  });
+};
+
+export const getNutritionFoodDetail = async (
+  foodId: string,
+  idToken: string,
+): Promise<ApiResult<NutritionFoodDetailResponseDto>> => {
+  const id = foodId.trim();
+  if (!id) {
+    return { ok: false, status: 400, kind: "unknown", error: "foodId is required", requestId: null };
+  }
+  return apiGetZodAuthed(
+    `/users/me/nutrition/food/${encodeURIComponent(id)}`,
+    idToken,
+    nutritionFoodDetailResponseDtoSchema,
+    { noStore: true },
+  );
+};
+
+export const getNutritionFoodByBarcode = async (
+  barcode: string,
+  idToken: string,
+): Promise<ApiResult<NutritionFoodDetailResponseDto>> => {
+  const b = barcode.trim();
+  if (!b) {
+    return { ok: false, status: 400, kind: "unknown", error: "barcode is required", requestId: null };
+  }
+  return apiGetZodAuthed(
+    `/users/me/nutrition/food-by-barcode/${encodeURIComponent(b)}`,
+    idToken,
+    nutritionFoodDetailResponseDtoSchema,
+    { noStore: true },
+  );
+};
+
+export const getNutritionMeta = async (
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<NutritionMetaDto>> => {
+  return apiGetZodAuthed("/users/me/nutrition-meta", idToken, nutritionMetaDtoSchema, truthGetOpts(opts));
+};
+
+export const putNutritionMeta = async (
+  body: NutritionMetaDto,
+  idToken: string,
+): Promise<ApiResult<NutritionMetaDto>> => {
+  return apiPutZodAuthed("/users/me/nutrition-meta", body, idToken, nutritionMetaDtoSchema, {
+    noStore: true,
   });
 };
 

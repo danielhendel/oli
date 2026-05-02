@@ -6,6 +6,7 @@ type LogPayload = Record<string, unknown>;
 
 export const logger = {
   info: (o: LogPayload) => console.log(JSON.stringify({ level: "info", ...o })),
+  warn: (o: LogPayload) => console.warn(JSON.stringify({ level: "warn", ...o })),
   error: (o: LogPayload) => console.error(JSON.stringify({ level: "error", ...o })),
 };
 

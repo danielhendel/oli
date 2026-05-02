@@ -33,7 +33,7 @@ export function buildNutritionMacroSummaryBarModel(fields: NutritionLogFormField
     fields.fiberG.trim() !== "";
   return {
     headline: hasAny ? "Day draft (in progress)" : "Day draft",
-    detail: hasAny ? "Finish required macros to save." : "Use Quick Add, Build Meal, or Recent to enter totals.",
+    detail: hasAny ? "Finish required macros to save." : "Enter calories and macros above, then tap Save day.",
     isReadyToSave: false,
   };
 }

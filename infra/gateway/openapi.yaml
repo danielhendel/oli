@@ -29,14 +29,8 @@ x-google-backend:
   # ESPv2 will mint a Google ID token for this audience when calling the backend.
   jwt_audience: https://oli-api-1010034434203.us-central1.run.app
 
+# Firebase ID token (Authorization: Bearer <JWT>). No API key security scheme.
 securityDefinitions:
-  # Satisfies API Gateway "API-consuming project" requirements.
-  # This does NOT change auth behavior unless referenced in "security".
-  api_key:
-    type: apiKey
-    name: key
-    in: query
-
   firebase:
     authorizationUrl: ""
     flow: implicit
@@ -463,6 +457,116 @@ paths:
           description: No snapshot in requested or fallback window
         500:
           description: Server Error
+
+  /users/me/nutrition/food-search:
+    options:
+      operationId: nutritionFoodSearchOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionFoodSearchGet
+      security:
+        - firebase: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          type: string
+      responses:
+        200:
+          description: Food search results (dev catalog or proxied provider)
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+
+  /users/me/nutrition/food/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+        description: Dev catalog food id (path segment; no protobuf-style inference)
+    options:
+      operationId: nutritionFoodDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionFoodDetailGet
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Food detail
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+
+  /users/me/nutrition/food-by-barcode/{barcode}:
+    parameters:
+      - name: barcode
+        in: path
+        required: true
+        type: string
+        description: Product barcode (path segment; no protobuf-style inference)
+    options:
+      operationId: nutritionFoodBarcodeOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionFoodBarcodeGet
+      security:
+        - firebase: []
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Food matched to barcode
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+
+  /users/me/nutrition-meta:
+    options:
+      operationId: nutritionMetaOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionMetaGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Nutrition UI metadata (recents, favorites)
+        401:
+          description: Unauthorized
+    put:
+      operationId: nutritionMetaPut
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Updated nutrition metadata
+        400:
+          description: Bad Request
+        401:
+          description: Unauthorized
 
   /users/me/insights:
     options:

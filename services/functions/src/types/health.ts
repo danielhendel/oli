@@ -301,6 +301,19 @@ export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
 
   /** Optional fiber total */
   fiberG?: number | null;
+
+  /** Oli taxonomy: per-meal vs whole-day aggregate manual entry. */
+  logScope?: "day_aggregate" | "meal";
+
+  sugarG?: number | null;
+  sodiumMg?: number | null;
+  potassiumMg?: number | null;
+
+  /** Deterministic fingerprint for UX/dedupe (optional on legacy rows). */
+  foodHash?: string | null;
+
+  /** Optional eating occasion for tracked meals. */
+  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack" | null;
 }
 
 /**
@@ -424,6 +437,33 @@ export interface DailyNutritionFacts {
   carbsG?: number;
   fatG?: number;
   fiberG?: number;
+  sugarG?: number;
+  sodiumMg?: number;
+  potassiumMg?: number;
+  /** Count of canonical nutrition events with `logScope === "meal"`. */
+  mealCount?: number;
+  /** Same as mealCount for now (reserved for future partial-day drafts). */
+  loggedMealCount?: number;
+  firstMealAt?: IsoDateTimeString;
+  lastMealAt?: IsoDateTimeString;
+
+  /** Calorie share from protein (Atwater 4 kcal/g). */
+  proteinRatio?: number;
+  /** Calorie share from carbs (Atwater 4 kcal/g). */
+  carbRatio?: number;
+  /** Calorie share from fat (Atwater 9 kcal/g). */
+  fatRatio?: number;
+  /** Hours between first and last meal anchors (meal-scoped events only). */
+  mealTimingSpread?: number;
+  /**
+   * 0–100: higher when calories are spread across multiple meals vs one dominant meal.
+   * Deterministic; single meal or non-meal aggregates → 100.
+   */
+  calorieDistributionScore?: number;
+  /**
+   * 0–100: higher when macro calorie shares are closer to reference 25% P / 45% C / 30% F.
+   */
+  macroBalanceScore?: number;
 }
 
 /**

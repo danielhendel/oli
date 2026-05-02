@@ -237,6 +237,17 @@ const buildNutritionFacts = (events: CanonicalEvent[]): DailyNutritionFacts | un
   let fatG = 0;
   let fiberSum = 0;
   let haveFiber = false;
+  let sugarSum = 0;
+  let haveSugar = false;
+  let sodiumSum = 0;
+  let haveSodium = false;
+  let potassiumSum = 0;
+  let havePotassium = false;
+
+  let mealCount = 0;
+  let firstMealAt: string | undefined;
+  let lastMealAt: string | undefined;
+  const mealScoped: NutritionCanonicalEvent[] = [];
 
   for (const e of nutritionEvents) {
     totalKcal += e.totalKcal;
@@ -247,7 +258,33 @@ const buildNutritionFacts = (events: CanonicalEvent[]): DailyNutritionFacts | un
       fiberSum += e.fiberG;
       haveFiber = true;
     }
+    if (typeof e.sugarG === 'number' && Number.isFinite(e.sugarG)) {
+      sugarSum += e.sugarG;
+      haveSugar = true;
+    }
+    if (typeof e.sodiumMg === 'number' && Number.isFinite(e.sodiumMg)) {
+      sodiumSum += e.sodiumMg;
+      haveSodium = true;
+    }
+    if (typeof e.potassiumMg === 'number' && Number.isFinite(e.potassiumMg)) {
+      potassiumSum += e.potassiumMg;
+      havePotassium = true;
+    }
+
+    if (e.logScope === 'meal') {
+      mealCount += 1;
+      mealScoped.push(e);
+      const anchor = e.start;
+      if (firstMealAt === undefined || anchor < firstMealAt) {
+        firstMealAt = anchor;
+      }
+      if (lastMealAt === undefined || anchor > lastMealAt) {
+        lastMealAt = anchor;
+      }
+    }
   }
+
+  const round4 = (n: number): number => Math.round(n * 10000) / 10000;
 
   const facts: DailyNutritionFacts = {
     totalKcal,
@@ -257,6 +294,56 @@ const buildNutritionFacts = (events: CanonicalEvent[]): DailyNutritionFacts | un
   };
   if (haveFiber) {
     facts.fiberG = fiberSum;
+  }
+  if (haveSugar) {
+    facts.sugarG = sugarSum;
+  }
+  if (haveSodium) {
+    facts.sodiumMg = sodiumSum;
+  }
+  if (havePotassium) {
+    facts.potassiumMg = potassiumSum;
+  }
+  if (mealCount > 0) {
+    facts.mealCount = mealCount;
+    facts.loggedMealCount = mealCount;
+    if (firstMealAt !== undefined) {
+      facts.firstMealAt = firstMealAt;
+    }
+    if (lastMealAt !== undefined) {
+      facts.lastMealAt = lastMealAt;
+    }
+  }
+
+  if (totalKcal > 0) {
+    const pR = round4((4 * proteinG) / totalKcal);
+    const cR = round4((4 * carbsG) / totalKcal);
+    const fR = round4((9 * fatG) / totalKcal);
+    facts.proteinRatio = pR;
+    facts.carbRatio = cR;
+    facts.fatRatio = fR;
+    const dev = Math.abs(pR - 0.25) + Math.abs(cR - 0.45) + Math.abs(fR - 0.3);
+    facts.macroBalanceScore = Math.max(0, Math.min(100, Math.round(100 - 50 * dev)));
+  }
+
+  if (mealScoped.length >= 2 && firstMealAt !== undefined && lastMealAt !== undefined) {
+    const spreadMs = Date.parse(lastMealAt) - Date.parse(firstMealAt);
+    if (Number.isFinite(spreadMs) && spreadMs >= 0) {
+      facts.mealTimingSpread = round4(spreadMs / 3_600_000);
+    }
+  }
+
+  if (mealScoped.length >= 2 && totalKcal > 0) {
+    let maxK = 0;
+    for (const m of mealScoped) {
+      if (m.totalKcal > maxK) maxK = m.totalKcal;
+    }
+    facts.calorieDistributionScore = Math.max(
+      0,
+      Math.min(100, Math.round(100 * (1 - maxK / totalKcal))),
+    );
+  } else {
+    facts.calorieDistributionScore = 100;
   }
 
   return facts;

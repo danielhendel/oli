@@ -25,6 +25,8 @@ export type UseRawEventsArgs = {
   q?: string;
   cursor?: string;
   limit?: number;
+  /** When true, list rows include `payload` (see GET /users/me/raw-events). */
+  includePayload?: boolean;
 };
 
 export function useRawEvents(
@@ -111,6 +113,7 @@ export function useRawEvents(
     args.q,
     args.cursor,
     args.limit,
+    args.includePayload,
     enabled,
     user?.uid,
   ]);

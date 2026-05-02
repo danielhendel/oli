@@ -32,9 +32,10 @@ export type UseEventsArgs = {
 
 export function useEvents(
   args: UseEventsArgs,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; degradeHttpErrorsToEmpty?: boolean },
 ): State & { refetch: (opts?: GetOptions) => void } {
   const enabled = options?.enabled ?? true;
+  const degradeHttpErrorsToEmpty = options?.degradeHttpErrorsToEmpty ?? false;
   const { user, initializing, getIdToken } = useAuth();
 
   const argsRef = useRef(args);
@@ -87,6 +88,19 @@ export function useEvents(
       const res = await getEvents(token, args);
       if (seq !== reqSeq.current) return;
 
+      if (
+        degradeHttpErrorsToEmpty &&
+        !res.ok &&
+        res.kind === "http" &&
+        res.status >= 500 &&
+        res.status <= 599
+      ) {
+        const empty = { items: [], nextCursor: null };
+        setEventsCached(cacheKey, empty);
+        safeSet({ status: "ready", data: empty, fromCache: false });
+        return;
+      }
+
       const outcome = truthOutcomeFromApiResult(res);
 
       if (outcome.status === "ready") {
@@ -111,7 +125,7 @@ export function useEvents(
 
       safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId, reason: outcome.reason });
     },
-    [getIdToken, initializing, user],
+    [getIdToken, initializing, user, degradeHttpErrorsToEmpty],
   );
 
   useEffect(() => {

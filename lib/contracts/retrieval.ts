@@ -274,7 +274,8 @@ export const canonicalEventsListQuerySchema = z
       .optional()
       .transform((v) => (v ? v.split(",").map((k) => k.trim()).filter(Boolean) : undefined)),
     cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(100).default(50),
+    /** Nutrition analytics / range scans may request up to 500 rows per page. */
+    limit: z.coerce.number().int().min(1).max(500).default(50),
   })
   .strip();
 

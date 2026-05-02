@@ -6,6 +6,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { useNutritionOutboxSync } from "../lib/hooks/useNutritionOutboxSync";
 import { ActivityRollupProvider } from "../lib/data/activity/ActivityRollupProvider";
 import { useAppleHealthForcedYesterdayFinalize } from "../lib/data/activity/useAppleHealthForcedYesterdayFinalize";
 import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
@@ -13,6 +14,11 @@ import { UserProfileMainProvider } from "../lib/data/profile/useUserProfileMain"
 
 function AppleHealthForcedYesterdayFinalizeRunner() {
   useAppleHealthForcedYesterdayFinalize();
+  return null;
+}
+
+function NutritionOutboxSyncRunner() {
+  useNutritionOutboxSync();
   return null;
 }
 
@@ -53,6 +59,7 @@ export default function RootLayout() {
             <UserProfileMainProvider>
               <StatusBar style="auto" />
               <AppleHealthForcedYesterdayFinalizeRunner />
+              <NutritionOutboxSyncRunner />
               <RouteGuard />
               <Stack screenOptions={{ headerShown: false }}>
                 {/* Auth flow */}

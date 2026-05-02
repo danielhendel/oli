@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Phase 3A — Create new API Gateway config from repo openapi and update gateway to use it.
+# Create a new API Gateway config from repo infra/gateway/openapi.yaml and point oli-gateway at it.
+# Use this for any OpenAPI change (nutrition routes, ingest paths, etc.), not only Withings.
 # Preflight: gcloud project oli-staging-fdbba; gateway oli-gateway exists in us-central1.
 set -euo pipefail
 

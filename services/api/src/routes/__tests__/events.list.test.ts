@@ -5,6 +5,7 @@ import { AddressInfo } from "net";
 
 import usersMeRoutes from "../usersMe";
 import { userCollection } from "../../db";
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -82,5 +83,44 @@ describe("GET /users/me/events", () => {
   test("invalid query param fails closed with 400", async () => {
     const res = await fetch(`${baseUrl}/users/me/events?limit=99999`);
     expect(res.status).toBe(400);
+  });
+
+  test("accepts limit=500 for nutrition range queries", async () => {
+    const q = createMockQuery([]);
+    (userCollection as jest.Mock).mockReturnValue({
+      ...q,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+
+    const res = await fetch(
+      `${baseUrl}/users/me/events?kinds=nutrition&limit=500&start=2026-01-01&end=2026-05-01`,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items).toEqual([]);
+    expect(json.nextCursor).toBeNull();
+  });
+
+  test("returns 200 with empty items when Firestore query fails (e.g. missing index)", async () => {
+    allowConsoleForThisTest({ error: [/events_list_firestore_query_failed/] });
+    const q = {
+      orderBy: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      startAfter: jest.fn().mockReturnThis(),
+      get: jest.fn().mockRejectedValue(new Error("FAILED_PRECONDITION: index")),
+    };
+    (userCollection as jest.Mock).mockReturnValue({
+      ...q,
+      doc: () => ({ get: async () => ({ exists: false }) }),
+    });
+
+    const res = await fetch(
+      `${baseUrl}/users/me/events?kinds=nutrition&limit=100&start=2025-01-01&end=2025-01-31`,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items).toEqual([]);
+    expect(json.nextCursor).toBeNull();
   });
 });

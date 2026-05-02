@@ -25,6 +25,12 @@ import {
   workoutMonthSummariesRebuildRangeResponseDtoSchema,
   isAcceptedWorkoutMonthSummaryRow,
 } from "@oli/contracts";
+import {
+  nutritionReadProviderForItem,
+  resolveNutritionFoodBarcode,
+  resolveNutritionFoodDetail,
+  resolveNutritionFoodSearch,
+} from "../lib/nutritionix/nutritionFoodReadService";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -50,6 +56,8 @@ import {
   healthSignalDocSchema,
   sleepViewDtoSchema,
   readinessViewDtoSchema,
+  nutritionFoodSearchResponseDtoSchema,
+  nutritionFoodDetailResponseDtoSchema,
   type InsightDto,
   type RawEventListItem,
 } from "../types/dtos";
@@ -1377,8 +1385,19 @@ router.get(
       }
     }
 
-    const snap = await q.get();
-    const docs = snap.docs;
+    let querySnap: FirebaseFirestore.QuerySnapshot;
+    try {
+      querySnap = await q.get();
+    } catch (err: unknown) {
+      logger.error({
+        msg: "events_list_firestore_query_failed",
+        rid: getRid(req),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      res.status(200).json({ items: [], nextCursor: null });
+      return;
+    }
+    const docs = querySnap.docs;
 
     const items: unknown[] = [];
     for (const d of docs) {
@@ -1396,8 +1415,13 @@ router.get(
           ? raw["updatedAt"]
           : toIsoFromTimestampLike(raw["updatedAt"]);
       if (!startVal || !endVal || !createdAt || !updatedAt) {
-        invalidDoc500(req, res, "events", { docId: d.id, reason: "missing timestamps" });
-        return;
+        logger.warn({
+          msg: "events_list_skip_doc",
+          rid: getRid(req),
+          docId: d.id,
+          reason: "missing_timestamps",
+        });
+        continue;
       }
       const item = {
         id: d.id,
@@ -1414,11 +1438,13 @@ router.get(
       };
       const validated = canonicalEventListItemSchema.safeParse(item);
       if (!validated.success) {
-        invalidDoc500(req, res, "events", {
+        logger.warn({
+          msg: "events_list_skip_doc",
+          rid: getRid(req),
           docId: d.id,
           issues: validated.error.flatten(),
         });
-        return;
+        continue;
       }
       items.push(validated.data);
     }
@@ -2574,6 +2600,183 @@ router.get(
     const validated = labResultDtoSchema.safeParse(normalized);
     if (!validated.success) {
       invalidDoc500(req, res, "labResults", validated.error.flatten());
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+const nutritionFoodSearchQuerySchema = z.object({
+  q: z.string().max(160).optional(),
+});
+
+const nutritionFoodIdParamsSchema = z.object({
+  id: z.string().min(1).max(256),
+});
+
+const nutritionBarcodeParamsSchema = z.object({
+  barcode: z.string().min(1).max(64),
+});
+
+router.get(
+  "/nutrition/food-search",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = nutritionFoodSearchQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const q = parsed.data.q ?? "";
+    const resolved = await resolveNutritionFoodSearch(q, { uid });
+    if ("ok" in resolved) {
+      const configured = resolved.code === "NUTRITIONIX_NOT_CONFIGURED";
+      res.status(503).json({
+        ok: false,
+        error: {
+          code: "NUTRITION_PROVIDER_UNAVAILABLE",
+          message: configured
+            ? "Nutrition food search is not configured for this environment."
+            : "Nutrition provider is temporarily unavailable.",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+    const body = {
+      schemaVersion: 1 as const,
+      provider: resolved.provider,
+      items: resolved.items,
+    };
+    const validated = nutritionFoodSearchResponseDtoSchema.safeParse(body);
+    if (!validated.success) {
+      res.status(500).json({
+        ok: false,
+        error: {
+          code: "INTERNAL_CONTRACT_MISMATCH",
+          message: "Nutrition food search response failed contract validation",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+router.get(
+  "/nutrition/food/:id",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedParams = nutritionFoodIdParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_PARAMS",
+          message: "Invalid route params",
+          details: parsedParams.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const item = await resolveNutritionFoodDetail(parsedParams.data.id, { uid });
+    if (!item) {
+      res.status(404).json({
+        ok: false,
+        error: { code: "NOT_FOUND", resource: "nutritionFood", id: parsedParams.data.id, requestId: getRid(req) },
+      });
+      return;
+    }
+
+    const body = {
+      schemaVersion: 1 as const,
+      provider: nutritionReadProviderForItem(item),
+      ...item,
+    };
+    const validated = nutritionFoodDetailResponseDtoSchema.safeParse(body);
+    if (!validated.success) {
+      res.status(500).json({
+        ok: false,
+        error: {
+          code: "INTERNAL_CONTRACT_MISMATCH",
+          message: "Nutrition food detail response failed contract validation",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    res.status(200).json(validated.data);
+  }),
+);
+
+router.get(
+  "/nutrition/food-by-barcode/:barcode",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedParams = nutritionBarcodeParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_PARAMS",
+          message: "Invalid route params",
+          details: parsedParams.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const item = await resolveNutritionFoodBarcode(parsedParams.data.barcode, { uid });
+    if (!item) {
+      res.status(404).json({
+        ok: false,
+        error: {
+          code: "NOT_FOUND",
+          resource: "nutritionFoodBarcode",
+          barcode: parsedParams.data.barcode,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const body = {
+      schemaVersion: 1 as const,
+      provider: nutritionReadProviderForItem(item),
+      ...item,
+    };
+    const validated = nutritionFoodDetailResponseDtoSchema.safeParse(body);
+    if (!validated.success) {
+      res.status(500).json({
+        ok: false,
+        error: {
+          code: "INTERNAL_CONTRACT_MISMATCH",
+          message: "Nutrition food barcode response failed contract validation",
+          requestId: getRid(req),
+        },
+      });
       return;
     }
 

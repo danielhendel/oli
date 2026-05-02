@@ -1,6 +1,6 @@
-import type { CanonicalEventListItem } from "@oli/contracts";
+import type { CanonicalEventListItem, RawEventListItem } from "@oli/contracts";
 import { buildNutritionTodayCardModel } from "../nutritionTodayCardModel";
-import { buildNutritionRecentCardModel } from "../nutritionRecentCardModel";
+import { buildNutritionRecentMealRowsFromRaw } from "../nutritionRecentCardModel";
 import { buildNutritionWeeklyStripMeta } from "../nutritionWeeklyStripMeta";
 import {
   buildNutritionWeeklyInsightsModel,
@@ -41,16 +41,81 @@ describe("buildNutritionTodayCardModel", () => {
   });
 });
 
-describe("buildNutritionRecentCardModel", () => {
+function rawNutrition(args: {
+  id: string;
+  observedAt: string;
+  payload?: Record<string, unknown>;
+}): RawEventListItem {
+  const { id, observedAt } = args;
+  const payload = {
+    start: observedAt,
+    end: observedAt,
+    timezone: "UTC",
+    totalKcal: 100,
+    proteinG: 10,
+    carbsG: 10,
+    fatG: 5,
+    ...args.payload,
+  };
+  return {
+    id,
+    userId: "u1",
+    sourceId: "manual",
+    kind: "nutrition",
+    observedAt,
+    receivedAt: observedAt,
+    schemaVersion: 1,
+    payload,
+  };
+}
+
+describe("buildNutritionRecentMealRowsFromRaw", () => {
   it("sorts newest first and caps limit", () => {
-    const items = [
-      ev({ id: "a", kind: "nutrition", day: "2026-03-01", start: "2026-03-01T10:00:00.000Z" }),
-      ev({ id: "b", kind: "nutrition", day: "2026-03-02", start: "2026-03-02T10:00:00.000Z" }),
-      ev({ id: "c", kind: "strength_workout", day: "2026-03-02", start: "2026-03-02T12:00:00.000Z" }),
+    const items: RawEventListItem[] = [
+      rawNutrition({
+        id: "a",
+        observedAt: "2026-03-01T10:00:00.000Z",
+        payload: { foodLabel: "Apple" },
+      }),
+      rawNutrition({
+        id: "b",
+        observedAt: "2026-03-02T10:00:00.000Z",
+        payload: {
+          totalKcal: 200,
+          proteinG: 20,
+          carbsG: 20,
+          fatG: 10,
+          foodLabel: "Chicken breast grilled",
+        },
+      }),
     ];
-    const m = buildNutritionRecentCardModel(items, 1);
-    expect(m.entries).toHaveLength(1);
-    expect(m.entries[0]?.id).toBe("b");
+    const rows = buildNutritionRecentMealRowsFromRaw(items, 1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).toBe("b");
+    expect(rows[0]?.title).toContain("Chicken");
+  });
+
+  it("uses food label when present", () => {
+    const rows = buildNutritionRecentMealRowsFromRaw(
+      [
+        rawNutrition({
+          id: "x",
+          observedAt: "2026-03-02T12:00:00.000Z",
+          payload: {
+            totalKcal: 250,
+            proteinG: 30,
+            carbsG: 0,
+            fatG: 5,
+            foodLabel: "Chicken breast grilled",
+            mealSlot: "lunch",
+          },
+        }),
+      ],
+      3,
+    );
+    expect(rows[0]?.title).toBe("Chicken breast grilled");
+    expect(rows[0]?.kcalLabel).toBe("250 kcal");
+    expect(rows[0]?.subtitle.toLowerCase()).toContain("lunch");
   });
 });
 

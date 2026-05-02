@@ -64,7 +64,7 @@ export function ErrorState({
     <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
       <Text style={styles.errorTitle}>{displayTitle}</Text>
       <Text style={styles.errorMessage}>{displayMessage}</Text>
-      {requestId ? (
+      {__DEV__ && requestId ? (
         <Text style={styles.requestId}>Request ID: {requestId}</Text>
       ) : null}
       {onRetry ? (

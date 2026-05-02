@@ -58,14 +58,17 @@ export type UseNutritionLoggingScreenStateResult = {
   applyRecentItem: (item: NutritionRecentLoggingItem) => void;
 };
 
-export function useNutritionLoggingScreenState(dayKey: DayKey): UseNutritionLoggingScreenStateResult {
+export function useNutritionLoggingScreenState(
+  dayKey: DayKey,
+  initialMode: NutritionLoggingMode = "quick",
+): UseNutritionLoggingScreenStateResult {
   const { user } = useAuth();
   const uid = user?.uid ?? "";
 
   const { status, errorMessage, requestId, fieldErrors: hookFieldErrors, submit, resetStatus } =
     useNutritionLogSubmit(dayKey);
 
-  const [mode, setMode] = useState<NutritionLoggingMode>("quick");
+  const [mode, setMode] = useState<NutritionLoggingMode>(initialMode);
   const [draft, setDraft] = useState<NutritionLogFormFields>(emptyDraft);
   const [touched, setTouched] = useState<Partial<Record<keyof NutritionLogFormFields, boolean>>>({});
   const [saveAttempted, setSaveAttempted] = useState(false);
@@ -85,10 +88,10 @@ export function useNutritionLoggingScreenState(dayKey: DayKey): UseNutritionLogg
     setDraft(emptyDraft);
     setTouched({});
     setSaveAttempted(false);
-    setMode("quick");
+    setMode(initialMode);
     meal.clearMeal();
     resetStatus();
-  }, [dayKey, resetStatus, meal.clearMeal]);
+  }, [dayKey, initialMode, resetStatus, meal.clearMeal]);
 
   const validation = useMemo(() => validateNutritionLogForm(draft), [draft]);
   const canSubmit = validation.ok && status !== "submitting";

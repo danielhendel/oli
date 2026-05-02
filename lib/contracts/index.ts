@@ -60,3 +60,9 @@ export * from "./ouraVendor";
 
 // Oli Sleep Score v1 (derived from DailyFacts.sleep)
 export * from "./oliSleepScore";
+
+// Nutrition — read surfaces (food search proxy; dev catalog)
+export * from "./nutritionFoodSearch";
+
+// Nutrition — user preferences (recent/favorites)
+export * from "./nutritionMeta";

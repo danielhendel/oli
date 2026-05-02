@@ -12,6 +12,11 @@ export type ModuleScreenShellProps = {
   headerContent?: React.ReactNode;
   /** Passed to ScrollView (e.g. RefreshControl). */
   refreshControl?: React.ReactElement<RefreshControlProps>;
+  /**
+   * When false, body is a plain View (use when children include their own vertical VirtualizedList).
+   * Avoids nesting FlatList inside ScrollView.
+   */
+  bodyScrollEnabled?: boolean;
   children: React.ReactNode;
 };
 
@@ -22,8 +27,13 @@ export function ModuleScreenShell({
   compactHeader = false,
   headerContent,
   refreshControl,
+  bodyScrollEnabled = true,
   children,
 }: ModuleScreenShellProps) {
+  const body = (
+    <View style={[styles.content, !bodyScrollEnabled && styles.contentFlex]}>{children}</View>
+  );
+
   return (
     <View style={styles.root}>
       {(!hideTitleChrome || headerContent) && (
@@ -38,14 +48,21 @@ export function ModuleScreenShell({
         </View>
       )}
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.container}
-        alwaysBounceVertical={Boolean(refreshControl)}
-        {...(refreshControl ? { refreshControl } : {})}
-      >
-        <View style={styles.content}>{children}</View>
-      </ScrollView>
+      {bodyScrollEnabled ? (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.container}
+          alwaysBounceVertical={Boolean(refreshControl)}
+          {...(refreshControl ? { refreshControl } : {})}
+        >
+          {body}
+        </ScrollView>
+      ) : (
+        <View style={[styles.scroll, styles.bodyNoScroll]}>
+          {/* Pull-to-refresh with bodyScrollEnabled=false is unsupported — attach RefreshControl to the inner list instead. */}
+          <View style={[styles.container, styles.containerFlexGrow]}>{body}</View>
+        </View>
+      )}
     </View>
   );
 }
@@ -53,6 +70,19 @@ export function ModuleScreenShell({
 const styles = StyleSheet.create({
   scroll: {
     backgroundColor: "#F2F2F7",
+  },
+  bodyNoScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  containerFlexGrow: {
+    flexGrow: 1,
+    flex: 1,
+    minHeight: 0,
+  },
+  contentFlex: {
+    flex: 1,
+    minHeight: 0,
   },
   root: {
     flex: 1,
