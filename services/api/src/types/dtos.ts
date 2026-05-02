@@ -67,3 +67,16 @@ export {
   readinessViewDtoSchema,
 } from "@oli/contracts/ouraVendor";
 export type { SleepViewDto, ReadinessViewDto } from "@oli/contracts/ouraVendor";
+
+// Nutrition — dev food catalog read surface (GET /users/me/nutrition/*)
+export {
+  nutritionFoodSearchResponseDtoSchema,
+  nutritionFoodDetailResponseDtoSchema,
+} from "@oli/contracts/nutritionFoodSearch";
+export type {
+  NutritionFoodSearchResponseDto,
+  NutritionFoodDetailResponseDto,
+} from "@oli/contracts/nutritionFoodSearch";
+
+export { nutritionMetaDtoSchema } from "@oli/contracts/nutritionMeta";
+export type { NutritionMetaDto } from "@oli/contracts/nutritionMeta";

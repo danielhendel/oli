@@ -25,9 +25,7 @@ export function NutritionQuickAddCard({
   const fiberIndex = quickVm.macroRows.length;
   return (
     <View style={styles.stack}>
-      <Text style={styles.lede}>
-        Enter calories and macros for this day. Totals are saved as one nutrition entry.
-      </Text>
+      <Text style={styles.lede}>Enter calories and macros for this day.</Text>
 
       <View style={styles.group}>
         <Text style={styles.groupTitle} accessibilityRole="header">

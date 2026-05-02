@@ -42,7 +42,13 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     // NUTRITION
     case "nutrition.overview":
       return READY;
+    case "nutrition.library":
+      return READY;
     case "nutrition.log":
+      return READY;
+    case "nutrition.search":
+      return READY;
+    case "nutrition.scan":
       return READY;
     case "nutrition.targets":
       return READY;

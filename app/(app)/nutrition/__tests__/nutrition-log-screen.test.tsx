@@ -1,8 +1,13 @@
 /**
- * Nutrition log: thin screen wires day key + shell + logging state hook.
+ * Nutrition Quick Add (log): standalone macro entry — no library hub chrome.
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaProvider: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -23,7 +28,7 @@ jest.mock("@/lib/hooks/useNutritionLoggingScreenState", () => ({
       fatG: "",
       fiberG: "",
     },
-    canSubmit: false,
+    canSubmit: true,
     status: "idle" as const,
     errorMessage: null,
     requestId: null,
@@ -51,10 +56,6 @@ jest.mock("@/lib/hooks/useNutritionLoggingScreenState", () => ({
   }),
 }));
 
-jest.mock("@/lib/ui/nutrition/NutritionLogEntryShell", () => ({
-  NutritionLogEntryShell: () => null,
-}));
-
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({ day: "2026-03-15" }),
@@ -66,12 +67,37 @@ jest.mock("expo-router", () => ({
 
 import NutritionLogScreen from "../log";
 
-describe("NutritionLogScreen", () => {
-  it("renders without throwing", async () => {
+function flattenJson(node: unknown): string {
+  return JSON.stringify(node);
+}
+
+describe("NutritionLogScreen (Quick Add)", () => {
+  it("does not render hub / library navigation chrome", async () => {
     let tree: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<NutritionLogScreen />);
     });
-    expect(tree!.toJSON()).toBeNull();
+    const flat = flattenJson(tree!.toJSON());
+    expect(flat).not.toMatch(/Food library/i);
+    expect(flat).not.toContain("Build Meal");
+    expect(flat).not.toContain("Recent");
+    expect(flat).not.toMatch(/Search food/i);
+    expect(flat).not.toMatch(/Scan barcode/i);
+    expect(flat).not.toContain("Log nutrition");
+  });
+
+  it("renders helper copy, macro labels, and Save day", async () => {
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<NutritionLogScreen />);
+    });
+    const flat = flattenJson(tree!.toJSON());
+    expect(flat).toContain("Enter calories and macros for this day.");
+    expect(flat).toContain("Calories");
+    expect(flat).toContain("Protein");
+    expect(flat).toContain("Carbs");
+    expect(flat).toContain("Fat");
+    expect(flat).toContain("Fiber");
+    expect(flat).toContain("Save day");
   });
 });

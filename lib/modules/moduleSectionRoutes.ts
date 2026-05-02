@@ -33,7 +33,10 @@ export const MODULE_SECTIONS = [
 
   // NUTRITION
   { id: "nutrition.overview", moduleId: "nutrition", title: "Overview", href: "/(app)/nutrition/overview" },
+  { id: "nutrition.library", moduleId: "nutrition", title: "Food Library", href: "/(app)/nutrition/library" },
   { id: "nutrition.log", moduleId: "nutrition", title: "Log Nutrition", href: "/(app)/nutrition/log" },
+  { id: "nutrition.search", moduleId: "nutrition", title: "Search food", href: "/(app)/nutrition/search" },
+  { id: "nutrition.scan", moduleId: "nutrition", title: "Scan barcode", href: "/(app)/nutrition/scan" },
   { id: "nutrition.targets", moduleId: "nutrition", title: "Targets", href: "/(app)/nutrition/targets" },
 
   // RECOVERY

@@ -133,14 +133,34 @@ function redactUrlForLogs(rawUrl: string): string {
   }
 }
 
+/** When `1`, log every successful HTTP response in dev (verbose). Default: only failures/timeouts. */
+function netTraceVerboseSuccess(): boolean {
+  return process.env.EXPO_PUBLIC_NET_TRACE === "1";
+}
+
 function safeNetTraceLog(fields: Record<string, unknown>): void {
   // DEV ONLY: keep deterministic network traces without shipping logs.
   if (!__DEV__) return;
   // Silence Jest/CI to keep logs clean and deterministic.
   if (process.env.JEST_WORKER_ID) return;
+
+  const status = typeof fields.status === "number" ? fields.status : undefined;
+  const networkError =
+    typeof fields.networkError === "string" && fields.networkError.trim().length > 0;
+  const isFailure =
+    networkError || status === undefined || status < 200 || status > 299;
+  if (!isFailure && !netTraceVerboseSuccess()) return;
+
   // No secrets: url is redacted (key=REDACTED) + booleans + status + requestId.
   // eslint-disable-next-line no-console
   console.log("[NET_TRACE]", JSON.stringify(fields));
+}
+
+function debugLogBackendBaseUrlOncePerCall(baseRaw: string | undefined): void {
+  if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+  if (process.env.EXPO_PUBLIC_DEBUG_API_BASE_URL !== "1") return;
+  // eslint-disable-next-line no-console
+  console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
 }
 
 function isGatewayBaseUrl(base: string): boolean {
@@ -350,7 +370,7 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
 
 export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: GetOptions): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  debugLogBackendBaseUrlOncePerCall(baseRaw);
   if (!baseRaw) {
     return {
       ok: false,
@@ -395,7 +415,7 @@ export async function apiPostJsonAuthed<T>(
   opts?: PostOptions,
 ): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  debugLogBackendBaseUrlOncePerCall(baseRaw);
   if (!baseRaw) {
     return {
       ok: false,
@@ -443,7 +463,7 @@ export async function apiPutJsonAuthed<T>(
   opts?: PutOptions,
 ): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  debugLogBackendBaseUrlOncePerCall(baseRaw);
   if (!baseRaw) {
     return {
       ok: false,
@@ -489,7 +509,7 @@ export async function apiDeleteJsonAuthed<T>(
   opts?: DeleteOptions,
 ): Promise<ApiResult<T>> {
   const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
-  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log("DEBUG_BACKEND_BASE_URL", baseRaw);
+  debugLogBackendBaseUrlOncePerCall(baseRaw);
   if (!baseRaw) {
     return {
       ok: false,

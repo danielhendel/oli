@@ -4,6 +4,10 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: jest.fn(),
+}));
+
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
     user: { uid: "u1" },
@@ -43,7 +47,9 @@ jest.mock("@/lib/hooks/useNutritionOverviewScreenData", () => ({
       { day: "2026-03-14", meta: { hasNutrition: false } },
       { day: "2026-03-15", meta: { hasNutrition: false } },
     ],
-    recentCard: { entries: [] },
+    recentCard: { rows: [] },
+    hasDayRollup: false,
+    recentRaw: { readiness: "ready" as const, isLoading: false },
     weeklyInsights: { insights: [], fallbackMessage: "Log nutrition on more days to see week-over-week patterns." },
     todayFacts: { readiness: "ready" as const, isLoading: false },
     events: { readiness: "ready" as const, isLoading: false },
@@ -55,6 +61,7 @@ jest.mock("@/lib/hooks/useNutritionOverviewScreenData", () => ({
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useLocalSearchParams: () => ({}),
   useNavigation: () => ({
     setOptions: jest.fn(),
     goBack: jest.fn(),
@@ -71,5 +78,13 @@ describe("NutritionOverviewScreen", () => {
     });
     const json = tree!.toJSON();
     expect(json).toBeTruthy();
+  });
+
+  it("does not render Weekly Insights on overview", async () => {
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<NutritionOverviewScreen />);
+    });
+    expect(JSON.stringify(tree!.toJSON())).not.toContain("Weekly Insights");
   });
 });

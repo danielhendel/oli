@@ -1,7 +1,10 @@
 import React, { useLayoutEffect, useMemo } from "react";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import {
+  WORKOUTS_SCREEN_CONTENT_BG,
+  workoutsStackNavigationOptions,
+} from "@/lib/ui/headers/workoutsStackHeader";
 import { NutritionLogEntryShell } from "@/lib/ui/nutrition/NutritionLogEntryShell";
 import { useNutritionLoggingScreenState } from "@/lib/hooks/useNutritionLoggingScreenState";
 import { isValidDayKey } from "@/lib/ui/calendar/types";
@@ -17,24 +20,28 @@ export default function NutritionLogScreen() {
     return isValidDayKey(d) ? d : getTodayDayKeyLocal();
   }, [params.day]);
 
-  const state = useNutritionLoggingScreenState(dayKey);
+  const state = useNutritionLoggingScreenState(dayKey, "quick");
 
   useLayoutEffect(() => {
+    const base = workoutsStackNavigationOptions("detail");
     navigation.setOptions({
-      ...workoutsStackNavigationOptions("detail"),
+      ...base,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-      title: "Log nutrition",
+      title: "",
+      headerStyle: {
+        ...(base.headerStyle as Record<string, unknown>),
+        backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
+      },
     });
   }, [navigation]);
 
   return (
     <NutritionLogEntryShell
-      dayKey={dayKey}
       state={state}
       onLogged={(d) =>
         router.replace({
-          pathname: "/(app)/nutrition/day/[day]",
-          params: { day: d },
+          pathname: "/(app)/nutrition",
+          params: { logged: "1", day: d },
         })
       }
     />

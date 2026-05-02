@@ -263,6 +263,92 @@ describe('aggregateDailyFactsForDay', () => {
     expect(n.fiberG).toBe(12);
   });
 
+  it('counts meal-scoped nutrition events and rolls up optional sugars and sodium', () => {
+    const events: CanonicalEvent[] = [
+      makeNutrition({
+        id: 'meal_a',
+        start: '2025-01-01T08:00:00.000Z',
+        end: '2025-01-01T08:00:01.000Z',
+        totalKcal: 300,
+        proteinG: 20,
+        carbsG: 30,
+        fatG: 10,
+        logScope: 'meal',
+        sugarG: 8,
+        sodiumMg: 100,
+      }),
+      makeNutrition({
+        id: 'meal_b',
+        start: '2025-01-01T13:00:00.000Z',
+        end: '2025-01-01T13:00:01.000Z',
+        totalKcal: 200,
+        proteinG: 15,
+        carbsG: 20,
+        fatG: 8,
+        logScope: 'meal',
+        sugarG: 4,
+        sodiumMg: 50,
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    const n = result.nutrition!;
+    expect(n.totalKcal).toBe(500);
+    expect(n.mealCount).toBe(2);
+    expect(n.loggedMealCount).toBe(2);
+    expect(n.firstMealAt).toBe('2025-01-01T08:00:00.000Z');
+    expect(n.lastMealAt).toBe('2025-01-01T13:00:00.000Z');
+    expect(n.sugarG).toBe(12);
+    expect(n.sodiumMg).toBe(150);
+  });
+
+  it('computes nutrition V2 ratios, timing spread, and scores from canonical meal events', () => {
+    const events: CanonicalEvent[] = [
+      makeNutrition({
+        id: 'meal_a',
+        start: '2025-01-01T08:00:00.000Z',
+        end: '2025-01-01T08:00:01.000Z',
+        totalKcal: 300,
+        proteinG: 20,
+        carbsG: 30,
+        fatG: 10,
+        logScope: 'meal',
+      }),
+      makeNutrition({
+        id: 'meal_b',
+        start: '2025-01-01T13:00:00.000Z',
+        end: '2025-01-01T13:00:01.000Z',
+        totalKcal: 200,
+        proteinG: 15,
+        carbsG: 20,
+        fatG: 8,
+        logScope: 'meal',
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    const n = result.nutrition!;
+    expect(n.totalKcal).toBe(500);
+    expect(n.proteinRatio).toBe(0.28);
+    expect(n.carbRatio).toBe(0.4);
+    expect(n.fatRatio).toBe(0.324);
+    expect(n.mealTimingSpread).toBe(5);
+    expect(n.macroBalanceScore).toBe(95);
+    expect(n.calorieDistributionScore).toBe(40);
+  });
+
   it('aggregates strength facts correctly including mixed-unit volume', () => {
     const events: CanonicalEvent[] = [
       makeStrengthWorkout({

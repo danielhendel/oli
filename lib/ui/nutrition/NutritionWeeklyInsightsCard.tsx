@@ -8,6 +8,7 @@ import type {
 import type { NutritionEventsUi } from "@/lib/data/nutrition/nutritionOverviewUi";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
+import { friendlyNutritionOverviewErrorMessage } from "@/lib/ui/nutrition/nutritionOverviewErrors";
 
 type NutritionWeeklyInsightsCardProps = {
   model: NutritionWeeklyInsightsModel;
@@ -36,12 +37,14 @@ export function NutritionWeeklyInsightsCard({ model, events, onRetryEvents, onIn
         <ErrorState
           variant="inline"
           title="Could not load insights"
-          message={events.message}
+          message={friendlyNutritionOverviewErrorMessage(events.message)}
           requestId={events.requestId}
           {...(onRetryEvents != null ? { onRetry: onRetryEvents } : {})}
         />
       ) : showFallback ? (
-        <Text style={styles.fallback}>{model.fallbackMessage}</Text>
+        <Text style={styles.fallback} accessibilityRole="text">
+          Log meals for 3 days to unlock nutrition insights.
+        </Text>
       ) : (
         <View style={styles.insightList}>
           {model.insights.map((row, index) => (

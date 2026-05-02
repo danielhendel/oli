@@ -137,6 +137,16 @@ type ManualNutritionPayload = ManualWindowBase & {
   carbsG: number;
   fatG: number;
   fiberG?: number | null;
+  logScope?: "day_aggregate" | "meal";
+  nutritionIngestSource?: "manual" | "search" | "barcode";
+  externalFoodId?: string;
+  foodLabel?: string;
+  providerResponse?: Record<string, unknown>;
+  sugarG?: number | null;
+  sodiumMg?: number | null;
+  potassiumMg?: number | null;
+  foodHash?: string;
+  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack";
 };
 
 type ManualPayloadByKind = {
@@ -216,6 +226,12 @@ const isManualNutritionPayload = (value: unknown): value is ManualNutritionPaylo
   if (tk < 0 || p < 0 || c < 0 || f < 0) return false;
   if (v.fiberG !== undefined && v.fiberG !== null && typeof v.fiberG !== "number") return false;
   if (typeof v.fiberG === "number" && v.fiberG < 0) return false;
+  if (v.foodHash !== undefined && (typeof v.foodHash !== "string" || v.foodHash.length > 80))
+    return false;
+  if (v.mealSlot !== undefined) {
+    if (v.mealSlot !== "breakfast" && v.mealSlot !== "lunch" && v.mealSlot !== "dinner" && v.mealSlot !== "snack")
+      return false;
+  }
   return true;
 };
 
@@ -462,6 +478,24 @@ const mapManualNutrition = (raw: RawEvent, payload: ManualNutritionPayload): Nut
   };
   if (payload.fiberG !== undefined && payload.fiberG !== null) {
     canonical.fiberG = payload.fiberG;
+  }
+  if (payload.logScope !== undefined) {
+    canonical.logScope = payload.logScope;
+  }
+  if (payload.sugarG !== undefined && payload.sugarG !== null) {
+    canonical.sugarG = payload.sugarG;
+  }
+  if (payload.sodiumMg !== undefined && payload.sodiumMg !== null) {
+    canonical.sodiumMg = payload.sodiumMg;
+  }
+  if (payload.potassiumMg !== undefined && payload.potassiumMg !== null) {
+    canonical.potassiumMg = payload.potassiumMg;
+  }
+  if (typeof payload.foodHash === "string" && payload.foodHash.length > 0) {
+    canonical.foodHash = payload.foodHash;
+  }
+  if (payload.mealSlot !== undefined) {
+    canonical.mealSlot = payload.mealSlot;
   }
   return canonical;
 };

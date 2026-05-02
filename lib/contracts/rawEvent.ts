@@ -268,13 +268,26 @@ const manualHrvPayloadSchema = z
   })
   .strip();
 
-const manualNutritionPayloadSchema = manualWindowBaseSchema
+const nutritionLogScopeSchema = z.enum(["day_aggregate", "meal"]);
+const nutritionIngestSourceSchema = z.enum(["manual", "search", "barcode"]);
+
+export const manualNutritionPayloadSchema = manualWindowBaseSchema
   .extend({
     totalKcal: z.number().finite().nonnegative(),
     proteinG: z.number().finite().nonnegative(),
     carbsG: z.number().finite().nonnegative(),
     fatG: z.number().finite().nonnegative(),
     fiberG: z.number().finite().nonnegative().nullable().optional(),
+    logScope: nutritionLogScopeSchema.optional(),
+    nutritionIngestSource: nutritionIngestSourceSchema.optional(),
+    externalFoodId: z.string().min(1).max(256).optional(),
+    foodLabel: z.string().max(200).optional(),
+    providerResponse: z.record(z.unknown()).optional(),
+    sugarG: z.number().finite().nonnegative().nullable().optional(),
+    sodiumMg: z.number().finite().nonnegative().nullable().optional(),
+    potassiumMg: z.number().finite().nonnegative().nullable().optional(),
+    foodHash: z.string().min(1).max(80).optional(),
+    mealSlot: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
   })
   .strip();
 

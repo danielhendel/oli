@@ -44,8 +44,7 @@ const SLOT_PRIMARY_SHADOW =
 const BASE = "/(app)/nutrition" as const;
 
 /**
- * Nutrition overview dock — targets (plan), log (primary), analytics.
- * No `create` route exists in-repo for nutrition (food library deferred).
+ * Nutrition overview dock — targets (plan), food library (primary), analytics.
  */
 export function NutritionOverviewBottomNav() {
   const router = useRouter();
@@ -69,7 +68,7 @@ export function NutritionOverviewBottomNav() {
         <Pressable
           onPress={() =>
             router.push({
-              pathname: `${BASE}/log`,
+              pathname: `${BASE}/library`,
               params: { day: getTodayDayKeyLocal() },
             })
           }
@@ -80,7 +79,7 @@ export function NutritionOverviewBottomNav() {
             pressed && styles.slotPrimaryPressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Log nutrition"
+          accessibilityLabel="Open food library"
         >
           <Ionicons name="add" size={ICON} color="#FFFFFF" style={styles.addIcon} />
         </Pressable>

@@ -13,38 +13,26 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DayKey } from "@/lib/ui/calendar/types";
-import { formatNutritionLogDayHeading } from "@/lib/nutrition/nutritionLogDisplay";
 import { buildNutritionMacroSummaryBarModel } from "@/lib/data/nutrition/buildNutritionMacroSummaryBarModel";
 import { NUTRITION_LOGGING_FIELD_ORDER, type UseNutritionLoggingScreenStateResult } from "@/lib/hooks/useNutritionLoggingScreenState";
 import { useNutritionQuickAddForm } from "@/lib/hooks/useNutritionQuickAddForm";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { NutritionLoggingModeTabs } from "@/lib/ui/nutrition/NutritionLoggingModeTabs";
 import { NutritionQuickAddCard } from "@/lib/ui/nutrition/NutritionQuickAddCard";
-import { NutritionMealBuilderCard } from "@/lib/ui/nutrition/NutritionMealBuilderCard";
-import { NutritionRecentLoggingCard } from "@/lib/ui/nutrition/NutritionRecentLoggingCard";
 import { NutritionMacroSummaryBar } from "@/lib/ui/nutrition/NutritionMacroSummaryBar";
 import { NutritionLoggingSubmitBar } from "@/lib/ui/nutrition/NutritionLoggingSubmitBar";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const ACCESSORY_ID = "nutritionLogKeyboardAccessoryV2";
 
-function formatMealSubtotalLine(
-  r: UseNutritionLoggingScreenStateResult["meal"]["totalsResult"],
-): string {
-  if (!r.ok) return "—";
-  const t = r.totals;
-  if (r.isEmpty) return "0 kcal — add calories or macros to an item";
-  const fib = t.fiberG > 0 ? ` · Fi ${Math.round(t.fiberG)}` : "";
-  return `${Math.round(t.totalKcal)} kcal · P ${Math.round(t.proteinG)} · C ${Math.round(t.carbsG)} · F ${Math.round(t.fatG)}${fib}`;
-}
-
 export type NutritionLogEntryShellProps = {
-  dayKey: DayKey;
   state: UseNutritionLoggingScreenStateResult;
   onLogged: (dayKey: DayKey) => void;
 };
 
-export function NutritionLogEntryShell({ dayKey, state, onLogged }: NutritionLogEntryShellProps) {
+/**
+ * Standalone Quick Add: macro fields + optional fiber + save bar only (no library hub UI).
+ */
+export function NutritionLogEntryShell({ state, onLogged }: NutritionLogEntryShellProps) {
   const insets = useSafeAreaInsets();
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -83,17 +71,16 @@ export function NutritionLogEntryShell({ dayKey, state, onLogged }: NutritionLog
     if (r.ok) onLogged(r.dayKey);
   }, [state, onLogged]);
 
-  const heading = formatNutritionLogDayHeading(dayKey);
-  const accessoryId = state.mode === "quick" ? ACCESSORY_ID : undefined;
+  const accessoryId = ACCESSORY_ID;
 
   return (
-    <ModuleScreenShell title="Log nutrition" subtitle={heading} hideTitleChrome>
+    <ModuleScreenShell title="" hideTitleChrome bodyScrollEnabled={false}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
-        {Platform.OS === "ios" && accessoryId != null ? (
+        {Platform.OS === "ios" ? (
           <InputAccessoryView nativeID={ACCESSORY_ID}>
             <View style={styles.accessory}>
               <Pressable
@@ -130,42 +117,28 @@ export function NutritionLogEntryShell({ dayKey, state, onLogged }: NutritionLog
         <ScrollView
           style={styles.scroll}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 + insets.bottom }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 200 + insets.bottom },
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          <NutritionLoggingModeTabs mode={state.mode} onModeChange={state.setMode} />
-
-          {state.mode === "quick" ? (
-            <NutritionQuickAddCard
-              quickVm={quickVm}
-              onChangeField={state.onChangeDraftField}
-              onBlurField={state.onBlurDraftField}
-              setFocusedIndex={setFocusedIndex}
-              setRef={setRef}
-              {...(accessoryId != null ? { inputAccessoryViewID: accessoryId } : {})}
-            />
-          ) : null}
-
-          {state.mode === "meal" ? (
-            <NutritionMealBuilderCard
-              rows={state.meal.rows}
-              onAddRow={state.meal.addRow}
-              onRemoveRow={state.meal.removeRow}
-              onUpdateRow={state.meal.updateRow}
-              mealSubtotalLine={formatMealSubtotalLine(state.meal.totalsResult)}
-              onAddMealToDay={state.addMealToDay}
-            />
-          ) : null}
-
-          {state.mode === "recent" ? (
-            <NutritionRecentLoggingCard items={state.recentItems} onSelect={state.applyRecentItem} />
-          ) : null}
+          <NutritionQuickAddCard
+            quickVm={quickVm}
+            onChangeField={state.onChangeDraftField}
+            onBlurField={state.onBlurDraftField}
+            setFocusedIndex={setFocusedIndex}
+            setRef={setRef}
+            inputAccessoryViewID={accessoryId}
+          />
 
           {state.errorMessage != null ? (
             <View style={styles.errorBox} accessibilityRole="alert">
               <Text style={styles.errorTitle}>Could not save</Text>
               <Text style={styles.errorBody}>{state.errorMessage}</Text>
-              {state.requestId != null ? <Text style={styles.rid}>Request ID: {state.requestId}</Text> : null}
+              {__DEV__ && state.requestId != null ? (
+                <Text style={styles.rid}>Request ID: {state.requestId}</Text>
+              ) : null}
               <View style={styles.errorRow}>
                 <Pressable
                   onPress={() => void onRetry()}
