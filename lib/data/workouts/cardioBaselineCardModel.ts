@@ -7,14 +7,16 @@ import {
   aggregateDisplayableCardioForCalendarDays,
   averagePerWeekFromTotals,
 } from "@/lib/data/workouts/cardioRangeMetrics";
+import {
+  cardioDistanceTierFromWeeklyMiles,
+  type CardioDistanceTier,
+} from "@/lib/data/workouts/cardioSessionPresentation";
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
-import { formatCardioWeeklyDistanceAndMinutes } from "@/lib/data/workouts/cardioSessionPresentation";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import { CARDIO_WEEKLY_MILES_DISPLAY_MAX } from "@/lib/ui/workouts/cardioBaselineScale";
 
-const CARDIO_BASELINE_MAX_PROGRESS_MILES_PER_WEEK = 25;
-
-export type CardioBaselineTier = "very_low" | "low" | "active" | "high" | "very_high";
+export type CardioBaselineTier = CardioDistanceTier;
 
 export type CardioBaselineCardModelReady = {
   kind: "ready";
@@ -27,21 +29,11 @@ export type CardioBaselineCardModelReady = {
   formattedAverageMilesPerWeek: string;
   formattedAverageMinutesPerWeek: string;
   headlineLabel: string;
-  /** 0..25+ display scale value (capped at 25 for progress fill). */
+  /** Display scale input for weekly miles (capped at {@link CARDIO_WEEKLY_MILES_DISPLAY_MAX} for bar geometry). */
   progressMilesPerWeekScaleValue: number;
 };
 
-export type CardioBaselineCardModel =
-  | { kind: "insufficient_data" }
-  | CardioBaselineCardModelReady;
-
-function cardioTierFromMilesPerWeek(avgMilesPerWeek: number): CardioBaselineTier {
-  if (avgMilesPerWeek <= 2.4) return "very_low";
-  if (avgMilesPerWeek <= 7.4) return "low";
-  if (avgMilesPerWeek <= 14.9) return "active";
-  if (avgMilesPerWeek <= 24.9) return "high";
-  return "very_high";
-}
+export type CardioBaselineCardModel = { kind: "insufficient_data" } | CardioBaselineCardModelReady;
 
 function formatMilesPerWeek(avgMilesPerWeek: number): string {
   return `${avgMilesPerWeek.toFixed(1)} mi/wk`;
@@ -83,15 +75,12 @@ export function buildCardioBaselineCardModel(input: {
     sessions90d,
     totalMinutes90d,
     averageMinutesPerWeek90d,
-    tier: cardioTierFromMilesPerWeek(averageMilesPerWeek90d),
+    tier: cardioDistanceTierFromWeeklyMiles(averageMilesPerWeek90d),
     formattedAverageMilesPerWeek: formatMilesPerWeek(averageMilesPerWeek90d),
     formattedAverageMinutesPerWeek: formatMinutesPerWeek(averageMinutesPerWeek90d),
-    headlineLabel: formatCardioWeeklyDistanceAndMinutes({
-      averageMilesPerWeek: averageMilesPerWeek90d,
-      averageMinutesPerWeek: averageMinutesPerWeek90d,
-    }),
+    headlineLabel: `${averageMilesPerWeek90d.toFixed(1)} mi per week`,
     progressMilesPerWeekScaleValue: Math.min(
-      CARDIO_BASELINE_MAX_PROGRESS_MILES_PER_WEEK,
+      CARDIO_WEEKLY_MILES_DISPLAY_MAX,
       Math.max(0, averageMilesPerWeek90d),
     ),
   };

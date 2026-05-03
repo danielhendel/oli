@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { CardioBaselineCardModel } from "@/lib/data/workouts/cardioBaselineCardModel";
+import { cardioDistanceTierIndexForBar, cardioDistanceTierLabel } from "@/lib/data/workouts/cardioSessionPresentation";
 import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
 import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
 import { LoadingState } from "@/lib/ui/ScreenStates";
@@ -9,36 +10,23 @@ import { StrengthBaselineFrequencyTrack } from "@/lib/ui/workouts/StrengthBaseli
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { cardioBaselineMilesToVisualScale01 } from "@/lib/ui/workouts/cardioBaselineScale";
+import {
+  CARDIO_BASELINE_MARKER_VALUES_MILES,
+  cardioBaselineMilesToVisualScale01,
+} from "@/lib/ui/workouts/cardioBaselineScale";
 
 const CARDIO_BASELINE_CARD_DEFINITION_SENTENCE =
   "Your typical weekly cardio distance based on the past 90 days";
-const CARDIO_BASELINE_MARKERS = ["0", "2.5", "7.5", "15", "25"] as const;
 
 type CardioBaselineCardProps = {
   loading: boolean;
   model: CardioBaselineCardModel | null;
 };
 
-function tierLabel(tier: "very_low" | "low" | "active" | "high" | "very_high"): string {
-  if (tier === "very_low") return "Very Low";
-  if (tier === "very_high") return "Very High";
-  if (tier === "low") return "Low";
-  if (tier === "active") return "Active";
-  return "High";
-}
-
-function tierIndex(tier: "very_low" | "low" | "active" | "high" | "very_high"): number {
-  if (tier === "very_low") return 0;
-  if (tier === "low") return 1;
-  if (tier === "active") return 2;
-  if (tier === "high") return 3;
-  return 4;
-}
-
 export function CardioBaselineCard({ loading, model }: CardioBaselineCardProps) {
   const isReady = model?.kind === "ready";
-  const activeTierIndex = isReady ? tierIndex(model.tier) : 0;
+  const activeTierIndex =
+    isReady ? cardioDistanceTierIndexForBar(model.tier) : 0;
   const tierChrome = ACTIVITY_STEP_RATING_TIERS[activeTierIndex]!;
   const fillWidth01 =
     isReady && Number.isFinite(model.progressMilesPerWeekScaleValue)
@@ -53,7 +41,7 @@ export function CardioBaselineCard({ loading, model }: CardioBaselineCardProps) 
           <Text style={styles.cardTitle}>Cardio Baseline</Text>
           {!loading ? (
             <ActivityRatingPill
-              label={isReady ? tierLabel(model.tier) : "Insufficient data"}
+              label={isReady ? cardioDistanceTierLabel(model.tier) : "Insufficient data"}
               color={tierChrome.color}
               backgroundColor={tierChrome.backgroundColor}
               emphasis="subtle"
@@ -84,10 +72,12 @@ export function CardioBaselineCard({ loading, model }: CardioBaselineCardProps) 
             }}
           />
           <View style={styles.markerRow} testID="cardio-baseline-frequency-markers">
-            {CARDIO_BASELINE_MARKERS.map((label) => (
-              <Text key={label} style={styles.markerLabel}>
-                {label}
-              </Text>
+            {CARDIO_BASELINE_MARKER_VALUES_MILES.map((m, i, arr) => (
+              <View key={`${m}-${i}`} style={styles.markerCell}>
+                <Text style={styles.markerLabel} numberOfLines={1}>
+                  {i === arr.length - 1 ? "40+" : String(m)}
+                </Text>
+              </View>
             ))}
           </View>
         </View>
@@ -138,7 +128,12 @@ const styles = StyleSheet.create({
   },
   markerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    width: "100%",
+    alignItems: "flex-start",
+  },
+  markerCell: {
+    flex: 1,
+    minWidth: 0,
     alignItems: "center",
   },
   markerLabel: {
@@ -146,6 +141,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#636366",
     letterSpacing: -0.08,
+    textAlign: "center",
   },
   footerCaption: {
     fontSize: 14,

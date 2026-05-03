@@ -64,3 +64,19 @@ export function mergeTodayDetailsWithBaselineDelta(
     deltaFromBaselineLabel,
   };
 }
+
+/**
+ * Signed steps delta vs a baseline mean (e.g. 90-day activity baseline), for compact row UI.
+ * Returns `null` when baseline is unknown (omitted in UI).
+ */
+export function formatSignedBaselineDelta(
+  daySteps: number,
+  baselineMeanSteps: number | null,
+): string | null {
+  if (baselineMeanSteps == null || !Number.isFinite(baselineMeanSteps)) return null;
+  const d = Math.round(daySteps) - Math.round(baselineMeanSteps);
+  const abs = Math.abs(d).toLocaleString();
+  if (d > 0) return `+${abs}`;
+  if (d < 0) return `-${abs}`;
+  return "0";
+}

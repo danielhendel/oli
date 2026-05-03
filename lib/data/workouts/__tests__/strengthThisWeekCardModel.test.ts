@@ -5,9 +5,10 @@ import {
   buildStrengthThisWeekCardModel,
   formatStrengthLastWeekSessionsMicroCaption,
   formatStrengthThisWeekSessionsMicroCaption,
+  formatStrengthThisWeekSessionsSummaryLine,
   formatStrengthThisWeekWorkoutCountLine,
 } from "../strengthThisWeekCardModel";
-import { strengthWeeklyFrequencyRatingLabelFromBucket } from "@/lib/utils/strengthWeeklyFrequencyRating";
+import { strengthWeeklyFrequencyRatingLabelFromTierBand } from "@/lib/utils/strengthWeeklyFrequencyRating";
 
 describe("formatStrengthThisWeekWorkoutCountLine", () => {
   it("uses singular for 1 and plural otherwise", () => {
@@ -23,6 +24,20 @@ describe("formatStrengthThisWeekSessionsMicroCaption", () => {
     expect(formatStrengthThisWeekSessionsMicroCaption(0)).toBe("0 sessions this week");
     expect(formatStrengthThisWeekSessionsMicroCaption(1)).toBe("1 session this week");
     expect(formatStrengthThisWeekSessionsMicroCaption(2)).toBe("2 sessions this week");
+  });
+});
+
+describe("formatStrengthThisWeekSessionsSummaryLine", () => {
+  it("includes sessions and total minutes when duration aggregate exists", () => {
+    expect(formatStrengthThisWeekSessionsSummaryLine(5, 250)).toBe(
+      "5 sessions and 250 minutes completed this week",
+    );
+    expect(formatStrengthThisWeekSessionsSummaryLine(1, 1)).toBe("1 session and 1 minute completed this week");
+  });
+
+  it("falls back to sessions-only copy when minutes are unknown", () => {
+    expect(formatStrengthThisWeekSessionsSummaryLine(5, null)).toBe("5 sessions completed this week");
+    expect(formatStrengthThisWeekSessionsSummaryLine(1, null)).toBe("1 session completed this week");
   });
 });
 
@@ -73,6 +88,7 @@ describe("buildStrengthLastWeekCardModel", () => {
     });
     expect(m.totalWorkoutsThisWeek).toBe(2);
     expect(m.compactValuePrimary).toBe("2 workouts");
+    expect(m.totalStrengthMinutesThisWeek).toBe(60);
   });
 
   it("matches This Week ladder for weekly session totals", () => {
@@ -88,7 +104,7 @@ describe("buildStrengthLastWeekCardModel", () => {
       lastWeekEndDay: lastWeekEnd,
     });
     expect(m.totalWorkoutsThisWeek).toBe(3);
-    expect(m.ratingLabel).toBe(strengthWeeklyFrequencyRatingLabelFromBucket(3));
+    expect(m.ratingLabel).toBe(strengthWeeklyFrequencyRatingLabelFromTierBand(3));
   });
 });
 
@@ -158,7 +174,7 @@ describe("buildStrengthThisWeekCardModel", () => {
       weekEndDay: weekEnd,
     });
     expect(m.totalWorkoutsThisWeek).toBe(3);
-    expect(m.ratingLabel).toBe(strengthWeeklyFrequencyRatingLabelFromBucket(3));
+    expect(m.ratingLabel).toBe(strengthWeeklyFrequencyRatingLabelFromTierBand(3));
     expect(m.fillWidth01Override).toBeCloseTo(3 / 7, 10);
   });
 
@@ -184,5 +200,21 @@ describe("buildStrengthThisWeekCardModel", () => {
       weekEndDay: weekEnd,
     });
     expect(m.footerSupportCaption).toBe(STRENGTH_THIS_WEEK_FOOTER_NO_TODAY);
+  });
+
+  it("aggregates session.durationMinutes once per reconciled session for weekly minutes", () => {
+    const days = [
+      strengthWorkout("a", weekStart),
+      strengthWorkout("b", "2026-04-01"),
+      strengthWorkout("c", "2026-04-02"),
+    ];
+    const m = buildStrengthThisWeekCardModel({
+      strengthCalendarDays: days,
+      todayDayKey: today,
+      weekStartDay: weekStart,
+      weekEndDay: weekEnd,
+    });
+    expect(m.totalWorkoutsThisWeek).toBe(3);
+    expect(m.totalStrengthMinutesThisWeek).toBe(90);
   });
 });

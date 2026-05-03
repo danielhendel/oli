@@ -36,6 +36,8 @@ type StrengthFrequencyMetricCardProps = {
   titleRowTrailing?: React.ReactNode;
   /** Optional muted subtitle below the title row (e.g. “N sessions this week”). */
   mutedMicroCaption?: string | null;
+  /** Stronger secondary body text (Strength This Week summary line). */
+  mutedCaptionEmphasis?: boolean;
   /** Tighter horizontal gap between heading and rating pill (embedded This Week). */
   compactTitlePillSpacing?: boolean;
 };
@@ -81,6 +83,7 @@ export function StrengthFrequencyMetricCard({
   showFrequencyTrack = true,
   titleRowTrailing,
   mutedMicroCaption = null,
+  mutedCaptionEmphasis = false,
   compactTitlePillSpacing = false,
 }: StrengthFrequencyMetricCardProps) {
   const primary = model?.compactValuePrimary ?? null;
@@ -150,7 +153,11 @@ export function StrengthFrequencyMetricCard({
     showMutedMicro ? (
       <View style={styles.headingSummaryStack} accessible accessibilityRole="header" accessibilityLabel={titleRowA11y}>
         {titleRowEl}
-        {!loading ? <Text style={styles.mutedMicroCaption}>{microTrimmed}</Text> : null}
+        {!loading ? (
+          <Text style={mutedCaptionEmphasis ? styles.emphasizedSecondaryCaption : styles.mutedMicroCaption}>
+            {microTrimmed}
+          </Text>
+        ) : null}
       </View>
     ) : (
       titleRowEl
@@ -213,6 +220,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.06,
     alignSelf: "flex-start",
   },
+  emphasizedSecondaryCaption: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: "#6E6E73",
+    letterSpacing: -0.15,
+    alignSelf: "flex-start",
+  },
   activityDetailsMetricBlock: {
     gap: 10,
   },
@@ -252,12 +267,12 @@ const styles = StyleSheet.create({
     ...strengthMetricCardTitleTextStyle,
   },
   primaryValueFigure: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
     color: "#1C1C1E",
-    letterSpacing: -0.28,
+    letterSpacing: -0.26,
     flexShrink: 1,
     textAlign: "right",
   },

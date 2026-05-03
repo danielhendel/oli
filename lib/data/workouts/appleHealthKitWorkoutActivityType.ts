@@ -9,6 +9,37 @@ import { formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
  */
 export const HK_WORKOUT_ACTIVITY_TYPE_OTHER = 3000;
 
+/** {@link https://developer.apple.com/documentation/healthkit/hkworkoutactivitytype/running} — used for outdoor, indoor/treadmill, and Watch “Indoor Run” (same enum; indoor vs outdoor is not a separate activityId). */
+export const HK_WORKOUT_ACTIVITY_TYPE_RUNNING = 37;
+export const HK_WORKOUT_ACTIVITY_TYPE_WALKING = 52;
+
+/**
+ * HealthKit types that should present as “Running” in cardio modality (includes wheelchair run pace).
+ * Indoor Run on Apple Watch uses {@link HK_WORKOUT_ACTIVITY_TYPE_RUNNING} (37), not a distinct id.
+ */
+export const HK_WORKOUT_ACTIVITY_IDS_RUNNING_FAMILY: readonly number[] = [
+  HK_WORKOUT_ACTIVITY_TYPE_RUNNING,
+  71, // WheelchairRunPace
+];
+
+export const HK_WORKOUT_ACTIVITY_IDS_WALKING_FAMILY: readonly number[] = [
+  HK_WORKOUT_ACTIVITY_TYPE_WALKING,
+  70, // WheelchairWalkPace
+];
+
+const RUNNING_ID_SET = new Set(HK_WORKOUT_ACTIVITY_IDS_RUNNING_FAMILY);
+const WALKING_ID_SET = new Set(HK_WORKOUT_ACTIVITY_IDS_WALKING_FAMILY);
+
+export function hkActivityIdIsRunningFamily(activityId: number | null | undefined): boolean {
+  if (activityId == null || !Number.isFinite(activityId)) return false;
+  return RUNNING_ID_SET.has(Math.trunc(activityId));
+}
+
+export function hkActivityIdIsWalkingFamily(activityId: number | null | undefined): boolean {
+  if (activityId == null || !Number.isFinite(activityId)) return false;
+  return WALKING_ID_SET.has(Math.trunc(activityId));
+}
+
 /** PascalCase names match Apple's enum identifiers for {@link formatWorkoutTitle}. */
 const HK_WORKOUT_ACTIVITY_ID_TO_ENUM_NAME: Record<number, string> = {
   1: "AmericanFootball",

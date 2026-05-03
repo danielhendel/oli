@@ -1,6 +1,8 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet, type RefreshControlProps } from "react-native";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 export type ModuleScreenShellProps = {
   title: string;
   subtitle?: string;
@@ -69,7 +71,7 @@ export function ModuleScreenShell({
 
 const styles = StyleSheet.create({
   scroll: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   bodyNoScroll: {
     flex: 1,
@@ -86,7 +88,7 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   container: {
     flexGrow: 1,
@@ -96,7 +98,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   header: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_SCREEN_BG,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,

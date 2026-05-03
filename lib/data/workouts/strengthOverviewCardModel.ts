@@ -19,7 +19,10 @@ import {
   sessionMatchesOverviewStrengthTab,
   type WorkoutCalendarDayLike,
 } from "@/lib/data/workouts/workoutsCalendarModel";
-import { reconcileWorkoutSessionsForDay, type ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import {
+  reconcileWorkoutSessionsForDay,
+  type ReconciledWorkoutSession,
+} from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { ManualWorkoutDaySummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 import {
   strengthOverviewTimeframeConsistencyRating,
@@ -94,12 +97,15 @@ export function computeStrengthThisWeekWindowMetrics(input: {
   avgWorkoutsPerWeek: number | null;
   /** Denominator used for avg (≥1 when week slice is valid). */
   elapsedCalendarDaysForAvg: number;
+  /** Sum of `durationMinutes` per strength-tab session in the week slice; null when no session reports duration. */
+  totalStrengthMinutesAggregated: number | null;
 } {
   const sortedDays = [...input.strengthCalendarDays].sort((a, b) =>
     a.day < b.day ? -1 : a.day > b.day ? 1 : 0,
   );
   const weekDays = filterWorkoutCalendarDaysInclusive(sortedDays, input.weekStartDay, input.weekEndDay);
   const weekSessions = collectStrengthOverviewTabSessions(weekDays);
+  const totalStrengthMinutesAggregated = aggregateStrengthSessionMinutesFromSessions(weekSessions);
   const weekCoverageEnd = maxDayKey(input.weekStartDay, minDayKey(input.todayDayKey, input.weekEndDay));
   const weekElapsedDays =
     weekCoverageEnd < input.weekStartDay ? 0 : enumerateDaysInclusive(input.weekStartDay, weekCoverageEnd).length;
@@ -109,6 +115,7 @@ export function computeStrengthThisWeekWindowMetrics(input: {
     totalWorkouts: weekMetrics.totalWorkouts,
     avgWorkoutsPerWeek: weekMetrics.avgWorkoutsPerWeek,
     elapsedCalendarDaysForAvg: weekElapsedForMetrics,
+    totalStrengthMinutesAggregated,
   };
 }
 
@@ -141,6 +148,21 @@ function metricsForSessions(
     totalWorkouts,
     avgWorkoutsPerWeek: computeAvgPerWeekFromTotals(totalWorkouts, elapsedCalendarDays),
   };
+}
+
+/** Sum positive `session.durationMinutes` once per reconciled strength-tab session (no workout double-count). */
+export function aggregateStrengthSessionMinutesFromSessions(
+  sessions: readonly ReconciledWorkoutSession[],
+): number | null {
+  let sum = 0;
+  let any = false;
+  for (const s of sessions) {
+    if (typeof s.durationMinutes === "number" && Number.isFinite(s.durationMinutes) && s.durationMinutes > 0) {
+      sum += Math.round(s.durationMinutes);
+      any = true;
+    }
+  }
+  return any ? sum : null;
 }
 
 function elapsedDaysInCurrentMonthThroughToday(todayDayKey: DayKey): number {

@@ -66,6 +66,22 @@ export default function AppLayout() {
             name="activity/settings"
             options={{ title: "Activity settings", ...workoutsStackNavigationOptions("detail") }}
           />
+          <Stack.Screen
+            name="activity/activity-range-explainer"
+            options={{
+              title: "Activity Ranges",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+          <Stack.Screen
+            name="activity/history"
+            options={{ title: "Activity history", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="activity/analytics"
+            options={{ title: "Activity analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
 
           {/* Keep native headers for the rest */}
           <Stack.Screen
@@ -159,6 +175,14 @@ export default function AppLayout() {
             options={{ title: "Strength analytics", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="workouts/strength-range-explainer"
+            options={{
+              title: "Strength Ranges",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+          <Stack.Screen
             name="workouts/recent-workouts-full"
             options={{ title: "All strength workouts", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -201,6 +225,14 @@ export default function AppLayout() {
           <Stack.Screen
             name="cardio/analytics-detail"
             options={{ title: "Cardio analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="cardio/cardio-range-explainer"
+            options={{
+              title: "Cardio Ranges",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
           />
           <Stack.Screen
             name="cardio/recent-workouts-full"

@@ -1,6 +1,5 @@
 /**
- * Strength overview main body: Baseline, This Week + Strength history summary;
- * analytics detail charts stay off this screen.
+ * Strength overview main body: Today, This Week, Strength Baseline frequency table (formerly history card).
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
@@ -169,6 +168,8 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+import { STRENGTH_BASELINE_CARD_EXPLAINER_COPY } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
+
 import StrengthTrainingOverviewScreen from "../overview";
 
 describe("Strength overview main layout", () => {
@@ -177,29 +178,37 @@ describe("Strength overview main layout", () => {
     workoutsOverviewExpoMocks().setOptions.mockClear();
   });
 
-  it("renders Strength Baseline, This Week, and Strength history summary", async () => {
+  it("renders Today card first, then This Week, then Strength Baseline table (no standalone baseline card)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    const iBaseline = json.indexOf('"Strength Baseline"');
+    const iTodayCard = json.indexOf("strength-today-card");
     const iThisWeek = json.indexOf('"This Week"');
-    const iHistory7 = json.indexOf('"7 Day"');
-    expect(iBaseline).toBeGreaterThan(-1);
+    const iBaselineCard = json.indexOf("strength-history-summary-card");
+    const iBaselineHeading = json.indexOf('"Strength Baseline"');
+    expect(iTodayCard).toBeGreaterThan(-1);
+    expect(iBaselineCard).toBeGreaterThan(-1);
     expect(iThisWeek).toBeGreaterThan(-1);
-    expect(iHistory7).toBeGreaterThan(-1);
+    expect(iBaselineHeading).toBeGreaterThan(-1);
+    expect(json).not.toContain("strength-baseline-card-nav");
     expect(json).not.toContain("strength-this-week-frequency-bar");
     expect(json).not.toContain('"Overview"');
     expect(json).not.toContain('"Recent Workouts"');
-    expect(iBaseline).toBeLessThan(iThisWeek);
-    expect(iThisWeek).toBeLessThan(iHistory7);
+    expect(iTodayCard).toBeLessThan(iThisWeek);
+    expect(iThisWeek).toBeLessThan(iBaselineCard);
     expect(json).not.toContain("Last Week");
+    expect(json).not.toContain("14 Day");
+    expect(json).not.toContain("This Month");
+    expect(json).toContain("7 Day");
     expect(json).toContain("30 Day");
+    expect(json).toContain("90 Day");
     expect(json).toContain("YTD");
     expect(json).toContain("12 Month");
-    expect(json).toContain("strength-history-summary-card");
-    expect(json).toContain("wo");
+    expect(json).toContain("per week");
+    expect(json).not.toContain("workouts/wk");
+    expect(json).not.toContain("minutes completed this week");
     expect(json).not.toContain("Weekly Insights");
     expect(json).not.toContain("Weekly Strength");
     expect(json).not.toContain("Weekly Muscle Group");
@@ -207,7 +216,49 @@ describe("Strength overview main layout", () => {
     expect(json).not.toContain("Yearly Workouts");
     expect(json).toContain("This Week");
     expect(json).not.toContain("No workout logged today");
-    expect((json.match(/strength-baseline-frequency-markers/g) ?? []).length).toBe(1);
+    expect(json).toContain("No workout today");
+    expect(json).toContain("strength-history-progress-thisWeek");
+    expect(json).toContain("View More →");
+    expect(json).not.toContain("Plan workout");
+    expect(json).not.toContain("Log workout");
+    expect(json).not.toContain("Create workout");
+    expect(json).toContain(STRENGTH_BASELINE_CARD_EXPLAINER_COPY);
+    expect(json).toContain("strength-history-summary-view-more");
+    expect(json).toContain("View All →");
+    expect(json).not.toContain("strength-baseline-frequency-legend");
+  });
+
+  it("Strength Baseline tier pill opens strength range explainer with params", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const { push } = workoutsOverviewExpoMocks();
+    const pill = tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" });
+    await act(async () => {
+      pill.props.onPress();
+    });
+    expect(push).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/strength-range-explainer",
+      params: expect.objectContaining({
+        window: "7 Day",
+        tierBand: expect.any(String),
+        tierLabel: expect.any(String),
+      }),
+    });
+  });
+
+  it("Strength Baseline View More navigates to Strength Analytics", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const { push } = workoutsOverviewExpoMocks();
+    const viewMore = tree.root.findByProps({ testID: "strength-history-summary-view-more" });
+    await act(async () => {
+      viewMore.props.onPress();
+    });
+    expect(push).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
   });
 
   it("overflow opens Strength settings route (dedicated settings, not in-popup menu)", async () => {
@@ -231,18 +282,6 @@ describe("Strength overview main layout", () => {
     });
     expect(push).toHaveBeenCalledWith("/(app)/workouts/settings");
     void tree;
-  });
-
-  it("pressing Strength Baseline navigates to Strength Analytics (analytics-detail)", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
-    });
-    const baselineNav = tree.root.findByProps({ testID: "strength-baseline-card-nav" });
-    await act(async () => {
-      baselineNav.props.onPress();
-    });
-    expect(workoutsOverviewExpoMocks().push).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
   });
 
   it("combined card header View More navigates to All Strength Workouts", async () => {

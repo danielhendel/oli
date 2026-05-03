@@ -3,9 +3,9 @@ import { StyleSheet, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOverviewScreenData";
-import { ACTIVITY_BASELINE_DEFINITION_SENTENCE } from "@/lib/ui/activity/activityBaselineCopy";
-import { ActivityDailyDetailsCard } from "@/lib/ui/activity/ActivityDailyDetailsCard";
-import { ActivityOverviewCard } from "@/lib/ui/activity/ActivityOverviewCard";
+import { ActivityHistorySummaryCard } from "@/lib/ui/activity/ActivityHistorySummaryCard";
+import { ActivityThisWeekCard } from "@/lib/ui/activity/ActivityThisWeekCard";
+import { ActivityTodayCard } from "@/lib/ui/activity/ActivityTodayCard";
 import { ActivityWeeklyStrip } from "@/lib/ui/activity/ActivityWeeklyStrip";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -54,8 +54,6 @@ export default function ActivityOverviewScreen() {
   }
 
   const onStripDayPress = (day: string) => {
-    // Day detail is route-driven only; do not mutate strip/overview anchor state here.
-    // Push a concrete path so the dynamic segment always matches the tapped day (avoids param merge edge cases).
     router.push(`/(app)/activity/day/${day}`);
   };
 
@@ -77,33 +75,36 @@ export default function ActivityOverviewScreen() {
         headerContent={headerStrip}
       >
         <View style={styles.pageBody}>
-          <ActivityDailyDetailsCard
-            headingTitle="Activity Baseline"
-            ratingTestID="activity-baseline-details-rating"
-            stepsBarTestID="activity-baseline-details-steps-bar"
-            loading={data.baselineDetails.loading}
-            error={data.baselineDetails.error}
-            model={data.baselineDetails.model}
-            footerCaption={ACTIVITY_BASELINE_DEFINITION_SENTENCE}
-            showBaselineStepThresholdMarkers
-          />
-          <View style={styles.cardSpacer} />
-          <ActivityDailyDetailsCard
+          <ActivityTodayCard
             loading={data.dailyDetails.loading}
             error={data.dailyDetails.error}
-            model={data.dailyDetails.model}
-            {...(data.dailyDetails.model?.deltaFromBaselineLabel != null &&
-            data.dailyDetails.model.deltaFromBaselineLabel.length > 0
-              ? { deltaLabel: data.dailyDetails.model.deltaFromBaselineLabel }
-              : {})}
+            model={data.activityTodayCardModel}
           />
           <View style={styles.cardSpacer} />
-          <ActivityOverviewCard
-            loading={data.overview.loading}
-            error={data.overview.error}
-            model={data.overview.model}
-            yesterdayRowLoading={data.overview.yesterdayRowLoading}
-            yesterdayRowError={data.overview.yesterdayRowError}
+          <ActivityThisWeekCard
+            loading={data.dailyDetails.loading}
+            model={data.activityThisWeekCardModel}
+            onPressViewAll={() => router.push("/(app)/activity/history")}
+          />
+          <View style={styles.cardSpacer} />
+          <ActivityHistorySummaryCard
+            model={data.activityHistorySummaryModel}
+            rollupAggregateError={data.rollupAggregateError}
+            onPressViewMore={() => router.push("/(app)/activity/analytics")}
+            onPressActivityRangeExplainer={(ctx) =>
+              router.push({
+                pathname: "/(app)/activity/activity-range-explainer",
+                params: {
+                  window: ctx.rowLabel,
+                  tierIndex: String(ctx.tierIndexForBar),
+                  tierLabel: ctx.tierLabel,
+                  displayValue: ctx.displayValue,
+                  ...(ctx.averageStepsPerDay != null && Number.isFinite(ctx.averageStepsPerDay)
+                    ? { avgSteps: String(Math.round(ctx.averageStepsPerDay)) }
+                    : {}),
+                },
+              })
+            }
           />
         </View>
       </ModuleScreenShell>

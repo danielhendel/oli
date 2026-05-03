@@ -10,6 +10,12 @@ import {
   installConsoleGuard,
 } from "./consoleGuard";
 
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaProvider: ({ children }: { children?: unknown }) => children,
+  SafeAreaView: ({ children }: { children?: unknown }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock("@expo/vector-icons", () => {
   const React = require("react");
   const { Text } = require("react-native");

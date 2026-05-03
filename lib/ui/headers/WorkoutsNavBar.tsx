@@ -114,8 +114,7 @@ export function WorkoutsNavBar({
 const styles = StyleSheet.create({
   wrap: {
     backgroundColor: WORKOUTS_HEADER_BAR_BG,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
+    borderBottomWidth: 0,
   },
   wrapFlush: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,

@@ -193,11 +193,11 @@ describe("Strength overview week slice list", () => {
     });
     const json = JSON.stringify(tree.toJSON());
     const iThisWeekHeading = json.indexOf('"This Week"');
-    const iHistoryHeading = json.indexOf('"7 Day"');
+    const iBaselineTable = json.indexOf("strength-history-summary-card");
     expect(iThisWeekHeading).toBeGreaterThan(-1);
-    expect(iHistoryHeading).toBeGreaterThan(-1);
+    expect(iBaselineTable).toBeGreaterThan(-1);
 
-    const thisWeekSegment = json.slice(iThisWeekHeading, iHistoryHeading);
+    const thisWeekSegment = json.slice(iThisWeekHeading, iBaselineTable);
     expect(thisWeekSegment).not.toContain("prior-week-strength");
     expect(thisWeekSegment).toContain("early-week-strength");
     expect(thisWeekSegment).toContain("later-week-strength");
@@ -210,6 +210,6 @@ describe("Strength overview week slice list", () => {
     expect(iEarly).toBeGreaterThan(-1);
     expect(iLate).toBeGreaterThan(-1);
     expect(iEarly).toBeLessThan(iLate);
-    expect(iLate).toBeLessThan(iHistoryHeading);
+    expect(iLate).toBeLessThan(iBaselineTable);
   });
 });

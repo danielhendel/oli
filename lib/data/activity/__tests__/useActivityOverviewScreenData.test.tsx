@@ -41,7 +41,6 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
 }));
 
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
-import { ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA } from "@/lib/data/activity/activityOverviewSufficiency";
 import {
   ACTIVITY_BASELINE_TRAILING_DAY_COUNT,
   ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT,
@@ -80,16 +79,15 @@ describe("useActivityOverviewScreenData", () => {
     });
   });
 
-  it("keeps overview aggregate rollup error off Today’s Steps when selected day is numeric", async () => {
+  it("keeps aggregate rollup error separate from Today’s Steps when today is numeric", async () => {
     const refetch = jest.fn();
-    const rollupByDay: Record<string, { kind: string; steps?: number; message?: string; requestId?: string | null }> =
-      {
-        "2026-04-13": { kind: "numeric", steps: 99 },
-        "2026-04-14": { kind: "numeric", steps: 148 },
-        "2026-04-01": { kind: "error", message: "fail", requestId: "r1" },
-        "2026-04-02": { kind: "error", message: "fail", requestId: "r2" },
-        "2026-04-03": { kind: "error", message: "fail", requestId: null },
-      };
+    const rollupByDay: Record<string, { kind: string; steps?: number; message?: string; requestId?: string | null }> = {
+      "2026-04-13": { kind: "numeric", steps: 99 },
+      "2026-04-14": { kind: "numeric", steps: 148 },
+      "2026-04-01": { kind: "error", message: "fail", requestId: "r1" },
+      "2026-04-02": { kind: "error", message: "fail", requestId: "r2" },
+      "2026-04-03": { kind: "error", message: "fail", requestId: null },
+    };
     mockUseActivityStepsRollupMap.mockReturnValue(mockStepsRollup(rollupByDay, { refetch }));
 
     const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
@@ -97,16 +95,15 @@ describe("useActivityOverviewScreenData", () => {
       renderer.create(<Harness probe={probe} />);
     });
 
-    expect(probe.current?.overview.error?.message).toMatch(/Couldn’t load steps for 3 days/);
+    expect(probe.current?.rollupAggregateError?.message).toMatch(/Couldn’t load steps for 3 days/);
     expect(probe.current?.dailyDetails.error).toBeNull();
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("148 steps");
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe("99 steps");
     expect(probe.current?.weeklyStripDays.find((d) => d.day === "2026-04-14")?.meta).toEqual(
       expect.objectContaining({ hasSteps: true, ringTierIndex: 0 }),
     );
   });
 
-  it("surfaces selected-day rollup error on daily details only, independent of overview aggregate", async () => {
+  it("surfaces selected-day rollup error on daily details only, independent of aggregate warning", async () => {
     const refetch = jest.fn();
     const rollupByDay = {
       "2026-04-14": { kind: "error" as const, message: "Today fetch failed", requestId: "rx" as string | null },
@@ -119,11 +116,9 @@ describe("useActivityOverviewScreenData", () => {
       renderer.create(<Harness probe={probe} />);
     });
 
-    expect(probe.current?.overview.error?.message).toMatch(/Couldn’t load steps for one day/);
+    expect(probe.current?.rollupAggregateError?.message).toMatch(/Couldn’t load steps for one day/);
     expect(probe.current?.dailyDetails.error?.message).toBe("Today fetch failed");
     expect(probe.current?.dailyDetails.model).toBeNull();
-    expect(probe.current?.overview.yesterdayRowError).toBeNull();
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe("10 steps");
   });
 
   it("prefers live HealthKit steps for Today’s Steps when the hook reports ready", async () => {
@@ -149,10 +144,10 @@ describe("useActivityOverviewScreenData", () => {
 
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("5,313 steps");
     expect(probe.current?.dailyDetails.error).toBeNull();
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe("4,200 steps");
+    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.hasEnoughData).toBe(false);
   });
 
-  it("Today’s Steps stays on live today when strip selection changes; overview uses yesterday anchor", async () => {
+  it("Today’s Steps stays on live HK when strip selection changes", async () => {
     const refetch = jest.fn();
     const rollupByDay = {
       "2026-04-13": { kind: "numeric" as const, steps: 111 },
@@ -167,8 +162,6 @@ describe("useActivityOverviewScreenData", () => {
     });
 
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("5,313 steps");
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe("111 steps");
-    expect(probe.current?.overview.model?.timeframes[1]?.label).toBe("7 Day");
 
     await act(async () => {
       probe.current?.setSelectedDay("2026-04-05");
@@ -177,10 +170,10 @@ describe("useActivityOverviewScreenData", () => {
     expect(probe.current?.selectedDay).toBe("2026-04-05");
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("5,313 steps");
     expect(probe.current?.weeklyStripDays.map((d) => d.day)).toContain("2026-04-05");
-    expect(probe.current?.overview.model).not.toBeNull();
+    expect(probe.current?.activityHistorySummaryModel).not.toBeNull();
   });
 
-  it("overview 7 Day stays on yesterday-completed window when strip day moves to the future", async () => {
+  it("Activity Baseline history 7 Day stays anchored to device today when strip day moves to the future", async () => {
     mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
       hkToday: { status: "skipped" },
       refreshHealthKitToday: jest.fn(),
@@ -192,7 +185,7 @@ describe("useActivityOverviewScreenData", () => {
     for (const d of d7) {
       rollupByDay[d] = { kind: "numeric", steps: 8000 };
     }
-    rollupByDay["2026-04-14"] = { kind: "numeric", steps: 12 };
+    rollupByDay["2026-04-14"] = { kind: "numeric", steps: 8000 };
     mockUseActivityStepsRollupMap.mockReturnValue(mockStepsRollup(rollupByDay, { refetch }));
 
     const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
@@ -200,14 +193,15 @@ describe("useActivityOverviewScreenData", () => {
       renderer.create(<Harness probe={probe} />);
     });
 
-    expect(probe.current?.overview.model?.timeframes[1]?.compactStatsSummary).toBe("8,000/day");
+    const first = probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.displayValue;
+    expect(first).toMatch(/8,000 steps\/day/);
 
     await act(async () => {
       probe.current?.setSelectedDay("2026-04-20");
     });
 
-    expect(probe.current?.overview.model?.timeframes[1]?.compactStatsSummary).toBe("8,000/day");
-    expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("12 steps");
+    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.displayValue).toBe(first);
+    expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("8,000 steps");
   });
 
   it("uses neutral weekly strip ring tier when numeric rollup is zero steps", async () => {
@@ -232,7 +226,7 @@ describe("useActivityOverviewScreenData", () => {
     );
   });
 
-  it("has no overview or daily rollup errors when map has no failures", async () => {
+  it("has no rollup aggregate or daily rollup errors when map has no failures", async () => {
     const refetch = jest.fn();
     mockUseActivityStepsRollupMap.mockReturnValue(
       mockStepsRollup(
@@ -249,14 +243,12 @@ describe("useActivityOverviewScreenData", () => {
       renderer.create(<Harness probe={probe} />);
     });
 
-    expect(probe.current?.overview.error).toBeNull();
+    expect(probe.current?.rollupAggregateError).toBeNull();
     expect(probe.current?.dailyDetails.error).toBeNull();
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("200 steps");
-    expect(probe.current?.overview.yesterdayRowError).toBeNull();
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe("150 steps");
   });
 
-  it("surfaces rollup failure for Yesterday overview row without affecting Today’s HK live row", async () => {
+  it("rollup error on a day in baseline windows yields insufficient rows without affecting Today’s HK live row", async () => {
     mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
       hkToday: { status: "ready", steps: 9999 },
       refreshHealthKitToday: jest.fn(),
@@ -278,8 +270,8 @@ describe("useActivityOverviewScreenData", () => {
     });
 
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("9,999 steps");
-    expect(probe.current?.overview.yesterdayRowError?.message).toBe("Yesterday fetch failed");
-    expect(probe.current?.overview.model?.timeframes[0]?.compactStatsSummary).toBe(ACTIVITY_OVERVIEW_NOT_ENOUGH_DATA);
+    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.hasEnoughData).toBe(false);
+    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.displayValue).toBe("—");
   });
 
   it("exposes Activity Baseline as mean over 90 days ending local yesterday; mocked today is excluded even as outlier", async () => {

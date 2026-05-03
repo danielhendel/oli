@@ -59,6 +59,7 @@ export function StrengthBaselineFrequencyMarkers() {
           {MARKER_LABELS.map((lab, i) => (
             <Text
               key={`measure-${i}`}
+              testID={`strength-baseline-marker-measure-${FREQUENCY_MARKER_VALUES[i]}`}
               style={styles.label}
               onTextLayout={(e) => {
                 const lines = e.nativeEvent.lines;

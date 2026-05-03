@@ -1,4 +1,9 @@
-import { activityTrailingNDaysInclusive, getActivityOverviewAnchorEndDay } from "@/lib/data/activity/activityOverviewRanges";
+import {
+  ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT,
+  ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT,
+  activityTrailingNDaysInclusive,
+  getActivityOverviewAnchorEndDay,
+} from "@/lib/data/activity/activityOverviewRanges";
 import {
   aggregateDisplayableCardioForInclusiveDayRange,
   averagePerWeekFromTotals,
@@ -13,11 +18,13 @@ import { cardioBaselineMilesToVisualScale01 } from "@/lib/ui/workouts/cardioBase
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { enumerateDaysInclusive } from "@/lib/ui/calendar/dateUtils";
 
-export type CardioHistoryRangeKey = "day7" | "day30" | "ytd" | "month12";
+export type CardioHistoryRangeKey = "thisWeek" | "day30" | "day90" | "ytd" | "month12";
+
+export type CardioHistorySummaryRowLabel = "7 Day" | "30 Day" | "90 Day" | "YTD" | "12 Month";
 
 export type CardioHistorySummaryRow = {
   key: CardioHistoryRangeKey;
-  label: "7 Day" | "30 Day" | "YTD" | "12 Month";
+  label: CardioHistorySummaryRowLabel;
   hasEnoughData: boolean;
   totalMiles: number | null;
   averageMilesPerWeek: number | null;
@@ -34,31 +41,19 @@ export type CardioHistorySummaryModel = {
   rows: readonly CardioHistorySummaryRow[];
 };
 
-function ytdStartFor(anchorEndDay: DayKey): DayKey {
-  return `${anchorEndDay.slice(0, 4)}-01-01` as DayKey;
+function trailingCalendarDaysThroughToday(todayDayKey: DayKey, dayCount: number): { rangeStart: DayKey; rangeEnd: DayKey } {
+  const keys = activityTrailingNDaysInclusive(todayDayKey, dayCount);
+  return { rangeStart: keys[0]!, rangeEnd: todayDayKey };
 }
 
-function formatHistoryDisplayValue(input: {
-  averageMilesPerWeek: number;
-  averageMinutesPerWeek: number;
-}): string {
-  const miles =
-    Number.isFinite(input.averageMilesPerWeek) && input.averageMilesPerWeek > 0
-      ? `${input.averageMilesPerWeek.toFixed(1)} mi`
-      : null;
-  const minutes =
-    Number.isFinite(input.averageMinutesPerWeek) && input.averageMinutesPerWeek > 0
-      ? `${Math.round(input.averageMinutesPerWeek)} min/wk`
-      : null;
-  if (miles && minutes) return `${miles} · ${minutes}`;
-  if (miles) return `${miles}/wk`;
-  if (minutes) return minutes;
-  return "—";
+function formatHistoryDisplayValue(averageMilesPerWeek: number): string {
+  if (!Number.isFinite(averageMilesPerWeek) || averageMilesPerWeek <= 0) return "—";
+  return `${averageMilesPerWeek.toFixed(1)} mi per week`;
 }
 
 function buildRow(args: {
   key: CardioHistoryRangeKey;
-  label: CardioHistorySummaryRow["label"];
+  label: CardioHistorySummaryRowLabel;
   rangeStart: DayKey;
   rangeEnd: DayKey;
   availableStart: DayKey;
@@ -86,13 +81,13 @@ function buildRow(args: {
   }
 
   const daysInRange = enumerateDaysInclusive(args.rangeStart, args.rangeEnd);
+  const dayCount = daysInRange.length;
   const totals = aggregateDisplayableCardioForInclusiveDayRange(
     args.cardioCalendarDays,
     args.rangeStart,
     args.rangeEnd,
   );
   const { totalMiles, totalMinutes } = totals;
-  const dayCount = daysInRange.length;
   const weeklyMiles = averagePerWeekFromTotals(totalMiles, dayCount);
   const weeklyMinutes = averagePerWeekFromTotals(totalMinutes, dayCount);
   const tier = cardioDistanceTierFromWeeklyMiles(weeklyMiles);
@@ -104,63 +99,82 @@ function buildRow(args: {
     averageMilesPerWeek: weeklyMiles,
     totalMinutes,
     averageMinutesPerWeek: weeklyMinutes,
-    displayValue: formatHistoryDisplayValue({
-      averageMilesPerWeek: weeklyMiles,
-      averageMinutesPerWeek: weeklyMinutes,
-    }),
+    displayValue: formatHistoryDisplayValue(weeklyMiles),
     tierLabel: cardioDistanceTierLabel(tier),
     tierIndexForBar: cardioDistanceTierIndexForBar(tier),
     progressFill01: cardioBaselineMilesToVisualScale01(weeklyMiles),
   };
 }
 
+/**
+ * Cardio overview “Baseline” table: average displayable cardio miles & minutes per week per time window.
+ * **7 Day** = trailing {@link ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT} local days through today (same rolling pattern as 30 Day).
+ * The separate Cardio “This Week” list card remains calendar-week based (workouts overview).
+ */
 export function buildCardioHistorySummaryModel(input: {
   cardioCalendarDays: readonly WorkoutCalendarDayLike[];
   todayDayKey: DayKey;
   availableRangeStart: DayKey;
   availableRangeEnd: DayKey;
 }): CardioHistorySummaryModel {
-  const anchorEnd = getActivityOverviewAnchorEndDay(input.todayDayKey);
-  const day7 = activityTrailingNDaysInclusive(anchorEnd, 7);
-  const day30 = activityTrailingNDaysInclusive(anchorEnd, 30);
-  const day365 = activityTrailingNDaysInclusive(anchorEnd, 365);
-  const ytdStart = ytdStartFor(anchorEnd);
+  const { todayDayKey, availableRangeStart: avStart, availableRangeEnd: avEnd } = input;
+
+  const day7 = trailingCalendarDaysThroughToday(todayDayKey, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT);
+  const day30 = trailingCalendarDaysThroughToday(todayDayKey, 30);
+
+  const anchorYesterday = getActivityOverviewAnchorEndDay(todayDayKey);
+  const day90Keys = activityTrailingNDaysInclusive(anchorYesterday, 90);
+  const day90 = { rangeStart: day90Keys[0]!, rangeEnd: anchorYesterday };
+
+  const ytdStart = `${todayDayKey.slice(0, 4)}-01-01` as DayKey;
+  const ytd = { rangeStart: ytdStart, rangeEnd: todayDayKey };
+
+  const day365 = trailingCalendarDaysThroughToday(todayDayKey, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT);
 
   const rows: CardioHistorySummaryRow[] = [
     buildRow({
-      key: "day7",
+      key: "thisWeek",
       label: "7 Day",
-      rangeStart: day7[0]!,
-      rangeEnd: anchorEnd,
-      availableStart: input.availableRangeStart,
-      availableEnd: input.availableRangeEnd,
+      rangeStart: day7.rangeStart,
+      rangeEnd: day7.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
       cardioCalendarDays: input.cardioCalendarDays,
     }),
     buildRow({
       key: "day30",
       label: "30 Day",
-      rangeStart: day30[0]!,
-      rangeEnd: anchorEnd,
-      availableStart: input.availableRangeStart,
-      availableEnd: input.availableRangeEnd,
+      rangeStart: day30.rangeStart,
+      rangeEnd: day30.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      cardioCalendarDays: input.cardioCalendarDays,
+    }),
+    buildRow({
+      key: "day90",
+      label: "90 Day",
+      rangeStart: day90.rangeStart,
+      rangeEnd: day90.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
       cardioCalendarDays: input.cardioCalendarDays,
     }),
     buildRow({
       key: "ytd",
       label: "YTD",
-      rangeStart: ytdStart,
-      rangeEnd: anchorEnd,
-      availableStart: input.availableRangeStart,
-      availableEnd: input.availableRangeEnd,
+      rangeStart: ytd.rangeStart,
+      rangeEnd: ytd.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
       cardioCalendarDays: input.cardioCalendarDays,
     }),
     buildRow({
       key: "month12",
       label: "12 Month",
-      rangeStart: day365[0]!,
-      rangeEnd: anchorEnd,
-      availableStart: input.availableRangeStart,
-      availableEnd: input.availableRangeEnd,
+      rangeStart: day365.rangeStart,
+      rangeEnd: day365.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
       cardioCalendarDays: input.cardioCalendarDays,
     }),
   ];

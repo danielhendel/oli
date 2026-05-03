@@ -1,6 +1,14 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, type TextStyle } from "react-native";
 
 import { UI_LINK_SECONDARY } from "@/lib/ui/theme/uiTokens";
+
+/** Matches Strength/Cardio “This Week” row third line (`overview.tsx` `recentMeta`). */
+export const RECENT_WORKOUT_ROW_META_TEXT_STYLE: TextStyle = {
+  fontSize: 13,
+  fontWeight: "400",
+  color: "#8E8E93",
+  letterSpacing: -0.08,
+};
 
 /**
  * Shared title row for Workouts Overview in-card section headers:

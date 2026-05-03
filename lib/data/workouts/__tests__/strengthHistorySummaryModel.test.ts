@@ -1,4 +1,7 @@
-import { buildStrengthHistorySummaryModel } from "../strengthHistorySummaryModel";
+import {
+  buildStrengthHistorySummaryModel,
+  formatStrengthAvgWorkoutsPerWeekDisplay,
+} from "../strengthHistorySummaryModel";
 
 function strengthWorkout(day: string, id: string, durationMinutes: number) {
   return {
@@ -19,135 +22,69 @@ function strengthWorkout(day: string, id: string, durationMinutes: number) {
   };
 }
 
-function strengthWorkoutNoDuration(day: string, id: string) {
-  return {
-    day: day as `${string}-${string}-${string}`,
-    workouts: [
-      {
-        id,
-        observedAt: `${day}T10:00:00.000Z`,
-        sourceId: "apple_health",
-        title: "Lift",
-        workoutType: "strength" as const,
-        start: `${day}T10:00:00.000Z`,
-        end: `${day}T10:30:00.000Z`,
-        durationMinutes: null,
-        calories: null,
-      },
-    ],
-  };
-}
+describe("formatStrengthAvgWorkoutsPerWeekDisplay", () => {
+  it("uses one decimal and per week suffix", () => {
+    expect(formatStrengthAvgWorkoutsPerWeekDisplay(4.375)).toBe("4.4 per week");
+  });
+});
 
 describe("buildStrengthHistorySummaryModel", () => {
-  it("builds 7/30/YTD rows with sessions and minutes per week", () => {
+  it("lists rows in product order with per-week display only (no minutes)", () => {
     const model = buildStrengthHistorySummaryModel({
       todayDayKey: "2026-03-12",
-      availableRangeStart: "2025-12-01",
-      availableRangeEnd: "2026-03-12",
+      availableRangeStart: "2025-01-01",
+      availableRangeEnd: "2026-03-15",
+      strengthCalendarDays: [strengthWorkout("2026-03-10", "a", 40)],
+    });
+    expect(model.rows.map((r) => r.label)).toEqual(["7 Day", "30 Day", "90 Day", "YTD", "12 Month"]);
+    for (const row of model.rows) {
+      if (row.hasEnoughData) {
+        expect(row.displayValue).toContain("per week");
+        expect(row.displayValue).not.toContain("min");
+      }
+    }
+  });
+
+  it("7 Day uses trailing 7 local days through today (same aggregation as 30 Day)", () => {
+    const model = buildStrengthHistorySummaryModel({
+      todayDayKey: "2026-03-12",
+      availableRangeStart: "2025-01-01",
+      availableRangeEnd: "2026-03-15",
       strengthCalendarDays: [
-        strengthWorkout("2026-03-10", "a", 40),
-        strengthWorkout("2026-03-11", "b", 30),
+        strengthWorkout("2026-03-09", "a", 30),
+        strengthWorkout("2026-03-10", "b", 30),
       ],
     });
-    const day7 = model.rows.find((row) => row.key === "day7");
-    expect(day7?.hasEnoughData).toBe(true);
-    expect(day7?.displayValue).toContain("wo ·");
-    expect(day7?.displayValue).toContain("min/wk");
-    expect(day7?.totalSessions).toBe(2);
-    expect(day7?.totalMinutes).toBe(70);
+    const row = model.rows.find((r) => r.key === "thisWeek");
+    expect(row?.label).toBe("7 Day");
+    expect(row?.hasEnoughData).toBe(true);
+    expect(row?.displayValue).toBe("2.0 per week");
   });
 
-  it("computes 30 day minutes/week correctly", () => {
+  it("5 sessions in the last 7 days average to 5.0 per week", () => {
+    const days = ["2026-03-08", "2026-03-09", "2026-03-10", "2026-03-11", "2026-03-12"];
     const model = buildStrengthHistorySummaryModel({
       todayDayKey: "2026-03-12",
       availableRangeStart: "2025-01-01",
-      availableRangeEnd: "2026-03-12",
-      strengthCalendarDays: [
-        strengthWorkout("2026-03-10", "a", 60),
-        strengthWorkout("2026-03-11", "b", 30),
-      ],
+      availableRangeEnd: "2026-03-15",
+      strengthCalendarDays: days.map((d, i) => strengthWorkout(d, `w${i}`, 30)),
     });
-    const day30 = model.rows.find((row) => row.key === "day30");
-    expect(day30?.averageMinutesPerWeek).toBeCloseTo((90 * 7) / 30, 10);
-    expect(day30?.displayValue).toBe("0.5 wo · 21 min/wk");
+    const row = model.rows.find((r) => r.key === "thisWeek");
+    expect(row?.displayValue).toBe("5.0 per week");
   });
 
-  it("does not double count merged session durations", () => {
+  it("7 Day is not tied to calendar week boundaries (single mid-week session vs partial-week extrapolation)", () => {
     const model = buildStrengthHistorySummaryModel({
       todayDayKey: "2026-03-12",
       availableRangeStart: "2025-01-01",
-      availableRangeEnd: "2026-03-12",
-      strengthCalendarDays: [
-        {
-          day: "2026-03-10",
-          workouts: [
-            {
-              id: "x1",
-              observedAt: "2026-03-10T10:00:00.000Z",
-              sourceId: "apple_health",
-              title: "Lift",
-              workoutType: "strength" as const,
-              start: "2026-03-10T10:00:00.000Z",
-              end: "2026-03-10T10:45:00.000Z",
-              durationMinutes: 45,
-              calories: null,
-            },
-            {
-              id: "x2",
-              observedAt: "2026-03-10T10:05:00.000Z",
-              sourceId: "apple_health",
-              title: "Lift",
-              workoutType: "strength" as const,
-              start: "2026-03-10T10:05:00.000Z",
-              end: "2026-03-10T10:40:00.000Z",
-              durationMinutes: 35,
-              calories: null,
-            },
-          ],
-        },
-      ],
+      availableRangeEnd: "2026-03-15",
+      strengthCalendarDays: [strengthWorkout("2026-03-09", "a", 30)],
     });
-    const day7 = model.rows.find((row) => row.key === "day7");
-    expect(day7?.totalMinutes).toBe(45);
+    const row = model.rows.find((r) => r.key === "thisWeek");
+    expect(row?.displayValue).toBe("1.0 per week");
   });
 
-  it("falls back safely when durations are missing", () => {
-    const model = buildStrengthHistorySummaryModel({
-      todayDayKey: "2026-03-12",
-      availableRangeStart: "2025-01-01",
-      availableRangeEnd: "2026-03-12",
-      strengthCalendarDays: [strengthWorkoutNoDuration("2026-03-10", "n1")],
-    });
-    const day7 = model.rows.find((row) => row.key === "day7");
-    expect(day7?.displayValue).toBe("1.0 wo/wk");
-  });
-
-  it("computes YTD minutes/week from elapsed YTD days", () => {
-    const ytdDays = [
-      "2026-01-05",
-      "2026-01-15",
-      "2026-01-25",
-      "2026-02-05",
-      "2026-02-15",
-      "2026-02-25",
-      "2026-03-05",
-      "2026-03-15",
-      "2026-03-25",
-      "2026-04-05",
-    ];
-    const model = buildStrengthHistorySummaryModel({
-      todayDayKey: "2026-05-01",
-      availableRangeStart: "2025-01-01",
-      availableRangeEnd: "2026-05-01",
-      strengthCalendarDays: ytdDays.map((day, idx) => strengthWorkout(day, `ytd-${idx}`, 120)),
-    });
-    const ytd = model.rows.find((row) => row.key === "ytd");
-    expect(ytd?.totalMinutes).toBe(1200);
-    expect(ytd?.averageMinutesPerWeek).toBeCloseTo(70, 10);
-    expect(ytd?.displayValue).toContain("70 min/wk");
-  });
-
-  it("marks 12 month as insufficient when hydrated range is short", () => {
+  it("marks 12 Month insufficient when hydrated range does not cover trailing 365", () => {
     const model = buildStrengthHistorySummaryModel({
       todayDayKey: "2026-03-12",
       availableRangeStart: "2026-01-01",
@@ -161,5 +98,17 @@ describe("buildStrengthHistorySummaryModel", () => {
       helperText: "Data will appear when enough history is available",
       progressFill01: null,
     });
+  });
+
+  it("90 Day window ends on local yesterday (baseline semantics)", () => {
+    const model = buildStrengthHistorySummaryModel({
+      todayDayKey: "2026-03-12",
+      availableRangeStart: "2025-01-01",
+      availableRangeEnd: "2026-03-15",
+      strengthCalendarDays: [],
+    });
+    const row = model.rows.find((r) => r.key === "day90");
+    expect(row?.hasEnoughData).toBe(true);
+    expect(row?.displayValue).toBe("0.0 per week");
   });
 });

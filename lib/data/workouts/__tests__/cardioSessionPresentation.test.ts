@@ -1,6 +1,9 @@
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
   cardioDistanceTierFromWeeklyMiles,
+  cardioDistanceTierIndexForBar,
+  cardioDistanceTierLabel,
+  cardioModalityLabelFromWorkout,
   filterCardioHistoryRowsDedupeOverlappingOther,
   formatCardioWeeklyDistanceAndMinutes,
   formatCardioSessionHeadline,
@@ -8,9 +11,11 @@ import {
   formatThisWeekCardioDistanceSummary,
   getThisWeekCardioSessions,
   isDisplayableCardioHistorySession,
+  pickRepresentativeWorkoutForCardioModality,
   sessionsHaveOverlappingTimeWindows,
   sumDisplayableCardioDistanceMilesForWeekEntries,
 } from "@/lib/data/workouts/cardioSessionPresentation";
+import { activityStepTierBarVisual } from "@/lib/utils/activityStepTierVisual";
 
 function cardioSession(
   id: string,
@@ -191,12 +196,110 @@ describe("cardioSessionPresentation", () => {
     expect(sessionsHaveOverlappingTimeWindows(a, b)).toBe(true);
   });
 
-  it("maps cardio tiers to requested weekly mileage boundaries", () => {
+  it("maps six-tier weekly mileage ladder including Peak (palette index 5 / Strength Peak)", () => {
     expect(cardioDistanceTierFromWeeklyMiles(2.4)).toBe("very_low");
     expect(cardioDistanceTierFromWeeklyMiles(2.5)).toBe("low");
+    expect(cardioDistanceTierFromWeeklyMiles(3.2)).toBe("low");
     expect(cardioDistanceTierFromWeeklyMiles(7.5)).toBe("active");
+    expect(cardioDistanceTierFromWeeklyMiles(10.6)).toBe("active");
     expect(cardioDistanceTierFromWeeklyMiles(15)).toBe("high");
     expect(cardioDistanceTierFromWeeklyMiles(25)).toBe("very_high");
+    expect(cardioDistanceTierFromWeeklyMiles(39)).toBe("very_high");
+    expect(cardioDistanceTierFromWeeklyMiles(40)).toBe("peak");
+    expect(cardioDistanceTierLabel("peak")).toBe("Peak");
+    expect(cardioDistanceTierIndexForBar("peak")).toBe(5);
+    const peakBar = activityStepTierBarVisual(cardioDistanceTierIndexForBar("peak"));
+    const strengthPeakBand = activityStepTierBarVisual(5);
+    expect(peakBar?.fillColor).toBe(strengthPeakBand?.fillColor);
+  });
+
+  it("uses HK Running (37) over Walking (52) when both are present; distance only tie-breaks within the same HK family", () => {
+    const base = cardioSession("mix", "2026-05-02", { title: "Cardio" });
+    base.workouts = [
+      {
+        ...base.workouts[0]!,
+        id: "w1",
+        distanceMeters: 500,
+        hk: { sourceId: "healthkit", activityId: 52 },
+        title: "Walking",
+        activityName: "Walking",
+      },
+      {
+        ...base.workouts[0]!,
+        id: "w2",
+        observedAt: "2026-05-02T11:00:00.000Z",
+        start: "2026-05-02T11:00:00.000Z",
+        end: "2026-05-02T11:30:00.000Z",
+        distanceMeters: 8000,
+        hk: { sourceId: "healthkit", activityId: 37 },
+        title: "Running",
+        activityName: "Running",
+      },
+    ];
+    expect(formatCardioSessionSubtitle(base)).toBe("Running");
+  });
+
+  /**
+   * Audit (presentation bug): merged reconciled sessions for the same calendar day can contain both
+   * a stray GPS Walking sample (`activityId` 52, higher distance) and the Watch cardio row for Indoor Run,
+   * which uses Apple’s **same** HK enum as outdoor Running (`activityId` 37 — indoor vs outdoor is not a separate id).
+   * Old logic picked max distance → Walking. Resolver must prefer HK Running family before distance.
+   */
+  it("prefers HK Running (37) over HK Walking (52) even when Walking has far more distance (Indoor Run merge)", () => {
+    const base = cardioSession("merge-428", "2026-04-28", { title: "Cardio" });
+    base.workouts = [
+      {
+        ...base.workouts[0]!,
+        id: "gps-walking-noisy",
+        distanceMeters: 20_000,
+        hk: { sourceId: "healthkit", activityId: 52 },
+        title: "Walking",
+        activityName: "Walking",
+      },
+      {
+        ...base.workouts[0]!,
+        id: "indoor-run-watch",
+        observedAt: "2026-04-28T12:00:00.000Z",
+        start: "2026-04-28T12:00:00.000Z",
+        end: "2026-04-28T12:35:00.000Z",
+        distanceMeters: 1609,
+        hk: { sourceId: "healthkit", activityId: 37 },
+        title: "Running",
+        activityName: "Running",
+      },
+    ];
+    expect(formatCardioSessionSubtitle(base)).toBe("Running");
+  });
+
+  it("matches Today + This Week: formatCardioSessionSubtitle uses pickRepresentativeWorkoutForCardioModality", () => {
+    const base = cardioSession("parity", "2026-04-29", { title: "Cardio" });
+    base.workouts = [
+      {
+        ...base.workouts[0]!,
+        id: "w",
+        distanceMeters: 50_000,
+        hk: { sourceId: "healthkit", activityId: 52 },
+      },
+      {
+        ...base.workouts[0]!,
+        id: "r",
+        distanceMeters: 100,
+        hk: { sourceId: "healthkit", activityId: 37 },
+      },
+    ];
+    const rep = pickRepresentativeWorkoutForCardioModality(base);
+    expect(rep?.id).toBe("r");
+    expect(formatCardioSessionSubtitle(base)).toBe(cardioModalityLabelFromWorkout(rep!));
+  });
+
+  it("shows Walking when HealthKit walking is the distance-primary segment", () => {
+    const s = cardioSession("w52", "2026-05-02", {
+      title: "Walking",
+      hkActivityId: 52,
+      distanceMeters: 1.33 * 1609.344,
+      durationMinutes: 26,
+    });
+    expect(formatCardioSessionSubtitle(s)).toBe("Walking");
   });
 
   it("formats this-week summary in miles", () => {
