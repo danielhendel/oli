@@ -5,9 +5,11 @@ import type { ActivityThisWeekCardModel } from "@/lib/data/activity/activityThis
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
+import { PrimaryActionBarShell } from "@/lib/ui/workouts/PrimaryActionBarShell";
+import { programPrimaryCtaBarStyles } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
-import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 export type ActivityThisWeekCardProps = {
   loading: boolean;
   model: ActivityThisWeekCardModel | null;
@@ -74,18 +76,27 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
                 accessibilityLabel={a11y}
               >
                 <Text style={styles.recentDate}>{row.dateLabel}</Text>
-                <View style={styles.mainRow}>
-                  <Text style={styles.stepsLine} numberOfLines={1}>
-                    {row.stepsDigits} steps
-                  </Text>
+                <PrimaryActionBarShell layout="row" testID="activity-this-week-day-row-bar">
+                  <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
+                    <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1}>
+                      {row.stepsDigits} steps
+                    </Text>
+                  </View>
                   {row.deltaText != null ? (
-                    <Text style={styles.deltaFigure} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">
+                    <Text
+                      style={[
+                        programPrimaryCtaBarStyles.ctaBarLabel,
+                        programPrimaryCtaBarStyles.thisWeekRowTrailingNumeric,
+                        styles.barDeltaFigure,
+                      ]}
+                      numberOfLines={1}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    >
                       {row.deltaText}
                     </Text>
-                  ) : (
-                    <View style={styles.deltaPlaceholder} />
-                  )}
-                </View>
+                  ) : null}
+                </PrimaryActionBarShell>
               </View>
             );
           })
@@ -131,33 +142,11 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: UI_TEXT_SECONDARY,
     letterSpacing: -0.08,
-    marginBottom: 6,
+    /** Match workouts overview weekday → blue row gap (`recentRowTextCol.gap` = 10). */
+    marginBottom: 10,
   },
-  mainRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  stepsLine: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 17,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
-  },
-  deltaFigure: {
-    fontSize: 17,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
-    flexShrink: 0,
+  barDeltaFigure: {
     textAlign: "right",
-    minWidth: 72,
-  },
-  deltaPlaceholder: {
     minWidth: 72,
   },
 });

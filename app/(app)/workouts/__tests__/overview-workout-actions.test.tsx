@@ -394,7 +394,7 @@ describe("overview workout actions", () => {
     expect(test.root.findByProps({ accessibilityLabel: "Edit workout type" })).toBeTruthy();
     expect(test.root.findByProps({ accessibilityLabel: "Delete workout" })).toBeTruthy();
     act(() => {
-      test.root.findByProps({ accessibilityLabel: "Close workout menu" }).props.onPress();
+      test.root.findByProps({ accessibilityLabel: "Close workout actions" }).props.onPress();
     });
     expect(test.root.findAllByProps({ accessibilityLabel: "View details" })).toHaveLength(0);
   });
