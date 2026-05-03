@@ -5,6 +5,7 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useLabResult } from "@/lib/data/useLabResult";
 import type { BiomarkerReadingDto } from "@/lib/contracts";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso);
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   },
   retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   card: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 16,
   },
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
   },
   biomarkerName: { fontSize: 15, fontWeight: "600" },

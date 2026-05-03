@@ -4,6 +4,7 @@ import type { MealFoodRow } from "@/lib/data/nutrition/buildNutritionMealBuilder
 import { sanitizeNutritionAmountInput } from "@/lib/nutrition/nutritionLogInput";
 import { NUTRITION_ACCENT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type NutritionMealBuilderCardProps = {
   rows: MealFoodRow[];
   onAddRow: () => void;
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
   stack: { gap: 16 },
   lede: { fontSize: 15, lineHeight: 22, color: "#636366", letterSpacing: -0.2 },
   group: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 14,

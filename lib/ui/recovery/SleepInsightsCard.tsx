@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 
 import type { InsightDto } from "@oli/contracts";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type Props = {
   items: InsightDto[];
 };
@@ -28,7 +29,7 @@ export function SleepInsightsCard({ items }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 20,
     paddingVertical: 20,
     paddingHorizontal: 20,

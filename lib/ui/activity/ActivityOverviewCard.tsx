@@ -19,6 +19,8 @@ import {
   stepsFromLocaleDigitString,
 } from "@/lib/utils/activityStepRating";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+
 type ActivityOverviewCardProps = {
   loading: boolean;
   error: { message: string; requestId: string | null; onRetry: () => void } | null;
@@ -178,7 +180,7 @@ export function ActivityOverviewCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,
@@ -206,7 +208,7 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 24,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.34,
   },
   rowFigure: {
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.44,
     flexShrink: 0,
   },
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
     maxWidth: "52%",
     fontSize: 15,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.12,
     textAlign: "right",
   },

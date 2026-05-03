@@ -40,7 +40,7 @@ describe("getStepRating", () => {
   it("returns color and backgroundColor from Body segment pill chrome", () => {
     const r = getStepRating(8000);
     expect(r.color).toMatch(/^#/);
-    expect(r.backgroundColor).toMatch(/^#/);
+    expect(r.backgroundColor).toMatch(/^#|^rgba\(/);
   });
 
   it("stepsFromLocaleDigitString strips grouping commas", () => {

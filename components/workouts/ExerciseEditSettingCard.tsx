@@ -1,8 +1,10 @@
+import { UI_CARD_SURFACE, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+
+
 
 export type ExerciseEditSettingCardProps = {
   /** Short field label (e.g. "Exercise name"). */
@@ -47,7 +49,7 @@ export function ExerciseEditSettingCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,

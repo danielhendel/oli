@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/profile/edit/[field].tsx — focused editors for Profile v1 fields
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -661,7 +663,7 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 17, color: "#1C1C1E" },
   listGroup: {
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     overflow: "hidden",
   },
   row: {

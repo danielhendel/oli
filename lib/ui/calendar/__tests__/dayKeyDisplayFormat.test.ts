@@ -12,6 +12,7 @@ import {
   formatDayKeyStackNavTitle,
   formatDayKeyWeekdayShortMonthDay,
   formatOverviewAsOfLabel,
+  formatWeekdayFullFromDayKey,
 } from "../dayKeyDisplayFormat";
 import * as dateUtils from "../dateUtils";
 
@@ -30,6 +31,40 @@ describe("formatDayKeyStackNavTitle", () => {
 describe("formatDayKeyWeekdayShortMonthDay", () => {
   it("formats Tue 3/31 for 2026-03-31", () => {
     expect(formatDayKeyWeekdayShortMonthDay("2026-03-31")).toBe("Tue 3/31");
+  });
+});
+
+describe("formatWeekdayFullFromDayKey", () => {
+  it("returns empty string when dayKey is not parseable", () => {
+    expect(formatWeekdayFullFromDayKey("")).toBe("");
+    expect(formatWeekdayFullFromDayKey("not-a-date")).toBe("");
+  });
+
+  it("matches Intl long weekday for UTC calendar day (locale from environment)", () => {
+    const dayKey = "2026-05-03";
+    expect(formatWeekdayFullFromDayKey(dayKey)).toBe(
+      new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" }).format(
+        new Date(`${dayKey}T12:00:00.000Z`),
+      ),
+    );
+  });
+
+  it("Sunday and Monday reference dates yield distinct labels", () => {
+    expect(formatWeekdayFullFromDayKey("2026-05-03")).not.toBe(formatWeekdayFullFromDayKey("2026-05-04"));
+    expect(formatWeekdayFullFromDayKey("2026-05-03").length).toBeGreaterThan(0);
+  });
+
+  it('English locale: Sunday and Monday for UTC reference dates', () => {
+    expect(
+      new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(
+        new Date("2026-05-03T12:00:00.000Z"),
+      ),
+    ).toBe("Sunday");
+    expect(
+      new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(
+        new Date("2026-05-04T12:00:00.000Z"),
+      ),
+    ).toBe("Monday");
   });
 });
 

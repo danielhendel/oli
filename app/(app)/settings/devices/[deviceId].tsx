@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/settings/devices/[deviceId].tsx — Device detail screens (Apple Health, Oura)
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   group: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     overflow: "hidden",
     paddingHorizontal: 16,
@@ -498,7 +500,7 @@ const styles = StyleSheet.create({
     borderColor: "#34C759",
   },
   togglePillOff: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderColor: "#D1D1D6",
   },
   togglePillDisabled: {

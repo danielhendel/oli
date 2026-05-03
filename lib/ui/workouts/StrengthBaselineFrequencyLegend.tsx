@@ -13,6 +13,7 @@ import {
 } from "@/lib/utils/strengthWeeklyFrequencyRating";
 import { StrengthBaselineFrequencyMarkers } from "@/lib/ui/workouts/StrengthBaselineFrequencyMarkers";
 
+import { UI_CARD_SURFACE, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 const BAR_HEIGHT = MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight;
 const TRACK_RADIUS = MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius;
 
@@ -135,14 +136,14 @@ const styles = StyleSheet.create({
   tierLabel: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#636366",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
     textAlign: "center",
   },
   trackRim: {
     width: "100%",
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     overflow: "hidden",
   },
   segmentRow: {

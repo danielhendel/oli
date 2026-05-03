@@ -10,6 +10,7 @@ import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOver
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { friendlyNutritionOverviewErrorMessage } from "@/lib/ui/nutrition/nutritionOverviewErrors";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type NutritionWeeklyInsightsCardProps = {
   model: NutritionWeeklyInsightsModel;
   events: NutritionEventsUi;
@@ -84,7 +85,7 @@ export function NutritionWeeklyInsightsCard({ model, events, onRetryEvents, onIn
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,

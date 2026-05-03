@@ -1,11 +1,7 @@
 // Fixed top chrome for bottom-tab root screens: shared horizontal inset + PageTitleRow (title / optional subtitle / settings gear).
 import { View, StyleSheet } from "react-native";
 import { PageTitleRow, type PageTitleRowProps } from "@/lib/ui/PageTitleRow";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER,
-  UI_TAB_ROOT_INSET,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 
 export type TabRootScreenHeaderProps = Pick<
   PageTitleRowProps,

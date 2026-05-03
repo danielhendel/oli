@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type BodyAppleHealthPermissionCardProps = {
   variant: "checking" | "connect" | "denied" | "unavailable";
   unavailableMessage?: string;
@@ -74,7 +75,7 @@ export function BodyAppleHealthPermissionCard(props: BodyAppleHealthPermissionCa
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,

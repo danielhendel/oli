@@ -1,5 +1,8 @@
 import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOverviewSegmentZoneFills";
-import { ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX } from "@/lib/ui/overview/activityStepTierBarFills";
+import {
+  ACTIVITY_STEP_TIER_BAR_FILL,
+  ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX,
+} from "@/lib/ui/overview/activityStepTierBarFills";
 import {
   STEP_TIER_COLORS,
   STEP_TIER_FILL,
@@ -32,8 +35,8 @@ describe("activityStepTierVisual", () => {
     expect(STEP_TIER_COLORS.low).toBe(MODULE_OVERVIEW_SEGMENT_ZONE_FILLS[ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX[0]!]);
     expect(STEP_TIER_COLORS.belowAvg).toBe(MODULE_OVERVIEW_SEGMENT_ZONE_FILLS[ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX[1]!]);
     expect(STEP_TIER_COLORS.average).toBe(MODULE_OVERVIEW_SEGMENT_ZONE_FILLS[ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX[2]!]);
-    expect(STEP_TIER_COLORS.good).toBe("#6BA38A");
-    expect(STEP_TIER_COLORS.great).toBe("#4ED26F");
+    expect(STEP_TIER_COLORS.good).toBe(ACTIVITY_STEP_TIER_BAR_FILL[3]);
+    expect(STEP_TIER_COLORS.great).toBe(ACTIVITY_STEP_TIER_BAR_FILL[4]);
     expect(STEP_TIER_COLORS.elite).toBe(MODULE_OVERVIEW_SEGMENT_ZONE_FILLS[ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX[5]!]);
   });
 });

@@ -8,6 +8,7 @@ import type {
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 type WeeklyInsightsCardProps = {
   model: WeeklyInsightsCardModel;
   onInsightPress?: (insight: WeeklyInsightItem) => void;
@@ -68,7 +69,7 @@ export function WeeklyInsightsCard({ model, onInsightPress }: WeeklyInsightsCard
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.3,
     textTransform: "uppercase",
-    color: "#3C3C43",
+    color: UI_TEXT_PRIMARY,
   },
   badgeBalance: {
     backgroundColor: "rgba(0, 122, 255, 0.12)",
@@ -108,14 +109,14 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     lineHeight: 21,
     letterSpacing: -0.2,
   },
   fallback: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#636366",
+    color: UI_TEXT_SECONDARY,
     lineHeight: 21,
     letterSpacing: -0.2,
   },

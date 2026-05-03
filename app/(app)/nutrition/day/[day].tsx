@@ -14,6 +14,7 @@ import { isValidDayKey } from "@/lib/ui/calendar/types";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import type { NutritionTodayFactsUi } from "@/lib/data/nutrition/nutritionOverviewUi";
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function NutritionDayDetailScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
   },
   eventsCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 10,
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   syncBanner: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 8,

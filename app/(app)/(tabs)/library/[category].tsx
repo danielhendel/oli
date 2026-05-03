@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/(tabs)/library/[category].tsx
 import { FlatList, View, Text, StyleSheet, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -5,6 +7,7 @@ import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useEvents } from "@/lib/data/useEvents";
 import { useMemo } from "react";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import type { CanonicalEventListItem } from "@oli/contracts";
 
 const CATEGORY_KINDS: Record<string, string[]> = {
@@ -51,6 +54,7 @@ function groupEventsByDay(items: CanonicalEventListItem[]): Map<string, Canonica
 }
 
 export default function LibraryCategoryScreen() {
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const params = useLocalSearchParams<{ category: string }>();
   const router = useRouter();
   const category = params.category ?? "strength";
@@ -117,7 +121,7 @@ export default function LibraryCategoryScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.scroll}>
+      <View style={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}>
         <Text style={styles.title}>{category}</Text>
         <Text style={styles.subtitle}>Day-grouped, reverse chronological</Text>
 
@@ -145,7 +149,6 @@ export default function LibraryCategoryScreen() {
             </View>
           )}
           ItemSeparatorComponent={() => <View style={styles.dayGap} />}
-          ListFooterComponent={<View style={styles.listFooter} />}
           initialNumToRender={10}
           maxToRenderPerBatch={5}
           windowSize={5}
@@ -156,13 +159,12 @@ export default function LibraryCategoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, padding: 16, paddingBottom: 40 },
+  scroll: { flex: 1, padding: 16 },
   placeholder: { flex: 1, padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   daySection: { marginTop: 20 },
   dayGap: { height: 16 },
-  listFooter: { height: 40 },
   dayHeader: {
     fontSize: 13,
     fontWeight: "700",
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     marginBottom: 6,
   },

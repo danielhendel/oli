@@ -5,6 +5,7 @@ import type { NutritionLogFormFields } from "@/lib/nutrition/nutritionLogForm";
 import type { buildNutritionQuickAddViewModel } from "@/lib/data/nutrition/buildNutritionQuickAddViewModel";
 import { NutritionLogFieldRow } from "@/lib/ui/nutrition/NutritionLogFieldRow";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type NutritionQuickAddCardProps = {
   quickVm: ReturnType<typeof buildNutritionQuickAddViewModel>;
   onChangeField: (key: keyof NutritionLogFormFields) => (text: string) => void;
@@ -74,7 +75,7 @@ const styles = StyleSheet.create({
   stack: { gap: 20 },
   lede: { fontSize: 15, lineHeight: 22, color: "#636366", letterSpacing: -0.2 },
   group: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 14,

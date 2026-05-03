@@ -11,6 +11,7 @@ import {
 } from "@/lib/workouts/exercises/muscleContributionSplit";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 const SUBGROUPS_SORTED: MuscleSubgroup[] = (Object.keys(subgroupToGroupMap) as MuscleSubgroup[]).sort((a, b) =>
   a.localeCompare(b),
 );
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#C6C6C8",
     borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 16,
     color: "#1C1C1E",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   removeBtn: {
     width: 36,

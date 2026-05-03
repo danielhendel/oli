@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/WeightInsightCard.tsx — Collapsible trend insights (deterministic bullets).
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
@@ -63,7 +65,7 @@ export function WeightInsightCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 16,
     gap: 8,

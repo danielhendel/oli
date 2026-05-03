@@ -30,6 +30,14 @@ import {
   workoutMonthBarChartYAxisTicks,
 } from "@/lib/ui/workouts/WorkoutAnalyticsMonthBarChart";
 
+import {
+  UI_BORDER_SUBTLE,
+  UI_CARD_SURFACE,
+  UI_SURFACE_PRESSED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 type MetricsByTab = Record<WorkoutOverviewMetricsTab, WorkoutAnalyticsMetrics>;
 
 export type WorkoutAnalyticsChartProps = {
@@ -537,7 +545,7 @@ export function WorkoutAnalyticsChart(props: WorkoutAnalyticsChartProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
   },
@@ -549,16 +557,16 @@ const styles = StyleSheet.create({
   singleDomainChartSpacerBaselineFamilyTight: { height: 12 },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#EBEBEF",
+    backgroundColor: UI_SURFACE_PRESSED,
     borderRadius: 10,
     padding: 4,
     marginBottom: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.1)",
+    borderColor: UI_BORDER_SUBTLE,
   },
   tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 8 },
   tabActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -566,9 +574,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tabPressed: { opacity: 0.78 },
-  tabText: { fontSize: 15, fontWeight: "500", color: "#8E8E93" },
+  tabText: { fontSize: 15, fontWeight: "500", color: UI_TEXT_SECONDARY },
   tabTextActive: { fontWeight: "700" },
-  placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", paddingVertical: 16 },
+  placeholder: { fontSize: 15, fontWeight: "400", color: UI_TEXT_SECONDARY, paddingVertical: 16 },
   placeholderStrengthYearly: { paddingVertical: 12 },
   chartPlotRow: {
     flexDirection: "row",
@@ -604,7 +612,7 @@ const styles = StyleSheet.create({
   yAxisTick: {
     fontSize: 11,
     fontWeight: "400",
-    color: "#AEAEB2",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "right",
     lineHeight: 13,
   },
@@ -633,7 +641,7 @@ const styles = StyleSheet.create({
     height: BAR_TRACK_HEIGHT,
     width: "100%",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#D1D1D6",
+    borderBottomColor: UI_BORDER_SUBTLE,
   },
   monthLabelsRow: {
     flexDirection: "row",
@@ -654,7 +662,7 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 11,
     fontWeight: "400",
-    color: "#AEAEB2",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
   },
   metricsGrid: { marginTop: 16, gap: 12 },
@@ -668,14 +676,14 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: "rgba(255,255,255,0.78)",
+    color: UI_TEXT_SECONDARY,
     marginBottom: 4,
     letterSpacing: 0.1,
   },
   metricValue: {
     fontSize: 20,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.95)",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.25,
   },
 });

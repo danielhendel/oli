@@ -1,5 +1,6 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { WORKOUTS_HEADER_BAR_BG } from "@/lib/ui/headers/workoutsStackHeader";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("react-native", () => {
@@ -352,7 +353,7 @@ describe("workouts/exercise-edit", () => {
     expect(mockNavigation.setOptions).toHaveBeenCalled();
     const calls = mockNavigation.setOptions.mock.calls.map((c) => c[0] as Record<string, unknown>);
     const last = calls[calls.length - 1]!;
-    expect(last.headerStyle).toEqual({ backgroundColor: "#F2F2F7" });
+    expect(last.headerStyle).toEqual({ backgroundColor: WORKOUTS_HEADER_BAR_BG });
     expect(last.title).toBe("Landmine Press");
   });
 

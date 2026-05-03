@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/settings/data-sources/source/[sourceId].tsx — Connected Source Detail (Slice 1)
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
   placeholder: { padding: 16 },
   placeholderText: { fontSize: 15, color: "#6B7280" },
   card: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     padding: 16,
     gap: 10,

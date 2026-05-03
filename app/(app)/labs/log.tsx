@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { createLabResult } from "@/lib/api/usersMe";
 import type { BiomarkerReadingDto } from "@/lib/contracts";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 // Generate deterministic idempotency key from payload (v0: use uuid-like from timestamp + random)
 function makeIdempotencyKey(): string {
   return `lab-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 40 },
   label: { fontSize: 13, fontWeight: "700", color: "#111827" },
   input: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,

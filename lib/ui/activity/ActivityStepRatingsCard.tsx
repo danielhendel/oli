@@ -5,8 +5,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ActivityStepTierLegend } from "@/lib/ui/activity/ActivityStepTierLegend";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 const CHEVRON_SIZE = 22;
-const CHEVRON_COLOR = "#8E8E93";
 
 const STEP_RATINGS_EXPLAINER_BODY =
   "Your daily step count reflects your overall activity level. Consistently higher steps support cardiovascular fitness, energy, and long-term health.";
@@ -38,7 +38,7 @@ export function ActivityStepRatingsCard() {
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
             size={CHEVRON_SIZE}
-            color={CHEVRON_COLOR}
+            color={UI_TEXT_SECONDARY}
           />
         </Pressable>
       </View>
@@ -61,7 +61,7 @@ export function ActivityStepRatingsCard() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 14,
     gap: 0,
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 19,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.34,
   },
   headerRow: {
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 16,
     fontWeight: "400",
-    color: "#48484A",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.22,
     lineHeight: 24,
   },

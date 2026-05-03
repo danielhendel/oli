@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import { UI_PROGRESS_TRACK_EMPTY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import type { InterpretationBarModel } from "../bodyOverviewInterpretationBar";
 import {
   BODY_ZONE_TO_VISUAL_SEGMENT_INDEX,
@@ -126,7 +127,7 @@ describe("bodyOverviewBarDisplay", () => {
       hasValue: false,
     });
     expect(d.visualSegmentIndex).toBeNull();
-    expect(d.pillBg).toBe("#E5E5EA");
-    expect(d.pillFg).toBe("#636366");
+    expect(d.pillBg).toBe(UI_PROGRESS_TRACK_EMPTY);
+    expect(d.pillFg).toBe(UI_TEXT_TERTIARY_LABEL);
   });
 });

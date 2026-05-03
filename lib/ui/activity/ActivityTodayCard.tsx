@@ -14,6 +14,7 @@ import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { RECENT_WORKOUT_ROW_META_TEXT_STYLE } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 export type ActivityTodayCardProps = {
   loading: boolean;
   model: ActivityTodayOverviewCardModel | null;
@@ -100,7 +101,7 @@ export function ActivityTodayCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     fontWeight: "800",
-    color: "#000000",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.38,
     flexShrink: 1,
   },
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.44,
     flexShrink: 0,
   },

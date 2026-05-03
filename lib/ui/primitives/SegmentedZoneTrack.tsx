@@ -3,6 +3,7 @@ import { LayoutChangeEvent, Platform, StyleSheet, View, type ViewProps } from "r
 
 import { clampedDotLeftPx } from "@/lib/ui/body/interpretationBarDotLayout";
 import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
+import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 const DEFAULT_DOT_SIZE = MODULE_OVERVIEW_SEGMENTED_TRACK.dotSize;
 const DEFAULT_BAR_HEIGHT = MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight;
@@ -144,7 +145,7 @@ export function SegmentedZoneTrack({
                     width: 4,
                     height: barHeight + 10,
                     borderRadius: 2,
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: UI_TEXT_PRIMARY,
                     borderColor: markerBackgroundColor,
                     shadowColor: "#000000",
                     shadowOffset: { width: 0, height: 1 },
@@ -182,8 +183,8 @@ const styles = StyleSheet.create({
   },
   trackRim: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.11)",
-    backgroundColor: "#FFFFFF",
+    borderColor: UI_BORDER_SUBTLE,
+    backgroundColor: UI_CARD_SURFACE,
   },
   zonesClip: {
     overflow: "hidden",
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
   markerDotElevated: {
     position: "absolute",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: UI_TEXT_PRIMARY,
   },
   markerTick: {
     position: "absolute",

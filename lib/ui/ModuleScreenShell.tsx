@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, StyleSheet, type RefreshControlProps } from "react-native";
 
 import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 export type ModuleScreenShellProps = {
   title: string;
@@ -32,6 +33,7 @@ export function ModuleScreenShell({
   bodyScrollEnabled = true,
   children,
 }: ModuleScreenShellProps) {
+  const scrollBottomPad = useFloatingTabBarScrollPadding(28);
   const body = (
     <View style={[styles.content, !bodyScrollEnabled && styles.contentFlex]}>{children}</View>
   );
@@ -53,7 +55,7 @@ export function ModuleScreenShell({
       {bodyScrollEnabled ? (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.container}
+          contentContainerStyle={[styles.container, { paddingBottom: scrollBottomPad }]}
           alwaysBounceVertical={Boolean(refreshControl)}
           {...(refreshControl ? { refreshControl } : {})}
         >
@@ -62,7 +64,9 @@ export function ModuleScreenShell({
       ) : (
         <View style={[styles.scroll, styles.bodyNoScroll]}>
           {/* Pull-to-refresh with bodyScrollEnabled=false is unsupported — attach RefreshControl to the inner list instead. */}
-          <View style={[styles.container, styles.containerFlexGrow]}>{body}</View>
+          <View style={[styles.container, styles.containerFlexGrow, { paddingBottom: scrollBottomPad }]}>
+            {body}
+          </View>
         </View>
       )}
     </View>
@@ -93,7 +97,6 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingBottom: 28,
     paddingTop: 12,
     gap: 16,
   },

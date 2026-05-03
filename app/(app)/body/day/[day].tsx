@@ -11,6 +11,7 @@ import {
   formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function BodyDayScreen() {
   const params = useLocalSearchParams<{ day?: string }>();
   const day = typeof params.day === "string" ? params.day : "";
@@ -106,7 +107,7 @@ export default function BodyDayScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 32 },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, gap: 10 },
+  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16, gap: 10 },
   title: { fontSize: 18, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: { fontSize: 14, color: "#6E6E73" },

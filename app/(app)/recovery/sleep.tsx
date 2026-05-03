@@ -46,6 +46,7 @@ import {
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 function parseDayRouteParam(raw: string | string[] | undefined): string | null {
   const v = Array.isArray(raw) ? raw[0] : raw;
   if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   centered: {
     flex: 1,
@@ -382,11 +383,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 32,
     gap: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   loadingText: { fontSize: 16, color: "#6E6E73" },
   messageCard: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 20,
   },
@@ -397,7 +398,7 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 16,
     alignSelf: "flex-start",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,

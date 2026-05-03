@@ -10,8 +10,8 @@ describe("workoutLoggerTheme", () => {
     expect(WORKOUT_LOGGER_LAYOUT.sheetTopRadius).toBe(22);
     expect(WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding).toBe(20);
     expect(WORKOUT_LOGGER_LAYOUT.optionCardRadius).toBe(16);
-    expect(WORKOUT_LOGGER_BOTTOM_BAR.backgroundColor).toBe("rgba(255, 255, 255, 0.56)");
-    expect(WORKOUT_LOGGER_COLORS.sheetChromeBackground).toBe("#F2F2F7");
+    expect(WORKOUT_LOGGER_BOTTOM_BAR.backgroundColor).toBe("rgba(24, 28, 34, 0.72)");
+    expect(WORKOUT_LOGGER_COLORS.sheetChromeBackground).toBe("#0B0D10");
   });
 
   it("defines typography scale for sheets and options", () => {

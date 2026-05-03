@@ -7,6 +7,7 @@ import {
   computeStrengthOverviewMarkerPosition01,
   getStrengthOverviewTierSegmentBounds01,
 } from "@/lib/data/workouts/strengthOverviewTimeframeRating";
+import { MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME } from "@/lib/ui/overview/moduleOverviewStrengthTierPillChrome";
 import {
   getStrengthOverviewMarkerColorForRatingLabel,
   STRENGTH_OVERVIEW_TIER_ZONE_BG,
@@ -21,8 +22,12 @@ describe("STRENGTH_OVERVIEW_TIER_ZONE_BG", () => {
 
 describe("getStrengthOverviewMarkerColorForRatingLabel", () => {
   it("Strong uses pill-matched green, not Optimal blue, regardless of score position semantics", () => {
-    expect(getStrengthOverviewMarkerColorForRatingLabel("Strong")).toBe("#5EC08C");
-    expect(getStrengthOverviewMarkerColorForRatingLabel("Optimal")).toBe("#5C8FE6");
+    expect(getStrengthOverviewMarkerColorForRatingLabel("Strong")).toBe(
+      MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[3].pillFg,
+    );
+    expect(getStrengthOverviewMarkerColorForRatingLabel("Optimal")).toBe(
+      MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[4].pillFg,
+    );
     expect(getStrengthOverviewMarkerColorForRatingLabel("Strong")).not.toBe(
       getStrengthOverviewMarkerColorForRatingLabel("Optimal"),
     );
@@ -37,7 +42,9 @@ describe("Strength Overview bar marker (tier segment + color)", () => {
       scoringAvg: STRENGTH_OVERVIEW_TF_RATING_OPTIMAL_MIN - 1e-6,
     });
     expect(marker01).toBeLessThan(optimalStart);
-    expect(getStrengthOverviewMarkerColorForRatingLabel("Strong")).toBe("#5EC08C");
+    expect(getStrengthOverviewMarkerColorForRatingLabel("Strong")).toBe(
+      MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[3].pillFg,
+    );
   });
 });
 

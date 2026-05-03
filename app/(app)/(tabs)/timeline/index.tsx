@@ -7,11 +7,8 @@ import { OfflineBanner } from "@/lib/ui/OfflineBanner";
 import { TruthIndicator } from "@/lib/ui/TruthIndicators";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
-  UI_TAB_ROOT_INSET,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_CARD_SURFACE, UI_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER_STYLE, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { useTimeline } from "@/lib/data/useTimeline";
 import { useMemo, useState, useCallback } from "react";
 import {
@@ -30,6 +27,7 @@ const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function TimelineIndexScreen() {
   const router = useRouter();
+  const listBottomPad = useFloatingTabBarScrollPadding(40);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [anchorDay, setAnchorDay] = useState(today);
   const [viewMode, setViewMode] = useState<TimelineViewMode>("week");
@@ -202,7 +200,7 @@ export default function TimelineIndexScreen() {
                     </Pressable>
                   )}
                   ItemSeparatorComponent={() => <View style={styles.listGap} />}
-                  ListFooterComponent={<View style={styles.listFooter} />}
+                  ListFooterComponent={<View style={{ height: listBottomPad }} />}
                   initialNumToRender={14}
                   maxToRenderPerBatch={10}
                   windowSize={5}
@@ -274,10 +272,8 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     flex: 1,
-    paddingBottom: 40,
   },
   listHeader: { height: 16 },
-  listFooter: { height: 40 },
   listGap: { height: 6 },
   navRow: {
     flexDirection: "row",
@@ -291,7 +287,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   viewModeBtnActive: { backgroundColor: "#1C1C1E" },
   viewModeBtnText: { fontSize: 14, fontWeight: "600", color: "#8E8E93" },
@@ -301,7 +297,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -310,7 +306,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   jumpBtnText: { fontSize: 14, fontWeight: "600", color: "#007AFF" },
   list: {
@@ -325,7 +321,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingLeft: 0,
     paddingRight: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   rowDay: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
@@ -342,7 +338,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     width: "100%",
@@ -362,7 +358,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   modalBtnPrimary: { backgroundColor: "#007AFF" },
   modalBtnText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

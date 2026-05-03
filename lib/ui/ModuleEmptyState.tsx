@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 export type ModuleEmptyStateProps = {
   title: string;
   description: string;
@@ -19,7 +20,7 @@ export function ModuleEmptyState({ title, description, hint }: ModuleEmptyStateP
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 16,
     gap: 8,

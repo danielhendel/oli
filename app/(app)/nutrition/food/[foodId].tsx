@@ -34,6 +34,7 @@ import {
   type MealSlot,
 } from "@/lib/nutrition/mealSlot";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function NutritionFoodConfirmScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -309,7 +310,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "rgba(60, 60, 67, 0.18)",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     justifyContent: "center",
   },
   slotChipSelected: {
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(60, 60, 67, 0.29)",
     paddingHorizontal: 12,
     fontSize: 17,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   summary: { fontSize: 17, color: "#1C1C1E" },
   primary: {

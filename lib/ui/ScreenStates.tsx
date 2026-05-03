@@ -6,7 +6,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_SCREEN_BG, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 export type ScreenContainerProps = {
   children: React.ReactNode;
@@ -99,7 +99,7 @@ export type LoadingStateProps = {
 export function LoadingState({ message = "Loading…", variant = "screen" }: LoadingStateProps) {
   return (
     <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
-      <ActivityIndicator size="small" color="#1C1C1E" />
+      <ActivityIndicator size="small" color={UI_TEXT_PRIMARY} />
       <Text style={styles.loadingMessage}>{message}</Text>
     </View>
   );
@@ -127,7 +127,7 @@ export function EmptyState({ title, description, explanation }: EmptyStateProps)
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   container: { flex: 1, padding: 16 },
   containerNoPadding: { padding: 0 },
   stateContainer: {
@@ -149,19 +149,19 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     textAlign: "center",
   },
   errorMessage: {
     fontSize: 15,
-    color: "#3C3C43",
-    opacity: 0.8,
+    color: UI_TEXT_SECONDARY,
+    opacity: 0.95,
     textAlign: "center",
     lineHeight: 22,
   },
   requestId: {
     fontSize: 12,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     fontFamily: "monospace",
   },
   retryBtn: {
@@ -172,32 +172,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   retryBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   loadingMessage: {
     fontSize: 15,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
   },
   emptyTitle: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     textAlign: "center",
   },
   emptyDescription: {
     fontSize: 15,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
     lineHeight: 22,
   },
   emptyExplanation: {
     fontSize: 14,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
     lineHeight: 20,
     marginTop: 8,

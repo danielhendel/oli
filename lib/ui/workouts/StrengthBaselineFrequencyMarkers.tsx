@@ -4,6 +4,7 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import {
   STRENGTH_BASELINE_WEEKLY_FREQUENCY_DISPLAY_MAX,
 } from "@/lib/utils/strengthWeeklyFrequencyRating";
+import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import {
   strengthBaselineFrequencyThresholdLabelLeftPx,
   strengthBaselineFrequencyThresholdTickLeftPx,
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#636366",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
   },
   labelPositioned: {

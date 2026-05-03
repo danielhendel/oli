@@ -1,3 +1,4 @@
+import { UI_CARD_SURFACE, UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,12 +18,13 @@ import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSea
 import type { NutritionFoodSearchQueryStatus } from "@/lib/hooks/useNutritionFoodSearchQuery";
 import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { headerChromeCircleShell, headerChromeShadow } from "@/lib/ui/headerChrome";
-import { UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER } from "@/lib/ui/theme/uiTokens";
+
 import { NUTRITION_ACCENT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { foodItemMetaFingerprint } from "@/lib/hooks/useNutritionMeta";
 import { WORKOUT_LOGGER_COLORS } from "@/lib/workouts/ui/workoutLoggerTheme";
+
 
 export type NutritionFoodLibraryTab = "recent" | "meals" | "foods";
 
@@ -532,7 +534,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tabSelected: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -636,7 +638,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     marginHorizontal: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 14,
     padding: 12,
     gap: 4,
@@ -650,7 +652,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   modalRow: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 4,

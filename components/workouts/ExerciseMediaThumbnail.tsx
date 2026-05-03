@@ -8,6 +8,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { View, Image, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { UI_BORDER_SUBTLE, UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 
 export type ExerciseMediaThumbnailSize = "row" | "card" | "preview";
 
@@ -20,8 +21,8 @@ const CARD_H = 192;
 const PREVIEW_H = 228;
 
 /** Same frame for real media and placeholder (workout logger / picker consistency). */
-const MEDIA_SURFACE = "#FFFFFF";
-const MEDIA_BORDER = "#E8E8ED";
+const MEDIA_SURFACE = UI_CARD_SURFACE;
+const MEDIA_BORDER = UI_BORDER_SUBTLE;
 const PLACEHOLDER_SURFACE = MEDIA_SURFACE;
 const PLACEHOLDER_BORDER = MEDIA_BORDER;
 /** Inner padding for real media: row tighter; card/preview unchanged. */

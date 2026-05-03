@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/failures/index.tsx
 import React, { useMemo, useState, useCallback } from "react";
 import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
@@ -179,12 +181,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderWidth: 1,
     borderColor: "#E5E5EA",
   },
   infoCard: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 14,
     gap: 6,

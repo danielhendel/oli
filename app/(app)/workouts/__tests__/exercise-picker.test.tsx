@@ -738,7 +738,7 @@ describe("workouts/exercise-picker", () => {
     expect(previewSheet).toBeTruthy();
     expect(previewSheet.props.style?.maxHeight).toBe("90%");
     expect(previewSheet.props.style?.minHeight).toBe("88%");
-    expect(previewSheet.props.style?.backgroundColor).toBe("#F2F2F7");
+    expect(previewSheet.props.style?.backgroundColor).toBe("#0B0D10");
     const previewGrabber = test!.root.findByProps({ testID: "exercise-picker-preview-grabber" });
     expect(previewGrabber).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();

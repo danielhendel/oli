@@ -1,11 +1,13 @@
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
-import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+
 import type { ExerciseMediaSlot } from "@/lib/workouts/exercises/pickExerciseMedia";
+
 
 type ExerciseMediaActionSheetProps = {
   testID?: string;
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 12,

@@ -21,6 +21,7 @@ import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSearch";
 import type { NutritionMetaDto } from "@oli/contracts/nutritionMeta";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type FoodRef = NutritionMetaDto["favoriteFoods"][number];
 
 export default function NutritionFoodSearchScreen() {
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(60, 60, 67, 0.29)",
     paddingHorizontal: 12,
     fontSize: 17,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   loading: { paddingVertical: 12, alignItems: "center" },
   centerBox: { padding: 24, gap: 8 },

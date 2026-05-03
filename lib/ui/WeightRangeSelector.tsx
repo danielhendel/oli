@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/WeightRangeSelector.tsx — Segmented range for weight trend chart.
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
@@ -51,7 +53,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 8,
   },
-  segmentActive: { backgroundColor: "#FFFFFF", shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
+  segmentActive: { backgroundColor: UI_CARD_SURFACE, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
   label: { fontSize: 13, fontWeight: "600", color: "#6E6E73" },
   labelActive: { color: "#1C1C1E", fontWeight: "700" },
 });

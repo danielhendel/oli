@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { UI_BORDER_SUBTLE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 /**
  * Shared vertical rhythm for overview metric blocks (label + pill cluster, trailing value, bar below).
@@ -27,13 +28,13 @@ export const moduleOverviewMetricLayoutStyles = StyleSheet.create({
   primaryLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     flexShrink: 0,
   },
   trailingValue: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.15,
     flexShrink: 0,
     maxWidth: "42%",
@@ -46,7 +47,7 @@ export const moduleOverviewMetricLayoutStyles = StyleSheet.create({
     borderRadius: 8,
     maxWidth: "46%",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.12)",
+    borderColor: UI_BORDER_SUBTLE,
   },
   ratingPillLabel: {
     fontSize: 11,

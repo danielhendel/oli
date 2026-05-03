@@ -1,8 +1,11 @@
+
+
 /**
  * Exercise Picker — full-screen route for selecting an exercise to add to a workout session.
  * Offline-first, deterministic, no timers/network. Returns selection via router.replace to log or enrich.
  */
 
+import { UI_CARD_SURFACE, UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER } from "@/lib/ui/theme/uiTokens";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -23,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { WorkoutsNavBar } from "@/lib/ui/headers/WorkoutsNavBar";
 import { headerChromeCircleShell, headerChromeShadow } from "@/lib/ui/headerChrome";
-import { UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER } from "@/lib/ui/theme/uiTokens";
+
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
@@ -1462,7 +1465,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 18,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   previewTitleRow: {
     flexDirection: "row",
@@ -1511,7 +1514,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: SYSTEM_ACCENT,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   editExerciseButtonText: {
     fontSize: 16,

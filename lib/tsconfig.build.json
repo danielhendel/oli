@@ -9,7 +9,7 @@
       "tsBuildInfoFile": "../node_modules/.cache/tsbuildinfo/lib.tsbuildinfo",
       "composite": true
     },
-    "include": ["./**/*.ts", "./**/*.tsx"],
+    "include": ["./**/*.ts", "./**/*.tsx", "./**/*.d.ts"],
     "exclude": [
       "dist",
       "dist-types",

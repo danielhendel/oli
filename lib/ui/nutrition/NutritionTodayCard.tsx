@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { friendlyNutritionOverviewErrorMessage } from "@/lib/ui/nutrition/nutritionOverviewErrors";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 const PROGRESS_H = 6;
 const PROGRESS_R = 4;
 
@@ -90,7 +91,7 @@ export function NutritionTodayCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,

@@ -20,6 +20,7 @@ import { isValidDayKey, type DayKey } from "@/lib/ui/calendar/types";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function NutritionBarcodeScanScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(60, 60, 67, 0.29)",
     paddingHorizontal: 12,
     fontSize: 17,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   primary: {
     minHeight: 48,

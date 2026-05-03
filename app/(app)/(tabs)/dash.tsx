@@ -19,16 +19,8 @@ import { StrengthBaselineDashCard } from "@/components/dashboard/StrengthBaselin
 import { useActivityBaseline } from "@/lib/hooks/useActivityBaseline";
 import { useStrengthBaseline } from "@/lib/hooks/useStrengthBaseline";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-import {
-  UI_APP_SCREEN_BG,
-  UI_CARD_SURFACE,
-  UI_HEADER_CHROME_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER,
-  UI_TAB_ROOT_INSET,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SLATE_COOL,
-  UI_TEXT_TERTIARY_LABEL,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_CARD_SURFACE, UI_TAB_ROOT_CONTENT_GUTTER, UI_SURFACE_PRESSED, UI_TAB_ROOT_INSET, UI_TEXT_PRIMARY, UI_TEXT_SLATE_COOL, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 /** Cards that navigate to existing routes only. */
 const MANAGE_DATA_CARDS = [
@@ -76,7 +68,7 @@ const MANAGE_DATA_CARDS = [
   },
 ] as const;
 
-const CATEGORY_CARD_PRESSED_BG = UI_HEADER_CHROME_BG;
+const CATEGORY_CARD_PRESSED_BG = UI_SURFACE_PRESSED;
 
 const SCALE_PRESSED = 0.98;
 const ANIM_DURATION = 100;
@@ -135,6 +127,7 @@ export default function DashScreen() {
   const router = useRouter();
   const activityBaseline = useActivityBaseline();
   const strengthBaseline = useStrengthBaseline();
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
 
   return (
     <ScreenContainer padded={false}>
@@ -142,7 +135,7 @@ export default function DashScreen() {
         <TabRootScreenHeader title="Oli" rightSlot={<SettingsGearButton />} />
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -199,7 +192,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
     paddingTop: 6,
-    paddingBottom: 40,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },

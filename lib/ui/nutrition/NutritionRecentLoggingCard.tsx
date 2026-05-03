@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NutritionRecentLoggingItem } from "@/lib/data/nutrition/buildNutritionRecentLoggingItems";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type NutritionRecentLoggingCardProps = {
   items: NutritionRecentLoggingItem[];
   onSelect: (item: NutritionRecentLoggingItem) => void;
@@ -48,7 +49,7 @@ const styles = StyleSheet.create({
   stack: { gap: 16 },
   lede: { fontSize: 15, lineHeight: 22, color: "#636366", letterSpacing: -0.2 },
   empty: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 20,
     gap: 8,
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
   emptyBody: { fontSize: 15, lineHeight: 22, color: "#636366" },
   list: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(60, 60, 67, 0.12)",

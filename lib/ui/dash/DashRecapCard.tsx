@@ -11,11 +11,7 @@ import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { formatOverviewAsOfLabel } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
-import {
-  UI_CARD_SURFACE,
-  UI_DASH_RECAP_CARD_RADIUS,
-  UI_TAB_ROOT_CONTENT_GUTTER,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_CARD_SURFACE, UI_DASH_RECAP_CARD_RADIUS, UI_TAB_ROOT_CONTENT_GUTTER } from "@/lib/ui/theme/uiTokens";
 
 /** Marker fill: neutral gray — does not encode Strength tier semantics. */
 const DASH_RECAP_PLACEMENT_MARKER_COLOR = "#6E6E73";

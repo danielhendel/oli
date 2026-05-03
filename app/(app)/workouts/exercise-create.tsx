@@ -17,6 +17,7 @@ import {
   workoutLoggerTypography,
 } from "@/lib/workouts/ui/workoutLoggerTheme";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 const EQUIPMENT_OPTIONS: Equipment[] = [
   "Barbell",
   "Dumbbell",
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(60, 60, 67, 0.2)",
     borderRadius: WORKOUT_LOGGER_LAYOUT.cancelOutlineRadius,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 16,

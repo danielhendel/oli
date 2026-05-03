@@ -1,7 +1,9 @@
 import React from "react";
+import { StyleSheet } from "react-native";
 import renderer, { act } from "react-test-renderer";
 
 import { ActivityOverviewCard } from "@/lib/ui/activity/ActivityOverviewCard";
+import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
@@ -86,6 +88,30 @@ describe("ActivityOverviewCard", () => {
     expect(str).not.toContain("Optimal");
     expect(str).not.toContain("Overview");
     expect(str).not.toContain("activity-baseline-threshold-markers");
+  });
+
+  it("paints Activity Baseline row period label with textPrimary", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <ActivityOverviewCard
+          loading={false}
+          error={null}
+          model={{
+            timeframes: [
+              {
+                key: "day7",
+                label: "7 Day",
+                compactStatsSummary: "8,000/day",
+                markerPosition01: 0.5,
+              },
+            ],
+          }}
+        />,
+      );
+    });
+    const label = tree!.root.findByProps({ children: "7 Day" });
+    expect(StyleSheet.flatten(label.props.style).color).toBe(UI_TEXT_PRIMARY);
   });
 
   it("renders Not enough data copy when model supplies it", () => {

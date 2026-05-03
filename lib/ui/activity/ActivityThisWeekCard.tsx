@@ -7,6 +7,7 @@ import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
+import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 export type ActivityThisWeekCardProps = {
   loading: boolean;
   model: ActivityThisWeekCardModel | null;
@@ -95,7 +96,7 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingTop: 13,
@@ -105,21 +106,21 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(60, 60, 67, 0.12)",
+    backgroundColor: UI_BORDER_SUBTLE,
     marginVertical: 12,
     alignSelf: "stretch",
   },
   placeholder: {
     fontSize: 15,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.1,
     paddingBottom: 4,
   },
   row: {
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(60, 60, 67, 0.12)",
+    borderTopColor: UI_BORDER_SUBTLE,
   },
   rowFirst: {
     paddingTop: 0,
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   recentDate: {
     fontSize: 13,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.08,
     marginBottom: 6,
   },
@@ -143,14 +144,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 17,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
   },
   deltaFigure: {
     fontSize: 17,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
     flexShrink: 0,
     textAlign: "right",

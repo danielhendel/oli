@@ -8,6 +8,7 @@ import {
   strengthYearlyAnalyticsCardShellStyle,
 } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { StrengthYearlyWorkloadBars } from "@/lib/ui/workouts/StrengthYearlyWorkloadBars";
+import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 const BAR_TRACK_HEIGHT_STRENGTH_YEARLY = 176;
 const MONTH_LABEL_STACK_HEIGHT = 20;
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 11,
     fontWeight: "400",
-    color: "#AEAEB2",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
   },
 });

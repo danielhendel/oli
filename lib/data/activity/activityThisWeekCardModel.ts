@@ -1,6 +1,6 @@
 import { formatSignedBaselineDelta } from "@/lib/data/activity/activityTodayBaselineDelta";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
-import { formatDayKeyWeekdayShortMonthDay } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import {
   activityStepsDisplayScaleFill01,
@@ -10,6 +10,7 @@ import {
 
 export type ActivityThisWeekDayRow = {
   dayKey: DayKey;
+  /** Full weekday name only (`formatWeekdayFullFromDayKey`); no month/day. */
   dateLabel: string;
   /** Rounded steps for display (no “steps” suffix — row adds it). */
   stepsDigits: string;
@@ -52,7 +53,7 @@ export function buildActivityThisWeekCardModel(input: {
     const deltaText = formatSignedBaselineDelta(steps, baselineMeanSteps);
     rows.push({
       dayKey,
-      dateLabel: formatDayKeyWeekdayShortMonthDay(dayKey),
+      dateLabel: formatWeekdayFullFromDayKey(dayKey),
       stepsDigits: steps.toLocaleString(),
       deltaText,
     });

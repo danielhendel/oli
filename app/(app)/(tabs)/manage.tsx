@@ -8,11 +8,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
-  UI_TAB_ROOT_INSET,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_CARD_SURFACE, UI_TAB_ROOT_CONTENT_GUTTER_STYLE, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useLabResults } from "@/lib/data/useLabResults";
@@ -333,6 +330,7 @@ function RecordRow({ title, subtitle, isExpanded, muted = false, onPress, access
 
 export default function ManageScreen() {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const day = useMemo(() => getTodayDayKey(), []);
   const range = useMemo(() => getRange90Days(), []);
 
@@ -582,7 +580,7 @@ export default function ManageScreen() {
         />
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -603,7 +601,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
     paddingTop: 6,
-    paddingBottom: 40,
   },
   section: { marginTop: 24 },
   sectionLabel: {
@@ -622,7 +619,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   row: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 16,
     paddingHorizontal: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,

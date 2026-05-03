@@ -20,6 +20,7 @@ import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetr
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 /** Explainer under the Cardio Baseline section title (overview card only). */
 export const CARDIO_BASELINE_CARD_EXPLAINER_COPY =
   "Your cardio baseline is the average cardio distance across key time ranges.";
@@ -147,7 +148,7 @@ export function CardioHistorySummaryCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 0,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
   },
   rowFigure: {
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
     flexShrink: 1,
     textAlign: "right",
@@ -210,13 +211,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.26,
   },
   helperText: {
     fontSize: 13,
     lineHeight: 17,
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.08,
   },
 });

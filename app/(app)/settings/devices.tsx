@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/settings/devices.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView, AppState } from "react-native";
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
   listGroup: {
     marginTop: 8,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     overflow: "hidden",
   },
   row: {

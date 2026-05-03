@@ -4,6 +4,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { getGymMenuOptions } from "@/lib/workouts/gymRegistry";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
+import { UI_BORDER_SUBTLE, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 /**
  * Gym picker for Strength settings (moved from overview overflow menu).
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
     marginBottom: 4,
   },
   optionRow: {
@@ -53,12 +54,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.2)",
+    borderColor: UI_BORDER_SUBTLE,
   },
   optionRowSelected: {
     borderColor: SYSTEM_ACCENT,
     backgroundColor: SYSTEM_ACCENT_OVERLAY_08,
   },
-  optionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
+  optionLabel: { fontSize: 16, fontWeight: "500", color: UI_TEXT_PRIMARY },
   optionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
 });

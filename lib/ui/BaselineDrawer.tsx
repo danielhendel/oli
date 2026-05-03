@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/BaselineDrawer.tsx
 // Phase 1.5 Sprint 3 — Multi-Baseline display (UI-only, no mutation)
 import { View, Text, StyleSheet, Modal, Pressable, ScrollView } from "react-native";
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   drawer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     maxWidth: 400,
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
   scrollContent: { gap: 20, paddingBottom: 8 },
   panel: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     padding: 14,
     gap: 6,
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     justifyContent: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   closeButtonText: {

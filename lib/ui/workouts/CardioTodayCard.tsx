@@ -10,6 +10,7 @@ import {
   workoutOverviewInCardHeaderStyles,
 } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 export type CardioTodayCardProps = {
   loading: boolean;
   model: CardioTodayCardModel | null;
@@ -19,7 +20,7 @@ export type CardioTodayCardProps = {
 
 function pillColors(pill: "Completed" | "No Cardio"): { bg: string; fg: string } {
   if (pill === "Completed") return { bg: "rgba(52, 199, 89, 0.09)", fg: "#2D9D4E" };
-  return { bg: "#F2F2F7", fg: "#3C3C43" };
+  return { bg: UI_SCREEN_BG, fg: UI_TEXT_SECONDARY };
 }
 
 function logCtaLabel(loading: boolean, model: CardioTodayCardModel | null): string {
@@ -114,7 +115,7 @@ export function CardioTodayCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
-    color: "#000000",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.38,
   },
   sessionSummaryLine: {

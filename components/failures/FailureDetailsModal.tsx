@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
 // components/failures/FailureDetailsModal.tsx
 import React, { useMemo } from "react";
 import { Modal, View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   content: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     maxWidth: 400,
     width: "100%",

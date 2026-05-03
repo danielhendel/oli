@@ -1,5 +1,6 @@
 import { buildActivityThisWeekCardModel } from "@/lib/data/activity/activityThisWeekCardModel";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 
 describe("buildActivityThisWeekCardModel", () => {
   const week = [
@@ -25,6 +26,8 @@ describe("buildActivityThisWeekCardModel", () => {
       baselineMeanSteps: 3000,
     });
     expect(model.days.map((d) => d.dayKey)).toEqual(["2026-05-03", "2026-05-05"]);
+    expect(model.days[0]?.dateLabel).toBe(formatWeekdayFullFromDayKey("2026-05-03"));
+    expect(model.days[1]?.dateLabel).toBe(formatWeekdayFullFromDayKey("2026-05-05"));
     expect(model.days[0]?.deltaText).toBe("-2,900");
     expect(model.days[1]?.deltaText).toBe("+2,000");
   });

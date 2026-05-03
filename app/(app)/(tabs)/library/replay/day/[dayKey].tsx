@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/(tabs)/library/replay/day/[dayKey].tsx
 // Sprint 5 — Replay & "As-Of" Time Travel UI
 // User can replay past truth for a given day; powered by GET /users/me/derived-ledger/snapshot
@@ -9,6 +11,7 @@ import { useDerivedLedgerRuns } from "@/lib/data/useDerivedLedgerRuns";
 import { useDerivedLedgerSnapshot } from "@/lib/data/useDerivedLedgerSnapshot";
 import { useMemo, useState, useEffect } from "react";
 import type { DerivedLedgerRunSummaryDto, DerivedLedgerReplayResponseDto } from "@/lib/contracts/derivedLedger";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,6 +51,7 @@ Each "run" represents a computation that produced daily facts, intelligence cont
 This supports auditability: you can see exactly what Oli knew, and when.`;
 
 export default function ReplayDayScreen() {
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const params = useLocalSearchParams<{ dayKey: string }>();
   const router = useRouter();
   const dayParam = params.dayKey ?? "";
@@ -183,7 +187,7 @@ export default function ReplayDayScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}>
         <Text style={styles.title}>Replay</Text>
         <Text style={styles.subtitle}>{day}</Text>
 
@@ -336,7 +340,7 @@ function ReplayContent({ data }: { data: DerivedLedgerReplayResponseDto }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   banner: {
@@ -366,7 +370,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     maxWidth: 340,
@@ -387,7 +391,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   modalCloseText: {
@@ -404,7 +408,7 @@ const styles = StyleSheet.create({
   },
   runRow: {
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     marginBottom: 6,
   },
@@ -423,7 +427,7 @@ const styles = StyleSheet.create({
   },
   asOfInput: {
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     fontSize: 15,
     color: "#1C1C1E",
@@ -432,7 +436,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 20 },
   sectionToggle: {
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   sectionToggleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

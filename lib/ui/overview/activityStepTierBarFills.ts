@@ -9,10 +9,10 @@ const z = MODULE_OVERVIEW_SEGMENT_ZONE_FILLS;
 export const ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX = [0, 2, 1, 3, 3, 4] as const;
 
 /** Active tier (Good band) — aligned with calmer Active pill in {@link ACTIVITY_STEP_RATING_TIERS}. */
-const ACTIVITY_GOOD_TIER_ZONE_FILL = "#6BA38A";
+const ACTIVITY_GOOD_TIER_ZONE_FILL = "rgba(80, 220, 150, 0.75)";
 
 /** Very Active tier (Great band) — solid fill; distinct from Active for quick scan. */
-const ACTIVITY_GREAT_TIER_ZONE_FILL = "#4ED26F";
+const ACTIVITY_GREAT_TIER_ZONE_FILL = "rgba(64, 220, 115, 0.85)";
 
 /**
  * Single-fill color per Activity tier — Body segment tokens where shared; distinct greens for Good vs Great;

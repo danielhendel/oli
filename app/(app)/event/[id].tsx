@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/event/[id].tsx
 import { ScrollView, View, Text, StyleSheet, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -192,14 +194,14 @@ const styles = StyleSheet.create({
   lineageCta: {
     marginTop: 24,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   lineageCtaText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
   provenanceToggle: {
     marginTop: 8,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   provenanceToggleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
