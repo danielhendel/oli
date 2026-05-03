@@ -26,45 +26,89 @@ const defaultOverviewData = {
     isRefreshing: false,
     refetch: jest.fn(),
   },
-  overview: {
-    loading: false,
-    error: null,
-    yesterdayRowLoading: false,
-    yesterdayRowError: null,
-    model: {
-      timeframes: [
-        {
-          key: "yesterday" as const,
-          label: "Yesterday",
-          compactStatsSummary: "9,876 steps",
-          markerPosition01: 0.42,
-        },
-        {
-          key: "day7" as const,
-          label: "7 Day",
-          compactStatsSummary: "3,000/day",
-          markerPosition01: 0.25,
-        },
-        {
-          key: "day30" as const,
-          label: "30 Day",
-          compactStatsSummary: "2,000/day",
-          markerPosition01: 0.17,
-        },
-        {
-          key: "ytd" as const,
-          label: "YTD",
-          compactStatsSummary: "Not enough data",
-          markerPosition01: 0,
-        },
-        {
-          key: "month12" as const,
-          label: "12 Month",
-          compactStatsSummary: "4,000/day",
-          markerPosition01: 0.33,
-        },
-      ],
+  rollupAggregateError: null as { message: string; requestId: string | null; onRetry: () => void } | null,
+  activityHistorySummaryModel: {
+    rows: [
+      {
+        key: "day7" as const,
+        label: "7 Day" as const,
+        hasEnoughData: true,
+        averageStepsPerDay: 3000,
+        displayValue: "3,000 steps/day",
+        tierLabel: "Moderately Active",
+        tierIndexForBar: 2,
+        progressFill01: 0.4,
+      },
+      {
+        key: "day30" as const,
+        label: "30 Day" as const,
+        hasEnoughData: true,
+        averageStepsPerDay: 2000,
+        displayValue: "2,000 steps/day",
+        tierLabel: "Lightly Active",
+        tierIndexForBar: 1,
+        progressFill01: 0.3,
+      },
+      {
+        key: "day90" as const,
+        label: "90 Day" as const,
+        hasEnoughData: true,
+        averageStepsPerDay: 2500,
+        displayValue: "2,500 steps/day",
+        tierLabel: "Moderately Active",
+        tierIndexForBar: 2,
+        progressFill01: 0.35,
+      },
+      {
+        key: "ytd" as const,
+        label: "YTD" as const,
+        hasEnoughData: false,
+        averageStepsPerDay: null,
+        displayValue: "—",
+        tierLabel: null,
+        tierIndexForBar: null,
+        progressFill01: null,
+      },
+      {
+        key: "month12" as const,
+        label: "12 Month" as const,
+        hasEnoughData: true,
+        averageStepsPerDay: 4000,
+        displayValue: "4,000 steps/day",
+        tierLabel: "Active",
+        tierIndexForBar: 3,
+        progressFill01: 0.5,
+      },
+    ],
+  },
+  activityThisWeekCardModel: {
+    compactValuePrimary: "5,000 steps/day",
+    ratingLabel: "Active",
+    activityTierIndexForBar: 3,
+    fillWidth01Override: 0.55,
+    days: [
+      {
+        dayKey: "2026-04-06",
+        dateLabel: "Sun 4/6",
+        stepsDigits: "9,876",
+        deltaText: "-4,321",
+      },
+    ],
+    isEmpty: false,
+  },
+  activityTodayCardModel: {
+    stepsDigits: "1,234",
+    tierPill: {
+      label: "Lightly Active",
+      color: "#1C1C1E",
+      backgroundColor: "#F2F2F7",
+      emphasis: "subtle" as const,
+      rangeDisplay: "",
     },
+    subtitle: "4,321 steps below your baseline",
+    compactStatsSummaryForA11y: "1,234",
+    activityTierIndexForBar: 1,
+    fillWidth01Override: 0.25,
   },
   dailyDetails: {
     loading: false,
@@ -173,50 +217,32 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/settings");
   });
 
-  it("renders Overview and Today’s Steps cards with timeframe rows", async () => {
+  it("renders Today, This Week, Activity Baseline in order with baseline rows as steps/day", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str).not.toContain("Step Ratings");
-    expect(str).not.toContain("activity-step-ratings-toggle");
-    expect(str.indexOf("Activity Baseline")).toBeLessThan(str.indexOf("Today’s Steps"));
-    expect(str.indexOf("Today’s Steps")).toBeLessThan(str.indexOf("Yesterday"));
-    const overviewBarMarker = "activity-overview-steps-bar-day7";
-    expect(str.indexOf("Yesterday")).toBeLessThan(str.indexOf(overviewBarMarker));
-    expect(str.indexOf("Your typical daily activity level based on the past 90 days")).toBeLessThan(
-      str.indexOf("Today’s Steps"),
-    );
-    expect(str).toContain(overviewBarMarker);
-    expect(str).toContain("Today’s Steps");
+    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-rating-pill"));
+    expect(str.indexOf("activity-this-week-rating-pill")).toBeLessThan(str.indexOf("activity-history-summary-card"));
+    expect(str).toContain("Today");
+    expect(str).toContain("This Week");
+    expect(str).toContain("Activity Baseline");
+    expect(str).toContain("Your activity baseline is the average daily steps across key time ranges.");
     expect(str).toContain("7 Day");
     expect(str).toContain("30 Day");
+    expect(str).toContain("90 Day");
     expect(str).toContain("YTD");
     expect(str).toContain("12 Month");
-    expect(str).toContain("3,000");
-    expect(str).toContain("2,000");
-    expect(str).toContain("Not enough data");
-    expect(str).toContain("4,000");
-    expect(str).toContain("1,234");
-    expect(str).toContain("9,876");
-    expect(str).toContain("5,555");
-    expect(str).toContain("Your typical daily activity level based on the past 90 days");
-    expect(str).toContain("activity-daily-details-delta-label");
-    expect(str).toContain("steps below your baseline");
-    expect(str).not.toContain("activity-baseline-tier-legend");
-    expect(str).not.toContain("under 5,000");
-    expect(str).not.toContain("15,000+");
-    expect(str).not.toMatch(/1,234 steps/);
-    expect(str).not.toMatch(/\d+ steps · \d/);
-    expect(str).toContain("activity-overview-steps-bar-day7");
-    expect(str).toContain("activity-overview-steps-bar-month12");
-    expect(str).toContain("activity-baseline-details-steps-bar");
-    expect(str).toContain("activity-baseline-threshold-markers");
-    expect(str).toContain("7.5k");
-    expect(str).toContain("activity-daily-details-steps-bar");
-    expect(str).toContain("activity-overview-steps-bar-yesterday");
+    expect(str).toContain("steps/day");
+    expect(str).not.toContain("Yesterday");
+    expect(str).not.toContain("Your typical daily activity level based on the past 90 days");
+    expect(str).not.toContain("activity-baseline-details-steps-bar");
+    expect(str).not.toContain("activity-baseline-threshold-markers");
+    expect(str).toContain("activity-history-tier-pill-day7");
+    expect(str).toContain("activity-today-tier-progress");
+    expect(str).not.toContain("activity-today-view-link");
   });
 
   it("tapping a weekly strip day pushes activity day detail with local YYYY-MM-DD param", async () => {
@@ -247,26 +273,31 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/day/2026-04-05");
   });
 
-  it("shows overview rollup warning on Overview only, not on Today’s Steps, when daily model is ready", async () => {
+  it("shows overview rollup warning on Activity Baseline card when aggregate error is present", async () => {
     const aggregateMessage = "Couldn’t load steps for 38 days. Other days may still show below.";
     mockUseActivityOverviewScreenData.mockImplementation(() => ({
       ...defaultOverviewData,
-      overview: {
-        ...defaultOverviewData.overview,
-        error: {
-          message: aggregateMessage,
-          requestId: "rAgg",
-          onRetry: jest.fn(),
-        },
+      rollupAggregateError: {
+        message: aggregateMessage,
+        requestId: "rAgg",
+        onRetry: jest.fn(),
       },
       dailyDetails: {
         loading: false,
         error: null,
         model: {
           title: "Today",
-          compactStatsSummary: "148 steps",
+          compactStatsSummary: "148",
           markerPosition01: 0.15,
         },
+      },
+      activityTodayCardModel: {
+        stepsDigits: "148",
+        tierPill: defaultOverviewData.activityTodayCardModel.tierPill,
+        subtitle: "Steps recorded today",
+        compactStatsSummaryForA11y: "148",
+        activityTierIndexForBar: 0,
+        fillWidth01Override: 0.1,
       },
     }));
 
@@ -284,24 +315,22 @@ describe("ActivityOverviewScreen", () => {
     expect(second).toBe(-1);
   });
 
-  it("shows Today’s Steps own error when daily fetch failed, separate from overview warning", async () => {
+  it("shows Today’s Steps own error when daily fetch failed, separate from aggregate warning", async () => {
     const aggregateMessage = "Couldn’t load steps for 2 days. Other days may still show below.";
     const todayMessage = "Selected day request failed";
     mockUseActivityOverviewScreenData.mockImplementation(() => ({
       ...defaultOverviewData,
-      overview: {
-        ...defaultOverviewData.overview,
-        error: {
-          message: aggregateMessage,
-          requestId: "rAgg",
-          onRetry: jest.fn(),
-        },
+      rollupAggregateError: {
+        message: aggregateMessage,
+        requestId: "rAgg",
+        onRetry: jest.fn(),
       },
       dailyDetails: {
         loading: false,
         error: { message: todayMessage, requestId: "rDay", onRetry: jest.fn() },
         model: null,
       },
+      activityTodayCardModel: null,
     }));
 
     let tree!: renderer.ReactTestRenderer;
@@ -315,7 +344,7 @@ describe("ActivityOverviewScreen", () => {
     expect(str).not.toContain("148 steps");
   });
 
-  it("shows no rollup warning when overview has no error", async () => {
+  it("shows no rollup warning when aggregate has no error", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
@@ -324,10 +353,10 @@ describe("ActivityOverviewScreen", () => {
     const str = JSON.stringify(tree.toJSON());
     expect(str).not.toContain("Couldn’t load steps for");
     expect(str).toContain("1,234");
-    expect(str).not.toMatch(/1,234 steps/);
+    expect(str).not.toContain('"1,234 steps"');
   });
 
-  it("navigates to day detail for the strip day marked as today and for a non-today strip day", async () => {
+  it("navigates to day detail for strip days", async () => {
     mockUseActivityOverviewScreenData.mockImplementation(() => ({
       ...defaultOverviewData,
       selectedDay: "2026-04-10",
@@ -356,5 +385,65 @@ describe("ActivityOverviewScreen", () => {
     });
     expect(mockSetSelectedDay).not.toHaveBeenCalled();
     expect(mockRouterPush).toHaveBeenLastCalledWith("/(app)/activity/day/2026-04-05");
+  });
+
+  it("Activity Baseline View More navigates to activity analytics", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const viewMore = tree.root.findByProps({ testID: "activity-history-summary-view-more" });
+    await act(async () => {
+      viewMore.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/analytics");
+  });
+
+  it("This Week View All navigates to activity history", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const viewAll = tree.root.findByProps({ testID: "activity-this-week-view-all" });
+    await act(async () => {
+      viewAll.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/history");
+  });
+
+  it("Activity This Week rows omit per-row tier pills but keep header pill, steps, delta, and baseline pills", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain("activity-this-week-tier-pill-");
+    expect(str).toContain("activity-this-week-rating-pill");
+    expect(str).toContain("9,876");
+    expect(str).toContain("-4,321");
+    expect(str).toContain("activity-history-tier-pill-day7");
+  });
+
+  it("opens Activity Range Explainer when baseline tier pill is pressed", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const pill = tree.root.findByProps({ testID: "activity-history-tier-pill-day7" });
+    await act(async () => {
+      pill.props.onPress();
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/(app)/activity/activity-range-explainer",
+      params: expect.objectContaining({
+        window: "7 Day",
+        tierLabel: "Moderately Active",
+        displayValue: "3,000 steps/day",
+      }),
+    });
   });
 });

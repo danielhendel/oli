@@ -14,6 +14,8 @@ export type ActivityRatingPillProps = {
    * vs the step figure (Sleep and other callers omit).
    */
   compactChrome?: boolean;
+  /** When false with compact subtle pills, skips the +1px top nudge used for baseline-aligned rows (use with alignItems center). */
+  opticalBaselineNudge?: boolean;
   /** Optional override for label typography (e.g. Sleep metric pills). */
   labelTypography?: Pick<TextStyle, "fontSize" | "fontWeight" | "letterSpacing">;
   testID?: string;
@@ -29,6 +31,7 @@ export function ActivityRatingPill({
   backgroundColor,
   emphasis = "default",
   compactChrome = false,
+  opticalBaselineNudge = true,
   labelTypography,
   testID,
 }: ActivityRatingPillProps) {
@@ -53,7 +56,7 @@ export function ActivityRatingPill({
         styles.shell,
         subtle ? styles.shellSubtle : null,
         activityCompact ? styles.shellSubtleActivityCompact : null,
-        activityCompact ? styles.shellActivityBaselineNudge : null,
+        activityCompact && opticalBaselineNudge ? styles.shellActivityBaselineNudge : null,
         subtleLift,
         {
           backgroundColor,

@@ -53,7 +53,7 @@ describe("buildCardioBaselineCardModel", () => {
     expect(model.averageMinutesPerWeek90d).toBeCloseTo((60 * 7) / 90, 10);
     expect(model.formattedAverageMilesPerWeek).toBe("1.2 mi/wk");
     expect(model.formattedAverageMinutesPerWeek).toBe("5 min/wk");
-    expect(model.headlineLabel).toBe("1.2 mi · 5 min/wk");
+    expect(model.headlineLabel).toBe("1.2 mi per week");
   });
 
   it("returns insufficient_data when no cardio distance is available", () => {
@@ -64,7 +64,7 @@ describe("buildCardioBaselineCardModel", () => {
     expect(model).toEqual({ kind: "insufficient_data" });
   });
 
-  it("maps CDC/AHA product tier boundaries", () => {
+  it("maps six-tier mileage boundaries", () => {
     const cases = [
       { milesPerWeek: 2.4, tier: "very_low" },
       { milesPerWeek: 2.5, tier: "low" },
@@ -74,6 +74,8 @@ describe("buildCardioBaselineCardModel", () => {
       { milesPerWeek: 15, tier: "high" },
       { milesPerWeek: 24.9, tier: "high" },
       { milesPerWeek: 25, tier: "very_high" },
+      { milesPerWeek: 39.9, tier: "very_high" },
+      { milesPerWeek: 40, tier: "peak" },
     ] as const;
 
     for (const entry of cases) {
@@ -88,7 +90,7 @@ describe("buildCardioBaselineCardModel", () => {
     }
   });
 
-  it("returns minutes-only headline when distance is unavailable", () => {
+  it("shows miles headline when only duration contributes to totals", () => {
     const day = "2026-06-14";
     const model = buildCardioBaselineCardModel({
       cardioCalendarDays: [
@@ -115,6 +117,6 @@ describe("buildCardioBaselineCardModel", () => {
     if (model.kind !== "ready") return;
     expect(model.totalMiles90d).toBe(0);
     expect(model.totalMinutes90d).toBe(30);
-    expect(model.headlineLabel).toBe("2 min/wk");
+    expect(model.headlineLabel).toBe("0.0 mi per week");
   });
 });

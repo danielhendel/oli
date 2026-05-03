@@ -14,26 +14,24 @@ const model: CardioBaselineCardModel = {
   tier: "low",
   formattedAverageMilesPerWeek: "3.0 mi/wk",
   formattedAverageMinutesPerWeek: "44 min/wk",
-  headlineLabel: "3.0 mi · 44 min/wk",
+  headlineLabel: "3.0 mi per week",
   progressMilesPerWeekScaleValue: 3,
 };
 
 describe("CardioBaselineCard", () => {
-  it("renders all cardio numeric tick labels", async () => {
+  it("renders headline + upgraded ruler tick labels", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<CardioBaselineCard loading={false} model={model} />);
     });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("Cardio Baseline");
-    expect(json).toContain("3.0 mi · 44 min/wk");
-    expect(json).not.toContain("3.0 mi/wk · 44 min/wk");
+    expect(json).toContain("3.0 mi per week");
+    expect(json).not.toContain("min/wk");
     expect(json).toContain("cardio-baseline-frequency-bar");
     expect(json).toContain("cardio-baseline-frequency-markers");
     expect(json).toContain('"children":["0"]');
     expect(json).toContain('"children":["2.5"]');
-    expect(json).toContain('"children":["7.5"]');
-    expect(json).toContain('"children":["15"]');
-    expect(json).toContain('"children":["25"]');
+    expect(json).toContain('"children":["40+"]');
   });
 });

@@ -6,11 +6,14 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import { resolveActivityBaselineCardState } from "@/lib/data/activity/activityBaselineCardState";
+import { buildActivityHistorySummaryModel } from "@/lib/data/activity/activityHistorySummaryModel";
 import {
   buildActivityDailyDetailsCardModel,
-  buildActivityOverviewCardModel,
   buildActivityTodayStepsLiveCardModel,
+  parseActivityDailyDetailsNumericSteps,
 } from "@/lib/data/activity/activityOverviewCardModel";
+import { buildActivityThisWeekCardModel } from "@/lib/data/activity/activityThisWeekCardModel";
+import { buildActivityTodayOverviewCardModel } from "@/lib/data/activity/activityTodayOverviewCardModel";
 import { mergeTodayDetailsWithBaselineDelta } from "@/lib/data/activity/activityTodayBaselineDelta";
 import {
   buildActivityRollupAggregateError,
@@ -84,21 +87,50 @@ export function useActivityOverviewScreenData() {
     );
   }, [todayDayKey, displayRollup, stepsRollup]);
 
-  /** Local calendar yesterday — same completed-day anchor as Overview ({@link getActivityOverviewAnchorEndDay}). */
-  const yesterdayDayKey = overviewAnchorEndDay;
+  /** Merge live HealthKit today into rollup view so baseline windows match the Today card when HK is authoritative. */
+  const rollupMergedForBaselineWindows = useMemo(() => {
+    const m = { ...displayRollup };
+    if (user && hkToday.status === "ready" && typeof hkToday.steps === "number") {
+      m[todayDayKey] = { kind: "numeric" as const, steps: hkToday.steps };
+    }
+    return m;
+  }, [displayRollup, hkToday, todayDayKey, user]);
 
-  const rollupYesterdayEntryError = useMemo(() => {
-    return buildActivitySelectedDayRollupError(yesterdayDayKey, displayRollup, () =>
-      void stepsRollup.refetch({ cacheBust: `activityRollupYesterdayRetry:${Date.now()}` }),
-    );
-  }, [yesterdayDayKey, displayRollup, stepsRollup]);
-
-  const overviewCardModel = useMemo(() => {
-    return buildActivityOverviewCardModel({
+  const baselineDetails = useMemo(() => {
+    const { loading, model } = resolveActivityBaselineCardState({
+      user,
+      stepsRollupStatus: stepsRollup.status,
       overviewAnchorEndDay,
-      rollupByDay: displayRollup,
+      rollupDisplayByDay: displayRollup,
     });
-  }, [displayRollup, overviewAnchorEndDay]);
+    return {
+      loading,
+      error: null,
+      model,
+    };
+  }, [user, stepsRollup.status, overviewAnchorEndDay, displayRollup]);
+
+  const activityBaselineMeanSteps = useMemo(() => {
+    const m = baselineDetails.model;
+    if (m == null) return null;
+    return parseActivityDailyDetailsNumericSteps(m.compactStatsSummary);
+  }, [baselineDetails.model]);
+
+  const activityHistorySummaryModel = useMemo(() => {
+    return buildActivityHistorySummaryModel({
+      todayDayKey,
+      rollupByDay: rollupMergedForBaselineWindows,
+    });
+  }, [rollupMergedForBaselineWindows, todayDayKey]);
+
+  const activityThisWeekCardModel = useMemo(() => {
+    return buildActivityThisWeekCardModel({
+      todayDayKey,
+      weekDayKeys: getWeekDaysForAnchor(todayDayKey),
+      rollupByDay: rollupMergedForBaselineWindows,
+      baselineMeanSteps: activityBaselineMeanSteps,
+    });
+  }, [rollupMergedForBaselineWindows, todayDayKey, activityBaselineMeanSteps]);
 
   const todayRollupEntry = displayRollup[todayDayKey];
   const hasRollupForTodayCard =
@@ -182,36 +214,6 @@ export function useActivityOverviewScreenData() {
     return stepsRollup.status === "partial";
   }, [hkToday.status, hasRollupForTodayCard, displayRollup, stepsRollup.status, user]);
 
-  const overviewYesterdayRowLoading = useMemo(() => {
-    if (!user) return false;
-    return displayRollup[yesterdayDayKey] === undefined;
-  }, [user, displayRollup, yesterdayDayKey]);
-
-  const overview = useMemo(
-    () => ({
-      loading: false,
-      error: rollupAggregateError,
-      model: overviewCardModel,
-      yesterdayRowLoading: overviewYesterdayRowLoading,
-      yesterdayRowError: rollupYesterdayEntryError,
-    }),
-    [overviewCardModel, overviewYesterdayRowLoading, rollupAggregateError, rollupYesterdayEntryError],
-  );
-
-  const baselineDetails = useMemo(() => {
-    const { loading, model } = resolveActivityBaselineCardState({
-      user,
-      stepsRollupStatus: stepsRollup.status,
-      overviewAnchorEndDay,
-      rollupDisplayByDay: displayRollup,
-    });
-    return {
-      loading,
-      error: null,
-      model,
-    };
-  }, [user, stepsRollup.status, overviewAnchorEndDay, displayRollup]);
-
   const dailyDetailsModelMerged = useMemo(
     () => mergeTodayDetailsWithBaselineDelta(dailyDetailsModel, baselineDetails.model),
     [dailyDetailsModel, baselineDetails.model],
@@ -226,6 +228,11 @@ export function useActivityOverviewScreenData() {
     [dailyDetailsLoading, dailyDetailsModelMerged, dailyDetailsTodayError],
   );
 
+  const activityTodayCardModel = useMemo(
+    () => buildActivityTodayOverviewCardModel(dailyDetails.model),
+    [dailyDetails.model],
+  );
+
   return {
     user,
     initializing,
@@ -233,7 +240,10 @@ export function useActivityOverviewScreenData() {
     setSelectedDay,
     weeklyStripDays,
     stepsRollup,
-    overview,
+    rollupAggregateError,
+    activityHistorySummaryModel,
+    activityThisWeekCardModel,
+    activityTodayCardModel,
     dailyDetails,
     baselineDetails,
   };

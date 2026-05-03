@@ -12,7 +12,6 @@ import { NutritionWeeklyStrip } from "@/lib/ui/nutrition/NutritionWeeklyStrip";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { NutritionTodayCard } from "@/lib/ui/nutrition/NutritionTodayCard";
 import { NutritionRecentCard } from "@/lib/ui/nutrition/NutritionRecentCard";
-import { NutritionOverviewBottomNav } from "@/lib/ui/nutrition/NutritionOverviewBottomNav";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
@@ -145,7 +144,6 @@ export default function NutritionOverviewScreen() {
           />
         </View>
       </ModuleScreenShell>
-      <NutritionOverviewBottomNav />
     </View>
   );
 }
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -16,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 120,
+    paddingBottom: 28,
     flexGrow: 1,
     gap: 20,
   },

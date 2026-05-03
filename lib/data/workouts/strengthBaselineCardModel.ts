@@ -4,11 +4,11 @@ import {
   getActivityOverviewAnchorEndDay,
 } from "@/lib/data/activity/activityOverviewRanges";
 import {
-  strengthWeeklyFrequencyActivityTierIndexForBar,
+  strengthWeeklyFrequencyActivityTierIndexForTierBand,
   strengthWeeklyFrequencyDisplayScaleFill01,
-  strengthWeeklyFrequencyRatingBucketFromAvg,
-  strengthWeeklyFrequencyRatingLabelFromBucket,
-  type StrengthWeeklyFrequencyRatingBucket,
+  strengthWeeklyFrequencyRatingLabelFromTierBand,
+  strengthWeeklyFrequencyTierBandFromAvg,
+  type StrengthWeeklyFrequencyTierBand,
 } from "@/lib/utils/strengthWeeklyFrequencyRating";
 import { collectStrengthOverviewTabSessions } from "@/lib/data/workouts/strengthOverviewCardModel";
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
@@ -27,7 +27,7 @@ export type StrengthBaselineCardModel = {
   compactValuePrimary: string;
   totalMinutes90d: number;
   avgMinutesPerWeek: number;
-  ratingBucket: StrengthWeeklyFrequencyRatingBucket;
+  ratingTierBand: StrengthWeeklyFrequencyTierBand;
   ratingLabel: string;
   /** Pass to {@link ActivityTierProgressTrack} tier coloring. */
   activityTierIndexForBar: number;
@@ -64,15 +64,15 @@ export function buildStrengthBaselineCardModel(input: {
     averageWorkoutsPerWeek: avgWorkoutsPerWeek,
     averageMinutesPerWeek: avgMinutesPerWeek,
   });
-  const ratingBucket = strengthWeeklyFrequencyRatingBucketFromAvg(avgWorkoutsPerWeek);
+  const ratingTierBand = strengthWeeklyFrequencyTierBandFromAvg(avgWorkoutsPerWeek);
   return {
     avgWorkoutsPerWeek,
     compactValuePrimary,
     totalMinutes90d,
     avgMinutesPerWeek,
-    ratingBucket,
-    ratingLabel: strengthWeeklyFrequencyRatingLabelFromBucket(ratingBucket),
-    activityTierIndexForBar: strengthWeeklyFrequencyActivityTierIndexForBar(ratingBucket),
+    ratingTierBand,
+    ratingLabel: strengthWeeklyFrequencyRatingLabelFromTierBand(ratingTierBand),
+    activityTierIndexForBar: strengthWeeklyFrequencyActivityTierIndexForTierBand(ratingTierBand),
     fillWidth01Override: strengthWeeklyFrequencyDisplayScaleFill01(avgWorkoutsPerWeek),
   };
 }

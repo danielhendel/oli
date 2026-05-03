@@ -1,45 +1,64 @@
 /** Upper bound for Strength Baseline progress-track display (workouts/week). */
 export const STRENGTH_BASELINE_WEEKLY_FREQUENCY_DISPLAY_MAX = 7;
 
-export type StrengthWeeklyFrequencyRatingBucket = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+/**
+ * Strength weekly frequency tiers for pills, bars, and legend — six bands aligned to the 0→7 display scale.
+ * Indices match Activity tier bar palette indices 0–5 ({@link strengthWeeklyFrequencyActivityTierIndexForTierBand}).
+ *
+ * Bands (avg workouts / week): [0,1) Very Low; [1,2) Low; [2,3) Moderate; [3,4) High; [4,5) Very High; [5,∞) Peak Frequency (display capped at 7 for fill).
+ */
+export type StrengthWeeklyFrequencyTierBand = 0 | 1 | 2 | 3 | 4 | 5;
 
 /**
- * Maps measurable average weekly frequency to the product copy ladder (pill label only).
+ * Classifies measurable weekly frequency into tier bands using half-open intervals on the product ladder.
  */
-export function strengthWeeklyFrequencyRatingLabelFromBucket(
-  bucket: StrengthWeeklyFrequencyRatingBucket,
-): string {
-  switch (bucket) {
+export function strengthWeeklyFrequencyTierBandFromAvg(avgWorkoutsPerWeek: number): StrengthWeeklyFrequencyTierBand {
+  const n = Number.isFinite(avgWorkoutsPerWeek) ? Math.max(0, avgWorkoutsPerWeek) : 0;
+  if (n < 1) return 0;
+  if (n < 2) return 1;
+  if (n < 3) return 2;
+  if (n < 4) return 3;
+  if (n < 5) return 4;
+  return 5;
+}
+
+export function strengthWeeklyFrequencyRatingLabelFromTierBand(band: StrengthWeeklyFrequencyTierBand): string {
+  switch (band) {
     case 0:
-      return "None";
-    case 1:
       return "Very Low";
-    case 2:
+    case 1:
       return "Low";
-    case 3:
+    case 2:
       return "Moderate";
-    case 4:
+    case 3:
       return "High";
-    case 5:
-    case 6:
+    case 4:
       return "Very High";
-    case 7:
-      return "Max Frequency";
+    case 5:
+      return "Peak Frequency";
     default:
-      return "None";
+      return "Very Low";
   }
 }
 
-/**
- * Buckets `avgWorkoutsPerWeek` with half-up rounding, clamped to 0–7 (same ladder as marker scale).
- */
-export function strengthWeeklyFrequencyRatingBucketFromAvg(
-  avgWorkoutsPerWeek: number,
-): StrengthWeeklyFrequencyRatingBucket {
-  const n = Number.isFinite(avgWorkoutsPerWeek) ? avgWorkoutsPerWeek : 0;
-  const r = Math.round(n);
-  const clamped = Math.min(STRENGTH_BASELINE_WEEKLY_FREQUENCY_DISPLAY_MAX, Math.max(0, r));
-  return clamped as StrengthWeeklyFrequencyRatingBucket;
+/** Compact workouts/wk range line for the Strength Baseline legend (matches tier boundaries). */
+export function strengthWeeklyFrequencyTierBandRangeLabel(band: StrengthWeeklyFrequencyTierBand): string {
+  switch (band) {
+    case 0:
+      return "0–1";
+    case 1:
+      return "1–2";
+    case 2:
+      return "2–3";
+    case 3:
+      return "3–4";
+    case 4:
+      return "4–5";
+    case 5:
+      return "5–7";
+    default:
+      return "";
+  }
 }
 
 /**
@@ -51,15 +70,7 @@ export function strengthWeeklyFrequencyDisplayScaleFill01(avgWorkoutsPerWeek: nu
   return Math.min(1, n / max);
 }
 
-/**
- * Maps bucket → Activity tier palette index (0–5) so {@link ActivityTierProgressTrack} fill colors align
- * with the frequency ladder without changing Activity step thresholds.
- */
-export function strengthWeeklyFrequencyActivityTierIndexForBar(bucket: StrengthWeeklyFrequencyRatingBucket): number {
-  if (bucket <= 1) return 0;
-  if (bucket === 2) return 1;
-  if (bucket === 3) return 2;
-  if (bucket === 4) return 3;
-  if (bucket <= 6) return 4;
-  return 5;
+/** Activity tier palette index for bar fill — same as tier band for this ladder (0–5). */
+export function strengthWeeklyFrequencyActivityTierIndexForTierBand(band: StrengthWeeklyFrequencyTierBand): number {
+  return band;
 }

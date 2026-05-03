@@ -11,7 +11,7 @@ describe("CardioHistorySummaryCard", () => {
     const model: CardioHistorySummaryModel = {
       rows: [
         {
-          key: "day7",
+          key: "thisWeek",
           label: "7 Day",
           hasEnoughData: true,
           totalMiles: 1,
@@ -34,5 +34,71 @@ describe("CardioHistorySummaryCard", () => {
     expect(json).toContain(tierChrome.backgroundColor);
     expect(json).not.toContain("#0A84FF");
     expect(json).toContain("Low");
+    expect(json).not.toContain("cardio-baseline-frequency-legend");
+  });
+
+  it("tier pills are pressable when onPressCardioRangeExplainer is provided", async () => {
+    const onExplainer = jest.fn();
+    const model: CardioHistorySummaryModel = {
+      rows: [
+        {
+          key: "thisWeek",
+          label: "7 Day",
+          hasEnoughData: true,
+          totalMiles: 10,
+          averageMilesPerWeek: 10,
+          totalMinutes: 60,
+          averageMinutesPerWeek: 60,
+          displayValue: "10.6 mi per week",
+          tierLabel: "Active",
+          tierIndexForBar: 2,
+          progressFill01: 0.5,
+        },
+      ],
+    };
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CardioHistorySummaryCard model={model} onPressCardioRangeExplainer={onExplainer} />);
+    });
+    const pillHit = tree.root.findByProps({ testID: "cardio-history-tier-pill-thisWeek" });
+    expect(pillHit.props.accessibilityRole).toBe("button");
+    expect(pillHit.props.accessibilityLabel).toBe("View cardio range explanation");
+    await act(async () => {
+      pillHit.props.onPress();
+    });
+    expect(onExplainer).toHaveBeenCalledWith({
+      rowKey: "thisWeek",
+      rowLabel: "7 Day",
+      tierLabel: "Active",
+      averageMilesPerWeek: 10,
+      tierIndexForBar: 2,
+      displayValue: "10.6 mi per week",
+    });
+  });
+
+  it("tier pills are disabled when explainer handler is omitted", async () => {
+    const model: CardioHistorySummaryModel = {
+      rows: [
+        {
+          key: "thisWeek",
+          label: "7 Day",
+          hasEnoughData: true,
+          totalMiles: 1,
+          averageMilesPerWeek: 1,
+          totalMinutes: 10,
+          averageMinutesPerWeek: 10,
+          displayValue: "1.0 mi per week",
+          tierLabel: "Low",
+          tierIndexForBar: 1,
+          progressFill01: 0.2,
+        },
+      ],
+    };
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CardioHistorySummaryCard model={model} />);
+    });
+    const pillHit = tree.root.findByProps({ testID: "cardio-history-tier-pill-thisWeek" });
+    expect(pillHit.props.disabled).toBe(true);
   });
 });

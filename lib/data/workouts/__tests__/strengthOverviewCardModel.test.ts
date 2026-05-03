@@ -218,6 +218,7 @@ describe("buildStrengthOverviewCardModel", () => {
     });
     expect(c.totalWorkouts).toBe(w.totalWorkouts);
     expect(c.avgWorkoutsPerWeek).toBe(w.avgWorkoutsPerWeek);
+    expect(c.totalStrengthMinutesAggregated).toBe(30);
   });
 
   it("This Week counts only strength sessions in the calendar week slice", () => {

@@ -1,37 +1,54 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { RecentWorkoutSessionEntry } from "@/lib/data/workouts/workoutsCalendarModel";
-import { displayLabelForAppleHealthKitWorkoutActivityType } from "@/lib/data/workouts/appleHealthKitWorkoutActivityType";
+import {
+  displayLabelForAppleHealthKitWorkoutActivityType,
+  HK_WORKOUT_ACTIVITY_TYPE_OTHER,
+  hkActivityIdIsRunningFamily,
+  hkActivityIdIsWalkingFamily,
+} from "@/lib/data/workouts/appleHealthKitWorkoutActivityType";
 import { formatWorkoutDurationLabel, formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import { CARDIO_WEEKLY_MILES_DISPLAY_MAX } from "@/lib/ui/workouts/cardioBaselineScale";
 
 const METERS_PER_MILE = 1609.344;
-const CARDIO_MILES_WEEK_SCALE_MAX = 25;
 
-export type CardioDistanceTier = "very_low" | "low" | "active" | "high" | "very_high";
+/** Scale end for “This Week” mileage fill — matches {@link CARDIO_WEEKLY_MILES_DISPLAY_MAX}. */
+const CARDIO_MILES_WEEK_SCALE_MAX = CARDIO_WEEKLY_MILES_DISPLAY_MAX;
 
+export type CardioDistanceTier = "very_low" | "low" | "active" | "high" | "very_high" | "peak";
+
+/**
+ * Six cardio tiers (mi/wk): Very Low → Peak (elite). Boundaries match product ladder / baseline ruler.
+ * Uses half-open intervals upward at breakpoints 2.5, 7.5, 15, 25, 40.
+ */
 export function cardioDistanceTierFromWeeklyMiles(weeklyMiles: number): CardioDistanceTier {
-  if (weeklyMiles <= 2.4) return "very_low";
-  if (weeklyMiles <= 7.4) return "low";
-  if (weeklyMiles <= 14.9) return "active";
-  if (weeklyMiles <= 24.9) return "high";
-  return "very_high";
+  const n = Number.isFinite(weeklyMiles) ? Math.max(0, weeklyMiles) : 0;
+  if (n < 2.5) return "very_low";
+  if (n < 7.5) return "low";
+  if (n < 15) return "active";
+  if (n < 25) return "high";
+  if (n < 40) return "very_high";
+  return "peak";
 }
 
 export function cardioDistanceTierLabel(tier: CardioDistanceTier): string {
   if (tier === "very_low") return "Very Low";
+  if (tier === "peak") return "Peak";
   if (tier === "very_high") return "Very High";
   if (tier === "low") return "Low";
   if (tier === "active") return "Active";
   return "High";
 }
 
+/** Bar / pill palette index 0–5 — aligns with {@link ACTIVITY_STEP_RATING_TIERS} and Strength “Peak” (index 5). */
 export function cardioDistanceTierIndexForBar(tier: CardioDistanceTier): number {
   if (tier === "very_low") return 0;
   if (tier === "low") return 1;
   if (tier === "active") return 2;
   if (tier === "high") return 3;
-  return 4;
+  if (tier === "very_high") return 4;
+  return 5;
 }
 
 export function cardioWeeklyMilesScaleFill01(weeklyMiles: number): number {
@@ -81,51 +98,110 @@ export function formatCardioSessionHeadline(input: {
   return parts.join(" / ");
 }
 
-function stringLabelScore(label: string): number {
+function isGenericWorkoutTitleLabel(label: string): boolean {
   const n = label.trim().toLowerCase();
-  if (n.length === 0 || n === "workout" || n === "cardio") return 0;
-  if (n === "other" || n === "unknown" || n === "uncategorized") return 2;
-  return 40;
-}
-
-function workoutSubtitleCandidates(workout: WorkoutHistoryItem): { label: string; score: number }[] {
-  const out: { label: string; score: number }[] = [];
-  const hkLabel = displayLabelForAppleHealthKitWorkoutActivityType(workout.hk?.activityId ?? null);
-  if (hkLabel) {
-    out.push({ label: hkLabel, score: 120 });
-  }
-  const raw = workout.activityName ?? workout.sport ?? workout.title;
-  const fromStrings = formatWorkoutTitle(raw);
-  if (fromStrings !== "Workout") {
-    let score = stringLabelScore(fromStrings);
-    if (typeof workout.distanceMeters === "number" && workout.distanceMeters > 0) score += 25;
-    out.push({ label: fromStrings, score });
-  }
-  return out;
+  return n.length === 0 || n === "workout" || n === "cardio";
 }
 
 /**
- * Picks the best modality label across merged raw rows (e.g. duplicate HK samples): prefers
- * {@link displayLabelForAppleHealthKitWorkoutActivityType}, then non-generic strings, favoring rows with distance.
+ * Single-source modality label for one raw workout row (presentation only).
+ * Priority: HealthKit activity id families (Running / Walking) → HK display label → activityName → sport → title → Unknown.
  */
-function pickSessionTypeLikeLabel(session: ReconciledWorkoutSession): string {
-  let best = "";
-  let bestScore = -1;
-  for (const workout of session.workouts) {
-    for (const { label, score } of workoutSubtitleCandidates(workout)) {
-      if (score > bestScore) {
-        bestScore = score;
-        best = label;
-      }
-    }
+export function cardioModalityLabelFromWorkout(workout: WorkoutHistoryItem): string {
+  const id = workout.hk?.activityId;
+  if (hkActivityIdIsRunningFamily(id)) return "Running";
+  if (hkActivityIdIsWalkingFamily(id)) return "Walking";
+  const hk = displayLabelForAppleHealthKitWorkoutActivityType(id ?? null);
+  if (hk != null && hk.trim().length > 0 && !isGenericWorkoutTitleLabel(hk)) {
+    return hk;
   }
-  if (bestScore >= 0 && best.length > 0) return best;
-  const fallback = formatWorkoutTitle(session.title);
-  return fallback === "Workout" ? "Cardio" : fallback;
+  if (workout.activityName != null && String(workout.activityName).trim().length > 0) {
+    const t = formatWorkoutTitle(workout.activityName);
+    if (!isGenericWorkoutTitleLabel(t)) return t;
+  }
+  if (workout.sport != null && String(workout.sport).trim().length > 0) {
+    const t = formatWorkoutTitle(workout.sport);
+    if (!isGenericWorkoutTitleLabel(t)) return t;
+  }
+  const title = formatWorkoutTitle(workout.title);
+  if (!isGenericWorkoutTitleLabel(title)) return title;
+  return "Unknown";
+}
+
+function workoutRowDistanceMeters(w: WorkoutHistoryItem): number {
+  return typeof w.distanceMeters === "number" && Number.isFinite(w.distanceMeters) && w.distanceMeters > 0
+    ? w.distanceMeters
+    : 0;
+}
+
+function workoutRowDurationMinutes(w: WorkoutHistoryItem): number {
+  const d = w.durationMinutes;
+  return typeof d === "number" && Number.isFinite(d) && d > 0 ? d : 0;
+}
+
+/** HK activity id is non-Other and maps to a known modality (enum table) — authoritative for merge resolution. */
+function hasAuthoritativeAppleHealthActivityId(w: WorkoutHistoryItem): boolean {
+  const id = w.hk?.activityId;
+  if (id == null || !Number.isFinite(id)) return false;
+  if (Math.trunc(id) === HK_WORKOUT_ACTIVITY_TYPE_OTHER) return false;
+  return displayLabelForAppleHealthKitWorkoutActivityType(id) != null;
+}
+
+/**
+ * Tie-break among rows **after** HK family priority: distance, then duration, then id (presentation-only).
+ */
+function pickBestWorkoutRowByDistanceThenDuration(workouts: readonly WorkoutHistoryItem[]): WorkoutHistoryItem | null {
+  if (workouts.length === 0) return null;
+  const sorted = [...workouts].sort((a, b) => {
+    const dd = workoutRowDistanceMeters(b) - workoutRowDistanceMeters(a);
+    if (dd !== 0) return dd;
+    const dm = workoutRowDurationMinutes(b) - workoutRowDurationMinutes(a);
+    if (dm !== 0) return dm;
+    return a.id.localeCompare(b.id);
+  });
+  return sorted[0] ?? null;
+}
+
+/**
+ * When Apple merges multiple raw samples (e.g. Indoor Run HK Running + stray Walking GPS):
+ * prefer **authoritative HealthKit activityId**, Running family over Walking **before** using distance.
+ * Indoor Run uses the same {@link HK_WORKOUT_ACTIVITY_TYPE_RUNNING} (37) as outdoor Running.
+ */
+export function pickRepresentativeWorkoutForCardioModality(session: ReconciledWorkoutSession): WorkoutHistoryItem | null {
+  const ws = session.workouts;
+  if (ws.length === 0) return null;
+  if (ws.length === 1) return ws[0]!;
+
+  const authoritative = ws.filter(hasAuthoritativeAppleHealthActivityId);
+  if (authoritative.length > 0) {
+    const runningHk = authoritative.filter((w) => hkActivityIdIsRunningFamily(w.hk?.activityId));
+    if (runningHk.length > 0) {
+      return pickBestWorkoutRowByDistanceThenDuration(runningHk);
+    }
+    const walkingHk = authoritative.filter((w) => hkActivityIdIsWalkingFamily(w.hk?.activityId));
+    if (walkingHk.length > 0) {
+      return pickBestWorkoutRowByDistanceThenDuration(walkingHk);
+    }
+    return pickBestWorkoutRowByDistanceThenDuration(authoritative);
+  }
+
+  const byDist = pickBestWorkoutRowByDistanceThenDuration(ws);
+  if (byDist != null && workoutRowDistanceMeters(byDist) > 0) return byDist;
+
+  const sorted = [...ws].sort((a, b) => {
+    const ta = a.start ?? a.observedAt ?? "";
+    const tb = b.start ?? b.observedAt ?? "";
+    const c = ta.localeCompare(tb);
+    if (c !== 0) return c;
+    return a.id.localeCompare(b.id);
+  });
+  return sorted[0] ?? ws[0]!;
 }
 
 export function formatCardioSessionSubtitle(session: ReconciledWorkoutSession): string {
-  return pickSessionTypeLikeLabel(session);
+  const w = pickRepresentativeWorkoutForCardioModality(session);
+  if (w == null) return "Unknown";
+  return cardioModalityLabelFromWorkout(w);
 }
 
 function isUnsupportedCardioModalityLabel(label: string): boolean {
@@ -148,10 +224,6 @@ export function isSupportedCardioSessionModality(session: ReconciledWorkoutSessi
   return isSupportedCardioModalityLabel(formatCardioSessionSubtitle(session));
 }
 
-/**
- * Full History / week lists: drops generic Apple “Other” rows with no distance (duration-only noise).
- * Named modalities (Walking, Running, …) stay visible even when distance is missing.
- */
 export function isDisplayableCardioHistorySession(session: ReconciledWorkoutSession): boolean {
   if (session.sessionType !== "cardio") return false;
   const subtitle = formatCardioSessionSubtitle(session).trim().toLowerCase();
@@ -164,7 +236,6 @@ export function isDisplayableCardioHistorySession(session: ReconciledWorkoutSess
   return true;
 }
 
-/** Weekly mileage banner: sum distances for every displayable cardio session in the slice (not only the 3 visible rows). */
 export function sumDisplayableCardioDistanceMilesForWeekEntries(
   sessions: readonly RecentWorkoutSessionEntry[],
 ): number {
@@ -184,9 +255,6 @@ function parseSessionInstantMs(iso: string | null | undefined): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/**
- * Whether two reconciled sessions overlap in time on the calendar (same-day duplicate detection).
- */
 export function sessionsHaveOverlappingTimeWindows(a: ReconciledWorkoutSession, b: ReconciledWorkoutSession): boolean {
   const aStart =
     parseSessionInstantMs(a.start) ??
@@ -214,10 +282,6 @@ export function sessionsHaveOverlappingTimeWindows(a: ReconciledWorkoutSession, 
   return al <= br && ar >= bl;
 }
 
-/**
- * Drops duration-only “Other” sessions that overlap a distance-bearing, well-modality cardio session the same day
- * (companion duplicate from Apple Health).
- */
 export function filterCardioHistoryRowsDedupeOverlappingOther<
   T extends { day: DayKey; session: ReconciledWorkoutSession },
 >(rows: readonly T[]): T[] {
@@ -256,10 +320,6 @@ function sessionChronologicalSortKey(session: ReconciledWorkoutSession): string 
   return session.start ?? session.workouts[0]?.start ?? session.workouts[0]?.observedAt ?? "";
 }
 
-/**
- * Cardio “This Week”: every displayable, modality-supported cardio session in the selected week,
- * sorted **Sun → Sat** by calendar slot in `weekDaysInOrder`, then earliest start time within a day.
- */
 export function getThisWeekCardioSessions(
   sessions: readonly RecentWorkoutSessionEntry[],
   weekDaysInOrder: readonly string[],

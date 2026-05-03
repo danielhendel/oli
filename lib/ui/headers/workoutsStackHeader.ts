@@ -9,10 +9,12 @@ import { Platform, type TextStyle } from "react-native";
 export type WorkoutsHeaderRole = "module" | "detail" | "task";
 
 export const WORKOUTS_HEADER_TITLE_COLOR = "#1C1C1E";
-export const WORKOUTS_HEADER_BAR_BG = "#FFFFFF";
 
 /** Grouped-list / module background behind white cards (overview, day, placeholders). */
 export const WORKOUTS_SCREEN_CONTENT_BG = "#F2F2F7";
+
+/** Native stack header + custom {@link WorkoutsNavBar} — same as screen chrome so the bar reads as one surface. */
+export const WORKOUTS_HEADER_BAR_BG = WORKOUTS_SCREEN_CONTENT_BG;
 
 /** Native stack header title — matches iOS standard nav title weight. */
 export const WORKOUTS_STACK_HEADER_TITLE_STYLE: TextStyle = {
@@ -28,7 +30,12 @@ export const WORKOUTS_STACK_HEADER_TITLE_STYLE: TextStyle = {
 export function workoutsStackNavigationOptions(role: WorkoutsHeaderRole): Record<string, unknown> {
   return {
     headerTitleStyle: WORKOUTS_STACK_HEADER_TITLE_STYLE,
-    headerStyle: { backgroundColor: WORKOUTS_HEADER_BAR_BG },
+    headerStyle: {
+      backgroundColor: WORKOUTS_HEADER_BAR_BG,
+      borderBottomWidth: 0,
+      elevation: 0,
+      shadowOpacity: 0,
+    },
     headerShadowVisible: false,
     headerTintColor: WORKOUTS_HEADER_TITLE_COLOR,
     ...(Platform?.OS === "ios" && role === "module" ? { headerTitleAlign: "center" } : {}),

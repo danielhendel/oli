@@ -20,6 +20,8 @@ type StrengthYearlyWorkloadBarsProps = {
   baselineMonthlyAvg: number;
   /** Month key `YYYY-MM` for today in the analytics calendar year. */
   todayMonthKey: string;
+  /** Optional label above bars (defaults to integer string). */
+  formatValueLabel?: (value: number) => string;
 };
 
 /** Multiplier on non-current-month bars (current month stays at full emphasis). */
@@ -48,7 +50,9 @@ export function StrengthYearlyWorkloadBars({
   maxScale,
   baselineMonthlyAvg,
   todayMonthKey,
+  formatValueLabel,
 }: StrengthYearlyWorkloadBarsProps) {
+  const labelFor = formatValueLabel ?? ((v: number) => String(Math.round(v)));
   const baselineYPxFromBottom = Math.min(
     barTrackHeight,
     Math.max(0, (baselineMonthlyAvg / maxScale) * barTrackHeight),
@@ -98,7 +102,7 @@ export function StrengthYearlyWorkloadBars({
           const showLabel = shouldShowStrengthYearlyMonthValueLabel(p.monthKey, todayMonthKey, p.value);
           return (
             <View key={`lab-${pointKey(p)}`} style={styles.valueLabelCell}>
-              {showLabel ? <Text style={styles.valueLabelAbove}>{p.value}</Text> : null}
+              {showLabel ? <Text style={styles.valueLabelAbove}>{labelFor(p.value)}</Text> : null}
             </View>
           );
         })}
