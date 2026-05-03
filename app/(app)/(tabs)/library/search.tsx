@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/(tabs)/library/search.tsx
 // Phase 2 — Library search & filters (keyword, time range, uncertainty, provenance)
 // Sprint 3 — Unresolved items lens (passive filter: incomplete/uncertain)
@@ -7,6 +9,7 @@ import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useRawEvents } from "@/lib/data/useRawEvents";
 import { useMemo, useState, useCallback, useEffect } from "react";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ingestRawEventAuthed } from "@/lib/api/ingest";
 import type { RawEventListItem } from "@oli/contracts";
@@ -21,6 +24,7 @@ function formatIsoToShort(iso: string): string {
 }
 
 export default function LibrarySearchScreen() {
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const params = useLocalSearchParams<{
     unresolvedLens?: string;
     uncertaintyFilter?: string;
@@ -145,7 +149,7 @@ export default function LibrarySearchScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}>
         <Text style={styles.title}>Search</Text>
         <Text style={styles.subtitle}>
           Keyword, time range, uncertainty, provenance
@@ -319,7 +323,7 @@ export default function LibrarySearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   input: {
@@ -338,7 +342,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   chipActive: { backgroundColor: "#1C1C1E" },
   chipText: { fontSize: 13, fontWeight: "600", color: "#8E8E93" },
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
   list: { gap: 8 },
   row: {
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   rowKind: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
@@ -358,7 +362,7 @@ const styles = StyleSheet.create({
   unresolvedLens: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   unresolvedLensActive: { backgroundColor: "#FFF8E6" },
@@ -372,7 +376,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     width: "100%",
@@ -393,7 +397,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   modalBtnPrimary: { backgroundColor: "#007AFF" },
   modalBtnText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

@@ -6,6 +6,7 @@ import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOver
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type NutritionRecentCardProps = {
   model: NutritionRecentCardModel;
   /** Raw-event fetch for the selected day (meal labels). */
@@ -92,7 +93,7 @@ export function NutritionRecentCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,

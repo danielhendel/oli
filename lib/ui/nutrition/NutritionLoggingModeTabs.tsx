@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NutritionLoggingMode } from "@/lib/hooks/useNutritionLoggingScreenState";
 import { NUTRITION_ACCENT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 const MODES: { id: NutritionLoggingMode; label: string; a11y: string }[] = [
   { id: "quick", label: "Quick Add", a11y: "Quick add daily totals" },
   { id: "meal", label: "Build Meal", a11y: "Build a meal from items" },
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   tabSelected: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,

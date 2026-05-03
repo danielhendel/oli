@@ -111,7 +111,9 @@
       "^@/lib/(.*)$": "<rootDir>/lib/$1",
       "^@/(.*)$": "<rootDir>/app/$1",
       "^@oli/contracts$": "<rootDir>/lib/contracts/index.ts",
-      "^@oli/contracts/(.*)$": "<rootDir>/lib/contracts/$1"
+      "^@oli/contracts/(.*)$": "<rootDir>/lib/contracts/$1",
+      "^@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightContext\\.js$": "<rootDir>/node_modules/@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightContext.js",
+      "^@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext\\.js$": "<rootDir>/node_modules/@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext.js"
     },
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules/",

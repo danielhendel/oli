@@ -1,12 +1,12 @@
 import { StyleSheet, type TextStyle } from "react-native";
 
-import { UI_LINK_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_LINK_SECONDARY, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
-/** Matches Strength/Cardio “This Week” row third line (`overview.tsx` `recentMeta`). */
+/** Matches Strength/Cardio/Activity Today subtitle + “This Week” meta (`overview.tsx` `recentMeta`). */
 export const RECENT_WORKOUT_ROW_META_TEXT_STYLE: TextStyle = {
   fontSize: 13,
   fontWeight: "400",
-  color: "#8E8E93",
+  color: UI_TEXT_SECONDARY,
   letterSpacing: -0.08,
 };
 
@@ -23,7 +23,7 @@ export const workoutOverviewInCardHeaderStyles = StyleSheet.create({
   title: {
     fontSize: 21,
     fontWeight: "900",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.38,
   },
   linkHit: { paddingVertical: 4, paddingLeft: 8 },

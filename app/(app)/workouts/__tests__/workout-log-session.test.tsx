@@ -1,5 +1,6 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { UI_BORDER_HAIRLINE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 const mockScrollTo = jest.fn();
@@ -1222,7 +1223,7 @@ describe("workouts/log session UI", () => {
     const inline = findByA11yLabel(test!.root, "Exercise logger inline slot1");
     expect(inline).not.toBeNull();
     const inlineFlat = flattenResolvedStyle(inline!.props.style);
-    expect(inlineFlat.borderColor).toBe("#E5E5EA");
+    expect(inlineFlat.borderColor).toBe(UI_BORDER_HAIRLINE);
     const blockFlat = flattenResolvedStyle(blockWrap.props.style);
     expect(blockFlat.borderColor).toBe("rgba(0, 122, 255, 0.4)");
     expect(blockFlat.backgroundColor).toBe("rgba(0, 122, 255, 0.05)");
@@ -2229,7 +2230,7 @@ describe("workouts/log session UI", () => {
     const loggedRow = findByA11yLabel(test!.root, "Logged set row set1");
     expect(loggedRow).not.toBeNull();
     const rowStyle = flattenResolvedStyle(loggedRow!.props.style);
-    expect(rowStyle.backgroundColor).toBe("#F4F4F6");
+    expect(rowStyle.backgroundColor).toBe(UI_SCREEN_BG);
     const tree = test!.toJSON();
     expect(tree && JSON.stringify(tree)).not.toMatch(/\bDone\b/);
   });
@@ -2381,7 +2382,7 @@ describe("workouts/log session UI", () => {
     expect(wrap).toBeTruthy();
     const wrapFlat = flattenResolvedStyle(wrap.props.style);
     expect(wrapFlat.borderRadius).toBe(38);
-    expect(wrapFlat.backgroundColor).toBe("rgba(255, 255, 255, 0.56)");
+    expect(wrapFlat.backgroundColor).toBe("rgba(24, 28, 34, 0.72)");
     expect(wrapFlat.borderWidth === undefined || wrapFlat.borderWidth === 0).toBe(true);
     expect(test!.root.findByProps({ testID: "workout-log-bottom-command-bar" })).toBeTruthy();
     expect(test!.root.findByProps({ testID: "workout-log-bottom-add-block" })).toBeTruthy();

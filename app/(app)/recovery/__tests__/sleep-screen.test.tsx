@@ -212,7 +212,8 @@ describe("SleepScreen", () => {
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain("Sleep Score");
     expect(str).toContain("88");
-    expect(str).not.toContain("81");
+    expect(str).not.toMatch(/"fontSize":52[\s\S]{0,900}?"children":\["81"\]/);
+    expect(str).toMatch(/"fontSize":52[\s\S]{0,900}?"children":\["88"\]/);
     expect(str).toContain("Sleep score from your device snapshot");
   });
 

@@ -103,6 +103,7 @@ import {
   workoutLoggerOptionCardShadow,
   workoutLoggerTypography,
 } from "@/lib/workouts/ui/workoutLoggerTheme";
+import { UI_BORDER_HAIRLINE, UI_CARD_SURFACE, UI_PROGRESS_TRACK_EMPTY, UI_SCREEN_BG, UI_SURFACE_ELEVATED, UI_SURFACE_PRESSED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import { resolveAddExerciseTargetBlockId } from "@/lib/workouts/ui/logAddExerciseTarget";
 import { formatWorkoutLogDecimal, formatWorkoutLogInteger } from "@/lib/workouts/ui/formatWorkoutLogNumber";
 
@@ -364,7 +365,7 @@ function ExerciseListRow({
           customRecord={customRecord ?? null}
           preferStillThumbnail
           style={{ marginRight: 14 }}
-          containerBackgroundColor="#FFFFFF"
+          containerBackgroundColor={UI_CARD_SURFACE}
         />
         <View style={styles.exerciseListRowCenter}>
           <Text style={styles.exerciseListRowName}>{displayName}</Text>
@@ -1551,7 +1552,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                 accessibilityLabel="Rest timer"
                 testID="workout-log-rest-timer-header"
               >
-                <Ionicons name="timer-outline" size={22} color="#1C1C1E" />
+                <Ionicons name="timer-outline" size={22} color={UI_TEXT_PRIMARY} />
               </Pressable>
             }
             rightSlotWidth={56}
@@ -1911,7 +1912,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                                   sessionMedia={sessionMediaSnapshotFromExercise(ex)}
                                   customRecord={customExercisesById[ex.exerciseId] ?? null}
                                   style={styles.heroMediaFill}
-                                  containerBackgroundColor="#FFFFFF"
+                                  containerBackgroundColor={UI_CARD_SURFACE}
                                 />
                               </View>
                             </View>
@@ -2636,7 +2637,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                 testID="workout-log-bottom-add-block"
               >
                 <View style={styles.bottomToolIconWrap} testID="workout-log-bottom-block-icon-wrap">
-                  <Ionicons name="add" size={22} color="#3C3C43" />
+                  <Ionicons name="add" size={22} color={UI_TEXT_SECONDARY} />
                 </View>
                 <Text style={styles.bottomToolSlotLabel}>Block</Text>
               </Pressable>
@@ -2672,7 +2673,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
                 testID="workout-log-bottom-add-exercise"
               >
                 <View style={styles.bottomToolIconWrap} testID="workout-log-bottom-exercise-icon-wrap">
-                  <Ionicons name="add" size={22} color={hasZeroBlocks ? "#C7C7CC" : "#3C3C43"} />
+                  <Ionicons name="add" size={22} color={hasZeroBlocks ? "#C7C7CC" : UI_TEXT_SECONDARY} />
                 </View>
                 <Text style={[styles.bottomToolSlotLabel, hasZeroBlocks && styles.bottomToolSlotLabelDisabled]}>
                   Exercise
@@ -2987,9 +2988,9 @@ const GRID_COL_SET = 26;
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
   screen: { flex: 1, backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
-  safeIdleStart: { backgroundColor: "#FFFFFF" },
-  screenIdleStart: { backgroundColor: "#FFFFFF" },
-  scrollIdleStart: { flex: 1, backgroundColor: "#FFFFFF" },
+  safeIdleStart: { backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
+  screenIdleStart: { backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
+  scrollIdleStart: { flex: 1, backgroundColor: WORKOUT_LOGGER_COLORS.pageBackground },
   contentIdleStart: {
     flex: 1,
     flexGrow: 1,
@@ -3015,10 +3016,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...headerChromeCircleShell,
   },
-  topBarText: { fontSize: 22, fontWeight: "800", color: "#1C1C1E" },
+  topBarText: { fontSize: 22, fontWeight: "800", color: UI_TEXT_PRIMARY },
   startCtaBlock: {
     marginTop: 100,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     padding: 16,
     gap: 10,
@@ -3033,12 +3034,12 @@ const styles = StyleSheet.create({
   startSetupTitle: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.5,
   },
   startSetupSubtitle: {
     fontSize: 15,
-    color: "#AEAEB2",
+    color: UI_TEXT_SECONDARY,
     lineHeight: 22,
     letterSpacing: -0.15,
   },
@@ -3046,20 +3047,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F7F7FA",
+    backgroundColor: UI_SURFACE_PRESSED,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.12)",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   startSetupGymRowPressed: {
-    backgroundColor: "#F0F0F4",
-    borderColor: "rgba(60, 60, 67, 0.18)",
+    backgroundColor: UI_SURFACE_ELEVATED,
+    borderColor: UI_BORDER_HAIRLINE,
   },
-  startSetupGymValue: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
-  startSetupGymChevron: { fontSize: 22, fontWeight: "500", color: "#AEAEB2", marginRight: 2 },
+  startSetupGymValue: { fontSize: 17, fontWeight: "600", color: UI_TEXT_PRIMARY },
+  startSetupGymChevron: { fontSize: 22, fontWeight: "500", color: UI_TEXT_SECONDARY, marginRight: 2 },
   startSetupPrimaryBtn: {
     alignSelf: "stretch",
     minHeight: 54,
@@ -3094,16 +3095,16 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   startGymPickerCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     gap: 12,
   },
-  startGymPickerTitle: { fontSize: 20, fontWeight: "700", color: "#1C1C1E", textAlign: "center" },
+  startGymPickerTitle: { fontSize: 20, fontWeight: "700", color: UI_TEXT_PRIMARY, textAlign: "center" },
   startGymPickerSectionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
@@ -3118,7 +3119,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,0,0,0.2)",
   },
   startGymOptionRowSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: SYSTEM_ACCENT_OVERLAY_08 },
-  startGymOptionLabel: { fontSize: 16, fontWeight: "500", color: "#1C1C1E" },
+  startGymOptionLabel: { fontSize: 16, fontWeight: "500", color: UI_TEXT_PRIMARY },
   startGymOptionCheck: { fontSize: 16, fontWeight: "700", color: SYSTEM_ACCENT },
   content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24, gap: 12 },
   workoutLogEmptyWrap: {
@@ -3132,7 +3133,7 @@ const styles = StyleSheet.create({
   workoutLogEmptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     textAlign: "center",
     letterSpacing: -0.28,
     marginBottom: 10,
@@ -3141,7 +3142,7 @@ const styles = StyleSheet.create({
   workoutLogEmptyBody: {
     fontSize: 15,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
     lineHeight: 22,
     letterSpacing: -0.15,
@@ -3157,9 +3158,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 999,
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    backgroundColor: UI_SURFACE_ELEVATED,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.12)",
+    borderColor: UI_BORDER_HAIRLINE,
     ...(Platform.OS === "ios"
       ? {
           shadowColor: "#000",
@@ -3183,7 +3184,7 @@ const styles = StyleSheet.create({
   workoutLogEmptyCtaLabel: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.22,
   },
   bottomNav: {
@@ -3274,7 +3275,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   finishSheetSecondary: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     minHeight: 50,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -3283,7 +3284,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   finishSheetSecondaryText: {
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -3309,23 +3310,23 @@ const styles = StyleSheet.create({
   },
   bottomBtnSecondary: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   bottomBtnTextPrimary: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
-  bottomBtnTextSecondary: { color: "#1C1C1E", fontWeight: "800", fontSize: 16 },
+  bottomBtnTextSecondary: { color: UI_TEXT_PRIMARY, fontWeight: "800", fontSize: 16 },
   bottomBtnBlock: {
     width: 110,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   headerRow: {
     flexDirection: "row",
@@ -3333,7 +3334,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  headerTitle: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: UI_TEXT_PRIMARY },
   addBlockHeaderBtn: {
     width: 44,
     height: 44,
@@ -3344,32 +3345,32 @@ const styles = StyleSheet.create({
   },
   addBlockHeaderBtnText: { fontSize: 24, fontWeight: "700", color: "#FFFFFF" },
   card: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     padding: 16,
     gap: 10,
   },
   exerciseCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 10,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
   },
-  title: { fontSize: 18, fontWeight: "800", color: "#1C1C1E" },
-  exerciseTitle: { fontSize: 16, fontWeight: "700", color: "#1C1C1E" },
-  muted: { fontSize: 14, color: "#3C3C43" },
-  mutedSmall: { fontSize: 12, color: "#6E6E73", fontFamily: "monospace" },
+  title: { fontSize: 18, fontWeight: "800", color: UI_TEXT_PRIMARY },
+  exerciseTitle: { fontSize: 16, fontWeight: "700", color: UI_TEXT_PRIMARY },
+  muted: { fontSize: 14, color: UI_TEXT_SECONDARY },
+  mutedSmall: { fontSize: 12, color: UI_TEXT_TERTIARY_LABEL, fontFamily: "monospace" },
   row: { flexDirection: "row", gap: 10, alignItems: "center" },
   input: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
     fontSize: 14,
   },
   inputSmall: { flex: 0, width: 90 },
@@ -3396,10 +3397,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
-    backgroundColor: "#FFFFFF",
+    borderColor: UI_BORDER_HAIRLINE,
+    backgroundColor: UI_CARD_SURFACE,
   },
-  secondaryBtnText: { fontSize: 14, fontWeight: "700", color: "#3C3C43" },
+  secondaryBtnText: { fontSize: 14, fontWeight: "700", color: UI_TEXT_SECONDARY },
   actionRow: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8 },
   setList: { gap: 4 },
   blockSection: { marginBottom: 10 },
@@ -3432,7 +3433,7 @@ const styles = StyleSheet.create({
   blockEmptyHintText: {
     fontSize: 15,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
     letterSpacing: -0.15,
   },
@@ -3465,14 +3466,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: "#E5E5EA",
+    backgroundColor: UI_SURFACE_PRESSED,
     alignItems: "center",
     justifyContent: "center",
   },
   blockMenuBtnText: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
   },
   addExerciseInBlockBtn: {
     paddingVertical: 6,
@@ -3484,25 +3485,25 @@ const styles = StyleSheet.create({
   exerciseListRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   exerciseListRowCenter: { flex: 1 },
-  exerciseListRowName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", letterSpacing: -0.22 },
-  exerciseListRowSets: { fontSize: 15, fontWeight: "400", color: "#8E8E93", marginTop: 2, letterSpacing: -0.15 },
+  exerciseListRowName: { fontSize: 17, fontWeight: "600", color: UI_TEXT_PRIMARY, letterSpacing: -0.22 },
+  exerciseListRowSets: { fontSize: 15, fontWeight: "400", color: UI_TEXT_TERTIARY_LABEL, marginTop: 2, letterSpacing: -0.15 },
   exerciseListRowMore: { padding: 8 },
-  moreDots: { fontSize: 16, fontWeight: "700", color: "#8E8E93" },
+  moreDots: { fontSize: 16, fontWeight: "700", color: UI_TEXT_TERTIARY_LABEL },
   exerciseCardWrap: { marginBottom: 8 },
   loggerInlinePanel: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   exerciseCardHeaderRow: {
     flexDirection: "row",
@@ -3524,7 +3525,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
   },
-  exerciseCardHeaderMenuBtnText: { fontSize: 20, fontWeight: "600", color: "#8E8E93" },
+  exerciseCardHeaderMenuBtnText: { fontSize: 20, fontWeight: "600", color: UI_TEXT_TERTIARY_LABEL },
   heroContainer: {
     width: "100%",
   },
@@ -3543,7 +3544,7 @@ const styles = StyleSheet.create({
   exerciseLoggerBackBtn: { alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 0 },
   exerciseLoggerScroll: { flex: 1 },
   exerciseLoggerScrollContent: { padding: 16, paddingBottom: 32 },
-  exerciseLoggerName: { fontSize: 17, fontWeight: "600", color: "#1C1C1E", marginBottom: 4, letterSpacing: -0.22 },
+  exerciseLoggerName: { fontSize: 17, fontWeight: "600", color: UI_TEXT_PRIMARY, marginBottom: 4, letterSpacing: -0.22 },
   exerciseLoggerBlockLabel: {
     ...workoutLoggerTypography.sectionChip,
   },
@@ -3566,9 +3567,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.1)",
+    borderColor: UI_BORDER_HAIRLINE,
   },
   loggerUtilityPillActive: {
     backgroundColor: "rgba(0, 122, 255, 0.08)",
@@ -3619,13 +3620,13 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#F4F4F6",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   setOrdinalCell: {
     ...workoutLoggerTypography.exerciseSetRowMeta,
     fontWeight: "500",
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "left",
   },
   loggedSetSummaryContent: { gap: 6 },
@@ -3654,7 +3655,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     fontVariant: ["tabular-nums"],
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     minWidth: 56,
     textAlign: "right",
     paddingTop: 1,
@@ -3662,7 +3663,7 @@ const styles = StyleSheet.create({
   },
   loggedSetBarTrack: {
     height: 4,
-    backgroundColor: "#EBEBF0",
+    backgroundColor: UI_PROGRESS_TRACK_EMPTY,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -3687,8 +3688,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 20,
     fontWeight: "600",
-    color: "#1C1C1E",
-    backgroundColor: "#F2F2F7",
+    color: UI_TEXT_PRIMARY,
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 10,
   },
   draftInputSmall: {
@@ -3699,8 +3700,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 18,
     fontWeight: "600",
-    color: "#1C1C1E",
-    backgroundColor: "#F2F2F7",
+    color: UI_TEXT_PRIMARY,
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 10,
   },
   draftTapTarget: {
@@ -3753,7 +3754,7 @@ const styles = StyleSheet.create({
   draftPickerNativeItem: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   draftPickerDoneBtn: {
     alignSelf: "stretch",
@@ -3762,7 +3763,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 10,
     marginTop: 8,
   },
@@ -3813,7 +3814,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     padding: 16,
@@ -3882,7 +3883,7 @@ const styles = StyleSheet.create({
     gap: 12,
     ...workoutLoggerOptionCardShadow(),
   },
-  blockTypeSheetCardPressed: { backgroundColor: "#F7F7FA" },
+  blockTypeSheetCardPressed: { backgroundColor: UI_SURFACE_PRESSED },
   blockTypeSheetEmoji: { fontSize: 22, width: 36, textAlign: "center" },
   blockTypeSheetCardText: { flex: 1, minWidth: 0 },
   blockTypeSheetCardTitle: {
@@ -3976,25 +3977,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
   },
-  sheetSub: { fontSize: 14, color: "#6E6E73", marginBottom: 12 },
-  sheetDivider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 12 },
+  sheetSub: { fontSize: 14, color: UI_TEXT_TERTIARY_LABEL, marginBottom: 12 },
+  sheetDivider: { height: 1, backgroundColor: UI_BORDER_HAIRLINE, marginVertical: 12 },
   fieldLabel: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: 0.5,
     marginBottom: 6,
     marginTop: 4,
   },
   fieldInput: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
     fontSize: 17,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: UI_BORDER_HAIRLINE,
     marginBottom: 4,
   },
   actionsRow: { flexDirection: "row", gap: 12, marginTop: 16, marginBottom: 8 },

@@ -1,6 +1,7 @@
 import type { TextStyle, ViewStyle } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 /**
  * Primary title typography for Strength metric cards ({@link StrengthFrequencyMetricCard}).
@@ -12,13 +13,13 @@ export const strengthMetricCardTitleTextStyle: TextStyle = {
   fontSize: 19,
   lineHeight: 24,
   fontWeight: "600",
-  color: "#1C1C1E",
+  color: UI_TEXT_PRIMARY,
   letterSpacing: -0.34,
 };
 
 /** Elevated shell aligned with Strength Baseline card (radius, padding, hairline border, shadow). Use where inner sections already manage vertical spacing. */
 export const strengthYearlyAnalyticsCardShellStyle: ViewStyle = {
-  backgroundColor: "#FFFFFF",
+  backgroundColor: UI_CARD_SURFACE,
   borderRadius: 12,
   padding: 15,
   ...elevatedCardSurfaceStyle,

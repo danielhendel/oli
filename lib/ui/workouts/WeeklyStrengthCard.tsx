@@ -9,6 +9,13 @@ import {
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
 } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 
+import {
+  UI_CARD_SURFACE,
+  UI_SCREEN_BG,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 type WeeklyStrengthCardProps = {
   model: WeeklyStrengthCardModel;
 };
@@ -68,7 +75,7 @@ export function WeeklyStrengthCard({ model }: WeeklyStrengthCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,
@@ -76,7 +83,7 @@ const styles = StyleSheet.create({
   headerKicker: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.3,
   },
   metricRow: {
@@ -87,18 +94,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   metricLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
     marginBottom: 4,
   },
   metricValue: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.2,
   },
   rowsBlock: {
@@ -117,16 +124,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   rowValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#3C3C43",
+    color: UI_TEXT_PRIMARY,
   },
   placeholder: {
     fontSize: 14,
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     paddingVertical: 2,
   },
 });

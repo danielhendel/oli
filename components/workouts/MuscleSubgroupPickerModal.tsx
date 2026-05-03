@@ -12,6 +12,7 @@ import {
 import type { MuscleGroup, MuscleSubgroup } from "@/lib/workouts/exercises/taxonomy";
 import { subgroupToGroupMap } from "@/lib/workouts/exercises/taxonomy";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 const GROUP_ORDER: readonly MuscleGroup[] = [
   "chest",
   "back",
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: "88%",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: "hidden",
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   row: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 14,

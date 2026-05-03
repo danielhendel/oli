@@ -178,16 +178,18 @@ describe("Strength overview main layout", () => {
     workoutsOverviewExpoMocks().setOptions.mockClear();
   });
 
-  it("renders Today card first, then This Week, then Strength Baseline table (no standalone baseline card)", async () => {
+  it("renders Program card, then Today card, then This Week, then Strength Baseline table (no standalone baseline card)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
+    const iProgramCard = json.indexOf("strength-program-card");
     const iTodayCard = json.indexOf("strength-today-card");
     const iThisWeek = json.indexOf('"This Week"');
     const iBaselineCard = json.indexOf("strength-history-summary-card");
     const iBaselineHeading = json.indexOf('"Strength Baseline"');
+    expect(iProgramCard).toBeGreaterThan(-1);
     expect(iTodayCard).toBeGreaterThan(-1);
     expect(iBaselineCard).toBeGreaterThan(-1);
     expect(iThisWeek).toBeGreaterThan(-1);
@@ -196,6 +198,7 @@ describe("Strength overview main layout", () => {
     expect(json).not.toContain("strength-this-week-frequency-bar");
     expect(json).not.toContain('"Overview"');
     expect(json).not.toContain('"Recent Workouts"');
+    expect(iProgramCard).toBeLessThan(iTodayCard);
     expect(iTodayCard).toBeLessThan(iThisWeek);
     expect(iThisWeek).toBeLessThan(iBaselineCard);
     expect(json).not.toContain("Last Week");

@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/WeightLogModal.tsx — Manual weight entry modal (bottom-sheet style).
 import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Modal } from "react-native";
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -185,13 +187,13 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   input: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
   },
-  unitGroup: { flexDirection: "row", backgroundColor: "#F2F2F7", borderRadius: 12, overflow: "hidden" },
+  unitGroup: { flexDirection: "row", backgroundColor: UI_SCREEN_BG, borderRadius: 12, overflow: "hidden" },
   unitBtn: { paddingHorizontal: 14, paddingVertical: 12 },
   unitActive: { backgroundColor: "#1C1C1E" },
   unitText: { fontSize: 14, fontWeight: "700", color: "#1C1C1E" },

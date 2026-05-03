@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/ExerciseProgressChart.tsx — e1RM progress over sessions (react-native-svg). Used on exercise-history.
 
 import React, { useMemo, useState } from "react";
@@ -251,7 +253,7 @@ const styles = StyleSheet.create({
     minHeight: CHART_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   placeholderText: {

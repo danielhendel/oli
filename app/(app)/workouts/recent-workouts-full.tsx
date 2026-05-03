@@ -29,6 +29,7 @@ import { deleteIngestedRawEventAuthed } from "@/lib/api/ingest";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_FILL_14 } from "@/lib/ui/theme/systemAccent";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 /** Matches premium list inset on this screen (aligned with month strip + rows). */
@@ -726,7 +727,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   deleteConfirmCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 20,
     width: "100%",
@@ -740,7 +741,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     alignItems: "center",
   },
   deleteConfirmCancelLabel: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },

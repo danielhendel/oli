@@ -26,6 +26,7 @@ import {
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 /** Format YYYY-MM-DD as "Mar 13" for fallback banner. */
 function formatResolvedDay(day: string): string {
   try {
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   centered: {
     flex: 1,
@@ -222,11 +223,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 32,
     gap: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   loadingText: { fontSize: 16, color: "#6E6E73" },
   messageCard: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 20,
   },

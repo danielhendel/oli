@@ -15,6 +15,7 @@ import {
   cardioBaselineMilesToVisualScale01,
 } from "@/lib/ui/workouts/cardioBaselineScale";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 const CARDIO_BASELINE_CARD_DEFINITION_SENTENCE =
   "Your typical weekly cardio distance based on the past 90 days";
 
@@ -90,7 +91,7 @@ export function CardioBaselineCard({ loading, model }: CardioBaselineCardProps) 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.34,
     flexShrink: 1,
     textAlign: "right",
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
   markerLabel: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#636366",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
     textAlign: "center",
   },
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.2,
     marginBottom: 6,
   },

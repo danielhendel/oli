@@ -1,3 +1,5 @@
+
+
 /**
  * Workouts Overview — W1 Apple Health integration.
  * Connection status, Strength Overview / Cardio analytics summary, recent workouts, last sync,
@@ -7,6 +9,14 @@
  * contract kind="incomplete" allows only payload.note (no structured fields); we show them in UI only and do NOT ingest.
  */
 
+import {
+  UI_CARD_SURFACE,
+  UI_HEADER_CHROME_BORDER,
+  UI_SCREEN_BG,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
@@ -33,6 +43,7 @@ import {
 } from "@/lib/ui/headers/workoutsStackHeader";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
 import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import type { CalendarDay, DayKey, WorkoutDayMarker } from "@/lib/ui/calendar/types";
 import {
   applyAuthoritativeWorkoutDeletionLocal,
@@ -124,15 +135,17 @@ import {
   listManualWorkoutDaySummaries,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
-import { UI_HEADER_CHROME_BORDER } from "@/lib/ui/theme/uiTokens";
+
 import {
   RECENT_WORKOUT_ROW_META_TEXT_STYLE,
   workoutOverviewInCardHeaderStyles,
 } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { strengthThisWeekRowTitle } from "@/lib/ui/workouts/strengthThisWeekRowTitle";
 import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
 import { buildStrengthThisWeekCardModel } from "@/lib/data/workouts/strengthThisWeekCardModel";
 import { buildStrengthTodayCardModel } from "@/lib/data/workouts/strengthTodayCardModel";
 import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
+import { StrengthProgramCard } from "@/lib/ui/workouts/StrengthProgramCard";
 import { StrengthTodayCard } from "@/lib/ui/workouts/StrengthTodayCard";
 import { buildStrengthHistorySummaryModel } from "@/lib/data/workouts/strengthHistorySummaryModel";
 import { StrengthHistorySummaryCard } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
@@ -160,8 +173,6 @@ const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 
-const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 function runAfterInteractionsSafe(task: () => void): { cancel: () => void } {
   const run = InteractionManager?.runAfterInteractions;
   if (typeof run === "function") {
@@ -181,14 +192,6 @@ function shellSubtitleForDomain(domain: WorkoutProductDomain): string {
 
 function basePathForDomain(domain: WorkoutProductDomain): "/(app)/workouts" | "/(app)/cardio" {
   return domain === "strength" ? "/(app)/workouts" : "/(app)/cardio";
-}
-
-function formatWorkoutDayLabel(dayKey: string): string {
-  const d = new Date(`${dayKey}T12:00:00.000Z`);
-  const wd = WEEKDAY_SHORT[d.getUTCDay()] ?? "";
-  const month = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
-  return `${wd} ${month}/${day}`;
 }
 
 function countJournalSetsForDisplay(summary: ManualWorkoutDaySummary | null): number {
@@ -1082,9 +1085,9 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
               >
                 <View style={styles.recentRowTextCol}>
-                  <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                  <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
                   <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {surface.displayTitle}
+                    {strengthThisWeekRowTitle(surface.displayTitle)}
                   </Text>
                   <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
                     {metaLine}
@@ -1211,7 +1214,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                 accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
               >
                 <View style={styles.recentRowTextCol}>
-                  <Text style={styles.recentDate}>{formatWorkoutDayLabel(day)}</Text>
+                  <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
                   <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
                     {headline}
                   </Text>
@@ -1250,6 +1253,10 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     <View style={styles.pageBody}>
       {domain === "strength" ? (
         <>
+          <StrengthProgramCard
+            testID="strength-program-card"
+            onCreateProgram={() => router.push("/(app)/workouts/plan")}
+          />
           <StrengthTodayCard
             loading={overviewSharedRange.status !== "ready"}
             model={strengthTodayCardModel}
@@ -1464,10 +1471,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     alignSelf: "stretch",
   },
-  placeholder: { fontSize: 15, fontWeight: "400", color: "#8E8E93", letterSpacing: -0.1 },
+  placeholder: { fontSize: 15, fontWeight: "400", color: UI_TEXT_TERTIARY_LABEL, letterSpacing: -0.1 },
   metricRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  metricLabel: { fontSize: 15, color: "#3C3C43" },
-  metricValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  metricLabel: { fontSize: 15, color: UI_TEXT_SECONDARY },
+  metricValue: { fontSize: 15, fontWeight: "600", color: UI_TEXT_PRIMARY },
   recentRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1494,13 +1501,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     fontWeight: "500",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.05,
   },
   recentTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
     lineHeight: 20,
   },
@@ -1515,17 +1522,17 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
   },
-  rowMenuText: { fontSize: 17, color: "#3C3C43", fontWeight: "700", letterSpacing: 0.5 },
+  rowMenuText: { fontSize: 17, color: UI_TEXT_SECONDARY, fontWeight: "700", letterSpacing: 0.5 },
   editorInput: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   cancelBtn: { alignItems: "center", paddingVertical: 14, marginTop: 4 },
-  cancelText: { fontSize: 15, color: "#6E6E73", fontWeight: "600" },
+  cancelText: { fontSize: 15, color: UI_TEXT_TERTIARY_LABEL, fontWeight: "600" },
   cancelActionRow: {
     marginTop: 4,
     alignItems: "center",
@@ -1536,7 +1543,7 @@ const styles = StyleSheet.create({
   cancelActionLabel: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   deleteConfirmBackdrop: {
     flex: 1,
@@ -1546,24 +1553,24 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   deleteConfirmCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 20,
     width: "100%",
     maxWidth: 320,
   },
-  deleteConfirmTitle: { fontSize: 18, fontWeight: "800", color: "#1C1C1E", marginBottom: 8 },
-  deleteConfirmBody: { fontSize: 14, color: "#6E6E73", lineHeight: 20 },
+  deleteConfirmTitle: { fontSize: 18, fontWeight: "800", color: UI_TEXT_PRIMARY, marginBottom: 8 },
+  deleteConfirmBody: { fontSize: 14, color: UI_TEXT_SECONDARY, lineHeight: 20 },
   deleteConfirmActions: { flexDirection: "row", gap: 12, marginTop: 16 },
   deleteConfirmCancelBtn: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     alignItems: "center",
   },
-  deleteConfirmCancelLabel: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
+  deleteConfirmCancelLabel: { fontSize: 15, fontWeight: "700", color: UI_TEXT_PRIMARY },
   deleteConfirmDangerBtn: {
     flex: 1,
     paddingVertical: 12,

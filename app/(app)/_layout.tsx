@@ -1,21 +1,42 @@
 // app/(app)/_layout.tsx
+import React, { useCallback, useState } from "react";
 import { View } from "react-native";
 import { Stack } from "expo-router";
+import { ThemeProvider } from "@react-navigation/native";
+import { OliFloatingNavigationHost } from "@/components/navigation/OliFloatingNavigationHost";
+import { FloatingNavChromeHeightProvider } from "@/lib/ui/navigation/FloatingNavChromeHeightContext";
 import { RestTimerProvider, RestTimerPanel } from "@/lib/workouts/restTimer";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { useOliTheme } from "@/lib/ui/theme/OliThemeContext";
 
 export default function AppLayout() {
+  const [stackFloatingNavInset, setStackFloatingNavInset] = useState<number | undefined>();
+  const onStackFloatingNavHeight = useCallback((height: number | undefined) => {
+    setStackFloatingNavInset(height);
+  }, []);
+
+  const { navigationTheme } = useOliTheme();
+
   return (
+    <ThemeProvider value={navigationTheme}>
     <RestTimerProvider>
-      <View style={{ flex: 1 }}>
-        <Stack
-          screenOptions={{
-            headerBackButtonDisplayMode: "minimal",
-            headerShadowVisible: false,
-          }}
-        >
+      <FloatingNavChromeHeightProvider value={stackFloatingNavInset}>
+        <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG }}>
+          <Stack
+            screenOptions={{
+              headerBackButtonDisplayMode: "minimal",
+              headerShadowVisible: false,
+            }}
+          >
           {/* Sprint 3 — Phase 1 tabs (Library, Manage, Timeline, Profile, Dash) */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="(tabs)"
+            options={{
+              headerShown: false,
+              contentStyle: { backgroundColor: UI_APP_SCREEN_BG },
+            }}
+          />
 
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
@@ -268,6 +289,11 @@ export default function AppLayout() {
             name="recovery/readiness/calendar"
             options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
+          <Stack.Screen
+            name="dna/index"
+            options={{ title: "DNA", ...workoutsStackNavigationOptions("module") }}
+          />
+
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
@@ -276,9 +302,12 @@ export default function AppLayout() {
           {/* Secondary: API-ingest strength form. Primary strength log is workouts/log. */}
           <Stack.Screen name="training/strength/log" options={{ title: "Log Strength" }} />
           <Stack.Screen name="log/index" options={{ title: "Quick log" }} />
-        </Stack>
-        <RestTimerPanel />
-      </View>
+          </Stack>
+          <OliFloatingNavigationHost onStackChromeHeightChange={onStackFloatingNavHeight} />
+          <RestTimerPanel />
+        </View>
+      </FloatingNavChromeHeightProvider>
     </RestTimerProvider>
+    </ThemeProvider>
   );
 }

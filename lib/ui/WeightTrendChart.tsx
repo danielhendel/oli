@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Graphite styling; tooltip on press/drag.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -720,7 +722,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     padding: 12,
     shadowColor: "#000",

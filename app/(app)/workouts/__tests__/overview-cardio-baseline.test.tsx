@@ -228,6 +228,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 import CardioOverviewScreen from "@/app/(app)/cardio/index";
+import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 
 describe("Cardio overview baseline layout", () => {
   beforeEach(() => {
@@ -274,11 +275,14 @@ describe("Cardio overview baseline layout", () => {
     expect(json).toContain("—");
 
     expect(json).not.toContain("Recent cardio sessions");
-    expect(json).toContain("Sun 3/8");
-    expect(json).toContain("Tue 3/10");
-    expect(json).toContain("Wed 3/11");
-    expect(json.indexOf("Sun 3/8")).toBeLessThan(json.indexOf("Tue 3/10"));
-    expect(json.indexOf("Tue 3/10")).toBeLessThan(json.indexOf("Wed 3/11"));
+    const labelSun = formatWeekdayFullFromDayKey("2026-03-08");
+    const labelTue = formatWeekdayFullFromDayKey("2026-03-10");
+    const labelWed = formatWeekdayFullFromDayKey("2026-03-11");
+    expect(json).toContain(labelSun);
+    expect(json).toContain(labelTue);
+    expect(json).toContain(labelWed);
+    expect(json.indexOf(labelSun)).toBeLessThan(json.indexOf(labelTue));
+    expect(json.indexOf(labelTue)).toBeLessThan(json.indexOf(labelWed));
     expect(json).toContain("3.08 mi / 31 min");
     expect(json).toContain("Walking");
     expect(json).toContain("31 min");

@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/training/strength/log.tsx
 // Secondary path: API-ingest form (free-text exercise names, POST /ingest strength_workout).
 // Primary strength logging is workouts/log (journal + catalog). Keep this screen for
@@ -400,10 +402,10 @@ export default function StrengthLogScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: "#F2F2F7", borderRadius: 16, padding: 14, gap: 8 },
+  card: { backgroundColor: UI_SCREEN_BG, borderRadius: 16, padding: 14, gap: 8 },
   label: { fontSize: 13, fontWeight: "700", color: "#111827" },
   input: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  exerciseCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", gap: 8 },
+  exerciseCard: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", gap: 8 },
   exerciseHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   exerciseName: { flex: 1 },
   setRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
   optInput: { width: 48, paddingHorizontal: 8 },
   unitGroup: {
     flexDirection: "row",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 8,
     overflow: "hidden",
   },
@@ -427,7 +429,7 @@ const styles = StyleSheet.create({
   unitActive: { backgroundColor: "#111827" },
   unitText: { fontSize: 12, fontWeight: "700", color: "#111827" },
   unitTextActive: { color: "#FFFFFF" },
-  warmupBtn: { paddingHorizontal: 8, paddingVertical: 8, backgroundColor: "#F2F2F7", borderRadius: 8 },
+  warmupBtn: { paddingHorizontal: 8, paddingVertical: 8, backgroundColor: UI_SCREEN_BG, borderRadius: 8 },
   warmupActive: { backgroundColor: "#111827" },
   warmupText: { fontSize: 12, fontWeight: "700", color: "#111827" },
   warmupTextActive: { color: "#FFFFFF" },

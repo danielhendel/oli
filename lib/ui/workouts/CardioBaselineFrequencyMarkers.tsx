@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
 import { CARDIO_BASELINE_MARKER_VALUES_MILES } from "@/lib/ui/workouts/cardioBaselineScale";
+import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import {
   CARDIO_BASELINE_MARKER_TICK_WIDTH_PX,
   cardioBaselineMarkerLabelLeftPx,
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#636366",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
   },
   labelPositioned: {

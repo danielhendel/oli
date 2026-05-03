@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/(tabs)/timeline/[day].tsx
 import { ScrollView, View, Text, StyleSheet, Pressable, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -11,6 +13,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { ingestRawEventAuthed } from "@/lib/api/ingest";
 import { useMemo, useState, useCallback } from "react";
 import type { CanonicalEventListItem } from "@oli/contracts";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -37,6 +40,7 @@ function groupByKind(items: CanonicalEventListItem[]): Map<string, CanonicalEven
 }
 
 export default function TimelineDayScreen() {
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const params = useLocalSearchParams<{ day: string }>();
   const router = useRouter();
   const dayParam = params.day ?? "";
@@ -209,7 +213,7 @@ export default function TimelineDayScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}>
         <Text style={styles.title}>{day}</Text>
         <Text style={styles.subtitle}>
           Canonical events, derived presence, failures
@@ -419,13 +423,13 @@ export default function TimelineDayScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   missingReasonsBanner: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   missingReasonsText: { fontSize: 14, color: "#8E8E93", fontStyle: "italic" },
@@ -469,7 +473,7 @@ const styles = StyleSheet.create({
   },
   eventRow: {
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
     marginBottom: 6,
   },
@@ -477,7 +481,7 @@ const styles = StyleSheet.create({
   replayRow: {
     marginTop: 24,
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   replayRowText: {
@@ -488,7 +492,7 @@ const styles = StyleSheet.create({
   provenanceToggle: {
     marginTop: 24,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   provenanceToggleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
@@ -500,7 +504,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   resolveTypeChipActive: { backgroundColor: "#007AFF" },
   resolveTypeChipText: { fontSize: 14, fontWeight: "600", color: "#8E8E93" },
@@ -513,7 +517,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     width: "100%",
@@ -534,7 +538,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   modalBtnPrimary: { backgroundColor: "#007AFF" },
   modalBtnText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

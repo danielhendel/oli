@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 /**
  * Phase 2 — Minimal logging UX.
  * - "Something happened" quick log (incomplete)
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   timeChipActive: { backgroundColor: "#1C1C1E" },
   timeChipText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
   input: {
     marginTop: 8,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 10,
     fontSize: 15,
     color: "#1C1C1E",
@@ -240,7 +242,7 @@ const styles = StyleSheet.create({
   approxInput: { flex: 1 },
   toggle: {
     padding: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 10,
   },
   toggleActive: { backgroundColor: "#1C1C1E" },

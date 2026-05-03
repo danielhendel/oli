@@ -4,11 +4,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
-  UI_TAB_ROOT_INSET,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_CARD_SURFACE, UI_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER_STYLE, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { useFailuresRange } from "@/lib/data/useFailuresRange";
 import { useUploadsPresence } from "@/lib/data/useUploadsPresence";
 import { useMemo } from "react";
@@ -51,6 +48,7 @@ function getRangeForCount(): { start: string; end: string } {
 
 export default function LibraryIndexScreen() {
   const router = useRouter();
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const range = useMemo(() => getRangeForCount(), []);
 
   const failures = useFailuresRange(
@@ -86,7 +84,7 @@ export default function LibraryIndexScreen() {
         />
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -145,17 +143,16 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
     paddingTop: 6,
-    paddingBottom: 40,
   },
   quickLenses: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
   lensBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   lensBtnText: { fontSize: 14, fontWeight: "600", color: "#007AFF" },
-  list: { marginTop: 24, gap: 1, backgroundColor: "#F2F2F7", borderRadius: 12, overflow: "hidden" },
+  list: { marginTop: 24, gap: 1, backgroundColor: UI_SCREEN_BG, borderRadius: 12, overflow: "hidden" },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -163,7 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingLeft: 0,
     paddingRight: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   rowTitle: { fontSize: 17, fontWeight: "600", color: "#1C1C1E" },
   rowCount: { fontSize: 15, color: "#8E8E93" },

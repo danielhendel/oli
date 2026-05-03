@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 export const BODY_TREND_OPTIONS: { id: BodyTrendMetric; label: string }[] = [
   { id: "weight", label: "Weight" },
   { id: "body_fat_percent", label: "Body Fat" },
@@ -41,7 +42,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   pillActive: {
     backgroundColor: "#EEF2FF",

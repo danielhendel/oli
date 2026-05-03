@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+import { UI_BORDER_SUBTLE, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+
 /** Fixed vertical scale for strength overview month tab (workouts per week row). */
 export const WORKOUT_ANALYTICS_MONTH_CHART_Y_MAX = 7;
 
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
     height: PLOT_HEIGHT,
     width: "100%",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#D1D1D6",
+    borderBottomColor: UI_BORDER_SUBTLE,
   },
   barColumn: {
     flex: 1,
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   labelText: {
     fontSize: 11,
     fontWeight: "400",
-    color: "#AEAEB2",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
   },
 });

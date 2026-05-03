@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 /**
  * Exercise History — premium per-exercise training history.
  * Navigated from "Last" summary tap in workout logger. Data from lib/workouts/memory/exerciseHistory + useExerciseHistory (no Firebase/API).
@@ -479,7 +481,7 @@ export default function ExerciseHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F2F2F7" },
+  safe: { flex: 1, backgroundColor: UI_SCREEN_BG },
   screen: { flex: 1 },
   content: { flex: 1, padding: 16 },
   scroll: { flex: 1 },
@@ -498,7 +500,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -513,14 +515,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
   metricsCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
@@ -537,7 +539,7 @@ const styles = StyleSheet.create({
   metricUnavailable: { fontSize: 15, color: "#8E8E93", fontWeight: "500" },
   sectionTitle: { fontSize: 17, fontWeight: "700", color: "#2C2C2E", marginBottom: 10 },
   sessionCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,

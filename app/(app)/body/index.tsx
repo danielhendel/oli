@@ -32,6 +32,7 @@ import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPerm
 import { WeightBaselineCard } from "@/lib/ui/body/WeightBaselineCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 /** @internal — tests assert on these hrefs */
 export const BODY_METRIC_DETAIL_HREFS = {
   weight: "/(app)/body/metric/weight",
@@ -328,7 +329,7 @@ export default function BodyOverviewScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   pageBody: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     marginHorizontal: -16,
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,

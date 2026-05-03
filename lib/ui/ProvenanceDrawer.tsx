@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // lib/ui/ProvenanceDrawer.tsx
 // Phase 1.5 Sprint 5 — Epistemic transparency (pure presentational; no fetch, no hooks, no API)
 
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   drawer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 24,
     maxWidth: 400,
@@ -144,7 +146,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     justifyContent: "center",
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   closeButtonText: {

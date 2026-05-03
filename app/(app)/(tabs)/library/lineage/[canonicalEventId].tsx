@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/(tabs)/library/lineage/[canonicalEventId].tsx
 // Sprint 4 — Lineage & Explainability UI
 // Every data point explainable: raw → canonical → derived with "why this value exists" narrative.
@@ -10,6 +12,7 @@ import { useEvents } from "@/lib/data/useEvents";
 import { useFailures } from "@/lib/data/useFailures";
 import { useMemo, useState } from "react";
 import type { LineageResponseDto } from "@oli/contracts";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 function formatIso(iso: string): string {
   const d = new Date(iso);
@@ -41,6 +44,7 @@ function LineageSection({ title, children, defaultExpanded = false }: SectionPro
 }
 
 export default function LineageScreen() {
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const params = useLocalSearchParams<{ canonicalEventId: string }>();
   const canonicalEventId = params.canonicalEventId ?? "";
 
@@ -149,7 +153,7 @@ export default function LineageScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}>
         <Text style={styles.title}>Lineage</Text>
         <Text style={styles.subtitle}>Why this value exists</Text>
 
@@ -264,13 +268,13 @@ function buildNarrative(
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16 },
   title: { fontSize: 28, fontWeight: "900", color: "#1C1C1E" },
   subtitle: { fontSize: 15, color: "#8E8E93", marginTop: 4 },
   section: { marginTop: 20 },
   sectionToggle: {
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 12,
   },
   sectionToggleText: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

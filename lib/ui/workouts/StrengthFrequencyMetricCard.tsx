@@ -1,3 +1,4 @@
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import React from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
@@ -12,9 +13,10 @@ import type { StrengthWeeklyFrequencyCardDisplayModel } from "@/lib/ui/workouts/
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
+
 
 type StrengthFrequencyMetricCardProps = {
   headingTitle: string;
@@ -195,7 +197,7 @@ export function StrengthFrequencyMetricCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "400",
-    color: UI_TEXT_TERTIARY_LABEL,
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.06,
     alignSelf: "flex-start",
   },
@@ -224,7 +226,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "500",
-    color: "#6E6E73",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.15,
     alignSelf: "flex-start",
   },
@@ -271,7 +273,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
     flexShrink: 1,
     textAlign: "right",
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.2,
     marginBottom: 6,
   },

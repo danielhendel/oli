@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { WORKOUTS_SCREEN_CONTENT_BG } from "@/lib/ui/headers/workoutsStackHeader";
+import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 /** Shared modal body chrome for Strength/Cardio range explainer screens (presentation-only). */
 export const rangeExplainerSheetStyles = StyleSheet.create({
@@ -18,11 +19,11 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontWeight: "400",
-    color: "#636366",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.2,
   },
   legendSection: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 14,
     gap: 0,
@@ -30,7 +31,7 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
   sectionHeading: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.28,
     marginTop: 4,
   },
@@ -38,31 +39,31 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(60, 60, 67, 0.12)",
+    borderBottomColor: UI_BORDER_SUBTLE,
   },
   tierTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
   },
   tierRange: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
   },
   tierBody: {
     fontSize: 14,
     lineHeight: 19,
     fontWeight: "400",
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.12,
     marginTop: 2,
   },
   personalCard: {
     marginTop: 8,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 14,
     gap: 6,
@@ -70,14 +71,14 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
   personalHeading: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
     textTransform: "uppercase",
   },
   personalLine: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.26,
   },
   personalEmphasis: {
@@ -87,7 +88,7 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: "400",
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.15,
     fontVariant: ["tabular-nums"],
   },

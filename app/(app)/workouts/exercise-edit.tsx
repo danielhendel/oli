@@ -1,3 +1,4 @@
+import { UI_CARD_SURFACE, UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -56,8 +57,9 @@ import {
 import { uploadExerciseDefinitionSlotMediaFromPick } from "@/lib/workouts/exercises/uploadExerciseDefinitionSlotMediaFromPick";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 
 const EQUIPMENT_OPTIONS: Equipment[] = [
   "Barbell",
@@ -1244,7 +1246,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#C6C6C8",
     borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     paddingVertical: 10,
     paddingHorizontal: 12,
     fontSize: 16,
@@ -1285,7 +1287,7 @@ const styles = StyleSheet.create({
   },
   fsPanel: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: "hidden",
@@ -1303,7 +1305,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(60, 60, 67, 0.12)",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   fsHeaderCancelText: {
     fontSize: 17,
@@ -1354,7 +1356,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   fsValueCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -1382,7 +1384,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(60, 60, 67, 0.12)",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   fsStickySave: {
     backgroundColor: SYSTEM_ACCENT,

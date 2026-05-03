@@ -1,4 +1,5 @@
 import { ACTIVITY_STEP_TIER_BAR_FILL } from "@/lib/ui/overview/activityStepTierBarFills";
+import { UI_BORDER_SUBTLE, UI_PROGRESS_TRACK_EMPTY } from "@/lib/ui/theme/uiTokens";
 import { getStepRatingTierIndex } from "@/lib/utils/activityStepRating";
 
 /**
@@ -35,11 +36,11 @@ export const STEP_TIER_FILL = {
   elite: 1.0,
 } as const satisfies Record<ActivityStepTierKey, number>;
 
-/** Neutral track trough — warm, light; slightly lifted from fill for a lighter bar shell. */
-export const STEP_TIER_TRACK_INNER_BACKGROUND = "#F8F6F4";
+/** Neutral track trough — dark theme empty segment. */
+export const STEP_TIER_TRACK_INNER_BACKGROUND = UI_PROGRESS_TRACK_EMPTY;
 
 /** Hairline rim — SegmentedZoneTrack-adjacent neutral. */
-export const STEP_TIER_TRACK_RIM_BORDER = "rgba(60, 60, 67, 0.09)";
+export const STEP_TIER_TRACK_RIM_BORDER = UI_BORDER_SUBTLE;
 
 /**
  * Tier key from steps using existing tier index only (no threshold changes).

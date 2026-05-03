@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, View } from "react-native";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 export type ModuleTileProps = {
   id: string;
   title: string;
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     justifyContent: "space-between",
   },
 

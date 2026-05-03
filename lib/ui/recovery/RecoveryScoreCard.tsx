@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, type ViewStyle } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type Props = {
   /** Optional heading above the score block (e.g. Sleep detail validation title). */
   title?: string | null;
@@ -56,7 +57,7 @@ export function RecoveryScoreCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 18,
     padding: 18,
     gap: 14,

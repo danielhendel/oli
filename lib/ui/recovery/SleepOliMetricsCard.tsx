@@ -6,6 +6,7 @@ import { buildSleepOliMetricRows } from "@/lib/format/sleepOliMetricRows";
 import { SleepOliMetricRow } from "@/lib/ui/recovery/SleepOliMetricRow";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 type Props = {
   sleep: NonNullable<DailyFactsDto["sleep"]>;
 };
@@ -32,7 +33,7 @@ export function SleepOliMetricsCard({ sleep }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 18,
     padding: 18,
     gap: 14,

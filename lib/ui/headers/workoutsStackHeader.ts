@@ -1,4 +1,5 @@
 import { Platform, type TextStyle } from "react-native";
+import { OLI_DARK } from "@/lib/ui/theme/oliSemantic";
 
 /**
  * Workouts stack header roles (Apple Health–style hierarchy):
@@ -8,10 +9,10 @@ import { Platform, type TextStyle } from "react-native";
  */
 export type WorkoutsHeaderRole = "module" | "detail" | "task";
 
-export const WORKOUTS_HEADER_TITLE_COLOR = "#1C1C1E";
+export const WORKOUTS_HEADER_TITLE_COLOR = OLI_DARK.textPrimary;
 
-/** Grouped-list / module background behind white cards (overview, day, placeholders). */
-export const WORKOUTS_SCREEN_CONTENT_BG = "#F2F2F7";
+/** Grouped-list / module background behind cards (overview, day, placeholders). */
+export const WORKOUTS_SCREEN_CONTENT_BG = OLI_DARK.screenBgGrouped;
 
 /** Native stack header + custom {@link WorkoutsNavBar} — same as screen chrome so the bar reads as one surface. */
 export const WORKOUTS_HEADER_BAR_BG = WORKOUTS_SCREEN_CONTENT_BG;

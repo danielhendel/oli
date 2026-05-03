@@ -1,11 +1,13 @@
+import { UI_CARD_SURFACE, UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 import React from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+
 import { Ionicons } from "@expo/vector-icons";
 import { ExerciseMediaThumbnail } from "@/components/workouts/ExerciseMediaThumbnail";
+
 
 export type ExerciseMediaCardProps = {
   testID?: string;
@@ -76,7 +78,7 @@ export function ExerciseMediaCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -109,7 +111,7 @@ const styles = StyleSheet.create({
     height: 228,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E8E8ED",
     alignItems: "center",

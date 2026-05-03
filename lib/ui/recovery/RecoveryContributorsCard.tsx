@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 
 import { LinearProgressBar } from "@/lib/ui/primitives/LinearProgressBar";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type ContributorRowProps = {
   label: string;
   valueDisplay: string;
@@ -43,7 +44,7 @@ export function RecoveryContributorsCard({ title = "Contributors", rows }: Props
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 20,
     paddingVertical: 20,
     paddingHorizontal: 20,

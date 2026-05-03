@@ -1,3 +1,4 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import React from "react";
 import { StyleSheet, Text, View, type ViewProps } from "react-native";
 
@@ -10,8 +11,10 @@ import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_FILL_14 } from "@/lib/ui/theme/systemAccent";
-import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+
+import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { STEP_TIER_COLORS } from "@/lib/utils/activityStepTierVisual";
+
 
 function pillVisualForClassification(
   c: "maintaining" | "gaining" | "losing",
@@ -193,7 +196,7 @@ export function WeightBaselineCard({ unit, loading, error, model, chartPoints = 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,
@@ -214,13 +217,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   cardTitle: {
-    flexShrink: 1,
-    minWidth: 0,
-    fontSize: 19,
-    lineHeight: 24,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    letterSpacing: -0.34,
+    ...strengthMetricCardTitleTextStyle,
   },
   heroHeadlineRow: {
     flexDirection: "row",
@@ -234,7 +231,7 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 25,
     fontWeight: "600",
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.26,
   },
   heroWeight: {
@@ -242,7 +239,7 @@ const styles = StyleSheet.create({
     lineHeight: 29,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.5,
     flexShrink: 1,
     textAlign: "right",
@@ -270,12 +267,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   insightLabel: {
     fontSize: 11,
     lineHeight: 14,
-    color: UI_TEXT_TERTIARY_LABEL,
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.05,
     textAlign: "center",
   },
@@ -283,7 +280,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     fontVariant: ["tabular-nums"],
     letterSpacing: -0.1,
     textAlign: "center",
@@ -291,7 +288,7 @@ const styles = StyleSheet.create({
   insufficientCopy: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     marginTop: 2,
   },
 });

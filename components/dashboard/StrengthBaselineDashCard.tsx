@@ -13,7 +13,7 @@ import {
 } from "@/lib/ui/workouts/StrengthBaselineFrequencyTrack";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+import { UI_CARD_SURFACE, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 const SUBTITLE_90 = "90-day average workouts per week";
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     padding: 15,
     gap: 11,
     ...elevatedCardSurfaceStyle,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   titleRow: {
     alignItems: "baseline",

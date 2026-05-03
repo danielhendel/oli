@@ -1,20 +1,27 @@
 /**
- * Shared neutral / chrome tokens for cross-module UI consistency.
- * Accent colors stay in {@link systemAccent} and domain themes.
+ * Cross-module UI tokens. **Active values follow the default dark theme** (see {@link OLI_DARK}).
+ * Preserved light palette: {@link OLI_LIGHT} from `./oliSemantic`.
  */
-export const UI_TEXT_PRIMARY = "#1C1C1E";
-export const UI_TEXT_SECONDARY = "#3C3C43";
-export const UI_TEXT_MUTED = "#6E6E73";
-export const UI_TEXT_TERTIARY_LABEL = "#8E8E93";
+import { OLI_DARK, OLI_LIGHT, type OliSemanticColors } from "@/lib/ui/theme/oliSemantic";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
-/** Cool blue-gray secondary line on grouped sheets (e.g. Dash section tagline) — calm, not marketing blue. */
-export const UI_TEXT_SLATE_COOL = "#5B6C8A";
+export { OLI_LIGHT, OLI_DARK, type OliSemanticColors };
 
-/** Header back / toolbar pill fill (iOS grouped background family). */
-export const UI_HEADER_CHROME_BG = "#F2F2F7";
+const T = OLI_DARK;
 
-/** Hairline border for header chrome (capsule, back circle) — subtle separation from white nav bar. */
-export const UI_HEADER_CHROME_BORDER = "rgba(60, 60, 67, 0.12)";
+export const UI_TEXT_PRIMARY = T.textPrimary;
+export const UI_TEXT_SECONDARY = T.textSecondary;
+export const UI_TEXT_MUTED = T.textTertiary;
+export const UI_TEXT_TERTIARY_LABEL = T.textTertiary;
+
+/** Cool blue-gray secondary line on grouped sheets (e.g. Dash section tagline). */
+export const UI_TEXT_SLATE_COOL = T.textSlateCool;
+
+/** Header back / toolbar pill fill. */
+export const UI_HEADER_CHROME_BG = T.headerChromeBg;
+
+/** Hairline border for header chrome (capsule, back circle). */
+export const UI_HEADER_CHROME_BORDER = T.headerChromeBorder;
 
 /** Horizontal inset inside grouped header capsule (calendar + overflow). */
 export const UI_HEADER_CAPSULE_PADDING_H = 9;
@@ -26,20 +33,27 @@ export const UI_HEADER_CAPSULE_PADDING_H = 9;
 export const UI_HEADER_CAPSULE_SEGMENT_GAP = 7;
 
 /** Vertical rule between capsule actions — lighter than outer chrome border. */
-export const UI_HEADER_CAPSULE_DIVIDER = "rgba(60, 60, 67, 0.08)";
+export const UI_HEADER_CAPSULE_DIVIDER = T.headerCapsuleDivider;
 
 /** Secondary inline actions (e.g. in-card “View More”) — neutral, not accent CTA. */
-export const UI_LINK_SECONDARY = UI_TEXT_SECONDARY;
+export const UI_LINK_SECONDARY = T.linkSecondary;
 
-export const UI_BORDER_HAIRLINE = "#E5E5EA";
-export const UI_SCREEN_BG = "#F2F2F7";
-export const UI_CARD_SURFACE = "#FFFFFF";
+export const UI_BORDER_HAIRLINE = T.borderHairline;
+export const UI_SCREEN_BG = T.screenBgGrouped;
 
-/** 1px edge on elevated white cards over grouped backgrounds — barely visible, iOS-style hairline. */
-export const UI_CARD_ELEVATED_BORDER = "rgba(60, 60, 67, 0.08)";
+/**
+ * Manage menu panel, modal stacks, and elevated metric cards — identical to semantic `surfaceElevated`
+ * (single source of truth; do not diverge from {@link UI_CARD_SURFACE}).
+ */
+export const UI_PANEL_SURFACE = T.surfaceElevated;
+export const UI_SURFACE_ELEVATED = UI_PANEL_SURFACE;
+export const UI_CARD_SURFACE = UI_PANEL_SURFACE;
 
-/** App-wide grouped page root (tab roots, ScreenContainer default). Calm blue-gray. */
-export const UI_APP_SCREEN_BG = "#EEF3F8";
+/** 1px edge on elevated cards — subtle hairline. */
+export const UI_CARD_ELEVATED_BORDER = T.cardElevatedBorder;
+
+/** App-wide grouped page root (tab roots, ScreenContainer default). */
+export const UI_APP_SCREEN_BG = T.appScreenBg;
 
 /** @deprecated Use UI_APP_SCREEN_BG — kept for existing imports. */
 export const UI_DASH_SCREEN_BG = UI_APP_SCREEN_BG;
@@ -59,7 +73,7 @@ export const UI_TAB_ROOT_CONTENT_GUTTER_STYLE = {
   paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
 } as const;
 
-/** Default corner radius for white cards on grouped backgrounds (non-Dash). */
+/** Default corner radius for cards on grouped backgrounds (non-Dash). */
 export const UI_GROUPED_CARD_RADIUS = 16;
 
 /** Daily Recap on Dash — crisp primary card (tighter than secondary nav rows). */
@@ -67,3 +81,27 @@ export const UI_DASH_RECAP_CARD_RADIUS = 14;
 
 /** Dash category module rows — softer, more premium than recap. */
 export const UI_DASH_CATEGORY_CARD_RADIUS = 20;
+
+/** Modal scrim / overlay dim */
+export const UI_OVERLAY = T.overlay;
+
+export const UI_SURFACE_PRESSED = T.surfacePressed;
+
+export const UI_NAV_SURFACE = T.navSurface;
+export const UI_NAV_SURFACE_ACTIVE = T.navSurfaceActive;
+export const UI_NAV_ICON_ACTIVE = T.navIconActive;
+export const UI_NAV_ICON_INACTIVE = T.navIconInactive;
+
+/** Calendar / workout day ring stroke (`WorkoutDayRing` uses {@link SYSTEM_ACCENT}). */
+export const UI_CALENDAR_RING_STROKE = SYSTEM_ACCENT;
+
+/** Floating bottom nav — active tab icon + label (same blue as calendar rings). */
+export const UI_NAV_TAB_ICON_ACTIVE = SYSTEM_ACCENT;
+
+/** Floating bottom nav — inactive tab icon + label (white on dark nav pill). */
+export const UI_NAV_TAB_ICON_INACTIVE = "#FFFFFF";
+
+export const UI_PROGRESS_TRACK_EMPTY = T.progressTrackEmpty;
+
+export const UI_BORDER_SUBTLE = T.borderSubtle;
+export const UI_BORDER_STRONG = T.borderStrong;

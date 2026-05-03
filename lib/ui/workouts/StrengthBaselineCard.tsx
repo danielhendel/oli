@@ -15,6 +15,7 @@ import {
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 type StrengthBaselineCardProps = {
   loading: boolean;
   model: StrengthBaselineCardModel | null;
@@ -88,7 +89,7 @@ export function StrengthBaselineCard({ loading, model }: StrengthBaselineCardPro
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
     gap: 11,
@@ -122,14 +123,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: "500",
-    color: "#8E8E93",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.08,
   },
   metricValue: {
     fontSize: 18,
     lineHeight: 22,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.28,
     fontVariant: ["tabular-nums"],
     textAlign: "right",
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     letterSpacing: -0.2,
     marginBottom: 6,
   },

@@ -3,6 +3,7 @@
 
 import type { InterpretationBarModel, InterpretationQualityZone } from "./bodyOverviewInterpretationBar";
 import { MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME } from "@/lib/ui/overview/moduleOverviewStrengthTierPillChrome";
+import { UI_PROGRESS_TRACK_EMPTY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 /** Must match {@link interpretationZoneFromMarker01} quartile bands on raw marker01. */
 export function bodyInterpretationZoneQuartileBand(zone: InterpretationQualityZone): { lo: number; hi: number } {
@@ -31,7 +32,7 @@ export const BODY_ZONE_TO_VISUAL_SEGMENT_INDEX: Record<InterpretationQualityZone
 
 const SEGMENT_COUNT = 5;
 
-const NEUTRAL_PILL = { pillBg: "#E5E5EA", pillFg: "#636366" } as const;
+const NEUTRAL_PILL = { pillBg: UI_PROGRESS_TRACK_EMPTY, pillFg: UI_TEXT_TERTIARY_LABEL } as const;
 
 function clamp01(x: number): number {
   if (!Number.isFinite(x)) return 0.5;

@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 /**
  * Workouts History — list of past workouts from raw events (workout kind).
  * Uses useWorkoutsHistory; fail-closed with requestId on API errors.
@@ -242,7 +244,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   chipTitle: { fontSize: 12, color: "#6E6E73" },
   chipStatus: { fontSize: 13, fontWeight: "600", color: "#3C3C43" },

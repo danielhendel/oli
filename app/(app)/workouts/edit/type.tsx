@@ -8,6 +8,7 @@ import { formatWorkoutTypeLabel } from "@/lib/data/workouts/workoutDisplay";
 import { type WorkoutOverrideType, useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 export default function EditWorkoutTypeScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -79,10 +80,10 @@ export default function EditWorkoutTypeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingTop: 24, paddingHorizontal: 16, backgroundColor: "#F2F2F7" },
+  root: { flex: 1, paddingTop: 24, paddingHorizontal: 16, backgroundColor: UI_SCREEN_BG },
   title: { fontSize: 30, fontWeight: "800", color: "#1C1C1E" },
   description: { marginTop: 6, fontSize: 14, color: "#6E6E73", marginBottom: 16 },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16 },
+  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16 },
   sectionLabel: { fontSize: 13, color: "#8E8E93", marginBottom: 6, fontWeight: "600" },
   currentValue: { fontSize: 17, color: "#1C1C1E", fontWeight: "500", marginBottom: 12 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#D1D1D6", marginBottom: 12 },

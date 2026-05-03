@@ -5,6 +5,7 @@ import {
   ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS,
   ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES,
 } from "@/lib/utils/activityStepRating";
+import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import { ACTIVITY_STEP_TIER_KEYS, STEP_TIER_COLORS } from "@/lib/utils/activityStepTierVisual";
 
 const TIER_DOT_SIZE = 7;
@@ -89,11 +90,11 @@ const styles = StyleSheet.create({
   tierLabel: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   tierMeta: {
     fontSize: 15,
     fontWeight: "400",
-    color: "#48484A",
+    color: UI_TEXT_SECONDARY,
   },
 });

@@ -18,6 +18,7 @@ import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 const PARAM_TO_METRIC: Record<string, BodyTrendMetric> = {
   weight: "weight",
   "body-fat": "body_fat_percent",
@@ -180,9 +181,9 @@ export default function BodyMetricDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40, gap: 16, backgroundColor: "#F2F2F7" },
+  scroll: { padding: 16, paddingBottom: 40, gap: 16, backgroundColor: UI_SCREEN_BG },
   heroCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 20,
     gap: 8,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   heroSub: { fontSize: 15, fontWeight: "500", color: "#3C3C43" },
   heroEmpty: { fontSize: 28, fontWeight: "600", color: "#AEAEB2" },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,

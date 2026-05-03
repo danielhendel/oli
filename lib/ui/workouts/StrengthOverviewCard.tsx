@@ -15,6 +15,7 @@ import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOver
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
+import { UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 type StrengthOverviewCardProps = {
   loading: boolean;
   model: StrengthOverviewCardModel | null;
@@ -23,8 +24,7 @@ type StrengthOverviewCardProps = {
 
 /**
  * Strength-only tier palette (not Body interpretation zones).
- * Tier chroma: Low #E57373, Developing #F2D06B, Solid #E6A15C, Strong #5EC08C, Optimal #5C8FE6.
- * Bar segments: same RGB at ~35% alpha on white. Pill fg: tier chroma (API/tests). Bar marker: neutral elevated dot. Pill bg: soft opaque tints.
+ * Tier chrome comes from {@link MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME} / {@link MODULE_OVERVIEW_SEGMENT_ZONE_FILLS} (dark-elevated).
  */
 const STRENGTH_OVERVIEW_TIER_COLORS: Record<
   StrengthOverviewTimeframeRatingTier,
@@ -205,7 +205,7 @@ export function StrengthOverviewCard({ loading, model, onViewMore }: StrengthOve
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   timeframeLabel: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#6E6E73",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.12,
     flexShrink: 0,
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 14,
     fontWeight: "600",
-    color: "#3C3C43",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.15,
   },
   /** Overrides shared shell when pill is the trailing control (no max-width squeeze with title). */

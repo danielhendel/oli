@@ -6,6 +6,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { OliThemeProvider } from "../lib/ui/theme/OliThemeContext";
 import { useNutritionOutboxSync } from "../lib/hooks/useNutritionOutboxSync";
 import { ActivityRollupProvider } from "../lib/data/activity/ActivityRollupProvider";
 import { useAppleHealthForcedYesterdayFinalize } from "../lib/data/activity/useAppleHealthForcedYesterdayFinalize";
@@ -53,11 +54,12 @@ function RouteGuard() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <OliThemeProvider>
       <AuthProvider>
         <ActivityRollupProvider>
           <PreferencesProvider>
             <UserProfileMainProvider>
-              <StatusBar style="auto" />
+              <StatusBar style="light" />
               <AppleHealthForcedYesterdayFinalizeRunner />
               <NutritionOutboxSyncRunner />
               <RouteGuard />
@@ -78,6 +80,7 @@ export default function RootLayout() {
           </PreferencesProvider>
         </ActivityRollupProvider>
       </AuthProvider>
+      </OliThemeProvider>
     </GestureHandlerRootView>
   );
 }

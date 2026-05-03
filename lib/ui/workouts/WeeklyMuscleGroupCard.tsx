@@ -10,6 +10,13 @@ import {
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
 } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 
+import {
+  UI_BORDER_SUBTLE,
+  UI_CARD_SURFACE,
+  UI_SURFACE_PRESSED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 type MuscleTab = "volume" | "sets";
 
 type WeeklyMuscleGroupCardProps = {
@@ -158,7 +165,7 @@ export function WeeklyMuscleGroupCard({ model, initialTab }: WeeklyMuscleGroupCa
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 12,
@@ -166,20 +173,20 @@ const styles = StyleSheet.create({
   headerKicker: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.3,
   },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#EBEBEF",
+    backgroundColor: UI_SURFACE_PRESSED,
     borderRadius: 10,
     padding: 4,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.1)",
+    borderColor: UI_BORDER_SUBTLE,
   },
   tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 8 },
   tabActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -187,7 +194,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   tabPressed: { opacity: 0.78 },
-  tabText: { fontSize: 15, fontWeight: "500", color: "#8E8E93" },
+  tabText: { fontSize: 15, fontWeight: "500", color: UI_TEXT_SECONDARY },
   tabTextActive: { fontWeight: "700" },
   rowsBlock: {
     gap: 10,
@@ -205,16 +212,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   rowValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#3C3C43",
+    color: UI_TEXT_PRIMARY,
   },
   placeholder: {
     fontSize: 14,
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     paddingVertical: 2,
   },
 });

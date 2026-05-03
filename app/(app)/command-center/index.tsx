@@ -1,3 +1,5 @@
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // app/(app)/command-center/index.tsx
 import { ScrollView, View, StyleSheet, Pressable, Text } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -1225,7 +1227,7 @@ export default function CommandCenterScreen(props: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { flex: 1, backgroundColor: UI_CARD_SURFACE },
   container: { padding: 16, paddingBottom: 40 },
 
   failuresCard: {
@@ -1234,7 +1236,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
   },
-  failuresCardNeutral: { backgroundColor: "#F2F2F7" },
+  failuresCardNeutral: { backgroundColor: UI_SCREEN_BG },
   failuresCardWarning: { backgroundColor: "#FFF5E6" },
   failuresCardDanger: { backgroundColor: "#FDECEC" },
   failuresLabel: { fontSize: 12, fontWeight: "900", color: "#111", letterSpacing: 0.2 },
@@ -1279,7 +1281,7 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   cardioMetricLabel: {
     fontSize: 12,
@@ -1301,7 +1303,7 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   nutritionMetricLabel: {
     fontSize: 12,
@@ -1318,7 +1320,7 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   strengthMetricLabel: {
     fontSize: 12,
@@ -1341,7 +1343,7 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   recoveryMetricLabel: {
     fontSize: 12,
@@ -1364,7 +1366,7 @@ const styles = StyleSheet.create({
     width: "48%",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   bodyMetricLabel: {
     fontSize: 12,
@@ -1388,7 +1390,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 14,
     padding: 12,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   quickActionTitle: { fontSize: 14, fontWeight: "800", color: "#111" },
   quickActionSubtitle: { fontSize: 12, color: "#555", marginTop: 2 },
@@ -1430,7 +1432,7 @@ const styles = StyleSheet.create({
   replayPanelError: { fontSize: 12, color: "#B00020", marginTop: 6 },
 
   replayRunsList: { marginTop: 10, gap: 8 },
-  replayRunRow: { padding: 10, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E6EEFF" },
+  replayRunRow: { padding: 10, borderRadius: 12, backgroundColor: UI_CARD_SURFACE, borderWidth: 1, borderColor: "#E6EEFF" },
   replayRunRowSelected: { borderColor: "#8FB1FF" },
   replayRunId: { fontSize: 12, fontWeight: "900", color: "#111" },
   replayRunMeta: { fontSize: 12, color: "#445", marginTop: 3 },

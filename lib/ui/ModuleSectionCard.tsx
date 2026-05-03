@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 export type ModuleSectionCardProps = {
   title: string;
   description?: string;
@@ -29,7 +30,7 @@ export function ModuleSectionCard({ title, description, rightBadge, children }: 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 16,
     gap: 10,

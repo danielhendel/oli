@@ -5,6 +5,7 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useLabResults } from "@/lib/data/useLabResults";
 import type { LabResultDto } from "@/lib/contracts";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso);
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   rowPressed: { opacity: 0.85 },
   rowLeft: { flex: 1, gap: 4 },

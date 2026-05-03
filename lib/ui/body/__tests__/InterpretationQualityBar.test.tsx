@@ -3,6 +3,7 @@ import renderer, { act } from "react-test-renderer";
 import { describe, expect, it } from "@jest/globals";
 import { View } from "react-native";
 import { MODULE_OVERVIEW_SEGMENT_ZONE_FILLS } from "@/lib/ui/overview/moduleOverviewSegmentZoneFills";
+import { MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME } from "@/lib/ui/overview/moduleOverviewStrengthTierPillChrome";
 import { SegmentedZoneTrack } from "@/lib/ui/primitives/SegmentedZoneTrack";
 import { STRENGTH_OVERVIEW_TIER_ZONE_BG } from "@/lib/ui/workouts/StrengthOverviewCard";
 import {
@@ -61,7 +62,7 @@ describe("InterpretationQualityBar", () => {
     expect(track.props.zoneColors).toHaveLength(5);
     expect(track.props.markerPosition01).toBeGreaterThanOrEqual(0.6);
     expect(track.props.markerPosition01).toBeLessThanOrEqual(0.8);
-    expect(track.props.markerBackgroundColor).toBe("#5EC08C");
+    expect(track.props.markerBackgroundColor).toBe(MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[3].pillFg);
     expect(track.props.markerStyle).toBe("tick");
   });
 

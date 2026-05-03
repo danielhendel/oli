@@ -38,27 +38,26 @@ const ACTIVITY_STEP_RATING_TIER_META = [
 export const ACTIVITY_STEP_RATING_TIERS: readonly ActivityStepRatingTierDefinition[] =
   ACTIVITY_STEP_RATING_TIER_META.map((m, i) => {
     if (i === 2) {
-      /** Moderately Active (Average): softer wash than default segment chrome for pill hierarchy. */
+      /** Moderately Active (Average): warm band, dark-tinted pill. */
       return {
         ...m,
-        color: "#D89550",
-        backgroundColor: "#FCFAF6",
+        color: "#FFB45E",
+        backgroundColor: "rgba(255, 168, 76, 0.14)",
       };
     }
     if (i === 3) {
-      /** Active (Good): calmer than Very Active — same hue family, lower chroma for clearer tier ladder. */
+      /** Active (Good): calmer green than Very Active. */
       return {
         ...m,
-        color: "#6BA38A",
-        backgroundColor: "#F3F7F5",
+        color: "#5EE89A",
+        backgroundColor: "rgba(64, 220, 115, 0.14)",
       };
     }
     if (i === 4) {
       return {
         ...m,
-        color: "#4ED26F",
-        /** Slightly richer wash than Good for hierarchy (still soft, premium). */
-        backgroundColor: "#E5F8EB",
+        color: "#4DEB7A",
+        backgroundColor: "rgba(64, 220, 115, 0.16)",
       };
     }
     const seg = ACTIVITY_STEP_TIER_BODY_SEGMENT_INDEX[i]!;

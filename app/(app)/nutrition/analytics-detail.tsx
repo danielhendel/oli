@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function NutritionAnalyticsDetailScreen() {
   const navigation = useNavigation();
   const { user, initializing } = useAuth();
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 6,

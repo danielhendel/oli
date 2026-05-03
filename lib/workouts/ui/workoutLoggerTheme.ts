@@ -4,17 +4,18 @@
  */
 import { Platform, StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import { OLI_DARK } from "@/lib/ui/theme/oliSemantic";
 
 export const WORKOUT_LOGGER_COLORS = {
-  pageBackground: "#F2F2F7",
+  pageBackground: OLI_DARK.screenBgGrouped,
   /** Grouped / “premium” sheets (add block, edit block, delete confirm). */
-  sheetChromeBackground: "#F2F2F7",
-  sheetSurface: "#FFFFFF",
-  sheetBackdrop: "rgba(0,0,0,0.35)",
-  textPrimary: "#1C1C1E",
-  textSecondary: "#8E8E93",
-  textSecondaryMuted: "#6E6E73",
-  grabber: "#C7C7CC",
+  sheetChromeBackground: OLI_DARK.screenBgGrouped,
+  sheetSurface: OLI_DARK.cardSurface,
+  sheetBackdrop: OLI_DARK.overlay,
+  textPrimary: OLI_DARK.textPrimary,
+  textSecondary: OLI_DARK.textTertiary,
+  textSecondaryMuted: OLI_DARK.textTertiary,
+  grabber: "rgba(255,255,255,0.22)",
   destructive: "#FF3B30",
 } as const;
 
@@ -28,7 +29,7 @@ export const WORKOUT_LOGGER_LAYOUT = {
 
 /** Bottom command bar frosted capsule (log screen only). */
 export const WORKOUT_LOGGER_BOTTOM_BAR = {
-  backgroundColor: "rgba(255, 255, 255, 0.56)",
+  backgroundColor: "rgba(24, 28, 34, 0.72)",
   borderRadius: 38,
 } as const;
 
@@ -134,7 +135,7 @@ export const workoutLoggerTypography: {
   commandBarLabel: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#3C3C43",
+    color: OLI_DARK.textSecondary,
     letterSpacing: -0.15,
   },
 
@@ -220,14 +221,14 @@ export const workoutLoggerCancelOutline: ViewStyle = {
   justifyContent: "center",
   borderRadius: WORKOUT_LOGGER_LAYOUT.cancelOutlineRadius,
   borderWidth: StyleSheet.hairlineWidth,
-  borderColor: "rgba(60, 60, 67, 0.22)",
+  borderColor: OLI_DARK.borderStrong,
   backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
 };
 
 export const workoutLoggerCancelOutlineText: TextStyle = {
   fontSize: 16,
   fontWeight: "600",
-  color: "#3C3C43",
+  color: OLI_DARK.textSecondary,
   letterSpacing: -0.2,
 };
 

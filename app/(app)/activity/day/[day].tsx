@@ -10,6 +10,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { EmptyState, ErrorState, LoadingState, ScreenContainer } from "@/lib/ui/ScreenStates";
 
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export default function ActivityDayScreen() {
   const navigation = useNavigation();
   const pathname = usePathname();
@@ -100,7 +101,7 @@ export default function ActivityDayScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 32 },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, gap: 10 },
+  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16, gap: 10 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: { fontSize: 14, color: "#6E6E73" },
   value: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },

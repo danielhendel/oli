@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 /**
  * Sprint 4 — Offline banner for Timeline & Library.
  *
@@ -26,7 +28,7 @@ const styles = StyleSheet.create({
   banner: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5EA",
   },

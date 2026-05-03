@@ -1,5 +1,6 @@
 // lib/ui/ModuleSectionLinkRow.tsx
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { UI_SCREEN_BG, UI_SURFACE_PRESSED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type ModuleSectionLinkRowProps = {
   title: string;
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -63,27 +64,28 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },
 
   left: { flex: 1, gap: 4 },
-  title: { fontSize: 16, fontWeight: "700" },
-  subtitle: { fontSize: 13, opacity: 0.7 },
+  title: { fontSize: 16, fontWeight: "700", color: UI_TEXT_PRIMARY },
+  subtitle: { fontSize: 13, color: UI_TEXT_SECONDARY },
 
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: "#E5E5EA",
+    backgroundColor: UI_SURFACE_PRESSED,
   },
   badgeDisabled: {
-    backgroundColor: "#E5E5EA",
+    backgroundColor: UI_SURFACE_PRESSED,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: "700",
-    opacity: 0.9,
+    color: UI_TEXT_PRIMARY,
+    opacity: 0.95,
   },
 
   chevron: {
     fontSize: 22,
-    opacity: 0.5,
+    color: UI_TEXT_SECONDARY,
     paddingLeft: 6,
   },
 });

@@ -8,6 +8,7 @@ import {
   activityStepTierBarVisual,
 } from "@/lib/utils/activityStepTierVisual";
 import { MODULE_OVERVIEW_SEGMENTED_TRACK } from "@/lib/ui/overview/moduleOverviewSegmentedTrackMetrics";
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 
 const DEFAULT_BAR_HEIGHT = MODULE_OVERVIEW_SEGMENTED_TRACK.barHeight;
 const DEFAULT_TRACK_RADIUS = MODULE_OVERVIEW_SEGMENTED_TRACK.trackRadius;
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
   },
   trackRim: {
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
   },
   trackInner: {
     position: "relative",

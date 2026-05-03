@@ -89,7 +89,7 @@ const defaultOverviewData = {
     days: [
       {
         dayKey: "2026-04-06",
-        dateLabel: "Sun 4/6",
+        dateLabel: "Monday",
         stepsDigits: "9,876",
         deltaText: "-4,321",
       },
@@ -100,8 +100,8 @@ const defaultOverviewData = {
     stepsDigits: "1,234",
     tierPill: {
       label: "Lightly Active",
-      color: "#1C1C1E",
-      backgroundColor: "#F2F2F7",
+      color: "#F7F8FA",
+      backgroundColor: "#20262E",
       emphasis: "subtle" as const,
       rangeDisplay: "",
     },

@@ -1,3 +1,5 @@
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 // components/failures/FailureList.tsx
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
@@ -49,7 +51,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   empty: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderRadius: 16,
     padding: 14,
     gap: 6,

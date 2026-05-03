@@ -6,11 +6,8 @@ import { useRouter } from "expo-router";
 
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
-  UI_TAB_ROOT_INSET,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER_STYLE, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import type { MassUnit, UserProfileMain } from "@oli/contracts";
 import {
   formatHeightForDisplay,
@@ -56,6 +53,7 @@ export function ProfileMainScreen({
   massUnit,
 }: ProfileMainScreenProps) {
   const router = useRouter();
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const pu = profile?.app.preferredUnits.length ?? "cm";
   const showLoadError =
     status === "error" &&
@@ -87,7 +85,7 @@ export function ProfileMainScreen({
         <TabRootScreenHeader title="Profile" subtitle="Personalization & body context" />
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           bounces
@@ -233,7 +231,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: UI_TAB_ROOT_INSET,
     paddingTop: 6,
-    paddingBottom: 40,
   },
   scrollInner: {
     flexGrow: 1,

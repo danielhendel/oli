@@ -22,6 +22,7 @@ import { NutritionMacroSummaryBar } from "@/lib/ui/nutrition/NutritionMacroSumma
 import { NutritionLoggingSubmitBar } from "@/lib/ui/nutrition/NutritionLoggingSubmitBar";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 const ACCESSORY_ID = "nutritionLogKeyboardAccessoryV2";
 
 export type NutritionLogEntryShellProps = {
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 10,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(60, 60, 67, 0.18)",
   },

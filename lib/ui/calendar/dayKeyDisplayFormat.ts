@@ -4,10 +4,6 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 /**
- * Weekday short + M/D for a calendar day key (UTC noon anchor), e.g. `Tue 3/31`.
- * Matches historical overview / recent-row copy ({@link formatBodyDayLabel}).
- */
-/**
  * Stack header title for a calendar day — matches workout day detail (`formatHeaderDate` style):
  * e.g. `Tue Apr 14, 2026` (locale weekday + short month + day + year).
  */
@@ -19,6 +15,21 @@ export function formatDayKeyStackNavTitle(dayKey: DayKey): string {
   return `${weekday} ${rest}`;
 }
 
+/**
+ * Locale-aware full weekday name for a calendar day key (`YYYY-MM-DD`), using the same UTC-noon
+ * anchor as {@link formatDayKeyWeekdayShortMonthDay}. Month/day omitted — for This Week row labels.
+ */
+export function formatWeekdayFullFromDayKey(dayKey: string): string {
+  const d = new Date(`${dayKey}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+/** Weekday short + M/D for a calendar day key (UTC noon anchor), e.g. `Tue 3/31`. */
 export function formatDayKeyWeekdayShortMonthDay(dayKey: DayKey): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);
   const wd = WEEKDAY_SHORT[d.getUTCDay()] ?? "";

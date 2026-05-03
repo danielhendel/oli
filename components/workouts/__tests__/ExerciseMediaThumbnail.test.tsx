@@ -84,7 +84,7 @@ describe("ExerciseMediaThumbnail", () => {
       await Promise.resolve();
     });
     const root = tree.root.findByProps({ testID: "ExerciseMediaThumbnail" });
-    expect(flattenStyle(root.props.style).backgroundColor).toBe("#FFFFFF");
+    expect(flattenStyle(root.props.style).backgroundColor).toBe("#181D23");
     act(() => tree.unmount());
   });
 
@@ -97,7 +97,7 @@ describe("ExerciseMediaThumbnail", () => {
       await Promise.resolve();
     });
     const root = tree.root.findByProps({ testID: "ExerciseMediaThumbnail" });
-    expect(flattenStyle(root.props.style).backgroundColor).toBe("#FFFFFF");
+    expect(flattenStyle(root.props.style).backgroundColor).toBe("#181D23");
     expect(tree.root.findAllByProps({ testID: "ExerciseMediaThumbnailPlaceholder" }).length).toBe(1);
     expect(tree.root.findByProps({ testID: "mock-ionicon-add" })).toBeTruthy();
     act(() => tree.unmount());

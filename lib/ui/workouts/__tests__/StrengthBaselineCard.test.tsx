@@ -1,10 +1,12 @@
 import React from "react";
+import { StyleSheet } from "react-native";
 import renderer, { act } from "react-test-renderer";
 
-import { StrengthBaselineCard } from "../StrengthBaselineCard";
 import type { StrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
 import { buildStrengthBaselineCardModel } from "@/lib/data/workouts/strengthBaselineCardModel";
+import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import { STRENGTH_BASELINE_CARD_DEFINITION_SENTENCE } from "../strengthBaselineCopy";
+import { StrengthBaselineCard } from "../StrengthBaselineCard";
 
 const model: StrengthBaselineCardModel = buildStrengthBaselineCardModel({
   strengthCalendarDays: [
@@ -47,5 +49,18 @@ describe("StrengthBaselineCard", () => {
     expect(json).toContain("wo");
     expect(json).toContain("min/wk");
     expect(json).not.toContain("workouts / week");
+  });
+
+  it("uses semantic text tokens for the baseline row label/value and footer explainer", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthBaselineCard loading={false} model={model} />);
+    });
+    const label = tree!.root.findByProps({ children: "90 Day Avg" });
+    expect(StyleSheet.flatten(label.props.style).color).toBe(UI_TEXT_PRIMARY);
+    const value = tree!.root.findByProps({ children: model.compactValuePrimary });
+    expect(StyleSheet.flatten(value.props.style).color).toBe(UI_TEXT_PRIMARY);
+    const footer = tree!.root.findByProps({ children: STRENGTH_BASELINE_CARD_DEFINITION_SENTENCE });
+    expect(StyleSheet.flatten(footer.props.style).color).toBe(UI_TEXT_SECONDARY);
   });
 });

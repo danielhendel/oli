@@ -56,6 +56,7 @@ import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessio
 import type { HeartRateZoneMinutes5 } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 
+import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 /** Matches exercise-history numeric accents for set grid values. */
 const METRIC_STRENGTH_ACCENT = SYSTEM_ACCENT;
 const METRIC_VOLUME_ACCENT = SYSTEM_METRIC_SECONDARY;
@@ -1020,7 +1021,7 @@ export default function WorkoutDayStrengthRoute() {
 }
 
 const styles = StyleSheet.create({
-  scrollView: { flex: 1, backgroundColor: "#F2F2F7" },
+  scrollView: { flex: 1, backgroundColor: UI_SCREEN_BG },
   scroll: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -1029,10 +1030,10 @@ const styles = StyleSheet.create({
   },
   pageBackground: {
     flex: 1,
-    backgroundColor: "#F2F2F7",
+    backgroundColor: UI_SCREEN_BG,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 16,
     padding: 16,
     gap: 10,
@@ -1074,7 +1075,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
   },
   premiumWorkoutCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1245,7 +1246,7 @@ const styles = StyleSheet.create({
   perfColE1rm: { flex: 1, fontWeight: "600" },
   perfColVol: { flex: 1, fontWeight: "600" },
   workoutCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 10,
@@ -1278,7 +1279,7 @@ const styles = StyleSheet.create({
   },
   kpiCell: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 10,
@@ -1314,7 +1315,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   exerciseCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 6,

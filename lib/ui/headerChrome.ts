@@ -1,12 +1,6 @@
 import { Platform, StyleSheet, type ViewStyle } from "react-native";
 
-import {
-  UI_HEADER_CHROME_BG,
-  UI_HEADER_CHROME_BORDER,
-  UI_HEADER_CAPSULE_DIVIDER,
-  UI_HEADER_CAPSULE_PADDING_H,
-  UI_HEADER_CAPSULE_SEGMENT_GAP,
-} from "@/lib/ui/theme/uiTokens";
+import { UI_HEADER_CHROME_BG, UI_HEADER_CHROME_BORDER, UI_HEADER_CAPSULE_DIVIDER, UI_HEADER_CAPSULE_PADDING_H, UI_HEADER_CAPSULE_SEGMENT_GAP } from "@/lib/ui/theme/uiTokens";
 
 /** iOS shadow aligned with nutrition dock “slot” treatment — softer than the full dock. */
 const HEADER_CHROME_SHADOW_IOS = {
