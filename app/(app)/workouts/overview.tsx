@@ -100,18 +100,13 @@ import {
 import { deleteIngestedRawEventAuthed, ingestRawEvent } from "@/lib/api/ingest";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
-import {
-  formatWorkoutDurationLabel,
-  resolveWorkoutDisplay,
-  resolveWorkoutDisplayDurationMinutes,
-} from "@/lib/data/workouts/workoutDisplay";
+import { resolveWorkoutDisplay, resolveWorkoutDisplayDurationMinutes } from "@/lib/data/workouts/workoutDisplay";
 import {
   cardioDistanceTierFromWeeklyMiles,
   cardioDistanceTierIndexForBar,
   cardioDistanceTierLabel,
   cardioSessionDistanceMeters,
   formatCardioSessionHeadline,
-  formatCardioSessionSubtitle,
   getThisWeekCardioSessions,
   sumDisplayableCardioDistanceMilesForWeekEntries,
 } from "@/lib/data/workouts/cardioSessionPresentation";
@@ -136,10 +131,13 @@ import {
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
 
+import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { PrimaryActionBarShell } from "@/lib/ui/workouts/PrimaryActionBarShell";
 import {
-  RECENT_WORKOUT_ROW_META_TEXT_STYLE,
-  workoutOverviewInCardHeaderStyles,
-} from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+  PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL,
+  programPrimaryCtaBarStyles,
+} from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
+import { logShellLayoutAudit } from "@/lib/ui/workouts/shellLayoutAudit";
 import { strengthThisWeekRowTitle } from "@/lib/ui/workouts/strengthThisWeekRowTitle";
 import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
 import { buildStrengthThisWeekCardModel } from "@/lib/data/workouts/strengthThisWeekCardModel";
@@ -192,27 +190,6 @@ function shellSubtitleForDomain(domain: WorkoutProductDomain): string {
 
 function basePathForDomain(domain: WorkoutProductDomain): "/(app)/workouts" | "/(app)/cardio" {
   return domain === "strength" ? "/(app)/workouts" : "/(app)/cardio";
-}
-
-function countJournalSetsForDisplay(summary: ManualWorkoutDaySummary | null): number {
-  if (summary == null) return 0;
-  let n = 0;
-  for (const ex of summary.exercises) {
-    n += ex.sets.length;
-  }
-  return n;
-}
-
-/** Recent row line 3: duration; strength appends journal set count when present (display-only). */
-function formatRecentWorkoutMetaLine(
-  domain: WorkoutProductDomain,
-  durationLabel: string,
-  journalSummary: ManualWorkoutDaySummary | null,
-): string {
-  if (domain !== "strength") return durationLabel;
-  const n = countJournalSetsForDisplay(journalSummary);
-  if (n > 0) return `${durationLabel} · ${n} set${n === 1 ? "" : "s"}`;
-  return durationLabel;
 }
 
 function getDeviceTimezone(): string {
@@ -999,7 +976,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const strengthRecentWeekCombinedCard =
     domain === "strength" ? (
-      <View style={styles.strengthRecentCombinedCard}>
+      <View style={styles.strengthRecentCombinedCard} testID="workouts-overview-this-week-combined-card">
         <StrengthFrequencyMetricCard
           variant="embedded"
           headingTitle="This Week"
@@ -1053,20 +1030,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               journalSummary,
               durableTitlesByWorkoutId,
             );
-            const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
-            const resolvedMetrics = resolveWorkoutDisplay(
-              surface.metricsWorkout,
-              sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
-            );
-            const durationLabel = formatWorkoutDurationLabel(
-              resolveWorkoutDisplayDurationMinutes({
-                overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
-                sessionDurationMinutes: null,
-                fallbackWorkoutDurationMinutes:
-                  surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
-              }),
-            );
-            const metaLine = formatRecentWorkoutMetaLine("strength", durationLabel, journalSummary);
             return (
               <Pressable
                 key={session.id}
@@ -1075,6 +1038,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                   rowIndex === 0 && styles.recentRowFirst,
                   pressed && styles.recentRowPressed,
                 ]}
+                onLayout={(e) => logShellLayoutAudit(`this-week-row-pressable:strength:${session.id}`, e)}
                 onPress={() => {
                   router.push({
                     pathname: "/(app)/workouts/day/[day]",
@@ -1086,33 +1050,34 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               >
                 <View style={styles.recentRowTextCol}>
                   <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
-                  <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {strengthThisWeekRowTitle(surface.displayTitle)}
-                  </Text>
-                  <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
-                    {metaLine}
-                  </Text>
+                  <PrimaryActionBarShell layout="row" testID="workouts-overview-this-week-row-value-bar">
+                    <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
+                      <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
+                        {strengthThisWeekRowTitle(surface.displayTitle)}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        const native = e?.nativeEvent;
+                        setWorkoutMenuAnchor({
+                          x: typeof native?.pageX === "number" ? native.pageX : 320,
+                          y: typeof native?.pageY === "number" ? native.pageY : 220,
+                          width: 24,
+                          height: 24,
+                        });
+                        setSelectedWorkoutForMenu({ day, session });
+                        setWorkoutMenuOpen(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
+                      hitSlop={10}
+                      style={programPrimaryCtaBarStyles.rowMenuBtn}
+                    >
+                      <Text style={programPrimaryCtaBarStyles.rowMenuGlyph}>•••</Text>
+                    </Pressable>
+                  </PrimaryActionBarShell>
                 </View>
-                <Pressable
-                  onPress={(e) => {
-                    e?.stopPropagation?.();
-                    const native = e?.nativeEvent;
-                    setWorkoutMenuAnchor({
-                      x: typeof native?.pageX === "number" ? native.pageX : 320,
-                      y: typeof native?.pageY === "number" ? native.pageY : 220,
-                      width: 24,
-                      height: 24,
-                    });
-                    setSelectedWorkoutForMenu({ day, session });
-                    setWorkoutMenuOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
-                  hitSlop={10}
-                  style={styles.rowMenuBtn}
-                >
-                  <Text style={styles.rowMenuText}>•••</Text>
-                </Pressable>
               </Pressable>
             );
           })
@@ -1122,7 +1087,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const cardioThisWeekCard =
     domain === "cardio" ? (
-      <View style={styles.strengthRecentCombinedCard}>
+      <View style={styles.strengthRecentCombinedCard} testID="workouts-overview-this-week-combined-card">
         <StrengthFrequencyMetricCard
           variant="embedded"
           headingTitle="This Week"
@@ -1195,7 +1160,6 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               distanceMeters: cardioSessionDistanceMeters(session),
               durationMinutes: resolvedDuration,
             });
-            const subtitle = formatCardioSessionSubtitle(session);
             return (
               <Pressable
                 key={`week-${session.id}`}
@@ -1204,6 +1168,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
                   rowIndex === 0 && styles.recentRowFirst,
                   pressed && styles.recentRowPressed,
                 ]}
+                onLayout={(e) => logShellLayoutAudit(`this-week-row-pressable:cardio:${session.id}`, e)}
                 onPress={() => {
                   router.push({
                     pathname: "/(app)/cardio/day/[day]",
@@ -1215,33 +1180,34 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               >
                 <View style={styles.recentRowTextCol}>
                   <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
-                  <Text style={styles.recentTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {headline}
-                  </Text>
-                  <Text style={styles.recentMeta} numberOfLines={1} ellipsizeMode="tail">
-                    {subtitle}
-                  </Text>
+                  <PrimaryActionBarShell layout="row" testID="workouts-overview-this-week-row-value-bar">
+                    <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
+                      <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
+                        {headline}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        const native = e?.nativeEvent;
+                        setWorkoutMenuAnchor({
+                          x: typeof native?.pageX === "number" ? native.pageX : 320,
+                          y: typeof native?.pageY === "number" ? native.pageY : 220,
+                          width: 24,
+                          height: 24,
+                        });
+                        setSelectedWorkoutForMenu({ day, session });
+                        setWorkoutMenuOpen(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
+                      hitSlop={10}
+                      style={programPrimaryCtaBarStyles.rowMenuBtn}
+                    >
+                      <Text style={programPrimaryCtaBarStyles.rowMenuGlyph}>•••</Text>
+                    </Pressable>
+                  </PrimaryActionBarShell>
                 </View>
-                <Pressable
-                  onPress={(e) => {
-                    e?.stopPropagation?.();
-                    const native = e?.nativeEvent;
-                    setWorkoutMenuAnchor({
-                      x: typeof native?.pageX === "number" ? native.pageX : 320,
-                      y: typeof native?.pageY === "number" ? native.pageY : 220,
-                      width: 24,
-                      height: 24,
-                    });
-                    setSelectedWorkoutForMenu({ day, session });
-                    setWorkoutMenuOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
-                  hitSlop={10}
-                  style={styles.rowMenuBtn}
-                >
-                  <Text style={styles.rowMenuText}>•••</Text>
-                </Pressable>
               </Pressable>
             );
           })
@@ -1457,18 +1423,19 @@ const styles = StyleSheet.create({
   strengthRecentCombinedCard: {
     backgroundColor: CARD_BG,
     borderRadius: RADIUS,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
-    /** Header → divider → workout rows — tighter vertical rhythm (Cardio/Strength This Week list). */
-    gap: 8,
+    paddingHorizontal: PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL,
+    /** Match {@link StrengthProgramCard} card vertical padding (13) for CTA-adjacent rhythm. */
+    paddingTop: 13,
+    paddingBottom: 13,
+    /** Match Program card `gap: 10` between header block, divider, and rows. */
+    gap: 10,
     ...elevatedCardSurfaceStyle,
   },
   strengthRecentSectionDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: UI_HEADER_CHROME_BORDER,
     marginVertical: 0,
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     alignSelf: "stretch",
   },
   placeholder: { fontSize: 15, fontWeight: "400", color: UI_TEXT_TERTIARY_LABEL, letterSpacing: -0.1 },
@@ -1476,11 +1443,10 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 15, color: UI_TEXT_SECONDARY },
   metricValue: { fontSize: 15, fontWeight: "600", color: UI_TEXT_PRIMARY },
   recentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    minHeight: 44,
-    marginHorizontal: 12,
+    flexDirection: "column",
+    alignItems: "stretch",
+    /** No extra vertical cushion — shell height matches Program CTA; spacing vs weekday uses `recentRowTextCol.gap`. */
+    paddingVertical: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_HEADER_CHROME_BORDER,
     gap: 2,
@@ -1495,7 +1461,8 @@ const styles = StyleSheet.create({
   recentRowTextCol: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    /** Match Program card `gap: 10` above Create Program (body → CTA). */
+    gap: 10,
   },
   recentDate: {
     fontSize: 12,
@@ -1504,25 +1471,6 @@ const styles = StyleSheet.create({
     color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.05,
   },
-  recentTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
-    lineHeight: 20,
-  },
-  recentMeta: {
-    ...RECENT_WORKOUT_ROW_META_TEXT_STYLE,
-  },
-  rowMenuBtn: {
-    paddingHorizontal: 6,
-    alignSelf: "center",
-    justifyContent: "center",
-    alignItems: "center",
-    minWidth: 44,
-    minHeight: 44,
-  },
-  rowMenuText: { fontSize: 17, color: UI_TEXT_SECONDARY, fontWeight: "700", letterSpacing: 0.5 },
   editorInput: {
     backgroundColor: WORKOUTS_SCREEN_CONTENT_BG,
     borderRadius: 12,

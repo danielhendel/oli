@@ -284,7 +284,7 @@ describe("Cardio overview baseline layout", () => {
     expect(json.indexOf(labelSun)).toBeLessThan(json.indexOf(labelTue));
     expect(json.indexOf(labelTue)).toBeLessThan(json.indexOf(labelWed));
     expect(json).toContain("3.08 mi / 31 min");
-    expect(json).toContain("Walking");
+    expect(json).toContain("workouts-overview-this-week-row-value-bar");
     expect(json).toContain("31 min");
     expect(json).toContain("3.08 mi");
 

@@ -182,13 +182,20 @@ import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayForm
 import StrengthTrainingOverviewScreen from "../overview";
 
 describe("Strength overview This Week workout title", () => {
-  it("renders resolved workout title in This Week list", async () => {
+  it("renders weekday label, workout title inside accent bar, no duration/sets meta, and row action affordance", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("Chest & Triceps");
     expect(json).toContain(formatWeekdayFullFromDayKey("2026-03-11"));
+    expect(json).toContain("Chest & Triceps");
+    expect(json).toContain("workouts-overview-this-week-row-value-bar");
+    expect(json).not.toContain("46 min");
+    expect(json).toContain("•••");
+    const menu = tree.root.findAll(
+      (n) => n.props.accessibilityLabel?.startsWith?.("Workout actions ") === true,
+    );
+    expect(menu.length).toBeGreaterThan(0);
   });
 });

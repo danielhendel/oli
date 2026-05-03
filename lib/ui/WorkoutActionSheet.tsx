@@ -1,7 +1,16 @@
 import React from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  UI_BORDER_STRONG,
+  UI_BORDER_SUBTLE,
+  UI_OVERLAY,
+  UI_PANEL_SURFACE,
+  UI_SURFACE_PRESSED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export type WorkoutActionAnchor = {
   x: number;
@@ -25,6 +34,12 @@ type WorkoutActionSheetProps = {
   onDeleteWorkout?: () => void;
 };
 
+const MENU_PAD = 14;
+const GAP_BELOW_ANCHOR = 10;
+const ROW_MIN_HEIGHT = 52;
+/** System destructive red — consistent with existing workout delete styling. */
+const UI_DESTRUCTIVE = "#FF3B30";
+
 function Row({
   label,
   icon,
@@ -32,6 +47,7 @@ function Row({
   showDivider = true,
   accessibilityLabel,
   destructive,
+  testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -39,18 +55,23 @@ function Row({
   showDivider?: boolean;
   accessibilityLabel: string;
   destructive?: boolean;
+  testID: string;
 }) {
-  const labelColor = destructive ? "#FF3B30" : "#1C1C1E";
-  const iconColor = destructive ? "#FF3B30" : "#1C1C1E";
+  const labelColor = destructive ? UI_DESTRUCTIVE : UI_TEXT_PRIMARY;
+  const iconColor = destructive ? UI_DESTRUCTIVE : UI_TEXT_PRIMARY;
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      {...(destructive ? { accessibilityHint: "Destructive action" } : {})}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
-      <View style={styles.rowLeft}>
-        <Ionicons name={icon} size={18} color={iconColor} />
+      <View style={styles.rowInner}>
+        <View style={[styles.iconCircle, destructive && styles.iconCircleDestructive]}>
+          <Ionicons name={icon} size={20} color={iconColor} />
+        </View>
         <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
       </View>
       {showDivider ? <View style={styles.rowDivider} /> : null}
@@ -70,69 +91,103 @@ export function WorkoutActionSheet({
   onEditType,
   onDeleteWorkout,
 }: WorkoutActionSheetProps) {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
-  const screenWidth = 390;
-  const screenHeight = 844;
-  const popoverWidth = 252;
-  const margin = 10;
-  const anchorX = anchor?.x ?? screenWidth - margin - 36;
-  const anchorY = anchor?.y ?? 120;
+
+  const { width: windowWidth, height: windowHeight } =
+    typeof Dimensions !== "undefined" && typeof Dimensions.get === "function"
+      ? Dimensions.get("window")
+      : { width: 390, height: 844 };
+  const popoverWidth = Math.min(300, windowWidth - MENU_PAD * 2);
+  const anchorX = anchor?.x ?? windowWidth - MENU_PAD - 36;
+  const anchorY = anchor?.y ?? insets.top + 80;
+  const anchorW = anchor?.width ?? 28;
   const anchorH = anchor?.height ?? 28;
-  const left = Math.max(margin, Math.min(anchorX - popoverWidth + 28, screenWidth - popoverWidth - margin));
-  const top = Math.max(margin + 44, Math.min(anchorY + anchorH + 8, screenHeight - 320));
+  const anchorRight = anchorX + anchorW;
+  let left = anchorRight - popoverWidth;
+  left = Math.max(MENU_PAD, Math.min(left, windowWidth - popoverWidth - MENU_PAD));
+  const rowCount =
+    5 + (onEditExercises != null ? 1 : 0) + (onDeleteWorkout != null ? 1 : 0) + 1; /* cancel */
+  const estimatedPanelHeight = rowCount * ROW_MIN_HEIGHT + 36;
+  let top = anchorY + anchorH + GAP_BELOW_ANCHOR;
+  const maxTop = Math.max(MENU_PAD + insets.top, windowHeight - estimatedPanelHeight - MENU_PAD);
+  top = Math.min(top, maxTop);
+  top = Math.max(MENU_PAD + insets.top, top);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Close workout menu">
-        <Pressable style={[styles.sheet, { width: popoverWidth, left, top }]} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.section}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot} accessibilityViewIsModal>
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: UI_OVERLAY }]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close workout actions"
+        />
+        <View style={styles.menuPositionLayer} pointerEvents="box-none">
+          <View
+            testID="oli-workout-action-menu"
+            style={[
+              styles.menuPanel,
+              Platform.OS === "ios" && styles.menuPanelShadowIos,
+              Platform.OS === "android" && styles.menuPanelShadowAndroid,
+              { width: popoverWidth, left, top },
+            ]}
+          >
             <Row
+              testID="workout-action-view-details"
               label="View details"
               icon="information-circle-outline"
               onPress={onViewDetails}
               accessibilityLabel="View details"
             />
             <Row
+              testID="workout-action-do-it-again"
               label="Do it again"
               icon="refresh-outline"
               onPress={onDoItAgain}
-              showDivider={onEditExercises != null}
               accessibilityLabel="Do it again"
             />
             {onEditExercises != null ? (
               <Row
+                testID="workout-action-edit-exercises"
                 label="Edit exercises"
                 icon="list-outline"
                 onPress={onEditExercises}
-                showDivider={false}
+                showDivider
                 accessibilityLabel="Edit exercises"
               />
             ) : null}
-          </View>
-          <View style={styles.section}>
             <Row
+              testID="workout-action-rename"
               label="Rename workout"
               icon="create-outline"
               onPress={onRename}
               accessibilityLabel="Rename workout"
             />
             <Row
+              testID="workout-action-edit-duration"
               label="Edit duration"
               icon="time-outline"
               onPress={onEditDuration}
               accessibilityLabel="Edit duration"
             />
             <Row
+              testID="workout-action-edit-type"
               label="Edit workout type"
               icon="barbell-outline"
               onPress={onEditType}
               showDivider={onDeleteWorkout != null}
               accessibilityLabel="Edit workout type"
             />
-          </View>
-          {onDeleteWorkout != null ? (
-            <View style={styles.section}>
+            {onDeleteWorkout != null ? (
               <Row
+                testID="workout-action-delete"
                 label="Delete Workout"
                 icon="trash-outline"
                 onPress={onDeleteWorkout}
@@ -140,76 +195,114 @@ export function WorkoutActionSheet({
                 destructive
                 accessibilityLabel="Delete workout"
               />
-            </View>
-          ) : null}
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            style={({ pressed }) => [styles.cancelSection, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.cancelLabel}>Cancel</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
+            ) : null}
+            <View style={styles.cancelTopRule} />
+            <Pressable
+              testID="workout-action-cancel"
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              style={({ pressed }) => [styles.cancelRow, pressed && styles.cancelRowPressed]}
+            >
+              <Text style={styles.cancelLabel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.32)",
   },
-  sheet: {
+  menuPositionLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+  menuPanel: {
     position: "absolute",
-    gap: 8,
-  },
-  section: {
-    backgroundColor: "rgba(255,255,255,0.97)",
-    borderRadius: 22,
+    borderRadius: 18,
     overflow: "hidden",
+    backgroundColor: UI_PANEL_SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_STRONG,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  menuPanelShadowIos: {
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+  },
+  menuPanelShadowAndroid: {
+    elevation: 18,
   },
   row: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
     position: "relative",
+    minHeight: ROW_MIN_HEIGHT,
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
   },
-  rowLeft: {
+  rowPressed: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  rowInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: UI_SURFACE_PRESSED,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_SUBTLE,
+  },
+  iconCircleDestructive: {
+    backgroundColor: UI_SURFACE_PRESSED,
+    borderColor: UI_BORDER_SUBTLE,
   },
   rowLabel: {
-    fontSize: 17,
-    color: "#1C1C1E",
-    fontWeight: "500",
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: "600",
   },
   rowDivider: {
     position: "absolute",
-    left: 46,
-    right: 0,
+    left: 62,
+    right: 10,
     bottom: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(60,60,67,0.24)",
+    backgroundColor: UI_BORDER_SUBTLE,
   },
-  cancelSection: {
-    backgroundColor: "rgba(255,255,255,0.96)",
-    borderRadius: 22,
+  cancelTopRule: {
+    marginTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: UI_BORDER_SUBTLE,
+  },
+  cancelRow: {
+    minHeight: ROW_MIN_HEIGHT,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+  },
+  cancelRowPressed: {
+    opacity: 0.85,
   },
   cancelLabel: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "600",
-    color: SYSTEM_ACCENT,
-  },
-  rowPressed: {
-    opacity: 0.7,
+    color: UI_TEXT_SECONDARY,
   },
 });

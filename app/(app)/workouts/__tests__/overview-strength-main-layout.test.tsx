@@ -3,6 +3,9 @@
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { StyleSheet } from "react-native";
+
+import { PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 
 jest.mock("@/lib/api/usersMe", () => ({
   getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
@@ -229,6 +232,16 @@ describe("Strength overview main layout", () => {
     expect(json).toContain("strength-history-summary-view-more");
     expect(json).toContain("View All →");
     expect(json).not.toContain("strength-baseline-frequency-legend");
+  });
+
+  it("This Week combined card uses the same horizontal content inset as the Program CTA gutter constant", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const thisWeekCard = tree.root.findByProps({ testID: "workouts-overview-this-week-combined-card" });
+    const flat = StyleSheet.flatten(thisWeekCard.props.style ?? {});
+    expect(flat.paddingHorizontal).toBe(PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL);
   });
 
   it("Strength Baseline tier pill opens strength range explainer with params", async () => {

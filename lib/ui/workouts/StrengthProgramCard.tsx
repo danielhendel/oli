@@ -3,11 +3,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-import {
-  SYSTEM_ACCENT,
-  SYSTEM_ACCENT_FILL_14,
-} from "@/lib/ui/theme/systemAccent";
+import { SYSTEM_ACCENT, SYSTEM_ACCENT_FILL_14 } from "@/lib/ui/theme/systemAccent";
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { PrimaryActionBarShell } from "@/lib/ui/workouts/PrimaryActionBarShell";
+import {
+  PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL,
+  programPrimaryCtaBarStyles,
+} from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
+import { logShellLayoutAudit } from "@/lib/ui/workouts/shellLayoutAudit";
 
 export type StrengthProgramCardProps = {
   onCreateProgram: () => void;
@@ -42,10 +45,15 @@ export function StrengthProgramCard({
         accessibilityRole="button"
         accessibilityLabel={CTA_A11Y_LABEL}
         onPress={onCreateProgram}
-        style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+        style={({ pressed }) => [styles.ctaPressableWrap, pressed && programPrimaryCtaBarStyles.ctaPressed]}
         testID="strength-program-card-create"
+        onLayout={(e) => logShellLayoutAudit("create-program-pressable-wrap", e)}
       >
-        <Text style={styles.ctaLabel}>Create Program</Text>
+        <PrimaryActionBarShell layout="center">
+          <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
+            Create Program
+          </Text>
+        </PrimaryActionBarShell>
       </Pressable>
     </View>
   );
@@ -55,7 +63,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL,
     paddingVertical: 13,
     gap: 10,
     ...elevatedCardSurfaceStyle,
@@ -96,22 +104,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     lineHeight: 21,
   },
-  cta: {
-    minHeight: 44,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 10,
-    backgroundColor: SYSTEM_ACCENT,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  ctaPressed: {
-    opacity: 0.88,
-  },
-  ctaLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: -0.2,
+  /** Pressable wraps {@link PrimaryActionBarShell}; shell owns blue metrics (parity with This Week). */
+  ctaPressableWrap: {
+    alignSelf: "stretch",
   },
 });

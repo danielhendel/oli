@@ -284,7 +284,7 @@ it("still shows recent workouts while calendar range is refreshing (stale-while-
   expect(json).toContain("Stale Refresh Run");
 });
 
-it("renders formatted recent workout title and summary metadata", async () => {
+it("renders formatted This Week workout title in the accent row without duration meta", async () => {
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",
     durableTitlesByWorkoutId: {},
@@ -320,7 +320,8 @@ it("renders formatted recent workout title and summary metadata", async () => {
 
   const json = JSON.stringify(test.toJSON());
   expect(json).toContain("Strength Training");
-  expect(json).toContain("45 min");
+  expect(json).toContain("workouts-overview-this-week-row-value-bar");
+  expect(json).not.toContain("45 min");
   expect(json).not.toContain("Apple Health");
 });
 

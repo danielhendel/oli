@@ -1,6 +1,8 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { StyleSheet } from "react-native";
 
+import { PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 import { StrengthProgramCard } from "@/lib/ui/workouts/StrengthProgramCard";
 
 describe("StrengthProgramCard", () => {
@@ -40,5 +42,15 @@ describe("StrengthProgramCard", () => {
     expect(cta.props.accessibilityRole).toBe("button");
     expect(typeof cta.props.accessibilityLabel).toBe("string");
     expect((cta.props.accessibilityLabel as string).length).toBeGreaterThan(0);
+  });
+
+  it("uses PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL for card horizontal inset (This Week alignment)", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<StrengthProgramCard onCreateProgram={jest.fn()} />);
+    });
+    const card = tree.root.findByProps({ testID: "strength-program-card" });
+    const flat = StyleSheet.flatten(card.props.style ?? {});
+    expect(flat.paddingHorizontal).toBe(PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL);
   });
 });
