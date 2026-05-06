@@ -1,133 +1,34 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: tab header, section heading + tagline, Activity/Strength baselines, category cards.
-import React, { useRef } from "react";
-import {
-  ScrollView,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Animated,
-} from "react-native";
-import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { useRouter } from "expo-router";
+// Oli — Dash: tab header + Daily Energy hero card.
+import React from "react";
+import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
-import { ActivityBaselineDashCard } from "@/components/dashboard/ActivityBaselineDashCard";
-import { StrengthBaselineDashCard } from "@/components/dashboard/StrengthBaselineDashCard";
-import { useActivityBaseline } from "@/lib/hooks/useActivityBaseline";
-import { useStrengthBaseline } from "@/lib/hooks/useStrengthBaseline";
-import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-import { UI_APP_SCREEN_BG, UI_CARD_SURFACE, UI_TAB_ROOT_CONTENT_GUTTER, UI_SURFACE_PRESSED, UI_TAB_ROOT_INSET, UI_TEXT_PRIMARY, UI_TEXT_SLATE_COOL, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_TAB_ROOT_CONTENT_GUTTER,
+  UI_TAB_ROOT_INSET,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SLATE_COOL,
+} from "@/lib/ui/theme/uiTokens";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
-
-/** Cards that navigate to existing routes only. */
-const MANAGE_DATA_CARDS = [
-  {
-    id: "body",
-    title: "Body Composition",
-    subtitle: "Log and track weight and body metrics",
-    route: "/(app)/body/weight" as const,
-    opensLabel: "Body Composition",
-  },
-  {
-    id: "cardio",
-    title: "Cardio",
-    subtitle: "Runs, rides, and Apple Health sessions",
-    route: "/(app)/cardio" as const,
-    opensLabel: "Cardio",
-  },
-  {
-    id: "nutrition",
-    title: "Nutrition",
-    subtitle: "Log meals and set targets",
-    route: "/(app)/nutrition" as const,
-    opensLabel: "Nutrition",
-  },
-  {
-    id: "sleep",
-    title: "Sleep",
-    subtitle: "View and manage sleep data",
-    route: "/(app)/recovery/sleep" as const,
-    opensLabel: "Sleep",
-  },
-  {
-    id: "readiness",
-    title: "Readiness",
-    subtitle: "Recovery and readiness metrics",
-    route: "/(app)/recovery/readiness" as const,
-    opensLabel: "Readiness",
-  },
-  {
-    id: "labs",
-    title: "Labs",
-    subtitle: "Lab results and biomarkers",
-    route: "/(app)/labs" as const,
-    opensLabel: "Labs",
-  },
-] as const;
-
-const CATEGORY_CARD_PRESSED_BG = UI_SURFACE_PRESSED;
-
-const SCALE_PRESSED = 0.98;
-const ANIM_DURATION = 100;
+import { useDailyEnergyCard } from "@/lib/data/dash/useDailyEnergyCard";
+import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 const DASH_SECTION_TAGLINE = "Track, understand, and improve every part of your health.";
 
-type DashCardProps = {
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  accessibilityLabel: string;
-};
-
-function DashCard({ title, subtitle, onPress, accessibilityLabel }: DashCardProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const pressIn = () => {
-    Animated.timing(scale, {
-      toValue: SCALE_PRESSED,
-      duration: ANIM_DURATION,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const pressOut = () => {
-    Animated.timing(scale, {
-      toValue: 1,
-      duration: ANIM_DURATION,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: pressed ? CATEGORY_CARD_PRESSED_BG : UI_CARD_SURFACE },
-      ]}
-      onPress={onPress}
-      onPressIn={pressIn}
-      onPressOut={pressOut}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
-    >
-      <Animated.View style={[styles.cardInner, { transform: [{ scale }] }]}>
-        <View style={styles.cardTextBlock}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardSubtitle}>{subtitle}</Text>
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 export default function DashScreen() {
-  const router = useRouter();
-  const activityBaseline = useActivityBaseline();
-  const strengthBaseline = useStrengthBaseline();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
+  const { energy, loading, error, refetch } = useDailyEnergyCard(getTodayDayKeyLocal());
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch({ cacheBust: "dashEnergyFocus" });
+    }, [refetch]),
+  );
 
   return (
     <ScreenContainer padded={false}>
@@ -146,33 +47,12 @@ export default function DashScreen() {
               </Text>
               <Text style={styles.stacksTagline}>{DASH_SECTION_TAGLINE}</Text>
             </View>
-            <View style={styles.baselineCardsColumn}>
-              <ActivityBaselineDashCard
-                hasUser={activityBaseline.user != null}
-                loading={activityBaseline.loading}
-                error={activityBaseline.error}
-                model={activityBaseline.model}
-                onPress={() => router.push("/(app)/activity")}
-              />
-              <StrengthBaselineDashCard
-                hasUser={strengthBaseline.user != null}
-                loading={strengthBaseline.loading}
-                error={strengthBaseline.error}
-                model={strengthBaseline.model}
-                onPress={() => router.push("/(app)/workouts")}
-              />
-            </View>
-            <View style={styles.cards}>
-              {MANAGE_DATA_CARDS.map((card) => (
-                <DashCard
-                  key={card.id}
-                  title={card.title}
-                  subtitle={card.subtitle}
-                  onPress={() => router.push(card.route)}
-                  accessibilityLabel={`${card.title}. ${card.subtitle}. Opens ${card.opensLabel}.`}
-                />
-              ))}
-            </View>
+
+            <DailyEnergyCard
+              energy={energy}
+              loading={loading}
+              error={error}
+            />
           </View>
         </ScrollView>
       </View>
@@ -195,9 +75,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },
-  /** Section: heading, tagline, Activity + Strength baseline cards, then category cards. */
   stacksSection: {},
-  /** Inset matches card inner padding so heading / tagline align with category row titles. */
   stacksHeaderInset: {
     paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
   },
@@ -219,32 +97,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     flexShrink: 1,
     alignSelf: "stretch",
-  },
-  /** Activity + Strength baseline cards — spacing after subtitle, before stack cards. */
-  baselineCardsColumn: {
-    gap: 14,
-    marginBottom: 16,
-  },
-  cards: {
-    gap: 14,
-  },
-  card: {
-    width: "100%",
-    ...elevatedCardSurfaceStyle,
-    /** Matches {@link ActivityDailyDetailsCard} / {@link StrengthFrequencyMetricCard} elevated shells. */
-    borderRadius: 12,
-    padding: 15,
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  cardInner: {},
-  cardTextBlock: { flex: 1, minWidth: 0, gap: 5 },
-  cardTitle: strengthMetricCardTitleTextStyle,
-  cardSubtitle: {
-    fontSize: 14,
-    lineHeight: 22,
-    fontWeight: "400",
-    color: UI_TEXT_TERTIARY_LABEL,
-    letterSpacing: -0.2,
   },
 });

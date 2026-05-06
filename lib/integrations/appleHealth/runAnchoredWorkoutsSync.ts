@@ -87,6 +87,11 @@ export async function runAnchoredWorkoutsSync(
         day,
         timezone,
         steps: data.steps,
+        ...(typeof data.walkingRunningDistanceMeters === "number" &&
+        Number.isFinite(data.walkingRunningDistanceMeters) &&
+        data.walkingRunningDistanceMeters > 0
+          ? { distanceMeters: data.walkingRunningDistanceMeters }
+          : {}),
       });
       const res = await deps.ingestRawEvent(body, token, {
         idempotencyKey: deps.stepsIdempotencyKey(day),
@@ -120,6 +125,16 @@ export async function runAnchoredWorkoutsSync(
       Number.isFinite(w.distanceMeters) &&
       w.distanceMeters > 0
         ? { distanceMeters: w.distanceMeters }
+        : {}),
+      ...(typeof w.averageHeartRateBpm === "number" &&
+      Number.isFinite(w.averageHeartRateBpm) &&
+      w.averageHeartRateBpm > 0
+        ? { averageHeartRateBpm: w.averageHeartRateBpm }
+        : {}),
+      ...(typeof w.maxHeartRateBpm === "number" &&
+      Number.isFinite(w.maxHeartRateBpm) &&
+      w.maxHeartRateBpm > 0
+        ? { maxHeartRateBpm: w.maxHeartRateBpm }
         : {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {

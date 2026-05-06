@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/__tests__/tabs-navigation.test.tsx
-// Sprint 3 — Navigation: four primary tabs + hidden Manage route; Dash is initial route.
+// Sprint 3 — Navigation: four primary tabs; Dash is initial route.
 
 import React from "react";
 import renderer, { act } from "react-test-renderer";
@@ -118,7 +118,6 @@ jest.mock("expo-router", () => {
               { key: "t", name: "timeline" },
               { key: "l", name: "library" },
               { key: "p", name: "profile" },
-              { key: "m", name: "manage" },
             ],
           },
           descriptors: {},
@@ -182,7 +181,7 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("registers primary tabs in order and hides Manage from the tab strip", () => {
+  it("registers four primary tabs in order", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -191,18 +190,9 @@ describe("TabsLayout", () => {
 
     const tabs = findTabs(test);
     const names = tabs.map((t) => t.name);
-    expect(names).toEqual(["dash", "timeline", "library", "profile", "manage"]);
+    expect(names).toEqual(["dash", "timeline", "library", "profile"]);
 
-    const manage = tabs.find((t) => t.name === "manage");
-    expect(manage).toBeDefined();
-    const manageNode = test.root.findAll(
-      (n) => (n.props as { "data-tab-name"?: string })["data-tab-name"] === "manage",
-    )[0];
-    expect((manageNode.props as { "data-tab-href": string })["data-tab-href"]).toBe("hidden");
-
-    const primaryTitles = tabs
-      .filter((t) => t.name !== "manage")
-      .map((t) => t.title);
+    const primaryTitles = tabs.map((t) => t.title);
     expect(primaryTitles).toEqual(["Dash", "Timeline", "Library", "Profile"]);
   });
 

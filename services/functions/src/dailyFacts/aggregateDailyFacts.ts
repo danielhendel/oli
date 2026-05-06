@@ -5,6 +5,7 @@ import type {
   DailyFacts,
   DailyActivityFacts,
   DailyBodyFacts,
+  DailyCardioFacts,
   DailyRecoveryFacts,
   DailySleepFacts,
   DailyStrengthFacts,
@@ -25,6 +26,7 @@ import {
   pickContributingStepEventsForDailyFacts,
   resolvedStepsTotalFromContributing,
 } from '@oli/contracts';
+import { classifyWorkoutSportForDailyFactsRollup } from '@/lib/shared/workoutClassification';
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
@@ -144,6 +146,7 @@ const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | unde
   }
 
   const trainingLoad = workoutEvents
+    .filter((e) => classifyWorkoutSportForDailyFactsRollup(e.sport) === 'cardio')
     .map((e) => e.trainingLoad)
     .filter(isNumber)
     .reduce((sum, v) => sum + v, 0);
@@ -152,6 +155,68 @@ const buildActivityFacts = (events: CanonicalEvent[]): DailyActivityFacts | unde
   }
 
   return Object.keys(facts).length > 0 ? facts : undefined;
+};
+
+const buildCardioFacts = (events: CanonicalEvent[]): DailyCardioFacts | undefined => {
+  const workoutEvents = events
+    .filter(isWorkoutEvent)
+    .filter((e) => classifyWorkoutSportForDailyFactsRollup(e.sport) === 'cardio');
+  if (workoutEvents.length === 0) return undefined;
+
+  let durationMinutes = 0;
+  let distanceMeters = 0;
+  let haveDistance = false;
+  let weightedHrSum = 0;
+  let weightedHrMinutes = 0;
+  let maxHeartRateBpm: number | undefined;
+  const sportCounts = new Map<string, number>();
+
+  for (const e of workoutEvents) {
+    if (isNumber(e.durationMinutes) && e.durationMinutes > 0) {
+      durationMinutes += e.durationMinutes;
+    }
+    if (typeof e.sport === "string" && e.sport.trim().length > 0) {
+      const sport = e.sport.trim();
+      sportCounts.set(sport, (sportCounts.get(sport) ?? 0) + 1);
+    }
+    if (typeof e.distanceMeters === 'number' && e.distanceMeters > 0) {
+      distanceMeters += e.distanceMeters;
+      haveDistance = true;
+    }
+    if (typeof e.averageHeartRateBpm === "number" && e.averageHeartRateBpm > 0) {
+      weightedHrSum += e.averageHeartRateBpm * Math.max(0, e.durationMinutes);
+      weightedHrMinutes += Math.max(0, e.durationMinutes);
+    }
+    if (typeof e.maxHeartRateBpm === "number" && e.maxHeartRateBpm > 0) {
+      maxHeartRateBpm = maxHeartRateBpm == null ? e.maxHeartRateBpm : Math.max(maxHeartRateBpm, e.maxHeartRateBpm);
+    }
+  }
+
+  if (durationMinutes <= 0) return undefined;
+
+  const out: DailyCardioFacts = {
+    durationMinutes,
+    sessions: workoutEvents.length,
+  };
+  if (sportCounts.size > 0) {
+    const primarySport = [...sportCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (primarySport) out.primarySport = primarySport;
+  }
+  if (haveDistance) {
+    out.distanceMeters = distanceMeters;
+    const speedMetersPerSecond = distanceMeters / (durationMinutes * 60);
+    if (Number.isFinite(speedMetersPerSecond) && speedMetersPerSecond > 0) {
+      out.speedMetersPerSecond = speedMetersPerSecond;
+      out.paceMinPerKm = 1000 / (speedMetersPerSecond * 60);
+    }
+  }
+  if (weightedHrMinutes > 0) {
+    out.averageHeartRateBpm = weightedHrSum / weightedHrMinutes;
+  }
+  if (typeof maxHeartRateBpm === "number") {
+    out.maxHeartRateBpm = maxHeartRateBpm;
+  }
+  return out;
 };
 
 const buildBodyFacts = (events: CanonicalEvent[]): DailyBodyFacts | undefined => {
@@ -194,17 +259,32 @@ const buildRecoveryFacts = (events: CanonicalEvent[]): DailyRecoveryFacts | unde
   return Object.keys(facts).length > 0 ? facts : undefined;
 };
 
+/** lb × reps volume → kg equivalent (NIST). */
+const LB_TO_KG = 0.45359237;
+
+const roundStrengthVol = (v: number): number => Math.round(v * 10) / 10;
+
 const buildStrengthFacts = (
   events: CanonicalEvent[],
 ): DailyStrengthFacts | undefined => {
   const strengthEvents = events.filter(isStrengthWorkoutEvent);
-  if (strengthEvents.length === 0) return undefined;
+  const strengthTaggedWorkouts = events
+    .filter(isWorkoutEvent)
+    .filter((e) => classifyWorkoutSportForDailyFactsRollup(e.sport) === 'strength');
+
+  if (strengthEvents.length === 0 && strengthTaggedWorkouts.length === 0) return undefined;
 
   let totalSets = 0;
   let totalReps = 0;
   const totalVolumeByUnit: { lb?: number; kg?: number } = {};
+  let durationMinutesSum = 0;
 
   for (const ev of strengthEvents) {
+    const startMs = Date.parse(ev.start);
+    const endMs = Date.parse(ev.end);
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+      durationMinutesSum += (endMs - startMs) / 60000;
+    }
     for (const set of ev.exercises) {
       totalSets += 1;
       totalReps += set.reps;
@@ -217,12 +297,52 @@ const buildStrengthFacts = (
     }
   }
 
+  let weightedHrSum = 0;
+  let weightedHrMinutes = 0;
+  let maxHeartRateBpm: number | undefined;
+  const sportCounts = new Map<string, number>();
+
+  for (const e of strengthTaggedWorkouts) {
+    if (isNumber(e.durationMinutes) && e.durationMinutes > 0) {
+      durationMinutesSum += e.durationMinutes;
+    }
+    if (typeof e.sport === 'string' && e.sport.trim().length > 0) {
+      const sport = e.sport.trim();
+      sportCounts.set(sport, (sportCounts.get(sport) ?? 0) + 1);
+    }
+    if (typeof e.averageHeartRateBpm === 'number' && e.averageHeartRateBpm > 0) {
+      weightedHrSum += e.averageHeartRateBpm * Math.max(0, e.durationMinutes);
+      weightedHrMinutes += Math.max(0, e.durationMinutes);
+    }
+    if (typeof e.maxHeartRateBpm === 'number' && e.maxHeartRateBpm > 0) {
+      maxHeartRateBpm =
+        maxHeartRateBpm == null ? e.maxHeartRateBpm : Math.max(maxHeartRateBpm, e.maxHeartRateBpm);
+    }
+  }
+
+  const volumeKg = roundStrengthVol(
+    (totalVolumeByUnit.kg ?? 0) + (totalVolumeByUnit.lb ?? 0) * LB_TO_KG,
+  );
+
   const facts: DailyStrengthFacts = {
-    workoutsCount: strengthEvents.length,
+    workoutsCount: strengthEvents.length + strengthTaggedWorkouts.length,
     totalSets,
     totalReps,
     totalVolumeByUnit,
+    ...(volumeKg > 0 ? { volumeKg } : {}),
+    ...(durationMinutesSum > 0 ? { durationMinutes: roundStrengthVol(durationMinutesSum) } : {}),
   };
+
+  if (sportCounts.size > 0) {
+    const primarySport = [...sportCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (primarySport) facts.primarySport = primarySport;
+  }
+  if (weightedHrMinutes > 0) {
+    facts.averageHeartRateBpm = weightedHrSum / weightedHrMinutes;
+  }
+  if (typeof maxHeartRateBpm === 'number') {
+    facts.maxHeartRateBpm = maxHeartRateBpm;
+  }
 
   return facts;
 };
@@ -378,6 +498,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
 
   const sleep = buildSleepFacts(events);
   const activity = buildActivityFacts(events);
+  const cardio = buildCardioFacts(events);
   const body = buildBodyFacts(events) ?? factOnlyBody;
   const recovery = buildRecoveryFacts(events);
   const strength = buildStrengthFacts(events);
@@ -392,10 +513,74 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
 
   if (sleep) dailyFacts.sleep = sleep;
   if (activity) dailyFacts.activity = activity;
+  if (cardio) dailyFacts.cardio = cardio;
   if (recovery) dailyFacts.recovery = recovery;
   if (body) dailyFacts.body = body;
   if (strength) dailyFacts.strength = strength;
   if (nutrition) dailyFacts.nutrition = nutrition;
+  const energyInfluencers: DailyFacts["energyInfluencers"] = {};
+  if (activity && (activity.steps != null || activity.distanceKm != null)) {
+    energyInfluencers.movement = {
+      ...(typeof activity.steps === "number" ? { steps: activity.steps } : {}),
+      ...(typeof activity.distanceKm === "number" ? { distanceMeters: activity.distanceKm * 1000 } : {}),
+    };
+  }
+  if (cardio) {
+    energyInfluencers.cardio = {
+      ...(typeof cardio.durationMinutes === "number"
+        ? { durationMinutes: cardio.durationMinutes }
+        : {}),
+      ...(typeof cardio.distanceMeters === "number"
+        ? { distanceMeters: cardio.distanceMeters }
+        : {}),
+      ...(typeof cardio.primarySport === "string" ? { sport: cardio.primarySport } : {}),
+      ...(typeof cardio.averageHeartRateBpm === "number"
+        ? { averageHeartRateBpm: cardio.averageHeartRateBpm }
+        : {}),
+      ...(typeof cardio.maxHeartRateBpm === "number"
+        ? { maxHeartRateBpm: cardio.maxHeartRateBpm }
+        : {}),
+      ...(typeof cardio.paceMinPerKm === "number"
+        ? { paceMinPerKm: cardio.paceMinPerKm }
+        : {}),
+      ...(typeof cardio.speedMetersPerSecond === "number"
+        ? { speedMetersPerSecond: cardio.speedMetersPerSecond }
+        : {}),
+    };
+  }
+  if (strength) {
+    energyInfluencers.strength = {
+      ...(typeof strength.durationMinutes === "number"
+        ? { durationMinutes: strength.durationMinutes }
+        : {}),
+      ...(typeof strength.volumeKg === "number" ? { volumeKg: strength.volumeKg } : {}),
+      sets: strength.totalSets,
+      reps: strength.totalReps,
+      ...(typeof strength.primarySport === "string" ? { sport: strength.primarySport } : {}),
+      ...(typeof strength.averageHeartRateBpm === "number"
+        ? { averageHeartRateBpm: strength.averageHeartRateBpm }
+        : {}),
+      ...(typeof strength.maxHeartRateBpm === "number"
+        ? { maxHeartRateBpm: strength.maxHeartRateBpm }
+        : {}),
+      ...(typeof strength.volumeKg === "number" &&
+      typeof strength.durationMinutes === "number" &&
+      strength.durationMinutes > 0
+        ? { densityKgPerMinute: roundStrengthVol(strength.volumeKg / strength.durationMinutes) }
+        : {}),
+    };
+  }
+  if (recovery && (recovery.hrvRmssd != null || recovery.restingHeartRate != null)) {
+    energyInfluencers.physiology = {
+      ...(typeof recovery.restingHeartRate === "number"
+        ? { restingHeartRateBpm: recovery.restingHeartRate }
+        : {}),
+      ...(typeof recovery.hrvRmssd === "number" ? { hrvRmssdMs: recovery.hrvRmssd } : {}),
+    };
+  }
+  if (Object.keys(energyInfluencers).length > 0) {
+    dailyFacts.energyInfluencers = energyInfluencers;
+  }
 
   return dailyFacts;
 };

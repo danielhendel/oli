@@ -25,6 +25,8 @@ export type ManualStrengthWorkoutPayload = {
   exercises: ManualStrengthExercisePayload[];
   /** Optional user label; persisted on rawEvents.payload (survives reinstall vs AsyncStorage overrides). */
   displayName?: string;
+  /** Session duration in minutes (optional; enables MET-based strength burn when present). */
+  durationMinutes?: number;
 };
 
 export type ManualStrengthWorkoutInput = {
@@ -32,6 +34,7 @@ export type ManualStrengthWorkoutInput = {
   timeZone: string;
   exercises: ManualStrengthExercisePayload[];
   displayName?: string;
+  durationMinutes?: number;
 };
 
 /**
@@ -66,11 +69,18 @@ export const buildManualStrengthWorkoutPayload = (
 
   const displayName =
     typeof input.displayName === "string" ? input.displayName.trim().slice(0, 120) : "";
+  const durationMinutes =
+    typeof input.durationMinutes === "number" &&
+    Number.isFinite(input.durationMinutes) &&
+    input.durationMinutes > 0
+      ? Math.round(input.durationMinutes)
+      : undefined;
   return {
     startedAt: input.startedAt,
     timeZone: input.timeZone,
     exercises,
     ...(displayName.length > 0 ? { displayName } : {}),
+    ...(durationMinutes !== undefined ? { durationMinutes } : {}),
   };
 };
 

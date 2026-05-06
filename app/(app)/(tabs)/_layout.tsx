@@ -139,13 +139,6 @@ export default function TabsLayout() {
               ),
             }}
           />
-          <Tabs.Screen
-            name="manage"
-            options={{
-              href: null,
-              title: "Manage",
-            }}
-          />
         </Tabs>
       </ThemeProvider>
     </View>

@@ -36,20 +36,36 @@ describe("recomputeDerivedTruthForDay — day guards", () => {
       steps: 10,
     };
 
+    const makeQuery = (docs: { data: () => unknown }[] = []) => {
+      const query = {
+        where: () => query,
+        orderBy: () => query,
+        limit: () => query,
+        get: async () => ({ docs }),
+      };
+      return query;
+    };
+
     const mockDb = {
       collection: () => ({
         doc: () => ({
           collection: (name: string) => {
             if (name === "events") {
               return {
-                where: () => ({
+                where: () => makeQuery([{ data: () => bad }]),
+              };
+            }
+            if (name === "profile") {
+              return {
+                doc: () => ({
                   get: async () => ({
-                    docs: [{ data: () => bad }],
+                    exists: false,
+                    data: () => undefined,
                   }),
                 }),
               };
             }
-            return { where: () => ({ get: async () => ({ docs: [] }) }) };
+            return { where: () => makeQuery([]) };
           },
         }),
       }),

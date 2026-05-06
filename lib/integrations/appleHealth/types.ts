@@ -12,6 +12,7 @@ export type HealthKitPermissionResult =
 export type TodaySnapshot = {
   day: string; // YYYY-MM-DD
   steps: number | null;
+  walkingRunningDistanceMeters: number | null;
   exerciseMinutes: number | null;
   activeEnergyKcal: number | null;
   restingHeartRateBpm: number | null;
@@ -29,4 +30,6 @@ export type TodayWorkout = {
   calories: number;
   /** From HealthKit total distance when present (meters); see healthKit mapping from native `distance` (miles). */
   distanceMeters?: number;
+  averageHeartRateBpm?: number;
+  maxHeartRateBpm?: number;
 };

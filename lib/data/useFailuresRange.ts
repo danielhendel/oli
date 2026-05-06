@@ -5,6 +5,7 @@ import { getFailuresRange } from "@/lib/api/failures";
 import type { FailureKind, GetOptions } from "@/lib/api/http";
 import type { FailureListItemDto, FailureListResponseDto } from "@/lib/contracts/failure";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 
 type Ready = {
   items: FailureListItemDto[];
@@ -119,6 +120,10 @@ export function useFailuresRange(
       const optsUnique = withUniqueCacheBust(opts, seq);
 
       if (modeRef.current === "page") {
+        const t0 = __DEV__ ? performance.now() : 0;
+        if (__DEV__) {
+          logDataHookTiming("useFailuresRange", "start", { userAvailable: Boolean(user) });
+        }
         // exactOptionalPropertyTypes: do NOT pass opts: undefined
         const outcome = await fetchFailuresRangePage({
           args: argsRef.current,
@@ -127,6 +132,21 @@ export function useFailuresRange(
         });
 
         if (seq !== reqSeq.current) return;
+
+        if (__DEV__) {
+          const approx =
+            outcome.status === "ready"
+              ? `items:${outcome.data.items.length}`
+              : outcome.status === "error"
+                ? "error"
+                : outcome.status;
+          logDataHookTiming("useFailuresRange", "end", {
+            durationMs: Math.round(performance.now() - t0),
+            userAvailable: Boolean(user),
+            status: outcome.status,
+            resultApprox: approx,
+          });
+        }
 
         if (outcome.status === "ready") {
           safeSet({

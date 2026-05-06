@@ -8,6 +8,7 @@ export function buildAppleHealthStepsIngestBody(params: {
   day: string;
   timezone: string;
   steps: number;
+  distanceMeters?: number;
 }): {
   provider: "apple_health";
   sourceId: string;
@@ -20,10 +21,11 @@ export function buildAppleHealthStepsIngestBody(params: {
     timezone: string;
     day: string;
     steps: number;
+    distanceKm?: number;
     sync: { mode: "range"; anchorVersion: 1; anchorUsed: boolean };
   };
 } {
-  const { start, end, day, timezone, steps } = params;
+  const { start, end, day, timezone, steps, distanceMeters } = params;
   return {
     provider: "apple_health",
     /** Align with body/workout ingest (`runAppleHealthBodySync`) so rawEvents are clearly Apple Health–sourced. */
@@ -37,6 +39,9 @@ export function buildAppleHealthStepsIngestBody(params: {
       timezone,
       day,
       steps,
+      ...(typeof distanceMeters === "number" && Number.isFinite(distanceMeters) && distanceMeters > 0
+        ? { distanceKm: distanceMeters / 1000 }
+        : {}),
       sync: { mode: "range" as const, anchorVersion: 1, anchorUsed: false },
     },
   };

@@ -1,9 +1,11 @@
 // lib/data/useDailyFacts.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getDailyFacts, type TruthGetOptions } from "@/lib/api/usersMe";
+import type { TruthGetOptions } from "@/lib/api/usersMe";
 import type { DailyFactsDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
+import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
 
 type State =
   | { status: "partial" }
@@ -22,13 +24,24 @@ function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): Refetc
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
-export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOpts) => void } {
+export type UseDailyFactsOptions = {
+  /** When false, skips network request (e.g. tab not focused). Default true. */
+  enabled?: boolean;
+};
+
+export function useDailyFacts(
+  day: string,
+  options?: UseDailyFactsOptions,
+): State & { refetch: (opts?: RefetchOpts) => void } {
   const { user, initializing, getIdToken } = useAuth();
+  const enabled = options?.enabled ?? true;
 
   const dayRef = useRef(day);
   dayRef.current = day;
 
   const requestSeq = useRef(0);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const [state, setState] = useState<State>({ status: "partial" });
   const stateRef = useRef<State>(state);
@@ -44,6 +57,11 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
         if (seq === requestSeq.current) setState(next);
       };
 
+      if (!enabledRef.current) {
+        safeSet({ status: "missing" });
+        return;
+      }
+
       if (initializing || !user) {
         // keep any existing ready state (no flicker)
         if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
@@ -58,10 +76,29 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
-      const res = await getDailyFacts(dayRef.current, token, optsUnique);
+      const t0 = __DEV__ ? performance.now() : 0;
+      if (__DEV__) {
+        logDataHookTiming("useDailyFacts", "start", { userAvailable: Boolean(user) });
+      }
+
+      const res = await getDailyFactsSessionCached({
+        userUid: user.uid,
+        day: dayRef.current,
+        token,
+        ...(optsUnique ? { opts: optsUnique } : {}),
+      });
       if (seq !== requestSeq.current) return;
 
       const outcome = truthOutcomeFromApiResult(res);
+
+      if (__DEV__) {
+        logDataHookTiming("useDailyFacts", "end", {
+          durationMs: Math.round(performance.now() - t0),
+          userAvailable: Boolean(user),
+          status: outcome.status,
+          resultApprox: outcome.status === "ready" ? "ready" : outcome.status,
+        });
+      }
 
       if (outcome.status === "ready") {
         safeSet({ status: "ready", data: outcome.data });
@@ -86,8 +123,11 @@ export function useDailyFacts(day: string): State & { refetch: (opts?: RefetchOp
   );
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     void fetchOnce();
-  }, [fetchOnce, day, user?.uid]);
+  }, [enabled, fetchOnce, day, user?.uid]);
 
   return useMemo(
     () => ({

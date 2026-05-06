@@ -40,6 +40,23 @@ export default function AppLayout() {
 
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
+          <Stack.Screen
+            name="energy/bmr"
+            options={{ title: "BMR", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/neat"
+            options={{ title: "NEAT", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/cardio"
+            options={{ title: "Cardio", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/strength"
+            options={{ title: "Strength", ...workoutsStackNavigationOptions("detail") }}
+          />
+
           {/* Event detail (from Library / Timeline) */}
           <Stack.Screen name="event/[id]" options={{ title: "Event" }} />
 

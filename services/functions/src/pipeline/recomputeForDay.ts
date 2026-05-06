@@ -32,6 +32,8 @@ import { BASELINE_WINDOW_DAYS, SIGNAL_THRESHOLDS } from "../healthSignals/consta
 import { computeHealthSignalsV1 } from "../healthSignals/computeHealthSignalsV1";
 import { writeHealthSignalsImmutable } from "../healthSignals/writeHealthSignalsImmutable";
 import type { HealthScoreDocForSignals } from "../healthSignals/computeHealthSignalsV1";
+import { resolveDailyEnergyForFactsV1 } from "../energy/resolveDailyEnergyForFactsV1";
+import { buildDailyEnergyInfluencersFromFacts } from "../energy/buildDailyEnergyInfluencers";
 
 const parseIntStrict = (value: string): number | null => {
   if (!/^\d+$/.test(value)) return null;
@@ -166,9 +168,21 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
           }),
         }
       : enrichedDailyFacts;
+  const dailyEnergy = await resolveDailyEnergyForFactsV1({
+    db,
+    userId,
+    dailyFacts: enrichedDailyFactsWithSleepScore,
+  });
+  const enrichedDailyFactsWithEnergy: DailyFacts = dailyEnergy
+    ? { ...enrichedDailyFactsWithSleepScore, energy: dailyEnergy }
+    : enrichedDailyFactsWithSleepScore;
+  const energyInfluencers = buildDailyEnergyInfluencersFromFacts(enrichedDailyFactsWithEnergy);
+  const dailyFactsWithEnergyInfluencers: DailyFacts = energyInfluencers
+    ? { ...enrichedDailyFactsWithEnergy, energyInfluencers }
+    : enrichedDailyFactsWithEnergy;
 
   const dailyFactsWithMeta = {
-    ...enrichedDailyFactsWithSleepScore,
+    ...dailyFactsWithEnergyInfluencers,
     meta: buildPipelineMeta({
       computedAt: truthAnchor,
       source: {
@@ -184,7 +198,7 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
   const insights: Insight[] = generateInsightsForDailyFacts({
     userId,
     date: dayKey,
-    today: enrichedDailyFactsWithSleepScore,
+    today: enrichedDailyFactsWithEnergy,
     history: historyFacts,
     now: computedAt,
   });
@@ -197,7 +211,7 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
     userId,
     date: dayKey,
     computedAt,
-    today: enrichedDailyFactsWithSleepScore,
+    today: enrichedDailyFactsWithEnergy,
     insightsForDay: insights,
   });
 
@@ -218,7 +232,7 @@ export async function recomputeDerivedTruthForDay(input: RecomputeForDayInput): 
   const healthScoreDoc = computeHealthScoreV1({
     userId,
     date: dayKey,
-    today: enrichedDailyFactsWithSleepScore,
+    today: enrichedDailyFactsWithEnergy,
     history: historyFacts,
     computedAt,
     pipelineVersion: 1,

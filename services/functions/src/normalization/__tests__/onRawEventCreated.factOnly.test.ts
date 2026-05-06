@@ -31,12 +31,17 @@ jest.mock("../../firebaseAdmin", () => {
     },
   });
 
-  const mkQuery = () => ({
-    where: () => mkQuery(),
-    async get() {
-      return { docs: [] };
-    },
-  });
+  const mkQuery = () => {
+    const query = {
+      where: () => query,
+      orderBy: () => query,
+      limit: () => query,
+      async get() {
+        return { docs: [] };
+      },
+    };
+    return query;
+  };
 
   const transactionStore = new Map<string, Record<string, unknown>>();
 

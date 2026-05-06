@@ -4,7 +4,7 @@
  * Fails CI if required route files are missing or renamed.
  *
  * Required UI routes (Phase 1):
- * - Tabs shell: _layout, dash, timeline, manage, library, profile
+ * - Tabs shell: _layout, dash, timeline, library, profile
  * - Library: index, [category]
  * - Timeline: index, [day]
  * - Event detail: event/[id]
@@ -29,7 +29,6 @@ const REQUIRED_UI_ROUTES = [
   "app/(app)/(tabs)/dash.tsx",
   "app/(app)/(tabs)/timeline/index.tsx",
   "app/(app)/(tabs)/timeline/[day].tsx",
-  "app/(app)/(tabs)/manage.tsx",
   "app/(app)/(tabs)/library/index.tsx",
   "app/(app)/(tabs)/library/[category].tsx",
   "app/(app)/(tabs)/profile.tsx",

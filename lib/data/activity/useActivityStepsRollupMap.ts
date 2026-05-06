@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getDailyFacts } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { ActivityStepsRollupMap, DayStepsRollupEntry } from "@/lib/data/activity/activityOverviewRollupTypes";
 import { interpretDailyFactsStepsRollupEntry } from "@/lib/data/activity/dailyFactsStepsRollupEntry";
+import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
+import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 type RollupInternalState = {
@@ -118,11 +119,18 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): Activ
     const bust = cacheBust ? `${cacheBust}` : undefined;
 
     const waveResults: ActivityStepsRollupMap = {};
+    const waveStart = __DEV__ ? performance.now() : 0;
+
     await Promise.all(
       keys.map(async (k) => {
         let entry: DayStepsRollupEntry;
         try {
-          const res = await getDailyFacts(k, token, bust ? { cacheBust: `${bust}:${k}` } : undefined);
+          const res = await getDailyFactsSessionCached({
+            userUid,
+            day: k,
+            token,
+            ...(bust ? { opts: { cacheBust: `${bust}:${k}` } } : {}),
+          });
           entry = interpretDailyFactsStepsRollupEntry(res);
         } catch (r: unknown) {
           const reason =
@@ -142,6 +150,16 @@ export function useActivityStepsRollupForKeys(dayKeys: readonly DayKey[]): Activ
     );
 
     if (seq !== requestSeq.current) return;
+
+    if (__DEV__) {
+      const { userUid } = authRef.current;
+      logDataHookTiming("useActivityStepsRollupForKeys", "end", {
+        durationMs: Math.round(performance.now() - waveStart),
+        userAvailable: Boolean(userUid),
+        resultApprox: `dayKeys:${keys.length}`,
+        status: "wave-done",
+      });
+    }
 
     const finalRollup: ActivityStepsRollupMap = {};
     for (const k of keys) {
