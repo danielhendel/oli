@@ -1,37 +1,34 @@
 // lib/ui/profile/ProfileMainScreen.tsx
-// Tab-root layout: TabRootScreenHeader + scroll (matches other tab roots; no settings gear).
+// Profile tab: identity rows + digital twin health record (dark grouped cards; matches Dash).
 import React from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER_STYLE, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APP_SCREEN_BG,
+  UI_BORDER_HAIRLINE,
+  UI_TAB_ROOT_CONTENT_GUTTER_STYLE,
+  UI_TAB_ROOT_INSET,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SLATE_COOL,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import type { MassUnit, UserProfileMain } from "@oli/contracts";
 import {
   formatHeightForDisplay,
   formatLengthUnit,
-  formatPrimaryGoal,
   formatSexAtBirth,
-  formatWeighIn,
   massUnitLabel,
 } from "@/lib/profile/profileDisplay";
 import { isSuppressedProfileMainErrorMessage } from "@/lib/data/profile/profileTabViewModel";
+import { ProfileHealthDataSection } from "@/lib/ui/profile/ProfileHealthDataSection";
+import type { ProfileHealthSummaryResult } from "@/lib/features/profile/useProfileHealthSummary";
 
-const CATEGORY_PLACEHOLDERS = [
-  "Strength inputs",
-  "Cardio inputs",
-  "Nutrition inputs",
-  "Sleep inputs",
-  "Recovery inputs",
-  "Health inputs",
-] as const;
-
-const GROUP_BG = "#EBEBEF";
-const GROUP_OUTLINE = "#D1D1D6";
-const ROW_DIVIDER = "#C6C6CC";
-const CHEVRON_MUTED = "#AEAEB2";
+const PROFILE_SUBTITLE = "Your digital twin — all collected health and fitness data in one place.";
 
 export type ProfileMainScreenProps = {
   profile: UserProfileMain | null;
@@ -42,6 +39,7 @@ export type ProfileMainScreenProps = {
   isSaving?: boolean;
   errorMessage?: string | undefined;
   massUnit: MassUnit;
+  health: ProfileHealthSummaryResult;
 };
 
 export function ProfileMainScreen({
@@ -51,6 +49,7 @@ export function ProfileMainScreen({
   isSaving = false,
   errorMessage,
   massUnit,
+  health,
 }: ProfileMainScreenProps) {
   const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
@@ -63,159 +62,120 @@ export function ProfileMainScreen({
 
   const row = (label: string, value: string, href: string, a11y: string) => (
     <Pressable
-      style={styles.row}
+      style={({ pressed }) => [styles.profileRow, pressed && styles.profileRowPressed]}
       onPress={() => router.push(href)}
       accessibilityRole="button"
       accessibilityLabel={a11y}
-      android_ripple={{ color: "rgba(60, 60, 67, 0.12)" }}
     >
-      <View style={styles.rowLeft}>
-        <Text style={styles.rowTitle}>{label}</Text>
-        <Text style={styles.rowValue} numberOfLines={2}>
+      <View style={styles.profileRowLeft}>
+        <Text style={styles.profileRowLabel}>{label}</Text>
+        <Text style={styles.profileRowValue} numberOfLines={2}>
           {value}
         </Text>
       </View>
-      <Text style={styles.rowChevron}>›</Text>
+      <Text style={styles.profileRowChevron}>›</Text>
     </Pressable>
   );
 
   return (
     <ScreenContainer padded={false}>
       <View style={styles.tabRoot}>
-        <TabRootScreenHeader title="Profile" subtitle="Personalization & body context" />
+        <TabRootScreenHeader
+          title="Profile"
+          subtitle={PROFILE_SUBTITLE}
+          subtitleVariant="dash"
+        />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
           bounces
         >
           <View style={[styles.scrollInner, UI_TAB_ROOT_CONTENT_GUTTER_STYLE]}>
-        {showLoadError ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            {health.coverageSummaryLine != null ? (
+              <Text
+                style={styles.coverageSummary}
+                accessibilityRole="text"
+                accessibilityLabel={health.coverageSummaryLine}
+              >
+                {health.coverageSummaryLine}
+              </Text>
+            ) : null}
 
-        {hydrating ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator />
-            <Text style={styles.loadingText}>Updating…</Text>
-          </View>
-        ) : null}
-        {isSaving ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator />
-            <Text style={styles.loadingText}>Saving…</Text>
-          </View>
-        ) : null}
+            {showLoadError ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-        <Text style={styles.sectionLabel}>Profile</Text>
-        <View style={styles.listGroup}>
-          {row(
-            "First name",
-            profile?.identity.firstName?.trim() ? profile.identity.firstName : "—",
-            "/(app)/profile/edit/first_name",
-            "Edit first name",
-          )}
-          {row(
-            "Last name",
-            profile?.identity.lastName?.trim() ? profile.identity.lastName : "—",
-            "/(app)/profile/edit/last_name",
-            "Edit last name",
-          )}
-          {row(
-            "Date of birth",
-            profile?.identity.dateOfBirth ?? "—",
-            "/(app)/profile/edit/date_of_birth",
-            "Edit date of birth",
-          )}
-          {row(
-            "Sex at birth",
-            formatSexAtBirth(profile?.identity.sexAtBirth ?? null),
-            "/(app)/profile/edit/sex_at_birth",
-            "Edit sex at birth",
-          )}
-          {row(
-            "Height",
-            formatHeightForDisplay(profile?.body.heightCm ?? null, pu),
-            "/(app)/profile/edit/height",
-            "Edit height",
-          )}
-          {row(
-            "Preferred units",
-            `${massUnitLabel(massUnit)} · ${formatLengthUnit(pu)}`,
-            "/(app)/profile/edit/preferred_units",
-            "Edit preferred units",
-          )}
-        </View>
-
-        <Text style={styles.sectionLabel}>Body inputs</Text>
-        <View style={styles.listGroup}>
-          {row(
-            "Athlete mode",
-            profile?.bodyInputs.athleteMode ? "On" : "Off",
-            "/(app)/profile/edit/athlete_mode",
-            "Edit athlete mode",
-          )}
-          {row(
-            "Primary goal",
-            formatPrimaryGoal(profile?.bodyInputs.primaryGoal ?? null),
-            "/(app)/profile/edit/primary_goal",
-            "Edit primary goal",
-          )}
-          {row(
-            "Usual weigh-in",
-            formatWeighIn(profile?.bodyInputs.usualWeighInPreference ?? null),
-            "/(app)/profile/edit/weigh_in_preference",
-            "Edit usual weigh-in preference",
-          )}
-          {row(
-            "Waist circumference",
-            profile?.bodyInputs.waistCircumferenceCm != null
-              ? `${profile.bodyInputs.waistCircumferenceCm} cm`
-              : "—",
-            "/(app)/profile/edit/waist",
-            "Edit waist circumference",
-          )}
-          {row(
-            "Hip circumference",
-            profile?.bodyInputs.hipCircumferenceCm != null
-              ? `${profile.bodyInputs.hipCircumferenceCm} cm`
-              : "—",
-            "/(app)/profile/edit/hip",
-            "Edit hip circumference",
-          )}
-          {row(
-            "Neck circumference",
-            profile?.bodyInputs.neckCircumferenceCm != null
-              ? `${profile.bodyInputs.neckCircumferenceCm} cm`
-              : "—",
-            "/(app)/profile/edit/neck",
-            "Edit neck circumference",
-          )}
-        </View>
-
-        <Text style={styles.sectionLabel}>Category inputs</Text>
-        <View style={styles.listGroup}>
-          {CATEGORY_PLACEHOLDERS.map((title) => (
-            <View
-              key={title}
-              style={styles.row}
-              accessible
-              accessibilityRole="text"
-              accessibilityLabel={`${title}, coming soon`}
-            >
-              <View style={styles.rowLeft}>
-                <Text style={styles.rowTitle}>{title}</Text>
-                <Text style={styles.rowValue}>Coming soon</Text>
+            {hydrating ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator />
+                <Text style={styles.loadingText}>Updating…</Text>
               </View>
-            </View>
-          ))}
-        </View>
+            ) : null}
+            {isSaving ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator />
+                <Text style={styles.loadingText}>Saving…</Text>
+              </View>
+            ) : null}
 
-        <Text style={styles.consent}>
-          Profile and body inputs help tailor your experience. You can skip any optional field. Oli does not ask for
-          Social Security numbers, government IDs, or payment details in Profile.
-        </Text>
+            <Text style={styles.sectionHeading} accessibilityRole="header">
+              Identity
+            </Text>
+            <View style={styles.profileCard}>
+              {row(
+                "First name",
+                profile?.identity.firstName?.trim() ? profile.identity.firstName : "—",
+                "/(app)/profile/edit/first_name",
+                "Edit first name",
+              )}
+              {row(
+                "Last name",
+                profile?.identity.lastName?.trim() ? profile.identity.lastName : "—",
+                "/(app)/profile/edit/last_name",
+                "Edit last name",
+              )}
+              {row(
+                "Date of birth",
+                profile?.identity.dateOfBirth ?? "—",
+                "/(app)/profile/edit/date_of_birth",
+                "Edit date of birth",
+              )}
+              {row(
+                "Sex at birth",
+                formatSexAtBirth(profile?.identity.sexAtBirth ?? null),
+                "/(app)/profile/edit/sex_at_birth",
+                "Edit sex at birth",
+              )}
+              {row(
+                "Height",
+                formatHeightForDisplay(profile?.body.heightCm ?? null, pu),
+                "/(app)/profile/edit/height",
+                "Edit height",
+              )}
+              {row(
+                "Preferred units",
+                `${massUnitLabel(massUnit)} · ${formatLengthUnit(pu)}`,
+                "/(app)/profile/edit/preferred_units",
+                "Edit preferred units",
+              )}
+            </View>
+
+            <Text style={[styles.sectionHeading, styles.sectionHeadingSpaced]} accessibilityRole="header">
+              Health data
+            </Text>
+            <Text style={styles.sectionSubcopy}>
+              A live map of what Oli has recorded — grouped like your health systems and clinical record.
+            </Text>
+
+            <ProfileHealthDataSection health={health} />
+
+            <Text style={styles.disclaimer}>
+              Optional profile fields help tailor your experience. Oli does not ask for Social Security numbers,
+              government IDs, or payment details in Profile.
+            </Text>
           </View>
-      </ScrollView>
+        </ScrollView>
       </View>
     </ScreenContainer>
   );
@@ -235,52 +195,68 @@ const styles = StyleSheet.create({
   scrollInner: {
     flexGrow: 1,
   },
-  sectionLabel: {
-    marginTop: 18,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#8E8E93",
-    textTransform: "uppercase",
+  coverageSummary: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: UI_TEXT_SLATE_COOL,
+    marginBottom: 8,
   },
-  listGroup: {
-    borderRadius: 12,
-    backgroundColor: GROUP_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GROUP_OUTLINE,
+  sectionHeading: {
+    marginTop: 8,
+    marginBottom: 10,
+    fontSize: 22,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.2,
+  },
+  sectionHeadingSpaced: {
+    marginTop: 28,
+  },
+  sectionSubcopy: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: UI_TEXT_TERTIARY_LABEL,
+    marginBottom: 14,
+  },
+  profileCard: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: 14,
     overflow: "hidden",
   },
-  row: {
+  profileRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingLeft: 0,
-    paddingRight: 12,
+    paddingHorizontal: 15,
     minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: ROW_DIVIDER,
+    borderBottomColor: UI_BORDER_HAIRLINE,
   },
-  rowLeft: {
+  profileRowPressed: {
+    opacity: 0.9,
+  },
+  profileRowLeft: {
     flex: 1,
     minWidth: 0,
     gap: 4,
   },
-  rowTitle: {
-    fontSize: 16,
-    color: "#1C1C1E",
+  profileRowLabel: {
+    fontSize: 15,
+    color: UI_TEXT_TERTIARY_LABEL,
     fontWeight: "500",
   },
-  rowValue: {
-    fontSize: 15,
-    color: "#8E8E93",
+  profileRowValue: {
+    fontSize: 17,
+    color: UI_TEXT_PRIMARY,
+    fontWeight: "500",
   },
-  rowChevron: {
+  profileRowChevron: {
     fontSize: 20,
-    color: CHEVRON_MUTED,
+    color: UI_TEXT_TERTIARY_LABEL,
     marginLeft: 8,
   },
   errorText: {
-    color: "#C00",
+    color: "#FF453A",
     fontSize: 15,
     marginBottom: 8,
   },
@@ -292,12 +268,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 15,
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
   },
-  consent: {
-    marginTop: 20,
+  disclaimer: {
+    marginTop: 24,
+    marginBottom: 8,
     fontSize: 13,
     lineHeight: 18,
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
   },
 });

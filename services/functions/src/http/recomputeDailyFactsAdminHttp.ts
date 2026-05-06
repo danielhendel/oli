@@ -14,6 +14,8 @@ import { aggregateDailyFactsForDay } from "../dailyFacts/aggregateDailyFacts";
 import { enrichDailyFactsWithBaselinesAndAverages } from "../dailyFacts/enrichDailyFacts";
 import { loadBodyFactsFromRawForDay } from "../dailyFacts/loadBodyFactsFromRawForDay";
 import { attachOliSleepScoreToSleepFacts } from "../sleep/computeOliSleepScoreV1";
+import { resolveDailyEnergyForFactsV1 } from "../energy/resolveDailyEnergyForFactsV1";
+import { buildDailyEnergyInfluencersFromFacts } from "../energy/buildDailyEnergyInfluencers";
 import { requireAdmin } from "./adminAuth";
 
 // ✅ Data Readiness Contract
@@ -173,6 +175,18 @@ export const recomputeDailyFactsAdminHttp = onRequest(
               }),
             }
           : enriched;
+      const dailyEnergy = await resolveDailyEnergyForFactsV1({
+        db,
+        userId,
+        dailyFacts: enrichedWithSleepScore,
+      });
+      const enrichedWithEnergy: DailyFacts = dailyEnergy
+        ? { ...enrichedWithSleepScore, energy: dailyEnergy }
+        : enrichedWithSleepScore;
+      const energyInfluencers = buildDailyEnergyInfluencersFromFacts(enrichedWithEnergy);
+      const enrichedWithEnergyInfluencers: DailyFacts = energyInfluencers
+        ? { ...enrichedWithEnergy, energyInfluencers }
+        : enrichedWithEnergy;
 
       /**
        * Write DailyFacts with readiness meta
@@ -182,7 +196,7 @@ export const recomputeDailyFactsAdminHttp = onRequest(
        */
       const ref = userRef.collection("dailyFacts").doc(date);
       await ref.set({
-        ...enrichedWithSleepScore,
+        ...enrichedWithEnergyInfluencers,
         meta: buildPipelineMeta({
           computedAt: latestCanonicalEventAt,
           source: { eventsForDay: events.length },

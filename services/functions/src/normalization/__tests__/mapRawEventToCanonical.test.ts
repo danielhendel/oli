@@ -270,6 +270,41 @@ describe("mapRawEventToCanonical", () => {
     expect(canonical.day).not.toBe("2099-12-31");
   });
 
+  it("maps apple_health workout payload to WorkoutCanonicalEvent (HealthKit cardio parity)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_workout_run",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      kind: "workout",
+      payload: {
+        start: "2026-05-05T14:00:00.000Z",
+        end: "2026-05-05T14:28:00.000Z",
+        timezone: "America/New_York",
+        sport: "running",
+        durationMinutes: 28,
+        distanceMeters: 4118.86,
+        trainingLoad: null,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+
+    const canonical = result.canonical;
+    expect(canonical.kind).toBe("workout");
+    if (canonical.kind !== "workout") throw new Error("Expected workout");
+    expect(canonical.sport).toBe("running");
+    expect(canonical.durationMinutes).toBe(28);
+    expect(canonical.distanceMeters).toBeCloseTo(4118.86, 2);
+    expect(canonical.day).toBe(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(
+        new Date("2026-05-05T14:00:00.000Z"),
+      ),
+    );
+  });
+
   it("returns fact-only for weight (no canonical event, trigger recompute via onRawEventCreated)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

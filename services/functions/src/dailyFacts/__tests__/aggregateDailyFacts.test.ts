@@ -54,7 +54,7 @@ const makeWorkout = (overrides: Partial<WorkoutCanonicalEvent>): WorkoutCanonica
   kind: 'workout',
   start: '2025-01-01T18:00:00.000Z',
   end: '2025-01-01T19:00:00.000Z',
-  sport: 'strength_training',
+  sport: 'running',
   durationMinutes: 60,
   trainingLoad: 50,
   ...baseMeta,
@@ -160,6 +160,14 @@ describe('aggregateDailyFactsForDay', () => {
     expect(activity.steps).toBe(8000);
     // training load from single workout
     expect(activity.trainingLoad).toBe(50);
+
+    expect(result.cardio).toEqual({
+      durationMinutes: 60,
+      sessions: 1,
+      primarySport: "running",
+    });
+    expect(result.energyInfluencers?.movement?.steps).toBe(8000);
+    expect(result.energyInfluencers?.movement?.distanceMeters).toBe(5000);
 
     const body = result.body!;
     // latest weight event is evening 79kg
@@ -381,6 +389,27 @@ describe('aggregateDailyFactsForDay', () => {
     expect(strength.totalReps).toBe(28); // 10+8+5+5
     expect(strength.totalVolumeByUnit.lb).toBe(10 * 135 + 8 * 155); // 1350 + 1240 = 2590
     expect(strength.totalVolumeByUnit.kg).toBe(5 * 100 + 5 * 120); // 500 + 600 = 1100
+    const expectedKg =
+      (strength.totalVolumeByUnit.kg ?? 0) + (strength.totalVolumeByUnit.lb ?? 0) * 0.45359237;
+    expect(strength.volumeKg).toBe(Math.round(expectedKg * 10) / 10);
+  });
+
+  it('sums strength durationMinutes from canonical start/end windows', () => {
+    const events: CanonicalEvent[] = [
+      makeStrengthWorkout({
+        id: 's1',
+        start: '2025-01-01T18:00:00.000Z',
+        end: '2025-01-01T18:45:00.000Z',
+        exercises: [{ exercise: 'Press', reps: 10, load: 60, unit: 'kg' }],
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.strength?.durationMinutes).toBe(45);
   });
 
   it('omits strength field when no strength workouts exist', () => {
@@ -450,6 +479,131 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.body).toBeUndefined();
     expect(result.recovery).toBeUndefined();
     expect(result.strength).toBeUndefined();
+    expect(result.cardio).toBeUndefined();
+    expect(result.energy).toBeUndefined();
+  });
+
+  it('aggregates cardio rollups from workout canonical events (duration, sessions, optional distance)', () => {
+    const events: CanonicalEvent[] = [
+      makeWorkout({
+        id: 'run_1',
+        sport: 'running',
+        durationMinutes: 30,
+        distanceMeters: 5000,
+        trainingLoad: null,
+      }),
+      makeWorkout({
+        id: 'run_2',
+        sport: 'running',
+        durationMinutes: 20,
+        distanceMeters: 3000,
+        trainingLoad: null,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.cardio).toEqual({
+      durationMinutes: 50,
+      distanceMeters: 8000,
+      sessions: 2,
+      primarySport: "running",
+      paceMinPerKm: 6.25,
+      speedMetersPerSecond: 2.6666666666666665,
+    });
+    expect(result.energyInfluencers?.cardio?.distanceMeters).toBe(8000);
+  });
+
+  it('classifies Apple-style TraditionalStrengthTraining as strength only (not cardio)', () => {
+    const events: CanonicalEvent[] = [
+      makeWorkout({
+        id: 'lift_1',
+        sport: 'TraditionalStrengthTraining',
+        durationMinutes: 52,
+        trainingLoad: 40,
+        averageHeartRateBpm: 118,
+        maxHeartRateBpm: 142,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.cardio).toBeUndefined();
+    expect(result.strength).toEqual({
+      workoutsCount: 1,
+      totalSets: 0,
+      totalReps: 0,
+      totalVolumeByUnit: {},
+      durationMinutes: 52,
+      primarySport: 'TraditionalStrengthTraining',
+      averageHeartRateBpm: 118,
+      maxHeartRateBpm: 142,
+    });
+    expect(result.activity?.trainingLoad).toBeUndefined();
+  });
+
+  it('separates cardio and strength on mixed workout days', () => {
+    const events: CanonicalEvent[] = [
+      makeWorkout({
+        id: 'run_1',
+        sport: 'running',
+        durationMinutes: 30,
+        distanceMeters: 5000,
+        trainingLoad: 10,
+      }),
+      makeWorkout({
+        id: 'lift_1',
+        sport: 'Functional Strength Training',
+        durationMinutes: 40,
+        trainingLoad: 12,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.cardio).toMatchObject({
+      durationMinutes: 30,
+      distanceMeters: 5000,
+      sessions: 1,
+      primarySport: 'running',
+    });
+    expect(result.cardio?.paceMinPerKm).toBeCloseTo(6, 10);
+    expect(result.cardio?.speedMetersPerSecond).toBeCloseTo(5000 / 1800, 10);
+    expect(result.strength?.durationMinutes).toBe(40);
+    expect(result.strength?.workoutsCount).toBe(1);
+    expect(result.strength?.primarySport).toBe('Functional Strength Training');
+    expect(result.activity?.trainingLoad).toBe(10);
+  });
+
+  it('includes cardio duration when workouts omit distance', () => {
+    const events: CanonicalEvent[] = [
+      makeWorkout({
+        id: 'bike_1',
+        sport: 'cycling',
+        durationMinutes: 45,
+        trainingLoad: 12,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.cardio).toEqual({
+      durationMinutes: 45,
+      sessions: 1,
+      primarySport: "cycling",
+    });
   });
 
   it('still includes sleep when canonical sleep episodes exist but summed minutes are zero', () => {

@@ -199,7 +199,14 @@ export default function StrengthLogScreen() {
         return;
       }
 
-      const built = buildManualStrengthWorkoutPayload(payload);
+      const elapsedMin = Math.max(
+        1,
+        Math.round((Date.now() - Date.parse(payload.startedAt)) / 60000),
+      );
+      const built = buildManualStrengthWorkoutPayload({
+        ...payload,
+        durationMinutes: elapsedMin,
+      });
       const res = await logStrengthWorkout(built, token);
 
       if (!res.ok) {

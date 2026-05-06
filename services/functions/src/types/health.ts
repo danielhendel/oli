@@ -246,6 +246,13 @@ export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
   /** Workout duration in minutes */
   durationMinutes: number;
 
+  /** Optional distance for cardio-style sessions (meters), when the source provides it */
+  distanceMeters?: number | null;
+  averageHeartRateBpm?: number | null;
+  maxHeartRateBpm?: number | null;
+  paceMinPerKm?: number | null;
+  speedMetersPerSecond?: number | null;
+
   /** Optional training load / strain metric (provider-agnostic scalar) */
   trainingLoad?: number | null;
 
@@ -476,7 +483,96 @@ export interface DailyStrengthFacts {
   totalSets: number;
   totalReps: number;
   totalVolumeByUnit: { lb?: number; kg?: number };
+  /** Sum(reps×load) with lb converted to kg — used by Daily Energy (backend-only). */
+  volumeKg?: number;
+  /** Sum of per-session (end−start) minutes from canonical strength_workout windows. */
+  durationMinutes?: number;
+  /** Dominant strength sport string among classified `workout` events (e.g. Apple activity name). */
+  primarySport?: string;
+  averageHeartRateBpm?: number;
+  maxHeartRateBpm?: number;
 }
+
+/**
+ * Cardio session rollups from canonical `workout` events classified as cardio (excludes strength sports).
+ */
+export interface DailyCardioFacts {
+  durationMinutes: number;
+  distanceMeters?: number;
+  sessions: number;
+  primarySport?: string;
+  averageHeartRateBpm?: number;
+  maxHeartRateBpm?: number;
+  paceMinPerKm?: number;
+  speedMetersPerSecond?: number;
+}
+
+export type EnergyConfidence = "low" | "moderate" | "high";
+
+export type EnergyFactor = {
+  kcal?: number;
+  kcalLow?: number;
+  kcalHigh?: number;
+  confidence: EnergyConfidence;
+  inputsUsed: string[];
+  inputsMissing: string[];
+};
+
+export type DailyEnergyFacts = {
+  modelVersion: string;
+  computedAt: string;
+  day: string;
+  estimatedKcal: {
+    low: number;
+    high: number;
+    midpoint: number;
+  };
+  variancePct: number;
+  confidence: EnergyConfidence;
+  factors: {
+    baseline?: EnergyFactor;
+    steps?: EnergyFactor;
+    cardio?: EnergyFactor;
+    strength?: EnergyFactor;
+  };
+  missingRequiredInputs: string[];
+  largestDriver?: "baseline" | "steps" | "cardio" | "strength";
+};
+
+export type DailyEnergyInfluencers = {
+  movement?: {
+    steps?: number;
+    distanceMeters?: number;
+    activeEnergyKcal?: number;
+    exerciseMinutes?: number;
+    standHours?: number;
+  };
+  cardio?: {
+    durationMinutes?: number;
+    distanceMeters?: number;
+    sport?: string;
+    averageHeartRateBpm?: number;
+    maxHeartRateBpm?: number;
+    paceMinPerKm?: number;
+    speedMetersPerSecond?: number;
+    activeEnergyKcal?: number;
+  };
+  strength?: {
+    durationMinutes?: number;
+    volumeKg?: number;
+    sets?: number;
+    reps?: number;
+    densityKgPerMinute?: number;
+    activeEnergyKcal?: number;
+    averageHeartRateBpm?: number;
+    maxHeartRateBpm?: number;
+    sport?: string;
+  };
+  physiology?: {
+    restingHeartRateBpm?: number;
+    hrvRmssdMs?: number;
+  };
+};
 
 /**
  * Sprint 5 — Domain-level confidence scores for DailyFacts.
@@ -512,6 +608,13 @@ export interface DailyFacts {
 
   /** Sprint 2.1 */
   strength?: DailyStrengthFacts;
+
+  /** Cardio-style workouts (canonical kind `workout`) */
+  cardio?: DailyCardioFacts;
+
+  /** Daily Energy Model v1 */
+  energy?: DailyEnergyFacts;
+  energyInfluencers?: DailyEnergyInfluencers;
 
   /**
    * Domain-level confidence for this day's facts (0–1).

@@ -1,8 +1,8 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
-jest.mock("@/lib/api/usersMe", () => ({
-  getDailyFacts: jest.fn(),
+jest.mock("@/lib/data/dailyFactsSessionCache", () => ({
+  getDailyFactsSessionCached: jest.fn(),
 }));
 
 const mockAuth = {
@@ -23,7 +23,7 @@ jest.mock("@/lib/ui/calendar/dateUtils", () => {
   };
 });
 
-import { getDailyFacts } from "@/lib/api/usersMe";
+import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
 import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
 import {
   ActivityRollupProvider,
@@ -64,8 +64,10 @@ function TwoBaseHooks() {
 
 describe("ActivityRollupProvider", () => {
   beforeEach(() => {
-    (getDailyFacts as jest.Mock).mockReset();
-    (getDailyFacts as jest.Mock).mockImplementation(async (day: string) => minimalDailyFactsOk(day));
+    (getDailyFactsSessionCached as jest.Mock).mockReset();
+    (getDailyFactsSessionCached as jest.Mock).mockImplementation(async ({ day }: { day: string }) =>
+      minimalDailyFactsOk(day),
+    );
   });
 
   it("uses one DailyFacts wave for two useActivityStepsRollupMap consumers (no duplicate per-day GETs)", async () => {
@@ -82,8 +84,10 @@ describe("ActivityRollupProvider", () => {
       await Promise.all([Promise.resolve(), Promise.resolve(), Promise.resolve()]);
     });
 
-    expect(getDailyFacts).toHaveBeenCalledTimes(expectedKeys.length);
-    const calledDays = (getDailyFacts as jest.Mock).mock.calls.map((c) => c[0] as string);
+    expect(getDailyFactsSessionCached).toHaveBeenCalledTimes(expectedKeys.length);
+    const calledDays = (getDailyFactsSessionCached as jest.Mock).mock.calls.map(
+      (c) => (c[0] as { day: string }).day,
+    );
     expect(new Set(calledDays).size).toBe(expectedKeys.length);
   });
 
@@ -111,12 +115,12 @@ describe("ActivityRollupProvider", () => {
       await Promise.resolve();
     });
     expect(refetches[0]).toBe(refetches[1]);
-    const nBefore = (getDailyFacts as jest.Mock).mock.calls.length;
+    const nBefore = (getDailyFactsSessionCached as jest.Mock).mock.calls.length;
     await act(async () => {
       refetches[0]?.({ cacheBust: "manual-refetch-test" });
       await Promise.all([Promise.resolve(), Promise.resolve(), Promise.resolve()]);
     });
-    expect((getDailyFacts as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(nBefore);
+    expect((getDailyFactsSessionCached as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(nBefore);
   });
 
   it("extends union when a strip anchor is registered (Activity) without doubling base keys", async () => {
@@ -145,6 +149,6 @@ describe("ActivityRollupProvider", () => {
       await Promise.all([Promise.resolve(), Promise.resolve(), Promise.resolve()]);
     });
 
-    expect(getDailyFacts).toHaveBeenCalledTimes(union.size);
+    expect(getDailyFactsSessionCached).toHaveBeenCalledTimes(union.size);
   });
 });

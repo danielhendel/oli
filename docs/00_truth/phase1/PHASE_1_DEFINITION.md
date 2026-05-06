@@ -73,7 +73,6 @@ The following route files must exist:
 | Dash | `app/(app)/(tabs)/dash.tsx` |
 | Timeline index | `app/(app)/(tabs)/timeline/index.tsx` |
 | Timeline day | `app/(app)/(tabs)/timeline/[day].tsx` |
-| Manage | `app/(app)/(tabs)/manage.tsx` |
 | Library index | `app/(app)/(tabs)/library/index.tsx` |
 | Library category | `app/(app)/(tabs)/library/[category].tsx` |
 | Profile | `app/(app)/(tabs)/profile.tsx` |

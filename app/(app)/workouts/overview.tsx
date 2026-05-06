@@ -1050,7 +1050,11 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               >
                 <View style={styles.recentRowTextCol}>
                   <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
-                  <PrimaryActionBarShell layout="row" testID="workouts-overview-this-week-row-value-bar">
+                  <PrimaryActionBarShell
+                    layout="row"
+                    style={styles.strengthThisWeekRowShell}
+                    testID="workouts-overview-this-week-row-value-bar"
+                  >
                     <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
                       <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
                         {strengthThisWeekRowTitle(surface.displayTitle)}
@@ -1180,7 +1184,11 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
               >
                 <View style={styles.recentRowTextCol}>
                   <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
-                  <PrimaryActionBarShell layout="row" testID="workouts-overview-this-week-row-value-bar">
+                  <PrimaryActionBarShell
+                    layout="row"
+                    style={styles.strengthThisWeekRowShell}
+                    testID="workouts-overview-this-week-row-value-bar"
+                  >
                     <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
                       <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
                         {headline}
@@ -1463,6 +1471,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     /** Match Program card `gap: 10` above Create Program (body → CTA). */
     gap: 10,
+  },
+  strengthThisWeekRowShell: {
+    backgroundColor: UI_CARD_SURFACE,
   },
   recentDate: {
     fontSize: 12,

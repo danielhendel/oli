@@ -294,4 +294,75 @@ describe("GET /users/me/daily-facts", () => {
     expect(json.sleep?.totalMinutes).toBe(420);
     expect(json.activity).toBeUndefined();
   });
+
+  test("returns stored dailyFacts with optional energy block", async () => {
+    const storedFacts = {
+      schemaVersion: 1,
+      userId: "user_body_test",
+      date: "2026-04-23",
+      computedAt: "2026-04-23T10:00:00.000Z",
+      energy: {
+        modelVersion: "daily_energy_v3",
+        computedAt: "2026-04-23T10:00:00.000Z",
+        day: "2026-04-23",
+        estimatedKcal: { low: 2200, high: 2700, midpoint: 2450 },
+        variancePct: 0.204,
+        confidence: "moderate",
+        factors: {
+          baseline: {
+            kcalLow: 1564,
+            kcalHigh: 1870,
+            confidence: "moderate",
+            inputsUsed: ["restingMetabolicRateKcal"],
+            inputsMissing: ["dateOfBirth", "sexAtBirth", "heightCm"],
+          },
+          steps: {
+            kcalLow: 382,
+            kcalHigh: 518,
+            confidence: "high",
+            inputsUsed: ["steps", "weightKg"],
+            inputsMissing: [],
+          },
+        },
+        missingRequiredInputs: [],
+        largestDriver: "baseline",
+      },
+      energyInfluencers: {
+        movement: { steps: 9543, distanceMeters: 7120 },
+        cardio: { durationMinutes: 28, distanceMeters: 4120, sport: "Running" },
+      },
+    };
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "dailyFacts") {
+        return {
+          doc: () => ({
+            get: async () => ({ exists: true, data: () => storedFacts }),
+          }),
+        };
+      }
+      if (name === "events") {
+        return emptyEventsQueryMock();
+      }
+      return {};
+    });
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () => ({ data: () => ({}) }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/daily-facts?day=2026-04-23`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      energy?: {
+        modelVersion?: string;
+        estimatedKcal?: { low?: number; high?: number };
+      };
+      energyInfluencers?: { movement?: { steps?: number } };
+    };
+    expect(json.energy?.modelVersion).toBe("daily_energy_v3");
+    expect(json.energy?.estimatedKcal?.low).toBe(2200);
+    expect(json.energy?.estimatedKcal?.high).toBe(2700);
+    expect(json.energyInfluencers?.movement?.steps).toBe(9543);
+  });
 });

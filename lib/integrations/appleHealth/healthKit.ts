@@ -95,6 +95,11 @@ type HealthKitInstance = {
   getStepCount: (o: HealthInputOptions, cb: (err: string, r: HealthValue) => void) => void;
   getAppleExerciseTime: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getActiveEnergyBurned: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
+  getDistanceWalkingRunning?: (
+    o: HealthInputOptions,
+    cb: (err: string, r: HealthValue[] | HealthValue) => void,
+  ) => void;
+  getHeartRateSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getRestingHeartRateSamples: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getAnchoredWorkouts: (o: HealthInputOptions & { type?: string }, cb: (err: unknown, r: AnchoredQueryResults) => void) => void;
   getWeightSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
@@ -214,6 +219,8 @@ const W1_READ_PERMISSIONS: HealthPermission[] = [
   "StepCount",
   "Workout",
   "RestingHeartRate",
+  "HeartRate",
+  "DistanceWalkingRunning",
   "AppleExerciseTime",
   "ActiveEnergyBurned",
   "BodyMass",
@@ -712,6 +719,64 @@ function pActiveEnergyBurned(HK: HealthKitInstance, startDate: string, endDate: 
   });
 }
 
+function pDistanceWalkingRunning(HK: HealthKitInstance, startDate: string, endDate: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (typeof HK.getDistanceWalkingRunning !== "function") {
+      resolve(null);
+      return;
+    }
+    HK.getDistanceWalkingRunning({ startDate, endDate }, (err: string, results: HealthValue[] | HealthValue) => {
+      if (err) {
+        resolve(null);
+        return;
+      }
+      const rows = Array.isArray(results) ? results : [results];
+      const total = rows.reduce((sum, r) => sum + (typeof r.value === "number" ? r.value : 0), 0);
+      resolve(Number.isFinite(total) && total > 0 ? total : null);
+    });
+  });
+}
+
+async function enrichWorkoutsWithHeartRate(
+  HK: HealthKitInstance,
+  workouts: TodayWorkout[],
+): Promise<TodayWorkout[]> {
+  if (typeof HK.getHeartRateSamples !== "function" || workouts.length === 0) {
+    return workouts;
+  }
+  const out = await Promise.all(
+    workouts.map(
+      async (w): Promise<TodayWorkout> =>
+        new Promise((resolve) => {
+          HK.getHeartRateSamples?.(
+            { startDate: w.start, endDate: w.end },
+            (err: string, results: HealthValue[]) => {
+              if (err || !Array.isArray(results) || results.length === 0) {
+                resolve(w);
+                return;
+              }
+              const values = results
+                .map((s) => (typeof s.value === "number" && Number.isFinite(s.value) ? s.value : null))
+                .filter((v): v is number => v != null && v > 0);
+              if (values.length === 0) {
+                resolve(w);
+                return;
+              }
+              const avg = values.reduce((a, b) => a + b, 0) / values.length;
+              const max = values.reduce((a, b) => (b > a ? b : a), values[0] ?? 0);
+              resolve({
+                ...w,
+                ...(Number.isFinite(avg) ? { averageHeartRateBpm: Math.round(avg) } : {}),
+                ...(Number.isFinite(max) ? { maxHeartRateBpm: Math.round(max) } : {}),
+              });
+            },
+          );
+        }),
+    ),
+  );
+  return out;
+}
+
 function pRestingHeartRateSamples(HK: HealthKitInstance, startDate: string, endDate: string): Promise<HealthValue | null> {
   return new Promise((resolve) => {
     HK.getRestingHeartRateSamples({ startDate, endDate }, (err: string, results: HealthValue[]) => {
@@ -737,7 +802,7 @@ function pAnchoredWorkouts(HK: HealthKitInstance, startDate: string, endDate: st
         return;
       }
       const list = (result.data as HKWorkoutQueriedSampleType[]).slice(0, limit).map(mapQueriedWorkoutToTodayWorkout);
-      resolve(list);
+      void enrichWorkoutsWithHeartRate(HK, list).then(resolve);
     });
   });
 }
@@ -777,7 +842,9 @@ export async function pullAnchoredWorkouts(opts: {
         return;
       }
       const list = (result.data ?? []).slice(0, opts.limit).map(mapQueriedWorkoutToTodayWorkout);
-      resolve({ ok: true, data: { workouts: list, anchor: result.anchor } });
+      void enrichWorkoutsWithHeartRate(HK, list).then((enriched) =>
+        resolve({ ok: true, data: { workouts: enriched, anchor: result.anchor } }),
+      );
     });
   });
 }
@@ -839,7 +906,9 @@ export async function pullWorkoutsByDateRange(opts: {
           return;
         }
         const list = (r.data ?? []).slice(0, opts.limit).map(mapQueriedWorkoutToTodayWorkout);
-        resolve({ ok: true, data: { workouts: list, anchor: r.anchor } });
+        void enrichWorkoutsWithHeartRate(HK, list).then((enriched) =>
+          resolve({ ok: true, data: { workouts: enriched, anchor: r.anchor } }),
+        );
       });
     });
 
@@ -925,15 +994,17 @@ export async function pullTodaySnapshot(): Promise<{ ok: true; data: TodaySnapsh
 
   return Promise.all([
     pStepCount(HK, day),
+    pDistanceWalkingRunning(HK, startDate, endDate),
     pAppleExerciseTime(HK, startDate, endDate),
     pActiveEnergyBurned(HK, startDate, endDate),
     pRestingHeartRateSamples(HK, startDate, endDate),
     pAnchoredWorkouts(HK, startDate, endDate, TODAY_WORKOUTS_LIMIT),
   ])
-    .then(([steps, exerciseMinutes, activeEnergyKcal, restingHrSample, workouts]) => {
+    .then(([steps, walkingRunningDistanceMeters, exerciseMinutes, activeEnergyKcal, restingHrSample, workouts]) => {
       const data: TodaySnapshot = {
         day,
         steps: steps ?? null,
+        walkingRunningDistanceMeters: walkingRunningDistanceMeters ?? null,
         exerciseMinutes: exerciseMinutes ?? null,
         activeEnergyKcal: activeEnergyKcal ?? null,
         restingHeartRateBpm: restingHrSample != null && typeof restingHrSample.value === "number" ? restingHrSample.value : null,

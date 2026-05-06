@@ -195,6 +195,8 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
     trainingLoad: z.number().finite().nonnegative().nullable().optional(),
     /** Apple Health / device-ingested cardio distance (meters); optional for manual-only payloads. */
     distanceMeters: z.number().finite().positive().optional(),
+    averageHeartRateBpm: z.number().finite().positive().optional(),
+    maxHeartRateBpm: z.number().finite().positive().optional(),
     calories: z.number().finite().nonnegative().optional(),
   })
   // Preserve HealthKit-only keys (hk, sync, etc.) stored on workout raw payloads.
@@ -322,6 +324,8 @@ export const manualStrengthWorkoutPayloadSchema = z
     exercises: z.array(strengthWorkoutExerciseSchema).min(1),
     /** User-facing workout label; optional for backward compatibility. Stored in Firestore payload. */
     displayName: z.string().min(1).max(120).optional(),
+    /** Session length (minutes); optional for legacy rows. Sets canonical end + DailyFacts strength duration. */
+    durationMinutes: z.number().finite().positive().optional(),
   })
   .strip();
 

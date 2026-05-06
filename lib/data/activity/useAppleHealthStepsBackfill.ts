@@ -13,6 +13,7 @@ import {
   type AppleHealthStepsBackfillState,
 } from "@/lib/integrations/appleHealth/storage";
 import { runAppleHealthStepsBackfillSerialized } from "@/lib/data/activity/appleHealthStepsBackfillMutex";
+import { invalidateDailyFactsSessionCache } from "@/lib/data/dailyFactsSessionCache";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { nowIso } from "@/lib/sync/throttle";
 
@@ -125,6 +126,7 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
       }
       await refresh();
       setState((prev) => ({ ...prev, status: "completed", message: null }));
+      invalidateDailyFactsSessionCache({ userUid: user.uid, day: getTodayDayKeyLocal() });
       onSynced?.();
     },
     [user, getIdToken, refresh, onSynced],

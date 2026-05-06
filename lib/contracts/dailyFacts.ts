@@ -5,6 +5,89 @@ import { oliSleepScoreV1Schema } from "./oliSleepScore";
 
 const isoString = z.string().min(1);
 const confidenceSchema = z.record(z.string(), z.number().finite().min(0).max(1)).optional();
+const energyConfidenceSchema = z.enum(["low", "moderate", "high"]);
+const energyFactorSchema = z
+  .object({
+    kcal: z.number().finite().optional(),
+    kcalLow: z.number().finite().optional(),
+    kcalHigh: z.number().finite().optional(),
+    confidence: energyConfidenceSchema,
+    inputsUsed: z.array(z.string()),
+    inputsMissing: z.array(z.string()),
+  })
+  .strip();
+const dailyEnergySchema = z
+  .object({
+    modelVersion: z.string(),
+    computedAt: z.string(),
+    day: z.string(),
+    estimatedKcal: z.object({
+      low: z.number(),
+      high: z.number(),
+      midpoint: z.number(),
+    }),
+    variancePct: z.number(),
+    confidence: energyConfidenceSchema,
+    factors: z
+      .object({
+        baseline: energyFactorSchema.optional(),
+        steps: energyFactorSchema.optional(),
+        cardio: energyFactorSchema.optional(),
+        strength: energyFactorSchema.optional(),
+      })
+      .strip(),
+    missingRequiredInputs: z.array(z.string()),
+    largestDriver: z.enum(["baseline", "steps", "cardio", "strength"]).optional(),
+  })
+  .strip();
+const energyInfluencersSchema = z
+  .object({
+    movement: z
+      .object({
+        steps: z.number().finite().optional(),
+        distanceMeters: z.number().finite().optional(),
+        activeEnergyKcal: z.number().finite().optional(),
+        exerciseMinutes: z.number().finite().optional(),
+        standHours: z.number().finite().optional(),
+      })
+      .strip()
+      .optional(),
+    cardio: z
+      .object({
+        durationMinutes: z.number().finite().optional(),
+        distanceMeters: z.number().finite().optional(),
+        sport: z.string().min(1).optional(),
+        averageHeartRateBpm: z.number().finite().optional(),
+        maxHeartRateBpm: z.number().finite().optional(),
+        paceMinPerKm: z.number().finite().optional(),
+        speedMetersPerSecond: z.number().finite().optional(),
+        activeEnergyKcal: z.number().finite().optional(),
+      })
+      .strip()
+      .optional(),
+    strength: z
+      .object({
+        durationMinutes: z.number().finite().optional(),
+        volumeKg: z.number().finite().optional(),
+        sets: z.number().finite().optional(),
+        reps: z.number().finite().optional(),
+        densityKgPerMinute: z.number().finite().optional(),
+        activeEnergyKcal: z.number().finite().optional(),
+        averageHeartRateBpm: z.number().finite().optional(),
+        maxHeartRateBpm: z.number().finite().optional(),
+        sport: z.string().min(1).optional(),
+      })
+      .strip()
+      .optional(),
+    physiology: z
+      .object({
+        restingHeartRateBpm: z.number().finite().optional(),
+        hrvRmssdMs: z.number().finite().optional(),
+      })
+      .strip()
+      .optional(),
+  })
+  .strip();
 
 // NOTE: meta.* is the readiness contract surface.
 // We keep top-level computedAt for backwards compatibility.
@@ -102,9 +185,29 @@ export const dailyFactsDtoSchema = z
           lb: z.number().finite().nonnegative().optional(),
           kg: z.number().finite().nonnegative().optional(),
         }),
+        volumeKg: z.number().finite().nonnegative().optional(),
+        durationMinutes: z.number().finite().nonnegative().optional(),
+        primarySport: z.string().min(1).optional(),
+        averageHeartRateBpm: z.number().finite().optional(),
+        maxHeartRateBpm: z.number().finite().optional(),
       })
       .strip()
       .optional(),
+    cardio: z
+      .object({
+        durationMinutes: z.number().finite().nonnegative(),
+        distanceMeters: z.number().finite().nonnegative().optional(),
+        sessions: z.number().int().nonnegative(),
+        primarySport: z.string().min(1).optional(),
+        averageHeartRateBpm: z.number().finite().optional(),
+        maxHeartRateBpm: z.number().finite().optional(),
+        paceMinPerKm: z.number().finite().optional(),
+        speedMetersPerSecond: z.number().finite().optional(),
+      })
+      .strip()
+      .optional(),
+    energy: dailyEnergySchema.optional(),
+    energyInfluencers: energyInfluencersSchema.optional(),
 
     confidence: confidenceSchema,
   })

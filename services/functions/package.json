@@ -9,7 +9,7 @@
   },
   "scripts": {
     "clean": "rimraf lib",
-    "build": "npm run clean && node ./scripts/build.mjs"
+    "build": "npm run clean && node ./scripts/build.mjs && node ./scripts/verify-bundle-classifier.mjs"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",

@@ -17,8 +17,9 @@ export function resolveActivityBaselineCardState(input: {
 } {
   const { user, stepsRollupStatus, overviewAnchorEndDay, rollupDisplayByDay } = input;
   const hasUser = user != null;
-  const loading = hasUser && stepsRollupStatus === "partial";
-  if (!hasUser || stepsRollupStatus === "partial") {
+  const hasAnyRollupData = Object.keys(rollupDisplayByDay).length > 0;
+  const loading = hasUser && stepsRollupStatus === "partial" && !hasAnyRollupData;
+  if (!hasUser) {
     return { loading, model: null };
   }
   return {

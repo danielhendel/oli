@@ -121,6 +121,33 @@ jest.mock("firebase-functions/logger", () => ({
   jest.mock("../../pipeline/pipelineMeta", () => ({
     buildPipelineMeta: () => ({ readiness: "READY" }),
   }));
+
+  jest.mock("../../energy/resolveDailyEnergyForFactsV1", () => ({
+    resolveDailyEnergyForFactsV1: async () => ({
+      modelVersion: "daily_energy_v1",
+      computedAt: "now",
+      day: "2026-01-01",
+      estimatedKcal: { low: 2100, high: 2400, midpoint: 2250 },
+      variancePct: 0.133,
+      confidence: "moderate",
+      factors: {
+        baseline: {
+          kcal: 1700,
+          confidence: "moderate",
+          inputsUsed: ["profile.dateOfBirth", "profile.sexAtBirth", "profile.heightCm", "body.weightKg"],
+          inputsMissing: [],
+        },
+        steps: {
+          kcal: 500,
+          confidence: "moderate",
+          inputsUsed: ["steps"],
+          inputsMissing: [],
+        },
+      },
+      missingRequiredInputs: [],
+      largestDriver: "baseline",
+    }),
+  }));
   
   /**
    * Small helper to call onRequest handlers (firebase-functions v2).
@@ -155,6 +182,10 @@ jest.mock("firebase-functions/logger", () => ({
   
       // Critical assertion: there must be NO merge option.
       expect(call?.options).toBeUndefined();
+      expect(call?.data.meta).toEqual({ readiness: "READY" });
+      expect(call?.data.energy).toBeDefined();
+      expect((call?.data.energy as { factors?: { baseline?: unknown; steps?: unknown } }).factors?.baseline).toBeDefined();
+      expect((call?.data.energy as { factors?: { baseline?: unknown; steps?: unknown } }).factors?.steps).toBeDefined();
     });
   
     it("IntelligenceContext admin recompute overwrites doc (no merge option)", async () => {

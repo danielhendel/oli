@@ -99,6 +99,9 @@ type ManualWorkoutPayload = ManualWindowBase & {
   intensity?: "easy" | "moderate" | "hard";
   durationMinutes: number;
   trainingLoad?: number | null;
+  distanceMeters?: number;
+  averageHeartRateBpm?: number;
+  maxHeartRateBpm?: number;
 };
 
 type ManualHrvPayload = {
@@ -129,6 +132,7 @@ type ManualStrengthWorkoutPayload = {
   startedAt: IsoDateTimeString;
   timeZone: string;
   exercises: ManualStrengthWorkoutExercisePayload[];
+  durationMinutes?: number;
 };
 
 type ManualNutritionPayload = ManualWindowBase & {
@@ -268,6 +272,8 @@ const isManualStrengthWorkoutPayload = (
         return false;
     }
   }
+  const dm = value.durationMinutes;
+  if (dm !== undefined && (typeof dm !== "number" || !Number.isFinite(dm) || dm <= 0)) return false;
   return true;
 };
 
@@ -418,6 +424,31 @@ const mapManualWorkout = (
     trainingLoad: payload.trainingLoad ?? null,
   };
 
+  if (typeof payload.distanceMeters === "number" && Number.isFinite(payload.distanceMeters)) {
+    base.distanceMeters = payload.distanceMeters;
+    if (payload.durationMinutes > 0 && payload.distanceMeters > 0) {
+      const speedMps = payload.distanceMeters / (payload.durationMinutes * 60);
+      if (Number.isFinite(speedMps) && speedMps > 0) {
+        base.speedMetersPerSecond = speedMps;
+        base.paceMinPerKm = 1000 / (speedMps * 60);
+      }
+    }
+  }
+  if (
+    typeof payload.averageHeartRateBpm === "number" &&
+    Number.isFinite(payload.averageHeartRateBpm) &&
+    payload.averageHeartRateBpm > 0
+  ) {
+    base.averageHeartRateBpm = payload.averageHeartRateBpm;
+  }
+  if (
+    typeof payload.maxHeartRateBpm === "number" &&
+    Number.isFinite(payload.maxHeartRateBpm) &&
+    payload.maxHeartRateBpm > 0
+  ) {
+    base.maxHeartRateBpm = payload.maxHeartRateBpm;
+  }
+
   if (payload.intensity) {
     base.intensity = payload.intensity;
   }
@@ -500,12 +531,25 @@ const mapManualNutrition = (raw: RawEvent, payload: ManualNutritionPayload): Nut
   return canonical;
 };
 
+const isoPlusMinutes = (iso: string, minutes: number): string => {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  return new Date(t + minutes * 60 * 1000).toISOString();
+};
+
 const mapManualStrengthWorkout = (
   raw: RawEvent,
   payload: ManualStrengthWorkoutPayload,
 ): StrengthWorkoutCanonicalEvent | null => {
   const day = localCalendarDayKeyFromIsoInTimeZone(payload.startedAt, payload.timeZone);
   if (!day) return null;
+
+  const endIso =
+    typeof payload.durationMinutes === "number" &&
+    Number.isFinite(payload.durationMinutes) &&
+    payload.durationMinutes > 0
+      ? isoPlusMinutes(payload.startedAt, payload.durationMinutes)
+      : payload.startedAt;
 
   const exercises: StrengthWorkoutCanonicalSet[] = [];
   for (const ex of payload.exercises) {
@@ -535,7 +579,7 @@ const mapManualStrengthWorkout = (
     sourceId: raw.sourceId,
     kind: "strength_workout",
     start: payload.startedAt,
-    end: payload.startedAt,
+    end: endIso,
     day,
     timezone: payload.timeZone,
     createdAt: raw.receivedAt,
@@ -633,6 +677,32 @@ export const mapRawEventToCanonical = (raw: RawEvent): MappingResult => {
       };
     }
     const canonical = mapManualSteps(raw, payload);
+    if (!canonical) {
+      return {
+        ok: false,
+        reason: "MALFORMED_PAYLOAD",
+        details: { rawEventId: raw.id, field: "start", reason: "INVALID_TIME_OR_TIMEZONE" },
+      };
+    }
+    return { ok: true, canonical };
+  }
+
+  /**
+   * Apple Health workout ingest uses the same window payload as manual workouts (`start`, `end`, `timezone`,
+   * `sport`, `durationMinutes`, optional `distanceMeters` / `trainingLoad`).
+   * Without this branch, HealthKit-synced cardio exists only in `rawEvents` (Cardio UI) and never becomes a
+   * canonical `workout` → DailyFacts.cardio / energy cardio stay empty.
+   */
+  if (raw.provider === "apple_health" && raw.kind === "workout") {
+    const payload = parseManualPayload("workout", raw.payload);
+    if (!payload) {
+      return {
+        ok: false,
+        reason: "MALFORMED_PAYLOAD",
+        details: { rawEventId: raw.id, provider: raw.provider, kind: raw.kind },
+      };
+    }
+    const canonical = mapManualWorkout(raw, payload);
     if (!canonical) {
       return {
         ok: false,

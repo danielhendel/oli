@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/__tests__/dash-recap.test.tsx
-// Dash Activity baseline card (replaces former Daily Recap slot).
+// Dash Daily Energy hero card.
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
@@ -34,28 +34,18 @@ jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
 }));
 
-const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: jest.fn() }),
+  useFocusEffect: (cb: () => void) => cb(),
 }));
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
 }));
 
-const mockUseActivityBaseline = jest.fn();
-jest.mock("@/lib/hooks/useActivityBaseline", () => ({
-  useActivityBaseline: () => mockUseActivityBaseline(),
-}));
-
-jest.mock("@/lib/hooks/useStrengthBaseline", () => ({
-  useStrengthBaseline: () => ({
-    user: { uid: "u1" },
-    initializing: false,
-    loading: true,
-    error: null,
-    model: null,
-  }),
+const mockUseDailyEnergyCard = jest.fn();
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: (...args: unknown[]) => mockUseDailyEnergyCard(...args),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -72,30 +62,30 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-function findPressableWithA11y(root: renderer.ReactTestInstance, label: string): renderer.ReactTestInstance | null {
-  const pressables = root.findAllByType("Pressable");
-  for (const p of pressables) {
-    if ((p.props as { accessibilityLabel?: string }).accessibilityLabel === label) return p;
-  }
-  return null;
-}
-
-describe("Dash Activity baseline card", () => {
+describe("Dash Daily Energy card", () => {
   beforeEach(() => {
-    mockPush.mockClear();
-    mockUseActivityBaseline.mockReset();
+    mockUseDailyEnergyCard.mockReset();
   });
 
-  it("renders Dash heading and tagline before Activity baseline when model is ready", () => {
-    mockUseActivityBaseline.mockReturnValue({
-      user: { uid: "u1" },
-      initializing: false,
+  it("renders Dash heading, tagline, and Daily Energy hero", () => {
+    mockUseDailyEnergyCard.mockReturnValue({
       loading: false,
       error: null,
-      model: {
-        title: "Activity Baseline",
-        compactStatsSummary: "12,130 steps",
-        markerPosition01: 0.55,
+      refetch: jest.fn(),
+      energy: {
+        modelVersion: "daily_energy_v3",
+        computedAt: "2026-05-05T12:00:00.000Z",
+        day: "2026-05-05",
+        estimatedKcal: { low: 2120, high: 2480, midpoint: 2300 },
+        variancePct: 0.081,
+        confidence: "moderate",
+        factors: {
+          baseline: { kcal: 1680 },
+          steps: { kcal: 320 },
+          cardio: { kcal: 180 },
+          strength: { kcalLow: 90, kcalHigh: 180 },
+        },
+        missingRequiredInputs: [],
       },
     });
 
@@ -104,36 +94,23 @@ describe("Dash Activity baseline card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    const idxActivityTitle = text.indexOf("Activity");
     const idxDashHeading = text.indexOf("Dash");
     const idxTagline = text.indexOf("Track, understand, and improve every part of your health.");
-    const idxSubtitle = text.indexOf("90-day average steps");
     expect(idxDashHeading).toBeGreaterThan(-1);
     expect(idxTagline).toBeGreaterThan(-1);
-    expect(idxActivityTitle).toBeGreaterThan(-1);
-    expect(idxSubtitle).toBeGreaterThan(-1);
     expect(idxDashHeading).toBeLessThan(idxTagline);
-    expect(idxTagline).toBeLessThan(idxActivityTitle);
-    expect(text).toContain("12,130");
-
-    const vm = findPressableWithA11y(
-      test.root,
-      "Activity. Active. 90-day average steps 12,130. Opens Activity.",
-    );
-    expect(vm).not.toBeNull();
-    act(() => {
-      (vm as renderer.ReactTestInstance).props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/activity");
+    expect(text).toContain("Daily Energy");
+    expect(text).toContain("2,120–2,480 kcal");
+    expect(text).toContain("BMR");
+    expect(text).toContain("NEAT");
   });
 
-  it("shows loading copy when baseline is loading", () => {
-    mockUseActivityBaseline.mockReturnValue({
-      user: { uid: "u1" },
-      initializing: false,
+  it("shows loading copy while Daily Energy is hydrating", () => {
+    mockUseDailyEnergyCard.mockReturnValue({
       loading: true,
       error: null,
-      model: null,
+      refetch: jest.fn(),
+      energy: undefined,
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -141,16 +118,15 @@ describe("Dash Activity baseline card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Loading steps");
+    expect(text).toContain("Loading daily energy");
   });
 
-  it("shows sign-in hint when there is no user", () => {
-    mockUseActivityBaseline.mockReturnValue({
-      user: null,
-      initializing: false,
+  it("shows empty-state copy when energy is missing", () => {
+    mockUseDailyEnergyCard.mockReturnValue({
       loading: false,
       error: null,
-      model: null,
+      refetch: jest.fn(),
+      energy: undefined,
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -158,6 +134,6 @@ describe("Dash Activity baseline card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Sign in to see your 90-day step baseline");
+    expect(text).toContain("Not enough data yet to estimate energy.");
   });
 });

@@ -12,7 +12,7 @@ import {
 } from "@/lib/ui/activity/ActivityTierProgressTrack";
 import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
-import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
+import { ErrorState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { UI_CARD_SURFACE, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
@@ -89,7 +89,7 @@ export function ActivityBaselineDashCard({
           ) : null}
         </View>
 
-        {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
+        {loading ? <Text style={styles.emptyMuted}>Loading steps…</Text> : null}
 
         {!loading && !hasUser ? (
           <Text style={styles.emptyMuted}>Sign in to see your 90-day step baseline.</Text>

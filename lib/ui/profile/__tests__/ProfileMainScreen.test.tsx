@@ -12,6 +12,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 import { ProfileMainScreen } from "../ProfileMainScreen";
+import type { ProfileHealthSummaryResult } from "@/lib/features/profile/useProfileHealthSummary";
 
 function collectText(node: renderer.ReactTestInstance | string | null | undefined): string {
   if (node == null) return "";
@@ -34,12 +35,23 @@ function findAccessibilityLabels(root: renderer.ReactTestInstance): string[] {
   return out;
 }
 
+const MOCK_HEALTH_SIGNED_OUT: ProfileHealthSummaryResult = {
+  categories: [],
+  coverageSummaryLine: null,
+  signedOut: true,
+};
+
 describe("ProfileMainScreen", () => {
-  it("personalization-only layout, category scaffold, tab-root title, and no settings gear", () => {
+  it("digital twin layout, Identity rows, tab-root title, and no settings gear", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <ProfileMainScreen profile={defaultUserProfileMain()} status="ready" massUnit="lb" />,
+        <ProfileMainScreen
+          profile={defaultUserProfileMain()}
+          status="ready"
+          massUnit="lb"
+          health={MOCK_HEALTH_SIGNED_OUT}
+        />,
       );
     });
 
@@ -47,7 +59,9 @@ describe("ProfileMainScreen", () => {
     const a11y = findAccessibilityLabels(tree.root);
 
     expect(text).toContain("Profile");
-    expect(text).toContain("Personalization & body context");
+    expect(text).toContain("Your digital twin — all collected health and fitness data in one place.");
+    expect(text).toContain("Health data");
+    expect(text).toContain("Identity");
     expect(a11y).not.toContain("Settings");
 
     expect(text).not.toContain("Couldn’t load profile");
@@ -56,17 +70,11 @@ describe("ProfileMainScreen", () => {
     expect(text).not.toContain("Account");
     expect(text).not.toContain("Privacy");
 
-    expect(text).toContain("Category inputs");
-    expect(text).toContain("Strength inputs");
-    expect(text).toContain("Cardio inputs");
-    expect(text).toContain("Nutrition inputs");
-    expect(text).toContain("Sleep inputs");
-    expect(text).toContain("Recovery inputs");
-    expect(text).toContain("Health inputs");
-    expect(text).toContain("Coming soon");
+    expect(text).not.toContain("Body inputs");
+    expect(text).not.toContain("Category inputs");
+    expect(text).not.toContain("Athlete mode");
 
     expect(text).toContain("First name");
-    expect(text).toContain("Athlete mode");
 
     act(() => {
       tree.unmount();
@@ -82,6 +90,7 @@ describe("ProfileMainScreen", () => {
           status="error"
           errorMessage="HTTP 404 (kind=http, status=404)"
           massUnit="lb"
+          health={MOCK_HEALTH_SIGNED_OUT}
         />,
       );
     });
@@ -102,6 +111,7 @@ describe("ProfileMainScreen", () => {
           status="error"
           errorMessage="HTTP 503 (kind=http, status=503)"
           massUnit="lb"
+          health={MOCK_HEALTH_SIGNED_OUT}
         />,
       );
     });

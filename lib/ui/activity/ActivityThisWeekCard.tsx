@@ -76,7 +76,11 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
                 accessibilityLabel={a11y}
               >
                 <Text style={styles.recentDate}>{row.dateLabel}</Text>
-                <PrimaryActionBarShell layout="row" testID="activity-this-week-day-row-bar">
+                <PrimaryActionBarShell
+                  layout="row"
+                  style={styles.thisWeekRowShell}
+                  testID="activity-this-week-day-row-bar"
+                >
                   <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
                     <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1}>
                       {row.stepsDigits} steps
@@ -136,6 +140,9 @@ const styles = StyleSheet.create({
   rowFirst: {
     paddingTop: 0,
     borderTopWidth: 0,
+  },
+  thisWeekRowShell: {
+    backgroundColor: UI_CARD_SURFACE,
   },
   recentDate: {
     fontSize: 13,

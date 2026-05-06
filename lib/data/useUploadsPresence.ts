@@ -5,6 +5,7 @@ import { getUploads } from "@/lib/api/usersMe";
 import type { UploadsPresenceResponseDto } from "@oli/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
+import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 
 export type UploadsPresence = {
   count: number;
@@ -22,8 +23,20 @@ function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOpti
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
-export function useUploadsPresence(): State & { refetch: (opts?: GetOptions) => void } {
+export type UseUploadsPresenceOptions = {
+  /** When false, skips request (e.g. tab not focused). Returns empty presence. */
+  enabled?: boolean;
+};
+
+const EMPTY_UPLOADS: UploadsPresence = { count: 0, latest: null };
+
+export function useUploadsPresence(
+  options?: UseUploadsPresenceOptions,
+): State & { refetch: (opts?: GetOptions) => void } {
   const { user, initializing, getIdToken } = useAuth();
+  const enabled = options?.enabled ?? true;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const reqSeq = useRef(0);
 
@@ -40,6 +53,11 @@ export function useUploadsPresence(): State & { refetch: (opts?: GetOptions) => 
       const safeSet = (next: State) => {
         if (seq === reqSeq.current) setState(next);
       };
+
+      if (!enabledRef.current) {
+        safeSet({ status: "ready", data: EMPTY_UPLOADS });
+        return;
+      }
 
       if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
@@ -59,10 +77,23 @@ export function useUploadsPresence(): State & { refetch: (opts?: GetOptions) => 
 
       const optsUnique = withUniqueCacheBust(opts, seq);
 
+      const t0 = __DEV__ ? performance.now() : 0;
+      if (__DEV__) {
+        logDataHookTiming("useUploadsPresence", "start", { userAvailable: Boolean(user) });
+      }
+
       const res = await getUploads(token, optsUnique);
       if (seq !== reqSeq.current) return;
 
       const outcome = truthOutcomeFromApiResult(res);
+
+      if (__DEV__) {
+        logDataHookTiming("useUploadsPresence", "end", {
+          durationMs: Math.round(performance.now() - t0),
+          userAvailable: Boolean(user),
+          status: outcome.status,
+        });
+      }
 
       if (outcome.status === "ready") {
         safeSet({
@@ -90,7 +121,7 @@ export function useUploadsPresence(): State & { refetch: (opts?: GetOptions) => 
 
   useEffect(() => {
     void fetchOnce();
-  }, [fetchOnce, user?.uid]);
+  }, [fetchOnce, user?.uid, enabled]);
 
   return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
 }
