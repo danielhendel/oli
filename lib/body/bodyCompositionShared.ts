@@ -27,7 +27,14 @@ export function sexForBodyFatBands(sex: ProfileSexAtBirth | null): "male" | "fem
   return "unspecified";
 }
 
-/** Mirrors bodyCompositionInterpretation thresholds for bar scoring. */
+/** Mirrors bodyCompositionInterpretation thresholds for bar scoring + lean mass ratio tolerance. */
+export const LEAN_MASS_RATIO_TOLERANCE_DEFAULT = 0.15 as const;
+export const LEAN_MASS_RATIO_TOLERANCE_ATHLETE = 0.18 as const;
+
+export function leanMassRatioTolerance(athleteMode: boolean): number {
+  return athleteMode ? LEAN_MASS_RATIO_TOLERANCE_ATHLETE : LEAN_MASS_RATIO_TOLERANCE_DEFAULT;
+}
+
 export function bodyFatFitnessThresholds(
   sex: "male" | "female",
   athleteMode: boolean,

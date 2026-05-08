@@ -9,6 +9,7 @@ import {
   bodyFatFitnessThresholds,
   formatMassRangeForCopy,
   healthyWeightBandKg,
+  leanMassRatioTolerance,
   mifflinStJeorBmrKcalPerDay,
   sexForBodyFatBands,
   type MassDisplayUnit,
@@ -282,7 +283,7 @@ function interpretLean(overview: BodyOverviewMetrics, profile: UserProfileMain):
   if (w != null && bf != null) {
     const expectedLean = w * (1 - bf / 100);
     const ratio = expectedLean > 0 ? lean / expectedLean : 1;
-    const tol = profile.bodyInputs.athleteMode ? 0.18 : 0.15;
+    const tol = leanMassRatioTolerance(profile.bodyInputs.athleteMode);
     const lo = 1 - tol;
     const hi = 1 + tol;
     if (ratio >= lo && ratio <= hi) {

@@ -13,6 +13,7 @@ import {
   bodyMetricsForSnapshotDay,
   EMPTY_BODY_SNAPSHOT_PEEK_ROWS,
   latestBodySnapshotDay,
+  latestObservedAtForSnapshotDay,
 } from "@/lib/data/body/bodySnapshot";
 import { getDeviceTimeZone } from "@/lib/data/body/deviceTimeZone";
 import type { BodyDayMarker } from "@/lib/ui/body/BodyWeeklyStrip";
@@ -138,11 +139,19 @@ export function useBodyOverviewData() {
         leanBodyMassKg: null as number | null,
         restingMetabolicRateKcal: null as number | null,
         hasAnyMetric: false,
+        latestObservedAtIso: null as string | null,
       };
     }
 
     const snapshotPeekRows =
       snapshotDayPeek.status === "ready" ? snapshotDayPeek.items : EMPTY_BODY_SNAPSHOT_PEEK_ROWS;
+    const latestObservedAtIso = latestObservedAtForSnapshotDay(
+      overviewDay,
+      derived.byDay,
+      peekRows,
+      snapshotPeekRows,
+      tz,
+    );
     const { weightKgFromSeries, weightKgFromPeek, peekComp } = bodyMetricsForSnapshotDay(
       overviewDay,
       derived.byDay,
@@ -174,6 +183,7 @@ export function useBodyOverviewData() {
       leanBodyMassKg,
       restingMetabolicRateKcal,
       hasAnyMetric,
+      latestObservedAtIso,
     };
   }, [overviewDay, derived.byDay, peek, snapshotDayPeek, dayFacts, tz]);
 

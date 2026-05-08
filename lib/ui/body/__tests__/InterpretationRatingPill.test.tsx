@@ -23,7 +23,15 @@ describe("InterpretationRatingPill", () => {
     expect(tree.root.findAllByType(Text).some((n) => n.props.children === "Optimal")).toBe(true);
     const shell = tree.root.findByType(View);
     expect(shell.props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ backgroundColor: MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[4].pillBg })]),
+      expect.arrayContaining([
+        expect.objectContaining({ backgroundColor: MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[4].pillBg }),
+      ]),
+    );
+    const label = tree.root.findAllByType(Text).find((n) => n.props.children === "Optimal");
+    expect(label?.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ color: MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME[4].pillFg }),
+      ]),
     );
   });
 

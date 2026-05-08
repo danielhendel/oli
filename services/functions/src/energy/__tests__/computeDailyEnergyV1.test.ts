@@ -353,4 +353,64 @@ describe("computeDailyEnergyV1", () => {
     const b = computeDailyEnergyV1(input);
     expect(a).toEqual(b);
   });
+
+  it("ignores implausibly tiny imported RMR and falls back to conservative weight-based baseline", () => {
+    const result = computeDailyEnergyV1({
+      dailyFacts: {
+        ...baseFacts,
+        body: { weightKg: 70, restingMetabolicRateKcal: 60 },
+      },
+    });
+    expect(result).toBeDefined();
+    const mid = round1(22 * 70);
+    expect(result?.factors.baseline?.kcalLow).toBe(round1(mid * 0.92));
+    expect(result?.factors.baseline?.kcalHigh).toBe(round1(mid * 1.1));
+    expect(result?.factors.baseline?.inputsUsed).not.toContain("body.restingMetabolicRateKcal");
+  });
+
+  it("prefers Mifflin baseline over imported RMR when profile inputs are present", () => {
+    const result = computeDailyEnergyV1({
+      dailyFacts: {
+        ...baseFacts,
+        body: { weightKg: 80, restingMetabolicRateKcal: 1400 },
+      },
+      profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+    });
+    expect(result).toBeDefined();
+    const ageYears = 36;
+    const mid = round1(10 * 80 + 6.25 * 180 - 5 * ageYears + 5);
+    expect(result?.factors.baseline?.kcalLow).toBe(round1(mid * 0.92));
+    expect(result?.factors.baseline?.kcalHigh).toBe(round1(mid * 1.1));
+    expect(result?.factors.baseline?.inputsUsed).toContain("profile.heightCm");
+    expect(result?.factors.baseline?.inputsUsed).not.toContain("body.restingMetabolicRateKcal");
+  });
+
+  it("prefers Katch-McArdle baseline over imported RMR when lean mass is available", () => {
+    const result = computeDailyEnergyV1({
+      dailyFacts: {
+        ...baseFacts,
+        body: { weightKg: 80, leanBodyMassKg: 62, restingMetabolicRateKcal: 1500 },
+      },
+      profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+    });
+    expect(result).toBeDefined();
+    const mid = round1(370 + 21.6 * 62);
+    expect(result?.factors.baseline?.kcalLow).toBe(round1(mid * 0.94));
+    expect(result?.factors.baseline?.kcalHigh).toBe(round1(mid * 1.06));
+    expect(result?.factors.baseline?.inputsUsed.join(",")).toContain("body.leanBodyMassKg");
+    expect(result?.factors.baseline?.inputsUsed).not.toContain("body.restingMetabolicRateKcal");
+  });
+
+  it("accepts realistic imported daily RMR when stronger baseline inputs are absent", () => {
+    const result = computeDailyEnergyV1({
+      dailyFacts: {
+        ...baseFacts,
+        body: { restingMetabolicRateKcal: 1680 },
+      },
+    });
+    expect(result).toBeDefined();
+    expect(result?.factors.baseline?.kcalLow).toBe(round1(1680 * 0.92));
+    expect(result?.factors.baseline?.kcalHigh).toBe(round1(1680 * 1.1));
+    expect(result?.factors.baseline?.inputsUsed).toContain("body.restingMetabolicRateKcal");
+  });
 });

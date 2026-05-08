@@ -46,6 +46,7 @@ export function useActivityOverviewScreenData() {
     scheduleAppleHealthStepsRepair({
       trigger: "recovery",
       getIdToken,
+      userUid: user.uid,
     });
   }, [getIdToken, initializing, user]);
 

@@ -24,6 +24,14 @@ import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 const VERIFY_POLL_INTERVAL_MS = 500;
 const VERIFY_POLL_MAX_MS = 45_000;
 
+const DEV = typeof __DEV__ !== "undefined" && __DEV__ && !process.env.JEST_WORKER_ID;
+
+function devLog(message: string, data: Record<string, unknown>): void {
+  if (!DEV) return;
+  // eslint-disable-next-line no-console
+  console.log(`[AH:steps-yesterday] ${message}`, data);
+}
+
 function roundSteps(n: number): number {
   return Math.round(n);
 }
@@ -90,10 +98,14 @@ export async function runForcedLocalYesterdayAppleHealthStepsIngest(
   if (!perm.ok) return;
 
   const pulled = await pullStepCountForLocalCalendarDay(yesterdayYmd);
-  if (!pulled.ok) return;
+  if (!pulled.ok) {
+    devLog("skip: hk pull failed", { day: yesterdayYmd, error: pulled.error });
+    return;
+  }
 
   const hkStepsRounded = roundSteps(pulled.steps);
   const storedSteps = await fetchStoredStepsForDay(yesterdayYmd, token);
+  devLog("hk vs stored", { day: yesterdayYmd, hkSteps: hkStepsRounded, storedSteps });
   if (storedSteps !== null && storedSteps === hkStepsRounded) {
     await setLastIngestedStepsForDay(yesterdayYmd, hkStepsRounded);
     return;
@@ -108,10 +120,25 @@ export async function runForcedLocalYesterdayAppleHealthStepsIngest(
     timezone,
     steps: pulled.steps,
   });
+  const idempotencyKey = stepsIdempotencyKey(yesterdayYmd);
+
+  devLog("post /ingest", {
+    day: yesterdayYmd,
+    idempotencyKey,
+    payloadSteps: body.payload.steps,
+    payloadStart: body.payload.start,
+    payloadTimezone: body.payload.timezone,
+  });
 
   const res = await ingestRawEvent(body, token, {
-    idempotencyKey: stepsIdempotencyKey(yesterdayYmd),
+    idempotencyKey,
     timeoutMs: 15000,
+  });
+
+  devLog("ingest response", {
+    day: yesterdayYmd,
+    ok: res.ok,
+    ...(res.ok ? {} : { error: res.error, requestId: res.requestId }),
   });
 
   if (!res.ok) return;

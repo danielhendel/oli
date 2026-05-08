@@ -119,6 +119,42 @@ describe("resolveDailyEnergyForFactsV1", () => {
     expect(energy?.factors.steps?.inputsUsed).toContain("body.weightKg:lastKnown");
   });
 
+  it("carries forward latest body fields independently (does not let tiny latest-only RMR replace older weight)", async () => {
+    const db = makeDb({
+      profile: {
+        identity: { dateOfBirth: "1990-01-01", sexAtBirth: "male" },
+        body: { heightCm: 180 },
+      },
+      priorFacts: [
+        {
+          ...baseFacts,
+          date: "2026-05-07",
+          body: { restingMetabolicRateKcal: 77.6 },
+        },
+        {
+          ...baseFacts,
+          date: "2026-05-06",
+          body: { weightKg: 72, leanBodyMassKg: 57.5 },
+        },
+      ],
+    });
+
+    const energy = await resolveDailyEnergyForFactsV1({
+      db,
+      userId: "u1",
+      dailyFacts: {
+        ...baseFacts,
+        date: "2026-05-08",
+        activity: { steps: 39 },
+      },
+    });
+
+    expect(energy).toBeDefined();
+    expect(energy?.factors.baseline?.inputsUsed).toContain("body.weightKg:lastKnown");
+    expect(energy?.factors.baseline?.inputsUsed).toContain("body.leanBodyMassKg");
+    expect(energy?.factors.baseline?.kcalLow).toBeGreaterThan(1000);
+  });
+
   it("returns undefined when profile/body/steps are missing", async () => {
     const db = makeDb({});
     const energy = await resolveDailyEnergyForFactsV1({

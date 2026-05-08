@@ -6,6 +6,7 @@ import {
   ageYearsFromProfileDateOfBirth,
   bodyFatFitnessThresholds,
   healthyWeightBandKg,
+  leanMassRatioTolerance,
   mifflinStJeorBmrKcalPerDay,
   sexForBodyFatBands,
 } from "./bodyCompositionShared";
@@ -214,7 +215,7 @@ export function buildInterpretationBarModels(
     if (wk != null && bfp != null) {
       const expected = wk * (1 - bfp / 100);
       const ratio = expected > 0 ? lean / expected : 1;
-      const tol = profile.bodyInputs.athleteMode ? 0.18 : 0.15;
+      const tol = leanMassRatioTolerance(profile.bodyInputs.athleteMode);
       leanBar = barFromMarker(leanQualityMarker01(ratio, tol), true);
     } else {
       leanBar = barFromMarker(0.44, true);

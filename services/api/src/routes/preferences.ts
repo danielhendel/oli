@@ -1,7 +1,13 @@
 // services/api/src/routes/preferences.ts
 import { Router, type Response } from "express";
 import { z } from "zod";
-import { preferencesSchema, defaultPreferences } from "@oli/contracts";
+import {
+  preferencesSchema,
+  defaultPreferences,
+  weeklyFitnessGoalsSchema,
+  WEEKLY_FITNESS_GOAL_LIMITS,
+  type WeeklyFitnessGoals,
+} from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -66,6 +72,29 @@ const preferencesPatchSchema = z
     workoutPickerBundledAllowlistExerciseIds: z
       .array(z.string().regex(/^[a-z0-9]+(_[a-z0-9]+)*$/))
       .nullable()
+      .optional(),
+    /**
+     * Dash Weekly Fitness goals (additive). Server stamps `updatedAt` so clients
+     * may omit it on PUT. All three numeric fields are required when present.
+     */
+    weeklyFitnessGoals: z
+      .object({
+        activityStepsPerDayGoal: z
+          .number()
+          .int()
+          .min(WEEKLY_FITNESS_GOAL_LIMITS.activityStepsPerDayMin)
+          .max(WEEKLY_FITNESS_GOAL_LIMITS.activityStepsPerDayMax),
+        strengthWorkoutsPerWeekGoal: z
+          .number()
+          .int()
+          .min(WEEKLY_FITNESS_GOAL_LIMITS.strengthWorkoutsPerWeekMin)
+          .max(WEEKLY_FITNESS_GOAL_LIMITS.strengthWorkoutsPerWeekMax),
+        cardioMilesPerWeekGoal: z
+          .number()
+          .min(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMin)
+          .max(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMax),
+      })
+      .strip()
       .optional(),
   })
   .strip();
@@ -243,6 +272,17 @@ router.put(
         ? patch.workoutPickerBundledAllowlistExerciseIds
         : base.workoutPickerBundledAllowlistExerciseIds;
 
+    let nextWeeklyFitnessGoals: WeeklyFitnessGoals | undefined =
+      base.weeklyFitnessGoals;
+    if (patch.weeklyFitnessGoals !== undefined) {
+      nextWeeklyFitnessGoals = {
+        activityStepsPerDayGoal: patch.weeklyFitnessGoals.activityStepsPerDayGoal,
+        strengthWorkoutsPerWeekGoal: patch.weeklyFitnessGoals.strengthWorkoutsPerWeekGoal,
+        cardioMilesPerWeekGoal: patch.weeklyFitnessGoals.cardioMilesPerWeekGoal,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     const candidate = {
       units: {
         mass: patch.units?.mass ?? base.units.mass,
@@ -259,9 +299,17 @@ router.put(
       selectedGymId: patch.selectedGymId !== undefined ? patch.selectedGymId : base.selectedGymId,
       metricSources: nextMetricSources,
       ...(mergedAllowlist !== undefined ? { workoutPickerBundledAllowlistExerciseIds: mergedAllowlist } : {}),
+      ...(nextWeeklyFitnessGoals !== undefined ? { weeklyFitnessGoals: nextWeeklyFitnessGoals } : {}),
     };
 
     const normalizedMetricSources = normalizeMetricSourcesForAppleHealthOnly(candidate.metricSources);
+    if (candidate.weeklyFitnessGoals !== undefined) {
+      const goalsValidation = weeklyFitnessGoalsSchema.safeParse(candidate.weeklyFitnessGoals);
+      if (!goalsValidation.success) {
+        invalidDoc500(req, res, "weeklyFitnessGoals", goalsValidation.error.flatten());
+        return;
+      }
+    }
     const next = preferencesSchema.safeParse({
       ...candidate,
       metricSources: normalizedMetricSources.metricSources,

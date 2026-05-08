@@ -13,7 +13,7 @@ import {
   type AppleHealthStepsBackfillState,
 } from "@/lib/integrations/appleHealth/storage";
 import { runAppleHealthStepsBackfillSerialized } from "@/lib/data/activity/appleHealthStepsBackfillMutex";
-import { invalidateDailyFactsSessionCache } from "@/lib/data/dailyFactsSessionCache";
+import { scheduleDailyFactsInvalidationAfterIngest } from "@/lib/data/dailyFactsSessionCache";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { nowIso } from "@/lib/sync/throttle";
 
@@ -126,7 +126,17 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
       }
       await refresh();
       setState((prev) => ({ ...prev, status: "completed", message: null }));
-      invalidateDailyFactsSessionCache({ userUid: user.uid, day: getTodayDayKeyLocal() });
+      // Defer cache invalidation so consumers (useDailyFacts → useDailyEnergyCard) refetch
+      // *after* the rawEvent UPDATE → normalization → recomputeForDay pipeline settles.
+      // Activity / Weekly Fitness already merge live HealthKit `today` into the UI; Daily
+      // Energy depends on persisted `dailyFacts.energy.factors.steps`, so we wait for the
+      // recompute before nudging a refetch.
+      if (res.ok && res.daysIngested > 0) {
+        scheduleDailyFactsInvalidationAfterIngest({
+          userUid: user.uid,
+          day: getTodayDayKeyLocal(),
+        });
+      }
       onSynced?.();
     },
     [user, getIdToken, refresh, onSynced],

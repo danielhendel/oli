@@ -6,8 +6,6 @@ import type { InterpretationBarModel } from "@/lib/body/bodyOverviewInterpretati
 import { getBodyOverviewBarDisplay } from "@/lib/body/bodyOverviewBarDisplay";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 
-const RATING_PILL_LABEL_INK = "#111827";
-
 export type InterpretationRatingPillProps = {
   bar: InterpretationBarModel;
   /** Merged after shared shell styles (e.g. trailing alignment on overview rows). */
@@ -26,7 +24,7 @@ export function InterpretationRatingPill({ bar, shellStyle }: InterpretationRati
       accessibilityElementsHidden
       importantForAccessibility="no"
     >
-      <Text style={[moduleOverviewMetricLayoutStyles.ratingPillLabel, { color: RATING_PILL_LABEL_INK }]} numberOfLines={1}>
+      <Text style={[moduleOverviewMetricLayoutStyles.ratingPillLabel, { color: d.pillFg }]} numberOfLines={1}>
         {bar.displayLabel}
       </Text>
     </View>

@@ -40,6 +40,7 @@ export function useActivityBaseline(): UseActivityBaselineResult {
     scheduleAppleHealthStepsRepair({
       trigger: "recovery",
       getIdToken,
+      userUid: user.uid,
     });
   }, [getIdToken, initializing, user]);
 

@@ -26,6 +26,7 @@ import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useBodyCompositionInterpretation } from "@/lib/data/body/useBodyCompositionInterpretation";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
+import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import { rollingLookbackWindowForAnchorDay } from "@/lib/data/body/bodyHistoryRange";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
@@ -33,14 +34,9 @@ import { WeightBaselineCard } from "@/lib/ui/body/WeightBaselineCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 
 import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 /** @internal — tests assert on these hrefs */
-export const BODY_METRIC_DETAIL_HREFS = {
-  weight: "/(app)/body/metric/weight",
-  bodyFat: "/(app)/body/metric/body-fat",
-  bmi: "/(app)/body/metric/bmi",
-  leanMass: "/(app)/body/metric/lean-mass",
-  rmr: "/(app)/body/metric/rmr",
-} as const;
+export const BODY_METRIC_DETAIL_HREFS = BODY_COMPOSITION_METRIC_DETAIL_ROUTES;
 
 export default function BodyOverviewScreen() {
   const router = useRouter();

@@ -1,28 +1,33 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: tab header + Daily Energy hero card.
+// Oli — Dash: tab header + Today hero + Body Composition + Daily Energy + Weekly Fitness.
 import React from "react";
-import { ScrollView, View, Text, StyleSheet } from "react-native";
+import { ScrollView, View, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { TodayHealthHero } from "@/components/dashboard/TodayHealthHero";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 import {
   UI_APP_SCREEN_BG,
-  UI_TAB_ROOT_CONTENT_GUTTER,
   UI_TAB_ROOT_INSET,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SLATE_COOL,
 } from "@/lib/ui/theme/uiTokens";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
-import { useDailyEnergyCard } from "@/lib/data/dash/useDailyEnergyCard";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
+import { useWeeklyFitnessCard } from "@/lib/data/dash/useWeeklyFitnessCard";
+import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
+import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
+import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
-
-const DASH_SECTION_TAGLINE = "Track, understand, and improve every part of your health.";
 
 export default function DashScreen() {
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
-  const { energy, loading, error, refetch } = useDailyEnergyCard(getTodayDayKeyLocal());
+  const { user } = useAuth();
+  const todayKey = getTodayDayKeyLocal();
+  const { vm: todayHero, energy, energyLoading, energyError, refetch } = useTodayHealthHero(todayKey);
+  const weeklyFitness = useWeeklyFitnessCard();
+  const bodyComposition = useBodyCompositionDashCard();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -41,17 +46,27 @@ export default function DashScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.stacksSection}>
-            <View style={styles.stacksHeaderInset}>
-              <Text style={styles.sectionHeading} accessibilityRole="header">
-                Dash
-              </Text>
-              <Text style={styles.stacksTagline}>{DASH_SECTION_TAGLINE}</Text>
-            </View>
+            <TodayHealthHero vm={todayHero} />
+            <BodyCompositionCard
+              loading={bodyComposition.loading}
+              error={bodyComposition.error}
+              hasUser={bodyComposition.hasUser}
+              goalsHref={bodyComposition.goalsHref}
+              built={bodyComposition.built}
+            />
 
             <DailyEnergyCard
               energy={energy}
-              loading={loading}
-              error={error}
+              loading={energyLoading}
+              error={energyError}
+            />
+            <WeeklyFitnessCard
+              loading={weeklyFitness.loading}
+              error={weeklyFitness.error}
+              rows={weeklyFitness.rows}
+              combined={weeklyFitness.combined}
+              goalsHref={weeklyFitness.goalsHref}
+              hasUser={user != null}
             />
           </View>
         </ScrollView>
@@ -71,31 +86,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 6,
+    paddingTop: 2,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },
   stacksSection: {},
-  stacksHeaderInset: {
-    paddingHorizontal: UI_TAB_ROOT_CONTENT_GUTTER,
-  },
-  sectionHeading: {
-    marginTop: 18,
-    marginBottom: 0,
-    fontSize: 26,
-    fontWeight: "700",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.2,
-  },
-  stacksTagline: {
-    fontSize: 17,
-    fontWeight: "400",
-    color: UI_TEXT_SLATE_COOL,
-    marginTop: 7,
-    marginBottom: 12,
-    lineHeight: 26,
-    letterSpacing: 0.15,
-    flexShrink: 1,
-    alignSelf: "stretch",
-  },
 });

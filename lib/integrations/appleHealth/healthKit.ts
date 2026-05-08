@@ -472,12 +472,17 @@ export async function pullBodyCompositionSamples(opts: {
     if (!observedAt || leanBodyMassKg == null) continue;
     upsertBodyMetric(out, observedAt, null, { leanBodyMassKg });
   }
-  for (const sample of basalEnergySamples) {
-    const observedAt = typeof sample?.startDate === "string" ? sample.startDate : "";
-    const restingMetabolicRateKcal = normalizePositive(sample?.value);
-    if (!observedAt || restingMetabolicRateKcal == null) continue;
-    upsertBodyMetric(out, observedAt, null, { restingMetabolicRateKcal });
-  }
+  /**
+   * Do NOT map HealthKit BasalEnergyBurned directly into canonical `restingMetabolicRateKcal`.
+   *
+   * BasalEnergyBurned samples are interval-scoped burn values and may represent partial windows
+   * (e.g. minute/hour chunks), not a validated full-day resting metabolic estimate.
+   * Mapping them as daily RMR causes implausible BMR baselines (e.g. ~56 kcal/day).
+   *
+   * Keep the query for now to preserve permission/query surface and future explicit modeling,
+   * but intentionally ignore the values at this canonical boundary.
+   */
+  void basalEnergySamples;
 
   const coalesced = coalesceAppleHealthBodySamplesForIngest([...out.values()], deviceTimeZoneForBodyPull());
   return { ok: true, data: coalesced };

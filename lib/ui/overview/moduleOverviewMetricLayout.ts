@@ -42,16 +42,18 @@ export const moduleOverviewMetricLayoutStyles = StyleSheet.create({
   },
   ratingPillShell: {
     flexShrink: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minHeight: 28,
+    justifyContent: "center",
+    borderRadius: 10,
     maxWidth: "46%",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_SUBTLE,
   },
   ratingPillLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
-    letterSpacing: 0.15,
+    letterSpacing: 0.12,
   },
 });

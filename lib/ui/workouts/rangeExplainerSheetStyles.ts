@@ -28,6 +28,29 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
     padding: 14,
     gap: 0,
   },
+  legendHeading: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.28,
+    marginBottom: 12,
+  },
+  metricExplainerBlock: {
+    gap: 10,
+  },
+  metricExplainerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.28,
+  },
+  metricExplainerParagraph: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "400",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: -0.18,
+  },
   sectionHeading: {
     fontSize: 17,
     fontWeight: "600",
