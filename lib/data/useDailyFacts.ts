@@ -5,10 +5,14 @@ import type { TruthGetOptions } from "@/lib/api/usersMe";
 import type { DailyFactsDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
+<<<<<<< HEAD
 import {
   getDailyFactsSessionCached,
   subscribeDailyFactsInvalidations,
 } from "@/lib/data/dailyFactsSessionCache";
+=======
+import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
+>>>>>>> origin/main
 
 type State =
   | { status: "partial" }
@@ -131,6 +135,7 @@ export function useDailyFacts(
     }
     void fetchOnce();
   }, [enabled, fetchOnce, day, user?.uid]);
+<<<<<<< HEAD
 
   // Refetch when the dailyFactsSessionCache is invalidated for this (uid, day).
   // Triggered after Apple Health steps / body sync ingest lands its backend recompute,
@@ -146,6 +151,8 @@ export function useDailyFacts(
       void fetchOnce({ cacheBust: `dailyFactsInvalidated:${ev.day}` });
     });
   }, [enabled, fetchOnce, user?.uid]);
+=======
+>>>>>>> origin/main
 
   return useMemo(
     () => ({

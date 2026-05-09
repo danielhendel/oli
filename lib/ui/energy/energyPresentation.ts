@@ -8,6 +8,16 @@ export type EnergyFactorDto = DailyEnergyFactorDto;
 
 export type EnergyFactorRowKey = "baseline" | "steps" | "cardio" | "strength";
 
+<<<<<<< HEAD
+=======
+const ROUTE_BY_KEY: Record<EnergyFactorRowKey, string> = {
+  baseline: "/energy/bmr",
+  steps: "/energy/neat",
+  cardio: "/energy/cardio",
+  strength: "/energy/strength",
+};
+
+>>>>>>> origin/main
 /** Display-only: formats backend low/high kcal range (no computation). */
 export function formatEnergyRange(low: number, high: number): string {
   const a = Math.round(low).toLocaleString();
@@ -34,6 +44,10 @@ export function formatFactorDisplayAdditive(factor: EnergyFactorDto | undefined)
 export type EnergyFactorRow = {
   key: EnergyFactorRowKey;
   label: string;
+<<<<<<< HEAD
+=======
+  href: string;
+>>>>>>> origin/main
   displayValue: string;
 };
 
@@ -45,7 +59,11 @@ export function getEnergyFactorRows(energy: DailyEnergyCardDto): EnergyFactorRow
   const push = (key: EnergyFactorRowKey, label: string, factor: EnergyFactorDto | undefined) => {
     const displayValue = formatFactorDisplayAdditive(factor);
     if (!displayValue) return;
+<<<<<<< HEAD
     rows.push({ key, label, displayValue });
+=======
+    rows.push({ key, label, href: ROUTE_BY_KEY[key], displayValue });
+>>>>>>> origin/main
   };
 
   push("baseline", "BMR", f.baseline);

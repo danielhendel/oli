@@ -41,6 +41,7 @@ export default function AppLayout() {
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
           <Stack.Screen
+<<<<<<< HEAD
             name="energy/energy-metric-explainer"
             options={{
               title: "Daily Energy",
@@ -56,6 +57,22 @@ export default function AppLayout() {
               presentation: "modal",
               ...workoutsStackNavigationOptions("detail"),
             }}
+=======
+            name="energy/bmr"
+            options={{ title: "BMR", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/neat"
+            options={{ title: "NEAT", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/cardio"
+            options={{ title: "Cardio", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="energy/strength"
+            options={{ title: "Strength", ...workoutsStackNavigationOptions("detail") }}
+>>>>>>> origin/main
           />
 
           {/* Event detail (from Library / Timeline) */}

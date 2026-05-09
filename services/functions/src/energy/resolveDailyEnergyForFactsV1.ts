@@ -29,6 +29,7 @@ const addDaysUtc = (ymd: string, deltaDays: number): string => {
   return `${yy}-${mm}-${dd}`;
 };
 
+<<<<<<< HEAD
 type LatestBodyField<T> = { value: T; sourceDay: string };
 
 function pickLatestBodyField<T>(
@@ -45,6 +46,8 @@ function pickLatestBodyField<T>(
   return undefined;
 }
 
+=======
+>>>>>>> origin/main
 export async function resolveDailyEnergyForFactsV1(input: {
   db: Firestore;
   userId: string;
@@ -79,6 +82,7 @@ export async function resolveDailyEnergyForFactsV1(input: {
     .limit(LOOKBACK_DAYS)
     .get();
 
+<<<<<<< HEAD
   const priorFactsDesc = priorFactsSnap.docs.map((d) => d.data() as DailyFacts);
   const latestWeight = pickLatestBodyField(priorFactsDesc, (b) =>
     typeof b.weightKg === "number" ? b.weightKg : undefined,
@@ -108,6 +112,38 @@ export async function resolveDailyEnergyForFactsV1(input: {
           isCarriedForward: true as const,
         }
       : undefined;
+=======
+  const latestBodyFactsSource = priorFactsSnap.docs
+    .map((d) => d.data() as DailyFacts)
+    .find((f) => {
+      const body = f.body;
+      return (
+        typeof body?.weightKg === "number" ||
+        typeof body?.bodyFatPercent === "number" ||
+        typeof body?.leanBodyMassKg === "number" ||
+        typeof body?.restingMetabolicRateKcal === "number"
+      );
+    });
+
+  const latestBodyFactsForEnergy = latestBodyFactsSource?.body
+    ? {
+        ...(typeof latestBodyFactsSource.body.weightKg === "number"
+          ? { weightKg: latestBodyFactsSource.body.weightKg }
+          : {}),
+        ...(typeof latestBodyFactsSource.body.bodyFatPercent === "number"
+          ? { bodyFatPercent: latestBodyFactsSource.body.bodyFatPercent }
+          : {}),
+        ...(typeof latestBodyFactsSource.body.leanBodyMassKg === "number"
+          ? { leanBodyMassKg: latestBodyFactsSource.body.leanBodyMassKg }
+          : {}),
+        ...(typeof latestBodyFactsSource.body.restingMetabolicRateKcal === "number"
+          ? { restingMetabolicRateKcal: latestBodyFactsSource.body.restingMetabolicRateKcal }
+          : {}),
+        sourceDay: latestBodyFactsSource.date,
+        isCarriedForward: true as const,
+      }
+    : undefined;
+>>>>>>> origin/main
 
   return computeDailyEnergyV1({
     dailyFacts,

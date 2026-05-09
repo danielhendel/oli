@@ -20,8 +20,11 @@ type Input = {
 const MODEL_VERSION = "daily_energy_v3";
 
 const LB_TO_KG_STRENGTH = 0.45359237;
+<<<<<<< HEAD
 const MIN_PLAUSIBLE_DAILY_RMR_KCAL = 800;
 const MAX_PLAUSIBLE_DAILY_RMR_KCAL = 4000;
+=======
+>>>>>>> origin/main
 
 /** Strength training volume in kg from DailyFacts.strength (prefers rollup when present). */
 function strengthVolumeKgKg(strength: DailyFacts["strength"]): number | undefined {
@@ -37,11 +40,14 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
+<<<<<<< HEAD
 function isPhysiologicallyPlausibleDailyRmrKcal(v: unknown): v is number {
   if (typeof v !== "number" || !Number.isFinite(v)) return false;
   return v >= MIN_PLAUSIBLE_DAILY_RMR_KCAL && v <= MAX_PLAUSIBLE_DAILY_RMR_KCAL;
 }
 
+=======
+>>>>>>> origin/main
 /** BMR midpoint uncertainty: tighter when lean mass is known (Katch–McArdle path). */
 function bmrRangeFromMid(mid: number, tier: "lean_mass" | "standard"): { kcalLow: number; kcalHigh: number } {
   if (tier === "lean_mass") {
@@ -159,9 +165,12 @@ export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined
     typeof dailyFacts.body?.restingMetabolicRateKcal === "number"
       ? dailyFacts.body.restingMetabolicRateKcal
       : latestBodyFacts?.restingMetabolicRateKcal;
+<<<<<<< HEAD
   const validatedDailyRmrKcal = isPhysiologicallyPlausibleDailyRmrKcal(restingMetabolicRateKcal)
     ? restingMetabolicRateKcal
     : undefined;
+=======
+>>>>>>> origin/main
 
   const steps = dailyFacts.activity?.steps;
 
@@ -230,8 +239,13 @@ export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined
       inputsUsed: baselineInputsUsed,
       inputsMissing: baselineInputsMissing,
     };
+<<<<<<< HEAD
   } else if (typeof validatedDailyRmrKcal === "number") {
     const mid = round1(validatedDailyRmrKcal);
+=======
+  } else if (typeof restingMetabolicRateKcal === "number" && restingMetabolicRateKcal > 0) {
+    const mid = round1(restingMetabolicRateKcal);
+>>>>>>> origin/main
     const { kcalLow, kcalHigh } = bmrRangeFromMid(mid, "standard");
     baselineInputsUsed.push(
       latestBodyFacts?.isCarriedForward && !dailyFacts.body?.restingMetabolicRateKcal
