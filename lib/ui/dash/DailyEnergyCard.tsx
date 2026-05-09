@@ -1,14 +1,10 @@
 import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-<<<<<<< HEAD
 import { useRouter } from "expo-router";
 
 import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
 import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
 import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
-=======
-import { type Href, useRouter } from "expo-router";
->>>>>>> origin/main
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -16,16 +12,9 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
-<<<<<<< HEAD
-} from "@/lib/ui/theme/uiTokens";
-import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-=======
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
-import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
->>>>>>> origin/main
 
 type Props = {
   energy: DailyEnergyCardDto | undefined;
@@ -39,8 +28,6 @@ function formatRange(energy: DailyEnergyCardDto): string {
   return `${low}\u2013${high} kcal`;
 }
 
-<<<<<<< HEAD
-=======
 function capitalizeConfidence(confidence: DailyEnergyCardDto["confidence"]): string {
   return confidence.charAt(0).toUpperCase() + confidence.slice(1);
 }
@@ -49,12 +36,10 @@ function formatVariancePct(variancePct: number): string {
   return `${(variancePct * 100).toFixed(1)}%`;
 }
 
->>>>>>> origin/main
 export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactElement {
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
 
-<<<<<<< HEAD
   const onPressMetricRow = useCallback(
     (metricKey: (typeof rows)[number]["key"]) => {
       if (!energy) return;
@@ -64,13 +49,6 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
       });
     },
     [energy, router],
-=======
-  const onPressRow = useCallback(
-    (href: string) => {
-      router.push(href as Href);
-    },
-    [router],
->>>>>>> origin/main
   );
 
   return (
@@ -85,43 +63,30 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
         <>
           <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
           <Text style={styles.subtitle}>Estimated burn today</Text>
-<<<<<<< HEAD
-=======
           <Text style={styles.meta}>
             {`Confidence ${capitalizeConfidence(energy.confidence)} · ±`}
             {formatVariancePct(energy.variancePct)}
           </Text>
->>>>>>> origin/main
           <View style={styles.factors} accessibilityRole="list">
             {rows.map((row) => (
               <Pressable
                 key={row.key}
                 testID={`energy-row-${row.key}`}
                 accessibilityRole="button"
-<<<<<<< HEAD
                 accessibilityLabel={`Open ${row.label} explanation`}
                 onPress={() => {
                   onPressMetricRow(row.key);
-=======
-                accessibilityLabel={`Open ${row.label} details`}
-                onPress={() => {
-                  onPressRow(row.href);
->>>>>>> origin/main
                 }}
                 style={({ pressed }) => [styles.factorPressable, pressed && styles.factorPressablePressed]}
               >
                 <View style={styles.factorRow}>
                   <Text style={styles.factorLabel}>{row.label}</Text>
-<<<<<<< HEAD
                   <View style={styles.factorRight}>
                     <Text style={styles.factorValue}>{row.displayValue}</Text>
                     <Text style={styles.factorChevron} accessibilityElementsHidden importantForAccessibility="no">
                       {"\u203A"}
                     </Text>
                   </View>
-=======
-                  <Text style={styles.factorValue}>{row.displayValue}</Text>
->>>>>>> origin/main
                 </View>
               </Pressable>
             ))}
@@ -138,10 +103,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     gap: 8,
-<<<<<<< HEAD
     marginTop: 12,
-=======
->>>>>>> origin/main
     backgroundColor: UI_CARD_SURFACE,
   },
   title: strengthMetricCardTitleTextStyle,
@@ -162,14 +124,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -0.2,
   },
-<<<<<<< HEAD
-=======
   meta: {
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_TERTIARY_LABEL,
   },
->>>>>>> origin/main
   factors: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,
@@ -180,28 +139,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: -6,
     paddingHorizontal: 6,
-<<<<<<< HEAD
     paddingVertical: 10,
     minHeight: 44,
     justifyContent: "center",
-=======
-    paddingVertical: 4,
->>>>>>> origin/main
   },
   factorPressablePressed: {
     opacity: 0.75,
   },
   factorRow: {
-<<<<<<< HEAD
-=======
-    minHeight: 28,
->>>>>>> origin/main
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
   },
-<<<<<<< HEAD
   factorRight: {
     flexDirection: "row",
     alignItems: "center",
@@ -209,8 +159,6 @@ const styles = StyleSheet.create({
     gap: 6,
     flexShrink: 1,
   },
-=======
->>>>>>> origin/main
   factorLabel: {
     fontSize: 14,
     lineHeight: 20,
@@ -224,7 +172,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
   },
-<<<<<<< HEAD
   factorChevron: {
     fontSize: 16,
     lineHeight: 20,
@@ -232,6 +179,4 @@ const styles = StyleSheet.create({
     color: UI_TEXT_MUTED,
     flexShrink: 0,
   },
-=======
->>>>>>> origin/main
 });

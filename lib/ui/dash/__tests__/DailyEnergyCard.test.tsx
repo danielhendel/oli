@@ -1,10 +1,7 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
-<<<<<<< HEAD
 import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
-=======
->>>>>>> origin/main
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
 
 const mockPush = jest.fn();
@@ -75,11 +72,7 @@ describe("DailyEnergyCard", () => {
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
     expect(text).toContain("+90–180 kcal");
-<<<<<<< HEAD
-    expect(text).not.toMatch(/Confidence \w+ · ±/);
-=======
     expect(text).toMatch(/Confidence \w+ · ±/);
->>>>>>> origin/main
     expect(tree.root.findAllByType("Pressable")).toHaveLength(4);
   });
 
@@ -116,11 +109,7 @@ describe("DailyEnergyCard", () => {
     expect(tree.root.findAllByType("Pressable")).toHaveLength(3);
   });
 
-<<<<<<< HEAD
   it("opens Daily Energy metric explainer modal when BMR row is pressed", () => {
-=======
-  it("navigates to /energy/bmr when BMR row is pressed", () => {
->>>>>>> origin/main
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -149,14 +138,10 @@ describe("DailyEnergyCard", () => {
       bmr?.props.onPress?.();
     });
     expect(mockPush).toHaveBeenCalledTimes(1);
-<<<<<<< HEAD
     expect(mockPush.mock.calls[0]?.[0]).toEqual({
       pathname: ENERGY_METRIC_EXPLAINER_PATHNAME,
       params: { metric: "baseline", day: "2026-05-05" },
     });
-=======
-    expect(mockPush.mock.calls[0]?.[0]).toBe("/energy/bmr");
->>>>>>> origin/main
   });
 
   it("renders cardio factor range when present", () => {

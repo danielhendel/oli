@@ -4,7 +4,6 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-<<<<<<< HEAD
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
@@ -104,11 +103,6 @@ jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
     loading: false,
     error: null,
   }),
-=======
-const mockUseDailyEnergyCard = jest.fn();
-jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
-  useDailyEnergyCard: (...args: unknown[]) => mockUseDailyEnergyCard(...args),
->>>>>>> origin/main
 }));
 
 jest.mock("react-native", () => ({
@@ -175,7 +169,6 @@ function findPressablesWithLabel(
 
 describe("Dash accessibility", () => {
   beforeEach(() => {
-<<<<<<< HEAD
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       vm: HERO_VM_BASE,
@@ -220,15 +213,6 @@ describe("Dash accessibility", () => {
         cardAccessibilityLabel: "Body composition card.",
       },
     });
-=======
-    mockUseDailyEnergyCard.mockReset();
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: false,
-      error: null,
-      energy: undefined,
-      refetch: jest.fn(),
-    });
->>>>>>> origin/main
   });
 
   it("exposes accessibilityLabel on Settings button", () => {
@@ -251,7 +235,6 @@ describe("Dash accessibility", () => {
     expect(rootViews.length).toBeGreaterThanOrEqual(1);
   });
 
-<<<<<<< HEAD
   it("renders Daily Nutrition card accessibility label", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -264,9 +247,6 @@ describe("Dash accessibility", () => {
   });
 
   it("removes Sleep/Recovery summary and renders Weekly Fitness above Body Composition", () => {
-=======
-  it("shows Dash section heading", () => {
->>>>>>> origin/main
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -279,7 +259,6 @@ describe("Dash accessibility", () => {
           .join(""),
       )
       .join(" ");
-<<<<<<< HEAD
     /** Legacy hero is gone. */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
     /** Body Composition card row is present. */
@@ -301,10 +280,6 @@ describe("Dash accessibility", () => {
     expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
     expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
-=======
-    expect(text).toContain("Dash");
-    expect(text).toContain("Daily Energy");
->>>>>>> origin/main
   });
 
   it("keeps at least one actionable button (Settings)", () => {

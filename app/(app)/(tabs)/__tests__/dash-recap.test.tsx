@@ -47,7 +47,6 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
 }));
 
-<<<<<<< HEAD
 jest.mock("react-native-svg", () => ({
   __esModule: true,
   default: "Svg",
@@ -137,11 +136,6 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
     },
     goalsHref: "/(app)/fitness-goals",
   }),
-=======
-const mockUseDailyEnergyCard = jest.fn();
-jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
-  useDailyEnergyCard: (...args: unknown[]) => mockUseDailyEnergyCard(...args),
->>>>>>> origin/main
 }));
 
 const mockUseDailyNutritionCard = jest.fn(() => ({
@@ -177,7 +171,6 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
 
 describe("Dash Daily Energy card", () => {
   beforeEach(() => {
-<<<<<<< HEAD
     mockUseTodayHealthHero.mockReset();
   });
 
@@ -186,15 +179,6 @@ describe("Dash Daily Energy card", () => {
       vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
-=======
-    mockUseDailyEnergyCard.mockReset();
-  });
-
-  it("renders Dash heading, tagline, and Daily Energy hero", () => {
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: false,
-      error: null,
->>>>>>> origin/main
       refetch: jest.fn(),
       energy: {
         modelVersion: "daily_energy_v3",
@@ -218,7 +202,6 @@ describe("Dash Daily Energy card", () => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-<<<<<<< HEAD
     /** Legacy title + tagline must be gone (audit-driven removal). */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
     /** Weekly Fitness + remaining cards. */
@@ -235,7 +218,7 @@ describe("Dash Daily Energy card", () => {
     expect(text).toContain("2,120–2,480 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
-    expect(text).not.toContain("Confidence");
+    expect(text).toContain("Confidence");
     expect(text).not.toContain("Sleep");
     expect(text).not.toContain("Recovery");
 
@@ -261,23 +244,6 @@ describe("Dash Daily Energy card", () => {
       },
       energyLoading: true,
       energyError: null,
-=======
-    const idxDashHeading = text.indexOf("Dash");
-    const idxTagline = text.indexOf("Track, understand, and improve every part of your health.");
-    expect(idxDashHeading).toBeGreaterThan(-1);
-    expect(idxTagline).toBeGreaterThan(-1);
-    expect(idxDashHeading).toBeLessThan(idxTagline);
-    expect(text).toContain("Daily Energy");
-    expect(text).toContain("2,120–2,480 kcal");
-    expect(text).toContain("BMR");
-    expect(text).toContain("NEAT");
-  });
-
-  it("shows loading copy while Daily Energy is hydrating", () => {
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: true,
-      error: null,
->>>>>>> origin/main
       refetch: jest.fn(),
       energy: undefined,
     });
@@ -291,16 +257,10 @@ describe("Dash Daily Energy card", () => {
   });
 
   it("shows empty-state copy when energy is missing", () => {
-<<<<<<< HEAD
     mockUseTodayHealthHero.mockReturnValue({
       vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
-=======
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: false,
-      error: null,
->>>>>>> origin/main
       refetch: jest.fn(),
       energy: undefined,
     });

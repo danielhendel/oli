@@ -4,7 +4,6 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-<<<<<<< HEAD
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
@@ -67,13 +66,18 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
   }),
 }));
 
-=======
-const mockUseDailyEnergyCard = jest.fn();
-jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
-  useDailyEnergyCard: (...args: unknown[]) => mockUseDailyEnergyCard(...args),
+jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
+  useDailyNutritionCard: () => ({
+    model: {
+      calorieLabel: "0 kcal",
+      hasAnyNutrition: false,
+      rows: [],
+    },
+    loading: false,
+    error: null,
+  }),
 }));
 
->>>>>>> origin/main
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
@@ -145,18 +149,11 @@ function countDashIconPlaceholders(root: renderer.ReactTestInstance): number {
 
 describe("Dash provenance", () => {
   beforeEach(() => {
-<<<<<<< HEAD
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
-=======
-    mockUseDailyEnergyCard.mockReset();
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: false,
-      error: null,
->>>>>>> origin/main
       refetch: jest.fn(),
       energy: {
         modelVersion: "daily_energy_v3",
@@ -183,14 +180,9 @@ describe("Dash provenance", () => {
     });
     const text = collectAllText(test);
     expect(text).toContain("Oli");
-<<<<<<< HEAD
     expect(text).toContain("Body Composition");
     expect(text).toContain("Daily Energy");
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
-=======
-    expect(text).toContain("Track, understand, and improve every part of your health.");
-    expect(text).toContain("Daily Energy");
->>>>>>> origin/main
   });
 
   it("renders only non-chevron vector icons on Dash (e.g. Settings gear)", () => {
@@ -201,50 +193,30 @@ describe("Dash provenance", () => {
     expect(countDashIconPlaceholders(test.root)).toBe(1);
   });
 
-<<<<<<< HEAD
   it("renders factor rows on Daily Energy without legacy Dash tagline", () => {
-=======
-  it("shows Dash section heading, tagline, and energy factors", () => {
->>>>>>> origin/main
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-<<<<<<< HEAD
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
     expect(text).toContain("Body Composition");
-=======
-    expect(text).toContain("Dash");
-    expect(text).toContain("Track, understand, and improve every part of your health.");
->>>>>>> origin/main
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
-<<<<<<< HEAD
     expect(text).toContain("Weekly Fitness");
     expect(text).toContain("Progress to goal");
     expect(text).toContain("Daily Nutrition");
-=======
-    expect(text).not.toContain("Body Composition");
-    expect(text).not.toContain("Nutrition");
->>>>>>> origin/main
     expect(text).not.toContain("Readiness");
     expect(text).not.toContain("Labs");
   });
 
   it("renders empty-state copy when energy is unavailable", () => {
-<<<<<<< HEAD
     mockUseTodayHealthHero.mockReturnValue({
       vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
-=======
-    mockUseDailyEnergyCard.mockReturnValue({
-      loading: false,
-      error: null,
->>>>>>> origin/main
       refetch: jest.fn(),
       energy: undefined,
     });

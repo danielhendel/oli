@@ -19,7 +19,6 @@ function isFresh(entry: CacheEntry): boolean {
   return Date.now() - entry.cachedAtMs <= CACHE_TTL_MS;
 }
 
-<<<<<<< HEAD
 /**
  * Notification target for {@link invalidateDailyFactsSessionCache}.
  * Receives the (userUid, day) tuple so consumers (e.g. {@link useDailyFacts})
@@ -43,14 +42,11 @@ export function subscribeDailyFactsInvalidations(cb: DailyFactsInvalidationListe
   };
 }
 
-=======
->>>>>>> origin/main
 /** Best-effort invalidation after upstream sync updates today's truth. */
 export function invalidateDailyFactsSessionCache(input: { userUid: string; day: string }): void {
   const key = buildKey(input.userUid, input.day);
   settled.delete(key);
   inflight.delete(key);
-<<<<<<< HEAD
   for (const cb of invalidationListeners) {
     try {
       cb(input);
@@ -113,8 +109,6 @@ export function __testing_resetDailyFactsInvalidationListeners(): void {
 export function __testing_resetDailyFactsSessionCache(): void {
   settled.clear();
   inflight.clear();
-=======
->>>>>>> origin/main
 }
 
 export async function getDailyFactsSessionCached(input: {

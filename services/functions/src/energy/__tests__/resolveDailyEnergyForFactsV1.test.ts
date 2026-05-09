@@ -119,7 +119,6 @@ describe("resolveDailyEnergyForFactsV1", () => {
     expect(energy?.factors.steps?.inputsUsed).toContain("body.weightKg:lastKnown");
   });
 
-<<<<<<< HEAD
   it("carries forward latest body fields independently (does not let tiny latest-only RMR replace older weight)", async () => {
     const db = makeDb({
       profile: {
@@ -156,8 +155,6 @@ describe("resolveDailyEnergyForFactsV1", () => {
     expect(energy?.factors.baseline?.kcalLow).toBeGreaterThan(1000);
   });
 
-=======
->>>>>>> origin/main
   it("returns undefined when profile/body/steps are missing", async () => {
     const db = makeDb({});
     const energy = await resolveDailyEnergyForFactsV1({

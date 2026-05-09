@@ -11,12 +11,7 @@ import {
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
 import {
-<<<<<<< HEAD
-  UI_NAV_SURFACE,
   UI_NAV_SURFACE_BORDER,
-=======
-  UI_BORDER_SUBTLE,
->>>>>>> origin/main
   UI_NAV_SURFACE_ACTIVE,
   UI_NAV_TAB_ICON_ACTIVE,
   UI_NAV_TAB_ICON_INACTIVE,

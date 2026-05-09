@@ -353,7 +353,6 @@ describe("computeDailyEnergyV1", () => {
     const b = computeDailyEnergyV1(input);
     expect(a).toEqual(b);
   });
-<<<<<<< HEAD
 
   it("ignores implausibly tiny imported RMR and falls back to conservative weight-based baseline", () => {
     const result = computeDailyEnergyV1({
@@ -414,6 +413,4 @@ describe("computeDailyEnergyV1", () => {
     expect(result?.factors.baseline?.kcalHigh).toBe(round1(1680 * 1.1));
     expect(result?.factors.baseline?.inputsUsed).toContain("body.restingMetabolicRateKcal");
   });
-=======
->>>>>>> origin/main
 });
