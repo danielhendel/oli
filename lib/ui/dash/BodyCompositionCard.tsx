@@ -13,6 +13,7 @@ import { InterpretationRatingPill } from "@/lib/ui/body/InterpretationRatingPill
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_CARD_SURFACE,
+  UI_GOAL_PILL_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: "rgba(120,120,128,0.16)",
+    backgroundColor: UI_GOAL_PILL_SURFACE,
     alignItems: "center",
     justifyContent: "center",
   },

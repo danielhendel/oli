@@ -50,6 +50,9 @@ describe("computeWeeklyFitnessActivityMetrics", () => {
     });
     expect(m.avgStepsPerDay).toBe(9_660);
     expect(m.elapsedDaysWithData).toBe(5);
+    expect(m.elapsedCalendarDaysThroughToday).toBe(5);
+    expect(m.numericWeekStepsSum).toBe(48_300);
+    expect(m.hasNumericStepsAllElapsedCalendarDays).toBe(true);
     expect(m.goalProgress01).toBeCloseTo(0.966, 3);
     expect(m.goalStepsPerDay).toBe(10_000);
     // Visible label has no "avg" word; accessibility keeps "average steps".
@@ -90,6 +93,9 @@ describe("computeWeeklyFitnessActivityMetrics", () => {
       goalStepsPerDay: 10_000,
     });
     expect(m.elapsedDaysWithData).toBe(2);
+    expect(m.elapsedCalendarDaysThroughToday).toBe(5);
+    expect(m.numericWeekStepsSum).toBe(4_000);
+    expect(m.hasNumericStepsAllElapsedCalendarDays).toBe(false);
     expect(m.avgStepsPerDay).toBe(2_000);
     expect(m.goalProgress01).toBeCloseTo(0.2, 3);
   });

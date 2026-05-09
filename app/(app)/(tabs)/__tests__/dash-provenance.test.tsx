@@ -50,6 +50,12 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
     error: null,
     rows: [],
     combined: { progress: 0, percent: 0, enabledCategoryCount: 0 },
+    progressToGoalVm: {
+      strength: { primary: "Goal not set", support: "" },
+      activity: { primary: "Goal not set", support: "" },
+      cardio: { primary: "Goal not set", support: "" },
+      accessibilityLabel: "Progress to goal. Goal not set. Goal not set. Goal not set.",
+    },
     goals: {
       activityStepsPerDayGoal: 10000,
       strengthWorkoutsPerWeekGoal: 5,
@@ -101,6 +107,12 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
+}));
+
+jest.mock("react-native-svg", () => ({
+  __esModule: true,
+  default: "Svg",
+  Circle: "Circle",
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -182,7 +194,8 @@ describe("Dash provenance", () => {
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
     expect(text).toContain("Weekly Fitness");
-    expect(text).not.toContain("Nutrition");
+    expect(text).toContain("Progress to goal");
+    expect(text).toContain("Daily Nutrition");
     expect(text).not.toContain("Readiness");
     expect(text).not.toContain("Labs");
   });

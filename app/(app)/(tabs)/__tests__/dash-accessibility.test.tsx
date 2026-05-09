@@ -73,6 +73,12 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
     error: null,
     rows: [],
     combined: { progress: 0, percent: 0, enabledCategoryCount: 0 },
+    progressToGoalVm: {
+      strength: { primary: "Goal not set", support: "" },
+      activity: { primary: "Goal not set", support: "" },
+      cardio: { primary: "Goal not set", support: "" },
+      accessibilityLabel: "Progress to goal. Goal not set. Goal not set. Goal not set.",
+    },
     goals: {
       activityStepsPerDayGoal: 10000,
       strengthWorkoutsPerWeekGoal: 5,
@@ -80,6 +86,22 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
       isDefault: true,
     },
     goalsHref: "/(app)/fitness-goals",
+  }),
+}));
+
+jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
+  useDailyNutritionCard: () => ({
+    model: {
+      calorieLabel: "1,850 kcal",
+      hasAnyNutrition: true,
+      rows: [
+        { key: "protein", label: "Protein", valueLabel: "142 g" },
+        { key: "carbs", label: "Carbs", valueLabel: "210 g" },
+        { key: "fat", label: "Fat", valueLabel: "64 g" },
+      ] as const,
+    },
+    loading: false,
+    error: null,
   }),
 }));
 
@@ -124,6 +146,12 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
+}));
+
+jest.mock("react-native-svg", () => ({
+  __esModule: true,
+  default: "Svg",
+  Circle: "Circle",
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -207,7 +235,18 @@ describe("Dash accessibility", () => {
     expect(rootViews.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("removes the legacy 'Dash' title + tagline and renders Body Composition above Daily Energy", () => {
+  it("renders Daily Nutrition card accessibility label", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const rootViews = test.root.findAll(
+      (n) => (n.props as { accessibilityLabel?: string }).accessibilityLabel === "Daily nutrition card",
+    );
+    expect(rootViews.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("removes Sleep/Recovery summary and renders Weekly Fitness above Body Composition", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -225,15 +264,21 @@ describe("Dash accessibility", () => {
     /** Body Composition card row is present. */
     expect(text).toContain("159 lb");
     expect(text).toContain("Body Composition");
+    expect(text).toContain("Weekly Fitness");
     /** Daily Energy still renders. */
     expect(text).toContain("Daily Energy");
+    expect(text).toContain("Daily Nutrition");
+    expect(text).not.toContain("Sleep");
+    expect(text).not.toContain("Recovery");
 
-    /** Today hero precedes Body Composition; Body Composition precedes Daily Energy. */
+    /** Today hero precedes Weekly Fitness; then Body Composition then Daily Energy. */
     const idxHero = text.indexOf("Good afternoon");
+    const idxWeeklyFitness = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     expect(idxHero).toBeGreaterThan(-1);
-    expect(idxBody).toBeGreaterThan(idxHero);
+    expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
+    expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
   });
 

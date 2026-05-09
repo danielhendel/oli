@@ -14,10 +14,12 @@ import {
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
+import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
 import { useWeeklyFitnessCard } from "@/lib/data/dash/useWeeklyFitnessCard";
 import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
 import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
+import { DailyNutritionCard } from "@/lib/ui/dash/DailyNutritionCard";
 import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
@@ -28,6 +30,7 @@ export default function DashScreen() {
   const { vm: todayHero, energy, energyLoading, energyError, refetch } = useTodayHealthHero(todayKey);
   const weeklyFitness = useWeeklyFitnessCard();
   const bodyComposition = useBodyCompositionDashCard();
+  const dailyNutrition = useDailyNutritionCard(todayKey);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -47,6 +50,15 @@ export default function DashScreen() {
         >
           <View style={styles.stacksSection}>
             <TodayHealthHero vm={todayHero} />
+            <WeeklyFitnessCard
+              loading={weeklyFitness.loading}
+              error={weeklyFitness.error}
+              rows={weeklyFitness.rows}
+              combined={weeklyFitness.combined}
+              progressToGoalVm={weeklyFitness.progressToGoalVm}
+              goalsHref={weeklyFitness.goalsHref}
+              hasUser={user != null}
+            />
             <BodyCompositionCard
               loading={bodyComposition.loading}
               error={bodyComposition.error}
@@ -60,13 +72,10 @@ export default function DashScreen() {
               loading={energyLoading}
               error={energyError}
             />
-            <WeeklyFitnessCard
-              loading={weeklyFitness.loading}
-              error={weeklyFitness.error}
-              rows={weeklyFitness.rows}
-              combined={weeklyFitness.combined}
-              goalsHref={weeklyFitness.goalsHref}
-              hasUser={user != null}
+            <DailyNutritionCard
+              model={dailyNutrition.model}
+              loading={dailyNutrition.loading}
+              error={dailyNutrition.error}
             />
           </View>
         </ScrollView>
@@ -86,7 +95,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 2,
+    paddingTop: 0,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },

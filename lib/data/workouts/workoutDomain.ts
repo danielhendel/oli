@@ -1,4 +1,4 @@
-import { classifyWorkoutType } from "@/lib/data/workouts/workoutMarkerFlags";
+import { classifyWorkoutHistoryItemEvidence } from "@/lib/data/workouts/workoutEligibility";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutMarkerFlags } from "@/lib/data/workouts/workoutMarkerFlags";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -6,19 +6,10 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 /** Product surface: Strength training vs cardio conditioning (Apple Health + app data). */
 export type WorkoutProductDomain = "strength" | "cardio";
 
-export function resolveHistoryItemProductDomain(item: WorkoutHistoryItem): "strength" | "cardio" {
-  if (item.workoutType === "strength" || item.workoutType === "cardio") {
-    return item.workoutType;
-  }
-  const inferred = classifyWorkoutType({
-    rawKind: item.rawKind,
-    title: item.title,
-    sport: item.sport,
-    activityName: item.activityName,
-  });
-  if (inferred === "strength" || inferred === "cardio") return inferred;
-  /** Matches {@link classifyWorkoutType} default for ambiguous HK `workout` rows. */
-  return "cardio";
+export function resolveHistoryItemProductDomain(
+  item: WorkoutHistoryItem,
+): "strength" | "cardio" | undefined {
+  return classifyWorkoutHistoryItemEvidence(item);
 }
 
 export function filterWorkoutHistoryItemsForDomain(

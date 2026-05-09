@@ -72,7 +72,7 @@ describe("DailyEnergyCard", () => {
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
     expect(text).toContain("+90–180 kcal");
-    expect(text).toMatch(/Confidence \w+ · ±/);
+    expect(text).not.toMatch(/Confidence \w+ · ±/);
     expect(tree.root.findAllByType("Pressable")).toHaveLength(4);
   });
 

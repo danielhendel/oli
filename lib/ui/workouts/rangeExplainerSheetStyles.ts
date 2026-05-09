@@ -38,6 +38,9 @@ export const rangeExplainerSheetStyles = StyleSheet.create({
   metricExplainerBlock: {
     gap: 10,
   },
+  structuredCardsWrap: {
+    gap: 12,
+  },
   metricExplainerTitle: {
     fontSize: 17,
     fontWeight: "600",

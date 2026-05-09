@@ -47,6 +47,12 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
 }));
 
+jest.mock("react-native-svg", () => ({
+  __esModule: true,
+  default: "Svg",
+  Circle: "Circle",
+}));
+
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
@@ -116,6 +122,12 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
     error: null,
     rows: [],
     combined: { progress: 0, percent: 0, enabledCategoryCount: 0 },
+    progressToGoalVm: {
+      strength: { primary: "Goal not set", support: "" },
+      activity: { primary: "Goal not set", support: "" },
+      cardio: { primary: "Goal not set", support: "" },
+      accessibilityLabel: "Progress to goal. Goal not set. Goal not set. Goal not set.",
+    },
     goals: {
       activityStepsPerDayGoal: 10000,
       strengthWorkoutsPerWeekGoal: 5,
@@ -124,6 +136,23 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
     },
     goalsHref: "/(app)/fitness-goals",
   }),
+}));
+
+const mockUseDailyNutritionCard = jest.fn(() => ({
+  model: {
+    calorieLabel: "1,850 kcal",
+    hasAnyNutrition: true,
+    rows: [
+      { key: "protein", label: "Protein", valueLabel: "142 g" },
+      { key: "carbs", label: "Carbs", valueLabel: "210 g" },
+      { key: "fat", label: "Fat", valueLabel: "64 g" },
+    ] as const,
+  },
+  loading: false,
+  error: null,
+}));
+jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
+  useDailyNutritionCard: (...args: unknown[]) => mockUseDailyNutritionCard(...args),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -145,7 +174,7 @@ describe("Dash Daily Energy card", () => {
     mockUseTodayHealthHero.mockReset();
   });
 
-  it("renders Body Composition card above Daily Energy (legacy tagline removed)", () => {
+  it("renders Weekly Fitness first and removes Sleep/Recovery summary", () => {
     mockUseTodayHealthHero.mockReturnValue({
       vm: HERO_VM_BASE,
       energyLoading: false,
@@ -175,24 +204,35 @@ describe("Dash Daily Energy card", () => {
     const text = collectAllText(test);
     /** Legacy title + tagline must be gone (audit-driven removal). */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
-    /** Body Composition card + metric rows. */
+    /** Weekly Fitness + remaining cards. */
+    expect(text).toContain("Weekly Fitness");
     expect(text).toContain("Body Composition");
     expect(text).toContain("159 lb");
     expect(text).toContain("BMI");
     expect(text).toContain("Lean Mass");
-    /** Daily Energy + Weekly Fitness preserved unchanged. */
     expect(text).toContain("Daily Energy");
-    expect(text).toContain("Weekly Fitness");
+    expect(text).toContain("Daily Nutrition");
+    expect(text).toContain("1,850 kcal");
+    expect(text).toContain("Protein");
+    expect(text).toContain("142 g");
     expect(text).toContain("2,120–2,480 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
-    /** Today hero precedes Body Composition; Body Composition precedes Daily Energy. */
+    expect(text).not.toContain("Confidence");
+    expect(text).not.toContain("Sleep");
+    expect(text).not.toContain("Recovery");
+
+    /** Today hero precedes Weekly Fitness; then Body Composition, Daily Energy, Daily Nutrition. */
     const idxHero = text.indexOf("Good afternoon");
+    const idxWeeklyFitness = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
+    const idxNutrition = text.indexOf("Daily Nutrition");
     expect(idxHero).toBeGreaterThan(-1);
-    expect(idxBody).toBeGreaterThan(idxHero);
+    expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
+    expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
+    expect(idxNutrition).toBeGreaterThan(idxEnergy);
   });
 
   it("shows loading copy while Daily Energy is hydrating", () => {

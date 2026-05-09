@@ -5,7 +5,11 @@
 import type { WeeklyFitnessRow } from "@/lib/data/dash/useWeeklyFitnessCard";
 import type { WeeklyFitnessGoalsResolved } from "@/lib/preferences/weeklyFitnessGoals";
 
-import type { MetricExplainerScreenVm, MetricLegendRowVm } from "@/lib/metrics/metricExplainerVm";
+import type {
+  MetricExplainerScreenVm,
+  MetricExplainerStructuredSectionVm,
+  MetricLegendRowVm,
+} from "@/lib/metrics/metricExplainerVm";
 import { MODULE_OVERVIEW_STRENGTH_TIER_PILL_CHROME } from "@/lib/ui/overview/moduleOverviewStrengthTierPillChrome";
 
 export type WeeklyFitnessExplainerRowKey = WeeklyFitnessRow["key"];
@@ -27,13 +31,13 @@ function activityBundle(): {
 } {
   return {
     navTitle: "Weekly Activity",
-    legendHeading: "Step-volume archetypes (weekly lens)",
+    legendHeading: "Activity ranges",
     legend: [
-      { key: "wa0", label: "Quiet week", rangeLine: "Most days under ~5k steps", dotColor: SEG_DOT[0]! },
-      { key: "wa1", label: "Steady light week", rangeLine: "Many days near comfortable walking volume", dotColor: SEG_DOT[1]! },
-      { key: "wa2", label: "Balanced week", rangeLine: "Most days mix errands + intentional walks", dotColor: SEG_DOT[2]! },
-      { key: "wa3", label: "Active week", rangeLine: "Often near popular daily movement targets", dotColor: SEG_DOT[3]! },
-      { key: "wa4", label: "High-motion week", rangeLine: "Frequent high-step days stacked together", dotColor: SEG_DOT[4]! },
+      { key: "wa0", label: "Lower movement week", rangeLine: "Mostly under ~5k steps/day", dotColor: SEG_DOT[0]! },
+      { key: "wa1", label: "Light movement week", rangeLine: "Comfortable daily walking volume", dotColor: SEG_DOT[1]! },
+      { key: "wa2", label: "Balanced movement week", rangeLine: "Regular movement across most days", dotColor: SEG_DOT[2]! },
+      { key: "wa3", label: "Active movement week", rangeLine: "Often near common step targets", dotColor: SEG_DOT[3]! },
+      { key: "wa4", label: "High movement week", rangeLine: "Frequent high-step days", dotColor: SEG_DOT[4]! },
     ],
     meanings: [
       {
@@ -62,10 +66,10 @@ function activityBundle(): {
         body: "Traveling, events, or labor-heavy jobs create spikes worth honoring.",
       },
     ],
-    explainerTitle: "How weekly activity fits NEAT",
+    explainerTitle: "What this means",
     explainerParagraphs: [
-      "Weekly Activity summarizes recent daily movement—the same family of signals Daily Energy calls NEAT, viewed across your week.",
-      "Averages smooth noisy single-day totals so you can see momentum without obsessing over one sleepy Wednesday.",
+      "Weekly activity reflects your day-to-day movement and supports the NEAT part of Daily Energy.",
+      "Your weekly average smooths noisy single days so the trend is easier to trust.",
     ],
   };
 }
@@ -80,13 +84,13 @@ function cardioBundle(): {
 } {
   return {
     navTitle: "Weekly Cardio",
-    legendHeading: "Structured cardio volume bands",
+    legendHeading: "Cardio ranges",
     legend: [
-      { key: "wc0", label: "Minimal structured cardio", rangeLine: "Mostly NEAT or strength-focused weeks", dotColor: SEG_DOT[0]! },
-      { key: "wc1", label: "Light cardio week", rangeLine: "Short sessions sprinkled through the calendar", dotColor: SEG_DOT[1]! },
-      { key: "wc2", label: "Moderate cardio week", rangeLine: "Regular endurance doses", dotColor: SEG_DOT[2]! },
-      { key: "wc3", label: "High cardio week", rangeLine: "Long mileage or frequent tempo blocks", dotColor: SEG_DOT[3]! },
-      { key: "wc4", label: "Endurance-heavy block", rangeLine: "Race prep or volume spike weeks", dotColor: SEG_DOT[4]! },
+      { key: "wc0", label: "Minimal cardio week", rangeLine: "Little structured endurance work", dotColor: SEG_DOT[0]! },
+      { key: "wc1", label: "Light cardio week", rangeLine: "A few shorter sessions", dotColor: SEG_DOT[1]! },
+      { key: "wc2", label: "Moderate cardio week", rangeLine: "Regular aerobic sessions", dotColor: SEG_DOT[2]! },
+      { key: "wc3", label: "High cardio week", rangeLine: "Frequent or longer cardio sessions", dotColor: SEG_DOT[3]! },
+      { key: "wc4", label: "Endurance-focused week", rangeLine: "Sustained high cardio volume", dotColor: SEG_DOT[4]! },
     ],
     meanings: [
       {
@@ -115,10 +119,10 @@ function cardioBundle(): {
         body: "Think races or backpacking prep—honor recovery blocks afterward.",
       },
     ],
-    explainerTitle: "Weekly cardio load",
+    explainerTitle: "What this means",
     explainerParagraphs: [
-      "Weekly cardio aggregates purposeful endurance training across your rolling calendar range.",
-      "Walking counted toward Daily Energy still matters for wellness—this row highlights intentional cardio workouts logged inside Oli.",
+      "Weekly cardio captures your intentional aerobic work across the week.",
+      "This baseline shows consistency, not whether a single week is good or bad.",
     ],
   };
 }
@@ -133,13 +137,13 @@ function strengthBundle(): {
 } {
   return {
     navTitle: "Weekly Strength",
-    legendHeading: "Resistance-training workload bands",
+    legendHeading: "Strength ranges",
     legend: [
-      { key: "ws0", label: "No logged sessions", rangeLine: "Deload or travel weeks", dotColor: SEG_DOT[0]! },
-      { key: "ws1", label: "Light week", rangeLine: "Maintenance lifts", dotColor: SEG_DOT[1]! },
-      { key: "ws2", label: "Moderate week", rangeLine: "Balanced sessions across muscle groups", dotColor: SEG_DOT[2]! },
-      { key: "ws3", label: "Heavy week", rangeLine: "High mechanical demand", dotColor: SEG_DOT[3]! },
-      { key: "ws4", label: "Very high workload", rangeLine: "Peaking blocks", dotColor: SEG_DOT[4]! },
+      { key: "ws0", label: "No logged sessions", rangeLine: "Recovery, deload, or time away", dotColor: SEG_DOT[0]! },
+      { key: "ws1", label: "Light week", rangeLine: "Maintenance-level strength work", dotColor: SEG_DOT[1]! },
+      { key: "ws2", label: "Moderate week", rangeLine: "Steady training across the week", dotColor: SEG_DOT[2]! },
+      { key: "ws3", label: "Heavy week", rangeLine: "Higher strength workload", dotColor: SEG_DOT[3]! },
+      { key: "ws4", label: "Very high week", rangeLine: "Peak training block volume", dotColor: SEG_DOT[4]! },
     ],
     meanings: [
       {
@@ -168,11 +172,50 @@ function strengthBundle(): {
         body: "Pair ambition with deloads—progress isn’t linear forever.",
       },
     ],
-    explainerTitle: "Weekly strength stimulus",
+    explainerTitle: "What this means",
     explainerParagraphs: [
-      "Weekly Strength counts structured resistance sessions logged during this rolling window.",
-      "Muscle stimulus supports metabolism long after sets finish—this lens captures consistency rather than any single heroic workout.",
+      "Weekly strength tracks how often you create a strength stimulus through the week.",
+      "Frequency helps show consistency while leaving room for recovery between sessions.",
     ],
+  };
+}
+
+function buildStructuredSectionVm(args: {
+  rowKey: WeeklyFitnessExplainerRowKey;
+  row: WeeklyFitnessRow;
+  bundle: ReturnType<typeof activityBundle>;
+}): MetricExplainerStructuredSectionVm {
+  const { rowKey, row, bundle } = args;
+  const whatThisMeansBody =
+    rowKey === "activity"
+      ? [
+          `${row.label}: ${row.valueLabel} this week.`,
+          "This reflects daily movement rhythm and its contribution to NEAT in your daily energy profile.",
+        ]
+      : rowKey === "strength"
+        ? [
+            `${row.label}: ${row.valueLabel} this week.`,
+            "This reflects how often you applied a meaningful strength stimulus while preserving recovery days.",
+          ]
+        : [
+            `${row.label}: ${row.valueLabel} this week.`,
+            "This reflects your recent aerobic consistency across intentional cardio sessions.",
+          ];
+
+  const howToUseBody =
+    rowKey === "activity"
+      ? "Use this as a weekly trend signal; adjust your next few days rather than reacting to one day."
+      : rowKey === "strength"
+        ? "Use this to keep session frequency steady week to week, then match effort to recovery."
+        : "Use this to plan the next cardio session with a pace and duration that feels sustainable.";
+
+  return {
+    whatThisMeansTitle: "What this means",
+    whatThisMeansBody,
+    rangesTitle: bundle.legendHeading,
+    rangesRows: bundle.legend,
+    howToUseTitle: "How to use this",
+    howToUseBody,
   };
 }
 
@@ -186,30 +229,12 @@ export function buildWeeklyFitnessMetricExplainerVm(args: {
   const bundle =
     rowKey === "activity" ? activityBundle() : rowKey === "cardio" ? cardioBundle() : strengthBundle();
 
-  const goalParts: string[] = [];
-  if (rowKey === "activity" && goals.activityStepsPerDayGoal > 0) {
-    goalParts.push(`${goals.activityStepsPerDayGoal.toLocaleString()} steps per day target`);
-  }
-  if (rowKey === "strength" && goals.strengthWorkoutsPerWeekGoal > 0) {
-    goalParts.push(`${goals.strengthWorkoutsPerWeekGoal} strength sessions per week target`);
-  }
-  if (rowKey === "cardio" && goals.cardioMilesPerWeekGoal > 0) {
-    goalParts.push(`${goals.cardioMilesPerWeekGoal} cardio miles per week target`);
-  }
-
-  const readingLines: string[] = [`${row.label}: ${row.valueLabel}`, row.accessibilityValueLabel];
-  if (goalParts.length > 0) {
-    readingLines.push(`Goals you’ve set: ${goalParts.join(" · ")}`);
-  }
-  readingLines.push(
-    row.hasGoal
-      ? `Progress toward this week’s goal reads ${Math.round(Math.min(1, Math.max(0, row.progress)) * 100)}% — momentum matters more than perfection.`
-      : "No numeric goal is enabled here yet — tap My goal whenever you want a gentle weekly anchor.",
-  );
+  const readingLines = buildWeeklyFitnessReadingLines({ rowKey, row, goals });
 
   return {
     navigationTitle: bundle.navTitle,
     readingLines,
+    structuredSection: buildStructuredSectionVm({ rowKey, row, bundle }),
     metricExplainerTitle: bundle.explainerTitle,
     metricExplainerParagraphs: bundle.explainerParagraphs,
     rangeLegendHeading: bundle.legendHeading,
@@ -217,4 +242,60 @@ export function buildWeeklyFitnessMetricExplainerVm(args: {
     rangeMeaningsHeading: "What each band suggests",
     tierMeanings: bundle.meanings,
   };
+}
+
+function parseLeadingNumericValue(label: string): number | null {
+  const m = label.trim().match(/^([0-9][0-9,]*(?:\.[0-9]+)?)/);
+  if (!m) return null;
+  const numericText = m[1];
+  if (numericText == null) return null;
+  const n = Number(numericText.replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function hasNoMetricData(rowKey: WeeklyFitnessExplainerRowKey, row: WeeklyFitnessRow): boolean {
+  const n = parseLeadingNumericValue(row.valueLabel);
+  if (n == null) return false;
+  if (rowKey === "activity") return n <= 0;
+  if (rowKey === "strength") return n <= 0;
+  return n <= 0;
+}
+
+function activityReadingSentence(row: WeeklyFitnessRow, goals: WeeklyFitnessGoalsResolved): string {
+  if (hasNoMetricData("activity", row)) return "No weekly activity data yet.";
+  if (goals.activityStepsPerDayGoal <= 0) return "You logged movement this week and can build consistency over the next few days.";
+  if (row.status === "complete") return "You’re above your daily movement target this week.";
+  if (row.status === "onTrack") return "You’re close to your daily movement target this week.";
+  return "You’re below your daily movement target this week.";
+}
+
+function strengthReadingSentence(row: WeeklyFitnessRow, goals: WeeklyFitnessGoalsResolved): string {
+  if (hasNoMetricData("strength", row)) return "No strength workouts logged this week.";
+  if (goals.strengthWorkoutsPerWeekGoal <= 0) return "You logged strength training this week and your routine can build with steady session spacing.";
+  if (row.status === "complete") return "You’re above your weekly strength target this week.";
+  if (row.status === "onTrack") return "You’re building toward your weekly strength target this week.";
+  return "You’re below your weekly strength target this week.";
+}
+
+function cardioReadingSentence(row: WeeklyFitnessRow, goals: WeeklyFitnessGoalsResolved): string {
+  if (hasNoMetricData("cardio", row)) return "No cardio logged this week.";
+  if (goals.cardioMilesPerWeekGoal <= 0) return "You logged cardio this week and can build with another session in the next few days.";
+  if (row.status === "complete") return "You’re meeting your weekly cardio target this week.";
+  if (row.status === "onTrack") return "You’re building toward your weekly cardio target this week.";
+  return "You’re below your weekly cardio target this week; this is the clearest area to build.";
+}
+
+function buildWeeklyFitnessReadingLines(args: {
+  rowKey: WeeklyFitnessExplainerRowKey;
+  row: WeeklyFitnessRow;
+  goals: WeeklyFitnessGoalsResolved;
+}): string[] {
+  const { rowKey, row, goals } = args;
+  const sentence =
+    rowKey === "activity"
+      ? activityReadingSentence(row, goals)
+      : rowKey === "strength"
+        ? strengthReadingSentence(row, goals)
+        : cardioReadingSentence(row, goals);
+  return [`${row.label}: ${row.valueLabel}`, sentence];
 }

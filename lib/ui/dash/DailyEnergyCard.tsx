@@ -12,7 +12,6 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
-  UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
@@ -26,14 +25,6 @@ function formatRange(energy: DailyEnergyCardDto): string {
   const low = Math.round(energy.estimatedKcal.low).toLocaleString();
   const high = Math.round(energy.estimatedKcal.high).toLocaleString();
   return `${low}\u2013${high} kcal`;
-}
-
-function capitalizeConfidence(confidence: DailyEnergyCardDto["confidence"]): string {
-  return confidence.charAt(0).toUpperCase() + confidence.slice(1);
-}
-
-function formatVariancePct(variancePct: number): string {
-  return `${(variancePct * 100).toFixed(1)}%`;
 }
 
 export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactElement {
@@ -63,10 +54,6 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
         <>
           <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
           <Text style={styles.subtitle}>Estimated burn today</Text>
-          <Text style={styles.meta}>
-            {`Confidence ${capitalizeConfidence(energy.confidence)} · ±`}
-            {formatVariancePct(energy.variancePct)}
-          </Text>
           <View style={styles.factors} accessibilityRole="list">
             {rows.map((row) => (
               <Pressable
@@ -123,11 +110,6 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
     fontWeight: "700",
     letterSpacing: -0.2,
-  },
-  meta: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_TERTIARY_LABEL,
   },
   factors: {
     borderTopWidth: StyleSheet.hairlineWidth,

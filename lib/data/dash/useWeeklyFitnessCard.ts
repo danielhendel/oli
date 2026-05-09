@@ -6,6 +6,11 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
+import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import {
+  buildWeeklyFitnessProgressToGoalVm,
+  type WeeklyFitnessProgressToGoalVm,
+} from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
 import {
   computeWeeklyFitnessActivityMetrics,
   computeWeeklyFitnessCardioMetrics,
@@ -26,6 +31,8 @@ import {
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
+import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 /**
  * Dash "Weekly Fitness" goal-progress rows — tapping opens qualitative modal explainers.
@@ -61,10 +68,21 @@ export type UseWeeklyFitnessCardResult = {
   rows: WeeklyFitnessRow[];
   /** Combined Weekly Fitness completion across enabled (goal>0) categories. */
   combined: WeeklyFitnessCombinedProgress;
+  /** Right-aligned progress-to-goal summary for the ring row (same source as rows). */
+  progressToGoalVm: WeeklyFitnessProgressToGoalVm;
   /** Always present; resolves to defaults when no goals are persisted. */
   goals: ReturnType<typeof resolveWeeklyFitnessGoals>;
   /** Route for the "My goal" pressable. */
   goalsHref: string;
+  /** Shared source data for rows + explainer baseline cards. */
+  baselineSource: {
+    todayDayKey: DayKey;
+    rollupByDay: Readonly<ActivityStepsRollupMap>;
+    strengthCalendarDays: readonly WorkoutCalendarDayLike[];
+    cardioCalendarDays: readonly WorkoutCalendarDayLike[];
+    availableRangeStart: DayKey;
+    availableRangeEnd: DayKey;
+  };
 };
 
 
@@ -142,9 +160,10 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     return mapWorkoutCalendarDaysForDomain(overviewSharedRange.days, "cardio");
   }, [overviewSharedRange]);
 
-  const { rows, combined } = useMemo((): {
+  const { rows, combined, progressToGoalVm } = useMemo((): {
     rows: WeeklyFitnessRow[];
     combined: WeeklyFitnessCombinedProgress;
+    progressToGoalVm: WeeklyFitnessProgressToGoalVm;
   } => {
     const activity = computeWeeklyFitnessActivityMetrics({
       weekDayKeys,
@@ -214,7 +233,13 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       cardio,
     });
 
-    return { rows: computedRows, combined: combinedNext };
+    const progressToGoalVmNext = buildWeeklyFitnessProgressToGoalVm({
+      activity,
+      strength,
+      cardio,
+    });
+
+    return { rows: computedRows, combined: combinedNext, progressToGoalVm: progressToGoalVmNext };
   }, [
     cardioCalendarDays,
     goals.activityStepsPerDayGoal,
@@ -250,7 +275,16 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     error,
     rows,
     combined,
+    progressToGoalVm,
     goals,
     goalsHref: WEEKLY_FITNESS_ROUTES.goalsEditor,
+    baselineSource: {
+      todayDayKey,
+      rollupByDay: rollupMergedForWeek,
+      strengthCalendarDays,
+      cardioCalendarDays,
+      availableRangeStart: overviewRangeStart,
+      availableRangeEnd: overviewRangeEnd,
+    },
   };
 }

@@ -11,7 +11,8 @@ import {
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
 import {
-  UI_BORDER_SUBTLE,
+  UI_NAV_SURFACE,
+  UI_NAV_SURFACE_BORDER,
   UI_NAV_SURFACE_ACTIVE,
   UI_NAV_TAB_ICON_ACTIVE,
   UI_NAV_TAB_ICON_INACTIVE,
@@ -138,9 +139,9 @@ const styles = StyleSheet.create({
     minHeight: TAB_MIN_HEIGHT + 12,
     borderRadius: 26,
     overflow: "hidden",
-    backgroundColor: "rgba(18,22,27,0.96)",
+    backgroundColor: UI_NAV_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_SUBTLE,
+    borderColor: UI_NAV_SURFACE_BORDER,
     ...Platform.select({
       ios: {
         shadowColor: "#000",

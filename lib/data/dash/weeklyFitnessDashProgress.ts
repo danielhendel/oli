@@ -33,6 +33,18 @@ export type WeeklyFitnessActivityMetrics = {
   goalStepsPerDay: number;
   /** Number of elapsed days that contributed to the average. 0 when none. */
   elapsedDaysWithData: number;
+  /**
+   * Calendar days in the current week from **week start through today** (inclusive).
+   * Used with {@link numericWeekStepsSum} for “steps needed today” pace vs the daily step goal.
+   */
+  elapsedCalendarDaysThroughToday: number;
+  /** Sum of step counts on elapsed days that have **numeric** rollup entries (subset of the week when data is partial). */
+  numericWeekStepsSum: number;
+  /**
+   * True when every calendar-elapsed day through today has a **numeric** rollup (including today).
+   * When false, progress-to-goal copy falls back to labeled average-gap wording.
+   */
+  hasNumericStepsAllElapsedCalendarDays: boolean;
   /** Visual progress 0–1 = avgStepsPerDay / goal (clamped). 0 when goal is 0 (no goal set). */
   goalProgress01: number;
   /** Visible row value: "9,992 avg steps" (or "No goal set" when goal is 0). */
@@ -52,20 +64,29 @@ export function computeWeeklyFitnessActivityMetrics(input: {
   rollupByDay: Readonly<ActivityStepsRollupMap>;
   goalStepsPerDay: number;
 }): WeeklyFitnessActivityMetrics {
-  let sum = 0;
-  let count = 0;
+  let numericSum = 0;
+  let numericDayCount = 0;
+  let calendarElapsedThroughToday = 0;
+  let allElapsedHaveNumeric = true;
+
   for (const day of input.weekDayKeys) {
     if (day > input.todayDayKey) continue;
+    calendarElapsedThroughToday += 1;
     const entry = input.rollupByDay[day];
     if (entry?.kind === "numeric") {
-      sum += entry.steps;
-      count += 1;
+      numericSum += entry.steps;
+      numericDayCount += 1;
+    } else {
+      allElapsedHaveNumeric = false;
     }
   }
-  const avg = count > 0 ? Math.round(sum / count) : 0;
+
+  const avg = numericDayCount > 0 ? Math.round(numericSum / numericDayCount) : 0;
   const goal = Math.max(0, Math.round(input.goalStepsPerDay));
   const hasGoal = goal > 0;
   const goalProgress01 = hasGoal ? clampGoalProgress01(avg / goal) : 0;
+  const hasNumericStepsAllElapsedCalendarDays =
+    calendarElapsedThroughToday > 0 && allElapsedHaveNumeric;
   // Visible label: actual-only, no "avg" word per Dash card spec.
   const valueLabel = hasGoal ? `${avg.toLocaleString()} steps` : "No goal set";
   // Accessibility keeps the semantic "average steps" phrasing (the value is a weekly daily-avg).
@@ -75,7 +96,10 @@ export function computeWeeklyFitnessActivityMetrics(input: {
   return {
     avgStepsPerDay: avg,
     goalStepsPerDay: goal,
-    elapsedDaysWithData: count,
+    elapsedDaysWithData: numericDayCount,
+    elapsedCalendarDaysThroughToday: calendarElapsedThroughToday,
+    numericWeekStepsSum: numericSum,
+    hasNumericStepsAllElapsedCalendarDays,
     goalProgress01,
     valueLabel,
     accessibilityValueLabel,

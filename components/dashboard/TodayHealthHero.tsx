@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { SleepRecoverySummary } from "@/components/dashboard/SleepRecoverySummary";
 import type { TodayHealthHeroViewModel } from "@/lib/dashboard/todayHealthHero";
 
 import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
@@ -22,7 +21,7 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
 
   return (
     <View style={styles.wrap} testID="today-health-hero">
-      <View accessible accessibilityRole="header" accessibilityLabel={headerA11y}>
+      <View style={styles.headerBlock} accessible accessibilityRole="header" accessibilityLabel={headerA11y}>
         {vm.loading ? (
           <>
             <View style={styles.skLineLong} />
@@ -39,16 +38,17 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
           </>
         )}
       </View>
-
-      <SleepRecoverySummary model={vm.sleepRecovery} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 6,
+    paddingBottom: 10,
+  },
+  headerBlock: {
+    paddingHorizontal: 15,
   },
   greeting: {
     fontSize: 26,

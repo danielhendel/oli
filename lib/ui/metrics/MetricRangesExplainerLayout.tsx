@@ -55,6 +55,7 @@ export function MetricRangesExplainerLayout({
 
   const leadTrimmed = lead?.trim() ?? "";
   const legendHeadingTrimmed = legendHeading?.trim() ?? "";
+  const sectionHeadingTrimmed = sectionHeading?.trim() ?? "";
 
   return (
     <ScrollView
@@ -79,7 +80,7 @@ export function MetricRangesExplainerLayout({
         </View>
       ) : null}
 
-      <Text style={styles.sectionHeading}>{sectionHeading}</Text>
+      {sectionHeadingTrimmed.length > 0 ? <Text style={styles.sectionHeading}>{sectionHeadingTrimmed}</Text> : null}
       {tiers.map((tier) => (
         <View
           key={tier.title}
