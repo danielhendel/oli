@@ -34,10 +34,33 @@ describe("workoutDomain", () => {
     ).toBe("strength");
   });
 
+  it("resolveHistoryItemProductDomain does not default ambiguous rows to cardio", () => {
+    expect(
+      resolveHistoryItemProductDomain(
+        item({
+          title: "Other",
+          sport: "Other",
+          activityName: "Other",
+          hk: { sourceId: "healthkit", activityId: 3000 },
+          distanceMeters: null,
+          workoutType: undefined,
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
   it("filterWorkoutHistoryItemsForDomain keeps only matching rows", () => {
     const rows = [
       item({ id: "a", workoutType: "strength" }),
       item({ id: "b", workoutType: "cardio" }),
+      item({
+        id: "c",
+        title: "Other",
+        sport: "Other",
+        activityName: "Other",
+        hk: { sourceId: "healthkit", activityId: 3000 },
+        workoutType: undefined,
+      }),
     ];
     expect(filterWorkoutHistoryItemsForDomain(rows, "strength").map((r) => r.id)).toEqual(["a"]);
     expect(filterWorkoutHistoryItemsForDomain(rows, "cardio").map((r) => r.id)).toEqual(["b"]);

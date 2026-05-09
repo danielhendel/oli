@@ -212,3 +212,32 @@ export function bodyMetricsForSnapshotDay(
   const peekComp = compositionMetricsFromPeekRowsForSnapshotDay(mergedPeek, snapshotDay, tz);
   return { weightKgFromSeries, weightKgFromPeek, peekComp };
 }
+
+/**
+ * Latest ISO timestamp among weight-series points and peek rows contributing to `snapshotDay`
+ * (same merge rule as {@link bodyMetricsForSnapshotDay}).
+ */
+export function latestObservedAtForSnapshotDay(
+  snapshotDay: string,
+  byDay: Map<string, WeightPoint[]>,
+  globalPeekRows: readonly BodySnapshotPeekRow[],
+  snapshotDayPeekRows: readonly BodySnapshotPeekRow[],
+  tz: string,
+): string | null {
+  const mergedPeek = dedupePeekRowsById(snapshotDayPeekRows, globalPeekRows);
+  let best: string | null = null;
+  const bump = (iso: string | undefined | null) => {
+    if (iso == null || typeof iso !== "string" || iso.length === 0) return;
+    if (!best || iso.localeCompare(best) > 0) best = iso;
+  };
+  for (const p of byDay.get(snapshotDay) ?? []) {
+    bump(p.observedAt);
+  }
+  for (const r of mergedPeek) {
+    if (r.kind !== "weight" && r.kind !== "body_composition") continue;
+    const payload = (r.payload ?? {}) as { time?: string; timezone?: string };
+    const dk = deriveWeightPointDayKey(payload, r.observedAt, tz);
+    if (dk === snapshotDay) bump(r.observedAt);
+  }
+  return best;
+}

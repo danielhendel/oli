@@ -29,6 +29,22 @@ const addDaysUtc = (ymd: string, deltaDays: number): string => {
   return `${yy}-${mm}-${dd}`;
 };
 
+type LatestBodyField<T> = { value: T; sourceDay: string };
+
+function pickLatestBodyField<T>(
+  factsDesc: DailyFacts[],
+  pick: (body: NonNullable<DailyFacts["body"]>) => T | undefined,
+): LatestBodyField<T> | undefined {
+  for (const f of factsDesc) {
+    const body = f.body;
+    if (!body) continue;
+    const value = pick(body);
+    if (value === undefined) continue;
+    return { value, sourceDay: f.date };
+  }
+  return undefined;
+}
+
 export async function resolveDailyEnergyForFactsV1(input: {
   db: Firestore;
   userId: string;
@@ -63,36 +79,35 @@ export async function resolveDailyEnergyForFactsV1(input: {
     .limit(LOOKBACK_DAYS)
     .get();
 
-  const latestBodyFactsSource = priorFactsSnap.docs
-    .map((d) => d.data() as DailyFacts)
-    .find((f) => {
-      const body = f.body;
-      return (
-        typeof body?.weightKg === "number" ||
-        typeof body?.bodyFatPercent === "number" ||
-        typeof body?.leanBodyMassKg === "number" ||
-        typeof body?.restingMetabolicRateKcal === "number"
-      );
-    });
+  const priorFactsDesc = priorFactsSnap.docs.map((d) => d.data() as DailyFacts);
+  const latestWeight = pickLatestBodyField(priorFactsDesc, (b) =>
+    typeof b.weightKg === "number" ? b.weightKg : undefined,
+  );
+  const latestBodyFat = pickLatestBodyField(priorFactsDesc, (b) =>
+    typeof b.bodyFatPercent === "number" ? b.bodyFatPercent : undefined,
+  );
+  const latestLeanMass = pickLatestBodyField(priorFactsDesc, (b) =>
+    typeof b.leanBodyMassKg === "number" ? b.leanBodyMassKg : undefined,
+  );
+  const latestRmr = pickLatestBodyField(priorFactsDesc, (b) =>
+    typeof b.restingMetabolicRateKcal === "number" ? b.restingMetabolicRateKcal : undefined,
+  );
 
-  const latestBodyFactsForEnergy = latestBodyFactsSource?.body
-    ? {
-        ...(typeof latestBodyFactsSource.body.weightKg === "number"
-          ? { weightKg: latestBodyFactsSource.body.weightKg }
-          : {}),
-        ...(typeof latestBodyFactsSource.body.bodyFatPercent === "number"
-          ? { bodyFatPercent: latestBodyFactsSource.body.bodyFatPercent }
-          : {}),
-        ...(typeof latestBodyFactsSource.body.leanBodyMassKg === "number"
-          ? { leanBodyMassKg: latestBodyFactsSource.body.leanBodyMassKg }
-          : {}),
-        ...(typeof latestBodyFactsSource.body.restingMetabolicRateKcal === "number"
-          ? { restingMetabolicRateKcal: latestBodyFactsSource.body.restingMetabolicRateKcal }
-          : {}),
-        sourceDay: latestBodyFactsSource.date,
-        isCarriedForward: true as const,
-      }
-    : undefined;
+  const latestBodyFactsForEnergy =
+    latestWeight || latestBodyFat || latestLeanMass || latestRmr
+      ? {
+          ...(latestWeight ? { weightKg: latestWeight.value } : {}),
+          ...(latestBodyFat ? { bodyFatPercent: latestBodyFat.value } : {}),
+          ...(latestLeanMass ? { leanBodyMassKg: latestLeanMass.value } : {}),
+          ...(latestRmr ? { restingMetabolicRateKcal: latestRmr.value } : {}),
+          sourceDay:
+            [latestWeight?.sourceDay, latestBodyFat?.sourceDay, latestLeanMass?.sourceDay, latestRmr?.sourceDay]
+              .filter((v): v is string => typeof v === "string")
+              .sort()
+              .slice(-1)[0] ?? dailyFacts.date,
+          isCarriedForward: true as const,
+        }
+      : undefined;
 
   return computeDailyEnergyV1({
     dailyFacts,

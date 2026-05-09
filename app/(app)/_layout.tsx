@@ -41,6 +41,24 @@ export default function AppLayout() {
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
           <Stack.Screen
+            name="energy/energy-metric-explainer"
+            options={{
+              title: "Daily Energy",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+
+          <Stack.Screen
+            name="weekly-fitness-metric-explainer"
+            options={{
+              title: "Weekly Fitness",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+
+          <Stack.Screen
             name="energy/bmr"
             options={{ title: "BMR", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -86,6 +104,14 @@ export default function AppLayout() {
           <Stack.Screen
             name="body/settings"
             options={{ title: "Body settings", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/body-metric-ranges-explainer"
+            options={{
+              title: "Ranges",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
           />
 
           <Stack.Screen
@@ -316,6 +342,10 @@ export default function AppLayout() {
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
           <Stack.Screen name="profile/edit/[field]" options={{ title: "Edit" }} />
+          <Stack.Screen
+            name="fitness-goals"
+            options={{ title: "Weekly Fitness Goals", ...workoutsStackNavigationOptions("detail") }}
+          />
           {/* Secondary: API-ingest strength form. Primary strength log is workouts/log. */}
           <Stack.Screen name="training/strength/log" options={{ title: "Log Strength" }} />
           <Stack.Screen name="log/index" options={{ title: "Quick log" }} />

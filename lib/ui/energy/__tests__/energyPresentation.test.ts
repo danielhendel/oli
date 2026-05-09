@@ -29,7 +29,7 @@ describe("energyPresentation", () => {
     expect(formatAdditiveEnergyRange(390, 528)).toBe("+390–528 kcal");
   });
 
-  it("getEnergyFactorRows omits missing factors", () => {
+  it("getEnergyFactorRows includes factor keys only for present contributions", () => {
     const e = baseEnergy();
     e.factors = {
       baseline: { kcalLow: 1500, kcalHigh: 1700 },
@@ -37,7 +37,7 @@ describe("energyPresentation", () => {
     };
     const rows = getEnergyFactorRows(e);
     expect(rows.map((r) => r.key)).toEqual(["baseline", "steps"]);
-    expect(rows.every((r) => r.href.startsWith("/energy/"))).toBe(true);
+    expect(rows.every((r) => r.displayValue.startsWith("+"))).toBe(true);
   });
 
   it("getEnergyFactorRows omits strength when absent", () => {

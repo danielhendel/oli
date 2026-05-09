@@ -3,11 +3,12 @@
  */
 
 import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
 import { ACTIVITY_RANGE_TIER_EXPLANATIONS } from "@/lib/ui/activity/activityRangeExplainerCopy";
 import { ActivityStepTierLegend } from "@/lib/ui/activity/ActivityStepTierLegend";
+import { MetricRangesExplainerLayout } from "@/lib/ui/metrics/MetricRangesExplainerLayout";
 import { rangeExplainerSheetStyles as styles } from "@/lib/ui/workouts/rangeExplainerSheetStyles";
 import {
   ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS,
@@ -43,51 +44,39 @@ export default function ActivityRangeExplainerScreen() {
     displayValueRaw.length > 0 &&
     displayValueRaw !== "—";
 
-  return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
-      testID="activity-range-explainer-scroll"
-    >
-      <Text style={styles.lead}>{INTRO_COPY}</Text>
+  const tiers = ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS.map((descriptor, i) => {
+    const range = ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES[i]!;
+    const body = ACTIVITY_RANGE_TIER_EXPLANATIONS[i] ?? "";
+    return { title: descriptor, rangeLine: range, body };
+  });
 
-      <View style={styles.legendSection}>
+  return (
+    <MetricRangesExplainerLayout
+      lead={INTRO_COPY}
+      legendSlot={
         <ActivityStepTierLegend
           listTestID="activity-range-explainer-tier-legend"
           tierRowTestID={(i) => `activity-range-explainer-tier-row-${i}`}
           tierDotTestID={(i) => `activity-range-explainer-tier-dot-${i}`}
         />
-      </View>
-
-      <Text style={styles.sectionHeading}>What each range means</Text>
-      {ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS.map((descriptor, i) => {
-        const range = ACTIVITY_STEP_DESCRIPTOR_RANGE_LINES[i]!;
-        const body = ACTIVITY_RANGE_TIER_EXPLANATIONS[i] ?? "";
-        return (
+      }
+      sectionHeading="What each range means"
+      tiers={tiers}
+      scrollTestID="activity-range-explainer-scroll"
+      footerSlot={
+        showPersonal ? (
           <View
-            key={descriptor}
-            style={styles.tierBlock}
-            accessibilityLabel={`${descriptor}. ${range}.`}
+            style={styles.personalCard}
+            accessibilityLabel={`${windowLabel}. ${tierLabelResolved}. ${displayValueRaw}.`}
           >
-            <Text style={styles.tierTitle}>{descriptor}</Text>
-            <Text style={styles.tierRange}>{range}</Text>
-            <Text style={styles.tierBody}>{body}</Text>
+            <Text style={styles.personalHeading}>Your context</Text>
+            <Text style={styles.personalLine}>
+              <Text style={styles.personalEmphasis}>{windowLabel}</Text>
+              {`: ${tierLabelResolved} — ${displayValueRaw}`}
+            </Text>
           </View>
-        );
-      })}
-
-      {showPersonal ? (
-        <View
-          style={styles.personalCard}
-          accessibilityLabel={`${windowLabel}. ${tierLabelResolved}. ${displayValueRaw}.`}
-        >
-          <Text style={styles.personalHeading}>Your context</Text>
-          <Text style={styles.personalLine}>
-            <Text style={styles.personalEmphasis}>{windowLabel}</Text>
-            {`: ${tierLabelResolved} — ${displayValueRaw}`}
-          </Text>
-        </View>
-      ) : null}
-    </ScrollView>
+        ) : null
+      }
+    />
   );
 }

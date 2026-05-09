@@ -233,13 +233,6 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc, options?: ParseWorkout
     }
   }
 
-  const workoutType = classifyWorkoutType({
-    rawKind: raw.kind,
-    title,
-    sport,
-    activityName,
-  });
-
   const durationMinutes =
     asNumber(payload?.durationMinutes) ??
     (asNumber(payload?.duration) != null
@@ -258,6 +251,15 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc, options?: ParseWorkout
     const hkActivityId = asNumber(hkPayload.activityId);
     hk = { sourceId: hkSourceId, activityId: hkActivityId };
   }
+
+  const workoutType = classifyWorkoutType({
+    rawKind: raw.kind,
+    title,
+    sport,
+    activityName,
+    distanceMeters,
+    hkActivityId: hk?.activityId,
+  });
 
   const strengthVolumeKg =
     raw.kind === "strength_workout" && payload

@@ -88,6 +88,7 @@ export const UI_OVERLAY = T.overlay;
 export const UI_SURFACE_PRESSED = T.surfacePressed;
 
 export const UI_NAV_SURFACE = T.navSurface;
+export const UI_NAV_SURFACE_BORDER = T.navSurfaceBorder;
 export const UI_NAV_SURFACE_ACTIVE = T.navSurfaceActive;
 export const UI_NAV_ICON_ACTIVE = T.navIconActive;
 export const UI_NAV_ICON_INACTIVE = T.navIconInactive;
@@ -100,6 +101,9 @@ export const UI_NAV_TAB_ICON_ACTIVE = SYSTEM_ACCENT;
 
 /** Floating bottom nav — inactive tab icon + label (white on dark nav pill). */
 export const UI_NAV_TAB_ICON_INACTIVE = "#FFFFFF";
+
+/** Dash "My goal" action pills share the floating nav glass material. */
+export const UI_GOAL_PILL_SURFACE = UI_NAV_SURFACE;
 
 export const UI_PROGRESS_TRACK_EMPTY = T.progressTrackEmpty;
 

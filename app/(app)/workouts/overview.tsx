@@ -835,6 +835,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
           trigger: "sync",
           getIdToken,
           forceRestart: false,
+          ...(user?.uid ? { userUid: user.uid } : {}),
         });
       } finally {
         workoutBackfillInFlightRef.current = false;

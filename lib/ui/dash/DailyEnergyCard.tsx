@@ -1,6 +1,10 @@
 import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { type Href, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+
+import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
+import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
+import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -11,8 +15,6 @@ import {
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
-import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
-import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
 
 type Props = {
   energy: DailyEnergyCardDto | undefined;
@@ -38,11 +40,15 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
 
-  const onPressRow = useCallback(
-    (href: string) => {
-      router.push(href as Href);
+  const onPressMetricRow = useCallback(
+    (metricKey: (typeof rows)[number]["key"]) => {
+      if (!energy) return;
+      router.push({
+        pathname: ENERGY_METRIC_EXPLAINER_PATHNAME,
+        params: { metric: metricKey, day: energy.day },
+      });
     },
-    [router],
+    [energy, router],
   );
 
   return (
@@ -67,15 +73,20 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
                 key={row.key}
                 testID={`energy-row-${row.key}`}
                 accessibilityRole="button"
-                accessibilityLabel={`Open ${row.label} details`}
+                accessibilityLabel={`Open ${row.label} explanation`}
                 onPress={() => {
-                  onPressRow(row.href);
+                  onPressMetricRow(row.key);
                 }}
                 style={({ pressed }) => [styles.factorPressable, pressed && styles.factorPressablePressed]}
               >
                 <View style={styles.factorRow}>
                   <Text style={styles.factorLabel}>{row.label}</Text>
-                  <Text style={styles.factorValue}>{row.displayValue}</Text>
+                  <View style={styles.factorRight}>
+                    <Text style={styles.factorValue}>{row.displayValue}</Text>
+                    <Text style={styles.factorChevron} accessibilityElementsHidden importantForAccessibility="no">
+                      {"\u203A"}
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             ))}
@@ -92,6 +103,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     gap: 8,
+    marginTop: 12,
     backgroundColor: UI_CARD_SURFACE,
   },
   title: strengthMetricCardTitleTextStyle,
@@ -127,17 +139,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: -6,
     paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center",
   },
   factorPressablePressed: {
     opacity: 0.75,
   },
   factorRow: {
-    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+  },
+  factorRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    flexShrink: 1,
   },
   factorLabel: {
     fontSize: 14,
@@ -151,5 +171,12 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
     fontWeight: "600",
     textAlign: "right",
+  },
+  factorChevron: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: UI_TEXT_MUTED,
+    flexShrink: 0,
   },
 });

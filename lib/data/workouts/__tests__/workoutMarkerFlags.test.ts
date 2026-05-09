@@ -62,6 +62,18 @@ describe("deriveWorkoutMarkerFlags", () => {
     ).toBe("cardio");
   });
 
+  it("does not classify generic Other without distance as cardio", () => {
+    expect(
+      classifyWorkoutType({
+        rawKind: "workout",
+        title: "Other",
+        sport: "Other",
+        activityName: "Other",
+        hkActivityId: 3000,
+      }),
+    ).toBeUndefined();
+  });
+
   it("marks strength-only days", () => {
     expect(deriveWorkoutMarkerFlags([workout({ workoutType: "strength" })])).toEqual({
       hasStrength: true,

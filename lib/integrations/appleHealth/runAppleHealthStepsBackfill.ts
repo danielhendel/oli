@@ -2,6 +2,14 @@ import { shouldIngestAppleHealthStepsForDay } from "./appleHealthStepsIngestGuar
 import { buildAppleHealthStepsIngestBody } from "./appleHealthStepsIngestBody";
 import { getLastIngestedStepsForDay, setLastIngestedStepsForDay } from "./storage";
 import { addLocalCalendarDaysToDayKey, getLocalCalendarDayBoundsFromYmd } from "./healthKit";
+
+const DEV_LOG_ENABLED = typeof __DEV__ !== "undefined" && __DEV__ && !process.env.JEST_WORKER_ID;
+
+function devLog(message: string, data: Record<string, unknown>): void {
+  if (!DEV_LOG_ENABLED) return;
+  // eslint-disable-next-line no-console
+  console.log(`[AH:steps-backfill] ${message}`, data);
+}
 import type {
   AppleHealthStepsBackfillState,
   AppleHealthStepsRepairTriggerSource,
@@ -204,9 +212,24 @@ export async function runAppleHealthStepsBackfill(
         idempotencyKey,
         payloadDay: body.payload.day,
       });
+      devLog("post /ingest", {
+        day,
+        idempotencyKey,
+        hkSteps: pulled.steps,
+        payloadSteps: body.payload.steps,
+        payloadStart: body.payload.start,
+        payloadTimezone: body.payload.timezone,
+        lastIngested,
+      });
       const res = await deps.ingestRawEvent(body, opts.token, {
         idempotencyKey,
         timeoutMs: 15000,
+      });
+      devLog("ingest response", {
+        day,
+        idempotencyKey,
+        ok: res.ok,
+        ...(res.ok ? {} : { error: res.error, requestId: res.requestId }),
       });
       if (!res.ok) {
         await deps.setBackfillState({

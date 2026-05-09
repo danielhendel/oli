@@ -220,12 +220,23 @@ export function isSupportedCardioModalityLabel(label: string): boolean {
   return !isUnsupportedCardioModalityLabel(label);
 }
 
+/**
+ * Cardio **calendar / history / mileage totals** (display surfaces): session counts only when the
+ * representative row’s modality label is not a generic bucket (“Other”, “Unknown”, …).
+ *
+ * This is intentionally **stricter** than {@link classifyWorkoutEvidence}: distance-only “Other” may
+ * still classify as cardio for reconciliation, but must not inflate Cardio miles baselines.
+ */
 export function isSupportedCardioSessionModality(session: ReconciledWorkoutSession): boolean {
-  return isSupportedCardioModalityLabel(formatCardioSessionSubtitle(session));
+  const rep = pickRepresentativeWorkoutForCardioModality(session);
+  if (rep == null) return false;
+  const label = cardioModalityLabelFromWorkout(rep);
+  return isSupportedCardioModalityLabel(label);
 }
 
 export function isDisplayableCardioHistorySession(session: ReconciledWorkoutSession): boolean {
   if (session.sessionType !== "cardio") return false;
+  if (!isSupportedCardioSessionModality(session)) return false;
   const subtitle = formatCardioSessionSubtitle(session).trim().toLowerCase();
   const miles = cardioSessionDistanceMiles(session);
   const hasDistance = miles != null && miles > 0;
@@ -326,10 +337,9 @@ export function getThisWeekCardioSessions(
 ): RecentWorkoutSessionEntry[] {
   const dayOrder = new Map(weekDaysInOrder.map((day, idx) => [day, idx]));
   const filtered = sessions.filter((entry) => {
-    if (entry.session.sessionType !== "cardio") return false;
     if (!dayOrder.has(entry.day)) return false;
     if (!isDisplayableCardioHistorySession(entry.session)) return false;
-    return isSupportedCardioSessionModality(entry.session);
+    return true;
   });
   filtered.sort((a, b) => {
     const dayA = dayOrder.get(a.day) ?? Number.MAX_SAFE_INTEGER;

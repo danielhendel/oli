@@ -19,6 +19,7 @@ export type OliSemanticColors = {
   textInverse: string;
 
   navSurface: string;
+  navSurfaceBorder: string;
   navSurfaceActive: string;
   navIconActive: string;
   navIconInactive: string;
@@ -74,7 +75,8 @@ export const OLI_DARK: OliSemanticColors = {
   textTertiary: "#6F7785",
   textInverse: "#0B0D10",
 
-  navSurface: "rgba(18,22,27,0.92)",
+  navSurface: "rgba(48,56,66,0.7)",
+  navSurfaceBorder: "rgba(255,255,255,0.14)",
   navSurfaceActive: "rgba(255,255,255,0.10)",
   navIconActive: "#F7F8FA",
   navIconInactive: "#8B93A1",
@@ -119,6 +121,7 @@ export const OLI_LIGHT: OliSemanticColors = {
   textInverse: "#FFFFFF",
 
   navSurface: "rgba(255,255,255,0.92)",
+  navSurfaceBorder: "rgba(60,60,67,0.14)",
   navSurfaceActive: "rgba(0,0,0,0.06)",
   navIconActive: "#1C1C1E",
   navIconInactive: "#8E8E93",

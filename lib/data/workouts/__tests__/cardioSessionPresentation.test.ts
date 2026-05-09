@@ -15,6 +15,8 @@ import {
   sessionsHaveOverlappingTimeWindows,
   sumDisplayableCardioDistanceMilesForWeekEntries,
 } from "@/lib/data/workouts/cardioSessionPresentation";
+import { filterWorkoutHistoryItemsForDomain } from "@/lib/data/workouts/workoutDomain";
+import { reconcileWorkoutSessionsForDay } from "@/lib/data/workouts/workoutSessionReconciliation";
 import { activityStepTierBarVisual } from "@/lib/utils/activityStepTierVisual";
 
 function cardioSession(
@@ -108,6 +110,42 @@ describe("cardioSessionPresentation", () => {
     const out = getThisWeekCardioSessions(entries, weekDays);
     expect(out).toHaveLength(3);
     expect(out.map((e) => e.session.id)).toEqual(["sun", "a", "c"]);
+  });
+
+  it("uses the same cardio inclusion outcome as domain filtering for Other-without-distance", () => {
+    const day = "2026-05-04" as const;
+    const cardioCandidate = {
+      id: "apple-other",
+      observedAt: "2026-05-04T08:46:05.000-0400",
+      sourceId: "healthkit",
+      title: "Other",
+      sport: "Other",
+      activityName: "Other",
+      start: "2026-05-04T08:46:05.000-0400",
+      end: "2026-05-04T09:44:39.000-0400",
+      durationMinutes: 59,
+      calories: 354,
+      hk: { sourceId: "com.myzonemoves.app.MYZONE", activityId: 3000 },
+      workoutType: undefined,
+      distanceMeters: null,
+    };
+    const domainFiltered = filterWorkoutHistoryItemsForDomain([cardioCandidate], "cardio");
+    expect(domainFiltered).toHaveLength(0);
+
+    const sessions = reconcileWorkoutSessionsForDay(day, domainFiltered);
+    const thisWeekRows = getThisWeekCardioSessions(
+      sessions.map((session) => ({ day, session })),
+      [
+        "2026-05-03",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+      ],
+    );
+    expect(thisWeekRows).toHaveLength(0);
   });
 
   it("Sun–Wed sessions appear in calendar order with no row cap", () => {

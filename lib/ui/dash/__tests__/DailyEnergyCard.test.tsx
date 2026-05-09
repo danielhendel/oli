@@ -1,6 +1,7 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
+import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
 
 const mockPush = jest.fn();
@@ -108,7 +109,7 @@ describe("DailyEnergyCard", () => {
     expect(tree.root.findAllByType("Pressable")).toHaveLength(3);
   });
 
-  it("navigates to /energy/bmr when BMR row is pressed", () => {
+  it("opens Daily Energy metric explainer modal when BMR row is pressed", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -137,7 +138,10 @@ describe("DailyEnergyCard", () => {
       bmr?.props.onPress?.();
     });
     expect(mockPush).toHaveBeenCalledTimes(1);
-    expect(mockPush.mock.calls[0]?.[0]).toBe("/energy/bmr");
+    expect(mockPush.mock.calls[0]?.[0]).toEqual({
+      pathname: ENERGY_METRIC_EXPLAINER_PATHNAME,
+      params: { metric: "baseline", day: "2026-05-05" },
+    });
   });
 
   it("renders cardio factor range when present", () => {

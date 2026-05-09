@@ -5,7 +5,10 @@ import type { TruthGetOptions } from "@/lib/api/usersMe";
 import type { DailyFactsDto } from "@/lib/contracts";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
-import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
+import {
+  getDailyFactsSessionCached,
+  subscribeDailyFactsInvalidations,
+} from "@/lib/data/dailyFactsSessionCache";
 
 type State =
   | { status: "partial" }
@@ -128,6 +131,21 @@ export function useDailyFacts(
     }
     void fetchOnce();
   }, [enabled, fetchOnce, day, user?.uid]);
+
+  // Refetch when the dailyFactsSessionCache is invalidated for this (uid, day).
+  // Triggered after Apple Health steps / body sync ingest lands its backend recompute,
+  // so persisted `dailyFacts.activity.steps` and `dailyFacts.energy.factors.steps`
+  // are picked up without waiting for screen refocus.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const uid = user?.uid;
+    if (!uid) return undefined;
+    return subscribeDailyFactsInvalidations((ev) => {
+      if (ev.userUid !== uid) return;
+      if (ev.day !== dayRef.current) return;
+      void fetchOnce({ cacheBust: `dailyFactsInvalidated:${ev.day}` });
+    });
+  }, [enabled, fetchOnce, user?.uid]);
 
   return useMemo(
     () => ({

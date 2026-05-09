@@ -1,88 +1,20 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import { classifyWorkoutEvidence } from "@/lib/data/workouts/workoutEligibility";
 
 export type WorkoutMarkerFlags = {
   hasStrength: boolean;
   hasCardio: boolean;
 };
 
-const STRENGTH_TERMS = [
-  "traditionalstrengthtraining",
-  "functionalstrengthtraining",
-  "strengthtraining",
-  "strength",
-  "weighttraining",
-  "resistancetraining",
-  "weightlifting",
-  "olympicweightlifting",
-  "powerlifting",
-  "bodybuilding",
-  "crossfit",
-  "gym",
-  "deadlift",
-  "squat",
-  "benchpress",
-  "resistance",
-];
-
-const CARDIO_TERMS = [
-  "running",
-  "walking",
-  /** Matches compacted "IndoorWalk", "OutdoorWalk" (Apple Fitness / HK strings). */
-  "indoorwalk",
-  "outdoorwalk",
-  "indoordrun",
-  "outdoorrun",
-  "hiking",
-  "cycling",
-  "biking",
-  "rowing",
-  "elliptical",
-  "stair",
-  "stepper",
-  "swimming",
-  "jumprope",
-  "dancecardio",
-  "aerobic",
-  "endurance",
-  "jog",
-];
-
-function compact(value: string | null | undefined): string {
-  return (value ?? "").replace(/[\s_-]+/g, "").toLowerCase();
-}
-
-function containsAnyToken(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(term));
-}
-
 export function classifyWorkoutType(input: {
   rawKind?: string | null | undefined;
   title?: string | null | undefined;
   sport?: string | null | undefined;
   activityName?: string | null | undefined;
+  distanceMeters?: number | null | undefined;
+  hkActivityId?: number | null | undefined;
 }): "strength" | "cardio" | undefined {
-  if (input.rawKind === "strength_workout") return "strength";
-
-  // Prefer normalized/sport signals before title fallbacks.
-  const sportToken = compact(input.sport);
-  const activityToken = compact(input.activityName);
-  const titleToken = compact(input.title);
-
-  const normalized = [sportToken, activityToken].filter(Boolean).join(" ");
-  if (normalized.length === 0 && titleToken.length === 0) {
-    return undefined;
-  }
-  if (normalized.length > 0) {
-    if (containsAnyToken(normalized, STRENGTH_TERMS)) return "strength";
-    if (containsAnyToken(normalized, CARDIO_TERMS)) return "cardio";
-  }
-
-  if (titleToken.length > 0) {
-    if (containsAnyToken(titleToken, STRENGTH_TERMS)) return "strength";
-    if (containsAnyToken(titleToken, CARDIO_TERMS)) return "cardio";
-  }
-
-  return "cardio";
+  return classifyWorkoutEvidence(input);
 }
 
 export function deriveWorkoutMarkerFlags(workouts: WorkoutHistoryItem[]): WorkoutMarkerFlags {
@@ -93,9 +25,12 @@ export function deriveWorkoutMarkerFlags(workouts: WorkoutHistoryItem[]): Workou
     const type =
       workout.workoutType ??
       classifyWorkoutType({
+        rawKind: workout.rawKind,
         title: workout.title,
         sport: workout.sport,
         activityName: workout.activityName,
+        distanceMeters: workout.distanceMeters,
+        hkActivityId: workout.hk?.activityId,
       });
     if (type === "strength") {
       hasStrength = true;

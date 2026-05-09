@@ -7,9 +7,15 @@ import React, {
     useState,
   } from "react";
   
-  import { defaultPreferences, type Preferences, type MassUnit } from "@oli/contracts";
+  import { defaultPreferences, type Preferences, type MassUnit, type WeeklyFitnessGoals } from "@oli/contracts";
   import { useAuth } from "@/lib/auth/AuthProvider";
-  import { getPreferences, updateMassUnit, updateSelectedGymId, updateMetricSourcePreference } from "@/lib/api/preferences";
+  import {
+    getPreferences,
+    updateMassUnit,
+    updateSelectedGymId,
+    updateMetricSourcePreference,
+    updateWeeklyFitnessGoals,
+  } from "@/lib/api/preferences";
   
   type PreferencesState =
     | { status: "partial"; preferences: Preferences }
@@ -22,6 +28,16 @@ import React, {
     setMassUnit: (mass: MassUnit) => Promise<void>;
     setSelectedGymId: (selectedGymId: string | null) => Promise<void>;
     setMetricSourcePreference: (metricId: string, sourceId: string | null) => Promise<void>;
+    /**
+     * Persist Dash Weekly Fitness goals via PUT /preferences. Returns true on success;
+     * sets state to "error" with `message` on failure (existing values preserved).
+     */
+    setWeeklyFitnessGoals: (
+      goals: Pick<
+        WeeklyFitnessGoals,
+        "activityStepsPerDayGoal" | "strengthWorkoutsPerWeekGoal" | "cardioMilesPerWeekGoal"
+      >,
+    ) => Promise<boolean>;
   };
   
   const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -149,6 +165,53 @@ import React, {
       setState({ status: "ready", preferences: res.json });
     };
   
+    const setWeeklyFitnessGoalsFn = async (
+      goals: Pick<
+        WeeklyFitnessGoals,
+        "activityStepsPerDayGoal" | "strengthWorkoutsPerWeekGoal" | "cardioMilesPerWeekGoal"
+      >,
+    ): Promise<boolean> => {
+      // Signed out / auth not ready: keep local-only (no API call).
+      if (initializing || !user) {
+        const stamp: WeeklyFitnessGoals = { ...goals, updatedAt: new Date().toISOString() };
+        setState((s) => ({
+          status: "ready",
+          preferences: { ...s.preferences, weeklyFitnessGoals: stamp },
+        }));
+        return true;
+      }
+
+      const prev = state.preferences;
+      const optimistic: WeeklyFitnessGoals = { ...goals, updatedAt: new Date().toISOString() };
+      setState({
+        status: "ready",
+        preferences: { ...prev, weeklyFitnessGoals: optimistic },
+      });
+
+      const token = await getIdToken(false);
+      if (!token) {
+        setState({
+          status: "error",
+          preferences: prev,
+          message: "No auth token (try Debug → Re-auth)",
+        });
+        return false;
+      }
+
+      const res = await updateWeeklyFitnessGoals(token, goals);
+      if (!res.ok) {
+        setState({
+          status: "error",
+          preferences: prev,
+          message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
+        });
+        return false;
+      }
+
+      setState({ status: "ready", preferences: res.json });
+      return true;
+    };
+
     const setMetricSourcePreferenceFn = async (metricId: string, sourceId: string | null): Promise<void> => {
       if (initializing || !user) {
         const m = { ...(state.preferences.metricSources ?? {}) };
@@ -190,6 +253,7 @@ import React, {
         setMassUnit,
         setSelectedGymId: setSelectedGymIdFn,
         setMetricSourcePreference: setMetricSourcePreferenceFn,
+        setWeeklyFitnessGoals: setWeeklyFitnessGoalsFn,
       }),
       [state],
     );

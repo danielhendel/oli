@@ -1,6 +1,7 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
+import { classifyWorkoutHistoryItemEvidence } from "@/lib/data/workouts/workoutEligibility";
 
 export type WorkoutSessionType = "strength" | "cardio" | "mixed" | "unknown";
 
@@ -53,10 +54,8 @@ function normalizeWindow(workout: WorkoutHistoryItem): NormalizedWindow {
 }
 
 function familyForWorkout(workout: WorkoutHistoryItem): "strength" | "cardio" | "unknown" {
-  if (workout.workoutType === "strength") return "strength";
-  if (workout.workoutType === "cardio") return "cardio";
-  if (/strength|squat|deadlift|bench|lift/i.test(workout.title)) return "strength";
-  if (workout.title.trim().length > 0) return "cardio";
+  const kind = classifyWorkoutHistoryItemEvidence(workout);
+  if (kind === "strength" || kind === "cardio") return kind;
   return "unknown";
 }
 

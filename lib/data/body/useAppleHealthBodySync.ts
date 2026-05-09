@@ -87,15 +87,17 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
     await setAppleHealthConnected(true).catch(() => undefined);
     await setLastSyncAt(nowIso()).catch(() => undefined);
     if (!wasConnected) {
+      const uid = user?.uid;
       scheduleAppleHealthStepsRepair({
         trigger: "connection",
         bypassCooldown: true,
         getIdToken,
+        ...(uid ? { userUid: uid } : {}),
       });
     }
     onSynced?.();
     return { ok: true as const };
-  }, [getIdToken, onSynced]);
+  }, [getIdToken, onSynced, user?.uid]);
 
   const doSync = useCallback(
     async (opts: { skipThrottle: boolean }) => {

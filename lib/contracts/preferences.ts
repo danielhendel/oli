@@ -8,6 +8,49 @@ export const timezoneModeSchema = z.enum(["recorded", "current", "explicit"]);
 export type TimezoneMode = z.infer<typeof timezoneModeSchema>;
 
 /**
+ * User-set Dash Weekly Fitness goals.
+ *
+ * Display-only (used by Dash “This Week’s Results” progress bars). Truth metrics never
+ * change based on goals. Defaults are applied client-side when the field is absent.
+ */
+export const WEEKLY_FITNESS_GOAL_LIMITS = {
+  activityStepsPerDayMin: 1_000,
+  activityStepsPerDayMax: 40_000,
+  strengthWorkoutsPerWeekMin: 0,
+  strengthWorkoutsPerWeekMax: 14,
+  cardioMilesPerWeekMin: 0,
+  cardioMilesPerWeekMax: 100,
+} as const;
+
+export const WEEKLY_FITNESS_GOAL_DEFAULTS = {
+  activityStepsPerDayGoal: 10_000,
+  strengthWorkoutsPerWeekGoal: 5,
+  cardioMilesPerWeekGoal: 10,
+} as const;
+
+export const weeklyFitnessGoalsSchema = z
+  .object({
+    activityStepsPerDayGoal: z
+      .number()
+      .int()
+      .min(WEEKLY_FITNESS_GOAL_LIMITS.activityStepsPerDayMin)
+      .max(WEEKLY_FITNESS_GOAL_LIMITS.activityStepsPerDayMax),
+    strengthWorkoutsPerWeekGoal: z
+      .number()
+      .int()
+      .min(WEEKLY_FITNESS_GOAL_LIMITS.strengthWorkoutsPerWeekMin)
+      .max(WEEKLY_FITNESS_GOAL_LIMITS.strengthWorkoutsPerWeekMax),
+    cardioMilesPerWeekGoal: z
+      .number()
+      .min(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMin)
+      .max(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMax),
+    /** ISO 8601 timestamp; the server stamps this on each PUT. */
+    updatedAt: z.string().datetime(),
+  })
+  .strip();
+export type WeeklyFitnessGoals = z.infer<typeof weeklyFitnessGoalsSchema>;
+
+/**
  * Phase 1 view preferences.
  *
  * Invariants:
@@ -48,6 +91,9 @@ export const preferencesSchema = z
       .array(z.string().regex(/^[a-z0-9]+(_[a-z0-9]+)*$/))
       .nullable()
       .optional(),
+
+    /** Dash Weekly Fitness goals (display-only). Defaults applied when missing. */
+    weeklyFitnessGoals: weeklyFitnessGoalsSchema.optional(),
   })
   .strip()
   .superRefine((val, ctx) => {
