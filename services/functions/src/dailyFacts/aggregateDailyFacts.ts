@@ -253,8 +253,14 @@ const buildRecoveryFacts = (events: CanonicalEvent[]): DailyRecoveryFacts | unde
     facts.hrvRmssd = avgRmssd;
   }
 
+  const resting = hrvEvents.map((e) => e.restingHeartRateBpm).filter(isNumber);
+  const avgResting = average(resting);
+  if (avgResting !== undefined) {
+    facts.restingHeartRate = avgResting;
+  }
+
   // sdnnMs not promoted to DailyFacts in v1 (reserved)
-  // restingHeartRate/readinessScore reserved for future sources/rules.
+  // readinessScore reserved for future sources/rules.
 
   return Object.keys(facts).length > 0 ? facts : undefined;
 };

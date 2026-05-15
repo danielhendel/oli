@@ -267,6 +267,8 @@ const manualHrvPayloadSchema = z
     rmssdMs: z.number().finite().nonnegative().nullable().optional(),
     sdnnMs: z.number().finite().nonnegative().nullable().optional(),
     measurementType: z.enum(["nightly", "spot"]).optional(),
+    /** Nightly resting / average HR from vendor readiness (bpm) when available. */
+    restingHeartRateBpm: z.number().finite().min(1).max(250).nullable().optional(),
   })
   .strip();
 

@@ -4,6 +4,8 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { emptyDailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
+
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
@@ -109,6 +111,7 @@ jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
+  Modal: "Modal",
   ScrollView: "ScrollView",
   ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
@@ -137,6 +140,7 @@ jest.mock("react-native", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock("expo-router", () => ({
@@ -175,6 +179,10 @@ describe("Dash accessibility", () => {
       energyLoading: false,
       energyError: null,
       energy: undefined,
+      sleepCard: emptyDailySleepCardModel("2026-05-11"),
+      sleepCardLoading: false,
+      sleepCardRefreshing: false,
+      sleepCardError: null,
       refetch: jest.fn(),
     });
     mockUseBodyCompositionDashCard.mockReset();
@@ -268,18 +276,23 @@ describe("Dash accessibility", () => {
     /** Daily Energy still renders. */
     expect(text).toContain("Daily Energy");
     expect(text).toContain("Daily Nutrition");
-    expect(text).not.toContain("Sleep");
-    expect(text).not.toContain("Recovery");
+    expect(text).toContain("Daily Sleep");
+    /** Legacy hero row used plain "Sleep" / "Recovery" labels; dedicated card uses "Daily Sleep". */
+    expect(text).not.toContain("Last night summary");
 
-    /** Today hero precedes Weekly Fitness; then Body Composition then Daily Energy. */
+    /** Today hero precedes Weekly Fitness; then Body Composition, Daily Energy, Daily Sleep, Daily Nutrition. */
     const idxHero = text.indexOf("Good afternoon");
     const idxWeeklyFitness = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
+    const idxSleepCard = text.indexOf("Daily Sleep");
+    const idxNutrition = text.indexOf("Daily Nutrition");
     expect(idxHero).toBeGreaterThan(-1);
     expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
     expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
+    expect(idxSleepCard).toBeGreaterThan(idxEnergy);
+    expect(idxNutrition).toBeGreaterThan(idxSleepCard);
   });
 
   it("keeps at least one actionable button (Settings)", () => {

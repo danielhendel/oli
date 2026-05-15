@@ -6,6 +6,24 @@
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 
+import { coerceOuraSleepScore0to100 } from "../../../api/src/lib/oura/buildSleepNightFromOuraDocument";
+import { resolveOuraSleepIngestBase } from "../../../api/src/lib/oura/resolveOuraSleepIngestBase";
+import {
+  buildSleepNightFirestorePayloadWithOuraReadiness,
+  collectReadinessLookupDaysForSleepPairs,
+  loadPersistedOuraVendorReadinessByDaysFromCollection,
+} from "../../../api/src/lib/oura/readinessForSleepNightMerge";
+import type { OuraDailyReadinessDocument } from "../../../api/src/lib/ouraApi";
+import {
+  logOuraSleepPhysiologyDebugForDoc,
+  pickOuraSleepAverageHrvMs,
+  pickOuraSleepLowestHeartRateBpm,
+} from "../../../api/src/lib/oura/ouraSleepPhysiology";
+import {
+  pickAverageHrvMsFromReadinessRecord,
+  pickLowestHeartRateBpmFromReadinessRecord,
+} from "../../../api/src/lib/oura/readinessForSleepNightMerge";
+
 const BATCH_CHUNK_SIZE = 450;
 const SOURCE = "oura";
 
@@ -90,7 +108,7 @@ function buildSleepContributors(doc: SleepDoc): Record<string, number> {
 
   const lat = doc.latency;
   if (typeof lat === "number" && !Number.isNaN(lat) && lat >= 0 && !Object.prototype.hasOwnProperty.call(out, "latency")) {
-    const latMinutes = lat > 120 ? lat / 60 : lat;
+    const latMinutes = lat >= 60 ? lat / 60 : lat;
     out.latency = clampScore(Math.max(0, 100 - latMinutes * 2));
   }
 
@@ -104,6 +122,9 @@ function buildSleepContributors(doc: SleepDoc): Record<string, number> {
 
 export type SleepDoc = Record<string, unknown> & {
   id?: string;
+  day?: string;
+  wake_time?: string;
+  bedtime_end?: string;
   bed_time?: string;
   bedtime_start?: string;
   start?: string;
@@ -141,6 +162,9 @@ type SleepSnapshot = {
   restfulSleep?: number;
   remSleep?: number;
   deepSleep?: number;
+  lowestHeartRateBpm?: number;
+  averageHrvMs?: number;
+  payload?: Record<string, unknown>;
 };
 
 type ReadinessSnapshot = {
@@ -151,31 +175,28 @@ type ReadinessSnapshot = {
   source: string;
   fetchedAt: string;
   updatedAt: string;
+  lowestHeartRateBpm?: number;
+  averageHrvMs?: number;
+  payload?: Record<string, unknown>;
 };
 
 function toYmd(iso: string): string {
   return iso.slice(0, 10);
 }
 
-function getSleepStartForSnapshot(doc: SleepDoc): string | null {
-  const s =
-    doc.bed_time ??
-    doc.bedtime_start ??
-    doc.start ??
-    doc.end_time ??
-    doc.end ??
-    null;
-  return typeof s === "string" && s.length > 0 ? s : null;
-}
-
-function extractSleepSnapshot(doc: SleepDoc, fetchedAt: string): SleepSnapshot | null {
-  const start = getSleepStartForSnapshot(doc);
-  const day = start ? toYmd(start) : null;
-  if (!day) return null;
+function extractSleepSnapshot(
+  doc: SleepDoc,
+  fetchedAt: string,
+  debugCtx?: { uid?: string },
+): SleepSnapshot | null {
+  const resolved = resolveOuraSleepIngestBase(doc);
+  if (!resolved) return null;
+  const { start, end, rollupDay: day } = resolved;
 
   const id = doc.id ?? `oura_sleep_${start}`;
-  const scoreRaw = doc.score ?? (doc as { composite_score?: number }).composite_score;
-  const score = typeof scoreRaw === "number" && !Number.isNaN(scoreRaw) ? scoreRaw : null;
+  const score = coerceOuraSleepScore0to100(
+    (doc as { score?: unknown }).score ?? (doc as { composite_score?: unknown }).composite_score,
+  );
   const contributors = buildSleepContributors(doc);
 
   const out: SleepSnapshot = {
@@ -195,6 +216,20 @@ function extractSleepSnapshot(doc: SleepDoc, fetchedAt: string): SleepSnapshot |
   if (typeof doc.restful_sleep === "number") out.restfulSleep = doc.restful_sleep;
   if (typeof doc.rem_sleep_duration === "number") out.remSleep = doc.rem_sleep_duration;
   if (typeof doc.deep_sleep_duration === "number") out.deepSleep = doc.deep_sleep_duration;
+  const lhr = pickOuraSleepLowestHeartRateBpm(doc);
+  const hrv = pickOuraSleepAverageHrvMs(doc);
+  if (lhr !== undefined) out.lowestHeartRateBpm = lhr;
+  if (hrv !== undefined) out.averageHrvMs = hrv;
+  out.payload = stripUndefined(doc as Record<string, unknown>);
+
+  logOuraSleepPhysiologyDebugForDoc(doc, {
+    ...(debugCtx?.uid != null ? { uid: debugCtx.uid } : {}),
+    day,
+    sleepDocId: String(id),
+    start,
+    end,
+  });
+
   return out;
 }
 
@@ -215,12 +250,19 @@ function extractReadinessSnapshot(doc: ReadinessDoc, fetchedAt: string): Readine
   };
   if (score != null) out.score = score;
   if (contributors != null) out.contributors = contributors;
+  const asRecord = doc as Record<string, unknown>;
+  const hrv = pickAverageHrvMsFromReadinessRecord(asRecord);
+  const lhr = pickLowestHeartRateBpmFromReadinessRecord(asRecord);
+  if (hrv != null) out.averageHrvMs = hrv;
+  if (lhr != null) out.lowestHeartRateBpm = lhr;
+  out.payload = stripUndefined(asRecord);
   return out;
 }
 
 export type RunOuraPostRawResult = {
   sleepWritten: number;
   readinessWritten: number;
+  sleepNightsWritten: number;
   metadataWritten: boolean;
 };
 
@@ -232,19 +274,28 @@ async function writeSleepSnapshots(
   uid: string,
   docs: SleepDoc[],
   requestId: string,
-): Promise<{ written: number; attempted: number; skippedMissingDay: number; errors: number }> {
+  readinessDocs: ReadinessDoc[],
+): Promise<{
+  written: number;
+  attempted: number;
+  skippedMissingDay: number;
+  errors: number;
+  sleepNightsWritten: number;
+  sleepNightsErrors: number;
+}> {
   logger.info("oura_post_raw: sleep docs received", { uid, requestId, sleepDocCount: docs.length });
 
   const fetchedAt = new Date().toISOString();
   const col = db.collection("users").doc(uid).collection("ouraVendorSleep");
+  const sleepNightsCol = db.collection("users").doc(uid).collection("sleepNights");
   let written = 0;
   let skippedMissingDay = 0;
   let errors = 0;
 
-  const snapshots: SleepSnapshot[] = [];
+  const pairs: { doc: SleepDoc; snapshot: SleepSnapshot }[] = [];
   let droppedSampleKeys: string[] | undefined;
   for (const doc of docs) {
-    const snapshot = extractSleepSnapshot(doc, fetchedAt);
+    const snapshot = extractSleepSnapshot(doc, fetchedAt, { uid });
     if (!snapshot) {
       skippedMissingDay += 1;
       if (!droppedSampleKeys && doc && typeof doc === "object") {
@@ -252,8 +303,10 @@ async function writeSleepSnapshots(
       }
       continue;
     }
-    snapshots.push(snapshot);
+    pairs.push({ doc, snapshot });
   }
+
+  const snapshots = pairs.map((p) => p.snapshot);
 
   if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
     logger.info("oura_post_raw: sleep docs dropped", {
@@ -310,7 +363,82 @@ async function writeSleepSnapshots(
     sleepSnapshotsErrors: errors,
   });
 
-  return { written, attempted: docs.length, skippedMissingDay, errors };
+  const readinessCol = db.collection("users").doc(uid).collection("ouraVendorReadiness");
+  const lookupDays = collectReadinessLookupDaysForSleepPairs(pairs);
+  const persistedReadinessByDay = await loadPersistedOuraVendorReadinessByDaysFromCollection(
+    readinessCol,
+    lookupDays,
+  );
+
+  let sleepNightsWritten = 0;
+  let sleepNightsErrors = 0;
+  for (let i = 0; i < pairs.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = pairs.slice(i, i + BATCH_CHUNK_SIZE);
+    const batch = db.batch();
+    let ops = 0;
+    for (const { doc, snapshot } of chunk) {
+      const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
+        doc,
+        snapshot.id,
+        readinessDocs as OuraDailyReadinessDocument[],
+        persistedReadinessByDay,
+      );
+      if (!merged) continue;
+      batch.set(
+        sleepNightsCol.doc(merged.anchorDay),
+        stripUndefined({
+          ...merged.payload,
+          updatedAt: FieldValue.serverTimestamp(),
+        } as Record<string, unknown>),
+        { merge: true },
+      );
+      ops += 1;
+    }
+    if (ops === 0) continue;
+    try {
+      await batch.commit();
+      sleepNightsWritten += ops;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("oura_post_raw: sleep_night_batch_error", { uid, requestId, chunkSize: chunk.length, err: message });
+      for (const { doc, snapshot } of chunk) {
+        const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
+          doc,
+          snapshot.id,
+          readinessDocs as OuraDailyReadinessDocument[],
+          persistedReadinessByDay,
+        );
+        if (!merged) continue;
+        try {
+          await sleepNightsCol.doc(merged.anchorDay).set(
+            stripUndefined({
+              ...merged.payload,
+              updatedAt: FieldValue.serverTimestamp(),
+            } as Record<string, unknown>),
+            { merge: true },
+          );
+          sleepNightsWritten += 1;
+        } catch (singleErr) {
+          sleepNightsErrors += 1;
+          logger.error("oura_post_raw: sleep_night_write_error", {
+            uid,
+            requestId,
+            anchorDay: merged.anchorDay,
+            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+          });
+        }
+      }
+    }
+  }
+
+  logger.info("oura_post_raw: sleep_nights_written", {
+    uid,
+    requestId,
+    sleepNightsWritten,
+    sleepNightsErrors,
+  });
+
+  return { written, attempted: docs.length, skippedMissingDay, errors, sleepNightsWritten, sleepNightsErrors };
 }
 
 async function writeReadinessSnapshots(
@@ -401,7 +529,7 @@ export async function runOuraPostRaw(
   });
 
   const [sleepResult, readinessResult] = await Promise.all([
-    writeSleepSnapshots(db, uid, sleepDocs, requestId),
+    writeSleepSnapshots(db, uid, sleepDocs, requestId, readinessDocs),
     writeReadinessSnapshots(db, uid, readinessDocs, requestId),
   ]);
 
@@ -434,12 +562,14 @@ export async function runOuraPostRaw(
     requestId,
     sleepWritten: sleepResult.written,
     readinessWritten: readinessResult.written,
+    sleepNightsWritten: sleepResult.sleepNightsWritten,
     metadataWritten,
   });
 
   return {
     sleepWritten: sleepResult.written,
     readinessWritten: readinessResult.written,
+    sleepNightsWritten: sleepResult.sleepNightsWritten,
     metadataWritten,
   };
 }

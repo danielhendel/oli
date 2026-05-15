@@ -3,8 +3,14 @@
  * Used by POST /integrations/oura/pull-now. OAuth token URL and scopes match integrations.ts.
  */
 
-import { localCalendarDayKeyFromIsoInTimeZone } from "@oli/contracts";
 import { logger } from "./logger";
+import {
+  normalizeOuraLatencyRawToMinutes,
+  ouraSleepWakeIsoForLog,
+  resolveOuraSleepIngestBase,
+} from "./oura/resolveOuraSleepIngestBase";
+
+export { normalizeOuraLatencyRawToMinutes, ouraSleepWakeIsoForLog, resolveOuraSleepIngestBase };
 
 const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection";
@@ -41,6 +47,10 @@ export type OuraSleepDocument = {
   restful_sleep?: number | null;
   awake_time?: number | null;
   type?: string;
+  /** Lowest HR during this sleep period (bpm) — matches Oura app sleep summary. */
+  lowest_heart_rate?: number | null;
+  /** Average HRV during this sleep period (ms). */
+  average_hrv?: number | null;
   [key: string]: unknown;
 };
 
@@ -50,8 +60,14 @@ export type OuraDailyReadinessDocument = {
   day?: string;
   timestamp?: string;
   score?: number | null;
+  /** Legacy / alternate HRV fields (ms) when present. */
   rmssd_5min?: number | null;
   rmssd_5min_balance?: number | null;
+  /** Public daily_readiness model: nightly HRV aggregate in ms (see Oura API v2 docs). */
+  average_hrv?: number | null;
+  /** Nightly average heart rate (bpm) — used for resting HR proxy when present. */
+  average_heart_rate?: number | null;
+  lowest_heart_rate?: number | null;
   [key: string]: unknown;
 };
 
@@ -439,6 +455,8 @@ export type OuraHrvIngestItem = {
   rmssdMs?: number | null;
   sdnnMs?: number | null;
   measurementType?: "nightly" | "spot";
+  /** From daily_readiness `average_heart_rate` / `lowest_heart_rate` when present (bpm). */
+  restingHeartRateBpm?: number | null;
 };
 
 /** Steps-like item from Oura daily_activity (maps to canonical steps). */
@@ -477,65 +495,11 @@ function toYmd(iso: string): string {
   return iso.slice(0, 10);
 }
 
-function isYmdDateString(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-/**
- * Normalize sleep window start from Oura sleep doc (supports bed_time, bedtime_start, start, end_time).
- * Oura API v2 can return bed_time/wake_time or bedtime_start/bedtime_end or start/end.
- */
-function getSleepStart(doc: OuraSleepDocument): string | null {
-  const s =
-    doc.bed_time ??
-    doc.bedtime_start ??
-    (doc as { start?: string }).start ??
-    doc.end_time ??
-    (doc as { end?: string }).end ??
-    null;
-  return typeof s === "string" && s.length > 0 ? s : null;
-}
-
-/**
- * Normalize sleep window end from Oura sleep doc (supports wake_time, bedtime_end, end, end_time).
- */
-function getSleepEnd(doc: OuraSleepDocument): string | null {
-  const e =
-    doc.wake_time ??
-    doc.bedtime_end ??
-    (doc as { end?: string }).end ??
-    doc.end_time ??
-    null;
-  return typeof e === "string" && e.length > 0 ? e : null;
-}
-
-/**
- * Wake-time ISO for pull-now diagnostics (same field resolution as ingest).
- */
-export function ouraSleepWakeIsoForLog(doc: OuraSleepDocument): string | null {
-  return getSleepEnd(doc);
-}
-
-/**
- * Align with GET /users/me/oura-sleep-view (`usersMe.ts`): Oura may return latency as seconds
- * (typically ≥ 60); smaller values are treated as minutes.
- */
-export function normalizeOuraLatencyRawToMinutes(latencyRaw: number): number {
-  return latencyRaw >= 60 ? Math.round(latencyRaw / 60) : Math.round(latencyRaw);
-}
-
 export function mapOuraSleepToIngestItem(doc: OuraSleepDocument): OuraSleepIngestItem | null {
-  const start = getSleepStart(doc);
-  let end = getSleepEnd(doc);
+  const resolved = resolveOuraSleepIngestBase(doc);
+  if (!resolved) return null;
+  const { start, end, rollupDay } = resolved;
   const totalSec = typeof doc.total_sleep_duration === "number" ? doc.total_sleep_duration : 0;
-  // When Oura omits wake/bedtime_end but provides duration, infer end so we still write a sleep rawEvent.
-  if (start && !end && totalSec > 0) {
-    const startMs = Date.parse(start);
-    if (!Number.isNaN(startMs)) {
-      end = new Date(startMs + totalSec * 1000).toISOString();
-    }
-  }
-  if (!start || !end) return null;
 
   const totalMinutes = Math.round(totalSec / 60);
   const efficiencyRaw = doc.efficiency;
@@ -568,14 +532,6 @@ export function mapOuraSleepToIngestItem(doc: OuraSleepDocument): OuraSleepInges
   const id = doc.id ?? `oura_sleep_${start}`;
   const isMainSleep = doc.type === "long_sleep" || doc.type === "sleep";
 
-  const providerDay =
-    typeof doc.day === "string" && isYmdDateString(doc.day) ? doc.day : null;
-  /** Prefer Oura `day`; else wake calendar day in UTC (matches normalization fallback without API day). */
-  const rollupDay =
-    providerDay ??
-    localCalendarDayKeyFromIsoInTimeZone(end, "UTC") ??
-    toYmd(end);
-
   return {
     idempotencyKey: String(id),
     start,
@@ -592,6 +548,41 @@ export function mapOuraSleepToIngestItem(doc: OuraSleepDocument): OuraSleepInges
   };
 }
 
+/** RMSSD / balance first, then `average_hrv` — matches canonical HRV ingest expectations. */
+function pickOuraReadinessRmssdMsForHrvIngest(doc: OuraDailyReadinessDocument): number | null {
+  const candidates = [doc.rmssd_5min, doc.rmssd_5min_balance, doc.average_hrv];
+  for (const c of candidates) {
+    if (typeof c === "number" && Number.isFinite(c) && c >= 0) return c;
+  }
+  return null;
+}
+
+export function pickOuraReadinessAverageHrvMs(doc: OuraDailyReadinessDocument): number | null {
+  if (typeof doc.average_hrv === "number" && Number.isFinite(doc.average_hrv) && doc.average_hrv >= 0) {
+    return doc.average_hrv;
+  }
+  const cands = [doc.rmssd_5min, doc.rmssd_5min_balance];
+  for (const c of cands) {
+    if (typeof c === "number" && Number.isFinite(c) && c >= 0) return c;
+  }
+  return null;
+}
+
+/** Lowest heart rate (bpm) from Oura daily_readiness only — not average HR. */
+export function pickOuraReadinessLowestHeartRateBpm(doc: OuraDailyReadinessDocument): number | null {
+  const low = doc.lowest_heart_rate;
+  if (typeof low === "number" && Number.isFinite(low) && low >= 30 && low <= 220) return Math.round(low);
+  return null;
+}
+
+function pickOuraReadinessRestingHeartRateBpm(doc: OuraDailyReadinessDocument): number | null {
+  const avg = doc.average_heart_rate;
+  if (typeof avg === "number" && Number.isFinite(avg) && avg >= 30 && avg <= 220) return avg;
+  const low = doc.lowest_heart_rate;
+  if (typeof low === "number" && Number.isFinite(low) && low >= 30 && low <= 220) return low;
+  return null;
+}
+
 export function mapOuraReadinessToHrvItem(
   doc: OuraDailyReadinessDocument,
 ): OuraHrvIngestItem | null {
@@ -600,8 +591,8 @@ export function mapOuraReadinessToHrvItem(
   if (!day || !time) return null;
 
   const id = doc.id ?? `oura_hrv_${day}`;
-  const rmssd = doc.rmssd_5min ?? doc.rmssd_5min_balance;
-  const rmssdMs = typeof rmssd === "number" && rmssd >= 0 ? rmssd : null;
+  const rmssdMs = pickOuraReadinessRmssdMsForHrvIngest(doc);
+  const restingHeartRateBpm = pickOuraReadinessRestingHeartRateBpm(doc);
 
   return {
     idempotencyKey: String(id),
@@ -609,6 +600,7 @@ export function mapOuraReadinessToHrvItem(
     timezone: "UTC",
     day,
     ...(rmssdMs != null ? { rmssdMs } : {}),
+    ...(restingHeartRateBpm != null ? { restingHeartRateBpm } : {}),
     measurementType: "nightly",
   };
 }

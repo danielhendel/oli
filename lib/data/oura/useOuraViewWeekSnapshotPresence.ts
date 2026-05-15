@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getOuraReadinessView, getOuraSleepView } from "@/lib/api/usersMe";
+import { isOuraViewAlignedToDay } from "@/lib/data/oura/isOuraViewAlignedToDay";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
@@ -99,7 +100,8 @@ export function useOuraViewWeekSnapshotPresence(
         const res =
           k === "sleep" ? await getOuraSleepView(day, token) : await getOuraReadinessView(day, token);
         const outcome = truthOutcomeFromApiResult(res);
-        return [day, outcome.status === "ready"] as const;
+        const has = outcome.status === "ready" && isOuraViewAlignedToDay(outcome.data, day);
+        return [day, has] as const;
       }),
     );
 

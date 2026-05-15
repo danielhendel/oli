@@ -127,7 +127,7 @@ export async function recomputeAndWriteWorkoutDaySummary(args: {
   await db.collection("users").doc(userId).collection("workoutDaySummaries").doc(uiDay).set(payload);
 
   try {
-    const mod = await import("./recomputeWorkoutMonthSummary");
+    const mod = await import("./recomputeWorkoutMonthSummary.js");
     await mod.maybeRecomputeWorkoutMonthSummaryForUiDay({ db, userId, uiDay });
   } catch (err) {
     logger.error("workout_month_summary_after_day_failed", {

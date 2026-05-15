@@ -35,6 +35,7 @@ import {
   type OuraDailyReadinessDocument,
   OuraApiError,
   ouraSleepWakeIsoForLog,
+  resolveOuraSleepIngestBase,
 } from "../../lib/ouraApi";
 import { writeOuraRawEvents } from "../../lib/ouraIngestWrite";
 import {
@@ -334,7 +335,8 @@ export async function performOuraPullNowCore(
       heartrateDocs,
     ] = await Promise.all([
       fetchOuraSleep(accessToken, sleepStartStr, sleepEndStr, { requestId, uid }),
-      fetchOuraDailyReadiness(accessToken, startStr, endStr),
+      /** Same inclusive window as sleep so readiness/HRV rows near rolling boundaries are not dropped. */
+      fetchOuraDailyReadiness(accessToken, sleepStartStr, sleepEndStr),
       safeFetch("personal_info", () => fetchOuraPersonalInfo(accessToken)),
       safeFetch("daily_activity", () => fetchOuraDailyActivity(accessToken, startStr, endStr)),
       safeFetch("workout", () => fetchOuraWorkouts(accessToken, startStr, endStr)),
@@ -367,6 +369,49 @@ export async function performOuraPullNowCore(
       latestSleepId,
       sleepDocCount: sleepDocs.length,
     });
+
+    if (process.env.OURA_SLEEP_LATEST_AUDIT === "1" || process.env.OURA_SLEEP_LATEST_AUDIT === "true") {
+      let latestDoc: OuraSleepDocument | null = null;
+      let latestWakeMs = -1;
+      for (const d of sleepDocs) {
+        const w = ouraSleepWakeIsoForLog(d);
+        if (!w) continue;
+        const t = Date.parse(w);
+        if (Number.isNaN(t)) continue;
+        if (!latestDoc || t > latestWakeMs) {
+          latestWakeMs = t;
+          latestDoc = d;
+        }
+      }
+      const r = latestDoc ? resolveOuraSleepIngestBase(latestDoc) : null;
+      const totalSec =
+        latestDoc && typeof latestDoc.total_sleep_duration === "number" ? latestDoc.total_sleep_duration : null;
+      const scoreRaw = latestDoc
+        ? ((latestDoc as { score?: unknown }).score ?? (latestDoc as { composite_score?: unknown }).composite_score)
+        : undefined;
+      const latestScore =
+        typeof scoreRaw === "number" && Number.isFinite(scoreRaw)
+          ? Math.round(Math.max(0, Math.min(100, scoreRaw)))
+          : typeof scoreRaw === "string"
+            ? (() => {
+                const n = Number(scoreRaw.trim());
+                return Number.isFinite(n) ? Math.round(Math.max(0, Math.min(100, n))) : null;
+              })()
+            : null;
+      logger.info({
+        msg: "[OURA_SLEEP_LATEST_AUDIT]",
+        uid,
+        requestedStart: sleepStartStr,
+        requestedEnd: sleepEndStr,
+        docsFetched: sleepDocs.length,
+        latestOuraDay: typeof latestDoc?.day === "string" ? latestDoc.day : null,
+        latestStart: r?.start ?? null,
+        latestEnd: r?.end ?? null,
+        latestScore,
+        latestTotalSleep: totalSec != null && totalSec >= 0 ? Math.round(totalSec / 60) : null,
+        latestEfficiency: typeof latestDoc?.efficiency === "number" ? latestDoc.efficiency : null,
+      });
+    }
 
     logger.info({
       msg: "oura_fetch_counts",
@@ -427,6 +472,18 @@ export async function performOuraPullNowCore(
       const id = (doc as { id?: string }).id ?? `oura_heartrate_${startStr}_${i}`;
       ouraRawItems.push(toOuraRawIngestItem("heartrate", id, doc as Record<string, unknown>));
     });
+    for (const doc of sleepDocs) {
+      const id =
+        typeof doc.id === "string" && doc.id.trim().length > 0
+          ? doc.id.trim()
+          : (() => {
+              const r = resolveOuraSleepIngestBase(doc);
+              return r ? `oura_sleep_${r.start}` : null;
+            })();
+      if (id) {
+        ouraRawItems.push(toOuraRawIngestItem("sleep", id, doc as Record<string, unknown>));
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const code = err instanceof OuraApiError ? err.code : "OURA_FETCH_FAILED";
@@ -502,6 +559,16 @@ export async function performOuraPullNowCore(
         sleepDocCount: sleepDocsToUse.length,
         readinessDocCount: readinessDocsToUse.length,
       });
+      void performOuraPostRawPersistence(uid, requestId, sleepDocsToUse, readinessDocsToUse).catch(
+        (persistErr: unknown) => {
+          logger.error({
+            msg: "oura_post_raw_persistence_after_enqueue_error",
+            uid,
+            requestId,
+            err: persistErr instanceof Error ? persistErr.message : String(persistErr),
+          });
+        },
+      );
     } catch (err) {
       logger.error({
         msg: "oura_post_raw_job_enqueue_error",
@@ -569,7 +636,7 @@ export async function performOuraPostRawPersistence(
   let readinessResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
   try {
     const [sleepRes, readinessRes] = await Promise.all([
-      writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId),
+      writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs),
       writeOuraVendorReadinessSnapshots(uid, readinessDocs, requestId),
     ]);
     sleepResult = sleepRes;
@@ -739,7 +806,7 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
 
       await writeOuraRawEvents(uid, sleepItems, hrvItems, requestId, {});
       const [sleepRes, readinessRes] = await Promise.all([
-        writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId),
+        writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs),
         writeOuraVendorReadinessSnapshots(uid, readinessDocs, requestId),
       ]);
       totalSleepWritten += sleepRes.written;

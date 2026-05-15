@@ -132,6 +132,34 @@ describe("mapRawEventToCanonical", () => {
     expect(result.canonical.day).toBe(expectedEndDay);
   });
 
+  it("Oura-ingested HRV uses payload.day when valid and maps restingHeartRateBpm", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_oura_hrv_1",
+      sourceId: "oura",
+      sourceType: "wearable",
+      provider: "manual",
+      kind: "hrv",
+      payload: {
+        time: "2026-05-11T08:00:00.000Z",
+        timezone: "UTC",
+        day: "2026-05-11",
+        rmssdMs: 52,
+        restingHeartRateBpm: 54,
+        measurementType: "nightly",
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    expect(result.canonical.kind).toBe("hrv");
+    if (result.canonical.kind !== "hrv") throw new Error("Expected hrv");
+    expect(result.canonical.day).toBe("2026-05-11");
+    expect(result.canonical.rmssdMs).toBe(52);
+    expect(result.canonical.restingHeartRateBpm).toBe(54);
+  });
+
   it("maps optional REM/deep stage minutes on manual sleep", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

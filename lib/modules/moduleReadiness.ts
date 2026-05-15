@@ -55,11 +55,11 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
 
     // RECOVERY
     case "recovery.overview":
-      return SOON("Soon");
+      return READY;
     case "recovery.sleep":
-      return SOON("Soon");
+      return READY;
     case "recovery.readiness":
-      return SOON("Soon");
+      return READY;
 
     // LABS
     case "labs.overview":
