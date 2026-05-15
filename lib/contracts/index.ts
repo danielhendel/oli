@@ -58,6 +58,9 @@ export * from "./provenance";
 // Oura Tier 1 — vendor snapshots and view DTOs (Sleep & Readiness)
 export * from "./ouraVendor";
 
+// Canonical sleep night read model (Oura → sleepNights + GET /users/me/sleep-night)
+export * from "./sleepNight";
+
 // Oli Sleep Score v1 (derived from DailyFacts.sleep)
 export * from "./oliSleepScore";
 

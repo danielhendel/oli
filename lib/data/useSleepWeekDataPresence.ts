@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getDailyFacts, getOuraSleepView } from "@/lib/api/usersMe";
+import { isOuraViewAlignedToDay } from "@/lib/data/oura/isOuraViewAlignedToDay";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { dailyFactsHasSleepSignal } from "@/lib/data/sleep/sleepFactsSignal";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
@@ -21,7 +22,9 @@ async function dayHasSleepData(day: string, token: string): Promise<boolean> {
     return true;
   }
   const ouraRes = await getOuraSleepView(day, token);
-  return truthOutcomeFromApiResult(ouraRes).status === "ready";
+  const ouraOutcome = truthOutcomeFromApiResult(ouraRes);
+  if (ouraOutcome.status !== "ready") return false;
+  return isOuraViewAlignedToDay(ouraOutcome.data, day);
 }
 
 type State =

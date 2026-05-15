@@ -288,6 +288,9 @@ export interface HrvCanonicalEvent extends BaseCanonicalEvent {
   /** Standard deviation of NN intervals (ms) */
   sdnnMs?: number | null;
 
+  /** Nightly resting / average HR from vendor readiness when mapped (bpm). */
+  restingHeartRateBpm?: number | null;
+
   /** Whether this was a nightly aggregated measurement or spot check */
   measurementType?: "nightly" | "spot";
 }

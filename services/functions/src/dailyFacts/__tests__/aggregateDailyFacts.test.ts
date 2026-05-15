@@ -178,6 +178,45 @@ describe('aggregateDailyFactsForDay', () => {
     expect(recovery.hrvRmssd).toBe(70);
   });
 
+  it("aggregates Oura-style HRV rmssd + resting HR into recovery and physiology", () => {
+    const events: CanonicalEvent[] = [
+      makeHrv({
+        id: "hrv_oura_1",
+        rmssdMs: 48,
+        restingHeartRateBpm: 55,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: "user_123",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(result.recovery?.hrvRmssd).toBe(48);
+    expect(result.recovery?.restingHeartRate).toBe(55);
+    expect(result.energyInfluencers?.physiology?.hrvRmssdMs).toBe(48);
+    expect(result.energyInfluencers?.physiology?.restingHeartRateBpm).toBe(55);
+  });
+
+  it("returns undefined recovery when HRV events have no numeric rmssd or resting HR", () => {
+    const events: CanonicalEvent[] = [
+      makeHrv({
+        id: "hrv_no_signal",
+        rmssdMs: null,
+        restingHeartRateBpm: null,
+        sdnnMs: 100,
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: "user_123",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(result.recovery).toBeUndefined();
+    expect(result.energyInfluencers?.physiology).toBeUndefined();
+  });
+
   it("aggregates REM/deep minutes from main sleep episodes only", () => {
     const events: CanonicalEvent[] = [
       makeSleep({

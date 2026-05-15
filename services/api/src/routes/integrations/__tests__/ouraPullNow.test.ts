@@ -58,6 +58,7 @@ jest.mock("../../../lib/ouraApi", () => ({
   ouraSleepWakeIsoForLog: jest.fn((d: { wake_time?: string }) =>
     typeof d?.wake_time === "string" ? d.wake_time : null,
   ),
+  resolveOuraSleepIngestBase: jest.fn(() => null),
   fetchOuraDailyReadiness: jest.fn(),
   fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
   fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),
@@ -261,6 +262,10 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(res.body.eventsAlreadyExists).toBe(0);
     expect(res.body.windowDays).toBe(30);
     expect(ouraSecrets.setRefreshToken).toHaveBeenCalledWith("user_oura_1", "rt_new");
+    const sleepCall = (ouraApi.fetchOuraSleep as jest.Mock).mock.calls[0];
+    const readinessCall = (ouraApi.fetchOuraDailyReadiness as jest.Mock).mock.calls[0];
+    expect(readinessCall[1]).toBe(sleepCall[1]);
+    expect(readinessCall[2]).toBe(sleepCall[2]);
     expect(ouraIngestWrite.writeOuraRawEvents).toHaveBeenCalledWith(
       "user_oura_1",
       expect.any(Array),
@@ -288,6 +293,7 @@ describe("POST /integrations/oura/pull-now", () => {
       "user_oura_1",
       expect.any(Array),
       "req-oura-pull",
+      expect.any(Array),
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
@@ -361,6 +367,10 @@ describe("POST /integrations/oura/pull-now", () => {
     const [, , sleepDocs, readinessDocs] = (ouraPostRawJob.publishOuraPostRawJob as jest.Mock).mock.calls[0];
     expect(sleepDocs).toHaveLength(1);
     expect(readinessDocs).toHaveLength(1);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalled();
+    expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalled();
   });
 
   it("falls back to in-process post-raw when enqueue fails", async () => {
@@ -457,6 +467,7 @@ describe("performOuraPostRawPersistence", () => {
       "uid-post-raw",
       sleepDocs,
       "req-post-raw",
+      readinessDocs,
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "uid-post-raw",

@@ -4,7 +4,27 @@
  * Called from performOuraPullNowCore after fetch; does not replace canonical sleep/HRV writes.
  */
 
-import type { OuraSleepDocument, OuraDailyReadinessDocument } from "./ouraApi";
+import {
+  resolveOuraSleepIngestBase,
+  type OuraDailyReadinessDocument,
+  type OuraSleepDocument,
+} from "./ouraApi";
+import {
+  buildSleepNightFirestorePayloadWithOuraReadiness,
+  collectReadinessLookupDaysForSleepPairs,
+  loadPersistedOuraVendorReadinessByDaysFromCollection,
+  pickAverageHrvMsFromReadinessRecord,
+  pickLowestHeartRateBpmFromReadinessRecord,
+} from "./oura/readinessForSleepNightMerge";
+import {
+  logOuraSleepPhysiologyDebugForDoc,
+  pickOuraSleepAverageHrvMs,
+  pickOuraSleepLowestHeartRateBpm,
+} from "./oura/ouraSleepPhysiology";
+import { coerceOuraSleepScore0to100 } from "./sleepNight";
+import { FieldValue, userCollection } from "../db";
+import type { OuraSleepSnapshot, OuraReadinessSnapshot } from "@oli/contracts";
+import { logger } from "./logger";
 
 export type OuraSnapshotWriteResult = {
   attempted: number;
@@ -12,9 +32,6 @@ export type OuraSnapshotWriteResult = {
   skippedMissingDay: number;
   errors: number;
 };
-import type { OuraSleepSnapshot, OuraReadinessSnapshot } from "@oli/contracts";
-import { userCollection } from "../db";
-import { logger } from "./logger";
 
 /** Firestore batch limit is 500; use a smaller chunk to stay safe. */
 const BATCH_CHUNK_SIZE = 450;
@@ -194,26 +211,19 @@ function buildSleepContributors(doc: OuraSleepDocument): Record<string, number> 
   return out;
 }
 
-/** Derive sleep window start from doc (Oura v2 can use bed_time, bedtime_start, start, or end_time). */
-function getSleepStartForSnapshot(doc: OuraSleepDocument): string | null {
-  const s =
-    doc.bed_time ??
-    (doc as { bedtime_start?: string }).bedtime_start ??
-    (doc as { start?: string }).start ??
-    doc.end_time ??
-    (doc as { end?: string }).end ??
-    null;
-  return typeof s === "string" && s.length > 0 ? s : null;
-}
-
-function extractSleepSnapshot(doc: OuraSleepDocument, fetchedAt: string): OuraSleepSnapshot | null {
-  const start = getSleepStartForSnapshot(doc);
-  const day = start ? toYmd(start) : null;
-  if (!day) return null;
+function extractSleepSnapshot(
+  doc: OuraSleepDocument,
+  fetchedAt: string,
+  debugCtx?: { uid?: string },
+): OuraSleepSnapshot | null {
+  const resolved = resolveOuraSleepIngestBase(doc);
+  if (!resolved) return null;
+  const { start, end, rollupDay: day } = resolved;
 
   const id = doc.id ?? `oura_sleep_${start}`;
-  const scoreRaw = (doc as { score?: number }).score ?? (doc as { composite_score?: number }).composite_score;
-  const score = typeof scoreRaw === "number" && !Number.isNaN(scoreRaw) ? scoreRaw : null;
+  const score = coerceOuraSleepScore0to100(
+    (doc as { score?: unknown }).score ?? (doc as { composite_score?: unknown }).composite_score,
+  );
   const contributors = buildSleepContributors(doc);
 
   const out: Record<string, unknown> = {
@@ -223,7 +233,7 @@ function extractSleepSnapshot(doc: OuraSleepDocument, fetchedAt: string): OuraSl
     fetchedAt,
     updatedAt: fetchedAt,
   };
-  if (typeof score === "number") out.score = score;
+  if (score != null) out.score = score;
   if (Object.keys(contributors).length > 0) {
     out.contributors = stripUndefined(contributors as unknown as Record<string, unknown>);
   }
@@ -237,6 +247,20 @@ function extractSleepSnapshot(doc: OuraSleepDocument, fetchedAt: string): OuraSl
   if (typeof (doc as { deep_sleep_duration?: number }).deep_sleep_duration === "number") {
     out.deepSleep = (doc as { deep_sleep_duration: number }).deep_sleep_duration;
   }
+  const lhr = pickOuraSleepLowestHeartRateBpm(doc);
+  const hrv = pickOuraSleepAverageHrvMs(doc);
+  if (lhr !== undefined) out.lowestHeartRateBpm = lhr;
+  if (hrv !== undefined) out.averageHrvMs = hrv;
+  out.payload = stripUndefined(doc as Record<string, unknown>);
+
+  logOuraSleepPhysiologyDebugForDoc(doc, {
+    ...(debugCtx?.uid != null ? { uid: debugCtx.uid } : {}),
+    day,
+    sleepDocId: String(id),
+    start,
+    end,
+  });
+
   return out as OuraSleepSnapshot;
 }
 
@@ -261,6 +285,13 @@ function extractReadinessSnapshot(
   };
   if (typeof score === "number") out.score = score;
   if (contributors && typeof contributors === "object") out.contributors = contributors;
+  const asRecord = doc as Record<string, unknown>;
+  const hrv = pickAverageHrvMsFromReadinessRecord(asRecord);
+  const lhr = pickLowestHeartRateBpmFromReadinessRecord(asRecord);
+  if (hrv != null) out.averageHrvMs = hrv;
+  if (lhr != null) out.lowestHeartRateBpm = lhr;
+  /** Preserve full Oura API document for read-time / backfill picks when field names vary by API version. */
+  out.payload = stripUndefined(asRecord);
   return out as OuraReadinessSnapshot;
 }
 
@@ -272,6 +303,7 @@ export async function writeOuraVendorSleepSnapshots(
   uid: string,
   docs: OuraSleepDocument[],
   requestId: string,
+  readinessDocs?: OuraDailyReadinessDocument[],
 ): Promise<OuraSnapshotWriteResult> {
   logger.info({
     msg: "oura_sleep_snapshot_docs_received",
@@ -281,15 +313,16 @@ export async function writeOuraVendorSleepSnapshots(
   });
 
   const col = userCollection(uid, "ouraVendorSleep");
+  const sleepNightsCol = userCollection(uid, "sleepNights");
   const fetchedAt = new Date().toISOString();
   let written = 0;
   let skippedMissingDay = 0;
   let errors = 0;
 
-  const snapshots: OuraSleepSnapshot[] = [];
+  const pairs: { doc: OuraSleepDocument; snapshot: OuraSleepSnapshot }[] = [];
   let droppedSampleKeys: string[] | undefined;
   for (const doc of docs) {
-    const snapshot = extractSleepSnapshot(doc, fetchedAt);
+    const snapshot = extractSleepSnapshot(doc, fetchedAt, { uid });
     if (!snapshot) {
       skippedMissingDay += 1;
       if (!droppedSampleKeys && doc && typeof doc === "object") {
@@ -297,8 +330,10 @@ export async function writeOuraVendorSleepSnapshots(
       }
       continue;
     }
-    snapshots.push(snapshot);
+    pairs.push({ doc, snapshot });
   }
+
+  const snapshots = pairs.map((p) => p.snapshot);
 
   if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
     logger.info({
@@ -318,7 +353,43 @@ export async function writeOuraVendorSleepSnapshots(
     requestId,
     sleepDocsReceived: docs.length,
     sleepSnapshotsExtracted: snapshots.length,
+    readinessDocsForMerge: readinessDocs?.length ?? 0,
   });
+
+  const readinessCol = userCollection(uid, "ouraVendorReadiness");
+  const lookupDays = collectReadinessLookupDaysForSleepPairs(pairs);
+  const persistedReadinessByDay = await loadPersistedOuraVendorReadinessByDaysFromCollection(
+    readinessCol as FirebaseFirestore.CollectionReference,
+    lookupDays,
+  );
+
+  if (process.env.OURA_SLEEP_SNAPSHOT_WRITE_AUDIT === "1" || process.env.OURA_SLEEP_SNAPSHOT_WRITE_AUDIT === "true") {
+    for (const { doc, snapshot } of pairs) {
+      const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
+        doc,
+        snapshot.id,
+        readinessDocs,
+        persistedReadinessByDay,
+        { uid, requestedDay: snapshot.day },
+      );
+      const merge = merged?.payload;
+      logger.info({
+        msg: "[OURA_SLEEP_SNAPSHOT_WRITE_AUDIT]",
+        uid,
+        sourceDocumentId: snapshot.id,
+        vendorDay: snapshot.day,
+        anchorDay: merged?.anchorDay ?? null,
+        wakeDay: typeof merge?.wakeDay === "string" ? merge.wakeDay : null,
+        score: typeof merge?.score === "number" ? merge.score : null,
+        totalSleepMinutes: typeof merge?.totalSleepMinutes === "number" ? merge.totalSleepMinutes : null,
+        lowestHeartRateBpm: typeof merge?.lowestHeartRateBpm === "number" ? merge.lowestHeartRateBpm : null,
+        averageHrvMs: typeof merge?.averageHrvMs === "number" ? merge.averageHrvMs : null,
+        wroteVendorSleep: true,
+        wroteSleepNight: merged != null,
+        skippedReason: merged == null ? "sleep_night_build_failed" : null,
+      });
+    }
+  }
 
   for (let i = 0; i < snapshots.length; i += BATCH_CHUNK_SIZE) {
     const chunk = snapshots.slice(i, i + BATCH_CHUNK_SIZE);
@@ -365,11 +436,89 @@ export async function writeOuraVendorSleepSnapshots(
     sleepSnapshotsErrors: errors,
   });
 
+  let sleepNightsWritten = 0;
+  let sleepNightsErrors = 0;
+  for (let i = 0; i < pairs.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = pairs.slice(i, i + BATCH_CHUNK_SIZE);
+    const batch = (col as FirebaseFirestore.CollectionReference).firestore.batch();
+    let ops = 0;
+    for (const { doc, snapshot } of chunk) {
+      const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
+        doc,
+        snapshot.id,
+        readinessDocs,
+        persistedReadinessByDay,
+        { uid, requestedDay: snapshot.day },
+      );
+      if (!merged) continue;
+      batch.set(
+        sleepNightsCol.doc(merged.anchorDay),
+        stripUndefined({
+          ...merged.payload,
+          updatedAt: FieldValue.serverTimestamp(),
+        } as Record<string, unknown>),
+        { merge: true },
+      );
+      ops += 1;
+    }
+    if (ops === 0) continue;
+    try {
+      await batch.commit();
+      sleepNightsWritten += ops;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({
+        msg: "sleep_night_batch_error",
+        uid,
+        requestId,
+        chunkSize: chunk.length,
+        err: message,
+      });
+      for (const { doc, snapshot } of chunk) {
+        const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
+          doc,
+          snapshot.id,
+          readinessDocs,
+          persistedReadinessByDay,
+          { uid, requestedDay: snapshot.day },
+        );
+        if (!merged) continue;
+        try {
+          await sleepNightsCol.doc(merged.anchorDay).set(
+            stripUndefined({
+              ...merged.payload,
+              updatedAt: FieldValue.serverTimestamp(),
+            } as Record<string, unknown>),
+            { merge: true },
+          );
+          sleepNightsWritten += 1;
+        } catch (singleErr) {
+          sleepNightsErrors += 1;
+          logger.error({
+            msg: "sleep_night_write_error",
+            uid,
+            requestId,
+            anchorDay: merged.anchorDay,
+            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+          });
+        }
+      }
+    }
+  }
+
+  logger.info({
+    msg: "sleep_night_written_after_vendor_sleep",
+    uid,
+    requestId,
+    sleepNightsWritten,
+    sleepNightsErrors,
+  });
+
   return {
     attempted: docs.length,
     written,
     skippedMissingDay,
-    errors,
+    errors: errors + sleepNightsErrors,
   };
 }
 

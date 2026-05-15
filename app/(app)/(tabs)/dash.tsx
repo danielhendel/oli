@@ -16,6 +16,7 @@ import { useWeeklyFitnessCard } from "@/lib/data/dash/useWeeklyFitnessCard";
 import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
 import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
+import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 import { DailyNutritionCard } from "@/lib/ui/dash/DailyNutritionCard";
 import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
@@ -24,7 +25,17 @@ export default function DashScreen() {
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const { user } = useAuth();
   const todayKey = getTodayDayKeyLocal();
-  const { vm: todayHero, energy, energyLoading, energyError, refetch } = useTodayHealthHero(todayKey);
+  const {
+    vm: todayHero,
+    energy,
+    energyLoading,
+    energyError,
+    sleepCard,
+    sleepCardLoading,
+    sleepCardRefreshing,
+    sleepCardError,
+    refetch,
+  } = useTodayHealthHero(todayKey);
   const weeklyFitness = useWeeklyFitnessCard();
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(todayKey);
@@ -65,6 +76,12 @@ export default function DashScreen() {
             />
 
             <DailyEnergyCard energy={energy} loading={energyLoading} error={energyError} />
+            <DailySleepCard
+              model={sleepCard}
+              loading={sleepCardLoading}
+              isRefreshing={sleepCardRefreshing}
+              error={sleepCardError}
+            />
             <DailyNutritionCard
               model={dailyNutrition.model}
               loading={dailyNutrition.loading}

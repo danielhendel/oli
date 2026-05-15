@@ -56,6 +56,7 @@ import {
   healthSignalDocSchema,
   sleepViewDtoSchema,
   readinessViewDtoSchema,
+  sleepNightViewDtoSchema,
   nutritionFoodSearchResponseDtoSchema,
   nutritionFoodDetailResponseDtoSchema,
   type InsightDto,
@@ -64,6 +65,7 @@ import {
 
 import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
+import { loadSleepNightView } from "../lib/sleepNightRead";
 import {
   isAppleHealthWorkoutIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
@@ -1951,6 +1953,25 @@ router.get(
 
 const OURA_VIEW_FALLBACK_DAYS = 7;
 
+/** Firestore may store Oura sleep score as number or digit string (legacy / import paths). */
+function readOuraVendorSleepNumericScoreFromDoc(data: Record<string, unknown> | undefined): number | undefined {
+  if (!data) return undefined;
+  const read = (v: unknown): number | undefined => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t === "") return undefined;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
+  };
+  const primary = read(data.score);
+  if (primary != null) return primary;
+  const composite = read((data as { composite_score?: unknown }).composite_score);
+  return composite ?? undefined;
+}
+
 /** Return YYYY-MM-DD for (day - days). */
 function dayMinus(day: string, days: number): string {
   const d = new Date(day + "T12:00:00.000Z");
@@ -1999,7 +2020,8 @@ router.get(
     }
 
     const data = doc.data() as Record<string, unknown> | undefined;
-    const resolvedDay = typeof data?.day === "string" ? data.day : requestedDay;
+    const resolvedDay =
+      typeof data?.day === "string" && data.day.trim().length > 0 ? data.day.trim() : requestedDay;
     const isFallback = resolvedDay !== requestedDay;
     const totalSleepDuration = typeof data?.totalSleepDuration === "number" ? data.totalSleepDuration : undefined;
     const latencyRaw = typeof data?.latency === "number" ? data.latency : undefined;
@@ -2020,22 +2042,12 @@ router.get(
     if (typeof data?.remSleep === "number") storedData.remSleep = data.remSleep;
     if (typeof data?.deepSleep === "number") storedData.deepSleep = data.deepSleep;
     if (typeof data?.latency === "number") storedData.latency = data.latency;
-    if (typeof data?.score === "number") storedData.score = data.score;
-    if (typeof (data as { composite_score?: number })?.composite_score === "number") {
-      storedData.composite_score = (data as { composite_score: number }).composite_score;
-    }
+    const coercedSleepScore = readOuraVendorSleepNumericScoreFromDoc(data);
+    if (coercedSleepScore != null) storedData.score = coercedSleepScore;
     const mergedContributors = fillSleepContributorsFromStored(storedData);
     const responseContributorKeys = Object.keys(mergedContributors);
-    const scoreOnDoc = typeof data?.score === "number" ? data.score : undefined;
-    const compositeScoreOnDoc = typeof (data as { composite_score?: number })?.composite_score === "number"
-      ? (data as { composite_score: number }).composite_score
-      : undefined;
-    const responseScore =
-      typeof scoreOnDoc === "number"
-        ? scoreOnDoc
-        : typeof compositeScoreOnDoc === "number"
-          ? compositeScoreOnDoc
-          : undefined;
+    const responseScore = coercedSleepScore;
+    const compositeRaw = (data as { composite_score?: unknown }).composite_score;
 
     logger.info({
       msg: "oura_sleep_view_proof",
@@ -2043,9 +2055,13 @@ router.get(
       resolvedDay,
       storedContributorKeys,
       responseContributorKeys,
-      scoreOnDoc: scoreOnDoc != null,
+      scoreOnDoc: coercedSleepScore != null,
       scoreOnResponse: responseScore != null,
-      compositeScoreOnDoc: compositeScoreOnDoc != null,
+      compositeScoreOnDoc:
+        compositeRaw !== undefined &&
+        compositeRaw !== null &&
+        compositeRaw !== "" &&
+        (typeof compositeRaw === "number" || typeof compositeRaw === "string"),
     });
 
     const view = {
@@ -2130,6 +2146,37 @@ router.get(
     const parsed = readinessViewDtoSchema.safeParse(view);
     if (!parsed.success) {
       invalidDoc500(req, res, "ouraReadinessView", parsed.error.flatten());
+      return;
+    }
+    res.status(200).json(parsed.data);
+  }),
+);
+
+router.get(
+  "/sleep-night",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const requestedDay = parseDay(req, res);
+    if (!requestedDay) return;
+
+    logger.info({
+      msg: "[SLEEP_NIGHT_ROUTE_VERSION]",
+      version: "sleep-night-resolution-v2",
+      requestedDay,
+      uid,
+    });
+
+    const view = await loadSleepNightView(uid, requestedDay);
+    if (!view) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "sleepNight", day: requestedDay } });
+      return;
+    }
+
+    const parsed = sleepNightViewDtoSchema.safeParse(view);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "sleepNight", parsed.error.flatten());
       return;
     }
     res.status(200).json(parsed.data);

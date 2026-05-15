@@ -56,10 +56,12 @@ import {
   healthSignalDocSchema,
   sleepViewDtoSchema,
   readinessViewDtoSchema,
+  sleepNightViewDtoSchema,
   type HealthScoreDoc,
   type HealthSignalDoc,
   type SleepViewDto,
   type ReadinessViewDto,
+  type SleepNightViewDto,
   workoutDaySummariesResponseDtoSchema,
   workoutDaySummariesRebuildResponseDtoSchema,
   workoutMonthSummariesResponseDtoSchema,
@@ -388,6 +390,20 @@ export const getOuraReadinessView = async (
     `/users/me/oura-readiness-view?day=${encodeURIComponent(day)}`,
     idToken,
     readinessViewDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+/** GET /users/me/sleep-night?day= — canonical SleepNight for Dash / Sleep (404 when absent). */
+export const getSleepNight = async (
+  day: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<SleepNightViewDto>> => {
+  return apiGetZodAuthed(
+    `/users/me/sleep-night?day=${encodeURIComponent(day)}`,
+    idToken,
+    sleepNightViewDtoSchema,
     truthGetOpts(opts),
   );
 };

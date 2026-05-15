@@ -68,6 +68,10 @@ export {
 } from "@oli/contracts/ouraVendor";
 export type { SleepViewDto, ReadinessViewDto } from "@oli/contracts/ouraVendor";
 
+// Canonical SleepNight read surface (GET /users/me/sleep-night)
+export { sleepNightViewDtoSchema, sleepNightDocumentSchema } from "@oli/contracts/sleepNight";
+export type { SleepNightViewDto, SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts/sleepNight";
+
 // Nutrition — dev food catalog read surface (GET /users/me/nutrition/*)
 export {
   nutritionFoodSearchResponseDtoSchema,

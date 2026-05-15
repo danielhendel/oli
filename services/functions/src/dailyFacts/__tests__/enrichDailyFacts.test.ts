@@ -61,6 +61,23 @@ describe('enrichDailyFactsWithBaselinesAndAverages', () => {
     expect(recovery.hrvRmssdDeviation).toBeCloseTo(-0.4);
   });
 
+  it('preserves restingHeartRate when computing HRV baseline and deviation', () => {
+    const history: DailyFacts[] = [
+      makeFacts({ date: '2025-01-01', recovery: { hrvRmssd: 100 } }),
+    ];
+
+    const today: DailyFacts = makeFacts({
+      date: '2025-01-02',
+      recovery: { hrvRmssd: 80, restingHeartRate: 54 },
+    });
+
+    const enriched = enrichDailyFactsWithBaselinesAndAverages({ today, history });
+
+    expect(enriched.recovery?.restingHeartRate).toBe(54);
+    expect(enriched.recovery?.hrvRmssdBaseline).toBeCloseTo(100);
+    expect(enriched.recovery?.hrvRmssdDeviation).toBeCloseTo(-0.2);
+  });
+
   it('leaves derived averages undefined when there is no history', () => {
     const today: DailyFacts = makeFacts({
       date: '2025-01-01',

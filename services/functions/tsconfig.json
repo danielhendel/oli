@@ -6,7 +6,10 @@
     "composite": true,
     "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/functions.tsbuildinfo"
   },
-  "references": [{ "path": "../../lib/tsconfig.build.json" }],
+  "references": [
+    { "path": "../../lib/tsconfig.build.json" },
+    { "path": "../api/tsconfig.json" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["lib", "dist", "node_modules", "**/*.spec.*"]
 }

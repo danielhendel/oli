@@ -1,0 +1,347 @@
+import {
+  sleepNightDocumentSchema,
+  type SleepNightDocumentDto,
+  type SleepNightViewDto,
+} from "@oli/contracts/sleepNight";
+
+import { userCollection } from "../db";
+import { firestoreDocToPlainJson } from "./sleepNightFirestore";
+import { logger } from "./logger";
+import {
+  enrichReadinessRecordWithRawPayload,
+  listReadinessRecordKeysForDebug,
+  logSleepNightPhysiologyDebugIfEnabled,
+  pickAverageHrvMsFromReadinessRecord,
+  pickLowestHeartRateBpmFromReadinessRecord,
+  readinessDayFromReadinessRecord,
+} from "./oura/readinessForSleepNightMerge";
+import { coerceRawSleepNightForRead } from "./sleepNightReadCoerce";
+
+/** Minimal snapshot surface (avoids runtime firebase-admin resolution in Jest). */
+type SleepNightDocSnapshot = {
+  exists: boolean;
+  id: string;
+  data: () => Record<string, unknown> | undefined;
+};
+
+export function dayMinus(day: string, days: number): string {
+  const d = new Date(day + "T12:00:00.000Z");
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+function parseSleepNightSnapshot(snap: SleepNightDocSnapshot): SleepNightDocumentDto | null {
+  if (!snap.exists) return null;
+  const raw = snap.data() as Record<string, unknown> | undefined;
+  if (!raw) return null;
+  const flat = firestoreDocToPlainJson(raw);
+  const merged = coerceRawSleepNightForRead(flat, snap.id);
+  const parsed = sleepNightDocumentSchema.safeParse(merged);
+  return parsed.success ? parsed.data : null;
+}
+
+function notFoundReason(args: {
+  exactExists: boolean;
+  exact: SleepNightDocumentDto | null;
+  minus1Exists: boolean;
+  minus1: SleepNightDocumentDto | null;
+  minus2Exists: boolean;
+  minus2: SleepNightDocumentDto | null;
+}): string {
+  const parts: string[] = [];
+  if (args.exactExists && args.exact == null) parts.push("exact_parse_failed");
+  if (args.minus1Exists && args.minus1 == null) parts.push("minus1_parse_failed");
+  if (args.minus2Exists && args.minus2 == null) parts.push("minus2_parse_failed");
+  const anyParsed = args.exact != null || args.minus1 != null || args.minus2 != null;
+  const anyComplete =
+    args.exact?.isComplete === true ||
+    args.minus1?.isComplete === true ||
+    args.minus2?.isComplete === true;
+  if (anyParsed && !anyComplete) parts.push("no_complete_doc_in_window");
+  if (!args.exactExists && !args.minus1Exists && !args.minus2Exists) parts.push("no_docs_in_window");
+  if (parts.length === 0) parts.push("no_complete_match");
+  return parts.join(",");
+}
+
+/** Latest by `endedAt`, then by `anchorDay` (ascending sort → take last). */
+export function pickLatestCompleteSleepNight(nights: SleepNightDocumentDto[]): SleepNightDocumentDto | null {
+  const complete = nights.filter((n) => n.isComplete);
+  if (complete.length === 0) return null;
+  complete.sort((a, b) => {
+    const endA = a.endedAt ?? "";
+    const endB = b.endedAt ?? "";
+    if (endA !== endB) return endA.localeCompare(endB);
+    return a.anchorDay.localeCompare(b.anchorDay);
+  });
+  return complete[complete.length - 1] ?? null;
+}
+
+function dedupeDayKeys(days: (string | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const d of days) {
+    if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    if (!out.includes(d)) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * When `sleepNights` predates readiness merge, fill lowest HR / average HRV from persisted
+ * `ouraVendorReadiness` (same-day order: wake → anchor → requested), then `dailyFacts` HRV only.
+ */
+export async function hydrateSleepNightPhysiologyMetrics(
+  uid: string,
+  view: SleepNightViewDto,
+): Promise<SleepNightViewDto> {
+  const night = view.sleepNight;
+  const hasLowest = typeof night.lowestHeartRateBpm === "number" && Number.isFinite(night.lowestHeartRateBpm);
+  const hasHrv = typeof night.averageHrvMs === "number" && Number.isFinite(night.averageHrvMs);
+  if (hasLowest && hasHrv) return view;
+
+  let lowest: number | null = hasLowest ? night.lowestHeartRateBpm! : null;
+  let hrv: number | null = hasHrv ? night.averageHrvMs! : null;
+
+  let readinessDocFound = false;
+  let readinessDay: string | null = null;
+  let readinessKeys: string[] = [];
+  let readHydrationSource: "sleep_night" | "readiness" | "daily_facts" | "none" = hasLowest && hasHrv
+    ? "sleep_night"
+    : "none";
+
+  const readinessCol = userCollection(uid, "ouraVendorReadiness");
+  const rawEventsCol = userCollection(uid, "rawEvents");
+
+  const tryReadinessRecord = async (raw: Record<string, unknown>, docId?: string) => {
+    readinessDocFound = true;
+    const rd = readinessDayFromReadinessRecord(raw, docId) ?? null;
+    if (rd) readinessDay = rd;
+    readinessKeys = listReadinessRecordKeysForDebug(raw);
+
+    const applyPick = (rec: Record<string, unknown>) => {
+      if (lowest == null) {
+        const l = pickLowestHeartRateBpmFromReadinessRecord(rec);
+        if (l != null) {
+          lowest = l;
+          if (!hasLowest) readHydrationSource = "readiness";
+        }
+      }
+      if (hrv == null) {
+        const h = pickAverageHrvMsFromReadinessRecord(rec);
+        if (h != null) {
+          hrv = h;
+          if (!hasHrv) readHydrationSource = "readiness";
+        }
+      }
+    };
+
+    applyPick(raw);
+    if (lowest != null && hrv != null) return;
+
+    const linkedId =
+      (typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id.trim() : null) ??
+      (typeof docId === "string" && docId.trim().length > 0 ? docId.trim() : null);
+    if (!linkedId) return;
+
+    const rawSnap = await rawEventsCol.doc(linkedId).get();
+    if (!rawSnap.exists) return;
+    const rawRow = rawSnap.data() as Record<string, unknown>;
+    const payload =
+      rawRow.payload && typeof rawRow.payload === "object" && !Array.isArray(rawRow.payload)
+        ? (rawRow.payload as Record<string, unknown>)
+        : null;
+    if (!payload) return;
+    const enriched = enrichReadinessRecordWithRawPayload(raw, payload);
+    readinessKeys = listReadinessRecordKeysForDebug(enriched);
+    applyPick(enriched);
+    if (hrv == null && linkedId) {
+      const evSnap = await userCollection(uid, "events").doc(linkedId).get();
+      if (evSnap.exists) {
+        const ev = evSnap.data() as Record<string, unknown>;
+        const rmssd = ev.rmssdMs;
+        if (typeof rmssd === "number" && Number.isFinite(rmssd) && rmssd >= 0) {
+          hrv = Math.round(rmssd);
+          if (!hasHrv) readHydrationSource = "daily_facts";
+        }
+      }
+    }
+  };
+
+  for (const day of dedupeDayKeys([night.wakeDay, night.anchorDay, view.requestedDay])) {
+    if (lowest != null && hrv != null) break;
+    const direct = await readinessCol.doc(day).get();
+    if (direct.exists) {
+      await tryReadinessRecord(direct.data() as Record<string, unknown>, direct.id);
+    } else {
+      const alt = await readinessCol.doc(`oura_readiness_${day}`).get();
+      if (alt.exists) {
+        await tryReadinessRecord(alt.data() as Record<string, unknown>, alt.id);
+      }
+    }
+    if (lowest != null && hrv != null) break;
+    const snap = await readinessCol.where("day", "==", day).limit(10).get();
+    for (const doc of snap.docs) {
+      if (lowest != null && hrv != null) break;
+      await tryReadinessRecord(doc.data() as Record<string, unknown>, doc.id);
+    }
+  }
+
+  if (hrv == null) {
+    const factsSnap = await userCollection(uid, "dailyFacts").doc(view.requestedDay).get();
+    if (factsSnap.exists) {
+      const data = factsSnap.data() as Record<string, unknown>;
+      const energy = data.energyInfluencers as Record<string, unknown> | undefined;
+      const phys = energy?.physiology as Record<string, unknown> | undefined;
+      const recovery = data.recovery as Record<string, unknown> | undefined;
+      const physMs = phys?.hrvRmssdMs;
+      const recMs = recovery?.hrvRmssd;
+      const pick =
+        typeof physMs === "number" && Number.isFinite(physMs) && physMs >= 0
+          ? physMs
+          : typeof recMs === "number" && Number.isFinite(recMs) && recMs >= 0
+            ? recMs
+            : null;
+      if (pick != null) {
+        hrv = Math.round(pick);
+        if (!hasHrv) readHydrationSource = "daily_facts";
+      }
+    }
+  }
+
+  const patch: Partial<SleepNightDocumentDto> = {};
+  if (!hasLowest && lowest != null) patch.lowestHeartRateBpm = lowest;
+  if (!hasHrv && hrv != null) patch.averageHrvMs = hrv;
+
+  logSleepNightPhysiologyDebugIfEnabled({
+    uid,
+    requestedDay: view.requestedDay,
+    sleepAnchorDay: night.anchorDay,
+    wakeDay: night.wakeDay ?? null,
+    readinessDocFound,
+    readinessDay,
+    readinessKeys,
+    pickedLowestHeartRateBpm: !hasLowest && lowest != null ? lowest : hasLowest ? night.lowestHeartRateBpm ?? null : null,
+    pickedAverageHrvMs: !hasHrv && hrv != null ? hrv : hasHrv ? night.averageHrvMs ?? null : null,
+    writePayloadKeys: [],
+    readHydrationSource: Object.keys(patch).length > 0 ? readHydrationSource : "none",
+  });
+
+  if (Object.keys(patch).length === 0) return view;
+
+  const candidate = { ...night, ...patch };
+  const parsed = sleepNightDocumentSchema.safeParse(candidate);
+  if (!parsed.success) return view;
+  return { ...view, sleepNight: parsed.data };
+}
+
+/**
+ * Bounded resolution for `GET /users/me/sleep-night` (max lookback: anchors `day-1`, `day-2` only).
+ * Complete nights only. Caller supplies reads for exact path + two prior anchors.
+ *
+ * Order (matches Sleep “Today” when `sleepNights/{D}` is complete after read coercion):
+ * 1. `sleepNights/{requestedDay}` when **complete** (Oura rollup / anchor day = calendar day).
+ * 2. Latest complete night among `day−1` / `day−2` with **`wakeDay === requestedDay`** (prior physiological night that woke on D).
+ * 3. Otherwise latest complete among `day−1` / `day−2` by `endedAt` (bounded fallback).
+ */
+export function resolveSleepNightViewFromBoundedReads(
+  requestedDay: string,
+  exact: SleepNightDocumentDto | null,
+  minus1: SleepNightDocumentDto | null,
+  minus2: SleepNightDocumentDto | null,
+): SleepNightViewDto | null {
+  const priorAnchors = [minus1, minus2].filter((n): n is SleepNightDocumentDto => n != null);
+
+  if (exact?.isComplete === true) {
+    return {
+      requestedDay,
+      anchorDay: exact.anchorDay,
+      wakeDay: exact.wakeDay,
+      resolution: "exact_anchor",
+      isFallback: false,
+      sleepNight: exact,
+    };
+  }
+
+  const wakeMatches = priorAnchors.filter((n) => n.isComplete && n.wakeDay === requestedDay);
+  const bestWake = pickLatestCompleteSleepNight(wakeMatches);
+  if (bestWake != null) {
+    return {
+      requestedDay,
+      anchorDay: bestWake.anchorDay,
+      wakeDay: bestWake.wakeDay,
+      resolution: "wake_day",
+      isFallback: false,
+      sleepNight: bestWake,
+    };
+  }
+
+  const bestPrior = pickLatestCompleteSleepNight(priorAnchors);
+  if (bestPrior != null) {
+    return {
+      requestedDay,
+      anchorDay: bestPrior.anchorDay,
+      wakeDay: bestPrior.wakeDay,
+      resolution: "latest_completed_prior_night",
+      isFallback: false,
+      sleepNight: bestPrior,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Resolve canonical SleepNight for calendar `requestedDay` (Dash: show latest completed prior night when needed).
+ *
+ * Set `SLEEP_NIGHT_READ_DEBUG=1` to emit one structured `[SLEEP_NIGHT_READ_DEBUG]` log line per request (Cloud Run).
+ */
+export async function loadSleepNightView(uid: string, requestedDay: string): Promise<SleepNightViewDto | null> {
+  const col = userCollection(uid, "sleepNights");
+  const d1 = dayMinus(requestedDay, 1);
+  const d2 = dayMinus(requestedDay, 2);
+
+  const [exactSnap, s1, s2] = await Promise.all([
+    col.doc(requestedDay).get(),
+    col.doc(d1).get(),
+    col.doc(d2).get(),
+  ]);
+
+  const exact = parseSleepNightSnapshot(exactSnap);
+  const minus1 = parseSleepNightSnapshot(s1);
+  const minus2 = parseSleepNightSnapshot(s2);
+
+  let view = resolveSleepNightViewFromBoundedReads(requestedDay, exact, minus1, minus2);
+  if (view) {
+    view = await hydrateSleepNightPhysiologyMetrics(uid, view);
+  }
+
+  if (process.env.SLEEP_NIGHT_READ_DEBUG === "1" || process.env.SLEEP_NIGHT_READ_DEBUG === "true") {
+    logger.info({
+      msg: "[SLEEP_NIGHT_READ_DEBUG]",
+      uid,
+      requestedDay,
+      exactExists: exactSnap.exists,
+      exactComplete: exact?.isComplete ?? null,
+      exactScore: exact?.score ?? null,
+      exactWakeDay: exact?.wakeDay ?? null,
+      minus1Exists: s1.exists,
+      minus1Complete: minus1?.isComplete ?? null,
+      minus1Score: minus1?.score ?? null,
+      minus1WakeDay: minus1?.wakeDay ?? null,
+      selectedResolution: view?.resolution ?? null,
+      selectedAnchorDay: view?.anchorDay ?? null,
+      reasonIfNotFound:
+        view == null
+          ? notFoundReason({
+              exactExists: exactSnap.exists,
+              exact,
+              minus1Exists: s1.exists,
+              minus1,
+              minus2Exists: s2.exists,
+              minus2,
+            })
+          : null,
+    });
+  }
+
+  return view;
+}

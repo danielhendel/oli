@@ -107,9 +107,12 @@ type ManualWorkoutPayload = ManualWindowBase & {
 type ManualHrvPayload = {
   time: IsoDateTimeString;
   timezone: string;
+  /** Oura readiness logical day (YYYY-MM-DD) when present. */
+  day?: string;
   rmssdMs?: number | null;
   sdnnMs?: number | null;
   measurementType?: "nightly" | "spot";
+  restingHeartRateBpm?: number | null;
 };
 
 type ManualStrengthWorkoutSetPayload = {
@@ -460,8 +463,29 @@ const mapManualHrv = (
   raw: RawEvent,
   payload: ManualHrvPayload,
 ): HrvCanonicalEvent | null => {
-  const day = localCalendarDayKeyFromIsoInTimeZone(payload.time, payload.timezone);
+  /**
+   * Oura nightly readiness: align canonical `day` with Oura `payload.day` when valid (same as sleep),
+   * so DailyFacts rollups match GET /users/me/oura-readiness-view and sleep rows for the same ring day.
+   * Otherwise attribute to local calendar day of `time` + timezone.
+   */
+  let day: YmdDateString | null = null;
+  if (raw.sourceId === "oura") {
+    const apiDay =
+      typeof payload.day === "string" && isYmdDateString(payload.day) ? payload.day : null;
+    day =
+      apiDay ?? localCalendarDayKeyFromIsoInTimeZone(payload.time, payload.timezone) ?? null;
+  } else {
+    day = localCalendarDayKeyFromIsoInTimeZone(payload.time, payload.timezone);
+  }
   if (!day) return null;
+
+  const resting =
+    typeof payload.restingHeartRateBpm === "number" &&
+    Number.isFinite(payload.restingHeartRateBpm) &&
+    payload.restingHeartRateBpm >= 1 &&
+    payload.restingHeartRateBpm <= 250
+      ? payload.restingHeartRateBpm
+      : null;
 
   const base: HrvCanonicalEvent = {
     id: raw.id,
@@ -478,6 +502,10 @@ const mapManualHrv = (
     rmssdMs: payload.rmssdMs ?? null,
     sdnnMs: payload.sdnnMs ?? null,
   };
+
+  if (resting != null) {
+    base.restingHeartRateBpm = resting;
+  }
 
   if (payload.measurementType) {
     base.measurementType = payload.measurementType;

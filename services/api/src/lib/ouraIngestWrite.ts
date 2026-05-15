@@ -202,6 +202,7 @@ async function writeHrvLoop(
       ...(item.rmssdMs != null ? { rmssdMs: item.rmssdMs } : {}),
       ...(item.sdnnMs != null ? { sdnnMs: item.sdnnMs } : {}),
       ...(item.measurementType != null ? { measurementType: item.measurementType } : {}),
+      ...(item.restingHeartRateBpm != null ? { restingHeartRateBpm: item.restingHeartRateBpm } : {}),
     };
     const doc = {
       id: item.idempotencyKey,

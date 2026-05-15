@@ -3,11 +3,54 @@
  * Regression: Oura API v2 can return bedtime_start/bedtime_end or start/end instead of bed_time/wake_time.
  */
 import {
+  mapOuraReadinessToHrvItem,
   mapOuraSleepToIngestItem,
   normalizeOuraLatencyRawToMinutes,
   type OuraSleepDocument,
   type OuraSleepIngestItem,
 } from "../ouraApi";
+
+describe("mapOuraReadinessToHrvItem", () => {
+  it("maps average_hrv to rmssdMs when rmssd_5min fields are absent (Oura v2 daily_readiness)", () => {
+    const doc = {
+      id: "readiness_1",
+      day: "2026-05-11",
+      timestamp: "2026-05-11T08:15:00.000Z",
+      average_hrv: 51,
+    };
+    const item = mapOuraReadinessToHrvItem(doc);
+    expect(item).toMatchObject({
+      idempotencyKey: "readiness_1",
+      day: "2026-05-11",
+      rmssdMs: 51,
+      measurementType: "nightly",
+    });
+  });
+
+  it("prefers rmssd_5min over average_hrv when both exist", () => {
+    const doc = {
+      id: "r2",
+      day: "2026-05-10",
+      timestamp: "2026-05-10T07:00:00.000Z",
+      rmssd_5min: 60,
+      average_hrv: 40,
+    };
+    const item = mapOuraReadinessToHrvItem(doc);
+    expect(item?.rmssdMs).toBe(60);
+  });
+
+  it("maps average_heart_rate to restingHeartRateBpm when in plausible range", () => {
+    const doc = {
+      id: "r3",
+      day: "2026-05-09",
+      timestamp: "2026-05-09T06:00:00.000Z",
+      average_hrv: 45,
+      average_heart_rate: 58,
+    };
+    const item = mapOuraReadinessToHrvItem(doc);
+    expect(item?.restingHeartRateBpm).toBe(58);
+  });
+});
 
 describe("normalizeOuraLatencyRawToMinutes", () => {
   it("treats values >= 60 as seconds (matches oura-sleep-view read path)", () => {

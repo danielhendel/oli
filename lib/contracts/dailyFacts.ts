@@ -140,6 +140,7 @@ export const dailyFactsDtoSchema = z
         hrvRmssd: z.number().finite().optional(),
         hrvRmssdBaseline: z.number().finite().optional(),
         hrvRmssdDeviation: z.number().finite().optional(),
+        restingHeartRate: z.number().finite().optional(),
       })
       .strip()
       .optional(),

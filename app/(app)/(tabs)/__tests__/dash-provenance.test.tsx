@@ -4,6 +4,8 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { emptyDailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
+
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
@@ -82,6 +84,7 @@ jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
+  Modal: "Modal",
   ScrollView: "ScrollView",
   ActivityIndicator: "ActivityIndicator",
   StyleSheet: { create: (s: unknown) => s },
@@ -110,6 +113,7 @@ jest.mock("react-native", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock("expo-router", () => ({
@@ -170,6 +174,10 @@ describe("Dash provenance", () => {
         },
         missingRequiredInputs: [],
       },
+      sleepCard: emptyDailySleepCardModel("2026-05-05"),
+      sleepCardLoading: false,
+      sleepCardRefreshing: false,
+      sleepCardError: null,
     });
   });
 
@@ -219,6 +227,10 @@ describe("Dash provenance", () => {
       energyError: null,
       refetch: jest.fn(),
       energy: undefined,
+      sleepCard: emptyDailySleepCardModel("2026-05-05"),
+      sleepCardLoading: false,
+      sleepCardRefreshing: false,
+      sleepCardError: null,
     });
     let test!: renderer.ReactTestRenderer;
     act(() => {

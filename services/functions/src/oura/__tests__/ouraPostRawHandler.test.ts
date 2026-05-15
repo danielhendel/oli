@@ -7,12 +7,21 @@ const mockSet = jest.fn().mockResolvedValue(undefined);
 const mockCommit = jest.fn().mockResolvedValue(undefined);
 const mockBatchSet = jest.fn().mockReturnThis();
 
+const mockReadinessDocGet = jest.fn().mockResolvedValue({ exists: false });
+const mockReadinessQueryGet = jest.fn().mockResolvedValue({ docs: [] });
+
 jest.mock("firebase-admin/firestore", () => ({
   getFirestore: jest.fn(() => ({
     collection: jest.fn(() => ({
       doc: jest.fn(() => ({
         collection: jest.fn(() => ({
-          doc: jest.fn(() => ({ set: mockSet })),
+          doc: jest.fn(() => ({
+            set: mockSet,
+            get: mockReadinessDocGet,
+          })),
+          where: jest.fn(() => ({
+            limit: jest.fn(() => ({ get: mockReadinessQueryGet })),
+          })),
         })),
         set: mockSet,
       })),
@@ -41,6 +50,7 @@ describe("runOuraPostRaw", () => {
 
     expect(result.metadataWritten).toBe(true);
     expect(result.sleepWritten).toBe(0);
+    expect(result.sleepNightsWritten).toBe(0);
     expect(result.readinessWritten).toBe(0);
     expect(mockSet).toHaveBeenCalled();
     const setCalls = mockSet.mock.calls;
@@ -62,6 +72,7 @@ describe("runOuraPostRaw", () => {
     const result = await runOuraPostRaw("uid2", "req2", sleepDocs, readinessDocs);
 
     expect(result.sleepWritten).toBeGreaterThanOrEqual(1);
+    expect(result.sleepNightsWritten).toBeGreaterThanOrEqual(1);
     expect(result.readinessWritten).toBeGreaterThanOrEqual(1);
     expect(result.metadataWritten).toBe(true);
     const setCalls = mockSet.mock.calls;
@@ -80,6 +91,7 @@ describe("runOuraPostRaw", () => {
     const result = await runOuraPostRaw("uid3", "req3", sleepDocsNoDay, readinessDocs);
 
     expect(result.sleepWritten).toBe(0);
+    expect(result.sleepNightsWritten).toBe(0);
     expect(result.readinessWritten).toBeGreaterThanOrEqual(1);
     expect(result.metadataWritten).toBe(true);
   });
@@ -93,6 +105,7 @@ describe("runOuraPostRaw", () => {
     const result = await runOuraPostRaw("uid4", "req4", sleepDocs, readinessDocs);
 
     expect(result.sleepWritten).toBeGreaterThanOrEqual(1);
+    expect(result.sleepNightsWritten).toBeGreaterThanOrEqual(1);
     expect(result.readinessWritten).toBeGreaterThanOrEqual(1);
     expect(result.metadataWritten).toBe(true);
     const setCalls = mockSet.mock.calls;
@@ -111,6 +124,7 @@ describe("runOuraPostRaw", () => {
     const result = await runOuraPostRaw("uid5", "req5", sleepDocs, readinessDocs);
 
     expect(result.sleepWritten).toBeGreaterThanOrEqual(1);
+    expect(result.sleepNightsWritten).toBeGreaterThanOrEqual(1);
     expect(result.readinessWritten).toBe(0);
     expect(result.metadataWritten).toBe(true);
   });
@@ -134,14 +148,49 @@ describe("runOuraPostRaw", () => {
     const result = await runOuraPostRaw("uid6", "req6", sleepDocs, readinessDocs);
 
     expect(result.sleepWritten).toBeGreaterThanOrEqual(1);
+    expect(result.sleepNightsWritten).toBeGreaterThanOrEqual(1);
     const batchSetCalls = mockBatchSet.mock.calls as [unknown, Record<string, unknown>, unknown][];
-    const sleepPayload = batchSetCalls.find((c) => c[1]?.source === "oura" && c[1]?.day === "2025-03-13")?.[1];
+    /** Rollup day = wake UTC (2025-03-14), not bedtime UTC (2025-03-13). */
+    const sleepPayload = batchSetCalls.find((c) => c[1]?.source === "oura" && c[1]?.day === "2025-03-14")?.[1];
     expect(sleepPayload).toBeDefined();
+    const sleepNightPayload = batchSetCalls.find((c) => c[1]?.source === "ouraVendorSleep")?.[1];
+    expect(sleepNightPayload).toBeDefined();
+    expect(sleepNightPayload?.anchorDay).toBe("2025-03-14");
+    expect(sleepNightPayload?.isComplete).toBe(true);
     expect(sleepPayload?.contributors).toBeDefined();
     expect(typeof sleepPayload?.contributors).toBe("object");
     const contrib = sleepPayload?.contributors as Record<string, unknown>;
     expect(Object.keys(contrib).length).toBeGreaterThan(0);
     expect(Object.values(contrib).every((v) => typeof v === "number")).toBe(true);
     expect(Object.values(sleepPayload!).every((v) => v !== undefined)).toBe(true);
+  });
+
+  it("infers end from start + total_sleep_duration and writes sleepNight on rollup day", async () => {
+    const sleepDocs = [
+      {
+        id: "s_infer",
+        day: "2026-05-14",
+        bedtime_start: "2026-05-13T23:00:00.000Z",
+        total_sleep_duration: 24600,
+        efficiency: 91,
+        rem_sleep_duration: 4800,
+        deep_sleep_duration: 3120,
+        score: 81,
+      },
+    ];
+    const readinessDocs = [{ id: "r1", day: "2026-05-14", timestamp: "2026-05-14T08:00:00Z" }];
+
+    const result = await runOuraPostRaw("uid7", "req7", sleepDocs, readinessDocs);
+
+    expect(result.sleepWritten).toBeGreaterThanOrEqual(1);
+    expect(result.sleepNightsWritten).toBeGreaterThanOrEqual(1);
+    const batchSetCalls = mockBatchSet.mock.calls as [unknown, Record<string, unknown>, unknown][];
+    const sleepPayload = batchSetCalls.find((c) => c[1]?.source === "oura" && c[1]?.day === "2026-05-14")?.[1];
+    expect(sleepPayload).toBeDefined();
+    const sleepNightPayload = batchSetCalls.find(
+      (c) => c[1]?.source === "ouraVendorSleep" && c[1]?.anchorDay === "2026-05-14",
+    )?.[1];
+    expect(sleepNightPayload?.isComplete).toBe(true);
+    expect(sleepNightPayload?.score).toBe(81);
   });
 });

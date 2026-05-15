@@ -372,6 +372,32 @@ describe("GET /users/me/oura-sleep-view and oura-readiness-view", () => {
     expect(body.score).toBe(72);
   });
 
+  it("oura-sleep-view coerces string score from Firestore to a JSON number", async () => {
+    const snapshotData = {
+      id: "s1",
+      day: "2025-03-15",
+      score: "96",
+      contributors: {},
+      source: "oura",
+      fetchedAt: "2025-03-15T10:00:00Z",
+    };
+
+    (userCollection as jest.Mock).mockReturnValue({
+      where: () => ({
+        limit: () => ({
+          get: async () => ({
+            docs: [{ exists: true, data: () => snapshotData }],
+          }),
+        }),
+      }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/oura-sleep-view?day=2025-03-15`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.score).toBe(96);
+  });
+
   it("oura-sleep-view does not invent score when neither score nor composite_score exists", async () => {
     const snapshotData = {
       id: "s1",

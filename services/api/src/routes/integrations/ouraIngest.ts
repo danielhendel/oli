@@ -37,6 +37,7 @@ const hrvItemSchema = z.object({
   rmssdMs: z.number().finite().nonnegative().nullable().optional(),
   sdnnMs: z.number().finite().nonnegative().nullable().optional(),
   measurementType: z.enum(["nightly", "spot"]).optional(),
+  restingHeartRateBpm: z.number().finite().min(1).max(250).nullable().optional(),
 });
 
 const ouraIngestBodySchema = z.object({
@@ -110,6 +111,9 @@ router.post("/", async (req: Request, res: Response) => {
     ...(item.rmssdMs !== undefined ? { rmssdMs: item.rmssdMs ?? null } : {}),
     ...(item.sdnnMs !== undefined ? { sdnnMs: item.sdnnMs ?? null } : {}),
     ...(item.measurementType !== undefined ? { measurementType: item.measurementType } : {}),
+    ...(item.restingHeartRateBpm !== undefined
+      ? { restingHeartRateBpm: item.restingHeartRateBpm ?? null }
+      : {}),
   }));
   const { eventsCreated, eventsAlreadyExists } = await writeOuraRawEvents(
     uid,

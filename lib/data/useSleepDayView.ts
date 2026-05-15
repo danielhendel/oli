@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+// TODO: Migrate Sleep detail to consume GET /users/me/sleep-night (SleepNight) for headline/key metrics when safe.
+
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   getDailyFacts,
@@ -8,6 +10,7 @@ import {
   type TruthGetOptions,
 } from "@/lib/api/usersMe";
 import type { DailyFactsDto, InsightsResponseDto, SleepViewDto } from "@oli/contracts";
+import { isOuraViewAlignedToDay } from "@/lib/data/oura/isOuraViewAlignedToDay";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { dailyFactsHasSleepSignal } from "@/lib/data/sleep/sleepFactsSignal";
 
@@ -135,7 +138,12 @@ export function useSleepDayView(
       }
 
       if (ouraParallelOutcome.status === "ready") {
-        safeSet({ status: "oura_fallback", data: ouraParallelOutcome.data });
+        const v = ouraParallelOutcome.data;
+        if (isOuraViewAlignedToDay(v, dayKey)) {
+          safeSet({ status: "oura_fallback", data: v });
+          return;
+        }
+        safeSet({ status: "missing" });
         return;
       }
 
