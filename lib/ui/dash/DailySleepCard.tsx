@@ -2,7 +2,8 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import type { DailySleepCardModel, DailySleepMetricDetail } from "@/lib/data/dash/buildDailySleepCardModel";
+import type { DailySleepMetricDetail } from "@/lib/data/dash/buildDailySleepCardModel";
+import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
 import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -26,43 +27,41 @@ const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
 };
 
 type Props = {
-  model: DailySleepCardModel | undefined;
-  loading: boolean;
-  /** Shown when refreshing with a prior stable model (no skeleton takeover). */
-  isRefreshing?: boolean;
-  error: string | null;
+  vm: DailySleepCardViewModel;
 };
 
-export function DailySleepCard({
-  model,
-  loading,
-  isRefreshing = false,
-  error,
-}: Props): React.ReactElement {
+export function DailySleepCard({ vm }: Props): React.ReactElement {
   const router = useRouter();
   const [metricSheet, setMetricSheet] = useState<DailySleepMetricDetail | null>(null);
 
+  const loading = vm.status === "partial";
+  const isRefreshing = vm.status === "ready" && vm.isRefreshing;
+  const error = vm.status === "error" ? vm.message : null;
+  const model = vm.status === "ready" ? vm.model : undefined;
+  const missingMessage = vm.status === "missing" ? vm.message : null;
+
   const onOpenSleep = useCallback(() => {
-    if (loading || error) return;
+    if (loading || error || vm.status !== "ready") return;
     router.push(SLEEP_DETAIL_HREF);
-  }, [error, loading, router]);
+  }, [error, loading, router, vm.status]);
 
   const headerA11y = useMemo(() => {
     if (loading) return "Daily Sleep header. Loading sleep summary.";
     if (isRefreshing) return "Daily Sleep header. Refreshing.";
     if (error) return "Daily Sleep header. Could not load data.";
+    if (vm.status === "missing") return `Daily Sleep header. ${missingMessage ?? "No sleep data."}`;
     if (!model) return "Daily Sleep header. Not enough data.";
     const parts: string[] = [];
     if (model.lastNightSubtitle) parts.push(model.lastNightSubtitle);
     if (model.headlineValueText) parts.push(`Sleep duration ${model.headlineValueText}.`);
     if (model.summarySentence) parts.push(model.summarySentence);
     return `Daily Sleep header. ${parts.join(" ")} Opens Sleep details.`;
-  }, [loading, isRefreshing, error, model]);
+  }, [loading, isRefreshing, error, vm.status, missingMessage, model]);
 
-  const showEmptyBody = !loading && !error && model && !model.hasAnySignal;
-  const canOpenSleep = !loading && !error;
+  const showEmptyBody = vm.status === "missing" || (vm.status === "ready" && model != null && !model.hasAnySignal);
+  const canOpenSleep = vm.status === "ready" && model != null && model.hasAnySignal;
 
-  const showMetricSection = Boolean(model?.metricRows.length);
+  const showMetricSection = vm.status === "ready" && Boolean(model?.metricRows.length) && model?.hasAnySignal;
 
   return (
     <View style={styles.outer} accessibilityLabel="Daily Sleep card">
@@ -76,27 +75,26 @@ export function DailySleepCard({
           style={({ pressed }) => [styles.headerPressable, pressed && canOpenSleep && styles.headerPressed]}
         >
           <Text style={styles.title}>Daily Sleep</Text>
-          {!loading && !error && model?.lastNightSubtitle ? (
+          {vm.status === "ready" && model?.lastNightSubtitle ? (
             <Text style={styles.subtitle}>{model.lastNightSubtitle}</Text>
           ) : null}
-          {!loading && !error && model?.headlineValueText ? (
+          {vm.status === "ready" && model?.headlineValueText ? (
             <Text style={styles.headlineValue} accessibilityRole="text">
               {model.headlineValueText}
             </Text>
           ) : null}
-          {!loading && isRefreshing ? (
-            <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text>
+          {loading ? <Text style={styles.mutedLine}>Loading daily sleep\u2026</Text> : null}
+          {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
+          {error ? <Text style={styles.mutedLine}>Could not load daily sleep</Text> : null}
+          {vm.status === "missing" ? (
+            <Text style={styles.mutedLine}>{missingMessage}</Text>
           ) : null}
-          {!loading && error ? <Text style={styles.mutedLine}>Could not load daily sleep</Text> : null}
-          {!loading && !error && !model ? (
-            <Text style={styles.mutedLine}>Not enough data yet for sleep summary.</Text>
-          ) : null}
-          {!loading && !error && model ? (
+          {vm.status === "ready" && model ? (
             <>
               {model.summarySentence ? <Text style={styles.summary}>{model.summarySentence}</Text> : null}
-              {showEmptyBody ? (
+              {showEmptyBody && model.emptyStateTitle ? (
                 <>
-                  {model.emptyStateTitle ? <Text style={styles.emptyTitle}>{model.emptyStateTitle}</Text> : null}
+                  <Text style={styles.emptyTitle}>{model.emptyStateTitle}</Text>
                   {model.emptyStateSubtitle ? (
                     <Text style={styles.emptySubtitle}>{model.emptyStateSubtitle}</Text>
                   ) : null}
@@ -106,7 +104,7 @@ export function DailySleepCard({
           ) : null}
         </Pressable>
 
-        {!loading && !error && model && showMetricSection ? (
+        {showMetricSection && model ? (
           <View style={styles.metricSection} accessibilityRole="list">
             {model.metricRows.map((row) => (
               <Pressable

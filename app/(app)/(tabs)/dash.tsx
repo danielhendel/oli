@@ -30,10 +30,7 @@ export default function DashScreen() {
     energy,
     energyLoading,
     energyError,
-    sleepCard,
-    sleepCardLoading,
-    sleepCardRefreshing,
-    sleepCardError,
+    sleepCardVm,
     refetch,
   } = useTodayHealthHero(todayKey);
   const weeklyFitness = useWeeklyFitnessCard();
@@ -76,12 +73,7 @@ export default function DashScreen() {
             />
 
             <DailyEnergyCard energy={energy} loading={energyLoading} error={energyError} />
-            <DailySleepCard
-              model={sleepCard}
-              loading={sleepCardLoading}
-              isRefreshing={sleepCardRefreshing}
-              error={sleepCardError}
-            />
+            <DailySleepCard vm={sleepCardVm} />
             <DailyNutritionCard
               model={dailyNutrition.model}
               loading={dailyNutrition.loading}

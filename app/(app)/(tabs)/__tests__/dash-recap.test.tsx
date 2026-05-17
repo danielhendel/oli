@@ -4,7 +4,6 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { emptyDailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -199,10 +198,11 @@ describe("Dash Daily Energy card", () => {
         },
         missingRequiredInputs: [],
       },
-      sleepCard: emptyDailySleepCardModel("2026-05-05"),
-      sleepCardLoading: false,
-      sleepCardRefreshing: false,
-      sleepCardError: null,
+      sleepCardVm: {
+        status: "missing",
+        day: "2026-05-05",
+        message: "No sleep data logged for this day.",
+      },
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -255,10 +255,7 @@ describe("Dash Daily Energy card", () => {
       energyError: null,
       refetch: jest.fn(),
       energy: undefined,
-      sleepCard: undefined,
-      sleepCardLoading: true,
-      sleepCardRefreshing: false,
-      sleepCardError: null,
+      sleepCardVm: { status: "partial", day: "2026-05-05" },
     });
 
     let test!: renderer.ReactTestRenderer;
@@ -268,7 +265,7 @@ describe("Dash Daily Energy card", () => {
     const text = collectAllText(test);
     expect(text).toContain("Loading daily energy");
     expect(text).toContain("Daily Sleep");
-    expect(text).not.toContain("Loading daily sleep");
+    expect(text).toContain("Loading daily sleep");
   });
 
   it("shows empty-state copy when energy is missing", () => {
@@ -278,10 +275,11 @@ describe("Dash Daily Energy card", () => {
       energyError: null,
       refetch: jest.fn(),
       energy: undefined,
-      sleepCard: emptyDailySleepCardModel("2026-05-05"),
-      sleepCardLoading: false,
-      sleepCardRefreshing: false,
-      sleepCardError: null,
+      sleepCardVm: {
+        status: "missing",
+        day: "2026-05-05",
+        message: "No sleep data logged for this day.",
+      },
     });
 
     let test!: renderer.ReactTestRenderer;

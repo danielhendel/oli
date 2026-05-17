@@ -45,11 +45,12 @@ export function useSleepNight(day: string, options?: UseSleepNightOptions): UseS
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    generationRef.current += 1;
     setView(undefined);
     setSettled(false);
     setLoading(true);
     setError(null);
-  }, [day]);
+  }, [day, user?.uid]);
 
   const runFetch = useCallback(
     async (myGen: number, bust?: TruthGetOptions) => {

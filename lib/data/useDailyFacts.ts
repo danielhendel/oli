@@ -104,6 +104,7 @@ export function useDailyFacts(
       }
 
       if (outcome.status === "ready") {
+        if (outcome.data.date !== dayRef.current) return;
         safeSet({ status: "ready", data: outcome.data });
         return;
       }
@@ -124,6 +125,11 @@ export function useDailyFacts(
     },
     [getIdToken, initializing, user],
   );
+
+  useEffect(() => {
+    requestSeq.current += 1;
+    setState({ status: "partial" });
+  }, [day, user?.uid]);
 
   useEffect(() => {
     if (!enabled) {
