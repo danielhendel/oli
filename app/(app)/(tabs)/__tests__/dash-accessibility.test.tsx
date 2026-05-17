@@ -4,7 +4,6 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { emptyDailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -179,10 +178,11 @@ describe("Dash accessibility", () => {
       energyLoading: false,
       energyError: null,
       energy: undefined,
-      sleepCard: emptyDailySleepCardModel("2026-05-11"),
-      sleepCardLoading: false,
-      sleepCardRefreshing: false,
-      sleepCardError: null,
+      sleepCardVm: {
+        status: "missing",
+        day: "2026-05-11",
+        message: "No sleep data logged for this day.",
+      },
       refetch: jest.fn(),
     });
     mockUseBodyCompositionDashCard.mockReset();

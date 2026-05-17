@@ -3,7 +3,8 @@ import { Image, Modal, Pressable, Text } from "react-native";
 import renderer, { type ReactTestInstance } from "react-test-renderer";
 
 import type { SleepNightDocumentDto } from "@oli/contracts";
-import { buildDailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
+import { buildDailySleepCardModel, type DailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
+import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 
 const mockPush = jest.fn();
@@ -30,6 +31,10 @@ function minimalNight(over: Partial<SleepNightDocumentDto> = {}): SleepNightDocu
     totalSleepMinutes: 480,
     ...over,
   };
+}
+
+function readyVm(model: DailySleepCardModel, isRefreshing = false): DailySleepCardViewModel {
+  return { status: "ready", day: model.day, model, isRefreshing };
 }
 
 function allVisibleText(root: ReactTestInstance): string {
@@ -63,7 +68,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const flat = allVisibleText(root.root);
@@ -86,7 +91,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     expect(() => root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toThrow();
@@ -117,7 +122,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const flat = allVisibleText(root.root);
@@ -134,7 +139,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const flat = allVisibleText(root.root);
@@ -151,7 +156,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const flat = allVisibleText(root.root);
@@ -167,7 +172,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const row = root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" });
@@ -190,7 +195,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
     const header = root.root
@@ -216,9 +221,7 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(
-        <DailySleepCard model={model} loading={false} isRefreshing error={null} />,
-      );
+      root = renderer.create(<DailySleepCard vm={readyVm(model, true)} />);
     });
 
     const flat = allVisibleText(root.root);
@@ -226,18 +229,29 @@ describe("DailySleepCard", () => {
     expect(flat).toContain("Refreshing daily sleep");
   });
 
-  it("empty settled model still shows placeholder metric rows", () => {
-    const model = buildDailySleepCardModel({
+  it("missing vm shows no-data message without stale metric rows", () => {
+    const vm: DailySleepCardViewModel = {
+      status: "missing",
       day,
-      sleepNight: undefined,
-      sleepNightSettled: true,
-    });
+      message: "No sleep data logged for this day.",
+    };
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard model={model} loading={false} error={null} />);
+      root = renderer.create(<DailySleepCard vm={vm} />);
     });
-    expect(root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" })).toBeDefined();
+    expect(() => root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" })).toThrow();
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("No sleep data yet");
+    expect(flat).toContain("No sleep data logged for this day.");
+  });
+
+  it("partial vm does not render prior ready headline", () => {
+    const vm: DailySleepCardViewModel = { status: "partial", day };
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<DailySleepCard vm={vm} />);
+    });
+    const flat = allVisibleText(root.root);
+    expect(flat).toContain("Loading daily sleep");
+    expect(flat).not.toContain("8h");
   });
 });
