@@ -2,26 +2,70 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { ActivityThisWeekCardModel } from "@/lib/data/activity/activityThisWeekCardModel";
+import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
-import { PrimaryActionBarShell } from "@/lib/ui/workouts/PrimaryActionBarShell";
-import { programPrimaryCtaBarStyles } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
 import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { ActivityWeeklyStepsBars } from "@/lib/ui/activity/ActivityWeeklyStepsBars";
+import {
+  ACTIVITY_OVERVIEW_LARGE_METRIC_FIGURE_STYLE,
+  ACTIVITY_OVERVIEW_METRIC_QUALIFIER_STYLE,
+} from "@/lib/ui/activity/activityUiTypography";
+
+/** Matches {@link ActivityStepsAnalyticsCard} yearly bar track height. */
+export const ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT = 176;
+const MONTH_LABEL_STACK_HEIGHT = 20;
+/** Horizontal inset aligned with {@link ActivityStepsAnalyticsCard}. */
+const CHART_PLOT_INSET_H = 8;
+
+function formatStepsAxisLabel(v: number): string {
+  const r = Math.round(v);
+  if (r >= 10_000) return `${Math.round(r / 1000)}k`;
+  return r.toLocaleString();
+}
+
 export type ActivityThisWeekCardProps = {
   loading: boolean;
   model: ActivityThisWeekCardModel | null;
   onPressViewAll?: () => void;
 };
+const WEEKLY_AVG_STEPS_QUALIFIER = "avg steps per day";
 
 export function ActivityThisWeekCard({ loading, model, onPressViewAll }: ActivityThisWeekCardProps) {
+  const todayDayKey = getTodayDayKeyLocal();
+
+  const weeklyAverageA11yLine =
+    !loading && model != null && !model.isEmpty && model.weeklyAverageMetricValue != null
+      ? `${model.weeklyAverageMetricValue} ${WEEKLY_AVG_STEPS_QUALIFIER}`
+      : null;
+
+  const metricCaption =
+    !loading && model != null && !model.isEmpty && model.weeklyAverageMetricValue != null ? (
+      <View style={styles.weekAvgMetricRow}>
+        <Text
+          style={styles.weekAvgFigure}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          testID="activity-this-week-average-metric-value"
+        >
+          {model.weeklyAverageMetricValue}
+        </Text>
+        <Text style={styles.weekAvgQualifier} numberOfLines={2}>
+          {WEEKLY_AVG_STEPS_QUALIFIER}
+        </Text>
+      </View>
+    ) : null;
+
   return (
     <View style={styles.wrap}>
       <StrengthFrequencyMetricCard
         variant="embedded"
-        headingTitle="This Week"
+        headingTitle="This Week's Activity"
         loading={loading}
         model={
           loading || model == null
@@ -37,7 +81,11 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
         showFrequencyTrack={false}
         showFrequencyMarkers={false}
         showFooterCaption={false}
+        showRatingPill={false}
         compactTitlePillSpacing
+        mutedMicroCaption={metricCaption}
+        mutedCaptionAccessibilityLabel={weeklyAverageA11yLine}
+        mutedMicroCaptionTestID="activity-this-week-average-steps"
         titleRowTrailing={
           onPressViewAll != null ? (
             <Pressable
@@ -64,47 +112,49 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
       {!loading && model != null && model.isEmpty ? (
         <Text style={styles.placeholder}>No activity data this week yet</Text>
       ) : null}
-      {!loading && model != null && !model.isEmpty
-        ? model.days.map((row, rowIndex) => {
-            const deltaPart = row.deltaText != null ? ` Delta ${row.deltaText} versus baseline.` : "";
-            const a11y = `${row.dateLabel}. ${row.stepsDigits} steps.${deltaPart}`;
-            return (
-              <View
-                key={row.dayKey}
-                style={[styles.row, rowIndex === 0 && styles.rowFirst]}
-                accessible
-                accessibilityLabel={a11y}
-              >
-                <Text style={styles.recentDate}>{row.dateLabel}</Text>
-                <PrimaryActionBarShell
-                  layout="row"
-                  style={styles.thisWeekRowShell}
-                  testID="activity-this-week-day-row-bar"
+      {!loading && model != null && !model.isEmpty ? (
+        <View style={styles.chartSection}>
+          <View
+            style={[
+              styles.chartPlotWrap,
+              { minHeight: ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT + MONTH_LABEL_STACK_HEIGHT + 26 + 12 },
+            ]}
+            testID="activity-this-week-chart-plot"
+          >
+            <View style={styles.chartBarsBlock}>
+              <View style={styles.chartBarsInner}>
+                <ActivityWeeklyStepsBars
+                  points={model.chartPoints}
+                  barTrackHeight={ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT}
+                  maxScale={model.chartMaxScale}
+                  baselineMeanStepsPerDay={model.baselineMeanStepsPerDay ?? 0}
+                  todayDayKey={todayDayKey}
+                  formatValueLabel={formatStepsAxisLabel}
+                />
+                <View
+                  style={styles.dowLabelsRow}
+                  accessibilityLabel={
+                    loading || model == null
+                      ? "Weekday axis Sunday through Saturday"
+                      : `This week's activity summary: ${weeklyAverageA11yLine ?? model.compactValuePrimary}`
+                  }
                 >
-                  <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
-                    <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1}>
-                      {row.stepsDigits} steps
-                    </Text>
-                  </View>
-                  {row.deltaText != null ? (
-                    <Text
-                      style={[
-                        programPrimaryCtaBarStyles.ctaBarLabel,
-                        programPrimaryCtaBarStyles.thisWeekRowTrailingNumeric,
-                        styles.barDeltaFigure,
-                      ]}
-                      numberOfLines={1}
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                    >
-                      {row.deltaText}
-                    </Text>
-                  ) : null}
-                </PrimaryActionBarShell>
+                  {model.chartPoints.map((p) => (
+                    <View key={`dow-${p.dayKey}`} style={styles.dowLabelCol}>
+                      <Text
+                        style={styles.dowLabel}
+                        accessibilityLabel={formatWeekdayFullFromDayKey(p.dayKey)}
+                      >
+                        {p.displayLabel}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            );
-          })
-        : null}
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -132,28 +182,60 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     paddingBottom: 4,
   },
-  row: {
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: UI_BORDER_SUBTLE,
+  chartSection: {
+    width: "100%",
   },
-  rowFirst: {
-    paddingTop: 0,
-    borderTopWidth: 0,
+  chartPlotWrap: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    width: "100%",
+    marginTop: 0,
   },
-  thisWeekRowShell: {
-    backgroundColor: UI_CARD_SURFACE,
+  chartBarsBlock: {
+    flex: 1,
+    minWidth: 0,
   },
-  recentDate: {
-    fontSize: 13,
+  chartBarsInner: {
+    width: "100%",
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  dowLabelsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 8,
+    paddingHorizontal: CHART_PLOT_INSET_H,
+  },
+  dowLabelCol: {
+    flex: 1,
+    alignItems: "center",
+    minWidth: 0,
+    maxWidth: 48,
+  },
+  dowLabel: {
+    fontSize: 11,
     fontWeight: "400",
-    color: UI_TEXT_SECONDARY,
-    letterSpacing: -0.08,
-    /** Match workouts overview weekday → blue row gap (`recentRowTextCol.gap` = 10). */
-    marginBottom: 10,
+    color: "#AEAEB2",
+    textAlign: "center",
   },
-  barDeltaFigure: {
-    textAlign: "right",
-    minWidth: 72,
+  weekAvgMetricRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 8,
+    columnGap: 8,
+    rowGap: 4,
+    maxWidth: "100%",
+  },
+  weekAvgFigure: {
+    ...ACTIVITY_OVERVIEW_LARGE_METRIC_FIGURE_STYLE,
+    flexShrink: 0,
+  },
+  weekAvgQualifier: {
+    ...ACTIVITY_OVERVIEW_METRIC_QUALIFIER_STYLE,
+    flexShrink: 1,
+    flexGrow: 1,
+    minWidth: 0,
   },
 });

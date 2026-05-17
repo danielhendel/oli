@@ -1,5 +1,5 @@
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
-import React from "react";
+import React, { type ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
@@ -36,12 +36,21 @@ type StrengthFrequencyMetricCardProps = {
   showFrequencyTrack?: boolean;
   /** Replaces the large primary figure on the title row (e.g. inline View More link). */
   titleRowTrailing?: React.ReactNode;
-  /** Optional muted subtitle below the title row (e.g. “N sessions this week”). */
-  mutedMicroCaption?: string | null;
+  /** Optional muted subtitle below the title row (e.g. “N sessions this week”) or rich content. */
+  mutedMicroCaption?: string | ReactNode | null;
+  /**
+   * When {@link mutedMicroCaption} is a React element (not a string), provide the full line for
+   * merged accessibility on the heading stack (voice output).
+   */
+  mutedCaptionAccessibilityLabel?: string | null;
+  /** Optional testID for {@link mutedMicroCaption} line. */
+  mutedMicroCaptionTestID?: string;
   /** Stronger secondary body text (Strength This Week summary line). */
   mutedCaptionEmphasis?: boolean;
   /** Tighter horizontal gap between heading and rating pill (embedded This Week). */
   compactTitlePillSpacing?: boolean;
+  /** When false, omits the activity tier pill (Activity This Week chart card). Default true. */
+  showRatingPill?: boolean;
 };
 
 function FrequencyTrackRow({
@@ -85,20 +94,32 @@ export function StrengthFrequencyMetricCard({
   showFrequencyTrack = true,
   titleRowTrailing,
   mutedMicroCaption = null,
+  mutedCaptionAccessibilityLabel = null,
+  mutedMicroCaptionTestID,
   mutedCaptionEmphasis = false,
   compactTitlePillSpacing = false,
+  showRatingPill = true,
 }: StrengthFrequencyMetricCardProps) {
   const primary = model?.compactValuePrimary ?? null;
   const tierIdx = model != null ? Math.min(model.activityTierIndexForBar, ACTIVITY_STEP_RATING_TIERS.length - 1) : 0;
   const tierPill = ACTIVITY_STEP_RATING_TIERS[tierIdx]!;
-  const microTrimmed = mutedMicroCaption?.trim() ?? "";
-  const showMutedMicro = microTrimmed.length > 0;
+  const microTrimmed =
+    typeof mutedMicroCaption === "string" ? mutedMicroCaption.trim() : (mutedCaptionAccessibilityLabel?.trim() ?? "");
+  const showMutedMicro =
+    mutedMicroCaption != null &&
+    mutedMicroCaption !== false &&
+    (typeof mutedMicroCaption === "string" ? microTrimmed.length > 0 : true);
+
   const titleRowA11y =
     loading || model == null
       ? headingTitle
       : showMutedMicro
-        ? `${headingTitle}. ${model.ratingLabel}. ${microTrimmed}. View all.`
-        : `${model.ratingLabel}, ${primary ?? ""}`;
+        ? showRatingPill
+          ? `${headingTitle}. ${model.ratingLabel}. ${microTrimmed}. View all.`
+          : `${headingTitle}. ${microTrimmed}. View all.`
+        : showRatingPill
+          ? `${model.ratingLabel}, ${primary ?? ""}`
+          : (primary ?? headingTitle);
   const rootStyle: StyleProp<ViewStyle> =
     variant === "embedded"
       ? [styles.embeddedRoot, !showFrequencyTrack && styles.embeddedRootCompactHeaderOnly]
@@ -129,7 +150,7 @@ export function StrengthFrequencyMetricCard({
         <Text style={styles.cardTitle} numberOfLines={1}>
           {headingTitle}
         </Text>
-        {!loading && model != null ? (
+        {!loading && model != null && showRatingPill ? (
           <ActivityRatingPill
             label={model.ratingLabel}
             color={tierPill.color}
@@ -156,9 +177,16 @@ export function StrengthFrequencyMetricCard({
       <View style={styles.headingSummaryStack} accessible accessibilityRole="header" accessibilityLabel={titleRowA11y}>
         {titleRowEl}
         {!loading ? (
-          <Text style={mutedCaptionEmphasis ? styles.emphasizedSecondaryCaption : styles.mutedMicroCaption}>
-            {microTrimmed}
-          </Text>
+          typeof mutedMicroCaption === "string" ? (
+            <Text
+              style={mutedCaptionEmphasis ? styles.emphasizedSecondaryCaption : styles.mutedMicroCaption}
+              testID={mutedMicroCaptionTestID}
+            >
+              {microTrimmed}
+            </Text>
+          ) : (
+            <View testID={mutedMicroCaptionTestID}>{mutedMicroCaption}</View>
+          )
         ) : null}
       </View>
     ) : (
