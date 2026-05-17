@@ -50,15 +50,6 @@ export default function AppLayout() {
           />
 
           <Stack.Screen
-            name="weekly-fitness-metric-explainer"
-            options={{
-              title: "Weekly Fitness",
-              presentation: "modal",
-              ...workoutsStackNavigationOptions("detail"),
-            }}
-          />
-
-          <Stack.Screen
             name="energy/bmr"
             options={{ title: "BMR", ...workoutsStackNavigationOptions("detail") }}
           />

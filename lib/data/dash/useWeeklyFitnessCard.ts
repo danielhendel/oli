@@ -32,17 +32,11 @@ import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dat
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
+import { WEEKLY_FITNESS_ROUTES, type WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
-/**
- * Dash "Weekly Fitness" goal-progress rows — tapping opens qualitative modal explainers.
- */
-export const WEEKLY_FITNESS_ROUTES = {
-  /** "My goal" pressable; user-editable Dash Weekly Fitness goals. */
-  goalsEditor: "/(app)/fitness-goals",
-} as const;
-
-export type WeeklyFitnessRowKey = "activity" | "strength" | "cardio";
+export type { WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
+export { WEEKLY_FITNESS_ROUTES, weeklyFitnessMetricPageHref } from "@/lib/data/dash/weeklyFitnessRoutes";
 
 export type WeeklyFitnessRow = {
   key: WeeklyFitnessRowKey;
@@ -74,7 +68,7 @@ export type UseWeeklyFitnessCardResult = {
   goals: ReturnType<typeof resolveWeeklyFitnessGoals>;
   /** Route for the "My goal" pressable. */
   goalsHref: string;
-  /** Shared source data for rows + explainer baseline cards. */
+  /** Shared source data underlying Dash Weekly Fitness rows. */
   baselineSource: {
     todayDayKey: DayKey;
     rollupByDay: Readonly<ActivityStepsRollupMap>;

@@ -13,7 +13,7 @@ import type {
   UseWeeklyFitnessCardResult,
   WeeklyFitnessRow,
 } from "@/lib/data/dash/useWeeklyFitnessCard";
-import { WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
+import { WEEKLY_FITNESS_ROUTES } from "@/lib/data/dash/weeklyFitnessRoutes";
 import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
 
 const mockPush = jest.fn();
@@ -566,17 +566,17 @@ describe("WeeklyFitnessCard", () => {
     });
     const activity = tree.root.findByProps({ testID: "weekly-fitness-row-activity" });
     expect(activity.props.accessibilityLabel).toBe(
-      "Activity, 9,998 average steps, goal 10,000 steps per day, 100 percent of goal. Opens explanation",
+      "Activity, 9,998 average steps, goal 10,000 steps per day, 100 percent of goal. Open Activity",
     );
 
     const strength = tree.root.findByProps({ testID: "weekly-fitness-row-strength" });
     expect(strength.props.accessibilityLabel).toBe(
-      "Strength, 3 workouts, goal 5 workouts, 60 percent of goal. Opens explanation",
+      "Strength, 3 workouts, goal 5 workouts, 60 percent of goal. Open Strength",
     );
 
     const cardio = tree.root.findByProps({ testID: "weekly-fitness-row-cardio" });
     expect(cardio.props.accessibilityLabel).toBe(
-      "Cardio, 2.6 miles, goal 10 miles, 26 percent of goal. Opens explanation",
+      "Cardio, 2.6 miles, goal 10 miles, 26 percent of goal. Open Cardio",
     );
 
     const ring = tree.root.findByProps({ testID: "weekly-fitness-combined-ring" });
@@ -651,7 +651,7 @@ describe("WeeklyFitnessCard", () => {
     expect(findBarFillWidth(tree, "cardio")).toBe("0%");
 
     const cardio = tree.root.findByProps({ testID: "weekly-fitness-row-cardio" });
-    expect(cardio.props.accessibilityLabel).toBe("Cardio, 0.0 miles, no goal set. Opens explanation");
+    expect(cardio.props.accessibilityLabel).toBe("Cardio, 0.0 miles, no goal set. Open Cardio");
     expect(cardio.props.accessibilityLabel).not.toContain("percent of goal");
   });
 
@@ -755,7 +755,7 @@ describe("WeeklyFitnessCard", () => {
     expect(highText).toBe("100%");
   });
 
-  it("opens Weekly Fitness explainers on row press and goals editor on My goal", () => {
+  it("opens Activity, Strength, and Cardio module pages on row press and goals editor on My goal", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -773,26 +773,17 @@ describe("WeeklyFitnessCard", () => {
     act(() => {
       tree.root.findByProps({ testID: "weekly-fitness-row-activity" }).props.onPress();
     });
-    expect(mockPush).toHaveBeenLastCalledWith({
-      pathname: WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME,
-      params: { row: "activity" },
-    });
+    expect(mockPush).toHaveBeenLastCalledWith(WEEKLY_FITNESS_ROUTES.activity);
 
     act(() => {
       tree.root.findByProps({ testID: "weekly-fitness-row-strength" }).props.onPress();
     });
-    expect(mockPush).toHaveBeenLastCalledWith({
-      pathname: WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME,
-      params: { row: "strength" },
-    });
+    expect(mockPush).toHaveBeenLastCalledWith(WEEKLY_FITNESS_ROUTES.strength);
 
     act(() => {
       tree.root.findByProps({ testID: "weekly-fitness-row-cardio" }).props.onPress();
     });
-    expect(mockPush).toHaveBeenLastCalledWith({
-      pathname: WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME,
-      params: { row: "cardio" },
-    });
+    expect(mockPush).toHaveBeenLastCalledWith(WEEKLY_FITNESS_ROUTES.cardio);
     act(() => {
       tree.root.findByProps({ testID: "weekly-fitness-my-goal" }).props.onPress();
     });

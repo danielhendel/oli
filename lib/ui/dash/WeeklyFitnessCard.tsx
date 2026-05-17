@@ -3,11 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { type Href, useRouter } from "expo-router";
 
 import type { WeeklyFitnessProgressToGoalVm } from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
-import type {
-  WeeklyFitnessRow,
-  UseWeeklyFitnessCardResult,
-} from "@/lib/data/dash/useWeeklyFitnessCard";
-import { WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
+import { weeklyFitnessMetricPageHref } from "@/lib/data/dash/weeklyFitnessRoutes";
+import type { UseWeeklyFitnessCardResult, WeeklyFitnessRow } from "@/lib/data/dash/useWeeklyFitnessCard";
 import { ErrorState } from "@/lib/ui/ScreenStates";
 import { CircularProgressRing } from "@/lib/ui/progress/CircularProgressRing";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -43,11 +40,12 @@ type Props = {
 };
 
 function accessibilityLabelForRow(row: WeeklyFitnessRow): string {
+  const openAction = `Open ${row.label}`;
   if (!row.hasGoal) {
-    return `${row.label}, ${row.accessibilityValueLabel}. Opens explanation`;
+    return `${row.label}, ${row.accessibilityValueLabel}. ${openAction}`;
   }
   const pct = Math.round(Math.min(1, Math.max(0, row.progress)) * 100);
-  return `${row.label}, ${row.accessibilityValueLabel}, ${pct} percent of goal. Opens explanation`;
+  return `${row.label}, ${row.accessibilityValueLabel}, ${pct} percent of goal. ${openAction}`;
 }
 
 export function WeeklyFitnessCard({
@@ -61,12 +59,9 @@ export function WeeklyFitnessCard({
 }: Props): React.ReactElement {
   const router = useRouter();
 
-  const onPressExplainer = useCallback(
+  const onPressMetricRow = useCallback(
     (rowKey: WeeklyFitnessRow["key"]) => {
-      router.push({
-        pathname: WEEKLY_FITNESS_METRIC_EXPLAINER_PATHNAME,
-        params: { row: rowKey },
-      });
+      router.push(weeklyFitnessMetricPageHref(rowKey));
     },
     [router],
   );
@@ -212,7 +207,7 @@ export function WeeklyFitnessCard({
               accessibilityRole="button"
               accessibilityLabel={accessibilityLabelForRow(row)}
               onPress={() => {
-                onPressExplainer(row.key);
+                onPressMetricRow(row.key);
               }}
               style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressablePressed]}
               testID={`weekly-fitness-row-${row.key}`}

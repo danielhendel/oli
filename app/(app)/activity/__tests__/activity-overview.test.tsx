@@ -86,14 +86,53 @@ const defaultOverviewData = {
     ratingLabel: "Active",
     activityTierIndexForBar: 3,
     fillWidth01Override: 0.55,
-    days: [
+    chartPoints: [
+      {
+        dayKey: "2026-04-05",
+        displayLabel: "S",
+        value: 0,
+        isFutureDay: false,
+      },
       {
         dayKey: "2026-04-06",
-        dateLabel: "Monday",
-        stepsDigits: "9,876",
-        deltaText: "-4,321",
+        displayLabel: "M",
+        value: 9876,
+        isFutureDay: false,
+      },
+      {
+        dayKey: "2026-04-07",
+        displayLabel: "T",
+        value: 0,
+        isFutureDay: false,
+      },
+      {
+        dayKey: "2026-04-08",
+        displayLabel: "W",
+        value: 0,
+        isFutureDay: false,
+      },
+      {
+        dayKey: "2026-04-09",
+        displayLabel: "T",
+        value: 0,
+        isFutureDay: false,
+      },
+      {
+        dayKey: "2026-04-10",
+        displayLabel: "F",
+        value: 0,
+        isFutureDay: false,
+      },
+      {
+        dayKey: "2026-04-11",
+        displayLabel: "S",
+        value: 0,
+        isFutureDay: false,
       },
     ],
+    chartMaxScale: 10500,
+    baselineMeanStepsPerDay: 5555,
+    weeklyAverageMetricValue: "9,876",
     isEmpty: false,
   },
   activityTodayCardModel: {
@@ -217,17 +256,17 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/settings");
   });
 
-  it("renders Today, This Week, Activity Baseline in order with baseline rows as steps/day", async () => {
+  it("renders Today, This Week's Activity, Activity Baseline in order with baseline rows as steps/day", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-rating-pill"));
-    expect(str.indexOf("activity-this-week-rating-pill")).toBeLessThan(str.indexOf("activity-history-summary-card"));
+    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-view-all"));
+    expect(str.indexOf("activity-this-week-view-all")).toBeLessThan(str.indexOf("activity-history-summary-card"));
     expect(str).toContain("Today");
-    expect(str).toContain("This Week");
+    expect(str).toContain("This Week's Activity");
     expect(str).toContain("Activity Baseline");
     expect(str).toContain("Your activity baseline is the average daily steps across key time ranges.");
     expect(str).toContain("7 Day");
@@ -413,17 +452,22 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/history");
   });
 
-  it("Activity This Week rows omit per-row tier pills but keep header pill, steps, delta, and baseline pills", async () => {
+  it("Activity This Week chart shows average subtitle, no rating pill, step label on chart, and baseline pills unchanged", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str).not.toContain("activity-this-week-tier-pill-");
-    expect(str).toContain("activity-this-week-rating-pill");
+    expect(str).toContain("activity-this-week-weekly-chart");
+    expect(str).not.toContain("activity-this-week-day-row-bar");
+    expect(str).not.toContain("activity-this-week-rating-pill");
+    expect(str).toContain("activity-this-week-average-steps");
     expect(str).toContain("9,876");
-    expect(str).toContain("-4,321");
+    expect(str).toContain("avg steps per day");
+    expect(str).toContain("9,876");
+    expect(str).toContain('"M"');
+    expect(str).toContain('"S"');
     expect(str).toContain("activity-history-tier-pill-day7");
   });
 
