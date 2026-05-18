@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, type ComponentProps } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Modal,
@@ -17,6 +17,7 @@ import {
   MANAGE_HUB_ITEMS,
   type ManageHubItem,
 } from "@/components/navigation/manageHubItems";
+import { manageHubIconName } from "@/lib/ui/navigation/manageHubIcons";
 import {
   UI_BORDER_STRONG,
   UI_BORDER_SUBTLE,
@@ -50,20 +51,8 @@ const GAP_ABOVE_FAB = 10;
 const MENU_PAD = 14;
 const STAGGER_MS = 42;
 
-const ICON_BY_ID: Record<string, string> = {
-  body: "accessibility-outline",
-  activity: "footsteps-outline",
-  strength: "barbell-outline",
-  cardio: "heart-outline",
-  nutrition: "restaurant-outline",
-  sleep: "moon-outline",
-  recovery: "pulse-outline",
-  labs: "flask-outline",
-  dna: "sparkles-outline",
-};
-
 function ModuleIcon({ id }: { id: string }) {
-  const name = (ICON_BY_ID[id] ?? "ellipse-outline") as ComponentProps<typeof Ionicons>["name"];
+  const name = manageHubIconName(id);
   return (
     <View style={styles.iconCircle}>
       <Ionicons name={name} size={20} color={UI_TEXT_PRIMARY} />

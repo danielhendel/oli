@@ -10,6 +10,10 @@ import {
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 type Props = {
@@ -40,8 +44,8 @@ export function DailyNutritionCard({ model, loading, error }: Props): React.Reac
           <View style={styles.factors} accessibilityRole="list">
             {model.rows.map((row) => (
               <View key={row.key} style={styles.factorRow}>
-                <Text style={styles.factorLabel}>{row.label}</Text>
-                <Text style={styles.factorValue}>{row.valueLabel}</Text>
+                <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+                <Text style={dashMetricRowValueTextStyle}>{row.valueLabel}</Text>
               </View>
             ))}
           </View>
@@ -81,8 +85,8 @@ const styles = StyleSheet.create({
   factors: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,
-    paddingTop: 8,
-    gap: 4,
+    paddingTop: 6,
+    gap: 2,
   },
   factorRow: {
     flexDirection: "row",
@@ -91,20 +95,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 8,
     paddingHorizontal: 6,
-    paddingVertical: 10,
+    paddingVertical: 7,
     minHeight: 44,
-  },
-  factorLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-    fontWeight: "500",
-  },
-  factorValue: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: UI_TEXT_PRIMARY,
-    fontWeight: "600",
-    textAlign: "right",
   },
 });

@@ -16,12 +16,17 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
-  UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { WEEKLY_FITNESS_BAR_FILL_COLOR } from "@/lib/data/dash/weeklyFitnessDashProgress";
 
 /** Dash Weekly Fitness hero: larger ring + stroke for readability without crowding the header row. */
+const PROGRESS_METRIC_ICON_SLOT_WIDTH = 28;
+const PROGRESS_METRIC_ICON_TEXT_GAP = 8;
 const WEEKLY_FITNESS_RING_SIZE = 156;
 const WEEKLY_FITNESS_RING_STROKE_WIDTH = 9;
 
@@ -31,7 +36,7 @@ type Props = {
   rows: WeeklyFitnessRow[];
   /** Combined Weekly Fitness completion across enabled (goal>0) categories. */
   combined: UseWeeklyFitnessCardResult["combined"];
-  /** Right-aligned progress-to-goal summary beside the score ring. */
+  /** Progress-to-goal summary beside the score ring (accessibility label on block). */
   progressToGoalVm: WeeklyFitnessProgressToGoalVm;
   /** When false, show copy inviting sign-in instead of metrics. */
   hasUser: boolean;
@@ -119,67 +124,35 @@ export function WeeklyFitnessCard({
               accessibilityLabel={progressToGoalVm.accessibilityLabel}
               testID="weekly-fitness-progress-to-goal-block"
             >
-              <Text
-                style={styles.progressToGoalEyebrow}
-                maxFontSizeMultiplier={1.3}
-                testID="weekly-fitness-progress-to-goal-eyebrow"
-              >
-                Progress to goal
-              </Text>
-              <View style={styles.progressMetricGroup}>
-                <Text
-                  style={styles.progressToGoalLine}
-                  maxFontSizeMultiplier={1.3}
-                  testID="weekly-fitness-progress-to-goal-strength-primary"
+              {progressToGoalVm.items.map((item) => (
+                <View
+                  key={item.key}
+                  style={styles.progressMetricRow}
+                  accessibilityLabel={[item.primary, item.support].filter(Boolean).join(". ")}
+                  testID={`weekly-fitness-progress-to-goal-row-${item.key}`}
                 >
-                  {progressToGoalVm.strength.primary}
-                </Text>
-                {progressToGoalVm.strength.support.length > 0 ? (
-                  <Text
-                    style={styles.progressToGoalSupport}
-                    maxFontSizeMultiplier={1.25}
-                    testID="weekly-fitness-progress-to-goal-strength-support"
-                  >
-                    {progressToGoalVm.strength.support}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={styles.progressMetricGroup}>
-                <Text
-                  style={styles.progressToGoalLine}
-                  maxFontSizeMultiplier={1.3}
-                  testID="weekly-fitness-progress-to-goal-activity-primary"
-                >
-                  {progressToGoalVm.activity.primary}
-                </Text>
-                {progressToGoalVm.activity.support.length > 0 ? (
-                  <Text
-                    style={styles.progressToGoalSupport}
-                    maxFontSizeMultiplier={1.25}
-                    testID="weekly-fitness-progress-to-goal-activity-support"
-                  >
-                    {progressToGoalVm.activity.support}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={styles.progressMetricGroup}>
-                <Text
-                  style={styles.progressToGoalLine}
-                  maxFontSizeMultiplier={1.3}
-                  testID="weekly-fitness-progress-to-goal-cardio-primary"
-                >
-                  {progressToGoalVm.cardio.primary}
-                </Text>
-                {progressToGoalVm.cardio.support.length > 0 ? (
-                  <Text
-                    style={styles.progressToGoalSupport}
-                    maxFontSizeMultiplier={1.25}
-                    testID="weekly-fitness-progress-to-goal-cardio-support"
-                  >
-                    {progressToGoalVm.cardio.support}
-                  </Text>
-                ) : null}
-              </View>
+                  <View style={styles.progressMetricTextCol}>
+                    <Text
+                      style={styles.progressToGoalLine}
+                      maxFontSizeMultiplier={1.3}
+                      numberOfLines={1}
+                      testID={`weekly-fitness-progress-to-goal-${item.key}-primary`}
+                    >
+                      {item.primary}
+                    </Text>
+                    {item.support.length > 0 ? (
+                      <Text
+                        style={styles.progressToGoalSupport}
+                        maxFontSizeMultiplier={1.25}
+                        numberOfLines={1}
+                        testID={`weekly-fitness-progress-to-goal-${item.key}-support`}
+                      >
+                        {item.support}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -213,12 +186,12 @@ export function WeeklyFitnessCard({
               testID={`weekly-fitness-row-${row.key}`}
             >
               <View style={styles.rowTop}>
-                <Text style={styles.domainLabel} numberOfLines={1}>
+                <Text style={[dashMetricRowLabelTextStyle, styles.domainLabel]} numberOfLines={1}>
                   {row.label}
                 </Text>
                 <View style={styles.rowFigureGroup}>
                   <Text
-                    style={styles.rowFigure}
+                    style={[dashMetricRowValueTextStyle, styles.rowFigure]}
                     numberOfLines={1}
                     accessibilityElementsHidden
                     importantForAccessibility="no"
@@ -291,11 +264,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 20,
     minHeight: WEEKLY_FITNESS_RING_SIZE,
   },
   ringWrap: {
+    width: WEEKLY_FITNESS_RING_SIZE,
     flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   ringScoreLabel: {
     fontSize: 40,
@@ -305,45 +281,42 @@ const styles = StyleSheet.create({
   },
   progressToGoalBlock: {
     flex: 1,
-    flexGrow: 1,
-    minWidth: 0,
-    maxWidth: "100%",
+    flexShrink: 1,
+    minWidth: 132,
     justifyContent: "center",
-    alignItems: "flex-end",
-    alignSelf: "stretch",
-    gap: 6,
-    paddingLeft: 4,
+    alignItems: "stretch",
+    alignSelf: "center",
+    gap: 4,
+    paddingLeft: 2,
   },
-  progressMetricGroup: {
-    alignItems: "flex-end",
-    gap: 1,
-    maxWidth: "100%",
+  progressMetricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
   },
-  progressToGoalEyebrow: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "600",
-    letterSpacing: 0.52,
-    textTransform: "uppercase",
-    color: UI_TEXT_TERTIARY_LABEL,
-    textAlign: "right",
+  progressMetricTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 0,
+    alignItems: "flex-start",
+    paddingLeft: PROGRESS_METRIC_ICON_SLOT_WIDTH + PROGRESS_METRIC_ICON_TEXT_GAP,
   },
   progressToGoalLine: {
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: "500",
     color: UI_TEXT_SECONDARY,
     letterSpacing: -0.08,
-    textAlign: "right",
+    textAlign: "left",
     flexShrink: 1,
   },
   progressToGoalSupport: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10,
+    lineHeight: 13,
     fontWeight: "500",
     color: UI_TEXT_MUTED,
     letterSpacing: -0.06,
-    textAlign: "right",
+    textAlign: "left",
     flexShrink: 1,
   },
   subtitle: {
@@ -380,16 +353,16 @@ const styles = StyleSheet.create({
   rowsWrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,
-    paddingTop: 6,
-    gap: 10,
+    paddingTop: 4,
+    gap: 6,
     marginTop: 2,
   },
   rowPressable: {
     marginHorizontal: -6,
     paddingHorizontal: 6,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 10,
-    gap: 6,
+    gap: 4,
     minHeight: 44,
     justifyContent: "center",
   },
@@ -405,11 +378,6 @@ const styles = StyleSheet.create({
   domainLabel: {
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
   },
   rowFigureGroup: {
     flexShrink: 1,
@@ -420,14 +388,7 @@ const styles = StyleSheet.create({
     maxWidth: "62%",
   },
   rowFigure: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
     flexShrink: 1,
-    textAlign: "right",
   },
   rowChevron: {
     fontSize: 16,

@@ -6,6 +6,14 @@ import { computeStrengthThisWeekWindowMetrics } from "@/lib/data/workouts/streng
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import {
+  averageMinutesFromCompletedSleepNights,
+  collectCompletedSleepNightsForWeek,
+  logWeeklyFitnessSleepAverageDev,
+  weeklyFitnessWeekWakeWindow,
+  type WeeklyFitnessSleepNightCell,
+} from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
+import { formatSleepDurationCompact } from "@/lib/dashboard/todayHealthHero";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 /** Visual cap for the Dash bar fill. Values exceeding the goal still display as full. */
@@ -153,6 +161,77 @@ export function computeWeeklyFitnessStrengthMetrics(input: {
   };
 }
 
+function formatSleepHoursForAccessibility(hours: number): string {
+  const h = Math.max(0, hours);
+  const whole = Math.floor(h);
+  const frac = Math.round((h - whole) * 60);
+  if (frac === 0) return whole === 1 ? "1 hour" : `${whole} hours`;
+  if (whole === 0) return frac === 1 ? "1 minute" : `${frac} minutes`;
+  return `${whole} ${whole === 1 ? "hour" : "hours"} ${frac} ${frac === 1 ? "minute" : "minutes"}`;
+}
+
+export type WeeklyFitnessSleepMetrics = {
+  /** Average minutes per completed attributed sleep night in the week. */
+  avgSleepMinutesPerNight: number;
+  goalHoursPerNight: number;
+  /** Minutes equivalent of {@link goalHoursPerNight} for progress math. */
+  goalSleepMinutesPerNight: number;
+  /** Count of unique completed sleep nights (denominator for average). */
+  completedNightsWithData: number;
+  /** 0 when goal is 0 (no goal set). */
+  goalProgress01: number;
+  /** Visible row value: "8h 12m avg" (or "No goal set"). */
+  valueLabel: string;
+  accessibilityValueLabel: string;
+};
+
+/**
+ * Sleep row metrics for the current local week: average over **completed attributed** sleep nights
+ * (GET /users/me/sleep-night + Dash Daily Sleep guards). Future days are not requested; missing nights
+ * are excluded from the average (never counted as zero).
+ */
+export function computeWeeklyFitnessSleepMetrics(input: {
+  weekDayKeys: readonly DayKey[];
+  todayDayKey: DayKey;
+  sleepNightByDay: Readonly<Partial<Record<DayKey, WeeklyFitnessSleepNightCell>>>;
+  goalHoursPerNight: number;
+}): WeeklyFitnessSleepMetrics {
+  const wakeWindow = weeklyFitnessWeekWakeWindow(input.weekDayKeys, input.todayDayKey);
+  const { completedNights, skipped } = collectCompletedSleepNightsForWeek({
+    weekDayKeys: input.weekDayKeys,
+    todayDayKey: input.todayDayKey,
+    sleepNightByDay: input.sleepNightByDay,
+  });
+  const avgMinutes = averageMinutesFromCompletedSleepNights(completedNights);
+  logWeeklyFitnessSleepAverageDev({
+    todayDayKey: input.todayDayKey,
+    weekStartDay: wakeWindow.weekStartDay,
+    weekEndDay: wakeWindow.weekEndDay,
+    lastCountableWakeDay: wakeWindow.lastCountableWakeDay,
+    completedNights,
+    skipped,
+    averageMinutes: avgMinutes,
+  });
+  const goalHours = Math.max(0, input.goalHoursPerNight);
+  const goalMinutes = Math.round(goalHours * 60);
+  const hasGoal = goalHours > 0;
+  const goalProgress01 = hasGoal && goalMinutes > 0 ? clampGoalProgress01(avgMinutes / goalMinutes) : 0;
+  const avgCompact = formatSleepDurationCompact(avgMinutes);
+  const valueLabel = hasGoal ? `${avgCompact} avg` : "No goal set";
+  const accessibilityValueLabel = hasGoal
+    ? `${formatSleepHoursForAccessibility(avgMinutes / 60)} average, goal ${formatSleepHoursForAccessibility(goalHours)} per night`
+    : `${formatSleepHoursForAccessibility(avgMinutes / 60)} average, no goal set`;
+  return {
+    avgSleepMinutesPerNight: avgMinutes,
+    goalHoursPerNight: goalHours,
+    goalSleepMinutesPerNight: goalMinutes,
+    completedNightsWithData: completedNights.length,
+    goalProgress01,
+    valueLabel,
+    accessibilityValueLabel,
+  };
+}
+
 export type WeeklyFitnessCardioMetrics = {
   totalMilesThisWeek: number;
   goalMilesPerWeek: number;
@@ -240,11 +319,13 @@ export function computeWeeklyFitnessCombinedProgress(input: {
   activity: Pick<WeeklyFitnessActivityMetrics, "goalProgress01" | "goalStepsPerDay">;
   strength: Pick<WeeklyFitnessStrengthMetrics, "goalProgress01" | "goalWorkoutsPerWeek">;
   cardio: Pick<WeeklyFitnessCardioMetrics, "goalProgress01" | "goalMilesPerWeek">;
+  sleep: Pick<WeeklyFitnessSleepMetrics, "goalProgress01" | "goalHoursPerNight">;
 }): WeeklyFitnessCombinedProgress {
   const enabled: number[] = [];
   if (input.activity.goalStepsPerDay > 0) enabled.push(clampGoalProgress01(input.activity.goalProgress01));
   if (input.strength.goalWorkoutsPerWeek > 0) enabled.push(clampGoalProgress01(input.strength.goalProgress01));
   if (input.cardio.goalMilesPerWeek > 0) enabled.push(clampGoalProgress01(input.cardio.goalProgress01));
+  if (input.sleep.goalHoursPerNight > 0) enabled.push(clampGoalProgress01(input.sleep.goalProgress01));
   if (enabled.length === 0) {
     return { progress: 0, percent: 0, enabledCategoryCount: 0 };
   }

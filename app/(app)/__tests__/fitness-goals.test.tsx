@@ -4,8 +4,11 @@ import renderer from "react-test-renderer";
 
 const mockBack = jest.fn();
 
+const mockSetOptions = jest.fn();
+
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, push: jest.fn() }),
+  useNavigation: () => ({ setOptions: mockSetOptions, goBack: mockBack }),
 }));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
@@ -65,6 +68,7 @@ function collectAllText(tree: renderer.ReactTestRenderer): string {
 describe("FitnessGoalsScreen", () => {
   beforeEach(() => {
     mockBack.mockReset();
+    mockSetOptions.mockReset();
     mockSetWeeklyFitnessGoals.mockReset();
     mockSetWeeklyFitnessGoals.mockImplementation(async () => true);
     mockPrefState = {
@@ -84,7 +88,7 @@ describe("FitnessGoalsScreen", () => {
       tree = renderer.create(<FitnessGoalsScreen />);
     });
     expect(findInputByTestId(tree, "fitness-goals-input-activityStepsPerDayGoal").props.value).toBe(
-      "10000",
+      "10,000",
     );
     expect(
       findInputByTestId(tree, "fitness-goals-input-strengthWorkoutsPerWeekGoal").props.value,
@@ -92,6 +96,12 @@ describe("FitnessGoalsScreen", () => {
     expect(
       findInputByTestId(tree, "fitness-goals-input-cardioMilesPerWeekGoal").props.value,
     ).toBe("10");
+    expect(findInputByTestId(tree, "fitness-goals-input-sleepHoursPerNightGoal").props.value).toBe(
+      "8",
+    );
+    expect(collectAllText(tree)).toContain(
+      "Set the weekly targets used on your Fitness card. These goals only change how progress is displayed",
+    );
   });
 
   it("prefills from persisted goals", () => {
@@ -106,6 +116,7 @@ describe("FitnessGoalsScreen", () => {
           activityStepsPerDayGoal: 12000,
           strengthWorkoutsPerWeekGoal: 4,
           cardioMilesPerWeekGoal: 6,
+          sleepHoursPerNightGoal: 7.5,
           updatedAt: "2026-05-07T12:00:00.000Z",
         },
       },
@@ -115,7 +126,7 @@ describe("FitnessGoalsScreen", () => {
       tree = renderer.create(<FitnessGoalsScreen />);
     });
     expect(findInputByTestId(tree, "fitness-goals-input-activityStepsPerDayGoal").props.value).toBe(
-      "12000",
+      "12,000",
     );
     expect(
       findInputByTestId(tree, "fitness-goals-input-strengthWorkoutsPerWeekGoal").props.value,
@@ -123,6 +134,9 @@ describe("FitnessGoalsScreen", () => {
     expect(
       findInputByTestId(tree, "fitness-goals-input-cardioMilesPerWeekGoal").props.value,
     ).toBe("6");
+    expect(findInputByTestId(tree, "fitness-goals-input-sleepHoursPerNightGoal").props.value).toBe(
+      "7.5",
+    );
   });
 
   it("validates bad input and surfaces field-level errors", () => {
@@ -147,14 +161,14 @@ describe("FitnessGoalsScreen", () => {
     expect(tree.root.findAllByProps({ testID: "fitness-goals-error-cardioMilesPerWeekGoal" }).length).toBe(1);
   });
 
-  it("saves valid input via setWeeklyFitnessGoals", async () => {
+  it("saves valid input via setWeeklyFitnessGoals and navigates back", async () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(<FitnessGoalsScreen />);
     });
     const stepsInput = findInputByTestId(tree, "fitness-goals-input-activityStepsPerDayGoal");
     act(() => {
-      stepsInput.props.onChangeText("12000");
+      stepsInput.props.onChangeText("12,000");
     });
     const workoutsInput = findInputByTestId(tree, "fitness-goals-input-strengthWorkoutsPerWeekGoal");
     act(() => {
@@ -164,6 +178,10 @@ describe("FitnessGoalsScreen", () => {
     act(() => {
       milesInput.props.onChangeText("8");
     });
+    const sleepInput = findInputByTestId(tree, "fitness-goals-input-sleepHoursPerNightGoal");
+    act(() => {
+      sleepInput.props.onChangeText("7.5");
+    });
     const save = findInputByTestId(tree, "fitness-goals-save");
     await act(async () => {
       await save.props.onPress();
@@ -172,7 +190,20 @@ describe("FitnessGoalsScreen", () => {
       activityStepsPerDayGoal: 12000,
       strengthWorkoutsPerWeekGoal: 4,
       cardioMilesPerWeekGoal: 8,
+      sleepHoursPerNightGoal: 7.5,
     });
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it("does not render a bottom Back text button", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<FitnessGoalsScreen />);
+    });
+    const backButtons = tree.root
+      .findAllByProps({ accessibilityLabel: "Back" })
+      .filter((n) => n.type === "Pressable");
+    expect(backButtons.length).toBe(0);
   });
 
   it("shows server error when setWeeklyFitnessGoals leaves state in error", async () => {

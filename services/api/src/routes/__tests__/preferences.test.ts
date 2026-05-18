@@ -290,6 +290,55 @@ describe("GET/PUT /preferences", () => {
     expect(setMock).toHaveBeenCalledTimes(1);
   });
 
+  test("PUT weeklyFitnessGoals with sleepHoursPerNightGoal returns client-valid shape", async () => {
+    const setMock = jest.fn(async () => undefined);
+
+    (userDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            preferences: {
+              units: { mass: "lb" },
+              timezone: { mode: "recorded" },
+              selectedGymId: null,
+              weeklyFitnessGoals: {
+                activityStepsPerDayGoal: 10_000,
+                strengthWorkoutsPerWeekGoal: 5,
+                cardioMilesPerWeekGoal: 10,
+                updatedAt: "2026-05-01T00:00:00.000Z",
+              },
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        weeklyFitnessGoals: {
+          activityStepsPerDayGoal: 12_000,
+          strengthWorkoutsPerWeekGoal: 4,
+          cardioMilesPerWeekGoal: 8,
+          sleepHoursPerNightGoal: 7.5,
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.weeklyFitnessGoals).toMatchObject({
+      activityStepsPerDayGoal: 12_000,
+      strengthWorkoutsPerWeekGoal: 4,
+      cardioMilesPerWeekGoal: 8,
+      sleepHoursPerNightGoal: 7.5,
+    });
+    expect(typeof json.weeklyFitnessGoals.updatedAt).toBe("string");
+    expect(setMock).toHaveBeenCalledTimes(1);
+  });
+
   test("PUT can clear workoutPickerBundledAllowlistExerciseIds with null", async () => {
     const setMock = jest.fn(async () => undefined);
 

@@ -1,5 +1,5 @@
 /** Typed Expo Router hrefs for Dash Weekly Fitness navigation. */
-export type WeeklyFitnessRowKey = "activity" | "strength" | "cardio";
+export type WeeklyFitnessRowKey = "activity" | "strength" | "cardio" | "sleep";
 
 export const WEEKLY_FITNESS_ROUTES = {
   /** "My goal" pressable; user-editable Dash Weekly Fitness goals. */
@@ -7,6 +7,7 @@ export const WEEKLY_FITNESS_ROUTES = {
   activity: "/(app)/activity",
   strength: "/(app)/workouts",
   cardio: "/(app)/cardio",
+  sleep: "/(app)/recovery/sleep",
 } as const satisfies Record<"goalsEditor" | WeeklyFitnessRowKey, string>;
 
 export function weeklyFitnessMetricPageHref(

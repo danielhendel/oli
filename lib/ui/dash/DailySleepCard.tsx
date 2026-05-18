@@ -214,14 +214,14 @@ const styles = StyleSheet.create({
   metricSection: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,
-    paddingTop: 8,
-    gap: 4,
+    paddingTop: 6,
+    gap: 2,
   },
   metricPressable: {
     borderRadius: 8,
     marginHorizontal: -6,
     paddingHorizontal: 6,
-    paddingVertical: 10,
+    paddingVertical: 7,
     minHeight: 44,
     justifyContent: "center",
   },

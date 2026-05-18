@@ -4,7 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
-import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
+import { useActivityStepsRollupForKeys } from "@/lib/data/activity/useActivityStepsRollupMap";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
 import {
@@ -15,6 +15,7 @@ import {
   computeWeeklyFitnessActivityMetrics,
   computeWeeklyFitnessCardioMetrics,
   computeWeeklyFitnessCombinedProgress,
+  computeWeeklyFitnessSleepMetrics,
   computeWeeklyFitnessStrengthMetrics,
   weeklyFitnessGoalStatusForProgress,
   weeklyFitnessGoalStatusLabel,
@@ -32,6 +33,7 @@ import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dat
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
+import { useWeeklyFitnessSleepRollupMap } from "@/lib/data/dash/useWeeklyFitnessSleepRollupMap";
 import { WEEKLY_FITNESS_ROUTES, type WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
@@ -40,7 +42,7 @@ export { WEEKLY_FITNESS_ROUTES, weeklyFitnessMetricPageHref } from "@/lib/data/d
 
 export type WeeklyFitnessRow = {
   key: WeeklyFitnessRowKey;
-  label: "Activity" | "Strength" | "Cardio";
+  label: "Activity" | "Strength" | "Cardio" | "Sleep";
   /** Visible row value: actual completed only ("9,992 avg steps", "3 workouts", "2.6 miles"). */
   valueLabel: string;
   /** Accessibility phrase that includes goal context (e.g. "9,992 average steps, goal 10,000 steps per day"). */
@@ -85,12 +87,19 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   const todayDayKey = getTodayDayKeyLocal();
 
   const { state: prefState } = usePreferences();
+  const weeklyGoalsStamp = prefState.preferences.weeklyFitnessGoals?.updatedAt;
   const goals = useMemo(
     () => resolveWeeklyFitnessGoals(prefState.preferences),
-    [prefState.preferences],
+    [prefState.preferences, weeklyGoalsStamp],
   );
 
-  const stepsRollup = useActivityStepsRollupMap(todayDayKey, { registerStripAnchor: false });
+  const weekDayKeys = useMemo(() => getWeekDaysForAnchor(todayDayKey), [todayDayKey]);
+  const weekElapsedDayKeys = useMemo(
+    () => weekDayKeys.filter((d) => d <= todayDayKey),
+    [weekDayKeys, todayDayKey],
+  );
+
+  const stepsRollup = useActivityStepsRollupForKeys(weekElapsedDayKeys);
   const displayRollup = stepsRollup.rollupDisplayByDay;
 
   const { hkToday } = useActivityHealthKitTodayStepsCard({
@@ -132,17 +141,19 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
 
   const overviewSharedRange = useWorkoutsCalendarRange(overviewRangeStart, overviewRangeEnd, calendarOptions);
 
+  const weekStartDay = weekDayKeys[0]!;
+  const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
+
+  const sleepRollup = useWeeklyFitnessSleepRollupMap(weekDayKeys);
+
   useFocusEffect(
     useCallback(() => {
       void stepsRollup.refetch({ cacheBust: `weeklyFitnessSteps:${Date.now()}` });
+      sleepRollup.refetch({ cacheBust: `weeklyFitnessSleep:${Date.now()}` });
       scheduleActivityStepsRepair();
       bumpWorkoutRefresh();
-    }, [bumpWorkoutRefresh, scheduleActivityStepsRepair, stepsRollup.refetch]),
+    }, [bumpWorkoutRefresh, scheduleActivityStepsRepair, sleepRollup.refetch, stepsRollup.refetch]),
   );
-
-  const weekDayKeys = useMemo(() => getWeekDaysForAnchor(todayDayKey), [todayDayKey]);
-  const weekStartDay = weekDayKeys[0]!;
-  const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
 
   const strengthCalendarDays = useMemo(() => {
     if (overviewSharedRange.status !== "ready") return [];
@@ -181,9 +192,17 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalMilesPerWeek: goals.cardioMilesPerWeekGoal,
     });
 
+    const sleep = computeWeeklyFitnessSleepMetrics({
+      weekDayKeys,
+      todayDayKey,
+      sleepNightByDay: sleepRollup.sleepNightByDay,
+      goalHoursPerNight: goals.sleepHoursPerNightGoal,
+    });
+
     const activityStatus = weeklyFitnessGoalStatusForProgress(activity.goalProgress01);
     const strengthStatus = weeklyFitnessGoalStatusForProgress(strength.goalProgress01);
     const cardioStatus = weeklyFitnessGoalStatusForProgress(cardio.goalProgress01);
+    const sleepStatus = weeklyFitnessGoalStatusForProgress(sleep.goalProgress01);
 
     const computedRows: WeeklyFitnessRow[] = [
       {
@@ -219,18 +238,31 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
         status: cardioStatus,
         statusLabel: weeklyFitnessGoalStatusLabel(cardioStatus),
       },
+      {
+        key: "sleep",
+        label: "Sleep",
+        valueLabel: sleep.valueLabel,
+        accessibilityValueLabel: sleep.accessibilityValueLabel,
+        progress: sleep.goalProgress01,
+        hasGoal: sleep.goalHoursPerNight > 0,
+        barColor: WEEKLY_FITNESS_BAR_FILL_COLOR,
+        status: sleepStatus,
+        statusLabel: weeklyFitnessGoalStatusLabel(sleepStatus),
+      },
     ];
 
     const combinedNext = computeWeeklyFitnessCombinedProgress({
       activity,
       strength,
       cardio,
+      sleep,
     });
 
     const progressToGoalVmNext = buildWeeklyFitnessProgressToGoalVm({
       activity,
       strength,
       cardio,
+      sleep,
     });
 
     return { rows: computedRows, combined: combinedNext, progressToGoalVm: progressToGoalVmNext };
@@ -238,8 +270,10 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     cardioCalendarDays,
     goals.activityStepsPerDayGoal,
     goals.cardioMilesPerWeekGoal,
+    goals.sleepHoursPerNightGoal,
     goals.strengthWorkoutsPerWeekGoal,
     rollupMergedForWeek,
+    sleepRollup.sleepNightByDay,
     strengthCalendarDays,
     todayDayKey,
     weekDayKeys,
@@ -256,7 +290,9 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   const calendarLoading =
     Boolean(user) && !initializing && overviewSharedRange.status === "partial";
 
-  const loading = Boolean(initializing || activityLoading || calendarLoading);
+  const sleepLoading = Boolean(user) && !initializing && sleepRollup.status === "partial";
+
+  const loading = Boolean(initializing || activityLoading || calendarLoading || sleepLoading);
 
   const error = useMemo((): string | null => {
     if (!user || initializing || loading) return null;
