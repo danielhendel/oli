@@ -6,6 +6,7 @@ import {
   defaultPreferences,
   weeklyFitnessGoalsSchema,
   WEEKLY_FITNESS_GOAL_LIMITS,
+  mergeStoredPreferences,
   type WeeklyFitnessGoals,
 } from "@oli/contracts";
 
@@ -93,6 +94,10 @@ const preferencesPatchSchema = z
           .number()
           .min(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMin)
           .max(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMax),
+        sleepHoursPerNightGoal: z
+          .number()
+          .min(WEEKLY_FITNESS_GOAL_LIMITS.sleepHoursPerNightMin)
+          .max(WEEKLY_FITNESS_GOAL_LIMITS.sleepHoursPerNightMax),
       })
       .strip()
       .optional(),
@@ -183,8 +188,8 @@ router.get(
       return;
     }
 
-    // Merge with defaults so older docs missing new keys (e.g. selectedGymId) still validate.
-    const merged = { ...defaultPreferences(), ...(rawPrefs as Record<string, unknown>) };
+    // Merge with defaults; coerce nested weeklyFitnessGoals (e.g. sleep field added after save).
+    const merged = mergeStoredPreferences(rawPrefs as Record<string, unknown>);
     const parsed = preferencesSchema.safeParse(merged);
     if (!parsed.success) {
       invalidDoc500(req, res, "preferences", parsed.error.flatten());
@@ -240,7 +245,7 @@ router.put(
       snap.exists ? ((snap.data() as Record<string, unknown> | undefined)?.["preferences"] ?? null) : null;
 
     const existingMerged = existingRaw
-      ? { ...defaultPreferences(), ...(existingRaw as Record<string, unknown>) }
+      ? mergeStoredPreferences(existingRaw as Record<string, unknown>)
       : null;
     const existingParsed = existingMerged ? preferencesSchema.safeParse(existingMerged) : null;
 
@@ -279,6 +284,7 @@ router.put(
         activityStepsPerDayGoal: patch.weeklyFitnessGoals.activityStepsPerDayGoal,
         strengthWorkoutsPerWeekGoal: patch.weeklyFitnessGoals.strengthWorkoutsPerWeekGoal,
         cardioMilesPerWeekGoal: patch.weeklyFitnessGoals.cardioMilesPerWeekGoal,
+        sleepHoursPerNightGoal: patch.weeklyFitnessGoals.sleepHoursPerNightGoal,
         updatedAt: new Date().toISOString(),
       };
     }

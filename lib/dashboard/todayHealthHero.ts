@@ -31,19 +31,13 @@ export function greetingHeadline(now: Date): { period: GreetingPeriod; phrase: s
   return { period, phrase: greetingPhraseForPeriod(period) };
 }
 
-export type SleepMinutesPick = {
-  totalMinutes?: number | undefined;
-  mainSleepMinutes?: number | undefined;
-};
+import {
+  pickSleepMinutesFromFacts,
+  type SleepMinutesPick,
+} from "@/lib/data/sleep/pickSleepMinutesFromFacts";
 
-export function pickSleepMinutesFromFacts(sleep: SleepMinutesPick | undefined): number | undefined {
-  if (!sleep) return undefined;
-  const t = sleep.totalMinutes;
-  if (typeof t === "number" && Number.isFinite(t) && t > 0) return t;
-  const m = sleep.mainSleepMinutes;
-  if (typeof m === "number" && Number.isFinite(m) && m > 0) return m;
-  return undefined;
-}
+export type { SleepMinutesPick };
+export { pickSleepMinutesFromFacts };
 
 /** Compact display for Dash sleep cell, e.g. `8h 12m`. */
 export function formatSleepDurationCompact(totalMinutes: number): string {

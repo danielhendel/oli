@@ -1,6 +1,8 @@
 // lib/contracts/preferences.ts
 import { z } from "zod";
 
+import { isoDateTimeStringSchema } from "./rawEvent";
+
 export const massUnitSchema = z.enum(["lb", "kg"]);
 export type MassUnit = z.infer<typeof massUnitSchema>;
 
@@ -20,12 +22,15 @@ export const WEEKLY_FITNESS_GOAL_LIMITS = {
   strengthWorkoutsPerWeekMax: 14,
   cardioMilesPerWeekMin: 0,
   cardioMilesPerWeekMax: 100,
+  sleepHoursPerNightMin: 3,
+  sleepHoursPerNightMax: 14,
 } as const;
 
 export const WEEKLY_FITNESS_GOAL_DEFAULTS = {
   activityStepsPerDayGoal: 10_000,
   strengthWorkoutsPerWeekGoal: 5,
   cardioMilesPerWeekGoal: 10,
+  sleepHoursPerNightGoal: 8,
 } as const;
 
 export const weeklyFitnessGoalsSchema = z
@@ -44,11 +49,57 @@ export const weeklyFitnessGoalsSchema = z
       .number()
       .min(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMin)
       .max(WEEKLY_FITNESS_GOAL_LIMITS.cardioMilesPerWeekMax),
+    sleepHoursPerNightGoal: z
+      .number()
+      .min(WEEKLY_FITNESS_GOAL_LIMITS.sleepHoursPerNightMin)
+      .max(WEEKLY_FITNESS_GOAL_LIMITS.sleepHoursPerNightMax),
     /** ISO 8601 timestamp; the server stamps this on each PUT. */
-    updatedAt: z.string().datetime(),
+    updatedAt: isoDateTimeStringSchema,
   })
   .strip();
 export type WeeklyFitnessGoals = z.infer<typeof weeklyFitnessGoalsSchema>;
+
+const weeklyFitnessGoalsParsedSchema = z.preprocess(
+  (raw) => coerceWeeklyFitnessGoals(raw) ?? raw,
+  weeklyFitnessGoalsSchema,
+);
+
+/**
+ * Coerce stored weekly fitness goals (additive fields like sleep) before Zod validation.
+ * Returns undefined when the object is not a legacy weekly-fitness goals blob.
+ */
+export function coerceWeeklyFitnessGoals(raw: unknown): WeeklyFitnessGoals | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const g = raw as Partial<WeeklyFitnessGoals>;
+  if (
+    typeof g.activityStepsPerDayGoal !== "number" ||
+    typeof g.strengthWorkoutsPerWeekGoal !== "number" ||
+    typeof g.cardioMilesPerWeekGoal !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    activityStepsPerDayGoal: g.activityStepsPerDayGoal,
+    strengthWorkoutsPerWeekGoal: g.strengthWorkoutsPerWeekGoal,
+    cardioMilesPerWeekGoal: g.cardioMilesPerWeekGoal,
+    sleepHoursPerNightGoal:
+      typeof g.sleepHoursPerNightGoal === "number"
+        ? g.sleepHoursPerNightGoal
+        : WEEKLY_FITNESS_GOAL_DEFAULTS.sleepHoursPerNightGoal,
+    updatedAt: typeof g.updatedAt === "string" ? g.updatedAt : new Date().toISOString(),
+  };
+}
+
+/** Merge Firestore preferences with Phase 1 defaults and coerce nested weekly fitness goals. */
+export function mergeStoredPreferences(raw: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...defaultPreferences(), ...raw };
+  if (merged.weeklyFitnessGoals != null) {
+    const coerced = coerceWeeklyFitnessGoals(merged.weeklyFitnessGoals);
+    if (coerced) merged.weeklyFitnessGoals = coerced;
+    else delete merged.weeklyFitnessGoals;
+  }
+  return merged;
+}
 
 /**
  * Phase 1 view preferences.
@@ -92,8 +143,8 @@ export const preferencesSchema = z
       .nullable()
       .optional(),
 
-    /** Dash Weekly Fitness goals (display-only). Defaults applied when missing. */
-    weeklyFitnessGoals: weeklyFitnessGoalsSchema.optional(),
+    /** Dash Weekly Fitness goals (display-only). Coerced when legacy docs omit sleep. */
+    weeklyFitnessGoals: weeklyFitnessGoalsParsedSchema.optional(),
   })
   .strip()
   .superRefine((val, ctx) => {

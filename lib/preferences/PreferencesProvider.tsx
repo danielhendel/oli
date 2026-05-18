@@ -16,6 +16,7 @@ import React, {
     updateMetricSourcePreference,
     updateWeeklyFitnessGoals,
   } from "@/lib/api/preferences";
+  import { applySubmittedWeeklyFitnessGoalsToPreferences } from "@/lib/preferences/weeklyFitnessGoals";
   
   type PreferencesState =
     | { status: "partial"; preferences: Preferences }
@@ -35,7 +36,10 @@ import React, {
     setWeeklyFitnessGoals: (
       goals: Pick<
         WeeklyFitnessGoals,
-        "activityStepsPerDayGoal" | "strengthWorkoutsPerWeekGoal" | "cardioMilesPerWeekGoal"
+        | "activityStepsPerDayGoal"
+        | "strengthWorkoutsPerWeekGoal"
+        | "cardioMilesPerWeekGoal"
+        | "sleepHoursPerNightGoal"
       >,
     ) => Promise<boolean>;
   };
@@ -168,7 +172,10 @@ import React, {
     const setWeeklyFitnessGoalsFn = async (
       goals: Pick<
         WeeklyFitnessGoals,
-        "activityStepsPerDayGoal" | "strengthWorkoutsPerWeekGoal" | "cardioMilesPerWeekGoal"
+        | "activityStepsPerDayGoal"
+        | "strengthWorkoutsPerWeekGoal"
+        | "cardioMilesPerWeekGoal"
+        | "sleepHoursPerNightGoal"
       >,
     ): Promise<boolean> => {
       // Signed out / auth not ready: keep local-only (no API call).
@@ -181,34 +188,44 @@ import React, {
         return true;
       }
 
-      const prev = state.preferences;
+      let prevForRollback: Preferences | null = null;
       const optimistic: WeeklyFitnessGoals = { ...goals, updatedAt: new Date().toISOString() };
-      setState({
-        status: "ready",
-        preferences: { ...prev, weeklyFitnessGoals: optimistic },
+      setState((s) => {
+        prevForRollback = s.preferences;
+        return {
+          status: "ready",
+          preferences: { ...s.preferences, weeklyFitnessGoals: optimistic },
+        };
       });
 
       const token = await getIdToken(false);
       if (!token) {
-        setState({
+        setState((s) => ({
           status: "error",
-          preferences: prev,
+          preferences: prevForRollback ?? s.preferences,
           message: "No auth token (try Debug → Re-auth)",
-        });
+        }));
         return false;
       }
 
       const res = await updateWeeklyFitnessGoals(token, goals);
       if (!res.ok) {
-        setState({
+        setState((s) => ({
           status: "error",
-          preferences: prev,
+          preferences: prevForRollback ?? s.preferences,
           message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
-        });
+        }));
         return false;
       }
 
-      setState({ status: "ready", preferences: res.json });
+      setState({
+        status: "ready",
+        preferences: applySubmittedWeeklyFitnessGoalsToPreferences(
+          res.json,
+          goals,
+          optimistic.updatedAt,
+        ),
+      });
       return true;
     };
 

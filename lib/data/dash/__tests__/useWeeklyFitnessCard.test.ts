@@ -5,11 +5,14 @@ import {
   computeWeeklyFitnessActivityMetrics,
   computeWeeklyFitnessCardioMetrics,
   computeWeeklyFitnessCombinedProgress,
+  computeWeeklyFitnessSleepMetrics,
   computeWeeklyFitnessStrengthMetrics,
   weeklyFitnessGoalStatusForProgress,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import type { SleepNightViewDto } from "@oli/contracts";
 
 describe("clampGoalProgress01", () => {
   it("clamps to [0, 1]", () => {
@@ -243,16 +246,144 @@ describe("computeWeeklyFitnessCardioMetrics", () => {
   });
 });
 
+describe("computeWeeklyFitnessSleepMetrics", () => {
+  const weekDayKeys: readonly DayKey[] = [
+    "2026-05-03" as DayKey,
+    "2026-05-04" as DayKey,
+    "2026-05-05" as DayKey,
+    "2026-05-06" as DayKey,
+    "2026-05-07" as DayKey,
+    "2026-05-08" as DayKey,
+    "2026-05-09" as DayKey,
+  ];
+  const todayDayKey = "2026-05-07" as DayKey;
+
+  function cell(minutes: number): WeeklyFitnessSleepNightCell {
+    const view: SleepNightViewDto = {
+      requestedDay: todayDayKey,
+      anchorDay: todayDayKey,
+      wakeDay: todayDayKey,
+      resolution: "wake_day",
+      isFallback: false,
+      sleepNight: {
+        anchorDay: todayDayKey,
+        wakeDay: todayDayKey,
+        provider: "oura",
+        source: "ouraVendorSleep",
+        sourceDocumentId: "d1",
+        totalSleepMinutes: minutes,
+        isComplete: true,
+      },
+    };
+    return { settled: true, view };
+  }
+
+  it("averages completed attributed nights and formats value label", () => {
+    const sleepNightByDay: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
+    const minutesByDay: Record<string, number> = {
+      "2026-05-04": 480,
+      "2026-05-05": 510,
+      "2026-05-06": 492,
+      "2026-05-07": 495,
+    };
+    for (const d of Object.keys(minutesByDay) as DayKey[]) {
+      const view = cell(minutesByDay[d]!).view!;
+      view.requestedDay = d;
+      view.wakeDay = d;
+      view.sleepNight.wakeDay = d;
+      view.sleepNight.sourceDocumentId = `doc-${d}`;
+      sleepNightByDay[d] = { settled: true, view };
+    }
+    const m = computeWeeklyFitnessSleepMetrics({
+      weekDayKeys,
+      todayDayKey,
+      sleepNightByDay,
+      goalHoursPerNight: 8,
+    });
+    expect(m.avgSleepMinutesPerNight).toBe(494);
+    expect(m.completedNightsWithData).toBe(4);
+    expect(m.goalProgress01).toBe(1);
+    expect(m.valueLabel).toBe("8h 14m avg");
+    expect(m.accessibilityValueLabel).toContain("goal 8 hours per night");
+  });
+
+  it("falls back to 'No goal set' when goal is 0", () => {
+    const m = computeWeeklyFitnessSleepMetrics({
+      weekDayKeys,
+      todayDayKey,
+      sleepNightByDay: { [todayDayKey]: cell(492) },
+      goalHoursPerNight: 0,
+    });
+    expect(m.goalProgress01).toBe(0);
+    expect(m.valueLabel).toBe("No goal set");
+  });
+
+  it("recalculates sleep progress when nightly goal changes with the same average", () => {
+    const sleepNightByDay = { [todayDayKey]: cell(450) };
+    const looser = computeWeeklyFitnessSleepMetrics({
+      weekDayKeys,
+      todayDayKey,
+      sleepNightByDay,
+      goalHoursPerNight: 7.5,
+    });
+    const tighter = computeWeeklyFitnessSleepMetrics({
+      weekDayKeys,
+      todayDayKey,
+      sleepNightByDay,
+      goalHoursPerNight: 8,
+    });
+    expect(looser.goalSleepMinutesPerNight).toBe(450);
+    expect(tighter.goalSleepMinutesPerNight).toBe(480);
+    expect(looser.goalProgress01).toBe(1);
+    expect(tighter.goalProgress01).toBeCloseTo(450 / 480, 5);
+  });
+});
+
+describe("computeWeeklyFitnessCombinedProgress sleep goal", () => {
+  it("includes sleep in combined percent when sleep goal is enabled", () => {
+    const withSleep = computeWeeklyFitnessCombinedProgress({
+      activity: { goalProgress01: 1, goalStepsPerDay: 10_000 },
+      strength: { goalProgress01: 0, goalWorkoutsPerWeek: 0 },
+      cardio: { goalProgress01: 0, goalMilesPerWeek: 0 },
+      sleep: { goalProgress01: 0.5, goalHoursPerNight: 7.5 },
+    });
+    const withoutSleep = computeWeeklyFitnessCombinedProgress({
+      activity: { goalProgress01: 1, goalStepsPerDay: 10_000 },
+      strength: { goalProgress01: 0, goalWorkoutsPerWeek: 0 },
+      cardio: { goalProgress01: 0, goalMilesPerWeek: 0 },
+      sleep: { goalProgress01: 0, goalHoursPerNight: 0 },
+    });
+    expect(withSleep.enabledCategoryCount).toBe(2);
+    expect(withoutSleep.enabledCategoryCount).toBe(1);
+    expect(withSleep.percent).toBeLessThan(100);
+  });
+});
+
 describe("computeWeeklyFitnessCombinedProgress", () => {
+  const sleepDisabled = { goalProgress01: 0, goalHoursPerNight: 0 };
+
   it("averages enabled categories: 100% + 60% + 26% → 62%", () => {
     const r = computeWeeklyFitnessCombinedProgress({
       activity: { goalProgress01: 1, goalStepsPerDay: 10_000 },
       strength: { goalProgress01: 0.6, goalWorkoutsPerWeek: 5 },
       cardio: { goalProgress01: 0.26, goalMilesPerWeek: 10 },
+      sleep: sleepDisabled,
     });
     expect(r.enabledCategoryCount).toBe(3);
     expect(r.progress).toBeCloseTo((1 + 0.6 + 0.26) / 3, 4);
     expect(r.percent).toBe(62);
+  });
+
+  it("includes sleep when sleep goal is enabled", () => {
+    const r = computeWeeklyFitnessCombinedProgress({
+      activity: { goalProgress01: 1, goalStepsPerDay: 10_000 },
+      strength: { goalProgress01: 0.6, goalWorkoutsPerWeek: 5 },
+      cardio: { goalProgress01: 0.26, goalMilesPerWeek: 10 },
+      sleep: { goalProgress01: 0.5, goalHoursPerNight: 8 },
+    });
+    expect(r.enabledCategoryCount).toBe(4);
+    expect(r.progress).toBeCloseTo((1 + 0.6 + 0.26 + 0.5) / 4, 4);
+    expect(r.percent).toBe(59);
   });
 
   it("excludes zero-goal categories from the combined average", () => {
@@ -260,6 +391,7 @@ describe("computeWeeklyFitnessCombinedProgress", () => {
       activity: { goalProgress01: 1, goalStepsPerDay: 10_000 },
       strength: { goalProgress01: 0.6, goalWorkoutsPerWeek: 5 },
       cardio: { goalProgress01: 0, goalMilesPerWeek: 0 },
+      sleep: sleepDisabled,
     });
     expect(r.enabledCategoryCount).toBe(2);
     expect(r.progress).toBeCloseTo(0.8, 4);
@@ -271,6 +403,7 @@ describe("computeWeeklyFitnessCombinedProgress", () => {
       activity: { goalProgress01: 0.5, goalStepsPerDay: 0 },
       strength: { goalProgress01: 0.5, goalWorkoutsPerWeek: 0 },
       cardio: { goalProgress01: 0.5, goalMilesPerWeek: 0 },
+      sleep: sleepDisabled,
     });
     expect(r.enabledCategoryCount).toBe(0);
     expect(r.progress).toBe(0);
@@ -282,6 +415,7 @@ describe("computeWeeklyFitnessCombinedProgress", () => {
       activity: { goalProgress01: 5, goalStepsPerDay: 10_000 },
       strength: { goalProgress01: 0.5, goalWorkoutsPerWeek: 5 },
       cardio: { goalProgress01: 0, goalMilesPerWeek: 10 },
+      sleep: sleepDisabled,
     });
     expect(r.enabledCategoryCount).toBe(3);
     expect(r.progress).toBeCloseTo((1 + 0.5 + 0) / 3, 4);

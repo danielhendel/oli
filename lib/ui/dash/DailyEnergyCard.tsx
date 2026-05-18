@@ -14,6 +14,10 @@ import {
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 type Props = {
@@ -80,9 +84,9 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
                 style={({ pressed }) => [styles.factorPressable, pressed && styles.factorPressablePressed]}
               >
                 <View style={styles.factorRow}>
-                  <Text style={styles.factorLabel}>{row.label}</Text>
+                  <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
                   <View style={styles.factorRight}>
-                    <Text style={styles.factorValue}>{row.displayValue}</Text>
+                    <Text style={dashMetricRowValueTextStyle}>{row.displayValue}</Text>
                     <Text style={styles.factorChevron} accessibilityElementsHidden importantForAccessibility="no">
                       {"\u203A"}
                     </Text>
@@ -132,14 +136,14 @@ const styles = StyleSheet.create({
   factors: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,
-    paddingTop: 8,
-    gap: 4,
+    paddingTop: 6,
+    gap: 2,
   },
   factorPressable: {
     borderRadius: 8,
     marginHorizontal: -6,
     paddingHorizontal: 6,
-    paddingVertical: 10,
+    paddingVertical: 7,
     minHeight: 44,
     justifyContent: "center",
   },
@@ -158,19 +162,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     gap: 6,
     flexShrink: 1,
-  },
-  factorLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-    fontWeight: "500",
-  },
-  factorValue: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: UI_TEXT_PRIMARY,
-    fontWeight: "600",
-    textAlign: "right",
   },
   factorChevron: {
     fontSize: 16,

@@ -18,6 +18,10 @@ import {
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 export type BodyCompositionCardProps = {
@@ -131,11 +135,11 @@ function MetricRow({
       testID={`body-composition-row-${row.key}`}
     >
       <View style={styles.rowTop}>
-        <Text style={styles.domainLabel} numberOfLines={1}>
+        <Text style={[dashMetricRowLabelTextStyle, styles.domainLabel]} numberOfLines={1}>
           {row.label}
         </Text>
         <View style={styles.rowRightCluster}>
-          <Text style={styles.rowFigure} numberOfLines={1}>
+          <Text style={[dashMetricRowValueTextStyle, styles.rowFigure]} numberOfLines={1}>
             {row.valueLabel}
           </Text>
           <InterpretationRatingPill bar={row.bar} shellStyle={styles.inlinePill} />
@@ -203,14 +207,16 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   rowsWrap: {
-    gap: 12,
+    gap: 6,
     marginTop: 4,
   },
   rowPressable: {
     marginHorizontal: -6,
     paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 10,
+    minHeight: 44,
+    justifyContent: "center",
   },
   rowPressablePressed: {
     opacity: 0.88,
@@ -224,11 +230,6 @@ const styles = StyleSheet.create({
   domainLabel: {
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
   },
   rowRightCluster: {
     flexDirection: "row",
@@ -239,14 +240,7 @@ const styles = StyleSheet.create({
     maxWidth: "68%",
   },
   rowFigure: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
     flexShrink: 1,
-    textAlign: "right",
   },
   inlinePill: {
     flexShrink: 0,

@@ -2,10 +2,14 @@ import React, { act } from "react";
 import renderer from "react-test-renderer";
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 
-import { buildWeeklyFitnessProgressToGoalVm } from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
+import {
+  buildWeeklyFitnessProgressToGoalVm,
+  weeklyFitnessProgressToGoalItem,
+} from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
 import type {
   WeeklyFitnessActivityMetrics,
   WeeklyFitnessCardioMetrics,
+  WeeklyFitnessSleepMetrics,
   WeeklyFitnessStrengthMetrics,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
 import { WEEKLY_FITNESS_BAR_FILL_COLOR } from "@/lib/data/dash/weeklyFitnessDashProgress";
@@ -33,6 +37,10 @@ jest.mock("react-native-svg", () => ({
   __esModule: true,
   default: "Svg",
   Circle: "Circle",
+}));
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: "Ionicons",
 }));
 
 const sampleRows: WeeklyFitnessRow[] = [
@@ -115,6 +123,29 @@ function fullCardio(p: Partial<WeeklyFitnessCardioMetrics>): WeeklyFitnessCardio
   };
 }
 
+function fullSleep(p: Partial<WeeklyFitnessSleepMetrics>): WeeklyFitnessSleepMetrics {
+  return {
+    avgSleepMinutesPerNight: 0,
+    goalHoursPerNight: 0,
+    goalSleepMinutesPerNight: 0,
+    completedNightsWithData: 0,
+    goalProgress01: 0,
+    valueLabel: "",
+    accessibilityValueLabel: "",
+    ...p,
+  };
+}
+
+const defaultSleepForProgressVm = fullSleep({
+  avgSleepMinutesPerNight: 499,
+  goalHoursPerNight: 8,
+  goalSleepMinutesPerNight: 480,
+  completedNightsWithData: 1,
+  goalProgress01: 1,
+  valueLabel: "8h 19m avg",
+  accessibilityValueLabel: "8 hours 19 minutes average, goal 8 hours per night",
+});
+
 const sampleProgressToGoalVm = buildWeeklyFitnessProgressToGoalVm({
   activity: fullActivity({
     avgStepsPerDay: 9998,
@@ -141,6 +172,7 @@ const sampleProgressToGoalVm = buildWeeklyFitnessProgressToGoalVm({
     valueLabel: "2.6 miles",
     accessibilityValueLabel: "2.6 miles, goal 10 miles",
   }),
+  sleep: defaultSleepForProgressVm,
 });
 
 const progressNoGoalsVm = buildWeeklyFitnessProgressToGoalVm({
@@ -168,6 +200,15 @@ const progressNoGoalsVm = buildWeeklyFitnessProgressToGoalVm({
     goalProgress01: 0,
     valueLabel: "No goal set",
     accessibilityValueLabel: "0.0 miles, no goal set",
+  }),
+  sleep: fullSleep({
+    avgSleepMinutesPerNight: 0,
+    goalHoursPerNight: 0,
+    goalSleepMinutesPerNight: 0,
+    completedNightsWithData: 0,
+    goalProgress01: 0,
+    valueLabel: "No goal set",
+    accessibilityValueLabel: "0 hours average, no goal set",
   }),
 });
 
@@ -197,6 +238,7 @@ const progressActivityExcellentVm = buildWeeklyFitnessProgressToGoalVm({
     valueLabel: "0.0 miles",
     accessibilityValueLabel: "0.0 miles, goal 10 miles",
   }),
+  sleep: defaultSleepForProgressVm,
 });
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
@@ -283,16 +325,23 @@ describe("WeeklyFitnessCard", () => {
     const progressBlock = tree.root.findByProps({ testID: "weekly-fitness-progress-to-goal-block" });
     expect(progressBlock).toBeDefined();
     const blob = collectAllText(tree);
-    expect(blob).toContain("Progress to goal");
+    expect(blob).not.toContain("Progress to goal");
     expect(blob).not.toContain("Consistency");
     expect(blob).not.toContain("On track today");
     expect(blob).toContain("2 workouts remaining");
     expect(blob).toContain("Goal: 5 workouts");
-    expect(blob).toContain("8 steps needed today");
-    expect(blob).toContain("To reach 10,000 avg/day");
-    expect(blob).toContain("7.4 mi under goal");
-    expect(blob).toContain("Goal: 10 mi");
+    expect(blob).toContain("8 steps remaining");
+    expect(blob).toContain("Goal: 10,000 avg/day");
+    expect(blob).toContain("7.4 miles remaining");
+    expect(blob).toContain("Goal: 10 miles");
+    expect(blob).toContain("Sleep goal reached");
+    expect(blob).toContain("Goal: 8h/night");
     expect(blob).toContain("9,998 steps");
+    expect(tree.root.findAllByProps({ testID: "weekly-fitness-progress-to-goal-sleep-primary" }).length).toBe(1);
+    expect(sampleProgressToGoalVm.items).toHaveLength(4);
+    expect(tree.root.findAllByProps({ testID: "weekly-fitness-progress-to-goal-row-sleep" }).length).toBe(1);
+    expect(tree.root.findAllByProps({ testID: "weekly-fitness-progress-to-goal-row-activity" }).length).toBe(1);
+    expect(tree.root.findAllByType("Ionicons").length).toBe(0);
   });
 
   it("uses enlarged Weekly Fitness ring dimensions, stroke, score text, and progress-to-goal type sizes", () => {
@@ -324,15 +373,7 @@ describe("WeeklyFitnessCard", () => {
       if (s && typeof s === "object") Object.assign(scoreMerged, s);
     }
     expect(scoreMerged.fontSize).toBe(40);
-    const eyebrow = tree.root.findByProps({ testID: "weekly-fitness-progress-to-goal-eyebrow" });
-    const eyebrowStyles = Array.isArray(eyebrow.props.style)
-      ? eyebrow.props.style
-      : [eyebrow.props.style];
-    const eyebrowMerged: Record<string, unknown> = {};
-    for (const s of eyebrowStyles) {
-      if (s && typeof s === "object") Object.assign(eyebrowMerged, s);
-    }
-    expect(eyebrowMerged.fontSize).toBe(11);
+    expect(tree.root.findAllByProps({ testID: "weekly-fitness-progress-to-goal-eyebrow" }).length).toBe(0);
     const activityLine = tree.root.findByProps({
       testID: "weekly-fitness-progress-to-goal-activity-primary",
     });
@@ -343,7 +384,7 @@ describe("WeeklyFitnessCard", () => {
     for (const s of lineStyles) {
       if (s && typeof s === "object") Object.assign(lineMerged, s);
     }
-    expect(lineMerged.fontSize).toBe(13);
+    expect(lineMerged.fontSize).toBe(12);
   });
 
   it("progress summary reflects strength under goal, activity ahead of daily pace, and cardio under goal", () => {
@@ -373,13 +414,14 @@ describe("WeeklyFitnessCard", () => {
         valueLabel: "2.6 miles",
         accessibilityValueLabel: "a11y",
       }),
+      sleep: defaultSleepForProgressVm,
     });
-    expect(vm.strength.primary).toBe("1 workout remaining");
-    expect(vm.strength.support).toBe("Goal: 5 workouts");
-    expect(vm.activity.primary).toBe("Average goal reached");
-    expect(vm.activity.support).toBe("10,000 avg/day");
-    expect(vm.cardio.primary).toBe("7.4 mi under goal");
-    expect(vm.cardio.support).toBe("Goal: 10 mi");
+    expect(weeklyFitnessProgressToGoalItem(vm, "strength").primary).toBe("1 workout remaining");
+    expect(weeklyFitnessProgressToGoalItem(vm, "strength").support).toBe("Goal: 5 workouts");
+    expect(weeklyFitnessProgressToGoalItem(vm, "activity").primary).toBe("Activity goal reached");
+    expect(weeklyFitnessProgressToGoalItem(vm, "activity").support).toBe("Goal: 10,000 avg/day");
+    expect(weeklyFitnessProgressToGoalItem(vm, "cardio").primary).toBe("7.4 miles remaining");
+    expect(weeklyFitnessProgressToGoalItem(vm, "cardio").support).toBe("Goal: 10 miles");
 
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -398,12 +440,13 @@ describe("WeeklyFitnessCard", () => {
     const blob = collectAllText(tree);
     expect(blob).toContain("1 workout remaining");
     expect(blob).toContain("Goal: 5 workouts");
-    expect(blob).toContain("Average goal reached");
-    expect(blob).toContain("10,000 avg/day");
-    expect(blob).toContain("7.4 mi under goal");
-    expect(blob).toContain("Goal: 10 mi");
+    expect(blob).toContain("Activity goal reached");
+    expect(blob).toContain("Goal: 10,000 avg/day");
+    expect(blob).toContain("7.4 miles remaining");
+    expect(blob).toContain("Goal: 10 miles");
     expect(blob).not.toContain("On track today");
     expect(blob).not.toContain("Consistency");
+    expect(blob).not.toContain("mi under goal");
   });
 
   it("renders a combined circular ring and removes horizontal score bar", () => {
@@ -546,7 +589,7 @@ describe("WeeklyFitnessCard", () => {
       if (s && typeof s === "object") Object.assign(merged, s);
     }
     expect(merged.borderTopWidth).toBe(1);
-    expect(merged.paddingTop).toBe(6);
+    expect(merged.paddingTop).toBe(4);
   });
 
   it("accessibility labels include goals, percent of goal, and ring score", () => {
@@ -628,9 +671,19 @@ describe("WeeklyFitnessCard", () => {
         valueLabel: "No goal set",
         accessibilityValueLabel: "0.0 miles, no goal set",
       }),
+      sleep: fullSleep({
+        avgSleepMinutesPerNight: 420,
+        goalHoursPerNight: 8,
+        goalSleepMinutesPerNight: 480,
+        completedNightsWithData: 2,
+        goalProgress01: 0.875,
+        valueLabel: "7h 0m avg",
+        accessibilityValueLabel: "a11y",
+      }),
     });
-    expect(progressVm.cardio.primary).toBe("Goal not set");
-    expect(progressVm.cardio.support).toBe("");
+    expect(weeklyFitnessProgressToGoalItem(progressVm, "cardio").primary).toBe("Goal not set");
+    expect(weeklyFitnessProgressToGoalItem(progressVm, "cardio").support).toBe("");
+    expect(progressVm.items).toHaveLength(4);
 
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -708,8 +761,8 @@ describe("WeeklyFitnessCard", () => {
     expect(findBarFillWidth(tree, "activity")).toBe("100%");
     const bar = tree.root.findByProps({ testID: "weekly-fitness-bar-activity" });
     expect((bar.props as { accessibilityValue?: { now?: number } }).accessibilityValue?.now).toBe(100);
-    expect(collectAllText(tree)).toContain("Average goal reached");
-    expect(collectAllText(tree)).toContain("10,000 avg/day");
+    expect(collectAllText(tree)).toContain("Activity goal reached");
+    expect(collectAllText(tree)).toContain("Goal: 10,000 avg/day");
     expect(collectAllText(tree)).not.toContain("On track today");
   });
 
@@ -870,13 +923,14 @@ describe("WeeklyFitnessCard", () => {
         valueLabel: "11.2 miles",
         accessibilityValueLabel: "a11y",
       }),
+      sleep: defaultSleepForProgressVm,
     });
-    expect(vm.strength.primary).toBe("Goal hit");
-    expect(vm.strength.support).toBe("Goal: 5 workouts");
-    expect(vm.activity.primary).toBe("Average goal reached");
-    expect(vm.activity.support).toBe("8,000 avg/day");
-    expect(vm.cardio.primary).toBe("1.2 mi above goal");
-    expect(vm.cardio.support).toBe("Goal: 10 mi");
+    expect(weeklyFitnessProgressToGoalItem(vm, "strength").primary).toBe("Strength goal reached");
+    expect(weeklyFitnessProgressToGoalItem(vm, "strength").support).toBe("Goal: 5 workouts");
+    expect(weeklyFitnessProgressToGoalItem(vm, "activity").primary).toBe("Activity goal reached");
+    expect(weeklyFitnessProgressToGoalItem(vm, "activity").support).toBe("Goal: 8,000 avg/day");
+    expect(weeklyFitnessProgressToGoalItem(vm, "cardio").primary).toBe("Cardio goal reached");
+    expect(weeklyFitnessProgressToGoalItem(vm, "cardio").support).toBe("Goal: 10 miles");
   });
 
   it("progress-to-goal section uses text only (no image nodes)", () => {
