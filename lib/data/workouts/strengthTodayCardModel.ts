@@ -17,10 +17,37 @@ import {
   resolveWorkoutDisplay,
   resolveWorkoutDisplayDurationMinutes,
 } from "@/lib/data/workouts/workoutDisplay";
+import {
+  buildWorkoutDetailWorkingSetExerciseRowsByMuscle,
+  buildWorkoutDetailWorkingSetVolumeRows,
+  type WorkoutDetailMuscleExerciseSetCountRow,
+  type WorkoutDetailMuscleSetCountRow,
+} from "@/lib/data/workouts/workoutDetailMuscleVolume";
+import type { ExerciseAnalyticsResolutionContext } from "@/lib/workouts/exercises/exerciseAnalyticsIntelligence";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { ManualWorkoutDaySummary, ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
 import type { DayKey } from "@/lib/ui/calendar/types";
+
+/**
+ * Legacy display title for the Today card working-volume section. Retained as a stable
+ * accessibility-label fragment / external API constant; the redesigned compact rows no
+ * longer render this as a visible header.
+ */
+export const STRENGTH_TODAY_WORKING_VOLUME_TITLE = "Working Volume" as const;
+
+export type StrengthTodayWorkingVolumeSection = {
+  /** Kept for accessibility-label composition and downstream consumers; not rendered as a header. */
+  title: typeof STRENGTH_TODAY_WORKING_VOLUME_TITLE;
+  /** Per-muscle aggregate rows (RPE 7–10, primary muscle only). */
+  rows: readonly WorkoutDetailMuscleSetCountRow[];
+  /**
+   * Per-exercise breakdown grouped by primary muscle group; sums across exercises
+   * equal {@link rows}'s `setCount` for that muscle by construction. Used by the
+   * Today card muscle drill-down sheet.
+   */
+  exercisesByMuscleGroup: Partial<Record<MuscleGroup, readonly WorkoutDetailMuscleExerciseSetCountRow[]>>;
+};
 
 /**
  * Calendar-backed “scheduled / planned” strength sessions for this overview are not in the hydrated
@@ -44,6 +71,8 @@ export type StrengthTodayCardModel =
        * when none exist (e.g. Apple-only HK strength row), {@link STRENGTH_TODAY_COMPLETED_NO_DETAIL_SUBTITLE}.
        */
       subtitle: string;
+      /** RPE 7–10 primary-muscle rows; null when none qualify (section hidden in UI). */
+      workingVolume: StrengthTodayWorkingVolumeSection | null;
     }
   | {
       kind: "rest";
@@ -121,11 +150,12 @@ function primaryMuscleFocusLabel(muscleSets: Map<MuscleGroup, number>): string |
 export function buildStrengthTodayCompletedSummaryLine(
   journal: ManualWorkoutDaySummary | null,
   actionWorkout: WorkoutHistoryItem,
+  analyticsCtx?: ExerciseAnalyticsResolutionContext,
 ): string {
   const { exercises } = resolveStrengthSessionExerciseDisplay(journal, actionWorkout);
   const totalSets = sumNonWarmupSetsAcrossExercises(exercises);
   const maps = createEmptyStrengthTaxonomyMaps();
-  mergeManualExercisesIntoStrengthTaxonomyMaps(maps, exercises);
+  mergeManualExercisesIntoStrengthTaxonomyMaps(maps, exercises, analyticsCtx);
   const focusLabel = primaryMuscleFocusLabel(maps.muscleSets);
 
   const setsPart = totalSets > 0 ? `${totalSets} set${totalSets === 1 ? "" : "s"}` : "";
@@ -160,6 +190,7 @@ export function buildStrengthTodayCardModel(input: {
   manualJournalSummaryForToday?: ManualWorkoutDaySummary | null;
   overridesByWorkoutId: Record<string, WorkoutOverride | undefined>;
   durableTitlesByWorkoutId: Record<string, string | undefined>;
+  analyticsCtx?: ExerciseAnalyticsResolutionContext;
 }): StrengthTodayCardModel {
   const sorted = [...input.strengthCalendarDays].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
   const row = sorted.find((d) => d.day === input.todayDayKey);
@@ -187,9 +218,27 @@ export function buildStrengthTodayCardModel(input: {
         surface.metricsWorkout.durationMinutes ?? latest.durationMinutes,
     });
     const durationLabel = formatWorkoutDurationLabel(dm);
-    const exerciseSummaryLine = buildStrengthTodayCompletedSummaryLine(journal, surface.actionWorkout).trim();
+    const exerciseSummaryLine = buildStrengthTodayCompletedSummaryLine(
+      journal,
+      surface.actionWorkout,
+      input.analyticsCtx,
+    ).trim();
     const subtitle =
       exerciseSummaryLine.length > 0 ? exerciseSummaryLine : STRENGTH_TODAY_COMPLETED_NO_DETAIL_SUBTITLE;
+    const { exercises } = resolveStrengthSessionExerciseDisplay(journal, surface.actionWorkout);
+    const workingRows = buildWorkoutDetailWorkingSetVolumeRows(exercises, input.analyticsCtx);
+    const workingExercisesByMuscleGroup =
+      workingRows.length > 0
+        ? buildWorkoutDetailWorkingSetExerciseRowsByMuscle(exercises, input.analyticsCtx)
+        : {};
+    const workingVolume: StrengthTodayWorkingVolumeSection | null =
+      workingRows.length > 0
+        ? {
+            title: STRENGTH_TODAY_WORKING_VOLUME_TITLE,
+            rows: workingRows,
+            exercisesByMuscleGroup: workingExercisesByMuscleGroup,
+          }
+        : null;
     return {
       kind: "completed",
       pill: "Completed",
@@ -197,6 +246,7 @@ export function buildStrengthTodayCardModel(input: {
       primaryTitle: surface.displayTitle,
       durationLabel,
       subtitle,
+      workingVolume,
     };
   }
 

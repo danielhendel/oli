@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { SleepBaselineVm } from "@/lib/data/sleep/buildSleepBaselineVm";
 import type { WeeklySleepVm } from "@/lib/data/sleep/buildWeeklySleepVm";
 import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
@@ -24,12 +25,21 @@ const WEEKLY_AVG_SLEEP_QUALIFIER = "avg / night";
 export type SleepThisWeekCardProps = {
   loading: boolean;
   model: WeeklySleepVm;
+  /** Supplies 90-day baseline for the weekly chart overlay (no new aggregation). */
+  sleepBaselineVm: SleepBaselineVm;
   testID?: string;
 };
+
+function baselineMeanSleepMinutesFromVm(vm: SleepBaselineVm): number {
+  const row = vm.rows.find((r) => r.key === "day90");
+  if (row?.hasEnoughData && row.averageMinutes != null) return row.averageMinutes;
+  return 0;
+}
 
 export function SleepThisWeekCard({
   loading,
   model,
+  sleepBaselineVm,
   testID = "sleep-this-week-card",
 }: SleepThisWeekCardProps) {
   const todayDayKey = getTodayDayKeyLocal();
@@ -85,6 +95,7 @@ export function SleepThisWeekCard({
                   points={model.chartPoints}
                   barTrackHeight={SLEEP_THIS_WEEK_BAR_TRACK_HEIGHT}
                   maxScale={model.chartMaxScale}
+                  baselineMeanSleepMinutes={baselineMeanSleepMinutesFromVm(sleepBaselineVm)}
                   todayDayKey={todayDayKey}
                 />
                 <View

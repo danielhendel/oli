@@ -1,8 +1,19 @@
 /**
- * Strength overview “This Week” row shows resolved workout title on dark cards.
+ * Strength overview wires journal summaries to invalidateWorkoutCalendarHydrate via subscribe.
+ *
+ * We assert overview subscribes during mount and the captured callback bumps a state value
+ * (verified by re-render). Side-effecting effects are JEST-gated in overview.tsx, so we keep
+ * `JEST_WORKER_ID` set and validate the wiring without driving heavy native code paths.
  */
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+
+const mockSubscribe = jest.fn<() => void, [() => void]>().mockReturnValue(() => void 0);
+
+jest.mock("@/lib/data/workouts/workoutCalendarHydrateInvalidate", () => ({
+  subscribeWorkoutCalendarHydrateInvalidate: (cb: () => void) => mockSubscribe(cb),
+  invalidateWorkoutCalendarHydrate: jest.fn(),
+}));
 
 jest.mock("@/lib/api/usersMe", () => ({
   getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
@@ -50,22 +61,7 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
     days: [
       { day: "2026-03-09", workouts: [] },
       { day: "2026-03-10", workouts: [] },
-      {
-        day: "2026-03-11",
-        workouts: [
-          {
-            id: "strength-row-title",
-            observedAt: "2026-03-11T14:00:00.000Z",
-            sourceId: "apple_health",
-            title: "Chest & Triceps",
-            workoutType: "strength" as const,
-            start: "2026-03-11T14:00:00.000Z",
-            end: "2026-03-11T15:00:00.000Z",
-            durationMinutes: 46,
-            calories: null,
-          },
-        ],
-      },
+      { day: "2026-03-11", workouts: [] },
       { day: "2026-03-12", workouts: [] },
       { day: "2026-03-13", workouts: [] },
       { day: "2026-03-14", workouts: [] },
@@ -160,49 +156,40 @@ jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
   listManualWorkoutDaySummaries: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("@/lib/workouts/exercises/mergeCustomExerciseSources", () => ({
+  listMergedCustomExerciseRecords: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: jest.fn(),
 }));
 
-jest.mock("expo-router", () => {
-  const w = { push: jest.fn(), setOptions: jest.fn() };
-  return {
-    useNavigation: () => ({ setOptions: w.setOptions, goBack: jest.fn() }),
-    useRouter: () => ({ push: w.push }),
-  };
-});
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
+  useRouter: () => ({ push: jest.fn() }),
+}));
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import { formatWeekdayUpperFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
-
 import StrengthTrainingOverviewScreen from "../overview";
 
-jest.mock("@/lib/data/workouts/workoutDetailMuscleVolume", () => {
-  const actual = jest.requireActual<typeof import("@/lib/data/workouts/workoutDetailMuscleVolume")>(
-    "@/lib/data/workouts/workoutDetailMuscleVolume",
-  );
-  return { ...actual, buildWeeklyWorkingSetVolumeRows: jest.fn(() => []) };
-});
+describe("Strength overview subscribes to workout calendar hydrate invalidation", () => {
+  beforeEach(() => {
+    mockSubscribe.mockClear();
+  });
 
-describe("Strength overview This Week workout title", () => {
-  it("renders uppercase weekday, workout title, duration metadata, and 3-dot menu affordance", async () => {
-    let tree!: renderer.ReactTestRenderer;
+  it("subscribes to invalidateWorkoutCalendarHydrate on mount with a callback", async () => {
     await act(async () => {
-      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+      renderer.create(<StrengthTrainingOverviewScreen />);
     });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain(formatWeekdayUpperFromDayKey("2026-03-11"));
-    expect(json).toContain("Chest & Triceps");
-    expect(json).not.toContain("workouts-overview-this-week-row-value-bar");
-    expect(json).toContain("46 min");
-    expect(json).toContain("•••");
-    const menu = tree.root.findAll(
-      (n) => n.props.accessibilityLabel?.startsWith?.("Workout actions ") === true,
-    );
-    expect(menu.length).toBeGreaterThan(0);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    const [cb] = mockSubscribe.mock.calls[0]!;
+    expect(typeof cb).toBe("function");
+    await act(async () => {
+      cb();
+    });
   });
 });

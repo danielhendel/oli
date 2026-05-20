@@ -8,6 +8,8 @@ import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 const BAR_TOP_RADIUS = 6;
+/** Matches {@link SleepThisWeekCard} weekday axis labels (S, M, T, …). */
+const CHART_WEEKDAY_LABEL_COLOR = "#AEAEB2";
 const SLEEP_BAR_FILL = "#4F7CFF";
 const BAR_DIM_OPACITY_NON_TODAY = 0.74;
 const ANIM_MS = 260;
@@ -16,6 +18,8 @@ type SleepWeeklyDurationBarsProps = {
   points: readonly WeeklySleepChartPoint[];
   barTrackHeight: number;
   maxScale: number;
+  /** 90-day sleep baseline mean (minutes/night) — same source as Sleep Baseline card. */
+  baselineMeanSleepMinutes: number;
   todayDayKey: DayKey;
 };
 
@@ -42,9 +46,14 @@ export function SleepWeeklyDurationBars({
   points,
   barTrackHeight,
   maxScale,
+  baselineMeanSleepMinutes,
   todayDayKey,
 }: SleepWeeklyDurationBarsProps) {
   const safeScale = Math.max(maxScale, 1);
+  const baselineYPxFromBottom = Math.min(
+    barTrackHeight,
+    Math.max(0, (baselineMeanSleepMinutes / safeScale) * barTrackHeight),
+  );
 
   const targetHeights = useMemo(
     () =>
@@ -94,6 +103,13 @@ export function SleepWeeklyDurationBars({
       </View>
 
       <View style={[styles.trackWrap, { height: barTrackHeight }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.baselineHairline, { bottom: baselineYPxFromBottom }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID="sleep-this-week-chart-baseline-line"
+        />
         <View style={styles.barsRow}>
           {points.map((p, i) => {
             const isToday = p.dayKey === todayDayKey;
@@ -156,8 +172,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   trackWrap: {
+    position: "relative",
     width: "100%",
     justifyContent: "flex-end",
+  },
+  baselineHairline: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    height: StyleSheet.hairlineWidth,
+    borderRadius: StyleSheet.hairlineWidth / 2,
+    backgroundColor: CHART_WEEKDAY_LABEL_COLOR,
+    zIndex: 1,
   },
   barsRow: {
     flexDirection: "row",

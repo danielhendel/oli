@@ -8,19 +8,24 @@ import type {
 } from "@/lib/data/workouts/strengthHistorySummaryModel";
 import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
 import { ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
-import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
-import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
-  BASELINE_HISTORY_HEADING_SECTION_MARGIN_BOTTOM,
-  baselineOverviewHistoryCardLayoutStyles,
-} from "@/lib/ui/workouts/baselineOverviewHistoryCardLayout";
-import { baselineOverviewExplainerStyles } from "@/lib/ui/workouts/baselineOverviewExplainerStyle";
-import { StrengthBaselineFrequencyTrack } from "@/lib/ui/workouts/StrengthBaselineFrequencyTrack";
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
+import { activityStepTierBarVisual } from "@/lib/utils/activityStepTierVisual";
 
-import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_PROGRESS_TRACK_EMPTY,
+  UI_TEXT_MUTED,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
+
 /** Explainer under the Strength Baseline section title (overview card only). */
 export const STRENGTH_BASELINE_CARD_EXPLAINER_COPY =
   "Your strength baseline is the average strength workouts across key time ranges.";
@@ -45,37 +50,38 @@ type Props = {
 export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStrengthRangeExplainer }: Props) {
   return (
     <View style={styles.card} testID="strength-history-summary-card">
-      <View style={styles.headingBlock}>
-        <View style={baselineOverviewHistoryCardLayoutStyles.headingExplainerStack}>
-          <View style={styles.baselineHeaderRow}>
-            <Text style={styles.cardHeading} accessibilityRole="header">
-              Strength Baseline
-            </Text>
-            {onPressViewMore != null ? (
-              <Pressable
-                onPress={onPressViewMore}
-                accessibilityRole="button"
-                accessibilityLabel="View Strength Analytics"
-                hitSlop={8}
-                style={({ pressed }) => [
-                  workoutOverviewInCardHeaderStyles.linkHit,
-                  styles.viewMoreHit,
-                  pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-                ]}
-                testID="strength-history-summary-view-more"
-              >
-                <Text style={workoutOverviewInCardHeaderStyles.link}>View More →</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          <Text style={baselineOverviewExplainerStyles.explainer} testID="strength-history-baseline-explainer">
-            {STRENGTH_BASELINE_CARD_EXPLAINER_COPY}
-          </Text>
-        </View>
+      <View style={styles.headerRow}>
+        <Text style={styles.cardHeading} accessibilityRole="header">
+          Strength Baseline
+        </Text>
+        {onPressViewMore != null ? (
+          <Pressable
+            onPress={onPressViewMore}
+            accessibilityRole="button"
+            accessibilityLabel="View Strength Analytics"
+            hitSlop={8}
+            style={({ pressed }) => [
+              workoutOverviewInCardHeaderStyles.linkHit,
+              styles.viewMoreHit,
+              pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+            ]}
+            testID="strength-history-summary-view-more"
+          >
+            <Text style={workoutOverviewInCardHeaderStyles.link}>View More →</Text>
+          </Pressable>
+        ) : null}
       </View>
-      <View style={baselineOverviewHistoryCardLayoutStyles.metricGroups} testID="strength-history-metric-groups">
+
+      <Text style={styles.subtitle} testID="strength-history-baseline-explainer">
+        {STRENGTH_BASELINE_CARD_EXPLAINER_COPY}
+      </Text>
+
+      <View style={styles.rowsWrap} testID="strength-history-metric-groups">
         {model.rows.map((row) => {
           const chrome = row.tierIndexForBar != null ? ACTIVITY_STEP_RATING_TIERS[row.tierIndexForBar] : null;
+          const visual = activityStepTierBarVisual(row.tierIndexForBar ?? null);
+          const fill01 = Math.min(1, Math.max(0, row.progressFill01 ?? 0));
+          const pct = Math.round(fill01 * 100);
           const a11y = row.tierLabel
             ? `${row.label}. ${row.tierLabel}. ${row.displayValue}.`
             : `${row.label}. ${row.displayValue}.`;
@@ -85,10 +91,10 @@ export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStre
             chrome != null &&
             row.tierIndexForBar != null;
           return (
-            <View key={row.key} style={baselineOverviewHistoryCardLayoutStyles.metricBlock} accessible accessibilityLabel={a11y}>
-              <View style={[moduleOverviewMetricLayoutStyles.topRow, baselineOverviewHistoryCardLayoutStyles.rowTop]}>
+            <View key={row.key} style={styles.rowBlock} accessible accessibilityLabel={a11y}>
+              <View style={styles.rowTop}>
                 <View style={styles.titlePillLeftGroup}>
-                  <Text style={styles.rowLabel} numberOfLines={1}>
+                  <Text style={[dashMetricRowLabelTextStyle, styles.rowLabel]} numberOfLines={1}>
                     {row.label}
                   </Text>
                   {row.tierLabel && chrome ? (
@@ -123,16 +129,32 @@ export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStre
                     </Pressable>
                   ) : null}
                 </View>
-                <Text style={row.hasEnoughData ? styles.rowFigure : styles.rowNonNumeric} numberOfLines={1}>
+                <Text
+                  style={row.hasEnoughData ? [dashMetricRowValueTextStyle, styles.rowFigure] : styles.rowNonNumeric}
+                  numberOfLines={1}
+                >
                   {row.displayValue}
                 </Text>
               </View>
               {row.helperText ? <Text style={styles.helperText}>{row.helperText}</Text> : null}
-              <StrengthBaselineFrequencyTrack
+              <View
+                style={styles.barTrack}
+                accessibilityRole="progressbar"
+                accessibilityValue={{ now: pct, min: 0, max: 100 }}
                 testID={`strength-history-progress-${row.key}`}
-                tierIndex={row.tierIndexForBar ?? 0}
-                fillWidth01={row.progressFill01 ?? 0}
-              />
+              >
+                {visual != null ? (
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${pct}%`,
+                        backgroundColor: visual.fillColor,
+                      },
+                    ]}
+                  />
+                ) : null}
+              </View>
             </View>
           );
         })}
@@ -142,21 +164,20 @@ export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStre
 }
 
 const styles = StyleSheet.create({
+  /** Mirrors Dash Weekly Fitness card surface (`WeeklyFitnessCard.styles.card`). */
   card: {
     backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 15,
-    gap: 0,
+    gap: 10,
     ...elevatedCardSurfaceStyle,
   },
-  headingBlock: {
-    marginBottom: BASELINE_HISTORY_HEADING_SECTION_MARGIN_BOTTOM,
-  },
-  baselineHeaderRow: {
+  /** Title + View More — same rhythm as Weekly Fitness header row. */
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 12,
   },
   cardHeading: {
     ...strengthMetricCardTitleTextStyle,
@@ -167,6 +188,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
+  /** Muted secondary description — matches Weekly Fitness "This week's results" treatment. */
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "400",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: -0.08,
+    marginTop: 0,
+  },
+  /** Top hairline divider + tight row rhythm — same as Weekly Fitness `rowsWrap`. */
+  rowsWrap: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: UI_BORDER_HAIRLINE,
+    paddingTop: 4,
+    gap: 6,
+    marginTop: 2,
+  },
+  rowBlock: {
+    paddingVertical: 6,
+    gap: 4,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  rowTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   titlePillLeftGroup: {
     flex: 1,
     minWidth: 0,
@@ -176,44 +226,43 @@ const styles = StyleSheet.create({
   },
   tierPillHit: {
     borderRadius: 12,
-    minHeight: 44,
+    minHeight: 32,
     justifyContent: "center",
   },
   tierPillHitPressed: {
     opacity: 0.72,
   },
-  /** Matches Strength overview combined-card workout title (`overview.tsx` `recentTitle`). */
   rowLabel: {
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
   },
   rowFigure: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.26,
     flexShrink: 1,
-    textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   rowNonNumeric: {
     flexShrink: 0,
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
     fontWeight: "600",
     color: UI_TEXT_SECONDARY,
-    letterSpacing: -0.26,
+    textAlign: "right",
   },
   helperText: {
     fontSize: 13,
     lineHeight: 17,
-    color: UI_TEXT_SECONDARY,
+    color: UI_TEXT_MUTED,
     letterSpacing: -0.08,
+  },
+  /** Same bar geometry as Weekly Fitness rows (height 8, radius 4). */
+  barTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: UI_PROGRESS_TRACK_EMPTY,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 4,
   },
 });

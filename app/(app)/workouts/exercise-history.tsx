@@ -1,4 +1,16 @@
-import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { formatIntegerWithCommas } from "@/lib/data/workouts/workoutDisplay";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_APP_SCREEN_BG,
+  UI_BORDER_HAIRLINE,
+  UI_BORDER_SUBTLE,
+  UI_CARD_SURFACE,
+  UI_GROUPED_CARD_RADIUS,
+  UI_SURFACE_PRESSED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 
 /**
  * Exercise History — premium per-exercise training history.
@@ -182,11 +194,13 @@ function SessionBlock({
         <View style={styles.sessionMeta}>
           {loggingType === "weight_reps" && volumeLb >= 1 ? (
             <>
-              <Text style={styles.sessionVolValue}>{Math.round(volumeLb)}</Text>
+              <Text style={styles.sessionVolValue}>{formatIntegerWithCommas(Math.round(volumeLb))}</Text>
               <Text style={styles.sessionMetaLabel}> lb vol</Text>
             </>
           ) : loggingType !== "weight_reps" ? (
-            <Text style={styles.sessionMetaLabel}>{`${session.totalReps} reps`}</Text>
+            <Text style={styles.sessionMetaLabel}>
+              {`${formatIntegerWithCommas(session.totalReps)} reps`}
+            </Text>
           ) : (
             <Text style={styles.sessionMetaLabel}>—</Text>
           )}
@@ -299,7 +313,7 @@ export default function ExerciseHistoryScreen() {
   const bestActualLift = useMemo(() => selectBestActualLift(sessions), [sessions]);
   const bestActualLiftFormatted =
     bestActualLift != null
-      ? `${bestActualLift.weightLb.toFixed(1)} lb × ${bestActualLift.reps}`
+      ? `${bestActualLift.weightLb.toFixed(1)} lb × ${formatIntegerWithCommas(bestActualLift.reps)}`
       : null;
 
   const displayName =
@@ -439,7 +453,7 @@ export default function ExerciseHistoryScreen() {
                           label="Best e1RM"
                           value={
                             data.summary.bestE1RmKg != null
-                              ? `${Math.round(data.summary.bestE1RmKg * LB_PER_KG)} lb`
+                              ? `${formatIntegerWithCommas(Math.round(data.summary.bestE1RmKg * LB_PER_KG))} lb`
                               : null
                           }
                           accent
@@ -453,13 +467,31 @@ export default function ExerciseHistoryScreen() {
                       </>
                     ) : (
                       <>
-                        <MetricCell label="Best Set Reps" value={data.summary.bestSetReps ?? "—"} accent />
-                        <MetricCell label="Best Session Reps" value={data.summary.bestSessionReps ?? "—"} />
+                        <MetricCell
+                          label="Best Set Reps"
+                          value={
+                            data.summary.bestSetReps != null
+                              ? formatIntegerWithCommas(data.summary.bestSetReps)
+                              : "—"
+                          }
+                          accent
+                        />
+                        <MetricCell
+                          label="Best Session Reps"
+                          value={
+                            data.summary.bestSessionReps != null
+                              ? formatIntegerWithCommas(data.summary.bestSessionReps)
+                              : "—"
+                          }
+                        />
                       </>
                     )}
                   </View>
                   <View style={styles.metricsRow}>
-                    <MetricCell label="Sessions" value={data.summary.totalSessions} />
+                    <MetricCell
+                      label="Sessions"
+                      value={formatIntegerWithCommas(data.summary.totalSessions)}
+                    />
                     <MetricCell
                       label={loggingType === "weight_reps" ? "Best Actual Lift" : "Last Summary"}
                       value={loggingType === "weight_reps" ? (bestActualLiftFormatted ?? "—") : (data.summary.lastSummaryText ?? "—")}
@@ -481,17 +513,19 @@ export default function ExerciseHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: UI_SCREEN_BG },
+  safe: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   screen: { flex: 1 },
   content: { flex: 1, padding: 16 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#E5E5EA",
+    backgroundColor: UI_SURFACE_PRESSED,
     borderRadius: 10,
     padding: 4,
     marginBottom: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_SUBTLE,
   },
   tab: {
     flex: 1,
@@ -501,50 +535,49 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     backgroundColor: UI_CARD_SURFACE,
-    shadowColor: "#000",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 1,
-    borderWidth: 1,
-    borderColor: "rgba(0, 122, 255, 0.2)",
   },
-  tabText: { fontSize: 15, fontWeight: "600", color: "#6E6E73" },
-  tabTextActive: { color: "#0051D5", fontWeight: "700" },
+  tabText: { fontSize: 15, fontWeight: "500", color: UI_TEXT_SECONDARY },
+  tabTextActive: { color: UI_TEXT_PRIMARY, fontWeight: "700" },
   chartCard: {
     marginBottom: 20,
-    borderRadius: 12,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     overflow: "hidden",
-    backgroundColor: UI_CARD_SURFACE,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
+    ...elevatedCardSurfaceStyle,
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
   metricsCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 20,
     marginBottom: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
   },
-  metricsTitle: { fontSize: 12, fontWeight: "700", color: "#8E8E93", letterSpacing: 0.4, marginBottom: 16, textTransform: "uppercase" as const },
+  metricsTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: UI_TEXT_TERTIARY_LABEL,
+    letterSpacing: 0.4,
+    marginBottom: 16,
+    textTransform: "uppercase" as const,
+  },
   metricsGrid: { gap: 20 },
   metricsRow: { flexDirection: "row", gap: 16 },
   metricCell: { flex: 1 },
-  metricLabel: { fontSize: 13, fontWeight: "600", color: "#8E8E93", marginBottom: 4 },
-  metricValue: { fontSize: 20, fontWeight: "700", color: "#1C1C1E" },
+  metricLabel: { fontSize: 13, fontWeight: "600", color: UI_TEXT_TERTIARY_LABEL, marginBottom: 4 },
+  metricValue: { fontSize: 20, fontWeight: "700", color: UI_TEXT_PRIMARY },
   metricValueAccent: { fontSize: 20, fontWeight: "600", color: metricStrength },
-  metricUnavailable: { fontSize: 15, color: "#8E8E93", fontWeight: "500" },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#2C2C2E", marginBottom: 10 },
+  metricUnavailable: { fontSize: 15, color: UI_TEXT_TERTIARY_LABEL, fontWeight: "500" },
+  sectionTitle: { fontSize: 17, fontWeight: "700", color: UI_TEXT_PRIMARY, marginBottom: 10 },
   sessionCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 12,
     marginBottom: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
   },
   sessionHeader: {
     flexDirection: "row",
@@ -552,9 +585,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  sessionDate: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
+  sessionDate: { fontSize: 15, fontWeight: "700", color: UI_TEXT_PRIMARY },
   sessionMeta: { flexDirection: "row", alignItems: "center" },
-  sessionMetaLabel: { fontSize: 14, fontWeight: "500", color: "#6E6E73" },
+  sessionMetaLabel: { fontSize: 14, fontWeight: "500", color: UI_TEXT_SECONDARY },
   sessionVolValue: { fontSize: 14, fontWeight: "600", color: metricVolume },
   sessionTable: { marginTop: 4 },
   tableHeaderRow: {
@@ -563,14 +596,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
+    borderBottomColor: UI_BORDER_HAIRLINE,
     marginBottom: 4,
   },
   tableHeaderCell: {
     flex: 1,
     fontSize: 12,
     fontWeight: "700",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: 0.2,
     textAlign: "center",
   },
@@ -580,12 +613,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F2F2F7",
+    borderBottomColor: UI_BORDER_SUBTLE,
   },
   tableCell: {
     flex: 1,
     fontSize: 14,
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     textAlign: "center",
   },
   tableColSet: { flex: 1 },
@@ -596,5 +629,11 @@ const styles = StyleSheet.create({
   tableColVol: { flex: 1 },
   tableCellE1rm: { fontWeight: "600", color: metricStrength },
   tableCellVol: { fontWeight: "600", color: metricVolume },
-  setRowPlaceholder: { fontSize: 15, color: "#8E8E93", fontStyle: "italic", paddingVertical: 8, paddingHorizontal: 4 },
+  setRowPlaceholder: {
+    fontSize: 15,
+    color: UI_TEXT_TERTIARY_LABEL,
+    fontStyle: "italic",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
 });

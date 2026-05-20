@@ -1,4 +1,4 @@
-import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { UI_BORDER_HAIRLINE, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 // lib/ui/ExerciseProgressChart.tsx — e1RM progress over sessions (react-native-svg). Used on exercise-history.
 
@@ -14,8 +14,8 @@ const LB_PER_KG = 2.2046226218;
 const LINE_COLOR = SYSTEM_ACCENT;
 const LINE_WIDTH = 2;
 const DOT_R = 4;
-const GRID_COLOR = "#E5E5EA";
-const LABEL_COLOR = "#4A4A4F";
+const GRID_COLOR = UI_BORDER_HAIRLINE;
+const LABEL_COLOR = UI_TEXT_TERTIARY_LABEL;
 const FONT_SIZE = 11;
 /** Minimum Y span (lb) so a flat line doesn't look exaggerated. */
 const MIN_SPAN_LB = 10;
@@ -154,8 +154,8 @@ export function ExerciseProgressChart({
   }));
 
   const pathD = monotonePathD(pointsWithCoords);
-  const highLabel = maxV.toFixed(0);
-  const lowLabel = minV.toFixed(0);
+  const highLabel = Math.round(maxV).toLocaleString();
+  const lowLabel = Math.round(minV).toLocaleString();
   const yHigh = toY(maxV);
   const yLow = toY(minV);
 
@@ -253,12 +253,12 @@ const styles = StyleSheet.create({
     minHeight: CHART_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: UI_SCREEN_BG,
+    backgroundColor: "transparent",
     borderRadius: 12,
   },
   placeholderText: {
     fontSize: 14,
-    color: "#6E6E73",
+    color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
   },
 });

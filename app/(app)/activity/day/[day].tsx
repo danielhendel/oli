@@ -10,7 +10,12 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { EmptyState, ErrorState, LoadingState, ScreenContainer } from "@/lib/ui/ScreenStates";
 
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_GROUPED_CARD_RADIUS,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 export default function ActivityDayScreen() {
   const navigation = useNavigation();
   const pathname = usePathname();
@@ -101,9 +106,14 @@ export default function ActivityDayScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 32 },
-  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16, gap: 10 },
+  card: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
+    padding: 16,
+    gap: 10,
+  },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  label: { fontSize: 14, color: "#6E6E73" },
-  value: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  caption: { fontSize: 12, color: "#8E8E93", marginTop: 4 },
+  label: { fontSize: 14, color: UI_TEXT_TERTIARY_LABEL },
+  value: { fontSize: 15, fontWeight: "600", color: UI_TEXT_PRIMARY },
+  caption: { fontSize: 12, color: UI_TEXT_TERTIARY_LABEL, marginTop: 4 },
 });

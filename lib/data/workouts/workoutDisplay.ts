@@ -63,6 +63,13 @@ export function formatIntegerWithCommas(value: number | null | undefined): strin
   return Math.round(value).toLocaleString();
 }
 
+/** Display-only completed-set count for exercise rows (e.g. "1 set", "4 sets"). */
+export function formatCompletedSetsLabel(setCount: number): string {
+  if (!Number.isFinite(setCount) || setCount <= 0) return "0 sets";
+  const n = Math.round(setCount);
+  return n === 1 ? "1 set" : `${formatIntegerWithCommas(n)} sets`;
+}
+
 export function formatWorkoutDurationLabel(minutes: number | null | undefined): string {
   if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0) return "—";
   const total = Math.round(minutes);
