@@ -11,7 +11,12 @@ import {
   formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
 
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_GROUPED_CARD_RADIUS,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 export default function BodyDayScreen() {
   const params = useLocalSearchParams<{ day?: string }>();
   const day = typeof params.day === "string" ? params.day : "";
@@ -107,10 +112,15 @@ export default function BodyDayScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 32 },
-  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16, gap: 10 },
-  title: { fontSize: 18, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
+  card: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
+    padding: 16,
+    gap: 10,
+  },
+  title: { fontSize: 18, fontWeight: "700", color: UI_TEXT_PRIMARY, marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  label: { fontSize: 14, color: "#6E6E73" },
-  value: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  label: { fontSize: 14, color: UI_TEXT_TERTIARY_LABEL },
+  value: { fontSize: 15, fontWeight: "600", color: UI_TEXT_PRIMARY },
 });
 

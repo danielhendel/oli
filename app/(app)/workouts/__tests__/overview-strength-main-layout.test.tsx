@@ -5,7 +5,7 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { StyleSheet } from "react-native";
 
-import { PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("@/lib/api/usersMe", () => ({
   getWorkoutMonthSummaries: jest.fn().mockResolvedValue({
@@ -148,6 +148,16 @@ jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
   listManualWorkoutDaySummaries: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("@/lib/data/workouts/workoutDetailMuscleVolume", () => {
+  const actual = jest.requireActual<typeof import("@/lib/data/workouts/workoutDetailMuscleVolume")>(
+    "@/lib/data/workouts/workoutDetailMuscleVolume",
+  );
+  return {
+    ...actual,
+    buildWeeklyWorkingSetVolumeRows: jest.fn(() => []),
+  };
+});
+
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: jest.fn(),
 }));
@@ -172,13 +182,19 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 import { STRENGTH_BASELINE_CARD_EXPLAINER_COPY } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
+import { buildWeeklyWorkingSetVolumeRows } from "@/lib/data/workouts/workoutDetailMuscleVolume";
 
 import StrengthTrainingOverviewScreen from "../overview";
+
+const mockBuildWeeklyWorkingSetVolumeRows = buildWeeklyWorkingSetVolumeRows as jest.MockedFunction<
+  typeof buildWeeklyWorkingSetVolumeRows
+>;
 
 describe("Strength overview main layout", () => {
   beforeEach(() => {
     workoutsOverviewExpoMocks().push.mockClear();
     workoutsOverviewExpoMocks().setOptions.mockClear();
+    mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([]);
   });
 
   it("renders Program card, then Today card, then This Week, then Strength Baseline table (no standalone baseline card)", async () => {
@@ -199,11 +215,14 @@ describe("Strength overview main layout", () => {
     expect(iBaselineHeading).toBeGreaterThan(-1);
     expect(json).not.toContain("strength-baseline-card-nav");
     expect(json).not.toContain("strength-this-week-frequency-bar");
+    expect(json).not.toContain("strength-this-week-rating-pill");
+    expect(json).not.toContain("workouts-overview-this-week-row-value-bar");
     expect(json).not.toContain('"Overview"');
     expect(json).not.toContain('"Recent Workouts"');
     expect(iProgramCard).toBeLessThan(iTodayCard);
     expect(iTodayCard).toBeLessThan(iThisWeek);
     expect(iThisWeek).toBeLessThan(iBaselineCard);
+    expect(json).not.toContain("weekly-working-volume-card");
     expect(json).not.toContain("Last Week");
     expect(json).not.toContain("14 Day");
     expect(json).not.toContain("This Month");
@@ -234,14 +253,16 @@ describe("Strength overview main layout", () => {
     expect(json).not.toContain("strength-baseline-frequency-legend");
   });
 
-  it("This Week combined card uses the same horizontal content inset as the Program CTA gutter constant", async () => {
+  it("This Week combined card uses the same elevated shell padding as Weekly Working Volume", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const thisWeekCard = tree.root.findByProps({ testID: "workouts-overview-this-week-combined-card" });
     const flat = StyleSheet.flatten(thisWeekCard.props.style ?? {});
-    expect(flat.paddingHorizontal).toBe(PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL);
+    expect(flat.backgroundColor).toBe(UI_CARD_SURFACE);
+    expect(flat.padding).toBe(15);
+    expect(flat.borderRadius).toBe(12);
   });
 
   it("Strength Baseline tier pill opens strength range explainer with params", async () => {
@@ -298,6 +319,24 @@ describe("Strength overview main layout", () => {
     });
     expect(push).toHaveBeenCalledWith("/(app)/workouts/settings");
     void tree;
+  });
+
+  it("renders Weekly Working Volume between This Week and Strength Baseline when working rows exist", async () => {
+    mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([{ muscleGroup: "chest", setCount: 4 }]);
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    const iThisWeek = json.indexOf('"This Week"');
+    const iWeeklyVolume = json.indexOf("weekly-working-volume-card");
+    const iBaselineCard = json.indexOf("strength-history-summary-card");
+    expect(iWeeklyVolume).toBeGreaterThan(-1);
+    expect(json).toContain("Volume per Muscle Group");
+    expect(json).not.toContain("Weekly Working Volume");
+    expect(json).toContain("weekly-working-volume-chest");
+    expect(iThisWeek).toBeLessThan(iWeeklyVolume);
+    expect(iWeeklyVolume).toBeLessThan(iBaselineCard);
   });
 
   it("combined card header View More navigates to All Strength Workouts", async () => {

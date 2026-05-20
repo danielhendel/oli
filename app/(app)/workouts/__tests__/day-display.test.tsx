@@ -4,6 +4,7 @@ import renderer, { act } from "react-test-renderer";
 const mockUseWorkoutDayDetail = jest.fn();
 const mockUseWorkoutOverrides = jest.fn();
 const mockListManualWorkoutDaySummaries = jest.fn(async () => []);
+const mockListMergedCustomExerciseRecords = jest.fn(async () => []);
 const mockSetOptions = jest.fn();
 const mockPush = jest.fn();
 
@@ -31,6 +32,9 @@ jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => {
     listManualWorkoutDaySummaries: (...args: unknown[]) => mockListManualWorkoutDaySummaries(...args),
   };
 });
+jest.mock("@/lib/workouts/exercises/mergeCustomExerciseSources", () => ({
+  listMergedCustomExerciseRecords: (...args: unknown[]) => mockListMergedCustomExerciseRecords(...args),
+}));
 
 import { WorkoutDayScreen } from "../day/[day]";
 import { formatWeightLbs } from "../day/[day]";
@@ -39,6 +43,7 @@ describe("WorkoutDayScreen display", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListManualWorkoutDaySummaries.mockResolvedValue([]);
+    mockListMergedCustomExerciseRecords.mockResolvedValue([]);
     mockUseWorkoutOverrides.mockReturnValue({
       loaded: true,
       overridesByWorkoutId: {},
@@ -76,7 +81,7 @@ describe("WorkoutDayScreen display", () => {
     expect(json).toContain("40 min");
     expect(json).toContain("Calories");
     expect(json).toContain("320 kcal");
-    expect(json).toContain("Total Volume");
+    expect(json).toContain("Training Volume");
     expect(json).toContain("Avg Intensity");
     expect(json).not.toContain("Apple Health");
     expect(json).not.toContain("\"Workouts\"");
@@ -220,7 +225,7 @@ describe("WorkoutDayScreen display", () => {
     expect(json).not.toContain("Daily metrics");
   });
 
-  it("renders Daily metrics card when dailyFacts has meaningful metrics", () => {
+  it("never renders Daily metrics card even when dailyFacts has activity metrics", () => {
     mockUseWorkoutDayDetail.mockReturnValue({
       status: "ready",
       durableTitlesByWorkoutId: {},
@@ -250,8 +255,8 @@ describe("WorkoutDayScreen display", () => {
     });
 
     const json = JSON.stringify(test.toJSON());
-    expect(json).toContain("Daily metrics");
-    expect(json).toContain("Steps");
+    expect(json).not.toContain("Daily metrics");
+    expect(json).not.toContain("Training load");
   });
 
   it("keeps hook order stable when transitioning from workouts day to empty day", () => {
@@ -337,7 +342,7 @@ describe("WorkoutDayScreen display", () => {
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Leg Day");
     expect(json).toContain("48 min");
-    expect(json).toContain("Total Volume");
+    expect(json).toContain("Training Volume");
   });
 
   it("formats exercise weight from kg to rounded lb", () => {
@@ -468,7 +473,7 @@ describe("WorkoutDayScreen display", () => {
       process.env.JEST_WORKER_ID = prevJestWorkerId;
     }
     const json = JSON.stringify(test.toJSON());
-    expect(json).toContain("Total Volume");
+    expect(json).toContain("Training Volume");
     expect(json).toContain("Add exercises");
     const cta = test.root.findByProps({ testID: "add-exercises-cta" });
     act(() => {
@@ -512,8 +517,16 @@ describe("WorkoutDayScreen display", () => {
         totalVolume: 12450,
         avgIntensity: 8.5,
         exercises: [
-          { name: "tricep pushdown", sets: [{ setNumber: 1, reps: 10, weightKg: 20, intensity: 8 }] },
-          { name: "cable bicep curl", sets: [{ setNumber: 1, reps: 12, weightKg: 12, intensity: 7 }] },
+          {
+            exerciseId: "tricep_pushdown",
+            name: "tricep pushdown",
+            sets: [{ setNumber: 1, reps: 10, weightKg: 20, intensity: 8 }],
+          },
+          {
+            exerciseId: "cable_bicep_curl",
+            name: "cable bicep curl",
+            sets: [{ setNumber: 1, reps: 12, weightKg: 12, intensity: 7 }],
+          },
         ],
       },
     ]);
@@ -535,10 +548,16 @@ describe("WorkoutDayScreen display", () => {
 
     expect(test.root.find((n) => n.props?.testID === "exercise-performance-row-0")).toBeTruthy();
     expect(test.root.find((n) => n.props?.testID === "exercise-performance-row-1")).toBeTruthy();
+    expect(test.root.findByProps({ testID: "exercises-card-2026-03-18:session:0:w1" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "total-volume-card-2026-03-18:session:0:w1" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "working-set-volume-card-2026-03-18:session:0:w1" })).toBeTruthy();
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain("Tricep Pushdown");
     expect(json).toContain("Cable Bicep Curl");
-    expect(json).toContain("History");
+    expect(json).not.toContain("History");
+    expect(json).toContain("Exercises");
+    expect(json).toContain("Total Volume");
+    expect(json).toContain("Total Working Set Volume");
   });
 
   it("merged Apple-first session binds journal exercises by manual time anchor", async () => {
@@ -868,9 +887,9 @@ describe("WorkoutDayScreen display", () => {
       process.env.JEST_WORKER_ID = prevJestWorkerId;
     }
 
-    const historyBtn = test.root.findByProps({ accessibilityLabel: "Exercise history for bench press" });
+    const row = test.root.findByProps({ testID: "exercise-performance-row-0" });
     act(() => {
-      historyBtn.props.onPress();
+      row.props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(app)/workouts/exercise-history",

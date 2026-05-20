@@ -5,12 +5,13 @@ import EditWorkoutDurationScreen from "../edit/duration";
 import EditWorkoutTypeScreen from "../edit/type";
 
 const mockBack = jest.fn();
+const mockDismissTo = jest.fn();
 const mockSaveOverride = jest.fn(async () => undefined);
 const mockUseLocalSearchParams = jest.fn();
 const mockLogWorkoutTitleOverride = jest.fn();
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, dismissTo: mockDismissTo }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
   useNavigation: () => ({
     setOptions: jest.fn(),
@@ -58,6 +59,7 @@ jest.mock("react-native", () => ({
 describe("workout edit screens", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDismissTo.mockClear();
     mockLogWorkoutTitleOverride.mockResolvedValue({
       ok: true,
       status: 202,
@@ -94,6 +96,54 @@ describe("workout edit screens", () => {
     );
     expect(mockSaveOverride).toHaveBeenCalledWith("w1", { customTitle: "Leg Day" });
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it("finish mode starts blank, saves name, and dismisses to strength overview", async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      mode: "finish",
+      workoutId: "w1",
+      titleAnchorObservedAt: "2026-03-10T10:00:00.000Z",
+    });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(<EditWorkoutRenameScreen />);
+    });
+    const input = test.root.findByProps({ accessibilityLabel: "New workout name" });
+    expect(input.props.value).toBe("");
+    expect(input.props.placeholder).toBeUndefined();
+    act(() => {
+      input.props.onChangeText("Morning Push");
+    });
+    await act(async () => {
+      await test.root.findByProps({ accessibilityLabel: "Save" }).props.onPress();
+    });
+    expect(mockLogWorkoutTitleOverride).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetWorkoutId: "w1",
+        displayName: "Morning Push",
+      }),
+      "id-token",
+    );
+    expect(mockSaveOverride).toHaveBeenCalledWith("w1", { customTitle: "Morning Push" });
+    expect(mockDismissTo).toHaveBeenCalledWith("/(app)/workouts");
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it("finish mode skip dismisses to strength overview without saving", async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      mode: "finish",
+      workoutId: "w1",
+      titleAnchorObservedAt: "2026-03-10T10:00:00.000Z",
+    });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(<EditWorkoutRenameScreen />);
+    });
+    await act(async () => {
+      test.root.findByProps({ accessibilityLabel: "Cancel" }).props.onPress();
+    });
+    expect(mockLogWorkoutTitleOverride).not.toHaveBeenCalled();
+    expect(mockDismissTo).toHaveBeenCalledWith("/(app)/workouts");
   });
 
   it("rename does not save locally or navigate when ingest fails", async () => {

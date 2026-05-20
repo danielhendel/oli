@@ -3,6 +3,7 @@
  * Epley e1RM = loadKg * (1 + reps/30). Same as lib/workouts/memory/exerciseHistory.
  */
 
+import { formatIntegerWithCommas } from "@/lib/data/workouts/workoutDisplay";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
 import { trainingVolumeKgForManualSet } from "@/lib/workouts/strength/strengthVolumeKg";
 
@@ -42,13 +43,14 @@ export function formatStrengthSetTableCells(set: StrengthSetDisplayInput): {
   const rpeStr = rpeRaw != null ? String(rpeRaw) : "—";
   const safeReps = typeof reps === "number" && Number.isFinite(reps) ? reps : 0;
   const e1RmKg = hasLoad ? epleyE1RmKg(loadKg!, safeReps) : null;
-  const e1RmStr = e1RmKg != null ? `${Math.round(e1RmKg * LB_PER_KG)}` : "—";
+  const e1RmStr =
+    e1RmKg != null ? formatIntegerWithCommas(Math.round(e1RmKg * LB_PER_KG)) : "—";
   const volumeKg = trainingVolumeKgForManualSet({
     reps,
     weightKg: loadKg ?? null,
     ...(set.isWarmup === true ? { isWarmup: true as const } : {}),
   });
-  const volStr = volumeKg > 0 ? `${Math.round(kgToLbs(volumeKg))}` : "—";
+  const volStr = volumeKg > 0 ? formatIntegerWithCommas(Math.round(kgToLbs(volumeKg))) : "—";
 
   return {
     setLabel: String(ord),

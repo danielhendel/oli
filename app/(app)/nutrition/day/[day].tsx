@@ -14,7 +14,16 @@ import { isValidDayKey } from "@/lib/ui/calendar/types";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import type { NutritionTodayFactsUi } from "@/lib/data/nutrition/nutritionOverviewUi";
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_ELEVATED_BORDER,
+  UI_GROUPED_CARD_RADIUS,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 export default function NutritionDayDetailScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -218,18 +227,18 @@ const styles = StyleSheet.create({
   dayTitle: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   eventsCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 16,
     gap: 10,
   },
   eventsTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   eventRow: {
     flexDirection: "row",
@@ -238,7 +247,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E5E5EA",
+    borderTopColor: UI_BORDER_HAIRLINE,
   },
   eventRowFirst: {
     borderTopWidth: 0,
@@ -252,43 +261,43 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.28,
   },
   eventSubtitle: {
     fontSize: 13,
     fontWeight: "400",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.08,
   },
   eventKcal: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     fontVariant: ["tabular-nums"],
   },
   syncBanner: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 16,
     gap: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.18)",
+    borderColor: UI_CARD_ELEVATED_BORDER,
   },
   syncTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   syncBody: {
     fontSize: 15,
-    color: "#3C3C43",
+    color: UI_TEXT_SECONDARY,
     lineHeight: 22,
   },
   syncRetry: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#007AFF",
+    color: SYSTEM_ACCENT,
     marginTop: 4,
   },
 });

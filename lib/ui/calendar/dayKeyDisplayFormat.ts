@@ -29,6 +29,12 @@ export function formatWeekdayFullFromDayKey(dayKey: string): string {
   }
 }
 
+/** Uppercase weekday label for Strength overview This Week rows (e.g. `MONDAY`). */
+export function formatWeekdayUpperFromDayKey(dayKey: string): string {
+  const full = formatWeekdayFullFromDayKey(dayKey);
+  return full.length > 0 ? full.toUpperCase() : "";
+}
+
 /** Weekday short + M/D for a calendar day key (UTC noon anchor), e.g. `Tue 3/31`. */
 export function formatDayKeyWeekdayShortMonthDay(dayKey: DayKey): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);

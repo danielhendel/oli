@@ -18,6 +18,15 @@ export const WORKOUT_STRENGTH_PROGRESS_FILL = WORKOUT_OVERVIEW_PROGRESS_FILL_STR
  */
 export const WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL = WORKOUT_OVERVIEW_PROGRESS_FILL_STRENGTH;
 
+/**
+ * Neutral progress-bar fill scoped to the Strength overview “Volume per Muscle Group” card.
+ *
+ * Intentionally distinct from {@link WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL} so this
+ * informational/secondary card does not compete visually with the green Strength Baseline bars.
+ * Light, slightly translucent on dark cards — reads clearly above {@link UI_PROGRESS_TRACK_EMPTY}.
+ */
+export const WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL = "rgba(255,255,255,0.42)";
+
 /** Metric tiles under charts — shared light wash for Strength and Cardio (unified accent). */
 export const WORKOUT_OVERVIEW_STRENGTH_METRIC_TILE_BG = SYSTEM_ACCENT_TILE_WASH;
 export const WORKOUT_OVERVIEW_CARDIO_METRIC_TILE_BG = SYSTEM_ACCENT_TILE_WASH;

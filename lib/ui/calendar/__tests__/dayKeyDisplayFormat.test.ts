@@ -13,6 +13,7 @@ import {
   formatDayKeyWeekdayShortMonthDay,
   formatOverviewAsOfLabel,
   formatWeekdayFullFromDayKey,
+  formatWeekdayUpperFromDayKey,
 } from "../dayKeyDisplayFormat";
 import * as dateUtils from "../dateUtils";
 
@@ -31,6 +32,14 @@ describe("formatDayKeyStackNavTitle", () => {
 describe("formatDayKeyWeekdayShortMonthDay", () => {
   it("formats Tue 3/31 for 2026-03-31", () => {
     expect(formatDayKeyWeekdayShortMonthDay("2026-03-31")).toBe("Tue 3/31");
+  });
+});
+
+describe("formatWeekdayUpperFromDayKey", () => {
+  it("uppercases the long weekday for a calendar day", () => {
+    expect(formatWeekdayUpperFromDayKey("2026-03-09")).toBe(
+      formatWeekdayFullFromDayKey("2026-03-09").toUpperCase(),
+    );
   });
 });
 

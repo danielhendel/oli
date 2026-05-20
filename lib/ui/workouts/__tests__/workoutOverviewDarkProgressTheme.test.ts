@@ -7,6 +7,7 @@ import {
   WORKOUT_STRENGTH_PROGRESS_FILL,
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
   WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL,
+  WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL,
 } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
 
 describe("workoutOverviewAnalyticsTheme (dark progress)", () => {
@@ -22,5 +23,12 @@ describe("workoutOverviewAnalyticsTheme (dark progress)", () => {
     expect(WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL).toBe(WORKOUT_OVERVIEW_PROGRESS_FILL_STRENGTH);
     expect(WORKOUT_OVERVIEW_PROGRESS_FILL_ACTIVITY.toLowerCase()).not.toBe("#e5e5ea");
     expect(WORKOUT_STRENGTH_PROGRESS_TRACK_BG.toLowerCase()).not.toBe("#e5e5ea");
+  });
+
+  it("uses a neutral progress fill for the Volume per Muscle Group card distinct from strength green", () => {
+    expect(WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL).not.toBe(WORKOUT_STRENGTH_OVERVIEW_PROGRESS_FILL);
+    expect(WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL).not.toBe(WORKOUT_OVERVIEW_PROGRESS_FILL_STRENGTH);
+    expect(WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL.toLowerCase()).not.toContain("eb7a");
+    expect(WORKOUT_VOLUME_PER_MUSCLE_PROGRESS_FILL.toLowerCase()).not.toContain("d966");
   });
 });

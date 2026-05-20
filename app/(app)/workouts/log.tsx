@@ -58,6 +58,7 @@ import {
 } from "@/lib/workouts/sessionEngine/commands";
 import { isResumableWorkoutSession, loadReducedSession } from "@/lib/workouts/sessionEngine/selectors";
 import { persistCompletedSessionToHistory } from "@/lib/workouts/sessionEngine/finalize";
+import { invalidateWorkoutCalendarHydrate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
 import { getRawEvent } from "@/lib/api/usersMe";
 import { devVerifyManualStrengthWorkoutPersisted } from "@/lib/debug/manualStrengthDurability";
 import {
@@ -86,7 +87,11 @@ import {
   type StrengthLoggingType,
 } from "@/lib/workouts/exercises/loggingType";
 import { WORKOUT_LOG_HERO_MEDIA_CONTAINER } from "@/lib/workouts/ui/workoutLogHeroMediaLayout";
-import { exitLiveWorkoutLogToOverview } from "@/lib/workouts/navigation/exitWorkoutLogFlow";
+import {
+  exitLiveWorkoutLogToOverview,
+  navigateLiveWorkoutFinishToNameScreen,
+} from "@/lib/workouts/navigation/exitWorkoutLogFlow";
+import type { PersistCompletedSessionToHistoryResult } from "@/lib/workouts/sessionEngine/finalize";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_08 } from "@/lib/ui/theme/systemAccent";
 import {
   WORKOUT_LOGGER_BOTTOM_BAR,
@@ -103,7 +108,18 @@ import {
   workoutLoggerOptionCardShadow,
   workoutLoggerTypography,
 } from "@/lib/workouts/ui/workoutLoggerTheme";
-import { UI_BORDER_HAIRLINE, UI_CARD_SURFACE, UI_PROGRESS_TRACK_EMPTY, UI_SCREEN_BG, UI_SURFACE_ELEVATED, UI_SURFACE_PRESSED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_OVERLAY,
+  UI_PROGRESS_TRACK_EMPTY,
+  UI_SCREEN_BG,
+  UI_SURFACE_ELEVATED,
+  UI_SURFACE_PRESSED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 import { resolveAddExerciseTargetBlockId } from "@/lib/workouts/ui/logAddExerciseTarget";
 import { formatWorkoutLogDecimal, formatWorkoutLogInteger } from "@/lib/workouts/ui/formatWorkoutLogNumber";
 
@@ -1161,11 +1177,27 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
     return n;
   };
 
+  const lastHydrateInvalidateRawEventIdRef = useRef<string | null>(null);
+  const notifyOverviewAfterSuccessfulPersist = useCallback(
+    (persistResult: PersistCompletedSessionToHistoryResult) => {
+      if (persistResult.kind !== "written") return;
+      const rawEventId = persistResult.rawEventId.trim();
+      if (!rawEventId) return;
+      if (lastHydrateInvalidateRawEventIdRef.current === rawEventId) return;
+      lastHydrateInvalidateRawEventIdRef.current = rawEventId;
+      invalidateWorkoutCalendarHydrate();
+    },
+    [],
+  );
+
   const onFinish = useCallback(async () => {
     if (!user || !sessionId) return;
     const returnDay = enrichReturnDayRef.current;
     const enrichTid = enrichTargetIdRef.current;
-    const finalizeAndExit = async (): Promise<void> => {
+    const finalizeAndExit = async (
+      persistResult?: PersistCompletedSessionToHistoryResult,
+      sessionStartedAt?: string | null,
+    ): Promise<void> => {
       if (isEnrichmentEntry) {
         if (enrichTid) await clearEnrichSessionPointer(user.uid, enrichTid);
         await clearLegacyBackfillPointerForSession(user.uid, sessionId);
@@ -1183,6 +1215,16 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       }
       if (!isEnrichmentEntry) {
         setUi({ status: "idle" });
+        if (persistResult?.kind === "written") {
+          const titleAnchorObservedAt =
+            sessionStartedAt?.trim() ||
+            new Date().toISOString();
+          navigateLiveWorkoutFinishToNameScreen(router, {
+            workoutId: persistResult.rawEventId,
+            titleAnchorObservedAt,
+          });
+          return;
+        }
         exitLiveWorkoutLogToOverview(router);
         return;
       }
@@ -1197,6 +1239,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       if (!token) {
         throw new Error("Not signed in.");
       }
+      const completedReduced = await loadReducedSession(user.uid, sessionId);
       const persistResult = await persistCompletedSessionToHistory(user.uid, sessionId, token);
       if (persistResult.kind === "written" && __DEV__ && !process.env.JEST_WORKER_ID) {
         await devVerifyManualStrengthWorkoutPersisted({
@@ -1206,8 +1249,9 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           expectedMinExerciseCount: 1,
         });
       }
+      notifyOverviewAfterSuccessfulPersist(persistResult);
       finishPersistRetryRef.current = null;
-      await finalizeAndExit();
+      await finalizeAndExit(persistResult, completedReduced.startedAt);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       if (completedLocally) {
@@ -1221,7 +1265,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       }
       setUi({ status: "error", message: msg, canRetryFinishPersist: false });
     }
-  }, [user, sessionId, router, isEnrichmentEntry, clearLegacyBackfillPointerForSession, getIdToken]);
+  }, [
+    user,
+    sessionId,
+    router,
+    isEnrichmentEntry,
+    clearLegacyBackfillPointerForSession,
+    getIdToken,
+    notifyOverviewAfterSuccessfulPersist,
+  ]);
 
   const onRetryFinishPersist = useCallback(async () => {
     if (!user) return;
@@ -1241,6 +1293,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
           expectedMinExerciseCount: 1,
         });
       }
+      notifyOverviewAfterSuccessfulPersist(persistResult);
       finishPersistRetryRef.current = null;
       if (isEnrichmentEntry) {
         if (retry.enrichTid) await clearEnrichSessionPointer(user.uid, retry.enrichTid);
@@ -1259,6 +1312,15 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
       }
       if (!isEnrichmentEntry) {
         setUi({ status: "idle" });
+        if (persistResult.kind === "written") {
+          const completedReduced = await loadReducedSession(user.uid, retry.sessionId);
+          navigateLiveWorkoutFinishToNameScreen(router, {
+            workoutId: persistResult.rawEventId,
+            titleAnchorObservedAt:
+              completedReduced.startedAt?.trim() || new Date().toISOString(),
+          });
+          return;
+        }
         exitLiveWorkoutLogToOverview(router);
         return;
       }
@@ -1272,7 +1334,14 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         canRetryFinishPersist: true,
       });
     }
-  }, [user, getIdToken, isEnrichmentEntry, clearLegacyBackfillPointerForSession, router]);
+  }, [
+    user,
+    getIdToken,
+    isEnrichmentEntry,
+    clearLegacyBackfillPointerForSession,
+    router,
+    notifyOverviewAfterSuccessfulPersist,
+  ]);
 
   // When user signs out mid-screen, fail closed and reset.
   useEffect(() => {
@@ -2868,8 +2937,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         onRequestClose={() => setFinishModalVisible(false)}
       >
         <Pressable style={styles.finishBackdrop} onPress={() => setFinishModalVisible(false)}>
-          <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetGrabber} />
+          <Pressable
+            style={[styles.finishSheet, { paddingBottom: Math.max(insets.bottom, 28) }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.finishSheetGrabber} />
             <Text
               style={styles.finishSheetTitle}
               accessibilityLabel={isBackfillFlow ? "Save exercises?" : "Finish workout?"}
@@ -2879,7 +2951,7 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
             <Text style={styles.finishSheetSubtitle}>
               {isBackfillFlow
                 ? "This will save your exercises to this workout."
-                : "This will save your workout."}
+                : "This will save your workout and let you name it before returning to Strength."}
             </Text>
             <View style={styles.finishSheetActions}>
               <Pressable
@@ -2932,8 +3004,11 @@ export function WorkoutLogScreenInner({ sessionEntry }: { sessionEntry: WorkoutL
         onRequestClose={() => setCancelConfirmVisible(false)}
       >
         <Pressable style={styles.finishBackdrop} onPress={() => setCancelConfirmVisible(false)}>
-          <Pressable style={styles.finishSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetGrabber} />
+          <Pressable
+            style={[styles.finishSheet, { paddingBottom: Math.max(insets.bottom, 28) }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.finishSheetGrabber} />
             <Text style={styles.finishSheetTitle}>
               {isBackfillFlow ? "Discard exercise log?" : "Cancel workout?"}
             </Text>
@@ -3247,14 +3322,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
+  finishSheetGrabber: {
+    ...workoutLoggerGrabberStyle,
+    marginBottom: 16,
+  },
   finishSheetActions: {
-    gap: 10,
-    marginTop: 18,
+    gap: 12,
+    marginTop: 24,
   },
   finishSheetPrimary: {
     backgroundColor: SYSTEM_ACCENT,
-    minHeight: 50,
-    paddingVertical: 12,
+    minHeight: 52,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
@@ -3266,22 +3345,24 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   finishSheetPrimaryDestructive: {
-    backgroundColor: "#FF3B30",
-    minHeight: 50,
-    paddingVertical: 12,
+    backgroundColor: WORKOUT_LOGGER_COLORS.destructive,
+    minHeight: 52,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   finishSheetSecondary: {
-    backgroundColor: UI_SCREEN_BG,
-    minHeight: 50,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
   },
   finishSheetSecondaryText: {
     color: UI_TEXT_PRIMARY,
@@ -3289,16 +3370,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   finishSheetTertiary: {
-    minHeight: 40,
+    minHeight: 48,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    marginTop: 4,
   },
   finishSheetTertiaryText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#FF3B30",
+    color: WORKOUT_LOGGER_COLORS.destructive,
   },
   bottomRow: { flexDirection: "row", gap: 10 },
   bottomBtnPrimary: {
@@ -3810,7 +3892,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: UI_OVERLAY,
     justifyContent: "flex-end",
   },
   sheet: {
@@ -3943,9 +4025,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
     borderTopRightRadius: WORKOUT_LOGGER_LAYOUT.sheetTopRadius,
     paddingHorizontal: WORKOUT_LOGGER_LAYOUT.sheetHorizontalPadding,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingTop: 12,
     marginBottom: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
   },
   sheetContainer: {
     backgroundColor: WORKOUT_LOGGER_COLORS.sheetSurface,
@@ -3961,12 +4044,15 @@ const styles = StyleSheet.create({
   },
   finishSheetTitle: {
     ...workoutLoggerTypography.sheetTitle,
+    fontSize: 26,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   finishSheetSubtitle: {
     ...workoutLoggerTypography.sheetBody,
     textAlign: "center",
+    marginBottom: 4,
+    paddingHorizontal: 4,
   },
   sheetTitle: {
     ...workoutLoggerTypography.sheetTitle,

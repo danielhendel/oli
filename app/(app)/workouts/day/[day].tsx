@@ -11,9 +11,10 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ScreenContainer, LoadingState, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutDayDetail } from "@/lib/data/workouts/useWorkoutsCalendar";
 import type { DayKey } from "@/lib/ui/calendar/types";
-import type { DailyFactsDto } from "@/lib/contracts";
 import {
   formatAvgPaceMinPerMileLabel,
+  formatCompletedSetsLabel,
+  formatIntegerWithCommas,
   formatTypicalStrengthVolumeLabel,
   formatWorkoutDistanceLabel,
   formatWorkoutTimeLabel,
@@ -39,27 +40,44 @@ import {
   WORKOUT_STRENGTH_PROGRESS_FILL,
   WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
 } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
+import {
+  aggregateWorkoutDetailMuscleSetVolume,
+  countWorkoutDetailTotalVolumeSetsForExercise,
+  sumWorkoutDetailTotalVolumeSets,
+} from "@/lib/data/workouts/workoutDetailMuscleVolume";
+import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
+import type { CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
+import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
+import { WorkoutDetailMuscleSetVolumeRows } from "@/lib/ui/workouts/WorkoutDetailMuscleSetVolumeRows";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   listManualWorkoutDaySummaries,
-  totalVolumeKgForManualExercise,
   type ManualWorkoutDaySummary,
 } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
-import { formatStrengthSetTableCells, LB_PER_KG } from "@/lib/workouts/strengthSetDisplay";
-import { listMergedCustomExerciseRecords } from "@/lib/workouts/exercises/mergeCustomExerciseSources";
-import { resolveStrengthLoggingType } from "@/lib/workouts/exercises/loggingType";
 import { overviewAccentForTab } from "@/lib/ui/workouts/workoutOverviewAnalyticsTheme";
-import { SYSTEM_ACCENT, SYSTEM_METRIC_SECONDARY } from "@/lib/ui/theme/systemAccent";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import type { HeartRateZoneMinutes5 } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
 
-import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
-/** Matches exercise-history numeric accents for set grid values. */
-const METRIC_STRENGTH_ACCENT = SYSTEM_ACCENT;
-const METRIC_VOLUME_ACCENT = SYSTEM_METRIC_SECONDARY;
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_APP_SCREEN_BG,
+  UI_BORDER_HAIRLINE,
+  UI_BORDER_SUBTLE,
+  UI_CARD_SURFACE,
+  UI_GROUPED_CARD_RADIUS,
+  UI_SCREEN_BG,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_TERTIARY_LABEL,
+} from "@/lib/ui/theme/uiTokens";
 
 const useLocalSearchParamsSafe: typeof useLocalSearchParams =
   typeof useLocalSearchParams === "function"
@@ -100,26 +118,6 @@ function toTitleCase(str: string): string {
 
 function toExerciseIdFromName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
-}
-
-function hasMeaningfulDailyMetrics(
-  dailyFacts: DailyFactsDto | null | undefined,
-  domain: WorkoutProductDomain,
-): boolean {
-  if (!dailyFacts) return false;
-  const hasActivityMetric =
-    (typeof dailyFacts.activity?.steps === "number" && dailyFacts.activity.steps > 0) ||
-    (typeof dailyFacts.activity?.trainingLoad === "number" && dailyFacts.activity.trainingLoad > 0);
-
-  if (domain === "strength") {
-    const s = dailyFacts.strength;
-    const hasStrengthMetric =
-      (typeof s?.workoutsCount === "number" && s.workoutsCount > 0) ||
-      (typeof s?.totalSets === "number" && s.totalSets > 0) ||
-      (typeof s?.totalReps === "number" && s.totalReps > 0);
-    return hasActivityMetric || hasStrengthMetric;
-  }
-  return hasActivityMetric;
 }
 
 function isStrengthLikeSession(
@@ -192,13 +190,13 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   const { overridesByWorkoutId } = useWorkoutOverrides(workoutIds);
   const [menuOpen, setMenuOpen] = useState(false);
   const [manualWorkoutSummaries, setManualWorkoutSummaries] = useState<ManualWorkoutDaySummary[]>([]);
+  const [customExerciseById, setCustomExerciseById] = useState<ReadonlyMap<string, CustomExerciseRecord>>(
+    () => new Map(),
+  );
   const legacyDayExerciseSummary = useMemo(
     () => manualWorkoutSummaries.find((s) => s.day === day) ?? null,
     [manualWorkoutSummaries, day],
   );
-  const [expandedPerformanceRowKey, setExpandedPerformanceRowKey] = useState<string | null>(null);
-  const [customLoggingTypeByExerciseId, setCustomLoggingTypeByExerciseId] = useState<Record<string, string>>({});
-
   const strengthAccent = overviewAccentForTab("strength");
 
   const { usePremiumStrengthLayout, premiumSessionId } = useMemo(() => {
@@ -228,7 +226,6 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   }, [sessions]);
 
   const singleSessionPremiumCardioDay = sessions.length === 1 && usePremiumCardioLayout;
-  const showDailyMetricsCard = hasMeaningfulDailyMetrics(dailyFacts, domain);
 
   const cardioAccent = overviewAccentForTab("cardio");
 
@@ -315,31 +312,34 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   useEffect(() => {
     if (process.env.JEST_WORKER_ID) return;
     if (!user?.uid) {
-      setCustomLoggingTypeByExerciseId({});
+      setCustomExerciseById(new Map());
       return;
     }
     let cancelled = false;
-    listMergedCustomExerciseRecords(user.uid, () => getIdToken(false))
+    void listMergedCustomExerciseRecords(user.uid, () => getIdToken(false))
       .then((rows) => {
         if (cancelled) return;
-        const next: Record<string, string> = {};
-        for (const row of rows) next[row.exerciseId] = row.loggingType;
-        setCustomLoggingTypeByExerciseId(next);
+        setCustomExerciseById(new Map(rows.map((r) => [r.exerciseId, r])));
       })
       .catch(() => {
-        if (!cancelled) setCustomLoggingTypeByExerciseId({});
+        if (!cancelled) setCustomExerciseById(new Map());
       });
     return () => {
       cancelled = true;
     };
   }, [user?.uid, getIdToken]);
 
+  const workoutDetailAnalyticsContext = useMemo(
+    () => ({ customExerciseById }),
+    [customExerciseById],
+  );
+
   /** Stack header already sits below status bar; omit top safe-area to avoid a gray band under the nav bar. */
   const screenEdges = ["left", "right", "bottom"] as const;
 
   if (!isDayKey) {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+      <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
         <ErrorState message="Invalid day parameter" />
       </ScreenContainer>
     );
@@ -347,7 +347,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
 
   if (detail.status === "partial") {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+      <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
         <LoadingState
           message={domain === "strength" ? "Loading strength workouts…" : "Loading cardio sessions…"}
         />
@@ -357,7 +357,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
 
   if (detail.status === "error") {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+      <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
         <ErrorState
           message={detail.error}
           requestId={detail.requestId}
@@ -371,7 +371,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
 
   if (workouts.length === 0 && !dailyFacts) {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+      <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
         <EmptyState
           title="No data for this day"
           description="When sessions are imported or logged for this day, they will automatically appear here."
@@ -382,7 +382,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
 
   if (workouts.length > 0 && domainWorkouts.length === 0 && !dailyFacts) {
     return (
-      <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+      <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
         <EmptyState
           title={domain === "strength" ? "No strength workouts for this day" : "No cardio sessions for this day"}
           description="This day has activity in another training category. Switch products from the Dash to view it."
@@ -392,7 +392,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
   }
 
   return (
-    <ScreenContainer backgroundColor="#F2F2F7" padded={false} edges={[...screenEdges]}>
+    <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
       <View style={styles.pageBackground}>
       <ScrollView
         style={styles.scrollView}
@@ -401,44 +401,6 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
           ? { contentInsetAdjustmentBehavior: "never" as const }
           : {})}
       >
-        {showDailyMetricsCard && dailyFacts && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Daily metrics</Text>
-            {dailyFacts.activity && (
-              <>
-                {typeof dailyFacts.activity.steps === "number" && (
-                  <View style={styles.metricRow}>
-                    <Text style={styles.metricLabel}>Steps</Text>
-                    <Text style={styles.metricValue}>{Math.round(dailyFacts.activity.steps)}</Text>
-                  </View>
-                )}
-                {typeof dailyFacts.activity.trainingLoad === "number" && (
-                  <View style={styles.metricRow}>
-                    <Text style={styles.metricLabel}>Training load</Text>
-                    <Text style={styles.metricValue}>{Math.round(dailyFacts.activity.trainingLoad)}</Text>
-                  </View>
-                )}
-              </>
-            )}
-            {dailyFacts.strength && domain === "strength" && (
-              <>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricLabel}>Strength sessions</Text>
-                  <Text style={styles.metricValue}>{dailyFacts.strength.workoutsCount}</Text>
-                </View>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricLabel}>Total sets</Text>
-                  <Text style={styles.metricValue}>{dailyFacts.strength.totalSets}</Text>
-                </View>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricLabel}>Total reps</Text>
-                  <Text style={styles.metricValue}>{dailyFacts.strength.totalReps}</Text>
-                </View>
-              </>
-            )}
-          </View>
-        )}
-
         <View style={styles.summarySection}>
           {sessions.length === 0 ? (
             <Text style={styles.summarySectionPlaceholder}>
@@ -490,7 +452,8 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                   : typeof session.calories === "number"
                     ? session.calories
                     : null;
-              const calories = caloriesNum != null ? `${Math.round(caloriesNum)} kcal` : "—";
+              const calories =
+                caloriesNum != null ? `${formatIntegerWithCommas(caloriesNum)} kcal` : "—";
               const isStrength =
                 session.sessionType === "strength" ||
                 session.sessionType === "mixed" ||
@@ -517,14 +480,21 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
               if (showPremiumStrengthBlock) {
                 const exercises = strengthExerciseDisplay.exercises;
                 const sessionTrainingVolumeKg = strengthExerciseDisplay.totalVolume;
-                const volumesKg = exercises.map((ex) => totalVolumeKgForManualExercise(ex));
-                const maxVolKg = Math.max(1, ...volumesKg);
+                const sessionTotalSets = sumWorkoutDetailTotalVolumeSets(exercises);
+                const sessionTotalReps = exercises.reduce(
+                  (sum, ex) => sum + ex.sets.reduce((setSum, set) => setSum + (set.reps ?? 0), 0),
+                  0,
+                );
                 const premiumTitle = titleText.trim() || "Strength workout";
                 const showLogExercisesCta =
                   Boolean(user?.uid) && exercises.length === 0;
+                const muscleVolumeAggregation = aggregateWorkoutDetailMuscleSetVolume(
+                  exercises,
+                  workoutDetailAnalyticsContext,
+                );
 
                 return (
-                  <View key={session.id}>
+                  <View key={session.id} style={styles.premiumSessionCards}>
                     <View style={styles.premiumWorkoutCard} testID={`summary-card-${session.id}`}>
                       <View style={[workoutOverviewInCardHeaderStyles.row, styles.inCardHeaderRowSpacing]}>
                         <View style={styles.strengthOverviewTitleWrap}>
@@ -553,7 +523,7 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                           <View
                             style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
                           >
-                            <Text style={styles.overviewMetricLabel}>Total Volume</Text>
+                            <Text style={styles.overviewMetricLabel}>Training Volume</Text>
                             <Text style={styles.overviewMetricValue}>
                               {formatTypicalStrengthVolumeLabel(sessionTrainingVolumeKg)}
                             </Text>
@@ -569,189 +539,145 @@ export function WorkoutDayScreen({ domain }: { domain: WorkoutProductDomain }) {
                             </Text>
                           </View>
                         </View>
+                        <View style={styles.overviewMetricsRow}>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Total Sets</Text>
+                            <Text style={styles.overviewMetricValue}>
+                              {formatIntegerWithCommas(sessionTotalSets)}
+                            </Text>
+                          </View>
+                          <View
+                            style={[styles.overviewMetricTile, { backgroundColor: strengthAccent.metricTileBg }]}
+                          >
+                            <Text style={styles.overviewMetricLabel}>Total Reps</Text>
+                            <Text style={styles.overviewMetricValue}>
+                              {formatIntegerWithCommas(sessionTotalReps)}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
+                    </View>
 
-                      <View style={styles.performanceInner}>
-                        {exercises.length === 0 ? (
-                          <View style={styles.performanceExerciseEmpty}>
-                            <Text style={styles.performanceExerciseEmptyTitle}>
-                              No exercises logged yet
-                            </Text>
-                            <Text style={styles.performanceExerciseEmptyBody}>
-                              Add your lifts to match your usual logging flow. Volume and intensity
-                              will appear here once you save a completed workout.
-                            </Text>
-                            {showLogExercisesCta ? (
+                    <View style={styles.premiumWorkoutCard} testID={`exercises-card-${session.id}`}>
+                      <Text style={styles.premiumSectionTitle}>Exercises</Text>
+                      {exercises.length === 0 ? (
+                        <View style={styles.performanceExerciseEmpty}>
+                          <Text style={styles.performanceExerciseEmptyTitle}>
+                            No exercises logged yet
+                          </Text>
+                          <Text style={styles.performanceExerciseEmptyBody}>
+                            Add your lifts to match your usual logging flow. Volume and intensity
+                            will appear here once you save a completed workout.
+                          </Text>
+                          {showLogExercisesCta ? (
+                            <Pressable
+                              testID="add-exercises-cta"
+                              accessibilityRole="button"
+                              accessibilityLabel="Add exercises for this workout"
+                              onPress={() => {
+                                const anchor =
+                                  session.start ??
+                                  surface.actionWorkout.start ??
+                                  surface.actionWorkout.observedAt ??
+                                  "";
+                                router.push({
+                                  pathname: "/(app)/workouts/enrich",
+                                  params: {
+                                    enrichDay: day,
+                                    enrichTargetId: session.id,
+                                    ...(journalSummary?.sessionId
+                                      ? { journalSessionId: journalSummary.sessionId }
+                                      : {}),
+                                    ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
+                                  },
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.performanceExerciseEmptyCta,
+                                pressed && styles.performanceExerciseEmptyCtaPressed,
+                              ]}
+                            >
+                              <Text style={styles.performanceExerciseEmptyCtaText}>Add exercises</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <View style={styles.exerciseRowsWrap} accessibilityRole="list">
+                          {exercises.map((exercise, idx) => {
+                            const rowKey = `${idx}:${exercise.name}`;
+                            const setCount = countWorkoutDetailTotalVolumeSetsForExercise(exercise);
+                            const volDisplay = formatCompletedSetsLabel(setCount);
+                            const exerciseId = exercise.exerciseId || toExerciseIdFromName(exercise.name);
+
+                            return (
                               <Pressable
-                                testID="add-exercises-cta"
+                                key={rowKey}
+                                testID={`exercise-performance-row-${idx}`}
                                 accessibilityRole="button"
-                                accessibilityLabel="Add exercises for this workout"
+                                accessibilityLabel={`Open exercise history for ${exercise.name}, ${volDisplay}`}
                                 onPress={() => {
-                                  const anchor =
-                                    session.start ??
-                                    surface.actionWorkout.start ??
-                                    surface.actionWorkout.observedAt ??
-                                    "";
                                   router.push({
-                                    pathname: "/(app)/workouts/enrich",
-                                    params: {
-                                      enrichDay: day,
-                                      enrichTargetId: session.id,
-                                      ...(journalSummary?.sessionId
-                                        ? { journalSessionId: journalSummary.sessionId }
-                                        : {}),
-                                      ...(anchor.length > 0 ? { sessionAnchorIso: anchor } : {}),
-                                    },
+                                    pathname: "/(app)/workouts/exercise-history",
+                                    params: { exerciseId },
                                   });
                                 }}
                                 style={({ pressed }) => [
-                                  styles.performanceExerciseEmptyCta,
-                                  pressed && styles.performanceExerciseEmptyCtaPressed,
+                                  styles.exerciseRowPressable,
+                                  pressed && styles.exerciseRowPressablePressed,
                                 ]}
                               >
-                                <Text style={styles.performanceExerciseEmptyCtaText}>Add exercises</Text>
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        ) : (
-                          exercises.map((exercise, idx) => {
-                            const rowKey = `${idx}:${exercise.name}`;
-                            const loggingType = resolveStrengthLoggingType(
-                              exercise.exerciseId,
-                              customLoggingTypeByExerciseId[exercise.exerciseId],
-                            );
-                            const isLoadBased = loggingType === "weight_reps";
-                            const totalReps = exercise.sets.reduce((sum, set) => sum + (set.reps ?? 0), 0);
-                            const volKg = volumesKg[idx] ?? 0;
-                            const volLb = Math.round(kgToLbs(volKg));
-                            const volDisplay = isLoadBased
-                              ? volLb >= 1
-                                ? `${volLb.toLocaleString()} lb`
-                                : "—"
-                              : `${totalReps} reps`;
-                            const progress = isLoadBased
-                              ? maxVolKg > 0
-                                ? Math.max(0, Math.min(1, volKg / maxVolKg))
-                                : 0
-                              : Math.max(0, Math.min(1, totalReps / Math.max(1, ...exercises.map((ex2) => ex2.sets.reduce((sum, set) => sum + (set.reps ?? 0), 0)))));
-                            const expanded = expandedPerformanceRowKey === rowKey;
-                            const toggleRow = () =>
-                              setExpandedPerformanceRowKey(expanded ? null : rowKey);
-
-                            return (
-                              <View key={rowKey} style={styles.performanceRowWrap}>
-                                <View style={styles.performanceRowLine1}>
-                                  <Pressable
-                                    testID={`exercise-performance-row-${idx}`}
-                                    accessibilityRole="button"
-                                    accessibilityState={{ expanded }}
-                                    onPress={toggleRow}
-                                    style={styles.performanceRowMainPress}
-                                  >
-                                    <View style={styles.performanceNameVolRow}>
-                                      <Text style={styles.performanceExerciseName} numberOfLines={1}>
-                                        {toTitleCase(exercise.name)}
-                                      </Text>
-                                      <Text style={styles.performanceVolume}>{volDisplay}</Text>
-                                    </View>
-                                  </Pressable>
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Exercise history for ${exercise.name}`}
-                                    onPress={() => {
-                                      router.push({
-                                        pathname: "/(app)/workouts/exercise-history",
-                                        params: {
-                                          exerciseId: exercise.exerciseId || toExerciseIdFromName(exercise.name),
-                                        },
-                                      });
-                                    }}
-                                    hitSlop={8}
-                                  >
-                                    <Text style={styles.exerciseHistoryButton}>History</Text>
-                                  </Pressable>
+                                <View style={styles.exerciseRowInner}>
+                                  <Text style={[dashMetricRowLabelTextStyle, styles.exerciseRowLabel]} numberOfLines={1}>
+                                    {toTitleCase(exercise.name)}
+                                  </Text>
+                                  <View style={styles.exerciseRowRight}>
+                                    <Text
+                                      style={[dashMetricRowValueTextStyle, styles.exerciseRowValue]}
+                                      numberOfLines={1}
+                                      accessibilityElementsHidden
+                                      importantForAccessibility="no"
+                                    >
+                                      {volDisplay}
+                                    </Text>
+                                    <Text
+                                      style={styles.exerciseRowChevron}
+                                      accessibilityElementsHidden
+                                      importantForAccessibility="no"
+                                    >
+                                      {"\u203A"}
+                                    </Text>
+                                  </View>
                                 </View>
-                                <Pressable onPress={toggleRow} accessibilityRole="button">
-                                  <View style={styles.performanceBarTrack}>
-                                    <View
-                                      style={[
-                                        styles.performanceBarFill,
-                                        { width: `${progress * 100}%` },
-                                      ]}
-                                    />
-                                  </View>
-                                </Pressable>
-                                {expanded ? (
-                                  <View style={styles.performanceExpanded}>
-                                    <View style={styles.perfTableHeaderRow}>
-                                      <Text style={styles.perfTableHeaderCell}>Set</Text>
-                                      <Text style={styles.perfTableHeaderCell}>Reps</Text>
-                                      <Text style={styles.perfTableHeaderCell}>
-                                        {isLoadBased ? "Weight" : loggingType === "bodyweight_reps" ? "Load" : "Type"}
-                                      </Text>
-                                      <Text style={styles.perfTableHeaderCell}>RPE</Text>
-                                      <Text style={styles.perfTableHeaderCell}>{isLoadBased ? "e1RM" : "Best"}</Text>
-                                      <Text style={styles.perfTableHeaderCell}>{isLoadBased ? "Vol" : "Session"}</Text>
-                                    </View>
-                                    {exercise.sets.map((set) => {
-                                      const cells = formatStrengthSetTableCells({
-                                        setNumber: set.setNumber,
-                                        reps: set.reps,
-                                        weightKg: set.weightKg,
-                                        intensity: set.intensity,
-                                        ...(set.isWarmup === true ? { isWarmup: true as const } : {}),
-                                      });
-                                      return (
-                                        <View
-                                          key={`${rowKey}-set-${set.setNumber}`}
-                                          style={styles.perfSetRow}
-                                        >
-                                          <Text style={[styles.perfTableCell, styles.perfColSet]}>
-                                            {cells.setLabel}
-                                          </Text>
-                                          <Text style={[styles.perfTableCell, styles.perfColReps]}>
-                                            {cells.repsLabel}
-                                          </Text>
-                                          <Text style={[styles.perfTableCell, styles.perfColWeight]}>
-                                            {isLoadBased
-                                              ? cells.weightLabel
-                                              : loggingType === "bodyweight_reps"
-                                                ? set.weightKg != null && set.weightKg > 0
-                                                  ? `BW + ${(set.weightKg * LB_PER_KG).toFixed(1)} lb`
-                                                  : "BW"
-                                                : "Reps"}
-                                          </Text>
-                                          <Text style={[styles.perfTableCell, styles.perfColRpe]}>
-                                            {cells.rpeLabel}
-                                          </Text>
-                                          <Text
-                                            style={[
-                                              styles.perfTableCell,
-                                              styles.perfColE1rm,
-                                              { color: METRIC_STRENGTH_ACCENT },
-                                            ]}
-                                          >
-                                            {isLoadBased ? cells.e1RmLbLabel : String(set.reps ?? "—")}
-                                          </Text>
-                                          <Text
-                                            style={[
-                                              styles.perfTableCell,
-                                              styles.perfColVol,
-                                              { color: METRIC_VOLUME_ACCENT },
-                                            ]}
-                                          >
-                                            {isLoadBased ? cells.volLbLabel : "—"}
-                                          </Text>
-                                        </View>
-                                      );
-                                    })}
-                                  </View>
-                                ) : null}
-                              </View>
+                              </Pressable>
                             );
-                          })
-                        )}
-                      </View>
+                          })}
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.premiumWorkoutCard} testID={`total-volume-card-${session.id}`}>
+                      <Text style={styles.premiumSectionTitle}>Total Volume</Text>
+                      <WorkoutDetailMuscleSetVolumeRows
+                        rows={muscleVolumeAggregation.totalVolumeRows}
+                        emptyMessage="No mappable muscle-group sets for this workout yet."
+                        testIdPrefix="total-volume"
+                        unassignedSetCount={muscleVolumeAggregation.totalUnassignedSetCount}
+                      />
+                    </View>
+
+                    <View
+                      style={styles.premiumWorkoutCard}
+                      testID={`working-set-volume-card-${session.id}`}
+                    >
+                      <Text style={styles.premiumSectionTitle}>Total Working Set Volume</Text>
+                      <WorkoutDetailMuscleSetVolumeRows
+                        rows={muscleVolumeAggregation.workingSetVolumeRows}
+                        emptyMessage="No working sets (RPE 7–10) mapped to a muscle group yet."
+                        testIdPrefix="working-set-volume"
+                        unassignedSetCount={muscleVolumeAggregation.workingUnassignedSetCount}
+                      />
                     </View>
                   </View>
                 );
@@ -1033,12 +959,10 @@ const styles = StyleSheet.create({
     backgroundColor: UI_SCREEN_BG,
   },
   card: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 16,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 16,
     gap: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
     marginBottom: 16,
   },
   summarySection: {
@@ -1047,45 +971,30 @@ const styles = StyleSheet.create({
   },
   summarySectionPlaceholder: {
     fontSize: 14,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     paddingVertical: 4,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    marginBottom: 4,
   },
   placeholder: {
     fontSize: 14,
-    color: "#8E8E93",
+    lineHeight: 20,
+    color: UI_TEXT_MUTED,
   },
-  metricRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  metricLabel: {
-    fontSize: 15,
-    color: "#3C3C43",
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1C1C1E",
+  premiumSessionCards: {
+    gap: 12,
   },
   premiumWorkoutCard: {
-    backgroundColor: UI_CARD_SURFACE,
+    ...elevatedCardSurfaceStyle,
     borderRadius: 12,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
+    padding: 15,
+    gap: 8,
+    backgroundColor: UI_CARD_SURFACE,
   },
+  premiumSectionTitle: strengthMetricCardTitleTextStyle,
   strengthOverviewTitleWrap: { flex: 1, minWidth: 0, marginRight: 8 },
   strengthOverviewTime: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.2,
     flexShrink: 0,
   },
@@ -1111,27 +1020,70 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: -0.25,
   },
-  performanceInner: { marginTop: 16, gap: 4 },
   performanceExerciseEmpty: {
-    marginTop: 4,
+    marginTop: 2,
     paddingVertical: 20,
     paddingHorizontal: 4,
     alignItems: "center",
     gap: 10,
   },
   performanceExerciseEmptyTitle: {
-    fontSize: 17,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: "600",
-    color: "#1C1C1E",
-    letterSpacing: -0.25,
+    color: UI_TEXT_PRIMARY,
     textAlign: "center",
   },
   performanceExerciseEmptyBody: {
-    fontSize: 15,
-    lineHeight: 21,
-    color: "#8E8E93",
+    fontSize: 14,
+    lineHeight: 20,
+    color: UI_TEXT_MUTED,
     textAlign: "center",
     maxWidth: 320,
+  },
+  exerciseRowsWrap: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: UI_BORDER_HAIRLINE,
+    paddingTop: 6,
+    gap: 2,
+  },
+  exerciseRowPressable: {
+    borderRadius: 8,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  exerciseRowPressablePressed: {
+    opacity: 0.75,
+  },
+  exerciseRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  exerciseRowLabel: {
+    flex: 1,
+    minWidth: 0,
+  },
+  exerciseRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    flexShrink: 1,
+  },
+  exerciseRowValue: {
+    flexShrink: 1,
+  },
+  exerciseRowChevron: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: UI_TEXT_MUTED,
+    flexShrink: 0,
   },
   performanceExerciseEmptyCta: {
     marginTop: 6,
@@ -1151,27 +1103,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: -0.25,
   },
-  performanceRowWrap: { marginBottom: 14, gap: 6 },
-  performanceRowLine1: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  performanceRowMainPress: { flex: 1, minWidth: 0, marginRight: 8 },
-  performanceNameVolRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  performanceExerciseName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#1C1C1E",
-    minWidth: 0,
-  },
-  performanceVolume: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
+  performanceInner: { marginTop: 8, gap: 4 },
   performanceBarTrack: {
     height: 6,
     backgroundColor: WORKOUT_STRENGTH_PROGRESS_TRACK_BG,
@@ -1191,7 +1123,7 @@ const styles = StyleSheet.create({
   cardioZonesSectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: 0.15,
     marginBottom: 8,
   },
@@ -1204,54 +1136,14 @@ const styles = StyleSheet.create({
   cardioZoneLabel: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
-  cardioZoneMinutes: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
-  performanceExpanded: { marginTop: 8, paddingTop: 4 },
-  perfTableHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
-    marginBottom: 4,
-  },
-  perfTableHeaderCell: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#8E8E93",
-    letterSpacing: 0.2,
-    textAlign: "center",
-  },
-  perfSetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 7,
-    paddingHorizontal: 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F2F2F7",
-  },
-  perfTableCell: {
-    flex: 1,
-    fontSize: 14,
-    color: "#1C1C1E",
-    textAlign: "center",
-  },
-  perfColSet: { flex: 1 },
-  perfColReps: { flex: 1 },
-  perfColWeight: { flex: 1 },
-  perfColRpe: { flex: 1 },
-  perfColE1rm: { flex: 1, fontWeight: "600" },
-  perfColVol: { flex: 1, fontWeight: "600" },
+  cardioZoneMinutes: { fontSize: 15, fontWeight: "600", color: UI_TEXT_PRIMARY },
   workoutCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 16,
     gap: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
   },
   legacySessionTitle: {
     flex: 1,
@@ -1267,7 +1159,7 @@ const styles = StyleSheet.create({
   sectionHeaderTime: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     letterSpacing: -0.2,
     flexShrink: 0,
     marginTop: 2,
@@ -1287,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     fontSize: 13,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
   },
   kpiValue: {
     fontSize: 20,
@@ -1296,7 +1188,7 @@ const styles = StyleSheet.create({
   },
   headerMenuText: {
     fontSize: 18,
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     fontWeight: "700",
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1308,19 +1200,17 @@ const styles = StyleSheet.create({
   exercisesSectionHeading: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     letterSpacing: -0.25,
   },
   exercisesList: {
     gap: 12,
   },
   exerciseCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
     padding: 16,
     gap: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#E5E5EA",
   },
   exerciseTitleRow: {
     flexDirection: "row",
@@ -1331,7 +1221,7 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
     flex: 1,
     marginRight: 8,
   },
@@ -1346,7 +1236,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     width: "100%",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
+    borderBottomColor: UI_BORDER_HAIRLINE,
     paddingBottom: 6,
   },
   exerciseSetRow: {
@@ -1355,11 +1245,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F2F2F7",
+    borderBottomColor: UI_BORDER_SUBTLE,
   },
   exerciseHeaderCell: {
     fontSize: 15,
-    color: "#8E8E93",
+    color: UI_TEXT_TERTIARY_LABEL,
     fontWeight: "600",
     textAlign: "center",
   },

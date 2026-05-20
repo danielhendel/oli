@@ -476,6 +476,6 @@ describe("exercise-history screen", () => {
     expect(texts.some((s) => String(s) === "10")).toBe(true);
     expect(texts.some((s) => String(s) === "5")).toBe(true);
     expect(texts.some((s) => String(s) === "133")).toBe(true);
-    expect(texts.some((s) => String(s) === "1000")).toBe(true);
+    expect(texts.some((s) => String(s) === "1,000")).toBe(true);
   });
 });

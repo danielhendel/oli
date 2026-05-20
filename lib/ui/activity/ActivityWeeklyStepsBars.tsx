@@ -8,6 +8,8 @@ import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayForm
 import { STEP_TIER_COLORS, STEP_TIER_TRACK_RIM_BORDER } from "@/lib/utils/activityStepTierVisual";
 
 const BAR_TOP_RADIUS = 6;
+/** Matches {@link ActivityThisWeekCard} weekday axis labels (S, M, T, …). */
+const CHART_WEEKDAY_LABEL_COLOR = "#AEAEB2";
 
 /** Multiplier on non-today bars (today stays full emphasis — matches yearly activity chart). */
 const BAR_DIM_OPACITY_NON_TODAY = 0.74;
@@ -105,14 +107,6 @@ export function ActivityWeeklyStepsBars({
           importantForAccessibility="no-hide-descendants"
           testID="activity-this-week-chart-baseline-line"
         />
-        <View
-          pointerEvents="none"
-          style={[styles.baselineLabelWrap, { bottom: baselineYPxFromBottom + StyleSheet.hairlineWidth + 2 }]}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Text style={styles.baselineLabel}>Baseline</Text>
-        </View>
 
         <View style={styles.barsRowInner}>
           {points.map((p, idx) => {
@@ -134,8 +128,6 @@ export function ActivityWeeklyStepsBars({
                   style={[
                     styles.barFill,
                     {
-                      borderTopLeftRadius: BAR_TOP_RADIUS,
-                      borderTopRightRadius: BAR_TOP_RADIUS,
                       height: animsRef.current[idx] ?? new Animated.Value(0),
                       opacity: stackOpacity,
                       backgroundColor: baseColor,
@@ -160,20 +152,22 @@ const styles = StyleSheet.create({
   valueLabelsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    width: "100%",
+    minHeight: 18,
     paddingHorizontal: 8,
-    marginBottom: 3,
-    minHeight: 14,
+    marginBottom: 4,
   },
   valueLabelCell: {
     flex: 1,
     alignItems: "center",
+    minWidth: 0,
+    maxWidth: 48,
   },
   valueLabelAbove: {
     fontSize: 10,
-    fontWeight: "400",
+    fontWeight: "600",
     color: UI_TEXT_TERTIARY_LABEL,
     textAlign: "center",
-    letterSpacing: -0.08,
   },
   trackWrap: {
     position: "relative",
@@ -188,20 +182,8 @@ const styles = StyleSheet.create({
     right: 8,
     height: StyleSheet.hairlineWidth,
     borderRadius: StyleSheet.hairlineWidth / 2,
-    backgroundColor: "rgba(60, 60, 67, 0.28)",
+    backgroundColor: CHART_WEEKDAY_LABEL_COLOR,
     zIndex: 1,
-  },
-  baselineLabelWrap: {
-    position: "absolute",
-    left: 10,
-    zIndex: 2,
-  },
-  baselineLabel: {
-    fontSize: 9,
-    fontWeight: "400",
-    color: UI_TEXT_TERTIARY_LABEL,
-    letterSpacing: 0.05,
-    opacity: 0.92,
   },
   barsRowInner: {
     flexDirection: "row",
@@ -220,7 +202,11 @@ const styles = StyleSheet.create({
     maxWidth: 48,
   },
   barFill: {
-    width: "100%",
+    width: "72%",
+    maxWidth: 28,
+    minWidth: 8,
     minHeight: 6,
+    borderTopLeftRadius: BAR_TOP_RADIUS,
+    borderTopRightRadius: BAR_TOP_RADIUS,
   },
 });

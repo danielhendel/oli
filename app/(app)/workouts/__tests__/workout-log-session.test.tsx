@@ -232,6 +232,11 @@ jest.mock("@/lib/workouts/sessionEngine/finalize", () => ({
   }),
 }));
 
+const mockInvalidateWorkoutCalendarHydrate = jest.fn();
+jest.mock("@/lib/data/workouts/workoutCalendarHydrateInvalidate", () => ({
+  invalidateWorkoutCalendarHydrate: () => mockInvalidateWorkoutCalendarHydrate(),
+}));
+
 let mockExerciseMemory: Record<
   string,
   { last: { reps: number; loadKg: number; occurredAt: string } | null; best: null; bestE1RmKg: null }
@@ -367,6 +372,7 @@ describe("workouts/log session UI", () => {
     mockActiveLogFlowMode = "live";
     mockEnrichPointer = null;
     sessionFinalize.persistCompletedSessionToHistory.mockClear();
+    mockInvalidateWorkoutCalendarHydrate.mockClear();
     enrichSessionStorage.getEnrichSessionPointer.mockClear();
     enrichSessionStorage.setEnrichSessionPointer.mockClear();
     enrichSessionStorage.clearEnrichSessionPointer.mockClear();
@@ -2683,7 +2689,7 @@ describe("workouts/log session UI", () => {
     expect(commands.completeSession).toHaveBeenCalledWith("u1", "s1");
   });
 
-  it("confirming Finish in live flow dismisses to strength workouts page", async () => {
+  it("confirming Finish in live flow navigates to name workout screen after persist", async () => {
     mockActiveSessionId = "s1";
     mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
     mockReduced.exercises = [];
@@ -2691,6 +2697,7 @@ describe("workouts/log session UI", () => {
     sessionFinalize.persistCompletedSessionToHistory.mockClear();
     activeSessionStorage.clearActiveWorkoutSessionId.mockClear();
     mockRouterReplace.mockClear();
+    mockRouterPush.mockClear();
     act(() => {
       test = renderer.create(<WorkoutLogScreen />);
     });
@@ -2715,7 +2722,43 @@ describe("workouts/log session UI", () => {
       "token-1",
     );
     expect(activeSessionStorage.clearActiveWorkoutSessionId).toHaveBeenCalledWith("u1");
-    expect(mockRouterDismissTo).toHaveBeenCalledWith("/(app)/workouts");
+    expect(mockRouterDismissTo).not.toHaveBeenCalledWith("/(app)/workouts");
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/edit/rename",
+      params: {
+        mode: "finish",
+        workoutId: "raw_evt_test_mock",
+        titleAnchorObservedAt: "2026-03-01T10:00:00.000Z",
+      },
+    });
+    expect(mockInvalidateWorkoutCalendarHydrate).toHaveBeenCalledTimes(1);
+    expect(sessionFinalize.persistCompletedSessionToHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invalidate overview when persist is skipped (no sets)", async () => {
+    mockActiveSessionId = "s1";
+    mockReduced.blocks = [{ blockId: "block:sets:1", blockType: "sets", position: 0, title: "Sets", removed: false }];
+    mockReduced.exercises = [];
+    commands.completeSession.mockClear();
+    sessionFinalize.persistCompletedSessionToHistory.mockClear();
+    mockInvalidateWorkoutCalendarHydrate.mockClear();
+    sessionFinalize.persistCompletedSessionToHistory.mockResolvedValueOnce({ kind: "skipped_no_sets" });
+    act(() => {
+      test = renderer.create(<WorkoutLogScreen />);
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    const finishBtn = findByA11yLabel(test!.root, "Finish workout");
+    act(() => {
+      finishBtn!.props.onPress();
+    });
+    const confirmBtn = findByA11yLabel(test!.root, "Confirm finish workout");
+    act(() => {
+      confirmBtn!.props.onPress();
+    });
+    await flushEventLoop();
+    await flushEventLoop();
+    expect(mockInvalidateWorkoutCalendarHydrate).not.toHaveBeenCalled();
   });
 
   it("finish confirmation sheet shows Cancel workout button", async () => {

@@ -10,39 +10,85 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { getRawEvent, logWorkoutTitleOverride } from "@/lib/api/usersMe";
 import { devVerifyWorkoutTitleOverridePersisted } from "@/lib/debug/workoutTitleOverrideDurability";
 import { invalidateWorkoutCalendarHydrate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
+import { exitLiveWorkoutLogToOverview } from "@/lib/workouts/navigation/exitWorkoutLogFlow";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_SCREEN_BG,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
-import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+type RenameScreenMode = "rename" | "finish";
+
+function parseMode(raw: string | string[] | undefined): RenameScreenMode {
+  if (raw === "finish") return "finish";
+  return "rename";
+}
+
 export default function EditWorkoutRenameScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { getIdToken } = useAuth();
 
-  useEffect(() => {
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("task"),
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-    });
-  }, [navigation]);
   const params = useLocalSearchParams<{
+    mode?: string;
     workoutId?: string;
     currentTitle?: string;
     titleAnchorObservedAt?: string;
   }>();
+  const mode = parseMode(params.mode);
+  const isFinishMode = mode === "finish";
   const workoutId = typeof params.workoutId === "string" ? params.workoutId : "";
   const currentTitle = typeof params.currentTitle === "string" ? params.currentTitle : "Workout";
   const titleAnchorObservedAt =
     typeof params.titleAnchorObservedAt === "string" && params.titleAnchorObservedAt.trim().length > 0
       ? params.titleAnchorObservedAt.trim()
       : null;
-  const [nextTitle, setNextTitle] = useState(currentTitle);
+  const [nextTitle, setNextTitle] = useState(isFinishMode ? "" : currentTitle);
   const [saving, setSaving] = useState(false);
   const { saveOverride } = useWorkoutOverrides(useMemo(() => (workoutId ? [workoutId] : []), [workoutId]));
+
+  useEffect(() => {
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("task"),
+      title: isFinishMode ? "Name Workout" : "Rename Workout",
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={() => {
+            if (isFinishMode) {
+              exitLiveWorkoutLogToOverview(router);
+              return;
+            }
+            navigation.goBack();
+          }}
+        />
+      ),
+    });
+  }, [navigation, isFinishMode, router]);
+
+  const exitAfterSave = () => {
+    if (isFinishMode) {
+      exitLiveWorkoutLogToOverview(router);
+      return;
+    }
+    router.back();
+  };
+
+  const onCancel = () => {
+    if (isFinishMode) {
+      exitLiveWorkoutLogToOverview(router);
+      return;
+    }
+    router.back();
+  };
 
   if (!workoutId) {
     return (
       <ScreenContainer>
         <View style={styles.root}>
-          <Text style={styles.title}>Rename workout</Text>
+          <Text style={styles.title}>{isFinishMode ? "Name workout" : "Rename workout"}</Text>
           <Text style={styles.description}>Missing workout id.</Text>
         </View>
       </ScreenContainer>
@@ -52,19 +98,31 @@ export default function EditWorkoutRenameScreen() {
   return (
     <ScreenContainer>
       <View style={styles.root}>
-        <Text style={styles.title}>Rename workout</Text>
-        <Text style={styles.description}>Change the displayed workout name while keeping source data intact.</Text>
+        <Text style={styles.title}>{isFinishMode ? "Name workout" : "Rename workout"}</Text>
+        <Text style={styles.description}>
+          {isFinishMode
+            ? "Give this workout a name so you can find it easily in Strength."
+            : "Change the displayed workout name while keeping source data intact."}
+        </Text>
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Current</Text>
-          <Text style={styles.currentValue}>{currentTitle}</Text>
-          <View style={styles.divider} />
-          <Text style={styles.sectionLabel}>New</Text>
+          {!isFinishMode ? (
+            <>
+              <Text style={styles.sectionLabel}>Current</Text>
+              <Text style={styles.currentValue}>{currentTitle}</Text>
+              <View style={styles.divider} />
+              <Text style={styles.sectionLabel}>New</Text>
+            </>
+          ) : (
+            <Text style={styles.sectionLabel}>Workout name</Text>
+          )}
           <TextInput
             value={nextTitle}
             onChangeText={setNextTitle}
             style={styles.input}
             accessibilityLabel="New workout name"
-            placeholder="Workout name"
+            placeholder={isFinishMode ? undefined : "Workout name"}
+            placeholderTextColor={UI_TEXT_MUTED}
+            autoFocus={isFinishMode}
           />
         </View>
         <Pressable
@@ -124,7 +182,7 @@ export default function EditWorkoutRenameScreen() {
               } catch {
                 // optional local cache only
               }
-              router.back();
+              exitAfterSave();
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);
               Alert.alert("Could not save name", msg);
@@ -139,8 +197,8 @@ export default function EditWorkoutRenameScreen() {
         >
           <Text style={styles.primaryText}>{saving ? "Saving…" : "Save"}</Text>
         </Pressable>
-        <Pressable onPress={() => router.back()} style={styles.cancelBtn} accessibilityRole="button" accessibilityLabel="Cancel">
-          <Text style={styles.cancelText}>Cancel</Text>
+        <Pressable onPress={onCancel} style={styles.cancelBtn} accessibilityRole="button" accessibilityLabel="Cancel">
+          <Text style={styles.cancelText}>{isFinishMode ? "Skip for now" : "Cancel"}</Text>
         </Pressable>
       </View>
     </ScreenContainer>
@@ -149,16 +207,26 @@ export default function EditWorkoutRenameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, paddingTop: 24, paddingHorizontal: 16, backgroundColor: UI_SCREEN_BG },
-  title: { fontSize: 30, fontWeight: "800", color: "#1C1C1E" },
-  description: { marginTop: 6, fontSize: 14, color: "#6E6E73", marginBottom: 16 },
-  card: { backgroundColor: UI_CARD_SURFACE, borderRadius: 12, padding: 16 },
-  sectionLabel: { fontSize: 13, color: "#8E8E93", marginBottom: 6, fontWeight: "600" },
-  currentValue: { fontSize: 17, color: "#1C1C1E", fontWeight: "500", marginBottom: 12 },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#D1D1D6", marginBottom: 12 },
-  input: { backgroundColor: UI_SCREEN_BG, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, color: "#1C1C1E" },
-  primaryBtn: { marginTop: 16, backgroundColor: SYSTEM_ACCENT, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  title: { fontSize: 30, fontWeight: "800", color: UI_TEXT_PRIMARY, letterSpacing: -0.4 },
+  description: { marginTop: 8, fontSize: 15, lineHeight: 22, color: UI_TEXT_SECONDARY, marginBottom: 20 },
+  card: { ...elevatedCardSurfaceStyle, borderRadius: 16, padding: 16 },
+  sectionLabel: { fontSize: 13, color: UI_TEXT_MUTED, marginBottom: 8, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+  currentValue: { fontSize: 17, color: UI_TEXT_PRIMARY, fontWeight: "600", marginBottom: 12 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: UI_BORDER_HAIRLINE, marginBottom: 14 },
+  input: {
+    backgroundColor: UI_SCREEN_BG,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 17,
+    color: UI_TEXT_PRIMARY,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
+    minHeight: 52,
+  },
+  primaryBtn: { marginTop: 20, backgroundColor: SYSTEM_ACCENT, borderRadius: 12, paddingVertical: 16, alignItems: "center", minHeight: 52 },
   disabled: { opacity: 0.6 },
   primaryText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
-  cancelBtn: { marginTop: 12, alignItems: "center", paddingVertical: 12 },
-  cancelText: { fontSize: 16, color: "#6E6E73", fontWeight: "600" },
+  cancelBtn: { marginTop: 14, alignItems: "center", paddingVertical: 14, minHeight: 48 },
+  cancelText: { fontSize: 16, color: UI_TEXT_SECONDARY, fontWeight: "600" },
 });

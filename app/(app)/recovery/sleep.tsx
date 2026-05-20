@@ -158,7 +158,11 @@ export default function SleepScreen() {
         <View style={styles.pageBody}>
           <SleepTodayCard model={data.sleepTodayVm} />
           <View style={styles.cardSpacer} />
-          <SleepThisWeekCard loading={data.weeklySleepLoading} model={data.weeklySleepVm} />
+          <SleepThisWeekCard
+            loading={data.weeklySleepLoading}
+            model={data.weeklySleepVm}
+            sleepBaselineVm={data.sleepBaselineVm}
+          />
           <View style={styles.cardSpacer} />
           <SleepBaselineCard model={data.sleepBaselineVm} />
         </View>

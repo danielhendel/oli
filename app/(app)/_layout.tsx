@@ -238,6 +238,14 @@ export default function AppLayout() {
             }}
           />
           <Stack.Screen
+            name="workouts/today-muscle-group"
+            options={{
+              title: "",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+          <Stack.Screen
             name="workouts/recent-workouts-full"
             options={{ title: "All strength workouts", ...workoutsStackNavigationOptions("detail") }}
           />

@@ -1,6 +1,7 @@
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
 import {
   formatAvgPaceMinPerMileLabel,
+  formatCompletedSetsLabel,
   formatIntegerWithCommas,
   formatWorkoutDistanceLabel,
   formatWorkoutDurationLabel,
@@ -69,6 +70,14 @@ describe("workoutDisplay", () => {
 
   it("formats integers with comma separators", () => {
     expect(formatIntegerWithCommas(2345)).toBe("2,345");
+    expect(formatIntegerWithCommas(13209)).toBe("13,209");
+  });
+
+  it("formats completed set counts with singular/plural", () => {
+    expect(formatCompletedSetsLabel(0)).toBe("0 sets");
+    expect(formatCompletedSetsLabel(1)).toBe("1 set");
+    expect(formatCompletedSetsLabel(4)).toBe("4 sets");
+    expect(formatCompletedSetsLabel(4000)).toBe("4,000 sets");
   });
 
   it("formats distance from meters", () => {
