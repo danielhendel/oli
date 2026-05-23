@@ -27,6 +27,7 @@ import {
   resolvedStepsTotalFromContributing,
 } from '@oli/contracts';
 import { classifyWorkoutSportForDailyFactsRollup } from '@/lib/shared/workoutClassification';
+import { buildActivityStepsAllocationV1 } from './buildActivityStepsAllocationV1';
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
@@ -504,6 +505,16 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
 
   const sleep = buildSleepFacts(events);
   const activity = buildActivityFacts(events);
+  // Phase 2A — attach optional NEAT/strength/cardio step partition. Fail-closed.
+  if (activity) {
+    const stepsAllocation = buildActivityStepsAllocationV1({
+      totalSteps: activity.steps,
+      workoutEvents: events.filter(isWorkoutEvent),
+    });
+    if (stepsAllocation) {
+      activity.stepsAllocation = stepsAllocation;
+    }
+  }
   const cardio = buildCardioFacts(events);
   const body = buildBodyFacts(events) ?? factOnlyBody;
   const recovery = buildRecoveryFacts(events);

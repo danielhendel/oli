@@ -715,4 +715,138 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.body!.weightKg).toBe(80);
     expect(result.body!.bodyFatPercent).toBe(15);
   });
+
+  // ---------------------------------------------------------------------------
+  // Phase 2A — activity.stepsAllocation
+  // ---------------------------------------------------------------------------
+
+  it('Phase 2A — attaches activity.stepsAllocation when total steps + cardio workout with steps exist', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps', sourceId: 'apple_health', steps: 10000 }),
+      makeWorkout({
+        id: 'wkrun',
+        sport: 'running',
+        start: '2025-01-01T07:00:00.000Z',
+        end: '2025-01-01T08:00:00.000Z',
+        steps: 4500,
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.activity?.steps).toBe(10000);
+    expect(result.activity?.stepsAllocation).toEqual({
+      modelVersion: 'activity_steps_allocation_v1',
+      neatSteps: 5500,
+      strengthSteps: 0,
+      cardioSteps: 4500,
+      inputsUsed: expect.arrayContaining([
+        'activity.steps',
+        'workout.steps',
+        'workout.classifiedCardio',
+      ]),
+      inputsMissing: [],
+    });
+  });
+
+  it('Phase 2A — fail-closed: cardio workout without steps → omit stepsAllocation', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps', sourceId: 'apple_health', steps: 10000 }),
+      makeWorkout({ id: 'wkrun', sport: 'running' }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.activity?.steps).toBe(10000);
+    expect(result.activity?.stepsAllocation).toBeUndefined();
+  });
+
+  it('Phase 2A — no classified workouts: all steps allocated to NEAT', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps', sourceId: 'apple_health', steps: 9000 }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.activity?.stepsAllocation).toEqual({
+      modelVersion: 'activity_steps_allocation_v1',
+      neatSteps: 9000,
+      strengthSteps: 0,
+      cardioSteps: 0,
+      inputsUsed: ['activity.steps'],
+      inputsMissing: [],
+    });
+  });
+
+  it('Phase 2A — strength-classified WorkoutCanonicalEvent.steps allocate to strengthSteps', () => {
+    const events: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps', sourceId: 'apple_health', steps: 9000 }),
+      makeWorkout({
+        id: 'wklift',
+        sport: 'Traditional Strength Training',
+        start: '2025-01-01T18:00:00.000Z',
+        end: '2025-01-01T19:00:00.000Z',
+        steps: 800,
+      }),
+    ];
+
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events,
+    });
+
+    expect(result.activity?.stepsAllocation).toBeDefined();
+    expect(result.activity?.stepsAllocation?.strengthSteps).toBe(800);
+    expect(result.activity?.stepsAllocation?.cardioSteps).toBe(0);
+    expect(result.activity?.stepsAllocation?.neatSteps).toBe(8200);
+  });
+
+  it('Phase 2A — energy fields are unaffected by stepsAllocation presence', () => {
+    const baseline: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps_a', sourceId: 'apple_health', steps: 10000 }),
+      makeWorkout({ id: 'wkrun_a', sport: 'running' }),
+    ];
+    const enriched: CanonicalEvent[] = [
+      makeSteps({ id: 'ah_steps_b', sourceId: 'apple_health', steps: 10000 }),
+      makeWorkout({ id: 'wkrun_b', sport: 'running', steps: 4500 }),
+    ];
+
+    const r1 = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: baseline,
+    });
+    const r2 = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2025-01-01',
+      computedAt: '2025-01-02T03:00:00.000Z',
+      events: enriched,
+    });
+
+    // Steps allocation only present in the enriched run.
+    expect(r1.activity?.stepsAllocation).toBeUndefined();
+    expect(r2.activity?.stepsAllocation).toBeDefined();
+    // Energy & influencer surfaces are identical regardless of stepsAllocation.
+    expect(r1.energy).toEqual(r2.energy);
+    expect(r1.energyInfluencers).toEqual(r2.energyInfluencers);
+    expect(r1.activity?.steps).toEqual(r2.activity?.steps);
+  });
 });

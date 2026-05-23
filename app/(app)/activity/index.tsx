@@ -6,7 +6,6 @@ import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOv
 import { ActivityHistorySummaryCard } from "@/lib/ui/activity/ActivityHistorySummaryCard";
 import { ActivityThisWeekCard } from "@/lib/ui/activity/ActivityThisWeekCard";
 import { ActivityTodayCard } from "@/lib/ui/activity/ActivityTodayCard";
-import { ActivityWeeklyStrip } from "@/lib/ui/activity/ActivityWeeklyStrip";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
@@ -53,26 +52,12 @@ export default function ActivityOverviewScreen() {
     );
   }
 
-  const onStripDayPress = (day: string) => {
-    router.push(`/(app)/activity/day/${day}`);
-  };
-
-  const headerStrip = (
-    <ActivityWeeklyStrip
-      days={data.weeklyStripDays}
-      selectedDay={data.selectedDay}
-      onDayPress={onStripDayPress}
-    />
-  );
-
   return (
     <View style={styles.root}>
       <ModuleScreenShell
         title="Activity"
         subtitle="Steps & movement"
         hideTitleChrome
-        compactHeader
-        headerContent={headerStrip}
       >
         <View style={styles.pageBody}>
           <ActivityTodayCard

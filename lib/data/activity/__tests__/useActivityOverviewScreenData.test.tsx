@@ -32,6 +32,12 @@ jest.mock("@/lib/data/activity/useActivityHealthKitTodayStepsCard", () => ({
   useActivityHealthKitTodayStepsCard: () => mockUseActivityHealthKitTodayStepsCard(),
 }));
 
+const mockUseActivityTodayStepsAllocation = jest.fn(() => ({ status: "missing" as const }));
+
+jest.mock("@/lib/data/activity/useActivityTodayStepsAllocation", () => ({
+  useActivityTodayStepsAllocation: () => mockUseActivityTodayStepsAllocation(),
+}));
+
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
     user: { uid: "u1" },
@@ -77,6 +83,7 @@ describe("useActivityOverviewScreenData", () => {
       hkToday: { status: "skipped" },
       refreshHealthKitToday: jest.fn(),
     });
+    mockUseActivityTodayStepsAllocation.mockReturnValue({ status: "missing" as const });
   });
 
   it("keeps aggregate rollup error separate from Today’s Steps when today is numeric", async () => {
@@ -328,5 +335,142 @@ describe("useActivityOverviewScreenData", () => {
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("4,700 steps");
     expect(probe.current?.dailyDetails.model?.deltaFromBaselineSteps).toBe(200);
     expect(probe.current?.dailyDetails.model?.deltaFromBaselineLabel).toBe("You are on track with your baseline");
+  });
+
+  describe("Phase 2B — stepsAllocation authority", () => {
+    it("uses DailyFacts rollup, not HK live, for Today headline when allocation is present", async () => {
+      mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
+        hkToday: { status: "ready", steps: 9999 },
+        refreshHealthKitToday: jest.fn(),
+      });
+      mockUseActivityTodayStepsAllocation.mockReturnValue({
+        status: "ready",
+        allocation: { neatSteps: 6000, strengthSteps: 1500, cardioSteps: 2500 },
+        allocationTotalSteps: 10000,
+      });
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({
+          "2026-04-13": { kind: "numeric" as const, steps: 4200 },
+          "2026-04-14": { kind: "numeric" as const, steps: 10000 },
+        }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = {
+        current: null,
+      };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("10,000 steps");
+      expect(probe.current?.activityTodayCardModel?.stepsAllocation).toEqual({
+        neatSteps: 6000,
+        strengthSteps: 1500,
+        cardioSteps: 2500,
+      });
+    });
+
+    it("preserves HK live override when allocation is missing", async () => {
+      mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
+        hkToday: { status: "ready", steps: 9999 },
+        refreshHealthKitToday: jest.fn(),
+      });
+      mockUseActivityTodayStepsAllocation.mockReturnValue({ status: "missing" as const });
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({
+          "2026-04-13": { kind: "numeric" as const, steps: 4200 },
+          "2026-04-14": { kind: "numeric" as const, steps: 10000 },
+        }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = {
+        current: null,
+      };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("9,999 steps");
+      expect(probe.current?.activityTodayCardModel?.stepsAllocation).toBeUndefined();
+    });
+
+    it("suppresses HK live error surface for Today headline when allocation is present", async () => {
+      mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
+        hkToday: { status: "failed", error: "HK denied", requestId: "rid" as string | null },
+        refreshHealthKitToday: jest.fn(),
+      });
+      mockUseActivityTodayStepsAllocation.mockReturnValue({
+        status: "ready",
+        allocation: { neatSteps: 100, strengthSteps: 0, cardioSteps: 0 },
+        allocationTotalSteps: 100,
+      });
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({
+          "2026-04-13": { kind: "numeric" as const, steps: 4200 },
+          "2026-04-14": { kind: "numeric" as const, steps: 100 },
+        }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = {
+        current: null,
+      };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.dailyDetails.error).toBeNull();
+      expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("100 steps");
+    });
+
+    it("omits stepsAllocation on the card model when rollup headline disagrees with allocation total", async () => {
+      mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
+        hkToday: { status: "skipped" },
+        refreshHealthKitToday: jest.fn(),
+      });
+      mockUseActivityTodayStepsAllocation.mockReturnValue({
+        status: "ready",
+        allocation: { neatSteps: 6000, strengthSteps: 1500, cardioSteps: 2500 },
+        allocationTotalSteps: 10000,
+      });
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({
+          "2026-04-13": { kind: "numeric" as const, steps: 4200 },
+          "2026-04-14": { kind: "numeric" as const, steps: 9000 },
+        }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = {
+        current: null,
+      };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("9,000 steps");
+      expect(probe.current?.activityTodayCardModel?.stepsAllocation).toBeUndefined();
+    });
+
+    it("does not change existing error surface when allocation is missing and HK fails", async () => {
+      mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
+        hkToday: { status: "failed", error: "HK denied", requestId: "rid" as string | null },
+        refreshHealthKitToday: jest.fn(),
+      });
+      mockUseActivityTodayStepsAllocation.mockReturnValue({ status: "missing" as const });
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({
+          "2026-04-13": { kind: "numeric" as const, steps: 4200 },
+          "2026-04-14": { kind: "numeric" as const, steps: 100 },
+        }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = {
+        current: null,
+      };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("100 steps");
+    });
   });
 });

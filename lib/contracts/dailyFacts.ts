@@ -132,6 +132,22 @@ export const dailyFactsDtoSchema = z
         distanceKm: z.number().finite().optional(),
         moveMinutes: z.number().finite().optional(),
         trainingLoad: z.number().finite().optional(),
+        /**
+         * Phase 2A — Deterministic partition of `activity.steps` into NEAT vs workout buckets.
+         * Invariant: `neatSteps + strengthSteps + cardioSteps === activity.steps`.
+         * Omitted entirely (fail-closed) when the partition cannot be computed from real data.
+         */
+        stepsAllocation: z
+          .object({
+            modelVersion: z.literal("activity_steps_allocation_v1"),
+            neatSteps: z.number().int().nonnegative(),
+            strengthSteps: z.number().int().nonnegative(),
+            cardioSteps: z.number().int().nonnegative(),
+            inputsUsed: z.array(z.string()),
+            inputsMissing: z.array(z.string()),
+          })
+          .strip()
+          .optional(),
       })
       .strip()
       .optional(),
