@@ -30,6 +30,13 @@ export type RunAnchoredWorkoutsSyncDeps = {
     activityId: number;
     sourceId?: string | null;
   }) => string;
+  /**
+   * Phase 2A — Optional per-workout step enrichment. When provided, called with each
+   * anchored workout's `[start, end]` ISO range; the resolved value (when finite & non-negative)
+   * is included in the workout ingest payload as `payload.steps`. Enrichment failures must
+   * resolve to `null` and never block workout ingest.
+   */
+  getStepCountForDateRange?: (startDate: string, endDate: string) => Promise<number | null>;
 };
 
 export type RunAnchoredWorkoutsSyncResult =
@@ -112,6 +119,28 @@ export async function runAnchoredWorkoutsSync(
   // Using "today" would mis-attribute all historical workouts to the sync day.
 
   for (const w of anchored.data.workouts) {
+    /**
+     * Phase 2A — Per-workout step enrichment. Fail-closed: any error or `null` is silently
+     * dropped from the payload (we never invent steps from duration/calories/distance).
+     * Enrichment failures must not block workout ingest — preserves anchor advancement
+     * semantics from prior phases.
+     */
+    let workoutSteps: number | null = null;
+    if (typeof deps.getStepCountForDateRange === "function") {
+      try {
+        const enriched = await deps.getStepCountForDateRange(w.start, w.end);
+        if (typeof enriched === "number" && Number.isFinite(enriched) && enriched >= 0) {
+          workoutSteps = Math.round(enriched);
+        }
+      } catch (e) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.warn("[AH] getStepCountForDateRange threw; continuing without workout.steps", e);
+        }
+        workoutSteps = null;
+      }
+    }
+
     const payload = {
       start: w.start,
       end: w.end,
@@ -136,6 +165,7 @@ export async function runAnchoredWorkoutsSync(
       w.maxHeartRateBpm > 0
         ? { maxHeartRateBpm: w.maxHeartRateBpm }
         : {}),
+      ...(workoutSteps != null ? { steps: workoutSteps } : {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {
         mode: "anchored" as const,

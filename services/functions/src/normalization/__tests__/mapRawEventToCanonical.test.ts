@@ -333,6 +333,99 @@ describe("mapRawEventToCanonical", () => {
     );
   });
 
+  it("Phase 2A — maps workout payload.steps to WorkoutCanonicalEvent.steps", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_workout_steps",
+      provider: "manual",
+      kind: "workout",
+      payload: {
+        start: "2025-01-01T08:00:00.000Z",
+        end: "2025-01-01T09:00:00.000Z",
+        timezone: "America/New_York",
+        sport: "running",
+        durationMinutes: 60,
+        steps: 4500,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const canonical = result.canonical;
+    expect(canonical.kind).toBe("workout");
+    if (canonical.kind !== "workout") throw new Error("Expected workout");
+    expect(canonical.steps).toBe(4500);
+  });
+
+  it("Phase 2A — workout payload without steps preserves previous behavior (no steps field)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_workout_no_steps",
+      provider: "manual",
+      kind: "workout",
+      payload: {
+        start: "2025-01-01T08:00:00.000Z",
+        end: "2025-01-01T09:00:00.000Z",
+        timezone: "America/New_York",
+        sport: "running",
+        durationMinutes: 60,
+      } as unknown,
+    };
+
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const canonical = result.canonical;
+    if (canonical.kind !== "workout") throw new Error("Expected workout");
+    expect(canonical.steps).toBeUndefined();
+  });
+
+  it("Phase 2A — apple_health workout payload with steps maps to canonical steps (rounded)", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_ah_workout_with_steps",
+      sourceId: "healthkit",
+      provider: "apple_health",
+      kind: "workout",
+      payload: {
+        start: "2026-05-05T14:00:00.000Z",
+        end: "2026-05-05T14:28:00.000Z",
+        timezone: "America/New_York",
+        sport: "running",
+        durationMinutes: 28,
+        distanceMeters: 4118.86,
+        steps: 4123.6,
+      } as unknown,
+    };
+    const result = mapRawEventToCanonical(raw);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected mapping success");
+    const canonical = result.canonical;
+    if (canonical.kind !== "workout") throw new Error("Expected workout");
+    expect(canonical.steps).toBe(4124);
+  });
+
+  it("Phase 2A — negative payload.steps is dropped (defensive); workout still maps", () => {
+    const raw: RawEvent = {
+      ...baseRawEvent,
+      id: "raw_workout_neg_steps",
+      provider: "manual",
+      kind: "workout",
+      payload: {
+        start: "2025-01-01T08:00:00.000Z",
+        end: "2025-01-01T09:00:00.000Z",
+        timezone: "America/New_York",
+        sport: "running",
+        durationMinutes: 60,
+        steps: -5,
+      } as unknown,
+    };
+    const result = mapRawEventToCanonical(raw);
+    // Type guard rejects negative steps → MALFORMED_PAYLOAD
+    expect(result.ok).toBe(false);
+  });
+
   it("returns fact-only for weight (no canonical event, trigger recompute via onRawEventCreated)", () => {
     const raw: RawEvent = {
       ...baseRawEvent,

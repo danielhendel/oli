@@ -102,6 +102,11 @@ type ManualWorkoutPayload = ManualWindowBase & {
   distanceMeters?: number;
   averageHeartRateBpm?: number;
   maxHeartRateBpm?: number;
+  /**
+   * Phase 2A — Optional per-workout step total. Mapped to `WorkoutCanonicalEvent.steps` and
+   * consumed by `buildActivityStepsAllocationV1`. Non-finite/negative values are dropped.
+   */
+  steps?: number;
 };
 
 type ManualHrvPayload = {
@@ -210,7 +215,15 @@ const isManualStepsPayload = (value: unknown): value is ManualStepsPayload => {
 const isManualWorkoutPayload = (value: unknown): value is ManualWorkoutPayload => {
   if (!isRecord(value)) return false;
   if (!isManualWindowBase(value)) return false;
-  return hasString(value, "sport") && hasNumber(value, "durationMinutes");
+  if (!hasString(value, "sport") || !hasNumber(value, "durationMinutes")) return false;
+  // Phase 2A — optional steps must be a finite non-negative number when present.
+  const stepsField = (value as Record<string, unknown>)["steps"];
+  if (stepsField !== undefined) {
+    if (typeof stepsField !== "number" || !Number.isFinite(stepsField) || stepsField < 0) {
+      return false;
+    }
+  }
+  return true;
 };
 
 const isManualHrvPayload = (value: unknown): value is ManualHrvPayload => {
@@ -454,6 +467,19 @@ const mapManualWorkout = (
 
   if (payload.intensity) {
     base.intensity = payload.intensity;
+  }
+
+  /**
+   * Phase 2A — Workout-level step total.
+   * Accept finite non-negative integers; round to nearest integer (HealthKit cumulative-sum
+   * may return fractional values). Drop NaN/Infinity/negative values silently — never invent.
+   */
+  if (
+    typeof payload.steps === "number" &&
+    Number.isFinite(payload.steps) &&
+    payload.steps >= 0
+  ) {
+    base.steps = Math.round(payload.steps);
   }
 
   return base;

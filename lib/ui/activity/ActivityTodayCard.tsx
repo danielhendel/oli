@@ -9,12 +9,64 @@ import {
   activityTierProgressAccessibilityPercent,
 } from "@/lib/ui/activity/ActivityTierProgressTrack";
 import { ACTIVITY_DETAILS_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
+import {
+  dashMetricRowLabelTextStyle,
+  dashMetricRowValueTextStyle,
+} from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { RECENT_WORKOUT_ROW_META_TEXT_STYLE } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 
-import { UI_CARD_SURFACE, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_TEXT_PRIMARY,
+} from "@/lib/ui/theme/uiTokens";
+
+/** Phase 2B — display string for one allocation bucket. */
+function formatAllocationStepsValue(value: number): string {
+  return `${Math.round(value).toLocaleString()} steps`;
+}
+
+type AllocationRowSpec = {
+  key: "neat" | "strength" | "cardio";
+  label: string;
+  value: number;
+  testID: string;
+};
+
+function buildAllocationRows(
+  allocation: NonNullable<ActivityTodayOverviewCardModel["stepsAllocation"]>,
+): AllocationRowSpec[] {
+  return [
+    {
+      key: "neat",
+      label: "NEAT",
+      value: allocation.neatSteps,
+      testID: "activity-today-allocation-row-neat",
+    },
+    {
+      key: "strength",
+      label: "Strength",
+      value: allocation.strengthSteps,
+      testID: "activity-today-allocation-row-strength",
+    },
+    {
+      key: "cardio",
+      label: "Cardio",
+      value: allocation.cardioSteps,
+      testID: "activity-today-allocation-row-cardio",
+    },
+  ];
+}
+
+function buildAllocationA11ySuffix(
+  allocation: NonNullable<ActivityTodayOverviewCardModel["stepsAllocation"]>,
+): string {
+  const rows = buildAllocationRows(allocation);
+  return rows.map((r) => `${r.label} ${formatAllocationStepsValue(r.value)}`).join(". ") + ".";
+}
 export type ActivityTodayCardProps = {
   loading: boolean;
   model: ActivityTodayOverviewCardModel | null;
@@ -35,12 +87,17 @@ export function ActivityTodayCard({
         })
       : 0;
 
+  const allocationA11y =
+    !loading && error == null && model != null && model.stepsAllocation != null
+      ? ` ${buildAllocationA11ySuffix(model.stepsAllocation)}`
+      : "";
+
   const rootA11y =
     loading || model == null
       ? "Today activity summary. Loading."
       : error != null
         ? `Today. ${error.message}`
-        : `Today. ${model.tierPill.label}. Steps. ${model.compactStatsSummaryForA11y}.${model.subtitle ? ` ${model.subtitle}` : ""} Step level ${pct} percent.`;
+        : `Today. ${model.tierPill.label}. Steps. ${model.compactStatsSummaryForA11y}.${model.subtitle ? ` ${model.subtitle}` : ""} Step level ${pct} percent.${allocationA11y}`;
 
   return (
     <View style={styles.card} testID={testID} accessible accessibilityLabel={rootA11y}>
@@ -92,6 +149,29 @@ export function ActivityTodayCard({
             <Text style={styles.subtitle} testID="activity-today-subtitle">
               {model.subtitle}
             </Text>
+          ) : null}
+          {model.stepsAllocation != null ? (
+            <View
+              style={styles.allocation}
+              testID="activity-today-allocation"
+              accessibilityRole="list"
+            >
+              {buildAllocationRows(model.stepsAllocation).map((row) => {
+                const displayValue = formatAllocationStepsValue(row.value);
+                return (
+                  <View
+                    key={row.key}
+                    style={styles.allocationRow}
+                    testID={row.testID}
+                    accessible
+                    accessibilityLabel={`${row.label}, ${displayValue}`}
+                  >
+                    <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+                    <Text style={dashMetricRowValueTextStyle}>{displayValue}</Text>
+                  </View>
+                );
+              })}
+            </View>
           ) : null}
         </View>
       ) : null}
@@ -147,5 +227,18 @@ const styles = StyleSheet.create({
   subtitle: {
     ...RECENT_WORKOUT_ROW_META_TEXT_STYLE,
     lineHeight: 18,
+  },
+  allocation: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: UI_BORDER_HAIRLINE,
+    paddingTop: 6,
+    gap: 2,
+  },
+  allocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingVertical: 4,
   },
 });

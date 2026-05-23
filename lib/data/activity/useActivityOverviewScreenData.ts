@@ -21,6 +21,7 @@ import {
 } from "@/lib/data/activity/activityRollupErrorSummary";
 import { getActivityOverviewAnchorEndDay } from "@/lib/data/activity/activityOverviewRanges";
 import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
+import { useActivityTodayStepsAllocation } from "@/lib/data/activity/useActivityTodayStepsAllocation";
 import type { ActivityDayStripMeta } from "@/lib/data/activity/activityDayStripMeta";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
@@ -40,6 +41,18 @@ export function useActivityOverviewScreenData() {
     todayDayKey,
     enabled: Boolean(user) && !initializing,
   });
+
+  /**
+   * Phase 2B — DailyFacts allocation authority. When backend has produced
+   * `activity.stepsAllocation` for today, DailyFacts becomes the single authority for the
+   * Today headline (HK live override is bypassed) and the allocation buckets drive the
+   * NEAT/Strength/Cardio rows on the card.
+   */
+  const todayAllocation = useActivityTodayStepsAllocation(todayDayKey, {
+    enabled: Boolean(user) && !initializing,
+  });
+  const dailyFactsIsAuthorityForToday =
+    todayAllocation.status === "ready" && todayAllocation.allocation != null;
 
   const scheduleActivityStepsRepair = useCallback(() => {
     if (Platform.OS !== "ios" || !user || initializing) return;
@@ -140,6 +153,23 @@ export function useActivityOverviewScreenData() {
   const dailyDetailsModel = useMemo(() => {
     const entry = displayRollup[todayDayKey];
 
+    /**
+     * Phase 2B — When `activity.stepsAllocation` exists, DailyFacts is the single authority
+     * for the Today headline. Skip the HK live override entirely; rely on the rollup, which
+     * already mirrors `DailyFacts.activity.steps`.
+     */
+    if (user && dailyFactsIsAuthorityForToday) {
+      if (entry?.kind === "error") return null;
+      if (entry?.kind === "numeric" || entry?.kind === "absent") {
+        return buildActivityDailyDetailsCardModel({
+          detailDayKey: todayDayKey,
+          todayDayKey,
+          rollupByDay: displayRollup,
+        });
+      }
+      return null;
+    }
+
     if (user && hkToday.status === "ready") {
       return buildActivityTodayStepsLiveCardModel({ todayDayKey, steps: hkToday.steps });
     }
@@ -181,9 +211,16 @@ export function useActivityOverviewScreenData() {
     }
 
     return null;
-  }, [hkToday, displayRollup, todayDayKey, user]);
+  }, [hkToday, displayRollup, todayDayKey, user, dailyFactsIsAuthorityForToday]);
 
   const dailyDetailsTodayError = useMemo(() => {
+    /**
+     * Phase 2B — When DailyFacts is the authority, HK live error/retry surfaces are
+     * suppressed for the Today headline. Only rollup errors are surfaced.
+     */
+    if (user && dailyFactsIsAuthorityForToday) {
+      return rollupTodayEntryError;
+    }
     if (user && hkToday.status === "ready") {
       return null;
     }
@@ -201,10 +238,17 @@ export function useActivityOverviewScreenData() {
       };
     }
     return rollupTodayEntryError;
-  }, [hkToday, refreshHealthKitToday, hasRollupForTodayCard, rollupTodayEntryError, displayRollup, todayDayKey, user]);
+  }, [hkToday, refreshHealthKitToday, hasRollupForTodayCard, rollupTodayEntryError, displayRollup, todayDayKey, user, dailyFactsIsAuthorityForToday]);
 
   const dailyDetailsLoading = useMemo(() => {
     if (!user) return false;
+    /**
+     * Phase 2B — When DailyFacts is the authority, the loading signal is purely about
+     * whether the rollup entry for today is available (HK statuses are ignored).
+     */
+    if (dailyFactsIsAuthorityForToday) {
+      return !hasRollupForTodayCard && stepsRollup.status === "partial";
+    }
     if (hkToday.status === "partial") {
       return !hasRollupForTodayCard;
     }
@@ -213,7 +257,7 @@ export function useActivityOverviewScreenData() {
     }
     if (hkToday.status === "ready") return false;
     return stepsRollup.status === "partial";
-  }, [hkToday.status, hasRollupForTodayCard, displayRollup, stepsRollup.status, user]);
+  }, [hkToday.status, hasRollupForTodayCard, displayRollup, stepsRollup.status, user, dailyFactsIsAuthorityForToday, todayDayKey]);
 
   const dailyDetailsModelMerged = useMemo(
     () => mergeTodayDetailsWithBaselineDelta(dailyDetailsModel, baselineDetails.model),
@@ -229,9 +273,20 @@ export function useActivityOverviewScreenData() {
     [dailyDetailsLoading, dailyDetailsModelMerged, dailyDetailsTodayError],
   );
 
+  /**
+   * Phase 2B — only forward the DailyFacts allocation when it is the authority for today.
+   * Belt-and-braces with the builder's partition guard: without authority the rows must
+   * not render, period.
+   */
+  const allocationForTodayCard = useMemo(() => {
+    if (!dailyFactsIsAuthorityForToday) return undefined;
+    if (todayAllocation.status !== "ready") return undefined;
+    return todayAllocation.allocation;
+  }, [dailyFactsIsAuthorityForToday, todayAllocation]);
+
   const activityTodayCardModel = useMemo(
-    () => buildActivityTodayOverviewCardModel(dailyDetails.model),
-    [dailyDetails.model],
+    () => buildActivityTodayOverviewCardModel(dailyDetails.model, allocationForTodayCard),
+    [dailyDetails.model, allocationForTodayCard],
   );
 
   return {

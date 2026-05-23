@@ -73,6 +73,7 @@ import {
   toHealthKitIso8601,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
+  getStepCountForDateRange,
 } from "@/lib/integrations/appleHealth";
 import {
   shouldRequestHistoricalBootstrapRange,
@@ -907,6 +908,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             getDeviceTimezone,
             stepsIdempotencyKey,
             workoutIdempotencyKey,
+            getStepCountForDateRange,
           },
         );
 

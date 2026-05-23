@@ -256,4 +256,154 @@ describe("anchored sync determinism", () => {
     expect(workoutCall).toBeDefined();
     expect(workoutCall![0].payload.distanceMeters).toBe(1609.344);
   });
+
+  // ---------------------------------------------------------------------------
+  // Phase 2A — per-workout step enrichment via getStepCountForDateRange
+  // ---------------------------------------------------------------------------
+
+  it("Phase 2A — enriches workout payload with steps from getStepCountForDateRange when provided", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+    const mockGetSteps = jest.fn(async () => 4500 as number | null);
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      getStepCountForDateRange: mockGetSteps,
+    });
+
+    await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+
+    expect(mockGetSteps).toHaveBeenCalledWith(oneWorkout.start, oneWorkout.end);
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    );
+    expect(workoutCall).toBeDefined();
+    expect(workoutCall![0].payload.steps).toBe(4500);
+  });
+
+  it("Phase 2A — omits payload.steps when enrichment returns null (no invention)", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+    const mockGetSteps = jest.fn(async () => null);
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      getStepCountForDateRange: mockGetSteps,
+    });
+
+    const result = await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+
+    expect(result.ok).toBe(true);
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    );
+    expect(workoutCall).toBeDefined();
+    expect(workoutCall![0].payload.steps).toBeUndefined();
+  });
+
+  it("Phase 2A — enrichment throw does not block workout ingest; anchor still advances", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+    const mockGetSteps = jest.fn(async () => {
+      throw new Error("HK getSamples blew up");
+    });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      getStepCountForDateRange: mockGetSteps,
+    });
+
+    const result = await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: false });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "anchor-done");
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    );
+    expect(workoutCall).toBeDefined();
+    expect(workoutCall![0].payload.steps).toBeUndefined();
+  });
+
+  it("Phase 2A — payload.steps omitted when enrichment returns negative number", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+    const mockGetSteps = jest.fn(async () => -10);
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      getStepCountForDateRange: mockGetSteps,
+    });
+
+    await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    );
+    expect(workoutCall).toBeDefined();
+    expect(workoutCall![0].payload.steps).toBeUndefined();
+  });
 });

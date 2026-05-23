@@ -198,6 +198,12 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
     averageHeartRateBpm: z.number().finite().positive().optional(),
     maxHeartRateBpm: z.number().finite().positive().optional(),
     calories: z.number().finite().nonnegative().optional(),
+    /**
+     * Phase 2A — Workout-level step total for the workout window (HealthKit cumulative sum over
+     * `[start, end]` or other provider-supplied per-workout step count). Drives Activity step
+     * allocation in `DailyFacts.activity.stepsAllocation`; never invented client-side.
+     */
+    steps: z.number().finite().nonnegative().optional(),
   })
   // Preserve HealthKit-only keys (hk, sync, etc.) stored on workout raw payloads.
   .passthrough();

@@ -208,19 +208,13 @@ jest.mock("@/lib/data/activity/useActivityOverviewScreenData", () => ({
 
 import ActivityOverviewScreen from "../index";
 
-function findStripDayPressable(root: renderer.ReactTestRenderer["root"], dayKey: string) {
-  const label = `${dayKey},`;
-  const nodes = root.findAll(
+function findStripDayPressables(root: renderer.ReactTestRenderer["root"]): unknown[] {
+  return root.findAll(
     (n) =>
       typeof n.props?.accessibilityLabel === "string" &&
       n.props.accessibilityRole === "button" &&
-      (n.props.accessibilityLabel as string).startsWith(label),
+      /^\d{4}-\d{2}-\d{2},/.test(n.props.accessibilityLabel as string),
   );
-  const hit = nodes[0];
-  if (hit == null) {
-    throw new Error(`No weekly strip cell found for day ${dayKey}`);
-  }
-  return hit;
 }
 
 describe("ActivityOverviewScreen", () => {
@@ -284,32 +278,15 @@ describe("ActivityOverviewScreen", () => {
     expect(str).not.toContain("activity-today-view-link");
   });
 
-  it("tapping a weekly strip day pushes activity day detail with local YYYY-MM-DD param", async () => {
+  it("does not render the weekly strip day cells on the overview", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
-    const cell = findStripDayPressable(tree.root, "2026-04-07");
-    await act(async () => {
-      cell.props.onPress();
-    });
-    expect(mockSetSelectedDay).not.toHaveBeenCalled();
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/day/2026-04-07");
-  });
-
-  it("strip selection uses the same day key string as the calendar and day route (zero-padded month/day)", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<ActivityOverviewScreen />);
-      await Promise.resolve();
-    });
-    const cell = findStripDayPressable(tree.root, "2026-04-05");
-    expect(cell.props.accessibilityLabel).toMatch(/^2026-04-05,/);
-    await act(async () => {
-      cell.props.onPress();
-    });
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/day/2026-04-05");
+    expect(findStripDayPressables(tree.root)).toHaveLength(0);
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain("activity-weekly-outer-ring-");
   });
 
   it("shows overview rollup warning on Activity Baseline card when aggregate error is present", async () => {
@@ -393,37 +370,6 @@ describe("ActivityOverviewScreen", () => {
     expect(str).not.toContain("Couldn’t load steps for");
     expect(str).toContain("1,234");
     expect(str).not.toContain('"1,234 steps"');
-  });
-
-  it("navigates to day detail for strip days", async () => {
-    mockUseActivityOverviewScreenData.mockImplementation(() => ({
-      ...defaultOverviewData,
-      selectedDay: "2026-04-10",
-      weeklyStripDays: [
-        { day: "2026-04-05", meta: { hasSteps: false, ringTierIndex: null } },
-        { day: "2026-04-10", meta: { hasSteps: true, ringTierIndex: 3 } },
-      ],
-    }));
-
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<ActivityOverviewScreen />);
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      findStripDayPressable(tree.root, "2026-04-10").props.onPress();
-    });
-    expect(mockRouterPush).toHaveBeenLastCalledWith("/(app)/activity/day/2026-04-10");
-
-    mockRouterPush.mockClear();
-    mockSetSelectedDay.mockClear();
-
-    await act(async () => {
-      findStripDayPressable(tree.root, "2026-04-05").props.onPress();
-    });
-    expect(mockSetSelectedDay).not.toHaveBeenCalled();
-    expect(mockRouterPush).toHaveBeenLastCalledWith("/(app)/activity/day/2026-04-05");
   });
 
   it("Activity Baseline View More navigates to activity analytics", async () => {

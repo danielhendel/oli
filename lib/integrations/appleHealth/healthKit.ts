@@ -102,6 +102,15 @@ type HealthKitInstance = {
   getHeartRateSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getRestingHeartRateSamples: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getAnchoredWorkouts: (o: HealthInputOptions & { type?: string }, cb: (err: unknown, r: AnchoredQueryResults) => void) => void;
+  /**
+   * Phase 2A — Generic HKSampleQuery for an arbitrary quantity type over `[startDate, endDate]`.
+   * Used by {@link getStepCountForDateRange} to sum HKQuantityTypeIdentifierStepCount samples
+   * for a workout window. Optional because some older bridges/mocks may not expose it.
+   */
+  getSamples?: (
+    o: HealthInputOptions & { type: string; unit?: string },
+    cb: (err: string, r: HealthValue[]) => void,
+  ) => void;
   getWeightSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getBodyFatPercentageSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
   getBmiSamples?: (o: HealthInputOptions, cb: (err: string, r: HealthValue[]) => void) => void;
@@ -813,6 +822,76 @@ function pAnchoredWorkouts(HK: HealthKitInstance, startDate: string, endDate: st
 }
 
 const TODAY_WORKOUTS_LIMIT = 10;
+
+/**
+ * Phase 2A — Sum of HealthKit step samples over an arbitrary `[startDate, endDate]` window.
+ * Used to enrich anchored workouts with their per-workout step total
+ * (see {@link runAnchoredWorkoutsSync}).
+ *
+ * Implementation notes:
+ * - Uses the generic HKSampleQuery exposed by react-native-health as `getSamples` with
+ *   `type: "StepCount"`. Native code returns per-sample `value` (step counts).
+ * - We sum sample `value`s in JS — this is the cumulative step total for the window
+ *   regardless of bucket size, equivalent to `HKStatisticsOptionCumulativeSum` over the
+ *   same predicate.
+ * - Returns `null` (fail-closed) on:
+ *   - non-iOS / native module unavailable
+ *   - missing `getSamples` bridge method
+ *   - native error
+ *   - invalid / unparsable result
+ *   - non-finite or negative sum
+ * - Never invents a value from duration/calories/distance.
+ */
+export async function getStepCountForDateRange(
+  startDate: string,
+  endDate: string,
+): Promise<number | null> {
+  if (typeof startDate !== "string" || startDate.length === 0) return null;
+  if (typeof endDate !== "string" || endDate.length === 0) return null;
+  const HK = await getHealthKit();
+  if (!HK) return null;
+  if (typeof HK.getSamples !== "function") return null;
+
+  return new Promise<number | null>((resolve) => {
+    try {
+      HK.getSamples!(
+        { startDate, endDate, type: "StepCount", ascending: true },
+        (err: string, results: HealthValue[]) => {
+          if (err != null && String(err).trim() !== "") {
+            if (__DEV__ && !process.env.JEST_WORKER_ID) {
+              // eslint-disable-next-line no-console
+              console.warn("[AH] getStepCountForDateRange error", { startDate, endDate, message: String(err) });
+            }
+            resolve(null);
+            return;
+          }
+          if (!Array.isArray(results)) {
+            resolve(null);
+            return;
+          }
+          let total = 0;
+          for (const sample of results) {
+            const v = sample?.value;
+            if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+              total += v;
+            }
+          }
+          if (!Number.isFinite(total) || total < 0) {
+            resolve(null);
+            return;
+          }
+          resolve(Math.round(total));
+        },
+      );
+    } catch (e) {
+      if (__DEV__ && !process.env.JEST_WORKER_ID) {
+        // eslint-disable-next-line no-console
+        console.warn("[AH] getStepCountForDateRange threw", e);
+      }
+      resolve(null);
+    }
+  });
+}
 
 /**
  * Pull workouts using anchored query (incremental sync). Call with anchor from previous run or null for first run.

@@ -16,6 +16,7 @@ export {
   addLocalCalendarDaysToDayKey,
   pullStepCountForLocalCalendarDay,
   buildHealthKitGetStepCountOptions,
+  getStepCountForDateRange,
 } from "./healthKit";
 export type { BodyCompositionReadAuthStatusResult } from "./healthKit";
 export {

@@ -261,6 +261,18 @@ export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
    * Present only when source provides set-level data (manual logging, gym devices, etc.)
    */
   sets?: WorkoutSet[];
+
+  /**
+   * Phase 2A — Optional workout-window step count, from provider's per-workout step total
+   * (e.g. HealthKit cumulative-sum step query over `[start, end]`). Drives
+   * `DailyFacts.activity.stepsAllocation` cardio/strength attribution; never inferred from
+   * duration/calories/distance.
+   *
+   * Conventions:
+   * - Finite non-negative integer when present.
+   * - `null` or absent when the source did not report steps for this workout.
+   */
+  steps?: number | null;
 }
 
 /**
@@ -411,6 +423,33 @@ export interface DailyActivityFacts {
    */
   stepsAvg7d?: number;
   trainingLoadAvg7d?: number;
+
+  /**
+   * Phase 2A — Deterministic partition of `steps` into NEAT/strength/cardio buckets.
+   * Computed only from real persisted workout step data; omitted entirely when invariants fail
+   * or required inputs are missing (strict fail-closed).
+   */
+  stepsAllocation?: ActivityStepsAllocationV1;
+}
+
+/**
+ * Phase 2A — Activity step allocation (v1).
+ *
+ * Invariant: `neatSteps + strengthSteps + cardioSteps === DailyActivityFacts.steps`.
+ *
+ * - `neatSteps`: residual after subtracting workout-attributed steps from the day's total.
+ * - `strengthSteps`: sum of `WorkoutCanonicalEvent.steps` for events classified as strength.
+ * - `cardioSteps`: sum of `WorkoutCanonicalEvent.steps` for events classified as cardio.
+ *
+ * Excludes `StrengthWorkoutCanonicalEvent` (no per-workout step total available).
+ */
+export interface ActivityStepsAllocationV1 {
+  modelVersion: "activity_steps_allocation_v1";
+  neatSteps: number;
+  strengthSteps: number;
+  cardioSteps: number;
+  inputsUsed: string[];
+  inputsMissing: string[];
 }
 
 export interface DailyRecoveryFacts {

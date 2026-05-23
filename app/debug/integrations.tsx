@@ -14,6 +14,7 @@ import {
   pullTodaySnapshot,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
+  getStepCountForDateRange,
 } from "@/lib/integrations/appleHealth";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import {
@@ -105,6 +106,7 @@ export default function DebugIntegrationsScreen() {
           getDeviceTimezone,
           stepsIdempotencyKey,
           workoutIdempotencyKey,
+          getStepCountForDateRange,
         },
       );
       if (!result.ok) {
