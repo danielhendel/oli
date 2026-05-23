@@ -15,6 +15,16 @@ export function formatEnergyRange(low: number, high: number): string {
   return `${a}\u2013${b} kcal`;
 }
 
+/**
+ * Display-only: formats an averaged low/high kcal range as "{a}–{b} kcal/day".
+ * Used by Energy Baseline rows. No calorie math here — both averages are computed upstream.
+ */
+export function formatEnergyAvgRangePerDay(avgLow: number, avgHigh: number): string {
+  const a = Math.round(avgLow).toLocaleString();
+  const b = Math.round(avgHigh).toLocaleString();
+  return `${a}\u2013${b} kcal/day`;
+}
+
 /** Prefix + for additive burn lines (matches Daily Energy card). */
 export function formatAdditiveEnergyRange(low: number, high: number): string {
   return `+${formatEnergyRange(low, high)}`;
