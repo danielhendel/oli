@@ -1,7 +1,10 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
-import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
+import {
+  DAILY_ENERGY_DETAIL_PATHNAME,
+  ENERGY_METRIC_EXPLAINER_PATHNAME,
+} from "@/lib/data/energy/energyMetricExplainerRoutes";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
 
 const mockPush = jest.fn();
@@ -73,7 +76,10 @@ describe("DailyEnergyCard", () => {
     expect(text).toContain("Strength");
     expect(text).toContain("+90–180 kcal");
     expect(text).toMatch(/Confidence \w+ · ±/);
-    expect(tree.root.findAllByType("Pressable")).toHaveLength(4);
+    const factorPressables = tree.root
+      .findAllByType("Pressable")
+      .filter((p) => typeof p.props.testID === "string" && p.props.testID.startsWith("energy-row-"));
+    expect(factorPressables).toHaveLength(4);
   });
 
   it("hides Strength row when strength factor is absent", () => {
@@ -106,7 +112,61 @@ describe("DailyEnergyCard", () => {
       .filter((c) => typeof c === "string")
       .join(" ");
     expect(text).not.toContain("Strength");
-    expect(tree.root.findAllByType("Pressable")).toHaveLength(3);
+    const factorPressables = tree.root
+      .findAllByType("Pressable")
+      .filter((p) => typeof p.props.testID === "string" && p.props.testID.startsWith("energy-row-"));
+    expect(factorPressables).toHaveLength(3);
+  });
+
+  it("navigates to Daily Energy detail when header is pressed", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DailyEnergyCard
+          loading={false}
+          error={null}
+          energy={{
+            modelVersion: "daily_energy_v3",
+            computedAt: "2026-05-05T12:00:00.000Z",
+            day: "2026-05-05",
+            estimatedKcal: { low: 2120, high: 2480, midpoint: 2300 },
+            variancePct: 0.081,
+            confidence: "moderate",
+            factors: {
+              baseline: { kcalLow: 1520, kcalHigh: 1710 },
+            },
+            missingRequiredInputs: [],
+          }}
+        />,
+      );
+    });
+    const header = tree.root
+      .findAllByType("Pressable")
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Daily Energy header"),
+      );
+    expect(header).toBeDefined();
+    act(() => {
+      header?.props.onPress?.();
+    });
+    expect(mockPush).toHaveBeenCalledWith(DAILY_ENERGY_DETAIL_PATHNAME);
+  });
+
+  it("header press is disabled while loading", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<DailyEnergyCard energy={undefined} loading error={null} />);
+    });
+    const header = tree.root
+      .findAllByType("Pressable")
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Daily Energy header"),
+      );
+    expect(header?.props.disabled).toBe(true);
   });
 
   it("opens Daily Energy metric explainer modal when BMR row is pressed", () => {
@@ -206,6 +266,9 @@ describe("DailyEnergyCard", () => {
       .join(" ");
     expect(text).toContain("+90–180 kcal");
     expect(text).toContain("Strength");
-    expect(tree.root.findAllByType("Pressable")).toHaveLength(1);
+    const factorPressables = tree.root
+      .findAllByType("Pressable")
+      .filter((p) => typeof p.props.testID === "string" && p.props.testID.startsWith("energy-row-"));
+    expect(factorPressables).toHaveLength(1);
   });
 });

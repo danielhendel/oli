@@ -53,3 +53,42 @@ export function formatOverviewAsOfLabel(dayKey: string): string {
   }
   return `As of ${formatDayKeyWeekdayShortMonthDay(dayKey)}`;
 }
+
+const MONTH_SHORT_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/**
+ * Compact week-range label for chart headers, using a UTC-noon anchor like the other formatters.
+ *
+ * Same calendar month: "May 17\u201323".
+ * Crossing a month boundary: "May 31\u2013Jun 6" (year is intentionally omitted).
+ * If either DayKey is malformed, returns `"{start}\u2013{end}"` as a defensive fallback.
+ */
+export function formatWeekDayKeyRange(start: DayKey, end: DayKey): string {
+  const s = new Date(`${start}T12:00:00.000Z`);
+  const e = new Date(`${end}T12:00:00.000Z`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) {
+    return `${start}\u2013${end}`;
+  }
+  const sMonth = MONTH_SHORT_LABELS[s.getUTCMonth()] ?? "";
+  const eMonth = MONTH_SHORT_LABELS[e.getUTCMonth()] ?? "";
+  const sDay = s.getUTCDate();
+  const eDay = e.getUTCDate();
+  const sameMonth = sMonth === eMonth && s.getUTCFullYear() === e.getUTCFullYear();
+  if (sameMonth) {
+    return `${sMonth} ${sDay}\u2013${eDay}`;
+  }
+  return `${sMonth} ${sDay}\u2013${eMonth} ${eDay}`;
+}

@@ -50,6 +50,11 @@ export default function AppLayout() {
           />
 
           <Stack.Screen
+            name="energy/index"
+            options={{ title: "Daily Energy", ...workoutsStackNavigationOptions("module") }}
+          />
+
+          <Stack.Screen
             name="energy/bmr"
             options={{ title: "BMR", ...workoutsStackNavigationOptions("detail") }}
           />

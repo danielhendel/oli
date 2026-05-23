@@ -12,6 +12,7 @@ import {
   formatDayKeyStackNavTitle,
   formatDayKeyWeekdayShortMonthDay,
   formatOverviewAsOfLabel,
+  formatWeekDayKeyRange,
   formatWeekdayFullFromDayKey,
   formatWeekdayUpperFromDayKey,
 } from "../dayKeyDisplayFormat";
@@ -74,6 +75,26 @@ describe("formatWeekdayFullFromDayKey", () => {
         new Date("2026-05-04T12:00:00.000Z"),
       ),
     ).toBe("Monday");
+  });
+});
+
+describe("formatWeekDayKeyRange", () => {
+  it("collapses to a single month when start and end share the same month and year", () => {
+    expect(formatWeekDayKeyRange("2026-05-17", "2026-05-23")).toBe("May 17\u201323");
+  });
+
+  it("uses both months when the range crosses a calendar-month boundary", () => {
+    expect(formatWeekDayKeyRange("2026-05-31", "2026-06-06")).toBe("May 31\u2013Jun 6");
+  });
+
+  it("uses both months when the range crosses a calendar-year boundary", () => {
+    expect(formatWeekDayKeyRange("2025-12-28", "2026-01-03")).toBe("Dec 28\u2013Jan 3");
+  });
+
+  it("falls back to a literal en-dash join when a day key cannot be parsed", () => {
+    expect(formatWeekDayKeyRange("not-a-date" as unknown as `${number}-${number}-${number}`, "2026-05-23")).toBe(
+      "not-a-date\u20132026-05-23",
+    );
   });
 });
 

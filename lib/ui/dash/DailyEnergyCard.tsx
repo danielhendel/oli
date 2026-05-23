@@ -1,8 +1,11 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { ENERGY_METRIC_EXPLAINER_PATHNAME } from "@/lib/data/energy/energyMetricExplainerRoutes";
+import {
+  DAILY_ENERGY_DETAIL_PATHNAME,
+  ENERGY_METRIC_EXPLAINER_PATHNAME,
+} from "@/lib/data/energy/energyMetricExplainerRoutes";
 import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
 import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -44,6 +47,20 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
 
+  const canOpenEnergy = !loading && !error && energy != null;
+
+  const onOpenEnergy = useCallback(() => {
+    if (!canOpenEnergy) return;
+    router.push(DAILY_ENERGY_DETAIL_PATHNAME);
+  }, [canOpenEnergy, router]);
+
+  const headerA11y = useMemo(() => {
+    if (loading) return "Daily Energy header. Loading daily energy.";
+    if (error) return "Daily Energy header. Could not load data.";
+    if (!energy) return "Daily Energy header. Not enough data yet to estimate energy.";
+    return `Daily Energy header. ${formatRange(energy)}. Estimated burn today. Opens Daily Energy details.`;
+  }, [loading, error, energy]);
+
   const onPressMetricRow = useCallback(
     (metricKey: (typeof rows)[number]["key"]) => {
       if (!energy) return;
@@ -57,45 +74,56 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
 
   return (
     <View style={styles.card} accessibilityLabel="Daily energy card">
-      <Text style={styles.title}>Daily Energy</Text>
-      {loading ? <Text style={styles.status}>Loading daily energy\u2026</Text> : null}
-      {!loading && error ? <Text style={styles.status}>Could not load daily energy</Text> : null}
-      {!loading && !error && !energy ? (
-        <Text style={styles.status}>Not enough data yet to estimate energy.</Text>
-      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={headerA11y}
+        accessibilityHint="Opens Daily Energy details"
+        disabled={!canOpenEnergy}
+        onPress={onOpenEnergy}
+        style={({ pressed }) => [styles.headerPressable, pressed && canOpenEnergy && styles.headerPressed]}
+      >
+        <Text style={styles.title}>Daily Energy</Text>
+        {loading ? <Text style={styles.status}>Loading daily energy\u2026</Text> : null}
+        {!loading && error ? <Text style={styles.status}>Could not load daily energy</Text> : null}
+        {!loading && !error && !energy ? (
+          <Text style={styles.status}>Not enough data yet to estimate energy.</Text>
+        ) : null}
+        {!loading && !error && energy ? (
+          <>
+            <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
+            <Text style={styles.subtitle}>Estimated burn today</Text>
+            <Text style={styles.meta}>
+              {`Confidence ${capitalizeConfidence(energy.confidence)} · ±`}
+              {formatVariancePct(energy.variancePct)}
+            </Text>
+          </>
+        ) : null}
+      </Pressable>
       {!loading && !error && energy ? (
-        <>
-          <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
-          <Text style={styles.subtitle}>Estimated burn today</Text>
-          <Text style={styles.meta}>
-            {`Confidence ${capitalizeConfidence(energy.confidence)} · ±`}
-            {formatVariancePct(energy.variancePct)}
-          </Text>
-          <View style={styles.factors} accessibilityRole="list">
-            {rows.map((row) => (
-              <Pressable
-                key={row.key}
-                testID={`energy-row-${row.key}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${row.label} explanation`}
-                onPress={() => {
-                  onPressMetricRow(row.key);
-                }}
-                style={({ pressed }) => [styles.factorPressable, pressed && styles.factorPressablePressed]}
-              >
-                <View style={styles.factorRow}>
-                  <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
-                  <View style={styles.factorRight}>
-                    <Text style={dashMetricRowValueTextStyle}>{row.displayValue}</Text>
-                    <Text style={styles.factorChevron} accessibilityElementsHidden importantForAccessibility="no">
-                      {"\u203A"}
-                    </Text>
-                  </View>
+        <View style={styles.factors} accessibilityRole="list">
+          {rows.map((row) => (
+            <Pressable
+              key={row.key}
+              testID={`energy-row-${row.key}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${row.label} explanation`}
+              onPress={() => {
+                onPressMetricRow(row.key);
+              }}
+              style={({ pressed }) => [styles.factorPressable, pressed && styles.factorPressablePressed]}
+            >
+              <View style={styles.factorRow}>
+                <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+                <View style={styles.factorRight}>
+                  <Text style={dashMetricRowValueTextStyle}>{row.displayValue}</Text>
+                  <Text style={styles.factorChevron} accessibilityElementsHidden importantForAccessibility="no">
+                    {"\u203A"}
+                  </Text>
                 </View>
-              </Pressable>
-            ))}
-          </View>
-        </>
+              </View>
+            </Pressable>
+          ))}
+        </View>
       ) : null}
     </View>
   );
@@ -109,6 +137,15 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
     backgroundColor: UI_CARD_SURFACE,
+  },
+  headerPressable: {
+    borderRadius: 10,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  headerPressed: {
+    opacity: 0.92,
   },
   title: strengthMetricCardTitleTextStyle,
   subtitle: {
