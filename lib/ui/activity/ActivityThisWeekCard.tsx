@@ -1,15 +1,20 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import type { ActivityThisWeekCardModel } from "@/lib/data/activity/activityThisWeekCardModel";
 import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
-import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
+import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
-import { UI_BORDER_SUBTLE, UI_CARD_SURFACE, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_BORDER_SUBTLE,
+  UI_CARD_SURFACE,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 import { ActivityWeeklyStepsBars } from "@/lib/ui/activity/ActivityWeeklyStepsBars";
 import {
   ACTIVITY_OVERVIEW_LARGE_METRIC_FIGURE_STYLE,
@@ -31,83 +36,115 @@ function formatStepsAxisLabel(v: number): string {
 export type ActivityThisWeekCardProps = {
   loading: boolean;
   model: ActivityThisWeekCardModel | null;
-  onPressViewAll?: () => void;
+  /**
+   * Optional Daily Energy-style week-range label (e.g. `"May 17\u201323"`). When provided, prev/next
+   * chevrons are rendered alongside it. Mirrors {@link EnergyThisWeekCard} so the two screens share
+   * the same week-navigation UX without coupling component types.
+   */
+  weekRangeLabel?: string;
+  canGoPrevious?: boolean;
+  canGoNext?: boolean;
+  onPressPrevious?: () => void;
+  onPressNext?: () => void;
+  todayDayKey?: string;
 };
+
 const WEEKLY_AVG_STEPS_QUALIFIER = "avg steps per day";
 
-export function ActivityThisWeekCard({ loading, model, onPressViewAll }: ActivityThisWeekCardProps) {
-  const todayDayKey = getTodayDayKeyLocal();
+export function ActivityThisWeekCard({
+  loading,
+  model,
+  weekRangeLabel,
+  canGoPrevious = true,
+  canGoNext = false,
+  onPressPrevious,
+  onPressNext,
+  todayDayKey,
+}: ActivityThisWeekCardProps) {
+  const resolvedTodayDayKey = todayDayKey ?? getTodayDayKeyLocal();
 
   const weeklyAverageA11yLine =
     !loading && model != null && !model.isEmpty && model.weeklyAverageMetricValue != null
       ? `${model.weeklyAverageMetricValue} ${WEEKLY_AVG_STEPS_QUALIFIER}`
       : null;
 
-  const metricCaption =
-    !loading && model != null && !model.isEmpty && model.weeklyAverageMetricValue != null ? (
-      <View style={styles.weekAvgMetricRow}>
-        <Text
-          style={styles.weekAvgFigure}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-          testID="activity-this-week-average-metric-value"
+  const previousDisabled = !canGoPrevious || onPressPrevious == null;
+  const nextDisabled = !canGoNext || onPressNext == null;
+
+  const navCluster =
+    weekRangeLabel != null ? (
+      <View style={styles.weekNavRow} testID="activity-this-week-nav">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Previous week"
+          accessibilityState={{ disabled: previousDisabled }}
+          disabled={previousDisabled}
+          onPress={onPressPrevious}
+          hitSlop={10}
+          testID="activity-this-week-nav-previous"
+          style={({ pressed }) => [
+            styles.weekNavButton,
+            previousDisabled && styles.weekNavButtonDisabled,
+            pressed && !previousDisabled && styles.weekNavButtonPressed,
+          ]}
         >
-          {model.weeklyAverageMetricValue}
+          <Ionicons name="chevron-back" size={16} color={UI_TEXT_PRIMARY} />
+        </Pressable>
+        <Text
+          style={styles.weekRangeLabel}
+          numberOfLines={1}
+          accessibilityLabel={`Week of ${weekRangeLabel}`}
+          testID="activity-this-week-range-label"
+        >
+          {weekRangeLabel}
         </Text>
-        <Text style={styles.weekAvgQualifier} numberOfLines={2}>
-          {WEEKLY_AVG_STEPS_QUALIFIER}
-        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Next week"
+          accessibilityState={{ disabled: nextDisabled }}
+          disabled={nextDisabled}
+          onPress={onPressNext}
+          hitSlop={10}
+          testID="activity-this-week-nav-next"
+          style={({ pressed }) => [
+            styles.weekNavButton,
+            nextDisabled && styles.weekNavButtonDisabled,
+            pressed && !nextDisabled && styles.weekNavButtonPressed,
+          ]}
+        >
+          <Ionicons name="chevron-forward" size={16} color={UI_TEXT_PRIMARY} />
+        </Pressable>
       </View>
     ) : null;
 
   return (
-    <View style={styles.wrap}>
-      <StrengthFrequencyMetricCard
-        variant="embedded"
-        headingTitle="This Week's Activity"
-        loading={loading}
-        model={
-          loading || model == null
-            ? null
-            : {
-                compactValuePrimary: model.compactValuePrimary,
-                ratingLabel: model.ratingLabel,
-                activityTierIndexForBar: model.activityTierIndexForBar,
-                fillWidth01Override: model.fillWidth01Override,
-              }
-        }
-        footerCaption=""
-        showFrequencyTrack={false}
-        showFrequencyMarkers={false}
-        showFooterCaption={false}
-        showRatingPill={false}
-        compactTitlePillSpacing
-        mutedMicroCaption={metricCaption}
-        mutedCaptionAccessibilityLabel={weeklyAverageA11yLine}
-        mutedMicroCaptionTestID="activity-this-week-average-steps"
-        titleRowTrailing={
-          onPressViewAll != null ? (
-            <Pressable
-              onPress={onPressViewAll}
-              accessibilityRole="button"
-              accessibilityLabel="View activity history"
-              hitSlop={8}
-              style={({ pressed }) => [
-                workoutOverviewInCardHeaderStyles.linkHit,
-                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-              ]}
-              testID="activity-this-week-view-all"
-            >
-              <Text style={workoutOverviewInCardHeaderStyles.link}>View All →</Text>
-            </Pressable>
-          ) : null
-        }
-        ratingPillTestID="activity-this-week-rating-pill"
-        frequencyBarTestID="activity-this-week-frequency-bar"
-        instrumentClusterTestID="activity-this-week-instrument-cluster"
-      />
+    <View style={styles.wrap} accessible accessibilityLabel="This week's activity summary">
+      <View style={styles.headerRow}>
+        <Text style={styles.cardTitle} accessibilityRole="header">
+          This Week&apos;s Activity
+        </Text>
+        {navCluster}
+      </View>
+
+      {!loading && model != null && !model.isEmpty && model.weeklyAverageMetricValue != null ? (
+        <View style={styles.weekAvgMetricRow} testID="activity-this-week-average-steps">
+          <Text
+            style={styles.weekAvgFigure}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            testID="activity-this-week-average-metric-value"
+          >
+            {model.weeklyAverageMetricValue}
+          </Text>
+          <Text style={styles.weekAvgQualifier} numberOfLines={2}>
+            {WEEKLY_AVG_STEPS_QUALIFIER}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.divider} />
+
       {loading ? <LoadingState variant="inline" message="Loading steps…" /> : null}
       {!loading && model != null && model.isEmpty ? (
         <Text style={styles.placeholder}>No activity data this week yet</Text>
@@ -117,7 +154,10 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
           <View
             style={[
               styles.chartPlotWrap,
-              { minHeight: ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT + MONTH_LABEL_STACK_HEIGHT + 26 + 12 },
+              {
+                minHeight:
+                  ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT + MONTH_LABEL_STACK_HEIGHT + 26 + 12,
+              },
             ]}
             testID="activity-this-week-chart-plot"
           >
@@ -128,7 +168,7 @@ export function ActivityThisWeekCard({ loading, model, onPressViewAll }: Activit
                   barTrackHeight={ACTIVITY_THIS_WEEK_BAR_TRACK_HEIGHT}
                   maxScale={model.chartMaxScale}
                   baselineMeanStepsPerDay={model.baselineMeanStepsPerDay ?? 0}
-                  todayDayKey={todayDayKey}
+                  todayDayKey={resolvedTodayDayKey}
                   formatValueLabel={formatStepsAxisLabel}
                 />
                 <View
@@ -166,13 +206,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 13,
     paddingBottom: 14,
-    gap: 0,
+    gap: 8,
     ...elevatedCardSurfaceStyle,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardTitle: {
+    ...strengthMetricCardTitleTextStyle,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: UI_BORDER_SUBTLE,
-    marginVertical: 12,
+    marginVertical: 4,
     alignSelf: "stretch",
   },
   placeholder: {
@@ -237,5 +285,34 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexGrow: 1,
     minWidth: 0,
+  },
+  weekNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  weekNavButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  weekNavButtonDisabled: {
+    opacity: 0.35,
+  },
+  weekNavButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  weekRangeLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: -0.1,
+    minWidth: 88,
+    textAlign: "center",
   },
 });

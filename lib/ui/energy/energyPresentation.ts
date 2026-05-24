@@ -77,6 +77,7 @@ const INPUT_USED_LABELS: Record<string, string> = {
   "profile.sexAtBirth": "Sex at birth",
   "profile.dateOfBirth": "Age (from date of birth)",
   steps: "Step count",
+  "activity.stepsAllocation.neatSteps": "NEAT steps (workout steps excluded)",
   "activity.distanceKm": "Walking distance",
   "cardio.durationMinutes": "Cardio duration",
   trainingLoad: "Training load",

@@ -824,22 +824,67 @@ function pAnchoredWorkouts(HK: HealthKitInstance, startDate: string, endDate: st
 const TODAY_WORKOUTS_LIMIT = 10;
 
 /**
+ * Phase 2A — Pure aggregator for the native HealthKit step-sample bridge response.
+ *
+ * `react-native-health`'s `getSamples` (`fitness_getSamples` →
+ * `fetchSamplesOfType` → `HKSampleQuery`) serializes each step sample as
+ * `{ quantity: <number>, start: ..., end: ..., sourceId: ..., ... }`. The
+ * package's TS typings (`HealthValue.value`) do **not** match the actual
+ * native dict shape — historical reads of `sample.value` always resolved
+ * `undefined`, so every workout's `payload.steps` was 0.
+ *
+ * Aggregation rules (fail-closed):
+ * - Prefer `sample.quantity`; fall back to `sample.value` for future/native variance.
+ *   Never double-count: each sample contributes at most one value.
+ * - Returns `null` for: `null`/`undefined`/non-array input, empty array, or no
+ *   sample with a finite non-negative numeric quantity/value.
+ * - Returns `0` only when at least one sample carried a valid numeric `0`.
+ * - Rounds the final sum to an integer.
+ */
+export function sumStepSamplesFromNativeBridgeResult(
+  results: unknown,
+): number | null {
+  if (!Array.isArray(results)) return null;
+  if (results.length === 0) return null;
+
+  let total = 0;
+  let validNumericCount = 0;
+  for (const sample of results) {
+    if (sample == null || typeof sample !== "object") continue;
+    const s = sample as Record<string, unknown>;
+    const q = s["quantity"];
+    const v = s["value"];
+    let chosen: number | null = null;
+    if (typeof q === "number" && Number.isFinite(q) && q >= 0) {
+      chosen = q;
+    } else if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+      chosen = v;
+    }
+    if (chosen == null) continue;
+    total += chosen;
+    validNumericCount += 1;
+  }
+
+  if (validNumericCount === 0) return null;
+  if (!Number.isFinite(total) || total < 0) return null;
+  return Math.round(total);
+}
+
+/**
  * Phase 2A — Sum of HealthKit step samples over an arbitrary `[startDate, endDate]` window.
  * Used to enrich anchored workouts with their per-workout step total
  * (see {@link runAnchoredWorkoutsSync}).
  *
  * Implementation notes:
  * - Uses the generic HKSampleQuery exposed by react-native-health as `getSamples` with
- *   `type: "StepCount"`. Native code returns per-sample `value` (step counts).
- * - We sum sample `value`s in JS — this is the cumulative step total for the window
- *   regardless of bucket size, equivalent to `HKStatisticsOptionCumulativeSum` over the
- *   same predicate.
+ *   `type: "StepCount"`. Native code returns per-sample `{ quantity, start, end, ... }`
+ *   (the `valueType` dict key is `"quantity"` for `HKUnit countUnit`).
+ * - Aggregation is delegated to {@link sumStepSamplesFromNativeBridgeResult} for testability.
  * - Returns `null` (fail-closed) on:
  *   - non-iOS / native module unavailable
  *   - missing `getSamples` bridge method
  *   - native error
- *   - invalid / unparsable result
- *   - non-finite or negative sum
+ *   - non-array / empty / no valid numeric samples
  * - Never invents a value from duration/calories/distance.
  */
 export async function getStepCountForDateRange(
@@ -865,22 +910,32 @@ export async function getStepCountForDateRange(
             resolve(null);
             return;
           }
-          if (!Array.isArray(results)) {
-            resolve(null);
-            return;
-          }
-          let total = 0;
-          for (const sample of results) {
-            const v = sample?.value;
-            if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
-              total += v;
+          if (__DEV__ && !process.env.JEST_WORKER_ID) {
+            try {
+              const arr = Array.isArray(results) ? results : null;
+              const first = (arr && arr[0]) as Record<string, unknown> | undefined;
+              const sumByValueKey = (arr ?? []).reduce((acc, s) => {
+                const v = (s as unknown as { value?: unknown }).value;
+                return typeof v === "number" && Number.isFinite(v) && v >= 0 ? acc + v : acc;
+              }, 0);
+              const sumByQuantityKey = (arr ?? []).reduce((acc, s) => {
+                const q = (s as unknown as { quantity?: unknown }).quantity;
+                return typeof q === "number" && Number.isFinite(q) && q >= 0 ? acc + q : acc;
+              }, 0);
+              // eslint-disable-next-line no-console
+              console.log("[AH][STEP_ENRICH]", {
+                startDate,
+                endDate,
+                resultCount: arr ? arr.length : null,
+                firstSampleKeys: first ? Object.keys(first) : null,
+                sumByValueKey,
+                sumByQuantityKey,
+              });
+            } catch {
+              // never block on diagnostic
             }
           }
-          if (!Number.isFinite(total) || total < 0) {
-            resolve(null);
-            return;
-          }
-          resolve(Math.round(total));
+          resolve(sumStepSamplesFromNativeBridgeResult(results));
         },
       );
     } catch (e) {
@@ -891,6 +946,173 @@ export async function getStepCountForDateRange(
       resolve(null);
     }
   });
+}
+
+/**
+ * P0 DIAGNOSTIC ONLY — Probe the native HealthKit step query for a workout window.
+ *
+ * Mirrors the production call (`HK.getSamples({ type: "StepCount", startDate, endDate })`)
+ * three times: exact window, ±5 min, ±30 min — plus a fourth full-day
+ * cumulative-sum call (`HK.getStepCount({ date })`) as a sanity reference.
+ *
+ * Returns the *raw* native dict for each sample so callers can verify field names
+ * (`value` vs `quantity`, `startDate` vs `start`, etc.) and confirm whether samples
+ * exist at all. Never throws; never mutates DailyFacts; never affects allocation.
+ */
+export type DiagnoseStepWindowEntry = {
+  label: "exact" | "+/-5min" | "+/-30min";
+  requestStartDate: string;
+  requestEndDate: string;
+  error: string | null;
+  sampleCount: number | null;
+  sumByValueKey: number;
+  sumByQuantityKey: number;
+  firstSampleKeys: string[] | null;
+  samples: Record<string, unknown>[] | null;
+};
+
+export type DiagnoseStepWindowResult = {
+  inputs: { startDate: string; endDate: string };
+  nativeAvailable: boolean;
+  hasGetSamples: boolean;
+  windows: DiagnoseStepWindowEntry[];
+  fullDayCumulativeSum: {
+    requestedDate: string;
+    error: string | null;
+    value: number | null;
+    rawResponse: Record<string, unknown> | null;
+  } | null;
+};
+
+const STEP_WINDOW_OFFSETS_MS = {
+  exact: 0,
+  "+/-5min": 5 * 60 * 1000,
+  "+/-30min": 30 * 60 * 1000,
+} as const;
+
+function widenIso(iso: string, deltaMs: number, direction: "earlier" | "later"): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  const shifted = direction === "earlier" ? t - deltaMs : t + deltaMs;
+  return new Date(shifted).toISOString();
+}
+
+export async function diagnoseStepCountForWindow(
+  startDate: string,
+  endDate: string,
+): Promise<DiagnoseStepWindowResult> {
+  const HK = await getHealthKit();
+  const nativeAvailable = HK != null;
+  const hasGetSamples = HK != null && typeof HK.getSamples === "function";
+
+  const queryOnce = (s: string, e: string): Promise<DiagnoseStepWindowEntry> =>
+    new Promise((resolve) => {
+      const entry: DiagnoseStepWindowEntry = {
+        label: "exact",
+        requestStartDate: s,
+        requestEndDate: e,
+        error: null,
+        sampleCount: null,
+        sumByValueKey: 0,
+        sumByQuantityKey: 0,
+        firstSampleKeys: null,
+        samples: null,
+      };
+      if (!hasGetSamples) {
+        entry.error = "getSamples not available on native bridge";
+        resolve(entry);
+        return;
+      }
+      try {
+        HK!.getSamples!(
+          { startDate: s, endDate: e, type: "StepCount", ascending: true },
+          (err: string, results: HealthValue[]) => {
+            if (err != null && String(err).trim() !== "") {
+              entry.error = String(err);
+              resolve(entry);
+              return;
+            }
+            if (!Array.isArray(results)) {
+              entry.error = "non-array result";
+              resolve(entry);
+              return;
+            }
+            entry.sampleCount = results.length;
+            const cleaned: Record<string, unknown>[] = [];
+            for (const sample of results) {
+              const s2 = sample as unknown as Record<string, unknown>;
+              const v = s2["value"];
+              const q = s2["quantity"];
+              if (typeof v === "number" && Number.isFinite(v) && v >= 0) entry.sumByValueKey += v;
+              if (typeof q === "number" && Number.isFinite(q) && q >= 0) entry.sumByQuantityKey += q;
+              cleaned.push(s2);
+            }
+            entry.firstSampleKeys = cleaned[0] ? Object.keys(cleaned[0]) : null;
+            entry.samples = cleaned.slice(0, 20);
+            resolve(entry);
+          },
+        );
+      } catch (e) {
+        entry.error = e instanceof Error ? e.message : String(e);
+        resolve(entry);
+      }
+    });
+
+  const exact = await queryOnce(startDate, endDate);
+  exact.label = "exact";
+  const w5 = await queryOnce(
+    widenIso(startDate, STEP_WINDOW_OFFSETS_MS["+/-5min"], "earlier"),
+    widenIso(endDate, STEP_WINDOW_OFFSETS_MS["+/-5min"], "later"),
+  );
+  w5.label = "+/-5min";
+  const w30 = await queryOnce(
+    widenIso(startDate, STEP_WINDOW_OFFSETS_MS["+/-30min"], "earlier"),
+    widenIso(endDate, STEP_WINDOW_OFFSETS_MS["+/-30min"], "later"),
+  );
+  w30.label = "+/-30min";
+
+  let fullDay: DiagnoseStepWindowResult["fullDayCumulativeSum"] = null;
+  if (HK && typeof HK.getStepCount === "function") {
+    fullDay = await new Promise((resolve) => {
+      try {
+        HK.getStepCount({ date: startDate }, (err: string, result: HealthValue) => {
+          if (err != null && String(err).trim() !== "") {
+            resolve({ requestedDate: startDate, error: String(err), value: null, rawResponse: null });
+            return;
+          }
+          const r = result as unknown as Record<string, unknown>;
+          const v = r?.["value"];
+          resolve({
+            requestedDate: startDate,
+            error: null,
+            value: typeof v === "number" && Number.isFinite(v) ? v : null,
+            rawResponse: r ?? null,
+          });
+        });
+      } catch (e) {
+        resolve({
+          requestedDate: startDate,
+          error: e instanceof Error ? e.message : String(e),
+          value: null,
+          rawResponse: null,
+        });
+      }
+    });
+  }
+
+  const result: DiagnoseStepWindowResult = {
+    inputs: { startDate, endDate },
+    nativeAvailable,
+    hasGetSamples,
+    windows: [exact, w5, w30],
+    fullDayCumulativeSum: fullDay,
+  };
+
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log("[AH][P0_STEP_DIAGNOSE]", JSON.stringify(result, null, 2));
+  }
+  return result;
 }
 
 /**

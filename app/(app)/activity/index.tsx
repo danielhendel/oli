@@ -6,6 +6,7 @@ import { useActivityOverviewScreenData } from "@/lib/data/activity/useActivityOv
 import { ActivityHistorySummaryCard } from "@/lib/ui/activity/ActivityHistorySummaryCard";
 import { ActivityThisWeekCard } from "@/lib/ui/activity/ActivityThisWeekCard";
 import { ActivityTodayCard } from "@/lib/ui/activity/ActivityTodayCard";
+import { ActivityYearlyCard } from "@/lib/ui/activity/ActivityYearlyCard";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
@@ -69,28 +70,32 @@ export default function ActivityOverviewScreen() {
           <ActivityThisWeekCard
             loading={data.dailyDetails.loading}
             model={data.activityThisWeekCardModel}
-            onPressViewAll={() => router.push("/(app)/activity/history")}
+            todayDayKey={data.todayDayKey}
+            weekRangeLabel={data.activityThisWeekRangeLabel}
+            canGoPrevious={data.activityThisWeekCanGoPrevious}
+            canGoNext={data.activityThisWeekCanGoNext}
+            onPressPrevious={data.onPressActivityPreviousWeek}
+            onPressNext={data.onPressActivityNextWeek}
           />
           <View style={styles.cardSpacer} />
           <ActivityHistorySummaryCard
             model={data.activityHistorySummaryModel}
             rollupAggregateError={data.rollupAggregateError}
             onPressViewMore={() => router.push("/(app)/activity/analytics")}
-            onPressActivityRangeExplainer={(ctx) =>
-              router.push({
-                pathname: "/(app)/activity/activity-range-explainer",
-                params: {
-                  window: ctx.rowLabel,
-                  tierIndex: String(ctx.tierIndexForBar),
-                  tierLabel: ctx.tierLabel,
-                  displayValue: ctx.displayValue,
-                  ...(ctx.averageStepsPerDay != null && Number.isFinite(ctx.averageStepsPerDay)
-                    ? { avgSteps: String(Math.round(ctx.averageStepsPerDay)) }
-                    : {}),
-                },
-              })
-            }
           />
+          {data.activityYearlyCardVisible ? (
+            <>
+              <View style={styles.cardSpacer} />
+              <ActivityYearlyCard
+                loading={data.activityYearlyCardLoading}
+                model={data.activityYearlyCardModel}
+                canGoPrevious={data.activityYearCanGoPrevious}
+                canGoNext={data.activityYearCanGoNext}
+                onPressPrevious={data.onPressActivityPreviousYear}
+                onPressNext={data.onPressActivityNextYear}
+              />
+            </>
+          ) : null}
         </View>
       </ModuleScreenShell>
     </View>

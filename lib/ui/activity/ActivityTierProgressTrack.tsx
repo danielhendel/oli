@@ -26,6 +26,13 @@ export type ActivityTierProgressTrackProps = {
    * widths; tier still controls fill color.
    */
   fillWidth01Override?: number | null;
+  /**
+   * When set, the fill renders in this color instead of the tier-derived color. Width still animates;
+   * the tier-color cross-fade is suppressed. Used by the Activity Overview page to recolor progress
+   * bars to the Daily Energy fill color while keeping the bar geometry and tier-driven width logic.
+   * Other consumers (Dash, Activity day detail, etc.) omit this and keep tier-colored fills.
+   */
+  fillColorOverride?: string | null;
   barHeight?: number;
   trackRadius?: number;
   wrapperProps?: Omit<ViewProps, "children" | "onLayout" | "testID" | "style"> & {
@@ -41,6 +48,7 @@ export function ActivityTierProgressTrack({
   testID,
   tierIndex,
   fillWidth01Override,
+  fillColorOverride,
   barHeight = DEFAULT_BAR_HEIGHT,
   trackRadius = DEFAULT_TRACK_RADIUS,
   wrapperProps,
@@ -53,7 +61,9 @@ export function ActivityTierProgressTrack({
     Number.isFinite(fillWidth01Override)
       ? Math.min(1, Math.max(0, fillWidth01Override))
       : (visual?.fill01 ?? 0);
-  const targetColor = visual?.fillColor ?? "rgba(0,0,0,0)";
+  const overrideColor =
+    fillColorOverride != null && fillColorOverride.length > 0 ? fillColorOverride : null;
+  const targetColor = overrideColor ?? visual?.fillColor ?? "rgba(0,0,0,0)";
 
   const fill01Anim = useRef(new Animated.Value(targetFill01)).current;
   const colorBlend = useRef(new Animated.Value(1)).current;

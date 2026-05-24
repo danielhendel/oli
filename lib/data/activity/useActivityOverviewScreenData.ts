@@ -14,6 +14,12 @@ import {
 } from "@/lib/data/activity/activityOverviewCardModel";
 import { buildActivityThisWeekCardModel } from "@/lib/data/activity/activityThisWeekCardModel";
 import { buildActivityTodayOverviewCardModel } from "@/lib/data/activity/activityTodayOverviewCardModel";
+import {
+  buildActivityYearlyCardModel,
+  computeActivityYearlyCardFetchDayKeys,
+} from "@/lib/data/activity/activityYearlyCardModel";
+import { computeActivityYearNavigationState } from "@/lib/data/activity/activityYearNavigation";
+import { useActivityStepsRollupForKeys } from "@/lib/data/activity/useActivityStepsRollupMap";
 import { mergeTodayDetailsWithBaselineDelta } from "@/lib/data/activity/activityTodayBaselineDelta";
 import {
   buildActivityRollupAggregateError,
@@ -22,9 +28,14 @@ import {
 import { getActivityOverviewAnchorEndDay } from "@/lib/data/activity/activityOverviewRanges";
 import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
 import { useActivityTodayStepsAllocation } from "@/lib/data/activity/useActivityTodayStepsAllocation";
+import { computeEnergyWeekNavigationState } from "@/lib/data/dash/energyWeekNavigation";
 import type { ActivityDayStripMeta } from "@/lib/data/activity/activityDayStripMeta";
-import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
-import type { CalendarDay } from "@/lib/ui/calendar/types";
+import {
+  getTodayDayKeyLocal,
+  getWeekDaysForAnchor,
+  getWeekStartSunday,
+} from "@/lib/ui/calendar/dateUtils";
+import type { CalendarDay, DayKey } from "@/lib/ui/calendar/types";
 import { getStepRatingTierIndex } from "@/lib/utils/activityStepRating";
 
 export function useActivityOverviewScreenData() {
@@ -33,9 +44,88 @@ export function useActivityOverviewScreenData() {
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
 
   const todayDayKey = getTodayDayKeyLocal();
+
+  /**
+   * Daily Energy-parity week navigation for the "This Week's Activity" card.
+   *
+   * Independent of `selectedDay` (which drives the weekly strip elsewhere); this anchor only
+   * controls which calendar week the This Week chart + average reflect. Default = current week.
+   * Underlying rollup already fetches the trailing 12 months, so historical weeks render with no
+   * additional network requests; future weeks are blocked at the navigation layer.
+   */
+  const [selectedWeekAnchorDay, setSelectedWeekAnchorDay] = useState<DayKey>(() =>
+    getWeekStartSunday(todayDayKey),
+  );
+  const weekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey,
+        weekAnchorDay: selectedWeekAnchorDay,
+      }),
+    [todayDayKey, selectedWeekAnchorDay],
+  );
+
+  const handlePressPreviousWeek = useCallback(() => {
+    setSelectedWeekAnchorDay(weekNav.previousWeekAnchor);
+  }, [weekNav.previousWeekAnchor]);
+
+  const handlePressNextWeek = useCallback(() => {
+    if (weekNav.nextWeekAnchor != null) {
+      setSelectedWeekAnchorDay(weekNav.nextWeekAnchor);
+    }
+  }, [weekNav.nextWeekAnchor]);
+
+  /**
+   * Yearly Activity card year navigation.
+   *
+   * Default = the current calendar year (the year of `todayDayKey`). The provider's union already
+   * covers the trailing 365 days + YTD through yesterday + today, so the current-year view adds
+   * zero new requests. When the user navigates to a prior year, the gated secondary rollup hook
+   * below fires for the day keys of that year only.
+   */
+  const currentYear = useMemo(
+    () => Number.parseInt(todayDayKey.slice(0, 4), 10),
+    [todayDayKey],
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const yearNav = useMemo(
+    () =>
+      computeActivityYearNavigationState({
+        todayDayKey,
+        selectedYear,
+      }),
+    [todayDayKey, selectedYear],
+  );
+
+  const handlePressPreviousYear = useCallback(() => {
+    setSelectedYear(yearNav.previousYear);
+  }, [yearNav.previousYear]);
+
+  const handlePressNextYear = useCallback(() => {
+    if (yearNav.nextYear != null) {
+      setSelectedYear(yearNav.nextYear);
+    }
+  }, [yearNav.nextYear]);
+
   const overviewAnchorEndDay = useMemo(() => getActivityOverviewAnchorEndDay(todayDayKey), [todayDayKey]);
   const stepsRollup = useActivityStepsRollupMap(selectedDay);
   const displayRollup = stepsRollup.rollupDisplayByDay;
+
+  /**
+   * Secondary rollup fetch for prior-year Yearly card navigation.
+   *
+   * Gated on `selectedYear !== currentYear` so the default (current-year) render adds **zero**
+   * additional requests — current-year coverage already comes from the provider's union (trailing
+   * 365 + YTD). Passing `[]` to the underlying hook short-circuits and never fires fetches.
+   *
+   * Per-key responses are deduped by {@link getDailyFactsSessionCached} so the rapid prev/next
+   * year toggle pattern hits the cache after the first load.
+   */
+  const priorYearFetchKeys = useMemo<DayKey[]>(() => {
+    if (selectedYear >= currentYear) return [];
+    return computeActivityYearlyCardFetchDayKeys(selectedYear, todayDayKey);
+  }, [selectedYear, currentYear, todayDayKey]);
+  const priorYearRollup = useActivityStepsRollupForKeys(priorYearFetchKeys);
 
   const { hkToday, refreshHealthKitToday } = useActivityHealthKitTodayStepsCard({
     todayDayKey,
@@ -140,11 +230,16 @@ export function useActivityOverviewScreenData() {
   const activityThisWeekCardModel = useMemo(() => {
     return buildActivityThisWeekCardModel({
       todayDayKey,
-      weekDayKeys: getWeekDaysForAnchor(todayDayKey),
+      weekDayKeys: weekNav.weekDayKeys,
       rollupByDay: rollupMergedForBaselineWindows,
       baselineMeanSteps: activityBaselineMeanSteps,
     });
-  }, [rollupMergedForBaselineWindows, todayDayKey, activityBaselineMeanSteps]);
+  }, [
+    rollupMergedForBaselineWindows,
+    todayDayKey,
+    activityBaselineMeanSteps,
+    weekNav.weekDayKeys,
+  ]);
 
   const todayRollupEntry = displayRollup[todayDayKey];
   const hasRollupForTodayCard =
@@ -289,6 +384,64 @@ export function useActivityOverviewScreenData() {
     [dailyDetails.model, allocationForTodayCard],
   );
 
+  /**
+   * Yearly Activity card model.
+   *
+   * - For the **current year**, aggregates over the provider rollup (HK-merged baseline view) so the
+   *   month bars reflect the same numeric-day coverage used by the Baseline card.
+   * - For **prior years**, aggregates over the gated secondary rollup, falling back to the provider
+   *   view when overlap exists (last 365 days).
+   *
+   * Card visibility downstream uses `yearlyCardVisible`, which is gated on the **current-year**
+   * having ≥ 1 numeric day through anchor (so the card never mounts empty on first launch). Once
+   * mounted, prev/next nav can land on empty past years; the card itself renders an empty state
+   * for those.
+   */
+  const yearlyRollupForSelectedYear = useMemo(() => {
+    if (selectedYear === currentYear) {
+      return rollupMergedForBaselineWindows;
+    }
+    return { ...rollupMergedForBaselineWindows, ...priorYearRollup.rollupDisplayByDay };
+  }, [selectedYear, currentYear, rollupMergedForBaselineWindows, priorYearRollup.rollupDisplayByDay]);
+
+  const activityYearlyCardModel = useMemo(
+    () =>
+      buildActivityYearlyCardModel({
+        selectedYear: yearNav.year,
+        todayDayKey,
+        rollupByDay: yearlyRollupForSelectedYear,
+      }),
+    [yearNav.year, todayDayKey, yearlyRollupForSelectedYear],
+  );
+
+  const activityYearlyCardCurrentYearModel = useMemo(
+    () =>
+      yearNav.year === currentYear
+        ? activityYearlyCardModel
+        : buildActivityYearlyCardModel({
+            selectedYear: currentYear,
+            todayDayKey,
+            rollupByDay: rollupMergedForBaselineWindows,
+          }),
+    [
+      activityYearlyCardModel,
+      yearNav.year,
+      currentYear,
+      todayDayKey,
+      rollupMergedForBaselineWindows,
+    ],
+  );
+
+  /**
+   * Mount the Yearly card only after the current-year view has at least one numeric completed day.
+   * This avoids an empty card on first launch and aligns with the spec ("Only show the card if
+   * there is enough completed data to display a meaningful year view").
+   */
+  const activityYearlyCardVisible = activityYearlyCardCurrentYearModel.hasData;
+
+  const activityYearlyCardLoading =
+    selectedYear !== currentYear && priorYearRollup.status === "partial";
+
   return {
     user,
     initializing,
@@ -302,5 +455,31 @@ export function useActivityOverviewScreenData() {
     activityTodayCardModel,
     dailyDetails,
     baselineDetails,
+    todayDayKey,
+    /** Sunday-anchored DayKey for the currently displayed "This Week's Activity" card. */
+    selectedWeekAnchorDay: weekNav.weekAnchorDay,
+    setSelectedWeekAnchorDay,
+    /** Header label such as "May 17\u201323" / "May 31\u2013Jun 6". */
+    activityThisWeekRangeLabel: weekNav.weekRangeLabel,
+    activityThisWeekCanGoPrevious: weekNav.canGoPrevious,
+    activityThisWeekCanGoNext: weekNav.canGoNext,
+    onPressActivityPreviousWeek: handlePressPreviousWeek,
+    onPressActivityNextWeek: handlePressNextWeek,
+    /** 4-digit year currently displayed by the Yearly Activity card. */
+    selectedYear: yearNav.year,
+    /** Direct setter (rarely needed — callers should prefer the prev/next handlers). */
+    setSelectedYear,
+    /** True iff the Yearly Activity card should render (current-year has ≥ 1 numeric day). */
+    activityYearlyCardVisible,
+    /** True while a prior-year rollup wave is still resolving. */
+    activityYearlyCardLoading,
+    /** Header label "2026" / "2025" / … for the year navigator. */
+    activityYearRangeLabel: yearNav.yearLabel,
+    activityYearCanGoPrevious: yearNav.canGoPrevious,
+    activityYearCanGoNext: yearNav.canGoNext,
+    onPressActivityPreviousYear: handlePressPreviousYear,
+    onPressActivityNextYear: handlePressNextYear,
+    /** Pure model for the displayed year (may report `hasData=false` for empty prior years). */
+    activityYearlyCardModel,
   };
 }

@@ -180,19 +180,26 @@ describe("useActivityOverviewScreenData", () => {
     expect(probe.current?.activityHistorySummaryModel).not.toBeNull();
   });
 
-  it("Activity Baseline history 7 Day stays anchored to device today when strip day moves to the future", async () => {
+  it("Activity Baseline 7 Day window anchors at local yesterday (excludes today) and is independent of strip selection", async () => {
     mockUseActivityHealthKitTodayStepsCard.mockReturnValue({
       hkToday: { status: "skipped" },
       refreshHealthKitToday: jest.fn(),
     });
     const refetch = jest.fn();
+    /**
+     * `getTodayDayKeyLocal` is fixed to "2026-04-14" via the date-utils mock at the top of this
+     * file → `anchor` = local yesterday = "2026-04-13". Seed only the seven completed days
+     * 2026-04-07..2026-04-13 with 8,000 steps each so that any inclusion of "today" would either
+     * pull in an undefined day (fail full-coverage) or change the mean if today were assigned.
+     */
     const anchor = "2026-04-13";
     const d7 = activityTrailingNDaysInclusive(anchor, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT);
+    expect(d7).not.toContain("2026-04-14");
     const rollupByDay: Record<string, { kind: "numeric"; steps: number }> = {};
     for (const d of d7) {
       rollupByDay[d] = { kind: "numeric", steps: 8000 };
     }
-    rollupByDay["2026-04-14"] = { kind: "numeric", steps: 8000 };
+    rollupByDay["2026-04-14"] = { kind: "numeric", steps: 99 };
     mockUseActivityStepsRollupMap.mockReturnValue(mockStepsRollup(rollupByDay, { refetch }));
 
     const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
@@ -200,15 +207,17 @@ describe("useActivityOverviewScreenData", () => {
       renderer.create(<Harness probe={probe} />);
     });
 
-    const first = probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.displayValue;
-    expect(first).toMatch(/8,000 steps\/day/);
+    const day7Row = probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7");
+    expect(day7Row?.hasEnoughData).toBe(true);
+    expect(day7Row?.averageStepsPerDay).toBe(8000);
+    expect(day7Row?.displayValue).toMatch(/8,000 steps\/day/);
 
     await act(async () => {
       probe.current?.setSelectedDay("2026-04-20");
     });
 
-    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.displayValue).toBe(first);
-    expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("8,000 steps");
+    expect(probe.current?.activityHistorySummaryModel.rows.find((r) => r.key === "day7")?.averageStepsPerDay).toBe(8000);
+    expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("99 steps");
   });
 
   it("uses neutral weekly strip ring tier when numeric rollup is zero steps", async () => {
@@ -253,6 +262,109 @@ describe("useActivityOverviewScreenData", () => {
     expect(probe.current?.rollupAggregateError).toBeNull();
     expect(probe.current?.dailyDetails.error).toBeNull();
     expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("200 steps");
+  });
+
+  describe("Daily Energy-parity This Week navigation", () => {
+    it("defaults the selected week to the current week (Sunday-anchored) with Next disabled and Previous enabled", async () => {
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(
+          {
+            "2026-04-12": { kind: "numeric" as const, steps: 1000 },
+            "2026-04-13": { kind: "numeric" as const, steps: 1500 },
+            "2026-04-14": { kind: "numeric" as const, steps: 2000 },
+          },
+          { refetch: jest.fn() },
+        ),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.todayDayKey).toBe("2026-04-14");
+      // 2026-04-14 is a Tuesday; the prior Sunday is 2026-04-12.
+      expect(probe.current?.selectedWeekAnchorDay).toBe("2026-04-12");
+      expect(probe.current?.activityThisWeekRangeLabel).toBe("Apr 12\u201318");
+      expect(probe.current?.activityThisWeekCanGoPrevious).toBe(true);
+      expect(probe.current?.activityThisWeekCanGoNext).toBe(false);
+      // This Week's chart should reflect the current week's elapsed numeric rollups (1000 + 1500 + 2000) / 3 = 1500.
+      expect(probe.current?.activityThisWeekCardModel.weeklyAverageMetricValue).toBe("1,500");
+    });
+
+    it("moves the selected week back one calendar week when previous-week handler fires; chart reflects historical data", async () => {
+      const rollupByDay: Record<string, { kind: "numeric"; steps: number }> = {
+        // current week
+        "2026-04-12": { kind: "numeric", steps: 1000 },
+        "2026-04-13": { kind: "numeric", steps: 1500 },
+        "2026-04-14": { kind: "numeric", steps: 2000 },
+        // previous week (2026-04-05 → 04-11)
+        "2026-04-05": { kind: "numeric", steps: 9000 },
+        "2026-04-06": { kind: "numeric", steps: 9000 },
+        "2026-04-07": { kind: "numeric", steps: 9000 },
+        "2026-04-08": { kind: "numeric", steps: 9000 },
+        "2026-04-09": { kind: "numeric", steps: 9000 },
+        "2026-04-10": { kind: "numeric", steps: 9000 },
+        "2026-04-11": { kind: "numeric", steps: 9000 },
+      };
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(rollupByDay, { refetch: jest.fn() }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      await act(async () => {
+        probe.current?.onPressActivityPreviousWeek();
+      });
+
+      expect(probe.current?.selectedWeekAnchorDay).toBe("2026-04-05");
+      expect(probe.current?.activityThisWeekRangeLabel).toBe("Apr 5\u201311");
+      expect(probe.current?.activityThisWeekCanGoNext).toBe(true);
+      expect(probe.current?.activityThisWeekCardModel.weeklyAverageMetricValue).toBe("9,000");
+      expect(probe.current?.activityThisWeekCardModel.chartPoints).toHaveLength(7);
+    });
+
+    it("moves the selected week forward when next-week handler fires and stops at the current week", async () => {
+      const rollupByDay: Record<string, { kind: "numeric"; steps: number }> = {
+        "2026-04-12": { kind: "numeric", steps: 1000 },
+        "2026-04-13": { kind: "numeric", steps: 1500 },
+        "2026-04-14": { kind: "numeric", steps: 2000 },
+        "2026-04-05": { kind: "numeric", steps: 9000 },
+        "2026-04-06": { kind: "numeric", steps: 9000 },
+        "2026-04-07": { kind: "numeric", steps: 9000 },
+        "2026-04-08": { kind: "numeric", steps: 9000 },
+        "2026-04-09": { kind: "numeric", steps: 9000 },
+        "2026-04-10": { kind: "numeric", steps: 9000 },
+        "2026-04-11": { kind: "numeric", steps: 9000 },
+      };
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(rollupByDay, { refetch: jest.fn() }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      await act(async () => {
+        probe.current?.onPressActivityPreviousWeek();
+      });
+      expect(probe.current?.activityThisWeekCanGoNext).toBe(true);
+
+      await act(async () => {
+        probe.current?.onPressActivityNextWeek();
+      });
+      expect(probe.current?.selectedWeekAnchorDay).toBe("2026-04-12");
+      expect(probe.current?.activityThisWeekCanGoNext).toBe(false);
+      // Pressing Next again while on the current week is a no-op (matches Daily Energy contract).
+      await act(async () => {
+        probe.current?.onPressActivityNextWeek();
+      });
+      expect(probe.current?.selectedWeekAnchorDay).toBe("2026-04-12");
+    });
   });
 
   it("rollup error on a day in baseline windows yields insufficient rows without affecting Today’s HK live row", async () => {
@@ -471,6 +583,116 @@ describe("useActivityOverviewScreenData", () => {
       });
 
       expect(probe.current?.dailyDetails.model?.compactStatsSummary).toBe("100 steps");
+    });
+  });
+
+  describe("Yearly Activity card state", () => {
+    it("defaults selectedYear to the current year and disables Next-year at mount", async () => {
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(
+          {
+            "2026-04-13": { kind: "numeric" as const, steps: 4000 },
+            "2026-04-14": { kind: "numeric" as const, steps: 5000 },
+          },
+          { refetch: jest.fn() },
+        ),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.selectedYear).toBe(2026);
+      expect(probe.current?.activityYearRangeLabel).toBe("2026");
+      expect(probe.current?.activityYearCanGoNext).toBe(false);
+      expect(probe.current?.activityYearCanGoPrevious).toBe(true);
+      expect(probe.current?.activityYearlyCardModel.title).toBe("2026 Activity");
+      expect(probe.current?.activityYearlyCardModel.isCurrentYear).toBe(true);
+    });
+
+    it("Yearly current-year hero excludes today and uses numeric-day denominator", async () => {
+      const refetch = jest.fn();
+      const rollupByDay: Record<string, { kind: "numeric"; steps: number }> = {
+        "2026-04-12": { kind: "numeric", steps: 5000 },
+        "2026-04-13": { kind: "numeric", steps: 7000 },
+        // Today — must be excluded from the year hero average.
+        "2026-04-14": { kind: "numeric", steps: 1_000_000 },
+      };
+      mockUseActivityStepsRollupMap.mockReturnValue(mockStepsRollup(rollupByDay, { refetch }));
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.activityYearlyCardModel.year).toBe(2026);
+      expect(probe.current?.activityYearlyCardModel.averageStepsPerDay).toBe(6000);
+      expect(probe.current?.activityYearlyCardVisible).toBe(true);
+    });
+
+    it("hides the Yearly card when the current year has no completed numeric data yet", async () => {
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup({}, { refetch: jest.fn() }),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      expect(probe.current?.activityYearlyCardVisible).toBe(false);
+    });
+
+    it("previous-year handler decrements selectedYear and enables Next-year", async () => {
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(
+          {
+            "2026-04-13": { kind: "numeric" as const, steps: 4000 },
+            "2026-04-14": { kind: "numeric" as const, steps: 5000 },
+          },
+          { refetch: jest.fn() },
+        ),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      await act(async () => {
+        probe.current?.onPressActivityPreviousYear();
+      });
+
+      expect(probe.current?.selectedYear).toBe(2025);
+      expect(probe.current?.activityYearRangeLabel).toBe("2025");
+      expect(probe.current?.activityYearCanGoNext).toBe(true);
+      expect(probe.current?.activityYearlyCardModel.title).toBe("2025 Activity");
+      expect(probe.current?.activityYearlyCardModel.isCurrentYear).toBe(false);
+    });
+
+    it("next-year handler is a no-op when already on the current year", async () => {
+      mockUseActivityStepsRollupMap.mockReturnValue(
+        mockStepsRollup(
+          {
+            "2026-04-13": { kind: "numeric" as const, steps: 4000 },
+            "2026-04-14": { kind: "numeric" as const, steps: 5000 },
+          },
+          { refetch: jest.fn() },
+        ),
+      );
+
+      const probe: { current: ReturnType<typeof useActivityOverviewScreenData> | null } = { current: null };
+      await act(async () => {
+        renderer.create(<Harness probe={probe} />);
+      });
+
+      await act(async () => {
+        probe.current?.onPressActivityNextYear();
+      });
+
+      expect(probe.current?.selectedYear).toBe(2026);
+      expect(probe.current?.activityYearCanGoNext).toBe(false);
     });
   });
 });

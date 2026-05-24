@@ -94,6 +94,11 @@ function resolveAllocationForModel(
   if (headlineSteps == null || !Number.isFinite(headlineSteps)) return undefined;
   const normalizedHeadline = Math.round(headlineSteps);
   if (!isFiniteNonNegativeInteger(normalizedHeadline)) return undefined;
+  // Phase 2B UX policy: when the headline integer is 0 there is nothing to allocate,
+  // and rendering three "0 steps" rows reads like broken data even though the backend
+  // partition (0 = 0 + 0 + 0) is deterministically valid. Hide the block in that case.
+  // Backend allocation generation, schema, and authority behavior are intentionally unchanged.
+  if (normalizedHeadline === 0) return undefined;
   if (
     !isFiniteNonNegativeInteger(allocation.neatSteps) ||
     !isFiniteNonNegativeInteger(allocation.strengthSteps) ||
