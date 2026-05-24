@@ -1,4 +1,11 @@
-import type { DailyEnergyFacts, DailyFacts, EnergyConfidence, EnergyFactor } from "../types/health";
+import type {
+  ActivityStepsAllocationV1,
+  DailyActivityFacts,
+  DailyEnergyFacts,
+  DailyFacts,
+  EnergyConfidence,
+  EnergyFactor,
+} from "../types/health";
 
 type Input = {
   dailyFacts: DailyFacts;
@@ -134,6 +141,63 @@ function tightenRangeByPercent(low: number, high: number, tightenPct: number): {
   return { low: round1(mid - tightened), high: round1(mid + tightened) };
 }
 
+const isFiniteNonNegative = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0;
+
+/**
+ * Resolve the step count used for NEAT energy (steps factor).
+ *
+ * Prefers {@link ActivityStepsAllocationV1.neatSteps} when the partition is present and the
+ * invariant `neatSteps + strengthSteps + cardioSteps === activity.steps` holds (after integer
+ * normalization). This prevents NEAT from double-counting steps already attributed to
+ * cardio/strength workout windows by the Cardio/Strength factors.
+ *
+ * Falls back to {@link DailyActivityFacts.steps} when the allocation is missing or its
+ * invariants are not satisfied (strict fail-closed for allocation; preserves prior behavior
+ * for days without allocation, e.g. pre–Phase 2A history).
+ *
+ * Never mutates the input.
+ */
+export function resolveNeatStepsForEnergy(
+  activity: DailyActivityFacts | undefined,
+): { value: number; source: "allocation" | "total" } | undefined {
+  if (!activity) return undefined;
+  const totalSteps = activity.steps;
+  const hasFiniteTotal = isFiniteNonNegative(totalSteps);
+
+  const allocation: ActivityStepsAllocationV1 | undefined = activity.stepsAllocation;
+  if (
+    allocation &&
+    isFiniteNonNegative(allocation.neatSteps) &&
+    isFiniteNonNegative(allocation.strengthSteps) &&
+    isFiniteNonNegative(allocation.cardioSteps) &&
+    hasFiniteTotal
+  ) {
+    const neatInt = Math.round(allocation.neatSteps);
+    const strengthInt = Math.round(allocation.strengthSteps);
+    const cardioInt = Math.round(allocation.cardioSteps);
+    const totalInt = Math.round(totalSteps as number);
+    if (
+      Number.isInteger(neatInt) &&
+      Number.isInteger(strengthInt) &&
+      Number.isInteger(cardioInt) &&
+      Number.isInteger(totalInt) &&
+      neatInt >= 0 &&
+      strengthInt >= 0 &&
+      cardioInt >= 0 &&
+      totalInt >= 0 &&
+      neatInt + strengthInt + cardioInt === totalInt
+    ) {
+      return { value: neatInt, source: "allocation" };
+    }
+  }
+
+  if (hasFiniteTotal) {
+    return { value: totalSteps as number, source: "total" };
+  }
+  return undefined;
+}
+
 export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined {
   const { dailyFacts, profile, latestBodyFacts } = input;
   const day = dailyFacts.date;
@@ -162,8 +226,6 @@ export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined
   const validatedDailyRmrKcal = isPhysiologicallyPlausibleDailyRmrKcal(restingMetabolicRateKcal)
     ? restingMetabolicRateKcal
     : undefined;
-
-  const steps = dailyFacts.activity?.steps;
 
   const baselineInputsUsed: string[] = [];
   const baselineInputsMissing: string[] = [];
@@ -262,8 +324,13 @@ export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined
     typeof activityDistanceKm === "number" && Number.isFinite(activityDistanceKm) && activityDistanceKm > 0;
 
   let stepsFactor: EnergyFactor | undefined;
-  if (typeof steps === "number" && steps >= 0) {
-    const stepsInputsUsed = ["steps"];
+  const resolvedNeat = resolveNeatStepsForEnergy(dailyFacts.activity);
+  if (resolvedNeat !== undefined) {
+    const neatSteps = resolvedNeat.value;
+    const usingAllocation = resolvedNeat.source === "allocation";
+    const stepsInputsUsed: string[] = [
+      usingAllocation ? "activity.stepsAllocation.neatSteps" : "steps",
+    ];
     const stepsInputsMissing: string[] = [];
     let kcalPerStep = 0.04;
     let confidence: EnergyConfidence = "moderate";
@@ -277,7 +344,7 @@ export function computeDailyEnergyV1(input: Input): DailyEnergyFacts | undefined
     if (hasActivityDistance) {
       stepsInputsUsed.push("activity.distanceKm");
     }
-    const stepsMid = round1(steps * kcalPerStep);
+    const stepsMid = round1(neatSteps * kcalPerStep);
     const { kcalLow, kcalHigh } = neatRangeFromMid(stepsMid, hasActivityDistance);
     stepsFactor = {
       kcalLow,

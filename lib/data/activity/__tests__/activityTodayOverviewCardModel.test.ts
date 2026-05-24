@@ -85,7 +85,7 @@ describe("buildActivityTodayOverviewCardModel — Phase 2B stepsAllocation", () 
     expect(model!.stepsAllocation).toBeUndefined();
   });
 
-  it("accepts zero buckets when headline is zero", () => {
+  it("omits stepsAllocation when headline integer is 0 (UX policy: hide empty partition)", () => {
     const details = makeDetailsModel({ compactStatsSummary: "0 steps" });
     const model = buildActivityTodayOverviewCardModel(details, {
       neatSteps: 0,
@@ -93,10 +93,51 @@ describe("buildActivityTodayOverviewCardModel — Phase 2B stepsAllocation", () 
       cardioSteps: 0,
     });
     expect(model).not.toBeNull();
-    expect(model!.stepsAllocation).toEqual({
-      neatSteps: 0,
+    expect(model!.stepsAllocation).toBeUndefined();
+  });
+
+  it("attaches stepsAllocation on a NEAT-only day with non-zero headline (NEAT 21 / Strength 0 / Cardio 0 renders)", () => {
+    const details = makeDetailsModel({ compactStatsSummary: "21 steps" });
+    const model = buildActivityTodayOverviewCardModel(details, {
+      neatSteps: 21,
       strengthSteps: 0,
       cardioSteps: 0,
+    });
+    expect(model).not.toBeNull();
+    expect(model!.stepsAllocation).toEqual({
+      neatSteps: 21,
+      strengthSteps: 0,
+      cardioSteps: 0,
+    });
+  });
+
+  it("attaches stepsAllocation when Strength steps are present (Cardio may be 0)", () => {
+    const details = makeDetailsModel({ compactStatsSummary: "1,500 steps" });
+    const model = buildActivityTodayOverviewCardModel(details, {
+      neatSteps: 1000,
+      strengthSteps: 500,
+      cardioSteps: 0,
+    });
+    expect(model).not.toBeNull();
+    expect(model!.stepsAllocation).toEqual({
+      neatSteps: 1000,
+      strengthSteps: 500,
+      cardioSteps: 0,
+    });
+  });
+
+  it("attaches stepsAllocation when Cardio steps are present (Strength may be 0)", () => {
+    const details = makeDetailsModel({ compactStatsSummary: "1,500 steps" });
+    const model = buildActivityTodayOverviewCardModel(details, {
+      neatSteps: 1000,
+      strengthSteps: 0,
+      cardioSteps: 500,
+    });
+    expect(model).not.toBeNull();
+    expect(model!.stepsAllocation).toEqual({
+      neatSteps: 1000,
+      strengthSteps: 0,
+      cardioSteps: 500,
     });
   });
 });

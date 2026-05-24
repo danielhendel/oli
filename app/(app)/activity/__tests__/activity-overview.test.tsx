@@ -4,11 +4,72 @@ import renderer, { act } from "react-test-renderer";
 const mockRouterPush = jest.fn();
 const mockSetSelectedDay = jest.fn();
 
+const mockSetSelectedWeekAnchorDay = jest.fn();
+const mockOnPressActivityPreviousWeek = jest.fn();
+const mockOnPressActivityNextWeek = jest.fn();
+const mockSetSelectedYear = jest.fn();
+const mockOnPressActivityPreviousYear = jest.fn();
+const mockOnPressActivityNextYear = jest.fn();
+
+const defaultYearlyCardModel = {
+  year: 2026,
+  title: "2026 Activity",
+  rangeLabel: "2026",
+  isCurrentYear: true,
+  hasData: true,
+  averageStepsPerDay: 6543,
+  averageDisplay: "6,543",
+  averageQualifier: "avg steps per day" as const,
+  months: [
+    "J",
+    "F",
+    "M",
+    "A",
+    "M",
+    "J",
+    "J",
+    "A",
+    "S",
+    "O",
+    "N",
+    "D",
+  ].map((label, i) => ({
+    monthIndex: i,
+    monthKey: `2026-${String(i + 1).padStart(2, "0")}`,
+    label: label as "J" | "F" | "M" | "A" | "S" | "O" | "N" | "D",
+    averageSteps: i <= 3 ? 5000 + i * 250 : null,
+    numericDayCount: i <= 3 ? 20 : 0,
+    isFutureMonth: i > 3,
+    isCurrentMonth: i === 3,
+  })),
+  chartMaxScale: 7000,
+  todayMonthKey: "2026-04",
+  isEmpty: false,
+};
+
 const defaultOverviewData = {
   user: { uid: "u1" },
   initializing: false,
   selectedDay: "2026-04-06",
   setSelectedDay: mockSetSelectedDay,
+  todayDayKey: "2026-04-06",
+  selectedWeekAnchorDay: "2026-04-05",
+  setSelectedWeekAnchorDay: mockSetSelectedWeekAnchorDay,
+  activityThisWeekRangeLabel: "Apr 5\u201311",
+  activityThisWeekCanGoPrevious: true,
+  activityThisWeekCanGoNext: false,
+  onPressActivityPreviousWeek: mockOnPressActivityPreviousWeek,
+  onPressActivityNextWeek: mockOnPressActivityNextWeek,
+  selectedYear: 2026,
+  setSelectedYear: mockSetSelectedYear,
+  activityYearlyCardVisible: true,
+  activityYearlyCardLoading: false,
+  activityYearRangeLabel: "2026",
+  activityYearCanGoPrevious: true,
+  activityYearCanGoNext: false,
+  onPressActivityPreviousYear: mockOnPressActivityPreviousYear,
+  onPressActivityNextYear: mockOnPressActivityNextYear,
+  activityYearlyCardModel: defaultYearlyCardModel,
   weeklyStripDays: [
     { day: "2026-04-05", meta: { hasSteps: false, ringTierIndex: null } },
     { day: "2026-04-06", meta: { hasSteps: true, ringTierIndex: 0 } },
@@ -28,6 +89,8 @@ const defaultOverviewData = {
   },
   rollupAggregateError: null as { message: string; requestId: string | null; onRetry: () => void } | null,
   activityHistorySummaryModel: {
+    personalizedExplainer:
+      "Your 90-day baseline is 2,500 steps/day, which puts you in the Sedentary range. Over the past 7 completed days, you're averaging 3,000 steps/day — about 20% above your baseline.",
     rows: [
       {
         key: "day7" as const,
@@ -221,6 +284,12 @@ describe("ActivityOverviewScreen", () => {
   beforeEach(() => {
     mockRouterPush.mockClear();
     mockSetSelectedDay.mockClear();
+    mockSetSelectedWeekAnchorDay.mockClear();
+    mockOnPressActivityPreviousWeek.mockClear();
+    mockOnPressActivityNextWeek.mockClear();
+    mockSetSelectedYear.mockClear();
+    mockOnPressActivityPreviousYear.mockClear();
+    mockOnPressActivityNextYear.mockClear();
     mockUseActivityOverviewScreenData.mockImplementation(() => defaultOverviewData);
     navigationOptions = {};
   });
@@ -257,12 +326,20 @@ describe("ActivityOverviewScreen", () => {
       await Promise.resolve();
     });
     const str = JSON.stringify(tree.toJSON());
-    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-view-all"));
-    expect(str.indexOf("activity-this-week-view-all")).toBeLessThan(str.indexOf("activity-history-summary-card"));
+    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-nav"));
+    expect(str.indexOf("activity-this-week-nav")).toBeLessThan(
+      str.indexOf("activity-history-summary-card"),
+    );
     expect(str).toContain("Today");
     expect(str).toContain("This Week's Activity");
     expect(str).toContain("Activity Baseline");
-    expect(str).toContain("Your activity baseline is the average daily steps across key time ranges.");
+    // Personalized explainer (from the model fixture) — replaces the legacy generic copy.
+    expect(str).toContain("Your 90-day baseline is 2,500 steps/day");
+    expect(str).toContain("Sedentary range");
+    expect(str).toContain("7 completed days");
+    expect(str).not.toContain(
+      "Your activity baseline is the average daily steps across key time ranges.",
+    );
     expect(str).toContain("7 Day");
     expect(str).toContain("30 Day");
     expect(str).toContain("90 Day");
@@ -273,9 +350,16 @@ describe("ActivityOverviewScreen", () => {
     expect(str).not.toContain("Your typical daily activity level based on the past 90 days");
     expect(str).not.toContain("activity-baseline-details-steps-bar");
     expect(str).not.toContain("activity-baseline-threshold-markers");
-    expect(str).toContain("activity-history-tier-pill-day7");
+    // Per-row status/range pills are removed from the Activity Baseline card.
+    expect(str).not.toContain("activity-history-tier-pill-day7");
+    expect(str).not.toContain("activity-history-tier-pill-day30");
+    expect(str).not.toContain("activity-history-tier-pill-day90");
+    expect(str).not.toContain("activity-history-tier-pill-ytd");
+    expect(str).not.toContain("activity-history-tier-pill-month12");
     expect(str).toContain("activity-today-tier-progress");
     expect(str).not.toContain("activity-today-view-link");
+    expect(str).not.toContain("activity-today-tier-pill");
+    expect(str).not.toContain("activity-this-week-view-all");
   });
 
   it("does not render the weekly strip day cells on the overview", async () => {
@@ -385,20 +469,56 @@ describe("ActivityOverviewScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/analytics");
   });
 
-  it("This Week View All navigates to activity history", async () => {
+  it("This Week's Activity renders a Daily Energy-style week range label and prev/next chevrons (no View All)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
-    const viewAll = tree.root.findByProps({ testID: "activity-this-week-view-all" });
-    await act(async () => {
-      viewAll.props.onPress();
-    });
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/history");
+    expect(tree.root.findAllByProps({ testID: "activity-this-week-view-all" })).toHaveLength(0);
+    const rangeLabel = tree.root.findByProps({ testID: "activity-this-week-range-label" });
+    expect(rangeLabel.props.children).toBe("Apr 5\u201311");
+    const prev = tree.root.findByProps({ testID: "activity-this-week-nav-previous" });
+    const next = tree.root.findByProps({ testID: "activity-this-week-nav-next" });
+    expect(prev.props.accessibilityLabel).toBe("Previous week");
+    expect(next.props.accessibilityLabel).toBe("Next week");
+    expect(next.props.disabled).toBe(true);
   });
 
-  it("Activity This Week chart shows average subtitle, no rating pill, step label on chart, and baseline pills unchanged", async () => {
+  it("Previous week button delegates to the screen-data handler", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const prev = tree.root.findByProps({ testID: "activity-this-week-nav-previous" });
+    await act(async () => {
+      prev.props.onPress?.();
+    });
+    expect(mockOnPressActivityPreviousWeek).toHaveBeenCalledTimes(1);
+  });
+
+  it("Next week button fires the screen-data handler when enabled", async () => {
+    mockUseActivityOverviewScreenData.mockImplementation(() => ({
+      ...defaultOverviewData,
+      activityThisWeekRangeLabel: "Mar 29\u2013Apr 4",
+      activityThisWeekCanGoPrevious: true,
+      activityThisWeekCanGoNext: true,
+    }));
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const next = tree.root.findByProps({ testID: "activity-this-week-nav-next" });
+    expect(next.props.disabled).toBe(false);
+    await act(async () => {
+      next.props.onPress?.();
+    });
+    expect(mockOnPressActivityNextWeek).toHaveBeenCalledTimes(1);
+  });
+
+  it("Activity This Week chart shows average subtitle, no rating pill, step labels on chart, and baseline pills unchanged", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
@@ -411,29 +531,96 @@ describe("ActivityOverviewScreen", () => {
     expect(str).toContain("activity-this-week-average-steps");
     expect(str).toContain("9,876");
     expect(str).toContain("avg steps per day");
-    expect(str).toContain("9,876");
     expect(str).toContain('"M"');
     expect(str).toContain('"S"');
-    expect(str).toContain("activity-history-tier-pill-day7");
+    // Per-row baseline pills were removed in the Activity Baseline UX redesign.
+    expect(str).not.toContain("activity-history-tier-pill-day7");
   });
 
-  it("opens Activity Range Explainer when baseline tier pill is pressed", async () => {
+  it("renders the Yearly Activity card under Activity Baseline when visible", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
     });
-    const pill = tree.root.findByProps({ testID: "activity-history-tier-pill-day7" });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("activity-yearly-card");
+    expect(str).toContain("2026 Activity");
+    expect(str).toContain("activity-yearly-range-label");
+    expect(str).toContain("activity-yearly-month-chart");
+    // Placement: Yearly card sits AFTER the Activity Baseline card.
+    expect(str.indexOf("activity-history-summary-card")).toBeLessThan(
+      str.indexOf("activity-yearly-card"),
+    );
+    // Order above: Today → This Week → Baseline → Yearly.
+    expect(str.indexOf("activity-today-card")).toBeLessThan(str.indexOf("activity-this-week-nav"));
+    expect(str.indexOf("activity-this-week-nav")).toBeLessThan(
+      str.indexOf("activity-history-summary-card"),
+    );
+  });
+
+  it("hides the Yearly Activity card when current-year has no completed data", async () => {
+    mockUseActivityOverviewScreenData.mockImplementation(() => ({
+      ...defaultOverviewData,
+      activityYearlyCardVisible: false,
+    }));
+    let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      pill.props.onPress();
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
     });
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: "/(app)/activity/activity-range-explainer",
-      params: expect.objectContaining({
-        window: "7 Day",
-        tierLabel: "Moderately Active",
-        displayValue: "3,000 steps/day",
-      }),
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain("activity-yearly-card");
+  });
+
+  it("disables the Yearly Next-year button on the current year", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
     });
+    const next = tree.root.findByProps({ testID: "activity-yearly-nav-next" });
+    expect(next.props.disabled).toBe(true);
+    expect(next.props.accessibilityState).toEqual({ disabled: true });
+  });
+
+  it("Previous-year button delegates to the screen-data handler", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const prev = tree.root.findByProps({ testID: "activity-yearly-nav-previous" });
+    await act(async () => {
+      prev.props.onPress?.();
+    });
+    expect(mockOnPressActivityPreviousYear).toHaveBeenCalledTimes(1);
+  });
+
+  it("Next-year button fires the screen-data handler when enabled for a prior year", async () => {
+    mockUseActivityOverviewScreenData.mockImplementation(() => ({
+      ...defaultOverviewData,
+      selectedYear: 2024,
+      activityYearRangeLabel: "2024",
+      activityYearCanGoNext: true,
+      activityYearlyCardModel: {
+        ...defaultYearlyCardModel,
+        year: 2024,
+        title: "2024 Activity",
+        rangeLabel: "2024",
+        isCurrentYear: false,
+      },
+    }));
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<ActivityOverviewScreen />);
+      await Promise.resolve();
+    });
+    const next = tree.root.findByProps({ testID: "activity-yearly-nav-next" });
+    expect(next.props.disabled).toBe(false);
+    await act(async () => {
+      next.props.onPress?.();
+    });
+    expect(mockOnPressActivityNextYear).toHaveBeenCalledTimes(1);
   });
 });

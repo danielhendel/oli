@@ -1,6 +1,19 @@
 import { describe, expect, it } from "@jest/globals";
-import type { DailyFacts } from "../../types/health";
-import { computeDailyEnergyV1 } from "../computeDailyEnergyV1";
+import type { ActivityStepsAllocationV1, DailyFacts } from "../../types/health";
+import { computeDailyEnergyV1, resolveNeatStepsForEnergy } from "../computeDailyEnergyV1";
+
+const allocation = (
+  partial: Partial<ActivityStepsAllocationV1> & {
+    neatSteps: number;
+    strengthSteps: number;
+    cardioSteps: number;
+  },
+): ActivityStepsAllocationV1 => ({
+  modelVersion: "activity_steps_allocation_v1",
+  inputsUsed: ["activity.steps", "workout.steps"],
+  inputsMissing: [],
+  ...partial,
+});
 
 function round1(v: number): number {
   return Math.round(v * 10) / 10;
@@ -412,5 +425,244 @@ describe("computeDailyEnergyV1", () => {
     expect(result?.factors.baseline?.kcalLow).toBe(round1(1680 * 0.92));
     expect(result?.factors.baseline?.kcalHigh).toBe(round1(1680 * 1.1));
     expect(result?.factors.baseline?.inputsUsed).toContain("body.restingMetabolicRateKcal");
+  });
+
+  describe("NEAT source selection (stepsAllocation)", () => {
+    it("uses stepsAllocation.neatSteps when the partition is valid", () => {
+      const weightKg = 80;
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg },
+          activity: {
+            steps: 10000,
+            stepsAllocation: allocation({
+              neatSteps: 3000,
+              strengthSteps: 1000,
+              cardioSteps: 6000,
+            }),
+          },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result).toBeDefined();
+      const kcalPerStep = 0.0005 * weightKg + 0.01;
+      const mid = round1(3000 * kcalPerStep);
+      expect(result?.factors.steps?.kcalLow).toBe(round1(mid * 0.85));
+      expect(result?.factors.steps?.kcalHigh).toBe(round1(mid * 1.15));
+      expect(result?.factors.steps?.inputsUsed).toContain("activity.stepsAllocation.neatSteps");
+      expect(result?.factors.steps?.inputsUsed).not.toContain("steps");
+    });
+
+    it("falls back to activity.steps when allocation is missing", () => {
+      const weightKg = 80;
+      const totalSteps = 10000;
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg },
+          activity: { steps: totalSteps },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result).toBeDefined();
+      const kcalPerStep = 0.0005 * weightKg + 0.01;
+      const mid = round1(totalSteps * kcalPerStep);
+      expect(result?.factors.steps?.kcalLow).toBe(round1(mid * 0.85));
+      expect(result?.factors.steps?.kcalHigh).toBe(round1(mid * 1.15));
+      expect(result?.factors.steps?.inputsUsed).toContain("steps");
+      expect(result?.factors.steps?.inputsUsed).not.toContain(
+        "activity.stepsAllocation.neatSteps",
+      );
+    });
+
+    it("falls back to activity.steps when the allocation partition is invalid (sum mismatch)", () => {
+      const weightKg = 80;
+      const totalSteps = 10000;
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg },
+          activity: {
+            steps: totalSteps,
+            // Sum (2500 + 1000 + 6000 = 9500) != 10000 → invalid partition.
+            stepsAllocation: allocation({
+              neatSteps: 2500,
+              strengthSteps: 1000,
+              cardioSteps: 6000,
+            }),
+          },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result).toBeDefined();
+      const kcalPerStep = 0.0005 * weightKg + 0.01;
+      const mid = round1(totalSteps * kcalPerStep);
+      expect(result?.factors.steps?.kcalLow).toBe(round1(mid * 0.85));
+      expect(result?.factors.steps?.kcalHigh).toBe(round1(mid * 1.15));
+      expect(result?.factors.steps?.inputsUsed).toContain("steps");
+      expect(result?.factors.steps?.inputsUsed).not.toContain(
+        "activity.stepsAllocation.neatSteps",
+      );
+    });
+
+    it("falls back to activity.steps when allocation contains negative or non-finite parts", () => {
+      const weightKg = 80;
+      const totalSteps = 9000;
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg },
+          activity: {
+            steps: totalSteps,
+            stepsAllocation: allocation({
+              neatSteps: -100,
+              strengthSteps: 100,
+              cardioSteps: 9000,
+            }),
+          },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result?.factors.steps?.inputsUsed).toContain("steps");
+      expect(result?.factors.steps?.inputsUsed).not.toContain(
+        "activity.stepsAllocation.neatSteps",
+      );
+    });
+
+    it("does not change Cardio, Strength, or BMR outputs when allocation is present", () => {
+      const weightKg = 80;
+      const sharedDailyFacts: DailyFacts = {
+        ...baseFacts,
+        body: { weightKg },
+        cardio: { durationMinutes: 30, sessions: 1 },
+        strength: {
+          workoutsCount: 1,
+          totalSets: 5,
+          totalReps: 40,
+          totalVolumeByUnit: { kg: 2000 },
+          volumeKg: 2000,
+          durationMinutes: 45,
+        },
+      };
+      const profile = { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 };
+
+      const withAllocation = computeDailyEnergyV1({
+        dailyFacts: {
+          ...sharedDailyFacts,
+          activity: {
+            steps: 10000,
+            stepsAllocation: allocation({
+              neatSteps: 3000,
+              strengthSteps: 1000,
+              cardioSteps: 6000,
+            }),
+          },
+        },
+        profile,
+      });
+      const withoutAllocation = computeDailyEnergyV1({
+        dailyFacts: {
+          ...sharedDailyFacts,
+          activity: { steps: 10000 },
+        },
+        profile,
+      });
+
+      expect(withAllocation?.factors.baseline).toEqual(withoutAllocation?.factors.baseline);
+      expect(withAllocation?.factors.cardio).toEqual(withoutAllocation?.factors.cardio);
+      expect(withAllocation?.factors.strength).toEqual(withoutAllocation?.factors.strength);
+      // NEAT must differ (allocation reduces it).
+      expect(withAllocation?.factors.steps?.kcalLow).toBeLessThan(
+        withoutAllocation?.factors.steps?.kcalLow ?? 0,
+      );
+    });
+
+    it("produces no NEAT factor when neither allocation nor total steps are usable", () => {
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg: 80 },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result?.factors.steps).toBeUndefined();
+    });
+
+    it("emits NEAT factor with 0 kcal when allocation says all steps belong to workouts", () => {
+      const result = computeDailyEnergyV1({
+        dailyFacts: {
+          ...baseFacts,
+          body: { weightKg: 80 },
+          activity: {
+            steps: 5000,
+            stepsAllocation: allocation({
+              neatSteps: 0,
+              strengthSteps: 1500,
+              cardioSteps: 3500,
+            }),
+          },
+        },
+        profile: { dateOfBirth: "1990-01-01", sexAtBirth: "male", heightCm: 180 },
+      });
+      expect(result?.factors.steps).toBeDefined();
+      expect(result?.factors.steps?.kcalLow).toBe(0);
+      expect(result?.factors.steps?.kcalHigh).toBe(0);
+      expect(result?.factors.steps?.inputsUsed).toContain("activity.stepsAllocation.neatSteps");
+    });
+  });
+
+  describe("resolveNeatStepsForEnergy", () => {
+    it("returns allocation source when partition is valid", () => {
+      expect(
+        resolveNeatStepsForEnergy({
+          steps: 10000,
+          stepsAllocation: allocation({
+            neatSteps: 3000,
+            strengthSteps: 1000,
+            cardioSteps: 6000,
+          }),
+        }),
+      ).toEqual({ value: 3000, source: "allocation" });
+    });
+
+    it("returns total source when allocation is missing", () => {
+      expect(resolveNeatStepsForEnergy({ steps: 8000 })).toEqual({
+        value: 8000,
+        source: "total",
+      });
+    });
+
+    it("returns total source when allocation partition does not equal total steps", () => {
+      expect(
+        resolveNeatStepsForEnergy({
+          steps: 10000,
+          stepsAllocation: allocation({
+            neatSteps: 1000,
+            strengthSteps: 1000,
+            cardioSteps: 1000,
+          }),
+        }),
+      ).toEqual({ value: 10000, source: "total" });
+    });
+
+    it("returns undefined when both allocation and total steps are unusable", () => {
+      expect(resolveNeatStepsForEnergy(undefined)).toBeUndefined();
+      expect(resolveNeatStepsForEnergy({})).toBeUndefined();
+    });
+
+    it("does not mutate the activity input", () => {
+      const activity = {
+        steps: 10000,
+        stepsAllocation: allocation({
+          neatSteps: 3000,
+          strengthSteps: 1000,
+          cardioSteps: 6000,
+        }),
+      };
+      const snapshot = JSON.parse(JSON.stringify(activity));
+      resolveNeatStepsForEnergy(activity);
+      expect(activity).toEqual(snapshot);
+    });
   });
 });

@@ -6,12 +6,7 @@ import type {
   ActivityHistorySummaryModel,
   ActivityHistorySummaryRowLabel,
 } from "@/lib/data/activity/activityHistorySummaryModel";
-import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
-import {
-  ActivityTierProgressTrack,
-  activityTierProgressAccessibilityPercent,
-} from "@/lib/ui/activity/ActivityTierProgressTrack";
-import { ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
+import { EnergyBaselineProgressTrack } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
 import { moduleOverviewMetricLayoutStyles } from "@/lib/ui/overview/moduleOverviewMetricLayout";
 import type { ActivityRollupInlineError } from "@/lib/data/activity/activityRollupErrorSummary";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -22,13 +17,22 @@ import {
 import { baselineOverviewExplainerStyles } from "@/lib/ui/workouts/baselineOverviewExplainerStyle";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
-import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
 import { ErrorState } from "@/lib/ui/ScreenStates";
 
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+
+/**
+ * @deprecated The Activity Baseline card now renders {@link ActivityHistorySummaryModel.personalizedExplainer}.
+ * Kept exported for any tests / external consumers that still reference the literal; not used by the card itself.
+ */
 export const ACTIVITY_BASELINE_HISTORY_EXPLAINER_COPY =
   "Your activity baseline is the average daily steps across key time ranges.";
 
+/**
+ * @deprecated The per-row tier pill was removed in the baseline UX redesign. The data model still
+ * carries `tierLabel` / `tierIndexForBar` / `progressFill01` (used for the progress fill width and
+ * accessibility text) so this context type is preserved for callers that may still reference it.
+ */
 export type ActivityBaselineTierPillPressContext = {
   rowKey: ActivityHistoryRangeKey;
   rowLabel: ActivityHistorySummaryRowLabel;
@@ -41,31 +45,31 @@ export type ActivityBaselineTierPillPressContext = {
 type Props = {
   model: ActivityHistorySummaryModel;
   onPressViewMore?: () => void;
-  onPressActivityRangeExplainer?: (ctx: ActivityBaselineTierPillPressContext) => void;
   /** Rollup fetch aggregate warning — shown above baseline rows when present. */
   rollupAggregateError?: ActivityRollupInlineError | null;
 };
 
 function HistoryTierProgressTrack({
   testID,
-  tierIndex,
   fillWidth01Override,
+  rowLabel,
 }: {
   testID: string;
-  tierIndex: number | null;
   fillWidth01Override: number | null;
+  rowLabel: ActivityHistorySummaryRowLabel;
 }) {
-  const pct = activityTierProgressAccessibilityPercent(
-    tierIndex,
-    fillWidth01Override != null ? { fillWidth01Override } : undefined,
-  );
+  const fill01 =
+    fillWidth01Override != null && Number.isFinite(fillWidth01Override)
+      ? Math.max(0, Math.min(1, fillWidth01Override))
+      : null;
+  const pct = fill01 != null ? Math.round(fill01 * 100) : 0;
   return (
-    <ActivityTierProgressTrack
+    <EnergyBaselineProgressTrack
       testID={testID}
-      tierIndex={tierIndex}
-      fillWidth01Override={fillWidth01Override}
+      fill01={fill01}
       wrapperProps={{
         accessibilityRole: "progressbar",
+        accessibilityLabel: `${rowLabel} activity baseline level, ${pct} percent`,
         accessibilityValue: { now: pct, min: 0, max: 100 },
       }}
     />
@@ -75,7 +79,6 @@ function HistoryTierProgressTrack({
 export function ActivityHistorySummaryCard({
   model,
   onPressViewMore,
-  onPressActivityRangeExplainer,
   rollupAggregateError,
 }: Props) {
   return (
@@ -103,8 +106,11 @@ export function ActivityHistorySummaryCard({
               </Pressable>
             ) : null}
           </View>
-          <Text style={baselineOverviewExplainerStyles.explainer} testID="activity-history-baseline-explainer">
-            {ACTIVITY_BASELINE_HISTORY_EXPLAINER_COPY}
+          <Text
+            style={baselineOverviewExplainerStyles.explainer}
+            testID="activity-history-baseline-explainer"
+          >
+            {model.personalizedExplainer}
           </Text>
         </View>
       </View>
@@ -120,64 +126,37 @@ export function ActivityHistorySummaryCard({
 
       <View style={baselineOverviewHistoryCardLayoutStyles.metricGroups} testID="activity-history-metric-groups">
         {model.rows.map((row) => {
-          const chrome = row.tierIndexForBar != null ? ACTIVITY_STEP_RATING_TIERS[row.tierIndexForBar] : null;
-          const a11y = row.tierLabel
-            ? `${row.label}. ${row.tierLabel}. ${row.displayValue}.`
-            : `${row.label}. ${row.displayValue}.`;
-          const pillInteractive =
-            onPressActivityRangeExplainer != null &&
-            row.tierLabel != null &&
-            chrome != null &&
-            row.tierIndexForBar != null;
+          const a11y = `${row.label}. ${row.displayValue}.`;
           return (
-            <View key={row.key} style={baselineOverviewHistoryCardLayoutStyles.metricBlock} accessible accessibilityLabel={a11y}>
-              <View style={[moduleOverviewMetricLayoutStyles.topRow, baselineOverviewHistoryCardLayoutStyles.rowTop]}>
-                <View style={styles.titlePillLeftGroup}>
+            <View
+              key={row.key}
+              style={baselineOverviewHistoryCardLayoutStyles.metricBlock}
+              accessible
+              accessibilityLabel={a11y}
+            >
+              <View
+                style={[
+                  moduleOverviewMetricLayoutStyles.topRow,
+                  baselineOverviewHistoryCardLayoutStyles.rowTop,
+                ]}
+              >
+                <View style={styles.rowLabelGroup}>
                   <Text style={styles.rowLabel} numberOfLines={1}>
                     {row.label}
                   </Text>
-                  {row.tierLabel && chrome ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="View activity range explanation"
-                      disabled={!pillInteractive}
-                      onPress={() => {
-                        if (!pillInteractive || row.tierIndexForBar == null || row.tierLabel == null) return;
-                        onPressActivityRangeExplainer({
-                          rowKey: row.key,
-                          rowLabel: row.label,
-                          tierLabel: row.tierLabel,
-                          averageStepsPerDay: row.averageStepsPerDay,
-                          tierIndexForBar: row.tierIndexForBar,
-                          displayValue: row.displayValue,
-                        });
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                      style={({ pressed }) => [styles.tierPillHit, pressed && pillInteractive && styles.tierPillHitPressed]}
-                      testID={`activity-history-tier-pill-${row.key}`}
-                    >
-                      <ActivityRatingPill
-                        label={row.tierLabel}
-                        color={chrome.color}
-                        backgroundColor={chrome.backgroundColor}
-                        emphasis="subtle"
-                        compactChrome
-                        opticalBaselineNudge={false}
-                        labelTypography={ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY}
-                        testID={`activity-history-tier-${row.key}`}
-                      />
-                    </Pressable>
-                  ) : null}
                 </View>
-                <Text style={row.hasEnoughData ? styles.rowFigure : styles.rowNonNumeric} numberOfLines={1}>
+                <Text
+                  style={row.hasEnoughData ? styles.rowFigure : styles.rowNonNumeric}
+                  numberOfLines={1}
+                >
                   {row.displayValue}
                 </Text>
               </View>
               {row.helperText ? <Text style={styles.helperText}>{row.helperText}</Text> : null}
               <HistoryTierProgressTrack
                 testID={`activity-history-progress-${row.key}`}
-                tierIndex={row.tierIndexForBar}
                 fillWidth01Override={row.progressFill01}
+                rowLabel={row.label}
               />
             </View>
           );
@@ -213,20 +192,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  titlePillLeftGroup: {
+  rowLabelGroup: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  tierPillHit: {
-    borderRadius: 12,
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  tierPillHitPressed: {
-    opacity: 0.72,
   },
   rowLabel: {
     flexShrink: 1,

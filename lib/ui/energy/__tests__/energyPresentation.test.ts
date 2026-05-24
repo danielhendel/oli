@@ -55,6 +55,13 @@ describe("energyPresentation", () => {
     ]);
   });
 
+  it("getFactorInputsUsedLabels maps activity.stepsAllocation.neatSteps to a NEAT-aware label", () => {
+    expect(getFactorInputsUsedLabels(["activity.stepsAllocation.neatSteps", "body.weightKg"])).toEqual([
+      "NEAT steps (workout steps excluded)",
+      "Body weight",
+    ]);
+  });
+
   it("getFactorMissingInputLabels maps missing tokens", () => {
     expect(getFactorMissingInputLabels(["body.weightKg"])).toEqual(["Body weight"]);
   });

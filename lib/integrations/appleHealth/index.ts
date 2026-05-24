@@ -17,6 +17,11 @@ export {
   pullStepCountForLocalCalendarDay,
   buildHealthKitGetStepCountOptions,
   getStepCountForDateRange,
+  diagnoseStepCountForWindow,
+} from "./healthKit";
+export type {
+  DiagnoseStepWindowEntry,
+  DiagnoseStepWindowResult,
 } from "./healthKit";
 export type { BodyCompositionReadAuthStatusResult } from "./healthKit";
 export {
