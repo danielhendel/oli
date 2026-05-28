@@ -33,3 +33,25 @@ export function computeSleepOverviewFetchDayKeys(
   }
   return [...set].sort();
 }
+
+/**
+ * Subset of {@link computeSleepOverviewFetchDayKeys} that drives the **Sleep Baseline** card
+ * windows only — 7 / 30 / 90 / YTD / 12 Month. Future days (`day > todayDayKey`) are excluded so
+ * the per-window readiness selector in the screen hook doesn't wait on cells the rollup will
+ * future days are excluded — the rollup does not request them.
+ *
+ * Pure helper — no `useMemo`, no Firebase, no API. Caller memoizes.
+ */
+export function computeSleepBaselineFetchDayKeys(todayDayKey: DayKey): DayKey[] {
+  const overviewEnd = getActivityOverviewAnchorEndDay(todayDayKey);
+  const trail = activityTrailingNDaysInclusive(
+    overviewEnd,
+    ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT,
+  );
+  const ytd = activityYtdInclusiveThroughEndDay(todayDayKey);
+  const d7 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_TRAILING_7_DAY_COUNT);
+  const d30 = activityTrailingNDaysInclusive(todayDayKey, ACTIVITY_OVERVIEW_TRAILING_30_DAY_COUNT);
+  const d90 = activityTrailingNDaysInclusive(overviewEnd, 90);
+  const set = new Set<DayKey>([...trail, ...ytd, ...d7, ...d30, ...d90]);
+  return [...set].filter((d) => d <= todayDayKey).sort();
+}

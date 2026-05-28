@@ -44,6 +44,10 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
   const strengthW = (id: string, start: string) => ({
     id,
@@ -62,9 +66,10 @@ jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
       durableTitlesByWorkoutId: {},
       days: [
         {
-          day: "2026-03-08",
-          workouts: [strengthW("prior-week-strength", "2026-03-08T18:00:00.000Z")],
+          day: "2026-03-07",
+          workouts: [strengthW("prior-week-strength", "2026-03-07T18:00:00.000Z")],
         },
+        { day: "2026-03-08", workouts: [] },
         { day: "2026-03-09", workouts: [] },
         {
           day: "2026-03-10",
@@ -211,5 +216,22 @@ describe("Strength overview week slice list", () => {
     expect(iLate).toBeGreaterThan(-1);
     expect(iEarly).toBeLessThan(iLate);
     expect(iLate).toBeLessThan(iBaselineTable);
+  });
+
+  it("Yearly Strength card mounts under Baseline with the seeded 2026 total", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    const iBaseline = json.indexOf("strength-history-summary-card");
+    const iYearly = json.indexOf("workouts-yearly-card");
+    expect(iBaseline).toBeGreaterThan(-1);
+    expect(iYearly).toBeGreaterThan(-1);
+    expect(iBaseline).toBeLessThan(iYearly);
+    expect(json).toContain("2026 Strength");
+    // Three seeded strength sessions in 2026 (prior-week + early-week + later-week).
+    const totalValue = tree.root.findByProps({ testID: "workouts-yearly-total-metric-value" });
+    expect(totalValue.props.children).toBe("3");
   });
 });

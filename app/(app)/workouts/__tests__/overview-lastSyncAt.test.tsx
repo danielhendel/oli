@@ -140,6 +140,10 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: jest.fn(() => ({
     status: "ready",

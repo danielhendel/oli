@@ -11,7 +11,6 @@ import type { AuthedRequest } from "../../middleware/auth";
 import { FieldValue, userCollection, ouraConnectedRegistryDoc } from "../../db";
 import * as ouraSecrets from "../../lib/ouraSecrets";
 import {
-  refreshOuraAccessToken,
   fetchOuraSleep,
   fetchOuraDailyReadiness,
   fetchOuraPersonalInfo,
@@ -46,6 +45,7 @@ import { deriveOuraSyncMetadataFields, isLegacyOuraIntegration } from "./ouraSyn
 import { writeFailure } from "../../lib/writeFailure";
 import { logger } from "../../lib/logger";
 import { publishOuraPostRawJob, getOuraPostRawTopic } from "../../lib/ouraPostRawJob";
+import { refreshOuraTokenSingleFlight } from "../../lib/ouraTokenRefreshSingleFlight";
 
 const router = Router();
 
@@ -181,14 +181,95 @@ export async function performOuraPullNowCore(
 
   let accessToken: string;
   try {
-    const tokens = await refreshOuraAccessToken(refreshToken, clientId, clientSecret);
-    accessToken = tokens.access_token;
-    await ouraSecrets.setRefreshToken(uid, tokens.refresh_token);
-  } catch (err) {
-    const isUnauth = err instanceof OuraApiError && (err.status === 401 || err.code === "OURA_TOKEN_REFRESH_FAILED");
-    if (isUnauth) {
-      await performReconnectCleanupBestEffort(uid, requestId);
+    const outcome = await refreshOuraTokenSingleFlight({
+      uid,
+      requestId,
+      clientId,
+      clientSecret,
+      performReconnectCleanup: performReconnectCleanupBestEffort,
+    });
+
+    if (outcome.kind === "refreshed") {
+      accessToken = outcome.tokens.access_token;
+    } else if (outcome.kind === "no_refresh_token") {
+      logger.error({ msg: "oura_pull_now_no_refresh_token", rid: requestId, uid });
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "oura.pullNow",
+          reasonCode: "OURA_NOT_CONNECTED",
+          message: "No Oura refresh token; connect Oura first",
+          day: toYmd(new Date()),
+          details: {},
+          requestId,
+        });
+      } catch {
+        // best-effort
+      }
+      return {
+        statusCode: 502,
+        body: {
+          ok: false as const,
+          error: {
+            code: "OURA_NOT_CONNECTED" as const,
+            message: "Oura not connected. Connect Oura in Settings first.",
+            requestId,
+          },
+        },
+      };
+    } else if (outcome.kind === "lock_unavailable") {
+      logger.info({
+        msg: "oura_pull_now_token_refresh_busy",
+        rid: requestId,
+        uid,
+        waitedMs: outcome.waitedMs,
+      });
+      return {
+        statusCode: 503,
+        body: {
+          ok: false as const,
+          error: {
+            code: "OURA_TOKEN_REFRESH_BUSY" as const,
+            message: "Another Oura sync is currently refreshing the token. Retry shortly.",
+            requestId,
+          },
+        },
+      };
+    } else {
+      logger.error({
+        msg: "oura_pull_now_token_refresh_failed",
+        rid: requestId,
+        uid,
+        cleanedUp: outcome.cleanedUp,
+      });
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "oura.pullNow",
+          reasonCode: "OURA_TOKEN_REFRESH_FAILED",
+          message: "Oura refresh token rejected (invalid_grant)",
+          day: toYmd(new Date()),
+          details: { cleanedUp: outcome.cleanedUp },
+          requestId,
+        });
+      } catch {
+        // best-effort
+      }
+      return {
+        statusCode: 502,
+        body: {
+          ok: false as const,
+          error: {
+            code: "OURA_FETCH_FAILED" as const,
+            message: "Could not refresh Oura token. Try reconnecting Oura.",
+            requestId,
+          },
+        },
+      };
     }
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ msg: "oura_pull_now_token_refresh_failed", rid: requestId, uid, err: message });
     try {
@@ -756,9 +837,32 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
 
   let accessToken: string;
   try {
-    const tokens = await refreshOuraAccessToken(refreshToken, clientId, clientSecret);
-    accessToken = tokens.access_token;
-    await ouraSecrets.setRefreshToken(uid, tokens.refresh_token);
+    const outcome = await refreshOuraTokenSingleFlight({
+      uid,
+      requestId,
+      clientId,
+      clientSecret,
+      performReconnectCleanup: performReconnectCleanupBestEffort,
+    });
+    if (outcome.kind === "refreshed") {
+      accessToken = outcome.tokens.access_token;
+    } else {
+      const message =
+        outcome.kind === "lock_unavailable"
+          ? `lock_unavailable_waited_${outcome.waitedMs}ms`
+          : outcome.kind === "no_refresh_token"
+            ? "no_refresh_token"
+            : `invalid_grant_cleanup=${outcome.cleanedUp}`;
+      logger.info({ msg: "oura_backfill_token_failed", uid, requestId, err: message });
+      try {
+        await setBackfillRunning();
+        await setBackfillFailed(message);
+      } catch {
+        // best-effort
+      }
+      logger.info({ msg: "oura_backfill_failed", uid, requestId, err: message });
+      return;
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.info({ msg: "oura_backfill_token_failed", uid, requestId, err: message });

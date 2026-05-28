@@ -102,6 +102,23 @@ service cloud.firestore {
       }
 
       // ----------------------------------------------------------
+      // SLEEP NIGHTS (CANONICAL SLEEP TRUTH)
+      //
+      // ❗ Backend-owned. Mobile clients access sleepNights ONLY through
+      //    the Cloud Run API (GET /users/me/sleep-night), which uses the
+      //    Admin SDK and bypasses these rules. Direct client reads and
+      //    writes are denied so that the app cannot construct a parallel
+      //    sleep-aggregation path that bypasses canonical attribution.
+      //
+      //    Today-recovery in the UI calls
+      //      POST /integrations/oura/sleep-day-refresh
+      //    which is the ONLY sanctioned recovery door for today's sleep.
+      // ----------------------------------------------------------
+      match /sleepNights/{anchorDay} {
+        allow read, write: if false;
+      }
+
+      // ----------------------------------------------------------
       // HEALTH SCORES (DERIVED TRUTH — Phase 1.5 Sprint 1)
       //
       // ❗ Backend-only writes; mobile reads derived truth only

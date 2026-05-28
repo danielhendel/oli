@@ -11,7 +11,9 @@ import {
   formatThisWeekCardioDistanceSummary,
   getThisWeekCardioSessions,
   isDisplayableCardioHistorySession,
+  pickBestRepresentativeCardioSessionForDay,
   pickRepresentativeWorkoutForCardioModality,
+  resolveCardioSessionDisplayName,
   sessionsHaveOverlappingTimeWindows,
   sumDisplayableCardioDistanceMilesForWeekEntries,
 } from "@/lib/data/workouts/cardioSessionPresentation";
@@ -22,16 +24,26 @@ import { activityStepTierBarVisual } from "@/lib/utils/activityStepTierVisual";
 function cardioSession(
   id: string,
   day: `${string}-${string}-${string}`,
-  opts: { title?: string; distanceMeters?: number; durationMinutes?: number; hkActivityId?: number },
+  opts: {
+    title?: string;
+    distanceMeters?: number;
+    durationMinutes?: number;
+    hkActivityId?: number;
+    activityName?: string;
+    startIso?: string;
+    endIso?: string;
+  },
 ): ReconciledWorkoutSession {
+  const startIso = opts.startIso ?? `${day}T10:00:00.000Z`;
+  const endIso = opts.endIso ?? `${day}T10:30:00.000Z`;
   return {
     id,
     day,
     sessionType: "cardio",
     title: opts.title ?? "Workout",
     titleSource: "provider",
-    start: `${day}T10:00:00.000Z`,
-    end: `${day}T10:30:00.000Z`,
+    start: startIso,
+    end: endIso,
     durationMinutes: opts.durationMinutes ?? null,
     calories: null,
     sourceSummaries: [],
@@ -39,15 +51,16 @@ function cardioSession(
     workouts: [
       {
         id: `${id}-w`,
-        observedAt: `${day}T10:00:00.000Z`,
+        observedAt: startIso,
         sourceId: "apple_health",
         title: opts.title ?? "Workout",
         workoutType: "cardio",
-        start: `${day}T10:00:00.000Z`,
-        end: `${day}T10:30:00.000Z`,
+        start: startIso,
+        end: endIso,
         durationMinutes: opts.durationMinutes ?? null,
         calories: null,
         ...(opts.distanceMeters != null ? { distanceMeters: opts.distanceMeters } : {}),
+        ...(opts.activityName != null ? { activityName: opts.activityName } : {}),
         ...(opts.hkActivityId != null
           ? { hk: { sourceId: "healthkit", activityId: opts.hkActivityId } }
           : {}),
@@ -342,6 +355,223 @@ describe("cardioSessionPresentation", () => {
 
   it("formats this-week summary in miles", () => {
     expect(formatThisWeekCardioDistanceSummary(5.84)).toBe("5.8 mi this week");
+  });
+
+  describe("cardioModalityLabelFromWorkout — Apple Watch richer labels", () => {
+    it("preserves 'Outdoor Run' from activityName instead of collapsing HK family to 'Running'", () => {
+      const session = cardioSession("outdoor-run", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+        distanceMeters: 5_000,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Outdoor Run");
+    });
+
+    it("preserves 'Indoor Run' over HK Running family collapse", () => {
+      const session = cardioSession("indoor-run", "2026-05-28", {
+        title: "Indoor Run",
+        activityName: "Indoor Run",
+        hkActivityId: 37,
+        distanceMeters: 0,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Indoor Run");
+    });
+
+    it("preserves 'Outdoor Walk' over HK Walking family collapse", () => {
+      const session = cardioSession("outdoor-walk", "2026-05-28", {
+        title: "Outdoor Walk",
+        activityName: "Outdoor Walk",
+        hkActivityId: 52,
+        distanceMeters: 2_000,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Outdoor Walk");
+    });
+
+    it("falls back to 'Running' when activityName is the generic 'Running'", () => {
+      const session = cardioSession("plain-run", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Running");
+    });
+
+    it("falls back to 'Walking' when activityName is the generic 'Walking'", () => {
+      const session = cardioSession("plain-walk", "2026-05-28", {
+        title: "Walking",
+        activityName: "Walking",
+        hkActivityId: 52,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Walking");
+    });
+
+    it("ignores arbitrary user text on title (only qualifier+sport patterns qualify as rich)", () => {
+      const session = cardioSession("custom", "2026-05-28", {
+        title: "Morning Loop",
+        activityName: "Running",
+        hkActivityId: 37,
+      });
+      expect(formatCardioSessionSubtitle(session)).toBe("Running");
+    });
+
+    it("preserves richer label sourced from title when activityName is missing", () => {
+      const session = cardioSession("title-only", "2026-05-28", {
+        title: "Indoor Cycle",
+        hkActivityId: 13,
+      });
+      // `formatWorkoutTitle` normalizes "Indoor Cycle" → "Indoor Cycling" via the well-known
+      // override table; the qualifier-prefixed richer label is preserved either way.
+      expect(formatCardioSessionSubtitle(session)).toBe("Indoor Cycling");
+    });
+  });
+
+  describe("pickBestRepresentativeCardioSessionForDay", () => {
+    it("prefers Running family over Walking family even when Walking has more distance", () => {
+      const walkBig = cardioSession("walk-big", "2026-05-28", {
+        title: "Walking",
+        activityName: "Walking",
+        hkActivityId: 52,
+        distanceMeters: 10_000,
+        startIso: "2026-05-28T08:00:00.000Z",
+        endIso: "2026-05-28T09:30:00.000Z",
+      });
+      const runSmall = cardioSession("run-small", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+        distanceMeters: 2_000,
+        startIso: "2026-05-28T18:00:00.000Z",
+        endIso: "2026-05-28T18:20:00.000Z",
+      });
+      expect(pickBestRepresentativeCardioSessionForDay([walkBig, runSmall])?.id).toBe("run-small");
+    });
+
+    it("returns hero pick even when the Walk session comes first chronologically", () => {
+      const walk = cardioSession("walk-first", "2026-05-28", {
+        title: "Walking",
+        activityName: "Walking",
+        hkActivityId: 52,
+        distanceMeters: 3_000,
+        startIso: "2026-05-28T07:00:00.000Z",
+        endIso: "2026-05-28T07:35:00.000Z",
+      });
+      const run = cardioSession("run-after", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+        distanceMeters: 4_000,
+        startIso: "2026-05-28T17:00:00.000Z",
+        endIso: "2026-05-28T17:30:00.000Z",
+      });
+      expect(pickBestRepresentativeCardioSessionForDay([walk, run])?.id).toBe("run-after");
+    });
+
+    it("prefers the highest-distance session within the same modality family", () => {
+      const runShort = cardioSession("run-short", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+        distanceMeters: 3_000,
+      });
+      const runLong = cardioSession("run-long", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+        distanceMeters: 8_000,
+      });
+      expect(pickBestRepresentativeCardioSessionForDay([runShort, runLong])?.id).toBe("run-long");
+    });
+
+    it("prefers richer Apple Watch labels when modality family ties", () => {
+      const run = cardioSession("run-generic", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+        distanceMeters: 4_000,
+      });
+      const outdoorRun = cardioSession("run-outdoor", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+        distanceMeters: 4_000,
+      });
+      expect(pickBestRepresentativeCardioSessionForDay([run, outdoorRun])?.id).toBe("run-outdoor");
+    });
+
+    it("returns null for an empty list and the only session for a singleton", () => {
+      expect(pickBestRepresentativeCardioSessionForDay([])).toBeNull();
+      const only = cardioSession("only", "2026-05-28", { title: "Walking", hkActivityId: 52 });
+      expect(pickBestRepresentativeCardioSessionForDay([only])?.id).toBe("only");
+    });
+  });
+
+  describe("resolveCardioSessionDisplayName", () => {
+    it("returns the durable / server title override when present (highest priority)", () => {
+      const session = cardioSession("with-durable", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+        distanceMeters: 5_000,
+      });
+      const durable = { [`${session.id}-w`]: "Sunday Long Run" };
+      expect(resolveCardioSessionDisplayName(session, {}, durable)).toBe("Sunday Long Run");
+    });
+
+    it("falls back to AsyncStorage customTitle override when durable is empty", () => {
+      const session = cardioSession("with-async", "2026-05-28", {
+        title: "Running",
+        activityName: "Running",
+        hkActivityId: 37,
+      });
+      const overrides = {
+        [`${session.id}-w`]: {
+          workoutId: `${session.id}-w`,
+          customTitle: "Recovery Jog",
+          updatedAt: "2026-05-28T10:00:00.000Z",
+        },
+      };
+      expect(resolveCardioSessionDisplayName(session, overrides, {})).toBe("Recovery Jog");
+    });
+
+    it("falls back to HK modality label when neither durable nor async override exists", () => {
+      const session = cardioSession("no-override", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+        distanceMeters: 5_000,
+      });
+      expect(resolveCardioSessionDisplayName(session, {}, {})).toBe("Outdoor Run");
+    });
+
+    it("ignores blank / generic overrides and uses the modality label", () => {
+      const session = cardioSession("generic-override", "2026-05-28", {
+        title: "Walking",
+        activityName: "Walking",
+        hkActivityId: 52,
+      });
+      const overrides = {
+        [`${session.id}-w`]: {
+          workoutId: `${session.id}-w`,
+          customTitle: "   ",
+          updatedAt: "2026-05-28T10:00:00.000Z",
+        },
+      };
+      expect(resolveCardioSessionDisplayName(session, overrides, { [`${session.id}-w`]: "workout" })).toBe(
+        "Walking",
+      );
+    });
+
+    it("does not mutate the input session", () => {
+      const session = cardioSession("immutable", "2026-05-28", {
+        title: "Outdoor Run",
+        activityName: "Outdoor Run",
+        hkActivityId: 37,
+      });
+      const before = JSON.stringify(session);
+      resolveCardioSessionDisplayName(session, {}, { [`${session.id}-w`]: "Hill Repeats" });
+      expect(JSON.stringify(session)).toBe(before);
+    });
   });
 
   it("formats weekly distance and minutes with fallbacks", () => {

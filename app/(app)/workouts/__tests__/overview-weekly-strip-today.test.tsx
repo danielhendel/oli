@@ -55,6 +55,10 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready" as const,

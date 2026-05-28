@@ -6,17 +6,14 @@ import type {
   StrengthHistorySummaryModel,
   StrengthHistorySummaryRowLabel,
 } from "@/lib/data/workouts/strengthHistorySummaryModel";
-import { ActivityRatingPill } from "@/lib/ui/activity/ActivityRatingPill";
-import { ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY } from "@/lib/ui/activity/activityUiTypography";
 import {
   dashMetricRowLabelTextStyle,
   dashMetricRowValueTextStyle,
 } from "@/lib/ui/dash/dashMetricRowTextStyle";
+import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
-import { ACTIVITY_STEP_RATING_TIERS } from "@/lib/utils/activityStepRating";
-import { activityStepTierBarVisual } from "@/lib/utils/activityStepTierVisual";
 
 import {
   UI_BORDER_HAIRLINE,
@@ -26,11 +23,20 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
-/** Explainer under the Strength Baseline section title (overview card only). */
+/**
+ * @deprecated Retained for backwards compatibility with any external references. The card no
+ * longer renders this literal — it renders {@link StrengthHistorySummaryModel.personalizedExplainer}
+ * instead. Mirrors the deprecation pattern used for Sleep / Activity baseline cards after their
+ * parity refresh.
+ */
 export const STRENGTH_BASELINE_CARD_EXPLAINER_COPY =
   "Your strength baseline is the average strength workouts across key time ranges.";
 
-/** Context when the user opens the Strength range explainer from a row pill (presentation-only). */
+/**
+ * @deprecated Retained because external consumers may still import the type. The Strength
+ * Baseline card no longer surfaces a per-row range-explainer entry point; the
+ * `strength-range-explainer` route stays reachable directly via its own Stack screen.
+ */
 export type StrengthBaselineTierPillPressContext = {
   rowKey: StrengthHistoryRangeKey;
   rowLabel: StrengthHistorySummaryRowLabel;
@@ -43,11 +49,9 @@ type Props = {
   model: StrengthHistorySummaryModel;
   /** Strength overview → Strength Analytics; omit to hide the header action (e.g. tests). */
   onPressViewMore?: () => void;
-  /** Opens Strength range explainer; omit to render non-interactive pills (e.g. tests). */
-  onPressStrengthRangeExplainer?: (ctx: StrengthBaselineTierPillPressContext) => void;
 };
 
-export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStrengthRangeExplainer }: Props) {
+export function StrengthHistorySummaryCard({ model, onPressViewMore }: Props) {
   return (
     <View style={styles.card} testID="strength-history-summary-card">
       <View style={styles.headerRow}>
@@ -73,61 +77,21 @@ export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStre
       </View>
 
       <Text style={styles.subtitle} testID="strength-history-baseline-explainer">
-        {STRENGTH_BASELINE_CARD_EXPLAINER_COPY}
+        {model.personalizedExplainer}
       </Text>
 
       <View style={styles.rowsWrap} testID="strength-history-metric-groups">
         {model.rows.map((row) => {
-          const chrome = row.tierIndexForBar != null ? ACTIVITY_STEP_RATING_TIERS[row.tierIndexForBar] : null;
-          const visual = activityStepTierBarVisual(row.tierIndexForBar ?? null);
           const fill01 = Math.min(1, Math.max(0, row.progressFill01 ?? 0));
           const pct = Math.round(fill01 * 100);
-          const a11y = row.tierLabel
-            ? `${row.label}. ${row.tierLabel}. ${row.displayValue}.`
-            : `${row.label}. ${row.displayValue}.`;
-          const pillInteractive =
-            onPressStrengthRangeExplainer != null &&
-            row.tierLabel != null &&
-            chrome != null &&
-            row.tierIndexForBar != null;
+          const a11y = `${row.label}. ${row.displayValue}.`;
           return (
             <View key={row.key} style={styles.rowBlock} accessible accessibilityLabel={a11y}>
               <View style={styles.rowTop}>
-                <View style={styles.titlePillLeftGroup}>
+                <View style={styles.titleLeftGroup}>
                   <Text style={[dashMetricRowLabelTextStyle, styles.rowLabel]} numberOfLines={1}>
                     {row.label}
                   </Text>
-                  {row.tierLabel && chrome ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="View strength range explanation"
-                      disabled={!pillInteractive}
-                      onPress={() => {
-                        if (!pillInteractive || row.tierIndexForBar == null || row.tierLabel == null) return;
-                        onPressStrengthRangeExplainer({
-                          rowKey: row.key,
-                          rowLabel: row.label,
-                          tierLabel: row.tierLabel,
-                          averageSessionsPerWeek: row.averageSessionsPerWeek,
-                          tierIndexForBar: row.tierIndexForBar,
-                        });
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                      style={({ pressed }) => [styles.tierPillHit, pressed && pillInteractive && styles.tierPillHitPressed]}
-                      testID={`strength-history-tier-pill-${row.key}`}
-                    >
-                      <ActivityRatingPill
-                        label={row.tierLabel}
-                        color={chrome.color}
-                        backgroundColor={chrome.backgroundColor}
-                        emphasis="subtle"
-                        compactChrome
-                        opticalBaselineNudge={false}
-                        labelTypography={ACTIVITY_OVERVIEW_SUBTLE_PILL_LABEL_TYPOGRAPHY}
-                        testID={`strength-history-tier-${row.key}`}
-                      />
-                    </Pressable>
-                  ) : null}
                 </View>
                 <Text
                   style={row.hasEnoughData ? [dashMetricRowValueTextStyle, styles.rowFigure] : styles.rowNonNumeric}
@@ -143,17 +107,15 @@ export function StrengthHistorySummaryCard({ model, onPressViewMore, onPressStre
                 accessibilityValue={{ now: pct, min: 0, max: 100 }}
                 testID={`strength-history-progress-${row.key}`}
               >
-                {visual != null ? (
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        width: `${pct}%`,
-                        backgroundColor: visual.fillColor,
-                      },
-                    ]}
-                  />
-                ) : null}
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${pct}%`,
+                      backgroundColor: ENERGY_BASELINE_FILL_COLOR,
+                    },
+                  ]}
+                />
               </View>
             </View>
           );
@@ -217,20 +179,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  titlePillLeftGroup: {
+  titleLeftGroup: {
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  tierPillHit: {
-    borderRadius: 12,
-    minHeight: 32,
-    justifyContent: "center",
-  },
-  tierPillHitPressed: {
-    opacity: 0.72,
   },
   rowLabel: {
     flexShrink: 1,

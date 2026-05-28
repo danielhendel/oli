@@ -196,4 +196,19 @@ describe("POST /integrations/oura/revoke", () => {
     expect(ouraSecrets.deleteRefreshToken).toHaveBeenCalledWith("user_123");
     expect(mockSet).toHaveBeenCalled();
   });
+
+  it("returns 200 when refresh token custody was already destroyed (idempotent revoke)", async () => {
+    ouraSecrets.deleteRefreshToken.mockResolvedValue(undefined);
+    const res = await request(app).post("/integrations/oura/revoke");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connected: false,
+        revoked: true,
+        failureState: null,
+      }),
+      { merge: true },
+    );
+  });
 });

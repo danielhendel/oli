@@ -78,6 +78,10 @@ jest.mock("@/lib/workouts/gymRegistry", () => ({
   getGymMenuOptions: () => [],
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
   const actual = jest.requireActual<typeof import("@/lib/data/workouts/useWorkoutsCalendar")>(
     "@/lib/data/workouts/useWorkoutsCalendar",

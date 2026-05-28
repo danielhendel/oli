@@ -251,6 +251,14 @@ export default function AppLayout() {
             }}
           />
           <Stack.Screen
+            name="workouts/strength-today-hr-detail"
+            options={{
+              title: "Avg Heart Rate",
+              presentation: "modal",
+              ...workoutsStackNavigationOptions("detail"),
+            }}
+          />
+          <Stack.Screen
             name="workouts/recent-workouts-full"
             options={{ title: "All strength workouts", ...workoutsStackNavigationOptions("detail") }}
           />

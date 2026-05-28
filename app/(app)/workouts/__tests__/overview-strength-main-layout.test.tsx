@@ -46,6 +46,13 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+// Strength Today calorie + Avg HR rows are sourced from `useDailyEnergyCard(today)`. Mock it
+// inert here so the overview screen renders the rows with graceful "—" placeholders and never
+// fires a real network request during tests (no `useDailyFacts` / `getDailyFacts` paths).
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready" as const,
@@ -181,7 +188,6 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import { STRENGTH_BASELINE_CARD_EXPLAINER_COPY } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
 import { buildWeeklyWorkingSetVolumeRows } from "@/lib/data/workouts/workoutDetailMuscleVolume";
 
 import StrengthTrainingOverviewScreen from "../overview";
@@ -197,29 +203,27 @@ describe("Strength overview main layout", () => {
     mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([]);
   });
 
-  it("renders Program card, then Today card, then This Week, then Strength Baseline table (no standalone baseline card)", async () => {
+  it("renders Today card, then This Week, then Strength Baseline table (no Program card, no standalone baseline card)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
-    const iProgramCard = json.indexOf("strength-program-card");
     const iTodayCard = json.indexOf("strength-today-card");
     const iThisWeek = json.indexOf('"This Week"');
     const iBaselineCard = json.indexOf("strength-history-summary-card");
     const iBaselineHeading = json.indexOf('"Strength Baseline"');
-    expect(iProgramCard).toBeGreaterThan(-1);
     expect(iTodayCard).toBeGreaterThan(-1);
     expect(iBaselineCard).toBeGreaterThan(-1);
     expect(iThisWeek).toBeGreaterThan(-1);
     expect(iBaselineHeading).toBeGreaterThan(-1);
+    expect(json).not.toContain("strength-program-card");
     expect(json).not.toContain("strength-baseline-card-nav");
     expect(json).not.toContain("strength-this-week-frequency-bar");
     expect(json).not.toContain("strength-this-week-rating-pill");
     expect(json).not.toContain("workouts-overview-this-week-row-value-bar");
     expect(json).not.toContain('"Overview"');
     expect(json).not.toContain('"Recent Workouts"');
-    expect(iProgramCard).toBeLessThan(iTodayCard);
     expect(iTodayCard).toBeLessThan(iThisWeek);
     expect(iThisWeek).toBeLessThan(iBaselineCard);
     expect(json).not.toContain("weekly-working-volume-card");
@@ -242,15 +246,30 @@ describe("Strength overview main layout", () => {
     expect(json).toContain("This Week");
     expect(json).not.toContain("No workout logged today");
     expect(json).toContain("No workout today");
+    // Strength Today metrics-first layout: rest state shows the hero but no metric rows.
+    expect(json).toContain("strength-today-hero");
+    expect(json).not.toContain("strength-today-metric-rows");
+    expect(json).not.toContain("strength-today-duration-figure");
     expect(json).toContain("strength-history-progress-thisWeek");
     expect(json).toContain("View More →");
     expect(json).not.toContain("Plan workout");
     expect(json).not.toContain("Log workout");
     expect(json).not.toContain("Create workout");
-    expect(json).toContain(STRENGTH_BASELINE_CARD_EXPLAINER_COPY);
+    // Personalized baseline explainer replaces the static literal.
+    expect(json).toContain("strength baseline");
     expect(json).toContain("strength-history-summary-view-more");
-    expect(json).toContain("View All →");
+    // "View All →" entry point removed from the Strength This Week card; the only remaining
+    // header action in the Strength overview is the baseline "View More →" link.
+    expect(json).not.toContain("View All →");
+    expect(json).not.toContain("strength-recent-week-combined-view-more");
+    expect(json).toContain("workouts-this-week-range-label");
     expect(json).not.toContain("strength-baseline-frequency-legend");
+    // Per-row tier pill entry point removed from baseline card.
+    expect(json).not.toContain("strength-history-tier-pill-");
+    // Yearly card is visibility-gated on current-year having ≥1 completed strength workout.
+    // This fixture seeds zero workouts, so the card must NOT mount.
+    expect(json).not.toContain("workouts-yearly-card");
+    expect(json).not.toContain("2026 Strength");
   });
 
   it("This Week combined card uses the same elevated shell padding as Weekly Working Volume", async () => {
@@ -265,24 +284,12 @@ describe("Strength overview main layout", () => {
     expect(flat.borderRadius).toBe(12);
   });
 
-  it("Strength Baseline tier pill opens strength range explainer with params", async () => {
+  it("Strength Baseline card no longer renders per-row tier pills", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
-    const { push } = workoutsOverviewExpoMocks();
-    const pill = tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" });
-    await act(async () => {
-      pill.props.onPress();
-    });
-    expect(push).toHaveBeenCalledWith({
-      pathname: "/(app)/workouts/strength-range-explainer",
-      params: expect.objectContaining({
-        window: "7 Day",
-        tierBand: expect.any(String),
-        tierLabel: expect.any(String),
-      }),
-    });
+    expect(() => tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" })).toThrow();
   });
 
   it("Strength Baseline View More navigates to Strength Analytics", async () => {
@@ -321,7 +328,7 @@ describe("Strength overview main layout", () => {
     void tree;
   });
 
-  it("renders Weekly Working Volume between This Week and Strength Baseline when working rows exist", async () => {
+  it("renders Weekly Volume between This Week and Strength Baseline when working rows exist", async () => {
     mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([{ muscleGroup: "chest", setCount: 4 }]);
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -332,22 +339,89 @@ describe("Strength overview main layout", () => {
     const iWeeklyVolume = json.indexOf("weekly-working-volume-card");
     const iBaselineCard = json.indexOf("strength-history-summary-card");
     expect(iWeeklyVolume).toBeGreaterThan(-1);
-    expect(json).toContain("Volume per Muscle Group");
+    expect(json).toContain("Weekly Volume");
+    expect(json).not.toContain("Volume per Muscle Group");
     expect(json).not.toContain("Weekly Working Volume");
     expect(json).toContain("weekly-working-volume-chest");
+    // Nav cluster present; static "This Week" subtitle replaced by the range label.
+    expect(json).toContain("weekly-working-volume-range-label");
+    expect(json).not.toContain("weekly-working-volume-subtitle");
+    // Forward chevron disabled on default current-week mount.
+    const nextChevron = tree.root.findByProps({ testID: "weekly-working-volume-nav-next" });
+    expect(nextChevron.props.disabled).toBe(true);
     expect(iThisWeek).toBeLessThan(iWeeklyVolume);
     expect(iWeeklyVolume).toBeLessThan(iBaselineCard);
   });
 
-  it("combined card header View More navigates to All Strength Workouts", async () => {
+  it("Weekly Volume previous-week press leaves This Week range label and WeeklyStrip selected day unchanged", async () => {
+    mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([{ muscleGroup: "chest", setCount: 4 }]);
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
     });
-    const footer = tree.root.findByProps({ testID: "strength-recent-week-combined-view-more" });
+    const volumeLabelBefore = tree.root.findByProps({ testID: "weekly-working-volume-range-label" })
+      .props.children as string;
+    const thisWeekLabelBefore = tree.root.findByProps({ testID: "workouts-this-week-range-label" })
+      .props.children as string;
+    const previous = tree.root.findByProps({ testID: "weekly-working-volume-nav-previous" });
+    expect(previous.props.disabled).toBe(false);
     await act(async () => {
-      footer.props.onPress();
+      previous.props.onPress();
     });
-    expect(workoutsOverviewExpoMocks().push).toHaveBeenCalledWith("/(app)/workouts/recent-workouts-full");
+    const volumeLabelAfter = tree.root.findByProps({ testID: "weekly-working-volume-range-label" })
+      .props.children as string;
+    const thisWeekLabelAfter = tree.root.findByProps({ testID: "workouts-this-week-range-label" })
+      .props.children as string;
+    expect(volumeLabelAfter).not.toBe(volumeLabelBefore);
+    // State isolation: This Week navigator must not move when Volume navigates.
+    expect(thisWeekLabelAfter).toBe(thisWeekLabelBefore);
+    // Forward enables after leaving the current volume week.
+    const next = tree.root.findByProps({ testID: "weekly-working-volume-nav-next" });
+    expect(next.props.disabled).toBe(false);
+  });
+
+  it("This Week card next-week chevron is disabled on the default current-week mount", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const next = tree.root.findByProps({ testID: "workouts-this-week-nav-next" });
+    expect(next.props.disabled).toBe(true);
+    expect(next.props.accessibilityState).toEqual({ disabled: true });
+  });
+
+  it("This Week card previous-week chevron navigates the displayed week back by 7 days", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const initialLabel = tree.root.findByProps({ testID: "workouts-this-week-range-label" })
+      .props.children as string;
+    const previous = tree.root.findByProps({ testID: "workouts-this-week-nav-previous" });
+    expect(previous.props.disabled).toBe(false);
+    await act(async () => {
+      previous.props.onPress();
+    });
+    const updatedLabel = tree.root.findByProps({ testID: "workouts-this-week-range-label" })
+      .props.children as string;
+    expect(typeof updatedLabel).toBe("string");
+    expect(updatedLabel).not.toBe(initialLabel);
+    // Forward should now be enabled because we've left the current week.
+    const next = tree.root.findByProps({ testID: "workouts-this-week-nav-next" });
+    expect(next.props.disabled).toBe(false);
+    expect(next.props.accessibilityState).toEqual({ disabled: false });
+  });
+
+  it("Strength Baseline progress bars on the Strength overview use the shared Oli blue fill", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    // Strength Baseline rows render the shared blue fill (#4F7CFF), same as Activity/Sleep baseline.
+    expect(json).toContain("#4F7CFF");
+    // Old strength tier fills (saturated green / orange) must not appear on the Strength overview.
+    expect(json.toLowerCase()).not.toContain("#4deb7a");
+    expect(json.toLowerCase()).not.toContain("#ffb347");
   });
 });

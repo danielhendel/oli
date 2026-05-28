@@ -52,7 +52,7 @@ jest.mock("@/lib/data/sleep/useSleepOverviewScreenData", () => ({
 }));
 
 jest.mock("@/lib/ui/ModuleScreenShell", () => {
-  const React = require("react");
+  const ReactMock = require("react");
   const { View } = require("react-native");
   return {
     ModuleScreenShell: ({
@@ -62,9 +62,9 @@ jest.mock("@/lib/ui/ModuleScreenShell", () => {
       children: React.ReactNode;
       headerContent?: React.ReactNode;
     }) =>
-      React.createElement(
+      ReactMock.createElement(
         View,
-        null,
+        { testID: "module-screen-shell", "data-has-header-content": headerContent != null },
         headerContent ?? null,
         children,
       ),
@@ -74,31 +74,65 @@ jest.mock("@/lib/ui/ModuleScreenShell", () => {
 import { useSleepOverviewScreenData } from "@/lib/data/sleep/useSleepOverviewScreenData";
 import SleepScreen from "../sleep";
 
+const sleepTodayDetailReady = {
+  status: "ready" as const,
+  day: "2026-04-06",
+  headlineWithUnit: "7h 0m Sleep",
+  model: {
+    day: "2026-04-06",
+    headlineValueText: "7h 0m",
+    scoreValueText: "82",
+    ratingLabel: "Good",
+    ratingTone: "good" as const,
+    summarySentence: "Sleep duration and efficiency look solid for this day.",
+    metricRows: [
+      { id: "deep_sleep", label: "Deep sleep", value: "1h 35m", detail: { title: "Deep sleep", value: "1h 35m", body: "" } },
+      { id: "rem_sleep", label: "REM sleep", value: "1h 40m", detail: { title: "REM sleep", value: "1h 40m", body: "" } },
+      { id: "sleep_efficiency", label: "Sleep efficiency", value: "91%", detail: { title: "Sleep efficiency", value: "91%", body: "" } },
+      { id: "lowest_heart_rate", label: "Lowest heart rate", value: "52 bpm", detail: { title: "Lowest heart rate", value: "52 bpm", body: "" } },
+      { id: "average_hrv", label: "Average HRV", value: "48 ms", detail: { title: "Average HRV", value: "48 ms", body: "" } },
+    ],
+    hasAnySignal: true,
+    emptyStateTitle: null,
+    emptyStateSubtitle: null,
+    lastNightSubtitle: "Last night\u2019s sleep",
+  },
+};
+
+const sleepBaselineVm = {
+  rows: [
+    {
+      key: "day7",
+      label: "7 Day",
+      hasEnoughData: true,
+      averageMinutes: 420,
+      displayValue: "7h/night",
+      statusLabel: "Good",
+      statusColor: "#248A3D",
+      statusBackgroundColor: "#F0F8F4",
+      progressFill01: 0.875,
+    },
+    {
+      key: "day90",
+      label: "90 Day",
+      hasEnoughData: true,
+      averageMinutes: 430,
+      displayValue: "7h 10m/night",
+      statusLabel: "Good",
+      statusColor: "#248A3D",
+      statusBackgroundColor: "#F0F8F4",
+      progressFill01: 0.89,
+    },
+  ],
+  personalizedExplainer:
+    "Your 90-day sleep baseline is 7h 10m/night, which puts you in the Good range. Over the past 7 completed nights, you're averaging 7h/night — about 2% below your baseline.",
+};
+
 const defaultOverviewData = {
   user: { uid: "u1" },
   initializing: false,
   todayDayKey: "2026-04-06",
-  weeklyStripDays: [
-    { day: "2026-04-05", meta: { hasOuraSnapshot: false } },
-    { day: "2026-04-06", meta: { hasOuraSnapshot: true } },
-    { day: "2026-04-07", meta: { hasOuraSnapshot: true } },
-    { day: "2026-04-08", meta: { hasOuraSnapshot: false } },
-    { day: "2026-04-09", meta: { hasOuraSnapshot: false } },
-    { day: "2026-04-10", meta: { hasOuraSnapshot: false } },
-    { day: "2026-04-11", meta: { hasOuraSnapshot: false } },
-  ],
-  sleepTodayVm: {
-    selectedDay: "2026-04-06",
-    loading: false,
-    durationText: "7h 0m",
-    statusPill: {
-      label: "Good" as const,
-      color: "#248A3D",
-      backgroundColor: "#F0F8F4",
-    },
-    subtitle: "Completed sleep from last night.",
-    compactStatsSummaryForA11y: "7h 0m",
-  },
+  sleepTodayDetailVm: sleepTodayDetailReady,
   weeklySleepVm: {
     chartPoints: [
       { dayKey: "2026-04-05", displayLabel: "S", value: 0, isFutureDay: false },
@@ -113,27 +147,20 @@ const defaultOverviewData = {
     weeklyAverageText: "7h 0m",
     isEmpty: false,
   },
-  sleepBaselineVm: {
-    rows: [
-      {
-        key: "day7",
-        label: "7 Day",
-        hasEnoughData: true,
-        averageMinutes: 420,
-        displayValue: "7h/night",
-        statusLabel: "Good",
-        statusColor: "#248A3D",
-        statusBackgroundColor: "#F0F8F4",
-        progressFill01: 0.875,
-      },
-    ],
-  },
+  sleepBaselineVm,
   weeklySleepLoading: false,
+  baselineLoading: false,
   refetchSleepRollup: jest.fn(),
-  refetchWeekStrip: jest.fn(),
+  selectedWeekAnchorDay: "2026-04-05",
+  setSelectedWeekAnchorDay: jest.fn(),
+  sleepThisWeekRangeLabel: "Apr 5\u201311",
+  sleepThisWeekCanGoPrevious: true,
+  sleepThisWeekCanGoNext: false,
+  onPressSleepPreviousWeek: jest.fn(),
+  onPressSleepNextWeek: jest.fn(),
 };
 
-describe("SleepScreen", () => {
+describe("SleepScreen (Activity-parity layout)", () => {
   beforeEach(() => {
     mockRouterPush.mockClear();
     mockPullToRefreshSleep.mockClear();
@@ -166,7 +193,23 @@ describe("SleepScreen", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/recovery/sleep/settings");
   });
 
-  it("renders Today, This Week's Sleep, and Sleep Baseline cards", async () => {
+  it("does not render the weekly calendar strip but preserves the day-selection signal", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).not.toContain("sleep-weekly-");
+    expect(str).not.toContain("testIDPrefix");
+
+    const lastSelectedDay = jest
+      .mocked(useSleepOverviewScreenData)
+      .mock.calls.at(-1)?.[0];
+    expect(lastSelectedDay).toBe("2026-04-06");
+  });
+
+  it("renders Today, This Week's Sleep, and Sleep Baseline cards (Activity parity)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<SleepScreen />);
@@ -174,37 +217,23 @@ describe("SleepScreen", () => {
     });
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain("sleep-today-card");
-    expect(str).toContain("Today");
-    expect(str).toContain("7h 0m");
+    expect(str).toContain("sleep-today-hero-metric");
+    expect(str).toContain("7h 0m Sleep");
     expect(str).toContain("sleep-this-week-card");
-    expect(str).toContain("This Week");
+    expect(str).toContain("sleep-this-week-range-label");
+    expect(str).toContain("Apr 5");
     expect(str).toContain("sleep-baseline-card");
-    expect(str).toContain("Sleep Baseline");
-    expect(str).not.toContain("View All");
+    expect(str).toContain("sleep-baseline-explainer");
+    expect(str).toContain("90-day sleep baseline");
   });
 
-  it("weekly strip marks days that have snapshot presence", async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<SleepScreen />);
-      await Promise.resolve();
-    });
-    const str = JSON.stringify(tree!.toJSON());
-    expect(str).toContain("sleep-weekly-ring-2026-04-06");
-    expect(str).toContain("sleep-weekly-ring-2026-04-07");
-    expect(str).not.toContain("sleep-weekly-ring-2026-04-05");
-  });
-
-  it("Today card shows empty state when no completed sleep", async () => {
+  it("Today card renders the missing copy when the detail VM is missing", async () => {
     jest.mocked(useSleepOverviewScreenData).mockReturnValue({
       ...defaultOverviewData,
-      sleepTodayVm: {
-        selectedDay: "2026-04-06",
-        loading: false,
-        durationText: null,
-        statusPill: null,
-        subtitle: "No completed sleep found for this day.",
-        compactStatsSummaryForA11y: "No completed sleep",
+      sleepTodayDetailVm: {
+        status: "missing",
+        day: "2026-04-06",
+        message: "No completed sleep found for this day.",
       },
     });
     let tree!: renderer.ReactTestRenderer;
@@ -214,5 +243,108 @@ describe("SleepScreen", () => {
     });
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain("No completed sleep found for this day.");
+    expect(str).not.toContain("7h 0m Sleep");
+  });
+
+  it("Today card refreshes from missing → ready when the rollup arrives later", async () => {
+    jest.mocked(useSleepOverviewScreenData).mockReturnValue({
+      ...defaultOverviewData,
+      sleepTodayDetailVm: {
+        status: "missing",
+        day: "2026-04-06",
+        message: "No completed sleep found for this day.",
+      },
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    let str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("No completed sleep found for this day.");
+
+    jest.mocked(useSleepOverviewScreenData).mockReturnValue(defaultOverviewData);
+    await act(async () => {
+      tree.update(<SleepScreen />);
+      await Promise.resolve();
+    });
+    str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("7h 0m Sleep");
+
+    const lastSelectedDay = jest
+      .mocked(useSleepOverviewScreenData)
+      .mock.calls.at(-1)?.[0];
+    expect(lastSelectedDay).toBe("2026-04-06");
+  });
+
+  it("respects a deep-linked historical day from route params", async () => {
+    mockUseLocalSearchParams.mockReturnValue({ day: "2026-04-02" });
+    jest.mocked(useSleepOverviewScreenData).mockReturnValue({
+      ...defaultOverviewData,
+      sleepTodayDetailVm: {
+        status: "missing",
+        day: "2026-04-02",
+        message: "No completed sleep found for this day.",
+      },
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    void tree;
+    const lastSelectedDay = jest
+      .mocked(useSleepOverviewScreenData)
+      .mock.calls.at(-1)?.[0];
+    expect(lastSelectedDay).toBe("2026-04-02");
+  });
+
+  it("wires the This Week navigator handlers to the hook", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const previous = tree.root.findByProps({ testID: "sleep-this-week-nav-previous" });
+    await act(async () => {
+      previous.props.onPress();
+    });
+    expect(defaultOverviewData.onPressSleepPreviousWeek).toHaveBeenCalled();
+  });
+
+  it("renders Today and Weekly cards while the baseline is still hydrating", async () => {
+    jest.mocked(useSleepOverviewScreenData).mockReturnValue({
+      ...defaultOverviewData,
+      baselineLoading: true,
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("sleep-today-hero-metric");
+    expect(str).toContain("7h 0m Sleep");
+    expect(str).toContain("sleep-this-week-card");
+    expect(str).toContain("sleep-baseline-loading-subtitle");
+    expect(str).toContain("Calculating sleep baseline");
+    expect(str).not.toContain("sleep-baseline-explainer");
+  });
+
+  it("renders Today even when the weekly nav-week hasn't finished settling", async () => {
+    jest.mocked(useSleepOverviewScreenData).mockReturnValue({
+      ...defaultOverviewData,
+      weeklySleepLoading: true,
+      baselineLoading: true,
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<SleepScreen />);
+      await Promise.resolve();
+    });
+    const str = JSON.stringify(tree!.toJSON());
+    expect(str).toContain("sleep-today-hero-metric");
+    expect(str).toContain("7h 0m Sleep");
+    expect(str).toContain("Loading sleep");
   });
 });
