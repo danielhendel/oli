@@ -36,6 +36,31 @@ describe("runSleepPullToRefresh", () => {
     expect(refetchWeekStrip).toHaveBeenCalled();
   });
 
+  it("does not report vendor sync when sleep-day-refresh returns 404", async () => {
+    mockPostOuraSleepDayRefresh.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      requestId: null,
+      error: "not found",
+      kind: "http",
+    });
+    const refetchSleep = jest.fn().mockResolvedValue(undefined);
+    const refetchWeekStrip = jest.fn().mockResolvedValue(undefined);
+    const getIdToken = jest.fn().mockResolvedValue("token");
+
+    const out = await runSleepPullToRefresh({
+      selectedDay: "2026-04-06",
+      todayDayKey: "2026-04-06",
+      getIdToken,
+      refetchSleep,
+      refetchWeekStrip,
+    });
+
+    expect(out.didVendorSyncAndRecompute).toBe(false);
+    expect(mockPostOuraSleepDayRefresh).toHaveBeenCalled();
+    expect(refetchSleep).toHaveBeenCalled();
+  });
+
   it("skips vendor sync for a historical day", async () => {
     const refetchSleep = jest.fn().mockResolvedValue(undefined);
     const refetchWeekStrip = jest.fn().mockResolvedValue(undefined);

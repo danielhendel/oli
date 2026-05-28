@@ -40,6 +40,10 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready" as const,
@@ -228,7 +232,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 import CardioOverviewScreen from "@/app/(app)/cardio/index";
-import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import { formatWeekdayUpperFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
 
 describe("Cardio overview baseline layout", () => {
   beforeEach(() => {
@@ -236,36 +240,46 @@ describe("Cardio overview baseline layout", () => {
     cardioOverviewExpoMocks().setOptions.mockClear();
   });
 
-  it("renders Today first, This Week, Cardio Baseline history (no top baseline card, no weekly mi banner)", async () => {
+  it("renders Today first, This Week navigator, Weekly Distance/Duration cards, then refreshed Cardio Baseline", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<CardioOverviewScreen />);
     });
     const json = JSON.stringify(tree.toJSON());
 
+    // Ordering: Today → This Week → Weekly Distance → Weekly Duration → Cardio Baseline.
     expect(json.indexOf("Today")).toBeLessThan(json.indexOf("This Week"));
+    expect(json.indexOf("This Week")).toBeLessThan(json.indexOf("Weekly Distance"));
+    expect(json.indexOf("Weekly Distance")).toBeLessThan(json.indexOf("Weekly Duration"));
+    expect(json.indexOf("Weekly Duration")).toBeLessThan(json.indexOf("Cardio Baseline"));
 
+    // Deprecated baseline pill chrome and weekly mi banner are gone.
     expect(json).not.toContain("cardio-baseline-card-nav");
     expect(json).not.toContain("cardio-baseline-frequency-bar");
     expect(json).not.toContain("mi this week");
+    expect(json).not.toContain("cardio-baseline-frequency-legend");
+    // Tier pills are no longer rendered on the overview baseline card.
+    expect(json).not.toContain("cardio-history-tier-pill-thisWeek");
 
+    // Today card mounts and presents the rest-state hero.
     expect(json).toContain("cardio-today-card");
     expect(json).toContain("No cardio today");
 
+    // Cardio Baseline section is present with the refreshed (non-deprecated) explainer.
     expect(json).toContain("Cardio Baseline");
-    expect(json).toContain("Your cardio baseline is the average cardio distance across key time ranges.");
+    expect(json).not.toContain(
+      "Your cardio baseline is the average cardio distance across key time ranges.",
+    );
     expect(json).toContain("View More →");
-
     expect(json.indexOf("Cardio Baseline")).toBeLessThan(json.indexOf("7 Day"));
-    expect(json).toContain("This Week");
+
+    // Baseline rows are still present.
     expect(json).toContain("7 Day");
     expect(json).toContain("30 Day");
     expect(json).toContain("90 Day");
     expect(json).toContain("YTD");
     expect(json).toContain("12 Month");
     expect(json).toContain("mi per week");
-    expect(json).not.toContain("min/wk");
-    expect(json).toContain("cardio-history-tier-pill-thisWeek");
     expect(json).toContain("cardio-history-progress-thisWeek");
     expect(json).toContain("cardio-history-progress-day30");
     expect(json).toContain("cardio-history-progress-day90");
@@ -274,44 +288,37 @@ describe("Cardio overview baseline layout", () => {
     expect(json).toContain("Data will appear when enough history is available");
     expect(json).toContain("—");
 
-    expect(json).not.toContain("Recent cardio sessions");
-    const labelSun = formatWeekdayFullFromDayKey("2026-03-08");
-    const labelTue = formatWeekdayFullFromDayKey("2026-03-10");
-    const labelWed = formatWeekdayFullFromDayKey("2026-03-11");
+    // This Week card now uses the strength-style row layout (uppercase weekday label + metadata).
+    const labelSun = formatWeekdayUpperFromDayKey("2026-03-08");
+    const labelTue = formatWeekdayUpperFromDayKey("2026-03-10");
+    const labelWed = formatWeekdayUpperFromDayKey("2026-03-11");
     expect(json).toContain(labelSun);
     expect(json).toContain(labelTue);
     expect(json).toContain(labelWed);
     expect(json.indexOf(labelSun)).toBeLessThan(json.indexOf(labelTue));
     expect(json.indexOf(labelTue)).toBeLessThan(json.indexOf(labelWed));
     expect(json).toContain("3.08 mi / 31 min");
-    expect(json).toContain("workouts-overview-this-week-row-value-bar");
-    expect(json).toContain("31 min");
-    expect(json).toContain("3.08 mi");
+    // Strength-style row + week navigator chrome. Row testIDs are session-scoped
+    // (e.g. `workouts-overview-this-week-row-2026-03-11:session:0:c1`).
+    expect(json).toMatch(/workouts-overview-this-week-row-2026-03-11:session:\d+:c1/);
+    expect(json).toContain("workouts-this-week-nav-previous");
+    expect(json).toContain("workouts-this-week-nav-next");
+    // No "View All" link on the new This Week card (moved to Cardio Baseline → View More).
+    expect(json).not.toContain("View All →");
 
     expect(json).not.toContain("undefined");
-    expect(json).not.toContain('"children":["2026"]');
-
-    expect(json).not.toContain("cardio-baseline-frequency-legend");
   });
 
-  it("Cardio Baseline tier pill opens cardio range explainer", async () => {
+  it("Cardio Baseline View More navigates to analytics detail", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<CardioOverviewScreen />);
     });
     const { push } = cardioOverviewExpoMocks();
-    const pill = tree.root.findByProps({ testID: "cardio-history-tier-pill-thisWeek" });
+    const viewMore = tree.root.findByProps({ testID: "cardio-history-summary-view-more" });
     await act(async () => {
-      pill.props.onPress();
+      viewMore.props.onPress();
     });
-    expect(push).toHaveBeenCalledWith({
-      pathname: "/(app)/cardio/cardio-range-explainer",
-      params: expect.objectContaining({
-        window: "7 Day",
-        tierIndex: expect.any(String),
-        tierLabel: expect.any(String),
-        displayValue: expect.any(String),
-      }),
-    });
+    expect(push).toHaveBeenCalledWith("/(app)/cardio/analytics-detail");
   });
 });

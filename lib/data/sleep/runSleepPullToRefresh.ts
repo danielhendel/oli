@@ -8,7 +8,12 @@ export type SleepPullToRefreshDeps = {
   todayDayKey?: string;
   getIdToken: (forceRefresh: boolean) => Promise<string | null>;
   refetchSleep: (opts?: TruthGetOptions) => void | Promise<void>;
-  refetchWeekStrip: () => void | Promise<void>;
+  /**
+   * Optional. Previously triggered the weekly-strip presence map, which the Sleep page no longer
+   * renders. Kept here so other surfaces (calendar, recovery) can still pass a refresher; the
+   * Sleep overview screen omits it.
+   */
+  refetchWeekStrip?: () => void | Promise<void>;
 };
 
 /**
@@ -27,17 +32,20 @@ export async function runSleepPullToRefresh(deps: SleepPullToRefreshDeps): Promi
     if (token) {
       didVendorSyncAndRecompute = true;
       const idem = `sleep-day-refresh:${deps.selectedDay}:${bust}`;
-      await postOuraSleepDayRefresh(
+      const refreshRes = await postOuraSleepDayRefresh(
         token,
         { day: deps.selectedDay },
         { idempotencyKey: idem, timeoutMs: 120_000, noStore: true },
       );
+      if (!refreshRes.ok) {
+        didVendorSyncAndRecompute = false;
+      }
     }
   }
 
   await Promise.all([
-    deps.refetchSleep({ cacheBust: `sleep:pull:${bust}` }),
-    deps.refetchWeekStrip(),
+    Promise.resolve(deps.refetchSleep({ cacheBust: `sleep:pull:${bust}` })),
+    deps.refetchWeekStrip ? Promise.resolve(deps.refetchWeekStrip()) : Promise.resolve(),
   ]);
 
   return { didVendorSyncAndRecompute };

@@ -39,7 +39,89 @@ export type CardioHistorySummaryRow = {
 
 export type CardioHistorySummaryModel = {
   rows: readonly CardioHistorySummaryRow[];
+  /**
+   * Personalized 1–2 sentence sub-headline for the Cardio Baseline card. Mirrors the same
+   * pattern shipped on the Strength / Activity / Sleep baseline cards: the 90 Day row is the
+   * baseline and the 7 Day row is the recent trend vs that baseline. Falls back to a generic
+   * but still useful sentence when 90 Day coverage is insufficient. Computed in
+   * {@link buildCardioBaselineExplainerCopy}.
+   */
+  personalizedExplainer: string;
 };
+
+/**
+ * Fallback explainer used when the 90 Day cardio baseline isn't ready yet. Generic but
+ * still useful — keeps the same dark-theme typography slot filled and explains what the
+ * section will show once history fills in. Exported so tests don't duplicate the literal.
+ */
+export const CARDIO_BASELINE_GENERIC_EXPLAINER =
+  "Your cardio baseline shows your typical miles per week once 90 days of cardio history are available.";
+
+/** Compact prose form for the explainer (e.g. `"4.2 mi/week"`). */
+function formatCardioMilesPerWeekWords(avgMilesPerWeek: number): string {
+  return `${avgMilesPerWeek.toFixed(1)} mi/week`;
+}
+
+/**
+ * Compute the rounded percent difference of `day7Avg` vs the `day90Avg` baseline. Returns
+ * `null` when the baseline is unusable (non-finite or ≤ 0). Mirrors the strength/activity/sleep
+ * sibling helpers byte-for-byte.
+ */
+export function computeCardioBaselineSevenDayTrendPct(
+  day7Avg: number,
+  day90Avg: number,
+): number | null {
+  if (!Number.isFinite(day7Avg) || !Number.isFinite(day90Avg) || day90Avg <= 0) {
+    return null;
+  }
+  const pct = ((day7Avg - day90Avg) / day90Avg) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return Math.round(pct);
+}
+
+/**
+ * Pure helper — derives the personalized explainer copy from the existing 90 Day baseline
+ * row and the 7 Day trailing average. No new data sources.
+ */
+export function buildCardioBaselineExplainerCopy(input: {
+  day90Row: CardioHistorySummaryRow | null;
+  day7Row: CardioHistorySummaryRow | null;
+}): string {
+  const { day90Row, day7Row } = input;
+  if (
+    day90Row == null ||
+    !day90Row.hasEnoughData ||
+    day90Row.averageMilesPerWeek == null ||
+    !Number.isFinite(day90Row.averageMilesPerWeek) ||
+    day90Row.averageMilesPerWeek <= 0
+  ) {
+    return CARDIO_BASELINE_GENERIC_EXPLAINER;
+  }
+
+  const day90Avg = day90Row.averageMilesPerWeek;
+  const baselineSentence = `Your 90-day cardio baseline is ${formatCardioMilesPerWeekWords(day90Avg)}.`;
+
+  if (
+    day7Row == null ||
+    !day7Row.hasEnoughData ||
+    day7Row.averageMilesPerWeek == null ||
+    !Number.isFinite(day7Row.averageMilesPerWeek)
+  ) {
+    return baselineSentence;
+  }
+
+  const day7Avg = day7Row.averageMilesPerWeek;
+  const pct = computeCardioBaselineSevenDayTrendPct(day7Avg, day90Avg);
+  if (pct == null) return baselineSentence;
+
+  const seven = formatCardioMilesPerWeekWords(day7Avg);
+  if (pct === 0) {
+    return `${baselineSentence} Over the past 7 completed days, you're averaging ${seven} — about the same as your baseline.`;
+  }
+  const direction = pct > 0 ? "above" : "below";
+  const magnitude = Math.abs(pct);
+  return `${baselineSentence} Over the past 7 completed days, you're averaging ${seven} — about ${magnitude}% ${direction} your baseline.`;
+}
 
 function trailingCalendarDaysThroughToday(todayDayKey: DayKey, dayCount: number): { rangeStart: DayKey; rangeEnd: DayKey } {
   const keys = activityTrailingNDaysInclusive(todayDayKey, dayCount);
@@ -179,5 +261,11 @@ export function buildCardioHistorySummaryModel(input: {
     }),
   ];
 
-  return { rows };
+  return {
+    rows,
+    personalizedExplainer: buildCardioBaselineExplainerCopy({
+      day90Row: rows.find((r) => r.key === "day90") ?? null,
+      day7Row: rows.find((r) => r.key === "thisWeek") ?? null,
+    }),
+  };
 }

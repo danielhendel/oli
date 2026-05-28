@@ -89,6 +89,10 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => {
   const actual = jest.requireActual("@/lib/data/workouts/useWorkoutsCalendar");
   return {

@@ -7,7 +7,11 @@ import { runSleepPullToRefresh } from "@/lib/data/sleep/runSleepPullToRefresh";
 export function useSleepPullToRefresh(args: {
   selectedDay: string;
   refetchSleep: (opts?: TruthGetOptions) => void | Promise<void>;
-  refetchWeekStrip: () => void | Promise<void>;
+  /**
+   * Optional. The Sleep overview screen no longer renders the weekly presence strip, so it omits
+   * this. Other surfaces that still consume strip presence may pass it.
+   */
+  refetchWeekStrip?: () => void | Promise<void>;
 }): { pullToRefreshSleep: () => Promise<{ didVendorSyncAndRecompute: boolean }> } {
   const { getIdToken } = useAuth();
   const { selectedDay, refetchSleep, refetchWeekStrip } = args;
@@ -17,7 +21,7 @@ export function useSleepPullToRefresh(args: {
       selectedDay,
       getIdToken,
       refetchSleep,
-      refetchWeekStrip,
+      ...(refetchWeekStrip != null ? { refetchWeekStrip } : {}),
     });
   }, [selectedDay, getIdToken, refetchSleep, refetchWeekStrip]);
 

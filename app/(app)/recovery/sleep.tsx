@@ -1,23 +1,18 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { StyleSheet, View, RefreshControl } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
 import { useSleepOverviewScreenData } from "@/lib/data/sleep/useSleepOverviewScreenData";
 import { useSleepPullToRefresh } from "@/lib/data/useSleepPullToRefresh";
-import { pickLatestSleepWeekDayWithPresence } from "@/lib/data/sleep/pickLatestSleepWeekDayWithPresence";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
-import {
-  WORKOUTS_HEADER_TITLE_COLOR,
-  workoutsStackNavigationOptions,
-} from "@/lib/ui/headers/workoutsStackHeader";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
-import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStrip";
 import { SleepBaselineCard } from "@/lib/ui/sleep/SleepBaselineCard";
 import { SleepThisWeekCard } from "@/lib/ui/sleep/SleepThisWeekCard";
 import { SleepTodayCard } from "@/lib/ui/sleep/SleepTodayCard";
-import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 function parseDayRouteParam(raw: string | string[] | undefined): string | null {
   const v = Array.isArray(raw) ? raw[0] : raw;
@@ -30,44 +25,20 @@ export default function SleepScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ day?: string | string[] }>();
   const dayFromRoute = parseDayRouteParam(params.day);
+  /**
+   * `selectedDay` continues to drive the Today card + today-recovery flow even though the weekly
+   * strip is no longer rendered on this screen (Activity-parity layout). The route param
+   * (`/recovery/sleep?day=YYYY-MM-DD`) still wins so deep-links keep working; otherwise we anchor
+   * on today's local day.
+   */
   const [selectedDay, setSelectedDay] = useState(() => dayFromRoute ?? getTodayDayKeyLocal());
-  const userPinnedSelectedDayRef = useRef(dayFromRoute != null);
 
   useEffect(() => {
     const d = parseDayRouteParam(params.day);
-    if (d != null) {
-      userPinnedSelectedDayRef.current = true;
-      setSelectedDay(d);
-    }
+    if (d != null) setSelectedDay(d);
   }, [params.day]);
 
   const data = useSleepOverviewScreenData(selectedDay);
-  const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
-
-  const weekPresenceFingerprint = useMemo(() => {
-    if (data.weeklyStripDays.length === 0) return "";
-    return data.weeklyStripDays
-      .map((d) => `${d.day}:${d.meta?.hasOuraSnapshot === true ? 1 : 0}`)
-      .join("|");
-  }, [data.weeklyStripDays]);
-
-  useEffect(() => {
-    if (userPinnedSelectedDayRef.current) return;
-    if (weekPresenceFingerprint.length === 0) return;
-    const map = Object.fromEntries(
-      data.weeklyStripDays.map((d) => [d.day, d.meta?.hasOuraSnapshot === true]),
-    );
-    if (map[selectedDay] === true) return;
-    const pivot = pickLatestSleepWeekDayWithPresence(weekDayKeys, map);
-    if (pivot != null && pivot !== selectedDay) {
-      setSelectedDay(pivot);
-    }
-  }, [weekPresenceFingerprint, data.weeklyStripDays, selectedDay, weekDayKeys]);
-
-  const onStripDayPress = useCallback((day: string) => {
-    userPinnedSelectedDayRef.current = true;
-    setSelectedDay(day);
-  }, []);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -76,7 +47,6 @@ export default function SleepScreen() {
     refetchSleep: () => {
       data.refetchSleepRollup({ cacheBust: `sleepOverviewPull:${Date.now()}` });
     },
-    refetchWeekStrip: data.refetchWeekStrip,
   });
 
   const onSleepRefresh = useCallback(async () => {
@@ -95,26 +65,10 @@ export default function SleepScreen() {
     [refreshing, onSleepRefresh],
   );
 
-  const headerStrip = (
-    <RecoveryOuraWeeklyStrip
-      days={data.weeklyStripDays}
-      selectedDay={selectedDay}
-      onDayPress={onStripDayPress}
-      categoryLabel="sleep"
-      stripVariant="sleep"
-      testIDPrefix="sleep-weekly"
-    />
-  );
-
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
       title: "Sleep",
-      headerTitleStyle: {
-        fontSize: 21,
-        fontWeight: "600",
-        color: WORKOUTS_HEADER_TITLE_COLOR,
-      },
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <HeaderControls
@@ -129,7 +83,7 @@ export default function SleepScreen() {
 
   if (data.initializing) {
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome compactHeader headerContent={headerStrip}>
+      <ModuleScreenShell title="Sleep" subtitle="Sleep & recovery" hideTitleChrome>
         <LoadingState message="Loading…" />
       </ModuleScreenShell>
     );
@@ -137,7 +91,7 @@ export default function SleepScreen() {
 
   if (!data.user) {
     return (
-      <ModuleScreenShell title="Sleep" hideTitleChrome compactHeader headerContent={headerStrip}>
+      <ModuleScreenShell title="Sleep" subtitle="Sleep & recovery" hideTitleChrome>
         <EmptyState
           title="Sign in to view sleep"
           description="Sign in to load your sleep nights from Oli."
@@ -150,21 +104,25 @@ export default function SleepScreen() {
     <View style={styles.root}>
       <ModuleScreenShell
         title="Sleep"
+        subtitle="Sleep & recovery"
         hideTitleChrome
-        compactHeader
-        headerContent={headerStrip}
         refreshControl={sleepRefreshControl}
       >
         <View style={styles.pageBody}>
-          <SleepTodayCard model={data.sleepTodayVm} />
+          <SleepTodayCard model={data.sleepTodayDetailVm} />
           <View style={styles.cardSpacer} />
           <SleepThisWeekCard
             loading={data.weeklySleepLoading}
             model={data.weeklySleepVm}
             sleepBaselineVm={data.sleepBaselineVm}
+            weekRangeLabel={data.sleepThisWeekRangeLabel}
+            canGoPrevious={data.sleepThisWeekCanGoPrevious}
+            canGoNext={data.sleepThisWeekCanGoNext}
+            onPressPrevious={data.onPressSleepPreviousWeek}
+            onPressNext={data.onPressSleepNextWeek}
           />
           <View style={styles.cardSpacer} />
-          <SleepBaselineCard model={data.sleepBaselineVm} />
+          <SleepBaselineCard model={data.sleepBaselineVm} loading={data.baselineLoading} />
         </View>
       </ModuleScreenShell>
     </View>

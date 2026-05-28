@@ -69,7 +69,7 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
       const { initializing: init, userUid, getIdToken: getToken } = authRef.current;
 
       const safeSet = (next: RollupInternalState) => {
-        if (seq !== requestSeq.current) setState(next);
+        if (seq === requestSeq.current) setState(next);
       };
 
       if (init) {

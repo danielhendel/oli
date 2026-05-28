@@ -110,6 +110,48 @@ jest.mock("../../../lib/ouraIngestWrite", () => ({
   writeOuraRawEvents: jest.fn().mockResolvedValue({ eventsCreated: 2, eventsAlreadyExists: 0 }),
 }));
 
+/**
+ * Existing pull-now tests treat the token-refresh helper as a thin pass-through so
+ * they don't have to mock the Firestore lease backend. End-to-end single-flight
+ * semantics are covered by services/api/src/lib/__tests__/ouraTokenRefreshSingleFlight.test.ts.
+ */
+jest.mock("../../../lib/ouraTokenRefreshSingleFlight", () => {
+  const secrets = jest.requireMock("../../../lib/ouraSecrets") as {
+    getRefreshToken: jest.Mock;
+    setRefreshToken: jest.Mock;
+  };
+  const api = jest.requireMock("../../../lib/ouraApi") as {
+    refreshOuraAccessToken: jest.Mock;
+    OuraApiError: typeof Error;
+  };
+  return {
+    refreshOuraTokenSingleFlight: jest.fn(
+      async (args: {
+        uid: string;
+        requestId: string;
+        clientId: string;
+        clientSecret: string;
+        performReconnectCleanup: (uid: string, requestId: string) => Promise<void>;
+      }) => {
+        const token = await secrets.getRefreshToken(args.uid);
+        if (!token) return { kind: "no_refresh_token" };
+        try {
+          const tokens = await api.refreshOuraAccessToken(token, args.clientId, args.clientSecret);
+          await secrets.setRefreshToken(args.uid, tokens.refresh_token);
+          return { kind: "refreshed", tokens, rotated: true };
+        } catch (err: unknown) {
+          const e = err as { code?: string; status?: number };
+          if (e?.code === "OURA_TOKEN_REFRESH_FAILED" || e?.status === 401) {
+            await args.performReconnectCleanup(args.uid, args.requestId);
+            return { kind: "invalid_grant", cleanedUp: true };
+          }
+          throw err;
+        }
+      },
+    ),
+  };
+});
+
 jest.mock("../../../lib/ouraVendorSnapshot", () => ({
   writeOuraVendorSleepSnapshots: jest.fn().mockResolvedValue({
     attempted: 1,

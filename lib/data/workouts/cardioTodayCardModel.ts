@@ -1,8 +1,8 @@
 import {
   cardioSessionDistanceMeters,
-  formatCardioSessionSubtitle,
   isDisplayableCardioHistorySession,
   isSupportedCardioSessionModality,
+  resolveCardioSessionDisplayName,
 } from "@/lib/data/workouts/cardioSessionPresentation";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import {
@@ -67,7 +67,11 @@ function buildPresentationRow(
   overridesByWorkoutId: Record<string, WorkoutOverride | undefined>,
   durableTitlesByWorkoutId: Record<string, string | undefined>,
 ): CardioTodaySessionPresentationRow {
-  const modality = formatCardioSessionSubtitle(session);
+  const modality = resolveCardioSessionDisplayName(
+    session,
+    overridesByWorkoutId,
+    durableTitlesByWorkoutId,
+  );
   const surface = buildWorkoutSessionSurfaceModel(session, overridesByWorkoutId, "cardio", null, durableTitlesByWorkoutId);
   const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
   const resolvedMetrics = resolveWorkoutDisplay(

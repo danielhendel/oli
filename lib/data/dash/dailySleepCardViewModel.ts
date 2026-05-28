@@ -7,14 +7,37 @@ import {
 } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { UseSleepNightResult } from "@/lib/hooks/useSleepNight";
 
+/**
+ * Optional missing-reason discriminator. Drives "Reconnect Oura" copy + CTA when Oura is the
+ * proven root cause of empty sleep. Default `"no_data"` (or omitted) keeps the classic copy.
+ */
+export type DailySleepCardMissingReason = "oura_disconnected" | "no_data";
+
+/** CTA payload rendered alongside the `missing` state when `reason === "oura_disconnected"`. */
+export type DailySleepCardCta = {
+  label: string;
+  href: string;
+};
+
 /** Canonical readiness only — `partial` while sleep-night truth is not yet settled. */
 export type DailySleepCardViewModel =
   | { status: Extract<Readiness, "partial">; day: string }
-  | { status: Extract<Readiness, "missing">; day: string; message: string }
+  | {
+      status: Extract<Readiness, "missing">;
+      day: string;
+      message: string;
+      reason?: DailySleepCardMissingReason;
+      cta?: DailySleepCardCta;
+    }
   | { status: Extract<Readiness, "error">; day: string; message: string }
   | { status: Extract<Readiness, "ready">; day: string; model: DailySleepCardModel; isRefreshing: boolean };
 
 const MISSING_MESSAGE = "No sleep data logged for this day.";
+const OURA_DISCONNECTED_MESSAGE = "Reconnect Oura to sync your sleep.";
+const OURA_RECONNECT_CTA: DailySleepCardCta = {
+  label: "Reconnect Oura \u2192",
+  href: "/(app)/settings/devices/oura",
+};
 
 /**
  * Dash Daily Sleep only surfaces sleep attributed to the requested calendar day:
@@ -40,12 +63,35 @@ export function sleepNightIsAttributedToCalendarDay(
 export type BuildDailySleepCardViewModelInput = {
   day: string;
   sleepNight: Pick<UseSleepNightResult, "view" | "loading" | "settled" | "error">;
+  /**
+   * Optional. When `true`, settled-and-missing renders the Oura reconnect copy + CTA.
+   * Computed in the hook layer from `useOuraPresence` (only `ready && !connected`).
+   * Never flip `true` while presence is `partial` or `error` — the prompt would flash.
+   */
+  ouraDisconnected?: boolean;
 };
+
+function buildMissingViewModel(
+  day: string,
+  ouraDisconnected: boolean,
+): Extract<DailySleepCardViewModel, { status: "missing" }> {
+  if (ouraDisconnected) {
+    return {
+      status: "missing",
+      day,
+      message: OURA_DISCONNECTED_MESSAGE,
+      reason: "oura_disconnected",
+      cta: OURA_RECONNECT_CTA,
+    };
+  }
+  return { status: "missing", day, message: MISSING_MESSAGE, reason: "no_data" };
+}
 
 export function buildDailySleepCardViewModel(
   input: BuildDailySleepCardViewModelInput,
 ): DailySleepCardViewModel {
   const { day, sleepNight } = input;
+  const ouraDisconnected = input.ouraDisconnected === true;
   const attributed = sleepNightIsAttributedToCalendarDay(day, sleepNight.view);
 
   if (!sleepNight.settled || (!attributed && sleepNight.loading)) {
@@ -57,12 +103,12 @@ export function buildDailySleepCardViewModel(
   }
 
   if (!attributed) {
-    return { status: "missing", day, message: MISSING_MESSAGE };
+    return buildMissingViewModel(day, ouraDisconnected);
   }
 
   const view = sleepNight.view;
   if (view == null) {
-    return { status: "missing", day, message: MISSING_MESSAGE };
+    return buildMissingViewModel(day, ouraDisconnected);
   }
 
   const model = buildDailySleepCardModel({
@@ -73,7 +119,7 @@ export function buildDailySleepCardViewModel(
   });
 
   if (model.day !== day) {
-    return { status: "missing", day, message: MISSING_MESSAGE };
+    return buildMissingViewModel(day, ouraDisconnected);
   }
 
   return {

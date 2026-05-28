@@ -35,10 +35,103 @@ export type StrengthHistorySummaryRow = {
 
 export type StrengthHistorySummaryModel = {
   rows: readonly StrengthHistorySummaryRow[];
+  /**
+   * Personalized 1–2 sentence sub-headline for the Strength Baseline card. Mirrors the same
+   * pattern shipped on the Activity and Sleep baseline cards: the 90 Day row is the baseline
+   * and the 7 Day row is the recent trend vs that baseline. Falls back to a generic but still
+   * useful sentence when 90 Day coverage is insufficient. Computed in
+   * {@link buildStrengthBaselineExplainerCopy}.
+   */
+  personalizedExplainer: string;
 };
 
 export function formatStrengthAvgWorkoutsPerWeekDisplay(avgWorkoutsPerWeek: number): string {
   return `${avgWorkoutsPerWeek.toFixed(1)} per week`;
+}
+
+/**
+ * Compact prose form used inside the personalized baseline explainer, e.g. `"3.4/week"`. The
+ * row-level `displayValue` (used in the table cell) keeps the existing
+ * {@link formatStrengthAvgWorkoutsPerWeekDisplay} format (`"3.4 per week"`).
+ */
+function formatStrengthSessionsPerWeekWords(avgSessionsPerWeek: number): string {
+  return `${avgSessionsPerWeek.toFixed(1)}/week`;
+}
+
+/**
+ * Fallback explainer used when the 90 Day strength baseline isn't ready yet. Generic but
+ * still useful — keeps the same dark-theme typography slot filled and explains what the
+ * section will show once history fills in. Exported so tests don't duplicate the literal.
+ */
+export const STRENGTH_BASELINE_GENERIC_EXPLAINER =
+  "Your strength baseline shows your typical sessions per week once 90 days of strength history are available.";
+
+/**
+ * Compute the rounded percent difference of `day7Avg` vs the `day90Avg` baseline. Returns
+ * `null` when the baseline is unusable (non-finite or ≤ 0) so callers can fall back to
+ * baseline-only copy. The sign is preserved (positive = above baseline, negative = below)
+ * and the magnitude is rounded to the nearest whole percent for clean display. Mirrors the
+ * Activity/Sleep equivalents byte-for-byte.
+ */
+export function computeStrengthBaselineSevenDayTrendPct(
+  day7Avg: number,
+  day90Avg: number,
+): number | null {
+  if (!Number.isFinite(day7Avg) || !Number.isFinite(day90Avg) || day90Avg <= 0) {
+    return null;
+  }
+  const pct = ((day7Avg - day90Avg) / day90Avg) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return Math.round(pct);
+}
+
+/**
+ * Pure helper — derives the personalized explainer copy from the existing 90 Day baseline
+ * row and the 7 Day trailing average. No new data sources.
+ *
+ * Display rules:
+ * - When `day90Row` lacks enough data: returns {@link STRENGTH_BASELINE_GENERIC_EXPLAINER}.
+ * - When `day90Row` has data but `day7Row` doesn't: baseline-only sentence.
+ * - When both have data: baseline sentence + recent-trend sentence. The trend phrase rounds
+ *   to the nearest whole percent and uses "about the same as" when the rounded delta is 0.
+ */
+export function buildStrengthBaselineExplainerCopy(input: {
+  day90Row: StrengthHistorySummaryRow | null;
+  day7Row: StrengthHistorySummaryRow | null;
+}): string {
+  const { day90Row, day7Row } = input;
+  if (
+    day90Row == null ||
+    !day90Row.hasEnoughData ||
+    day90Row.averageSessionsPerWeek == null ||
+    !Number.isFinite(day90Row.averageSessionsPerWeek)
+  ) {
+    return STRENGTH_BASELINE_GENERIC_EXPLAINER;
+  }
+
+  const day90Avg = day90Row.averageSessionsPerWeek;
+  const baselineSentence = `Your 90-day strength baseline is ${formatStrengthSessionsPerWeekWords(day90Avg)}.`;
+
+  if (
+    day7Row == null ||
+    !day7Row.hasEnoughData ||
+    day7Row.averageSessionsPerWeek == null ||
+    !Number.isFinite(day7Row.averageSessionsPerWeek)
+  ) {
+    return baselineSentence;
+  }
+
+  const day7Avg = day7Row.averageSessionsPerWeek;
+  const pct = computeStrengthBaselineSevenDayTrendPct(day7Avg, day90Avg);
+  if (pct == null) return baselineSentence;
+
+  const seven = formatStrengthSessionsPerWeekWords(day7Avg);
+  if (pct === 0) {
+    return `${baselineSentence} Over the past 7 completed days, you're averaging ${seven} — about the same as your baseline.`;
+  }
+  const direction = pct > 0 ? "above" : "below";
+  const magnitude = Math.abs(pct);
+  return `${baselineSentence} Over the past 7 completed days, you're averaging ${seven} — about ${magnitude}% ${direction} your baseline.`;
 }
 
 function trailingCalendarDaysThroughToday(todayDayKey: DayKey, dayCount: number): { rangeStart: DayKey; rangeEnd: DayKey } {
@@ -141,54 +234,60 @@ export function buildStrengthHistorySummaryModel(input: {
 
   const day365 = trailingCalendarDaysThroughToday(todayDayKey, ACTIVITY_OVERVIEW_TRAILING_12_MONTH_DAY_COUNT);
 
+  const rows: readonly StrengthHistorySummaryRow[] = [
+    buildWindowAvgRow({
+      key: "thisWeek",
+      label: "7 Day",
+      rangeStart: day7.rangeStart,
+      rangeEnd: day7.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      strengthCalendarDays: input.strengthCalendarDays,
+    }),
+    buildWindowAvgRow({
+      key: "day30",
+      label: "30 Day",
+      rangeStart: day30.rangeStart,
+      rangeEnd: day30.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      strengthCalendarDays: input.strengthCalendarDays,
+    }),
+    buildWindowAvgRow({
+      key: "day90",
+      label: "90 Day",
+      rangeStart: day90.rangeStart,
+      rangeEnd: day90.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      strengthCalendarDays: input.strengthCalendarDays,
+    }),
+    buildWindowAvgRow({
+      key: "ytd",
+      label: "YTD",
+      rangeStart: ytd.rangeStart,
+      rangeEnd: ytd.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      strengthCalendarDays: input.strengthCalendarDays,
+    }),
+    buildWindowAvgRow({
+      key: "month12",
+      label: "12 Month",
+      rangeStart: day365.rangeStart,
+      rangeEnd: day365.rangeEnd,
+      availableStart: avStart,
+      availableEnd: avEnd,
+      strengthCalendarDays: input.strengthCalendarDays,
+      insufficientHelper: "Data will appear when enough history is available",
+    }),
+  ];
+
   return {
-    rows: [
-      buildWindowAvgRow({
-        key: "thisWeek",
-        label: "7 Day",
-        rangeStart: day7.rangeStart,
-        rangeEnd: day7.rangeEnd,
-        availableStart: avStart,
-        availableEnd: avEnd,
-        strengthCalendarDays: input.strengthCalendarDays,
-      }),
-      buildWindowAvgRow({
-        key: "day30",
-        label: "30 Day",
-        rangeStart: day30.rangeStart,
-        rangeEnd: day30.rangeEnd,
-        availableStart: avStart,
-        availableEnd: avEnd,
-        strengthCalendarDays: input.strengthCalendarDays,
-      }),
-      buildWindowAvgRow({
-        key: "day90",
-        label: "90 Day",
-        rangeStart: day90.rangeStart,
-        rangeEnd: day90.rangeEnd,
-        availableStart: avStart,
-        availableEnd: avEnd,
-        strengthCalendarDays: input.strengthCalendarDays,
-      }),
-      buildWindowAvgRow({
-        key: "ytd",
-        label: "YTD",
-        rangeStart: ytd.rangeStart,
-        rangeEnd: ytd.rangeEnd,
-        availableStart: avStart,
-        availableEnd: avEnd,
-        strengthCalendarDays: input.strengthCalendarDays,
-      }),
-      buildWindowAvgRow({
-        key: "month12",
-        label: "12 Month",
-        rangeStart: day365.rangeStart,
-        rangeEnd: day365.rangeEnd,
-        availableStart: avStart,
-        availableEnd: avEnd,
-        strengthCalendarDays: input.strengthCalendarDays,
-        insufficientHelper: "Data will appear when enough history is available",
-      }),
-    ],
+    rows,
+    personalizedExplainer: buildStrengthBaselineExplainerCopy({
+      day90Row: rows.find((r) => r.key === "day90") ?? null,
+      day7Row: rows.find((r) => r.key === "thisWeek") ?? null,
+    }),
   };
 }

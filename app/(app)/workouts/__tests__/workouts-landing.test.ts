@@ -1,3 +1,7 @@
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: null, initializing: false, getIdToken: async () => null }),
 }));

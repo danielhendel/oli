@@ -8,6 +8,11 @@ import {
 } from "@/lib/data/workouts/appleHealthKitWorkoutActivityType";
 import { formatWorkoutDurationLabel, formatWorkoutTitle } from "@/lib/data/workouts/workoutDisplay";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import type { WorkoutOverride } from "@/lib/data/workouts/workoutOverrides";
+import {
+  pickDurableTitleForSession,
+  pickWorkoutOverrideForSession,
+} from "@/lib/data/workouts/workoutSessionSurface";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import { CARDIO_WEEKLY_MILES_DISPLAY_MAX } from "@/lib/ui/workouts/cardioBaselineScale";
 
@@ -104,11 +109,47 @@ function isGenericWorkoutTitleLabel(label: string): boolean {
 }
 
 /**
+ * Apple Watch surfaces qualifier-prefixed cardio titles such as `"Outdoor Run"`, `"Indoor Walk"`,
+ * `"Pool Swim"`, `"Open Water Swim"`. These carry strictly more information than the family label
+ * collapse (`hkActivityIdIsRunningFamily` → `"Running"`) and should be preferred when present.
+ *
+ * A string qualifies as a richer label only when it begins with a known qualifier and contains a
+ * known cardio sport token; we explicitly avoid `formatWorkoutTitle`-ing arbitrary user text.
+ */
+const RICH_HK_LABEL_PREFIX = /^(outdoor|indoor|trail|treadmill|track|pool|open\s+water|mountain)\b/i;
+const RICH_HK_LABEL_SPORT_TOKEN =
+  /\b(run|running|walk|walking|cycle|cycling|hike|hiking|swim|swimming|row|rowing|ski|skiing|skate|skating|paddle|paddling)\b/i;
+
+function pickRichHkModalityLabel(activityName: string | null | undefined): string | null {
+  if (activityName == null) return null;
+  const trimmed = String(activityName).trim();
+  if (trimmed.length === 0) return null;
+  if (!RICH_HK_LABEL_PREFIX.test(trimmed)) return null;
+  if (!RICH_HK_LABEL_SPORT_TOKEN.test(trimmed)) return null;
+  return formatWorkoutTitle(trimmed);
+}
+
+/**
  * Single-source modality label for one raw workout row (presentation only).
- * Priority: HealthKit activity id families (Running / Walking) → HK display label → activityName → sport → title → Unknown.
+ *
+ * Priority:
+ *   1. Apple Watch qualifier-prefixed label (`"Outdoor Run"`, `"Indoor Walk"`, …) — preserves the
+ *      richer surface label the user chose on-watch, even when the HK activityId resolves to a
+ *      family that {@link hkActivityIdIsRunningFamily} / {@link hkActivityIdIsWalkingFamily} would
+ *      otherwise collapse to `"Running"` / `"Walking"`.
+ *   2. HealthKit activityId families (`"Running"`, `"Walking"`).
+ *   3. HealthKit display label table.
+ *   4. `activityName` / `sport` / `title` fallback (formatted, generic buckets dropped).
+ *   5. `"Unknown"`.
+ *
+ * Raw HK truth is not mutated; this is presentation-only.
  */
 export function cardioModalityLabelFromWorkout(workout: WorkoutHistoryItem): string {
   const id = workout.hk?.activityId;
+  const richFromActivityName = pickRichHkModalityLabel(workout.activityName ?? null);
+  if (richFromActivityName != null) return richFromActivityName;
+  const richFromTitle = pickRichHkModalityLabel(workout.title ?? null);
+  if (richFromTitle != null) return richFromTitle;
   if (hkActivityIdIsRunningFamily(id)) return "Running";
   if (hkActivityIdIsWalkingFamily(id)) return "Walking";
   const hk = displayLabelForAppleHealthKitWorkoutActivityType(id ?? null);
@@ -357,6 +398,132 @@ export function getThisWeekCardioSessions(
 export function formatThisWeekCardioDistanceSummary(totalMiles: number): string {
   const normalized = Number.isFinite(totalMiles) ? Math.max(0, totalMiles) : 0;
   return `${normalized.toFixed(1)} mi this week`;
+}
+
+function sessionHasAuthoritativeRunningHk(session: ReconciledWorkoutSession): boolean {
+  return session.workouts.some((w) => hkActivityIdIsRunningFamily(w.hk?.activityId));
+}
+
+function sessionHasAuthoritativeWalkingHk(session: ReconciledWorkoutSession): boolean {
+  return session.workouts.some((w) => hkActivityIdIsWalkingFamily(w.hk?.activityId));
+}
+
+function sessionHasAnyAuthoritativeHk(session: ReconciledWorkoutSession): boolean {
+  return session.workouts.some(hasAuthoritativeAppleHealthActivityId);
+}
+
+function sessionRepresentativeLabelHasQualifier(session: ReconciledWorkoutSession): boolean {
+  const rep = pickRepresentativeWorkoutForCardioModality(session);
+  if (rep == null) return false;
+  return (
+    pickRichHkModalityLabel(rep.activityName ?? null) != null ||
+    pickRichHkModalityLabel(rep.title ?? null) != null
+  );
+}
+
+function sessionTotalDurationMinutes(session: ReconciledWorkoutSession): number {
+  let total = 0;
+  let hasValue = false;
+  for (const w of session.workouts) {
+    const d = w.durationMinutes;
+    if (typeof d === "number" && Number.isFinite(d) && d > 0) {
+      total += d;
+      hasValue = true;
+    }
+  }
+  if (hasValue) return total;
+  const sd = session.durationMinutes;
+  return typeof sd === "number" && Number.isFinite(sd) && sd > 0 ? sd : 0;
+}
+
+/**
+ * Cardio-modality session tier (lower = better):
+ *   0 → authoritative HK running family present (Outdoor / Indoor Run)
+ *   1 → authoritative HK walking family present
+ *   2 → other authoritative HK modality (Cycling, Rowing, Swimming, …)
+ *   3 → no authoritative HK (distance-only / generic)
+ */
+function representativeCardioSessionTier(session: ReconciledWorkoutSession): number {
+  if (sessionHasAuthoritativeRunningHk(session)) return 0;
+  if (sessionHasAuthoritativeWalkingHk(session)) return 1;
+  if (sessionHasAnyAuthoritativeHk(session)) return 2;
+  return 3;
+}
+
+/**
+ * Choose the **best representative cardio session** for a calendar day (e.g. the Cardio Today hero).
+ *
+ * Priority — strictly ordered (higher comparator wins, ties cascade):
+ *   1. Lower {@link representativeCardioSessionTier} (HK Running > Walking > other HK > generic).
+ *   2. Representative workout exposes a qualifier-prefixed HK label (`"Outdoor Run"`, `"Indoor Walk"`, …).
+ *   3. Higher total session distance (meters).
+ *   4. Longer total session duration (minutes).
+ *   5. Earlier chronological start (stable tie-break with session id).
+ *
+ * Returns `null` only when `sessions` is empty. **Does not mutate** any input; pure presentation-layer
+ * selection. Callers are responsible for filtering to displayable cardio sessions
+ * ({@link isDisplayableCardioHistorySession}) beforehand if that's the desired contract.
+ */
+export function pickBestRepresentativeCardioSessionForDay(
+  sessions: readonly ReconciledWorkoutSession[],
+): ReconciledWorkoutSession | null {
+  if (sessions.length === 0) return null;
+  if (sessions.length === 1) return sessions[0] ?? null;
+
+  const sorted = [...sessions].sort((a, b) => {
+    const ta = representativeCardioSessionTier(a);
+    const tb = representativeCardioSessionTier(b);
+    if (ta !== tb) return ta - tb;
+
+    const qa = sessionRepresentativeLabelHasQualifier(a) ? 1 : 0;
+    const qb = sessionRepresentativeLabelHasQualifier(b) ? 1 : 0;
+    if (qa !== qb) return qb - qa;
+
+    const da = cardioSessionDistanceMeters(a) ?? 0;
+    const db = cardioSessionDistanceMeters(b) ?? 0;
+    if (da !== db) return db - da;
+
+    const ma = sessionTotalDurationMinutes(a);
+    const mb = sessionTotalDurationMinutes(b);
+    if (ma !== mb) return mb - ma;
+
+    const ka = sessionChronologicalSortKey(a);
+    const kb = sessionChronologicalSortKey(b);
+    const c = ka.localeCompare(kb);
+    if (c !== 0) return c;
+    return a.id.localeCompare(b.id);
+  });
+  return sorted[0] ?? null;
+}
+
+/**
+ * Centralized cardio display-title resolver — same precedence as
+ * {@link resolveWorkoutSessionSurfaceTitle}, scoped to the cardio surface so we never bypass the
+ * shared rename / durable-override infrastructure:
+ *
+ *   1. Durable / server `workout_title_override` (via {@link pickDurableTitleForSession}).
+ *   2. AsyncStorage `customTitle` override (via {@link pickWorkoutOverrideForSession}).
+ *   3. {@link formatCardioSessionSubtitle} → representative workout's modality label
+ *      (`"Outdoor Run"`, `"Walking"`, …).
+ *
+ * Used by Cardio Today hero, Cardio This Week rows, recent cardio lists, and cardio detail
+ * surfaces so renames apply uniformly across the Cardio domain.
+ */
+export function resolveCardioSessionDisplayName(
+  session: ReconciledWorkoutSession,
+  overridesByWorkoutId: Record<string, WorkoutOverride | undefined>,
+  durableTitlesByWorkoutId: Record<string, string | undefined> | undefined,
+): string {
+  const durable = pickDurableTitleForSession(session, durableTitlesByWorkoutId);
+  if (durable && !isGenericWorkoutTitleLabel(durable)) {
+    return formatWorkoutTitle(durable);
+  }
+  const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+  const asyncTitle = sessionOverride?.customTitle?.trim();
+  if (asyncTitle && !isGenericWorkoutTitleLabel(asyncTitle)) {
+    return formatWorkoutTitle(asyncTitle);
+  }
+  return formatCardioSessionSubtitle(session);
 }
 
 export function formatCardioWeeklyDistanceAndMinutes(input: {

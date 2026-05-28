@@ -1,16 +1,15 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
+import { StyleSheet, type ViewStyle } from "react-native";
 
 import type { StrengthHistorySummaryModel } from "@/lib/data/workouts/strengthHistorySummaryModel";
+import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
 import {
   strengthWeeklyFrequencyActivityTierIndexForTierBand,
   strengthWeeklyFrequencyRatingLabelFromTierBand,
   strengthWeeklyFrequencyTierBandFromAvg,
 } from "@/lib/utils/strengthWeeklyFrequencyRating";
-import {
-  STRENGTH_BASELINE_CARD_EXPLAINER_COPY,
-  StrengthHistorySummaryCard,
-} from "@/lib/ui/workouts/StrengthHistorySummaryCard";
+import { StrengthHistorySummaryCard } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
 
 const model: StrengthHistorySummaryModel = {
   rows: [
@@ -25,6 +24,16 @@ const model: StrengthHistorySummaryModel = {
       progressFill01: 3 / 7,
     },
     {
+      key: "day90",
+      label: "90 Day",
+      hasEnoughData: true,
+      averageSessionsPerWeek: 4.5,
+      displayValue: "4.5 per week",
+      tierLabel: "Very High",
+      tierIndexForBar: 4,
+      progressFill01: 4.5 / 7,
+    },
+    {
       key: "month12",
       label: "12 Month",
       hasEnoughData: false,
@@ -36,10 +45,21 @@ const model: StrengthHistorySummaryModel = {
       helperText: "Data will appear when enough history is available.",
     },
   ],
+  personalizedExplainer:
+    "Your 90-day strength baseline is 4.5/week. Over the past 7 completed days, you're averaging 3.0/week — about 33% below your baseline.",
 };
 
+function flattenBackgroundColor(style: unknown): string | undefined {
+  const flat = StyleSheet.flatten(style as ViewStyle | ViewStyle[] | null | undefined);
+  if (flat && typeof flat === "object" && "backgroundColor" in flat) {
+    const bg = (flat as { backgroundColor?: unknown }).backgroundColor;
+    return typeof bg === "string" ? bg : undefined;
+  }
+  return undefined;
+}
+
 describe("StrengthHistorySummaryCard", () => {
-  it("renders Strength Baseline heading and per-week metric rows", async () => {
+  it("renders Strength Baseline heading, the personalized explainer, and per-week metric rows", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthHistorySummaryCard model={model} />);
@@ -56,9 +76,11 @@ describe("StrengthHistorySummaryCard", () => {
     expect(json).toContain("Data will appear when enough history is available");
     expect(json).not.toContain("14 Day");
     expect(json).not.toContain("This Month");
-    expect(json).toContain(STRENGTH_BASELINE_CARD_EXPLAINER_COPY);
+    expect(json).toContain(model.personalizedExplainer);
     expect(json).toContain("strength-history-baseline-explainer");
-    expect(json).not.toContain("Average weekly strength workouts across key time ranges.");
+    expect(json).not.toContain(
+      "Your strength baseline is the average strength workouts across key time ranges.",
+    );
     expect(json).not.toContain("strength-history-summary-view-more");
     expect(json).not.toContain("strength-baseline-frequency-legend");
     expect(json).not.toContain("strength-baseline-frequency-markers");
@@ -81,37 +103,30 @@ describe("StrengthHistorySummaryCard", () => {
     expect(onPressViewMore).toHaveBeenCalledTimes(1);
   });
 
-  it("tier pills are pressable when onPressStrengthRangeExplainer is provided", async () => {
-    const onExplainer = jest.fn();
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <StrengthHistorySummaryCard model={model} onPressViewMore={jest.fn()} onPressStrengthRangeExplainer={onExplainer} />,
-      );
-    });
-    const pillHit = tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" });
-    expect(pillHit.props.accessibilityRole).toBe("button");
-    expect(pillHit.props.accessibilityLabel).toBe("View strength range explanation");
-    expect(pillHit.props.disabled).not.toBe(true);
-    await act(async () => {
-      pillHit.props.onPress();
-    });
-    expect(onExplainer).toHaveBeenCalledWith({
-      rowKey: "thisWeek",
-      rowLabel: "7 Day",
-      tierLabel: "High",
-      averageSessionsPerWeek: 3,
-      tierIndexForBar: 3,
-    });
-  });
-
-  it("tier pills are disabled when explainer handler is omitted", async () => {
+  it("does not render per-row tier pills (range-explainer entry removed from Strength overview)", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthHistorySummaryCard model={model} onPressViewMore={jest.fn()} />);
     });
-    const pillHit = tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" });
-    expect(pillHit.props.disabled).toBe(true);
+    expect(() => tree.root.findByProps({ testID: "strength-history-tier-pill-thisWeek" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "strength-history-tier-pill-day90" })).toThrow();
+    expect(() => tree.root.findByProps({ testID: "strength-history-tier-pill-month12" })).toThrow();
+  });
+
+  it("paints every progress bar fill with the shared Oli blue (#4F7CFF)", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthHistorySummaryCard model={model} />);
+    });
+    expect(ENERGY_BASELINE_FILL_COLOR.toLowerCase()).toBe("#4f7cff");
+    for (const key of ["thisWeek", "day90", "month12"]) {
+      const track = tree.root.findByProps({ testID: `strength-history-progress-${key}` });
+      const fillNodes = track.findAll(
+        (node) => flattenBackgroundColor(node.props?.style) === ENERGY_BASELINE_FILL_COLOR,
+        { deep: true },
+      );
+      expect(fillNodes.length).toBeGreaterThan(0);
+    }
   });
 
   it("maps 4.5 workouts/wk to Very High and 5.0 to Peak Frequency via shared tier helper", () => {

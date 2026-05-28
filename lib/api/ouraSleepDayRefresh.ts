@@ -2,6 +2,9 @@
  * POST /integrations/oura/sleep-day-refresh — Oura sync + server recompute for a day (Sleep latest-day refresh).
  */
 
+/** Must match services/api mount + infra/gateway/openapi.yaml path exactly. */
+export const OURA_SLEEP_DAY_REFRESH_API_PATH = "/integrations/oura/sleep-day-refresh";
+
 import type { ApiResult } from "@/lib/api/http";
 import type { PostOptions } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
@@ -22,7 +25,7 @@ export async function postOuraSleepDayRefresh(
   opts?: PostOptions,
 ): Promise<ApiResult<OuraSleepDayRefreshResponse>> {
   return apiPostZodAuthed(
-    "/integrations/oura/sleep-day-refresh",
+    OURA_SLEEP_DAY_REFRESH_API_PATH,
     body,
     idToken,
     ouraSleepDayRefreshResponseSchema,

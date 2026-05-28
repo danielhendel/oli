@@ -39,6 +39,13 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
   const error = vm.status === "error" ? vm.message : null;
   const model = vm.status === "ready" ? vm.model : undefined;
   const missingMessage = vm.status === "missing" ? vm.message : null;
+  const missingCta =
+    vm.status === "missing" && vm.reason === "oura_disconnected" ? vm.cta : undefined;
+
+  const onOpenOuraReconnect = useCallback(() => {
+    if (missingCta == null) return;
+    router.push(missingCta.href as Parameters<typeof router.push>[0]);
+  }, [missingCta, router]);
 
   const onOpenSleep = useCallback(() => {
     if (loading || error || vm.status !== "ready") return;
@@ -87,7 +94,22 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
           {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily sleep</Text> : null}
           {vm.status === "missing" ? (
-            <Text style={styles.mutedLine}>{missingMessage}</Text>
+            <>
+              <Text style={styles.mutedLine} testID="daily-sleep-missing-message">
+                {missingMessage}
+              </Text>
+              {missingCta != null ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={missingCta.label}
+                  onPress={onOpenOuraReconnect}
+                  testID="daily-sleep-oura-reconnect-cta"
+                  style={({ pressed }) => [styles.reconnectCta, pressed && styles.reconnectCtaPressed]}
+                >
+                  <Text style={styles.reconnectCtaText}>{missingCta.label}</Text>
+                </Pressable>
+              ) : null}
+            </>
           ) : null}
           {vm.status === "ready" && model ? (
             <>
@@ -199,6 +221,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_MUTED,
+  },
+  reconnectCta: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    paddingVertical: 4,
+  },
+  reconnectCtaPressed: {
+    opacity: 0.75,
+  },
+  reconnectCtaText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
   },
   emptyTitle: {
     fontSize: 15,

@@ -53,6 +53,10 @@ const weekDayKeys = [
   "2026-03-15",
 ] as const;
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: () => ({
     status: "ready" as const,
@@ -201,6 +205,47 @@ describe("Strength overview hydrated calendar copy", () => {
     });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("Workout actions");
-    expect(json).toContain("strength-recent-week-combined-view-more");
+    expect(json).toContain("workouts-this-week-range-label");
+    expect(json).not.toContain("strength-recent-week-combined-view-more");
+    expect(json).not.toContain("View All →");
+  });
+
+  it("mounts the Yearly Strength card below Strength Baseline with the current-year total", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    const iBaseline = json.indexOf("strength-history-summary-card");
+    const iYearly = json.indexOf("workouts-yearly-card");
+    expect(iBaseline).toBeGreaterThan(-1);
+    expect(iYearly).toBeGreaterThan(-1);
+    // Placement: Yearly card sits AFTER the Strength Baseline card.
+    expect(iBaseline).toBeLessThan(iYearly);
+    expect(json).toContain("2026 Strength");
+    expect(json).toContain("workouts-yearly-range-label");
+    expect(json).toContain("workouts-yearly-month-chart");
+    // 5 strength workouts were seeded for 2026 (one per Mon–Fri of the week).
+    const totalValue = tree.root.findByProps({ testID: "workouts-yearly-total-metric-value" });
+    expect(totalValue.props.children).toBe("5");
+    // Forward chevron disabled — we're on the current year by default.
+    const nextChevron = tree.root.findByProps({ testID: "workouts-yearly-nav-next" });
+    expect(nextChevron.props.disabled).toBe(true);
+  });
+
+  it("Yearly Strength card previous-year chevron updates the displayed year label", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const previous = tree.root.findByProps({ testID: "workouts-yearly-nav-previous" });
+    expect(previous.props.disabled).toBe(false);
+    await act(async () => {
+      previous.props.onPress();
+    });
+    const label = tree.root.findByProps({ testID: "workouts-yearly-range-label" });
+    expect(label.props.children).toBe("2025");
+    const next = tree.root.findByProps({ testID: "workouts-yearly-nav-next" });
+    expect(next.props.disabled).toBe(false);
   });
 });

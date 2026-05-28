@@ -73,6 +73,21 @@ function latestVersionName(projectId: string, secretId: string): string {
   return `projects/${projectId}/secrets/${secretId}/versions/latest`;
 }
 
+/** Secret version already unusable — skip destroy (idempotent revoke). */
+function isAlreadyGoneSecretVersion(version: { state?: string | null | undefined }): boolean {
+  const s = version.state;
+  return s === "DESTROYED" || s === "DISABLED";
+}
+
+/** Destroy is a no-op when custody was already removed (e.g. prior reconnect cleanup). */
+function isIgnorableDestroySecretVersionError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes("NOT_FOUND") || msg.includes("404")) return true;
+  if (msg.includes("DESTROYED") || msg.includes("FAILED_PRECONDITION")) return true;
+  const code = (e as { code?: number }).code;
+  return code === 5 || code === 9;
+}
+
 export async function getRefreshToken(uid: string): Promise<string | null> {
   const projectId = await getProjectId();
   const id = secretIdRefreshToken(uid);
@@ -113,8 +128,8 @@ export async function setRefreshToken(uid: string, value: string): Promise<void>
 }
 
 /**
- * Destroy all versions of user's Oura refresh token (makes secret unusable).
- * Idempotent: if secret does not exist => no-op success.
+ * Destroy all enabled versions of user's Oura refresh token (makes secret unusable).
+ * Idempotent: missing secret, no versions, or already-destroyed versions => success.
  */
 export async function deleteRefreshToken(uid: string): Promise<void> {
   const projectId = await getProjectId();
@@ -122,9 +137,13 @@ export async function deleteRefreshToken(uid: string): Promise<void> {
   const client = getClient();
   const parent = secretName(projectId, id);
 
-  let versions: { name?: string | null }[];
+  let versions: { name?: string | null; state?: string | null }[];
   try {
-    [versions] = await client.listSecretVersions({ parent });
+    const [listed] = await client.listSecretVersions({ parent });
+    versions = (listed ?? []).map((v) => ({
+      name: v.name ?? null,
+      state: v.state != null ? String(v.state) : null,
+    }));
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("NOT_FOUND") || msg.includes("404")) return;
@@ -136,7 +155,13 @@ export async function deleteRefreshToken(uid: string): Promise<void> {
   for (const v of versions) {
     const versionName = v.name;
     if (versionName == null || versionName === "") continue;
-    await client.destroySecretVersion({ name: versionName });
+    if (isAlreadyGoneSecretVersion(v)) continue;
+    try {
+      await client.destroySecretVersion({ name: versionName });
+    } catch (e: unknown) {
+      if (isIgnorableDestroySecretVersionError(e)) continue;
+      throw e;
+    }
   }
 }
 

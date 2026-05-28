@@ -41,6 +41,32 @@ jest.mock("../../../lib/ouraVendorSnapshot", () => ({
   }),
 }));
 
+/**
+ * Pass-through mock for the single-flight helper so existing backfill tests don't
+ * need to set up a Firestore lease backend. Lease semantics are tested in
+ * services/api/src/lib/__tests__/ouraTokenRefreshSingleFlight.test.ts.
+ */
+jest.mock("../../../lib/ouraTokenRefreshSingleFlight", () => {
+  const secrets = jest.requireMock("../../../lib/ouraSecrets") as {
+    getRefreshToken: jest.Mock;
+    setRefreshToken: jest.Mock;
+  };
+  const api = jest.requireMock("../../../lib/ouraApi") as {
+    refreshOuraAccessToken: jest.Mock;
+  };
+  return {
+    refreshOuraTokenSingleFlight: jest.fn(
+      async (args: { uid: string; clientId: string; clientSecret: string }) => {
+        const token = await secrets.getRefreshToken(args.uid);
+        if (!token) return { kind: "no_refresh_token" };
+        const tokens = await api.refreshOuraAccessToken(token, args.clientId, args.clientSecret);
+        await secrets.setRefreshToken(args.uid, tokens.refresh_token);
+        return { kind: "refreshed", tokens, rotated: true };
+      },
+    ),
+  };
+});
+
 const ouraSecrets = require("../../../lib/ouraSecrets");
 const ouraApi = require("../../../lib/ouraApi");
 const ouraIngestWrite = require("../../../lib/ouraIngestWrite");

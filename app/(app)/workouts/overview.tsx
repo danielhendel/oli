@@ -42,8 +42,12 @@ import {
   workoutsStackNavigationOptions,
 } from "@/lib/ui/headers/workoutsStackHeader";
 import { WeeklyStrip } from "@/lib/ui/calendar/WeeklyStrip";
-import { addCalendarDaysToDayKey, getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
-import { formatWeekdayFullFromDayKey } from "@/lib/ui/calendar/dayKeyDisplayFormat";
+import {
+  addCalendarDaysToDayKey,
+  getTodayDayKeyLocal,
+  getWeekDaysForAnchor,
+  getWeekStartSunday,
+} from "@/lib/ui/calendar/dateUtils";
 import type { CalendarDay, DayKey, WorkoutDayMarker } from "@/lib/ui/calendar/types";
 import {
   applyAuthoritativeWorkoutDeletionLocal,
@@ -66,6 +70,7 @@ import {
 } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { WorkoutProductDomain } from "@/lib/data/workouts/workoutDomain";
 import { mapWorkoutCalendarDaysForDomain } from "@/lib/data/workouts/workoutDomain";
+import { computeEnergyWeekNavigationState } from "@/lib/data/dash/energyWeekNavigation";
 import {
   pullTodaySnapshot,
   pullAnchoredWorkouts,
@@ -103,13 +108,10 @@ import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthS
 import { shouldRun, nowIso } from "@/lib/sync/throttle";
 import { resolveWorkoutDisplay, resolveWorkoutDisplayDurationMinutes } from "@/lib/data/workouts/workoutDisplay";
 import {
-  cardioDistanceTierFromWeeklyMiles,
-  cardioDistanceTierIndexForBar,
-  cardioDistanceTierLabel,
   cardioSessionDistanceMeters,
   formatCardioSessionHeadline,
   getThisWeekCardioSessions,
-  sumDisplayableCardioDistanceMilesForWeekEntries,
+  resolveCardioSessionDisplayName,
 } from "@/lib/data/workouts/cardioSessionPresentation";
 import {
   deriveSessionTypeFlags,
@@ -122,7 +124,16 @@ import {
   pickStrengthDeleteTargetWorkout,
   pickWorkoutForSessionActions,
   pickWorkoutOverrideForSession,
+  resolveStrengthSessionExerciseDisplay,
 } from "@/lib/data/workouts/workoutSessionSurface";
+import { collectStrengthOverviewTabSessions } from "@/lib/data/workouts/strengthOverviewCardModel";
+import { pickLatestStrengthSessionToday } from "@/lib/data/workouts/strengthTodayCardModel";
+import { buildStrengthTodayDetailVm } from "@/lib/data/workouts/strengthTodayDetailVm";
+import { useDailyEnergyCard } from "@/lib/data/dash/useDailyEnergyCard";
+import {
+  STRENGTH_TODAY_HR_DETAIL_PATHNAME,
+  buildStrengthTodayHrDetailRouteParams,
+} from "./strength-today-hr-detail";
 import { clearWorkoutOverride, useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
@@ -140,22 +151,14 @@ import {
 import { subscribeWorkoutCalendarHydrateInvalidate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
 import { WeeklyWorkingVolumeCard } from "@/lib/ui/workouts/WeeklyWorkingVolumeCard";
 
-import { workoutOverviewInCardHeaderStyles } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
-import { PrimaryActionBarShell } from "@/lib/ui/workouts/PrimaryActionBarShell";
-import {
-  PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL,
-  programPrimaryCtaBarStyles,
-} from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
-import { logShellLayoutAudit } from "@/lib/ui/workouts/shellLayoutAudit";
+import { PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
 import { buildStrengthThisWeekSessionMetadataLine } from "@/lib/data/workouts/strengthThisWeekSessionRowMeta";
 import { buildStrengthTodayCardModel } from "@/lib/data/workouts/strengthTodayCardModel";
-import { StrengthFrequencyMetricCard } from "@/lib/ui/workouts/StrengthFrequencyMetricCard";
 import {
   StrengthThisWeekCombinedCard,
   type StrengthThisWeekSessionRowModel,
 } from "@/lib/ui/workouts/StrengthThisWeekCombinedCard";
-import { StrengthProgramCard } from "@/lib/ui/workouts/StrengthProgramCard";
 import { StrengthTodayCard } from "@/lib/ui/workouts/StrengthTodayCard";
 import {
   STRENGTH_TODAY_MUSCLE_GROUP_PATHNAME,
@@ -163,11 +166,35 @@ import {
 } from "./today-muscle-group";
 import { buildStrengthHistorySummaryModel } from "@/lib/data/workouts/strengthHistorySummaryModel";
 import { StrengthHistorySummaryCard } from "@/lib/ui/workouts/StrengthHistorySummaryCard";
+import {
+  buildStrengthYearlyCardModel,
+  countStrengthSessionsByMonthFromCalendarDays,
+  mapWorkoutMonthSummariesToStrengthMonthlyCounts,
+} from "@/lib/data/workouts/strengthYearlyCardModel";
+import { useStrengthYearlyMonthSummaries } from "@/lib/data/workouts/useStrengthYearlyMonthSummaries";
+import { computeActivityYearNavigationState } from "@/lib/data/activity/activityYearNavigation";
+import { StrengthYearlyCard } from "@/lib/ui/workouts/StrengthYearlyCard";
 import { buildCardioHistorySummaryModel } from "@/lib/data/workouts/cardioHistorySummaryModel";
 import { buildCardioTodayCardModel } from "@/lib/data/workouts/cardioTodayCardModel";
+import {
+  buildCardioTodayDetailVm,
+  listTodayCardioSessionsForDetailVm,
+} from "@/lib/data/workouts/cardioTodayDetailVm";
+import {
+  buildCardioWeeklyDistanceCardModel,
+  buildCardioWeeklyDurationCardModel,
+  formatCardioWeeklyDistanceBarLabel,
+  formatCardioWeeklyDurationBarLabel,
+} from "@/lib/data/workouts/cardioWeeklyMetricCardModel";
+import {
+  buildCardioYearlyCardModel,
+  sumCardioMilesByMonthFromCalendarDays,
+} from "@/lib/data/workouts/cardioYearlyCardModel";
 import { CardioHistorySummaryCard } from "@/lib/ui/workouts/CardioHistorySummaryCard";
+import { CardioThisWeekCard, type CardioThisWeekSessionRow } from "@/lib/ui/workouts/CardioThisWeekCard";
 import { CardioTodayCard } from "@/lib/ui/workouts/CardioTodayCard";
-import { cardioBaselineMilesToVisualScale01 } from "@/lib/ui/workouts/cardioBaselineScale";
+import { CardioWeeklyMetricCard } from "@/lib/ui/workouts/CardioWeeklyMetricCard";
+import { CardioYearlyCard } from "@/lib/ui/workouts/CardioYearlyCard";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 type ConnectionStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -256,6 +283,59 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   );
   const today = getTodayDayKeyLocal();
   const anchorDay = today;
+  /**
+   * Strength "This Week" card week navigator anchor. Kept completely separate from
+   * the header `WeeklyStrip` (which always shows the current week and selects `today`)
+   * and from any `/(app)/workouts/day/[day]` route param. Initialised to the Sunday of
+   * the current local week so the card opens on the current week with forward disabled.
+   * Mirrors Activity / Sleep / Energy "This Week" navigation.
+   */
+  const [selectedWeekAnchorDay, setSelectedWeekAnchorDay] = useState<DayKey>(() =>
+    getWeekStartSunday(today),
+  );
+  /**
+   * Weekly Volume card week navigator anchor. **Independent** of `selectedDay`,
+   * `selectedWeekAnchorDay` (Strength This Week), the WeeklyStrip, route params, and the cardio
+   * branch (which never mounts this card). Drives only the displayed muscle-group volume slice
+   * — never touches the header calendar or the This Week card.
+   */
+  const [selectedVolumeWeekAnchorDay, setSelectedVolumeWeekAnchorDay] = useState<DayKey>(() =>
+    getWeekStartSunday(today),
+  );
+  /**
+   * Yearly Strength card — currently displayed year. Defaults to the current calendar year so
+   * the card opens on `2026 Strength` with forward navigation disabled. **Independent** of
+   * `selectedDay`, `selectedWeekAnchorDay`, the WeeklyStrip, route params, and the cardio branch
+   * (which never mounts the yearly card).
+   */
+  const [selectedStrengthYear, setSelectedStrengthYear] = useState<number>(() =>
+    Number.parseInt(today.slice(0, 4), 10),
+  );
+  /**
+   * Cardio "This Week" card week navigator anchor. Mirrors {@link selectedWeekAnchorDay}'s role
+   * for Strength: drives only the Cardio This Week card (rows + range label + chevron
+   * enablement). Independent of the WeeklyStrip / route params / strength branch.
+   */
+  const [selectedCardioWeekAnchorDay, setSelectedCardioWeekAnchorDay] = useState<DayKey>(() =>
+    getWeekStartSunday(today),
+  );
+  /**
+   * Weekly Distance card week navigator — independent so the user can drill into past distance
+   * weeks without nudging the This Week list. Mirrors the Strength volume vs This Week split.
+   */
+  const [selectedCardioDistanceWeekAnchorDay, setSelectedCardioDistanceWeekAnchorDay] =
+    useState<DayKey>(() => getWeekStartSunday(today));
+  /** Weekly Duration card week navigator — independent (same rationale as Weekly Distance). */
+  const [selectedCardioDurationWeekAnchorDay, setSelectedCardioDurationWeekAnchorDay] =
+    useState<DayKey>(() => getWeekStartSunday(today));
+  /**
+   * Yearly Cardio card — currently displayed year. Defaults to the current calendar year so the
+   * card opens on `2026 Cardio` with forward navigation disabled. Mirrors
+   * {@link selectedStrengthYear}.
+   */
+  const [selectedCardioYear, setSelectedCardioYear] = useState<number>(() =>
+    Number.parseInt(today.slice(0, 4), 10),
+  );
   const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
   const [journalRefreshTick, setJournalRefreshTick] = useState(0);
   const workoutBackfillInFlightRef = useRef(false);
@@ -321,6 +401,59 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, weekStart, weekEnd),
     [domainSharedDays, weekStart, weekEnd],
   );
+
+  /**
+   * Strength "This Week" nav-week derivation. Drives only the strength `This Week` card
+   * (rows + range label + chevron enablement). The header `WeeklyStrip`, `weekDaysSlice`,
+   * `weekWorkoutIds`, and all cardio computations remain on the current calendar week.
+   */
+  const strengthWeekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey: today,
+        weekAnchorDay: selectedWeekAnchorDay,
+      }),
+    [today, selectedWeekAnchorDay],
+  );
+  const handlePressStrengthPreviousWeek = useCallback(() => {
+    setSelectedWeekAnchorDay(strengthWeekNav.previousWeekAnchor);
+  }, [strengthWeekNav.previousWeekAnchor]);
+  const handlePressStrengthNextWeek = useCallback(() => {
+    if (strengthWeekNav.nextWeekAnchor != null) {
+      setSelectedWeekAnchorDay(strengthWeekNav.nextWeekAnchor);
+    }
+  }, [strengthWeekNav.nextWeekAnchor]);
+  const strengthNavWeekDaysSlice = useMemo(
+    () =>
+      filterWorkoutCalendarDaysInclusive(
+        domainSharedDays,
+        strengthWeekNav.weekStart,
+        strengthWeekNav.weekEnd,
+      ),
+    [domainSharedDays, strengthWeekNav.weekStart, strengthWeekNav.weekEnd],
+  );
+
+  /**
+   * Weekly Volume card week navigator derivation. Drives only the muscle-group volume rows +
+   * range label + chevron enablement on {@link WeeklyWorkingVolumeCard}. Completely independent
+   * of `selectedDay`, `selectedWeekAnchorDay`, the header `WeeklyStrip`, and the cardio branch.
+   */
+  const strengthVolumeWeekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey: today,
+        weekAnchorDay: selectedVolumeWeekAnchorDay,
+      }),
+    [today, selectedVolumeWeekAnchorDay],
+  );
+  const handlePressStrengthVolumePreviousWeek = useCallback(() => {
+    setSelectedVolumeWeekAnchorDay(strengthVolumeWeekNav.previousWeekAnchor);
+  }, [strengthVolumeWeekNav.previousWeekAnchor]);
+  const handlePressStrengthVolumeNextWeek = useCallback(() => {
+    if (strengthVolumeWeekNav.nextWeekAnchor != null) {
+      setSelectedVolumeWeekAnchorDay(strengthVolumeWeekNav.nextWeekAnchor);
+    }
+  }, [strengthVolumeWeekNav.nextWeekAnchor]);
   const recentDaysSlice = useMemo(
     () => filterWorkoutCalendarDaysInclusive(domainSharedDays, recentRangeStart, recentRangeEnd),
     [domainSharedDays, recentRangeStart, recentRangeEnd],
@@ -442,10 +575,17 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     [overviewSharedRange.status, weekDaysSlice, weekDaysFull],
   );
 
+  /**
+   * Sessions rendered in the strength "This Week" card. Always sourced from the
+   * **displayed** strength nav-week slice (see {@link strengthNavWeekDaysSlice}). On the
+   * default mount this equals the current calendar week so existing current-week tests and
+   * UX are unchanged; navigating via the card chevrons re-derives this list for the
+   * prior/next week without touching the header `WeeklyStrip` or cardio computations.
+   */
   const strengthWeekSessionsAscending = useMemo(() => {
     if (overviewSharedRange.status !== "ready" || domain !== "strength") return [];
-    return getStrengthOverviewTabSessionsForCalendarDaysAscending(weekDaysSlice);
-  }, [overviewSharedRange.status, domain, weekDaysSlice]);
+    return getStrengthOverviewTabSessionsForCalendarDaysAscending(strengthNavWeekDaysSlice);
+  }, [overviewSharedRange.status, domain, strengthNavWeekDaysSlice]);
 
   const weekWorkoutIds = useMemo(
     () =>
@@ -593,6 +733,79 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     strengthAnalyticsContext,
   ]);
 
+  /**
+   * Exercises for the strength session picked by {@link strengthTodayCardModel} — same selector
+   * (`resolveStrengthSessionExerciseDisplay`) the card model already uses. Surfacing the list
+   * here keeps the new {@link buildStrengthTodayDetailVm} call pure (no internal session-picking)
+   * and gives us the single `Total Volume` set count via `sumWorkoutDetailTotalVolumeSets`.
+   */
+  const strengthTodayActionExercises = useMemo(() => {
+    if (domain !== "strength") return [];
+    if (overviewSharedRange.status !== "ready") return [];
+    if (strengthTodayCardModel == null || strengthTodayCardModel.kind !== "completed") return [];
+    const todayRow = domainSharedDays.find((d) => d.day === today);
+    if (todayRow == null) return [];
+    const sessions = collectStrengthOverviewTabSessions([
+      { day: today, workouts: todayRow.workouts },
+    ]);
+    const latest = pickLatestStrengthSessionToday(sessions);
+    if (latest == null) return [];
+    const surface = buildWorkoutSessionSurfaceModel(
+      latest,
+      overridesByWorkoutId,
+      "strength",
+      manualJournalSummaryForToday,
+      durableTitlesByWorkoutId,
+    );
+    return resolveStrengthSessionExerciseDisplay(
+      manualJournalSummaryForToday,
+      surface.actionWorkout,
+    ).exercises;
+  }, [
+    domain,
+    overviewSharedRange.status,
+    strengthTodayCardModel,
+    domainSharedDays,
+    today,
+    overridesByWorkoutId,
+    manualJournalSummaryForToday,
+    durableTitlesByWorkoutId,
+  ]);
+
+  /**
+   * Daily Energy DTO for {@link today}. Strength-only consumer — gated by `domain === "strength"`
+   * via a dedicated hook that no-ops on cardio (Sleep / Activity are unaffected). This is the
+   * single source for the Strength Today card's Estimated Calorie Burn row + Avg heart rate row,
+   * and is reused by the `strength-today-hr-detail` modal screen for parity.
+   */
+  const dailyEnergyCardForToday = useDailyEnergyCard(today);
+  const strengthTodayDetailVm = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildStrengthTodayDetailVm({
+      todayDayKey: today,
+      cardModel: strengthTodayCardModel,
+      actionWorkoutExercises: strengthTodayActionExercises,
+      energy: dailyEnergyCardForToday.energy,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    today,
+    strengthTodayCardModel,
+    strengthTodayActionExercises,
+    dailyEnergyCardForToday.energy,
+  ]);
+  const handlePressStrengthTodayAvgHeartRate = useCallback(
+    (day: DayKey) => {
+      router.push({
+        pathname: STRENGTH_TODAY_HR_DETAIL_PATHNAME,
+        params: buildStrengthTodayHrDetailRouteParams({ day }),
+      });
+    },
+    [router],
+  );
+
   const strengthHistorySummaryModel = useMemo(() => {
     if (domain !== "strength") return null;
     if (overviewSharedRange.status !== "ready") return null;
@@ -603,6 +816,102 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       availableRangeEnd: overviewRangeEnd,
     });
   }, [domain, overviewSharedRange.status, domainSharedDays, today, overviewRangeStart, overviewRangeEnd]);
+
+  /**
+   * Yearly Strength card derivations. The hook below is gated: only the **prior-year** path
+   * fires a network request. Current-year is aggregated in-memory from the already-hydrated
+   * `domainSharedDays` slice (which already spans the full configured analytics year). Cardio
+   * does not participate — none of these memos do work outside the strength domain.
+   */
+  const currentStrengthYear = useMemo(
+    () => Number.parseInt(today.slice(0, 4), 10),
+    [today],
+  );
+  const strengthYearNav = useMemo(
+    () =>
+      computeActivityYearNavigationState({
+        todayDayKey: today,
+        selectedYear: selectedStrengthYear,
+      }),
+    [today, selectedStrengthYear],
+  );
+  const handlePressStrengthPreviousYear = useCallback(() => {
+    setSelectedStrengthYear(strengthYearNav.previousYear);
+  }, [strengthYearNav.previousYear]);
+  const handlePressStrengthNextYear = useCallback(() => {
+    if (strengthYearNav.nextYear != null) {
+      setSelectedStrengthYear(strengthYearNav.nextYear);
+    }
+  }, [strengthYearNav.nextYear]);
+  const strengthPriorYearFetchYear = useMemo<number | null>(() => {
+    if (domain !== "strength") return null;
+    if (strengthYearNav.year >= currentStrengthYear) return null;
+    return strengthYearNav.year;
+  }, [domain, strengthYearNav.year, currentStrengthYear]);
+  const strengthPriorYearMonthSummaries = useStrengthYearlyMonthSummaries(
+    strengthPriorYearFetchYear,
+  );
+  const strengthYearlyCurrentYearMonthlyCounts = useMemo(() => {
+    if (domain !== "strength") return {};
+    if (overviewSharedRange.status !== "ready") return {};
+    return countStrengthSessionsByMonthFromCalendarDays(domainSharedDays, currentStrengthYear);
+  }, [domain, overviewSharedRange.status, domainSharedDays, currentStrengthYear]);
+  const strengthYearlySelectedYearMonthlyCounts = useMemo(() => {
+    if (strengthYearNav.year === currentStrengthYear) {
+      return strengthYearlyCurrentYearMonthlyCounts;
+    }
+    return mapWorkoutMonthSummariesToStrengthMonthlyCounts(
+      strengthPriorYearMonthSummaries.items,
+    );
+  }, [
+    strengthYearNav.year,
+    currentStrengthYear,
+    strengthYearlyCurrentYearMonthlyCounts,
+    strengthPriorYearMonthSummaries.items,
+  ]);
+  const strengthYearlyCardModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildStrengthYearlyCardModel({
+      selectedYear: strengthYearNav.year,
+      todayDayKey: today,
+      monthlyCounts: strengthYearlySelectedYearMonthlyCounts,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    strengthYearNav.year,
+    today,
+    strengthYearlySelectedYearMonthlyCounts,
+  ]);
+  /**
+   * Visibility gate — matches Activity: only mount the yearly card once the **current** year has
+   * at least one completed strength workout. This prevents an empty zero-bar card from appearing
+   * for brand-new users. Once mounted, the card itself handles prior-year empty states.
+   */
+  const strengthYearlyCurrentYearModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    if (strengthYearNav.year === currentStrengthYear) return strengthYearlyCardModel;
+    return buildStrengthYearlyCardModel({
+      selectedYear: currentStrengthYear,
+      todayDayKey: today,
+      monthlyCounts: strengthYearlyCurrentYearMonthlyCounts,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    strengthYearNav.year,
+    currentStrengthYear,
+    strengthYearlyCardModel,
+    today,
+    strengthYearlyCurrentYearMonthlyCounts,
+  ]);
+  const strengthYearlyCardVisible =
+    domain === "strength" && (strengthYearlyCurrentYearModel?.hasData ?? false);
+  const strengthYearlyCardLoading =
+    strengthYearNav.year !== currentStrengthYear &&
+    strengthPriorYearMonthSummaries.status === "partial";
 
   const cardioTodayCardModel = useMemo(() => {
     if (domain !== "cardio") return null;
@@ -626,20 +935,254 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     });
   }, [domain, overviewSharedRange.status, domainSharedDays, today, overviewRangeStart, overviewRangeEnd]);
 
+  /**
+   * Cardio This Week navigator state. Mirrors {@link strengthWeekNav}: drives the navigator UX
+   * + the list slice. The Weekly Distance and Weekly Duration cards each own their own week
+   * anchors so a user can drill independently without nudging the This Week list.
+   */
+  const cardioThisWeekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey: today,
+        weekAnchorDay: selectedCardioWeekAnchorDay,
+      }),
+    [today, selectedCardioWeekAnchorDay],
+  );
+  const handlePressCardioPreviousWeek = useCallback(() => {
+    setSelectedCardioWeekAnchorDay(cardioThisWeekNav.previousWeekAnchor);
+  }, [cardioThisWeekNav.previousWeekAnchor]);
+  const handlePressCardioNextWeek = useCallback(() => {
+    if (cardioThisWeekNav.nextWeekAnchor != null) {
+      setSelectedCardioWeekAnchorDay(cardioThisWeekNav.nextWeekAnchor);
+    }
+  }, [cardioThisWeekNav.nextWeekAnchor]);
+  const cardioNavWeekDaysSlice = useMemo(
+    () =>
+      filterWorkoutCalendarDaysInclusive(
+        domainSharedDays,
+        cardioThisWeekNav.weekStart,
+        cardioThisWeekNav.weekEnd,
+      ),
+    [domainSharedDays, cardioThisWeekNav.weekStart, cardioThisWeekNav.weekEnd],
+  );
   const cardioWeekSessionsNewestFirst = useMemo(() => {
     if (overviewSharedRange.status !== "ready" || domain !== "cardio") return [];
-    return getCardioOverviewTabSessionsForCalendarDaysNewestFirst(weekDaysSlice);
-  }, [overviewSharedRange.status, domain, weekDaysSlice]);
+    return getCardioOverviewTabSessionsForCalendarDaysNewestFirst(cardioNavWeekDaysSlice);
+  }, [overviewSharedRange.status, domain, cardioNavWeekDaysSlice]);
 
   const cardioThisWeekSessions = useMemo(
-    () => getThisWeekCardioSessions(cardioWeekSessionsNewestFirst, weekDaysFull),
-    [cardioWeekSessionsNewestFirst, weekDaysFull],
+    () => getThisWeekCardioSessions(cardioWeekSessionsNewestFirst, cardioThisWeekNav.weekDayKeys),
+    [cardioWeekSessionsNewestFirst, cardioThisWeekNav.weekDayKeys],
   );
 
-  const cardioThisWeekTotalMiles = useMemo(
-    () => sumDisplayableCardioDistanceMilesForWeekEntries(cardioWeekSessionsNewestFirst),
-    [cardioWeekSessionsNewestFirst],
+  const cardioThisWeekSessionRows = useMemo((): CardioThisWeekSessionRow[] => {
+    if (domain !== "cardio") return [];
+    return cardioThisWeekSessions.map(({ day, session }) => {
+      const surface = buildWorkoutSessionSurfaceModel(
+        session,
+        overridesByWorkoutId,
+        "cardio",
+        null,
+        durableTitlesByWorkoutId,
+      );
+      const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
+      const resolved = resolveWorkoutDisplay(
+        surface.metricsWorkout,
+        sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
+      );
+      const minutes = resolveWorkoutDisplayDurationMinutes({
+        overrideDurationMinutes: resolved.displayDurationMinutes,
+        sessionDurationMinutes: null,
+        fallbackWorkoutDurationMinutes:
+          surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
+      });
+      const modality = resolveCardioSessionDisplayName(
+        session,
+        overridesByWorkoutId,
+        durableTitlesByWorkoutId,
+      );
+      const headline = formatCardioSessionHeadline({
+        distanceMeters: cardioSessionDistanceMeters(session),
+        durationMinutes: minutes,
+      });
+      return {
+        dayKey: day,
+        sessionId: session.id,
+        displayTitle: modality,
+        metadataLine: headline,
+        rowAccessibilityLabel: `Open cardio session details ${surface.actionWorkout.id}`,
+        menuAccessibilityLabel: `Cardio session actions ${surface.actionWorkout.id}`,
+      };
+    });
+  }, [domain, cardioThisWeekSessions, overridesByWorkoutId, durableTitlesByWorkoutId]);
+
+  /** Cardio Today metric-row VM — uses canonical Daily Energy fields + reconciled sessions. */
+  const cardioTodayDetailVm = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    const todayRow = domainSharedDays.find((d) => d.day === today);
+    const sessions = todayRow
+      ? reconcileWorkoutSessionsForDay(todayRow.day, todayRow.workouts)
+      : [];
+    const todayCardioSessions = listTodayCardioSessionsForDetailVm(sessions);
+    return buildCardioTodayDetailVm({
+      todayDayKey: today,
+      cardModel: cardioTodayCardModel,
+      todayCardioSessions,
+      overridesByWorkoutId,
+      durableTitlesByWorkoutId,
+      energy: dailyEnergyCardForToday.energy,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    domainSharedDays,
+    today,
+    cardioTodayCardModel,
+    overridesByWorkoutId,
+    durableTitlesByWorkoutId,
+    dailyEnergyCardForToday.energy,
+  ]);
+
+  /** Weekly Distance / Duration cards — navigators + memoized models. */
+  const cardioDistanceWeekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey: today,
+        weekAnchorDay: selectedCardioDistanceWeekAnchorDay,
+      }),
+    [today, selectedCardioDistanceWeekAnchorDay],
   );
+  const handlePressCardioDistancePreviousWeek = useCallback(() => {
+    setSelectedCardioDistanceWeekAnchorDay(cardioDistanceWeekNav.previousWeekAnchor);
+  }, [cardioDistanceWeekNav.previousWeekAnchor]);
+  const handlePressCardioDistanceNextWeek = useCallback(() => {
+    if (cardioDistanceWeekNav.nextWeekAnchor != null) {
+      setSelectedCardioDistanceWeekAnchorDay(cardioDistanceWeekNav.nextWeekAnchor);
+    }
+  }, [cardioDistanceWeekNav.nextWeekAnchor]);
+  const cardioDurationWeekNav = useMemo(
+    () =>
+      computeEnergyWeekNavigationState({
+        todayDayKey: today,
+        weekAnchorDay: selectedCardioDurationWeekAnchorDay,
+      }),
+    [today, selectedCardioDurationWeekAnchorDay],
+  );
+  const handlePressCardioDurationPreviousWeek = useCallback(() => {
+    setSelectedCardioDurationWeekAnchorDay(cardioDurationWeekNav.previousWeekAnchor);
+  }, [cardioDurationWeekNav.previousWeekAnchor]);
+  const handlePressCardioDurationNextWeek = useCallback(() => {
+    if (cardioDurationWeekNav.nextWeekAnchor != null) {
+      setSelectedCardioDurationWeekAnchorDay(cardioDurationWeekNav.nextWeekAnchor);
+    }
+  }, [cardioDurationWeekNav.nextWeekAnchor]);
+  const cardioWeeklyDistanceModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildCardioWeeklyDistanceCardModel({
+      todayDayKey: today,
+      weekDayKeys: cardioDistanceWeekNav.weekDayKeys,
+      cardioCalendarDays: domainSharedDays,
+      overridesByWorkoutId,
+      durableTitlesByWorkoutId,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    today,
+    cardioDistanceWeekNav.weekDayKeys,
+    domainSharedDays,
+    overridesByWorkoutId,
+    durableTitlesByWorkoutId,
+  ]);
+  const cardioWeeklyDurationModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    return buildCardioWeeklyDurationCardModel({
+      todayDayKey: today,
+      weekDayKeys: cardioDurationWeekNav.weekDayKeys,
+      cardioCalendarDays: domainSharedDays,
+      overridesByWorkoutId,
+      durableTitlesByWorkoutId,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    today,
+    cardioDurationWeekNav.weekDayKeys,
+    domainSharedDays,
+    overridesByWorkoutId,
+    durableTitlesByWorkoutId,
+  ]);
+
+  /**
+   * Yearly Cardio — current year aggregated in-memory from the hydrated overview slice; prior
+   * years render the clean placeholder branch (no backend monthly mileage rollup yet).
+   */
+  const currentCardioYear = useMemo(
+    () => Number.parseInt(today.slice(0, 4), 10),
+    [today],
+  );
+  const cardioYearNav = useMemo(
+    () =>
+      computeActivityYearNavigationState({
+        todayDayKey: today,
+        selectedYear: selectedCardioYear,
+      }),
+    [today, selectedCardioYear],
+  );
+  const handlePressCardioPreviousYear = useCallback(() => {
+    setSelectedCardioYear(cardioYearNav.previousYear);
+  }, [cardioYearNav.previousYear]);
+  const handlePressCardioNextYear = useCallback(() => {
+    if (cardioYearNav.nextYear != null) {
+      setSelectedCardioYear(cardioYearNav.nextYear);
+    }
+  }, [cardioYearNav.nextYear]);
+  const cardioYearlyCurrentYearMonthlyMiles = useMemo(() => {
+    if (domain !== "cardio") return {};
+    if (overviewSharedRange.status !== "ready") return {};
+    return sumCardioMilesByMonthFromCalendarDays(domainSharedDays, currentCardioYear, today);
+  }, [domain, overviewSharedRange.status, domainSharedDays, currentCardioYear, today]);
+  const cardioYearlyCardModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    const monthlyMiles =
+      cardioYearNav.year === currentCardioYear ? cardioYearlyCurrentYearMonthlyMiles : {};
+    return buildCardioYearlyCardModel({
+      selectedYear: cardioYearNav.year,
+      todayDayKey: today,
+      monthlyMiles,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    cardioYearNav.year,
+    currentCardioYear,
+    cardioYearlyCurrentYearMonthlyMiles,
+    today,
+  ]);
+  const cardioYearlyCurrentYearModel = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    if (cardioYearNav.year === currentCardioYear) return cardioYearlyCardModel;
+    return buildCardioYearlyCardModel({
+      selectedYear: currentCardioYear,
+      todayDayKey: today,
+      monthlyMiles: cardioYearlyCurrentYearMonthlyMiles,
+    });
+  }, [
+    domain,
+    overviewSharedRange.status,
+    cardioYearNav.year,
+    currentCardioYear,
+    cardioYearlyCardModel,
+    today,
+    cardioYearlyCurrentYearMonthlyMiles,
+  ]);
+  const cardioYearlyCardVisible =
+    domain === "cardio" && (cardioYearlyCurrentYearModel?.hasData ?? false);
 
   useEffect(() => {
     if (!__DEV__ || process.env.JEST_WORKER_ID) return;
@@ -709,30 +1252,59 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     };
   }, [domain, overviewSharedRange.status, user?.uid, workoutsCalendarRefreshEpoch, journalRefreshTick, getIdToken]);
 
+  /**
+   * Displayed muscle-group volume rows for the {@link WeeklyWorkingVolumeCard}. Sourced from the
+   * pure {@link buildWeeklyWorkingSetVolumeRows} selector over the **navigated** volume week
+   * (driven by {@link strengthVolumeWeekNav}). Default mount uses the current calendar week so
+   * existing fixtures/UX are unchanged; navigating via the card chevrons re-derives this list
+   * for the prior/next week. No new hydration — the journal cache is week-agnostic.
+   */
   const weeklyWorkingVolumeRows = useMemo(() => {
     if (domain !== "strength") return [];
     return buildWeeklyWorkingSetVolumeRows(manualWorkoutSummaries, {
-      weekStartDay: weekStart,
-      weekEndDay: weekEnd,
+      weekStartDay: strengthVolumeWeekNav.weekStart,
+      weekEndDay: strengthVolumeWeekNav.weekEnd,
       analyticsCtx: strengthAnalyticsContext,
     });
-  }, [domain, manualWorkoutSummaries, weekStart, weekEnd, strengthAnalyticsContext]);
+  }, [
+    domain,
+    manualWorkoutSummaries,
+    strengthVolumeWeekNav.weekStart,
+    strengthVolumeWeekNav.weekEnd,
+    strengthAnalyticsContext,
+  ]);
 
   const weeklyWorkingVolumeExercisesByMuscleGroup = useMemo(() => {
     if (domain !== "strength" || weeklyWorkingVolumeRows.length === 0) return {};
     return buildWeeklyWorkingSetExerciseRowsByMuscle(manualWorkoutSummaries, {
-      weekStartDay: weekStart,
-      weekEndDay: weekEnd,
+      weekStartDay: strengthVolumeWeekNav.weekStart,
+      weekEndDay: strengthVolumeWeekNav.weekEnd,
       analyticsCtx: strengthAnalyticsContext,
     });
   }, [
     domain,
     weeklyWorkingVolumeRows.length,
     manualWorkoutSummaries,
-    weekStart,
-    weekEnd,
+    strengthVolumeWeekNav.weekStart,
+    strengthVolumeWeekNav.weekEnd,
     strengthAnalyticsContext,
   ]);
+
+  /**
+   * Visibility sentinel for the {@link WeeklyWorkingVolumeCard} — uses **only** the current
+   * calendar week so navigating to an empty prior week never unmounts the card. Once mounted,
+   * the card itself renders a polished empty-state placeholder for empty navigated weeks.
+   */
+  const weeklyWorkingVolumeCurrentWeekHasRows = useMemo(() => {
+    if (domain !== "strength") return false;
+    return (
+      buildWeeklyWorkingSetVolumeRows(manualWorkoutSummaries, {
+        weekStartDay: weekStart,
+        weekEndDay: weekEnd,
+        analyticsCtx: strengthAnalyticsContext,
+      }).length > 0
+    );
+  }, [domain, manualWorkoutSummaries, weekStart, weekEnd, strengthAnalyticsContext]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -1098,7 +1670,11 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         loading={overviewSharedRange.status !== "ready"}
         emptyMessage="No strength workouts this week yet"
         sessions={strengthThisWeekSessionRows}
-        onViewAll={() => router.push(`${basePath}/recent-workouts-full`)}
+        weekRangeLabel={strengthWeekNav.weekRangeLabel}
+        canGoPrevious={strengthWeekNav.canGoPrevious}
+        canGoNext={strengthWeekNav.canGoNext}
+        onPressPrevious={handlePressStrengthPreviousWeek}
+        onPressNext={handlePressStrengthNextWeek}
         onPressSession={(day) => {
           router.push({
             pathname: "/(app)/workouts/day/[day]",
@@ -1125,150 +1701,45 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
 
   const cardioThisWeekCard =
     domain === "cardio" ? (
-      <View style={styles.strengthRecentCombinedCard} testID="workouts-overview-this-week-combined-card">
-        <StrengthFrequencyMetricCard
-          variant="embedded"
-          headingTitle="This Week"
-          loading={overviewSharedRange.status !== "ready"}
-          model={
-            overviewSharedRange.status !== "ready"
-              ? null
-              : {
-                  compactValuePrimary: `${cardioThisWeekTotalMiles.toFixed(1)} mi`,
-                  ratingLabel: cardioDistanceTierLabel(
-                    cardioDistanceTierFromWeeklyMiles(cardioThisWeekTotalMiles),
-                  ),
-                  activityTierIndexForBar: cardioDistanceTierIndexForBar(
-                    cardioDistanceTierFromWeeklyMiles(cardioThisWeekTotalMiles),
-                  ),
-                  fillWidth01Override: cardioBaselineMilesToVisualScale01(cardioThisWeekTotalMiles),
-                }
-          }
-          footerCaption=""
-          showFrequencyTrack={false}
-          showFrequencyMarkers={false}
-          showFooterCaption={false}
-          compactTitlePillSpacing
-          titleRowTrailing={
-            <Pressable
-              onPress={() => router.push(`${basePath}/recent-workouts-full`)}
-              accessibilityRole="button"
-              accessibilityLabel="View all"
-              hitSlop={8}
-              style={({ pressed }) => [
-                workoutOverviewInCardHeaderStyles.linkHit,
-                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-              ]}
-              testID="cardio-this-week-view-more"
-            >
-              <Text style={workoutOverviewInCardHeaderStyles.link}>View All →</Text>
-            </Pressable>
-          }
-          ratingPillTestID="cardio-this-week-rating-pill"
-          frequencyBarTestID="cardio-this-week-frequency-bar"
-          instrumentClusterTestID="cardio-this-week-instrument-cluster"
-        />
-        <View style={styles.strengthRecentSectionDivider} />
-        {overviewSharedRange.status !== "ready" ? null : cardioThisWeekSessions.length === 0 ? (
-          <Text style={styles.placeholder}>No cardio sessions this week yet</Text>
-        ) : (
-          cardioThisWeekSessions.map(({ day, session }, rowIndex) => {
-            const representative = session.workouts[0];
-            if (!representative) return null;
-            const journalSummary = null;
-            const surface = buildWorkoutSessionSurfaceModel(
-              session,
-              overridesByWorkoutId,
-              domain,
-              journalSummary,
-              durableTitlesByWorkoutId,
-            );
-            const sessionOverride = pickWorkoutOverrideForSession(session, overridesByWorkoutId);
-            const resolvedMetrics = resolveWorkoutDisplay(
-              surface.metricsWorkout,
-              sessionOverride ?? overridesByWorkoutId[surface.metricsWorkout.id] ?? null,
-            );
-            const resolvedDuration = resolveWorkoutDisplayDurationMinutes({
-              overrideDurationMinutes: resolvedMetrics.displayDurationMinutes,
-              sessionDurationMinutes: null,
-              fallbackWorkoutDurationMinutes:
-                surface.metricsWorkout.durationMinutes ?? session.durationMinutes,
-            });
-            const headline = formatCardioSessionHeadline({
-              distanceMeters: cardioSessionDistanceMeters(session),
-              durationMinutes: resolvedDuration,
-            });
-            return (
-              <Pressable
-                key={`week-${session.id}`}
-                style={({ pressed }) => [
-                  styles.recentRow,
-                  rowIndex === 0 && styles.recentRowFirst,
-                  pressed && styles.recentRowPressed,
-                ]}
-                onLayout={(e) => logShellLayoutAudit(`this-week-row-pressable:cardio:${session.id}`, e)}
-                onPress={() => {
-                  router.push({
-                    pathname: "/(app)/cardio/day/[day]",
-                    params: { day },
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Open workout details ${surface.actionWorkout.id}`}
-              >
-                <View style={styles.recentRowTextCol}>
-                  <Text style={styles.recentDate}>{formatWeekdayFullFromDayKey(day)}</Text>
-                  <PrimaryActionBarShell
-                    layout="row"
-                    style={styles.strengthThisWeekRowShell}
-                    testID="workouts-overview-this-week-row-value-bar"
-                  >
-                    <View style={programPrimaryCtaBarStyles.thisWeekRowTitleCell}>
-                      <Text style={programPrimaryCtaBarStyles.ctaBarLabel} numberOfLines={1} ellipsizeMode="tail">
-                        {headline}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={(e) => {
-                        e?.stopPropagation?.();
-                        const native = e?.nativeEvent;
-                        setWorkoutMenuAnchor({
-                          x: typeof native?.pageX === "number" ? native.pageX : 320,
-                          y: typeof native?.pageY === "number" ? native.pageY : 220,
-                          width: 24,
-                          height: 24,
-                        });
-                        setSelectedWorkoutForMenu({ day, session });
-                        setWorkoutMenuOpen(true);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Workout actions ${surface.actionWorkout.id}`}
-                      hitSlop={10}
-                      style={programPrimaryCtaBarStyles.rowMenuBtn}
-                    >
-                      <Text style={programPrimaryCtaBarStyles.rowMenuGlyph}>•••</Text>
-                    </Pressable>
-                  </PrimaryActionBarShell>
-                </View>
-              </Pressable>
-            );
-          })
-        )}
-      </View>
+      <CardioThisWeekCard
+        loading={overviewSharedRange.status !== "ready"}
+        emptyMessage="No cardio sessions this week yet"
+        sessions={cardioThisWeekSessionRows}
+        weekRangeLabel={cardioThisWeekNav.weekRangeLabel}
+        canGoPrevious={cardioThisWeekNav.canGoPrevious}
+        canGoNext={cardioThisWeekNav.canGoNext}
+        onPressPrevious={handlePressCardioPreviousWeek}
+        onPressNext={handlePressCardioNextWeek}
+        onPressSession={(day) => {
+          router.push({ pathname: "/(app)/cardio/day/[day]", params: { day } });
+        }}
+        onPressSessionMenu={(day, sessionId, event) => {
+          const hit = cardioThisWeekSessions.find(
+            (entry) => entry.day === day && entry.session.id === sessionId,
+          );
+          if (!hit) return;
+          const native = event?.nativeEvent;
+          setWorkoutMenuAnchor({
+            x: typeof native?.pageX === "number" ? native.pageX : 320,
+            y: typeof native?.pageY === "number" ? native.pageY : 220,
+            width: 24,
+            height: 24,
+          });
+          setSelectedWorkoutForMenu({ day: hit.day, session: hit.session });
+          setWorkoutMenuOpen(true);
+        }}
+      />
     ) : null;
 
   const content = (
     <View style={styles.pageBody}>
       {domain === "strength" ? (
         <>
-          <StrengthProgramCard
-            testID="strength-program-card"
-            onCreateProgram={() => router.push("/(app)/workouts/plan")}
-          />
           <StrengthTodayCard
             loading={overviewSharedRange.status !== "ready"}
-            model={strengthTodayCardModel}
+            detailVm={strengthTodayDetailVm}
             onPressLog={() => router.push(`${basePath}/log`)}
+            onPressAvgHeartRate={handlePressStrengthTodayAvgHeartRate}
             onSelectMuscleGroup={(selection) =>
               router.push({
                 pathname: STRENGTH_TODAY_MUSCLE_GROUP_PATHNAME,
@@ -1281,10 +1752,15 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             }
           />
           {strengthRecentWeekCombinedCard}
-          {weeklyWorkingVolumeRows.length > 0 ? (
+          {weeklyWorkingVolumeCurrentWeekHasRows ? (
             <WeeklyWorkingVolumeCard
               rows={weeklyWorkingVolumeRows}
               exercisesByMuscleGroup={weeklyWorkingVolumeExercisesByMuscleGroup}
+              weekRangeLabel={strengthVolumeWeekNav.weekRangeLabel}
+              canGoPrevious={strengthVolumeWeekNav.canGoPrevious}
+              canGoNext={strengthVolumeWeekNav.canGoNext}
+              onPressPrevious={handlePressStrengthVolumePreviousWeek}
+              onPressNext={handlePressStrengthVolumeNextWeek}
               onSelectMuscleGroup={(selection) =>
                 router.push({
                   pathname: STRENGTH_TODAY_MUSCLE_GROUP_PATHNAME,
@@ -1301,20 +1777,16 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             <StrengthHistorySummaryCard
               model={strengthHistorySummaryModel}
               onPressViewMore={() => router.push(`${basePath}/analytics-detail`)}
-              onPressStrengthRangeExplainer={(ctx) =>
-                router.push({
-                  pathname: "/(app)/workouts/strength-range-explainer",
-                  params: {
-                    avg:
-                      ctx.averageSessionsPerWeek != null && Number.isFinite(ctx.averageSessionsPerWeek)
-                        ? String(ctx.averageSessionsPerWeek)
-                        : "",
-                    window: ctx.rowLabel,
-                    tierBand: String(ctx.tierIndexForBar),
-                    tierLabel: ctx.tierLabel,
-                  },
-                })
-              }
+            />
+          ) : null}
+          {strengthYearlyCardVisible ? (
+            <StrengthYearlyCard
+              loading={strengthYearlyCardLoading}
+              model={strengthYearlyCardModel}
+              canGoPrevious={strengthYearNav.canGoPrevious}
+              canGoNext={strengthYearNav.canGoNext}
+              onPressPrevious={handlePressStrengthPreviousYear}
+              onPressNext={handlePressStrengthNextYear}
             />
           ) : null}
         </>
@@ -1322,25 +1794,55 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         <>
           <CardioTodayCard
             loading={overviewSharedRange.status !== "ready"}
-            model={cardioTodayCardModel}
+            detailVm={cardioTodayDetailVm}
             onPressLog={() => router.push(`${basePath}/log`)}
           />
           {cardioThisWeekCard}
+          <CardioWeeklyMetricCard
+            title="Weekly Distance"
+            loading={overviewSharedRange.status !== "ready"}
+            model={cardioWeeklyDistanceModel}
+            unit="mi"
+            weekRangeLabel={cardioDistanceWeekNav.weekRangeLabel}
+            canGoPrevious={cardioDistanceWeekNav.canGoPrevious}
+            canGoNext={cardioDistanceWeekNav.canGoNext}
+            onPressPrevious={handlePressCardioDistancePreviousWeek}
+            onPressNext={handlePressCardioDistanceNextWeek}
+            todayDayKey={today}
+            formatBarLabel={formatCardioWeeklyDistanceBarLabel}
+            emptyPlaceholder="No cardio distance this week yet"
+            testIDRoot="cardio-weekly-distance"
+          />
+          <CardioWeeklyMetricCard
+            title="Weekly Duration"
+            loading={overviewSharedRange.status !== "ready"}
+            model={cardioWeeklyDurationModel}
+            unit="min"
+            weekRangeLabel={cardioDurationWeekNav.weekRangeLabel}
+            canGoPrevious={cardioDurationWeekNav.canGoPrevious}
+            canGoNext={cardioDurationWeekNav.canGoNext}
+            onPressPrevious={handlePressCardioDurationPreviousWeek}
+            onPressNext={handlePressCardioDurationNextWeek}
+            todayDayKey={today}
+            formatBarLabel={formatCardioWeeklyDurationBarLabel}
+            emptyPlaceholder="No cardio time this week yet"
+            testIDRoot="cardio-weekly-duration"
+          />
           {cardioHistorySummaryModel ? (
             <CardioHistorySummaryCard
               model={cardioHistorySummaryModel}
               onPressViewMore={() => router.push(`${basePath}/analytics-detail`)}
-              onPressCardioRangeExplainer={(ctx) =>
-                router.push({
-                  pathname: "/(app)/cardio/cardio-range-explainer",
-                  params: {
-                    window: ctx.rowLabel,
-                    tierIndex: String(ctx.tierIndexForBar),
-                    tierLabel: ctx.tierLabel,
-                    displayValue: ctx.displayValue,
-                  },
-                })
-              }
+            />
+          ) : null}
+          {cardioYearlyCardVisible ? (
+            <CardioYearlyCard
+              loading={false}
+              model={cardioYearlyCardModel}
+              canGoPrevious={cardioYearNav.canGoPrevious}
+              canGoNext={cardioYearNav.canGoNext}
+              onPressPrevious={handlePressCardioPreviousYear}
+              onPressNext={handlePressCardioNextYear}
+              priorYearPlaceholder="Yearly cardio history is coming soon"
             />
           ) : null}
         </>

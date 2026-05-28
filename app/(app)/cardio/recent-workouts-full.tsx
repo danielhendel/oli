@@ -22,7 +22,7 @@ import {
 import {
   cardioSessionDistanceMiles,
   filterCardioHistoryRowsDedupeOverlappingOther,
-  formatCardioSessionSubtitle,
+  resolveCardioSessionDisplayName,
   isDisplayableCardioHistorySession,
 } from "@/lib/data/workouts/cardioSessionPresentation";
 import {
@@ -356,7 +356,11 @@ export default function CardioRecentSessionsFullScreen() {
         sessionDurationMinutes: null,
         fallbackWorkoutDurationMinutes: surface.metricsWorkout.durationMinutes ?? item.session.durationMinutes,
       });
-      const titleLine = formatCardioSessionSubtitle(item.session);
+      const titleLine = resolveCardioSessionDisplayName(
+        item.session,
+        overridesByWorkoutId,
+        durableTitlesByWorkoutId,
+      );
       const metaLine = formatCardioHistoryMetadataLine(item.session, resolvedDuration);
       const isLast = index === visibleRows.length - 1;
 

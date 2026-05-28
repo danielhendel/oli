@@ -132,6 +132,10 @@ jest.mock("@/lib/api/appleHealth", () => ({
   getAppleHealthStatus: jest.fn().mockResolvedValue({ ok: true, json: {} }),
 }));
 
+jest.mock("@/lib/data/dash/useDailyEnergyCard", () => ({
+  useDailyEnergyCard: () => ({ energy: undefined, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 jest.mock("@/lib/data/workouts/useWorkoutsCalendar", () => ({
   useWorkoutsCalendarRange: (...args: unknown[]) => mockUseWorkoutsCalendarRange(...args),
 }));

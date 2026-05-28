@@ -33,7 +33,6 @@ describe("StrengthThisWeekCombinedCard", () => {
           loading={false}
           emptyMessage="No strength workouts this week yet"
           sessions={[...sessions]}
-          onViewAll={jest.fn()}
           onPressSession={jest.fn()}
           onPressSessionMenu={jest.fn()}
         />,
@@ -55,7 +54,6 @@ describe("StrengthThisWeekCombinedCard", () => {
           loading={false}
           emptyMessage="No strength workouts this week yet"
           sessions={[...sessions]}
-          onViewAll={jest.fn()}
           onPressSession={jest.fn()}
           onPressSessionMenu={onPressSessionMenu}
         />,
@@ -63,7 +61,6 @@ describe("StrengthThisWeekCombinedCard", () => {
     });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("This Week");
-    expect(json).toContain("View All →");
     expect(json).toContain("Leg Day");
     expect(json).toContain("Push Day");
     expect(json).toContain("16 sets • Quads focused • 62 min");
@@ -94,7 +91,6 @@ describe("StrengthThisWeekCombinedCard", () => {
           loading={false}
           emptyMessage="No strength workouts this week yet"
           sessions={[sessions[1]!]}
-          onViewAll={jest.fn()}
           onPressSession={jest.fn()}
           onPressSessionMenu={jest.fn()}
         />,
@@ -105,25 +101,115 @@ describe("StrengthThisWeekCombinedCard", () => {
     expect(json).not.toContain("sets •");
   });
 
-  it("View All invokes callback", async () => {
-    const onViewAll = jest.fn();
+  it("no longer renders a View All entry point", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
         <StrengthThisWeekCombinedCard
           loading={false}
           emptyMessage="No strength workouts this week yet"
-          sessions={[]}
-          onViewAll={onViewAll}
+          sessions={[...sessions]}
           onPressSession={jest.fn()}
           onPressSessionMenu={jest.fn()}
         />,
       );
     });
-    const viewAll = tree.root.findByProps({ testID: "strength-recent-week-combined-view-more" });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain("View All →");
+    expect(json).not.toContain("strength-recent-week-combined-view-more");
+  });
+
+  it("renders the Activity-style week navigator when weekRangeLabel is provided", async () => {
+    let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      viewAll.props.onPress();
+      tree = renderer.create(
+        <StrengthThisWeekCombinedCard
+          loading={false}
+          emptyMessage="No strength workouts this week yet"
+          sessions={[...sessions]}
+          onPressSession={jest.fn()}
+          onPressSessionMenu={jest.fn()}
+          weekRangeLabel={"May 24\u201330"}
+          canGoPrevious
+          canGoNext={false}
+          onPressPrevious={jest.fn()}
+          onPressNext={jest.fn()}
+        />,
+      );
     });
-    expect(onViewAll).toHaveBeenCalledTimes(1);
+    const label = tree.root.findByProps({ testID: "workouts-this-week-range-label" });
+    expect(label.props.children).toBe("May 24\u201330");
+    expect(label.props.accessibilityLabel).toBe("Week of May 24\u201330");
+    expect(tree.root.findByProps({ testID: "workouts-this-week-nav" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "workouts-this-week-nav-previous" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "workouts-this-week-nav-next" })).toBeDefined();
+  });
+
+  it("omits the nav cluster when weekRangeLabel is not provided", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <StrengthThisWeekCombinedCard
+          loading={false}
+          emptyMessage="No strength workouts this week yet"
+          sessions={[...sessions]}
+          onPressSession={jest.fn()}
+          onPressSessionMenu={jest.fn()}
+        />,
+      );
+    });
+    expect(() => tree.root.findByProps({ testID: "workouts-this-week-nav" })).toThrow();
+  });
+
+  it("previous chevron press fires onPressPrevious", async () => {
+    const onPressPrevious = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <StrengthThisWeekCombinedCard
+          loading={false}
+          emptyMessage="No strength workouts this week yet"
+          sessions={[...sessions]}
+          onPressSession={jest.fn()}
+          onPressSessionMenu={jest.fn()}
+          weekRangeLabel={"May 24\u201330"}
+          canGoPrevious
+          canGoNext={false}
+          onPressPrevious={onPressPrevious}
+          onPressNext={jest.fn()}
+        />,
+      );
+    });
+    const prev = tree.root.findByProps({ testID: "workouts-this-week-nav-previous" });
+    expect(prev.props.disabled).toBe(false);
+    expect(prev.props.accessibilityState).toEqual({ disabled: false });
+    await act(async () => {
+      prev.props.onPress();
+    });
+    expect(onPressPrevious).toHaveBeenCalledTimes(1);
+  });
+
+  it("next chevron is disabled when canGoNext is false (current week)", async () => {
+    const onPressNext = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <StrengthThisWeekCombinedCard
+          loading={false}
+          emptyMessage="No strength workouts this week yet"
+          sessions={[...sessions]}
+          onPressSession={jest.fn()}
+          onPressSessionMenu={jest.fn()}
+          weekRangeLabel={"May 24\u201330"}
+          canGoPrevious
+          canGoNext={false}
+          onPressPrevious={jest.fn()}
+          onPressNext={onPressNext}
+        />,
+      );
+    });
+    const next = tree.root.findByProps({ testID: "workouts-this-week-nav-next" });
+    expect(next.props.disabled).toBe(true);
+    expect(next.props.accessibilityState).toEqual({ disabled: true });
   });
 });
