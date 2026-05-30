@@ -79,6 +79,8 @@ import {
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   getStepCountForDateRange,
+  runAppleHealthWorkoutPhysiologyDiagnostic,
+  runAppleHealthWorkoutPhysiologyEnrichment,
 } from "@/lib/integrations/appleHealth";
 import {
   shouldRequestHistoricalBootstrapRange,
@@ -1481,6 +1483,19 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             stepsIdempotencyKey,
             workoutIdempotencyKey,
             getStepCountForDateRange,
+            // Workout Physiology v1 — Phase A diagnostics (dev/staging only).
+            // Read-only HK probe + structured log; gated internally on
+            // shouldLogAppleHealthPhysiologyDiagnostics(). Never mutates raw
+            // payloads or canonical state.
+            diagnoseWorkoutPhysiology: runAppleHealthWorkoutPhysiologyDiagnostic,
+            // Workout Physiology v1 — Phase B enrichment (default ENABLED via
+            // AH_WORKOUT_PHYSIOLOGY_V1). Produces avg/max HR (padded), zones,
+            // energy, recovery; never throws.
+            enrichWorkoutPhysiology: (w, ctx) =>
+              runAppleHealthWorkoutPhysiologyEnrichment(w, {
+                neighbors: ctx.neighbors,
+                ...(user?.uid ? { userId: user.uid } : {}),
+              }),
           },
         );
 

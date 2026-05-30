@@ -212,6 +212,122 @@ describe("runWorkoutHistoryBackfillPasses", () => {
     });
   });
 
+  it("Phase A diagnostics — invokes diagnoseWorkoutPhysiology for each bootstrap workout, before ingest", async () => {
+    const callOrder: string[] = [];
+    jest.spyOn(syncModule, "runAnchoredWorkoutsSync").mockResolvedValue({
+      ok: true,
+      mayHaveMoreWorkouts: false,
+    });
+    const mockDiagnose = jest.fn(async (w: { start: string }) => {
+      callOrder.push(`diagnose:${w.start}`);
+    });
+    const mockIngest = jest.fn(async (body: { kind?: string; payload?: { start?: string } }) => {
+      callOrder.push(`ingest:${body?.payload?.start ?? ""}`);
+      return { ok: true as const };
+    });
+    const deps: RunWorkoutHistoryBackfillDeps = {
+      ...noopDeps,
+      ingestRawEvent: mockIngest,
+      diagnoseWorkoutPhysiology: mockDiagnose,
+      pullWorkoutsByDateRange: jest.fn(async () => ({
+        ok: true,
+        data: {
+          workouts: [
+            {
+              start: "2025-01-10T10:00:00.000Z",
+              end: "2025-01-10T11:00:00.000Z",
+              activityId: 13,
+              activityName: "Strength",
+              sourceId: "watch",
+              durationMinutes: 60,
+              calories: 200,
+            },
+            {
+              start: "2025-02-10T10:00:00.000Z",
+              end: "2025-02-10T11:00:00.000Z",
+              activityId: 13,
+              activityName: "Strength",
+              sourceId: "watch",
+              durationMinutes: 60,
+              calories: 220,
+            },
+          ],
+          pagesFetched: 1,
+          truncated: false,
+        },
+      })),
+    } as RunWorkoutHistoryBackfillDeps;
+
+    const r = await runWorkoutHistoryBackfillPasses(
+      {
+        uid: "u",
+        token: "t",
+        limit: 500,
+        bootstrapRange: { startDate: "2025-01-01T00:00:00.000Z", endDate: "2026-01-01T00:00:00.000Z" },
+      },
+      deps,
+    );
+    expect(r.ok).toBe(true);
+    expect(mockDiagnose).toHaveBeenCalledTimes(2);
+    expect(mockDiagnose).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ start: "2025-01-10T10:00:00.000Z", activityId: 13 }),
+    );
+    expect(callOrder).toEqual([
+      "diagnose:2025-01-10T10:00:00.000Z",
+      "ingest:2025-01-10T10:00:00.000Z",
+      "diagnose:2025-02-10T10:00:00.000Z",
+      "ingest:2025-02-10T10:00:00.000Z",
+    ]);
+  });
+
+  it("Phase A diagnostics — bootstrap diagnose throw does not block ingest or bootstrap success", async () => {
+    jest.spyOn(syncModule, "runAnchoredWorkoutsSync").mockResolvedValue({
+      ok: true,
+      mayHaveMoreWorkouts: false,
+    });
+    const mockIngest = jest.fn(async () => ({ ok: true as const }));
+    const mockDiagnose = jest.fn(async () => {
+      throw new Error("diagnose blew up");
+    });
+    const deps: RunWorkoutHistoryBackfillDeps = {
+      ...noopDeps,
+      ingestRawEvent: mockIngest,
+      diagnoseWorkoutPhysiology: mockDiagnose,
+      pullWorkoutsByDateRange: jest.fn(async () => ({
+        ok: true,
+        data: {
+          workouts: [
+            {
+              start: "2025-01-10T10:00:00.000Z",
+              end: "2025-01-10T11:00:00.000Z",
+              activityId: 13,
+              activityName: "Strength",
+              sourceId: "watch",
+              durationMinutes: 60,
+              calories: 200,
+            },
+          ],
+          pagesFetched: 1,
+          truncated: false,
+        },
+      })),
+    } as RunWorkoutHistoryBackfillDeps;
+
+    const r = await runWorkoutHistoryBackfillPasses(
+      {
+        uid: "u",
+        token: "t",
+        limit: 500,
+        bootstrapRange: { startDate: "2025-01-01T00:00:00.000Z", endDate: "2026-01-01T00:00:00.000Z" },
+      },
+      deps,
+    );
+    expect(r.ok).toBe(true);
+    expect(mockIngest).toHaveBeenCalled();
+    expect(mockDiagnose).toHaveBeenCalledTimes(1);
+  });
+
   it("uses default bootstrap max pages when omitted", async () => {
     const pull = jest.fn(async () => ({
       ok: true as const,

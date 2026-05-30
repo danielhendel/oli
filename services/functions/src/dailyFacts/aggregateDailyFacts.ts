@@ -172,6 +172,20 @@ const buildCardioFacts = (events: CanonicalEvent[]): DailyCardioFacts | undefine
   let maxHeartRateBpm: number | undefined;
   const sportCounts = new Map<string, number>();
 
+  // Workout Physiology v1 — energy + HR zone aggregation
+  let activeEnergyKcalSum = 0;
+  let haveActiveEnergy = false;
+  let totalEnergyKcalSum = 0;
+  let haveTotalEnergy = false;
+  const zoneSum: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+  let zoneSessionCount = 0;
+  // Daily zone basis is attached only when EVERY contributing session shares the same
+  // modelVersion + thresholdsBpm tuple. Mixed bases → omit (fail-closed).
+  let firstZoneBasis:
+    | { modelVersion: 'default_thresholds_v1'; thresholdsBpm: readonly [number, number, number, number] }
+    | null = null;
+  let zoneBasisAgrees = true;
+
   for (const e of workoutEvents) {
     if (isNumber(e.durationMinutes) && e.durationMinutes > 0) {
       durationMinutes += e.durationMinutes;
@@ -190,6 +204,49 @@ const buildCardioFacts = (events: CanonicalEvent[]): DailyCardioFacts | undefine
     }
     if (typeof e.maxHeartRateBpm === "number" && e.maxHeartRateBpm > 0) {
       maxHeartRateBpm = maxHeartRateBpm == null ? e.maxHeartRateBpm : Math.max(maxHeartRateBpm, e.maxHeartRateBpm);
+    }
+    if (
+      typeof e.activeEnergyKcal === 'number' &&
+      Number.isFinite(e.activeEnergyKcal) &&
+      e.activeEnergyKcal >= 0
+    ) {
+      activeEnergyKcalSum += e.activeEnergyKcal;
+      haveActiveEnergy = true;
+    }
+    if (
+      typeof e.totalEnergyKcal === 'number' &&
+      Number.isFinite(e.totalEnergyKcal) &&
+      e.totalEnergyKcal >= 0
+    ) {
+      totalEnergyKcalSum += e.totalEnergyKcal;
+      haveTotalEnergy = true;
+    }
+    if (
+      Array.isArray(e.heartRateZoneMinutes) &&
+      e.heartRateZoneMinutes.length === 5 &&
+      e.heartRateZoneBasis &&
+      e.heartRateZoneBasis.modelVersion === 'default_thresholds_v1'
+    ) {
+      zoneSessionCount += 1;
+      const zm = e.heartRateZoneMinutes;
+      for (let i = 0; i < 5; i++) {
+        const v = zm[i];
+        if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+          zoneSum[i as 0 | 1 | 2 | 3 | 4] += v;
+        }
+      }
+      const currentBasis = {
+        modelVersion: e.heartRateZoneBasis.modelVersion,
+        thresholdsBpm: e.heartRateZoneBasis.thresholdsBpm,
+      } as const;
+      if (firstZoneBasis == null) {
+        firstZoneBasis = currentBasis;
+      } else if (
+        firstZoneBasis.modelVersion !== currentBasis.modelVersion ||
+        !arraysShallowEqual(firstZoneBasis.thresholdsBpm, currentBasis.thresholdsBpm)
+      ) {
+        zoneBasisAgrees = false;
+      }
     }
   }
 
@@ -217,8 +274,35 @@ const buildCardioFacts = (events: CanonicalEvent[]): DailyCardioFacts | undefine
   if (typeof maxHeartRateBpm === "number") {
     out.maxHeartRateBpm = maxHeartRateBpm;
   }
+  if (haveActiveEnergy) out.activeEnergyKcal = activeEnergyKcalSum;
+  if (haveTotalEnergy) out.totalEnergyKcal = totalEnergyKcalSum;
+  if (zoneSessionCount > 0 && zoneBasisAgrees && firstZoneBasis != null) {
+    out.heartRateZoneMinutes = [
+      zoneSum[0],
+      zoneSum[1],
+      zoneSum[2],
+      zoneSum[3],
+      zoneSum[4],
+    ] as const;
+    out.heartRateZoneBasis = {
+      modelVersion: firstZoneBasis.modelVersion,
+      thresholdsBpm: firstZoneBasis.thresholdsBpm,
+    };
+  }
   return out;
 };
+
+/** Strict shallow equality for thresholds tuples. */
+function arraysShallowEqual(
+  a: readonly number[],
+  b: readonly number[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 const buildBodyFacts = (events: CanonicalEvent[]): DailyBodyFacts | undefined => {
   const weightEvents = events.filter(isWeightEvent);
@@ -309,6 +393,14 @@ const buildStrengthFacts = (
   let maxHeartRateBpm: number | undefined;
   const sportCounts = new Map<string, number>();
 
+  // Workout Physiology v1 — strength energy aggregation. Only the workout-classified
+  // (Apple `strength_*` sport) sessions carry energy; native `strength_workout`
+  // canonical docs (manual sets) do not have energy fields in Phase B.
+  let activeEnergyKcalSum = 0;
+  let haveActiveEnergy = false;
+  let totalEnergyKcalSum = 0;
+  let haveTotalEnergy = false;
+
   for (const e of strengthTaggedWorkouts) {
     if (isNumber(e.durationMinutes) && e.durationMinutes > 0) {
       durationMinutesSum += e.durationMinutes;
@@ -324,6 +416,22 @@ const buildStrengthFacts = (
     if (typeof e.maxHeartRateBpm === 'number' && e.maxHeartRateBpm > 0) {
       maxHeartRateBpm =
         maxHeartRateBpm == null ? e.maxHeartRateBpm : Math.max(maxHeartRateBpm, e.maxHeartRateBpm);
+    }
+    if (
+      typeof e.activeEnergyKcal === 'number' &&
+      Number.isFinite(e.activeEnergyKcal) &&
+      e.activeEnergyKcal >= 0
+    ) {
+      activeEnergyKcalSum += e.activeEnergyKcal;
+      haveActiveEnergy = true;
+    }
+    if (
+      typeof e.totalEnergyKcal === 'number' &&
+      Number.isFinite(e.totalEnergyKcal) &&
+      e.totalEnergyKcal >= 0
+    ) {
+      totalEnergyKcalSum += e.totalEnergyKcal;
+      haveTotalEnergy = true;
     }
   }
 
@@ -350,6 +458,8 @@ const buildStrengthFacts = (
   if (typeof maxHeartRateBpm === 'number') {
     facts.maxHeartRateBpm = maxHeartRateBpm;
   }
+  if (haveActiveEnergy) facts.activeEnergyKcal = activeEnergyKcalSum;
+  if (haveTotalEnergy) facts.totalEnergyKcal = totalEnergyKcalSum;
 
   return facts;
 };

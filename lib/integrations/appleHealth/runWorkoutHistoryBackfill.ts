@@ -141,7 +141,79 @@ async function runRangeBootstrap(
   let ingestFailed = 0;
   const total = pulled.data.workouts.length;
 
+  /**
+   * Workout Physiology v1 — Pre-compute neighbor boundaries (stable ascending sort
+   * by start) so the padded HR enrichment window can clip against back-to-back
+   * historical sessions. Lookup keyed by the workout idempotency key.
+   */
+  const sortedForNeighbors = [...pulled.data.workouts].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  const neighborByKey = new Map<string, { priorEndIso: string | null; nextStartIso: string | null }>();
+  for (let i = 0; i < sortedForNeighbors.length; i++) {
+    const w = sortedForNeighbors[i]!;
+    const key = deps.workoutIdempotencyKey({
+      startIso: w.start,
+      endIso: w.end,
+      activityId: w.activityId,
+      sourceId: w.sourceId,
+    });
+    neighborByKey.set(key, {
+      priorEndIso: i > 0 ? sortedForNeighbors[i - 1]!.end : null,
+      nextStartIso: i + 1 < sortedForNeighbors.length ? sortedForNeighbors[i + 1]!.start : null,
+    });
+  }
+
   for (const w of pulled.data.workouts) {
+    /**
+     * Workout Physiology v1 — Phase A diagnostic (dev/staging only).
+     * Mirrors the anchored sync path. Runs BEFORE ingest so a failure here
+     * cannot affect the payload or bootstrap outcome.
+     */
+    const diagnosticWorkout = {
+      start: w.start,
+      end: w.end,
+      activityId: w.activityId,
+      activityName: w.activityName,
+      sourceId: w.sourceId ?? null,
+      durationMinutes: w.durationMinutes,
+      ...(typeof w.distanceMeters === "number" ? { distanceMeters: w.distanceMeters } : {}),
+      ...(typeof w.calories === "number" ? { calories: w.calories } : {}),
+    };
+
+    if (typeof deps.diagnoseWorkoutPhysiology === "function") {
+      try {
+        await deps.diagnoseWorkoutPhysiology(diagnosticWorkout);
+      } catch (e) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.log("[AH][PHYSIOLOGY_DIAGNOSE] dep threw; continuing ingest", e);
+        }
+      }
+    }
+
+    let physiologyBlock = null as
+      | import("./enrichWorkoutPhysiologyForIngest").WorkoutPhysiologyEnrichmentBlock
+      | null;
+    if (typeof deps.enrichWorkoutPhysiology === "function") {
+      const key = deps.workoutIdempotencyKey({
+        startIso: w.start,
+        endIso: w.end,
+        activityId: w.activityId,
+        sourceId: w.sourceId,
+      });
+      const neighbors = neighborByKey.get(key) ?? { priorEndIso: null, nextStartIso: null };
+      try {
+        physiologyBlock = await deps.enrichWorkoutPhysiology(diagnosticWorkout, { neighbors });
+      } catch (e) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.warn("[AH] enrichWorkoutPhysiology threw; continuing without physiology", e);
+        }
+        physiologyBlock = null;
+      }
+    }
+
     const payload = {
       start: w.start,
       end: w.end,
@@ -156,16 +228,21 @@ async function runRangeBootstrap(
       w.distanceMeters > 0
         ? { distanceMeters: w.distanceMeters }
         : {}),
-      ...(typeof w.averageHeartRateBpm === "number" &&
+      // Legacy strict-window summary HR — used only as fallback when padded
+      // enrichment did not return a value (see `runAnchoredWorkoutsSync`).
+      ...(physiologyBlock?.averageHeartRateBpm == null &&
+      typeof w.averageHeartRateBpm === "number" &&
       Number.isFinite(w.averageHeartRateBpm) &&
       w.averageHeartRateBpm > 0
         ? { averageHeartRateBpm: w.averageHeartRateBpm }
         : {}),
-      ...(typeof w.maxHeartRateBpm === "number" &&
+      ...(physiologyBlock?.maxHeartRateBpm == null &&
+      typeof w.maxHeartRateBpm === "number" &&
       Number.isFinite(w.maxHeartRateBpm) &&
       w.maxHeartRateBpm > 0
         ? { maxHeartRateBpm: w.maxHeartRateBpm }
         : {}),
+      ...(physiologyBlock ?? {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {
         mode: "range_bootstrap" as const,

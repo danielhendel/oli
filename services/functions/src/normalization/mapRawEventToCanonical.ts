@@ -107,6 +107,29 @@ type ManualWorkoutPayload = ManualWindowBase & {
    * consumed by `buildActivityStepsAllocationV1`. Non-finite/negative values are dropped.
    */
   steps?: number;
+  /**
+   * Workout Physiology v1 — Phase B (additive). All optional; absent means unavailable.
+   * The mapper copies these to canonical 1:1 when finite/valid and stamps
+   * `physiologyVersion: 1` if any field is present.
+   */
+  activeEnergyKcal?: number;
+  basalEnergyKcal?: number;
+  totalEnergyKcal?: number;
+  heartRateZoneMinutes?: [number, number, number, number, number];
+  heartRateZoneBasis?: {
+    modelVersion: "default_thresholds_v1";
+    thresholdsBpm: [number, number, number, number];
+    userMaxHrBpm: number | null;
+    computedFromSampleCount: number;
+  };
+  postWorkoutHeartRate?: {
+    windowSeconds: number;
+    startBpm: number;
+    endBpm: number;
+    dropBpm: number;
+    sampleCount: number;
+  };
+  physiologyVersion?: 1;
 };
 
 type ManualHrvPayload = {
@@ -480,6 +503,106 @@ const mapManualWorkout = (
     payload.steps >= 0
   ) {
     base.steps = Math.round(payload.steps);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Workout Physiology v1 — Phase B (additive)
+  // Copy raw payload fields 1:1 onto canonical when finite/valid; absent stays absent.
+  // No defaulting, no zero placeholders, no invented zones.
+  // ---------------------------------------------------------------------------
+  let physiologyPresent = false;
+  if (
+    typeof payload.activeEnergyKcal === "number" &&
+    Number.isFinite(payload.activeEnergyKcal) &&
+    payload.activeEnergyKcal >= 0
+  ) {
+    base.activeEnergyKcal = payload.activeEnergyKcal;
+    physiologyPresent = true;
+  }
+  if (
+    typeof payload.basalEnergyKcal === "number" &&
+    Number.isFinite(payload.basalEnergyKcal) &&
+    payload.basalEnergyKcal >= 0
+  ) {
+    base.basalEnergyKcal = payload.basalEnergyKcal;
+    physiologyPresent = true;
+  }
+  if (
+    typeof payload.totalEnergyKcal === "number" &&
+    Number.isFinite(payload.totalEnergyKcal) &&
+    payload.totalEnergyKcal >= 0
+  ) {
+    base.totalEnergyKcal = payload.totalEnergyKcal;
+    physiologyPresent = true;
+  }
+  if (
+    Array.isArray(payload.heartRateZoneMinutes) &&
+    payload.heartRateZoneMinutes.length === 5 &&
+    payload.heartRateZoneMinutes.every(
+      (n) => typeof n === "number" && Number.isFinite(n) && n >= 0,
+    ) &&
+    payload.heartRateZoneBasis &&
+    payload.heartRateZoneBasis.modelVersion === "default_thresholds_v1" &&
+    Array.isArray(payload.heartRateZoneBasis.thresholdsBpm) &&
+    payload.heartRateZoneBasis.thresholdsBpm.length === 4
+  ) {
+    base.heartRateZoneMinutes = [
+      payload.heartRateZoneMinutes[0],
+      payload.heartRateZoneMinutes[1],
+      payload.heartRateZoneMinutes[2],
+      payload.heartRateZoneMinutes[3],
+      payload.heartRateZoneMinutes[4],
+    ] as [number, number, number, number, number];
+    base.heartRateZoneBasis = {
+      modelVersion: payload.heartRateZoneBasis.modelVersion,
+      thresholdsBpm: [
+        payload.heartRateZoneBasis.thresholdsBpm[0],
+        payload.heartRateZoneBasis.thresholdsBpm[1],
+        payload.heartRateZoneBasis.thresholdsBpm[2],
+        payload.heartRateZoneBasis.thresholdsBpm[3],
+      ] as [number, number, number, number],
+      userMaxHrBpm:
+        typeof payload.heartRateZoneBasis.userMaxHrBpm === "number" &&
+        Number.isFinite(payload.heartRateZoneBasis.userMaxHrBpm)
+          ? payload.heartRateZoneBasis.userMaxHrBpm
+          : null,
+      computedFromSampleCount:
+        typeof payload.heartRateZoneBasis.computedFromSampleCount === "number" &&
+        Number.isFinite(payload.heartRateZoneBasis.computedFromSampleCount) &&
+        payload.heartRateZoneBasis.computedFromSampleCount >= 0
+          ? payload.heartRateZoneBasis.computedFromSampleCount
+          : 0,
+    };
+    physiologyPresent = true;
+  }
+  if (
+    payload.postWorkoutHeartRate &&
+    typeof payload.postWorkoutHeartRate.windowSeconds === "number" &&
+    Number.isFinite(payload.postWorkoutHeartRate.windowSeconds) &&
+    payload.postWorkoutHeartRate.windowSeconds > 0 &&
+    typeof payload.postWorkoutHeartRate.startBpm === "number" &&
+    Number.isFinite(payload.postWorkoutHeartRate.startBpm) &&
+    payload.postWorkoutHeartRate.startBpm > 0 &&
+    typeof payload.postWorkoutHeartRate.endBpm === "number" &&
+    Number.isFinite(payload.postWorkoutHeartRate.endBpm) &&
+    payload.postWorkoutHeartRate.endBpm > 0
+  ) {
+    base.postWorkoutHeartRate = {
+      windowSeconds: payload.postWorkoutHeartRate.windowSeconds,
+      startBpm: payload.postWorkoutHeartRate.startBpm,
+      endBpm: payload.postWorkoutHeartRate.endBpm,
+      dropBpm: payload.postWorkoutHeartRate.startBpm - payload.postWorkoutHeartRate.endBpm,
+      sampleCount:
+        typeof payload.postWorkoutHeartRate.sampleCount === "number" &&
+        Number.isFinite(payload.postWorkoutHeartRate.sampleCount) &&
+        payload.postWorkoutHeartRate.sampleCount >= 0
+          ? payload.postWorkoutHeartRate.sampleCount
+          : 0,
+    };
+    physiologyPresent = true;
+  }
+  if (physiologyPresent) {
+    base.physiologyVersion = 1;
   }
 
   return base;

@@ -7,6 +7,8 @@ import { shouldIngestAppleHealthStepsForDay } from "./appleHealthStepsIngestGuar
 import { buildAppleHealthStepsIngestBody } from "./appleHealthStepsIngestBody";
 import { getLastIngestedStepsForDay, setLastIngestedStepsForDay } from "./storage";
 import type { TodaySnapshot, TodayWorkout } from "./types";
+import type { WorkoutForDiagnostic } from "./diagnoseWorkoutPhysiology";
+import type { WorkoutPhysiologyEnrichmentBlock } from "./enrichWorkoutPhysiologyForIngest";
 
 export type RunAnchoredWorkoutsSyncDeps = {
   getWorkoutsAnchor: (uid: string) => Promise<string | null>;
@@ -37,6 +39,43 @@ export type RunAnchoredWorkoutsSyncDeps = {
    * resolve to `null` and never block workout ingest.
    */
   getStepCountForDateRange?: (startDate: string, endDate: string) => Promise<number | null>;
+  /**
+   * Workout Physiology v1 — Phase A diagnostics (dev/staging only).
+   *
+   * When provided, invoked once per anchored workout to emit a structured
+   * `[AH][PHYSIOLOGY_DIAGNOSE]` log describing HR / route / energy / cadence /
+   * power / speed availability. Strictly READ-ONLY and non-blocking:
+   * - Errors thrown by this dep are swallowed; ingest proceeds.
+   * - Must not mutate the workout or the ingest body.
+   * - Must not write to raw events, canonical events, or DailyFacts.
+   *
+   * Production wiring: see `runAppleHealthWorkoutPhysiologyDiagnostic` in
+   * `healthKit.ts`. Tests can omit this dep entirely (diagnostics silent).
+   */
+  diagnoseWorkoutPhysiology?: (workout: WorkoutForDiagnostic) => Promise<void>;
+  /**
+   * Workout Physiology v1 — Phase B production enrichment.
+   *
+   * When provided, invoked once per anchored workout BEFORE payload assembly to
+   * compute additive physiology fields (HR avg/max, energy, zones, recovery).
+   * Result is merged into the workout payload via a conditional spread; null
+   * means no physiology was available and the legacy payload is unchanged.
+   *
+   * Contracts:
+   * - Errors are caught upstream (`runAppleHealthWorkoutPhysiologyEnrichment`
+   *   never throws); any thrown rejection here is swallowed so ingest proceeds.
+   * - Caller passes neighbor boundaries (`priorEndIso` / `nextStartIso`) so the
+   *   helper can clip the padded HR window for back-to-back sessions.
+   *
+   * Production wiring: see `runAppleHealthWorkoutPhysiologyEnrichment` in
+   * `healthKit.ts`. Tests can omit this dep entirely (no physiology fields).
+   */
+  enrichWorkoutPhysiology?: (
+    workout: WorkoutForDiagnostic,
+    context: {
+      neighbors: { priorEndIso: string | null; nextStartIso: string | null };
+    },
+  ) => Promise<WorkoutPhysiologyEnrichmentBlock | null>;
 };
 
 export type RunAnchoredWorkoutsSyncResult =
@@ -118,7 +157,73 @@ export async function runAnchoredWorkoutsSync(
   // Do not set payload.day: calendar grouping uses start + timezone (deriveWorkoutDayKey).
   // Using "today" would mis-attribute all historical workouts to the sync day.
 
+  /**
+   * Workout Physiology v1 — Pre-compute neighbor boundaries used to clip the padded
+   * HR enrichment window. Stable ascending sort by `start`. We do NOT reorder
+   * `anchored.data.workouts` itself (callers/anchors depend on insertion order);
+   * we only build an auxiliary lookup keyed by workout idempotency key.
+   */
+  const sortedForNeighbors = [...anchored.data.workouts].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  const neighborByKey = new Map<string, { priorEndIso: string | null; nextStartIso: string | null }>();
+  for (let i = 0; i < sortedForNeighbors.length; i++) {
+    const w = sortedForNeighbors[i]!;
+    const key = deps.workoutIdempotencyKey({
+      startIso: w.start,
+      endIso: w.end,
+      activityId: w.activityId,
+      sourceId: w.sourceId,
+    });
+    neighborByKey.set(key, {
+      priorEndIso: i > 0 ? sortedForNeighbors[i - 1]!.end : null,
+      nextStartIso: i + 1 < sortedForNeighbors.length ? sortedForNeighbors[i + 1]!.start : null,
+    });
+  }
+
   for (const w of anchored.data.workouts) {
+    /**
+     * Workout Physiology v1 — Phase A diagnostic (dev/staging only).
+     * Runs BEFORE ingest so a failure here cannot taint the payload. Wrapped
+     * in try/catch and `Promise.resolve().catch(...)` so a rejected promise
+     * from the dep can never block ingest.
+     */
+    if (typeof deps.diagnoseWorkoutPhysiology === "function") {
+      try {
+        await deps.diagnoseWorkoutPhysiology(w);
+      } catch (e) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.log("[AH][PHYSIOLOGY_DIAGNOSE] dep threw; continuing ingest", e);
+        }
+      }
+    }
+
+    /**
+     * Workout Physiology v1 — Phase B enrichment. Optional dep; failures swallowed
+     * so ingest proceeds with legacy fields only. Neighbor boundaries pre-computed
+     * above are passed so the padded HR window clips against back-to-back sessions.
+     */
+    let physiologyBlock: WorkoutPhysiologyEnrichmentBlock | null = null;
+    if (typeof deps.enrichWorkoutPhysiology === "function") {
+      const key = deps.workoutIdempotencyKey({
+        startIso: w.start,
+        endIso: w.end,
+        activityId: w.activityId,
+        sourceId: w.sourceId,
+      });
+      const neighbors = neighborByKey.get(key) ?? { priorEndIso: null, nextStartIso: null };
+      try {
+        physiologyBlock = await deps.enrichWorkoutPhysiology(w, { neighbors });
+      } catch (e) {
+        if (__DEV__ && !process.env.JEST_WORKER_ID) {
+          // eslint-disable-next-line no-console
+          console.warn("[AH] enrichWorkoutPhysiology threw; continuing without physiology", e);
+        }
+        physiologyBlock = null;
+      }
+    }
+
     /**
      * Phase 2A — Per-workout step enrichment. Fail-closed: any error or `null` is silently
      * dropped from the payload (we never invent steps from duration/calories/distance).
@@ -155,17 +260,29 @@ export async function runAnchoredWorkoutsSync(
       w.distanceMeters > 0
         ? { distanceMeters: w.distanceMeters }
         : {}),
-      ...(typeof w.averageHeartRateBpm === "number" &&
+      // Legacy strict-window summary HR (from `HKWorkout.totalAverageHeartRate` /
+      // `HKWorkout.totalMaxHeartRate` via `pullAnchoredWorkouts`). Used only when
+      // padded enrichment did NOT produce a value — the padded enrichment is more
+      // reliable per Phase A diagnostics (`strictHrMissedButPaddedFound`).
+      ...(physiologyBlock?.averageHeartRateBpm == null &&
+      typeof w.averageHeartRateBpm === "number" &&
       Number.isFinite(w.averageHeartRateBpm) &&
       w.averageHeartRateBpm > 0
         ? { averageHeartRateBpm: w.averageHeartRateBpm }
         : {}),
-      ...(typeof w.maxHeartRateBpm === "number" &&
+      ...(physiologyBlock?.maxHeartRateBpm == null &&
+      typeof w.maxHeartRateBpm === "number" &&
       Number.isFinite(w.maxHeartRateBpm) &&
       w.maxHeartRateBpm > 0
         ? { maxHeartRateBpm: w.maxHeartRateBpm }
         : {}),
       ...(workoutSteps != null ? { steps: workoutSteps } : {}),
+      // Workout Physiology v1 — spreads averageHeartRateBpm, maxHeartRateBpm (when
+      // produced by padded enrichment), activeEnergyKcal, basalEnergyKcal,
+      // totalEnergyKcal, heartRateZoneMinutes + heartRateZoneBasis,
+      // postWorkoutHeartRate, and physiologyVersion. Absent fields are simply not
+      // present on the block (no null placeholders).
+      ...(physiologyBlock ?? {}),
       hk: { sourceId: w.sourceId ?? null, activityId: w.activityId },
       sync: {
         mode: "anchored" as const,

@@ -7,6 +7,19 @@
 import { NativeModules, Platform } from "react-native";
 import { ymdInTimeZoneFromIso } from "@/lib/time/dayKey";
 import type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";
+import {
+  APPLE_HEALTH_PHYSIOLOGY_DIAGNOSTIC_LABEL,
+  diagnoseWorkoutPhysiologyForWindow,
+  shouldLogAppleHealthPhysiologyDiagnostics,
+  type WorkoutForDiagnostic,
+  type WorkoutPhysiologyHealthKitProbe,
+  type WorkoutPhysiologyHrSample,
+} from "./diagnoseWorkoutPhysiology";
+import {
+  enrichWorkoutPhysiologyForIngest,
+  shouldEnableWorkoutPhysiologyV1,
+  type WorkoutPhysiologyEnrichmentBlock,
+} from "./enrichWorkoutPhysiologyForIngest";
 
 /**
  * react-native-health parses dates with NSDateFormatter `yyyy-MM-dd'T'HH:mm:ss.SSSZ`.
@@ -1322,4 +1335,229 @@ export async function pullTodaySnapshot(): Promise<{ ok: true; data: TodaySnapsh
       ok: false as const,
       error: e instanceof Error ? e.message : String(e),
     }));
+}
+
+// ---------------------------------------------------------------------------
+// Workout Physiology v1 — Phase A diagnostics: HK probe wiring.
+// ---------------------------------------------------------------------------
+//
+// These helpers are READ-ONLY thin promisified wrappers around the native
+// HealthKit bridge used exclusively by {@link diagnoseWorkoutPhysiologyForWindow}.
+// They never throw, never write, never touch raw/canonical/derived state.
+// Failures resolve as `{ ok: false, error }` so the diagnostic helper can
+// surface them in its structured payload.
+
+/**
+ * Build the Phase A HK probe by resolving the native AppleHealthKit bridge
+ * once and binding callback-style HK queries into promise-returning wrappers.
+ *
+ * Returns `null` when HealthKit is unavailable (non-iOS / native not linked).
+ * Individual probe methods are omitted when the bridge lacks the underlying
+ * native call — the diagnostic helper treats missing methods as "unsupported"
+ * and surfaces that transparently rather than inventing data.
+ *
+ * No native bridge changes in Phase A: route querying is intentionally not
+ * wired here because react-native-health does not expose `getWorkoutRouteSamples`
+ * in its current surface. When/if a future native shim adds it, plug it in
+ * here without changing any callers.
+ */
+export async function buildAppleHealthWorkoutPhysiologyProbe(): Promise<WorkoutPhysiologyHealthKitProbe | null> {
+  const HK = await getHealthKit();
+  if (!HK) return null;
+
+  const queryHeartRateSamples = (
+    start: string,
+    end: string,
+  ): Promise<
+    | { ok: true; samples: WorkoutPhysiologyHrSample[] }
+    | { ok: false; error: string }
+  > =>
+    new Promise((resolve) => {
+      if (typeof HK.getHeartRateSamples !== "function") {
+        resolve({ ok: false, error: "HK.getHeartRateSamples not available" });
+        return;
+      }
+      try {
+        HK.getHeartRateSamples!(
+          { startDate: start, endDate: end, ascending: true },
+          (err: string, results: HealthValue[]) => {
+            if (err != null && String(err).trim() !== "") {
+              resolve({ ok: false, error: String(err) });
+              return;
+            }
+            if (!Array.isArray(results)) {
+              resolve({ ok: false, error: "non-array result" });
+              return;
+            }
+            const samples: WorkoutPhysiologyHrSample[] = results.map((s) => ({
+              value: typeof s?.value === "number" && Number.isFinite(s.value) ? s.value : 0,
+              ...(typeof s?.startDate === "string" ? { startDate: s.startDate } : {}),
+              ...(typeof s?.endDate === "string" ? { endDate: s.endDate } : {}),
+            }));
+            resolve({ ok: true, samples });
+          },
+        );
+      } catch (e) {
+        resolve({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+
+  const queryEnergyKcal = (
+    fnName: "getActiveEnergyBurned" | "getBasalEnergyBurned",
+    start: string,
+    end: string,
+  ): Promise<
+    { ok: true; valueKcal: number | null } | { ok: false; error: string }
+  > =>
+    new Promise((resolve) => {
+      const fn = HK[fnName];
+      if (typeof fn !== "function") {
+        resolve({ ok: false, error: `HK.${fnName} not available` });
+        return;
+      }
+      try {
+        fn({ startDate: start, endDate: end }, (err: string, results: HealthValue[]) => {
+          if (err != null && String(err).trim() !== "") {
+            resolve({ ok: false, error: String(err) });
+            return;
+          }
+          if (!Array.isArray(results)) {
+            resolve({ ok: false, error: "non-array result" });
+            return;
+          }
+          let total = 0;
+          let validCount = 0;
+          for (const r of results) {
+            const v = r?.value;
+            if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+              total += v;
+              validCount += 1;
+            }
+          }
+          resolve({
+            ok: true,
+            valueKcal: validCount > 0 && Number.isFinite(total) ? total : null,
+          });
+        });
+      } catch (e) {
+        resolve({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+
+  const countSamplesByType = (
+    type: string,
+    start: string,
+    end: string,
+  ): Promise<
+    { ok: true; sampleCount: number } | { ok: false; error: string }
+  > =>
+    new Promise((resolve) => {
+      if (typeof HK.getSamples !== "function") {
+        resolve({ ok: false, error: "HK.getSamples not available" });
+        return;
+      }
+      try {
+        HK.getSamples!(
+          { startDate: start, endDate: end, type, ascending: true },
+          (err: string, results: HealthValue[]) => {
+            if (err != null && String(err).trim() !== "") {
+              resolve({ ok: false, error: String(err) });
+              return;
+            }
+            if (!Array.isArray(results)) {
+              resolve({ ok: false, error: "non-array result" });
+              return;
+            }
+            resolve({ ok: true, sampleCount: results.length });
+          },
+        );
+      } catch (e) {
+        resolve({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+
+  return {
+    queryHeartRateSamples,
+    queryActiveEnergyKcal: (s, e) => queryEnergyKcal("getActiveEnergyBurned", s, e),
+    queryBasalEnergyKcal: (s, e) => queryEnergyKcal("getBasalEnergyBurned", s, e),
+    countSamplesByType,
+  };
+}
+
+/**
+ * Phase A — Production wiring for the workout physiology diagnostic.
+ * Resolves the native HK probe, gates on
+ * {@link shouldLogAppleHealthPhysiologyDiagnostics}, runs the structured
+ * diagnostic, and writes `[AH][PHYSIOLOGY_DIAGNOSE]` to console.log.
+ *
+ * Designed to be a drop-in dep for `runAnchoredWorkoutsSync` /
+ * `runWorkoutHistoryBackfillPasses`. Never throws; never blocks ingestion.
+ *
+ * To enable on-device (TestFlight / staging): set
+ * `process.env.AH_PHYSIOLOGY_DIAGNOSE="1"` before app launch, or run a dev
+ * build (Expo Go / `expo start`) where `__DEV__ === true`.
+ */
+export async function runAppleHealthWorkoutPhysiologyDiagnostic(
+  workout: WorkoutForDiagnostic,
+  options?: { enabled?: boolean },
+): Promise<void> {
+  const enabled = options?.enabled ?? shouldLogAppleHealthPhysiologyDiagnostics();
+  if (!enabled) return;
+  try {
+    const probe = await buildAppleHealthWorkoutPhysiologyProbe();
+    if (!probe) {
+      // No native bridge — surface a single explanatory line so devs know
+      // why the structured payload is missing. Still gated by `enabled`.
+      // eslint-disable-next-line no-console
+      console.log(APPLE_HEALTH_PHYSIOLOGY_DIAGNOSTIC_LABEL, {
+        workoutId: workout.id ?? `${workout.start}_${workout.end}_${workout.activityId}`,
+        skipped: true,
+        reason: "HealthKit native bridge unavailable",
+      });
+      return;
+    }
+    await diagnoseWorkoutPhysiologyForWindow(workout, probe, { enabled: true });
+  } catch {
+    // never block ingestion on diagnostic failure
+  }
+}
+
+/**
+ * Workout Physiology v1 — Phase B production enrichment runner.
+ *
+ * Resolves the live HealthKit probe (when available) and delegates the actual work
+ * to `enrichWorkoutPhysiologyForIngest`, then returns the additive payload block to
+ * the caller (`runAnchoredWorkoutsSync` / `runWorkoutHistoryBackfill`).
+ *
+ * Contracts:
+ * - Returns `null` when the feature flag is disabled, the bridge is unavailable, or
+ *   no probe call returned usable data.
+ * - **Never throws.** Caller may safely spread the result with `...(block ?? {})`.
+ * - **No side effects.** Diagnostics, logs, writes are out of scope here.
+ */
+export async function runAppleHealthWorkoutPhysiologyEnrichment(
+  workout: WorkoutForDiagnostic,
+  options?: {
+    enabled?: boolean;
+    summaryHrPaddingMs?: number;
+    neighbors?: { priorEndIso?: string | null; nextStartIso?: string | null };
+    userId?: string;
+  },
+): Promise<WorkoutPhysiologyEnrichmentBlock | null> {
+  const enabled = options?.enabled ?? shouldEnableWorkoutPhysiologyV1();
+  if (!enabled) return null;
+  try {
+    const probe = await buildAppleHealthWorkoutPhysiologyProbe();
+    if (!probe) return null;
+    return await enrichWorkoutPhysiologyForIngest(workout, probe, {
+      enabled: true,
+      ...(options?.summaryHrPaddingMs !== undefined
+        ? { summaryHrPaddingMs: options.summaryHrPaddingMs }
+        : {}),
+      ...(options?.neighbors !== undefined ? { neighbors: options.neighbors } : {}),
+      ...(options?.userId !== undefined ? { userId: options.userId } : {}),
+    });
+  } catch {
+    return null;
+  }
 }
