@@ -187,6 +187,58 @@ const manualStepsPayloadSchema = manualWindowBaseSchema
   })
   .strip();
 
+/**
+ * Workout Physiology v1 — heart-rate zone basis stamp.
+ *
+ * Identifies which threshold model produced `heartRateZoneMinutes`.
+ * Phase B ships `default_thresholds_v1` only; future personalized models
+ * (e.g. user max-HR based) will add new modelVersion strings without changing
+ * this schema shape (additive enum extension).
+ *
+ * Invariants:
+ * - `thresholdsBpm` is the ascending z1/z2, z2/z3, z3/z4, z4/z5 cutoff vector.
+ * - `userMaxHrBpm` is null when zones are computed from defaults (no personalized max-HR).
+ * - `computedFromSampleCount` is the HR sample count used to compute the zone tuple.
+ */
+const workoutHeartRateZoneBasisSchema = z
+  .object({
+    modelVersion: z.enum(["default_thresholds_v1"]),
+    thresholdsBpm: z
+      .tuple([
+        z.number().finite().positive(),
+        z.number().finite().positive(),
+        z.number().finite().positive(),
+        z.number().finite().positive(),
+      ])
+      .refine(
+        ([a, b, c, d]) => a < b && b < c && c < d,
+        { message: "thresholdsBpm must be strictly ascending" },
+      ),
+    userMaxHrBpm: z.number().finite().positive().nullable(),
+    computedFromSampleCount: z.number().int().nonnegative(),
+  })
+  .strip();
+
+/**
+ * Workout Physiology v1 — post-workout heart-rate recovery probe.
+ *
+ * Queried over `[end, end + windowSeconds]` independently of summary HR.
+ * Phase B uses windowSeconds = 120 (standard 2-minute HRR).
+ *
+ * Invariants:
+ * - `dropBpm = startBpm - endBpm`. May be negative if HR continued to climb.
+ * - Block is omitted from the payload when `sampleCount === 0`.
+ */
+const workoutPostWorkoutHeartRateSchema = z
+  .object({
+    windowSeconds: z.number().int().positive(),
+    startBpm: z.number().finite().positive(),
+    endBpm: z.number().finite().positive(),
+    dropBpm: z.number().finite(),
+    sampleCount: z.number().int().nonnegative(),
+  })
+  .strip();
+
 const manualWorkoutPayloadSchema = manualWindowBaseSchema
   .extend({
     sport: z.string().min(1),
@@ -197,6 +249,10 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
     distanceMeters: z.number().finite().positive().optional(),
     averageHeartRateBpm: z.number().finite().positive().optional(),
     maxHeartRateBpm: z.number().finite().positive().optional(),
+    /**
+     * Legacy active-calorie field; populated by every Apple Health workout ingest since launch.
+     * Readers must prefer `activeEnergyKcal` when present and fall back to this.
+     */
     calories: z.number().finite().nonnegative().optional(),
     /**
      * Phase 2A — Workout-level step total for the workout window (HealthKit cumulative sum over
@@ -204,9 +260,62 @@ const manualWorkoutPayloadSchema = manualWindowBaseSchema
      * allocation in `DailyFacts.activity.stepsAllocation`; never invented client-side.
      */
     steps: z.number().finite().nonnegative().optional(),
+    /**
+     * Workout Physiology v1 — explicit active energy (kcal) summed over `[start, end]`.
+     * Distinct from legacy `calories` so future readers can disambiguate.
+     */
+    activeEnergyKcal: z.number().finite().nonnegative().optional(),
+    /**
+     * Workout Physiology v1 — basal energy (kcal) summed over `[start, end]`.
+     * Stored for forensics; NOT aggregated into DailyFacts in Phase B (basal over a workout
+     * window is a partial-day estimate).
+     */
+    basalEnergyKcal: z.number().finite().nonnegative().optional(),
+    /**
+     * Workout Physiology v1 — total energy (kcal) = active + basal when both available.
+     * Server may cross-check `active + basal ≈ total` with ±0.5 kcal tolerance.
+     */
+    totalEnergyKcal: z.number().finite().nonnegative().optional(),
+    /**
+     * Workout Physiology v1 — minutes in each HR zone (z1..z5).
+     * Computed from padded HR samples clipped to strict `[start, end]`.
+     * MUST be accompanied by `heartRateZoneBasis` when present.
+     */
+    heartRateZoneMinutes: z
+      .tuple([
+        z.number().finite().nonnegative(),
+        z.number().finite().nonnegative(),
+        z.number().finite().nonnegative(),
+        z.number().finite().nonnegative(),
+        z.number().finite().nonnegative(),
+      ])
+      .optional(),
+    /** See {@link workoutHeartRateZoneBasisSchema}. */
+    heartRateZoneBasis: workoutHeartRateZoneBasisSchema.optional(),
+    /** See {@link workoutPostWorkoutHeartRateSchema}. */
+    postWorkoutHeartRate: workoutPostWorkoutHeartRateSchema.optional(),
+    /** Workout Physiology v1 — stamps the enrichment pipeline that produced these fields. */
+    physiologyVersion: z.literal(1).optional(),
   })
   // Preserve HealthKit-only keys (hk, sync, etc.) stored on workout raw payloads.
-  .passthrough();
+  .passthrough()
+  .superRefine((val, ctx) => {
+    // Zones and basis must travel together.
+    if (val.heartRateZoneMinutes !== undefined && val.heartRateZoneBasis === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "heartRateZoneMinutes requires heartRateZoneBasis",
+        path: ["heartRateZoneBasis"],
+      });
+    }
+    if (val.heartRateZoneBasis !== undefined && val.heartRateZoneMinutes === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "heartRateZoneBasis requires heartRateZoneMinutes",
+        path: ["heartRateZoneMinutes"],
+      });
+    }
+  });
 
 /** Written only by admin repair `scripts/admin/repair-apple-health-mass-unit.mjs` (idempotent). */
 const appleHealthWeightLbMislabeledAsKgRepairSchema = z

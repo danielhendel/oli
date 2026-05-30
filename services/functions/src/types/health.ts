@@ -232,6 +232,43 @@ export interface WorkoutSet {
 }
 
 /**
+ * Workout Physiology v1 — Heart-rate zone basis stamp on canonical workouts.
+ * Mirrors the raw payload basis; preserved verbatim by the mapper.
+ *
+ * Aggregator must check `modelVersion` equality across contributing workouts before
+ * attaching a daily zone tuple (mixed bases → daily zones omitted, fail-closed).
+ */
+export interface WorkoutHeartRateZoneBasisV1 {
+  modelVersion: "default_thresholds_v1";
+  /** Ascending z1/z2, z2/z3, z3/z4, z4/z5 cutoff vector. */
+  thresholdsBpm: readonly [number, number, number, number];
+  /** Null when zones were computed from defaults (no personalized max-HR yet). */
+  userMaxHrBpm: number | null;
+  /** HR sample count used to compute the zone tuple. */
+  computedFromSampleCount: number;
+}
+
+/**
+ * Workout Physiology v1 — Post-workout heart-rate recovery probe (HRR-120s).
+ * Queried over `[end, end + windowSeconds]` independently of summary HR; omitted
+ * from canonical when no samples were available.
+ */
+export interface WorkoutPostHeartRateRecoveryV1 {
+  windowSeconds: number;
+  startBpm: number;
+  endBpm: number;
+  /** `dropBpm = startBpm - endBpm`; may be negative if HR kept climbing. */
+  dropBpm: number;
+  sampleCount: number;
+}
+
+/**
+ * Workout Physiology v1 — Heart-rate zone minutes 5-tuple (z1..z5).
+ * Each entry is in minutes. Always present together with `heartRateZoneBasis`.
+ */
+export type WorkoutHeartRateZoneMinutesV1 = readonly [number, number, number, number, number];
+
+/**
  * WorkoutCanonicalEvent — explicit workouts / training sessions.
  */
 export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
@@ -273,6 +310,30 @@ export interface WorkoutCanonicalEvent extends BaseCanonicalEvent {
    * - `null` or absent when the source did not report steps for this workout.
    */
   steps?: number | null;
+
+  /**
+   * Workout Physiology v1 — Active energy (kcal) summed over `[start, end]`.
+   * Distinct from legacy raw `calories`; readers should prefer this when both exist.
+   */
+  activeEnergyKcal?: number;
+  /**
+   * Workout Physiology v1 — Basal energy (kcal) summed over `[start, end]`.
+   * Stored for forensics; NOT aggregated into DailyFacts in Phase B.
+   */
+  basalEnergyKcal?: number;
+  /**
+   * Workout Physiology v1 — Total energy (kcal) = active + basal when both present.
+   * Computed by the mobile enrichment helper, not derived backend-side.
+   */
+  totalEnergyKcal?: number;
+  /** Workout Physiology v1 — Minutes in each HR zone (z1..z5). */
+  heartRateZoneMinutes?: WorkoutHeartRateZoneMinutesV1;
+  /** Workout Physiology v1 — Basis stamp for `heartRateZoneMinutes`. */
+  heartRateZoneBasis?: WorkoutHeartRateZoneBasisV1;
+  /** Workout Physiology v1 — Post-workout heart-rate recovery probe. */
+  postWorkoutHeartRate?: WorkoutPostHeartRateRecoveryV1;
+  /** Workout Physiology v1 — Pipeline version stamp; bumped by any future supersede. */
+  physiologyVersion?: 1;
 }
 
 /**
@@ -533,6 +594,10 @@ export interface DailyStrengthFacts {
   primarySport?: string;
   averageHeartRateBpm?: number;
   maxHeartRateBpm?: number;
+  /** Workout Physiology v1 — sum of `activeEnergyKcal` across strength-tagged workouts. */
+  activeEnergyKcal?: number;
+  /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
+  totalEnergyKcal?: number;
 }
 
 /**
@@ -547,6 +612,21 @@ export interface DailyCardioFacts {
   maxHeartRateBpm?: number;
   paceMinPerKm?: number;
   speedMetersPerSecond?: number;
+  /** Workout Physiology v1 — sum of `activeEnergyKcal` across cardio workouts. */
+  activeEnergyKcal?: number;
+  /** Workout Physiology v1 — sum of `totalEnergyKcal` across cardio workouts. */
+  totalEnergyKcal?: number;
+  /**
+   * Workout Physiology v1 — tuple-sum of per-session `heartRateZoneMinutes` across cardio workouts.
+   * Attached only when every contributing session shares the same `heartRateZoneBasis.modelVersion`
+   * (fail-closed; mixed bases → omitted).
+   */
+  heartRateZoneMinutes?: readonly [number, number, number, number, number];
+  /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+  heartRateZoneBasis?: {
+    modelVersion: "default_thresholds_v1";
+    thresholdsBpm: readonly [number, number, number, number];
+  };
 }
 
 export type EnergyConfidence = "low" | "moderate" | "high";

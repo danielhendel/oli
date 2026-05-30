@@ -12,6 +12,7 @@ import type { AuthedRequest } from "../middleware/auth";
 import { logger, type RequestWithRid } from "../lib/logger";
 import { writeFailure } from "../lib/writeFailure";
 import { mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded } from "../lib/mergeAppleHealthWorkoutDistance";
+import { mergeAppleHealthWorkoutPhysiologyIfNeeded } from "../lib/mergeAppleHealthWorkoutPhysiologyIfNeeded";
 import {
   isAppleHealthWorkoutIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
@@ -564,11 +565,39 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
     try {
       const existing = await docRef.get();
       if (existing.exists) {
-        const enriched = await mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded({
+        const existingData = existing.data();
+        const distanceEnriched = await mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded({
           body,
-          existingData: existing.data(),
+          existingData,
           update: (payload) => docRef.update({ payload }),
         });
+
+        /**
+         * Workout Physiology v1 — Phase B additive merge.
+         *
+         * On replay, additively patches new physiology fields into the existing raw
+         * payload. When a merge happens, we bump `receivedAt` so the workout-aware
+         * `onRawEventUpdatedForNormalization` trigger re-runs normalization; the
+         * canonical doc then absorbs the fields via the additive supersede gate.
+         *
+         * Read the FRESH doc snapshot (distance merge above may have just updated
+         * `payload`); without this, the physiology merge would compare against
+         * stale data and either no-op incorrectly or miss the distance update.
+         */
+        const existingForPhysiology = distanceEnriched
+          ? (await docRef.get()).data()
+          : existingData;
+        const physiologyEnriched = await mergeAppleHealthWorkoutPhysiologyIfNeeded({
+          body,
+          existingData: existingForPhysiology,
+          update: async (payload) => {
+            await docRef.update({
+              payload,
+              receivedAt: validated.data.receivedAt,
+            });
+          },
+        });
+
         // Steps replays use the same raw doc id; `onDocumentCreated` does not re-fire.
         // Apple Health sends an updated cumulative total for the same calendar day under the
         // same idempotency key — we must persist the new payload, not only bump receivedAt,
@@ -589,7 +618,7 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
           rawEventId,
           day,
           idempotentReplay: true as const,
-          ...(enriched ? { payloadEnriched: true as const } : {}),
+          ...(distanceEnriched || physiologyEnriched ? { payloadEnriched: true as const } : {}),
           requestId,
         });
       }

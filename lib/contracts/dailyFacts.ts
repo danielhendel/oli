@@ -207,6 +207,10 @@ export const dailyFactsDtoSchema = z
         primarySport: z.string().min(1).optional(),
         averageHeartRateBpm: z.number().finite().optional(),
         maxHeartRateBpm: z.number().finite().optional(),
+        /** Workout Physiology v1 — sum of `activeEnergyKcal` across strength-tagged workouts. */
+        activeEnergyKcal: z.number().finite().nonnegative().optional(),
+        /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
+        totalEnergyKcal: z.number().finite().nonnegative().optional(),
       })
       .strip()
       .optional(),
@@ -220,6 +224,36 @@ export const dailyFactsDtoSchema = z
         maxHeartRateBpm: z.number().finite().optional(),
         paceMinPerKm: z.number().finite().optional(),
         speedMetersPerSecond: z.number().finite().optional(),
+        /** Workout Physiology v1 — sum of `activeEnergyKcal` across cardio workouts. */
+        activeEnergyKcal: z.number().finite().nonnegative().optional(),
+        /** Workout Physiology v1 — sum of `totalEnergyKcal` across cardio workouts. */
+        totalEnergyKcal: z.number().finite().nonnegative().optional(),
+        /**
+         * Workout Physiology v1 — tuple-sum of zone minutes across cardio workouts.
+         * Only attached when every contributing workout shares the same `heartRateZoneBasis.modelVersion`.
+         */
+        heartRateZoneMinutes: z
+          .tuple([
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+          ])
+          .optional(),
+        /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+        heartRateZoneBasis: z
+          .object({
+            modelVersion: z.enum(["default_thresholds_v1"]),
+            thresholdsBpm: z.tuple([
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+            ]),
+          })
+          .strip()
+          .optional(),
       })
       .strip()
       .optional(),

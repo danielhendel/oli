@@ -372,6 +372,174 @@ describe("anchored sync determinism", () => {
     expect(workoutCall![0].payload.steps).toBeUndefined();
   });
 
+  // ---------------------------------------------------------------------------
+  // Phase A — Workout Physiology diagnostics (dev-only, non-blocking dep)
+  // ---------------------------------------------------------------------------
+
+  it("Phase A diagnostics — calls diagnoseWorkoutPhysiology once per ingested workout, before ingest", async () => {
+    const callOrder: string[] = [];
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn(async (body: { kind?: string }) => {
+      callOrder.push(`ingest:${body?.kind ?? "unknown"}`);
+      return { ok: true };
+    });
+    const mockDiagnose = jest.fn(async (w: { id: string }) => {
+      callOrder.push(`diagnose:${w.id}`);
+    });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      diagnoseWorkoutPhysiology: mockDiagnose,
+    });
+
+    const result = await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+    expect(result.ok).toBe(true);
+    expect(mockDiagnose).toHaveBeenCalledTimes(1);
+    expect(mockDiagnose).toHaveBeenCalledWith(oneWorkout);
+    // Diagnostic runs strictly before ingest for that workout
+    const diagIdx = callOrder.indexOf("diagnose:w1");
+    const ingestIdx = callOrder.indexOf("ingest:workout");
+    expect(diagIdx).toBeGreaterThanOrEqual(0);
+    expect(ingestIdx).toBeGreaterThanOrEqual(0);
+    expect(diagIdx).toBeLessThan(ingestIdx);
+  });
+
+  it("Phase A diagnostics — dep throw is swallowed; ingest still proceeds and anchor advances", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+    const mockDiagnose = jest.fn(async () => {
+      throw new Error("diagnose blew up");
+    });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+      diagnoseWorkoutPhysiology: mockDiagnose,
+    });
+
+    const result = await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+    expect(result).toEqual({ ok: true, mayHaveMoreWorkouts: false });
+    expect(mockSetWorkoutsAnchor).toHaveBeenCalledWith("u1", "anchor-done");
+    expect(mockDiagnose).toHaveBeenCalledTimes(1);
+    const workoutCall = (mockIngest as jest.Mock).mock.calls.find((c) => c[0]?.kind === "workout");
+    expect(workoutCall).toBeDefined();
+  });
+
+  it("Phase A diagnostics — does not mutate workout ingest payload (raw payload unchanged)", async () => {
+    const mockPullAnchoredA = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullTodayA = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngestNoDiag = jest.fn().mockResolvedValue({ ok: true });
+    const withoutDiag = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchoredA,
+      pullTodaySnapshot: mockPullTodayA,
+      ingestRawEvent: mockIngestNoDiag,
+    });
+    await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, withoutDiag);
+    const baselineBody = (mockIngestNoDiag as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    )![0];
+
+    const mockPullAnchoredB = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullTodayB = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngestWithDiag = jest.fn().mockResolvedValue({ ok: true });
+    const withDiag = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchoredB,
+      pullTodaySnapshot: mockPullTodayB,
+      ingestRawEvent: mockIngestWithDiag,
+      diagnoseWorkoutPhysiology: jest.fn(async () => undefined),
+    });
+    await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, withDiag);
+
+    const withDiagBody = (mockIngestWithDiag as jest.Mock).mock.calls.find(
+      (c) => c[0]?.kind === "workout",
+    )![0];
+    expect(withDiagBody).toEqual(baselineBody);
+  });
+
+  it("Phase A diagnostics — does nothing when dep is not provided (existing tests unaffected)", async () => {
+    const mockPullAnchored = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { workouts: [oneWorkout], anchor: "anchor-done" },
+    });
+    const mockPullToday = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        day: "2026-03-01",
+        steps: null,
+        exerciseMinutes: null,
+        activeEnergyKcal: null,
+        restingHeartRateBpm: null,
+        workouts: [],
+      },
+    });
+    const mockIngest = jest.fn().mockResolvedValue({ ok: true });
+
+    const deps = baseDeps({
+      pullAnchoredWorkouts: mockPullAnchored,
+      pullTodaySnapshot: mockPullToday,
+      ingestRawEvent: mockIngest,
+    });
+    const result = await runAnchoredWorkoutsSync({ uid: "u1", token: "tok", limit: ANCHOR_LIMIT }, deps);
+    expect(result.ok).toBe(true);
+  });
+
   it("Phase 2A — payload.steps omitted when enrichment returns negative number", async () => {
     const mockPullAnchored = jest.fn().mockResolvedValue({
       ok: true,

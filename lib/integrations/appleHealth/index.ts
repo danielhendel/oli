@@ -18,11 +18,50 @@ export {
   buildHealthKitGetStepCountOptions,
   getStepCountForDateRange,
   diagnoseStepCountForWindow,
+  buildAppleHealthWorkoutPhysiologyProbe,
+  runAppleHealthWorkoutPhysiologyDiagnostic,
+  runAppleHealthWorkoutPhysiologyEnrichment,
 } from "./healthKit";
+export {
+  enrichWorkoutPhysiologyForIngest,
+  shouldEnableWorkoutPhysiologyV1,
+  WORKOUT_PHYSIOLOGY_SUMMARY_HR_PADDING_MS,
+  WORKOUT_PHYSIOLOGY_POST_HR_WINDOW_SECONDS,
+} from "./enrichWorkoutPhysiologyForIngest";
+export type {
+  WorkoutPhysiologyEnrichmentBlock,
+  WorkoutPhysiologyEnrichmentOptions,
+  WorkoutPhysiologyZoneBasis,
+} from "./enrichWorkoutPhysiologyForIngest";
+export {
+  resolveWorkoutHrZoneThresholds,
+  classifyHrSampleToZoneIndex,
+  DEFAULT_WORKOUT_HR_ZONE_THRESHOLDS_BPM,
+  WORKOUT_HR_ZONE_BASIS_MODEL_VERSION_V1,
+} from "./resolveWorkoutHrZoneThresholds";
+export type {
+  WorkoutHrZoneBasisModelVersion,
+  WorkoutHrZoneThresholdsResolution,
+} from "./resolveWorkoutHrZoneThresholds";
 export type {
   DiagnoseStepWindowEntry,
   DiagnoseStepWindowResult,
 } from "./healthKit";
+export {
+  APPLE_HEALTH_PHYSIOLOGY_DIAGNOSTIC_LABEL,
+  DEFAULT_WORKOUT_PHYSIOLOGY_PADDING_MS,
+  diagnoseWorkoutPhysiologyForWindow,
+  shouldLogAppleHealthPhysiologyDiagnostics,
+} from "./diagnoseWorkoutPhysiology";
+export type {
+  WorkoutForDiagnostic,
+  WorkoutPhysiologyDiagnostic,
+  WorkoutPhysiologyAvailabilityFlags,
+  WorkoutPhysiologyErrors,
+  WorkoutPhysiologyHealthKitProbe,
+  WorkoutPhysiologyHrSample,
+  DiagnoseWorkoutPhysiologyOptions,
+} from "./diagnoseWorkoutPhysiology";
 export type { BodyCompositionReadAuthStatusResult } from "./healthKit";
 export {
   runWorkoutHistoryBackfillPasses,

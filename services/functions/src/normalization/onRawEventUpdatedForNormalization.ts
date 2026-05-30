@@ -1,7 +1,8 @@
 // services/functions/src/normalization/onRawEventUpdatedForNormalization.ts
 
 /**
- * Re-runs raw → canonical normalization when a steps or sleep rawEvent document is updated.
+ * Re-runs raw → canonical normalization when a steps, sleep, or workout rawEvent
+ * document is updated.
  *
  * Ingest uses deterministic raw doc ids (Idempotency-Key). After the first create,
  * replays return 202 without a second `onCreate`. If normalization failed under an
@@ -11,6 +12,18 @@
  *
  * Sleep: payload may gain rem/deep stage minutes after mapper/ingest upgrades; operators patch
  * raw docs with a newer `receivedAt` so canonical + DailyFacts can be refreshed.
+ *
+ * Workout (Workout Physiology v1 — Phase B): when an Apple Health workout is replayed
+ * with newly available physiology fields (heart-rate avg/max from padded enrichment,
+ * energy, zones, recovery), `mergeAppleHealthWorkoutPhysiologyIfNeeded` in
+ * `services/api/src/lib/mergeAppleHealthWorkoutPhysiologyIfNeeded.ts` patches the raw
+ * doc additively and bumps `receivedAt`. This trigger then re-normalizes so the
+ * canonical workout doc absorbs the new fields via the additive supersede path in
+ * `writeCanonicalEventImmutable` (see `isWorkoutPhysiologyAdditiveSupersede`).
+ *
+ * NOTE: `strength_workout` is intentionally NOT widened in Phase B. Strength workouts
+ * use a different payload shape (set-level data) and physiology enrichment is not yet
+ * proven to route through them. Re-evaluate if/when strength physiology lands.
  */
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
@@ -32,7 +45,7 @@ export const onRawEventUpdatedForNormalization = onDocumentUpdated(TRIGGER_OPTIO
 
   const after = change.after.data() as Record<string, unknown> | undefined;
   const kind = after?.["kind"];
-  if (kind !== "steps" && kind !== "sleep") return;
+  if (kind !== "steps" && kind !== "sleep" && kind !== "workout") return;
 
   try {
     await processRawEventForNormalization({

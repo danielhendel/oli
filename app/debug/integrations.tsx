@@ -19,6 +19,8 @@ import {
   workoutIdempotencyKey,
   getStepCountForDateRange,
   diagnoseStepCountForWindow,
+  runAppleHealthWorkoutPhysiologyDiagnostic,
+  runAppleHealthWorkoutPhysiologyEnrichment,
   type DiagnoseStepWindowResult,
 } from "@/lib/integrations/appleHealth";
 import type { TodayWorkout } from "@/lib/integrations/appleHealth/types";
@@ -220,6 +222,18 @@ export default function DebugIntegrationsScreen() {
           stepsIdempotencyKey,
           workoutIdempotencyKey,
           getStepCountForDateRange,
+          // Workout Physiology v1 — Phase A diagnostics (dev/staging only).
+          // Read-only HK probe + structured `[AH][PHYSIOLOGY_DIAGNOSE]` log;
+          // gated internally on shouldLogAppleHealthPhysiologyDiagnostics().
+          diagnoseWorkoutPhysiology: runAppleHealthWorkoutPhysiologyDiagnostic,
+          // Workout Physiology v1 — Phase B enrichment (default ENABLED via
+          // AH_WORKOUT_PHYSIOLOGY_V1). Produces avg/max HR (padded), zones,
+          // energy, recovery; never throws. Caller wraps in try/catch already.
+          enrichWorkoutPhysiology: (w, ctx) =>
+            runAppleHealthWorkoutPhysiologyEnrichment(w, {
+              neighbors: ctx.neighbors,
+              userId: user.uid,
+            }),
         },
       );
       if (!result.ok) {

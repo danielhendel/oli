@@ -55,12 +55,43 @@ describe("onRawEventUpdatedForNormalization", () => {
     });
   });
 
-  it("ignores non-steps/sleep updates", async () => {
+  it("processes sleep updates with trigger=update", async () => {
+    const afterSnap = { data: () => ({ kind: "sleep" }) };
     await handler?.({
-      params: { userId: "u1", rawEventId: "r2" },
-      data: { after: { data: () => ({ kind: "workout" }) } },
+      params: { userId: "u1", rawEventId: "r-sleep" },
+      data: { after: afterSnap },
     });
+    expect(mockProcess).toHaveBeenCalledTimes(1);
+  });
 
+  it("processes workout updates with trigger=update (Workout Physiology v1)", async () => {
+    const afterSnap = { data: () => ({ kind: "workout" }) };
+    await handler?.({
+      params: { userId: "u1", rawEventId: "r-workout" },
+      data: { after: afterSnap },
+    });
+    expect(mockProcess).toHaveBeenCalledTimes(1);
+    expect(mockProcess).toHaveBeenCalledWith({
+      snapshot: afterSnap,
+      pathUserId: "u1",
+      rawEventId: "r-workout",
+      trigger: "update",
+    });
+  });
+
+  it("does NOT widen to strength_workout in Phase B", async () => {
+    await handler?.({
+      params: { userId: "u1", rawEventId: "r-strength" },
+      data: { after: { data: () => ({ kind: "strength_workout" }) } },
+    });
+    expect(mockProcess).not.toHaveBeenCalled();
+  });
+
+  it("ignores other kinds (nutrition, hrv, weight, …)", async () => {
+    await handler?.({
+      params: { userId: "u1", rawEventId: "r-other" },
+      data: { after: { data: () => ({ kind: "nutrition" }) } },
+    });
     expect(mockProcess).not.toHaveBeenCalled();
   });
 });
