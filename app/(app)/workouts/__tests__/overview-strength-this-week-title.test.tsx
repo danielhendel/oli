@@ -140,7 +140,7 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   setLastSyncAt: jest.fn(),
   getAppleHealthLastCheckedAt: jest.fn().mockResolvedValue(null),
   setAppleHealthLastCheckedAt: jest.fn(),
-  getAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue("v13m"),
+  getAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue("v14-physiology"),
   setAppleHealthDeepBackfillVersion: jest.fn().mockResolvedValue(undefined),
   getAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue("oli-wb-v2-2026-03-21"),
   setAppleHealthWorkoutRangeBootstrapBuild: jest.fn().mockResolvedValue(undefined),

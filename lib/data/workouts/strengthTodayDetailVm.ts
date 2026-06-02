@@ -17,8 +17,8 @@
  *   (broader than `countedNonWarmupSets` — every logged set, matching the day-detail screen).
  * - `formatFactorDisplayAdditive(energy.factors.strength)` → strength burn range, identical
  *   to what `DailyEnergyCard` renders for the "Strength" row on the same day.
- * - `energy.energyInfluencers.strength.averageHeartRateBpm` → duration-weighted daily strength
- *   avg HR (computed server-side by `aggregateDailyFacts.ts`).
+ * - {@link resolveStrengthTodayAverageHeartRateBpm} → session-level physiology from hydrated
+ *   workouts first, then `energy.energyInfluencers.strength.averageHeartRateBpm` (DailyFacts).
  *
  * Missing-data policy: never invent a value. Calories / Avg HR render as `MISSING_VALUE` ("—")
  * whenever the underlying canonical field is `undefined`/`null` (including loading / error /
@@ -39,6 +39,11 @@ import type { StrengthTodayCardModel } from "@/lib/data/workouts/strengthTodayCa
 import { formatFactorDisplayAdditive } from "@/lib/ui/energy/energyPresentation";
 import type { ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
+import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
+import {
+  hasStrengthTodayHrDetailToInspect,
+  resolveStrengthTodayAverageHeartRateBpm,
+} from "@/lib/data/workouts/resolveStrengthTodayAverageHeartRateBpm";
 
 /** Glyph used for any unavailable metric value. Never replaced by computed estimates. */
 export const STRENGTH_TODAY_DETAIL_MISSING_VALUE = "\u2014" as const;
@@ -165,6 +170,11 @@ export type BuildStrengthTodayDetailVmInput = {
   actionWorkoutExercises: readonly ManualWorkoutExerciseSummary[];
   /** Hydrated daily energy DTO for `todayDayKey`. `undefined` while loading / on error / signed-out. */
   energy: DailyEnergyCardDto | undefined;
+  /**
+   * All strength sessions reconciled for `todayDayKey` (same list as the Today card hero).
+   * Used for session-level avg HR before DailyFacts recompute lands.
+   */
+  todayStrengthSessions?: readonly ReconciledWorkoutSession[];
 };
 
 /**
@@ -177,7 +187,8 @@ export type BuildStrengthTodayDetailVmInput = {
 export function buildStrengthTodayDetailVm(
   input: BuildStrengthTodayDetailVmInput,
 ): StrengthTodayDetailVm {
-  const { todayDayKey, cardModel, actionWorkoutExercises, energy } = input;
+  const { todayDayKey, cardModel, actionWorkoutExercises, energy, todayStrengthSessions = [] } =
+    input;
 
   if (cardModel == null || cardModel.kind === "rest") {
     return {
@@ -192,6 +203,16 @@ export function buildStrengthTodayDetailVm(
   const strengthFactor = energy?.factors.strength;
   const strengthInfluencer = energy?.energyInfluencers?.strength;
   const subtitleLine = cardModel.subtitle.trim();
+
+  const resolvedAvgHeartRateBpm = resolveStrengthTodayAverageHeartRateBpm({
+    todayStrengthSessions,
+    dailyFactsAverageHeartRateBpm: strengthInfluencer?.averageHeartRateBpm,
+  });
+  const avgHrTappable = hasStrengthTodayHrDetailToInspect({
+    todayStrengthSessions,
+    dailyFactsAverageHeartRateBpm: strengthInfluencer?.averageHeartRateBpm,
+    dailyFactsHeartRateZoneMinutes: strengthInfluencer?.heartRateZoneMinutes,
+  });
 
   const rows: readonly [
     StrengthTodayDetailMetricRow,
@@ -220,8 +241,8 @@ export function buildStrengthTodayDetailVm(
     {
       id: "avgHeartRate",
       label: STRENGTH_TODAY_DETAIL_METRIC_LABELS.avgHeartRate,
-      value: formatStrengthTodayAvgHeartRateValue(strengthInfluencer?.averageHeartRateBpm),
-      tappable: true,
+      value: formatStrengthTodayAvgHeartRateValue(resolvedAvgHeartRateBpm),
+      ...(avgHrTappable ? { tappable: true as const } : {}),
     },
   ];
 

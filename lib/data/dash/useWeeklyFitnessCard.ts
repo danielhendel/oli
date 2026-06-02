@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -13,26 +13,20 @@ import {
 } from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
 import {
   computeWeeklyFitnessActivityMetrics,
-  computeWeeklyFitnessCardioMetrics,
+  computeWeeklyFitnessCardioMetricsFromFacts,
   computeWeeklyFitnessCombinedProgress,
   computeWeeklyFitnessSleepMetrics,
-  computeWeeklyFitnessStrengthMetrics,
+  computeWeeklyFitnessStrengthMetricsFromFacts,
   weeklyFitnessGoalStatusForProgress,
   weeklyFitnessGoalStatusLabel,
   WEEKLY_FITNESS_BAR_FILL_COLOR,
   type WeeklyFitnessCombinedProgress,
   type WeeklyFitnessGoalStatus,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
-import { mapWorkoutCalendarDaysForDomain } from "@/lib/data/workouts/workoutDomain";
-import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
-import {
-  DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
-  useWorkoutsCalendarRange,
-} from "@/lib/data/workouts/useWorkoutsCalendar";
+import { useWeeklyFitnessDailyFactsRollup } from "@/lib/data/dash/useWeeklyFitnessDailyFactsRollup";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
-import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import { useWeeklyFitnessSleepRollupMap } from "@/lib/data/dash/useWeeklyFitnessSleepRollupMap";
 import { WEEKLY_FITNESS_ROUTES, type WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -74,14 +68,28 @@ export type UseWeeklyFitnessCardResult = {
   baselineSource: {
     todayDayKey: DayKey;
     rollupByDay: Readonly<ActivityStepsRollupMap>;
-    strengthCalendarDays: readonly WorkoutCalendarDayLike[];
-    cardioCalendarDays: readonly WorkoutCalendarDayLike[];
+    /** Window the strength/cardio rows aggregate over (the current local week). */
     availableRangeStart: DayKey;
     availableRangeEnd: DayKey;
   };
 };
 
-
+/**
+ * Dash Weekly Fitness card data source.
+ *
+ * **Workouts data path:** server-aggregated `dailyFacts.{strength.workoutsCount,
+ * cardio.distanceMeters}` for the current week's day keys (7 lightweight
+ * `GET /users/me/daily-facts?day=…` requests, de-duped via `dailyFactsSessionCache`).
+ *
+ * This hook intentionally does **not** call `useWorkoutsCalendarRange` or hydrate
+ * raw workout payloads. Per the "Dashboard Weekly Fitness Timeout" audit, the legacy
+ * year-wide raw-events hydrate (~0.5–1.5 MB, multiple paginated walks) was the root
+ * cause of the "Could not load this week's data / Request timed out" failure.
+ *
+ * 404 dailyFacts docs (future or empty days) are treated as zero, never as errors.
+ * The card surfaces an error only when at least one day produced a real
+ * network/timeout/contract failure.
+ */
 export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   const { user, initializing, getIdToken } = useAuth();
   const todayDayKey = getTodayDayKeyLocal();
@@ -120,29 +128,10 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     scheduleAppleHealthStepsRepair({ trigger: "recovery", getIdToken, userUid: user.uid });
   }, [getIdToken, initializing, user]);
 
-  const [workoutRefreshEpoch, setWorkoutRefreshEpoch] = useState(0);
-  const bumpWorkoutRefresh = useCallback(() => {
-    setWorkoutRefreshEpoch((n) => n + 1);
-  }, []);
-
-  const { start: overviewRangeStart, end: overviewRangeEnd } = useMemo(
-    () => computeWorkoutOverviewSharedCalendarRange(todayDayKey),
-    [todayDayKey],
-  );
-
-  const calendarOptions = useMemo(
-    () => ({
-      refreshEpoch: workoutRefreshEpoch,
-      rawEventKinds: DEFAULT_WORKOUT_CALENDAR_RAW_EVENT_KINDS,
-      debugHydrateLabel: "dash-weekly-fitness" as const,
-    }),
-    [workoutRefreshEpoch],
-  );
-
-  const overviewSharedRange = useWorkoutsCalendarRange(overviewRangeStart, overviewRangeEnd, calendarOptions);
-
   const weekStartDay = weekDayKeys[0]!;
   const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
+
+  const dailyFactsWeeklyRollup = useWeeklyFitnessDailyFactsRollup(weekDayKeys);
 
   const sleepRollup = useWeeklyFitnessSleepRollupMap(weekDayKeys);
 
@@ -150,20 +139,10 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     useCallback(() => {
       void stepsRollup.refetch({ cacheBust: `weeklyFitnessSteps:${Date.now()}` });
       sleepRollup.refetch({ cacheBust: `weeklyFitnessSleep:${Date.now()}` });
+      dailyFactsWeeklyRollup.refetch({ cacheBust: `weeklyFitnessDailyFacts:${Date.now()}` });
       scheduleActivityStepsRepair();
-      bumpWorkoutRefresh();
-    }, [bumpWorkoutRefresh, scheduleActivityStepsRepair, sleepRollup.refetch, stepsRollup.refetch]),
+    }, [dailyFactsWeeklyRollup.refetch, scheduleActivityStepsRepair, sleepRollup.refetch, stepsRollup.refetch]),
   );
-
-  const strengthCalendarDays = useMemo(() => {
-    if (overviewSharedRange.status !== "ready") return [];
-    return mapWorkoutCalendarDaysForDomain(overviewSharedRange.days, "strength");
-  }, [overviewSharedRange]);
-
-  const cardioCalendarDays = useMemo(() => {
-    if (overviewSharedRange.status !== "ready") return [];
-    return mapWorkoutCalendarDaysForDomain(overviewSharedRange.days, "cardio");
-  }, [overviewSharedRange]);
 
   const { rows, combined, progressToGoalVm } = useMemo((): {
     rows: WeeklyFitnessRow[];
@@ -177,16 +156,17 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalStepsPerDay: goals.activityStepsPerDayGoal,
     });
 
-    const strength = computeWeeklyFitnessStrengthMetrics({
-      strengthCalendarDays,
-      todayDayKey,
+    const strength = computeWeeklyFitnessStrengthMetricsFromFacts({
+      factsByDay: dailyFactsWeeklyRollup.byDay,
+      weekDayKeys,
       weekStartDay,
       weekEndDay,
       goalWorkoutsPerWeek: goals.strengthWorkoutsPerWeekGoal,
     });
 
-    const cardio = computeWeeklyFitnessCardioMetrics({
-      cardioCalendarDays,
+    const cardio = computeWeeklyFitnessCardioMetricsFromFacts({
+      factsByDay: dailyFactsWeeklyRollup.byDay,
+      weekDayKeys,
       weekStartDay,
       weekEndDay,
       goalMilesPerWeek: goals.cardioMilesPerWeekGoal,
@@ -267,14 +247,13 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
 
     return { rows: computedRows, combined: combinedNext, progressToGoalVm: progressToGoalVmNext };
   }, [
-    cardioCalendarDays,
+    dailyFactsWeeklyRollup.byDay,
     goals.activityStepsPerDayGoal,
     goals.cardioMilesPerWeekGoal,
     goals.sleepHoursPerNightGoal,
     goals.strengthWorkoutsPerWeekGoal,
     rollupMergedForWeek,
     sleepRollup.sleepNightByDay,
-    strengthCalendarDays,
     todayDayKey,
     weekDayKeys,
     weekEndDay,
@@ -287,18 +266,18 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     stepsRollup.status === "partial" &&
     Object.keys(displayRollup).length === 0;
 
-  const calendarLoading =
-    Boolean(user) && !initializing && overviewSharedRange.status === "partial";
+  const dailyFactsLoading =
+    Boolean(user) && !initializing && dailyFactsWeeklyRollup.status === "partial";
 
   const sleepLoading = Boolean(user) && !initializing && sleepRollup.status === "partial";
 
-  const loading = Boolean(initializing || activityLoading || calendarLoading || sleepLoading);
+  const loading = Boolean(initializing || activityLoading || dailyFactsLoading || sleepLoading);
 
   const error = useMemo((): string | null => {
     if (!user || initializing || loading) return null;
-    if (overviewSharedRange.status === "error") return overviewSharedRange.error;
+    if (dailyFactsWeeklyRollup.status === "error") return dailyFactsWeeklyRollup.error;
     return null;
-  }, [user, initializing, loading, overviewSharedRange]);
+  }, [user, initializing, loading, dailyFactsWeeklyRollup]);
 
   return {
     loading,
@@ -311,10 +290,8 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     baselineSource: {
       todayDayKey,
       rollupByDay: rollupMergedForWeek,
-      strengthCalendarDays,
-      cardioCalendarDays,
-      availableRangeStart: overviewRangeStart,
-      availableRangeEnd: overviewRangeEnd,
+      availableRangeStart: weekStartDay,
+      availableRangeEnd: weekEndDay,
     },
   };
 }

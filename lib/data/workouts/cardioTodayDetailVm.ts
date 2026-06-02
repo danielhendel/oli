@@ -89,6 +89,13 @@ export type CardioTodayDetailMetricRow = {
   label: string;
   /** Rendered value. `CARDIO_TODAY_DETAIL_MISSING_VALUE` when source is missing. */
   value: string;
+  /**
+   * Workout Physiology v1 (Phase C) — when `true`, the card renders this row as a Pressable
+   * with a chevron and routes to the cardio HR detail modal. Only `avgHeartRate` is ever
+   * tappable, and only when avg HR or zone data exists (no chevron for a row that would
+   * open an empty modal). Mirrors the Strength VM tappable contract.
+   */
+  tappable?: true;
 };
 
 export type CardioTodayDetailVm =
@@ -305,6 +312,20 @@ export function buildCardioTodayDetailVm(input: BuildCardioTodayDetailVmInput): 
   const cardioInfluencer = energy?.energyInfluencers?.cardio;
   const cardioFactor = energy?.factors.cardio;
 
+  // Workout Physiology v1 (Phase C) — only mark the Avg Heart Rate row tappable when
+  // there is something to drill into (avg HR present, or HR zones present). Avoids a
+  // chevron leading users to an empty modal. The modal itself handles the case where
+  // only one of the two is present and copies the same "zones aren't available yet"
+  // fallback the Strength HR modal renders.
+  const hasAvgHrToInspect =
+    typeof cardioInfluencer?.averageHeartRateBpm === "number" &&
+    Number.isFinite(cardioInfluencer.averageHeartRateBpm) &&
+    cardioInfluencer.averageHeartRateBpm > 0;
+  const hasZonesToInspect =
+    Array.isArray(cardioInfluencer?.heartRateZoneMinutes) &&
+    cardioInfluencer.heartRateZoneMinutes.length === 5;
+  const avgHrTappable = hasAvgHrToInspect || hasZonesToInspect;
+
   const rows: readonly [
     CardioTodayDetailMetricRow,
     CardioTodayDetailMetricRow,
@@ -337,6 +358,7 @@ export function buildCardioTodayDetailVm(input: BuildCardioTodayDetailVmInput): 
       id: "avgHeartRate",
       label: CARDIO_TODAY_DETAIL_METRIC_LABELS.avgHeartRate,
       value: formatCardioTodayAvgHeartRateValue(cardioInfluencer?.averageHeartRateBpm),
+      ...(avgHrTappable ? { tappable: true as const } : {}),
     },
     {
       id: "estimatedCalories",

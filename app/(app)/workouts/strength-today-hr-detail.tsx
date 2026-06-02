@@ -4,11 +4,19 @@
  * Screen-as-modal (registered with `presentation: "modal"` in `app/(app)/_layout.tsx`),
  * mirroring `today-muscle-group.tsx` / `energy-metric-explainer.tsx`. This component:
  *
- * - Reads `DailyEnergyCardDto.energyInfluencers.strength.averageHeartRateBpm` via the same
- *   `useDailyEnergyCard(day)` hook that powers Daily Energy. **No parallel HR parsing path.**
+ * - Primary truth: `DailyEnergyCardDto.energyInfluencers.strength.{averageHeartRateBpm,
+ *   heartRateZoneMinutes, heartRateZoneBasis}` via `useDailyEnergyCard(day)`.
+ * - **Session-level fallback**: when the daily aggregate is missing zone minutes (typically
+ *   when `DailyFacts.strength.heartRateZoneMinutes` hasn't been recomputed since Phase C
+ *   shipped), the modal falls back to the picked strength session's `heartRateZoneMinutes`
+ *   passed verbatim through route params from `overview.tsx`. The basis falls back to
+ *   `DEFAULT_WORKOUT_HR_ZONE_THRESHOLDS_BPM` (Phase B's only model). No raw mutation, no
+ *   invented zones.
  * - Renders Avg HR (rounded, "{n} BPM") or `STRENGTH_TODAY_DETAIL_MISSING_VALUE` when missing.
- * - Lists Zones 1–5 with a graceful unavailable explanation — zone-minute payloads are not
- *   produced by today's HealthKit ingestion. The list does **not** invent zone values.
+ * - Renders the shared {@link HrZoneRow} for Zones 1–5 with a proportional blue progress bar,
+ *   `m:ss` Apple-Fitness duration, and the derived HR range. When zones are unavailable from
+ *   BOTH the daily aggregate and the session fallback, the list renders the graceful
+ *   "zones aren't available yet" copy AFTER the avg HR figure — never inventing values.
  *
  * Closes (calls `router.back()`) when the `day` route param is missing/malformed so the modal
  * cannot land in an invalid state.
@@ -21,13 +29,20 @@ import { useNavigation } from "@react-navigation/native";
 import { useDailyEnergyCard } from "@/lib/data/dash/useDailyEnergyCard";
 import { formatStrengthTodayAvgHeartRateValue } from "@/lib/data/workouts/strengthTodayDetailVm";
 import { STRENGTH_TODAY_DETAIL_MISSING_VALUE } from "@/lib/data/workouts/strengthTodayDetailVm";
+import {
+  HEART_RATE_ZONE_LABELS,
+  decodeHeartRateZoneMinutesFromRoute,
+  encodeHeartRateZoneMinutesForRoute,
+  formatZoneDurationMinSec,
+  formatZoneRangeBpm,
+  resolveZoneDisplayThresholdsBpm,
+  validateHeartRateZoneMinutesTuple,
+  type HeartRateZoneMinutesTuple,
+} from "@/lib/data/workouts/heartRateZonePresentation";
+import { isValidAverageHeartRateBpm } from "@/lib/data/workouts/resolveStrengthTodayAverageHeartRateBpm";
+import { HrZoneRow } from "@/lib/ui/workouts/HrZoneRow";
 import { WORKOUTS_SCREEN_CONTENT_BG } from "@/lib/ui/headers/workoutsStackHeader";
 import {
-  dashMetricRowLabelTextStyle,
-  dashMetricRowValueTextStyle,
-} from "@/lib/ui/dash/dashMetricRowTextStyle";
-import {
-  UI_BORDER_HAIRLINE,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
@@ -41,13 +56,39 @@ export const STRENGTH_TODAY_HR_DETAIL_PATHNAME =
 export type StrengthTodayHrDetailRouteParams = {
   /** YYYY-MM-DD; the day whose strength avg HR / zones should be shown. */
   day: string;
+  /**
+   * Session-level zone fallback — comma-separated 5-tuple of fractional minutes for the
+   * picked strength session, used ONLY when `DailyFacts.strength.heartRateZoneMinutes`
+   * is missing (e.g. days that haven't been recomputed since Phase C deploy). Omitted
+   * when the picked session also lacks valid zones. See
+   * `encodeHeartRateZoneMinutesForRoute` for the codec.
+   */
+  fallbackZoneMinutes?: string;
+  /**
+   * Session-level avg HR fallback (decimal string) when `DailyFacts.strength.averageHeartRateBpm`
+   * is missing. Omitted when session physiology is also absent.
+   */
+  fallbackAverageHeartRateBpm?: string;
 };
 
 /** Build typed route params for `router.push(...)`. */
 export function buildStrengthTodayHrDetailRouteParams(input: {
   day: string;
+  fallbackZoneMinutes?: HeartRateZoneMinutesTuple | null;
+  fallbackAverageHeartRateBpm?: number | null;
 }): StrengthTodayHrDetailRouteParams {
-  return { day: input.day };
+  const encoded = encodeHeartRateZoneMinutesForRoute(input.fallbackZoneMinutes ?? null);
+  const bpm =
+    typeof input.fallbackAverageHeartRateBpm === "number" &&
+    Number.isFinite(input.fallbackAverageHeartRateBpm) &&
+    input.fallbackAverageHeartRateBpm > 0
+      ? String(input.fallbackAverageHeartRateBpm)
+      : null;
+  return {
+    day: input.day,
+    ...(encoded != null ? { fallbackZoneMinutes: encoded } : {}),
+    ...(bpm != null ? { fallbackAverageHeartRateBpm: bpm } : {}),
+  };
 }
 
 /** Modal navigation title — exported so layout / tests can compare. */
@@ -61,16 +102,55 @@ export const STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE =
 export const STRENGTH_TODAY_HR_DETAIL_VALUE_HINT =
   "Average across today\u2019s strength sessions, weighted by duration." as const;
 
+/**
+ * @deprecated Phase D — Apple-Fitness-style `m:ss` rendering replaces the legacy
+ * one-decimal "X.X min" formatter. The shared {@link formatZoneDurationMinSec}
+ * helper is now the single source of truth and powers both the Strength and Cardio
+ * HR detail modals. Kept exported for callers/tests that still consume it; new
+ * surfaces should not use it.
+ */
+export function formatStrengthTodayZoneMinutesValue(
+  minutes: number | undefined | null,
+): string {
+  if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes < 0) {
+    return STRENGTH_TODAY_DETAIL_MISSING_VALUE;
+  }
+  if (minutes === 0) return "0 min";
+  const oneDecimal = Math.round(minutes * 10) / 10;
+  return `${oneDecimal} min`;
+}
+
 function parseDayParam(value: string | string[] | undefined): string | null {
   const v = typeof value === "string" ? value : Array.isArray(value) ? value[0] : null;
   if (v == null) return null;
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 }
 
+function parseFallbackAverageHeartRateBpmParam(
+  value: string | string[] | undefined,
+): number | null {
+  const v = typeof value === "string" ? value : Array.isArray(value) ? value[0] : null;
+  if (v == null) return null;
+  const n = Number(v);
+  return isValidAverageHeartRateBpm(n) ? n : null;
+}
+
 export default function StrengthTodayHrDetailScreen(): React.ReactElement {
   const router = useRouter();
-  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    day?: string | string[];
+    fallbackZoneMinutes?: string | string[];
+    fallbackAverageHeartRateBpm?: string | string[];
+  }>();
   const day = parseDayParam(params.day);
+  const fallbackZoneMinutes = useMemo(
+    () => decodeHeartRateZoneMinutesFromRoute(params.fallbackZoneMinutes),
+    [params.fallbackZoneMinutes],
+  );
+  const fallbackAverageHeartRateBpm = useMemo(
+    () => parseFallbackAverageHeartRateBpmParam(params.fallbackAverageHeartRateBpm),
+    [params.fallbackAverageHeartRateBpm],
+  );
 
   useEffect(() => {
     if (day == null) router.back();
@@ -80,17 +160,51 @@ export default function StrengthTodayHrDetailScreen(): React.ReactElement {
     return <View testID="strength-today-hr-detail-empty" />;
   }
 
-  return <StrengthTodayHrDetailInner day={day} />;
+  return (
+    <StrengthTodayHrDetailInner
+      day={day}
+      fallbackZoneMinutes={fallbackZoneMinutes}
+      fallbackAverageHeartRateBpm={fallbackAverageHeartRateBpm}
+    />
+  );
 }
 
-function StrengthTodayHrDetailInner({ day }: { day: string }): React.ReactElement {
+function StrengthTodayHrDetailInner({
+  day,
+  fallbackZoneMinutes,
+  fallbackAverageHeartRateBpm,
+}: {
+  day: string;
+  fallbackZoneMinutes: HeartRateZoneMinutesTuple | null;
+  fallbackAverageHeartRateBpm: number | null;
+}): React.ReactElement {
   const navigation = useNavigation();
   useEffect(() => {
     navigation.setOptions({ title: STRENGTH_TODAY_HR_DETAIL_TITLE });
   }, [navigation]);
 
   const { energy } = useDailyEnergyCard(day);
-  const avgHrBpm = energy?.energyInfluencers?.strength?.averageHeartRateBpm;
+  const strength = energy?.energyInfluencers?.strength;
+  const avgHrBpm = isValidAverageHeartRateBpm(strength?.averageHeartRateBpm)
+    ? strength.averageHeartRateBpm
+    : fallbackAverageHeartRateBpm;
+
+  // Prefer the daily aggregate; fall back to the session-level tuple from route params.
+  // The daily aggregate is the truth when present (cross-session basis agreement is
+  // enforced server-side). The fallback covers the recompute-lag window after the
+  // Phase C deploy and is sourced 1:1 from canonical `workout.heartRateZoneMinutes`
+  // (parsed client-side; no fabrication).
+  const aggregateZoneMinutes = useMemo(
+    () => validateHeartRateZoneMinutesTuple(strength?.heartRateZoneMinutes ?? null),
+    [strength?.heartRateZoneMinutes],
+  );
+  const effectiveZoneMinutes: HeartRateZoneMinutesTuple | null =
+    aggregateZoneMinutes ?? fallbackZoneMinutes;
+  const thresholdsBpm = useMemo(
+    () => resolveZoneDisplayThresholdsBpm(strength?.heartRateZoneBasis ?? null),
+    [strength?.heartRateZoneBasis],
+  );
+
   const avgHrText = useMemo(() => {
     const formatted = formatStrengthTodayAvgHeartRateValue(avgHrBpm);
     if (formatted === STRENGTH_TODAY_DETAIL_MISSING_VALUE) return formatted;
@@ -99,16 +213,20 @@ function StrengthTodayHrDetailInner({ day }: { day: string }): React.ReactElemen
     return formatted.replace(/\bbpm\b/, "BPM");
   }, [avgHrBpm]);
 
-  const zoneRows = [1, 2, 3, 4, 5].map((zone) => ({
-    zone,
-    label: `Zone ${zone}`,
-    value: STRENGTH_TODAY_DETAIL_MISSING_VALUE,
-  }));
+  const hasZones = effectiveZoneMinutes != null;
+  const maxZoneMinutes = useMemo(() => {
+    if (!hasZones) return 0;
+    return Math.max(0, ...(effectiveZoneMinutes as HeartRateZoneMinutesTuple));
+  }, [hasZones, effectiveZoneMinutes]);
 
   const rootA11y =
     avgHrText === STRENGTH_TODAY_DETAIL_MISSING_VALUE
-      ? `${STRENGTH_TODAY_HR_DETAIL_TITLE}. Not available. ${STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE}`
-      : `${STRENGTH_TODAY_HR_DETAIL_TITLE}. ${avgHrText}. ${STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE}`;
+      ? `${STRENGTH_TODAY_HR_DETAIL_TITLE}. Not available. ${
+          hasZones ? "" : STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE
+        }`.trim()
+      : `${STRENGTH_TODAY_HR_DETAIL_TITLE}. ${avgHrText}. ${
+          hasZones ? "" : STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE
+        }`.trim();
 
   return (
     <ScrollView
@@ -145,24 +263,29 @@ function StrengthTodayHrDetailInner({ day }: { day: string }): React.ReactElemen
         <Text style={styles.zonesHeading} accessibilityRole="header">
           Zones
         </Text>
-        {zoneRows.map((row) => (
-          <View
-            key={row.zone}
-            style={styles.zoneRow}
-            testID={`strength-today-hr-detail-zone-${row.zone}`}
-            accessible
-            accessibilityLabel={`${row.label}, not available`}
+        {([0, 1, 2, 3, 4] as const).map((idx) => {
+          const minutes = hasZones ? (effectiveZoneMinutes as HeartRateZoneMinutesTuple)[idx] : null;
+          return (
+            <HrZoneRow
+              key={idx}
+              zoneNumber={(idx + 1) as 1 | 2 | 3 | 4 | 5}
+              zoneLabel={HEART_RATE_ZONE_LABELS[idx]}
+              durationLabel={hasZones ? formatZoneDurationMinSec(minutes) : null}
+              rangeLabel={formatZoneRangeBpm(idx, thresholdsBpm)}
+              minutes={hasZones ? minutes : null}
+              maxZoneMinutes={maxZoneMinutes}
+              testIDPrefix="strength-today-hr-detail-zone"
+            />
+          );
+        })}
+        {!hasZones ? (
+          <Text
+            style={styles.zonesUnavailableMessage}
+            testID="strength-today-hr-detail-zones-unavailable"
           >
-            <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
-            <Text style={dashMetricRowValueTextStyle}>{row.value}</Text>
-          </View>
-        ))}
-        <Text
-          style={styles.zonesUnavailableMessage}
-          testID="strength-today-hr-detail-zones-unavailable"
-        >
-          {STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE}
-        </Text>
+            {STRENGTH_TODAY_HR_DETAIL_ZONES_UNAVAILABLE_MESSAGE}
+          </Text>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -214,15 +337,6 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
     letterSpacing: -0.2,
     marginBottom: 4,
-  },
-  zoneRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: UI_BORDER_HAIRLINE,
   },
   zonesUnavailableMessage: {
     fontSize: 14,

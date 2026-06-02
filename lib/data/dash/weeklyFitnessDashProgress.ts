@@ -6,6 +6,7 @@ import { computeStrengthThisWeekWindowMetrics } from "@/lib/data/workouts/streng
 import { filterWorkoutCalendarDaysInclusive } from "@/lib/data/workouts/overviewCalendarRangeSlices";
 import type { WorkoutCalendarDayLike } from "@/lib/data/workouts/workoutsCalendarModel";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
+import type { WeeklyFitnessDailyFactsByDay } from "@/lib/data/dash/useWeeklyFitnessDailyFactsRollup";
 import {
   averageMinutesFromCompletedSleepNights,
   collectCompletedSleepNightsForWeek,
@@ -314,6 +315,99 @@ export type WeeklyFitnessCombinedProgress = {
   percent: number;
   enabledCategoryCount: number;
 };
+
+/** Meters per statute mile for cardio miles conversion (same constant as `cardioRangeMetrics`). */
+export const WEEKLY_FITNESS_METERS_PER_MILE = 1609.344;
+
+/**
+ * Strength row metrics derived from `dailyFacts.strength.workoutsCount` per day.
+ *
+ * Source rules:
+ * - Only days inside `[weekStartDay, weekEndDay]` contribute (lexicographic ISO compare).
+ * - Missing/unknown days contribute 0 (already absorbed by the rollup as `status: "missing"`).
+ * - Same `valueLabel` / `accessibilityValueLabel` shape as {@link computeWeeklyFitnessStrengthMetrics}
+ *   so the existing card row stays visually identical.
+ */
+export function computeWeeklyFitnessStrengthMetricsFromFacts(input: {
+  factsByDay: WeeklyFitnessDailyFactsByDay;
+  weekDayKeys: readonly DayKey[];
+  weekStartDay: DayKey;
+  weekEndDay: DayKey;
+  goalWorkoutsPerWeek: number;
+}): WeeklyFitnessStrengthMetrics {
+  let totalRaw = 0;
+  for (const day of input.weekDayKeys) {
+    if (day < input.weekStartDay || day > input.weekEndDay) continue;
+    const cell = input.factsByDay[day];
+    const count = cell?.strengthWorkoutsCount;
+    if (typeof count === "number" && Number.isFinite(count) && count > 0) {
+      totalRaw += count;
+    }
+  }
+  const total = Math.max(0, Math.round(totalRaw));
+  const goal = Math.max(0, Math.round(input.goalWorkoutsPerWeek));
+  const hasGoal = goal > 0;
+  const goalProgress01 = hasGoal ? clampGoalProgress01(total / goal) : 0;
+  const totalNoun = total === 1 ? "workout" : "workouts";
+  const goalNoun = goal === 1 ? "workout" : "workouts";
+  const valueLabel = hasGoal ? `${total} ${totalNoun}` : "No goal set";
+  const accessibilityValueLabel = hasGoal
+    ? `${total} ${totalNoun}, goal ${goal} ${goalNoun}`
+    : `${total} ${totalNoun}, no goal set`;
+  return {
+    workoutsThisWeek: total,
+    goalWorkoutsPerWeek: goal,
+    goalProgress01,
+    valueLabel,
+    accessibilityValueLabel,
+  };
+}
+
+/**
+ * Cardio row metrics derived from `dailyFacts.cardio.distanceMeters` per day.
+ *
+ * Source rules:
+ * - Only days inside `[weekStartDay, weekEndDay]` contribute.
+ * - Missing/unknown days contribute 0.
+ * - Converts the **server-aggregated meters** to miles via {@link WEEKLY_FITNESS_METERS_PER_MILE}.
+ * - Same label/accessibility shape as {@link computeWeeklyFitnessCardioMetrics}.
+ */
+export function computeWeeklyFitnessCardioMetricsFromFacts(input: {
+  factsByDay: WeeklyFitnessDailyFactsByDay;
+  weekDayKeys: readonly DayKey[];
+  weekStartDay: DayKey;
+  weekEndDay: DayKey;
+  goalMilesPerWeek: number;
+}): WeeklyFitnessCardioMetrics {
+  let totalMeters = 0;
+  for (const day of input.weekDayKeys) {
+    if (day < input.weekStartDay || day > input.weekEndDay) continue;
+    const cell = input.factsByDay[day];
+    const meters = cell?.cardioDistanceMeters;
+    if (typeof meters === "number" && Number.isFinite(meters) && meters > 0) {
+      totalMeters += meters;
+    }
+  }
+  const totalMiles = Math.max(0, totalMeters / WEEKLY_FITNESS_METERS_PER_MILE);
+  const goal = Math.max(0, input.goalMilesPerWeek);
+  const hasGoal = goal > 0;
+  const goalProgress01 = hasGoal ? clampGoalProgress01(totalMiles / goal) : 0;
+  const milesText = totalMiles.toFixed(1);
+  const goalText = goal % 1 === 0 ? goal.toFixed(0) : goal.toFixed(1);
+  const totalNoun = Math.abs(totalMiles - 1) < 0.05 ? "mile" : "miles";
+  const goalNoun = Math.abs(goal - 1) < 0.0001 ? "mile" : "miles";
+  const valueLabel = hasGoal ? `${milesText} ${totalNoun}` : "No goal set";
+  const accessibilityValueLabel = hasGoal
+    ? `${milesText} ${totalNoun}, goal ${goalText} ${goalNoun}`
+    : `${milesText} ${totalNoun}, no goal set`;
+  return {
+    totalMilesThisWeek: totalMiles,
+    goalMilesPerWeek: goal,
+    goalProgress01,
+    valueLabel,
+    accessibilityValueLabel,
+  };
+}
 
 export function computeWeeklyFitnessCombinedProgress(input: {
   activity: Pick<WeeklyFitnessActivityMetrics, "goalProgress01" | "goalStepsPerDay">;

@@ -5,6 +5,7 @@ import {
   CARDIO_TODAY_DETAIL_MISSING_VALUE,
   type CardioTodayDetailVm,
 } from "@/lib/data/workouts/cardioTodayDetailVm";
+import type { DayKey } from "@/lib/ui/calendar/types";
 import { LoadingState } from "@/lib/ui/ScreenStates";
 import {
   dashMetricRowLabelTextStyle,
@@ -21,6 +22,7 @@ import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
   UI_SCREEN_BG,
+  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
@@ -29,6 +31,15 @@ export type CardioTodayCardProps = {
   loading: boolean;
   detailVm: CardioTodayDetailVm | null;
   onPressLog?: () => void;
+  /**
+   * Fired when the Avg Heart Rate metric row is tapped. Mirrors the Strength card's
+   * {@link import("./StrengthTodayCard").StrengthTodayCardProps.onPressAvgHeartRate}
+   * — the row is rendered Pressable + chevron only when `row.tappable === true` (set
+   * by `cardioTodayDetailVm` when avg HR or zone data exists). The screen routes to
+   * the `cardio-today-hr-detail` modal with `{ day }` URL params. No-op when omitted
+   * (row stays pressable but doesn't navigate — used in unit tests).
+   */
+  onPressAvgHeartRate?: (day: DayKey) => void;
   testID?: string;
 };
 
@@ -61,6 +72,7 @@ export function CardioTodayCard({
   loading,
   detailVm,
   onPressLog,
+  onPressAvgHeartRate,
   testID = "cardio-today-card",
 }: CardioTodayCardProps) {
   const rootA11y = (() => {
@@ -133,18 +145,68 @@ export function CardioTodayCard({
             testID="cardio-today-metric-rows"
             accessibilityRole="list"
           >
-            {detailVm.rows.map((row) => (
-              <View
-                key={row.id}
-                style={styles.metricRowStatic}
-                testID={`cardio-today-metric-row-${row.id}`}
-                accessible
-                accessibilityLabel={metricRowA11y(row.label, row.value)}
-              >
-                <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
-                <Text style={dashMetricRowValueTextStyle}>{row.value}</Text>
-              </View>
-            ))}
+            {detailVm.rows.map((row) => {
+              if (row.tappable === true) {
+                const navigable = onPressAvgHeartRate != null;
+                return (
+                  <Pressable
+                    key={row.id}
+                    onPress={() => {
+                      if (onPressAvgHeartRate != null) onPressAvgHeartRate(detailVm.energyDay);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${row.label} details, ${row.value}`}
+                    accessibilityHint="Opens average heart rate details for today's cardio session"
+                    accessibilityState={{ disabled: !navigable }}
+                    disabled={!navigable}
+                    testID={`cardio-today-metric-row-${row.id}`}
+                    style={({ pressed }) => [
+                      styles.metricRowPressable,
+                      pressed && navigable && styles.metricRowPressed,
+                    ]}
+                  >
+                    <View style={styles.metricRowInner}>
+                      <Text
+                        style={[dashMetricRowLabelTextStyle, styles.metricRowLabel]}
+                        numberOfLines={1}
+                      >
+                        {row.label}
+                      </Text>
+                      <View style={styles.metricRowRight}>
+                        <Text
+                          style={dashMetricRowValueTextStyle}
+                          numberOfLines={1}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                        >
+                          {row.value}
+                        </Text>
+                        <Text
+                          style={styles.metricRowChevron}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                          testID={`cardio-today-metric-row-${row.id}-chevron`}
+                        >
+                          {"\u203A"}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              }
+              return (
+                <View
+                  key={row.id}
+                  style={styles.metricRowStatic}
+                  testID={`cardio-today-metric-row-${row.id}`}
+                  accessible
+                  accessibilityLabel={metricRowA11y(row.label, row.value)}
+                >
+                  <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+                  <Text style={dashMetricRowValueTextStyle}>{row.value}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
       ) : null}
@@ -233,5 +295,40 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 7,
     minHeight: 36,
+  },
+  metricRowPressable: {
+    borderRadius: 8,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  metricRowPressed: {
+    opacity: 0.75,
+  },
+  metricRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  metricRowLabel: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metricRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    flexShrink: 1,
+  },
+  metricRowChevron: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: UI_TEXT_MUTED,
+    flexShrink: 0,
   },
 });

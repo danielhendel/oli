@@ -1,6 +1,7 @@
 import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import type { StrengthTodayCardModel } from "@/lib/data/workouts/strengthTodayCardModel";
+import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
   STRENGTH_TODAY_DETAIL_METRIC_LABELS,
   STRENGTH_TODAY_DETAIL_MISSING_VALUE,
@@ -56,6 +57,36 @@ function ex(name: string, setCount: number) {
 }
 
 const completedExercises = [ex("Pull Up", 6), ex("Barbell Row", 5), ex("Hammer Curl", 6)];
+
+function strengthSessionWithHr(
+  workouts: { durationMinutes: number; averageHeartRateBpm?: number; heartRateZoneMinutes?: readonly number[] }[],
+): ReconciledWorkoutSession {
+  return {
+    id: "session-1",
+    day: TODAY,
+    sessionType: "strength",
+    title: "Pull Day",
+    titleSource: "provider",
+    start: "2026-03-12T08:00:00.000Z",
+    end: "2026-03-12T09:00:00.000Z",
+    durationMinutes: 57,
+    calories: null,
+    workouts: workouts.map((w, i) => ({
+      id: `w${i}`,
+      observedAt: "2026-03-12T08:00:00.000Z",
+      sourceId: "apple_health",
+      title: "Traditional Strength Training",
+      start: "2026-03-12T08:00:00.000Z",
+      end: "2026-03-12T09:00:00.000Z",
+      durationMinutes: w.durationMinutes,
+      calories: null,
+      ...(w.averageHeartRateBpm != null ? { averageHeartRateBpm: w.averageHeartRateBpm } : {}),
+      ...(w.heartRateZoneMinutes != null ? { heartRateZoneMinutes: w.heartRateZoneMinutes } : {}),
+    })) as ReconciledWorkoutSession["workouts"],
+    sourceSummaries: [],
+    sourceCount: 1,
+  };
+}
 
 function energyWithStrength(opts: {
   kcalLow?: number;
@@ -301,6 +332,83 @@ describe("buildStrengthTodayDetailVm — completed branch", () => {
       if (vm.status === "completed")
         expect(vm.rows[3]?.value).toBe(STRENGTH_TODAY_DETAIL_MISSING_VALUE);
     }
+  });
+
+  it("avgHeartRate renders from hydrated session physiology when DailyFacts is missing/stale", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: completedExercises,
+      energy: undefined,
+      todayStrengthSessions: [
+        strengthSessionWithHr([{ durationMinutes: 50, averageHeartRateBpm: 108 }]),
+      ],
+    });
+    if (vm.status === "completed") {
+      expect(vm.rows[3]?.value).toBe("108 bpm");
+      expect(vm.rows[3]?.tappable).toBe(true);
+    }
+  });
+
+  it("avgHeartRate duration-weights multiple strength sessions from session physiology", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: completedExercises,
+      energy: undefined,
+      todayStrengthSessions: [
+        strengthSessionWithHr([{ durationMinutes: 60, averageHeartRateBpm: 100 }]),
+        strengthSessionWithHr([{ durationMinutes: 30, averageHeartRateBpm: 120 }]),
+      ],
+    });
+    if (vm.status === "completed") {
+      expect(vm.rows[3]?.value).toBe("107 bpm");
+    }
+  });
+
+  it("prefers session physiology over DailyFacts when both exist", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: completedExercises,
+      energy: energyWithStrength({ averageHeartRateBpm: 98 }),
+      todayStrengthSessions: [
+        strengthSessionWithHr([{ durationMinutes: 50, averageHeartRateBpm: 108 }]),
+      ],
+    });
+    if (vm.status === "completed") expect(vm.rows[3]?.value).toBe("108 bpm");
+  });
+
+  it("manual strength session without HR still shows — and avgHeartRate row is not tappable", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: completedExercises,
+      energy: undefined,
+      todayStrengthSessions: [strengthSessionWithHr([{ durationMinutes: 45 }])],
+    });
+    if (vm.status === "completed") {
+      expect(vm.rows[3]?.value).toBe(STRENGTH_TODAY_DETAIL_MISSING_VALUE);
+      expect(vm.rows[3]?.tappable).toBeUndefined();
+    }
+  });
+
+  it("avgHeartRate row is tappable when only session zones exist (no avg HR in DailyFacts)", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: completedExercises,
+      energy: undefined,
+      todayStrengthSessions: [
+        strengthSessionWithHr([
+          {
+            durationMinutes: 50,
+            heartRateZoneMinutes: [32.816, 1.183, 0, 0, 0],
+          },
+        ]),
+      ],
+    });
+    if (vm.status === "completed") expect(vm.rows[3]?.tappable).toBe(true);
   });
 
   it("only the avgHeartRate row is tappable; the other three are not", () => {

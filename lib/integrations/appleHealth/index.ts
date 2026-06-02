@@ -96,4 +96,16 @@ export {
   type RunAppleHealthStepsBackfillDeps,
   type RunAppleHealthStepsBackfillResult,
 } from "./runAppleHealthStepsBackfill";
+export {
+  runRecentWorkoutRepair,
+  RECENT_WORKOUT_REPAIR_DEFAULT_DAYS_BACK,
+  RECENT_WORKOUT_REPAIR_DEFAULT_THROTTLE_MS,
+  RECENT_WORKOUT_REPAIR_DEFAULT_MAX_PAGES,
+} from "./runRecentWorkoutRepair";
+export type {
+  RunRecentWorkoutRepairDeps,
+  RunRecentWorkoutRepairOpts,
+  RecentWorkoutRepairResult,
+  RecentWorkoutRepairReason,
+} from "./runRecentWorkoutRepair";
 export type { HealthKitPermissionResult, TodaySnapshot, TodayWorkout } from "./types";

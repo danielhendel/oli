@@ -217,6 +217,30 @@ describe("parseWorkoutHistoryItem", () => {
     expect(parseWorkoutHistoryItem(raw).workoutType).toBe("cardio");
   });
 
+  it("parses optional averageHeartRateBpm from payload", () => {
+    const raw = minimalRaw({
+      id: "ev-hr",
+      observedAt: "2024-06-10T08:00:00Z",
+      payload: {
+        sport: "Traditional Strength Training",
+        start: "2024-06-10T08:00:00Z",
+        end: "2024-06-10T09:00:00Z",
+        durationMinutes: 50,
+        averageHeartRateBpm: 108.4,
+      },
+    });
+    const item = parseWorkoutHistoryItem(raw);
+    expect(item.averageHeartRateBpm).toBe(108.4);
+  });
+
+  it("rejects non-positive averageHeartRateBpm", () => {
+    const raw = minimalRaw({
+      id: "ev-hr-bad",
+      payload: { sport: "Running", averageHeartRateBpm: 0 },
+    });
+    expect(parseWorkoutHistoryItem(raw).averageHeartRateBpm).toBeUndefined();
+  });
+
   it("parses optional distanceMeters and heartRateZoneMinutes from payload", () => {
     const raw = minimalRaw({
       id: "ev-zones",

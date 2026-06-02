@@ -27,6 +27,7 @@ import {
   resolvedStepsTotalFromContributing,
 } from '@oli/contracts';
 import { classifyWorkoutSportForDailyFactsRollup } from '@/lib/shared/workoutClassification';
+import { countReconciledStrengthTabSessionsForDay } from '@/lib/data/workouts/countReconciledStrengthTabSessionsForDay';
 import { buildActivityStepsAllocationV1 } from './buildActivityStepsAllocationV1';
 
 const isNumber = (value: unknown): value is number =>
@@ -356,6 +357,7 @@ const LB_TO_KG = 0.45359237;
 const roundStrengthVol = (v: number): number => Math.round(v * 10) / 10;
 
 const buildStrengthFacts = (
+  date: YmdDateString,
   events: CanonicalEvent[],
 ): DailyStrengthFacts | undefined => {
   const strengthEvents = events.filter(isStrengthWorkoutEvent);
@@ -401,6 +403,18 @@ const buildStrengthFacts = (
   let totalEnergyKcalSum = 0;
   let haveTotalEnergy = false;
 
+  // Workout Physiology v1 (Phase C) — strength HR zone aggregation. Mirrors cardio path
+  // (lines ~180–250): only sum zones from sessions whose canonical zoneBasis carries the
+  // approved Phase B modelVersion (`default_thresholds_v1`). Attach the daily basis only
+  // when every contributing session agrees on (modelVersion, thresholdsBpm); mixed bases
+  // → omit (fail-closed) so a future personalized-thresholds rollout cannot silently mix.
+  const zoneSum: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+  let zoneSessionCount = 0;
+  let firstZoneBasis:
+    | { modelVersion: 'default_thresholds_v1'; thresholdsBpm: readonly [number, number, number, number] }
+    | null = null;
+  let zoneBasisAgrees = true;
+
   for (const e of strengthTaggedWorkouts) {
     if (isNumber(e.durationMinutes) && e.durationMinutes > 0) {
       durationMinutesSum += e.durationMinutes;
@@ -433,14 +447,46 @@ const buildStrengthFacts = (
       totalEnergyKcalSum += e.totalEnergyKcal;
       haveTotalEnergy = true;
     }
+    if (
+      Array.isArray(e.heartRateZoneMinutes) &&
+      e.heartRateZoneMinutes.length === 5 &&
+      e.heartRateZoneBasis &&
+      e.heartRateZoneBasis.modelVersion === 'default_thresholds_v1'
+    ) {
+      zoneSessionCount += 1;
+      const zm = e.heartRateZoneMinutes;
+      for (let i = 0; i < 5; i++) {
+        const v = zm[i];
+        if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+          zoneSum[i as 0 | 1 | 2 | 3 | 4] += v;
+        }
+      }
+      const currentBasis = {
+        modelVersion: e.heartRateZoneBasis.modelVersion,
+        thresholdsBpm: e.heartRateZoneBasis.thresholdsBpm,
+      } as const;
+      if (firstZoneBasis == null) {
+        firstZoneBasis = currentBasis;
+      } else if (
+        firstZoneBasis.modelVersion !== currentBasis.modelVersion ||
+        !arraysShallowEqual(firstZoneBasis.thresholdsBpm, currentBasis.thresholdsBpm)
+      ) {
+        zoneBasisAgrees = false;
+      }
+    }
   }
 
   const volumeKg = roundStrengthVol(
     (totalVolumeByUnit.kg ?? 0) + (totalVolumeByUnit.lb ?? 0) * LB_TO_KG,
   );
 
+  const reconcileInputs = [
+    ...events.filter(isWorkoutEvent),
+    ...events.filter(isStrengthWorkoutEvent),
+  ];
+
   const facts: DailyStrengthFacts = {
-    workoutsCount: strengthEvents.length + strengthTaggedWorkouts.length,
+    workoutsCount: countReconciledStrengthTabSessionsForDay(date, reconcileInputs),
     totalSets,
     totalReps,
     totalVolumeByUnit,
@@ -460,6 +506,19 @@ const buildStrengthFacts = (
   }
   if (haveActiveEnergy) facts.activeEnergyKcal = activeEnergyKcalSum;
   if (haveTotalEnergy) facts.totalEnergyKcal = totalEnergyKcalSum;
+  if (zoneSessionCount > 0 && zoneBasisAgrees && firstZoneBasis != null) {
+    facts.heartRateZoneMinutes = [
+      zoneSum[0],
+      zoneSum[1],
+      zoneSum[2],
+      zoneSum[3],
+      zoneSum[4],
+    ];
+    facts.heartRateZoneBasis = {
+      modelVersion: firstZoneBasis.modelVersion,
+      thresholdsBpm: firstZoneBasis.thresholdsBpm,
+    };
+  }
 
   return facts;
 };
@@ -628,7 +687,7 @@ export const aggregateDailyFactsForDay = (input: AggregateDailyFactsInput): Dail
   const cardio = buildCardioFacts(events);
   const body = buildBodyFacts(events) ?? factOnlyBody;
   const recovery = buildRecoveryFacts(events);
-  const strength = buildStrengthFacts(events);
+  const strength = buildStrengthFacts(date, events);
   const nutrition = buildNutritionFacts(events);
 
   const dailyFacts: DailyFacts = {

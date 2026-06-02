@@ -239,7 +239,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (storage.getLastSyncAt as jest.Mock).mockResolvedValue(null);
   (storage.getAppleHealthConnected as jest.Mock).mockResolvedValue(true);
-  mockGetDeepBackfillVersion.mockResolvedValue("v13m");
+  mockGetDeepBackfillVersion.mockResolvedValue("v14-physiology");
   mockRunBackfill.mockResolvedValue({
     ok: true,
     passesRun: 1,
@@ -281,7 +281,7 @@ it("smart foreground sync: when lastCheckedAt is old, runner is called and setAp
 
 it("runs backfill when deep backfill version is missing even if lastCheckedAt is recent", async () => {
   g.__overviewAhLastChecked!.lastCheckedAt = new Date().toISOString();
-  mockGetDeepBackfillVersion.mockResolvedValueOnce(null).mockResolvedValue("v13m");
+  mockGetDeepBackfillVersion.mockResolvedValueOnce(null).mockResolvedValue("v14-physiology");
   await act(async () => {
     renderer.create(<TrainingOverviewScreen />);
   });
