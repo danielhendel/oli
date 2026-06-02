@@ -204,7 +204,7 @@ const MOCK_EMPTY_BOOTSTRAP = {
 
 beforeEach(() => {
   g.__recentBackfillAh!.lastCheckedAt = null;
-  g.__recentBackfillAh!.deepBackfillVersion = "v13m";
+  g.__recentBackfillAh!.deepBackfillVersion = "v14-physiology";
   jest.clearAllMocks();
   mockUseWorkoutsCalendarRange.mockReturnValue({
     status: "ready",

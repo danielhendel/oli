@@ -173,4 +173,84 @@ describe("aggregateDailyFactsForDay — Workout Physiology v1 strength", () => {
     expect(r.strength?.activeEnergyKcal).toBe(300);
     expect(r.strength?.totalEnergyKcal).toBe(335);
   });
+
+  // Workout Physiology v1 — Phase C: strength HR zone aggregation mirrors cardio.
+  it("tuple-sums heartRateZoneMinutes for strength-tagged workouts; stamps basis on day", () => {
+    const basis = {
+      modelVersion: "default_thresholds_v1" as const,
+      thresholdsBpm: [110, 130, 150, 170] as const,
+      userMaxHrBpm: null,
+      computedFromSampleCount: 30,
+    };
+    const events: CanonicalEvent[] = [
+      makeStrengthTagged({
+        id: "s1",
+        heartRateZoneMinutes: [4, 8, 10, 3, 0] as const,
+        heartRateZoneBasis: basis,
+      }),
+      makeStrengthTagged({
+        id: "s2",
+        heartRateZoneMinutes: [2, 6, 12, 5, 1] as const,
+        heartRateZoneBasis: basis,
+      }),
+    ];
+    const r = aggregateDailyFactsForDay({
+      userId: "u1",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(r.strength?.heartRateZoneMinutes).toEqual([6, 14, 22, 8, 1]);
+    expect(r.strength?.heartRateZoneBasis).toEqual({
+      modelVersion: "default_thresholds_v1",
+      thresholdsBpm: [110, 130, 150, 170],
+    });
+  });
+
+  it("omits daily strength zone tuple when contributing bases disagree (fail-closed)", () => {
+    const events: CanonicalEvent[] = [
+      makeStrengthTagged({
+        id: "s1",
+        heartRateZoneMinutes: [4, 8, 10, 3, 0] as const,
+        heartRateZoneBasis: {
+          modelVersion: "default_thresholds_v1",
+          thresholdsBpm: [110, 130, 150, 170] as const,
+          userMaxHrBpm: null,
+          computedFromSampleCount: 30,
+        },
+      }),
+      makeStrengthTagged({
+        id: "s2",
+        heartRateZoneMinutes: [2, 6, 12, 5, 1] as const,
+        heartRateZoneBasis: {
+          modelVersion: "default_thresholds_v1",
+          thresholdsBpm: [115, 135, 155, 175] as const, // different thresholds
+          userMaxHrBpm: null,
+          computedFromSampleCount: 25,
+        },
+      }),
+    ];
+    const r = aggregateDailyFactsForDay({
+      userId: "u1",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(r.strength?.heartRateZoneMinutes).toBeUndefined();
+    expect(r.strength?.heartRateZoneBasis).toBeUndefined();
+  });
+
+  it("omits strength zones entirely when no contributing sessions carry zone payload", () => {
+    const events: CanonicalEvent[] = [
+      makeStrengthTagged({ id: "s1", activeEnergyKcal: 100 }), // no zone fields
+    ];
+    const r = aggregateDailyFactsForDay({
+      userId: "u1",
+      date: "2025-01-01",
+      computedAt: "2025-01-02T03:00:00.000Z",
+      events,
+    });
+    expect(r.strength?.heartRateZoneMinutes).toBeUndefined();
+    expect(r.strength?.heartRateZoneBasis).toBeUndefined();
+  });
 });

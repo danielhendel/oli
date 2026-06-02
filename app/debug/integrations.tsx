@@ -15,14 +15,22 @@ import {
   pullTodaySnapshot,
   pullWorkoutsByDateRange,
   getLocalCalendarDayBoundsFromYmd,
+  addLocalCalendarDaysToDayKey,
   stepsIdempotencyKey,
   workoutIdempotencyKey,
   getStepCountForDateRange,
   diagnoseStepCountForWindow,
   runAppleHealthWorkoutPhysiologyDiagnostic,
   runAppleHealthWorkoutPhysiologyEnrichment,
+  runRecentWorkoutRepair,
   type DiagnoseStepWindowResult,
+  type RecentWorkoutRepairResult,
 } from "@/lib/integrations/appleHealth";
+import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import {
+  getAppleHealthWorkoutsRecentRepairLastRunAt,
+  setAppleHealthWorkoutsRecentRepairLastRunAt,
+} from "@/lib/integrations/appleHealth/storage";
 import type { TodayWorkout } from "@/lib/integrations/appleHealth/types";
 import { ingestRawEvent } from "@/lib/api/ingest";
 import {
@@ -108,6 +116,11 @@ export default function DebugIntegrationsScreen() {
     error?: string;
   } | null>(null);
   const [appleLastSyncAtAfter, setAppleLastSyncAtAfter] = useState<string | null>(null);
+  const [recentRepairResult, setRecentRepairResult] = useState<
+    | { ok: true; result: RecentWorkoutRepairResult }
+    | { ok: false; error: string }
+    | null
+  >(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [manualStrengthProbe, setManualStrengthProbe] = useState<
     | { ok: true; rows: ManualStrengthProbeRow[] }
@@ -371,6 +384,60 @@ export default function DebugIntegrationsScreen() {
       setLoading(null);
     }
   }, []);
+
+  const runRecentRepairManual = useCallback(async () => {
+    if (!user) {
+      setRecentRepairResult({ ok: false, error: "Not signed in." });
+      return;
+    }
+    setRecentRepairResult(null);
+    setLoading("recent_repair");
+    try {
+      const token = await getIdToken(false);
+      if (!token) {
+        setRecentRepairResult({ ok: false, error: "Could not acquire ID token." });
+        return;
+      }
+      const result = await runRecentWorkoutRepair(
+        {
+          uid: user.uid,
+          token,
+          reason: "manual-debug",
+          // Manual debug bypasses the 6h throttle so each press actually runs.
+          throttleMs: 0,
+        },
+        {
+          pullWorkoutsByDateRange,
+          ingestRawEvent: (body, t, opts) =>
+            ingestRawEvent(body, t, opts).then((r) =>
+              r.ok
+                ? { ok: true as const }
+                : { ok: false as const, error: r.error, requestId: r.requestId },
+            ),
+          getDeviceTimezone,
+          getTodayDayKeyLocal,
+          getLocalCalendarDayBoundsFromYmd,
+          addLocalCalendarDaysToDayKey,
+          workoutIdempotencyKey,
+          enrichWorkoutPhysiology: (w, ctx) =>
+            runAppleHealthWorkoutPhysiologyEnrichment(w, {
+              neighbors: ctx.neighbors,
+              userId: user.uid,
+            }),
+          getLastRunAt: getAppleHealthWorkoutsRecentRepairLastRunAt,
+          setLastRunAtOnSuccess: setAppleHealthWorkoutsRecentRepairLastRunAt,
+        },
+      );
+      setRecentRepairResult({ ok: true, result });
+    } catch (e) {
+      setRecentRepairResult({
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setLoading(null);
+    }
+  }, [user, getIdToken]);
 
   const runHistoricalRepairProbe = useCallback(async () => {
     setHistoricalProbe(null);
@@ -719,6 +786,63 @@ export default function DebugIntegrationsScreen() {
             {appleRawWorkouts.error != null && (
               <Text style={styles.error}>{appleRawWorkouts.error}</Text>
             )}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Workout recent repair (last 14 days)</Text>
+        <Text style={styles.hint}>
+          Pulls the trailing 14 local-calendar days via HK date-range query and re-ingests any
+          missing workouts through POST /ingest (idempotent). Mirrors the rolling repair the
+          app runs automatically on workouts focus. Bypasses the 6h throttle for manual debug.
+          Does NOT clear the workouts anchor or bump deepBackfillVersion.
+        </Text>
+        <Pressable
+          onPress={runRecentRepairManual}
+          disabled={!!loading}
+          style={[styles.btn, loading === "recent_repair" && styles.btnDisabled]}
+        >
+          <Text style={styles.btnText}>
+            {loading === "recent_repair" ? "Running…" : "Run recent workout repair (14d)"}
+          </Text>
+        </Pressable>
+        {recentRepairResult != null && recentRepairResult.ok === true && (
+          <View style={styles.block}>
+            <Text style={styles.label}>Result</Text>
+            <Text selectable style={styles.mono}>
+              status={recentRepairResult.result.status} reason={recentRepairResult.result.reason}
+              {recentRepairResult.result.skippedReason != null
+                ? ` skippedReason=${recentRepairResult.result.skippedReason}`
+                : ""}
+            </Text>
+            <Text selectable style={styles.monoSmall}>
+              startDay={recentRepairResult.result.startDay} endDay=
+              {recentRepairResult.result.endDay} daysRequested=
+              {recentRepairResult.result.daysRequested}
+            </Text>
+            <Text selectable style={styles.monoSmall}>
+              hkWorkoutCount={recentRepairResult.result.hkWorkoutCount} ingestedCount=
+              {recentRepairResult.result.ingestedCount} failedCount=
+              {recentRepairResult.result.failedCount} durationMs=
+              {recentRepairResult.result.durationMs}
+            </Text>
+            {recentRepairResult.result.latestNativeWorkoutStart != null && (
+              <Text selectable style={styles.monoSmall}>
+                latestNativeWorkoutStart=
+                {recentRepairResult.result.latestNativeWorkoutStart}
+              </Text>
+            )}
+            {recentRepairResult.result.firstIngestError != null && (
+              <Text style={styles.error}>
+                firstIngestError={recentRepairResult.result.firstIngestError}
+              </Text>
+            )}
+          </View>
+        )}
+        {recentRepairResult != null && recentRepairResult.ok === false && (
+          <View style={styles.block}>
+            <Text style={styles.error}>{recentRepairResult.error}</Text>
           </View>
         )}
       </View>

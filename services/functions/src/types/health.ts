@@ -598,6 +598,18 @@ export interface DailyStrengthFacts {
   activeEnergyKcal?: number;
   /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
   totalEnergyKcal?: number;
+  /**
+   * Workout Physiology v1 (Phase C) — tuple-sum of per-session `heartRateZoneMinutes` across
+   * strength-tagged workouts (canonical `workout` events with `sport` ∈ strength_* family).
+   * Attached only when every contributing session shares the same `heartRateZoneBasis.modelVersion`
+   * + `thresholdsBpm` tuple (fail-closed; mixed bases → omitted). Mirrors {@link DailyCardioFacts}.
+   */
+  heartRateZoneMinutes?: readonly [number, number, number, number, number];
+  /** Stamp for the daily strength zone tuple. Present only when all contributing sessions agree. */
+  heartRateZoneBasis?: {
+    modelVersion: "default_thresholds_v1";
+    thresholdsBpm: readonly [number, number, number, number];
+  };
 }
 
 /**
@@ -678,6 +690,15 @@ export type DailyEnergyInfluencers = {
     paceMinPerKm?: number;
     speedMetersPerSecond?: number;
     activeEnergyKcal?: number;
+    /** Workout Physiology v1 — sum of `totalEnergyKcal` across cardio workouts. */
+    totalEnergyKcal?: number;
+    /** Workout Physiology v1 — tuple-sum of zone minutes across cardio workouts. */
+    heartRateZoneMinutes?: readonly [number, number, number, number, number];
+    /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+    heartRateZoneBasis?: {
+      modelVersion: "default_thresholds_v1";
+      thresholdsBpm: readonly [number, number, number, number];
+    };
   };
   strength?: {
     durationMinutes?: number;
@@ -689,6 +710,15 @@ export type DailyEnergyInfluencers = {
     averageHeartRateBpm?: number;
     maxHeartRateBpm?: number;
     sport?: string;
+    /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
+    totalEnergyKcal?: number;
+    /** Workout Physiology v1 (Phase C) — tuple-sum of zone minutes across strength-tagged workouts. */
+    heartRateZoneMinutes?: readonly [number, number, number, number, number];
+    /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+    heartRateZoneBasis?: {
+      modelVersion: "default_thresholds_v1";
+      thresholdsBpm: readonly [number, number, number, number];
+    };
   };
   physiology?: {
     restingHeartRateBpm?: number;

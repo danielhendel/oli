@@ -92,6 +92,14 @@ import {
   DEFAULT_WORKOUT_BACKFILL_MAX_PASSES,
 } from "@/lib/integrations/appleHealth/runWorkoutHistoryBackfill";
 import {
+  runRecentWorkoutRepair,
+  type RecentWorkoutRepairReason,
+} from "@/lib/integrations/appleHealth/runRecentWorkoutRepair";
+import {
+  getLocalCalendarDayBoundsFromYmd,
+  addLocalCalendarDaysToDayKey,
+} from "@/lib/integrations/appleHealth/healthKit";
+import {
   getLastSyncAt,
   setLastSyncAt,
   getAppleHealthLastCheckedAt,
@@ -104,6 +112,8 @@ import {
   getAppleHealthWorkoutRangeBootstrapBuild,
   setAppleHealthWorkoutRangeBootstrapBuild,
   clearAppleHealthWorkoutRangeBootstrapBuild,
+  getAppleHealthWorkoutsRecentRepairLastRunAt,
+  setAppleHealthWorkoutsRecentRepairLastRunAt,
 } from "@/lib/integrations/appleHealth/storage";
 import { deleteIngestedRawEventAuthed, ingestRawEvent } from "@/lib/api/ingest";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
@@ -130,12 +140,18 @@ import {
 } from "@/lib/data/workouts/workoutSessionSurface";
 import { collectStrengthOverviewTabSessions } from "@/lib/data/workouts/strengthOverviewCardModel";
 import { pickLatestStrengthSessionToday } from "@/lib/data/workouts/strengthTodayCardModel";
+import { pickSessionHeartRateZoneMinutes } from "@/lib/data/workouts/pickSessionHeartRateZoneMinutes";
+import { pickSessionOnlyAverageHeartRateBpmFallback } from "@/lib/data/workouts/resolveStrengthTodayAverageHeartRateBpm";
 import { buildStrengthTodayDetailVm } from "@/lib/data/workouts/strengthTodayDetailVm";
 import { useDailyEnergyCard } from "@/lib/data/dash/useDailyEnergyCard";
 import {
   STRENGTH_TODAY_HR_DETAIL_PATHNAME,
   buildStrengthTodayHrDetailRouteParams,
 } from "./strength-today-hr-detail";
+import {
+  CARDIO_TODAY_HR_DETAIL_PATHNAME,
+  buildCardioTodayHrDetailRouteParams,
+} from "./cardio-today-hr-detail";
 import { clearWorkoutOverride, useWorkoutOverrides } from "@/lib/data/workouts/workoutOverrides";
 import { WorkoutActionSheet } from "@/lib/ui/WorkoutActionSheet";
 import type { WorkoutActionAnchor } from "@/lib/ui/WorkoutActionSheet";
@@ -211,8 +227,13 @@ function getIsAvailableFn(v: unknown): ((cb: (err: unknown, available: boolean) 
 
 const ANCHOR_LIMIT = 500;
 const APPLE_AUTO_MIN_MS = 2 * 60_000;
-const WORKOUT_DEEP_BACKFILL_VERSION = "v13m";
-const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v13m:in_progress";
+// Bump when existing installs need to re-run the workout history backfill so
+// already-ingested raw events can re-send richer payloads through the idempotent
+// `POST /ingest` replay branch (which patches via
+// `mergeAppleHealthWorkoutPhysiologyIfNeeded`). The fall-through then re-runs
+// canonical supersede + DailyFacts recompute. Do NOT change anchor semantics.
+const WORKOUT_DEEP_BACKFILL_VERSION = "v14-physiology";
+const WORKOUT_DEEP_BACKFILL_IN_PROGRESS = "v14-physiology:in_progress";
 const CARD_BG = "#FFFFFF";
 const RADIUS = 12;
 
@@ -341,6 +362,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
   const [workoutsCalendarRefreshEpoch, setWorkoutsCalendarRefreshEpoch] = useState(0);
   const [journalRefreshTick, setJournalRefreshTick] = useState(0);
   const workoutBackfillInFlightRef = useRef(false);
+  const recentWorkoutRepairInFlightRef = useRef(false);
   const pendingPostBootstrapCoverageLogRef = useRef(false);
 
   const weekDaysFull = getWeekDaysForAnchor(anchorDay);
@@ -780,6 +802,14 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
    * single source for the Strength Today card's Estimated Calorie Burn row + Avg heart rate row,
    * and is reused by the `strength-today-hr-detail` modal screen for parity.
    */
+  const strengthTodaySessions = useMemo(() => {
+    if (domain !== "strength") return [];
+    if (overviewSharedRange.status !== "ready") return [];
+    const todayRow = domainSharedDays.find((d) => d.day === today);
+    if (todayRow == null) return [];
+    return collectStrengthOverviewTabSessions([{ day: today, workouts: todayRow.workouts }]);
+  }, [domain, overviewSharedRange.status, domainSharedDays, today]);
+
   const dailyEnergyCardForToday = useDailyEnergyCard(today);
   const strengthTodayDetailVm = useMemo(() => {
     if (domain !== "strength") return null;
@@ -789,6 +819,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       cardModel: strengthTodayCardModel,
       actionWorkoutExercises: strengthTodayActionExercises,
       energy: dailyEnergyCardForToday.energy,
+      todayStrengthSessions: strengthTodaySessions,
     });
   }, [
     domain,
@@ -797,15 +828,67 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     strengthTodayCardModel,
     strengthTodayActionExercises,
     dailyEnergyCardForToday.energy,
+    strengthTodaySessions,
   ]);
+  /**
+   * Session-level HR-zone fallbacks for the Strength + Cardio HR detail modals.
+   *
+   * The modals primarily read `dailyFacts.{strength,cardio}.heartRateZoneMinutes` (via
+   * `energy.energyInfluencers`). On days that haven't been recomputed since the Phase C
+   * deploy that aggregate can be missing while the canonical workout event ALREADY
+   * carries the zones from Phase B enrichment. Passing the picked session's zone tuple
+   * through route params lets the modal render real durations immediately, without
+   * waiting for a `recomputeForDay`. No raw mutation, no invented zones — when the
+   * picked session also lacks valid zones we omit the route param and the modal falls
+   * back to the standard "zones aren't available yet" copy.
+   */
+  const strengthTodaySessionZoneMinutesFallback = useMemo(() => {
+    if (domain !== "strength") return null;
+    if (strengthTodaySessions.length === 0) return null;
+    const latest = pickLatestStrengthSessionToday(strengthTodaySessions);
+    return pickSessionHeartRateZoneMinutes(latest);
+  }, [domain, strengthTodaySessions]);
+
+  const strengthTodaySessionAvgHrFallback = useMemo(
+    () => pickSessionOnlyAverageHeartRateBpmFallback(strengthTodaySessions),
+    [strengthTodaySessions],
+  );
+
+  const cardioTodaySessionZoneMinutesFallback = useMemo(() => {
+    if (domain !== "cardio") return null;
+    if (overviewSharedRange.status !== "ready") return null;
+    const todayRow = domainSharedDays.find((d) => d.day === today);
+    if (todayRow == null) return null;
+    const sessions = reconcileWorkoutSessionsForDay(todayRow.day, todayRow.workouts);
+    const cardioSessions = listTodayCardioSessionsForDetailVm(sessions);
+    const heroSession = cardioSessions[0] ?? null;
+    return pickSessionHeartRateZoneMinutes(heroSession);
+  }, [domain, overviewSharedRange.status, domainSharedDays, today]);
+
   const handlePressStrengthTodayAvgHeartRate = useCallback(
     (day: DayKey) => {
       router.push({
         pathname: STRENGTH_TODAY_HR_DETAIL_PATHNAME,
-        params: buildStrengthTodayHrDetailRouteParams({ day }),
+        params: buildStrengthTodayHrDetailRouteParams({
+          day,
+          fallbackZoneMinutes: strengthTodaySessionZoneMinutesFallback,
+          fallbackAverageHeartRateBpm: strengthTodaySessionAvgHrFallback,
+        }),
       });
     },
-    [router],
+    [router, strengthTodaySessionZoneMinutesFallback, strengthTodaySessionAvgHrFallback],
+  );
+  const handlePressCardioTodayAvgHeartRate = useCallback(
+    (day: DayKey) => {
+      router.push({
+        pathname: CARDIO_TODAY_HR_DETAIL_PATHNAME,
+        params: buildCardioTodayHrDetailRouteParams({
+          day,
+          fallbackZoneMinutes: cardioTodaySessionZoneMinutesFallback,
+        }),
+      });
+    },
+    [router, cardioTodaySessionZoneMinutesFallback],
   );
 
   const strengthHistorySummaryModel = useMemo(() => {
@@ -1405,12 +1488,98 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     };
   }, [loadStored]);
 
+  const scheduleRecentWorkoutRepair = useCallback(
+    (reason: RecentWorkoutRepairReason, uid: string, token: string) => {
+      if (Platform.OS !== "ios") return;
+      if (recentWorkoutRepairInFlightRef.current) return;
+      recentWorkoutRepairInFlightRef.current = true;
+      runAfterInteractionsSafe(() => {
+        void (async () => {
+          try {
+            const result = await runRecentWorkoutRepair(
+              { uid, token, reason },
+              {
+                pullWorkoutsByDateRange,
+                ingestRawEvent: (body, t, opts) =>
+                  ingestRawEvent(body, t, opts).then((r) =>
+                    r.ok
+                      ? { ok: true as const }
+                      : { ok: false as const, error: r.error, requestId: r.requestId },
+                  ),
+                getDeviceTimezone,
+                getTodayDayKeyLocal,
+                getLocalCalendarDayBoundsFromYmd,
+                addLocalCalendarDaysToDayKey,
+                workoutIdempotencyKey,
+                enrichWorkoutPhysiology: (w, ctx) =>
+                  runAppleHealthWorkoutPhysiologyEnrichment(w, {
+                    neighbors: ctx.neighbors,
+                    ...(uid ? { userId: uid } : {}),
+                  }),
+                // Tolerate undefined storage helpers in jest module mocks that predate
+                // this throttle (existing overview tests mock the storage module without
+                // these two symbols). Production always supplies the real fns.
+                getLastRunAt: (u) =>
+                  typeof getAppleHealthWorkoutsRecentRepairLastRunAt === "function"
+                    ? getAppleHealthWorkoutsRecentRepairLastRunAt(u)
+                    : Promise.resolve(null),
+                setLastRunAtOnSuccess: (u, iso) =>
+                  typeof setAppleHealthWorkoutsRecentRepairLastRunAt === "function"
+                    ? setAppleHealthWorkoutsRecentRepairLastRunAt(u, iso)
+                    : Promise.resolve(),
+              },
+            );
+            if (__DEV__ && !process.env.JEST_WORKER_ID) {
+              // eslint-disable-next-line no-console
+              console.log("[WORKOUT_RECENT_REPAIR]", {
+                status: result.status,
+                reason: result.reason,
+                startDay: result.startDay,
+                endDay: result.endDay,
+                daysRequested: result.daysRequested,
+                hkWorkoutCount: result.hkWorkoutCount,
+                ingestedCount: result.ingestedCount,
+                failedCount: result.failedCount,
+                durationMs: result.durationMs,
+                ...(result.skippedReason ? { skippedReason: result.skippedReason } : {}),
+                ...(result.latestNativeWorkoutStart != null
+                  ? { latestNativeWorkoutStart: result.latestNativeWorkoutStart }
+                  : {}),
+                ...(result.firstIngestError != null
+                  ? { firstIngestError: result.firstIngestError }
+                  : {}),
+              });
+            }
+            if (result.status === "ran" && result.ingestedCount > 0) {
+              setWorkoutsCalendarRefreshEpoch((n) => n + 1);
+            }
+          } catch (e) {
+            if (__DEV__ && !process.env.JEST_WORKER_ID) {
+              // eslint-disable-next-line no-console
+              console.warn("[WORKOUT_RECENT_REPAIR] threw; swallowed", e);
+            }
+          } finally {
+            recentWorkoutRepairInFlightRef.current = false;
+          }
+        })();
+      });
+    },
+    [],
+  );
+
   const maybeAutoAppleSync = useCallback(
     async (reason: "focus" | "foreground") => {
       void reason; // reserved for future idempotency / logging
       if (connectionStatus !== "connected" || !user) return;
       const token = await getIdToken(false);
       if (!token) return;
+
+      // Workout Recent Repair — fire-and-forget rolling 14-day re-pull. Runs
+      // INDEPENDENTLY of the anchored-sync throttle (which would otherwise skip
+      // this focus when `lastCheckedAt` is fresh). The helper has its own per-uid
+      // throttle and an in-flight ref so repeated focuses don't stack. Closes
+      // the gap where anchored deltas silently miss a Watch-recorded workout.
+      void scheduleRecentWorkoutRepair(reason, user.uid, token);
 
       const deepBackfillVersion = await getAppleHealthDeepBackfillVersion().catch(() => null);
       const needsDeepBackfill =
@@ -1545,7 +1714,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
         workoutBackfillInFlightRef.current = false;
       }
     },
-    [connectionStatus, user, getIdToken],
+    [connectionStatus, user, getIdToken, scheduleRecentWorkoutRepair],
   );
 
   useFocusEffect(
@@ -1811,6 +1980,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             loading={overviewSharedRange.status !== "ready"}
             detailVm={cardioTodayDetailVm}
             onPressLog={() => router.push(`${basePath}/log`)}
+            onPressAvgHeartRate={handlePressCardioTodayAvgHeartRate}
           />
           {cardioThisWeekCard}
           <CardioWeeklyMetricCard

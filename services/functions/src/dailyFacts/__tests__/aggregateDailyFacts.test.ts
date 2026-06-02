@@ -400,6 +400,8 @@ describe('aggregateDailyFactsForDay', () => {
     const events: CanonicalEvent[] = [
       makeStrengthWorkout({
         id: 'strength_1',
+        start: '2025-01-01T08:00:00.000Z',
+        end: '2025-01-01T09:00:00.000Z',
         exercises: [
           { exercise: 'Bench Press', reps: 10, load: 135, unit: 'lb' },
           { exercise: 'Bench Press', reps: 8, load: 155, unit: 'lb' },
@@ -407,6 +409,8 @@ describe('aggregateDailyFactsForDay', () => {
       }),
       makeStrengthWorkout({
         id: 'strength_2',
+        start: '2025-01-01T17:00:00.000Z',
+        end: '2025-01-01T18:00:00.000Z',
         exercises: [
           { exercise: 'Squat', reps: 5, load: 100, unit: 'kg' },
           { exercise: 'Squat', reps: 5, load: 120, unit: 'kg' },
@@ -848,5 +852,33 @@ describe('aggregateDailyFactsForDay', () => {
     expect(r1.energy).toEqual(r2.energy);
     expect(r1.energyInfluencers).toEqual(r2.energyInfluencers);
     expect(r1.activity?.steps).toEqual(r2.activity?.steps);
+  });
+
+  it('strength.workoutsCount uses reconciled sessions (manual + Apple same workout counts 1)', () => {
+    const events: CanonicalEvent[] = [
+      makeStrengthWorkout({
+        id: 'manual_session',
+        start: '2026-06-01T17:00:00.000Z',
+        end: '2026-06-01T18:00:00.000Z',
+        exercises: [{ exercise: 'Upper Body', reps: 10, load: 135, unit: 'lb' }],
+        day: '2026-06-01',
+      }),
+      makeWorkout({
+        id: 'apple_session',
+        sport: 'TraditionalStrengthTraining',
+        start: '2026-06-01T17:20:00.000Z',
+        end: '2026-06-01T18:10:00.000Z',
+        durationMinutes: 50,
+        day: '2026-06-01',
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2026-06-01',
+      computedAt: '2026-06-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.strength?.workoutsCount).toBe(1);
+    expect(result.strength?.totalSets).toBe(1);
   });
 });

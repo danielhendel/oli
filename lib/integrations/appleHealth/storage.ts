@@ -23,6 +23,16 @@ export const APPLE_HEALTH_LAST_INGESTED_STEPS_BY_DAY = "appleHealth:lastIngested
 export const APPLE_HEALTH_FORCED_YESTERDAY_LAST_YMD = "appleHealth:forcedYesterday:lastYesterdayYmd";
 /** ISO time of last successful forced yesterday ingest (anti-spam within same `yesterday` target). */
 export const APPLE_HEALTH_FORCED_YESTERDAY_LAST_AT = "appleHealth:forcedYesterday:lastAtIso";
+/**
+ * Workouts recent repair throttle anchor — ISO of last *successful* run, per uid.
+ *
+ * Distinct from `appleHealth:lastCheckedAt` (anchored sync throttle) and
+ * `appleHealth:stepsAutoRepair:lastCompletedAt` (steps repair cooldown). Each user's
+ * marker lives at `appleHealth:workoutsRecentRepair:lastRunAt:{uid}` so multi-account
+ * devices throttle independently. Failed runs MUST NOT update this marker.
+ */
+export const APPLE_HEALTH_WORKOUTS_RECENT_REPAIR_LAST_RUN_AT_PREFIX =
+  "appleHealth:workoutsRecentRepair:lastRunAt";
 
 export async function getLastSyncAt(): Promise<string | null> {
   return AsyncStorage.getItem(APPLE_HEALTH_LAST_SYNC_AT);
@@ -219,4 +229,29 @@ export async function getAppleHealthForcedYesterdayRefreshLastAtIso(): Promise<s
 
 export async function setAppleHealthForcedYesterdayRefreshLastAtIso(iso: string): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_FORCED_YESTERDAY_LAST_AT, iso);
+}
+
+/**
+ * Per-uid key for the workouts recent repair throttle. Asserting a non-empty uid here
+ * mirrors `lib/integrations/appleHealth/anchor.ts` and prevents accidental writes to
+ * a shared "global" slot when a sign-in race surfaces an empty string.
+ */
+export function appleHealthWorkoutsRecentRepairLastRunAtKey(uid: string): string {
+  if (!uid || typeof uid !== "string") {
+    throw new Error("appleHealth workouts recent repair: uid required");
+  }
+  return `${APPLE_HEALTH_WORKOUTS_RECENT_REPAIR_LAST_RUN_AT_PREFIX}:${uid}`;
+}
+
+export async function getAppleHealthWorkoutsRecentRepairLastRunAt(
+  uid: string,
+): Promise<string | null> {
+  return AsyncStorage.getItem(appleHealthWorkoutsRecentRepairLastRunAtKey(uid));
+}
+
+export async function setAppleHealthWorkoutsRecentRepairLastRunAt(
+  uid: string,
+  iso: string,
+): Promise<void> {
+  await AsyncStorage.setItem(appleHealthWorkoutsRecentRepairLastRunAtKey(uid), iso);
 }

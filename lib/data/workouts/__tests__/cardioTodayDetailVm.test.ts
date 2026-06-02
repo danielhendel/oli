@@ -415,4 +415,78 @@ describe("buildCardioTodayDetailVm", () => {
     expect(byId.avgHeartRate).toBe(CARDIO_TODAY_DETAIL_MISSING_VALUE);
     expect(byId.estimatedCalories).toBe(CARDIO_TODAY_DETAIL_MISSING_VALUE);
   });
+
+  // Workout Physiology v1 — Phase C: Avg Heart Rate row becomes tappable when avg HR
+  // or zones exist. Mirrors the Strength VM tappable contract.
+  describe("Phase C tappable Avg Heart Rate row", () => {
+    function avgHrRow(vm: ReturnType<typeof buildCardioTodayDetailVm>) {
+      if (vm.status !== "completed") throw new Error("expected completed");
+      const r = vm.rows.find((row) => row.id === "avgHeartRate");
+      if (r == null) throw new Error("avgHeartRate row missing");
+      return r;
+    }
+
+    it("does NOT mark avgHeartRate tappable when neither avg HR nor zones exist", () => {
+      const vm = buildCompletedVmFixture({ energy: energy() });
+      expect(avgHrRow(vm).tappable).toBeUndefined();
+    });
+
+    it("marks avgHeartRate tappable when averageHeartRateBpm exists (even without zones)", () => {
+      const vm = buildCompletedVmFixture({
+        energy: energy({ cardio: { averageHeartRateBpm: 142 } }),
+      });
+      expect(avgHrRow(vm).tappable).toBe(true);
+    });
+
+    it("marks avgHeartRate tappable when heartRateZoneMinutes exist (even without avg HR)", () => {
+      const energyWithZonesOnly: DailyEnergyCardDto = {
+        modelVersion: "v1",
+        computedAt: "2026-05-26T00:00:00.000Z",
+        day: TODAY,
+        estimatedKcal: { low: 1700, high: 2300, midpoint: 2000 },
+        variancePct: 0.1,
+        confidence: "moderate",
+        factors: {},
+        missingRequiredInputs: [],
+        energyInfluencers: {
+          cardio: {
+            heartRateZoneMinutes: [1, 2, 3, 4, 5] as const,
+          },
+        },
+      };
+      const vm = buildCompletedVmFixture({ energy: energyWithZonesOnly });
+      expect(avgHrRow(vm).tappable).toBe(true);
+    });
+
+    it("exposes energyDay on the completed VM (verbatim) so the modal can re-fetch by day", () => {
+      const vm = buildCompletedVmFixture({
+        energy: energy({ cardio: { averageHeartRateBpm: 142 } }),
+      });
+      if (vm.status !== "completed") throw new Error("expected completed");
+      expect(vm.energyDay).toBe(TODAY);
+    });
+
+    it("keeps cadence as '—' regardless of Phase C HR-zone availability (no fabrication)", () => {
+      const energyWithZones: DailyEnergyCardDto = {
+        modelVersion: "v1",
+        computedAt: "2026-05-26T00:00:00.000Z",
+        day: TODAY,
+        estimatedKcal: { low: 1700, high: 2300, midpoint: 2000 },
+        variancePct: 0.1,
+        confidence: "moderate",
+        factors: {},
+        missingRequiredInputs: [],
+        energyInfluencers: {
+          cardio: {
+            averageHeartRateBpm: 142,
+            heartRateZoneMinutes: [3, 8, 12, 4, 1] as const,
+          },
+        },
+      };
+      const vm = buildCompletedVmFixture({ energy: energyWithZones });
+      if (vm.status !== "completed") throw new Error("expected completed");
+      const cadence = vm.rows.find((r) => r.id === "avgCadence");
+      expect(cadence?.value).toBe(CARDIO_TODAY_DETAIL_MISSING_VALUE);
+    });
+  });
 });

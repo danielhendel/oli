@@ -70,6 +70,8 @@ export type WorkoutHistoryItem = {
   distanceMeters?: number | null;
   /** Optional zone minutes on payload; omitted when absent or invalid. */
   heartRateZoneMinutes?: HeartRateZoneMinutes5 | null;
+  /** Workout Physiology v1 — avg HR from enriched Apple Health payload / canonical mirror. */
+  averageHeartRateBpm?: number | null;
   hk?: { sourceId: string | null; activityId: number | null };
   /** Parsed from `strength_workout` payload exercises when volume can be computed; omitted otherwise. */
   strengthVolumeKg?: number | null;
@@ -178,6 +180,13 @@ function parseHeartRateZoneMinutesFromPayload(payload: Record<string, unknown> |
   return out as unknown as HeartRateZoneMinutes5;
 }
 
+function parseAverageHeartRateBpmFromPayload(payload: Record<string, unknown> | null): number | null {
+  if (!payload) return null;
+  const bpm = asNumber(payload.averageHeartRateBpm);
+  if (bpm == null || bpm <= 0) return null;
+  return bpm;
+}
+
 /**
  * Fail-closed, best-effort parser for workout display.
  * Never throws. If payload is missing/unexpected, returns minimal item.
@@ -243,6 +252,7 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc, options?: ParseWorkout
 
   const distanceMeters = parseDistanceMetersFromPayload(payload);
   const heartRateZoneMinutes = parseHeartRateZoneMinutesFromPayload(payload);
+  const averageHeartRateBpm = parseAverageHeartRateBpmFromPayload(payload);
 
   let hk: WorkoutHistoryItem["hk"] | undefined;
   if (isRecord(payload?.hk)) {
@@ -287,6 +297,7 @@ export function parseWorkoutHistoryItem(raw: RawEventDoc, options?: ParseWorkout
     calories,
     ...(distanceMeters != null ? { distanceMeters } : {}),
     ...(heartRateZoneMinutes != null ? { heartRateZoneMinutes } : {}),
+    ...(averageHeartRateBpm != null ? { averageHeartRateBpm } : {}),
     ...(hk ? { hk } : {}),
     ...(strengthVolumeKg != null && strengthVolumeKg > 0 ? { strengthVolumeKg } : {}),
     ...(strengthIngestExercises != null && strengthIngestExercises.length > 0

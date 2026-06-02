@@ -44,6 +44,15 @@ export type DailyEnergyCardDto = {
       paceMinPerKm?: number;
       speedMetersPerSecond?: number;
       activeEnergyKcal?: number;
+      /** Workout Physiology v1 — sum of `totalEnergyKcal` across cardio workouts. */
+      totalEnergyKcal?: number;
+      /** Workout Physiology v1 — tuple-sum of zone minutes across cardio workouts. */
+      heartRateZoneMinutes?: readonly [number, number, number, number, number];
+      /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+      heartRateZoneBasis?: {
+        modelVersion: "default_thresholds_v1";
+        thresholdsBpm: readonly [number, number, number, number];
+      };
     };
     strength?: {
       durationMinutes?: number;
@@ -53,6 +62,16 @@ export type DailyEnergyCardDto = {
       densityKgPerMinute?: number;
       activeEnergyKcal?: number;
       averageHeartRateBpm?: number;
+      maxHeartRateBpm?: number;
+      /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
+      totalEnergyKcal?: number;
+      /** Workout Physiology v1 (Phase C) — tuple-sum of zone minutes across strength-tagged workouts. */
+      heartRateZoneMinutes?: readonly [number, number, number, number, number];
+      /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+      heartRateZoneBasis?: {
+        modelVersion: "default_thresholds_v1";
+        thresholdsBpm: readonly [number, number, number, number];
+      };
     };
     physiology?: {
       restingHeartRateBpm?: number;
@@ -79,7 +98,21 @@ export function useDailyEnergyCard(day: string): EnergyState {
 
   return useMemo(() => {
     if (facts.status === "ready") {
-      const energy = (facts.data as DailyFactsDto & { energy?: DailyEnergyCardDto }).energy;
+      const data = facts.data as DailyFactsDto & {
+        energy?: DailyEnergyCardDto;
+        energyInfluencers?: DailyEnergyCardDto["energyInfluencers"];
+      };
+      const rawEnergy = data.energy;
+      // Server stores `energyInfluencers` as a TOP-LEVEL sibling of `energy` on
+      // the DailyFacts document. Existing Today VMs (Strength/Cardio) and the HR
+      // detail modal read `energy.energyInfluencers.{cardio,strength}` — merge the
+      // sibling field into the returned shape here so the read path stays stable
+      // across all consumers. Prefer a server-nested value when present
+      // (forward-compat); otherwise fall back to the sibling field.
+      const energy =
+        rawEnergy && !rawEnergy.energyInfluencers && data.energyInfluencers
+          ? { ...rawEnergy, energyInfluencers: data.energyInfluencers }
+          : rawEnergy;
       return { energy, loading: false, error: null, refetch };
     }
     if (facts.status === "error") {

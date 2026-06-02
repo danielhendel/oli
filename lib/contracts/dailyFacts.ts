@@ -62,6 +62,31 @@ const energyInfluencersSchema = z
         paceMinPerKm: z.number().finite().optional(),
         speedMetersPerSecond: z.number().finite().optional(),
         activeEnergyKcal: z.number().finite().optional(),
+        /** Workout Physiology v1 — sum of `totalEnergyKcal` across cardio workouts. */
+        totalEnergyKcal: z.number().finite().optional(),
+        /** Workout Physiology v1 — tuple-sum of zone minutes across cardio workouts. */
+        heartRateZoneMinutes: z
+          .tuple([
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+          ])
+          .optional(),
+        /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+        heartRateZoneBasis: z
+          .object({
+            modelVersion: z.enum(["default_thresholds_v1"]),
+            thresholdsBpm: z.tuple([
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+            ]),
+          })
+          .strip()
+          .optional(),
       })
       .strip()
       .optional(),
@@ -76,6 +101,31 @@ const energyInfluencersSchema = z
         averageHeartRateBpm: z.number().finite().optional(),
         maxHeartRateBpm: z.number().finite().optional(),
         sport: z.string().min(1).optional(),
+        /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
+        totalEnergyKcal: z.number().finite().optional(),
+        /** Workout Physiology v1 (Phase C) — tuple-sum of zone minutes across strength-tagged workouts. */
+        heartRateZoneMinutes: z
+          .tuple([
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+          ])
+          .optional(),
+        /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+        heartRateZoneBasis: z
+          .object({
+            modelVersion: z.enum(["default_thresholds_v1"]),
+            thresholdsBpm: z.tuple([
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+            ]),
+          })
+          .strip()
+          .optional(),
       })
       .strip()
       .optional(),
@@ -211,6 +261,32 @@ export const dailyFactsDtoSchema = z
         activeEnergyKcal: z.number().finite().nonnegative().optional(),
         /** Workout Physiology v1 — sum of `totalEnergyKcal` across strength-tagged workouts. */
         totalEnergyKcal: z.number().finite().nonnegative().optional(),
+        /**
+         * Workout Physiology v1 (Phase C) — tuple-sum of zone minutes across strength-tagged workouts.
+         * Only attached when every contributing workout shares the same `heartRateZoneBasis.modelVersion`.
+         */
+        heartRateZoneMinutes: z
+          .tuple([
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+            z.number().finite().nonnegative(),
+          ])
+          .optional(),
+        /** Stamp for the daily zone tuple. Present only when all contributing sessions agree. */
+        heartRateZoneBasis: z
+          .object({
+            modelVersion: z.enum(["default_thresholds_v1"]),
+            thresholdsBpm: z.tuple([
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+              z.number().finite().positive(),
+            ]),
+          })
+          .strip()
+          .optional(),
       })
       .strip()
       .optional(),

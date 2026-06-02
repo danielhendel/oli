@@ -115,3 +115,101 @@ describe("CardioTodayCard — completed", () => {
     expect(sub.props.children).toBe("+1 more session");
   });
 });
+
+describe("CardioTodayCard — Phase C tappable Avg Heart Rate", () => {
+  function completedVmWithTappableHr(): CardioTodayDetailVm {
+    return completedVm({
+      rows: [
+        { id: "duration", label: CARDIO_TODAY_DETAIL_METRIC_LABELS.duration, value: "35 min" },
+        { id: "distance", label: CARDIO_TODAY_DETAIL_METRIC_LABELS.distance, value: "5.00 mi" },
+        {
+          id: "avgCadence",
+          label: CARDIO_TODAY_DETAIL_METRIC_LABELS.avgCadence,
+          value: CARDIO_TODAY_DETAIL_MISSING_VALUE,
+        },
+        { id: "avgPace", label: CARDIO_TODAY_DETAIL_METRIC_LABELS.avgPace, value: "9:39/mi" },
+        {
+          id: "avgHeartRate",
+          label: CARDIO_TODAY_DETAIL_METRIC_LABELS.avgHeartRate,
+          value: "142 bpm",
+          tappable: true,
+        },
+        {
+          id: "estimatedCalories",
+          label: CARDIO_TODAY_DETAIL_METRIC_LABELS.estimatedCalories,
+          value: "+110\u2013185 kcal",
+        },
+      ],
+    });
+  }
+
+  it("renders chevron + Pressable when avgHeartRate row is tappable", async () => {
+    const noop = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CardioTodayCard
+          loading={false}
+          detailVm={completedVmWithTappableHr()}
+          onPressAvgHeartRate={noop}
+        />,
+      );
+    });
+    expect(
+      tree!.root.findAllByProps({ testID: "cardio-today-metric-row-avgHeartRate-chevron" }).length,
+    ).toBeGreaterThanOrEqual(1);
+    const row = tree!.root.findByProps({ testID: "cardio-today-metric-row-avgHeartRate" });
+    expect(row.props.accessibilityRole).toBe("button");
+    expect(row.props.accessibilityState?.disabled).toBe(false);
+  });
+
+  it("calls onPressAvgHeartRate with the energyDay when tapped", async () => {
+    const onPress = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CardioTodayCard
+          loading={false}
+          detailVm={completedVmWithTappableHr()}
+          onPressAvgHeartRate={onPress}
+        />,
+      );
+    });
+    const row = tree!.root.findByProps({ testID: "cardio-today-metric-row-avgHeartRate" });
+    await act(async () => {
+      row.props.onPress();
+    });
+    expect(onPress).toHaveBeenCalledWith(TODAY);
+  });
+
+  it("renders a static (non-Pressable) row when avgHeartRate is NOT tappable", async () => {
+    const noop = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CardioTodayCard loading={false} detailVm={completedVm()} onPressAvgHeartRate={noop} />,
+      );
+    });
+    // No chevron when row.tappable is omitted
+    expect(
+      tree!.root.findAllByProps({ testID: "cardio-today-metric-row-avgHeartRate-chevron" }).length,
+    ).toBe(0);
+    const row = tree!.root.findByProps({ testID: "cardio-today-metric-row-avgHeartRate" });
+    // Static rows expose label/value via accessibilityLabel rather than role=button
+    expect(row.props.accessibilityRole).not.toBe("button");
+  });
+
+  it("marks tappable row disabled when onPressAvgHeartRate is omitted (still renders chevron)", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CardioTodayCard loading={false} detailVm={completedVmWithTappableHr()} />,
+      );
+    });
+    const row = tree!.root.findByProps({ testID: "cardio-today-metric-row-avgHeartRate" });
+    expect(row.props.accessibilityState?.disabled).toBe(true);
+    expect(
+      tree!.root.findAllByProps({ testID: "cardio-today-metric-row-avgHeartRate-chevron" }).length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+});

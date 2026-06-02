@@ -155,3 +155,171 @@ it("never references calorie math from the UI hook (regression guard)", () => {
   expect(src.includes("kcalPerStep")).toBe(false);
   expect(src.includes("computeDailyEnergy")).toBe(false);
 });
+
+/**
+ * Workout Physiology v1 — visibility fix.
+ *
+ * Server stores `energyInfluencers` as a TOP-LEVEL sibling of `energy` on the
+ * DailyFacts doc. Existing Today VMs (Strength/Cardio) and the HR detail modal
+ * read `energy.energyInfluencers.{cardio,strength}` — the hook must merge the
+ * sibling field so VMs stay stable.
+ */
+function dailyFactsResponseWithSiblingInfluencers(opts: {
+  cardio?: {
+    averageHeartRateBpm?: number;
+    maxHeartRateBpm?: number;
+    paceMinPerKm?: number;
+    activeEnergyKcal?: number;
+    totalEnergyKcal?: number;
+    heartRateZoneMinutes?: readonly [number, number, number, number, number];
+  };
+  strength?: { averageHeartRateBpm?: number; activeEnergyKcal?: number };
+}) {
+  return {
+    ok: true as const,
+    status: 200,
+    requestId: "req-influencers",
+    json: {
+      userId: "test-uid",
+      date: "2026-05-07",
+      activity: { steps: 1000 },
+      energy: {
+        modelVersion: "v1",
+        computedAt: "2026-05-07T12:00:00.000Z",
+        day: "2026-05-07",
+        estimatedKcal: { low: 2000, high: 2500, midpoint: 2250 },
+        variancePct: 5,
+        confidence: "moderate" as const,
+        factors: {},
+        missingRequiredInputs: [],
+      },
+      energyInfluencers: {
+        ...(opts.cardio ? { cardio: opts.cardio } : {}),
+        ...(opts.strength ? { strength: opts.strength } : {}),
+      },
+    },
+  };
+}
+
+it("merges sibling dailyFacts.energyInfluencers into the returned energy DTO (cardio)", async () => {
+  mockGetDailyFacts.mockResolvedValueOnce(
+    dailyFactsResponseWithSiblingInfluencers({
+      cardio: {
+        averageHeartRateBpm: 142,
+        maxHeartRateBpm: 178,
+        paceMinPerKm: 5.5,
+        activeEnergyKcal: 230,
+        totalEnergyKcal: 281,
+        heartRateZoneMinutes: [4, 10, 12, 6, 2] as const,
+      },
+    }) as never,
+  );
+
+  let latest: CardState | null = null;
+  await act(async () => {
+    renderer.create(<Harness onState={(s) => (latest = s)} />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(latest).not.toBeNull();
+  expect(latest!.energy?.energyInfluencers?.cardio).toEqual({
+    averageHeartRateBpm: 142,
+    maxHeartRateBpm: 178,
+    paceMinPerKm: 5.5,
+    activeEnergyKcal: 230,
+    totalEnergyKcal: 281,
+    heartRateZoneMinutes: [4, 10, 12, 6, 2],
+  });
+});
+
+it("merges sibling energyInfluencers into the returned energy DTO (strength)", async () => {
+  mockGetDailyFacts.mockResolvedValueOnce(
+    dailyFactsResponseWithSiblingInfluencers({
+      strength: { averageHeartRateBpm: 124, activeEnergyKcal: 184 },
+    }) as never,
+  );
+
+  let latest: CardState | null = null;
+  await act(async () => {
+    renderer.create(<Harness onState={(s) => (latest = s)} />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(latest!.energy?.energyInfluencers?.strength).toEqual({
+    averageHeartRateBpm: 124,
+    activeEnergyKcal: 184,
+  });
+});
+
+it("returns energy.energyInfluencers undefined when the server provided neither nested nor sibling", async () => {
+  mockGetDailyFacts.mockResolvedValueOnce({
+    ok: true as const,
+    status: 200,
+    requestId: "req-no-influencers",
+    json: {
+      userId: "test-uid",
+      date: "2026-05-07",
+      activity: { steps: 1000 },
+      energy: {
+        modelVersion: "v1",
+        computedAt: "2026-05-07T12:00:00.000Z",
+        day: "2026-05-07",
+        estimatedKcal: { low: 2000, high: 2500, midpoint: 2250 },
+        variancePct: 5,
+        confidence: "moderate" as const,
+        factors: {},
+        missingRequiredInputs: [],
+      },
+    },
+  } as never);
+
+  let latest: CardState | null = null;
+  await act(async () => {
+    renderer.create(<Harness onState={(s) => (latest = s)} />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(latest!.energy).toBeDefined();
+  expect(latest!.energy?.energyInfluencers).toBeUndefined();
+});
+
+it("prefers server-nested energy.energyInfluencers over sibling when both exist (forward-compat)", async () => {
+  mockGetDailyFacts.mockResolvedValueOnce({
+    ok: true as const,
+    status: 200,
+    requestId: "req-nested-wins",
+    json: {
+      userId: "test-uid",
+      date: "2026-05-07",
+      energy: {
+        modelVersion: "v1",
+        computedAt: "2026-05-07T12:00:00.000Z",
+        day: "2026-05-07",
+        estimatedKcal: { low: 2000, high: 2500, midpoint: 2250 },
+        variancePct: 5,
+        confidence: "moderate" as const,
+        factors: {},
+        missingRequiredInputs: [],
+        // hypothetical future shape: nested value should win over sibling
+        energyInfluencers: { cardio: { averageHeartRateBpm: 999 } },
+      },
+      energyInfluencers: { cardio: { averageHeartRateBpm: 111 } },
+    },
+  } as never);
+
+  let latest: CardState | null = null;
+  await act(async () => {
+    renderer.create(<Harness onState={(s) => (latest = s)} />);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(latest!.energy?.energyInfluencers?.cardio?.averageHeartRateBpm).toBe(999);
+});

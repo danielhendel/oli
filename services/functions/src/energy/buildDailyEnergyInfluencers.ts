@@ -27,6 +27,34 @@ export function buildDailyEnergyInfluencersFromFacts(
         ...(typeof dailyFacts.cardio.primarySport === "string"
           ? { sport: dailyFacts.cardio.primarySport }
           : {}),
+        // Workout Physiology v1 — forward HR / pace / energy / zones from
+        // `DailyCardioFacts` so Today VMs and HR detail surfaces can read them.
+        // Absent canonical fields stay absent (no nulls, no zeros, no defaults).
+        ...(typeof dailyFacts.cardio.averageHeartRateBpm === "number"
+          ? { averageHeartRateBpm: dailyFacts.cardio.averageHeartRateBpm }
+          : {}),
+        ...(typeof dailyFacts.cardio.maxHeartRateBpm === "number"
+          ? { maxHeartRateBpm: dailyFacts.cardio.maxHeartRateBpm }
+          : {}),
+        ...(typeof dailyFacts.cardio.paceMinPerKm === "number"
+          ? { paceMinPerKm: dailyFacts.cardio.paceMinPerKm }
+          : {}),
+        ...(typeof dailyFacts.cardio.speedMetersPerSecond === "number"
+          ? { speedMetersPerSecond: dailyFacts.cardio.speedMetersPerSecond }
+          : {}),
+        ...(typeof dailyFacts.cardio.activeEnergyKcal === "number"
+          ? { activeEnergyKcal: dailyFacts.cardio.activeEnergyKcal }
+          : {}),
+        ...(typeof dailyFacts.cardio.totalEnergyKcal === "number"
+          ? { totalEnergyKcal: dailyFacts.cardio.totalEnergyKcal }
+          : {}),
+        ...(Array.isArray(dailyFacts.cardio.heartRateZoneMinutes) &&
+        dailyFacts.cardio.heartRateZoneMinutes.length === 5
+          ? { heartRateZoneMinutes: dailyFacts.cardio.heartRateZoneMinutes }
+          : {}),
+        ...(dailyFacts.cardio.heartRateZoneBasis != null
+          ? { heartRateZoneBasis: dailyFacts.cardio.heartRateZoneBasis }
+          : {}),
       }
     : undefined;
 
@@ -58,6 +86,24 @@ export function buildDailyEnergyInfluencersFromFacts(
           : {}),
         ...(typeof dailyFacts.strength.maxHeartRateBpm === "number"
           ? { maxHeartRateBpm: dailyFacts.strength.maxHeartRateBpm }
+          : {}),
+        // Workout Physiology v1 — forward energy from `DailyStrengthFacts`.
+        ...(typeof dailyFacts.strength.activeEnergyKcal === "number"
+          ? { activeEnergyKcal: dailyFacts.strength.activeEnergyKcal }
+          : {}),
+        ...(typeof dailyFacts.strength.totalEnergyKcal === "number"
+          ? { totalEnergyKcal: dailyFacts.strength.totalEnergyKcal }
+          : {}),
+        // Workout Physiology v1 (Phase C) — forward HR zone tuple + basis from
+        // `DailyStrengthFacts` (mirror cardio). Absent values stay absent so the strength
+        // HR detail modal can deterministically show "zones aren't available yet" when
+        // the daily zone basis disagreed across sessions or no Phase B enrichment ran.
+        ...(Array.isArray(dailyFacts.strength.heartRateZoneMinutes) &&
+        dailyFacts.strength.heartRateZoneMinutes.length === 5
+          ? { heartRateZoneMinutes: dailyFacts.strength.heartRateZoneMinutes }
+          : {}),
+        ...(dailyFacts.strength.heartRateZoneBasis != null
+          ? { heartRateZoneBasis: dailyFacts.strength.heartRateZoneBasis }
           : {}),
         ...(typeof strengthDensity === "number" ? { densityKgPerMinute: strengthDensity } : {}),
       }
