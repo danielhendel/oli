@@ -85,6 +85,16 @@ jest.mock("@/lib/data/activity/appleHealthStepsRepairCoordinator", () => ({
   scheduleAppleHealthStepsRepair: jest.fn(),
 }));
 
+jest.mock("@/lib/ui/calendar/dateUtils", () => {
+  const actual = jest.requireActual<typeof import("@/lib/ui/calendar/dateUtils")>(
+    "@/lib/ui/calendar/dateUtils",
+  );
+  return {
+    ...actual,
+    getTodayDayKeyLocal: () => "2026-06-04" as const,
+  };
+});
+
 jest.mock("@react-navigation/native", () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const React = require("react");
@@ -224,6 +234,44 @@ describe("useWeeklyFitnessCard regression (audit fix)", () => {
     await flush();
 
     expect(latest!.error).toBe("Request timed out");
+  });
+
+  it("renders strength = 4 workouts for audit week dailyFacts [1,1,1,0,1,0,0] (not 8)", async () => {
+    const strengthByDay: Record<string, number> = {
+      "2026-05-31": 1,
+      "2026-06-01": 1,
+      "2026-06-02": 1,
+      "2026-06-03": 0,
+      "2026-06-04": 1,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    };
+
+    mockGetDailyFacts.mockReset();
+    mockGetDailyFacts.mockImplementation(async (day: string) => {
+      const count = strengthByDay[day] ?? 0;
+      return {
+        ok: true as const,
+        status: 200,
+        requestId: `req-${day}`,
+        json: {
+          userId: "test-uid",
+          date: day,
+          strength: { workoutsCount: count, totalSets: 0, totalReps: 0, totalVolumeByUnit: {} },
+          cardio: { durationMinutes: 0, sessions: 0 },
+        },
+      } as never;
+    });
+
+    let latest: HookState | null = null;
+    await act(async () => {
+      renderer.create(<Harness onState={(s) => (latest = s)} />);
+    });
+    await flush();
+
+    const strengthRow = latest!.rows.find((r) => r.key === "strength");
+    expect(strengthRow?.valueLabel).toBe("4 workouts");
+    expect(mockGetDailyFacts.mock.calls.length).toBeLessThanOrEqual(14);
   });
 
   it("renders strength + cardio row values aggregated from dailyFacts", async () => {

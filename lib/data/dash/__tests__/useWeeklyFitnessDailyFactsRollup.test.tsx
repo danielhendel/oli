@@ -18,6 +18,7 @@ import { getDailyFacts } from "@/lib/api/usersMe";
 import {
   __testing_resetDailyFactsInvalidationListeners,
   __testing_resetDailyFactsSessionCache,
+  getDailyFactsSessionCached,
 } from "@/lib/data/dailyFactsSessionCache";
 import {
   useWeeklyFitnessDailyFactsRollup,
@@ -233,6 +234,81 @@ describe("useWeeklyFitnessDailyFactsRollup", () => {
     expect(mockGetDailyFacts).not.toHaveBeenCalled();
     expect(latest!.status).toBe("ready");
     expect(latest!.error).toBeNull();
+  });
+
+  it("replaces stale session-cached strength counts with fresh API values on mount", async () => {
+    const auditWeek: readonly DayKey[] = [
+      "2026-05-31" as DayKey,
+      "2026-06-01" as DayKey,
+      "2026-06-02" as DayKey,
+      "2026-06-03" as DayKey,
+      "2026-06-04" as DayKey,
+      "2026-06-05" as DayKey,
+      "2026-06-06" as DayKey,
+    ];
+    const staleStrength: Record<string, number> = {
+      "2026-05-31": 2,
+      "2026-06-01": 2,
+      "2026-06-02": 2,
+      "2026-06-03": 0,
+      "2026-06-04": 2,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    };
+    const freshStrength: Record<string, number> = {
+      "2026-05-31": 1,
+      "2026-06-01": 1,
+      "2026-06-02": 1,
+      "2026-06-03": 0,
+      "2026-06-04": 1,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    };
+
+    mockGetDailyFacts.mockImplementation(async (day: string, _token: string, opts?: { cacheBust?: string }) => {
+      const count = opts?.cacheBust ? (freshStrength[day] ?? 0) : (staleStrength[day] ?? 0);
+      if (!opts?.cacheBust && count === 0 && (day === "2026-06-05" || day === "2026-06-06")) {
+        return dailyFacts404(day) as never;
+      }
+      if (opts?.cacheBust && count === 0 && (day === "2026-06-05" || day === "2026-06-06")) {
+        return dailyFacts404(day) as never;
+      }
+      return dailyFactsOk({ day, strengthWorkoutsCount: count }) as never;
+    });
+
+    // Prime session cache the way Activity rollup does (no cacheBust) — stale 2/day.
+    for (const day of ["2026-05-31", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04"] as const) {
+      await getDailyFactsSessionCached({ userUid: "test-uid", day, token: "id-token" });
+    }
+    mockGetDailyFacts.mockClear();
+
+    let latest: HookState | null = null;
+    await act(async () => {
+      renderer.create(<Harness keys={auditWeek} onState={(s) => (latest = s)} />);
+    });
+    await flush();
+
+    expect(mockGetDailyFacts).toHaveBeenCalledTimes(7);
+    for (const call of mockGetDailyFacts.mock.calls) {
+      expect(call[2]?.cacheBust).toEqual(expect.stringContaining(":"));
+    }
+
+    const requestedDays = mockGetDailyFacts.mock.calls.map((c) => c[0]).sort();
+    expect(requestedDays).toEqual([...auditWeek].sort());
+
+    const strengthByDay = Object.fromEntries(
+      auditWeek.map((d) => [d, latest!.byDay[d]?.strengthWorkoutsCount ?? 0]),
+    );
+    expect(strengthByDay).toEqual({
+      "2026-05-31": 1,
+      "2026-06-01": 1,
+      "2026-06-02": 1,
+      "2026-06-03": 0,
+      "2026-06-04": 1,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    });
+    expect(Object.values(strengthByDay).reduce((a, n) => a + n, 0)).toBe(4);
   });
 
   it("only fetches the requested week day keys (no extra days)", async () => {
