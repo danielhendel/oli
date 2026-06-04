@@ -56,6 +56,51 @@ export function extractAppleHealthWorkoutUuid(id: string): string | null {
   return m && m[1] ? m[1] : null;
 }
 
+const APPLE_HEALTH_WORKOUT_ID_PREFIX = "appleHealth:v2:workout:";
+
+/** Parsed UTC window from an Apple Health workout idempotency id (`start_end_activityId_sourceId`). */
+export type AppleHealthWorkoutWindowFromId = {
+  start: string;
+  end: string;
+  startMs: number;
+  endMs: number;
+};
+
+/**
+ * Parse `start`/`end` ISO segments embedded in `appleHealth:v2:workout:…` ids.
+ * These reflect the HealthKit window used at ingest and stay offset-stable across re-imports,
+ * even when canonical `start`/`end` were later normalized to incorrect `…Z` wall-clock strings.
+ */
+export function parseAppleHealthWorkoutWindowFromCanonicalId(
+  id: string,
+): AppleHealthWorkoutWindowFromId | null {
+  if (!id.startsWith(APPLE_HEALTH_WORKOUT_ID_PREFIX)) return null;
+  const rest = id.slice(APPLE_HEALTH_WORKOUT_ID_PREFIX.length);
+  const m = /^(.+?)_(.+?)_(\d+)_(.+)$/.exec(rest);
+  if (!m?.[1] || !m[2]) return null;
+  const start = m[1];
+  const end = m[2];
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return { start, end, startMs, endMs };
+}
+
+/**
+ * Resolve the UTC workout window for an Apple Health canonical.
+ * Prefer the id-embedded offset ISO pair (authoritative for dedupe); fall back to canonical fields.
+ */
+export function resolveAppleHealthWorkoutWindow(
+  e: CanonicalWorkoutEventForReconcile & { kind: "workout" },
+): AppleHealthWorkoutWindowFromId | null {
+  const fromId = parseAppleHealthWorkoutWindowFromCanonicalId(e.id);
+  if (fromId) return fromId;
+  const startMs = Date.parse(e.start);
+  const endMs = Date.parse(e.end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return { start: e.start, end: e.end, startMs, endMs };
+}
+
 /**
  * Duplicate-collapse key for an Apple Health workout canonical, or null when the row is not an
  * Apple Health workout with a resolvable device UUID + finite UTC window.
@@ -64,16 +109,18 @@ export function extractAppleHealthWorkoutUuid(id: string): string | null {
  * offset of the window (e.g. `…-0400` vs `…+0200`); those share the device UUID **and** resolve to
  * the same UTC `start`/`end` instants. Two genuinely separate workouts from the same device share
  * the UUID but have different instants, so including the window keeps them distinct.
+ *
+ * Window ms are taken from the idempotency id when present so dedupe still works when canonical
+ * `start`/`end` were stored as wall-clock `…Z` strings (a known prod shape).
  */
 export function appleHealthWorkoutDuplicateKey(
   e: CanonicalWorkoutEventForReconcile & { kind: "workout" },
 ): string | null {
   const uuid = extractAppleHealthWorkoutUuid(e.id);
   if (uuid == null) return null;
-  const startMs = Date.parse(e.start);
-  const endMs = Date.parse(e.end);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
-  return `${uuid}|${startMs}|${endMs}`;
+  const window = resolveAppleHealthWorkoutWindow(e);
+  if (window == null) return null;
+  return `${uuid}|${window.startMs}|${window.endMs}`;
 }
 
 /** Parse the trailing UTC offset (in minutes) from an ISO string like `...-0400` / `...+02:00` / `...Z`. */
@@ -120,11 +167,11 @@ function pickRepresentativeAppleWorkout(group: AppleWorkoutCanonical[]): AppleWo
 
   const offsetMatched = group.filter((e) => {
     if (!e.timezone) return false;
-    const startMs = Date.parse(e.start);
-    if (!Number.isFinite(startMs)) return false;
-    const isoOffset = offsetMinutesFromIso(e.start);
+    const window = resolveAppleHealthWorkoutWindow(e);
+    if (window == null) return false;
+    const isoOffset = offsetMinutesFromIso(window.start);
     if (isoOffset == null) return false;
-    const tzOffset = offsetMinutesForTimeZoneAtInstant(e.timezone, startMs);
+    const tzOffset = offsetMinutesForTimeZoneAtInstant(e.timezone, window.startMs);
     return tzOffset != null && tzOffset === isoOffset;
   });
 
@@ -184,17 +231,20 @@ function workoutCanonicalToHistoryItem(e: CanonicalWorkoutEventForReconcile & { 
     sport,
     distanceMeters: e.distanceMeters,
   });
+  const window = resolveAppleHealthWorkoutWindow(e);
+  const start = window?.start ?? e.start;
+  const end = window?.end ?? e.end;
   return {
     id: e.id,
-    observedAt: e.start,
+    observedAt: start,
     sourceId: e.sourceId,
     provider: e.sourceId,
     rawKind: "workout",
     title,
     ...(workoutType != null ? { workoutType } : {}),
     sport,
-    start: e.start,
-    end: e.end,
+    start,
+    end,
     durationMinutes: e.durationMinutes,
     calories: null,
     ...(e.distanceMeters != null ? { distanceMeters: e.distanceMeters } : {}),

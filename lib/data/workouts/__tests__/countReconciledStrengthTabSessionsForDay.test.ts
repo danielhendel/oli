@@ -1,7 +1,9 @@
 import {
+  appleHealthWorkoutDuplicateKey,
   collapseAppleHealthDuplicateWorkoutCanonicals,
   countReconciledStrengthTabSessionsForDay,
   extractAppleHealthWorkoutUuid,
+  parseAppleHealthWorkoutWindowFromCanonicalId,
 } from "../countReconciledStrengthTabSessionsForDay";
 import type { CanonicalWorkoutEventForReconcile } from "../countReconciledStrengthTabSessionsForDay";
 
@@ -136,6 +138,41 @@ describe("countReconciledStrengthTabSessionsForDay", () => {
     expect(countReconciledStrengthTabSessionsForDay(day, events)).toBe(1);
   });
 
+  it("counts 1 when Apple duplicates use wall-clock Z canonical fields but offset ids (prod bug shape)", () => {
+    const events: CanonicalWorkoutEventForReconcile[] = [
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T05:49:42.195-0400", "2026-06-01T06:39:43.697-0400", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T05:49:42.195Z",
+        end: "2026-06-01T06:39:43.697Z",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T11:49:42.195+0200", "2026-06-01T12:39:43.697+0200", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T11:49:42.195Z",
+        end: "2026-06-01T12:39:43.697Z",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+      {
+        kind: "strength_workout",
+        id: "msw_2026-06-01T09_49_42.195Z_3fcd7d1fc3f61b69",
+        sourceId: "manual",
+        start: "2026-06-01T09:49:42.195Z",
+        end: "2026-06-01T10:39:42.195Z",
+        exercises: [{ exercise: "Incline Barbell Bench Press" }],
+      },
+    ];
+    expect(collapseAppleHealthDuplicateWorkoutCanonicals(events).filter((e) => e.kind === "workout")).toHaveLength(1);
+    expect(countReconciledStrengthTabSessionsForDay(day, events)).toBe(1);
+  });
+
   it("counts 1 for Apple duplicate timezone variants + manual strength_workout (real prod shape)", () => {
     const events: CanonicalWorkoutEventForReconcile[] = [
       {
@@ -248,6 +285,45 @@ describe("countReconciledStrengthTabSessionsForDay", () => {
   });
 });
 
+describe("parseAppleHealthWorkoutWindowFromCanonicalId", () => {
+  it("parses offset ISO start/end from the 2026-06-01 prod id pair", () => {
+    const idA = appleWorkoutId("2026-06-01T05:49:42.195-0400", "2026-06-01T06:39:43.697-0400", 50);
+    const idB = appleWorkoutId("2026-06-01T11:49:42.195+0200", "2026-06-01T12:39:43.697+0200", 50);
+    const a = parseAppleHealthWorkoutWindowFromCanonicalId(idA);
+    const b = parseAppleHealthWorkoutWindowFromCanonicalId(idB);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a!.startMs).toBe(b!.startMs);
+    expect(a!.endMs).toBe(b!.endMs);
+    expect(a!.startMs).toBe(Date.parse("2026-06-01T09:49:42.195Z"));
+  });
+});
+
+describe("appleHealthWorkoutDuplicateKey", () => {
+  it("matches for -0400/+0200 ids even when canonical start/end are wall-clock Z", () => {
+    const base = {
+      kind: "workout" as const,
+      sourceId: "apple_health",
+      sport: "TraditionalStrengthTraining",
+      durationMinutes: 50,
+      timezone: "America/New_York",
+    };
+    const a = {
+      ...base,
+      id: appleWorkoutId("2026-06-01T05:49:42.195-0400", "2026-06-01T06:39:43.697-0400", 50),
+      start: "2026-06-01T05:49:42.195Z",
+      end: "2026-06-01T06:39:43.697Z",
+    };
+    const b = {
+      ...base,
+      id: appleWorkoutId("2026-06-01T11:49:42.195+0200", "2026-06-01T12:39:43.697+0200", 50),
+      start: "2026-06-01T11:49:42.195Z",
+      end: "2026-06-01T12:39:43.697Z",
+    };
+    expect(appleHealthWorkoutDuplicateKey(a)).toBe(appleHealthWorkoutDuplicateKey(b));
+  });
+});
+
 describe("extractAppleHealthWorkoutUuid", () => {
   it("extracts the UUID after com.apple.health.", () => {
     expect(
@@ -264,6 +340,32 @@ describe("extractAppleHealthWorkoutUuid", () => {
 });
 
 describe("collapseAppleHealthDuplicateWorkoutCanonicals", () => {
+  it("collapses the 2026-06-01 -0400/+0200 pair to one workout before reconcile", () => {
+    const events: CanonicalWorkoutEventForReconcile[] = [
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T05:49:42.195-0400", "2026-06-01T06:39:43.697-0400", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T05:49:42.195-0400",
+        end: "2026-06-01T06:39:43.697-0400",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T11:49:42.195+0200", "2026-06-01T12:39:43.697+0200", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T11:49:42.195+0200",
+        end: "2026-06-01T12:39:43.697+0200",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+    ];
+    expect(collapseAppleHealthDuplicateWorkoutCanonicals(events)).toHaveLength(1);
+  });
+
   it("keeps one representative per UUID and preserves manual rows", () => {
     const events: CanonicalWorkoutEventForReconcile[] = [
       {
