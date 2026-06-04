@@ -882,6 +882,45 @@ describe('aggregateDailyFactsForDay', () => {
     expect(result.strength?.totalSets).toBe(1);
   });
 
+  it('strength.workoutsCount collapses Apple duplicates when canonical start/end are wall-clock Z but ids carry offsets', () => {
+    const uuid = '52A581D0-95A2-43FC-A018-3118F3D4AA29';
+    const events: CanonicalEvent[] = [
+      makeWorkout({
+        id: `appleHealth:v2:workout:2026-06-01T05:49:42.195-0400_2026-06-01T06:39:43.697-0400_50_com.apple.health.${uuid}`,
+        sport: 'TraditionalStrengthTraining',
+        start: '2026-06-01T05:49:42.195Z',
+        end: '2026-06-01T06:39:43.697Z',
+        durationMinutes: 50,
+        day: '2026-06-01',
+        timezone: 'America/New_York',
+      }),
+      makeWorkout({
+        id: `appleHealth:v2:workout:2026-06-01T11:49:42.195+0200_2026-06-01T12:39:43.697+0200_50_com.apple.health.${uuid}`,
+        sport: 'TraditionalStrengthTraining',
+        start: '2026-06-01T11:49:42.195Z',
+        end: '2026-06-01T12:39:43.697Z',
+        durationMinutes: 50,
+        day: '2026-06-01',
+        timezone: 'America/New_York',
+      }),
+      makeStrengthWorkout({
+        id: 'msw_2026-06-01T09_49_42.195Z_3fcd7d1fc3f61b69',
+        sourceId: 'manual',
+        start: '2026-06-01T09:49:42.195Z',
+        end: '2026-06-01T10:39:42.195Z',
+        exercises: [{ exercise: 'Incline Barbell Bench Press', reps: 8, load: 135, unit: 'lb' }],
+        day: '2026-06-01',
+      }),
+    ];
+    const result = aggregateDailyFactsForDay({
+      userId: 'user_123',
+      date: '2026-06-01',
+      computedAt: '2026-06-02T03:00:00.000Z',
+      events,
+    });
+    expect(result.strength?.workoutsCount).toBe(1);
+  });
+
   it('strength.workoutsCount collapses Apple Health timezone-duplicate canonicals to 1 per real workout', () => {
     const uuid = '52A581D0-95A2-43FC-A018-3118F3D4AA29';
     const events: CanonicalEvent[] = [
