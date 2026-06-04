@@ -31,6 +31,11 @@ import {
   pickOuraSleepLowestHeartRateBpm,
 } from "../../services/api/src/lib/oura/ouraSleepPhysiology";
 import { coerceOuraSleepScore0to100 } from "../../services/api/src/lib/sleepNight";
+import { pickPrimaryOuraSleepPairs } from "../../services/api/src/lib/oura/pickPrimaryOuraSleepForAnchorDay";
+import {
+  resolveOuraSleepIngestBase,
+  type OuraSleepWindowDocument,
+} from "../../services/api/src/lib/oura/resolveOuraSleepIngestBase";
 
 const BATCH_MAX = 450;
 
@@ -332,6 +337,38 @@ async function processVendorDoc(
   return out;
 }
 
+function vendorDocForPrimaryPick(
+  vendorId: string,
+  vendor: Record<string, unknown>,
+  payload: Record<string, unknown> | undefined,
+): OuraSleepWindowDocument | null {
+  const base = buildOuraSleepDocumentFromOuraIngestSleepPayload(vendorId, payload ?? {});
+  if (!base) return null;
+  const merged = enrichOuraDocFromVendorSnapshot(vendorId, vendor, base);
+  return merged as OuraSleepWindowDocument;
+}
+
+async function primaryOuraVendorSleepIdsForUid(db: Firestore, uid: string): Promise<Set<string>> {
+  const vendorCol = db.collection("users").doc(uid).collection("ouraVendorSleep");
+  const snaps = await vendorCol.get();
+  const pairs: { doc: OuraSleepWindowDocument; snapshot: { id: string } }[] = [];
+  for (const docSnap of snaps.docs as QueryDocumentSnapshot[]) {
+    const vendorId = docSnap.id;
+    const vendor = docSnap.data() as Record<string, unknown>;
+    const rawSnap = await db.collection("users").doc(uid).collection("rawEvents").doc(vendorId).get();
+    const raw = rawSnap.data() as Record<string, unknown> | undefined;
+    const payload =
+      raw && typeof raw.payload === "object" && raw.payload
+        ? (raw.payload as Record<string, unknown>)
+        : undefined;
+    if (!raw || !isOuraIngestedSleepRawEvent(raw)) continue;
+    const doc = vendorDocForPrimaryPick(vendorId, vendor, payload);
+    if (!doc || !resolveOuraSleepIngestBase(doc)) continue;
+    pairs.push({ doc, snapshot: { id: vendorId } });
+  }
+  return new Set(pickPrimaryOuraSleepPairs(pairs).map((p) => p.snapshot.id));
+}
+
 async function backfillForUid(
   db: Firestore,
   uid: string,
@@ -344,8 +381,14 @@ async function backfillForUid(
   const snaps = await vendorCol.get();
   const pending: SingleWrite[] = [];
   const persistedReadinessByDay = await loadAllOuraVendorReadinessByDay(db, uid);
+  const primaryVendorIds = await primaryOuraVendorSleepIdsForUid(db, uid);
 
   for (const docSnap of snaps.docs as QueryDocumentSnapshot[]) {
+    if (!primaryVendorIds.has(docSnap.id)) {
+      c.skipped += 1;
+      if (verbose) console.log({ msg: "skip_non_primary_vendor_sleep", uid, vendorId: docSnap.id });
+      continue;
+    }
     c.scanned += 1;
     const r = await processVendorDoc(
       db,
@@ -366,7 +409,7 @@ async function backfillForUid(
       const chunk = pending.slice(i, i + BATCH_MAX);
       const batch = db.batch();
       for (const { ref, data } of chunk) {
-        batch.set(ref, data, { merge: true });
+        batch.set(ref, data);
       }
       c.errors += await commitBatchOrSingles(db, batch, chunk);
     }
@@ -443,7 +486,7 @@ async function main(): Promise<void> {
       const chunk = pending.slice(i, i + BATCH_MAX);
       const batch = db.batch();
       for (const { ref, data } of chunk) {
-        batch.set(ref, data, { merge: true });
+        batch.set(ref, data);
       }
       totals.errors += await commitBatchOrSingles(db, batch, chunk);
     }

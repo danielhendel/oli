@@ -10,6 +10,8 @@ type CacheEntry = {
 const CACHE_TTL_MS = 30_000;
 const settled = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<ApiResult<DailyFactsDto>>>();
+/** Bumped on invalidation / cacheBust so late in-flight responses cannot repopulate stale cells. */
+const generationByKey = new Map<string, number>();
 
 function buildKey(userUid: string, day: string): string {
   return `${userUid}::${day}`;
@@ -17,6 +19,37 @@ function buildKey(userUid: string, day: string): string {
 
 function isFresh(entry: CacheEntry): boolean {
   return Date.now() - entry.cachedAtMs <= CACHE_TTL_MS;
+}
+
+function bumpGeneration(key: string): number {
+  const next = (generationByKey.get(key) ?? 0) + 1;
+  generationByKey.set(key, next);
+  return next;
+}
+
+export type DailyFactsCacheLogAction =
+  | "hit"
+  | "miss"
+  | "invalidated"
+  | "network"
+  | "stale-write-ignored";
+
+function logDailyFactsCache(input: {
+  day: string;
+  cacheBust?: string;
+  action: DailyFactsCacheLogAction;
+}): void {
+  if (!__DEV__) return;
+  if (process.env.JEST_WORKER_ID) return;
+  // eslint-disable-next-line no-console
+  console.log(
+    "[DAILY_FACTS_CACHE]",
+    JSON.stringify({
+      day: input.day,
+      cacheBust: input.cacheBust ?? null,
+      action: input.action,
+    }),
+  );
 }
 
 /**
@@ -42,17 +75,49 @@ export function subscribeDailyFactsInvalidations(cb: DailyFactsInvalidationListe
   };
 }
 
-/** Best-effort invalidation after upstream sync updates today's truth. */
-export function invalidateDailyFactsSessionCache(input: { userUid: string; day: string }): void {
-  const key = buildKey(input.userUid, input.day);
+function dropCacheEntry(key: string, day: string, cacheBust?: string): void {
   settled.delete(key);
   inflight.delete(key);
+  bumpGeneration(key);
+  logDailyFactsCache({
+    day,
+    ...(cacheBust ? { cacheBust } : {}),
+    action: "invalidated",
+  });
+}
+
+/** Best-effort invalidation after upstream sync updates today's truth. */
+export function invalidateDailyFactsSessionCache(input: {
+  userUid: string;
+  day: string;
+  /** When false, clears cache only (no subscriber refetch). Default true. */
+  notify?: boolean;
+}): void {
+  const key = buildKey(input.userUid, input.day);
+  dropCacheEntry(key, input.day);
+  if (input.notify === false) return;
   for (const cb of invalidationListeners) {
     try {
       cb(input);
     } catch {
       // Listeners are best-effort; never let a faulty subscriber block invalidation.
     }
+  }
+}
+
+/** Drop session-cache entries for many days (e.g. Weekly Fitness week refetch). */
+export function invalidateDailyFactsSessionCacheForDays(input: {
+  userUid: string;
+  days: readonly string[];
+  /** When false, clears cache only (no subscriber refetch). Default true. */
+  notify?: boolean;
+}): void {
+  for (const day of input.days) {
+    invalidateDailyFactsSessionCache({
+      userUid: input.userUid,
+      day,
+      ...(input.notify === undefined ? {} : { notify: input.notify }),
+    });
   }
 }
 
@@ -109,6 +174,34 @@ export function __testing_resetDailyFactsInvalidationListeners(): void {
 export function __testing_resetDailyFactsSessionCache(): void {
   settled.clear();
   inflight.clear();
+  generationByKey.clear();
+}
+
+function commitSettled(key: string, day: string, writeGen: number, res: ApiResult<DailyFactsDto>): void {
+  if (generationByKey.get(key) !== writeGen) {
+    logDailyFactsCache({ day, action: "stale-write-ignored" });
+    return;
+  }
+  settled.set(key, { value: res, cachedAtMs: Date.now() });
+}
+
+/**
+ * Always performs GET /users/me/daily-facts (never reads session settled).
+ * Use for Weekly Fitness week rollups that must not reuse stale session cells.
+ */
+export async function getDailyFactsNetworkFresh(input: {
+  userUid: string;
+  day: string;
+  token: string;
+  cacheBust: string;
+}): Promise<ApiResult<DailyFactsDto>> {
+  const key = buildKey(input.userUid, input.day);
+  dropCacheEntry(key, input.day, input.cacheBust);
+  const writeGen = generationByKey.get(key) ?? 0;
+  logDailyFactsCache({ day: input.day, cacheBust: input.cacheBust, action: "network" });
+  const res = await getDailyFacts(input.day, input.token, { cacheBust: input.cacheBust });
+  commitSettled(key, input.day, writeGen, res);
+  return res;
 }
 
 export async function getDailyFactsSessionCached(input: {
@@ -118,18 +211,44 @@ export async function getDailyFactsSessionCached(input: {
   opts?: TruthGetOptions;
 }): Promise<ApiResult<DailyFactsDto>> {
   const key = buildKey(input.userUid, input.day);
-  const bypassCache = Boolean(input.opts?.cacheBust);
+  const cacheBust = input.opts?.cacheBust;
+  const bypassCache = Boolean(cacheBust);
 
-  if (!bypassCache) {
-    const cached = settled.get(key);
-    if (cached && isFresh(cached)) return cached.value;
-    const pending = inflight.get(key);
-    if (pending) return pending;
+  if (bypassCache) {
+    dropCacheEntry(key, input.day, cacheBust);
+    const writeGen = generationByKey.get(key) ?? 0;
+    logDailyFactsCache({
+      day: input.day,
+      ...(cacheBust ? { cacheBust } : {}),
+      action: "network",
+    });
+    const req = getDailyFacts(input.day, input.token, input.opts).then((res) => {
+      inflight.delete(key);
+      commitSettled(key, input.day, writeGen, res);
+      return res;
+    });
+    inflight.set(key, req);
+    return req;
   }
 
+  const cached = settled.get(key);
+  if (cached && isFresh(cached)) {
+    logDailyFactsCache({ day: input.day, action: "hit" });
+    return cached.value;
+  }
+
+  const pending = inflight.get(key);
+  if (pending) {
+    logDailyFactsCache({ day: input.day, action: "miss" });
+    return pending;
+  }
+
+  logDailyFactsCache({ day: input.day, action: "miss" });
+  const writeGen = generationByKey.get(key) ?? 0;
+  logDailyFactsCache({ day: input.day, action: "network" });
   const req = getDailyFacts(input.day, input.token, input.opts).then((res) => {
-    settled.set(key, { value: res, cachedAtMs: Date.now() });
     inflight.delete(key);
+    commitSettled(key, input.day, writeGen, res);
     return res;
   });
   inflight.set(key, req);

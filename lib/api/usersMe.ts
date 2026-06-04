@@ -1,6 +1,7 @@
 // lib/api/usersMe.ts
 import type { ApiResult } from "@/lib/api/http";
 import type { PostOptions } from "@/lib/api/http";
+import { debugRedactedAuthedUrl } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
 import { apiGetZodAuthed } from "@/lib/api/validate";
 import { apiPutZodAuthed } from "@/lib/api/validate";
@@ -332,12 +333,30 @@ export const getDailyFacts = async (
   idToken: string,
   opts?: TruthGetOptions,
 ): Promise<ApiResult<DailyFactsDto>> => {
-  return apiGetZodAuthed(
-    `/users/me/daily-facts?day=${encodeURIComponent(day)}`,
-    idToken,
-    dailyFactsDtoSchema,
-    truthGetOpts(opts),
-  );
+  const path = `/users/me/daily-facts?day=${encodeURIComponent(day)}`;
+  const res = await apiGetZodAuthed(path, idToken, dailyFactsDtoSchema, truthGetOpts(opts));
+
+  // TEMP DIAGNOSTIC (Weekly Fitness strength=8 audit): prove whether the API itself returns the
+  // stale value by logging the raw response truth fields next to the resolved/redacted URL.
+  // Compare strength.workoutsCount / computedAt here against the Firestore audit script output.
+  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[DAILY_FACTS_RESPONSE]",
+      JSON.stringify({
+        day,
+        url: debugRedactedAuthedUrl(path, opts?.cacheBust ? { cacheBust: opts.cacheBust } : undefined),
+        status: res.status,
+        ok: res.ok,
+        strengthWorkoutsCount: res.ok ? (res.json.strength?.workoutsCount ?? null) : null,
+        computedAt: res.ok ? (res.json.computedAt ?? null) : null,
+        metaComputedAt: res.ok ? (res.json.meta?.computedAt ?? null) : null,
+        cacheBust: opts?.cacheBust ?? null,
+      }),
+    );
+  }
+
+  return res;
 };
 
 export const getInsights = async (

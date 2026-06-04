@@ -23,6 +23,7 @@ import {
   pickAverageHrvMsFromReadinessRecord,
   pickLowestHeartRateBpmFromReadinessRecord,
 } from "../../../api/src/lib/oura/readinessForSleepNightMerge";
+import { pickPrimaryOuraSleepPairs } from "../../../api/src/lib/oura/pickPrimaryOuraSleepForAnchorDay";
 
 const BATCH_CHUNK_SIZE = 450;
 const SOURCE = "oura";
@@ -372,8 +373,9 @@ async function writeSleepSnapshots(
 
   let sleepNightsWritten = 0;
   let sleepNightsErrors = 0;
-  for (let i = 0; i < pairs.length; i += BATCH_CHUNK_SIZE) {
-    const chunk = pairs.slice(i, i + BATCH_CHUNK_SIZE);
+  const primarySleepPairs = pickPrimaryOuraSleepPairs(pairs);
+  for (let i = 0; i < primarySleepPairs.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = primarySleepPairs.slice(i, i + BATCH_CHUNK_SIZE);
     const batch = db.batch();
     let ops = 0;
     for (const { doc, snapshot } of chunk) {
@@ -390,7 +392,6 @@ async function writeSleepSnapshots(
           ...merged.payload,
           updatedAt: FieldValue.serverTimestamp(),
         } as Record<string, unknown>),
-        { merge: true },
       );
       ops += 1;
     }
@@ -415,7 +416,6 @@ async function writeSleepSnapshots(
               ...merged.payload,
               updatedAt: FieldValue.serverTimestamp(),
             } as Record<string, unknown>),
-            { merge: true },
           );
           sleepNightsWritten += 1;
         } catch (singleErr) {

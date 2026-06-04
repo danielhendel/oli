@@ -21,6 +21,7 @@ import {
   pickOuraSleepAverageHrvMs,
   pickOuraSleepLowestHeartRateBpm,
 } from "./oura/ouraSleepPhysiology";
+import { pickPrimaryOuraSleepPairs } from "./oura/pickPrimaryOuraSleepForAnchorDay";
 import { coerceOuraSleepScore0to100 } from "./sleepNight";
 import { FieldValue, userCollection } from "../db";
 import type { OuraSleepSnapshot, OuraReadinessSnapshot } from "@oli/contracts";
@@ -438,8 +439,9 @@ export async function writeOuraVendorSleepSnapshots(
 
   let sleepNightsWritten = 0;
   let sleepNightsErrors = 0;
-  for (let i = 0; i < pairs.length; i += BATCH_CHUNK_SIZE) {
-    const chunk = pairs.slice(i, i + BATCH_CHUNK_SIZE);
+  const primarySleepPairs = pickPrimaryOuraSleepPairs(pairs);
+  for (let i = 0; i < primarySleepPairs.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = primarySleepPairs.slice(i, i + BATCH_CHUNK_SIZE);
     const batch = (col as FirebaseFirestore.CollectionReference).firestore.batch();
     let ops = 0;
     for (const { doc, snapshot } of chunk) {
@@ -457,7 +459,6 @@ export async function writeOuraVendorSleepSnapshots(
           ...merged.payload,
           updatedAt: FieldValue.serverTimestamp(),
         } as Record<string, unknown>),
-        { merge: true },
       );
       ops += 1;
     }
@@ -489,7 +490,6 @@ export async function writeOuraVendorSleepSnapshots(
               ...merged.payload,
               updatedAt: FieldValue.serverTimestamp(),
             } as Record<string, unknown>),
-            { merge: true },
           );
           sleepNightsWritten += 1;
         } catch (singleErr) {

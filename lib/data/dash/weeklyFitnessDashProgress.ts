@@ -320,6 +320,45 @@ export type WeeklyFitnessCombinedProgress = {
 export const WEEKLY_FITNESS_METERS_PER_MILE = 1609.344;
 
 /**
+ * Sum `dailyFacts.strength.workoutsCount` for the current Sun–Sat window.
+ *
+ * - De-duplicates `weekDayKeys` (guards against accidental `weekDayKeys ∪ weekElapsed` passes).
+ * - Only `status: "ready"` cells contribute; missing/error days contribute 0.
+ */
+export function sumWeeklyStrengthWorkoutsCountFromDailyFacts(input: {
+  factsByDay: WeeklyFitnessDailyFactsByDay;
+  weekDayKeys: readonly DayKey[];
+  weekStartDay: DayKey;
+  weekEndDay: DayKey;
+}): { total: number; perDay: Partial<Record<DayKey, number>> } {
+  const seen = new Set<DayKey>();
+  const perDay: Partial<Record<DayKey, number>> = {};
+  let totalRaw = 0;
+
+  for (const day of input.weekDayKeys) {
+    if (seen.has(day)) continue;
+    seen.add(day);
+    if (day < input.weekStartDay || day > input.weekEndDay) continue;
+
+    const cell = input.factsByDay[day];
+    if (cell?.status !== "ready") {
+      perDay[day] = 0;
+      continue;
+    }
+
+    const raw = cell.strengthWorkoutsCount;
+    const count =
+      typeof raw === "number" && Number.isFinite(raw) && raw > 0
+        ? Math.max(0, Math.floor(raw))
+        : 0;
+    perDay[day] = count;
+    totalRaw += count;
+  }
+
+  return { total: Math.max(0, Math.round(totalRaw)), perDay };
+}
+
+/**
  * Strength row metrics derived from `dailyFacts.strength.workoutsCount` per day.
  *
  * Source rules:
@@ -335,16 +374,7 @@ export function computeWeeklyFitnessStrengthMetricsFromFacts(input: {
   weekEndDay: DayKey;
   goalWorkoutsPerWeek: number;
 }): WeeklyFitnessStrengthMetrics {
-  let totalRaw = 0;
-  for (const day of input.weekDayKeys) {
-    if (day < input.weekStartDay || day > input.weekEndDay) continue;
-    const cell = input.factsByDay[day];
-    const count = cell?.strengthWorkoutsCount;
-    if (typeof count === "number" && Number.isFinite(count) && count > 0) {
-      totalRaw += count;
-    }
-  }
-  const total = Math.max(0, Math.round(totalRaw));
+  const { total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(input);
   const goal = Math.max(0, Math.round(input.goalWorkoutsPerWeek));
   const hasGoal = goal > 0;
   const goalProgress01 = hasGoal ? clampGoalProgress01(total / goal) : 0;

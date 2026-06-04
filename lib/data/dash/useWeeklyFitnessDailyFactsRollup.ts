@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { DailyFactsDto } from "@/lib/contracts";
-import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
+import {
+  getDailyFactsNetworkFresh,
+  invalidateDailyFactsSessionCacheForDays,
+} from "@/lib/data/dailyFactsSessionCache";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -61,7 +64,7 @@ type InternalState = {
 
 /**
  * Lightweight Weekly Fitness data source: fetches `GET /users/me/daily-facts?day=…`
- * for each day in `dayKeys` (parallel, de-duped via `dailyFactsSessionCache`).
+ * for each day in `dayKeys` (parallel; always network-fresh via {@link getDailyFactsNetworkFresh}).
  *
  * - 404 (no doc / future day) ⇒ cell is `status: "missing"`, **not** an error.
  * - Network / timeout / contract failures ⇒ cell is `status: "error"`. The hook surfaces
@@ -95,11 +98,13 @@ export function useWeeklyFitnessDailyFactsRollup(
   const status = useMemo<"partial" | "ready" | "error">(() => {
     if (!user || initializing) return "ready";
     if (dayKeys.length === 0) return "ready";
+    // Never surface stale fallback cells as "ready" while a cache-busted refetch is in flight.
+    if (state.isRefreshing) return "partial";
     const allSettled = dayKeys.every((d) => byDayDisplay[d]?.settled === true);
     if (!allSettled) return "partial";
     const hasError = dayKeys.some((d) => byDayDisplay[d]?.status === "error");
     return hasError ? "error" : "ready";
-  }, [byDayDisplay, dayKeys, initializing, user]);
+  }, [byDayDisplay, dayKeys, initializing, state.isRefreshing, user]);
 
   const error = useMemo<string | null>(() => {
     if (status !== "error") return null;
@@ -125,10 +130,13 @@ export function useWeeklyFitnessDailyFactsRollup(
       return;
     }
 
+    const bust = cacheBust ? `${cacheBust}` : `weeklyFitness:${Date.now()}`;
+
     setState((prev) => {
       if (seq !== requestSeq.current) return prev;
       return {
-        fallbackBase: { ...prev.byDay },
+        // Do not carry prior strength counts into a cache-busted wave (prevents stale totals in logs/UI).
+        fallbackBase: emptyByDay(),
         byDay: emptyByDay(),
         isRefreshing: true,
       };
@@ -148,7 +156,8 @@ export function useWeeklyFitnessDailyFactsRollup(
       return;
     }
 
-    const bust = cacheBust ? `${cacheBust}` : undefined;
+    // Clear session cells silently so Activity/useDailyFacts cannot serve stale counts while we fetch.
+    invalidateDailyFactsSessionCacheForDays({ userUid, days: keys, notify: false });
     const waveResults: WeeklyFitnessDailyFactsByDay = {};
     const waveStart = __DEV__ ? performance.now() : 0;
 
@@ -156,11 +165,11 @@ export function useWeeklyFitnessDailyFactsRollup(
       keys.map(async (day) => {
         let cell: WeeklyFitnessDailyFactsCell;
         try {
-          const res = await getDailyFactsSessionCached({
+          const res = await getDailyFactsNetworkFresh({
             userUid,
             day,
             token,
-            ...(bust ? { opts: { cacheBust: `${bust}:${day}` } } : {}),
+            cacheBust: `${bust}:${day}`,
           });
           const outcome = truthOutcomeFromApiResult(res);
           if (outcome.status === "ready") {
@@ -202,6 +211,13 @@ export function useWeeklyFitnessDailyFactsRollup(
       const missingDayCount = keys.filter((d) => waveResults[d]?.status === "missing").length;
       const errorDayCount = keys.filter((d) => waveResults[d]?.status === "error").length;
       const finalStatus = errorDayCount > 0 ? "error" : "ready";
+      const strengthByDay: Record<string, number> = {};
+      for (const d of keys) {
+        const swc = waveResults[d]?.strengthWorkoutsCount;
+        strengthByDay[d] =
+          typeof swc === "number" && Number.isFinite(swc) ? Math.max(0, Math.floor(swc)) : 0;
+      }
+      const strengthWeekTotal = Object.values(strengthByDay).reduce((acc, n) => acc + n, 0);
       logDataHookTiming("useWeeklyFitnessDailyFactsRollup", "end", {
         durationMs: Math.round(performance.now() - waveStart),
         userAvailable: Boolean(userUid),
@@ -215,6 +231,8 @@ export function useWeeklyFitnessDailyFactsRollup(
         dayCount: keys.length,
         missingDayCount,
         errorDayCount,
+        strengthByDay,
+        strengthWeekTotal,
         durationMs: Math.round(performance.now() - waveStart),
         status: finalStatus,
       });
@@ -235,7 +253,7 @@ export function useWeeklyFitnessDailyFactsRollup(
   }, []);
 
   useEffect(() => {
-    void fetchAll();
+    void fetchAll(`weeklyFitnessMount:${keySig}`);
   }, [fetchAll, keySig, user?.uid, initializing]);
 
   const refetch = useCallback(

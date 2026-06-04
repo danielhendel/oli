@@ -3,6 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
   computeWeeklyFitnessCardioMetricsFromFacts,
   computeWeeklyFitnessStrengthMetricsFromFacts,
+  sumWeeklyStrengthWorkoutsCountFromDailyFacts,
   WEEKLY_FITNESS_METERS_PER_MILE,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
 import type { WeeklyFitnessDailyFactsByDay } from "@/lib/data/dash/useWeeklyFitnessDailyFactsRollup";
@@ -106,6 +107,79 @@ describe("computeWeeklyFitnessStrengthMetricsFromFacts", () => {
     });
     expect(m.goalProgress01).toBe(0);
     expect(m.valueLabel).toBe("No goal set");
+  });
+
+  it("sums audit week [1,1,1,0,1,0,0] to 4 workouts (not 8)", () => {
+    const auditWeek: readonly DayKey[] = [
+      "2026-05-31" as DayKey,
+      "2026-06-01" as DayKey,
+      "2026-06-02" as DayKey,
+      "2026-06-03" as DayKey,
+      "2026-06-04" as DayKey,
+      "2026-06-05" as DayKey,
+      "2026-06-06" as DayKey,
+    ];
+    const factsByDay = cellsStrength({
+      "2026-05-31": 1,
+      "2026-06-01": 1,
+      "2026-06-02": 1,
+      "2026-06-03": 0,
+      "2026-06-04": 1,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    } as Partial<Record<DayKey, number>>);
+
+    const m = computeWeeklyFitnessStrengthMetricsFromFacts({
+      factsByDay,
+      weekDayKeys: auditWeek,
+      weekStartDay: "2026-05-31" as DayKey,
+      weekEndDay: "2026-06-06" as DayKey,
+      goalWorkoutsPerWeek: 5,
+    });
+
+    expect(m.workoutsThisWeek).toBe(4);
+    expect(m.valueLabel).toBe("4 workouts");
+  });
+
+  it("de-duplicates weekDayKeys so elapsed days are not summed twice", () => {
+    const auditWeek: readonly DayKey[] = [
+      "2026-05-31" as DayKey,
+      "2026-06-01" as DayKey,
+      "2026-06-02" as DayKey,
+      "2026-06-03" as DayKey,
+      "2026-06-04" as DayKey,
+      "2026-06-05" as DayKey,
+      "2026-06-06" as DayKey,
+    ];
+    const elapsedThroughJun4 = auditWeek.filter((d) => d <= ("2026-06-04" as DayKey));
+    const factsByDay = cellsStrength({
+      "2026-05-31": 1,
+      "2026-06-01": 1,
+      "2026-06-02": 1,
+      "2026-06-03": 0,
+      "2026-06-04": 1,
+      "2026-06-05": 0,
+      "2026-06-06": 0,
+    } as Partial<Record<DayKey, number>>);
+
+    const duplicatedKeys = [...auditWeek, ...elapsedThroughJun4];
+    const { total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts({
+      factsByDay,
+      weekDayKeys: duplicatedKeys,
+      weekStartDay: "2026-05-31" as DayKey,
+      weekEndDay: "2026-06-06" as DayKey,
+    });
+
+    expect(total).toBe(4);
+    const m = computeWeeklyFitnessStrengthMetricsFromFacts({
+      factsByDay,
+      weekDayKeys: duplicatedKeys,
+      weekStartDay: "2026-05-31" as DayKey,
+      weekEndDay: "2026-06-06" as DayKey,
+      goalWorkoutsPerWeek: 5,
+    });
+    expect(m.workoutsThisWeek).toBe(4);
+    expect(m.valueLabel).toBe("4 workouts");
   });
 });
 

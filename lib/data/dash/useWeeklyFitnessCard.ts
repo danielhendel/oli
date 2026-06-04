@@ -17,6 +17,7 @@ import {
   computeWeeklyFitnessCombinedProgress,
   computeWeeklyFitnessSleepMetrics,
   computeWeeklyFitnessStrengthMetricsFromFacts,
+  sumWeeklyStrengthWorkoutsCountFromDailyFacts,
   weeklyFitnessGoalStatusForProgress,
   weeklyFitnessGoalStatusLabel,
   WEEKLY_FITNESS_BAR_FILL_COLOR,
@@ -156,13 +157,28 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalStepsPerDay: goals.activityStepsPerDayGoal,
     });
 
-    const strength = computeWeeklyFitnessStrengthMetricsFromFacts({
+    const strengthFactsInput = {
       factsByDay: dailyFactsWeeklyRollup.byDay,
       weekDayKeys,
       weekStartDay,
       weekEndDay,
+    };
+    const strength = computeWeeklyFitnessStrengthMetricsFromFacts({
+      ...strengthFactsInput,
       goalWorkoutsPerWeek: goals.strengthWorkoutsPerWeekGoal,
     });
+
+    if (__DEV__) {
+      const { perDay, total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(strengthFactsInput);
+      // eslint-disable-next-line no-console
+      console.log("[WEEKLY_FITNESS_STRENGTH_TOTAL]", {
+        weekStartDay,
+        weekEndDay,
+        perDayStrengthWorkoutsCount: perDay,
+        computedWeeklyTotal: total,
+        renderedValueLabel: strength.valueLabel,
+      });
+    }
 
     const cardio = computeWeeklyFitnessCardioMetricsFromFacts({
       factsByDay: dailyFactsWeeklyRollup.byDay,

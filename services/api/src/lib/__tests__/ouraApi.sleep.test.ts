@@ -126,7 +126,7 @@ describe("mapOuraSleepToIngestItem", () => {
     expect(result?.latencyMinutes).toBe(5);
   });
 
-  it("maps doc with bedtime_start and bedtime_end to valid ingest item (Oura v2 variant)", () => {
+  it("maps Oura type sleep (nap/rest period) without marking isMainSleep", () => {
     const doc = {
       id: "s2",
       bedtime_start: "2025-03-14T23:00:00Z",
@@ -142,7 +142,7 @@ describe("mapOuraSleepToIngestItem", () => {
       end: "2025-03-15T07:00:00Z",
       day: "2025-03-15",
       totalMinutes: 480,
-      isMainSleep: true,
+      isMainSleep: false,
     });
   });
 

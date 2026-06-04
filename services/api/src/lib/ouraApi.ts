@@ -530,7 +530,8 @@ export function mapOuraSleepToIngestItem(doc: OuraSleepDocument): OuraSleepInges
     deepSec != null && deepSec >= 0 ? Math.round(deepSec / 60) : null;
 
   const id = doc.id ?? `oura_sleep_${start}`;
-  const isMainSleep = doc.type === "long_sleep" || doc.type === "sleep";
+  /** Only nightly long_sleep counts as main; Oura `sleep` periods are naps/rest on the same day key. */
+  const isMainSleep = doc.type === "long_sleep";
 
   return {
     idempotencyKey: String(id),
