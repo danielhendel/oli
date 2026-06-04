@@ -207,6 +207,40 @@ describe("countReconciledStrengthTabSessionsForDay", () => {
     expect(countReconciledStrengthTabSessionsForDay(day, events)).toBe(1);
   });
 
+  it("counts 1 when manual strength_workout canonical has end === start (no durationMinutes at ingest)", () => {
+    const events: CanonicalWorkoutEventForReconcile[] = [
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T05:49:42.195-0400", "2026-06-01T06:39:43.697-0400", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T05:49:42.195-0400",
+        end: "2026-06-01T06:39:43.697-0400",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+      {
+        kind: "workout",
+        id: appleWorkoutId("2026-06-01T11:49:42.195+0200", "2026-06-01T12:39:43.697+0200", 50),
+        sourceId: "apple_health",
+        start: "2026-06-01T11:49:42.195+0200",
+        end: "2026-06-01T12:39:43.697+0200",
+        sport: "TraditionalStrengthTraining",
+        durationMinutes: 50,
+        timezone: "America/New_York",
+      },
+      {
+        kind: "strength_workout",
+        id: "msw_2026-06-01T09_49_42.195Z_3fcd7d1fc3f61b69",
+        sourceId: "manual",
+        start: "2026-06-01T09:49:42.195Z",
+        end: "2026-06-01T09:49:42.195Z",
+        exercises: [{ exercise: "Incline Barbell Bench Press" }],
+      },
+    ];
+    expect(countReconciledStrengthTabSessionsForDay(day, events)).toBe(1);
+  });
+
   it("counts 2 for two genuinely separate Apple workouts with different UUIDs", () => {
     const otherUuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
     const events: CanonicalWorkoutEventForReconcile[] = [

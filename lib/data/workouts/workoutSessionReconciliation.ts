@@ -86,7 +86,9 @@ function areFamiliesCompatible(
 }
 
 function estimatedDurationMinutes(window: NormalizedWindow, fallback: number | null): number | null {
-  if (window.startMs != null && window.endMs != null && window.endMs >= window.startMs) {
+  // When start === end (common on legacy manual strength_workout canonicals with no durationMinutes),
+  // do not invent a 1-minute duration — that blocks merging with a longer provider workout.
+  if (window.startMs != null && window.endMs != null && window.endMs > window.startMs) {
     return Math.max(1, Math.round((window.endMs - window.startMs) / 60_000));
   }
   return fallback != null && Number.isFinite(fallback) && fallback > 0 ? fallback : null;
