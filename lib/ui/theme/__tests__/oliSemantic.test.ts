@@ -10,6 +10,7 @@ describe("oliSemantic dark palette", () => {
     expect(OLI_DARK.surfaceElevated).toBe("#181D23");
     expect(OLI_DARK.textPrimary).toBe("#F7F8FA");
     expect(OLI_DARK.navSurface).toBe("rgba(48,56,66,0.7)");
+    expect(OLI_DARK.navDockSurface).toBe("rgba(48,56,66,0.88)");
     expect(OLI_DARK.navSurfaceBorder).toBe("rgba(255,255,255,0.14)");
     expect(OLI_DARK.overlay).toBe("rgba(0,0,0,0.58)");
   });

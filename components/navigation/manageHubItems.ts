@@ -10,6 +10,12 @@ export type ManageHubItem = {
 
 export const MANAGE_HUB_ITEMS: readonly ManageHubItem[] = [
   {
+    id: "profile",
+    label: "Profile",
+    accessibilityLabel: "Profile",
+    href: "/(app)/(tabs)/profile",
+  },
+  {
     id: "body",
     label: "Body Composition",
     accessibilityLabel: "Body Composition",

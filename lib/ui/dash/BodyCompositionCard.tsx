@@ -9,7 +9,6 @@ import type {
 } from "@/lib/data/dash/buildBodyCompositionDashCardModel";
 import { BODY_METRIC_RANGES_EXPLAINER_HREF } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import { ErrorState } from "@/lib/ui/ScreenStates";
-import { InterpretationRatingPill } from "@/lib/ui/body/InterpretationRatingPill";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_CARD_SURFACE,
@@ -44,6 +43,10 @@ export function BodyCompositionCard({
   const onPressGoals = useCallback(() => {
     router.push(goalsHref as Href);
   }, [goalsHref, router]);
+
+  const onPressWeight = useCallback(() => {
+    router.push("/(app)/body" as Href);
+  }, [router]);
 
   const onPressMetricRow = useCallback(
     (key: BodyCompositionDashMetricRowKey) => {
@@ -100,9 +103,18 @@ export function BodyCompositionCard({
 
       {!loading && hasUser && error == null && built?.tag === "ready" ? (
         <>
-          <Text style={styles.primaryValue} testID="body-composition-weight-primary">
-            {built.weightPrimaryLabel}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Body Composition"
+            onPress={onPressWeight}
+            style={({ pressed }) => [styles.weightPressable, pressed && styles.weightPressablePressed]}
+            testID="body-composition-weight-press"
+            hitSlop={8}
+          >
+            <Text style={styles.primaryValue} testID="body-composition-weight-primary">
+              {built.weightPrimaryLabel}
+            </Text>
+          </Pressable>
           {built.readingAsOfLabel ? (
             <Text style={styles.subtitle} testID="body-composition-reading-as-of">
               {built.readingAsOfLabel}
@@ -142,7 +154,6 @@ function MetricRow({
           <Text style={[dashMetricRowValueTextStyle, styles.rowFigure]} numberOfLines={1}>
             {row.valueLabel}
           </Text>
-          <InterpretationRatingPill bar={row.bar} shellStyle={styles.inlinePill} />
           <Text style={styles.rowChevron}>{"\u203A"}</Text>
         </View>
       </View>
@@ -188,6 +199,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_MUTED,
+  },
+  weightPressable: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    justifyContent: "center",
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+  },
+  weightPressablePressed: {
+    opacity: 0.88,
   },
   primaryValue: {
     fontSize: 34,
@@ -241,10 +263,6 @@ const styles = StyleSheet.create({
   },
   rowFigure: {
     flexShrink: 1,
-  },
-  inlinePill: {
-    flexShrink: 0,
-    maxWidth: 120,
   },
   rowChevron: {
     fontSize: 16,

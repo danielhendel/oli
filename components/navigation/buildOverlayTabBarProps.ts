@@ -8,15 +8,15 @@ import React from "react";
 const TAB_PUSH: Record<string, Href> = {
   dash: "/(app)/(tabs)/dash",
   timeline: "/(app)/(tabs)/timeline",
+  program: "/(app)/(tabs)/program",
   library: "/(app)/(tabs)/library",
-  profile: "/(app)/(tabs)/profile",
 };
 
 const ROUTE_LIST = [
   { name: "dash" as const, title: "Dash", a11y: "Dash", icon: "home" as const, iconOutline: "home-outline" as const },
   { name: "timeline" as const, title: "Timeline", a11y: "Timeline", icon: "time" as const, iconOutline: "time-outline" as const },
+  { name: "program" as const, title: "Program", a11y: "Program", icon: "rocket" as const, iconOutline: "rocket-outline" as const },
   { name: "library" as const, title: "Library", a11y: "Library", icon: "book" as const, iconOutline: "book-outline" as const },
-  { name: "profile" as const, title: "Profile", a11y: "Profile", icon: "person-circle" as const, iconOutline: "person-circle-outline" as const },
   { name: "manage" as const, title: "Manage", a11y: "Manage", icon: "apps" as const, iconOutline: "apps-outline" as const },
 ];
 

@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { UI_BORDER_SUBTLE, UI_NAV_ICON_ACTIVE, UI_SURFACE_ELEVATED } from "@/lib/ui/theme/uiTokens";
+import { UI_NAV_DOCK_SURFACE, UI_NAV_ICON_ACTIVE, UI_NAV_SURFACE_BORDER } from "@/lib/ui/theme/uiTokens";
 
 export type ManageFabProps = {
   onPress: () => void;
@@ -61,11 +61,11 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: UI_SURFACE_ELEVATED,
+    backgroundColor: UI_NAV_DOCK_SURFACE,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_SUBTLE,
+    borderColor: UI_NAV_SURFACE_BORDER,
     ...Platform.select({
       ios: {
         shadowColor: "#000",

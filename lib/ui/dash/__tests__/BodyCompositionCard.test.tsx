@@ -19,11 +19,6 @@ jest.mock("react-native", () => ({
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
-jest.mock("@/lib/ui/body/InterpretationRatingPill", () => ({
-  InterpretationRatingPill: (props: { bar: { displayLabel: string } }) =>
-    require("react").createElement("Text", { testID: "mock-rating-pill" }, props.bar.displayLabel),
-}));
-
 const goalsHref = "/(app)/body/settings";
 
 const sampleReadyBuilt: BuiltBodyCompositionDashCard = {
@@ -87,7 +82,7 @@ describe("BodyCompositionCard", () => {
     mockPush.mockReset();
   });
 
-  it("renders header, reading subtitle, metric rows, and tier pills when ready", () => {
+  it("renders header, weight value, reading subtitle, and metric rows when ready", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -108,9 +103,65 @@ describe("BodyCompositionCard", () => {
     expect(text).toContain("BMI");
     expect(text).toContain("Body Fat");
     expect(text).toContain("Lean Mass");
-    expect(text).toContain("Good");
-    expect(text).toContain("Fair");
-    expect(text).toContain("Optimal");
+    expect(text).toContain("23.1");
+    expect(text).toContain("18.0%");
+    expect(text).toContain("130.4 lb");
+  });
+
+  it("does not render Optimal range/status pills", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <BodyCompositionCard
+          loading={false}
+          error={null}
+          hasUser
+          goalsHref={goalsHref}
+          built={sampleReadyBuilt}
+        />,
+      );
+    });
+    const text = collectAllText(test);
+    expect(text).not.toContain("Optimal");
+    expect(text).not.toContain("Good");
+    expect(text).not.toContain("Fair");
+  });
+
+  it("renders the weight value", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <BodyCompositionCard
+          loading={false}
+          error={null}
+          hasUser
+          goalsHref={goalsHref}
+          built={sampleReadyBuilt}
+        />,
+      );
+    });
+    const weight = test.root.findByProps({ testID: "body-composition-weight-primary" });
+    expect(weight.children).toContain("159 lb");
+  });
+
+  it("tapping the weight value navigates to the Body Composition page", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <BodyCompositionCard
+          loading={false}
+          error={null}
+          hasUser
+          goalsHref={goalsHref}
+          built={sampleReadyBuilt}
+        />,
+      );
+    });
+    const press = test.root.findByProps({ testID: "body-composition-weight-press" });
+    expect(press.props.accessibilityRole).toBe("button");
+    expect(press.props.accessibilityLabel).toBe("Open Body Composition");
+    press.props.onPress();
+    expect(mockPush).toHaveBeenCalledWith("/(app)/body");
   });
 
   it("shows loading copy while hydrating", () => {
