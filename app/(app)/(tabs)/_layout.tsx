@@ -116,26 +116,26 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
+            name="program"
+            options={{
+              title: "Program",
+              tabBarAccessibilityLabel: "Program",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons
+                  name={focused ? "rocket" : "rocket-outline"}
+                  size={size ?? 24}
+                  color={color}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
             name="library"
             options={{
               title: "Library",
               tabBarAccessibilityLabel: "Library",
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? "book" : "book-outline"} size={size ?? 24} color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="profile"
-            options={{
-              title: "Profile",
-              tabBarAccessibilityLabel: "Profile",
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? "person-circle" : "person-circle-outline"}
-                  size={size ?? 24}
-                  color={color}
-                />
               ),
             }}
           />

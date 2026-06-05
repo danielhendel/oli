@@ -116,8 +116,8 @@ jest.mock("expo-router", () => {
             routes: [
               { key: "d", name: "dash" },
               { key: "t", name: "timeline" },
+              { key: "pr", name: "program" },
               { key: "l", name: "library" },
-              { key: "p", name: "profile" },
             ],
           },
           descriptors: {},
@@ -181,7 +181,7 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("registers four primary tabs in order", () => {
+  it("registers four primary tabs in order (Dash, Timeline, Program, Library)", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -190,10 +190,21 @@ describe("TabsLayout", () => {
 
     const tabs = findTabs(test);
     const names = tabs.map((t) => t.name);
-    expect(names).toEqual(["dash", "timeline", "library", "profile"]);
+    expect(names).toEqual(["dash", "timeline", "program", "library"]);
 
     const primaryTitles = tabs.map((t) => t.title);
-    expect(primaryTitles).toEqual(["Dash", "Timeline", "Library", "Profile"]);
+    expect(primaryTitles).toEqual(["Dash", "Timeline", "Program", "Library"]);
+  });
+
+  it("does not register Profile as a bottom nav tab", () => {
+    let test!: renderer.ReactTestRenderer;
+
+    act(() => {
+      test = renderer.create(<TabsLayout />);
+    });
+
+    const names = findTabs(test).map((t) => t.name);
+    expect(names).not.toContain("profile");
   });
 
   it("renders Manage FAB in tab bar chrome", () => {

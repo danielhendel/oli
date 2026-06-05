@@ -187,6 +187,20 @@ export function useBodyOverviewData() {
     };
   }, [overviewDay, derived.byDay, peek, snapshotDayPeek, dayFacts, tz]);
 
+  /**
+   * Flattened Apple Health–filtered weight samples for the trend selectors (Today / This Week /
+   * Baseline deltas / Yearly). Same filtered source as the overview snapshot — no extra queries.
+   */
+  const weightSamples = useMemo(
+    () =>
+      filteredWeightPoints.map((p) => ({
+        dayKey: p.dayKey,
+        observedAt: p.observedAt,
+        weightKg: p.weightKg,
+      })),
+    [filteredWeightPoints],
+  );
+
   const weightWindowBounds = useMemo(() => rollingLookbackWindowForAnchorDay(factsDay, 90), [factsDay]);
 
   const weightWindowPoints = useMemo(() => {
@@ -224,5 +238,6 @@ export function useBodyOverviewData() {
     ...derived,
     overview,
     weightBaseline,
+    weightSamples,
   };
 }

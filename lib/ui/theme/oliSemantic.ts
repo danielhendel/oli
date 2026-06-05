@@ -19,6 +19,8 @@ export type OliSemanticColors = {
   textInverse: string;
 
   navSurface: string;
+  /** Floating bottom-nav dock (pill + Manage FAB): more solid than `navSurface` so it never reads transparent. */
+  navDockSurface: string;
   navSurfaceBorder: string;
   navSurfaceActive: string;
   navIconActive: string;
@@ -76,6 +78,7 @@ export const OLI_DARK: OliSemanticColors = {
   textInverse: "#0B0D10",
 
   navSurface: "rgba(48,56,66,0.7)",
+  navDockSurface: "rgba(48,56,66,0.88)",
   navSurfaceBorder: "rgba(255,255,255,0.14)",
   navSurfaceActive: "rgba(255,255,255,0.10)",
   navIconActive: "#F7F8FA",
@@ -121,6 +124,7 @@ export const OLI_LIGHT: OliSemanticColors = {
   textInverse: "#FFFFFF",
 
   navSurface: "rgba(255,255,255,0.92)",
+  navDockSurface: "rgba(255,255,255,0.96)",
   navSurfaceBorder: "rgba(60,60,67,0.14)",
   navSurfaceActive: "rgba(0,0,0,0.06)",
   navIconActive: "#1C1C1E",

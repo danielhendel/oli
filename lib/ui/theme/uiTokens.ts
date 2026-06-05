@@ -88,6 +88,8 @@ export const UI_OVERLAY = T.overlay;
 export const UI_SURFACE_PRESSED = T.surfacePressed;
 
 export const UI_NAV_SURFACE = T.navSurface;
+/** Floating bottom-nav dock surface (pill + Manage FAB) — solid glass, one unified dock material. */
+export const UI_NAV_DOCK_SURFACE = T.navDockSurface;
 export const UI_NAV_SURFACE_BORDER = T.navSurfaceBorder;
 export const UI_NAV_SURFACE_ACTIVE = T.navSurfaceActive;
 export const UI_NAV_ICON_ACTIVE = T.navIconActive;

@@ -7,9 +7,14 @@ import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 
-/** Horizontal inset for floating dock; bottom margin added to safe-area inset. */
+/**
+ * Horizontal inset for floating dock; bottom margin added to the safe-area inset.
+ * The dock is offset by `insets.bottom + FLOATING_NAV_DOCK_BOTTOM_MARGIN`, so the
+ * home indicator is always cleared by `insets.bottom`; the margin is only the extra
+ * breathing gap above it. Kept small so the bar reads as anchored near the bottom.
+ */
 export const FLOATING_NAV_DOCK_H_INSET = 18;
-export const FLOATING_NAV_DOCK_BOTTOM_MARGIN = 8;
+export const FLOATING_NAV_DOCK_BOTTOM_MARGIN = 4;
 
 export type FloatingNavigationChromeProps = {
   tabBarProps: BottomTabBarProps;

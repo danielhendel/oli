@@ -11,13 +11,14 @@ import {
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
 import {
+  UI_NAV_DOCK_SURFACE,
   UI_NAV_SURFACE_BORDER,
   UI_NAV_SURFACE_ACTIVE,
   UI_NAV_TAB_ICON_ACTIVE,
   UI_NAV_TAB_ICON_INACTIVE,
 } from "@/lib/ui/theme/uiTokens";
 
-const MAIN_TAB_ORDER = ["dash", "timeline", "library", "profile"] as const;
+const MAIN_TAB_ORDER = ["dash", "timeline", "program", "library"] as const;
 
 const ACTIVE = UI_NAV_TAB_ICON_ACTIVE;
 const INACTIVE = UI_NAV_TAB_ICON_INACTIVE;
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     minHeight: TAB_MIN_HEIGHT + 12,
     borderRadius: 26,
     overflow: "hidden",
-    backgroundColor: "rgba(18,22,27,0.96)",
+    backgroundColor: UI_NAV_DOCK_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_NAV_SURFACE_BORDER,
     ...Platform.select({
