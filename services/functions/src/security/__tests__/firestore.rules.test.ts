@@ -121,6 +121,35 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     await assertFails(db.doc(`users/${uid}/profile/main`).update({ any: "x" }));
   });
 
+  it("allows owner read of pantry and meals; denies client writes", async () => {
+    const uid = "user_a";
+
+    await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
+      const db = ctx.firestore();
+      await db.doc(`users/${uid}/pantry/item_1`).set({ id: "item_1", label: "Eggs", schemaVersion: 1 });
+      await db.doc(`users/${uid}/meals/meal_1`).set({ id: "meal_1", name: "Breakfast", schemaVersion: 1 });
+    });
+
+    const db = userDb({ uid });
+    await assertSucceeds(db.doc(`users/${uid}/pantry/item_1`).get());
+    await assertSucceeds(db.doc(`users/${uid}/meals/meal_1`).get());
+    await assertFails(db.doc(`users/${uid}/pantry/item_1`).set({ id: "item_1" }));
+    await assertFails(db.doc(`users/${uid}/meals/meal_1`).set({ id: "meal_1" }));
+  });
+
+  it("allows authed read of system store reference data; denies client writes", async () => {
+    const uid = "user_a";
+
+    await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
+      const db = ctx.firestore();
+      await db.doc("system/stores/items/costco").set({ id: "costco", name: "Costco", schemaVersion: 1 });
+    });
+
+    const db = userDb({ uid });
+    await assertSucceeds(db.doc("system/stores/items/costco").get());
+    await assertFails(db.doc("system/stores/items/costco").set({ id: "costco" }));
+  });
+
   it("denies cross-user reads (user isolation)", async () => {
     const uidA = "user_a";
     const uidB = "user_b";

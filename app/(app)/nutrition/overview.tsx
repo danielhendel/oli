@@ -12,8 +12,11 @@ import { NutritionWeeklyStrip } from "@/lib/ui/nutrition/NutritionWeeklyStrip";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { NutritionTodayCard } from "@/lib/ui/nutrition/NutritionTodayCard";
 import { NutritionRecentCard } from "@/lib/ui/nutrition/NutritionRecentCard";
+import { NutritionThisWeekCard } from "@/lib/ui/nutrition/NutritionThisWeekCard";
+import { NutritionBaselineCard } from "@/lib/ui/nutrition/NutritionBaselineCard";
+import { NutritionYearlyCard } from "@/lib/ui/nutrition/NutritionYearlyCard";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import { getTodayDayKeyLocal, addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
 
 function headingTitleForSelectedDay(selectedDay: string, anchorToday: string): string {
   if (selectedDay === anchorToday) return "Today";
@@ -38,6 +41,10 @@ export default function NutritionOverviewScreen() {
   const goDayDetail = useCallback(() => {
     router.push({ pathname: "/(app)/nutrition/day/[day]", params: { day: selectedDay } });
   }, [router, selectedDay]);
+
+  const goLogNutrition = useCallback(() => {
+    router.push("/(app)/nutrition/log-hub");
+  }, [router]);
 
   const loggedDayLabel =
     typeof routeParams.day === "string"
@@ -107,31 +114,66 @@ export default function NutritionOverviewScreen() {
         <View style={styles.pageBody}>
           {loggedAck ? (
             <View style={styles.loggedBanner} accessibilityRole="summary">
-              <Text style={styles.loggedBannerTitle}>Meal logged</Text>
+              <Text style={styles.loggedBannerTitle}>Nutrition logged</Text>
               <Text style={styles.loggedBannerSub}>
                 {loggedDayLabel.length > 0
                   ? `Saved for ${loggedDayLabel}. Totals update as your data syncs.`
                   : "Totals update as your data syncs."}
               </Text>
               <Pressable
-                onPress={() =>
-                  router.replace({ pathname: "/(app)/nutrition", params: {} })
-                }
+                onPress={() => router.replace({ pathname: "/(app)/nutrition", params: {} })}
                 accessibilityRole="button"
-                accessibilityLabel="Dismiss meal logged message"
+                accessibilityLabel="Dismiss nutrition logged message"
                 hitSlop={8}
               >
                 <Text style={styles.loggedDismiss}>Dismiss</Text>
               </Pressable>
             </View>
           ) : null}
+
           <NutritionTodayCard
             headingTitle={headingTitle}
             model={data.todayCard}
             todayFacts={data.todayFacts}
+            loading={data.factsRollupLoading && data.todayFacts.isLoading}
             onRetryFacts={data.refetchTodayFacts}
             onViewMore={goDayDetail}
+            onPressLog={goLogNutrition}
           />
+
+          <NutritionThisWeekCard
+            loading={data.factsRollupLoading}
+            model={data.thisWeekCard}
+            canGoPrevious={data.canGoPreviousWeek}
+            canGoNext={data.canGoNextWeek}
+            onPressPrevious={() =>
+              data.setSelectedWeekAnchorDay(addCalendarDaysToDayKey(data.selectedWeekAnchorDay, -7))
+            }
+            onPressNext={() =>
+              data.setSelectedWeekAnchorDay(addCalendarDaysToDayKey(data.selectedWeekAnchorDay, 7))
+            }
+            onPressDay={(day) =>
+              router.push({ pathname: "/(app)/nutrition/day/[day]", params: { day } })
+            }
+          />
+
+          <NutritionBaselineCard
+            model={data.baselineModel}
+            onPressViewMore={() => router.push("/(app)/nutrition/analytics-detail")}
+          />
+
+          {data.yearlyCardModel.hasData ||
+          data.selectedNutritionYear === Number.parseInt(data.todayKey.slice(0, 4), 10) ? (
+            <NutritionYearlyCard
+              loading={data.factsRollupLoading}
+              model={data.yearlyCardModel}
+              canGoPrevious={data.canGoPreviousYear}
+              canGoNext={data.canGoNextYear}
+              onPressPrevious={() => data.setSelectedNutritionYear(data.selectedNutritionYear - 1)}
+              onPressNext={() => data.setSelectedNutritionYear(data.selectedNutritionYear + 1)}
+            />
+          ) : null}
+
           <NutritionRecentCard
             model={data.recentCard}
             recentRaw={data.recentRaw}
@@ -158,9 +200,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(52, 199, 89, 0.35)",
   },
-  loggedBannerTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  loggedBannerSub: { fontSize: 15, color: "#3C3C43", lineHeight: 21 },
-  loggedDismiss: { fontSize: 15, fontWeight: "600", color: "#007AFF", marginTop: 4 },
+  loggedBannerTitle: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
+  loggedBannerSub: { fontSize: 15, color: "rgba(235, 235, 245, 0.7)", lineHeight: 21 },
+  loggedDismiss: { fontSize: 15, fontWeight: "600", color: "#0A84FF", marginTop: 4 },
   pageBody: {
     backgroundColor: NUTRITION_SCREEN_CONTENT_BG,
     marginHorizontal: -16,

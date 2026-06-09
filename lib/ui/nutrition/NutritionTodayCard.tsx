@@ -18,39 +18,64 @@ type NutritionTodayCardProps = {
   todayFacts: NutritionTodayFactsUi;
   /** Main heading — usually "Today" when the strip selection matches the calendar anchor day. */
   headingTitle?: string;
+  loading?: boolean;
   onRetryFacts?: () => void;
   onViewMore?: () => void;
+  onPressLog?: () => void;
 };
 
 export function NutritionTodayCard({
   model,
   todayFacts,
   headingTitle = "Today",
+  loading = false,
   onRetryFacts,
   onViewMore,
+  onPressLog,
 }: NutritionTodayCardProps) {
+  const hasAnyLogged = model.rows.some((r) => r.available);
+  const logLabel = hasAnyLogged ? "Log More →" : "Log Nutrition →";
+
   return (
-    <View style={styles.card}>
+    <View style={styles.card} testID="nutrition-today-card">
       <View style={workoutOverviewInCardHeaderStyles.row}>
         <Text style={workoutOverviewInCardHeaderStyles.title}>{headingTitle}</Text>
-        {onViewMore != null ? (
-          <Pressable
-            onPress={onViewMore}
-            accessibilityRole="button"
-            accessibilityLabel="View more for this day"
-            hitSlop={8}
-            style={({ pressed }) => [
-              workoutOverviewInCardHeaderStyles.linkHit,
-              pressed && workoutOverviewInCardHeaderStyles.linkPressed,
-            ]}
-          >
-            <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.headerActions}>
+          {onPressLog != null ? (
+            <Pressable
+              onPress={onPressLog}
+              accessibilityRole="button"
+              accessibilityLabel="Log nutrition"
+              hitSlop={8}
+              style={({ pressed }) => [
+                workoutOverviewInCardHeaderStyles.linkHit,
+                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+              ]}
+              testID="nutrition-today-log-cta"
+            >
+              <Text style={workoutOverviewInCardHeaderStyles.link}>{logLabel}</Text>
+            </Pressable>
+          ) : null}
+          {onViewMore != null ? (
+            <Pressable
+              onPress={onViewMore}
+              accessibilityRole="button"
+              accessibilityLabel="View more for this day"
+              hitSlop={8}
+              style={({ pressed }) => [
+                workoutOverviewInCardHeaderStyles.linkHit,
+                pressed && workoutOverviewInCardHeaderStyles.linkPressed,
+              ]}
+            >
+              <Text style={workoutOverviewInCardHeaderStyles.link}>View More</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
-      {todayFacts.isLoading ? (
+      {loading ? <LoadingState variant="inline" message="Loading nutrition…" /> : null}
+      {!loading && todayFacts.isLoading ? (
         <LoadingState message="Loading today's summary…" variant="inline" />
-      ) : todayFacts.readiness === "error" ? (
+      ) : !loading && todayFacts.readiness === "error" ? (
         <ErrorState
           variant="inline"
           title="Could not load today’s summary"
@@ -58,11 +83,11 @@ export function NutritionTodayCard({
           requestId={todayFacts.requestId}
           {...(onRetryFacts != null ? { onRetry: onRetryFacts } : {})}
         />
-      ) : (
+      ) : !loading ? (
         <>
           {todayFacts.readiness === "missing" ? (
             <Text style={styles.missingHint}>
-              No macros logged for this day yet — log a meal to see progress here.
+              No nutrition logged yet — tap Log Nutrition to add your first entry.
             </Text>
           ) : null}
           <View style={styles.rows}>
@@ -84,12 +109,13 @@ export function NutritionTodayCard({
             ))}
           </View>
         </>
-      )}
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   card: {
     backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,

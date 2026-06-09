@@ -2,7 +2,7 @@
 // Oli — Dash: tab header + Today hero + Body Composition + Daily Energy + Weekly Fitness.
 import React from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { TodayHealthHero } from "@/components/dashboard/TodayHealthHero";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
@@ -22,6 +22,7 @@ import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 export default function DashScreen() {
+  const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const { user } = useAuth();
   const todayKey = getTodayDayKeyLocal();
@@ -78,6 +79,7 @@ export default function DashScreen() {
               model={dailyNutrition.model}
               loading={dailyNutrition.loading}
               error={dailyNutrition.error}
+              onPress={() => router.push("/(app)/nutrition")}
             />
           </View>
         </ScrollView>

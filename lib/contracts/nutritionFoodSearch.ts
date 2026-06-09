@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nutritionProductTypeSchema } from "./nutritionProduct";
 
 /** Read-model item returned by GET /users/me/nutrition/food-search (dev catalog or future proxy). */
 export const nutritionFoodSearchItemDtoSchema = z
@@ -18,6 +19,10 @@ export const nutritionFoodSearchItemDtoSchema = z
     barcode: z.string().min(1).max(32).optional(),
     /** Client-computed fingerprint when using FoodProvider abstraction. */
     foodHash: z.string().min(1).max(80).optional(),
+    /** Product-first classification (food vs supplement). */
+    productType: nutritionProductTypeSchema.optional(),
+    /** Reference store id when the product is store-branded. */
+    storeId: z.string().min(1).optional(),
   })
   .strip();
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { DailyNutritionCardModel } from "@/lib/data/dash/buildDailyNutritionCardModel";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -20,11 +20,12 @@ type Props = {
   model: DailyNutritionCardModel;
   loading: boolean;
   error: string | null;
+  onPress?: () => void;
 };
 
-export function DailyNutritionCard({ model, loading, error }: Props): React.ReactElement {
-  return (
-    <View style={styles.card} accessibilityLabel="Daily nutrition card">
+export function DailyNutritionCard({ model, loading, error, onPress }: Props): React.ReactElement {
+  const content = (
+    <>
       <Text style={styles.title}>Daily Nutrition</Text>
 
       {loading ? <Text style={styles.status}>Loading daily nutrition…</Text> : null}
@@ -51,7 +52,28 @@ export function DailyNutritionCard({ model, loading, error }: Props): React.Reac
           </View>
         </>
       ) : null}
-    </View>
+    </>
+  );
+
+  if (onPress == null) {
+    return (
+      <View style={styles.card} accessibilityLabel="Daily nutrition card">
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Daily nutrition card"
+      accessibilityHint="Opens nutrition page"
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      testID="dash-daily-nutrition-card"
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -64,6 +86,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     backgroundColor: UI_CARD_SURFACE,
   },
+  pressed: { opacity: 0.85 },
   title: strengthMetricCardTitleTextStyle,
   calorieValue: {
     fontSize: 34,

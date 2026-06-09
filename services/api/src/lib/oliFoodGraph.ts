@@ -51,6 +51,10 @@ export function foodGraphDocToSearchDto(oliFoodId: string, data: Record<string, 
   const brandName = typeof data.brandName === "string" && data.brandName.trim().length > 0 ? data.brandName.trim() : undefined;
   const barcode = typeof data.barcode === "string" && data.barcode.trim().length > 0 ? data.barcode.trim().slice(0, 32) : undefined;
 
+  const productType =
+    data.productType === "food" || data.productType === "supplement" ? data.productType : undefined;
+  const storeId = typeof data.storeId === "string" && data.storeId.trim().length > 0 ? data.storeId.trim() : undefined;
+
   const item: NutritionFoodSearchItemDto = {
     id: oliFoodId,
     name,
@@ -64,6 +68,8 @@ export function foodGraphDocToSearchDto(oliFoodId: string, data: Record<string, 
     ...(macros.sugarG !== undefined ? { sugarG: round2(Math.max(0, macros.sugarG)) } : {}),
     ...(macros.sodiumMg !== undefined ? { sodiumMg: round2(Math.max(0, macros.sodiumMg)) } : {}),
     ...(barcode !== undefined ? { barcode } : {}),
+    ...(productType !== undefined ? { productType } : {}),
+    ...(storeId !== undefined ? { storeId } : {}),
   };
   return item;
 }
@@ -178,6 +184,16 @@ export async function upsertFoodGraphFromSearchItem(
         doc.barcode = barcode;
       } else if (prev && typeof prev["barcode"] === "string") {
         doc.barcode = prev["barcode"];
+      }
+      if (item.productType === "food" || item.productType === "supplement") {
+        doc.productType = item.productType;
+      } else if (prev && (prev["productType"] === "food" || prev["productType"] === "supplement")) {
+        doc.productType = prev["productType"];
+      }
+      if (item.storeId !== undefined && item.storeId.trim().length > 0) {
+        doc.storeId = item.storeId.trim();
+      } else if (prev && typeof prev["storeId"] === "string") {
+        doc.storeId = prev["storeId"];
       }
       tx.set(nodeRef, doc, { merge: true });
       tx.set(
