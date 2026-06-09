@@ -63,6 +63,21 @@ export function userNutritionMetaStateDoc(uid: string): DocumentReference {
   return userDoc(uid).collection("nutritionMeta").doc("state");
 }
 
+/** User-owned pantry items at `users/{uid}/pantry/{itemId}`. */
+export function userPantryCollection(uid: string): CollectionReference {
+  return userDoc(uid).collection("pantry") as CollectionReference;
+}
+
+/** User-owned saved meals at `users/{uid}/meals/{mealId}`. */
+export function userMealsCollection(uid: string): CollectionReference {
+  return userDoc(uid).collection("meals") as CollectionReference;
+}
+
+/** Reference store catalog at `system/stores/{storeId}` (backend-seeded). */
+export function systemStoresCollection(): CollectionReference {
+  return db.collection("system").doc("stores").collection("items") as CollectionReference;
+}
+
 export function userCollection<T = FirebaseFirestore.DocumentData>(
   uid: string,
   name:

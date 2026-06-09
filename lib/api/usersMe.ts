@@ -2,6 +2,7 @@
 import type { ApiResult } from "@/lib/api/http";
 import type { PostOptions } from "@/lib/api/http";
 import { debugRedactedAuthedUrl } from "@/lib/api/http";
+import { apiDeleteJsonAuthed } from "@/lib/api/http";
 import { apiPostZodAuthed } from "@/lib/api/validate";
 import { apiGetZodAuthed } from "@/lib/api/validate";
 import { apiPutZodAuthed } from "@/lib/api/validate";
@@ -15,6 +16,7 @@ import {
   type ManualNutritionPayload,
 } from "@/lib/events/manualNutrition";
 import { trackedMealNutritionIdempotencyKey } from "@/lib/nutrition/trackedMealNutritionPayload";
+import { mealNutritionIdempotencyKey } from "@/lib/nutrition/mealNutritionPayload";
 import {
   buildWorkoutTitleOverridePayload,
   workoutTitleOverrideIdempotencyKey,
@@ -79,6 +81,20 @@ import {
   type NutritionFoodDetailResponseDto,
   nutritionMetaDtoSchema,
   type NutritionMetaDto,
+  nutritionPantryListDtoSchema,
+  addPantryItemRequestSchema,
+  addPantryItemResponseDtoSchema,
+  type NutritionPantryListDto,
+  type AddPantryItemRequest,
+  type AddPantryItemResponseDto,
+  nutritionMealListDtoSchema,
+  createMealRequestSchema,
+  createMealResponseDtoSchema,
+  type NutritionMealListDto,
+  type CreateMealRequest,
+  type CreateMealResponseDto,
+  nutritionStoreListDtoSchema,
+  type NutritionStoreListDto,
 } from "@oli/contracts";
 
 export type TruthGetOptions = {
@@ -248,6 +264,110 @@ export const putNutritionMeta = async (
 ): Promise<ApiResult<NutritionMetaDto>> => {
   return apiPutZodAuthed("/users/me/nutrition-meta", body, idToken, nutritionMetaDtoSchema, {
     noStore: true,
+  });
+};
+
+export const getNutritionPantry = async (
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<NutritionPantryListDto>> => {
+  return apiGetZodAuthed("/users/me/nutrition/pantry", idToken, nutritionPantryListDtoSchema, truthGetOpts(opts));
+};
+
+export const addNutritionPantryItem = async (
+  body: AddPantryItemRequest,
+  idToken: string,
+  idempotencyKey: string,
+): Promise<ApiResult<AddPantryItemResponseDto>> => {
+  const parsed = addPantryItemRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return { ok: false, status: 400, kind: "unknown", error: "Invalid pantry item", requestId: null };
+  }
+  return apiPostZodAuthed("/users/me/nutrition/pantry", parsed.data, idToken, addPantryItemResponseDtoSchema, {
+    noStore: true,
+    idempotencyKey,
+  });
+};
+
+export const removeNutritionPantryItem = async (
+  itemId: string,
+  idToken: string,
+): Promise<ApiResult<{ ok: true }>> => {
+  const id = itemId.trim();
+  if (!id) {
+    return { ok: false, status: 400, kind: "unknown", error: "itemId is required", requestId: null };
+  }
+  const res = await apiDeleteJsonAuthed<unknown>(`/users/me/nutrition/pantry/${encodeURIComponent(id)}`, idToken, {
+    noStore: true,
+  });
+  if (!res.ok) return res as ApiResult<{ ok: true }>;
+  return { ok: true, status: res.status, requestId: res.requestId, json: { ok: true } };
+};
+
+export const getNutritionMeals = async (
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<NutritionMealListDto>> => {
+  return apiGetZodAuthed("/users/me/nutrition/meals", idToken, nutritionMealListDtoSchema, truthGetOpts(opts));
+};
+
+export const createNutritionMeal = async (
+  body: CreateMealRequest,
+  idToken: string,
+  idempotencyKey: string,
+): Promise<ApiResult<CreateMealResponseDto>> => {
+  const parsed = createMealRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return { ok: false, status: 400, kind: "unknown", error: "Invalid meal", requestId: null };
+  }
+  return apiPostZodAuthed("/users/me/nutrition/meals", parsed.data, idToken, createMealResponseDtoSchema, {
+    noStore: true,
+    idempotencyKey,
+  });
+};
+
+export const deleteNutritionMeal = async (
+  mealId: string,
+  idToken: string,
+): Promise<ApiResult<{ ok: true }>> => {
+  const id = mealId.trim();
+  if (!id) {
+    return { ok: false, status: 400, kind: "unknown", error: "mealId is required", requestId: null };
+  }
+  const res = await apiDeleteJsonAuthed<unknown>(`/users/me/nutrition/meals/${encodeURIComponent(id)}`, idToken, {
+    noStore: true,
+  });
+  if (!res.ok) return res as ApiResult<{ ok: true }>;
+  return { ok: true, status: res.status, requestId: res.requestId, json: { ok: true } };
+};
+
+export const getNutritionStores = async (
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<NutritionStoreListDto>> => {
+  return apiGetZodAuthed("/users/me/nutrition/stores", idToken, nutritionStoreListDtoSchema, truthGetOpts(opts));
+};
+
+/**
+ * Log a saved Meal template as a meal-scoped nutrition RawEvent.
+ */
+export const logMealNutrition = async (
+  payload: ManualNutritionPayload,
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
+  const ingestBody = {
+    provider: "manual" as const,
+    kind: "nutrition" as const,
+    observedAt: payload.start,
+    sourceId: "manual",
+    timeZone: payload.timezone,
+    payload,
+  };
+
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey: mealNutritionIdempotencyKey(payload),
   });
 };
 

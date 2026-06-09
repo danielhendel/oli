@@ -51,6 +51,45 @@ jest.mock("@/lib/hooks/useNutritionOverviewScreenData", () => ({
     hasDayRollup: false,
     recentRaw: { readiness: "ready" as const, isLoading: false },
     weeklyInsights: { insights: [], fallbackMessage: "Log nutrition on more days to see week-over-week patterns." },
+    thisWeekCard: {
+      weekRangeLabel: "Mar 9–15",
+      avgKcalLabel: "—",
+      avgProteinLabel: "—",
+      daysLogged: 0,
+      daysInWeek: 7,
+      rows: [],
+      emptyMessage: "No nutrition logged this week",
+      hasData: false,
+    },
+    baselineModel: {
+      rows: [
+        { key: "thisWeek", label: "7 Day", hasEnoughData: false, avgKcalPerDay: null, avgDaysLoggedPerWeek: null, displayValue: "—" },
+      ],
+      personalizedExplainer: "Your nutrition baseline shows your typical calories",
+    },
+    yearlyCardModel: {
+      year: 2026,
+      title: "2026 Nutrition",
+      rangeLabel: "2026",
+      isCurrentYear: true,
+      hasData: false,
+      totalDaysLogged: 0,
+      totalDisplay: "0",
+      totalQualifier: "days logged",
+      months: [],
+      chartMaxScale: 5,
+      todayMonthKey: "2026-03",
+      isEmpty: true,
+    },
+    selectedWeekAnchorDay: "2026-03-12",
+    setSelectedWeekAnchorDay: jest.fn(),
+    selectedNutritionYear: 2026,
+    setSelectedNutritionYear: jest.fn(),
+    canGoPreviousWeek: true,
+    canGoNextWeek: false,
+    canGoPreviousYear: true,
+    canGoNextYear: false,
+    factsRollupLoading: false,
     todayFacts: { readiness: "ready" as const, isLoading: false },
     events: { readiness: "ready" as const, isLoading: false },
     refetch: mockRefetch,
@@ -80,11 +119,16 @@ describe("NutritionOverviewScreen", () => {
     expect(json).toBeTruthy();
   });
 
-  it("does not render Weekly Insights on overview", async () => {
+  it("renders Strength-parity cards and Log Nutrition CTA", async () => {
     let tree: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<NutritionOverviewScreen />);
     });
-    expect(JSON.stringify(tree!.toJSON())).not.toContain("Weekly Insights");
+    const flat = JSON.stringify(tree!.toJSON());
+    expect(flat).toContain("nutrition-today-card");
+    expect(flat).toContain("nutrition-today-log-cta");
+    expect(flat).toContain("nutrition-this-week-card");
+    expect(flat).toContain("nutrition-baseline-card");
+    expect(flat).toContain("nutrition-yearly-card");
   });
 });

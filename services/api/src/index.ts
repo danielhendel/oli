@@ -8,6 +8,9 @@ import eventsRoutes from "./routes/events";
 import uploadsRoutes from "./routes/uploads";
 import usersMeRoutes from "./routes/usersMe";
 import nutritionUserMetaRoutes from "./routes/nutritionUserMeta";
+import nutritionPantryRoutes from "./routes/nutritionPantry";
+import nutritionMealsRoutes from "./routes/nutritionMeals";
+import nutritionStoresRoutes from "./routes/nutritionStores";
 import accountRoutes from "./routes/account";
 import preferencesRoutes from "./routes/preferences";
 import profileMainRoutes from "./routes/profileMain";
@@ -154,6 +157,9 @@ app.use("/exercise-definitions", authMiddleware, exerciseDefinitionsRoutes);
  */
 app.use("/users/me", authMiddleware, usersMeRoutes);
 app.use("/users/me", authMiddleware, nutritionUserMetaRoutes);
+app.use("/users/me", authMiddleware, nutritionPantryRoutes);
+app.use("/users/me", authMiddleware, nutritionMealsRoutes);
+app.use("/users/me", authMiddleware, nutritionStoresRoutes);
 
 /**
  * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).

@@ -40,6 +40,24 @@ export default function AppLayout() {
 
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
+          {/* Program builders (pushed from the Program tab; see app/(app)/program/*) */}
+          <Stack.Screen
+            name="program/workout"
+            options={{ title: "Workout Builder", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="program/cardio"
+            options={{ title: "Cardio Builder", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="program/nutrition"
+            options={{ title: "Nutrition Builder", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="program/recovery"
+            options={{ title: "Recovery Builder", ...workoutsStackNavigationOptions("module") }}
+          />
+
           <Stack.Screen
             name="energy/energy-metric-explainer"
             options={{
@@ -181,8 +199,28 @@ export default function AppLayout() {
             options={{ title: "Confirm meal", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
-            name="nutrition/build-meal"
-            options={{ title: "Build meal", ...workoutsStackNavigationOptions("detail") }}
+            name="nutrition/log-hub"
+            options={{ title: "Log Nutrition", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/kitchen"
+            options={{ title: "My Kitchen", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/meals"
+            options={{ title: "Recent meals", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/meal/new"
+            options={{ title: "New meal", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/meal/[mealId]"
+            options={{ title: "Meal", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="nutrition/supplements"
+            options={{ title: "Supplements", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="nutrition/targets"

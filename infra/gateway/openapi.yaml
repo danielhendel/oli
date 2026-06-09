@@ -600,6 +600,141 @@ paths:
         401:
           description: Unauthorized
 
+  /users/me/nutrition/pantry:
+    options:
+      operationId: nutritionPantryOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionPantryGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: User pantry items
+        401:
+          description: Unauthorized
+    post:
+      operationId: nutritionPantryPost
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+      responses:
+        202:
+          description: Pantry item created (or idempotent replay)
+        400:
+          description: Bad Request (missing Idempotency-Key or invalid body)
+        401:
+          description: Unauthorized
+        409:
+          description: Idempotency-Key conflict
+
+  /users/me/nutrition/pantry/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: nutritionPantryIdOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    delete:
+      operationId: nutritionPantryDelete
+      security:
+        - firebase: []
+      responses:
+        204:
+          description: Pantry item deleted
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+
+  /users/me/nutrition/meals:
+    options:
+      operationId: nutritionMealsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionMealsGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: User saved meals
+        401:
+          description: Unauthorized
+    post:
+      operationId: nutritionMealsPost
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+      responses:
+        202:
+          description: Meal created (or idempotent replay)
+        400:
+          description: Bad Request (missing Idempotency-Key or invalid body)
+        401:
+          description: Unauthorized
+        409:
+          description: Idempotency-Key conflict
+
+  /users/me/nutrition/meals/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: nutritionMealsIdOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    delete:
+      operationId: nutritionMealsDelete
+      security:
+        - firebase: []
+      responses:
+        204:
+          description: Meal deleted
+        401:
+          description: Unauthorized
+        404:
+          description: Not Found
+
+  /users/me/nutrition/stores:
+    options:
+      operationId: nutritionStoresOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: nutritionStoresGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Reference store catalog
+        401:
+          description: Unauthorized
+
   /users/me/insights:
     options:
       operationId: insightsOptions

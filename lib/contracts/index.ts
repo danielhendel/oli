@@ -69,3 +69,9 @@ export * from "./nutritionFoodSearch";
 
 // Nutrition — user preferences (recent/favorites)
 export * from "./nutritionMeta";
+
+// Nutrition — product-first data model
+export * from "./nutritionStore";
+export * from "./nutritionProduct";
+export * from "./nutritionPantry";
+export * from "./nutritionMeal";
