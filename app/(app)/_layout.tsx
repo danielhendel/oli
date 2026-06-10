@@ -401,6 +401,14 @@ export default function AppLayout() {
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
           <Stack.Screen name="profile/edit/[field]" options={{ title: "Edit" }} />
           <Stack.Screen
+            name="profile/system/[systemId]"
+            options={{ title: "System", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="profile/metric/[metricId]"
+            options={{ title: "Metric", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="fitness-goals"
             options={{ title: "Weekly Fitness Goals", ...workoutsStackNavigationOptions("detail") }}
           />

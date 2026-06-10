@@ -1,16 +1,17 @@
 // app/(app)/(tabs)/profile.tsx
+// Digital Twin home (Manage → Profile). Thin: composes profile identity + Digital Twin VM.
 import React from "react";
 
 import { ProfileMainScreen } from "@/lib/ui/profile/ProfileMainScreen";
 import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { buildProfileTabViewModel } from "@/lib/data/profile/profileTabViewModel";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { useProfileHealthSummary } from "@/lib/features/profile/useProfileHealthSummary";
+import { useDigitalTwinHome } from "@/lib/features/profile/digitalTwin/useDigitalTwinHome";
 
 export default function ProfileTabScreen() {
   const { state } = useUserProfileMain();
   const { state: prefState } = usePreferences();
-  const health = useProfileHealthSummary();
+  const { vm: twin } = useDigitalTwinHome();
 
   const vm = buildProfileTabViewModel(state);
 
@@ -22,7 +23,7 @@ export default function ProfileTabScreen() {
       isSaving={vm.isSaving}
       {...(vm.errorMessage !== undefined ? { errorMessage: vm.errorMessage } : {})}
       massUnit={prefState.preferences.units.mass}
-      health={health}
+      twin={twin}
     />
   );
 }
