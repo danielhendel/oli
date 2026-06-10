@@ -1,36 +1,29 @@
 // app/(app)/(tabs)/__tests__/timeline-fail-closed.test.tsx
-// Sprint 3 — Fail-closed: ApiFailure kind:"contract" must render ErrorState, not list.
+// Phase 1 — Timeline tab root is a single-day log. The primary source failing renders
+// an error state with retry (it must not blank the screen).
 
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
-jest.mock("react-native", () => ({
-  View: "View",
-  Text: "Text",
-  ScrollView: "ScrollView",
-  Pressable: "Pressable",
-  StyleSheet: { create: (s: unknown) => s },
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
-  SafeAreaView: "SafeAreaView",
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-}));
-
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
-}));
-
-jest.mock("@/lib/data/useTimeline", () => ({
-  useTimeline: () => ({
-    status: "error",
-    error: "Invalid response shape",
-    requestId: "req-123",
-    reason: "contract",
-    refetch: jest.fn(),
+jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
+  useTimelineDay: () => ({
+    day: "2026-06-10",
+    status: {
+      status: "error",
+      error: "Request timed out",
+      requestId: "req-1",
+      reason: "network",
+    },
+    refetchAll: jest.fn(),
   }),
 }));
 
@@ -38,7 +31,7 @@ jest.mock("@/lib/data/useTimeline", () => ({
 const TimelineIndexScreen = require("../timeline/index").default;
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
-  const nodes = test.root.findAllByType("Text");
+  const nodes = test.root.findAllByType("Text" as never);
   const parts: string[] = [];
   for (const n of nodes) {
     for (const child of n.children) {
@@ -48,24 +41,15 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-describe("TimelineIndexScreen fail-closed", () => {
-  it("renders ErrorState with Data validation failed when API returns contract error", () => {
+describe("Timeline tab root fail state", () => {
+  it("renders an error state with retry when the primary source errors", () => {
     let test!: renderer.ReactTestRenderer;
-
     act(() => {
       test = renderer.create(<TimelineIndexScreen />);
     });
 
     const text = collectAllText(test);
-    expect(text).toContain("Data validation failed");
+    expect(text).toContain("Request timed out");
     expect(text).toContain("Try again");
-    expect(text).toContain("Open Settings");
-    expect(text).not.toContain("2025-01-01");
-
-    const pressables = test.root.findAllByType("Pressable");
-    const openSettings = pressables.find(
-      (p) => (p.props as { accessibilityLabel?: string }).accessibilityLabel === "Open Settings"
-    );
-    expect(openSettings).toBeDefined();
   });
 });
