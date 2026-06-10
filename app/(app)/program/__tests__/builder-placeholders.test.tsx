@@ -55,7 +55,18 @@ describe("Builder placeholder routes", () => {
 describe("Program builder route screens", () => {
   it("do not import Firebase / raw HTTP / write logic", () => {
     const dir = path.join(__dirname, "..");
-    for (const file of ["workout.tsx", "cardio.tsx", "nutrition.tsx", "recovery.tsx"]) {
+    const files = [
+      "cardio.tsx",
+      "nutrition.tsx",
+      "recovery.tsx",
+      "workout/index.tsx",
+      "workout/type.tsx",
+      "workout/training-level.tsx",
+      "workout/duration.tsx",
+      "workout/muscle-group-volume.tsx",
+      "workout/weekly-split.tsx",
+    ];
+    for (const file of files) {
       const src = fs.readFileSync(path.join(dir, file), "utf8");
       expect(src).not.toMatch(/\bfetch\s*\(/);
       expect(src).not.toMatch(/from\s+["'][^"']*firebase[^"']*["']/i);

@@ -42,8 +42,29 @@ export default function AppLayout() {
 
           {/* Program builders (pushed from the Program tab; see app/(app)/program/*) */}
           <Stack.Screen
-            name="program/workout"
+            name="program/workout/index"
             options={{ title: "Workout Builder", ...workoutsStackNavigationOptions("module") }}
+          />
+          {/* Program Design category setup pages (pushed from the Workout Builder landing). */}
+          <Stack.Screen
+            name="program/workout/type"
+            options={{ title: "Type", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/training-level"
+            options={{ title: "Training Level", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/duration"
+            options={{ title: "Duration", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/muscle-group-volume"
+            options={{ title: "Muscle Group Volume", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/weekly-split"
+            options={{ title: "Weekly Split", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="program/cardio"
