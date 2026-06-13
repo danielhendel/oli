@@ -3,9 +3,9 @@
 import React, { useCallback } from "react";
 
 import {
-  PROGRAM_DESIGN_MUSCLE_GROUP_LABEL,
-  PROGRAM_DESIGN_MUSCLE_GROUP_ORDER,
-} from "@/lib/data/program/workoutProgramDesignOptions";
+  buildProgrammingPrescriptionFromDraft,
+  missingProgrammingInputTitles,
+} from "@/lib/data/program/buildProgrammingPrescription";
 import type { ProgramDesignMuscleGroup } from "@/lib/data/program/workoutProgramDesignTypes";
 import {
   useWorkoutProgramDesignDraft,
@@ -18,16 +18,32 @@ import {
 
 export default function ProgramDesignMuscleGroupVolumeRoute() {
   const draft = useWorkoutProgramDesignDraft();
-
-  const items: MuscleGroupVolumeItem[] = PROGRAM_DESIGN_MUSCLE_GROUP_ORDER.map((id) => ({
-    id,
-    label: PROGRAM_DESIGN_MUSCLE_GROUP_LABEL[id],
-    value: draft.muscleGroupVolume[id] ?? 0,
-  }));
+  const prescription = buildProgrammingPrescriptionFromDraft(draft);
 
   const onChange = useCallback((id: ProgramDesignMuscleGroup, nextValue: number) => {
-    workoutProgramDesignStore.setMuscleVolume(id, nextValue);
+    workoutProgramDesignStore.setMuscleVolumeOverride(id, nextValue);
   }, []);
 
-  return <MuscleGroupVolumeSetupScreen items={items} onChange={onChange} />;
+  const items: MuscleGroupVolumeItem[] =
+    prescription?.muscles.map((m) => ({
+      id: m.muscleGroupId,
+      label: m.label,
+      weeklySets: m.weeklySets,
+      frequencyPerWeek: m.frequencyPerWeek,
+      repRange: m.repRange,
+      rirTarget: m.rirTarget,
+      source: m.source,
+    })) ?? [];
+
+  const missingHint = `Set ${missingProgrammingInputTitles(draft).join(", ")} on the Program Design screen to generate your weekly sets.`;
+
+  return (
+    <MuscleGroupVolumeSetupScreen
+      available={prescription != null}
+      items={items}
+      totalWeeklySets={prescription?.totalWeeklySets ?? 0}
+      missingHint={missingHint}
+      onChange={onChange}
+    />
+  );
 }

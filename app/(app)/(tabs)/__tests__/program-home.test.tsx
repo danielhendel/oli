@@ -17,15 +17,12 @@ jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
   useFloatingTabBarScrollPadding: (extra: number) => extra + 0,
 }));
 
-jest.mock("@/lib/ui/SettingsGearButton", () => ({
-  SettingsGearButton: () => null,
-}));
-
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
 import ProgramScreen from "../program";
+import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 beforeEach(() => {
   mockPush.mockClear();
@@ -39,98 +36,53 @@ function renderProgram(): renderer.ReactTestRenderer {
   return test;
 }
 
-function collectByTestIdPrefix(
-  test: renderer.ReactTestRenderer,
-  prefix: string,
-): renderer.ReactTestInstance[] {
-  return test.root.findAll(
-    (node) =>
-      typeof node.type === "string" &&
-      typeof node.props?.testID === "string" &&
-      node.props.testID.startsWith(prefix),
-  );
-}
-
-describe("Program Home screen", () => {
+describe("Program tab", () => {
   it("renders the Program header title", () => {
     const test = renderProgram();
     const str = JSON.stringify(test.toJSON());
     expect(str).toContain("Program");
   });
 
-  it("renders the Active Program card with the create CTA", () => {
+  it("renders the + button instead of the settings gear", () => {
     const test = renderProgram();
+    expect(test.root.findByProps({ testID: "program-add-button" })).toBeTruthy();
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("ACTIVE PROGRAM");
-    expect(str).toContain("No active program");
-
-    const cta = test.root.findByProps({ testID: "program-create-cta" });
-    expect(cta).toBeTruthy();
-    expect(JSON.stringify(test.toJSON())).toContain("Create Program");
+    expect(str).not.toContain("Settings");
   });
 
-  it("renders the four builder cards in order (Workout, Cardio, Nutrition, Recovery)", () => {
-    const test = renderProgram();
-    const cards = collectByTestIdPrefix(test, "program-builder-card-");
-    const ids = cards.map((c) => c.props.testID as string);
-    expect(ids).toEqual([
-      "program-builder-card-workout",
-      "program-builder-card-cardio",
-      "program-builder-card-nutrition",
-      "program-builder-card-recovery",
-    ]);
-
-    const str = JSON.stringify(test.toJSON());
-    const order = ["Workout Builder", "Cardio Builder", "Nutrition Builder", "Recovery Builder"];
-    const indices = order.map((label) => str.indexOf(label));
-    expect(indices.every((i) => i >= 0)).toBe(true);
-    const sorted = [...indices].sort((a, b) => a - b);
-    expect(indices).toEqual(sorted);
+  it("renders the + icon using the white primary text token", () => {
+    const buttonPath = path.join(__dirname, "../../../../lib/ui/program/ProgramAddButton.tsx");
+    const src = fs.readFileSync(buttonPath, "utf8");
+    expect(src).toContain("UI_TEXT_PRIMARY");
+    expect(src).not.toContain("#1C1C1E");
+    expect(UI_TEXT_PRIMARY).toBe("#F7F8FA");
   });
 
-  it("renders Saved Programs and Shared Programs empty states", () => {
+  it("navigates to the Program Builder hub when + is pressed", () => {
     const test = renderProgram();
-    const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Saved Programs");
-    expect(str).toContain("No saved programs yet");
-    expect(str).toContain("Shared Programs");
-    expect(str).toContain("No shared programs yet");
+    const addBtn = test.root.findByProps({ testID: "program-add-button" });
+    act(() => {
+      (addBtn.props.onPress as () => void)();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/program/builder");
   });
 
-  it("builder cards are enabled with accessible 'Open …' labels", () => {
+  it("does not render the Builders section or builder cards", () => {
     const test = renderProgram();
-    const cards = collectByTestIdPrefix(test, "program-builder-card-");
-    expect(cards).toHaveLength(4);
-    for (const card of cards) {
-      expect(card.props.accessibilityRole).toBe("button");
-      expect(card.props.accessibilityState).toEqual({ disabled: false });
-    }
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Open Workout Builder");
-    expect(str).toContain("Open Cardio Builder");
-    expect(str).toContain("Open Nutrition Builder");
-    expect(str).toContain("Open Recovery Builder");
+    expect(str).not.toContain("Builders");
+    expect(str).not.toContain("ACTIVE PROGRAM");
+    expect(str).not.toContain("Workout Builder");
+    expect(str).not.toContain("program-builder-card-workout");
   });
 
-  it("navigates each builder card to its route", () => {
+  it("renders the empty state when no current programs exist", () => {
     const test = renderProgram();
-    const expected: Record<string, string> = {
-      "program-builder-card-workout": "/(app)/program/workout",
-      "program-builder-card-cardio": "/(app)/program/cardio",
-      "program-builder-card-nutrition": "/(app)/program/nutrition",
-      "program-builder-card-recovery": "/(app)/program/recovery",
-    };
-    for (const [testID, href] of Object.entries(expected)) {
-      mockPush.mockClear();
-      const pressables = test.root.findAll(
-        (node) => node.props?.testID === testID && typeof node.props?.onPress === "function",
-      );
-      expect(pressables.length).toBeGreaterThan(0);
-      act(() => {
-        (pressables[0]!.props.onPress as () => void)();
-      });
-      expect(mockPush).toHaveBeenCalledWith(href);
-    }
+    expect(test.root.findByProps({ testID: "program-current-empty" })).toBeTruthy();
+    const str = JSON.stringify(test.toJSON());
+    expect(str).toContain("No active programs yet");
+    expect(str).not.toContain("Saved Programs");
+    expect(str).not.toContain("Shared Programs");
   });
 
   it("does not add Firebase or raw HTTP/API calls to the Program route", () => {

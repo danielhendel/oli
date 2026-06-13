@@ -17,6 +17,8 @@ import {
 export type ProgramDesignOptionItem<TId extends string> = {
   id: TId;
   label: string;
+  /** Optional coach-style explainer shown under the label. */
+  description?: string;
 };
 
 export type ProgramDesignOptionScreenProps<TId extends string> = {
@@ -56,6 +58,9 @@ export function ProgramDesignOptionScreen<TId extends string>({
       <View style={styles.card}>
         {options.map((option, index) => {
           const selected = option.id === selectedId;
+          const rowA11y = option.description
+            ? `${option.label}. ${option.description}`
+            : option.label;
           return (
             <Pressable
               key={option.id}
@@ -63,16 +68,19 @@ export function ProgramDesignOptionScreen<TId extends string>({
               onPress={() => onSelect(option.id)}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={option.label}
+              accessibilityLabel={rowA11y}
               style={({ pressed }) => [
                 styles.row,
                 index > 0 && styles.rowDivider,
                 pressed && styles.rowPressed,
               ]}
             >
-              <Text style={styles.label} numberOfLines={1}>
-                {option.label}
-              </Text>
+              <View style={styles.labelWrap}>
+                <Text style={styles.label}>{option.label}</Text>
+                {option.description ? (
+                  <Text style={styles.optionDescription}>{option.description}</Text>
+                ) : null}
+              </View>
               {selected ? (
                 <Ionicons name="checkmark" size={20} color={SYSTEM_ACCENT} />
               ) : (
@@ -107,12 +115,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   row: {
-    minHeight: 52,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -121,10 +129,20 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: 0.6,
   },
-  label: {
+  labelWrap: {
     flex: 1,
+    gap: 2,
+    paddingRight: 4,
+  },
+  label: {
     fontSize: 16,
+    fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+  },
+  optionDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: UI_TEXT_SECONDARY,
   },
   checkSpacer: {
     width: 20,

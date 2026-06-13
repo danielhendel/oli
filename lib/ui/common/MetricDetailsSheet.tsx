@@ -18,18 +18,33 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
+/** A titled block of explainer copy (e.g. "Why it matters"). */
+export type MetricDetailsSection = {
+  heading: string;
+  body: string;
+};
+
 export type MetricDetailsSheetProps = {
   visible: boolean;
   onClose: () => void;
   title: string;
   value: string;
-  body: string;
+  /** Legacy single-paragraph explanation (still used by simpler callers). */
+  body?: string;
+  /** Optional "How to use this" actionable instruction, shown under the body in its own block. */
+  instruction?: string;
+  /**
+   * Structured, multi-section explainer. When provided, each section renders as a labelled block
+   * (heading + paragraph) in order — used by the world-class Program Overview explainers.
+   */
+  sections?: MetricDetailsSection[];
   sourceLine?: string;
   contextLine?: string;
 };
 
 /**
- * Bottom-sheet style metric explainer (dark theme, no new dependencies).
+ * Bottom-sheet style metric explainer (dark theme, no new dependencies). Supports either a single
+ * `body` paragraph or a list of structured `sections`.
  */
 export function MetricDetailsSheet({
   visible,
@@ -37,6 +52,8 @@ export function MetricDetailsSheet({
   title,
   value,
   body,
+  instruction,
+  sections,
   sourceLine,
   contextLine,
 }: MetricDetailsSheetProps): React.ReactElement {
@@ -68,7 +85,23 @@ export function MetricDetailsSheet({
           >
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.value}>{value}</Text>
-            <Text style={styles.body}>{body}</Text>
+            {body ? <Text style={styles.body}>{body}</Text> : null}
+            {sections?.map((section) => (
+              <View
+                key={section.heading}
+                style={styles.section}
+                testID={`metric-details-section-${section.heading}`}
+              >
+                <Text style={styles.sectionHeading}>{section.heading}</Text>
+                <Text style={styles.sectionBody}>{section.body}</Text>
+              </View>
+            ))}
+            {instruction ? (
+              <View style={styles.instructionBlock} testID="metric-details-instruction">
+                <Text style={styles.instructionHeading}>How to use this</Text>
+                <Text style={styles.instructionBody}>{instruction}</Text>
+              </View>
+            ) : null}
             {sourceLine ? <Text style={styles.meta}>{sourceLine}</Text> : null}
             {contextLine ? <Text style={styles.meta}>{contextLine}</Text> : null}
           </ScrollView>
@@ -134,6 +167,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: UI_TEXT_SECONDARY,
+  },
+  section: {
+    marginTop: 6,
+    gap: 6,
+  },
+  sectionHeading: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: UI_TEXT_MUTED,
+  },
+  sectionBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: UI_TEXT_SECONDARY,
+  },
+  instructionBlock: {
+    marginTop: 4,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    gap: 6,
+  },
+  instructionHeading: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: UI_TEXT_MUTED,
+  },
+  instructionBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: UI_TEXT_PRIMARY,
   },
   meta: {
     fontSize: 14,
