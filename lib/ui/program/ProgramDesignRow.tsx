@@ -57,12 +57,12 @@ export function ProgramDesignRow({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 56,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,

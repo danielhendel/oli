@@ -3,6 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import renderer from "react-test-renderer";
 
+jest.mock("expo-router", () => ({
+  useNavigation: () => ({
+    setOptions: jest.fn(),
+    goBack: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
   useFloatingTabBarScrollPadding: (extra: number) => extra + 0,
 }));
@@ -56,13 +63,17 @@ describe("Program builder route screens", () => {
   it("do not import Firebase / raw HTTP / write logic", () => {
     const dir = path.join(__dirname, "..");
     const files = [
+      "builder.tsx",
       "cardio.tsx",
       "nutrition.tsx",
       "recovery.tsx",
       "workout/index.tsx",
-      "workout/type.tsx",
+      "workout/sex.tsx",
+      "workout/age.tsx",
       "workout/training-level.tsx",
-      "workout/duration.tsx",
+      "workout/training-days.tsx",
+      "workout/goal.tsx",
+      "workout/training-type.tsx",
       "workout/muscle-group-volume.tsx",
       "workout/weekly-split.tsx",
     ];

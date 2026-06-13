@@ -1,34 +1,26 @@
 // app/(app)/(tabs)/program.tsx
-// Oli — Program: tab root command center for creating and managing health programs.
-// Route composition only: build the view-model via a pure selector and render UI from lib/ui/program.
-import React, { useCallback } from "react";
+// Oli — Program: tab root showing the user's current programs. The header "+" opens the Program
+// Builder hub (app/(app)/program/builder) where the four builders live. Route composition only —
+// no persistence in v1, so the body renders a clean empty explainer.
+import React from "react";
 import { View, StyleSheet } from "react-native";
-import { type Href, useRouter } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
-import { buildProgramHomeModel } from "@/lib/data/program/buildProgramHomeModel";
-import type { ProgramBuilderType } from "@/lib/data/program/types";
-import { ProgramHomeScreen } from "@/lib/ui/program/ProgramHomeScreen";
+import type { ProgramSummary } from "@/lib/data/program/types";
+import { ProgramAddButton } from "@/lib/ui/program/ProgramAddButton";
+import { ProgramCurrentScreen } from "@/lib/ui/program/ProgramCurrentScreen";
 
 export default function ProgramScreen() {
-  const router = useRouter();
-  const model = buildProgramHomeModel();
-
-  const onOpenBuilder = useCallback(
-    (type: ProgramBuilderType) => {
-      const card = model.builders.find((b) => b.type === type);
-      if (card?.href) router.push(card.href as Href);
-    },
-    [model.builders, router],
-  );
+  // v1: no persistence yet (see lib/data/program/types.ts). Programs land empty until program
+  // documents exist; this screen renders the explainer empty state in the meantime.
+  const currentPrograms: ProgramSummary[] = [];
 
   return (
     <ScreenContainer padded={false}>
       <View style={styles.root}>
-        <TabRootScreenHeader title="Program" rightSlot={<SettingsGearButton />} />
-        <ProgramHomeScreen model={model} onOpenBuilder={onOpenBuilder} />
+        <TabRootScreenHeader title="Program" rightSlot={<ProgramAddButton />} />
+        <ProgramCurrentScreen programs={currentPrograms} />
       </View>
     </ScreenContainer>
   );

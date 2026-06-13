@@ -3,7 +3,6 @@ import React from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,11 +10,10 @@ import {
   View,
 } from "react-native";
 
-import type { WeeklySplitDay } from "@/lib/data/program/workoutProgramDesignTypes";
-import { WEEKLY_SPLIT_DAY_COUNT_OPTIONS } from "@/lib/data/program/workoutProgramDesignOptions";
+import type { ProgrammingSplitDay } from "@/lib/data/program/programmingEngineTypes";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
-import { SYSTEM_ACCENT, SYSTEM_ACCENT_FILL_14 } from "@/lib/ui/theme/systemAccent";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
   UI_APP_SCREEN_BG,
   UI_GROUPED_CARD_RADIUS,
@@ -27,22 +25,27 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 
 export type WeeklySplitSetupScreenProps = {
-  /** Currently selected number of training days, or null when not yet chosen. */
+  /** True once the program is generatable; false shows the completion hint. */
+  available: boolean;
+  /** Number of training days driving the generated split (from the Training Days category). */
   dayCount: number | null;
-  days: WeeklySplitDay[];
-  onSelectDayCount: (count: number) => void;
+  /** Generated day structure; names are editable and overrides are flagged. */
+  days: ProgrammingSplitDay[];
+  /** Hint shown when `available` is false. */
+  missingHint: string;
   onChangeDayName: (dayId: string, name: string) => void;
 };
 
 /**
- * Weekly Split editor: first choose 2–6 training days, then name/define each day. Day names are
- * free text (e.g. "Full Body", "Push", "Legs") — examples are hints only, never hardcoded options.
- * Wrapped in KeyboardAvoidingView so inputs stay visible while typing.
+ * Weekly Split editor. The day count comes from the Training Days category, so this screen shows the
+ * engine-generated split structure and lets the user rename any day. Renamed days are flagged
+ * "Edited" and persist across regeneration. Wrapped in KeyboardAvoidingView so inputs stay visible.
  */
 export function WeeklySplitSetupScreen({
+  available,
   dayCount,
   days,
-  onSelectDayCount,
+  missingHint,
   onChangeDayName,
 }: WeeklySplitSetupScreenProps): React.ReactElement {
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
@@ -60,66 +63,48 @@ export function WeeklySplitSetupScreen({
         keyboardDismissMode="interactive"
         accessibilityLabel="Weekly Split"
       >
-        <Text style={styles.description}>
-          Choose how many days you’ll train each week, then name each day.
-        </Text>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Training days</Text>
-          <View style={styles.dayCountRow}>
-            {WEEKLY_SPLIT_DAY_COUNT_OPTIONS.map((count) => {
-              const selected = count === dayCount;
-              return (
-                <Pressable
-                  key={count}
-                  testID={`weekly-split-day-count-${count}`}
-                  onPress={() => onSelectDayCount(count)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`${count} training days`}
-                  style={({ pressed }) => [
-                    styles.dayCountPill,
-                    selected && styles.dayCountPillSelected,
-                    pressed && styles.dayCountPillPressed,
-                  ]}
-                >
-                  <Text
-                    style={[styles.dayCountText, selected && styles.dayCountTextSelected]}
-                  >
-                    {count}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        {!available ? (
+          <View style={styles.hintCard} testID="weekly-split-empty-hint">
+            <Text style={styles.hintTitle}>No split generated yet</Text>
+            <Text style={styles.hintBody}>{missingHint}</Text>
           </View>
-        </View>
-
-        {dayCount == null ? (
-          <Text style={styles.emptyHint}>Select a number of days to configure each one.</Text>
         ) : (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Configure each day</Text>
-            {days.map((day, index) => (
-              <View
-                key={day.id}
-                testID={`weekly-split-day-${day.id}`}
-                style={[styles.dayRow, index > 0 && styles.dayRowDivider]}
-              >
-                <Text style={styles.dayIndex}>Day {index + 1}</Text>
-                <TextInput
-                  testID={`weekly-split-day-input-${day.id}`}
-                  value={day.name}
-                  onChangeText={(text) => onChangeDayName(day.id, text)}
-                  placeholder="e.g. Full Body, Upper Body, Lower Body"
-                  placeholderTextColor={UI_TEXT_MUTED}
-                  style={styles.dayInput}
-                  returnKeyType="done"
-                  accessibilityLabel={`Day ${index + 1} name`}
-                  maxLength={40}
-                />
-              </View>
-            ))}
-          </View>
+          <>
+            <Text style={styles.description}>
+              Your generated {dayCount}-day split. Rename any day to match your preferences.
+            </Text>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionLabel}>Training days</Text>
+              {days.map((day, index) => (
+                <View
+                  key={day.id}
+                  testID={`weekly-split-day-${day.id}`}
+                  style={[styles.dayRow, index > 0 && styles.dayRowDivider]}
+                >
+                  <View style={styles.dayHeader}>
+                    <Text style={styles.dayIndex}>Day {index + 1}</Text>
+                    {day.source === "manual" ? (
+                      <Text style={styles.editedBadge} testID={`weekly-split-edited-${day.id}`}>
+                        Edited
+                      </Text>
+                    ) : null}
+                  </View>
+                  <TextInput
+                    testID={`weekly-split-day-input-${day.id}`}
+                    value={day.name}
+                    onChangeText={(text) => onChangeDayName(day.id, text)}
+                    placeholder="e.g. Push, Pull, Legs"
+                    placeholderTextColor={UI_TEXT_MUTED}
+                    style={styles.dayInput}
+                    returnKeyType="done"
+                    accessibilityLabel={`Day ${index + 1} name`}
+                    maxLength={40}
+                  />
+                </View>
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -145,6 +130,22 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: UI_TEXT_SECONDARY,
   },
+  hintCard: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
+    padding: 16,
+    gap: 6,
+  },
+  hintTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+  },
+  hintBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: UI_TEXT_SECONDARY,
+  },
   card: {
     ...elevatedCardSurfaceStyle,
     borderRadius: UI_GROUPED_CARD_RADIUS,
@@ -158,40 +159,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  dayCountRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  dayCountPill: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: UI_SURFACE_PRESSED,
-  },
-  dayCountPillSelected: {
-    backgroundColor: SYSTEM_ACCENT_FILL_14,
-    borderWidth: 1,
-    borderColor: SYSTEM_ACCENT,
-  },
-  dayCountPillPressed: {
-    opacity: 0.7,
-  },
-  dayCountText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: UI_TEXT_SECONDARY,
-  },
-  dayCountTextSelected: {
-    color: UI_TEXT_PRIMARY,
-  },
-  emptyHint: {
-    fontSize: 14,
-    color: UI_TEXT_MUTED,
-    textAlign: "center",
-    paddingVertical: 8,
-  },
   dayRow: {
     paddingVertical: 12,
     gap: 8,
@@ -200,10 +167,22 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(255,255,255,0.08)",
   },
+  dayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   dayIndex: {
     fontSize: 13,
     fontWeight: "600",
     color: UI_TEXT_MUTED,
+  },
+  editedBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: SYSTEM_ACCENT,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   dayInput: {
     minHeight: 44,

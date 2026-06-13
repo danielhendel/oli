@@ -3,6 +3,10 @@
 import React, { useCallback } from "react";
 
 import {
+  buildProgrammingPrescriptionFromDraft,
+  missingProgrammingInputTitles,
+} from "@/lib/data/program/buildProgrammingPrescription";
+import {
   useWorkoutProgramDesignDraft,
   workoutProgramDesignStore,
 } from "@/lib/data/program/workoutProgramDesignStore";
@@ -10,21 +14,20 @@ import { WeeklySplitSetupScreen } from "@/lib/ui/program/WeeklySplitSetupScreen"
 
 export default function ProgramDesignWeeklySplitRoute() {
   const draft = useWorkoutProgramDesignDraft();
-  const split = draft.weeklySplit;
-
-  const onSelectDayCount = useCallback((count: number) => {
-    workoutProgramDesignStore.setWeeklySplitDayCount(count);
-  }, []);
+  const prescription = buildProgrammingPrescriptionFromDraft(draft);
 
   const onChangeDayName = useCallback((dayId: string, name: string) => {
-    workoutProgramDesignStore.setWeeklySplitDayName(dayId, name);
+    workoutProgramDesignStore.setSplitDayName(dayId, name);
   }, []);
+
+  const missingHint = `Set ${missingProgrammingInputTitles(draft).join(", ")} on the Program Design screen to generate your weekly split.`;
 
   return (
     <WeeklySplitSetupScreen
-      dayCount={split?.dayCount ?? null}
-      days={split?.days ?? []}
-      onSelectDayCount={onSelectDayCount}
+      available={prescription != null}
+      dayCount={prescription?.weeklySplit.dayCount ?? null}
+      days={prescription?.weeklySplit.days ?? []}
+      missingHint={missingHint}
       onChangeDayName={onChangeDayName}
     />
   );

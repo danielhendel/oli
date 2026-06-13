@@ -1,23 +1,22 @@
 import {
-  MUSCLE_VOLUME_MAX_SETS,
+  PROGRAM_DESIGN_AGE_MAX,
+  PROGRAM_DESIGN_AGE_MIN,
+  PROGRAM_DESIGN_AGE_OPTIONS,
   PROGRAM_DESIGN_CATEGORY_ORDER,
+  PROGRAM_DESIGN_GOAL_OPTIONS,
   PROGRAM_DESIGN_MUSCLE_GROUP_LABEL,
   PROGRAM_DESIGN_MUSCLE_GROUP_ORDER,
+  PROGRAM_DESIGN_SEX_OPTIONS,
   PROGRAM_DESIGN_TRAINING_LEVEL_OPTIONS,
-  PROGRAM_DURATION_MAX_WEEKS,
-  PROGRAM_DURATION_MIN_WEEKS,
-  PROGRAM_DURATION_WEEK_OPTIONS,
-  WEEKLY_SPLIT_DAY_COUNT_OPTIONS,
-  WEEKLY_SPLIT_MAX_DAYS,
-  WEEKLY_SPLIT_MIN_DAYS,
-  WORKOUT_PROGRAM_TYPE_OPTIONS,
-  buildWeeklySplitDays,
-  formatDurationWeeksLabel,
+  TRAINING_DAYS_COUNT_OPTIONS,
+  TRAINING_TYPE_OPTIONS,
+  formatAgeLabel,
+  formatTrainingDaysLabel,
 } from "@/lib/data/program/workoutProgramDesignOptions";
 import {
   buildProgramDesignCategoryValueLabel,
   buildProgramDesignRows,
-  countConfiguredMuscleGroups,
+  isProgramDesignCategorySet,
 } from "@/lib/data/program/buildWorkoutProgramDesignSummary";
 import {
   buildEmptyWorkoutProgramDesignDraft,
@@ -26,17 +25,20 @@ import {
 } from "@/lib/data/program/workoutProgramDesignStore";
 
 describe("Program Design options", () => {
-  it("Type exposes exactly the five requested options in order", () => {
-    expect(WORKOUT_PROGRAM_TYPE_OPTIONS.map((o) => o.label)).toEqual([
-      "Hypertrophy",
-      "Power Lifting",
-      "Strength Training",
-      "Functional Training",
-      "Circuit Training",
-    ]);
+  it("Sex exposes Male/Female in order", () => {
+    expect(PROGRAM_DESIGN_SEX_OPTIONS.map((o) => o.label)).toEqual(["Male", "Female"]);
   });
 
-  it("Training Level exposes exactly the five requested options in order", () => {
+  it("Age supports 13–90 years", () => {
+    expect(PROGRAM_DESIGN_AGE_MIN).toBe(13);
+    expect(PROGRAM_DESIGN_AGE_MAX).toBe(90);
+    expect(PROGRAM_DESIGN_AGE_OPTIONS).toHaveLength(90 - 13 + 1);
+    expect(PROGRAM_DESIGN_AGE_OPTIONS[0]).toEqual({ id: "13", label: "13 years" });
+    expect(formatAgeLabel(1)).toBe("1 year");
+    expect(formatAgeLabel(28)).toBe("28 years");
+  });
+
+  it("Training Level exposes the five tiers in order", () => {
     expect(PROGRAM_DESIGN_TRAINING_LEVEL_OPTIONS.map((o) => o.label)).toEqual([
       "Beginner",
       "Novice",
@@ -46,115 +48,86 @@ describe("Program Design options", () => {
     ]);
   });
 
-  it("Duration supports 1–52 weeks", () => {
-    expect(PROGRAM_DURATION_MIN_WEEKS).toBe(1);
-    expect(PROGRAM_DURATION_MAX_WEEKS).toBe(52);
-    expect(PROGRAM_DURATION_WEEK_OPTIONS).toHaveLength(52);
-    expect(PROGRAM_DURATION_WEEK_OPTIONS[0]).toBe(1);
-    expect(PROGRAM_DURATION_WEEK_OPTIONS[51]).toBe(52);
+  it("Training Days supports 2–6 days", () => {
+    expect([...TRAINING_DAYS_COUNT_OPTIONS]).toEqual([2, 3, 4, 5, 6]);
+    expect(formatTrainingDaysLabel(1)).toBe("1 day");
+    expect(formatTrainingDaysLabel(4)).toBe("4 days");
   });
 
-  it("formats week labels with correct pluralization", () => {
-    expect(formatDurationWeeksLabel(1)).toBe("1 week");
-    expect(formatDurationWeeksLabel(8)).toBe("8 weeks");
-  });
-
-  it("Muscle Group Volume includes all 20 requested muscle groups", () => {
-    expect(PROGRAM_DESIGN_MUSCLE_GROUP_ORDER).toHaveLength(20);
-    const labels = PROGRAM_DESIGN_MUSCLE_GROUP_ORDER.map(
-      (id) => PROGRAM_DESIGN_MUSCLE_GROUP_LABEL[id],
-    );
-    expect(labels).toEqual([
-      "Upper Chest",
-      "Mid Chest",
-      "Lats",
-      "Upper Back",
-      "Front Delts",
-      "Side Delts",
-      "Rear Delts",
-      "Triceps",
-      "Biceps",
-      "Quads",
-      "Hamstrings",
-      "Glutes",
-      "Calves",
-      "Abs",
-      "Lower Traps",
-      "Rotator Cuff",
-      "Adductors",
-      "Forearms",
-      "Neck",
-      "Tibialis",
+  it("Goal exposes the five goal options", () => {
+    expect(PROGRAM_DESIGN_GOAL_OPTIONS.map((o) => o.label)).toEqual([
+      "General Health",
+      "Build Muscle",
+      "Gain Strength",
+      "Lose Fat",
+      "Athletic Performance",
     ]);
   });
 
-  it("Weekly Split supports 2–6 days", () => {
-    expect(WEEKLY_SPLIT_MIN_DAYS).toBe(2);
-    expect(WEEKLY_SPLIT_MAX_DAYS).toBe(6);
-    expect([...WEEKLY_SPLIT_DAY_COUNT_OPTIONS]).toEqual([2, 3, 4, 5, 6]);
+  it("Training Type exposes exactly the six requested options in order", () => {
+    expect(TRAINING_TYPE_OPTIONS.map((o) => o.label)).toEqual([
+      "General Fitness",
+      "Hypertrophy",
+      "Strength",
+      "Powerlifting",
+      "Athletic Performance",
+      "Conditioning",
+    ]);
   });
 
-  it("rebuilds the split day list preserving names by position", () => {
-    const initial = buildWeeklySplitDays(3);
-    expect(initial.map((d) => d.id)).toEqual(["day-1", "day-2", "day-3"]);
-    expect(initial.every((d) => d.name === "")).toBe(true);
+  it("includes all 20 canonical muscle groups", () => {
+    expect(PROGRAM_DESIGN_MUSCLE_GROUP_ORDER).toHaveLength(20);
+    expect(PROGRAM_DESIGN_MUSCLE_GROUP_LABEL.upper_chest).toBe("Upper Chest");
+    expect(PROGRAM_DESIGN_MUSCLE_GROUP_LABEL.tibialis).toBe("Tibialis");
+  });
 
-    const named = initial.map((d, i) => ({ ...d, name: `D${i + 1}` }));
-    const grown = buildWeeklySplitDays(5, named);
-    expect(grown).toHaveLength(5);
-    expect(grown.slice(0, 3).map((d) => d.name)).toEqual(["D1", "D2", "D3"]);
-    expect(grown.slice(3).map((d) => d.name)).toEqual(["", ""]);
+  it("orders the six categories as requested", () => {
+    expect([...PROGRAM_DESIGN_CATEGORY_ORDER]).toEqual([
+      "sex",
+      "age",
+      "trainingLevel",
+      "trainingDays",
+      "goal",
+      "trainingType",
+    ]);
   });
 });
 
 describe("buildProgramDesignRows / summaries", () => {
-  it("lists the five categories in order with 'Not set' defaults", () => {
+  it("lists the six categories in order with 'Not set' defaults", () => {
     const rows = buildProgramDesignRows(buildEmptyWorkoutProgramDesignDraft());
     expect(rows.map((r) => r.id)).toEqual([...PROGRAM_DESIGN_CATEGORY_ORDER]);
     expect(rows.map((r) => r.title)).toEqual([
-      "Type",
+      "Sex",
+      "Age",
       "Training Level",
-      "Duration",
-      "Muscle Group Volume",
-      "Weekly Split",
+      "Training Days",
+      "Goal",
+      "Training Type",
     ]);
     expect(rows.every((r) => r.valueLabel === "Not set")).toBe(true);
     expect(rows.every((r) => r.isSet === false)).toBe(true);
   });
 
-  it("reflects selected single-value categories", () => {
+  it("reflects selected category values", () => {
     const draft = {
       ...buildEmptyWorkoutProgramDesignDraft(),
-      type: "hypertrophy" as const,
+      sex: "female" as const,
+      age: 31,
       trainingLevel: "advanced" as const,
-      durationWeeks: 8,
+      trainingDays: 5,
+      goal: "build_muscle" as const,
+      trainingType: "hypertrophy" as const,
     };
-    expect(buildProgramDesignCategoryValueLabel("type", draft)).toBe("Hypertrophy");
+    expect(buildProgramDesignCategoryValueLabel("sex", draft)).toBe("Female");
+    expect(buildProgramDesignCategoryValueLabel("age", draft)).toBe("31 years");
     expect(buildProgramDesignCategoryValueLabel("trainingLevel", draft)).toBe("Advanced");
-    expect(buildProgramDesignCategoryValueLabel("duration", draft)).toBe("8 weeks");
-  });
-
-  it("summarizes muscle volume and weekly split as counts", () => {
-    const draft = {
-      ...buildEmptyWorkoutProgramDesignDraft(),
-      muscleGroupVolume: { upper_chest: 12, lats: 16, abs: 0 },
-      weeklySplit: { dayCount: 5, days: buildWeeklySplitDays(5) },
-    };
-    expect(countConfiguredMuscleGroups(draft)).toBe(2);
-    expect(buildProgramDesignCategoryValueLabel("muscleGroupVolume", draft)).toBe(
-      "2 muscle groups configured",
-    );
-    expect(buildProgramDesignCategoryValueLabel("weeklySplit", draft)).toBe("5 days configured");
-  });
-
-  it("uses singular nouns for a single day / group", () => {
-    const draft = {
-      ...buildEmptyWorkoutProgramDesignDraft(),
-      muscleGroupVolume: { biceps: 10 },
-      weeklySplit: { dayCount: 2, days: buildWeeklySplitDays(2) },
-    };
-    expect(buildProgramDesignCategoryValueLabel("muscleGroupVolume", draft)).toBe(
-      "1 muscle group configured",
+    expect(buildProgramDesignCategoryValueLabel("trainingDays", draft)).toBe("5 days");
+    expect(buildProgramDesignCategoryValueLabel("goal", draft)).toBe("Build Muscle");
+    expect(buildProgramDesignCategoryValueLabel("trainingType", draft)).toBe("Hypertrophy");
+    expect(isProgramDesignCategorySet("trainingType", draft)).toBe(true);
+    expect(isProgramDesignCategorySet("trainingType", buildEmptyWorkoutProgramDesignDraft())).toBe(
+      false,
     );
   });
 
@@ -172,58 +145,66 @@ describe("workoutProgramDesignStore", () => {
     workoutProgramDesignStore.reset();
   });
 
-  it("starts empty and accepts single-value mutations", () => {
-    expect(workoutProgramDesignStore.getSnapshot()).toEqual(
-      buildEmptyWorkoutProgramDesignDraft(),
-    );
-    workoutProgramDesignStore.setType("power_lifting");
-    workoutProgramDesignStore.setTrainingLevel("elite");
-    workoutProgramDesignStore.setDurationWeeks(12);
+  it("starts empty and accepts the six input mutations", () => {
+    expect(workoutProgramDesignStore.getSnapshot()).toEqual(buildEmptyWorkoutProgramDesignDraft());
+    workoutProgramDesignStore.setSex("male");
+    workoutProgramDesignStore.setAge(28);
+    workoutProgramDesignStore.setTrainingLevel("intermediate");
+    workoutProgramDesignStore.setTrainingDays(4);
+    workoutProgramDesignStore.setGoal("gain_strength");
+    workoutProgramDesignStore.setTrainingType("strength");
     const snap = workoutProgramDesignStore.getSnapshot();
-    expect(snap.type).toBe("power_lifting");
-    expect(snap.trainingLevel).toBe("elite");
-    expect(snap.durationWeeks).toBe(12);
+    expect(snap.sex).toBe("male");
+    expect(snap.age).toBe(28);
+    expect(snap.trainingLevel).toBe("intermediate");
+    expect(snap.trainingDays).toBe(4);
+    expect(snap.goal).toBe("gain_strength");
+    expect(snap.trainingType).toBe("strength");
   });
 
-  it("sets/clears muscle volume (0 removes the entry)", () => {
-    workoutProgramDesignStore.setMuscleVolume("quads", 14);
-    expect(workoutProgramDesignStore.getSnapshot().muscleGroupVolume.quads).toBe(14);
-    workoutProgramDesignStore.setMuscleVolume("quads", 0);
-    expect(workoutProgramDesignStore.getSnapshot().muscleGroupVolume.quads).toBeUndefined();
+  it("clamps age to 13–90 and training days to 2–6", () => {
+    workoutProgramDesignStore.setAge(5);
+    expect(workoutProgramDesignStore.getSnapshot().age).toBe(13);
+    workoutProgramDesignStore.setAge(200);
+    expect(workoutProgramDesignStore.getSnapshot().age).toBe(90);
+    workoutProgramDesignStore.setTrainingDays(99);
+    expect(workoutProgramDesignStore.getSnapshot().trainingDays).toBe(6);
+    workoutProgramDesignStore.setTrainingDays(0);
+    expect(workoutProgramDesignStore.getSnapshot().trainingDays).toBe(2);
   });
 
-  it("clamps weekly split day count to 2–6 and preserves names", () => {
-    workoutProgramDesignStore.setWeeklySplitDayCount(99);
-    expect(workoutProgramDesignStore.getSnapshot().weeklySplit?.dayCount).toBe(6);
-    workoutProgramDesignStore.setWeeklySplitDayCount(0);
-    expect(workoutProgramDesignStore.getSnapshot().weeklySplit?.dayCount).toBe(2);
+  it("sets and clears manual muscle volume overrides (0 is a valid override)", () => {
+    workoutProgramDesignStore.setMuscleVolumeOverride("quads", 14);
+    expect(workoutProgramDesignStore.getSnapshot().muscleVolumeOverrides.quads).toBe(14);
+    workoutProgramDesignStore.setMuscleVolumeOverride("quads", 0);
+    expect(workoutProgramDesignStore.getSnapshot().muscleVolumeOverrides.quads).toBe(0);
+    workoutProgramDesignStore.clearMuscleVolumeOverride("quads");
+    expect(workoutProgramDesignStore.getSnapshot().muscleVolumeOverrides.quads).toBeUndefined();
+  });
 
-    workoutProgramDesignStore.setWeeklySplitDayCount(3);
-    workoutProgramDesignStore.setWeeklySplitDayName("day-1", "Push");
-    workoutProgramDesignStore.setWeeklySplitDayCount(4);
-    const days = workoutProgramDesignStore.getSnapshot().weeklySplit?.days ?? [];
-    expect(days).toHaveLength(4);
-    expect(days[0]?.name).toBe("Push");
+  it("clamps override values to the stepper bounds", () => {
+    workoutProgramDesignStore.setMuscleVolumeOverride("calves", 999);
+    expect(workoutProgramDesignStore.getSnapshot().muscleVolumeOverrides.calves).toBe(30);
+    workoutProgramDesignStore.setMuscleVolumeOverride("calves", -5);
+    expect(workoutProgramDesignStore.getSnapshot().muscleVolumeOverrides.calves).toBe(0);
+  });
+
+  it("records split day name overrides by id", () => {
+    workoutProgramDesignStore.setSplitDayName("day-1", "Push");
+    expect(workoutProgramDesignStore.getSnapshot().splitDayNameOverrides["day-1"]).toBe("Push");
   });
 
   it("notifies subscribers on change", () => {
     const listener = jest.fn();
     const unsubscribe = workoutProgramDesignStore.subscribe(listener);
-    workoutProgramDesignStore.setType("hypertrophy");
+    workoutProgramDesignStore.setSex("male");
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
-    workoutProgramDesignStore.setType("strength_training");
+    workoutProgramDesignStore.setSex("female");
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("exports a hook bound to the external store", () => {
     expect(typeof useWorkoutProgramDesignDraft).toBe("function");
-  });
-
-  it("never exceeds the muscle volume ceiling via summaries", () => {
-    workoutProgramDesignStore.setMuscleVolume("calves", MUSCLE_VOLUME_MAX_SETS);
-    expect(workoutProgramDesignStore.getSnapshot().muscleGroupVolume.calves).toBe(
-      MUSCLE_VOLUME_MAX_SETS,
-    );
   });
 });

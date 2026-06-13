@@ -40,24 +40,41 @@ export default function AppLayout() {
 
           <Stack.Screen name="dash/daily-recap" options={{ title: "Daily Recap" }} />
 
-          {/* Program builders (pushed from the Program tab; see app/(app)/program/*) */}
+          {/* Program builders (opened from the Program tab "+" → app/(app)/program/builder). */}
+          <Stack.Screen
+            name="program/builder"
+            options={{ title: "Program Builder", ...workoutsStackNavigationOptions("detail") }}
+          />
           <Stack.Screen
             name="program/workout/index"
-            options={{ title: "Workout Builder", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: "Workout Builder", ...workoutsStackNavigationOptions("detail") }}
           />
           {/* Program Design category setup pages (pushed from the Workout Builder landing). */}
           <Stack.Screen
-            name="program/workout/type"
-            options={{ title: "Type", ...workoutsStackNavigationOptions("detail") }}
+            name="program/workout/sex"
+            options={{ title: "Sex", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/age"
+            options={{ title: "Age", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="program/workout/training-level"
             options={{ title: "Training Level", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
-            name="program/workout/duration"
-            options={{ title: "Duration", ...workoutsStackNavigationOptions("detail") }}
+            name="program/workout/training-days"
+            options={{ title: "Training Days", ...workoutsStackNavigationOptions("detail") }}
           />
+          <Stack.Screen
+            name="program/workout/goal"
+            options={{ title: "Goal", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/training-type"
+            options={{ title: "Training Type", ...workoutsStackNavigationOptions("detail") }}
+          />
+          {/* Generated-prescription customization pages (reached from the preview). */}
           <Stack.Screen
             name="program/workout/muscle-group-volume"
             options={{ title: "Muscle Group Volume", ...workoutsStackNavigationOptions("detail") }}
@@ -67,16 +84,24 @@ export default function AppLayout() {
             options={{ title: "Weekly Split", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="program/workout/muscle-group/[muscleGroupId]"
+            options={{ ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="program/workout/day/[dayId]"
+            options={{ ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="program/cardio"
-            options={{ title: "Cardio Builder", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: "Cardio Builder", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="program/nutrition"
-            options={{ title: "Nutrition Builder", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: "Nutrition Builder", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="program/recovery"
-            options={{ title: "Recovery Builder", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: "Recovery Builder", ...workoutsStackNavigationOptions("detail") }}
           />
 
           <Stack.Screen
