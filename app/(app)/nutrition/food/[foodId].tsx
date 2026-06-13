@@ -7,7 +7,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -17,14 +16,19 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useSubmitTrackedMealNutrition } from "@/lib/hooks/useSubmitTrackedMealNutrition";
 import { foodItemMetaFingerprint, useNutritionMeta } from "@/lib/hooks/useNutritionMeta";
+import { useNutritionPantry } from "@/lib/hooks/useNutritionPantry";
 import { createDefaultFoodProvider } from "@/lib/nutrition/defaultFoodProvider";
 import { FoodProviderNotFoundError } from "@/lib/nutrition/FoodProviderClient";
-import { isValidDayKey, type DayKey } from "@/lib/ui/calendar/types";
-import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import { type DayKey } from "@/lib/ui/calendar/types";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import {
   nutritionFoodSearchItemDtoSchema,
   type NutritionFoodSearchItemDto,
 } from "@oli/contracts/nutritionFoodSearch";
+import { NutritionServingPicker } from "@/lib/ui/nutrition/NutritionServingPicker";
+import { NutritionSourceBadges } from "@/lib/ui/nutrition/NutritionSourceBadges";
+import { buildServingOptions, defaultServingOption, resolveServing } from "@/lib/nutrition/servingSelection";
+import { foodToAddPantryRequest } from "@/lib/nutrition/pantryFood";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import * as Haptics from "expo-haptics";
@@ -54,11 +58,7 @@ export default function NutritionFoodConfirmScreen() {
     const s = typeof params.source === "string" ? params.source : Array.isArray(params.source) ? params.source[0] : "";
     return s === "barcode" ? ("barcode" as const) : ("search" as const);
   }, [params.source]);
-  const dayKey: DayKey = useMemo(() => {
-    const raw = params.day;
-    const d = typeof raw === "string" ? raw : Array.isArray(raw) ? (raw[0] ?? "") : "";
-    return isValidDayKey(d) ? d : getTodayDayKeyLocal();
-  }, [params.day]);
+  const dayKey: DayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
 
   const returnTo = useMemo(() => {
     const r =
@@ -73,9 +73,12 @@ export default function NutritionFoodConfirmScreen() {
   const [food, setFood] = useState<NutritionFoodSearchItemDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingFood, setLoadingFood] = useState(true);
-  const [multiplierText, setMultiplierText] = useState("1");
+  const [servingOptionKey, setServingOptionKey] = useState("");
+  const [quantityText, setQuantityText] = useState("1");
   const [mealSlot, setMealSlot] = useState<MealSlot>("lunch");
+  const [savedToKitchen, setSavedToKitchen] = useState(false);
   const submit = useSubmitTrackedMealNutrition();
+  const pantry = useNutritionPantry();
 
   const fingerprint = food ? foodItemMetaFingerprint(food) : "";
   const isFavorite =
@@ -92,6 +95,9 @@ export default function NutritionFoodConfirmScreen() {
         setFood(null);
       } else {
         setFood(parsed.data);
+        setServingOptionKey(defaultServingOption(parsed.data).key);
+        setQuantityText("1");
+        setSavedToKitchen(false);
       }
     } catch (e) {
       if (e instanceof FoodProviderNotFoundError) {
@@ -116,11 +122,16 @@ export default function NutritionFoodConfirmScreen() {
     });
   }, [navigation]);
 
-  const mult = useMemo(() => {
-    const n = Number.parseFloat(multiplierText.replace(",", "."));
-    if (!Number.isFinite(n) || n <= 0) return 1;
-    return Math.min(n, 24);
-  }, [multiplierText]);
+  const resolved = useMemo(() => {
+    if (!food) return null;
+    const options = buildServingOptions(food);
+    const option = options.find((o) => o.key === servingOptionKey) ?? options[0]!;
+    const n = Number.parseFloat(quantityText.replace(",", "."));
+    const qty = Number.isFinite(n) && n > 0 ? Math.min(n, 9999) : 0;
+    return resolveServing(food, option, qty);
+  }, [food, servingOptionKey, quantityText]);
+
+  const servingMultiplier = resolved?.servingMultiplier ?? 1;
 
   const performLog = useCallback(async () => {
     if (!food) return;
@@ -128,7 +139,7 @@ export default function NutritionFoodConfirmScreen() {
     const r = await submit.submit({
       dayKey,
       food,
-      servingMultiplier: mult,
+      servingMultiplier,
       nutritionIngestSource: ingestSource,
       observedAtIso,
       mealSlot,
@@ -151,7 +162,7 @@ export default function NutritionFoodConfirmScreen() {
             params: { logged: "1", day: dayKey },
           },
     );
-  }, [food, submit, dayKey, mult, ingestSource, mealSlot, metaApi, router, returnTo]);
+  }, [food, submit, dayKey, servingMultiplier, ingestSource, mealSlot, metaApi, router, returnTo]);
 
   const onLog = useCallback(() => {
     if (!food) return;
@@ -175,15 +186,18 @@ export default function NutritionFoodConfirmScreen() {
     void metaApi.toggleFavorite(food);
   }, [food, metaApi]);
 
-  const totals = useMemo(() => {
-    if (!food) return null;
-    return {
-      kcal: Math.round(food.caloriesKcal * mult),
-      p: Math.round(food.proteinG * mult * 10) / 10,
-      c: Math.round(food.carbsG * mult * 10) / 10,
-      f: Math.round(food.fatG * mult * 10) / 10,
-    };
-  }, [food, mult]);
+  const onSaveToKitchen = useCallback(async () => {
+    if (!food) return;
+    const ok = await pantry.addItem(foodToAddPantryRequest(food, servingMultiplier));
+    if (ok) {
+      setSavedToKitchen(true);
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        /* simulator */
+      }
+    }
+  }, [food, pantry, servingMultiplier]);
 
   return (
     <ModuleScreenShell title="Confirm meal" subtitle={food?.name ?? ""} hideTitleChrome>
@@ -211,9 +225,14 @@ export default function NutritionFoodConfirmScreen() {
             </Pressable>
           </View>
         ) : null}
-        {food && totals ? (
+        {food && resolved ? (
           <View style={[styles.body, { paddingBottom: 24 + insets.bottom }]}>
             <View style={styles.favRow}>
+              <NutritionSourceBadges
+                source={food.source}
+                productType={food.productType}
+                attributionRequired={food.attributionRequired}
+              />
               <Pressable
                 onPress={() => void onToggleFavorite()}
                 style={({ pressed }) => [styles.favBtn, pressed && styles.pressed]}
@@ -223,15 +242,12 @@ export default function NutritionFoodConfirmScreen() {
                 <Text style={styles.favBtnText}>{isFavorite ? "★ Favorited" : "☆ Favorite"}</Text>
               </Pressable>
             </View>
-            <Text style={styles.label}>Serving unit</Text>
-            <Text style={styles.unitHint}>{food.servingLabel}</Text>
-            <Text style={styles.label}>Servings</Text>
-            <TextInput
-              value={multiplierText}
-              onChangeText={setMultiplierText}
-              keyboardType="decimal-pad"
-              style={styles.input}
-              accessibilityLabel="Serving multiplier"
+            <NutritionServingPicker
+              food={food}
+              selectedOptionKey={servingOptionKey}
+              quantityText={quantityText}
+              onSelectOption={setServingOptionKey}
+              onChangeQuantity={setQuantityText}
             />
             <Text style={styles.label}>Meal type</Text>
             <View style={styles.slotRow}>
@@ -257,9 +273,6 @@ export default function NutritionFoodConfirmScreen() {
                 );
               })}
             </View>
-            <Text style={styles.summary}>
-              {totals.kcal} kcal · P {totals.p} · C {totals.c} · F {totals.f}
-            </Text>
             {submit.queuedOffline ? (
               <View style={styles.offline} accessibilityRole="text">
                 <Text style={styles.offlineText}>
@@ -286,6 +299,24 @@ export default function NutritionFoodConfirmScreen() {
                 {submit.status === "submitting" ? "Logging…" : "Log meal"}
               </Text>
             </Pressable>
+            <Pressable
+              onPress={() => void onSaveToKitchen()}
+              disabled={savedToKitchen}
+              style={({ pressed }) => [styles.secondary, (pressed || savedToKitchen) && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={savedToKitchen ? "Saved to kitchen" : "Save to kitchen"}
+              accessibilityState={{ disabled: savedToKitchen }}
+              testID="food-save-to-kitchen"
+            >
+              <Text style={styles.secondaryText}>
+                {savedToKitchen ? "✓ Saved to Kitchen" : "Save to Kitchen"}
+              </Text>
+            </Pressable>
+            {pantry.errorMessage != null && !savedToKitchen ? (
+              <View style={styles.warn} accessibilityRole="alert">
+                <Text style={styles.warnText}>{pantry.errorMessage}</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </KeyboardAvoidingView>
@@ -297,11 +328,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   body: { paddingHorizontal: 16, paddingTop: 16, gap: 16 },
-  favRow: { flexDirection: "row", justifyContent: "flex-end" },
+  favRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" },
   favBtn: { minHeight: 44, paddingHorizontal: 12, justifyContent: "center" },
   favBtnText: { fontSize: 17, fontWeight: "600", color: SYSTEM_ACCENT },
   label: { fontSize: 15, fontWeight: "600", color: "#636366" },
-  unitHint: { fontSize: 16, color: "#1C1C1E", marginTop: -4 },
   slotRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   slotChip: {
     minHeight: 44,
@@ -319,16 +349,6 @@ const styles = StyleSheet.create({
   },
   slotChipText: { fontSize: 15, fontWeight: "600", color: "#636366" },
   slotChipTextSelected: { color: SYSTEM_ACCENT },
-  input: {
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.29)",
-    paddingHorizontal: 12,
-    fontSize: 17,
-    backgroundColor: UI_CARD_SURFACE,
-  },
-  summary: { fontSize: 17, color: "#1C1C1E" },
   primary: {
     minHeight: 48,
     borderRadius: 12,
@@ -338,6 +358,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  secondary: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: SYSTEM_ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryText: { color: SYSTEM_ACCENT, fontSize: 17, fontWeight: "600" },
   errorBox: { padding: 16, gap: 8 },
   errorTitle: { fontSize: 17, fontWeight: "700", color: "#C62828" },
   errorBody: { fontSize: 15, color: "#1C1C1E" },

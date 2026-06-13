@@ -3,14 +3,15 @@
  */
 
 import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSearch";
-import { defaultNutritionMetaDto, nutritionMetaDtoSchema } from "@oli/contracts/nutritionMeta";
+import { defaultNutritionMetaDto, nutritionMetaDtoSchema, type NutritionMetaDto } from "@oli/contracts/nutritionMeta";
+import { pantryItemSchema, type PantryItem } from "@oli/contracts/nutritionPantry";
 import {
   getDevFoodByBarcode,
   getDevFoodById,
   searchDevFoodCatalog,
 } from "../nutritionDevFoodCatalog";
 import { logger } from "../logger";
-import { userNutritionMetaStateDoc } from "../../db";
+import { userNutritionMetaStateDoc, userPantryCollection } from "../../db";
 import { normalizeFoodNameForGraph } from "../foodGraphNormalize";
 import { isFoodGraphEnabled } from "../foodGraphIds";
 import {
@@ -18,11 +19,23 @@ import {
   getFoodGraphDtoByOliId,
   getFoodGraphDtoBySourceKey,
   queryFoodGraphByNormalizedPrefix,
+  queryFoodGraphByTokens,
   remapSearchItemsThroughFoodGraph,
   resolveUserFoodMemoryMatches,
   upsertFoodGraphFromSearchItem,
   type FoodNodeSource,
 } from "../oliFoodGraph";
+import { bestFoodMatch } from "../foodSearch/foodTextMatch";
+import { buildFoodSearchTokens } from "../foodSearch/searchTokens";
+import { rankFoodSearchResults, type RankCandidate } from "../foodSearch/searchRanking";
+import { getSeedFoodById, getSeedSearchDtos } from "../foodSearch/seedFoodSearch";
+import {
+  fetchOpenFoodFactsProduct,
+  isOpenFoodFactsEnabled,
+  OpenFoodFactsError,
+} from "../foodSources/openFoodFactsClient";
+import { mapOpenFoodFactsProductToFoodGraphNode } from "../foodSources/openFoodFactsAdapter";
+import { foodGraphNodeInputToSearchDto } from "../foodSources/foodGraphNodeMapper";
 import { nutritionixGetItemByNixId, nutritionixGetItemByUpc, nutritionixNaturalNutrients, nutritionixSearchInstant } from "./nutritionixClient";
 import { NutritionixProviderError } from "./nutritionixErrors";
 import {
@@ -81,20 +94,6 @@ function deriveSearchResponseProvider(items: NutritionFoodSearchItemDto[]): "dev
   return "dev_catalog";
 }
 
-function dedupeSearchRows(lists: NutritionFoodSearchItemDto[][], maxItems: number): NutritionFoodSearchItemDto[] {
-  const seen = new Set<string>();
-  const out: NutritionFoodSearchItemDto[] = [];
-  for (const list of lists) {
-    for (const item of list) {
-      if (seen.has(item.id)) continue;
-      seen.add(item.id);
-      out.push(item);
-      if (out.length >= maxItems) return out;
-    }
-  }
-  return out;
-}
-
 function populateCommonTagNamesFromItems(items: NutritionFoodSearchItemDto[]): void {
   for (const item of items) {
     const p = parseOliNutritionixFoodId(item.id);
@@ -113,6 +112,74 @@ async function loadNutritionMeta(uid: string) {
     return defaultNutritionMetaDto();
   }
   return parsed.data;
+}
+
+async function loadPantryItems(uid: string): Promise<PantryItem[]> {
+  try {
+    const snap = await userPantryCollection(uid).get();
+    const out: PantryItem[] = [];
+    for (const doc of snap.docs) {
+      const raw = doc.data() as Record<string, unknown>;
+      const parsed = pantryItemSchema.safeParse({ ...raw, id: typeof raw.id === "string" ? raw.id : doc.id });
+      if (parsed.success) out.push(parsed.data);
+    }
+    return out;
+  } catch (e) {
+    logger.warn({ msg: "pantry_load_failed_food_read", uid, err: e instanceof Error ? e.message.slice(0, 160) : String(e) });
+    return [];
+  }
+}
+
+function pantryItemToSearchDto(p: PantryItem): NutritionFoodSearchItemDto {
+  return {
+    id: p.oliFoodId ?? p.id,
+    name: p.label,
+    servingLabel: p.servingLabel ?? "1 serving",
+    caloriesKcal: p.macrosPerServing.caloriesKcal,
+    proteinG: p.macrosPerServing.proteinG,
+    carbsG: p.macrosPerServing.carbsG,
+    fatG: p.macrosPerServing.fatG,
+    ...(p.productType !== undefined ? { productType: p.productType } : {}),
+    ...(p.storeId !== undefined ? { storeId: p.storeId } : {}),
+  };
+}
+
+interface MembershipSets {
+  favorites: Set<string>;
+  recents: Set<string>;
+  pantry: Set<string>;
+}
+
+function buildMembershipSets(meta: NutritionMetaDto, pantry: PantryItem[]): MembershipSets {
+  const favorites = new Set<string>();
+  const recents = new Set<string>();
+  const pantrySet = new Set<string>();
+  for (const f of meta.favoriteFoods) {
+    if (f.oliFoodId) favorites.add(f.oliFoodId);
+    favorites.add(f.id);
+  }
+  for (const r of meta.recentFoods) {
+    if (r.oliFoodId) recents.add(r.oliFoodId);
+    recents.add(r.id);
+  }
+  for (const p of pantry) {
+    if (p.oliFoodId) pantrySet.add(p.oliFoodId);
+    pantrySet.add(p.id);
+  }
+  return { favorites, recents, pantry: pantrySet };
+}
+
+function toRankCandidate(item: NutritionFoodSearchItemDto, query: string, sets: MembershipSets, forcePantry = false): RankCandidate {
+  const fields = item.brand ? [item.name, item.brand] : [item.name];
+  const match = bestFoodMatch(query, fields);
+  return {
+    item,
+    isFavorite: sets.favorites.has(item.id),
+    isPantry: forcePantry || sets.pantry.has(item.id),
+    isRecent: sets.recents.has(item.id),
+    matchClass: match.matchClass,
+    matchScore: match.score,
+  };
 }
 
 /**
@@ -203,6 +270,33 @@ async function resolveNutritionFoodSearchLegacy(query: string): Promise<Nutritio
   return resolved;
 }
 
+function buildEmptyQuerySearch(
+  pantryDtos: NutritionFoodSearchItemDto[],
+  sets: MembershipSets,
+): NutritionSearchResolved {
+  // No query → curated default surface: pantry first, then the P0 seed catalog.
+  const candidates: RankCandidate[] = [
+    ...pantryDtos.map((item) => ({
+      item,
+      isFavorite: sets.favorites.has(item.id),
+      isPantry: true,
+      isRecent: sets.recents.has(item.id),
+      matchClass: "token" as const,
+      matchScore: 0,
+    })),
+    ...getSeedSearchDtos().map((item) => ({
+      item,
+      isFavorite: sets.favorites.has(item.id),
+      isPantry: sets.pantry.has(item.id),
+      isRecent: sets.recents.has(item.id),
+      matchClass: "token" as const,
+      matchScore: 0,
+    })),
+  ];
+  const items = rankFoodSearchResults(candidates, 40);
+  return { provider: deriveSearchResponseProvider(items), items };
+}
+
 async function resolveNutritionFoodSearchWithGraph(
   query: string,
   ctx: NutritionFoodReadContext,
@@ -214,31 +308,55 @@ async function resolveNutritionFoodSearchWithGraph(
 
   const qNorm = normalizeFoodNameForGraph(q);
   const meta = await loadNutritionMeta(ctx.uid);
-  const userMatches = await resolveUserFoodMemoryMatches(meta, qNorm, 12);
-  const graphPrefixHits = await queryFoodGraphByNormalizedPrefix(qNorm, 18);
+  const pantry = await loadPantryItems(ctx.uid);
+  const sets = buildMembershipSets(meta, pantry);
+  const pantryDtos = pantry.map(pantryItemToSearchDto);
 
-  const earlyPage = dedupeSearchRows([userMatches, graphPrefixHits], 40);
-  if (earlyPage.length >= 40) {
-    const body: NutritionSearchResolved = {
-      provider: deriveSearchResponseProvider(earlyPage),
-      items: earlyPage,
-    };
+  if (q.length === 0) {
+    const body = buildEmptyQuerySearch(pantryDtos, sets);
     searchResultCache.set(cacheKey, body, SEARCH_TTL_MS);
     return body;
   }
 
+  const userMatches = await resolveUserFoodMemoryMatches(meta, qNorm, 12);
+  const graphPrefixHits = await queryFoodGraphByNormalizedPrefix(qNorm, 18);
+  const queryTokens = buildFoodSearchTokens({ name: q });
+  const graphTokenHits = await queryFoodGraphByTokens(queryTokens, 18);
+
+  // Provider (dev/Nutritionix) is the bottom layer. On failure we degrade to
+  // local (seed/graph/memory) results and only surface the failure when there
+  // is nothing else to show.
   const provider = await internalProviderSearch(query);
+  let remapped: NutritionFoodSearchItemDto[] = [];
+  let providerFailure: NutritionSearchFailure | null = null;
   if ("ok" in provider) {
-    return provider;
+    providerFailure = provider;
+  } else {
+    const src: FoodNodeSource = provider.provider === "nutritionix" ? "nutritionix" : "dev_catalog";
+    remapped = await remapSearchItemsThroughFoodGraph(provider.items, src, (it) => it.id);
   }
 
-  const src: FoodNodeSource = provider.provider === "nutritionix" ? "nutritionix" : "dev_catalog";
-  const remapped = await remapSearchItemsThroughFoodGraph(provider.items, src, (it) => it.id);
+  const pool: NutritionFoodSearchItemDto[] = [
+    ...userMatches,
+    ...graphPrefixHits,
+    ...graphTokenHits,
+    ...remapped,
+    ...getSeedSearchDtos(),
+  ];
+  const candidates: RankCandidate[] = [
+    ...pool.map((item) => toRankCandidate(item, q, sets)),
+    ...pantryDtos.map((item) => toRankCandidate(item, q, sets, true)),
+  ];
 
-  const merged = dedupeSearchRows([userMatches, graphPrefixHits, remapped], 40);
+  const items = rankFoodSearchResults(candidates, 40);
+
+  if (items.length === 0 && providerFailure) {
+    return providerFailure;
+  }
+
   const body: NutritionSearchResolved = {
-    provider: deriveSearchResponseProvider(merged),
-    items: merged,
+    provider: deriveSearchResponseProvider(items),
+    items,
   };
   searchResultCache.set(cacheKey, body, SEARCH_TTL_MS);
   return body;
@@ -271,6 +389,15 @@ export async function resolveNutritionFoodDetail(id: string, ctx: NutritionFoodR
       detailItemCache.set(`item:${gHit.id}`, gHit, DETAIL_TTL_MS);
       return gHit;
     }
+  }
+
+  // In-memory P0 seed/supplement catalog. Seed DTOs are searchable but not
+  // persisted to the Food Graph during search, so resolve them here before
+  // falling back to the legacy dev catalog / Nutritionix.
+  const seedHit = getSeedFoodById(trimmed);
+  if (seedHit) {
+    detailItemCache.set(`item:${trimmed}`, seedHit, DETAIL_TTL_MS);
+    return seedHit;
   }
 
   if (mode === "dev") {
@@ -319,6 +446,49 @@ export async function resolveNutritionFoodDetail(id: string, ctx: NutritionFoodR
   }
 }
 
+/**
+ * Open Food Facts barcode fallback: OFF lookup → normalize → persist into the
+ * Food Graph (canonical UPC identity ensures no duplicate node). Returns the
+ * stored DTO, or `null` on miss. Only runs when the Food Graph is enabled (we
+ * must be able to persist) and OFF is enabled. Degrades gracefully on any OFF
+ * transport error.
+ */
+async function tryOpenFoodFactsBarcode(rawBc: string, upcKey: string): Promise<NutritionFoodSearchItemDto | null> {
+  if (!isFoodGraphEnabled() || !isOpenFoodFactsEnabled()) return null;
+  const digits = rawBc.replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  try {
+    const product = await fetchOpenFoodFactsProduct(digits);
+    if (!product) return null;
+    const node = mapOpenFoodFactsProductToFoodGraphNode(product);
+    if (!node) return null;
+    const dto = foodGraphNodeInputToSearchDto(node);
+    const stored = await upsertFoodGraphFromSearchItem(dto, "open", node.sourceKey);
+    detailItemCache.set(upcKey, stored, DETAIL_TTL_MS);
+    detailItemCache.set(`item:${stored.id}`, stored, DETAIL_TTL_MS);
+    return stored;
+  } catch (e) {
+    if (e instanceof OpenFoodFactsError) {
+      logger.warn({ msg: "open_food_facts_barcode_failed", code: e.code, ...(e.httpStatus !== undefined ? { httpStatus: e.httpStatus } : {}) });
+      return null;
+    }
+    throw e;
+  }
+}
+
+/** Dev curated barcode hit (persisted when graph enabled), else OFF fallback. */
+async function devOrOpenFoodFactsBarcode(
+  devHit: NutritionFoodSearchItemDto | null,
+  rawBc: string,
+  upcKey: string,
+): Promise<NutritionFoodSearchItemDto | null> {
+  if (devHit && isFoodGraphEnabled()) {
+    return upsertFoodGraphFromSearchItem(devHit, "dev_catalog", devHit.id);
+  }
+  if (devHit) return devHit;
+  return tryOpenFoodFactsBarcode(rawBc, upcKey);
+}
+
 export async function resolveNutritionFoodBarcode(barcode: string, ctx: NutritionFoodReadContext): Promise<NutritionFoodSearchItemDto | null> {
   void ctx.uid;
   const mode = getNutritionFoodProviderMode();
@@ -348,7 +518,9 @@ export async function resolveNutritionFoodBarcode(barcode: string, ctx: Nutritio
     if (hit && isFoodGraphEnabled()) {
       return upsertFoodGraphFromSearchItem(hit, "dev_catalog", hit.id);
     }
-    return hit;
+    if (hit) return hit;
+    // Graph hit + dev miss → Open Food Facts (Sprint 1 barcode source).
+    return tryOpenFoodFactsBarcode(rawBc, upcKey);
   }
 
   const creds = getNutritionixCredentials();
@@ -360,11 +532,7 @@ export async function resolveNutritionFoodBarcode(barcode: string, ctx: Nutritio
 
   if (mode === "hybrid" && !creds) {
     logger.warn({ msg: "nutritionix_credentials_missing_fallback_dev", context: "food_barcode" });
-    const hit = devHit ?? null;
-    if (hit && isFoodGraphEnabled()) {
-      return upsertFoodGraphFromSearchItem(hit, "dev_catalog", hit.id);
-    }
-    return hit;
+    return devOrOpenFoodFactsBarcode(devHit ?? null, rawBc, upcKey);
   }
 
   if (!creds) {
@@ -376,11 +544,7 @@ export async function resolveNutritionFoodBarcode(barcode: string, ctx: Nutritio
     const doc = firstFoodFromSearchItemResponse(raw);
     if (!doc) {
       if (mode === "hybrid") {
-        const hit = devHit ?? null;
-        if (hit && isFoodGraphEnabled()) {
-          return upsertFoodGraphFromSearchItem(hit, "dev_catalog", hit.id);
-        }
-        return hit;
+        return devOrOpenFoodFactsBarcode(devHit ?? null, rawBc, upcKey);
       }
       return null;
     }
@@ -397,11 +561,7 @@ export async function resolveNutritionFoodBarcode(barcode: string, ctx: Nutritio
     if (e instanceof NutritionixProviderError) {
       if (e.code === "NOT_FOUND") {
         if (mode === "hybrid") {
-          const hit = devHit ?? null;
-          if (hit && isFoodGraphEnabled()) {
-            return upsertFoodGraphFromSearchItem(hit, "dev_catalog", hit.id);
-          }
-          return hit;
+          return devOrOpenFoodFactsBarcode(devHit ?? null, rawBc, upcKey);
         }
         return null;
       }
@@ -411,11 +571,7 @@ export async function resolveNutritionFoodBarcode(barcode: string, ctx: Nutritio
           code: e.code,
           httpStatus: e.httpStatus,
         });
-        const hit = devHit ?? null;
-        if (hit && isFoodGraphEnabled()) {
-          return upsertFoodGraphFromSearchItem(hit, "dev_catalog", hit.id);
-        }
-        return hit;
+        return devOrOpenFoodFactsBarcode(devHit ?? null, rawBc, upcKey);
       }
       throw e;
     }

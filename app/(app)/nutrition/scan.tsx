@@ -16,11 +16,18 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useNutritionBarcodeLookup } from "@/lib/hooks/useNutritionBarcodeLookup";
-import { isValidDayKey, type DayKey } from "@/lib/ui/calendar/types";
-import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import { type DayKey } from "@/lib/ui/calendar/types";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
+type ScanResultState = "notFound" | "error";
+
+function classifyLookupError(error: string): ScanResultState {
+  return /no food matched/i.test(error) ? "notFound" : "error";
+}
+
 export default function NutritionBarcodeScanScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -28,11 +35,7 @@ export default function NutritionBarcodeScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const { lookup } = useNutritionBarcodeLookup();
   const params = useLocalSearchParams<{ day?: string | string[]; returnTo?: string | string[] }>();
-  const dayKey: DayKey = useMemo(() => {
-    const raw = params.day;
-    const d = typeof raw === "string" ? raw : Array.isArray(raw) ? (raw[0] ?? "") : "";
-    return isValidDayKey(d) ? d : getTodayDayKeyLocal();
-  }, [params.day]);
+  const dayKey: DayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
 
   const returnToParam = useMemo(() => {
     const r =
@@ -47,8 +50,14 @@ export default function NutritionBarcodeScanScreen() {
   const [manualCode, setManualCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [resultState, setResultState] = useState<ScanResultState | null>(null);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const lastScanAt = useRef(0);
+  const lastCode = useRef("");
+
+  const goSearch = useCallback(() => {
+    router.push({ pathname: "/(app)/nutrition/search", params: { day: dayKey } });
+  }, [router, dayKey]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -78,15 +87,19 @@ export default function NutritionBarcodeScanScreen() {
       const code = raw.trim();
       if (!code) {
         setMessage("Enter a barcode or scan again.");
+        setResultState("notFound");
         return;
       }
+      lastCode.current = code;
       setBusy(true);
       setMessage(null);
+      setResultState(null);
       setScanFeedback(null);
       const res = await lookup(code);
       setBusy(false);
       if (!res.ok) {
         setMessage(res.error);
+        setResultState(classifyLookupError(res.error));
         return;
       }
       try {
@@ -201,16 +214,51 @@ export default function NutritionBarcodeScanScreen() {
           >
             <Text style={styles.secondaryText}>{busy ? "Looking up…" : "Look up"}</Text>
           </Pressable>
-          {message ? (
-            <Text style={styles.message} accessibilityRole="alert">
-              {message}
-            </Text>
+          {message != null && resultState != null ? (
+            <View
+              style={[styles.resultBox, resultState === "error" ? styles.resultError : styles.resultInfo]}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+            >
+              <Text style={styles.resultTitle}>
+                {resultState === "error" ? "Connection problem" : "No match found"}
+              </Text>
+              <Text style={styles.resultBody}>
+                {resultState === "error"
+                  ? "We couldn't reach the food database. Check your connection and try again."
+                  : message}
+              </Text>
+              <View style={styles.resultActions}>
+                {resultState === "error" && lastCode.current.length > 0 ? (
+                  <Pressable
+                    onPress={() => void resolveBarcode(lastCode.current, undefined)}
+                    disabled={busy}
+                    style={({ pressed }) => [styles.resultBtn, (pressed || busy) && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry barcode lookup"
+                  >
+                    <Text style={styles.resultBtnText}>Try again</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={goSearch}
+                  style={({ pressed }) => [styles.resultBtnGhost, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Search for this food by name instead"
+                >
+                  <Text style={styles.resultBtnGhostText}>Search by name</Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null}
           {scanFeedback ? (
             <Text style={styles.feedbackOk} accessibilityLiveRegion="polite">
               {scanFeedback}
             </Text>
           ) : null}
+          <Text style={styles.attribution} accessibilityRole="text">
+            Packaged foods are matched via Open Food Facts. Data © Open Food Facts contributors.
+          </Text>
         </View>
       </View>
     </ModuleScreenShell>
@@ -251,7 +299,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryText: { color: SYSTEM_ACCENT, fontSize: 17, fontWeight: "700" },
-  message: { fontSize: 15, color: "#C62828" },
   feedbackOk: { fontSize: 15, color: "#2E7D32", lineHeight: 20 },
+  attribution: { fontSize: 12, color: "#8E8E93", lineHeight: 18, marginTop: 4 },
+  resultBox: { borderRadius: 12, padding: 14, gap: 8 },
+  resultInfo: { backgroundColor: "rgba(60, 60, 67, 0.08)" },
+  resultError: { backgroundColor: "rgba(255, 59, 48, 0.08)" },
+  resultTitle: { fontSize: 16, fontWeight: "700", color: "#1C1C1E" },
+  resultBody: { fontSize: 15, color: "#1C1C1E", lineHeight: 21 },
+  resultActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
+  resultBtn: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: SYSTEM_ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  resultBtnGhost: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: SYSTEM_ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultBtnGhostText: { color: SYSTEM_ACCENT, fontSize: 15, fontWeight: "700" },
   pressed: { opacity: 0.65 },
 });
