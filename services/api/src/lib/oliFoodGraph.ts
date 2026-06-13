@@ -5,14 +5,25 @@
 
 import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSearch";
 import type { NutritionMetaDto } from "@oli/contracts/nutritionMeta";
+import {
+  foodGraphSourceSchema,
+  foodServingSchema,
+  nutritionBasisSchema,
+  nutritionPer100gSchema,
+  processingClassSchema,
+} from "@oli/contracts/nutritionProduct";
+import { z } from "zod";
 import { db, FieldValue, foodGraphNodesCollection, foodGraphSourceMapCollection } from "../db";
 import { computeOliFoodIdFromItem, encodeSourceMapKey, isFoodGraphEnabled } from "./foodGraphIds";
 import { logger } from "./logger";
 import { normalizeBrandForGraph, normalizeFoodNameForGraph } from "./foodGraphNormalize";
+import { buildFoodSearchTokens } from "./foodSearch/searchTokens";
 
 export { computeOliFoodIdFromItem, encodeSourceMapKey, isFoodGraphEnabled } from "./foodGraphIds";
 
-export type FoodNodeSource = "nutritionix" | "dev_catalog" | "open" | "usda" | "user";
+export type FoodNodeSource = "nutritionix" | "dev_catalog" | "open" | "usda" | "user" | "curated";
+
+const servingsSchema = z.array(foodServingSchema);
 
 export type FoodGraphMacros = {
   caloriesKcal: number;
@@ -55,6 +66,18 @@ export function foodGraphDocToSearchDto(oliFoodId: string, data: Record<string, 
     data.productType === "food" || data.productType === "supplement" ? data.productType : undefined;
   const storeId = typeof data.storeId === "string" && data.storeId.trim().length > 0 ? data.storeId.trim() : undefined;
 
+  // Food Graph Foundation (Phase A/B) — additive carries, all optional.
+  const per100g = nutritionPer100gSchema.safeParse(data.per100g);
+  const servings = servingsSchema.safeParse(data.servings);
+  const source = foodGraphSourceSchema.safeParse(data.source);
+  const basis = nutritionBasisSchema.safeParse(data.basis);
+  const processingClass = processingClassSchema.safeParse(data.processingClass);
+  const confidence =
+    typeof data.confidence === "number" && Number.isFinite(data.confidence)
+      ? Math.min(1, Math.max(0, data.confidence))
+      : undefined;
+  const attributionRequired = typeof data.attributionRequired === "boolean" ? data.attributionRequired : undefined;
+
   const item: NutritionFoodSearchItemDto = {
     id: oliFoodId,
     name,
@@ -70,6 +93,13 @@ export function foodGraphDocToSearchDto(oliFoodId: string, data: Record<string, 
     ...(barcode !== undefined ? { barcode } : {}),
     ...(productType !== undefined ? { productType } : {}),
     ...(storeId !== undefined ? { storeId } : {}),
+    ...(per100g.success ? { per100g: per100g.data } : {}),
+    ...(servings.success && servings.data.length > 0 ? { servings: servings.data } : {}),
+    ...(source.success ? { source: source.data } : {}),
+    ...(basis.success ? { basis: basis.data } : {}),
+    ...(confidence !== undefined ? { confidence } : {}),
+    ...(attributionRequired !== undefined ? { attributionRequired } : {}),
+    ...(processingClass.success ? { processingClass: processingClass.data } : {}),
   };
   return item;
 }
@@ -116,6 +146,25 @@ export async function queryFoodGraphByNormalizedPrefix(
   return out;
 }
 
+/**
+ * Token recall: find nodes whose `searchTokens` array contains any of the
+ * query tokens (Firestore `array-contains-any`, max 10 values). Exact/token
+ * recall for persisted nodes; fuzzy recall for curated P0 foods comes from the
+ * in-memory seed search layer.
+ */
+export async function queryFoodGraphByTokens(tokens: string[], limit: number): Promise<NutritionFoodSearchItemDto[]> {
+  const unique = [...new Set(tokens.map((t) => t.trim()).filter((t) => t.length > 0))].slice(0, 10);
+  if (unique.length === 0) return [];
+  const col = foodGraphNodesCollection();
+  const snap = await col.where("searchTokens", "array-contains-any", unique).limit(limit).get();
+  const out: NutritionFoodSearchItemDto[] = [];
+  for (const doc of snap.docs) {
+    const dto = foodGraphDocToSearchDto(doc.id, doc.data() as Record<string, unknown>);
+    if (dto) out.push(dto);
+  }
+  return out;
+}
+
 function mergeUniqueSourceKeys(existing: string[] | undefined, next: string): string[] {
   const set = new Set<string>(existing ?? []);
   set.add(next);
@@ -150,6 +199,7 @@ export async function upsertFoodGraphFromSearchItem(
   const brandName = item.brand?.trim() ? item.brand.trim() : undefined;
   const barcode = item.barcode?.trim() ? item.barcode.trim().replace(/\D/g, "").slice(0, 32) : undefined;
   const macros = macrosFromDto(item);
+  const searchTokens = buildFoodSearchTokens({ name: item.name, brand: item.brand });
 
   const nodeRef = foodGraphNodesCollection().doc(oliFoodId);
   const mapRef = foodGraphSourceMapCollection().doc(encodeSourceMapKey(sk));
@@ -170,9 +220,23 @@ export async function upsertFoodGraphFromSearchItem(
         servingLabel: item.servingLabel.trim() || prev?.servingLabel || "1 serving",
         aliases,
         sourceKeys,
+        searchTokens,
         updatedAt: FieldValue.serverTimestamp(),
         createdAt,
       };
+      // Food Graph Foundation carries (additive; preserve prior when absent).
+      if (item.per100g !== undefined) doc.per100g = item.per100g;
+      else if (prev && typeof prev["per100g"] === "object" && prev["per100g"] !== null) doc.per100g = prev["per100g"];
+      if (item.servings !== undefined && item.servings.length > 0) doc.servings = item.servings;
+      else if (prev && Array.isArray(prev["servings"])) doc.servings = prev["servings"];
+      if (item.basis !== undefined) doc.basis = item.basis;
+      else if (prev && (prev["basis"] === "mass" || prev["basis"] === "volume")) doc.basis = prev["basis"];
+      if (item.confidence !== undefined) doc.confidence = item.confidence;
+      else if (prev && typeof prev["confidence"] === "number") doc.confidence = prev["confidence"];
+      if (item.attributionRequired !== undefined) doc.attributionRequired = item.attributionRequired;
+      else if (prev && typeof prev["attributionRequired"] === "boolean") doc.attributionRequired = prev["attributionRequired"];
+      if (item.processingClass !== undefined) doc.processingClass = item.processingClass;
+      else if (prev && typeof prev["processingClass"] === "string") doc.processingClass = prev["processingClass"];
       if (brandName !== undefined) {
         doc.brandName = brandName;
         doc.normalizedBrand = normalizedBrand;

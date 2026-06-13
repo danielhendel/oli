@@ -1,12 +1,13 @@
-import React, { useCallback, useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { useNutritionMeals } from "@/lib/hooks/useNutritionMeals";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
@@ -14,6 +15,8 @@ export default function NutritionMealsScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const meals = useNutritionMeals();
+  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -53,7 +56,10 @@ export default function NutritionMealsScreen() {
               <Pressable
                 key={meal.id}
                 onPress={() =>
-                  router.push({ pathname: "/(app)/nutrition/meal/[mealId]", params: { mealId: meal.id } })
+                  router.push({
+                    pathname: "/(app)/nutrition/meal/[mealId]",
+                    params: { mealId: meal.id, day: dayKey },
+                  })
                 }
                 accessibilityRole="button"
                 accessibilityLabel={`Log ${meal.name}`}

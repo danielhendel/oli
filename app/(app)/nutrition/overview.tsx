@@ -17,6 +17,7 @@ import { NutritionBaselineCard } from "@/lib/ui/nutrition/NutritionBaselineCard"
 import { NutritionYearlyCard } from "@/lib/ui/nutrition/NutritionYearlyCard";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { getTodayDayKeyLocal, addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
+import { isValidDayKey } from "@/lib/ui/calendar/types";
 
 function headingTitleForSelectedDay(selectedDay: string, anchorToday: string): string {
   if (selectedDay === anchorToday) return "Today";
@@ -43,8 +44,8 @@ export default function NutritionOverviewScreen() {
   }, [router, selectedDay]);
 
   const goLogNutrition = useCallback(() => {
-    router.push("/(app)/nutrition/log-hub");
-  }, [router]);
+    router.push({ pathname: "/(app)/nutrition/log-hub", params: { day: selectedDay } });
+  }, [router, selectedDay]);
 
   const loggedDayLabel =
     typeof routeParams.day === "string"
@@ -57,8 +58,12 @@ export default function NutritionOverviewScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!loggedAck) return;
+      // Keep the strip selection on the day we just logged to (source of truth).
+      if (isValidDayKey(loggedDayLabel) && loggedDayLabel !== selectedDay) {
+        setSelectedDay(loggedDayLabel);
+      }
       void data.refetch();
-    }, [loggedAck, data.refetch]),
+    }, [loggedAck, loggedDayLabel, selectedDay, data.refetch]),
   );
 
   useLayoutEffect(() => {

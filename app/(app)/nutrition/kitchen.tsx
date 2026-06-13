@@ -1,19 +1,28 @@
-import React, { useCallback, useLayoutEffect } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { EmptyState, LoadingState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { useNutritionPantry } from "@/lib/hooks/useNutritionPantry";
+import { useNutritionQuickLog } from "@/lib/hooks/useNutritionQuickLog";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
+import { pantryItemToFood } from "@/lib/nutrition/pantryFood";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import type { PantryItem } from "@oli/contracts/nutritionPantry";
 
 export default function NutritionKitchenScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const pantry = useNutritionPantry();
+  const quick = useNutritionQuickLog();
+  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
+  const [logMessage, setLogMessage] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -24,8 +33,17 @@ export default function NutritionKitchenScreen() {
   }, [navigation]);
 
   const onAddProduct = useCallback(() => {
-    router.push("/(app)/nutrition/search");
-  }, [router]);
+    router.push({ pathname: "/(app)/nutrition/search", params: { day: dayKey } });
+  }, [router, dayKey]);
+
+  const onQuickLog = useCallback(
+    async (item: PantryItem) => {
+      setLogMessage(null);
+      const r = await quick.quickLog({ kind: "food", food: pantryItemToFood(item) }, dayKey);
+      setLogMessage(r.ok ? `Logged ${item.label}` : (quick.errorMessage ?? "Could not log"));
+    },
+    [quick, dayKey],
+  );
 
   const onRemove = useCallback(
     (id: string, label: string) => {
@@ -54,6 +72,12 @@ export default function NutritionKitchenScreen() {
           <Text style={styles.addBtnText}>Add product</Text>
         </Pressable>
 
+        {logMessage != null ? (
+          <Text style={styles.logMessage} accessibilityLiveRegion="polite" accessibilityRole="text">
+            {logMessage}
+          </Text>
+        ) : null}
+
         {pantry.loading ? (
           <LoadingState message="Loading kitchen…" variant="inline" />
         ) : pantry.items.length === 0 ? (
@@ -65,13 +89,35 @@ export default function NutritionKitchenScreen() {
           <View style={styles.list}>
             {pantry.items.map((item) => (
               <View key={item.id} style={styles.row} testID={`kitchen-item-${item.id}`}>
-                <View style={styles.rowCopy}>
+                <Pressable
+                  onPress={() => void onQuickLog(item)}
+                  disabled={quick.pendingId === item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quick log ${item.label}`}
+                  style={styles.rowCopy}
+                  testID={`kitchen-quicklog-${item.id}`}
+                >
                   <Text style={styles.rowTitle}>{item.label}</Text>
                   <Text style={styles.rowMeta}>
+                    {item.servingLabel ? `${item.servingLabel} · ` : ""}
                     {Math.round(item.macrosPerServing.caloriesKcal)} kcal ·{" "}
                     {Math.round(item.macrosPerServing.proteinG)} g protein
                   </Text>
-                </View>
+                </Pressable>
+                <Pressable
+                  onPress={() => void onQuickLog(item)}
+                  disabled={quick.pendingId === item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Log ${item.label}`}
+                  style={({ pressed }) => [styles.logBtn, (pressed || quick.pendingId === item.id) && styles.pressed]}
+                  testID={`kitchen-log-${item.id}`}
+                >
+                  {quick.pendingId === item.id ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.logBtnText}>Log</Text>
+                  )}
+                </Pressable>
                 <Pressable
                   onPress={() => onRemove(item.id, item.label)}
                   accessibilityRole="button"
@@ -125,9 +171,20 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(84, 84, 88, 0.36)",
     gap: 8,
   },
-  rowCopy: { flex: 1, gap: 2 },
+  rowCopy: { flex: 1, gap: 2, minHeight: 44, justifyContent: "center" },
   rowTitle: { fontSize: 16, fontWeight: "600", color: UI_TEXT_PRIMARY },
   rowMeta: { fontSize: 14, color: UI_TEXT_SECONDARY },
+  logBtn: {
+    minHeight: 44,
+    minWidth: 56,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: SYSTEM_ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  logMessage: { fontSize: 14, color: "#2E7D32", fontWeight: "600" },
   removeBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
   removeText: { fontSize: 15, color: "#FF453A", fontWeight: "600" },
 });

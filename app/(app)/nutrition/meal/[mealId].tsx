@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { logMealNutrition } from "@/lib/api/usersMe";
 import { buildMealNutritionPayload } from "@/lib/nutrition/mealNutritionPayload";
 import { getDeviceIanaTimeZone } from "@/lib/events/manualNutrition";
-import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
@@ -20,8 +20,9 @@ export default function NutritionMealDetailScreen() {
   const router = useRouter();
   const { getIdToken } = useAuth();
   const meals = useNutritionMeals();
-  const params = useLocalSearchParams<{ mealId?: string | string[] }>();
+  const params = useLocalSearchParams<{ mealId?: string | string[]; day?: string | string[] }>();
   const mealId = typeof params.mealId === "string" ? params.mealId : Array.isArray(params.mealId) ? params.mealId[0] : "";
+  const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
 
   const meal = useMemo(() => meals.items.find((m) => m.id === mealId) ?? null, [meals.items, mealId]);
 
@@ -40,7 +41,6 @@ export default function NutritionMealDetailScreen() {
       Alert.alert("Sign in required", "Sign in to log nutrition.");
       return;
     }
-    const dayKey = getTodayDayKeyLocal();
     const payload = buildMealNutritionPayload({
       dayKey,
       timeZone: getDeviceIanaTimeZone(),
@@ -56,7 +56,7 @@ export default function NutritionMealDetailScreen() {
       pathname: "/(app)/nutrition",
       params: { logged: "1", day: dayKey },
     });
-  }, [meal, getIdToken, router]);
+  }, [meal, getIdToken, router, dayKey]);
 
   if (meals.loading) {
     return (

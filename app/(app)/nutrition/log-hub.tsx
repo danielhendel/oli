@@ -1,15 +1,20 @@
-import React, { useCallback, useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import type { Href } from "expo-router";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { NutritionLogHub, type NutritionLogHubMode } from "@/lib/ui/nutrition/NutritionLogHub";
+import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
+import { nutritionLogHubHref } from "@/lib/nutrition/nutritionLogHubRoutes";
 
 export default function NutritionLogHubScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -21,30 +26,9 @@ export default function NutritionLogHubScreen() {
 
   const onSelectMode = useCallback(
     (mode: NutritionLogHubMode) => {
-      switch (mode) {
-        case "search":
-          router.push("/(app)/nutrition/search");
-          break;
-        case "kitchen":
-          router.push("/(app)/nutrition/kitchen");
-          break;
-        case "meals":
-          router.push("/(app)/nutrition/meals");
-          break;
-        case "supplements":
-          router.push("/(app)/nutrition/supplements");
-          break;
-        case "manual":
-          router.push("/(app)/nutrition/log");
-          break;
-        case "scan":
-          router.push("/(app)/nutrition/scan");
-          break;
-        default:
-          break;
-      }
+      router.push(nutritionLogHubHref(mode, dayKey) as Href);
     },
-    [router],
+    [router, dayKey],
   );
 
   return (

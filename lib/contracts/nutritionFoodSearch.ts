@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { nutritionProductTypeSchema } from "./nutritionProduct";
+import {
+  foodGraphSourceSchema,
+  foodServingSchema,
+  nutritionBasisSchema,
+  nutritionPer100gSchema,
+  nutritionProductTypeSchema,
+  processingClassSchema,
+} from "./nutritionProduct";
 
 /** Read-model item returned by GET /users/me/nutrition/food-search (dev catalog or future proxy). */
 export const nutritionFoodSearchItemDtoSchema = z
@@ -23,6 +30,18 @@ export const nutritionFoodSearchItemDtoSchema = z
     productType: nutritionProductTypeSchema.optional(),
     /** Reference store id when the product is store-branded. */
     storeId: z.string().min(1).optional(),
+    // Food Graph Foundation (Sprint 1, additive/optional — carried for the
+    // serving conversion engine, attribution UI, and search ranking).
+    basis: nutritionBasisSchema.optional(),
+    per100g: nutritionPer100gSchema.optional(),
+    servings: z.array(foodServingSchema).optional(),
+    source: foodGraphSourceSchema.optional(),
+    confidence: z.number().finite().min(0).max(1).optional(),
+    attributionRequired: z.boolean().optional(),
+    processingClass: processingClassSchema.optional(),
+    potassiumMg: z.number().finite().nonnegative().optional(),
+    caffeineMg: z.number().finite().nonnegative().optional(),
+    alcoholG: z.number().finite().nonnegative().optional(),
   })
   .strip();
 
