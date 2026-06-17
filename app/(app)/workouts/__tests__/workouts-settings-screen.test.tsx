@@ -4,6 +4,11 @@ import renderer, { act } from "react-test-renderer";
 jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
   useRouter: () => ({ replace: jest.fn() }),
+  Redirect: ({ href }: { href: string }) => {
+    const React = require("react");
+    const { Text } = require("react-native");
+    return React.createElement(Text, null, `Redirect:${href}`);
+  },
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -31,14 +36,13 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 import WorkoutsSettingsScreen from "../settings";
 
 describe("WorkoutsSettingsScreen", () => {
-  it("renders Strength settings copy and gym section", async () => {
+  it("redirects to Strength log route", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<WorkoutsSettingsScreen />);
       await Promise.resolve();
     });
     const str = JSON.stringify(tree!.toJSON());
-    expect(str).toContain("Strength settings");
-    expect(str).toContain("Gym");
+    expect(str).toContain("Redirect:/(app)/workouts/list");
   });
 });

@@ -1,13 +1,14 @@
 import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 // lib/ui/WeightLogModal.tsx — Manual weight entry modal (bottom-sheet style).
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Modal } from "react-native";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { logWeight } from "@/lib/api/usersMe";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
 import { emitRefresh } from "@/lib/navigation/refreshBus";
+import { useBodyWeightLogMutations } from "@/lib/hooks/useBodyWeightLogMutations";
 
 const LBS_PER_KG = 2.2046226218;
 
@@ -20,15 +21,27 @@ function getDeviceTimeZone(): string {
   }
 }
 
+export type WeightLogModalEditTarget = {
+  rawEventId: string;
+  observedAtIso: string;
+  weightKg: number;
+  bodyFatPercent: number | null;
+  isImported?: boolean;
+  importedSourceLabel?: string;
+};
+
 export type WeightLogModalProps = {
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editTarget?: WeightLogModalEditTarget | null;
 };
 
-export function WeightLogModal({ visible, onClose, onSaved }: WeightLogModalProps) {
+export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }: WeightLogModalProps) {
   const { user, initializing, getIdToken } = useAuth();
+  const { updateEntry, reset: resetMutations } = useBodyWeightLogMutations();
   const { state: prefState } = usePreferences();
+  const prevVisibleRef = useRef(visible);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
   const [unitTouched, setUnitTouched] = useState(false);
   const [weightText, setWeightText] = useState("");
@@ -47,12 +60,29 @@ export function WeightLogModal({ visible, onClose, onSaved }: WeightLogModalProp
   }, [prefState.preferences?.units?.mass, unitTouched]);
 
   useEffect(() => {
-    if (!visible) {
+    const wasVisible = prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+
+    if (wasVisible && !visible) {
       setWeightText("");
       setBodyFatText("");
-      setStatus({ state: "idle" });
+      setStatus((current) => (current.state === "idle" ? current : { state: "idle" }));
+      resetMutations();
+      return;
     }
-  }, [visible]);
+
+    if (!visible || !editTarget) return;
+
+    const massUnit = prefState.preferences?.units?.mass ?? unit;
+    const displayKg = editTarget.weightKg;
+    const display = massUnit === "lb" ? displayKg * LBS_PER_KG : displayKg;
+    setWeightText(display.toFixed(1).replace(/\.0$/, ""));
+    setBodyFatText(
+      editTarget.bodyFatPercent != null && Number.isFinite(editTarget.bodyFatPercent)
+        ? String(editTarget.bodyFatPercent)
+        : "",
+    );
+  }, [visible, editTarget, prefState.preferences?.units?.mass, unit, resetMutations]);
 
   const parsed = useMemo(() => {
     const w = Number(weightText);
@@ -82,21 +112,35 @@ export function WeightLogModal({ visible, onClose, onSaved }: WeightLogModalProp
         setStatus({ state: "error", message: "No auth token" });
         return;
       }
-      const time = new Date().toISOString();
+      const time = editTarget?.observedAtIso ?? new Date().toISOString();
       const timezone = getDeviceTimeZone();
-      const payload = buildManualWeightPayload({
-        time,
-        timezone,
-        weightLbs: parsed.weightLbs,
-        ...(parsed.bodyFatPercent != null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
-      });
-      const res = await logWeight(payload, token);
-      if (!res.ok) {
-        setStatus({ state: "error", message: res.error });
-        return;
+      if (editTarget) {
+        const res = await updateEntry({
+          rawEventId: editTarget.rawEventId,
+          observedAtIso: time,
+          weightLbs: parsed.weightLbs,
+          bodyFatPercent: parsed.bodyFatPercent,
+          timezone,
+        });
+        if (!res.ok) {
+          setStatus({ state: "error", message: res.message });
+          return;
+        }
+      } else {
+        const payload = buildManualWeightPayload({
+          time,
+          timezone,
+          weightLbs: parsed.weightLbs,
+          ...(parsed.bodyFatPercent != null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
+        });
+        const res = await logWeight(payload, token);
+        if (!res.ok) {
+          setStatus({ state: "error", message: res.error });
+          return;
+        }
+        emitRefresh("commandCenter", `${Date.now()}`, { optimisticWeightKg: parsed.weightKg });
       }
       setStatus({ state: "saved" });
-      emitRefresh("commandCenter", `${Date.now()}`, { optimisticWeightKg: parsed.weightKg });
       onSaved();
       onClose();
     } catch (e) {
@@ -111,7 +155,13 @@ export function WeightLogModal({ visible, onClose, onSaved }: WeightLogModalProp
       <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Close modal">
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Log weight</Text>
+          <Text style={styles.title}>{editTarget ? "Edit weight" : "Log weight"}</Text>
+          {editTarget?.isImported ? (
+            <Text style={styles.importedHelp}>
+              Editing creates an Oli correction and does not modify{" "}
+              {editTarget.importedSourceLabel ?? "the original source"}.
+            </Text>
+          ) : null}
           <Text style={styles.label}>Weight</Text>
           <View style={styles.row}>
             <TextInput
@@ -158,7 +208,9 @@ export function WeightLogModal({ visible, onClose, onSaved }: WeightLogModalProp
             accessibilityRole="button"
             accessibilityLabel="Save"
           >
-            <Text style={styles.saveText}>{status.state === "saving" ? "Saving…" : "Save"}</Text>
+            <Text style={styles.saveText}>
+              {status.state === "saving" ? "Saving…" : editTarget ? "Save changes" : "Save"}
+            </Text>
           </Pressable>
           <Pressable onPress={onClose} style={styles.cancelBtn} accessibilityRole="button" accessibilityLabel="Cancel">
             <Text style={styles.cancelText}>Cancel</Text>
@@ -184,6 +236,7 @@ const styles = StyleSheet.create({
   },
   handle: { width: 36, height: 4, backgroundColor: "#C7C7CC", borderRadius: 2, alignSelf: "center", marginBottom: 16 },
   title: { fontSize: 20, fontWeight: "800", color: "#1C1C1E", marginBottom: 16 },
+  importedHelp: { fontSize: 13, color: "#6E6E73", lineHeight: 18, marginBottom: 12 },
   label: { fontSize: 13, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   input: {

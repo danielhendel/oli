@@ -23,7 +23,7 @@ const goalsHref = "/(app)/body/settings";
 
 const sampleReadyBuilt: BuiltBodyCompositionDashCard = {
   tag: "ready",
-  weightPrimaryLabel: "159 lb",
+  weightPrimaryLabel: "159.3 lb",
   readingAsOfLabel: "As of today",
   rows: [
     {
@@ -98,7 +98,7 @@ describe("BodyCompositionCard", () => {
     const text = collectAllText(test);
     expect(text).toContain("Body Composition");
     expect(text).toContain("My goal");
-    expect(text).toContain("159 lb");
+    expect(text).toContain("159.3 lb");
     expect(text).toContain("As of today");
     expect(text).toContain("BMI");
     expect(text).toContain("Body Fat");
@@ -141,7 +141,7 @@ describe("BodyCompositionCard", () => {
       );
     });
     const weight = test.root.findByProps({ testID: "body-composition-weight-primary" });
-    expect(weight.children).toContain("159 lb");
+    expect(weight.children).toContain("159.3 lb");
   });
 
   it("tapping the weight value navigates to the Body Composition page", () => {

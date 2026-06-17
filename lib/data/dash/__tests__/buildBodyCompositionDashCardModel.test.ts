@@ -86,11 +86,32 @@ describe("buildBodyCompositionDashCardModel", () => {
     }
   });
 
-  it("ready: formats hero-style weight and wires BMI / body fat / lean interpretation bars", () => {
+  it("matches Body Composition Today card for 72.902 kg (160.7 lb, not 161 lb)", () => {
+    const overview: BodyCompositionDashCardOverviewSlice = {
+      weightKg: 72.902,
+      bodyFatPercent: 18,
+      bmi: 24.4,
+      leanBodyMassKg: 59.8,
+      hasAnyMetric: true,
+    };
+    const profile = defaultUserProfileMain();
+    profile.body.heightCm = 180;
+    const r = buildBodyCompositionDashCardModel(
+      baseInput({
+        overview,
+        interpretations: interpret(profile, overview),
+      }),
+    );
+    expect(r.tag).toBe("ready");
+    if (r.tag !== "ready") throw new Error("expected ready");
+    expect(r.weightPrimaryLabel).toBe("160.7 lb");
+  });
+
+  it("ready: formats weight with Body Composition precision and wires BMI / body fat / lean interpretation bars", () => {
     const r = buildBodyCompositionDashCardModel(baseInput());
     expect(r.tag).toBe("ready");
     if (r.tag !== "ready") throw new Error("expected ready");
-    expect(r.weightPrimaryLabel).toBe("159 lb");
+    expect(r.weightPrimaryLabel).toBe("159.3 lb");
     expect(r.readingAsOfLabel).toBe("As of today");
     expect(r.rows.map((x) => x.key)).toEqual(["bmi", "bodyFat", "leanMass"]);
     expect(r.rows[0]?.bar.hasValue).toBe(true);

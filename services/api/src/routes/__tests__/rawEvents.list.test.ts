@@ -342,6 +342,7 @@ describe("GET /users/me/raw-events", () => {
 
   const myzoneAppleHealthWorkoutId =
     "appleHealth:v2:workout:2026-04-18T08:09:59.736-0400_2026-04-18T08:12:42.433-0400_50_com.myzonemoves.app.MYZONE";
+  const appleHealthBodyWeightId = "appleHealth:v2:bodyWeight:2026-06-06T14:30:00.000Z_apple_watch";
 
   test("list omits Apple Health v2 workout id when rawEventIngestSuppressions tombstone exists", async () => {
     const docs: DocSnap[] = [
@@ -389,6 +390,64 @@ describe("GET /users/me/raw-events", () => {
         return {
           doc: (id: string) => ({
             get: async () => ({ exists: id === myzoneAppleHealthWorkoutId }),
+          }),
+        };
+      }
+      return { doc: () => ({ get: async () => ({ exists: false }) }) };
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/raw-events?limit=10`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items.map((x: { id: string }) => x.id)).toEqual(["raw_weight_keep"]);
+  });
+
+  test("list omits Apple Health v2 body weight id when rawEventIngestSuppressions tombstone exists", async () => {
+    const docs: DocSnap[] = [
+      {
+        exists: true,
+        id: "raw_weight_keep",
+        data: () => ({
+          schemaVersion: 1,
+          id: "raw_weight_keep",
+          userId: "user_123",
+          sourceId: "manual",
+          kind: "weight",
+          observedAt: "2025-01-02T12:00:00.000Z",
+          receivedAt: "2025-01-02T12:01:00.000Z",
+        }),
+      },
+      {
+        exists: true,
+        id: appleHealthBodyWeightId,
+        data: () => ({
+          schemaVersion: 1,
+          id: appleHealthBodyWeightId,
+          userId: "user_123",
+          sourceId: "apple_health",
+          kind: "weight",
+          observedAt: "2026-06-06T14:30:00.000Z",
+          receivedAt: "2026-06-06T14:30:01.000Z",
+        }),
+      },
+    ];
+
+    const q = createMockQuery(docs);
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEvents") {
+        return {
+          orderBy: q.orderBy,
+          where: q.where,
+          limit: q.limit,
+          startAfter: q.startAfter,
+          get: q.get,
+          doc: () => ({ get: async () => ({ exists: false }) }),
+        };
+      }
+      if (name === "rawEventIngestSuppressions") {
+        return {
+          doc: (id: string) => ({
+            get: async () => ({ exists: id === appleHealthBodyWeightId }),
           }),
         };
       }

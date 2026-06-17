@@ -1,6 +1,6 @@
 // services/api/src/routes/events.ts
 //
-// Apple Health workout delete + re-sync: tombstones live under users/{uid}/rawEventIngestSuppressions/{id}.
+// Apple Health workout/body delete + re-sync: tombstones live under users/{uid}/rawEventIngestSuppressions/{id}.
 // Every attempted tombstone write logs raw_event_suppression_write_success or raw_event_suppression_write_failed;
 // failures propagate (DELETE returns 500 SUPPRESSION_WRITE_FAILED) — never swallowed.
 // Optional ingest precheck audit: RAW_EVENT_SUPPRESSION_AUDIT_IDS=comma,separated,ids
@@ -14,10 +14,13 @@ import { writeFailure } from "../lib/writeFailure";
 import { mergeDistanceIntoExistingAppleHealthWorkoutIfNeeded } from "../lib/mergeAppleHealthWorkoutDistance";
 import { mergeAppleHealthWorkoutPhysiologyIfNeeded } from "../lib/mergeAppleHealthWorkoutPhysiologyIfNeeded";
 import {
-  isAppleHealthWorkoutIngestSuppressionDocId,
+  isAppleHealthIngestSuppressionKind,
+  isRawEventIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
 } from "../lib/rawEventIngestSuppression";
 import { finalizeManualNutritionIngestDelete } from "../lib/nutrition/manualNutritionIngestDelete";
+import { finalizeManualWeightIngestDelete } from "../lib/body/manualWeightIngestDelete";
+import { finalizeManualBodyCompositionIngestDelete } from "../lib/body/manualBodyCompositionIngestDelete";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
@@ -25,16 +28,16 @@ const router = Router();
 
 /**
  * Writes tombstone at `users/{uid}/rawEventIngestSuppressions/{rawEventId}` (ref.path is that exact path).
- * @returns true if Firestore set() ran for an Apple Health v2 workout id; false if id does not use suppression.
+ * @returns true if Firestore set() ran for a suppressible Apple Health v2 id; false if id does not use suppression.
  * @throws on Firestore/set failure (caller must surface — never swallow).
  */
-async function recordAppleHealthWorkoutIngestSuppression(
+async function recordRawEventIngestSuppression(
   uid: string,
   rawEventId: string,
   requestId: string,
   context: "delete_404" | "delete_200",
 ): Promise<boolean> {
-  if (!isAppleHealthWorkoutIngestSuppressionDocId(rawEventId)) {
+  if (!isRawEventIngestSuppressionDocId(rawEventId)) {
     return false;
   }
   const ref = userCollection(uid, "rawEventIngestSuppressions").doc(rawEventId);
@@ -65,12 +68,12 @@ async function recordAppleHealthWorkoutIngestSuppression(
   }
 }
 
-async function isAppleHealthWorkoutIngestSuppressed(
+async function isRawEventIngestSuppressed(
   uid: string,
   idempotencyKey: string,
   requestId: string,
 ): Promise<boolean> {
-  if (!isAppleHealthWorkoutIngestSuppressionDocId(idempotencyKey)) return false;
+  if (!isRawEventIngestSuppressionDocId(idempotencyKey)) return false;
   const audit = shouldLogSuppressionAuditForId(idempotencyKey);
   try {
     const snap = await userCollection(uid, "rawEventIngestSuppressions").doc(idempotencyKey).get();
@@ -111,7 +114,7 @@ function respondIngestDeleteSuppressionFailure(res: Response, requestId: string,
     ok: false as const,
     error: {
       code: "SUPPRESSION_WRITE_FAILED" as const,
-      message: "Could not record workout deletion tombstone. Retry deletion or contact support.",
+      message: "Could not record deletion tombstone. Retry deletion or contact support.",
       details: { message },
     },
     requestId,
@@ -467,8 +470,8 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
 
   if (
     body.provider === "apple_health" &&
-    (body.kind === "workout" || body.kind === "strength_workout") &&
-    (await isAppleHealthWorkoutIngestSuppressed(uid, idempotencyKey, requestId))
+    isAppleHealthIngestSuppressionKind(body.kind) &&
+    (await isRawEventIngestSuppressed(uid, idempotencyKey, requestId))
   ) {
     if (shouldLogSuppressionAuditForId(idempotencyKey)) {
       logger.info({
@@ -665,12 +668,19 @@ const DELETABLE_WORKOUT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
 /** Providers whose nutrition raw events users may remove (manual tracked-meal logs only). */
 const DELETABLE_NUTRITION_EVENT_PROVIDERS = new Set(["manual"]);
 
+/** Providers whose weight raw events users may remove from Oli (manual + Apple Health hide-from-Oli). */
+const DELETABLE_WEIGHT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
+
+/** Providers whose body_composition raw events users may hide from Oli (Apple Health only). */
+const DELETABLE_BODY_COMPOSITION_EVENT_PROVIDERS = new Set(["apple_health"]);
+
 /**
  * DELETE /ingest/:rawEventId
  *
  * Removes a user-owned RawEvent document (Admin SDK). Clients cannot delete via Firestore rules.
- * Allowed for kinds `workout` / `strength_workout` (manual + apple_health) and `nutrition` (manual
- * tracked-meal logs only). Apple Health resurrection suppression applies to workout kinds only.
+ * Allowed for kinds `workout` / `strength_workout` (manual + apple_health), `nutrition` (manual
+ * tracked-meal logs only), `weight` (manual + apple_health hide-from-Oli), and `body_composition`
+ * (apple_health hide-from-Oli). Apple Health resurrection suppression applies to workout and body kinds.
  */
 router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   const requestId = getRid(req);
@@ -745,7 +755,7 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   if (!snap.exists) {
     let suppressionWritten = false;
     try {
-      suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
+      suppressionWritten = await recordRawEventIngestSuppression(
         uid,
         rawEventId,
         requestId,
@@ -796,12 +806,14 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   const doc = parsedDoc.data;
   const isWorkoutKind = doc.kind === "workout" || doc.kind === "strength_workout";
   const isNutritionKind = doc.kind === "nutrition";
-  if (!isWorkoutKind && !isNutritionKind) {
+  const isWeightKind = doc.kind === "weight";
+  const isBodyCompositionKind = doc.kind === "body_composition";
+  if (!isWorkoutKind && !isNutritionKind && !isWeightKind && !isBodyCompositionKind) {
     return res.status(400).json({
       ok: false as const,
       error: {
         code: "NOT_DELETABLE_KIND" as const,
-        message: "Only workout or nutrition entries can be removed with this action",
+        message: "Only workout, nutrition, weight, or body composition entries can be removed with this action",
       },
       requestId,
     });
@@ -809,7 +821,11 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
 
   const allowedProviders = isNutritionKind
     ? DELETABLE_NUTRITION_EVENT_PROVIDERS
-    : DELETABLE_WORKOUT_EVENT_PROVIDERS;
+    : isWeightKind
+      ? DELETABLE_WEIGHT_EVENT_PROVIDERS
+      : isBodyCompositionKind
+        ? DELETABLE_BODY_COMPOSITION_EVENT_PROVIDERS
+        : DELETABLE_WORKOUT_EVENT_PROVIDERS;
   if (!allowedProviders.has(doc.provider)) {
     return res.status(403).json({
       ok: false as const,
@@ -817,7 +833,9 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
         code: "DELETE_NOT_ALLOWED" as const,
         message: isNutritionKind
           ? "This nutrition entry can't be removed from Oli."
-          : "This workout can't be removed from Oli.",
+          : isWeightKind || isBodyCompositionKind
+            ? "This body entry can't be removed from Oli."
+            : "This workout can't be removed from Oli.",
       },
       requestId,
     });
@@ -852,11 +870,14 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   let suppressionWritten = false;
-  // Apple Health resurrection guard applies only to workout kinds. Manual
+  // Apple Health resurrection guard applies to workout + body kinds. Manual
   // nutrition logs are never re-synced, so no suppression tombstone is needed.
-  if (isWorkoutKind) {
+  if (
+    isWorkoutKind ||
+    ((isWeightKind || doc.kind === "body_composition") && doc.provider === "apple_health")
+  ) {
     try {
-      suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
+      suppressionWritten = await recordRawEventIngestSuppression(
         uid,
         rawEventId,
         requestId,
@@ -896,6 +917,74 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
         error: {
           code: "DELETE_DERIVED_TRUTH_FAILED" as const,
           message: "Could not refresh nutrition totals after delete",
+        },
+        requestId,
+      });
+    }
+  }
+
+  if (isWeightKind) {
+    try {
+      await finalizeManualWeightIngestDelete({
+        userId: uid,
+        rawEventId,
+        payload: doc.payload,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest_delete",
+          reasonCode: "WEIGHT_DELETE_DERIVED_TRUTH_FAILED",
+          message: "Failed to remove derived body truth after RawEvent delete",
+          day: dayUtcNow(),
+          requestId,
+          details: { rawEventId, err: message },
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(500).json({
+        ok: false as const,
+        error: {
+          code: "DELETE_DERIVED_TRUTH_FAILED" as const,
+          message: "Could not refresh body metrics after delete",
+        },
+        requestId,
+      });
+    }
+  }
+
+  if (isBodyCompositionKind) {
+    try {
+      await finalizeManualBodyCompositionIngestDelete({
+        userId: uid,
+        rawEventId,
+        payload: doc.payload,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest_delete",
+          reasonCode: "BODY_COMPOSITION_DELETE_DERIVED_TRUTH_FAILED",
+          message: "Failed to refresh body composition after RawEvent delete",
+          day: dayUtcNow(),
+          requestId,
+          details: { rawEventId, err: message },
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(500).json({
+        ok: false as const,
+        error: {
+          code: "DELETE_DERIVED_TRUTH_FAILED" as const,
+          message: "Could not refresh body composition after delete",
         },
         requestId,
       });

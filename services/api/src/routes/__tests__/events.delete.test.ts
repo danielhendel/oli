@@ -6,6 +6,7 @@ import { AddressInfo } from "net";
 import eventsRoutes from "../events";
 import { userCollection } from "../../db";
 import { finalizeManualNutritionIngestDelete } from "../../lib/nutrition/manualNutritionIngestDelete";
+import { finalizeManualWeightIngestDelete } from "../../lib/body/manualWeightIngestDelete";
 import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
@@ -19,6 +20,13 @@ jest.mock("../../lib/nutrition/manualNutritionIngestDelete", () => ({
   })),
   nutritionDayKeyFromManualPayload: jest.requireActual("../../lib/nutrition/manualNutritionIngestDelete")
     .nutritionDayKeyFromManualPayload,
+}));
+
+jest.mock("../../lib/body/manualWeightIngestDelete", () => ({
+  finalizeManualWeightIngestDelete: jest.fn(async () => ({
+    dayKey: "2026-06-06",
+    canonicalDeleted: true,
+  })),
 }));
 
 describe("DELETE /ingest/:rawEventId", () => {
@@ -148,6 +156,58 @@ describe("DELETE /ingest/:rawEventId", () => {
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(suppressSetMock).toHaveBeenCalledTimes(1);
     expect(finalizeManualNutritionIngestDelete).not.toHaveBeenCalled();
+  });
+
+  test("deletes an apple_health weight raw event and records suppression tombstone", async () => {
+    const rawEventId = "appleHealth:v2:bodyWeight:2026-06-06T14:30:00.000Z_apple_watch";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "apple_health",
+      provider: "apple_health",
+      sourceType: "apple_health",
+      kind: "weight",
+      receivedAt: "2026-06-06T14:30:01.000Z",
+      observedAt: "2026-06-06T14:30:00.000Z",
+      payload: {
+        time: "2026-06-06T14:30:00.000Z",
+        timezone: "America/New_York",
+        weightKg: 72.8931,
+      },
+    };
+
+    const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => undefined);
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () =>
+            ({
+              exists: true,
+              data: () => rawEvent,
+            }) as const,
+          delete: deleteMock,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${encodeURIComponent(rawEventId)}`, { method: "DELETE" });
+
+    expect(res.status).toBe(200);
+    const json200 = (await res.json()) as { suppressionWritten: boolean };
+    expect(json200.suppressionWritten).toBe(true);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(suppressSetMock).toHaveBeenCalledTimes(1);
+    expect(finalizeManualWeightIngestDelete).toHaveBeenCalledWith({
+      userId: "user_123",
+      rawEventId,
+      payload: rawEvent.payload,
+    });
   });
 
   test("404 delete still records Apple Health workout suppression for resurrection guard", async () => {

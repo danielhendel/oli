@@ -87,7 +87,7 @@ const mockUseBodyCompositionDashCard = jest.fn(() => ({
   goalsHref: "/(app)/body/settings",
   built: {
     tag: "ready" as const,
-    weightPrimaryLabel: "159 lb",
+    weightPrimaryLabel: "159.3 lb",
     readingAsOfLabel: "As of today",
     rows: [
       {
@@ -218,7 +218,7 @@ describe("Dash Daily Energy card", () => {
     /** Weekly Fitness + remaining cards. */
     expect(text).toContain("Weekly Fitness");
     expect(text).toContain("Body Composition");
-    expect(text).toContain("159 lb");
+    expect(text).toContain("159.3 lb");
     expect(text).toContain("BMI");
     expect(text).toContain("Lean Mass");
     expect(text).toContain("Daily Energy");

@@ -9,7 +9,7 @@ import {
   headerChromeCapsuleShell,
 } from "@/lib/ui/headerChrome";
 import { WorkoutsHeaderRightRow } from "@/lib/ui/headers/WorkoutsHeaderRightRow";
-import { HeaderOverflowMenuButton } from "@/lib/ui/HeaderOverflowMenuButton";
+import { HeaderLogListButton } from "@/lib/ui/HeaderLogListButton";
 import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 export type HeaderControlsProps = {
@@ -20,12 +20,19 @@ export type HeaderControlsProps = {
   /** Defaults to primary label color (same family as back chevron). */
   calendarIconColor?: string;
   calendarIconSize?: number;
+  onLogPress?: () => void;
+  logAccessibilityLabel?: string;
+  /** Defaults to primary label color (same family as calendar icon). */
+  logIconColor?: string;
+  logIconSize?: number;
+  /** @deprecated Use {@link onLogPress} */
   onOverflowPress?: () => void;
+  /** @deprecated Use {@link logAccessibilityLabel} */
   overflowAccessibilityLabel?: string;
 };
 
 /**
- * Trailing header cluster: one shared capsule with individually tappable calendar + overflow segments.
+ * Trailing header cluster: one shared capsule with individually tappable calendar + log-list segments.
  * Handlers and labels are owned by the screen; this component is chrome only.
  */
 export function HeaderControls({
@@ -34,13 +41,19 @@ export function HeaderControls({
   calendarAccessibilityLabel,
   calendarIconColor = UI_TEXT_PRIMARY,
   calendarIconSize = 24,
+  onLogPress,
+  logAccessibilityLabel,
+  logIconColor = UI_TEXT_PRIMARY,
+  logIconSize = 22,
   onOverflowPress,
   overflowAccessibilityLabel,
 }: HeaderControlsProps) {
+  const resolvedLogPress = onLogPress ?? onOverflowPress;
+  const resolvedLogLabel = logAccessibilityLabel ?? overflowAccessibilityLabel;
   const showCalendar = onCalendarPress != null && calendarAccessibilityLabel != null;
-  const showOverflow = onOverflowPress != null && overflowAccessibilityLabel != null;
+  const showLog = resolvedLogPress != null && resolvedLogLabel != null;
 
-  if (!showCalendar && !showOverflow) {
+  if (!showCalendar && !showLog) {
     return null;
   }
 
@@ -61,9 +74,14 @@ export function HeaderControls({
             <Ionicons name="calendar-outline" size={calendarIconSize} color={calendarIconColor} />
           </Pressable>
         ) : null}
-        {showCalendar && showOverflow ? <View style={headerChromeCapsuleDivider} /> : null}
-        {showOverflow ? (
-          <HeaderOverflowMenuButton onPress={onOverflowPress} accessibilityLabel={overflowAccessibilityLabel} />
+        {showCalendar && showLog ? <View style={headerChromeCapsuleDivider} /> : null}
+        {showLog ? (
+          <HeaderLogListButton
+            onPress={resolvedLogPress}
+            accessibilityLabel={resolvedLogLabel}
+            iconColor={logIconColor}
+            iconSize={logIconSize}
+          />
         ) : null}
       </View>
     </WorkoutsHeaderRightRow>

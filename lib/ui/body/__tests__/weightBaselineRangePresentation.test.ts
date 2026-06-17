@@ -13,6 +13,6 @@ describe("formatNinetyDayRangeDeltaLabel", () => {
   });
 
   it("returns zero span when low equals high", () => {
-    expect(formatNinetyDayRangeDeltaLabel(80, 80, "lb")).toBe("0.0 lb");
+    expect(formatNinetyDayRangeDeltaLabel(80, 80, "lb")).toBe("0 lb");
   });
 });

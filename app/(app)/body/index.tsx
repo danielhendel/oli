@@ -80,8 +80,8 @@ export default function BodyOverviewScreen() {
           gap={10}
           calendarAccessibilityLabel="Open body calendar"
           onCalendarPress={() => router.push("/(app)/body/calendar")}
-          overflowAccessibilityLabel="Body settings"
-          onOverflowPress={() => router.push("/(app)/body/settings")}
+          logAccessibilityLabel="Open body composition log"
+          onLogPress={() => router.push("/(app)/body/list")}
         />
       ),
     });

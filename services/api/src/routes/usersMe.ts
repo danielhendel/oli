@@ -67,7 +67,7 @@ import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
 import { loadSleepNightView } from "../lib/sleepNightRead";
 import {
-  isAppleHealthWorkoutIngestSuppressionDocId,
+  isRawEventIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
 } from "../lib/rawEventIngestSuppression";
 import { getRawEventsTruthDebugConfig } from "../lib/workoutTruthDebug";
@@ -76,13 +76,13 @@ const router = Router();
 
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
 
-/** True when an Apple Health workout id is tombstoned for ingest; hide from list/single reads. */
-async function rawEventDocHiddenByAppleHealthIngestSuppression(
+/** True when a suppressible Apple Health v2 id is tombstoned for ingest; hide from list/single reads. */
+async function rawEventDocHiddenByIngestSuppression(
   uid: string,
   id: string,
   requestId: string,
 ): Promise<boolean> {
-  if (!isAppleHealthWorkoutIngestSuppressionDocId(id)) return false;
+  if (!isRawEventIngestSuppressionDocId(id)) return false;
   try {
     const snap = await userCollection(uid, "rawEventIngestSuppressions").doc(id).get();
     if (snap.exists && shouldLogSuppressionAuditForId(id)) {
@@ -107,12 +107,12 @@ async function rawEventDocHiddenByAppleHealthIngestSuppression(
   }
 }
 
-async function filterOutIngestSuppressedAppleHealthWorkoutListItems(
+async function filterOutIngestSuppressedListItems(
   uid: string,
   items: RawEventListItem[],
   requestId: string,
 ): Promise<RawEventListItem[]> {
-  const targets = items.filter((it) => isAppleHealthWorkoutIngestSuppressionDocId(it.id));
+  const targets = items.filter((it) => isRawEventIngestSuppressionDocId(it.id));
   if (targets.length === 0) return items;
 
   const snaps = await Promise.all(
@@ -596,7 +596,7 @@ router.get(
     const { id } = parsedParams.data;
 
     const rid = getRid(req);
-    if (await rawEventDocHiddenByAppleHealthIngestSuppression(uid, id, rid)) {
+    if (await rawEventDocHiddenByIngestSuppression(uid, id, rid)) {
       res.status(404).json({
         ok: false,
         error: { code: "NOT_FOUND", resource: "rawEvents", id },
@@ -660,7 +660,7 @@ router.get(
     const { id } = parsed.data;
 
     const rid = getRid(req);
-    if (await rawEventDocHiddenByAppleHealthIngestSuppression(uid, id, rid)) {
+    if (await rawEventDocHiddenByIngestSuppression(uid, id, rid)) {
       res.status(404).json({
         ok: false,
         error: {
@@ -912,7 +912,7 @@ router.get(
 
     const hasMore = hasPostFilters ? false : docs.length > limit;
     let outItems = hasPostFilters ? items : hasMore ? items.slice(0, -1) : items;
-    outItems = await filterOutIngestSuppressedAppleHealthWorkoutListItems(
+    outItems = await filterOutIngestSuppressedListItems(
       uid,
       outItems as RawEventListItem[],
       getRid(req),

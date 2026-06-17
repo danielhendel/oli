@@ -74,8 +74,8 @@ export default function SleepScreen() {
         <HeaderControls
           calendarAccessibilityLabel="Open sleep calendar"
           onCalendarPress={() => router.push("/(app)/recovery/sleep/calendar")}
-          overflowAccessibilityLabel="Sleep settings"
-          onOverflowPress={() => router.push("/(app)/recovery/sleep/settings")}
+          logAccessibilityLabel="Open sleep log"
+          onLogPress={() => router.push("/(app)/recovery/sleep/list")}
         />
       ),
     });

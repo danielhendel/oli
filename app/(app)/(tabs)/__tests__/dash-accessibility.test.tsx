@@ -36,7 +36,7 @@ const mockUseBodyCompositionDashCard = jest.fn(() => ({
   goalsHref: "/(app)/body/settings",
   built: {
     tag: "ready" as const,
-    weightPrimaryLabel: "159 lb",
+    weightPrimaryLabel: "159.3 lb",
     readingAsOfLabel: "As of today",
     rows: [
       {
@@ -196,7 +196,7 @@ describe("Dash accessibility", () => {
       goalsHref: "/(app)/body/settings",
       built: {
         tag: "ready" as const,
-        weightPrimaryLabel: "159 lb",
+        weightPrimaryLabel: "159.3 lb",
         readingAsOfLabel: "As of today",
         rows: [
           {
@@ -273,7 +273,7 @@ describe("Dash accessibility", () => {
     /** Legacy hero is gone. */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
     /** Body Composition card row is present. */
-    expect(text).toContain("159 lb");
+    expect(text).toContain("159.3 lb");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Weekly Fitness");
     /** Daily Energy still renders. */

@@ -6,8 +6,8 @@ import type { BodyOverviewInterpretations } from "@/lib/body/bodyCompositionInte
 import type { InterpretationBarModel } from "@/lib/body/bodyOverviewInterpretationBar";
 import {
   formatBodyBmi,
-  formatBodyHeroWeightLabel,
   formatBodyLeanMass,
+  formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
 import { interpretationBarAccessibilityLabel } from "@/lib/ui/body/InterpretationQualityBar";
 
@@ -88,7 +88,7 @@ export function buildBodyCompositionDashCardModel(
   const { bmi: bmiIx, bodyFat: bfIx, lean: leanIx } = interpretations;
 
   const weightPrimaryLabel =
-    overview.weightKg != null ? formatBodyHeroWeightLabel(overview.weightKg, massUnit) : "—";
+    overview.weightKg != null ? formatBodyWeight(overview.weightKg, massUnit) : "—";
 
   const rows: BodyCompositionDashMetricRow[] = [
     {

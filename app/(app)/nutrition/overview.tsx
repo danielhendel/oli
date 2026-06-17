@@ -77,8 +77,8 @@ export default function NutritionOverviewScreen() {
         <HeaderControls
           calendarAccessibilityLabel="Open nutrition calendar"
           onCalendarPress={() => router.push("/(app)/nutrition/calendar")}
-          overflowAccessibilityLabel="Nutrition menu"
-          onOverflowPress={() => router.push("/(app)/nutrition/settings")}
+          logAccessibilityLabel="Open nutrition log"
+          onLogPress={() => router.push("/(app)/nutrition/list")}
         />
       ),
       title: "Nutrition",

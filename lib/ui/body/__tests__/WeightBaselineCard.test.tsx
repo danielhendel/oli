@@ -78,7 +78,7 @@ describe("WeightBaselineCard", () => {
     expect(text).not.toContain("↕️");
     expect(text).not.toContain("⬆️");
     expect(text).toContain("90 Day Low");
-    expect(text).toContain("172.0 lb");
+    expect(text).toContain("172 lb");
     expect(text).toContain("90 Day High");
     expect(text).toContain("180.8 lb");
     expect(text).toContain("Change");

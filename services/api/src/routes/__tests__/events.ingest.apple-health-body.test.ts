@@ -15,6 +15,13 @@ const mockColRef = {
 
 const mockUserCollection = jest.fn((_uid: string, name: string) => {
   if (name === "rawEvents") return mockColRef;
+  if (name === "rawEventIngestSuppressions") {
+    return {
+      doc: () => ({
+        get: jest.fn().mockResolvedValue({ exists: false }),
+      }),
+    };
+  }
   return {};
 });
 
