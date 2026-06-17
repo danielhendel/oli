@@ -75,10 +75,7 @@ function formatDurationMinutes(minutes: number): string {
   return `${m}m`;
 }
 
-function mealSlotLabel(slot: string | undefined): string {
-  if (!slot) return "";
-  return slot.charAt(0).toUpperCase() + slot.slice(1);
-}
+import { formatMealSlotDisplayLabel } from "@/lib/nutrition/mealSlot";
 
 function accessibilityLabelFor(title: string, subtitle?: string): string {
   return [title, subtitle].filter((s): s is string => !!s && s.length > 0).join(", ");
@@ -138,10 +135,10 @@ function buildNutritionItems(
         ? food
         : pl.logScope === "day_aggregate"
           ? "Quick add"
-          : mealSlotLabel(pl.mealSlot) || "Nutrition";
+          : formatMealSlotDisplayLabel(pl.mealSlot) || "Nutrition";
 
     const subtitleParts = [
-      mealSlotLabel(pl.mealSlot),
+      formatMealSlotDisplayLabel(pl.mealSlot),
       `${Math.round(pl.totalKcal)} kcal`,
     ].filter((s) => s.length > 0);
 

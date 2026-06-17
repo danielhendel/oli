@@ -1,223 +1,228 @@
-import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { MealFoodRow } from "@/lib/data/nutrition/buildNutritionMealBuilderTotals";
-import { sanitizeNutritionAmountInput } from "@/lib/nutrition/nutritionLogInput";
+import React from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import type {
+  NutritionMealDraftItem,
+  NutritionMealDraftMacros,
+} from "@/lib/data/nutrition/nutritionMealDraftStore";
+import { formatMealDraftSubtotal } from "@/lib/nutrition/mealDraftItem";
+import { NutritionSourceBadges } from "@/lib/ui/nutrition/NutritionSourceBadges";
 import { NUTRITION_ACCENT } from "@/lib/ui/nutrition/nutritionOverviewTheme";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
 export type NutritionMealBuilderCardProps = {
-  rows: MealFoodRow[];
-  onAddRow: () => void;
-  onRemoveRow: (id: string) => void;
-  onUpdateRow: (id: string, patch: Partial<MealFoodRow>) => void;
-  mealSubtotalLine: string;
-  onAddMealToDay: () => { ok: true } | { ok: false; message: string };
+  items: readonly NutritionMealDraftItem[];
+  totals: NutritionMealDraftMacros;
+  onAddItem: () => void;
+  onEditItem: (id: string) => void;
+  onRemoveItem: (id: string) => void;
+  onAddMealToDay: () => void;
+  addingToDay?: boolean;
+  statusMessage?: string | null;
+  statusTone?: "success" | "error";
 };
 
 export function NutritionMealBuilderCard({
-  rows,
-  onAddRow,
-  onRemoveRow,
-  onUpdateRow,
-  mealSubtotalLine,
+  items,
+  totals,
+  onAddItem,
+  onEditItem,
+  onRemoveItem,
   onAddMealToDay,
+  addingToDay = false,
+  statusMessage = null,
+  statusTone = "success",
 }: NutritionMealBuilderCardProps) {
-  const [mealHint, setMealHint] = useState<string | null>(null);
+  const empty = items.length === 0;
 
   return (
     <View style={styles.stack}>
       <Text style={styles.lede}>
-        Add food-style rows with macros. Nothing is saved until you add the meal to your day draft or save the day.
+        Add foods from Search, Kitchen, Recents, Supplements, or scan a barcode. Nothing is saved
+        until you add the meal to your day or save it.
       </Text>
 
       <View style={styles.group}>
         <Text style={styles.groupTitle} accessibilityRole="header">
           Meal items
         </Text>
-        {rows.map((row) => (
-          <View key={row.id} style={styles.rowCard}>
-            <View style={styles.rowHead}>
-              <TextInput
-                style={styles.nameInput}
-                value={row.label}
-                onChangeText={(t) => onUpdateRow(row.id, { label: t })}
-                placeholder="Label (optional)"
-                placeholderTextColor="#AEAEB2"
-                accessibilityLabel="Food label optional"
-              />
-              {rows.length > 1 ? (
+
+        {empty ? (
+          <View style={styles.emptyBox} testID="meal-items-empty">
+            <Text style={styles.emptyTitle}>No items yet</Text>
+            <Text style={styles.emptyBody}>Tap “Add item” to choose a food for this meal.</Text>
+          </View>
+        ) : (
+          items.map((item) => (
+            <View key={item.id} style={styles.rowCard} testID={`meal-item-${item.id}`}>
+              <View style={styles.rowMain}>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {item.label}
+                </Text>
+                <Text style={styles.rowMeta} numberOfLines={1}>
+                  {item.servingLabel} · {Math.round(item.macros.caloriesKcal)} kcal · P{" "}
+                  {Math.round(item.macros.proteinG)} · C {Math.round(item.macros.carbsG)} · F{" "}
+                  {Math.round(item.macros.fatG)}
+                </Text>
+                <NutritionSourceBadges
+                  source={item.source}
+                  productType={item.productType}
+                  attributionRequired={item.attributionRequired}
+                  compact
+                />
+              </View>
+              <View style={styles.rowActions}>
                 <Pressable
-                  onPress={() => onRemoveRow(row.id)}
-                  style={({ pressed }) => [styles.removeBtn, pressed && styles.pressed]}
+                  onPress={() => onEditItem(item.id)}
                   accessibilityRole="button"
-                  accessibilityLabel="Remove item"
-                  hitSlop={8}
+                  accessibilityLabel={`Edit ${item.label}`}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+                  testID={`meal-item-edit-${item.id}`}
+                >
+                  <Text style={styles.editText}>Edit</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => onRemoveItem(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.label}`}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+                  testID={`meal-item-remove-${item.id}`}
                 >
                   <Text style={styles.removeText}>Remove</Text>
                 </Pressable>
-              ) : null}
+              </View>
             </View>
-            <View style={styles.miniGrid}>
-              <MiniField
-                label="Cal"
-                value={row.calories}
-                onChangeText={(t) => onUpdateRow(row.id, { calories: sanitizeNutritionAmountInput(t) })}
-              />
-              <MiniField
-                label="P"
-                value={row.proteinG}
-                onChangeText={(t) => onUpdateRow(row.id, { proteinG: sanitizeNutritionAmountInput(t) })}
-              />
-              <MiniField
-                label="C"
-                value={row.carbsG}
-                onChangeText={(t) => onUpdateRow(row.id, { carbsG: sanitizeNutritionAmountInput(t) })}
-              />
-              <MiniField
-                label="F"
-                value={row.fatG}
-                onChangeText={(t) => onUpdateRow(row.id, { fatG: sanitizeNutritionAmountInput(t) })}
-              />
-              <MiniField
-                label="Fi"
-                value={row.fiberG}
-                onChangeText={(t) => onUpdateRow(row.id, { fiberG: sanitizeNutritionAmountInput(t) })}
-              />
-            </View>
-          </View>
-        ))}
+          ))
+        )}
 
         <Pressable
-          onPress={onAddRow}
+          onPress={onAddItem}
           style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel="Add another item"
+          accessibilityLabel="Add item to meal"
+          testID="meal-add-item"
         >
           <Text style={styles.secondaryBtnText}>+ Add item</Text>
         </Pressable>
 
         <View style={styles.subtotalBox}>
           <Text style={styles.subtotalLabel}>This meal</Text>
-          <Text style={styles.subtotalValue}>{mealSubtotalLine}</Text>
+          <Text style={styles.subtotalValue} testID="meal-subtotal">
+            {formatMealDraftSubtotal(totals)}
+            {totals.fiberG > 0 ? ` · Fiber ${Math.round(totals.fiberG)}` : ""}
+          </Text>
         </View>
 
-        {mealHint != null ? (
-          <Text style={styles.hint} accessibilityRole="alert">
-            {mealHint}
+        {statusMessage != null ? (
+          <Text
+            style={[styles.status, statusTone === "error" ? styles.statusError : styles.statusOk]}
+            accessibilityRole={statusTone === "error" ? "alert" : "text"}
+            accessibilityLiveRegion="polite"
+            testID="meal-add-to-day-status"
+          >
+            {statusMessage}
           </Text>
         ) : null}
 
         <Pressable
-          onPress={() => {
-            const r = onAddMealToDay();
-            if (!r.ok) setMealHint(r.message);
-            else setMealHint(null);
-          }}
-          style={({ pressed }) => [styles.primaryOutline, pressed && styles.pressed]}
+          onPress={onAddMealToDay}
+          disabled={empty || addingToDay}
+          style={({ pressed }) => [
+            styles.primary,
+            (empty || addingToDay) && styles.primaryDisabled,
+            pressed && styles.pressed,
+          ]}
           accessibilityRole="button"
-          accessibilityLabel="Add meal totals to day draft"
+          accessibilityLabel="Add meal to day"
+          accessibilityState={{ disabled: empty || addingToDay }}
+          testID="meal-add-to-day"
         >
-          <Text style={styles.primaryOutlineText}>Add meal to day</Text>
+          {addingToDay ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryText}>Add meal to day</Text>
+          )}
         </Pressable>
       </View>
     </View>
   );
 }
 
-function MiniField(props: { label: string; value: string; onChangeText: (t: string) => void }) {
-  return (
-    <View style={styles.miniCell}>
-      <Text style={styles.miniLab}>{props.label}</Text>
-      <TextInput
-        style={styles.miniIn}
-        value={props.value}
-        onChangeText={props.onChangeText}
-        keyboardType="decimal-pad"
-        placeholder="0"
-        placeholderTextColor="#AEAEB2"
-        accessibilityLabel={`${props.label} grams or calories`}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   stack: { gap: 16 },
-  lede: { fontSize: 15, lineHeight: 22, color: "#636366", letterSpacing: -0.2 },
+  lede: { fontSize: 15, lineHeight: 22, color: UI_TEXT_SECONDARY, letterSpacing: -0.2 },
   group: {
     backgroundColor: UI_CARD_SURFACE,
     borderRadius: 12,
     padding: 16,
     gap: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.12)",
+    ...elevatedCardSurfaceStyle,
   },
   groupTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#8E8E93",
+    color: UI_TEXT_SECONDARY,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
+  emptyBox: {
+    paddingVertical: 20,
+    paddingHorizontal: 8,
+    gap: 4,
+    alignItems: "center",
+  },
+  emptyTitle: { fontSize: 16, fontWeight: "600", color: UI_TEXT_PRIMARY },
+  emptyBody: { fontSize: 14, color: UI_TEXT_SECONDARY, textAlign: "center", lineHeight: 20 },
   rowCard: {
-    gap: 10,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E5E5EA",
+    borderTopColor: UI_BORDER_HAIRLINE,
   },
-  rowHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  nameInput: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.18)",
-    paddingHorizontal: 12,
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#1C1C1E",
-  },
-  removeBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
-  removeText: { fontSize: 16, fontWeight: "600", color: "#FF3B30" },
-  miniGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  miniCell: { width: "18%", minWidth: 56, gap: 4 },
-  miniLab: { fontSize: 11, fontWeight: "700", color: "#8E8E93" },
-  miniIn: {
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.18)",
-    paddingHorizontal: 8,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1C1C1E",
-    textAlign: "center",
-  },
+  rowMain: { flex: 1, gap: 4 },
+  rowTitle: { fontSize: 16, fontWeight: "600", color: UI_TEXT_PRIMARY, lineHeight: 21 },
+  rowMeta: { fontSize: 14, color: UI_TEXT_SECONDARY, lineHeight: 19 },
+  rowActions: { alignItems: "flex-end", gap: 6 },
+  actionBtn: { minHeight: 36, justifyContent: "center", paddingHorizontal: 4 },
+  editText: { fontSize: 15, fontWeight: "600", color: NUTRITION_ACCENT },
+  removeText: { fontSize: 15, fontWeight: "600", color: "#FF453A" },
   secondaryBtn: {
     minHeight: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.22)",
+    borderColor: UI_BORDER_HAIRLINE,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryBtnText: { fontSize: 16, fontWeight: "600", color: NUTRITION_ACCENT },
   subtotalBox: {
-    backgroundColor: "rgba(52, 199, 89, 0.1)",
+    backgroundColor: "rgba(52, 199, 89, 0.12)",
     borderRadius: 12,
     padding: 14,
     gap: 4,
   },
-  subtotalLabel: { fontSize: 13, fontWeight: "700", color: "#3C3C43" },
-  subtotalValue: { fontSize: 16, fontWeight: "700", color: "#1C1C1E" },
-  hint: { fontSize: 14, color: "#C62828", fontWeight: "500" },
-  primaryOutline: {
+  subtotalLabel: { fontSize: 13, fontWeight: "700", color: UI_TEXT_SECONDARY },
+  subtotalValue: { fontSize: 16, fontWeight: "700", color: UI_TEXT_PRIMARY },
+  status: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  statusOk: { color: "#34C759" },
+  statusError: { color: "#FF6961" },
+  primary: {
     minHeight: 52,
     borderRadius: 14,
     backgroundColor: NUTRITION_ACCENT,
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryOutlineText: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
-  pressed: { opacity: 0.88 },
+  primaryDisabled: { opacity: 0.5 },
+  primaryText: { fontSize: 17, fontWeight: "700", color: "#FFFFFF" },
+  pressed: { opacity: 0.85 },
 });

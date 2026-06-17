@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { FoodGraphSource, NutritionProductType } from "@oli/contracts/nutritionProduct";
+import { UI_BORDER_HAIRLINE, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 const SOURCE_LABEL: Partial<Record<FoodGraphSource, string>> = {
   usda: "USDA",
@@ -64,11 +65,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: "rgba(60, 60, 67, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
   },
-  badgeText: { fontSize: 12, fontWeight: "600", color: "#636366" },
-  supplement: { backgroundColor: "rgba(88, 86, 214, 0.14)" },
-  supplementText: { color: "#5856D6" },
-  attribution: { backgroundColor: "rgba(0, 122, 255, 0.1)" },
-  attributionText: { color: "#0A84FF" },
+  badgeText: { fontSize: 12, fontWeight: "600", color: UI_TEXT_SECONDARY },
+  supplement: { backgroundColor: "rgba(88, 86, 214, 0.2)" },
+  supplementText: { color: "#AEB0FF" },
+  attribution: { backgroundColor: "rgba(10, 132, 255, 0.16)" },
+  attributionText: { color: "#64B5FF" },
 });

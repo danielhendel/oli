@@ -68,12 +68,19 @@ const ENTRIES: readonly HubEntry[] = [
 
 type Props = {
   onSelectMode: (mode: NutritionLogHubMode) => void;
+  /** Override the intro copy (e.g. meal-builder reuse). */
+  lede?: string;
+  testID?: string;
 };
 
-export function NutritionLogHub({ onSelectMode }: Props) {
+export function NutritionLogHub({
+  onSelectMode,
+  lede = "Choose how you want to log nutrition today.",
+  testID = "nutrition-log-hub",
+}: Props) {
   return (
-    <View style={styles.wrap} testID="nutrition-log-hub">
-      <Text style={styles.lede}>Choose how you want to log nutrition today.</Text>
+    <View style={styles.wrap} testID={testID}>
+      <Text style={styles.lede}>{lede}</Text>
       <View style={styles.list}>
         {ENTRIES.map((entry) => (
           <Pressable

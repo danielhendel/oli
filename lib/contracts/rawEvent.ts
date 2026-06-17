@@ -406,7 +406,20 @@ export const manualNutritionPayloadSchema = manualWindowBaseSchema
     sodiumMg: z.number().finite().nonnegative().nullable().optional(),
     potassiumMg: z.number().finite().nonnegative().nullable().optional(),
     foodHash: z.string().min(1).max(80).optional(),
-    mealSlot: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
+    mealSlot: z
+      .enum([
+        "breakfast",
+        "lunch",
+        "dinner",
+        "snack",
+        "meal1",
+        "meal2",
+        "meal3",
+        "meal4",
+        "meal5",
+        "meal6",
+      ])
+      .optional(),
   })
   .strip();
 

@@ -8,6 +8,12 @@ jest.mock("react-native-safe-area-context", () => ({
 import { NutritionServingPicker } from "@/lib/ui/nutrition/NutritionServingPicker";
 import { defaultServingOption } from "@/lib/nutrition/servingSelection";
 import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSearch";
+import { Text } from "react-native";
+
+function flatStyle(style: unknown): Record<string, unknown> {
+  if (!style) return {};
+  return Array.isArray(style) ? Object.assign({}, ...style) : (style as Record<string, unknown>);
+}
 
 const eggs: NutritionFoodSearchItemDto = {
   id: "oli:fg:eggs",
@@ -122,5 +128,23 @@ describe("NutritionServingPicker", () => {
     });
     const summary = tree!.root.findByProps({ testID: "serving-nutrition-summary" });
     expect(summary.props.accessibilityLabel).toContain("400 calories");
+  });
+
+  it("uses dark-theme readable colors for macro summary text", () => {
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <NutritionServingPicker
+          food={eggs}
+          selectedOptionKey={defaultServingOption(eggs).key}
+          quantityText="1"
+          onSelectOption={jest.fn()}
+          onChangeQuantity={jest.fn()}
+        />,
+      );
+    });
+    const summary = tree!.root.findByProps({ testID: "serving-nutrition-summary" });
+    const summaryText = summary.findByType(Text);
+    expect(flatStyle(summaryText.props.style).color).toBe("#F7F8FA");
   });
 });

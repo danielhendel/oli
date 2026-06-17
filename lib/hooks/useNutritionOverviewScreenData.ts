@@ -5,6 +5,8 @@ import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useEvents } from "@/lib/data/useEvents";
 import { useRawEvents } from "@/lib/data/useRawEvents";
 import { buildNutritionTodayCardModel } from "@/lib/data/nutrition/nutritionTodayCardModel";
+import { resolveNutritionDisplayNutrition } from "@/lib/data/nutrition/nutritionDisplayNutrition";
+import { rollupNutritionTotalsFromRawEvents } from "@/lib/data/nutrition/nutritionRawDayRollup";
 import {
   buildNutritionRecentMealRowsFromRaw,
   type NutritionRecentCardModel,
@@ -59,6 +61,7 @@ export type NutritionOverviewScreenData = {
   weeklyStripDays: CalendarDay<NutritionDayStripMeta>[];
   recentCard: NutritionRecentCardModel;
   hasDayRollup: boolean;
+  totalsSyncing: boolean;
   recentRaw: NutritionRecentRawUi;
   weeklyInsights: NutritionWeeklyInsightsModel;
   thisWeekCard: NutritionThisWeekCardModel;
@@ -210,17 +213,29 @@ export function useNutritionOverviewScreenData(selectedDayKey = getTodayDayKeyLo
     });
   }, [eventItems, selectedNutritionYear, todayKey, factsRollup.byDay]);
 
-  const todayCard = useMemo(() => {
-    if (facts.status === "ready") {
-      return buildNutritionTodayCardModel({ nutrition: facts.data.nutrition });
-    }
-    return buildNutritionTodayCardModel({ nutrition: undefined });
-  }, [facts]);
+  const rawRollup = useMemo(() => {
+    if (rawNutritionDay.status !== "ready") return null;
+    return rollupNutritionTotalsFromRawEvents(rawNutritionDay.data.items);
+  }, [rawNutritionDay]);
 
-  const hasDayRollup = useMemo(() => {
-    if (facts.status !== "ready") return false;
-    return hasNutritionRollupFacts(facts.data.nutrition);
-  }, [facts]);
+  const displayNutrition = useMemo(() => {
+    const factsNutrition = facts.status === "ready" ? facts.data.nutrition : undefined;
+    return resolveNutritionDisplayNutrition({
+      factsNutrition,
+      rawRollup,
+      rawEventsReady: rawNutritionDay.status === "ready",
+    });
+  }, [facts, rawRollup, rawNutritionDay.status]);
+
+  const todayCard = useMemo(
+    () => buildNutritionTodayCardModel({ nutrition: displayNutrition.nutrition }),
+    [displayNutrition.nutrition],
+  );
+
+  const hasDayRollup = useMemo(
+    () => hasNutritionRollupFacts(displayNutrition.nutrition),
+    [displayNutrition.nutrition],
+  );
 
   const todayFacts = useMemo((): NutritionTodayFactsUi => {
     if (initializing || !user) return { readiness: "partial", isLoading: true };
@@ -262,6 +277,7 @@ export function useNutritionOverviewScreenData(selectedDayKey = getTodayDayKeyLo
     weeklyStripDays,
     recentCard,
     hasDayRollup,
+    totalsSyncing: displayNutrition.totalsSyncing,
     recentRaw,
     weeklyInsights,
     thisWeekCard,

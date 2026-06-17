@@ -18,6 +18,7 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useNutritionFoodSearchQuery } from "@/lib/hooks/useNutritionFoodSearchQuery";
 import { useNutritionMeta } from "@/lib/hooks/useNutritionMeta";
 import { useNutritionQuickLog } from "@/lib/hooks/useNutritionQuickLog";
+import { useAddFoodToMealDraft } from "@/lib/hooks/useAddFoodToMealDraft";
 import { type DayKey } from "@/lib/ui/calendar/types";
 import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
@@ -44,22 +45,34 @@ export default function NutritionFoodSearchScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const params = useLocalSearchParams<{ day?: string | string[]; mode?: string | string[] }>();
   const dayKey: DayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
+  const isMealDraft = useMemo(() => {
+    const m = typeof params.mode === "string" ? params.mode : Array.isArray(params.mode) ? params.mode[0] : "";
+    return m === "mealDraft";
+  }, [params.mode]);
 
   const search = useNutritionFoodSearchQuery();
   const metaApi = useNutritionMeta();
   const quick = useNutritionQuickLog();
+  const draftAdd = useAddFoodToMealDraft();
   const [quickMessage, setQuickMessage] = useState<string | null>(null);
 
   const quickLogRef = useCallback(
     async (id: string, name: string) => {
       setQuickMessage(null);
+      if (isMealDraft) {
+        const r = await draftAdd.addToDraft({ kind: "ref", id });
+        setQuickMessage(r.ok ? `Added ${name} to meal` : (draftAdd.errorMessage ?? "Could not add"));
+        return;
+      }
       const r = await quick.quickLog({ kind: "ref", id }, dayKey);
       setQuickMessage(r.ok ? `Logged ${name}` : (quick.errorMessage ?? "Could not log"));
     },
-    [quick, dayKey],
+    [isMealDraft, draftAdd, quick, dayKey],
   );
+
+  const quickPendingId = isMealDraft ? draftAdd.pendingId : quick.pendingId;
 
   const favoriteHashes = useMemo(
     () => new Set((metaApi.meta?.favoriteFoods ?? []).map((f) => f.foodHash)),
@@ -106,15 +119,18 @@ export default function NutritionFoodSearchScreen() {
     (item: NutritionFoodSearchItemDto) => {
       router.push({
         pathname: "/(app)/nutrition/food/[foodId]",
-        params: { foodId: item.id, day: dayKey },
+        params: { foodId: item.id, day: dayKey, ...(isMealDraft ? { mode: "mealDraft" } : {}) },
       });
     },
-    [router, dayKey],
+    [router, dayKey, isMealDraft],
   );
 
   const goKitchen = useCallback(() => {
-    router.push({ pathname: "/(app)/nutrition/kitchen", params: { day: dayKey } });
-  }, [router, dayKey]);
+    router.push({
+      pathname: "/(app)/nutrition/kitchen",
+      params: { day: dayKey, ...(isMealDraft ? { mode: "mealDraft" } : {}) },
+    });
+  }, [router, dayKey, isMealDraft]);
 
   const listHeader = useMemo(
     () => (
@@ -144,7 +160,7 @@ export default function NutritionFoodSearchScreen() {
               contentContainerStyle={styles.chipRow}
             >
               {quickChips.map((chip) => {
-                const pending = quick.pendingId === chip.id;
+                const pending = quickPendingId === chip.id;
                 return (
                   <Pressable
                     key={chip.key}
@@ -152,7 +168,7 @@ export default function NutritionFoodSearchScreen() {
                     disabled={pending}
                     style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Quick log ${chip.name}`}
+                    accessibilityLabel={isMealDraft ? `Add ${chip.name} to meal` : `Quick log ${chip.name}`}
                     testID={`quickadd-chip-${chip.foodHash}`}
                   >
                     {chip.favorite ? (
@@ -200,10 +216,11 @@ export default function NutritionFoodSearchScreen() {
       search.items.length,
       showQuickAccess,
       quickChips,
-      quick.pendingId,
+      quickPendingId,
       quickLogRef,
       goKitchen,
       isBrowsing,
+      isMealDraft,
     ],
   );
 
@@ -227,7 +244,7 @@ export default function NutritionFoodSearchScreen() {
   return (
     <ModuleScreenShell
       title="Search food"
-      subtitle={`Day ${dayKey}`}
+      subtitle={isMealDraft ? `Add to meal · Day ${dayKey}` : `Day ${dayKey}`}
       hideTitleChrome
       bodyScrollEnabled={false}
     >

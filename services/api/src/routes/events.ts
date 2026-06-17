@@ -17,6 +17,7 @@ import {
   isAppleHealthWorkoutIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
 } from "../lib/rawEventIngestSuppression";
+import { finalizeManualNutritionIngestDelete } from "../lib/nutrition/manualNutritionIngestDelete";
 import { ingestRawEventSchema, type IngestRawEventBody } from "../types/events";
 import { userCollection } from "../db";
 
@@ -661,11 +662,15 @@ const rawEventDeleteParamsSchema = z
 /** Providers whose workout raw events users may remove from Oli only (Firestore doc delete; does not mutate Apple Health). Mirrors supported ingest providers for workouts. */
 const DELETABLE_WORKOUT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
 
+/** Providers whose nutrition raw events users may remove (manual tracked-meal logs only). */
+const DELETABLE_NUTRITION_EVENT_PROVIDERS = new Set(["manual"]);
+
 /**
  * DELETE /ingest/:rawEventId
  *
  * Removes a user-owned RawEvent document (Admin SDK). Clients cannot delete via Firestore rules.
- * Allowed only for kinds `workout` / `strength_workout` whose `provider` is accepted for deletion (manual + apple_health ingest).
+ * Allowed for kinds `workout` / `strength_workout` (manual + apple_health) and `nutrition` (manual
+ * tracked-meal logs only). Apple Health resurrection suppression applies to workout kinds only.
  */
 router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   const requestId = getRid(req);
@@ -789,23 +794,30 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   const doc = parsedDoc.data;
-  if (doc.kind !== "workout" && doc.kind !== "strength_workout") {
+  const isWorkoutKind = doc.kind === "workout" || doc.kind === "strength_workout";
+  const isNutritionKind = doc.kind === "nutrition";
+  if (!isWorkoutKind && !isNutritionKind) {
     return res.status(400).json({
       ok: false as const,
       error: {
         code: "NOT_DELETABLE_KIND" as const,
-        message: "Only workout entries can be removed with this action",
+        message: "Only workout or nutrition entries can be removed with this action",
       },
       requestId,
     });
   }
 
-  if (!DELETABLE_WORKOUT_EVENT_PROVIDERS.has(doc.provider)) {
+  const allowedProviders = isNutritionKind
+    ? DELETABLE_NUTRITION_EVENT_PROVIDERS
+    : DELETABLE_WORKOUT_EVENT_PROVIDERS;
+  if (!allowedProviders.has(doc.provider)) {
     return res.status(403).json({
       ok: false as const,
       error: {
         code: "DELETE_NOT_ALLOWED" as const,
-        message: "This workout can't be removed from Oli.",
+        message: isNutritionKind
+          ? "This nutrition entry can't be removed from Oli."
+          : "This workout can't be removed from Oli.",
       },
       requestId,
     });
@@ -840,16 +852,54 @@ router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   }
 
   let suppressionWritten = false;
-  try {
-    suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
-      uid,
-      rawEventId,
-      requestId,
-      "delete_200",
-    );
-  } catch (err: unknown) {
-    respondIngestDeleteSuppressionFailure(res, requestId, err);
-    return;
+  // Apple Health resurrection guard applies only to workout kinds. Manual
+  // nutrition logs are never re-synced, so no suppression tombstone is needed.
+  if (isWorkoutKind) {
+    try {
+      suppressionWritten = await recordAppleHealthWorkoutIngestSuppression(
+        uid,
+        rawEventId,
+        requestId,
+        "delete_200",
+      );
+    } catch (err: unknown) {
+      respondIngestDeleteSuppressionFailure(res, requestId, err);
+      return;
+    }
+  }
+
+  if (isNutritionKind) {
+    try {
+      await finalizeManualNutritionIngestDelete({
+        userId: uid,
+        rawEventId,
+        payload: doc.payload,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest_delete",
+          reasonCode: "NUTRITION_DELETE_DERIVED_TRUTH_FAILED",
+          message: "Failed to remove derived nutrition truth after RawEvent delete",
+          day: dayUtcNow(),
+          requestId,
+          details: { rawEventId, err: message },
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(500).json({
+        ok: false as const,
+        error: {
+          code: "DELETE_DERIVED_TRUTH_FAILED" as const,
+          message: "Could not refresh nutrition totals after delete",
+        },
+        requestId,
+      });
+    }
   }
 
   return res.status(200).json({
