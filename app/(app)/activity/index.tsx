@@ -27,8 +27,8 @@ export default function ActivityOverviewScreen() {
         <HeaderControls
           calendarAccessibilityLabel="Open activity calendar"
           onCalendarPress={() => router.push("/(app)/activity/calendar")}
-          overflowAccessibilityLabel="Activity settings"
-          onOverflowPress={() => router.push("/(app)/activity/settings")}
+          logAccessibilityLabel="Open activity log"
+          onLogPress={() => router.push("/(app)/activity/list")}
         />
       ),
     });

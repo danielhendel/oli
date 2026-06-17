@@ -11,7 +11,6 @@ import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ErrorState, LoadingState, EmptyState } from "@/lib/ui/ScreenStates";
 import { useWorkoutsHistory } from "@/lib/data/useWorkoutsHistory";
@@ -20,10 +19,6 @@ import { getAppleHealthConnected, getAppleHealthNotAvailable } from "@/lib/integ
 
 const SHELL_TITLE = "Strength history";
 const SHELL_SUBTITLE = "Logged and synced strength sessions";
-
-/** Placeholder until menu actions are defined. */
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-function menuPlaceholder() {}
 
 type AppleHealthStatus = "loading" | "not_available" | "not_connected" | "connected";
 
@@ -94,12 +89,7 @@ export default function WorkoutHistoryScreen() {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-      headerRight: () => (
-        <HeaderControls
-          onOverflowPress={menuPlaceholder}
-          overflowAccessibilityLabel="Strength history menu"
-        />
-      ),
+      headerRight: () => null,
       title: SHELL_TITLE,
     });
   }, [navigation]);

@@ -37,7 +37,7 @@ jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
     goalsHref: "/(app)/body/settings",
     built: {
       tag: "ready" as const,
-      weightPrimaryLabel: "159 lb",
+      weightPrimaryLabel: "159.3 lb",
       readingAsOfLabel: "As of today",
       rows: [],
       cardAccessibilityLabel: "bc",

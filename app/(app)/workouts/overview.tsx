@@ -1403,13 +1403,13 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
           }
           {...(domain === "strength"
             ? {
-                onOverflowPress: () => router.push("/(app)/workouts/settings"),
-                overflowAccessibilityLabel: "Strength settings" as const,
+                onLogPress: () => router.push("/(app)/workouts/list"),
+                logAccessibilityLabel: "Open strength log" as const,
               }
             : domain === "cardio"
               ? {
-                  onOverflowPress: () => router.push("/(app)/cardio/settings"),
-                  overflowAccessibilityLabel: "Cardio settings" as const,
+                  onLogPress: () => router.push("/(app)/cardio/list"),
+                  logAccessibilityLabel: "Open cardio log" as const,
                 }
               : {})}
         />

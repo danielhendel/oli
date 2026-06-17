@@ -170,7 +170,7 @@ describe("SleepScreen (Activity-parity layout)", () => {
     jest.mocked(useSleepOverviewScreenData).mockReturnValue(defaultOverviewData);
   });
 
-  it("header exposes calendar and settings routes via HeaderControls", async () => {
+  it("header exposes calendar and log routes via HeaderControls", async () => {
     await act(async () => {
       renderer.create(<SleepScreen />);
       await Promise.resolve();
@@ -186,11 +186,11 @@ describe("SleepScreen (Activity-parity layout)", () => {
     });
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/recovery/sleep/calendar");
 
-    const settings = header.root.findByProps({ accessibilityLabel: "Sleep settings" });
+    const log = header.root.findByProps({ accessibilityLabel: "Open sleep log" });
     await act(async () => {
-      settings.props.onPress();
+      log.props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/recovery/sleep/settings");
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/recovery/sleep/list");
   });
 
   it("does not render the weekly calendar strip but preserves the day-selection signal", async () => {

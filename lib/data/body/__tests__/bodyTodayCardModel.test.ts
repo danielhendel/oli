@@ -53,7 +53,7 @@ describe("buildBodyTodayCardModel", () => {
 
   it("respects the kg unit for weight and lean mass", () => {
     const m = buildBodyTodayCardModel({ overview: FULL, unit: "kg" });
-    expect(m.weightValue).toBe("80.0 kg");
+    expect(m.weightValue).toBe("80 kg");
     const lean = m.supportingRows.find((r) => r.key === "lean")!;
     expect(lean.value).toBe("60.0 kg");
   });

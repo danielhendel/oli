@@ -162,6 +162,10 @@ export default function AppLayout() {
           <Stack.Screen name="body/overview" options={{ headerTitle: "" }} />
           <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
           <Stack.Screen
+            name="body/list"
+            options={{ title: "Body Composition Log", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="body/settings"
             options={{ title: "Body settings", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -185,6 +189,10 @@ export default function AppLayout() {
           <Stack.Screen
             name="activity/day/[day]"
             options={{ title: "Activity day", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="activity/list"
+            options={{ title: "Activity Log", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="activity/settings"
@@ -277,6 +285,10 @@ export default function AppLayout() {
             options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="nutrition/list"
+            options={{ title: "Nutrition Log", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="nutrition/settings"
             options={{ title: "Nutrition settings", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -365,6 +377,10 @@ export default function AppLayout() {
           />
           <Stack.Screen name="workouts/exercise-history" options={{ headerShown: false }} />
           <Stack.Screen
+            name="workouts/list"
+            options={{ title: "Strength Log", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="workouts/settings"
             options={{ title: "Strength settings", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -407,6 +423,10 @@ export default function AppLayout() {
             options={{ title: "All cardio sessions", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="cardio/list"
+            options={{ title: "Cardio Log", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="cardio/settings"
             options={{ title: "Cardio settings", ...workoutsStackNavigationOptions("detail") }}
           />
@@ -415,6 +435,10 @@ export default function AppLayout() {
           <Stack.Screen
             name="recovery/sleep"
             options={{ title: "Sleep", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="recovery/sleep/list"
+            options={{ title: "Sleep Log", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="recovery/sleep/settings"

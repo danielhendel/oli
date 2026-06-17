@@ -294,7 +294,7 @@ describe("ActivityOverviewScreen", () => {
     navigationOptions = {};
   });
 
-  it("header exposes calendar and settings routes via HeaderControls", async () => {
+  it("header exposes calendar and log routes via HeaderControls", async () => {
     await act(async () => {
       renderer.create(<ActivityOverviewScreen />);
       await Promise.resolve();
@@ -312,11 +312,11 @@ describe("ActivityOverviewScreen", () => {
     });
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/calendar");
     mockRouterPush.mockClear();
-    const overflow = header.root.findByProps({ accessibilityLabel: "Activity settings" });
+    const log = header.root.findByProps({ accessibilityLabel: "Open activity log" });
     await act(async () => {
-      overflow.props.onPress();
+      log.props.onPress();
     });
-    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/settings");
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/activity/list");
   });
 
   it("renders Today, This Week's Activity, Activity Baseline in order with baseline rows as steps/day", async () => {

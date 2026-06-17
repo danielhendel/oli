@@ -305,7 +305,7 @@ describe("Strength overview main layout", () => {
     expect(push).toHaveBeenCalledWith("/(app)/workouts/analytics-detail");
   });
 
-  it("overflow opens Strength settings route (dedicated settings, not in-popup menu)", async () => {
+  it("log icon opens Strength log route", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<StrengthTrainingOverviewScreen />);
@@ -320,11 +320,11 @@ describe("Strength overview main layout", () => {
     await act(async () => {
       header = renderer.create(lastOpts.headerRight!());
     });
-    const overflow = header.root.findByProps({ accessibilityLabel: "Strength settings" });
+    const log = header.root.findByProps({ accessibilityLabel: "Open strength log" });
     await act(async () => {
-      overflow.props.onPress();
+      log.props.onPress();
     });
-    expect(push).toHaveBeenCalledWith("/(app)/workouts/settings");
+    expect(push).toHaveBeenCalledWith("/(app)/workouts/list");
     void tree;
   });
 
