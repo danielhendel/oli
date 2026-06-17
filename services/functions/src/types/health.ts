@@ -396,7 +396,7 @@ export interface NutritionCanonicalEvent extends BaseCanonicalEvent {
   foodHash?: string | null;
 
   /** Optional eating occasion for tracked meals. */
-  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack" | null;
+  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack" | "meal1" | "meal2" | "meal3" | "meal4" | "meal5" | "meal6" | null;
 }
 
 /**

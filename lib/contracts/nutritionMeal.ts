@@ -9,7 +9,18 @@ const mealMacrosSchema = z
   })
   .strip();
 
-export const mealSlotSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
+export const mealSlotSchema = z.enum([
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snack",
+  "meal1",
+  "meal2",
+  "meal3",
+  "meal4",
+  "meal5",
+  "meal6",
+]);
 
 export type MealSlot = z.infer<typeof mealSlotSchema>;
 

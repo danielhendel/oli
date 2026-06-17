@@ -39,6 +39,25 @@ describe("buildNutritionTodayCardModel", () => {
     expect(m.rows.every((r) => r.valueLabel === "—")).toBe(true);
     expect(m.rows.every((r) => r.progress === 0)).toBe(true);
   });
+
+  it("exposes calorie hero labels and per-macro amount/percent", () => {
+    const m = buildNutritionTodayCardModel({
+      nutrition: { totalKcal: 220, proteinG: 4, carbsG: 43, fatG: 2.5 },
+    });
+    expect(m.calorieValueLabel).toBe("220 kcal");
+    expect(m.calorieGoalLabel).toBe("Goal 2,000 kcal");
+    const protein = m.rows.find((r) => r.key === "protein");
+    expect(protein?.amountLabel).toBe("4 / 150 g");
+    expect(protein?.percentLabel).toBe("3%");
+    const carbs = m.rows.find((r) => r.key === "carbs");
+    expect(carbs?.amountLabel).toBe("43 / 250 g");
+  });
+
+  it("hero label is em dash when no calories", () => {
+    const m = buildNutritionTodayCardModel({ nutrition: undefined });
+    expect(m.calorieValueLabel).toBe("—");
+    expect(m.rows.find((r) => r.key === "protein")?.percentLabel).toBe("—");
+  });
 });
 
 function rawNutrition(args: {

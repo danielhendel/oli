@@ -8,7 +8,13 @@ import {
   type ServingOption,
 } from "@/lib/nutrition/servingSelection";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export type NutritionServingPickerProps = {
   food: NutritionFoodSearchItemDto;
@@ -137,33 +143,34 @@ export function NutritionServingPicker({
 
 const styles = StyleSheet.create({
   container: { gap: 10 },
-  label: { fontSize: 15, fontWeight: "600", color: "#636366" },
-  legacyHint: { fontSize: 16, color: "#1C1C1E", marginTop: -4 },
+  label: { fontSize: 15, fontWeight: "600", color: UI_TEXT_SECONDARY },
+  legacyHint: { fontSize: 16, color: UI_TEXT_PRIMARY, marginTop: -4 },
   chipRow: { gap: 8, paddingVertical: 2, paddingRight: 8 },
   chip: {
     minHeight: 44,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(60, 60, 67, 0.18)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
     backgroundColor: UI_CARD_SURFACE,
     justifyContent: "center",
   },
-  chipSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: "rgba(0, 122, 255, 0.1)" },
-  chipText: { fontSize: 15, fontWeight: "600", color: "#636366" },
+  chipSelected: { borderColor: SYSTEM_ACCENT, backgroundColor: "rgba(10, 132, 255, 0.14)" },
+  chipText: { fontSize: 15, fontWeight: "600", color: UI_TEXT_SECONDARY },
   chipTextSelected: { color: SYSTEM_ACCENT },
   input: {
     minHeight: 44,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(60, 60, 67, 0.29)",
+    borderColor: UI_BORDER_HAIRLINE,
     paddingHorizontal: 12,
     fontSize: 17,
+    color: UI_TEXT_PRIMARY,
     backgroundColor: UI_CARD_SURFACE,
   },
-  grams: { fontSize: 14, color: "#8E8E93" },
+  grams: { fontSize: 14, color: UI_TEXT_MUTED },
   summary: { paddingVertical: 4 },
-  summaryText: { fontSize: 17, color: "#1C1C1E", fontWeight: "600" },
+  summaryText: { fontSize: 17, color: UI_TEXT_PRIMARY, fontWeight: "600", lineHeight: 22 },
   pressed: { opacity: 0.65 },
 });

@@ -181,7 +181,7 @@ type ManualNutritionPayload = ManualWindowBase & {
   sodiumMg?: number | null;
   potassiumMg?: number | null;
   foodHash?: string;
-  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack";
+  mealSlot?: "breakfast" | "lunch" | "dinner" | "snack" | "meal1" | "meal2" | "meal3" | "meal4" | "meal5" | "meal6";
 };
 
 type ManualPayloadByKind = {
@@ -272,8 +272,19 @@ const isManualNutritionPayload = (value: unknown): value is ManualNutritionPaylo
   if (v.foodHash !== undefined && (typeof v.foodHash !== "string" || v.foodHash.length > 80))
     return false;
   if (v.mealSlot !== undefined) {
-    if (v.mealSlot !== "breakfast" && v.mealSlot !== "lunch" && v.mealSlot !== "dinner" && v.mealSlot !== "snack")
-      return false;
+    const allowed = new Set([
+      "breakfast",
+      "lunch",
+      "dinner",
+      "snack",
+      "meal1",
+      "meal2",
+      "meal3",
+      "meal4",
+      "meal5",
+      "meal6",
+    ]);
+    if (!allowed.has(v.mealSlot as string)) return false;
   }
   return true;
 };

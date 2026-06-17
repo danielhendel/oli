@@ -32,11 +32,13 @@ jest.mock("@/lib/hooks/useNutritionOverviewScreenData", () => ({
     ],
     todayCard: {
       rows: [
-        { key: "kcal", label: "Calories", valueLabel: "—", progress: 0, available: false },
-        { key: "protein", label: "Protein", valueLabel: "—", progress: 0, available: false },
-        { key: "carbs", label: "Carbs", valueLabel: "—", progress: 0, available: false },
-        { key: "fat", label: "Fat", valueLabel: "—", progress: 0, available: false },
+        { key: "kcal", label: "Calories", valueLabel: "—", progress: 0, available: false, currentValue: null, targetValue: 2000, unit: "kcal", amountLabel: "— / 2,000 kcal", percentLabel: "—" },
+        { key: "protein", label: "Protein", valueLabel: "—", progress: 0, available: false, currentValue: null, targetValue: 150, unit: "g", amountLabel: "— / 150 g", percentLabel: "—" },
+        { key: "carbs", label: "Carbs", valueLabel: "—", progress: 0, available: false, currentValue: null, targetValue: 250, unit: "g", amountLabel: "— / 250 g", percentLabel: "—" },
+        { key: "fat", label: "Fat", valueLabel: "—", progress: 0, available: false, currentValue: null, targetValue: 65, unit: "g", amountLabel: "— / 65 g", percentLabel: "—" },
       ],
+      calorieValueLabel: "—",
+      calorieGoalLabel: "Goal 2,000 kcal",
     },
     weeklyStripDays: [
       { day: "2026-03-09", meta: { hasNutrition: false } },
@@ -98,8 +100,10 @@ jest.mock("@/lib/hooks/useNutritionOverviewScreenData", () => ({
   }),
 }));
 
+const mockPush = jest.fn();
+
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({}),
   useNavigation: () => ({
     setOptions: jest.fn(),
@@ -119,16 +123,39 @@ describe("NutritionOverviewScreen", () => {
     expect(json).toBeTruthy();
   });
 
-  it("renders Strength-parity cards and Log Nutrition CTA", async () => {
+  it("renders Strength-parity cards and View Food CTA (no Log More button)", async () => {
     let tree: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(<NutritionOverviewScreen />);
     });
     const flat = JSON.stringify(tree!.toJSON());
     expect(flat).toContain("nutrition-today-card");
-    expect(flat).toContain("nutrition-today-log-cta");
+    expect(flat).toContain("nutrition-today-view-food-cta");
+    expect(flat).toContain("View Food");
+    expect(flat).not.toContain("nutrition-today-log-cta");
+    expect(flat).not.toContain("Log More");
     expect(flat).toContain("nutrition-this-week-card");
     expect(flat).toContain("nutrition-baseline-card");
     expect(flat).toContain("nutrition-yearly-card");
+  });
+
+  it("navigates macro rows to the macro detail page with the selected day", async () => {
+    mockPush.mockClear();
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<NutritionOverviewScreen />);
+    });
+    const proteinRow = tree!.root.findByProps({ testID: "nutrition-today-macro-protein" });
+    await act(async () => {
+      proteinRow.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const call = mockPush.mock.calls[0]![0] as {
+      pathname: string;
+      params: { macro: string; day: string };
+    };
+    expect(call.pathname).toBe("/(app)/nutrition/macro/[macro]");
+    expect(call.params.macro).toBe("protein");
+    expect(call.params.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

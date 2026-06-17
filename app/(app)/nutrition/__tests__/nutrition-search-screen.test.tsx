@@ -45,6 +45,10 @@ jest.mock("@/lib/hooks/useNutritionQuickLog", () => ({
   useNutritionQuickLog: () => ({ pendingId: null, errorMessage: null, quickLog: mockQuickLog }),
 }));
 
+jest.mock("@/lib/hooks/useAddFoodToMealDraft", () => ({
+  useAddFoodToMealDraft: () => ({ pendingId: null, errorMessage: null, addToDraft: jest.fn() }),
+}));
+
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: () => ({ day: "2026-03-15" }),

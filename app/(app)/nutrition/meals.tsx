@@ -27,8 +27,8 @@ export default function NutritionMealsScreen() {
   }, [navigation]);
 
   const onCreateMeal = useCallback(() => {
-    router.push("/(app)/nutrition/meal/new");
-  }, [router]);
+    router.push({ pathname: "/(app)/nutrition/meal/new", params: { day: dayKey, fresh: "1" } });
+  }, [router, dayKey]);
 
   return (
     <ModuleScreenShell title="Recent meals" hideTitleChrome>

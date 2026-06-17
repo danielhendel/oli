@@ -43,9 +43,12 @@ export default function NutritionOverviewScreen() {
     router.push({ pathname: "/(app)/nutrition/day/[day]", params: { day: selectedDay } });
   }, [router, selectedDay]);
 
-  const goLogNutrition = useCallback(() => {
-    router.push({ pathname: "/(app)/nutrition/log-hub", params: { day: selectedDay } });
-  }, [router, selectedDay]);
+  const goMacroDetail = useCallback(
+    (macro: "protein" | "carbs" | "fat") => {
+      router.push({ pathname: "/(app)/nutrition/macro/[macro]", params: { macro, day: selectedDay } });
+    },
+    [router, selectedDay],
+  );
 
   const loggedDayLabel =
     typeof routeParams.day === "string"
@@ -141,9 +144,10 @@ export default function NutritionOverviewScreen() {
             model={data.todayCard}
             todayFacts={data.todayFacts}
             loading={data.factsRollupLoading && data.todayFacts.isLoading}
+            totalsSyncing={data.totalsSyncing}
             onRetryFacts={data.refetchTodayFacts}
             onViewMore={goDayDetail}
-            onPressLog={goLogNutrition}
+            onPressMacro={goMacroDetail}
           />
 
           <NutritionThisWeekCard

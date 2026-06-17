@@ -9,43 +9,42 @@ import type { NutritionRecentRawUi } from "@/lib/hooks/useNutritionOverviewScree
 import { NutritionTodayCard } from "@/lib/ui/nutrition/NutritionTodayCard";
 import { NutritionRecentCard } from "@/lib/ui/nutrition/NutritionRecentCard";
 
+function macroRow(
+  key: "kcal" | "protein" | "carbs" | "fat",
+  label: string,
+  current: number,
+  target: number,
+  unit: string,
+): NutritionTodayCardModel["rows"][number] {
+  return {
+    key,
+    label,
+    valueLabel: `${current} ${unit}`,
+    progress: current / target,
+    available: true,
+    currentValue: current,
+    targetValue: target,
+    unit,
+    amountLabel: `${current} / ${target} ${unit}`,
+    percentLabel: `${Math.round((current / target) * 100)}%`,
+  };
+}
+
 function todayModel(): NutritionTodayCardModel {
   return {
     rows: [
-      {
-        key: "kcal",
-        label: "Calories",
-        valueLabel: "500 kcal",
-        progress: 0.25,
-        available: true,
-      },
-      {
-        key: "protein",
-        label: "Protein",
-        valueLabel: "40 g",
-        progress: 0.27,
-        available: true,
-      },
-      {
-        key: "carbs",
-        label: "Carbs",
-        valueLabel: "60 g",
-        progress: 0.24,
-        available: true,
-      },
-      {
-        key: "fat",
-        label: "Fat",
-        valueLabel: "15 g",
-        progress: 0.23,
-        available: true,
-      },
+      macroRow("kcal", "Calories", 500, 2000, "kcal"),
+      macroRow("protein", "Protein", 40, 150, "g"),
+      macroRow("carbs", "Carbs", 60, 250, "g"),
+      macroRow("fat", "Fat", 15, 65, "g"),
     ],
+    calorieValueLabel: "500 kcal",
+    calorieGoalLabel: "Goal 2,000 kcal",
   };
 }
 
 describe("NutritionTodayCard", () => {
-  it("renders calorie/protein/carbs/fat labels from the model", async () => {
+  it("renders calorie hero and protein/carbs/fat macro rows", async () => {
     let tree: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -55,14 +54,14 @@ describe("NutritionTodayCard", () => {
         />,
       );
     });
+    const root = tree!.root;
+    const hero = root.findByProps({ testID: "nutrition-today-calorie-value" });
+    expect(hero.props.children).toBe("500 kcal");
     const flat = JSON.stringify(tree!.toJSON());
-    expect(flat).toContain("500");
-    expect(flat).toContain("Calories");
-    expect(flat).toContain("40");
+    expect(flat).toContain("Goal 2,000 kcal");
     expect(flat).toContain("Protein");
-    expect(flat).toContain("60");
+    expect(flat).toContain("40 / 150 g");
     expect(flat).toContain("Carbs");
-    expect(flat).toContain("15");
     expect(flat).toContain("Fat");
   });
 
@@ -77,8 +76,42 @@ describe("NutritionTodayCard", () => {
       );
     });
     const root = tree!.root;
-    expect(() => root.findByProps({ testID: "nutrition-today-progress-kcal" })).not.toThrow();
     expect(() => root.findByProps({ testID: "nutrition-today-progress-protein" })).not.toThrow();
+    expect(() => root.findByProps({ testID: "nutrition-today-progress-fat" })).not.toThrow();
+  });
+
+  it("renders chevrons and navigates per macro when onPressMacro is provided", async () => {
+    const onPressMacro = jest.fn();
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <NutritionTodayCard
+          model={todayModel()}
+          todayFacts={{ readiness: "ready", isLoading: false }}
+          onPressMacro={onPressMacro}
+        />,
+      );
+    });
+    const root = tree!.root;
+    expect(() => root.findByProps({ testID: "nutrition-today-macro-protein-chevron" })).not.toThrow();
+    await act(async () => {
+      root.findByProps({ testID: "nutrition-today-macro-carbs" }).props.onPress();
+    });
+    expect(onPressMacro).toHaveBeenCalledWith("carbs");
+  });
+
+  it("hides chevrons when not navigable (static summary)", async () => {
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <NutritionTodayCard
+          model={todayModel()}
+          todayFacts={{ readiness: "ready", isLoading: false }}
+        />,
+      );
+    });
+    const root = tree!.root;
+    expect(() => root.findByProps({ testID: "nutrition-today-macro-protein-chevron" })).toThrow();
   });
 });
 

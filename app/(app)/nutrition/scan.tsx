@@ -34,8 +34,16 @@ export default function NutritionBarcodeScanScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const { lookup } = useNutritionBarcodeLookup();
-  const params = useLocalSearchParams<{ day?: string | string[]; returnTo?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    day?: string | string[];
+    returnTo?: string | string[];
+    mode?: string | string[];
+  }>();
   const dayKey: DayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
+  const isMealDraft = useMemo(() => {
+    const m = typeof params.mode === "string" ? params.mode : Array.isArray(params.mode) ? params.mode[0] : "";
+    return m === "mealDraft";
+  }, [params.mode]);
 
   const returnToParam = useMemo(() => {
     const r =
@@ -56,8 +64,11 @@ export default function NutritionBarcodeScanScreen() {
   const lastCode = useRef("");
 
   const goSearch = useCallback(() => {
-    router.push({ pathname: "/(app)/nutrition/search", params: { day: dayKey } });
-  }, [router, dayKey]);
+    router.push({
+      pathname: "/(app)/nutrition/search",
+      params: { day: dayKey, ...(isMealDraft ? { mode: "mealDraft" } : {}) },
+    });
+  }, [router, dayKey, isMealDraft]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -76,10 +87,11 @@ export default function NutritionBarcodeScanScreen() {
           day: dayKey,
           source: "barcode",
           ...(returnToParam === "library" ? { returnTo: "library" } : {}),
+          ...(isMealDraft ? { mode: "mealDraft" } : {}),
         },
       });
     },
-    [router, dayKey, returnToParam],
+    [router, dayKey, returnToParam, isMealDraft],
   );
 
   const resolveBarcode = useCallback(
@@ -148,7 +160,11 @@ export default function NutritionBarcodeScanScreen() {
   const needsAsk = permission && !permission.granted && permission.canAskAgain;
 
   return (
-    <ModuleScreenShell title="Scan barcode" subtitle={`Day ${dayKey}`} hideTitleChrome>
+    <ModuleScreenShell
+      title="Scan barcode"
+      subtitle={isMealDraft ? `Add to meal · Day ${dayKey}` : `Day ${dayKey}`}
+      hideTitleChrome
+    >
       <View style={[styles.flex, { paddingBottom: insets.bottom + 16 }]}>
         {permission == null ? (
           <View style={styles.center}>

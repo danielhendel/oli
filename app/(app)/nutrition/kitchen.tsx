@@ -8,6 +8,7 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 import { NUTRITION_SCREEN_CONTENT_BG } from "@/lib/ui/nutrition/nutritionOverviewTheme";
 import { useNutritionPantry } from "@/lib/hooks/useNutritionPantry";
 import { useNutritionQuickLog } from "@/lib/hooks/useNutritionQuickLog";
+import { useAddFoodToMealDraft } from "@/lib/hooks/useAddFoodToMealDraft";
 import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { pantryItemToFood } from "@/lib/nutrition/pantryFood";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
@@ -20,9 +21,15 @@ export default function NutritionKitchenScreen() {
   const router = useRouter();
   const pantry = useNutritionPantry();
   const quick = useNutritionQuickLog();
-  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const draftAdd = useAddFoodToMealDraft();
+  const params = useLocalSearchParams<{ day?: string | string[]; mode?: string | string[] }>();
   const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
+  const isMealDraft = useMemo(() => {
+    const m = typeof params.mode === "string" ? params.mode : Array.isArray(params.mode) ? params.mode[0] : "";
+    return m === "mealDraft";
+  }, [params.mode]);
   const [logMessage, setLogMessage] = useState<string | null>(null);
+  const pendingId = isMealDraft ? draftAdd.pendingId : quick.pendingId;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -33,16 +40,26 @@ export default function NutritionKitchenScreen() {
   }, [navigation]);
 
   const onAddProduct = useCallback(() => {
-    router.push({ pathname: "/(app)/nutrition/search", params: { day: dayKey } });
-  }, [router, dayKey]);
+    router.push({
+      pathname: "/(app)/nutrition/search",
+      params: { day: dayKey, ...(isMealDraft ? { mode: "mealDraft" } : {}) },
+    });
+  }, [router, dayKey, isMealDraft]);
 
   const onQuickLog = useCallback(
     async (item: PantryItem) => {
       setLogMessage(null);
+      if (isMealDraft) {
+        const r = await draftAdd.addToDraft({ kind: "food", food: pantryItemToFood(item) });
+        setLogMessage(
+          r.ok ? `Added ${item.label} to meal` : (draftAdd.errorMessage ?? "Could not add"),
+        );
+        return;
+      }
       const r = await quick.quickLog({ kind: "food", food: pantryItemToFood(item) }, dayKey);
       setLogMessage(r.ok ? `Logged ${item.label}` : (quick.errorMessage ?? "Could not log"));
     },
-    [quick, dayKey],
+    [isMealDraft, draftAdd, quick, dayKey],
   );
 
   const onRemove = useCallback(
@@ -60,7 +77,7 @@ export default function NutritionKitchenScreen() {
   );
 
   return (
-    <ModuleScreenShell title="My Kitchen" hideTitleChrome>
+    <ModuleScreenShell title="My Kitchen" {...(isMealDraft ? { subtitle: "Add to meal" } : {})} hideTitleChrome>
       <View style={styles.body}>
         <Pressable
           onPress={onAddProduct}
@@ -91,9 +108,9 @@ export default function NutritionKitchenScreen() {
               <View key={item.id} style={styles.row} testID={`kitchen-item-${item.id}`}>
                 <Pressable
                   onPress={() => void onQuickLog(item)}
-                  disabled={quick.pendingId === item.id}
+                  disabled={pendingId === item.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Quick log ${item.label}`}
+                  accessibilityLabel={isMealDraft ? `Add ${item.label} to meal` : `Quick log ${item.label}`}
                   style={styles.rowCopy}
                   testID={`kitchen-quicklog-${item.id}`}
                 >
@@ -106,16 +123,16 @@ export default function NutritionKitchenScreen() {
                 </Pressable>
                 <Pressable
                   onPress={() => void onQuickLog(item)}
-                  disabled={quick.pendingId === item.id}
+                  disabled={pendingId === item.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Log ${item.label}`}
-                  style={({ pressed }) => [styles.logBtn, (pressed || quick.pendingId === item.id) && styles.pressed]}
+                  accessibilityLabel={isMealDraft ? `Add ${item.label} to meal` : `Log ${item.label}`}
+                  style={({ pressed }) => [styles.logBtn, (pressed || pendingId === item.id) && styles.pressed]}
                   testID={`kitchen-log-${item.id}`}
                 >
-                  {quick.pendingId === item.id ? (
+                  {pendingId === item.id ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.logBtnText}>Log</Text>
+                    <Text style={styles.logBtnText}>{isMealDraft ? "Add" : "Log"}</Text>
                   )}
                 </Pressable>
                 <Pressable

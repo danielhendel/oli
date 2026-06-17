@@ -5,10 +5,20 @@ import { AddressInfo } from "net";
 
 import eventsRoutes from "../events";
 import { userCollection } from "../../db";
+import { finalizeManualNutritionIngestDelete } from "../../lib/nutrition/manualNutritionIngestDelete";
 import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
+}));
+
+jest.mock("../../lib/nutrition/manualNutritionIngestDelete", () => ({
+  finalizeManualNutritionIngestDelete: jest.fn(async () => ({
+    dayKey: "2026-03-15",
+    canonicalDeleted: true,
+  })),
+  nutritionDayKeyFromManualPayload: jest.requireActual("../../lib/nutrition/manualNutritionIngestDelete")
+    .nutritionDayKeyFromManualPayload,
 }));
 
 describe("DELETE /ingest/:rawEventId", () => {
@@ -36,6 +46,10 @@ describe("DELETE /ingest/:rawEventId", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    (finalizeManualNutritionIngestDelete as jest.Mock).mockResolvedValue({
+      dayKey: "2026-03-15",
+      canonicalDeleted: true,
+    });
   });
 
   test("deletes a manual strength_workout raw event", async () => {
@@ -85,6 +99,7 @@ describe("DELETE /ingest/:rawEventId", () => {
     expect(json.suppressionWritten).toBe(false);
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(suppressSetMock).not.toHaveBeenCalled();
+    expect(finalizeManualNutritionIngestDelete).not.toHaveBeenCalled();
   });
 
   test("deletes an apple_health strength_workout raw event (removes Oli record only)", async () => {
@@ -132,6 +147,7 @@ describe("DELETE /ingest/:rawEventId", () => {
     expect(json200.suppressionWritten).toBe(true);
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(suppressSetMock).toHaveBeenCalledTimes(1);
+    expect(finalizeManualNutritionIngestDelete).not.toHaveBeenCalled();
   });
 
   test("404 delete still records Apple Health workout suppression for resurrection guard", async () => {
@@ -258,6 +274,156 @@ describe("DELETE /ingest/:rawEventId", () => {
     const failBody = (await res.json()) as { suppressionWritten: boolean; error?: { code: string } };
     expect(failBody.suppressionWritten).toBe(false);
     expect(failBody.error?.code).toBe("SUPPRESSION_WRITE_FAILED");
+  });
+
+  test("deletes a manual nutrition raw event without writing workout suppression", async () => {
+    const rawEventId = "nm_meal_1";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "nutrition",
+      receivedAt: "2026-03-15T18:22:00.000Z",
+      observedAt: "2026-03-15T18:22:00.000Z",
+      payload: {
+        start: "2026-03-15T18:22:00.000Z",
+        end: "2026-03-15T18:22:01.000Z",
+        timezone: "America/New_York",
+        day: "2026-03-15",
+        totalKcal: 220,
+        proteinG: 5,
+        carbsG: 43,
+        fatG: 2.5,
+        logScope: "meal",
+        foodLabel: "Jasmine Rice",
+        mealSlot: "dinner",
+      },
+    };
+
+    const deleteMock = jest.fn(async () => undefined);
+    const suppressSetMock = jest.fn(async () => undefined);
+
+    (userCollection as jest.Mock).mockImplementation((uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: suppressSetMock }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: true, data: () => rawEvent }) as const,
+          delete: deleteMock,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
+
+    expect(res.status).toBe(200);
+    expect(userCollection).toHaveBeenCalledWith("user_123", "rawEvents");
+    const json = (await res.json()) as { ok: boolean; rawEventId: string; suppressionWritten: boolean };
+    expect(json.ok).toBe(true);
+    expect(json.rawEventId).toBe(rawEventId);
+    expect(json.suppressionWritten).toBe(false);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(suppressSetMock).not.toHaveBeenCalled();
+    expect(finalizeManualNutritionIngestDelete).toHaveBeenCalledWith({
+      userId: "user_123",
+      rawEventId,
+      payload: rawEvent.payload,
+    });
+  });
+
+  test("returns 500 when nutrition derived-truth cleanup fails after raw delete", async () => {
+    const rawEventId = "nm_meal_fail";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "nutrition",
+      receivedAt: "2026-03-15T18:22:00.000Z",
+      observedAt: "2026-03-15T18:22:00.000Z",
+      payload: {
+        start: "2026-03-15T18:22:00.000Z",
+        end: "2026-03-15T18:22:01.000Z",
+        timezone: "America/New_York",
+        day: "2026-03-15",
+        totalKcal: 220,
+        proteinG: 5,
+        carbsG: 43,
+        fatG: 2.5,
+      },
+    };
+
+    const deleteMock = jest.fn(async () => undefined);
+    (finalizeManualNutritionIngestDelete as jest.Mock).mockRejectedValueOnce(new Error("recompute_failed"));
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: jest.fn() }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: true, data: () => rawEvent }) as const,
+          delete: deleteMock,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
+
+    expect(res.status).toBe(500);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    const body = (await res.json()) as { error?: { code: string } };
+    expect(body.error?.code).toBe("DELETE_DERIVED_TRUTH_FAILED");
+  });
+
+  test("rejects delete for a non-manual nutrition provider", async () => {
+    const rawEventId = "off_scan_1";
+    const rawEvent = {
+      schemaVersion: 1,
+      id: rawEventId,
+      userId: "user_123",
+      sourceId: "open_food_facts",
+      provider: "open_food_facts",
+      sourceType: "barcode",
+      kind: "nutrition",
+      receivedAt: "2026-03-15T18:22:00.000Z",
+      observedAt: "2026-03-15T18:22:00.000Z",
+      payload: {
+        start: "2026-03-15T18:22:00.000Z",
+        end: "2026-03-15T18:22:01.000Z",
+        timezone: "America/New_York",
+        totalKcal: 100,
+        proteinG: 1,
+        carbsG: 1,
+        fatG: 1,
+      },
+    };
+
+    const deleteMock = jest.fn(async () => undefined);
+
+    (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
+      if (name === "rawEventIngestSuppressions") {
+        return { doc: () => ({ set: jest.fn() }) };
+      }
+      return {
+        doc: () => ({
+          get: async () => ({ exists: true, data: () => rawEvent }) as const,
+          delete: deleteMock,
+        }),
+      };
+    });
+
+    const res = await fetch(`${baseUrl}/ingest/${rawEventId}`, { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    expect(deleteMock).not.toHaveBeenCalled();
+    expect(finalizeManualNutritionIngestDelete).not.toHaveBeenCalled();
   });
 
   test("rejects delete for unsupported workout provider", async () => {

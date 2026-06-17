@@ -10,6 +10,7 @@ import { NutritionSourceBadges } from "@/lib/ui/nutrition/NutritionSourceBadges"
 import { useNutritionFoodSearchQuery } from "@/lib/hooks/useNutritionFoodSearchQuery";
 import { foodItemMetaFingerprint, useNutritionMeta } from "@/lib/hooks/useNutritionMeta";
 import { useNutritionQuickLog } from "@/lib/hooks/useNutritionQuickLog";
+import { useAddFoodToMealDraft } from "@/lib/hooks/useAddFoodToMealDraft";
 import { resolveNutritionDayParam } from "@/lib/nutrition/nutritionDayParam";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
@@ -19,13 +20,19 @@ import type { NutritionFoodSearchItemDto } from "@oli/contracts/nutritionFoodSea
 export default function NutritionSupplementsScreen() {
   const navigation = useNavigation();
   const router = useRouter();
-  const params = useLocalSearchParams<{ day?: string | string[] }>();
+  const params = useLocalSearchParams<{ day?: string | string[]; mode?: string | string[] }>();
   const dayKey = useMemo(() => resolveNutritionDayParam(params.day), [params.day]);
+  const isMealDraft = useMemo(() => {
+    const m = typeof params.mode === "string" ? params.mode : Array.isArray(params.mode) ? params.mode[0] : "";
+    return m === "mealDraft";
+  }, [params.mode]);
 
   const search = useNutritionFoodSearchQuery();
   const metaApi = useNutritionMeta();
   const quick = useNutritionQuickLog();
+  const draftAdd = useAddFoodToMealDraft();
   const [logMessage, setLogMessage] = useState<string | null>(null);
+  const pendingId = isMealDraft ? draftAdd.pendingId : quick.pendingId;
 
   const supplements = useMemo(
     () => search.items.filter((item) => item.productType === "supplement"),
@@ -49,15 +56,24 @@ export default function NutritionSupplementsScreen() {
     (item: NutritionFoodSearchItemDto) => {
       router.push({
         pathname: "/(app)/nutrition/food/[foodId]",
-        params: { foodId: item.id, day: dayKey },
+        params: { foodId: item.id, day: dayKey, ...(isMealDraft ? { mode: "mealDraft" } : {}) },
       });
     },
-    [router, dayKey],
+    [router, dayKey, isMealDraft],
   );
 
   const onQuickLog = useCallback(
     async (item: NutritionFoodSearchItemDto) => {
       setLogMessage(null);
+      if (isMealDraft) {
+        const r = await draftAdd.addToDraft({ kind: "food", food: item });
+        setLogMessage(
+          r.ok
+            ? `Added ${item.servingLabel} ${item.name} to meal`
+            : (draftAdd.errorMessage ?? "Could not add"),
+        );
+        return;
+      }
       const r = await quick.quickLog({ kind: "food", food: item }, dayKey, {
         nutritionIngestSource: "search",
       });
@@ -65,7 +81,7 @@ export default function NutritionSupplementsScreen() {
         r.ok ? `Logged ${item.servingLabel} ${item.name}` : (quick.errorMessage ?? "Could not log"),
       );
     },
-    [quick, dayKey],
+    [isMealDraft, draftAdd, quick, dayKey],
   );
 
   const onToggleFavorite = useCallback(
@@ -76,7 +92,11 @@ export default function NutritionSupplementsScreen() {
   );
 
   return (
-    <ModuleScreenShell title="Supplements" subtitle={`Day ${dayKey}`} hideTitleChrome>
+    <ModuleScreenShell
+      title="Supplements"
+      subtitle={isMealDraft ? `Add to meal · Day ${dayKey}` : `Day ${dayKey}`}
+      hideTitleChrome
+    >
       <View style={styles.body}>
         <TextInput
           value={search.query}
@@ -118,7 +138,7 @@ export default function NutritionSupplementsScreen() {
             {supplements.map((item) => {
               const fp = foodItemMetaFingerprint(item);
               const isFavorite = favoriteHashes.has(fp);
-              const logging = quick.pendingId === item.id;
+              const logging = pendingId === item.id;
               return (
                 <View key={item.id} style={styles.row} testID={`supplement-row-${item.id}`}>
                   <Pressable
@@ -156,14 +176,18 @@ export default function NutritionSupplementsScreen() {
                       onPress={() => void onQuickLog(item)}
                       disabled={logging}
                       accessibilityRole="button"
-                      accessibilityLabel={`Log ${item.servingLabel} ${item.name}`}
+                      accessibilityLabel={
+                        isMealDraft
+                          ? `Add ${item.servingLabel} ${item.name} to meal`
+                          : `Log ${item.servingLabel} ${item.name}`
+                      }
                       style={({ pressed }) => [styles.logBtn, (pressed || logging) && styles.pressed]}
                       testID={`supplement-log-${item.id}`}
                     >
                       {logging ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.logBtnText}>Log</Text>
+                        <Text style={styles.logBtnText}>{isMealDraft ? "Add" : "Log"}</Text>
                       )}
                     </Pressable>
                   </View>
