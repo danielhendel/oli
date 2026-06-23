@@ -23,6 +23,7 @@ import {
 } from "@/lib/ui/workouts/workoutOverviewInCardHeaderStyles";
 import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
 
+import { WorkoutHypertrophyStimulusCard } from "@/lib/ui/workouts/WorkoutHypertrophyStimulusCard";
 import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
@@ -322,6 +323,10 @@ export function StrengthTodayCard({
               return renderedRow;
             })}
           </View>
+
+          {detailVm.muscleStimulus != null ? (
+            <WorkoutHypertrophyStimulusCard model={detailVm.muscleStimulus} />
+          ) : null}
         </View>
       ) : null}
 

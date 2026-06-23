@@ -8,7 +8,7 @@ import {
   TARGET_MAX_SETS_PER_SLOT,
 } from "@/lib/data/program/distributeMuscleGroupSetsToExercises";
 import { getProgramExerciseDetails } from "@/lib/data/program/getProgramExerciseDetails";
-import { getExerciseSwapOptions } from "@/lib/data/program/getExerciseSwapOptions";
+import { getExerciseSwapOptions, buildProgramExerciseSwapOptionsArgs } from "@/lib/data/program/getExerciseSwapOptions";
 import { MIN_DESIRED_SWAP_OPTIONS } from "@/lib/data/program/programExerciseRecommendationTypes";
 import { getLibraryCandidatesForMuscleGroup } from "@/lib/data/program/programMuscleGroupExerciseTaxonomy";
 import { buildProgrammingPrescription } from "@/lib/data/program/buildProgrammingPrescription";
@@ -105,6 +105,58 @@ describe("getExerciseSwapOptions", () => {
       expect(option.exerciseId).toMatch(/^[a-z0-9]+(_[a-z0-9]+)*$/);
       expect(EXERCISE_LIBRARY_V1.some((x) => x.exerciseId === option.exerciseId)).toBe(true);
     }
+  });
+});
+
+describe("buildProgramExerciseSwapOptionsArgs", () => {
+  const baseContext = {
+    muscleGroupId: "quads" as const,
+    trainingType: "hypertrophy" as const,
+    trainingLevel: "intermediate" as const,
+  };
+
+  it("passes sourceExerciseId when the slot has a selected exercise", () => {
+    const args = buildProgramExerciseSwapOptionsArgs({
+      ...baseContext,
+      selectedExerciseId: "hack_squat",
+    });
+    expect(args.sourceExerciseId).toBe("hack_squat");
+    expect(args.intelligenceConstraints).toBeUndefined();
+  });
+
+  it("omits sourceExerciseId for empty slots", () => {
+    const args = buildProgramExerciseSwapOptionsArgs({
+      ...baseContext,
+      selectedExerciseId: null,
+    });
+    expect(args.sourceExerciseId).toBeUndefined();
+  });
+
+  it("unseeded selected exercise preserves legacy swap ordering", () => {
+    const legacy = getExerciseSwapOptions(baseContext).map((option) => option.exerciseId);
+    const args = buildProgramExerciseSwapOptionsArgs({
+      ...baseContext,
+      selectedExerciseId: "pec_stretch",
+    });
+    expect(args.sourceExerciseId).toBe("pec_stretch");
+    const withUnseededSource = getExerciseSwapOptions(args).map((option) => option.exerciseId);
+    expect(withUnseededSource).toEqual(legacy);
+  });
+
+  it("seeded selected exercise enables intelligence-aware ordering", () => {
+    const emptySlot = getExerciseSwapOptions(
+      buildProgramExerciseSwapOptionsArgs({ ...baseContext, selectedExerciseId: null }),
+    ).map((option) => option.exerciseId);
+    const swappingFromHackSquat = getExerciseSwapOptions(
+      buildProgramExerciseSwapOptionsArgs({
+        ...baseContext,
+        selectedExerciseId: "hack_squat",
+      }),
+    ).map((option) => option.exerciseId);
+    expect(swappingFromHackSquat).not.toEqual(emptySlot);
+    expect(swappingFromHackSquat.indexOf("leg_press")).toBeLessThan(
+      emptySlot.indexOf("leg_press"),
+    );
   });
 });
 

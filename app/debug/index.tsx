@@ -77,6 +77,20 @@ export default function DebugIndex() {
         <Text>Integrations probe (Apple Health)</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => router.push("/debug/exercise-intelligence")}
+        style={{ padding: 12, borderWidth: 1, borderRadius: 10 }}
+      >
+        <Text>Exercise Intelligence audit</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() => router.push("/debug/hypertrophy-stimulus")}
+        style={{ padding: 12, borderWidth: 1, borderRadius: 10 }}
+      >
+        <Text>Hypertrophy stimulus session preview</Text>
+      </Pressable>
+
       <Text selectable style={{ fontFamily: "Menlo", fontSize: 12, paddingTop: 8 }}>
         {result ? JSON.stringify(result, null, 2) : "No result yet"}
       </Text>

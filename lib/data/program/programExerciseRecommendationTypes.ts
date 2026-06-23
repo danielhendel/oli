@@ -29,6 +29,10 @@ export interface ProgramExerciseOption {
   isPrimaryMatch: boolean;
   /** Library origin. Custom (user-created) exercises are surfaced as a lower-confidence tier. */
   origin: "bundled" | "custom";
+  /** Deterministic intelligence swap reason tags; present only during intelligence-aware swaps. */
+  reasonTags?: readonly string[];
+  /** Short user-facing swap rationale; omitted when intelligence is unavailable. */
+  reasonSummary?: string | null;
 }
 
 /**

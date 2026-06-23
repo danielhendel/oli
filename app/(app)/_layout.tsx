@@ -292,6 +292,28 @@ export default function AppLayout() {
             name="nutrition/settings"
             options={{ title: "Nutrition settings", ...workoutsStackNavigationOptions("detail") }}
           />
+
+          <Stack.Screen
+            name="labs/index"
+            options={{ title: "Labs", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="labs/upload"
+            options={{ title: "Upload lab PDF", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="labs/uploads/index"
+            options={{ title: "Lab uploads", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="labs/uploads/[uploadId]"
+            options={{ title: "Lab upload", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="labs/metric/[metricKey]"
+            options={{ title: "Lab metric", ...workoutsStackNavigationOptions("detail") }}
+          />
+
           <Stack.Screen
             name="workouts/index"
             options={{ title: "Strength", ...workoutsStackNavigationOptions("module") }}
@@ -329,6 +351,10 @@ export default function AppLayout() {
           <Stack.Screen
             name="workouts/analytics-detail"
             options={{ title: "Strength analytics", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="workouts/muscle-stimulus"
+            options={{ title: "Muscle Stimulus", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="workouts/strength-range-explainer"

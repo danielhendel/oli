@@ -51,6 +51,7 @@ function completedVm(overrides?: Partial<Extract<StrengthTodayDetailVm, { status
       },
     },
     energyDay: TODAY,
+    muscleStimulus: null,
     ...(overrides ?? {}),
   };
 }
@@ -409,6 +410,40 @@ describe("StrengthTodayCard — preserved volume-by-muscle-group rows (inline be
     ];
     const maxIdx = Math.max(...positions);
     expect(maxIdx).toBe(json.indexOf("strength-today-metric-row-avgHeartRate"));
+  });
+
+  it("renders the muscle stimulus card when detail VM includes it", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <StrengthTodayCard
+          loading={false}
+          detailVm={completedVm({
+            muscleStimulus: {
+              title: "Muscle Stimulus",
+              topRegions: [
+                { label: "Chest", stimulusLabel: "12" },
+                { label: "Quads", stimulusLabel: "9" },
+              ],
+              estimatedFatigue: "Moderate",
+              recoveryDemand: "Low",
+              fallbackNote: null,
+            },
+          })}
+        />,
+      );
+    });
+    expect(tree!.root.findAllByProps({ testID: "workout-hypertrophy-stimulus-card" }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the muscle stimulus card when detail VM has null muscleStimulus", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <StrengthTodayCard loading={false} detailVm={completedVm({ muscleStimulus: null })} />,
+      );
+    });
+    expect(tree!.root.findAllByProps({ testID: "workout-hypertrophy-stimulus-card" })).toHaveLength(0);
   });
 });
 

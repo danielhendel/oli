@@ -168,6 +168,8 @@ import {
 } from "@/lib/data/workouts/workoutDetailMuscleVolume";
 import { subscribeWorkoutCalendarHydrateInvalidate } from "@/lib/data/workouts/workoutCalendarHydrateInvalidate";
 import { WeeklyWorkingVolumeCard } from "@/lib/ui/workouts/WeeklyWorkingVolumeCard";
+import { WeeklyHypertrophyStimulusCard } from "@/lib/ui/workouts/WeeklyHypertrophyStimulusCard";
+import { buildWeeklyHypertrophyStimulusCardModelFromJournal } from "@/lib/data/workouts/weeklyHypertrophyStimulusCardModel";
 
 import { PRIMARY_TRAINING_CARD_PADDING_HORIZONTAL } from "@/lib/ui/workouts/programPrimaryCtaBarStyles";
 import { computeWorkoutOverviewSharedCalendarRange } from "@/lib/data/workouts/workoutOverviewSharedCalendarRange";
@@ -818,6 +820,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
       todayDayKey: today,
       cardModel: strengthTodayCardModel,
       actionWorkoutExercises: strengthTodayActionExercises,
+      sessionId: manualJournalSummaryForToday?.sessionId ?? null,
       energy: dailyEnergyCardForToday.energy,
       todayStrengthSessions: strengthTodaySessions,
     });
@@ -827,6 +830,7 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     today,
     strengthTodayCardModel,
     strengthTodayActionExercises,
+    manualJournalSummaryForToday?.sessionId,
     dailyEnergyCardForToday.energy,
     strengthTodaySessions,
   ]);
@@ -1391,6 +1395,20 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
     );
   }, [domain, manualWorkoutSummaries, weekStart, weekEnd, strengthAnalyticsContext]);
 
+  const weeklyHypertrophyStimulusCardModel = useMemo(() => {
+    if (domain !== "strength") return null;
+    return buildWeeklyHypertrophyStimulusCardModelFromJournal({
+      summaries: manualWorkoutSummaries,
+      weekStartDay: strengthWeekNav.weekStart,
+      weekEndDay: strengthWeekNav.weekEnd,
+    });
+  }, [
+    domain,
+    manualWorkoutSummaries,
+    strengthWeekNav.weekStart,
+    strengthWeekNav.weekEnd,
+  ]);
+
   useEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
@@ -1936,6 +1954,17 @@ export function TrainingOverviewScreen({ domain }: { domain: WorkoutProductDomai
             }
           />
           {strengthRecentWeekCombinedCard}
+          {weeklyHypertrophyStimulusCardModel != null ? (
+            <WeeklyHypertrophyStimulusCard
+              model={weeklyHypertrophyStimulusCardModel}
+              onPress={() =>
+                router.push({
+                  pathname: "/(app)/workouts/muscle-stimulus",
+                  params: { weekStart: strengthWeekNav.weekStart },
+                })
+              }
+            />
+          ) : null}
           {weeklyWorkingVolumeCurrentWeekHasRows ? (
             <WeeklyWorkingVolumeCard
               rows={weeklyWorkingVolumeRows}

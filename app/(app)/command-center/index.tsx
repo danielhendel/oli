@@ -1184,7 +1184,7 @@ export default function CommandCenterScreen(props: Props) {
         <LabsSection
           model={labsModel}
           onPressUpload={() => router.push("/(app)/labs/upload")}
-          onPressView={() => router.push("/(app)/labs/overview")}
+          onPressView={() => router.push("/(app)/labs")}
           onPressFailures={() => router.push("/(app)/failures")}
         />
 

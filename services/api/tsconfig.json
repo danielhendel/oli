@@ -3,7 +3,7 @@
   "compilerOptions": {
     "composite": true,
 
-    "rootDir": ".",
+    "rootDir": "../..",
     "outDir": "dist",
 
     "target": "ES2020",
@@ -15,7 +15,7 @@
     "skipLibCheck": true
   },
   "references": [{ "path": "../../lib/contracts/tsconfig.json" }],
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "../../lib/labs/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",

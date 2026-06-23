@@ -71,6 +71,7 @@ import {
   shouldLogSuppressionAuditForId,
 } from "../lib/rawEventIngestSuppression";
 import { getRawEventsTruthDebugConfig } from "../lib/workoutTruthDebug";
+import labsMeRoutes from "./labsMe";
 
 const router = Router();
 
@@ -2830,5 +2831,7 @@ router.get(
     res.status(200).json(validated.data);
   }),
 );
+
+router.use("/labs", labsMeRoutes);
 
 export default router;

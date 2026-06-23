@@ -41,6 +41,11 @@ import type { ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manual
 import type { MuscleGroup } from "@/lib/workouts/exercises/taxonomy";
 import type { ReconciledWorkoutSession } from "@/lib/data/workouts/workoutSessionReconciliation";
 import {
+  buildWorkoutHypertrophyStimulusCardModel,
+  mapManualWorkoutExercisesToHypertrophyStimulusSets,
+  type WorkoutHypertrophyStimulusCardModel,
+} from "@/lib/ui/workouts/buildWorkoutHypertrophyStimulusCardModel";
+import {
   hasStrengthTodayHrDetailToInspect,
   resolveStrengthTodayAverageHeartRateBpm,
 } from "@/lib/data/workouts/resolveStrengthTodayAverageHeartRateBpm";
@@ -127,6 +132,8 @@ export type StrengthTodayDetailVm =
        * the modal can re-read the same `DailyEnergyCardDto.energyInfluencers.strength`.
        */
       energyDay: DayKey;
+      /** Derived hypertrophy stimulus card; null when no working sets qualify. */
+      muscleStimulus: WorkoutHypertrophyStimulusCardModel | null;
     };
 
 /** Format an integer set count as "{n} sets" (`"1 set"` for 1). */
@@ -168,6 +175,8 @@ export type BuildStrengthTodayDetailVmInput = {
    * so this VM stays pure. Used solely to compute `totalVolume`.
    */
   actionWorkoutExercises: readonly ManualWorkoutExerciseSummary[];
+  /** Journal session id for today's completed workout, when available. */
+  sessionId?: string | null;
   /** Hydrated daily energy DTO for `todayDayKey`. `undefined` while loading / on error / signed-out. */
   energy: DailyEnergyCardDto | undefined;
   /**
@@ -187,7 +196,7 @@ export type BuildStrengthTodayDetailVmInput = {
 export function buildStrengthTodayDetailVm(
   input: BuildStrengthTodayDetailVmInput,
 ): StrengthTodayDetailVm {
-  const { todayDayKey, cardModel, actionWorkoutExercises, energy, todayStrengthSessions = [] } =
+  const { todayDayKey, cardModel, actionWorkoutExercises, sessionId, energy, todayStrengthSessions = [] } =
     input;
 
   if (cardModel == null || cardModel.kind === "rest") {
@@ -246,6 +255,11 @@ export function buildStrengthTodayDetailVm(
     },
   ];
 
+  const muscleStimulus = buildWorkoutHypertrophyStimulusCardModel({
+    sessionId: sessionId?.trim() || `${todayDayKey}-strength`,
+    sets: mapManualWorkoutExercisesToHypertrophyStimulusSets(actionWorkoutExercises),
+  });
+
   return {
     status: "completed",
     pill: "Completed",
@@ -259,5 +273,6 @@ export function buildStrengthTodayDetailVm(
         }
       : null,
     energyDay: todayDayKey,
+    muscleStimulus,
   };
 }

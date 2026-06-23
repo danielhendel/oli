@@ -44,8 +44,8 @@ describe("resolveTimelineItemHref", () => {
   });
 
   it("routes labs, uploads, and insights to existing screens", () => {
-    expect(resolveTimelineItemHref({ sourceType: "lab", day: DAY })).toBe(`/(app)/labs/overview`);
-    expect(resolveTimelineItemHref({ sourceType: "upload", day: DAY })).toBe(`/(app)/labs/overview`);
+    expect(resolveTimelineItemHref({ sourceType: "lab", day: DAY })).toBe(`/(app)/labs`);
+    expect(resolveTimelineItemHref({ sourceType: "upload", day: DAY })).toBe(`/(app)/labs`);
     expect(resolveTimelineItemHref({ sourceType: "insight", day: DAY })).toBe(
       `/(app)/dash/daily-recap`,
     );

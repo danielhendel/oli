@@ -26,6 +26,7 @@ import { assignLegsExerciseToLowerBodySlice } from "./lowerBodySliceRules";
 import type { ExerciseLibraryItemV1 } from "./library.v1";
 import { resolveBundledExerciseIdForAnalyticsIntelligence } from "./taxonomyResolve";
 
+import type { ExerciseIntelligenceV1 } from "./intelligence/exerciseIntelligenceV1Types";
 import type { MuscleContribution, MuscleGroup, MuscleGroupCoarse } from "./taxonomy";
 import { validateMuscleContributions } from "./taxonomy";
 
@@ -48,6 +49,11 @@ export type ResolvedExerciseAnalytics = {
   classificationSource: ExerciseAnalyticsClassificationSource;
   /** Primary classification slice chosen for analytics (movement + primary muscle). */
   classification: ExerciseClassificationV1 | null;
+  /**
+   * Additive hypertrophy intelligence overlay for the resolution catalog id.
+   * Null when not seeded; does not alter contribution or classification fallbacks.
+   */
+  hypertrophyIntelligence: ExerciseIntelligenceV1 | null;
 };
 
 export type ExerciseAnalyticsResolutionContext = {
@@ -199,6 +205,7 @@ export function resolveExerciseIntelligenceForAnalytics(
       hasContributionMap: false,
       classificationSource: "unknown",
       classification: null,
+      hypertrophyIntelligence: null,
     };
   }
 
@@ -281,5 +288,6 @@ export function resolveExerciseIntelligenceForAnalytics(
     hasContributionMap,
     classificationSource,
     classification: primarySlice,
+    hypertrophyIntelligence: merged.hypertrophyIntelligence,
   };
 }
