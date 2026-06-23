@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { buildMuscleGroupExercisePlan } from "@/lib/data/program/buildProgramExerciseRecommendations";
 import { buildProgrammingPrescriptionFromDraft } from "@/lib/data/program/buildProgrammingPrescription";
-import { getExerciseSwapOptions } from "@/lib/data/program/getExerciseSwapOptions";
+import { buildProgramExerciseSwapOptionsArgs, getExerciseSwapOptions } from "@/lib/data/program/getExerciseSwapOptions";
 import { getProgramExerciseDetails } from "@/lib/data/program/getProgramExerciseDetails";
 import { parseMuscleGroupRouteParam } from "@/lib/data/program/parseMuscleGroupRouteParam";
 import { PROGRAM_DESIGN_MUSCLE_GROUP_LABEL } from "@/lib/data/program/workoutProgramDesignOptions";
@@ -44,11 +44,14 @@ export default function ProgramExerciseSlotSelectRoute() {
 
   const options =
     muscleGroupId != null && prescription != null
-      ? getExerciseSwapOptions({
-          muscleGroupId,
-          trainingType: prescription.inputs.trainingType,
-          trainingLevel: prescription.inputs.trainingLevel,
-        })
+      ? getExerciseSwapOptions(
+          buildProgramExerciseSwapOptionsArgs({
+            muscleGroupId,
+            trainingType: prescription.inputs.trainingType,
+            trainingLevel: prescription.inputs.trainingLevel,
+            selectedExerciseId: slot?.selectedExerciseId ?? null,
+          }),
+        )
       : [];
 
   const onSelect = useCallback(

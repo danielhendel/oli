@@ -75,6 +75,11 @@ function ExerciseOptionRow({
       <Text style={styles.optionMeta} numberOfLines={1}>
         {metaParts.join(" · ")}
       </Text>
+      {option.reasonSummary != null && option.reasonSummary.length > 0 ? (
+        <Text style={styles.optionReason} numberOfLines={2}>
+          {option.reasonSummary}
+        </Text>
+      ) : null}
       {primaryLine != null ? (
         <Text style={styles.optionDetail} numberOfLines={2}>
           {primaryLine}
@@ -223,6 +228,11 @@ const styles = StyleSheet.create({
   optionMeta: {
     fontSize: 13,
     color: UI_TEXT_MUTED,
+  },
+  optionReason: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: UI_TEXT_SECONDARY,
   },
   optionDetail: {
     fontSize: 13,

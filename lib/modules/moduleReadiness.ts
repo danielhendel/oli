@@ -69,7 +69,7 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
     case "labs.log":
       return READY;
     case "labs.upload":
-      return SOON("Soon");
+      return READY;
 
     // SETTINGS
     case "settings.account":

@@ -37,6 +37,8 @@ import {
   getExpectedHamstringsSliceExerciseIds,
   getExpectedQuadsSliceExerciseIds,
 } from "./lowerBodySliceRules";
+import { getExerciseIntelligenceV1 } from "./intelligence/exerciseIntelligenceV1Registry";
+import type { ExerciseIntelligenceV1 } from "./intelligence/exerciseIntelligenceV1Types";
 import { getExerciseMeta, type ExerciseMeta } from "./metadata";
 
 export type MergedExerciseIntelligenceView = {
@@ -45,6 +47,8 @@ export type MergedExerciseIntelligenceView = {
   libraryItem: ExerciseLibraryItemV1 | null;
   /** Existing deterministic metadata (defaults for unknown ids). */
   meta: ExerciseMeta;
+  /** Additive hypertrophy intelligence overlay; null when not seeded for this id. */
+  hypertrophyIntelligence: ExerciseIntelligenceV1 | null;
   /** Chest slice; null when no chest row. */
   chestClassification: ChestExerciseClassificationV1 | null;
   /** Back slice; null when no back row. */
@@ -129,6 +133,7 @@ export function mergeExerciseIntelligenceForId(exerciseId: string): MergedExerci
     exerciseId: trimmed,
     libraryItem: getLibraryItemByExerciseId(trimmed),
     meta: getExerciseMeta(trimmed),
+    hypertrophyIntelligence: getExerciseIntelligenceV1(trimmed),
     chestClassification: resolveChestClassification(trimmed),
     backClassification: resolveBackClassification(trimmed),
     shouldersClassification: resolveShouldersClassification(trimmed),

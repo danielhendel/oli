@@ -20,6 +20,11 @@ import type {
   TrainingType,
 } from "@/lib/data/program/workoutProgramDesignTypes";
 import type { CustomExerciseRecord } from "@/lib/workouts/exercises/customExerciseStore";
+import {
+  canRankExerciseSwapByIntelligence,
+  rankExerciseSwapByIntelligence,
+  type RankExerciseSwapConstraints,
+} from "@/lib/workouts/exercises/intelligence/rankExerciseSwapByIntelligence";
 import type { MovementPattern } from "@/lib/workouts/exercises/metadata";
 import type { Equipment, MuscleGroupDetailed } from "@/lib/workouts/exercises/taxonomy";
 
@@ -172,11 +177,55 @@ export type ExerciseRankingContext = {
 
 export type SwapOptionsArgs = ExerciseRankingContext & {
   muscleGroupId: ProgramDesignMuscleGroup;
+  /**
+   * When set and the source has seeded hypertrophy intelligence, candidates are re-ranked
+   * with an additive intelligence layer. Omit to use legacy ranking only.
+   */
+  sourceExerciseId?: string;
+  /** Optional intelligence constraints (only applied when source has seeded overlay). */
+  intelligenceConstraints?: RankExerciseSwapConstraints;
   /** Optional injected custom exercises (loaded by the screen from the existing custom store). */
   customExercises?: readonly CustomExerciseRecord[];
   /** Optional cap on returned options. Omit to return all real candidates. */
   limit?: number;
 };
+
+/** Program Builder slot context for building swap-option args. */
+export type ProgramExerciseSwapSlotContext = ExerciseRankingContext & {
+  muscleGroupId: ProgramDesignMuscleGroup;
+  /** Current slot selection; null/empty keeps legacy ranking. */
+  selectedExerciseId: string | null;
+  intelligenceConstraints?: RankExerciseSwapConstraints;
+  customExercises?: readonly CustomExerciseRecord[];
+  limit?: number;
+};
+
+/**
+ * Build {@link SwapOptionsArgs} for Program Builder exercise selection.
+ * Passes `sourceExerciseId` when the slot already has a selection; omits constraints
+ * unless caller supplies them from existing program/user context.
+ */
+export function buildProgramExerciseSwapOptionsArgs(
+  context: ProgramExerciseSwapSlotContext,
+): SwapOptionsArgs {
+  const args: SwapOptionsArgs = {
+    muscleGroupId: context.muscleGroupId,
+    trainingType: context.trainingType,
+    trainingLevel: context.trainingLevel,
+    ...(context.customExercises != null ? { customExercises: context.customExercises } : {}),
+    ...(context.limit != null ? { limit: context.limit } : {}),
+    ...(context.intelligenceConstraints != null
+      ? { intelligenceConstraints: context.intelligenceConstraints }
+      : {}),
+  };
+
+  const selected =
+    typeof context.selectedExerciseId === "string" ? context.selectedExerciseId.trim() : "";
+  if (selected.length > 0) {
+    return { ...args, sourceExerciseId: selected };
+  }
+  return args;
+}
 
 /**
  * Ranked, deterministic swap options for a muscle group, drawn from the existing library. Bundled
@@ -184,8 +233,32 @@ export type SwapOptionsArgs = ExerciseRankingContext & {
  * confidence tier). Ties break by `exerciseId` for stable ordering. Never fabricates exercises, so
  * groups with a thin library simply return fewer than {@link MIN_DESIRED_SWAP_OPTIONS} options.
  */
+function sortSwapEntries(
+  entries: { option: ProgramExerciseOption; score: number }[],
+  finalScoreByExerciseId?: ReadonlyMap<string, number>,
+): ProgramExerciseOption[] {
+  return entries
+    .sort((a, b) => {
+      const scoreA = finalScoreByExerciseId?.get(a.option.exerciseId) ?? a.score;
+      const scoreB = finalScoreByExerciseId?.get(b.option.exerciseId) ?? b.score;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      // Custom exercises always rank below bundled at equal score (separate, lower-confidence tier).
+      if (a.option.origin !== b.option.origin) return a.option.origin === "bundled" ? -1 : 1;
+      return a.option.exerciseId.localeCompare(b.option.exerciseId);
+    })
+    .map((entry) => entry.option);
+}
+
 export function getExerciseSwapOptions(args: SwapOptionsArgs): ProgramExerciseOption[] {
-  const { muscleGroupId, trainingType, trainingLevel, customExercises = [], limit } = args;
+  const {
+    muscleGroupId,
+    trainingType,
+    trainingLevel,
+    sourceExerciseId,
+    intelligenceConstraints,
+    customExercises = [],
+    limit,
+  } = args;
 
   const tags = new Set<MuscleGroupDetailed>(PROGRAM_MUSCLE_GROUP_TO_DETAILED[muscleGroupId]);
 
@@ -194,15 +267,50 @@ export function getExerciseSwapOptions(args: SwapOptionsArgs): ProgramExerciseOp
     .map((record) => customExerciseOption(record, tags))
     .filter((option): option is ProgramExerciseOption => option != null);
 
-  const ranked = [...bundled, ...custom]
-    .map((option) => ({ option, score: scoreCandidate(option, trainingType, trainingLevel) }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      // Custom exercises always rank below bundled at equal score (separate, lower-confidence tier).
-      if (a.option.origin !== b.option.origin) return a.option.origin === "bundled" ? -1 : 1;
-      return a.option.exerciseId.localeCompare(b.option.exerciseId);
-    })
-    .map((entry) => entry.option);
+  const scored = [...bundled, ...custom].map((option) => ({
+    option,
+    score: scoreCandidate(option, trainingType, trainingLevel),
+  }));
+
+  let finalScoreByExerciseId: Map<string, number> | undefined;
+  let swapReasonByExerciseId: Map<
+    string,
+    { reasonTags: readonly string[]; reasonSummary: string | null }
+  > | undefined;
+  if (
+    typeof sourceExerciseId === "string" &&
+    sourceExerciseId.trim().length > 0 &&
+    canRankExerciseSwapByIntelligence(sourceExerciseId)
+  ) {
+    const baseSwapScoresByExerciseId = Object.fromEntries(
+      scored.map((entry) => [entry.option.exerciseId, entry.score]),
+    );
+    const intelligenceRanked = rankExerciseSwapByIntelligence({
+      sourceExerciseId,
+      candidateExerciseIds: scored.map((entry) => entry.option.exerciseId),
+      ...(intelligenceConstraints != null ? { constraints: intelligenceConstraints } : {}),
+      baseSwapScoresByExerciseId,
+    });
+    finalScoreByExerciseId = new Map(
+      intelligenceRanked.map((row) => [row.exerciseId, row.breakdown.finalScore]),
+    );
+    swapReasonByExerciseId = new Map(
+      intelligenceRanked.map((row) => [
+        row.exerciseId,
+        { reasonTags: row.reasonTags, reasonSummary: row.reasonSummary },
+      ]),
+    );
+  }
+
+  const ranked = sortSwapEntries(scored, finalScoreByExerciseId).map((option) => {
+    const reasons = swapReasonByExerciseId?.get(option.exerciseId);
+    if (reasons == null || reasons.reasonSummary == null) return option;
+    return {
+      ...option,
+      reasonTags: reasons.reasonTags,
+      reasonSummary: reasons.reasonSummary,
+    };
+  });
 
   return typeof limit === "number" ? ranked.slice(0, Math.max(0, limit)) : ranked;
 }

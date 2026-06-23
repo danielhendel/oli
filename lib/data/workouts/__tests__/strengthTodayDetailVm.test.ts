@@ -196,6 +196,27 @@ describe("buildStrengthTodayDetailVm — completed branch", () => {
     }
   });
 
+  it("includes derived muscle stimulus when exercises have working sets", () => {
+    const vm = buildStrengthTodayDetailVm({
+      todayDayKey: TODAY,
+      cardModel: completedCardModel,
+      actionWorkoutExercises: [
+        {
+          exerciseId: "bench_press",
+          name: "Bench Press",
+          sets: [{ setNumber: 1, reps: 8, weightKg: 100, intensity: 8, isWarmup: false }],
+        },
+      ],
+      sessionId: "session-bench",
+      energy: energyWithStrength({ kcalLow: 252, kcalHigh: 432, averageHeartRateBpm: 98 }),
+    });
+    expect(vm.status).toBe("completed");
+    if (vm.status !== "completed") return;
+    expect(vm.muscleStimulus).not.toBeNull();
+    expect(vm.muscleStimulus?.title).toBe("Muscle Stimulus");
+    expect(vm.muscleStimulus?.topRegions.length).toBeGreaterThan(0);
+  });
+
   it("hero = primaryTitle, pill = Completed, subtitleLine = cardModel.subtitle (trimmed)", () => {
     const vm = buildStrengthTodayDetailVm({
       todayDayKey: TODAY,

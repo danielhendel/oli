@@ -795,6 +795,99 @@ paths:
         200:
           description: OK
 
+  /users/me/labs/summary:
+    options:
+      operationId: labsSummaryOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsSummaryGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Labs category summary with latest biomarker values
+        401:
+          description: Unauthorized
+
+  /users/me/labs/uploads:
+    options:
+      operationId: labsUploadsOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsUploadsListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Lab PDF uploads list
+        401:
+          description: Unauthorized
+    post:
+      operationId: labsUploadsCreatePost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Lab PDF upload accepted
+        400:
+          description: Invalid body or missing idempotency key
+        401:
+          description: Unauthorized
+
+  /users/me/labs/uploads/{uploadId}:
+    parameters:
+      - name: uploadId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsUploadDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsUploadDetailGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Lab upload detail with extracted biomarkers
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/labs/metrics/{metricKey}:
+    parameters:
+      - name: metricKey
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsMetricDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsMetricDetailGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Lab metric detail with history
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
   /preferences:
     options:
       operationId: preferencesOptions

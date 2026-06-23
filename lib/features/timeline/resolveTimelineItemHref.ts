@@ -59,7 +59,7 @@ export function resolveTimelineItemHref(input: ResolveHrefInput): string {
 
     case "lab":
     case "upload":
-      return `/(app)/labs/overview`;
+      return `/(app)/labs`;
 
     case "insight":
       return `/(app)/dash/daily-recap`;

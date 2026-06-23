@@ -155,6 +155,16 @@ jest.mock("@/lib/workouts/journal/manualWorkoutSummary", () => ({
   listManualWorkoutDaySummaries: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("@/lib/data/workouts/weeklyHypertrophyStimulusCardModel", () => {
+  const actual = jest.requireActual<typeof import("@/lib/data/workouts/weeklyHypertrophyStimulusCardModel")>(
+    "@/lib/data/workouts/weeklyHypertrophyStimulusCardModel",
+  );
+  return {
+    ...actual,
+    buildWeeklyHypertrophyStimulusCardModelFromJournal: jest.fn(() => null),
+  };
+});
+
 jest.mock("@/lib/data/workouts/workoutDetailMuscleVolume", () => {
   const actual = jest.requireActual<typeof import("@/lib/data/workouts/workoutDetailMuscleVolume")>(
     "@/lib/data/workouts/workoutDetailMuscleVolume",
@@ -189,18 +199,28 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 import { buildWeeklyWorkingSetVolumeRows } from "@/lib/data/workouts/workoutDetailMuscleVolume";
+import { buildWeeklyHypertrophyStimulusCardModelFromJournal } from "@/lib/data/workouts/weeklyHypertrophyStimulusCardModel";
+import {
+  WEEKLY_HYPERTROPHY_STIMULUS_CARD_SUBTITLE,
+  WEEKLY_HYPERTROPHY_STIMULUS_CARD_TITLE,
+} from "@/lib/ui/workouts/buildWeeklyHypertrophyStimulusCardModel";
 
 import StrengthTrainingOverviewScreen from "../overview";
 
 const mockBuildWeeklyWorkingSetVolumeRows = buildWeeklyWorkingSetVolumeRows as jest.MockedFunction<
   typeof buildWeeklyWorkingSetVolumeRows
 >;
+const mockBuildWeeklyHypertrophyStimulusCardModelFromJournal =
+  buildWeeklyHypertrophyStimulusCardModelFromJournal as jest.MockedFunction<
+    typeof buildWeeklyHypertrophyStimulusCardModelFromJournal
+  >;
 
 describe("Strength overview main layout", () => {
   beforeEach(() => {
     workoutsOverviewExpoMocks().push.mockClear();
     workoutsOverviewExpoMocks().setOptions.mockClear();
     mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([]);
+    mockBuildWeeklyHypertrophyStimulusCardModelFromJournal.mockReturnValue(null);
   });
 
   it("renders Today card, then This Week, then Strength Baseline table (no Program card, no standalone baseline card)", async () => {
@@ -227,6 +247,7 @@ describe("Strength overview main layout", () => {
     expect(iTodayCard).toBeLessThan(iThisWeek);
     expect(iThisWeek).toBeLessThan(iBaselineCard);
     expect(json).not.toContain("weekly-working-volume-card");
+    expect(json).not.toContain("weekly-hypertrophy-stimulus-card");
     expect(json).not.toContain("Last Week");
     expect(json).not.toContain("14 Day");
     expect(json).not.toContain("This Month");
@@ -326,6 +347,63 @@ describe("Strength overview main layout", () => {
     });
     expect(push).toHaveBeenCalledWith("/(app)/workouts/list");
     void tree;
+  });
+
+  it("renders Weekly Muscle Stimulus between This Week and Weekly Volume when model is available", async () => {
+    mockBuildWeeklyHypertrophyStimulusCardModelFromJournal.mockReturnValue({
+      title: WEEKLY_HYPERTROPHY_STIMULUS_CARD_TITLE,
+      subtitle: WEEKLY_HYPERTROPHY_STIMULUS_CARD_SUBTITLE,
+      topRegions: [
+        { label: "Chest", band: "Moderate" },
+        { label: "Quads", band: "Low" },
+      ],
+      fatigueBand: "Moderate",
+      recoveryBand: "Low",
+      fallbackNote: null,
+    });
+    mockBuildWeeklyWorkingSetVolumeRows.mockReturnValue([{ muscleGroup: "chest", setCount: 4 }]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const json = JSON.stringify(tree.toJSON());
+    const iThisWeek = json.indexOf('"This Week"');
+    const iMuscleStimulus = json.indexOf("weekly-hypertrophy-stimulus-card");
+    const iWeeklyVolume = json.indexOf("weekly-working-volume-card");
+    const iBaselineCard = json.indexOf("strength-history-summary-card");
+
+    expect(iMuscleStimulus).toBeGreaterThan(-1);
+    expect(json).toContain(WEEKLY_HYPERTROPHY_STIMULUS_CARD_TITLE);
+    expect(json).toContain(WEEKLY_HYPERTROPHY_STIMULUS_CARD_SUBTITLE);
+    expect(iThisWeek).toBeLessThan(iMuscleStimulus);
+    expect(iMuscleStimulus).toBeLessThan(iWeeklyVolume);
+    expect(iWeeklyVolume).toBeLessThan(iBaselineCard);
+  });
+
+  it("navigates to muscle stimulus detail with the selected weekStart", async () => {
+    mockBuildWeeklyHypertrophyStimulusCardModelFromJournal.mockReturnValue({
+      title: WEEKLY_HYPERTROPHY_STIMULUS_CARD_TITLE,
+      subtitle: WEEKLY_HYPERTROPHY_STIMULUS_CARD_SUBTITLE,
+      topRegions: [{ label: "Chest", band: "Moderate" }],
+      fatigueBand: "Moderate",
+      recoveryBand: "Low",
+      fallbackNote: null,
+    });
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<StrengthTrainingOverviewScreen />);
+    });
+    const { push } = workoutsOverviewExpoMocks();
+    const card = tree.root.findByProps({ accessibilityLabel: "Open weekly muscle stimulus details" });
+    await act(async () => {
+      card.props.onPress();
+    });
+    expect(push).toHaveBeenCalledWith({
+      pathname: "/(app)/workouts/muscle-stimulus",
+      params: { weekStart: "2026-03-08" },
+    });
   });
 
   it("renders Weekly Volume between This Week and Strength Baseline when working rows exist", async () => {

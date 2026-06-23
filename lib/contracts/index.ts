@@ -25,6 +25,9 @@ export * from "./exerciseDefinition";
 // ✅ Labs Biomarkers v0 ( Sprint 2.9 )
 export * from "./labResults";
 
+// Labs PDF upload + per-metric results (schema v2)
+export * from "./labsModule";
+
 // Workout day summary read model (Calendar markers)
 export * from "./workoutDaySummary";
 
