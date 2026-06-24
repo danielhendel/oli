@@ -124,7 +124,8 @@ function buildMetricFromClassification(
 export function buildTargetStateRoadmap(input: TargetStateRoadmapInput): TargetStateRoadmap {
   const primaryGoal = input.currentStateProfile?.primaryGoal ?? null;
   const domainPriorityOrder = getDomainPriorityOrder(primaryGoal);
-  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const generatedAt =
+    input.generatedAt ?? input.baseline?.generatedAt ?? "";
   const sex = input.sex ?? null;
 
   if (input.baseline == null) {

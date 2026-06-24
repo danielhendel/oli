@@ -214,7 +214,22 @@ describe("buildTargetStateRoadmap", () => {
   it("is deterministic", () => {
     const baseline = buildHealthBaseline(fullBaselineInput());
     const input = { baseline, currentStateProfile: null, sex: "male" as const };
-    expect(buildTargetStateRoadmap(input)).toEqual(buildTargetStateRoadmap(input));
+    const first = buildTargetStateRoadmap(input);
+    const second = buildTargetStateRoadmap(input);
+    expect(first).toEqual(second);
+    expect(first.generatedAt).toBe(baseline.generatedAt);
+  });
+
+  it("uses explicit generatedAt when provided", () => {
+    const baseline = buildHealthBaseline(fullBaselineInput());
+    const explicit = "2026-01-15T08:30:00.000Z";
+    const roadmap = buildTargetStateRoadmap({
+      baseline,
+      currentStateProfile: null,
+      sex: "male",
+      generatedAt: explicit,
+    });
+    expect(roadmap.generatedAt).toBe(explicit);
   });
 });
 
