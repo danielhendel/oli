@@ -17,6 +17,9 @@ import type { MassUnit, UserProfileMain } from "@oli/contracts";
 import { isSuppressedProfileMainErrorMessage } from "@/lib/data/profile/profileTabViewModel";
 import type { DigitalTwinHomeVm } from "@/lib/features/profile/digitalTwin/types";
 import { DigitalTwinSystemCard } from "@/lib/ui/profile/digitalTwin/DigitalTwinSystemCard";
+import { HealthAssessmentEntryCard } from "@/lib/ui/health-assessment/HealthAssessmentEntryCard";
+import { HealthBaselineEntryCard } from "@/lib/ui/health-baseline/HealthBaselineEntryCard";
+import { TargetStateEntryCard } from "@/lib/ui/target-state/TargetStateEntryCard";
 
 export type ProfileMainScreenProps = {
   profile: UserProfileMain | null;
@@ -28,6 +31,15 @@ export type ProfileMainScreenProps = {
   errorMessage?: string | undefined;
   massUnit: MassUnit;
   twin: DigitalTwinHomeVm;
+  healthAssessmentHref: string;
+  healthAssessmentHasProgress: boolean;
+  healthAssessmentCompletionPercent: number;
+  healthBaselineHref: string;
+  healthBaselineCompleteness: number | null;
+  healthBaselineConfidence: string | null;
+  targetStateHref: string;
+  targetStateCoverage: number | null;
+  targetStateConfidence: string | null;
 };
 
 export function ProfileMainScreen({
@@ -36,6 +48,15 @@ export function ProfileMainScreen({
   isSaving = false,
   errorMessage,
   twin,
+  healthAssessmentHref,
+  healthAssessmentHasProgress,
+  healthAssessmentCompletionPercent,
+  healthBaselineHref,
+  healthBaselineCompleteness,
+  healthBaselineConfidence,
+  targetStateHref,
+  targetStateCoverage,
+  targetStateConfidence,
 }: ProfileMainScreenProps) {
   const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
@@ -74,6 +95,24 @@ export function ProfileMainScreen({
                 <Text style={styles.loadingText}>Saving…</Text>
               </View>
             ) : null}
+
+            <HealthAssessmentEntryCard
+              hasProgress={healthAssessmentHasProgress}
+              completionPercent={healthAssessmentCompletionPercent}
+              onPress={() => go(healthAssessmentHref)}
+            />
+
+            <HealthBaselineEntryCard
+              dataCompleteness={healthBaselineCompleteness}
+              baselineConfidence={healthBaselineConfidence}
+              onPress={() => go(healthBaselineHref)}
+            />
+
+            <TargetStateEntryCard
+              dataCoveragePercent={targetStateCoverage}
+              targetStateConfidence={targetStateConfidence}
+              onPress={() => go(targetStateHref)}
+            />
 
             {twin.systems.map((system) => (
               <DigitalTwinSystemCard key={system.id} system={system} onPressRow={go} />

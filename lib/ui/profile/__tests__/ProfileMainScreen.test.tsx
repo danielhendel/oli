@@ -49,6 +49,15 @@ function render() {
         status="ready"
         massUnit="lb"
         twin={TWIN}
+        healthAssessmentHref="/(app)/profile/health-assessment"
+        healthAssessmentHasProgress={false}
+        healthAssessmentCompletionPercent={0}
+        healthBaselineHref="/(app)/profile/health-baseline"
+        healthBaselineCompleteness={null}
+        healthBaselineConfidence={null}
+        targetStateHref="/(app)/profile/target-state"
+        targetStateCoverage={null}
+        targetStateConfidence={null}
       />,
     );
   });
@@ -144,6 +153,15 @@ describe("ProfileMainScreen (Health & Fitness Data home)", () => {
           errorMessage="HTTP 404 (kind=http, status=404)"
           massUnit="lb"
           twin={TWIN}
+          healthAssessmentHref="/(app)/profile/health-assessment"
+          healthAssessmentHasProgress={false}
+          healthAssessmentCompletionPercent={0}
+          healthBaselineHref="/(app)/profile/health-baseline"
+          healthBaselineCompleteness={null}
+          healthBaselineConfidence={null}
+          targetStateHref="/(app)/profile/target-state"
+          targetStateCoverage={null}
+          targetStateConfidence={null}
         />,
       );
     });
@@ -163,6 +181,15 @@ describe("ProfileMainScreen (Health & Fitness Data home)", () => {
           errorMessage="HTTP 503 (kind=http, status=503)"
           massUnit="lb"
           twin={TWIN}
+          healthAssessmentHref="/(app)/profile/health-assessment"
+          healthAssessmentHasProgress={false}
+          healthAssessmentCompletionPercent={0}
+          healthBaselineHref="/(app)/profile/health-baseline"
+          healthBaselineCompleteness={null}
+          healthBaselineConfidence={null}
+          targetStateHref="/(app)/profile/target-state"
+          targetStateCoverage={null}
+          targetStateConfidence={null}
         />,
       );
     });

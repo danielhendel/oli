@@ -505,6 +505,18 @@ export default function AppLayout() {
             options={{ title: "Metric", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="profile/health-assessment"
+            options={{ title: "Health Assessment", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="profile/health-baseline"
+            options={{ title: "Health Baseline", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="profile/target-state"
+            options={{ title: "Target State", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="fitness-goals"
             options={{ title: "Weekly Fitness Goals", ...workoutsStackNavigationOptions("detail") }}
           />
