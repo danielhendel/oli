@@ -1,0 +1,159 @@
+.canvasColumn {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.overviewCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  max-width: 100%;
+}
+
+.overviewToggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+.overviewTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+.overviewSummary {
+  color: #9aa3b2;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.chevron {
+  font-size: 22px;
+  color: #9eb4ff;
+  line-height: 1;
+}
+
+.panelEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8f99ab;
+  margin-bottom: 8px;
+}
+
+.panelTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 11px 12px;
+}
+
+.field textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.blocksRegion {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 100%;
+}
+
+.blocksHeading {
+  padding: 0 2px;
+}
+
+.toolbarHint {
+  color: #8f99ab;
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.blocksStack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 100%;
+}
+
+.emptyState {
+  color: #8f99ab;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  text-align: center;
+  padding: 36px 24px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.emptyTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+  color: #dce4ff;
+  margin-bottom: 8px;
+}
+
+.toolsPanel {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.015);
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+}

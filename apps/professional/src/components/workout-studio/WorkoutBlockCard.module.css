@@ -1,0 +1,192 @@
+.blockCard {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.blockCardActive {
+  border-color: rgba(124, 156, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(124, 156, 255, 0.18);
+}
+
+.blockCardExpanded {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.blockHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 0;
+}
+
+.blockHeaderToggle {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.blockTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.blockEyebrow {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.blockTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+.blockSummary {
+  color: #8f99ab;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.chevron {
+  font-size: 22px;
+  color: #9eb4ff;
+  line-height: 1;
+}
+
+.blockActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.actionButton,
+.actionButtonDanger,
+.actionButtonDangerConfirm {
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f6f8;
+  font-size: 12px;
+}
+
+.actionButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.actionButtonDanger,
+.actionButtonDangerConfirm {
+  color: #ffb4b4;
+  border-color: rgba(255, 120, 120, 0.25);
+}
+
+.actionButtonDangerConfirm {
+  background: rgba(255, 80, 80, 0.15);
+}
+
+.notesButton,
+.notesButtonActive {
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f6f8;
+  font-size: 12px;
+}
+
+.notesButtonActive {
+  border-color: rgba(124, 156, 255, 0.35);
+  background: rgba(124, 156, 255, 0.12);
+  color: #dce4ff;
+}
+
+.blockNotePreview {
+  color: #9aa3b2;
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.4;
+  max-width: 640px;
+}
+
+.blockBody {
+  padding: 14px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.blockFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 11px 12px;
+}
+
+.blockNotes {
+  min-height: 120px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.dropZone {
+  padding: 22px;
+  border-radius: 14px;
+  border: 1px dashed rgba(124, 156, 255, 0.25);
+  background: rgba(124, 156, 255, 0.04);
+  color: #9aa3b2;
+  font-size: 13px;
+  text-align: center;
+}
+
+.exerciseStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .blockFields {
+    grid-template-columns: 1fr;
+  }
+
+  .blockHeader {
+    flex-direction: column;
+  }
+}

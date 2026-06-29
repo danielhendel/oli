@@ -1,0 +1,910 @@
+.experienceRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.experienceHeroRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(280px, 1.05fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.goalColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.goalHero {
+  position: relative;
+  padding: 28px 28px 24px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(124, 156, 255, 0.2), transparent 55%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.goalHeroGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(196, 181, 253, 0.12), transparent 50%);
+  pointer-events: none;
+}
+
+.goalHeroInner {
+  position: relative;
+}
+
+.goalKicker {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9eb4ff;
+}
+
+.goalTitle {
+  margin: 0 0 10px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 500;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.goalDescription {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #c6ceda;
+  max-width: 28rem;
+}
+
+.goalMeta {
+  font-size: 12px;
+  color: #8f99ab;
+}
+
+.goalPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.goalOption {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #c6ceda;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.goalOption:hover {
+  border-color: rgba(124, 156, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.goalOptionSelected {
+  border-color: rgba(124, 156, 255, 0.5);
+  background: rgba(124, 156, 255, 0.16);
+  color: #f4f6f8;
+}
+
+.toneRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toneChip {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #b8c0cf;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toneChipSelected {
+  border-color: rgba(124, 156, 255, 0.45);
+  background: rgba(124, 156, 255, 0.14);
+  color: #eef2ff;
+}
+
+.previewColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.previewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.previewKicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9eb4ff;
+  margin-bottom: 4px;
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f4f6f8;
+  letter-spacing: -0.02em;
+}
+
+.previewMeta {
+  font-size: 11px;
+  color: #8f99ab;
+  white-space: nowrap;
+}
+
+.previewStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.previewStatusBadge,
+.previewStatusReady,
+.previewStatusPending {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.previewStatusBadge {
+  background: rgba(124, 156, 255, 0.14);
+  color: #b8c8ff;
+  border: 1px solid rgba(124, 156, 255, 0.22);
+}
+
+.previewStatusReady {
+  background: rgba(72, 187, 120, 0.12);
+  color: #9ae6b4;
+  border: 1px solid rgba(72, 187, 120, 0.22);
+}
+
+.previewStatusPending {
+  background: rgba(237, 137, 54, 0.12);
+  color: #fbd38d;
+  border: 1px solid rgba(237, 137, 54, 0.22);
+}
+
+.previewLessonButton {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 156, 255, 0.35);
+  background: rgba(124, 156, 255, 0.16);
+  color: #eef2ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.previewUnavailable {
+  margin: 0;
+  font-size: 12px;
+  color: #8f99ab;
+  font-style: italic;
+}
+
+.assetDevNote {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(143, 153, 171, 0.9);
+  line-height: 1.45;
+}
+
+.assetDevNote code {
+  font-size: 10px;
+  color: #b8c8ff;
+}
+
+.timelineAssetMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #8f99ab;
+}
+
+.deviceFrame {
+  flex: 1;
+  border-radius: 32px;
+  padding: 12px;
+  background: linear-gradient(180deg, #1a1d28 0%, #0d0f14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s ease;
+}
+
+.deviceNotch {
+  width: 96px;
+  height: 24px;
+  margin: 0 auto 12px;
+  border-radius: 0 0 16px 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.deviceScreen {
+  flex: 1;
+  border-radius: 22px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: experienceFadeIn 0.35s ease;
+}
+
+@keyframes experienceFadeIn {
+  from {
+    opacity: 0.6;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.deviceSceneBadge {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dbe4ff;
+  background: rgba(124, 156, 255, 0.16);
+  border: 1px solid rgba(124, 156, 255, 0.28);
+}
+
+.deviceMedia {
+  flex: 1;
+  width: 100%;
+  min-height: 180px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(124, 156, 255, 0.22), transparent 60%),
+    rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.deviceMediaRich {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55)),
+    radial-gradient(circle at 50% 30%, rgba(124, 156, 255, 0.28), transparent 62%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.45));
+}
+
+.deviceMediaInteractive {
+  cursor: pointer;
+  border-color: rgba(124, 156, 255, 0.25);
+}
+
+.deviceMediaInteractive:hover {
+  box-shadow: inset 0 0 0 1px rgba(124, 156, 255, 0.35);
+}
+
+.deviceMediaInteractive:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.deviceMediaLabel {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  right: 12px;
+  margin: 0;
+  font-size: 11px;
+  color: #dbe4ff;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.devicePlay {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #eef2ff;
+  background: rgba(124, 156, 255, 0.25);
+  border: 1px solid rgba(124, 156, 255, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.deviceExerciseName {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f4f6f8;
+  letter-spacing: -0.02em;
+}
+
+.deviceSceneTitle {
+  margin: 0;
+  font-size: 13px;
+  color: #9eb4ff;
+}
+
+.devicePurpose {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #9aa3b2;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.deviceProgress {
+  display: flex;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.deviceProgressDot {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.deviceProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4d7cff, #8fa6ff);
+  transition: width 0.3s ease;
+}
+
+.narrativeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionHeading h6 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #eef2ff;
+}
+
+.sectionHeading p {
+  margin: 0;
+  font-size: 13px;
+  color: #8f99ab;
+}
+
+.narrativeFlow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.narrativeScene {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 14px;
+  position: relative;
+}
+
+.narrativeConnector {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.narrativeDot {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #9eb4ff;
+  background: rgba(124, 156, 255, 0.12);
+  border: 1px solid rgba(124, 156, 255, 0.25);
+  transition: all 0.25s ease;
+}
+
+.narrativeDotActive {
+  background: rgba(124, 156, 255, 0.28);
+  border-color: rgba(124, 156, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(124, 156, 255, 0.12);
+}
+
+.narrativeLine {
+  flex: 1;
+  width: 2px;
+  min-height: 24px;
+  margin: 4px 0;
+  background: linear-gradient(180deg, rgba(124, 156, 255, 0.35), rgba(255, 255, 255, 0.06));
+}
+
+.narrativeCard {
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease;
+}
+
+.narrativeCard:hover {
+  border-color: rgba(124, 156, 255, 0.3);
+  transform: translateX(2px);
+}
+
+.narrativeCardActive {
+  border-color: rgba(124, 156, 255, 0.45);
+  background: linear-gradient(160deg, rgba(124, 156, 255, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+.narrativeCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.narrativeCardTop strong {
+  font-size: 14px;
+  color: #f4f6f8;
+}
+
+.narrativeCardTop span {
+  font-size: 11px;
+  color: #8f99ab;
+}
+
+.narrativeCard p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #9aa3b2;
+}
+
+.coachIntroCard {
+  padding: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+}
+
+.coachIntroPreview {
+  margin: 16px 0;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.coachIntroQuote {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+  line-height: 1.45;
+  color: #f4f6f8;
+  font-style: italic;
+}
+
+.coachIntroPlaceholder {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 22px;
+  line-height: 1.45;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.coachIntroInput {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #f4f6f8;
+  font-size: 15px;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.coachIntroInput:focus {
+  outline: 1px solid rgba(124, 156, 255, 0.4);
+}
+
+.coachIntroFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.futureTag {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  color: #9aa3b2;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.timelineScroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+
+.timelineSceneCard {
+  flex: 0 0 240px;
+  scroll-snap-align: start;
+  padding: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.timelineSceneThumbnail {
+  position: relative;
+  min-height: 112px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45)),
+    radial-gradient(circle at 50% 35%, rgba(124, 156, 255, 0.24), transparent 60%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.timelineScenePlay {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #eef2ff;
+  background: rgba(124, 156, 255, 0.28);
+  border: 1px solid rgba(124, 156, 255, 0.45);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.timelineScenePlayButton {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.timelineScenePlayButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.timelineSceneBadges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.mediaTypeBadge,
+.mediaStatusBadge,
+.durationBadge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mediaTypeBadge {
+  color: #dbe4ff;
+  background: rgba(124, 156, 255, 0.2);
+  border: 1px solid rgba(124, 156, 255, 0.3);
+}
+
+.mediaStatusBadge {
+  color: #b8f0c8;
+  background: rgba(72, 187, 120, 0.16);
+  border: 1px solid rgba(72, 187, 120, 0.28);
+}
+
+.mediaStatusBadgePlanned {
+  color: #c6ceda;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.durationBadge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  color: #eef2ff;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.timelineSceneBody {
+  padding: 14px 16px 16px;
+}
+
+.timelineSceneCard strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #f4f6f8;
+}
+
+.timelineSceneCard p {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8f99ab;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.timelineVisualLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 10px;
+  color: #9eb4ff;
+}
+
+.timelineSceneCard:hover {
+  border-color: rgba(124, 156, 255, 0.35);
+  transform: translateY(-2px);
+}
+
+.timelineSceneCardActive {
+  border-color: rgba(124, 156, 255, 0.5);
+  background: linear-gradient(160deg, rgba(124, 156, 255, 0.14), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.masterPackageBadge {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8f0c8;
+  background: rgba(72, 187, 120, 0.14);
+  border: 1px solid rgba(72, 187, 120, 0.28);
+}
+
+.masterCompleteLabel {
+  color: #b8f0c8;
+  font-weight: 600;
+}
+
+.timelineSceneMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #8f99ab;
+}
+
+.timelineSceneIcon {
+  font-size: 20px;
+  color: #9eb4ff;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.previewStateReady {
+  color: #9eb4ff;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.masterCollapse {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.masterCollapseButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.masterCollapseTitle {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #eef2ff;
+}
+
+.masterCollapseMeta {
+  font-size: 12px;
+  color: #8f99ab;
+}
+
+.masterStars {
+  color: #f0c674;
+  letter-spacing: 0.06em;
+  font-size: 14px;
+}
+
+.masterCollapseBody {
+  padding: 0 18px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  animation: experienceFadeIn 0.25s ease;
+}
+
+.masterModuleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.masterModule {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 11px;
+  color: #c6ceda;
+}
+
+.roadmapGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roadmapCard {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.roadmapCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.roadmapIcon {
+  font-size: 16px;
+  color: #9eb4ff;
+}
+
+.comingSoon {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.roadmapCard strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #eef2ff;
+}
+
+.roadmapCard p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8f99ab;
+}
+
+@media (max-width: 960px) {
+  .experienceHeroRow {
+    grid-template-columns: 1fr;
+  }
+
+  .deviceFrame {
+    min-height: 360px;
+  }
+
+  .goalTitle {
+    font-size: 28px;
+  }
+
+  .roadmapGrid,
+  .masterModuleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .roadmapGrid {
+    grid-template-columns: 1fr;
+  }
+}

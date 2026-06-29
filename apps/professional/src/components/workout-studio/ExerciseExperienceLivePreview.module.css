@@ -1,0 +1,244 @@
+.previewPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  height: 100%;
+}
+
+.previewHeader {
+  flex-shrink: 0;
+}
+
+.previewKicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9eb4ff;
+  margin-bottom: 4px;
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f4f6f8;
+  letter-spacing: -0.02em;
+}
+
+.deviceFrame {
+  flex: 1;
+  min-height: 0;
+  border-radius: 28px;
+  padding: 10px;
+  background: linear-gradient(180deg, #1a1d28 0%, #0d0f14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.deviceNotch {
+  width: 88px;
+  height: 22px;
+  margin: 0 auto 10px;
+  border-radius: 0 0 14px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  flex-shrink: 0;
+}
+
+.deviceScreen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 20px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: previewFadeIn 0.3s ease;
+}
+
+@keyframes previewFadeIn {
+  from {
+    opacity: 0.7;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sceneBadge {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dbe4ff;
+  background: rgba(124, 156, 255, 0.16);
+  border: 1px solid rgba(124, 156, 255, 0.28);
+}
+
+.deviceMedia {
+  min-height: 120px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(124, 156, 255, 0.22), transparent 60%),
+    rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.deviceMediaRich {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55)),
+    radial-gradient(circle at 50% 30%, rgba(124, 156, 255, 0.28), transparent 62%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.45));
+}
+
+.deviceMediaInteractive {
+  border-color: rgba(124, 156, 255, 0.22);
+}
+
+.devicePlayButton {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mediaVisualLabel {
+  margin: 0;
+  padding: 0 12px;
+  font-size: 11px;
+  color: #dbe4ff;
+  text-align: center;
+}
+
+.devicePlay {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #eef2ff;
+  background: rgba(124, 156, 255, 0.25);
+  border: 1px solid rgba(124, 156, 255, 0.4);
+}
+
+.exerciseName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f4f6f8;
+  letter-spacing: -0.02em;
+}
+
+.goalTitle {
+  margin: 0;
+  font-size: 13px;
+  color: #9eb4ff;
+}
+
+.scenePurpose {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9aa3b2;
+}
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.sectionValue {
+  margin: 0;
+  font-size: 13px;
+  color: #eef2ff;
+}
+
+.sectionMeta {
+  margin: 0;
+  font-size: 11px;
+  color: #8f99ab;
+}
+
+.coachQuote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c6ceda;
+  font-style: italic;
+}
+
+.bulletList {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c6ceda;
+}
+
+.trackingRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trackingPill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  color: #c6ceda;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.previewFooter {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 10px;
+  color: #8f99ab;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.previewLessonButton {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(124, 156, 255, 0.35);
+  background: rgba(124, 156, 255, 0.14);
+  color: #eef2ff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
