@@ -31,7 +31,7 @@ RUN npm run build && test -f lib/index.js && test -f lib/recomputeForDayExport.j
 
 # Build the API and fail-closed if the entrypoint is missing
 WORKDIR /app/services/api
-RUN npm run build && test -f dist/src/server.js && test -f dist/src/lib/workoutDaySummaryRebuild.bundled.cjs && test -f dist/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
+RUN npm run build && test -f dist/services/api/src/server.js && test -f dist/services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs && test -f dist/services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
 
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
@@ -54,4 +54,4 @@ COPY --from=build /app/lib/contracts/package.json ./lib/contracts/package.json
 COPY --from=deps /app/node_modules ./node_modules
 
 WORKDIR /app/services/api
-CMD ["node", "dist/src/server.js"]
+CMD ["node", "dist/services/api/src/server.js"]

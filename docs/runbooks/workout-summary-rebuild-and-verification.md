@@ -12,7 +12,7 @@ npm run -w api build
 git add services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
 ```
 
-- CI runs `npm run -w api build` then `npm run check:workout-summary-rebuild-bundle`, which verifies **`dist/src/lib/*.cjs` bytes match `dist/src/lib/*.sha256`** (same layout as Cloud Run), not a second esbuild pass.
+- CI runs `npm run -w api build` then `npm run check:workout-summary-rebuild-bundle`, which verifies **`dist/services/api/src/lib/*.cjs` bytes match `dist/services/api/src/lib/*.sha256`** (same layout as Cloud Run), not a second esbuild pass.
 
 ## Recompute / backfill (Firestore only — existing collections)
 
