@@ -1,0 +1,228 @@
+.studioRoot {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  animation: studioEnter 0.35s ease;
+}
+
+@keyframes studioEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.studioHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-shrink: 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.backButton {
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #c6ceda;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backButton:hover {
+  border-color: rgba(124, 156, 255, 0.35);
+  color: #eef2ff;
+}
+
+.headerKicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9eb4ff;
+  margin-bottom: 6px;
+}
+
+.exerciseTitle {
+  margin: 0 0 6px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(26px, 2.5vw, 34px);
+  font-weight: 500;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.headerMeta {
+  margin: 0;
+  font-size: 13px;
+  color: #8f99ab;
+  line-height: 1.5;
+}
+
+.headerRight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.badgeCanonical,
+.badgeCustom,
+.draftBadge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.badgeCanonical {
+  color: #dbe4ff;
+  border: 1px solid rgba(124, 156, 255, 0.35);
+  background: rgba(124, 156, 255, 0.12);
+}
+
+.badgeCustom {
+  color: #f0c674;
+  border: 1px solid rgba(240, 198, 116, 0.35);
+  background: rgba(240, 198, 116, 0.1);
+}
+
+.draftBadge {
+  color: #8f99ab;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.studioBody {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 320px;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.tabRail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tabRailButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.tabRailButton:hover {
+  border-color: rgba(124, 156, 255, 0.3);
+}
+
+.tabRailButtonActive {
+  border-color: rgba(124, 156, 255, 0.45);
+  background: linear-gradient(160deg, rgba(124, 156, 255, 0.14), rgba(255, 255, 255, 0.02));
+}
+
+.tabRailLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f4f6f8;
+}
+
+.tabRailHint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8f99ab;
+}
+
+.workspaceMain {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.workspaceHeader {
+  flex-shrink: 0;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.workspaceHeader h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #eef2ff;
+}
+
+.workspaceHeader p {
+  margin: 0;
+  font-size: 13px;
+  color: #8f99ab;
+}
+
+.workspaceContent {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 16px;
+}
+
+@media (max-width: 1200px) {
+  .studioBody {
+    grid-template-columns: 180px minmax(0, 1fr) 280px;
+  }
+}
+
+@media (max-width: 960px) {
+  .studioBody {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .tabRail {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+  }
+
+  .tabRailButton {
+    flex: 0 0 160px;
+  }
+}

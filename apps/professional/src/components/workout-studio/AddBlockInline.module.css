@@ -1,0 +1,50 @@
+.zone {
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px dashed rgba(124, 156, 255, 0.28);
+  background: rgba(124, 156, 255, 0.04);
+}
+
+.zoneCentered {
+  text-align: center;
+  padding: 36px 24px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.zoneCentered .controls {
+  justify-content: center;
+}
+
+.select {
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f6f8;
+  font-size: 13px;
+  min-width: 180px;
+}
+
+.addButton {
+  border-radius: 999px;
+  padding: 10px 16px;
+  border: none;
+  background: linear-gradient(135deg, #6f8dff, #5476f5);
+  color: #f4f6f8;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #8f99ab;
+}

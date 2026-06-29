@@ -17,6 +17,8 @@ node_modules/.cache/
 .expo/
 dist/
 web-build/
+.next/
+apps/professional/.next/
 expo-env.d.ts
 
 # ----------------------------------------

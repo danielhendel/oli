@@ -1,0 +1,39 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor textarea {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 14px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primaryButton,
+.ghostButton {
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f6f8;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #6f8dff, #5476f5);
+  border-color: transparent;
+}

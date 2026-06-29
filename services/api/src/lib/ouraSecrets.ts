@@ -15,6 +15,11 @@ export class OuraConfigError extends Error {
   }
 }
 
+export type SecretVersionRef = {
+  name: string;
+  state: string | null;
+};
+
 // Lazily initialized clients (Cloud Run safe)
 let _client: SecretManagerServiceClient | null = null;
 let _auth: GoogleAuth | null = null;
@@ -73,10 +78,17 @@ function latestVersionName(projectId: string, secretId: string): string {
   return `projects/${projectId}/secrets/${secretId}/versions/latest`;
 }
 
+/** Parse numeric suffix from `.../versions/N` (for stable newest-first ordering). */
+export function parseSecretVersionNumber(versionName: string): number | null {
+  const match = /\/versions\/(\d+)$/.exec(versionName);
+  if (!match?.[1]) return null;
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /** Secret version already unusable — skip destroy (idempotent revoke). */
-function isAlreadyGoneSecretVersion(version: { state?: string | null | undefined }): boolean {
-  const s = version.state;
-  return s === "DESTROYED" || s === "DISABLED";
+function isEnabledSecretVersion(version: { state?: string | null | undefined }): boolean {
+  return version.state === "ENABLED";
 }
 
 /** Destroy is a no-op when custody was already removed (e.g. prior reconnect cleanup). */
@@ -86,6 +98,79 @@ function isIgnorableDestroySecretVersionError(e: unknown): boolean {
   if (msg.includes("DESTROYED") || msg.includes("FAILED_PRECONDITION")) return true;
   const code = (e as { code?: number }).code;
   return code === 5 || code === 9;
+}
+
+/** List all secret versions (paginated). Never returns payload data. */
+export async function listAllSecretVersions(
+  projectId: string,
+  secretId: string,
+): Promise<SecretVersionRef[]> {
+  const client = getClient();
+  const parent = secretName(projectId, secretId);
+  const versions: SecretVersionRef[] = [];
+
+  try {
+    for await (const version of client.listSecretVersionsAsync({ parent })) {
+      const name = version.name?.trim();
+      if (!name) continue;
+      versions.push({
+        name,
+        state: version.state != null ? String(version.state) : null,
+      });
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("NOT_FOUND") || msg.includes("404")) return [];
+    throw e;
+  }
+
+  return versions;
+}
+
+export async function listEnabledSecretVersions(
+  projectId: string,
+  secretId: string,
+): Promise<SecretVersionRef[]> {
+  const versions = await listAllSecretVersions(projectId, secretId);
+  return versions.filter(isEnabledSecretVersion);
+}
+
+export type DestroyOldSecretVersionsResult = {
+  destroyed: number;
+  errorsIgnored: number;
+};
+
+/**
+ * Destroy enabled secret versions except those in keepVersionNames.
+ * Idempotent: missing secret, empty list, already-destroyed versions => success.
+ */
+export async function destroyOldSecretVersions(
+  projectId: string,
+  secretId: string,
+  keepVersionNames: ReadonlySet<string>,
+): Promise<DestroyOldSecretVersionsResult> {
+  const client = getClient();
+  const enabledVersions = await listEnabledSecretVersions(projectId, secretId);
+
+  let destroyed = 0;
+  let errorsIgnored = 0;
+
+  for (const version of enabledVersions) {
+    if (keepVersionNames.has(version.name)) continue;
+
+    try {
+      await client.destroySecretVersion({ name: version.name });
+      destroyed += 1;
+    } catch (e: unknown) {
+      if (isIgnorableDestroySecretVersionError(e)) {
+        errorsIgnored += 1;
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  return { destroyed, errorsIgnored };
 }
 
 export async function getRefreshToken(uid: string): Promise<string | null> {
@@ -121,10 +206,23 @@ export async function setRefreshToken(uid: string, value: string): Promise<void>
     if (!msg.includes("ALREADY_EXISTS")) throw e;
   }
 
-  await client.addSecretVersion({
+  const [newVersion] = await client.addSecretVersion({
     parent: secretName(projectId, id),
     payload: { data: Buffer.from(value, "utf8") },
   });
+
+  const newVersionName = newVersion.name?.trim();
+  if (!newVersionName) {
+    throw new OuraConfigError("Oura secrets: addSecretVersion returned no version name");
+  }
+
+  // Best-effort retention: keep only the version we just created. Partial cleanup failure
+  // must not fail token persistence — billing cleanup can be retried via admin script.
+  try {
+    await destroyOldSecretVersions(projectId, id, new Set([newVersionName]));
+  } catch {
+    // Swallow cleanup errors after successful add; newest version remains enabled.
+  }
 }
 
 /**
@@ -134,35 +232,7 @@ export async function setRefreshToken(uid: string, value: string): Promise<void>
 export async function deleteRefreshToken(uid: string): Promise<void> {
   const projectId = await getProjectId();
   const id = secretIdRefreshToken(uid);
-  const client = getClient();
-  const parent = secretName(projectId, id);
-
-  let versions: { name?: string | null; state?: string | null }[];
-  try {
-    const [listed] = await client.listSecretVersions({ parent });
-    versions = (listed ?? []).map((v) => ({
-      name: v.name ?? null,
-      state: v.state != null ? String(v.state) : null,
-    }));
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("NOT_FOUND") || msg.includes("404")) return;
-    throw e;
-  }
-
-  if (!Array.isArray(versions) || versions.length === 0) return;
-
-  for (const v of versions) {
-    const versionName = v.name;
-    if (versionName == null || versionName === "") continue;
-    if (isAlreadyGoneSecretVersion(v)) continue;
-    try {
-      await client.destroySecretVersion({ name: versionName });
-    } catch (e: unknown) {
-      if (isIgnorableDestroySecretVersionError(e)) continue;
-      throw e;
-    }
-  }
+  await destroyOldSecretVersions(projectId, id, new Set());
 }
 
 export async function getClientSecret(): Promise<string | null> {
