@@ -36,7 +36,7 @@ node - <<'NODE'
 const fs = require("fs");
 const path = require("path");
 
-const runtimeBase = path.resolve("services/api/dist/src");
+const runtimeBase = path.resolve("services/api/dist/services/api/src");
 
 // Ensure build exists (guardrail assumes build step already ran in CI)
 if (!fs.existsSync(runtimeBase)) {
@@ -48,7 +48,7 @@ let resolved;
 try {
   resolved = require.resolve("@oli/contracts/package.json", { paths: [runtimeBase] });
 } catch (e) {
-  console.error("guardrails: FAIL - cannot resolve @oli/contracts from API runtime context (services/api/dist/src)");
+  console.error("guardrails: FAIL - cannot resolve @oli/contracts from API runtime context (services/api/dist/services/api/src)");
   process.exit(1);
 }
 

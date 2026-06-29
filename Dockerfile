@@ -55,4 +55,4 @@ COPY --from=build /app/services/api/dist ./services/api/dist
 RUN npm ci -w api --omit=dev --no-audit --no-fund --ignore-scripts
 
 EXPOSE 8080
-CMD ["node", "services/api/dist/src/server.js"]
+CMD ["node", "services/api/dist/services/api/src/server.js"]
