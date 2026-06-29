@@ -24,7 +24,7 @@ function readExpectedChecksumSha256(checksumPath: string): string | null {
 }
 
 /**
- * Resolves next to `server.js` (`dist/src` or `src` under ts-node): `lib/workoutDaySummaryRebuild.bundled.cjs`.
+ * Resolves next to `server.js` (`dist/services/api/src` or `src` under ts-node): `lib/workoutDaySummaryRebuild.bundled.cjs`.
  * Fails fast if the file is missing, unreadable, or exports the wrong surface.
  * If `lib/workoutDaySummaryRebuild.bundled.cjs.sha256` exists, verifies SHA-256 (cheap one-time read at startup).
  */

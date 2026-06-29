@@ -15,8 +15,8 @@ const apiRoot = path.resolve(__dirname, "..");
 const bundleName = "workoutDaySummaryRebuild.bundled.cjs";
 const checksumName = "workoutDaySummaryRebuild.bundled.cjs.sha256";
 
-const distBundle = path.join(apiRoot, "dist", "src", "lib", bundleName);
-const distChecksum = path.join(apiRoot, "dist", "src", "lib", checksumName);
+const distBundle = path.join(apiRoot, "dist", "services", "api", "src", "lib", bundleName);
+const distChecksum = path.join(apiRoot, "dist", "services", "api", "src", "lib", checksumName);
 const srcBundle = path.join(apiRoot, "src", "lib", bundleName);
 const srcChecksum = path.join(apiRoot, "src", "lib", checksumName);
 
@@ -30,7 +30,7 @@ if (fs.existsSync(distBundle) && fs.existsSync(distChecksum)) {
   checksumPath = srcChecksum;
 } else {
   console.error(
-    "verify-workout-summary-rebuild-bundle: expected dist/src/lib or src/lib to contain both bundle and .sha256.",
+    "verify-workout-summary-rebuild-bundle: expected dist/services/api/src/lib or src/lib to contain both bundle and .sha256.",
   );
   console.error(`  tried dist: ${distBundle}`);
   console.error(`  tried src: ${srcBundle}`);

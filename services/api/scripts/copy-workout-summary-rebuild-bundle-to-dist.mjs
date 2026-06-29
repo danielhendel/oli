@@ -1,6 +1,6 @@
 /**
  * Copies the esbuild artifact (and checksum, when present) into dist/ so production
- * `require("../lib/workoutDaySummaryRebuild.bundled.cjs")` from dist/src/routes resolves.
+ * `require("../lib/workoutDaySummaryRebuild.bundled.cjs")` from dist/services/api/src/routes resolves.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const apiRoot = path.resolve(__dirname, "..");
 
 const srcDir = path.join(apiRoot, "src", "lib");
-const destDir = path.join(apiRoot, "dist", "src", "lib");
+const destDir = path.join(apiRoot, "dist", "services", "api", "src", "lib");
 const bundleName = "workoutDaySummaryRebuild.bundled.cjs";
 const checksumName = "workoutDaySummaryRebuild.bundled.cjs.sha256";
 
