@@ -20,7 +20,7 @@ import {
   getLabCategories,
   getLabMetricByKey,
   groupLabResultsByCategory,
-} from "@/lib/labs/labMetricCatalog";
+} from "../../../../lib/labs/labMetricCatalog";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";

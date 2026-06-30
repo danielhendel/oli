@@ -1,7 +1,7 @@
 // services/api/src/lib/labs/mockLabPdfParser.ts
 // Server-side mock parser hook — replaces with real PDF extraction pipeline.
 import type { LabMetricResultDto } from "@oli/contracts";
-import { findLabMetricByAlias } from "@/lib/labs/labMetricCatalog";
+import { findLabMetricByAlias } from "../../../../../lib/labs/labMetricCatalog";
 
 export type MockParseOutcome = {
   results: LabMetricResultDto[];
