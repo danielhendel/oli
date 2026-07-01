@@ -1,0 +1,97 @@
+.thumbnailWrap,
+.placeholder {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.thumbnailSm {
+  width: 44px;
+  height: 44px;
+}
+
+.thumbnailMd {
+  width: 56px;
+  height: 56px;
+}
+
+.thumbnailLg {
+  width: 96px;
+  height: 96px;
+}
+
+.thumbnailImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbnailBadge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #dbe4ff;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, rgba(124, 156, 255, 0.12), rgba(255, 255, 255, 0.03));
+  text-align: center;
+  padding: 4px;
+}
+
+.placeholder_muscle-equipment-placeholder {
+  background: linear-gradient(145deg, rgba(111, 141, 255, 0.16), rgba(70, 90, 140, 0.12));
+}
+
+.placeholder_media-placeholder {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.placeholderInitial {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 18px;
+  color: #eef2ff;
+  line-height: 1;
+}
+
+.thumbnailSm .placeholderInitial {
+  font-size: 16px;
+}
+
+.thumbnailSm .placeholderLabel {
+  display: none;
+}
+
+.placeholderLabel {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8f99ab;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumbnailLg .placeholderInitial {
+  font-size: 28px;
+}
+
+.thumbnailLg .placeholderLabel {
+  font-size: 9px;
+}

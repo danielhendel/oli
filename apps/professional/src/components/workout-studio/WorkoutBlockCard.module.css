@@ -1,192 +1,261 @@
 .blockCard {
-  border-radius: 20px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+  background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .blockCardActive {
-  border-color: rgba(124, 156, 255, 0.45);
-  box-shadow: 0 0 0 1px rgba(124, 156, 255, 0.18);
+  border-color: rgba(124, 156, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(124, 156, 255, 0.2), 0 8px 28px rgba(0, 0, 0, 0.16);
+  background: rgba(124, 156, 255, 0.04);
 }
 
 .blockCardExpanded {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  padding-bottom: 4px;
 }
 
-.blockHeader {
+.topRow {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  padding: 16px 18px 0;
+  padding: 12px 14px 0;
 }
 
-.blockHeaderToggle {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  color: inherit;
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-}
-
-.blockTitleRow {
+.compactControls {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 4px;
 }
 
-.blockEyebrow {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #8f99ab;
-}
-
-.blockTitle {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  font-size: 22px;
-  margin-top: 4px;
-}
-
-.blockSummary {
-  color: #8f99ab;
-  font-size: 13px;
-  margin-top: 6px;
-}
-
-.chevron {
-  font-size: 22px;
-  color: #9eb4ff;
-  line-height: 1;
-}
-
-.blockActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.actionButton,
-.actionButtonDanger,
-.actionButtonDangerConfirm {
-  border-radius: 999px;
-  padding: 6px 10px;
+.iconButton,
+.iconButtonDanger,
+.iconButtonDangerConfirm {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
-  color: #f4f6f8;
-  font-size: 12px;
+  color: #eef2ff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.actionButton:disabled {
+.iconButton:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.actionButtonDanger,
-.actionButtonDangerConfirm {
+.iconButtonDanger {
   color: #ffb4b4;
-  border-color: rgba(255, 120, 120, 0.25);
+  border-color: rgba(255, 120, 120, 0.22);
 }
 
-.actionButtonDangerConfirm {
-  background: rgba(255, 80, 80, 0.15);
+.iconButtonDangerConfirm {
+  color: #fff;
+  background: rgba(220, 70, 70, 0.35);
+  border-color: rgba(255, 120, 120, 0.4);
 }
 
-.notesButton,
-.notesButtonActive {
+.topRowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectedBadge {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9eb4ff;
+  padding: 4px 8px;
   border-radius: 999px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f4f6f8;
-  font-size: 12px;
-}
-
-.notesButtonActive {
-  border-color: rgba(124, 156, 255, 0.35);
+  border: 1px solid rgba(124, 156, 255, 0.35);
   background: rgba(124, 156, 255, 0.12);
-  color: #dce4ff;
 }
 
-.blockNotePreview {
+.moreMenu {
+  position: relative;
+}
+
+.moreButton {
+  border: none;
+  background: transparent;
   color: #9aa3b2;
   font-size: 12px;
-  margin-top: 6px;
-  line-height: 1.4;
-  max-width: 640px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
-.blockBody {
-  padding: 14px 18px 18px;
+.moreButton:hover {
+  color: #dce4ff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.morePanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  min-width: 140px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 22, 32, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.moreItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #dce4ff;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.moreItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.titleRow {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.blockFields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field span {
+.blockIndex {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #8f99ab;
 }
 
-.field input,
-.field textarea,
-.field select {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+.blockTitle {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 20px;
+  margin: 0;
   color: #f4f6f8;
-  padding: 11px 12px;
 }
 
-.blockNotes {
-  min-height: 120px;
-  line-height: 1.55;
-  resize: vertical;
+.blockSummary {
+  color: #8f99ab;
+  font-size: 12px;
 }
 
-.dropZone {
-  padding: 22px;
-  border-radius: 14px;
-  border: 1px dashed rgba(124, 156, 255, 0.25);
-  background: rgba(124, 156, 255, 0.04);
+.blockNotePreview {
   color: #9aa3b2;
-  font-size: 13px;
-  text-align: center;
+  font-size: 12px;
+  margin: 6px 14px 0;
+  line-height: 1.4;
 }
 
-.exerciseStack {
+.blockBody {
+  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+.typeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.typeSpacer {
+  flex: 1;
+}
+
+.customTitleInput {
+  flex: 1;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.typeSelectWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.typeSelectLabel {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.typeSelect {
+  min-width: 160px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.dropZone {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  color: #8f99ab;
+  font-size: 13px;
+  text-align: center;
+}
+
+.dropZoneActive {
+  border-color: rgba(124, 156, 255, 0.4);
+  background: rgba(124, 156, 255, 0.06);
+  color: #c5d4ff;
+}
+
+.exerciseStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 @media (max-width: 900px) {
-  .blockFields {
-    grid-template-columns: 1fr;
+  .typeRow {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .blockHeader {
-    flex-direction: column;
+  .typeSelectWrap {
+    align-items: stretch;
+  }
+
+  .typeSelect {
+    width: 100%;
   }
 }

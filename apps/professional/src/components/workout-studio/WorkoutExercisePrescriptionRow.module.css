@@ -1,0 +1,228 @@
+.row {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.visualCard,
+.prescriptionCard {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.14);
+  padding: 12px;
+}
+
+.visualCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exerciseName {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 17px;
+  color: #f4f6f8;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badgeCanonical,
+.badgeCustom,
+.badgeId {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.badgeCanonical {
+  background: rgba(124, 156, 255, 0.14);
+  border: 1px solid rgba(124, 156, 255, 0.28);
+  color: #dbe4ff;
+}
+
+.badgeCustom {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c6ceda;
+}
+
+.badgeId {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #9eb4ff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.thumbnailWrap {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.prescriptionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.prescriptionHeadline {
+  font-size: 14px;
+  color: #dce4ff;
+  line-height: 1.4;
+}
+
+.prescriptionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.fieldInput {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+.fieldInputMixed {
+  border-style: dashed;
+  color: #c5cee0;
+}
+
+.setStepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef2ff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.stepButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.setCountInput {
+  width: 40px;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.setDetails {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setDetails li {
+  font-size: 12px;
+  color: #9aa3b2;
+  line-height: 1.4;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.customizeButton {
+  border-radius: 9px;
+  padding: 8px 12px;
+  border: 1px solid rgba(124, 156, 255, 0.35);
+  background: rgba(124, 156, 255, 0.12);
+  color: #eef2ff;
+  font-size: 12px;
+}
+
+.deleteButton {
+  border-radius: 9px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 120, 120, 0.25);
+  background: transparent;
+  color: #ffb4b4;
+  font-size: 12px;
+}
+
+.secondaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.secondaryButton,
+.moveSelect {
+  border-radius: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 11px;
+}
+
+.moveSelect {
+  max-width: 96px;
+}
+
+@media (max-width: 1100px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .prescriptionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .secondaryActions {
+    margin-left: 0;
+  }
+}

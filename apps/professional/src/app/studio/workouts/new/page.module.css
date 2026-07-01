@@ -59,6 +59,10 @@
   overflow: hidden;
 }
 
+.studioWorkspaceNoLibrary {
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+
 .navColumn,
 .canvasColumn,
 .libraryColumn {
@@ -84,6 +88,10 @@
 @media (max-width: 1280px) {
   .studioWorkspace {
     grid-template-columns: 180px minmax(0, 1fr) 300px;
+  }
+
+  .studioWorkspaceNoLibrary {
+    grid-template-columns: 180px minmax(0, 1fr);
   }
 }
 

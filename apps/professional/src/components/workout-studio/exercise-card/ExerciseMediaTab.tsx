@@ -41,6 +41,11 @@ import {
   ProductionPipelineSection,
   ProductionPipelineViewBriefButton,
 } from "./ProductionPipelineSection";
+import { CandidateReviewPanel } from "@/features/exercise-media-os/candidate-review/CandidateReviewPanel";
+import { ImagePackReadinessPanel } from "@/features/exercise-media-os/image-pack/ImagePackReadinessPanel";
+import { Top25KeyframeSpecReadinessPanel } from "@/features/exercise-media-os/keyframe-spec/Top25KeyframeSpecReadinessPanel";
+import { CandidateImageProductionPanel } from "@/features/exercise-media-os/candidate-production/CandidateImageProductionPanel";
+import { BenchPressKeyframeCandidateImportPanel } from "@/features/exercise-media-os/candidate-production/BenchPressKeyframeCandidateImportPanel";
 import { TabPanelShell } from "./TabPanelShell";
 
 type ExerciseMediaTabProps = {
@@ -568,6 +573,16 @@ export function ExerciseMediaTab({
             onViewBrief={setBriefSceneId}
           />
         ) : null}
+
+        <CandidateReviewPanel exerciseId={exercise.exerciseId} />
+
+        <ImagePackReadinessPanel exerciseId={exercise.exerciseId} />
+
+        <Top25KeyframeSpecReadinessPanel />
+
+        <CandidateImageProductionPanel />
+
+        <BenchPressKeyframeCandidateImportPanel />
 
         <section className={styles.narrativeSection}>
           <header className={styles.sectionHeading}>

@@ -123,6 +123,12 @@
   overflow-y: auto;
 }
 
+.imageSequenceSection {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 @media (max-width: 860px) {
   .body {
     grid-template-columns: 1fr;
