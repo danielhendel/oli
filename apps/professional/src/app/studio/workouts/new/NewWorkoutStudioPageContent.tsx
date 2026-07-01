@@ -6,9 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ClientExperiencePreviewPanel } from "@/components/workout-studio/ClientExperiencePreviewPanel";
 import { ExerciseExperienceStudio } from "@/components/workout-studio/ExerciseExperienceStudio";
 import { StudioShell } from "@/components/StudioShell";
-import { WorkoutAuthorCanvas } from "@/components/workout-studio/WorkoutAuthorCanvas";
+import { WorkoutBlocksPanel } from "@/components/workout-studio/WorkoutBlocksPanel";
 import { WorkoutBuilderNavigator } from "@/components/workout-studio/WorkoutBuilderNavigator";
 import { WorkoutLibraryPanel } from "@/components/workout-studio/WorkoutLibraryPanel";
+import { WorkoutOverviewPanel } from "@/components/workout-studio/WorkoutOverviewPanel";
+import { WorkoutStatsPanel } from "@/components/workout-studio/WorkoutStatsPanel";
+import { WorkoutStudioHeader } from "@/components/workout-studio/WorkoutStudioHeader";
 import { buildWorkoutExperiencePreview } from "@/features/workout-studio/buildWorkoutExperiencePreview";
 import { buildWorkoutProjectedVolume } from "@/features/workout-studio/buildWorkoutProjectedVolume";
 import { buildWorkoutVolumeAttribution } from "@/features/workout-studio/buildWorkoutVolumeAttribution";
@@ -16,7 +19,10 @@ import { buildWorkoutQualityChecklist } from "@/features/workout-studio/buildWor
 import type { ExerciseExperienceRef } from "@/features/workout-studio/exerciseExperienceWorkspace";
 import { resolveExerciseExperienceContext } from "@/features/workout-studio/exerciseExperienceWorkspace";
 import type { WorkoutLibraryExercise } from "@/features/workout-studio/exerciseLibraryAdapter";
-import { useWorkoutStudioNavigation } from "@/features/workout-studio/useWorkoutStudioNavigation";
+import {
+  getDefaultWorkoutStudioMode,
+  useWorkoutStudioMode,
+} from "@/features/workout-studio/useWorkoutStudioMode";
 import { createEmptyWorkoutExperience } from "@/features/workout-studio/workoutStudioDraft";
 import { useWorkoutStudioDraft } from "@/features/workout-studio/useWorkoutStudioDraft";
 import type { WorkoutBlockType } from "@/features/workout-studio/types";
@@ -34,6 +40,7 @@ export default function NewWorkoutStudioPageContent() {
     activeWorkout,
     createWorkout,
     loadWorkout,
+    saveWorkout,
     addBlock,
     updateBlock,
     duplicateBlock,
@@ -57,7 +64,6 @@ export default function NewWorkoutStudioPageContent() {
   const canvasScrollRef = useRef(0);
   const canvasColumnRef = useRef<HTMLElement>(null);
   const libraryColumnRef = useRef<HTMLElement>(null);
-  const { activeSection, sectionRefs, scrollToSection } = useWorkoutStudioNavigation(libraryColumnRef);
 
   const projectedVolumeLegacy = useMemo(
     () => buildWorkoutProjectedVolume(activeWorkout ?? createEmptyWorkoutExperience()),
@@ -91,6 +97,10 @@ export default function NewWorkoutStudioPageContent() {
     [activeWorkout, selectedExerciseRef],
   );
 
+  const { activeMode, setActiveMode, isBlocksMode } = useWorkoutStudioMode(
+    activeWorkout?.title ?? "",
+  );
+
   useEffect(() => {
     if (workoutId) {
       loadWorkout(workoutId);
@@ -101,6 +111,11 @@ export default function NewWorkoutStudioPageContent() {
       router.replace(`/studio/workouts/new?workoutId=${workout.id}`);
     }
   }, [activeWorkout, createWorkout, loadWorkout, router, workoutId]);
+
+  useEffect(() => {
+    if (!activeWorkout) return;
+    setActiveMode(getDefaultWorkoutStudioMode(activeWorkout.title));
+  }, [activeWorkout?.id, setActiveMode]);
 
   useEffect(() => {
     if (!activeWorkout) return;
@@ -139,6 +154,7 @@ export default function NewWorkoutStudioPageContent() {
 
   const closeExerciseExperience = () => {
     setSelectedExerciseRef(null);
+    setActiveMode("blocks");
     requestAnimationFrame(() => {
       if (canvasColumnRef.current) {
         canvasColumnRef.current.scrollTop = canvasScrollRef.current;
@@ -149,37 +165,31 @@ export default function NewWorkoutStudioPageContent() {
   const exerciseCount = countExercises(activeWorkout.blocks);
   const inExperienceStudio = exerciseExperienceContext != null;
 
+  const handleSaveStub = () => {
+    saveWorkout(activeWorkout);
+  };
+
   return (
     <StudioShell wide>
       <div className={styles.studioPage}>
-        <div className={styles.pageHeader}>
-          <div>
-            <div className={styles.eyebrow}>
-              {inExperienceStudio ? "Exercise Experience Studio" : "Workout Architecture Studio"}
+        {inExperienceStudio ? (
+          <div className={styles.pageHeader}>
+            <div>
+              <div className={styles.eyebrow}>Exercise Experience Studio</div>
+              <h1 className={styles.title}>{exerciseExperienceContext.exercise.exerciseName}</h1>
+              <p className={styles.subtitle}>
+                Design sets, media, lesson, coaching, progression, and tracking for this exercise.
+              </p>
             </div>
-            <h1 className={styles.title}>
-              {inExperienceStudio
-                ? exerciseExperienceContext.exercise.exerciseName
-                : "Author Canvas"}
-            </h1>
-            <p className={styles.subtitle}>
-              {inExperienceStudio
-                ? "Design sets, media, lesson, coaching, progression, and tracking for this exercise."
-                : "Compose the workout at the workout level — open any exercise to design its client experience deeply."}
-            </p>
           </div>
-          {!inExperienceStudio ? (
-            <button
-              type="button"
-              className={styles.previewButton}
-              onClick={() => {
-                setPreviewOpen(true);
-              }}
-            >
-              Preview Client Experience
-            </button>
-          ) : null}
-        </div>
+        ) : (
+          <WorkoutStudioHeader
+            onPreview={() => {
+              setPreviewOpen(true);
+            }}
+            onSave={handleSaveStub}
+          />
+        )}
 
         {inExperienceStudio ? (
           <ExerciseExperienceStudio
@@ -194,19 +204,18 @@ export default function NewWorkoutStudioPageContent() {
             }}
           />
         ) : (
-          <div className={styles.studioWorkspace} data-testid="studio-workspace">
+          <div
+            className={`${styles.studioWorkspace} ${isBlocksMode ? "" : styles.studioWorkspaceNoLibrary}`}
+            data-testid="studio-workspace"
+          >
             <aside className={styles.navColumn} data-testid="studio-nav-column">
               <WorkoutBuilderNavigator
-                qualityChecklist={qualityChecklist}
-                qualityRef={sectionRefs.qualityRef}
+                activeMode={activeMode}
+                onModeChange={setActiveMode}
+                qualityScore={qualityChecklist.scorePercent}
                 totalSets={projectedVolumeLegacy.totalSets}
                 blockCount={activeWorkout.blocks.length}
                 exerciseCount={exerciseCount}
-                activeSection={activeSection}
-                onNavigate={scrollToSection}
-                onPreview={() => {
-                  setPreviewOpen(true);
-                }}
               />
             </aside>
 
@@ -215,59 +224,80 @@ export default function NewWorkoutStudioPageContent() {
               className={styles.canvasColumn}
               data-testid="studio-canvas-column"
             >
-              <WorkoutAuthorCanvas
-                workoutTitle={activeWorkout.title}
-                objective={activeWorkout.overview.objective}
-                desiredAdaptation={activeWorkout.overview.desiredAdaptation}
-                roleInHealthSystem={activeWorkout.overview.roleInHealthSystem}
-                estimatedDurationMinutes={activeWorkout.estimatedDurationMinutes}
-                difficulty={activeWorkout.difficulty}
-                blocks={activeWorkout.blocks}
-                projectedVolume={volumeAttribution}
-                selectedBlockId={selectedBlockId}
-                sectionRefs={sectionRefs}
-                onSelectBlock={setSelectedBlockId}
-                onMetaChange={updateWorkoutMeta}
-                onAddBlock={(blockType: WorkoutBlockType) => {
-                  addBlock(blockType);
-                }}
-                onUpdateBlock={updateBlock}
-                onDuplicateBlock={duplicateBlock}
-                onRemoveBlock={(blockId) => {
-                  removeBlock(blockId);
-                  if (selectedBlockId === blockId) setSelectedBlockId(null);
-                }}
-                onMoveBlock={moveBlock}
-                onAddExerciseFromLibrary={(blockId, exercise) => {
-                  addExerciseFromLibrary(blockId, exercise);
-                  setSelectedBlockId(blockId);
-                }}
-                onOpenExerciseExperience={openExerciseExperience}
-                onUpdateExercise={updateExercise}
-                onRemoveExercise={removeExercise}
-                onDuplicateExercise={duplicateExercise}
-                onMoveExercise={moveExercise}
-                onMoveExerciseToBlock={moveExerciseToBlock}
-              />
+              {activeMode === "overview" ? (
+                <WorkoutOverviewPanel
+                  workoutTitle={activeWorkout.title}
+                  clientName={activeWorkout.clientName}
+                  objective={activeWorkout.overview.objective}
+                  desiredAdaptation={activeWorkout.overview.desiredAdaptation}
+                  roleInHealthSystem={activeWorkout.overview.roleInHealthSystem}
+                  estimatedDurationMinutes={activeWorkout.estimatedDurationMinutes}
+                  difficulty={activeWorkout.difficulty}
+                  onMetaChange={updateWorkoutMeta}
+                />
+              ) : null}
+
+              {activeMode === "stats" ? (
+                <WorkoutStatsPanel
+                  attribution={volumeAttribution}
+                  qualityChecklist={qualityChecklist}
+                  onGoToBlocks={() => {
+                    setActiveMode("blocks");
+                  }}
+                  onGoToOverview={() => {
+                    setActiveMode("overview");
+                  }}
+                />
+              ) : null}
+
+              {activeMode === "blocks" ? (
+                <WorkoutBlocksPanel
+                  blocks={activeWorkout.blocks}
+                  selectedBlockId={selectedBlockId}
+                  onSelectBlock={setSelectedBlockId}
+                  onAddBlock={(blockType: WorkoutBlockType) => {
+                    addBlock(blockType);
+                  }}
+                  onUpdateBlock={updateBlock}
+                  onDuplicateBlock={duplicateBlock}
+                  onRemoveBlock={(blockId) => {
+                    removeBlock(blockId);
+                    if (selectedBlockId === blockId) setSelectedBlockId(null);
+                  }}
+                  onMoveBlock={moveBlock}
+                  onAddExerciseFromLibrary={(blockId, exercise) => {
+                    addExerciseFromLibrary(blockId, exercise);
+                    setSelectedBlockId(blockId);
+                  }}
+                  onOpenExerciseExperience={openExerciseExperience}
+                  onUpdateExercise={updateExercise}
+                  onRemoveExercise={removeExercise}
+                  onDuplicateExercise={duplicateExercise}
+                  onMoveExercise={moveExercise}
+                  onMoveExerciseToBlock={moveExerciseToBlock}
+                />
+              ) : null}
             </main>
 
-            <aside
-              ref={libraryColumnRef}
-              className={styles.libraryColumn}
-              id="studio-library-column"
-              data-testid="studio-library-column"
-            >
-              <WorkoutLibraryPanel
-                selectedBlockId={selectedBlockId}
-                onAddExercise={handleAddFromLibrary}
-                onAddCustomExercise={() => {
-                  const blockId = selectedBlockId ?? activeWorkout.blocks[0]?.id;
-                  if (!blockId) return;
-                  addCustomExercise(blockId);
-                  setSelectedBlockId(blockId);
-                }}
-              />
-            </aside>
+            {isBlocksMode ? (
+              <aside
+                ref={libraryColumnRef}
+                className={styles.libraryColumn}
+                id="studio-library-column"
+                data-testid="studio-library-column"
+              >
+                <WorkoutLibraryPanel
+                  selectedBlockId={selectedBlockId}
+                  onAddExercise={handleAddFromLibrary}
+                  onAddCustomExercise={() => {
+                    const blockId = selectedBlockId ?? activeWorkout.blocks[0]?.id;
+                    if (!blockId) return;
+                    addCustomExercise(blockId);
+                    setSelectedBlockId(blockId);
+                  }}
+                />
+              </aside>
+            ) : null}
           </div>
         )}
       </div>

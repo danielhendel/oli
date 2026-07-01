@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { ExerciseThumbnail } from "@/components/workout-studio/ExerciseThumbnail";
 import { hasExerciseAcademyIntelligence, getExerciseAcademyIntelligenceById } from "@/features/exercise-academy/exerciseAcademyIntelligenceRegistry";
+import { resolveExerciseThumbnail } from "@/features/workout-studio/resolveExerciseThumbnail";
 import {
   WORKOUT_LIBRARY_FILTER_LABELS,
   WORKOUT_LIBRARY_FILTERS,
@@ -41,10 +43,12 @@ export function WorkoutLibraryPanel({
       <header className={styles.header}>
         <div className={styles.eyebrow}>Workout Library</div>
         <h2 className={styles.title}>Exercise palette</h2>
-        <p className={styles.subtitle}>Drag or add exercises into your workout</p>
-        {!selectedBlockId ? (
-          <p className={styles.hint}>Select a block in the canvas to add exercises.</p>
-        ) : null}
+        <p className={styles.subtitle}>Drag or add exercises into the selected block</p>
+        {selectedBlockId ? (
+          <p className={styles.selectedHint}>Adding to selected block</p>
+        ) : (
+          <p className={styles.hint}>Select a block to add exercises.</p>
+        )}
       </header>
 
       <input
@@ -81,6 +85,12 @@ export function WorkoutLibraryPanel({
             ? getExerciseAcademyIntelligenceById(exercise.exerciseId)
             : null;
           const isExpanded = expandedIntelId === exercise.exerciseId;
+          const thumbnail = resolveExerciseThumbnail({
+            exerciseId: exercise.exerciseId,
+            exerciseName: exercise.name,
+            primaryMuscle: exercise.primaryMuscles[0],
+            equipment: exercise.equipment,
+          });
 
           return (
             <article
@@ -93,33 +103,41 @@ export function WorkoutLibraryPanel({
               }}
             >
               <div className={styles.cardTop}>
-                <div>
-                  <div className={styles.cardTitleRow}>
-                    <h3 className={styles.cardTitle}>{exercise.name}</h3>
-                    {hasIntel ? <span className={styles.intelBadge}>Academy</span> : null}
-                  </div>
-                  <p className={styles.cardMeta}>
-                    {exercise.primaryMuscles.join(" · ")} · {exercise.equipment}
-                  </p>
-                  {intelligence ? (
-                    <p className={styles.intelSummary}>
-                      Primary: {intelligence.primaryMuscles.join(", ")}
-                      {intelligence.secondaryMuscles.length > 0
-                        ? ` · Secondary: ${intelligence.secondaryMuscles.join(", ")}`
-                        : ""}
+                <div className={styles.cardMain}>
+                  <ExerciseThumbnail source={thumbnail} size="sm" />
+                  <div className={styles.cardContent}>
+                    <div className={styles.cardTitleRow}>
+                      <h3 className={styles.cardTitle}>{exercise.name}</h3>
+                      {hasIntel ? <span className={styles.intelBadge}>Academy</span> : null}
+                    </div>
+                    <p className={styles.cardMeta}>
+                      {exercise.primaryMuscles.join(" · ")} · {exercise.equipment}
                     </p>
-                  ) : null}
+                    {intelligence ? (
+                      <p className={styles.intelSummary}>
+                        Primary: {intelligence.primaryMuscles.join(", ")}
+                        {intelligence.secondaryMuscles.length > 0
+                          ? ` · Secondary: ${intelligence.secondaryMuscles.join(", ")}`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className={styles.addButton}
-                  disabled={!selectedBlockId}
-                  onClick={() => {
-                    onAddExercise(exercise);
-                  }}
-                >
-                  Add
-                </button>
+                <div className={styles.cardActions}>
+                  <span className={styles.dragHandle} aria-hidden="true">
+                    ⠿
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.addButton}
+                    disabled={!selectedBlockId}
+                    onClick={() => {
+                      onAddExercise(exercise);
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
               <div className={styles.tags}>
                 <span className={styles.tag}>{exercise.movementPattern}</span>

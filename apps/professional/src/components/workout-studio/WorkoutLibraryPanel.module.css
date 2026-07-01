@@ -44,6 +44,12 @@
   color: #f0c674;
 }
 
+.selectedHint {
+  color: #9eb4ff;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .search {
   width: 100%;
   max-width: 100%;
@@ -105,6 +111,33 @@
   justify-content: space-between;
   gap: 10px;
   align-items: flex-start;
+}
+
+.cardMain {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1;
+}
+
+.cardContent {
+  min-width: 0;
+}
+
+.cardActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dragHandle {
+  color: #8f99ab;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
 }
 
 .cardTitle {

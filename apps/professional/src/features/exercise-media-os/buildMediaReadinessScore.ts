@@ -47,7 +47,12 @@ function formatSlotLabel(slotType: MediaSlotType): string {
   return slotType.replace(/([A-Z])/g, " $1").trim();
 }
 
-/** Deterministic readiness score for a master media package. */
+/**
+ * Deterministic readiness score for a master media package **slot metadata**.
+ *
+ * Measures blueprint/package slot planning status only — not whether playable media
+ * files exist. For playable asset readiness use `buildMediaAssetReadinessScore`.
+ */
 export function buildMediaReadinessScore(mediaPackage: MasterMediaPackage): MediaReadinessScore {
   const requiredSlots = mediaPackage.slots.filter((slot) =>
     REQUIRED_SLOT_TYPES.includes(slot.slotType),

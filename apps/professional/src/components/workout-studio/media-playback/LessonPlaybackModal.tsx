@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import {
   mediaAssetPlaybackLabel,
   mediaAssetStatusLabel,
 } from "@/features/exercise-media-os/mediaAssetRegistry";
+import { buildBenchPressImagePack } from "@/features/exercise-media-os/image-pack/buildBenchPressImagePack";
+import { buildBenchPressImageSequencePlaybackPlan } from "@/features/exercise-media-os/image-pack/buildBenchPressImageSequencePlaybackPlan";
+import { buildBenchPressKeyframeSpec } from "@/features/exercise-media-os/keyframe-spec/buildBenchPressKeyframeSpec";
 import type { LessonPlaybackPlan } from "@/features/exercise-media-os/playback/types";
 import { isPlayablePlaybackMediaAsset } from "@/features/exercise-media-os/playback/types";
 
+import { LessonPlaybackImageSequence } from "./LessonPlaybackImageSequence";
 import { LessonPlaybackPlayer } from "./LessonPlaybackPlayer";
 import styles from "./LessonPlaybackModal.module.css";
 
@@ -28,6 +32,18 @@ export function LessonPlaybackModal({
   initialSceneId,
 }: LessonPlaybackModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  const imageSequencePlan = useMemo(() => {
+    if (!plan || plan.exerciseId !== "bench_press") {
+      return null;
+    }
+
+    const keyframeSpec = buildBenchPressKeyframeSpec();
+    return buildBenchPressImageSequencePlaybackPlan({
+      imagePack: buildBenchPressImagePack(),
+      keyframeSpec,
+    });
+  }, [plan]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +119,11 @@ export function LessonPlaybackModal({
 
           <main className={styles.main}>
             <LessonPlaybackPlayer plan={plan} initialSceneId={initialSceneId} />
+            {imageSequencePlan ? (
+              <div className={styles.imageSequenceSection}>
+                <LessonPlaybackImageSequence plan={imageSequencePlan} />
+              </div>
+            ) : null}
           </main>
         </div>
       </div>

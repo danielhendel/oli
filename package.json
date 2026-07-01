@@ -130,6 +130,8 @@
       "<rootDir>/dist-types/",
       "<rootDir>/apps/professional",
       "/apps/professional/",
+      "<rootDir>/apps/professional/src/features/exercise-media-os/image-pack/__tests__/fixtures/",
+      "/__tests__/fixtures/",
       "<rootDir>/services/functions/lib/",
       "<rootDir>/services/api/lib/",
       "<rootDir>/services/api/dist/",
