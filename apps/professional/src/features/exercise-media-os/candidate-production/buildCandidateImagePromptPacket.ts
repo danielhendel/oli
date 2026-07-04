@@ -54,13 +54,19 @@ function buildCharacterInstruction(characterId: OliCharacterId): string {
   if (!character) {
     return `Use locked Oli character identity: ${characterId}. Maintain consistent proportions and wardrobe.`;
   }
-  return [
-    `Use locked Oli character: ${character.displayName} (${characterId}).`,
+
+  const googleFlowName = character.externalToolCharacterNames?.googleFlow?.trim();
+  const instructionParts = [
+    googleFlowName ? `Use Google Flow character: ${googleFlowName}.` : null,
+    `Character registry ID: ${characterId}.`,
+    `Use locked Oli character: ${character.displayName}.`,
     character.bodyType,
     `Wardrobe: ${character.wardrobe.base}`,
     "Maintain identical character identity across all keyframes.",
     "No visible logos, readable text, or watermarks on character or clothing.",
-  ].join(" ");
+  ].filter((part): part is string => part !== null);
+
+  return instructionParts.join(" ");
 }
 
 function buildRenderTargetInstruction(renderTarget: string): string {

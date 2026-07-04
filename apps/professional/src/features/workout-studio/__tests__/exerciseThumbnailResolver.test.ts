@@ -39,6 +39,17 @@ describe("resolveExerciseThumbnail", () => {
     expect(source.isRenderableImage).toBe(false);
     expect(source.src).toBeUndefined();
     expect(source.kind).not.toBe("approved-master-image");
+    expect(source.kind).not.toBe("imported-keyframe-candidate");
+    expect(source.label).not.toBe("Approved master");
+    expect(source.label).not.toBe("Dev preview");
+  });
+
+  it("live dev-test images are not approved-master-image", () => {
+    const source = resolveExerciseThumbnail({
+      exerciseId: "bench_press",
+      exerciseName: "Bench Press",
+    });
+    expect(source.kind).not.toBe("approved-master-image");
     expect(source.label).not.toBe("Approved master");
   });
 

@@ -10,6 +10,13 @@ describe("OLI_CHARACTER_REGISTRY", () => {
     const character = getOliMotionCharacterById("oli_motion_male_m1");
     expect(character?.displayName).toBe("Oli Motion Male M1");
     expect(character?.presentation).toBe("male");
+    expect(character?.characterId).toBe("oli_motion_male_m1");
+    expect(character?.externalToolCharacterNames?.googleFlow).toBe("Oli Male Trainer");
+  });
+
+  it("does not require googleFlow mapping for female F1", () => {
+    const character = getOliMotionCharacterById("oli_motion_female_f1");
+    expect(character?.externalToolCharacterNames?.googleFlow).toBeUndefined();
   });
 
   it("contains Oli Motion Female F1", () => {

@@ -100,7 +100,31 @@ export function validateApprovedMasterImagePack(
     }
   }
 
+  if (imagePack.thumbnailFrameId) {
+    const frameExists = imagePack.frames.some((frame) => frame.frameId === imagePack.thumbnailFrameId);
+    if (!frameExists) {
+      issues.push(
+        issue(
+          "unknown-thumbnail-frame-id",
+          `thumbnailFrameId must reference an existing frame: ${imagePack.thumbnailFrameId}`,
+          "thumbnailFrameId",
+        ),
+      );
+    }
+  }
+
   if (imagePack.status === "approved-master") {
+    if (!imagePack.thumbnailFrameId) {
+      issues.push(
+        issue(
+          "missing-thumbnail-frame-id",
+          "approved-master pack should designate thumbnailFrameId for library thumbnails",
+          "thumbnailFrameId",
+          "warning",
+        ),
+      );
+    }
+
     if (imagePack.missingPoseIds.length > 0) {
       issues.push(
         issue(

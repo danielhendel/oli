@@ -6,6 +6,7 @@ import {
   defaultLoggingSchema,
   defaultPrescription,
 } from "./exerciseDefaults";
+import { defaultExerciseBuilderPrescription } from "./exerciseBuilderPrescription";
 import type { WorkoutExerciseCard } from "./types";
 
 export function createWorkoutStudioExerciseFromLibraryExercise(
@@ -30,6 +31,7 @@ export function createWorkoutStudioExerciseFromLibraryExercise(
     regressionOptions: details.regressionOptions,
     substitutionOptions: details.substitutionOptions,
     mediaComposer: details.mediaComposer,
+    builderPrescription: defaultExerciseBuilderPrescription(),
   };
 }
 
@@ -53,5 +55,6 @@ export function createEmptyCustomExercise(name = "Custom Exercise"): WorkoutExer
     regressionOptions: details.regressionOptions,
     substitutionOptions: details.substitutionOptions,
     mediaComposer: details.mediaComposer,
+    builderPrescription: defaultExerciseBuilderPrescription(),
   };
 }

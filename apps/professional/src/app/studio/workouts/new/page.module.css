@@ -9,6 +9,19 @@
   height: calc(100vh - 72px);
   min-height: 0;
   overflow: hidden;
+  padding-left: clamp(16px, 3vw, 40px);
+  padding-right: clamp(16px, 3vw, 40px);
+}
+
+.studioControlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+  min-width: 0;
+  position: relative;
 }
 
 .pageHeader {
@@ -50,6 +63,39 @@
   line-height: 1.6;
 }
 
+.studioWorkspaceTwoColumn {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 460px);
+  gap: 16px;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.workoutBuilderColumn,
+.exerciseLibraryColumn {
+  min-height: 0;
+  min-width: 0;
+}
+
+.workoutBuilderColumn {
+  padding: 0;
+  padding-bottom: clamp(96px, 12vh, 180px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.exerciseLibraryColumn {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/** @deprecated UX-3.4 — replaced by studioWorkspaceTwoColumn */
 .studioWorkspace {
   flex: 1;
   min-height: 0;
@@ -59,10 +105,12 @@
   overflow: hidden;
 }
 
+/** @deprecated UX-3.4 */
 .studioWorkspaceNoLibrary {
   grid-template-columns: 200px minmax(0, 1fr);
 }
 
+/** @deprecated UX-3.4 */
 .navColumn,
 .canvasColumn,
 .libraryColumn {
@@ -73,19 +121,11 @@
   overscroll-behavior: contain;
 }
 
-.navColumn {
-  padding-right: 4px;
-}
-
-.canvasColumn {
-  padding: 0 4px;
-}
-
-.libraryColumn {
-  padding-left: 4px;
-}
-
 @media (max-width: 1280px) {
+  .studioWorkspaceTwoColumn {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 32vw, 400px);
+  }
+
   .studioWorkspace {
     grid-template-columns: 180px minmax(0, 1fr) 300px;
   }
@@ -99,6 +139,27 @@
   .studioPage {
     height: auto;
     overflow: visible;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .studioControlRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studioWorkspaceTwoColumn {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .workoutBuilderColumn {
+    max-height: 70vh;
+  }
+
+  .exerciseLibraryColumn {
+    max-height: 70vh;
+    overflow: hidden;
   }
 
   .studioWorkspace {

@@ -42,7 +42,12 @@ type WorkoutAuthorCanvasProps = {
   onAddBlock: (blockType: WorkoutBlockType) => void;
   onUpdateBlock: (
     blockId: string,
-    patch: Partial<Pick<WorkoutBlock, "customTitle" | "notes" | "blockType">>,
+    patch: Partial<
+      Pick<
+        WorkoutBlock,
+        "customTitle" | "notes" | "blockType" | "targetSetCount" | "defaultRestSeconds"
+      >
+    >,
   ) => void;
   onDuplicateBlock: (blockId: string) => void;
   onRemoveBlock: (blockId: string) => void;

@@ -49,6 +49,25 @@ All Bench Press packets use `oli_motion_male_m1`, premium dark Oli studio, no wa
 
 ---
 
+## Google Flow character mapping
+
+External Google Flow generation is **manual** — no API integration.
+
+| Registry field | Value |
+| --- | --- |
+| `characterId` | `oli_motion_male_m1` |
+| Registry `displayName` | `Oli Motion Male M1` |
+| `externalToolCharacterNames.googleFlow` | `Oli Male Trainer` |
+
+Prompt packets must include **both**:
+
+1. **External tool instruction:** `Use Google Flow character: Oli Male Trainer.`
+2. **Internal traceability:** `Character registry ID: oli_motion_male_m1.`
+
+Operators select **Oli Male Trainer** in the Google Flow UI. The repo preserves canonical `characterId` for import manifests, candidates, and image packs.
+
+---
+
 ## Negative prompt standard
 
 Include:

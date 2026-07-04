@@ -39,7 +39,12 @@ type WorkoutStudioContextValue = {
   addBlock: (blockType: WorkoutBlockType) => void;
   updateBlock: (
     blockId: string,
-    patch: Partial<Pick<WorkoutBlock, "customTitle" | "notes" | "blockType" | "order">>,
+    patch: Partial<
+      Pick<
+        WorkoutBlock,
+        "customTitle" | "notes" | "blockType" | "order" | "targetSetCount" | "defaultRestSeconds"
+      >
+    >,
   ) => void;
   duplicateBlock: (blockId: string) => void;
   removeBlock: (blockId: string) => void;

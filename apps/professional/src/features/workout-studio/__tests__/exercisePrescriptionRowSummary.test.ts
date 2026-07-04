@@ -106,4 +106,21 @@ describe("formatDesignedSetDetailLine", () => {
     expect(line).toContain("90s");
     expect(line).toContain("3-1-1");
   });
+
+  it("formats RIR when RPE is unset", () => {
+    const line = formatDesignedSetDetailLine({
+      setId: "set-1",
+      setNumber: 1,
+      reps: null,
+      repRange: "5",
+      loadGuidance: "",
+      rpeTarget: null,
+      rirTarget: 2,
+      restSeconds: 60,
+      tempo: "",
+      notes: "",
+    });
+    expect(line).toContain("RIR 2");
+    expect(line).not.toContain("RPE");
+  });
 });

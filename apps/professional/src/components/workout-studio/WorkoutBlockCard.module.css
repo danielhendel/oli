@@ -16,6 +16,207 @@
   padding-bottom: 4px;
 }
 
+.blockHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.blockHeaderSurface {
+  background: linear-gradient(
+    180deg,
+    rgba(124, 156, 255, 0.1) 0%,
+    rgba(124, 156, 255, 0.04) 100%
+  );
+  border-bottom: 1px solid rgba(124, 156, 255, 0.14);
+  border-radius: 18px 18px 0 0;
+}
+
+.headerLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.blockHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.blockMoveControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blockMenuControl {
+  display: flex;
+  align-items: center;
+}
+
+.restFieldGroup {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.reorderControls {
+  display: flex;
+  gap: 4px;
+}
+
+.collapseButton,
+.titleButton {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.collapseButton {
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  color: #9aa3b2;
+}
+
+.titleButton {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+}
+
+.headerControls {
+  display: none;
+}
+
+.headerUnitSelect {
+  min-height: 32px;
+  width: 52px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 6px 6px;
+  font-size: 12px;
+}
+
+.headerField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.headerFieldLabel {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a8b4d4;
+  font-weight: 500;
+}
+
+.headerSelect,
+.headerInput {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  color: #f4f6f8;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.headerSelect {
+  min-width: 148px;
+  font-weight: 500;
+}
+
+.headerInput {
+  width: 56px;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menuButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dce4ff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 3;
+  min-width: 150px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 22, 32, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.menuItem,
+.menuItemDanger,
+.menuItemDangerConfirm {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #dce4ff;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItemDanger {
+  color: #ffb4b4;
+}
+
+.menuItemDangerConfirm {
+  color: #fff;
+  background: rgba(220, 70, 70, 0.35);
+}
+
+.collapsedSummary {
+  margin: 0;
+  padding: 8px 14px 12px;
+  color: #8f99ab;
+  font-size: 12px;
+}
+
 .topRow {
   display: flex;
   justify-content: space-between;
@@ -70,14 +271,7 @@
 }
 
 .selectedBadge {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #9eb4ff;
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(124, 156, 255, 0.35);
-  background: rgba(124, 156, 255, 0.12);
+  display: none;
 }
 
 .moreMenu {
@@ -144,17 +338,15 @@
 }
 
 .blockIndex {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #8f99ab;
+  display: none;
 }
 
 .blockTitle {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  font-size: 20px;
-  margin: 0;
-  color: #f4f6f8;
+  display: none;
+}
+
+.titleButton {
+  display: none;
 }
 
 .blockSummary {
@@ -163,10 +355,7 @@
 }
 
 .blockNotePreview {
-  color: #9aa3b2;
-  font-size: 12px;
-  margin: 6px 14px 0;
-  line-height: 1.4;
+  display: none;
 }
 
 .blockBody {

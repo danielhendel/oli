@@ -77,6 +77,17 @@ function validateCharacter(character: OliMotionCharacter): CharacterRegistryVali
     );
   }
 
+  const googleFlowName = character.externalToolCharacterNames?.googleFlow;
+  if (googleFlowName !== undefined && !googleFlowName.trim()) {
+    issues.push(
+      issue(
+        "empty-google-flow-character-name",
+        "externalToolCharacterNames.googleFlow must be a non-empty string when provided",
+        characterId,
+      ),
+    );
+  }
+
   return issues;
 }
 

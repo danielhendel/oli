@@ -126,6 +126,7 @@
   flex-direction: column;
   gap: 18px;
   max-width: 100%;
+  padding-bottom: clamp(48px, 6vh, 96px);
 }
 
 .emptyState {

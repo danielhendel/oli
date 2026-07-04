@@ -35,6 +35,10 @@ export type OliCharacterRights = {
   readonly notes: readonly string[];
 };
 
+export type OliExternalToolCharacterNames = {
+  readonly googleFlow?: string;
+};
+
 export type OliMotionCharacter = {
   readonly characterId: OliCharacterId;
   readonly displayName: string;
@@ -53,6 +57,7 @@ export type OliMotionCharacter = {
   readonly motionReadinessNotes: readonly string[];
   readonly brandNotes: readonly string[];
   readonly rights: OliCharacterRights;
+  readonly externalToolCharacterNames?: OliExternalToolCharacterNames;
 };
 
 export type OliCharacterRegistry = {

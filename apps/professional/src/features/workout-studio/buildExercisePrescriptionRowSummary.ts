@@ -48,13 +48,18 @@ function summarizeNullableNumberField(
 }
 
 export function formatDesignedSetDetailLine(set: WorkoutDesignedSet): string {
-  const rpe = set.rpeTarget != null ? `RPE ${set.rpeTarget}` : null;
+  const intensity =
+    set.rirTarget != null && set.rpeTarget == null
+      ? `RIR ${set.rirTarget}`
+      : set.rpeTarget != null
+        ? `RPE ${set.rpeTarget}`
+        : null;
   const rest = set.restSeconds != null ? `${set.restSeconds}s` : null;
   const tempo = set.tempo.trim().length > 0 ? set.tempo : null;
   const parts = [
     `Set ${set.setNumber}`,
     set.repRange.trim() || "—",
-    rpe,
+    intensity,
     rest,
     tempo,
   ].filter((part): part is string => Boolean(part));

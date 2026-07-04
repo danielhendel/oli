@@ -21,6 +21,30 @@
   height: 96px;
 }
 
+.thumbnailBuilder {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+}
+
+.thumbnailLibraryCard {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+.thumbnailLibraryCard .placeholderInitial {
+  font-size: 40px;
+}
+
+.thumbnailBuilder .placeholderInitial {
+  font-size: 36px;
+}
+
+.thumbnailBuilder .placeholderLabel {
+  font-size: 10px;
+}
+
 .thumbnailImage {
   width: 100%;
   height: 100%;

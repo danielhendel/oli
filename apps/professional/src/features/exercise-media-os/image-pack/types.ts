@@ -70,6 +70,8 @@ export type ApprovedMasterImagePack = {
   readonly warnings: readonly string[];
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** Approved frame used for library/builder thumbnails — must match a frameId in frames. */
+  readonly thumbnailFrameId?: string;
 };
 
 export type ImagePackValidationSeverity = "info" | "warning" | "error";
@@ -107,6 +109,12 @@ export type BuildApprovedMasterImagePackInput = {
   readonly updatedAt: string;
   /** When true, requires localAsset.existsInRepo for approved-master frames. */
   readonly requireFilesInRepo?: boolean;
+  /** Explicit thumbnail frame — must match a built frameId when provided. */
+  readonly thumbnailFrameId?: string;
+  readonly thumbnailFrameSelector?: {
+    readonly keyframePoseId: ExerciseKeyframePoseId;
+    readonly renderTarget: MediaAssetAspectRatio;
+  };
 };
 
 export type ImageSequencePlaybackFrameStatus = "missing" | "available";

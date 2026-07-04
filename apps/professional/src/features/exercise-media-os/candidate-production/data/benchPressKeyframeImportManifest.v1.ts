@@ -15,10 +15,13 @@ const BENCH_PRESS_RENDER_TARGET = "16:9" as const;
  * Repo-truth file presence for Bench Press 16:9 keyframe PNGs.
  *
  * Inspected via:
- * find apps/professional/public/media/exercises/bench_press/keyframes -maxdepth 2 -type f
+ * find apps/professional/public/media/exercises/bench_press/keyframes -maxdepth 1 -type f
  *
- * Result (Sprint M15): only README.md exists — no PNG files.
- * Update these values only when real PNG files are added to the repo.
+ * Result (Media-I3, 2026-06-30): only README.md exists — all 4 required PNGs missing.
+ * Google Flow character: Oli Male Trainer (characterId oli_motion_male_m1).
+ *
+ * Update these values only when real PNG files are added at the expected repo paths.
+ * Tests assert this map matches on-disk truth via inspectBenchPressKeyframeFilePresenceOnDisk.
  */
 export const BENCH_PRESS_KEYFRAME_IMPORT_FILE_PRESENCE_V1 = {
   "/media/exercises/bench_press/keyframes/setup-16x9.png": false,

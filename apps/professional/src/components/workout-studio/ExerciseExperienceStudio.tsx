@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ExerciseCardTabWorkspace } from "@/components/workout-studio/exercise-card/ExerciseCardTabWorkspace";
 import {
@@ -21,18 +21,24 @@ import styles from "./ExerciseExperienceStudio.module.css";
 
 type ExerciseExperienceStudioProps = {
   context: ExerciseExperienceContext;
+  initialTab?: ExerciseCardTab;
   onClose: () => void;
   onUpdate: (patch: Partial<WorkoutExerciseCard>) => void;
 };
 
 export function ExerciseExperienceStudio({
   context,
+  initialTab = "sets",
   onClose,
   onUpdate,
 }: ExerciseExperienceStudioProps) {
-  const [activeTab, setActiveTab] = useState<ExerciseCardTab>("sets");
+  const [activeTab, setActiveTab] = useState<ExerciseCardTab>(initialTab);
   const [lessonPlaybackOpen, setLessonPlaybackOpen] = useState(false);
   const { exercise, blockTitle } = context;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab, exercise.id]);
 
   const playbackContext = useMemo(() => {
     const focusCards = buildFocusCardsForExercise(exercise.exerciseName, exercise.primaryMuscles);

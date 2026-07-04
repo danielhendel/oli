@@ -32,8 +32,16 @@ describe("buildCandidateImagePromptPacket", () => {
   it("includes characterId and canonical exerciseId", () => {
     const packet = buildCandidateImagePromptPacketFromQueueItem(benchItem, spec);
     expect(packet.characterInstruction).toContain("oli_motion_male_m1");
+    expect(packet.characterInstruction).toContain("Character registry ID: oli_motion_male_m1");
     expect(packet.sceneInstruction).toContain("bench_press");
     expect(packet.sceneInstruction).toContain("Bench Press");
+  });
+
+  it("includes Google Flow character name for oli_motion_male_m1", () => {
+    const packet = buildCandidateImagePromptPacketFromQueueItem(benchItem, spec);
+    expect(packet.characterInstruction).toContain("Oli Male Trainer");
+    expect(packet.fullPromptText).toContain("Use Google Flow character: Oli Male Trainer");
+    expect(packet.fullPromptText).toContain("Character registry ID: oli_motion_male_m1");
   });
 
   it("includes pose, camera, acceptance, and negative criteria", () => {
