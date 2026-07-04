@@ -11,6 +11,7 @@ describe("buildBenchPressImagePack", () => {
     expect(pack.status).not.toBe("approved-master");
     expect(pack.exerciseId).toBe("bench_press");
     expect(pack.characterId).toBe("oli_motion_male_m1");
+    expect(pack.thumbnailFrameId).toBeUndefined();
   });
 
   it("reports missing keyframes for live pack", () => {

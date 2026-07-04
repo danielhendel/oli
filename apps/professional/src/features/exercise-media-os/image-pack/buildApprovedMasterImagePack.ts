@@ -196,6 +196,31 @@ function resolvePackStatus(
   return "review-ready";
 }
 
+function resolveThumbnailFrameId(
+  frames: readonly ApprovedMasterImageFrame[],
+  input: BuildApprovedMasterImagePackInput,
+): string | undefined {
+  if (frames.length === 0) {
+    return undefined;
+  }
+
+  if (input.thumbnailFrameId) {
+    return input.thumbnailFrameId;
+  }
+
+  if (input.thumbnailFrameSelector) {
+    const match = frames.find(
+      (frame) =>
+        frame.keyframePoseId === input.thumbnailFrameSelector!.keyframePoseId &&
+        frame.renderTarget === input.thumbnailFrameSelector!.renderTarget,
+    );
+    return match?.frameId;
+  }
+
+  const sortedFrames = [...frames].sort((left, right) => left.sortOrder - right.sortOrder);
+  return sortedFrames[0]?.frameId;
+}
+
 /** Build an approved master image pack from keyframe spec and candidates. */
 export function buildApprovedMasterImagePack(
   input: BuildApprovedMasterImagePackInput,
@@ -274,6 +299,9 @@ export function buildApprovedMasterImagePack(
     warnings.push(`Incomplete keyframe review: ${incompletePoseIds.join(", ")}.`);
   }
 
+  const thumbnailFrameId =
+    status === "approved-master" ? resolveThumbnailFrameId(frames, input) : undefined;
+
   return {
     imagePackId: input.imagePackId,
     exerciseId: input.exerciseId,
@@ -295,5 +323,6 @@ export function buildApprovedMasterImagePack(
     warnings,
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
+    thumbnailFrameId,
   };
 }

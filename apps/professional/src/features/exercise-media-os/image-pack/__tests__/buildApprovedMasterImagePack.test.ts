@@ -54,6 +54,8 @@ describe("buildApprovedMasterImagePack", () => {
       "finish_lockout",
     ]);
     expect(pack.coverageLevel).toBe("master-16x9");
+    expect(pack.thumbnailFrameId).toBeTruthy();
+    expect(pack.frames.some((frame) => frame.frameId === pack.thumbnailFrameId)).toBe(true);
   });
 
   it("includes setup/start_lockout/bottom_chest_pause/finish_lockout frames", () => {
@@ -156,5 +158,21 @@ describe("buildApprovedMasterImagePack", () => {
 
     const setupFrame = pack.frames.find((frame) => frame.keyframePoseId === "setup");
     expect(setupFrame?.candidateId).toBe(APPROVED_BENCH_PRESS_IMAGE_FIXTURE_CANDIDATES[0]!.candidateId);
+  });
+
+  it("sets deterministic thumbnailFrameId to lowest sortOrder frame for approved-master packs", () => {
+    const pack = buildApprovedMasterImagePack(
+      buildFixtureInput(APPROVED_BENCH_PRESS_IMAGE_FIXTURE_CANDIDATES),
+    );
+    const lowestSortOrderFrame = [...pack.frames].sort((left, right) => left.sortOrder - right.sortOrder)[0];
+    expect(pack.thumbnailFrameId).toBe(lowestSortOrderFrame?.frameId);
+  });
+
+  it("does not set thumbnailFrameId for incomplete packs", () => {
+    const pack = buildApprovedMasterImagePack(
+      buildFixtureInput(INCOMPLETE_BENCH_PRESS_IMAGE_FIXTURE_CANDIDATES),
+    );
+    expect(pack.status).not.toBe("approved-master");
+    expect(pack.thumbnailFrameId).toBeUndefined();
   });
 });

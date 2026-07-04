@@ -6,6 +6,7 @@ import { AddBlockInline } from "@/components/workout-studio/AddBlockInline";
 import { WorkoutBlockCard } from "@/components/workout-studio/WorkoutBlockCard";
 import { getBlockDisplayTitle } from "@/features/workout-studio/blockUtils";
 import type { WorkoutLibraryExercise } from "@/features/workout-studio/exerciseLibraryAdapter";
+import type { ExerciseCardTab } from "@/components/workout-studio/exercise-card/types";
 import type { WorkoutBlock, WorkoutBlockType, WorkoutExerciseCard } from "@/features/workout-studio/types";
 import styles from "./WorkoutAuthorCanvas.module.css";
 
@@ -16,13 +17,18 @@ type WorkoutBlocksPanelProps = {
   onAddBlock: (blockType: WorkoutBlockType) => void;
   onUpdateBlock: (
     blockId: string,
-    patch: Partial<Pick<WorkoutBlock, "customTitle" | "notes" | "blockType">>,
+    patch: Partial<
+      Pick<
+        WorkoutBlock,
+        "customTitle" | "notes" | "blockType" | "targetSetCount" | "defaultRestSeconds"
+      >
+    >,
   ) => void;
   onDuplicateBlock: (blockId: string) => void;
   onRemoveBlock: (blockId: string) => void;
   onMoveBlock: (blockId: string, direction: "up" | "down") => void;
   onAddExerciseFromLibrary: (blockId: string, exercise: WorkoutLibraryExercise) => void;
-  onOpenExerciseExperience: (blockId: string, exerciseCardId: string) => void;
+  onOpenExerciseExperience: (blockId: string, exerciseCardId: string, initialTab?: ExerciseCardTab) => void;
   onUpdateExercise: (
     blockId: string,
     exerciseId: string,
@@ -45,9 +51,12 @@ export function WorkoutBlocksPanel(props: WorkoutBlocksPanelProps) {
   );
 
   return (
-    <section id="studio-blocks" className={styles.blocksRegion} data-testid="studio-blocks-panel">
-      <h2 className={styles.panelTitle}>Build your workout</h2>
-
+    <section
+      id="studio-blocks"
+      className={styles.blocksRegion}
+      data-testid="studio-blocks-panel"
+      aria-label="Workout builder"
+    >
       <div className={styles.blocksStack}>
         {props.blocks.length === 0 ? (
           <div className={styles.emptyState}>
@@ -83,8 +92,8 @@ export function WorkoutBlocksPanel(props: WorkoutBlocksPanelProps) {
                 onAddExerciseFromLibrary={(exercise) => {
                   props.onAddExerciseFromLibrary(block.id, exercise);
                 }}
-                onOpenExerciseExperience={(exerciseCardId) => {
-                  props.onOpenExerciseExperience(block.id, exerciseCardId);
+                onOpenExerciseExperience={(exerciseCardId, initialTab) => {
+                  props.onOpenExerciseExperience(block.id, exerciseCardId, initialTab);
                 }}
                 onUpdateExercise={(exerciseId, patch) => {
                   props.onUpdateExercise(block.id, exerciseId, patch);

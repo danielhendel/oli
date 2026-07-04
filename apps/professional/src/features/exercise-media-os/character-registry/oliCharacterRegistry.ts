@@ -72,6 +72,9 @@ const OLI_MOTION_MALE_M1: OliMotionCharacter = {
       "Do not license character likeness externally without rights review.",
     ],
   },
+  externalToolCharacterNames: {
+    googleFlow: "Oli Male Trainer",
+  },
 };
 
 const OLI_MOTION_FEMALE_F1: OliMotionCharacter = {

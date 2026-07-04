@@ -1,4 +1,5 @@
 import { BENCH_PRESS_HERO_DEMO_DEV_TEST_CANDIDATE } from "../../candidate-review/data/benchPressMediaCandidates";
+import { buildBenchPressImagePack } from "../../image-pack/buildBenchPressImagePack";
 import { buildBenchPressImportedCandidateReviewState } from "../buildBenchPressImportedCandidateReviewState";
 import { buildBenchPressImportedImageCandidates } from "../buildBenchPressImportedImageCandidates";
 import { buildBenchPressKeyframeImportManifest } from "../buildBenchPressKeyframeImportManifest";
@@ -67,5 +68,26 @@ describe("buildBenchPressImportedCandidateReviewState", () => {
 
   it("does not create image pack approval", () => {
     expect(live.candidateReviewState.imagePackReadiness).not.toBe("approved-master-ready");
+  });
+
+  it("live image pack does not set thumbnailFrameId", () => {
+    const pack = buildBenchPressImagePack();
+    expect(pack.status).not.toBe("approved-master");
+    expect(pack.thumbnailFrameId).toBeUndefined();
+  });
+
+  it("4 dev-test imports do not make live pack thumbnailFrameId defined", () => {
+    const manifest = buildBenchPressKeyframeImportManifest({
+      filePresenceMap: {
+        "/media/exercises/bench_press/keyframes/setup-16x9.png": true,
+        "/media/exercises/bench_press/keyframes/start-lockout-16x9.png": true,
+        "/media/exercises/bench_press/keyframes/bottom-chest-pause-16x9.png": true,
+        "/media/exercises/bench_press/keyframes/finish-lockout-16x9.png": true,
+      },
+    });
+    buildBenchPressImportedImageCandidates(manifest);
+    const pack = buildBenchPressImagePack();
+    expect(pack.thumbnailFrameId).toBeUndefined();
+    expect(pack.status).not.toBe("approved-master");
   });
 });

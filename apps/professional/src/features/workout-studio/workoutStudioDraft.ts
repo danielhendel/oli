@@ -14,6 +14,14 @@ import {
 } from "./createWorkoutStudioExerciseFromLibraryExercise";
 import type { WorkoutLibraryExercise } from "./exerciseLibraryAdapter";
 import { cloneExerciseCard, cloneWorkoutBlock } from "./exerciseCloneUtils";
+import {
+  applyBlockDefaultRest,
+  applyBlockDefaultsToNewExercise,
+  applyBlockTargetSetCount,
+  DEFAULT_BLOCK_REST_SECONDS,
+  DEFAULT_BLOCK_TARGET_SET_COUNT,
+  normalizeWorkoutBlock,
+} from "./blockPrescriptionUtils";
 
 export function createEmptyExercise(): WorkoutExerciseCard {
   return createEmptyCustomExercise();
@@ -26,6 +34,8 @@ export function createBlock(blockType: WorkoutBlockType, order: number): Workout
     customTitle: "",
     notes: "",
     order,
+    targetSetCount: DEFAULT_BLOCK_TARGET_SET_COUNT,
+    defaultRestSeconds: DEFAULT_BLOCK_REST_SECONDS,
     exercises: [],
   };
 }
@@ -72,13 +82,26 @@ export const addSection = addBlock;
 export function updateBlock(
   workout: WorkoutExperience,
   blockId: string,
-  patch: Partial<Pick<WorkoutBlock, "customTitle" | "notes" | "blockType" | "order">>,
+  patch: Partial<
+    Pick<
+      WorkoutBlock,
+      "customTitle" | "notes" | "blockType" | "order" | "targetSetCount" | "defaultRestSeconds"
+    >
+  >,
 ): WorkoutExperience {
   return {
     ...workout,
-    blocks: workout.blocks.map((block) =>
-      block.id === blockId ? { ...block, ...patch } : block,
-    ),
+    blocks: workout.blocks.map((block) => {
+      if (block.id !== blockId) return block;
+      let next = normalizeWorkoutBlock({ ...block, ...patch });
+      if (patch.targetSetCount !== undefined) {
+        next = applyBlockTargetSetCount(next, patch.targetSetCount);
+      }
+      if (patch.defaultRestSeconds !== undefined) {
+        next = applyBlockDefaultRest(next, patch.defaultRestSeconds);
+      }
+      return next;
+    }),
     updatedAt: nowIso(),
   };
 }
@@ -140,13 +163,18 @@ export function addExercise(
   blockId: string,
   exercise?: WorkoutExerciseCard,
 ): WorkoutExperience {
-  const nextExercise = exercise ?? createEmptyExercise();
+  const block = workout.blocks.find((item) => item.id === blockId);
+  const baseExercise = exercise ?? createEmptyExercise();
+  const nextExercise = block
+    ? applyBlockDefaultsToNewExercise(baseExercise, normalizeWorkoutBlock(block))
+    : baseExercise;
+
   return {
     ...workout,
-    blocks: workout.blocks.map((block) =>
-      block.id === blockId
-        ? { ...block, exercises: [...block.exercises, nextExercise] }
-        : block,
+    blocks: workout.blocks.map((item) =>
+      item.id === blockId
+        ? { ...item, exercises: [...item.exercises, nextExercise] }
+        : item,
     ),
     updatedAt: nowIso(),
   };

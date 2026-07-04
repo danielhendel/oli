@@ -1,6 +1,6 @@
 .row {
   display: grid;
-  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
 }
@@ -19,6 +19,13 @@
   gap: 8px;
 }
 
+.visualTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .exerciseName {
   font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   font-size: 17px;
@@ -27,46 +34,71 @@
   line-height: 1.25;
 }
 
-.badgeRow {
+.thumbnailWrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  justify-content: center;
+  width: 100%;
+  padding: 4px 0 0;
 }
 
+.exerciseNotesField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.exerciseNotesLabel {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8f99ab;
+}
+
+.exerciseNotesInput {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+  color: #f4f6f8;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 52px;
+}
+
+.exerciseNotesInput::placeholder {
+  color: #6f7a8f;
+}
+
+.detailLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.detailLink {
+  border: none;
+  background: transparent;
+  color: #9eb4ff;
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.detailLink:hover {
+  background: rgba(124, 156, 255, 0.1);
+}
+
+.badgeRow,
 .badgeCanonical,
 .badgeCustom,
 .badgeId {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 999px;
-}
-
-.badgeCanonical {
-  background: rgba(124, 156, 255, 0.14);
-  border: 1px solid rgba(124, 156, 255, 0.28);
-  color: #dbe4ff;
-}
-
-.badgeCustom {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #c6ceda;
-}
-
-.badgeId {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #9eb4ff;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.thumbnailWrap {
-  margin-top: auto;
-  display: flex;
-  justify-content: center;
-  padding-top: 4px;
+  display: none;
 }
 
 .prescriptionCard {
@@ -84,8 +116,367 @@
 
 .prescriptionGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+.fieldSelect {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.menuWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menuButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #dce4ff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  min-width: 140px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 22, 32, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.menuItem,
+.menuItemDanger {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #dce4ff;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItemDanger {
+  color: #ffb4b4;
+}
+
+.notesField {
+  display: none;
+}
+
+.notesInput {
+  width: 100%;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 8px 10px;
+  font-size: 12px;
+  resize: vertical;
+  min-height: 52px;
+}
+
+.perSetSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exerciseControlBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(124, 156, 255, 0.18);
+  background: rgba(124, 156, 255, 0.06);
+}
+
+.controlBarField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.controlBarGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.controlBarInput,
+.controlBarSelect,
+.controlBarUnitSelect {
+  min-height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.controlBarInput {
+  width: 52px;
+}
+
+.controlBarSelect {
+  min-width: 72px;
+}
+
+.controlBarUnitSelect {
+  width: 52px;
+}
+
+.customSetCard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.customSetPrimaryRow,
+.customSetSecondaryRow {
+  display: grid;
+  grid-template-columns: 52px minmax(230px, 1fr) minmax(280px, 1fr) 36px;
+  gap: 12px;
+  align-items: center;
+}
+
+.customSetPrimaryRow > .setIndex {
+  grid-column: 1;
+}
+
+.customSetPrimaryRow > .repsGroup {
+  grid-column: 2;
+}
+
+.customSetPrimaryRow > .loadGroup {
+  grid-column: 3;
+}
+
+.customSetPrimaryRow > .perSetDelete {
+  grid-column: 4;
+}
+
+.customSetSecondaryRow > .secondaryIndent {
+  grid-column: 1;
+}
+
+.customSetSecondaryRow > .intensityGroup {
+  grid-column: 2;
+}
+
+.customSetSecondaryRow > .restGroup {
+  grid-column: 3;
+}
+
+.customSetSecondaryRow > .secondaryDeleteSpacer {
+  grid-column: 4;
+}
+
+.setIndex {
+  font-size: 11px;
+  color: #8f99ab;
+  white-space: nowrap;
+}
+
+.secondaryIndent {
+  display: block;
+}
+
+.repsGroup,
+.loadGroup,
+.intensityGroup,
+.restGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.intensityTypeSelect {
+  width: 68px;
+  min-width: 64px;
+  margin-right: 4px;
+}
+
+.controlInputSm,
+.controlSelectSm,
+.controlSelectMd {
+  min-height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 5px 6px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.controlInputSm {
+  width: 80px;
+  min-width: 72px;
+}
+
+.controlSelectSm {
+  width: 72px;
+  min-width: 64px;
+}
+
+.controlSelectMd {
+  width: 140px;
+  min-width: 130px;
+}
+
+.repsTypeSelect {
+  width: 80px;
+}
+
+.sideSelect {
+  width: 88px;
+}
+
+.loadTypeSelect {
+  flex: 1 1 140px;
+  min-width: 130px;
+  max-width: 160px;
+}
+
+.loadUnitSelect,
+.restUnitSelect {
+  width: 68px;
+  min-width: 58px;
+}
+
+.intensityGroup .controlInputSm {
+  width: 68px;
+  min-width: 64px;
+}
+
+.restGroup .controlInputSm {
+  width: 68px;
+  min-width: 64px;
+}
+
+.secondaryDeleteSpacer {
+  display: block;
+}
+
+.perSetHeader {
+  display: none;
+}
+
+.perSetTitle {
+  display: none;
+}
+
+.perSetRow {
+  display: none;
+}
+
+.compactInput,
+.compactSelect,
+.compactUnitSelect {
+  width: 100%;
+  min-height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f4f6f8;
+  padding: 5px 6px;
+  font-size: 11px;
+}
+
+.compactUnitSelect {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.rpeGroup {
+  display: none;
+}
+
+.restGroup {
+  justify-content: flex-start;
+}
+
+.fieldAffix {
+  font-size: 10px;
+  color: #8f99ab;
+  flex-shrink: 0;
+}
+
+.addSetButton {
+  border: none;
+  background: transparent;
+  color: #9eb4ff;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 6px 8px;
+}
+.customizeLink {
+  border: none;
+  background: transparent;
+  color: #9eb4ff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.perSetLabel {
+  font-size: 11px;
+  color: #8f99ab;
+}
+
+.perSetDelete {
+  width: 28px;
+  height: 28px;
+  justify-self: end;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 120, 120, 0.25);
+  background: transparent;
+  color: #ffb4b4;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.perSetDelete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.toggleCustomizeSets,
+.customizeLink,
+.actions {
+  display: none;
 }
 
 .field {
@@ -224,5 +615,21 @@
 
   .secondaryActions {
     margin-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .customSetPrimaryRow,
+  .customSetSecondaryRow {
+    grid-template-columns: 52px 1fr 36px;
+  }
+
+  .customSetPrimaryRow > .loadGroup,
+  .customSetSecondaryRow > .restGroup {
+    grid-column: 2 / 4;
+  }
+
+  .customSetSecondaryRow > .intensityGroup {
+    grid-column: 2 / 4;
   }
 }

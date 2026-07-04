@@ -148,4 +148,23 @@ describe("validateApprovedMasterImagePack", () => {
     const result = validateApprovedMasterImagePack(badPack);
     expect(result.issues.some((row) => row.code === "bench-press-exercise-id")).toBe(true);
   });
+
+  it("errors when thumbnailFrameId references unknown frame", () => {
+    const pack = {
+      ...buildApprovedFixturePack(),
+      thumbnailFrameId: "missing-frame-id",
+    };
+    const result = validateApprovedMasterImagePack(pack);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((row) => row.code === "unknown-thumbnail-frame-id")).toBe(true);
+  });
+
+  it("warns when approved-master pack omits thumbnailFrameId", () => {
+    const pack = {
+      ...buildApprovedFixturePack(),
+      thumbnailFrameId: undefined,
+    };
+    const result = validateApprovedMasterImagePack(pack);
+    expect(result.issues.some((row) => row.code === "missing-thumbnail-frame-id")).toBe(true);
+  });
 });

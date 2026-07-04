@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 import { WorkoutExercisePrescriptionRow } from "@/components/workout-studio/WorkoutExercisePrescriptionRow";
+import type { ExerciseCardTab } from "@/components/workout-studio/exercise-card/types";
 import { BlockNotesEditor } from "@/components/workout-studio/BlockNotesEditor";
-import { blockNotesPreview } from "@/features/workout-studio/blockNotesUtils";
 import { LIBRARY_DRAG_MIME } from "@/components/workout-studio/WorkoutLibraryPanel";
 import { getBlockDisplayTitle } from "@/features/workout-studio/blockUtils";
 import type { WorkoutLibraryExercise } from "@/features/workout-studio/exerciseLibraryAdapter";
@@ -19,12 +19,16 @@ type WorkoutBlockCardProps = {
   isSelected: boolean;
   otherBlocks: { id: string; title: string }[];
   onSelect: () => void;
-  onUpdate: (patch: Partial<Pick<WorkoutBlock, "customTitle" | "notes" | "blockType">>) => void;
+  onUpdate: (
+    patch: Partial<
+      Pick<WorkoutBlock, "customTitle" | "notes" | "blockType" | "targetSetCount" | "defaultRestSeconds">
+    >,
+  ) => void;
   onDuplicate: () => void;
   onRemove: () => void;
   onMove: (direction: "up" | "down") => void;
   onAddExerciseFromLibrary: (exercise: WorkoutLibraryExercise) => void;
-  onOpenExerciseExperience: (exerciseCardId: string) => void;
+  onOpenExerciseExperience: (exerciseCardId: string, initialTab?: ExerciseCardTab) => void;
   onUpdateExercise: (exerciseId: string, patch: Partial<WorkoutExerciseCard>) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onDuplicateExercise: (exerciseId: string) => void;
@@ -44,14 +48,14 @@ export function WorkoutBlockCard(props: WorkoutBlockCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const displayTitle = getBlockDisplayTitle(props.block);
-  const notesPreview = blockNotesPreview(props.block.notes);
   const blockLabel = `Block ${props.blockIndex + 1}`;
 
   const handleRemove = () => {
     if (!confirmRemove) {
       setConfirmRemove(true);
+      setMenuOpen(false);
       return;
     }
     props.onRemove();
@@ -80,141 +84,129 @@ export function WorkoutBlockCard(props: WorkoutBlockCardProps) {
           if (exercise) props.onAddExerciseFromLibrary(exercise);
         }}
       >
-        <div className={styles.topRow}>
-          <div className={styles.compactControls} onClick={(event) => event.stopPropagation()}>
+        <header className={`${styles.blockHeader} ${styles.blockHeaderSurface}`} onClick={(event) => event.stopPropagation()}>
+          <div className={styles.headerLeft}>
             <button
               type="button"
-              className={styles.iconButton}
-              disabled={props.blockIndex === 0}
-              aria-label={`Move ${blockLabel} up`}
-              onClick={() => props.onMove("up")}
+              className={styles.collapseButton}
+              aria-expanded={expanded}
+              aria-label={expanded ? `Collapse ${blockLabel}` : `Expand ${blockLabel}`}
+              onClick={() => setExpanded((value) => !value)}
             >
-              ↑
+              {expanded ? "▾" : "▸"}
             </button>
-            <button
-              type="button"
-              className={styles.iconButton}
-              disabled={props.blockIndex >= props.totalBlocks - 1}
-              aria-label={`Move ${blockLabel} down`}
-              onClick={() => props.onMove("down")}
-            >
-              ↓
-            </button>
-            <button
-              type="button"
-              className={confirmRemove ? styles.iconButtonDangerConfirm : styles.iconButtonDanger}
-              aria-label={confirmRemove ? `Confirm delete ${blockLabel}` : `Delete ${blockLabel}`}
-              onClick={handleRemove}
-            >
-              {confirmRemove ? "✓" : "×"}
-            </button>
+
+            <label className={styles.headerField}>
+              <span className={styles.headerFieldLabel}>Type</span>
+              <select
+                className={styles.headerSelect}
+                value={props.block.blockType}
+                aria-label={`Block type for ${blockLabel}`}
+                onChange={(event) => {
+                  props.onUpdate({ blockType: event.target.value as WorkoutBlockType });
+                }}
+              >
+                {WORKOUT_BLOCK_TYPES.map((blockType) => (
+                  <option key={blockType} value={blockType}>
+                    {WORKOUT_BLOCK_TYPE_LABELS[blockType]}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className={styles.topRowRight} onClick={(event) => event.stopPropagation()}>
-            {props.isSelected ? <span className={styles.selectedBadge}>Selected</span> : null}
-            <div className={styles.moreMenu}>
+          <div className={styles.blockHeaderActions}>
+            <div className={styles.blockMoveControls}>
               <button
                 type="button"
-                className={styles.moreButton}
-                aria-expanded={moreOpen}
-                aria-label={`More actions for ${blockLabel}`}
-                onClick={() => setMoreOpen((value) => !value)}
+                className={styles.iconButton}
+                disabled={props.blockIndex === 0}
+                aria-label={`Move ${blockLabel} up`}
+                onClick={() => props.onMove("up")}
               >
-                More
+                ↑
               </button>
-              {moreOpen ? (
-                <div className={styles.morePanel}>
+              <button
+                type="button"
+                className={styles.iconButton}
+                disabled={props.blockIndex >= props.totalBlocks - 1}
+                aria-label={`Move ${blockLabel} down`}
+                onClick={() => props.onMove("down")}
+              >
+                ↓
+              </button>
+            </div>
+            <div className={styles.blockMenuControl}>
+              <div className={styles.menuWrap}>
+                <button
+                  type="button"
+                  className={styles.menuButton}
+                  aria-expanded={menuOpen}
+                  aria-label={`Block actions for ${blockLabel}`}
+                  onClick={() => setMenuOpen((value) => !value)}
+                >
+                  ⋮
+                </button>
+                {menuOpen ? (
+                  <div className={styles.menuPanel}>
                   <button
                     type="button"
-                    className={styles.moreItem}
+                    className={styles.menuItem}
                     onClick={() => {
                       props.onDuplicate();
-                      setMoreOpen(false);
+                      setMenuOpen(false);
                     }}
                   >
                     Duplicate block
                   </button>
                   <button
                     type="button"
-                    className={styles.moreItem}
+                    className={styles.menuItem}
                     onClick={() => {
                       setNotesOpen(true);
-                      setMoreOpen(false);
+                      setMenuOpen(false);
                     }}
                   >
                     Block notes
                   </button>
                   <button
                     type="button"
-                    className={styles.moreItem}
+                    className={styles.menuItem}
                     onClick={() => {
                       setExpanded((value) => !value);
-                      setMoreOpen(false);
+                      setMenuOpen(false);
                     }}
                   >
                     {expanded ? "Collapse" : "Expand"}
                   </button>
+                  <button
+                    type="button"
+                    className={confirmRemove ? styles.menuItemDangerConfirm : styles.menuItemDanger}
+                    onClick={handleRemove}
+                  >
+                    {confirmRemove ? "Confirm delete" : "Delete block"}
+                  </button>
                 </div>
               ) : null}
+              </div>
             </div>
           </div>
-        </div>
-
-        <button
-          type="button"
-          className={styles.titleRow}
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onSelect();
-          }}
-        >
-          <span className={styles.blockIndex}>{blockLabel}</span>
-          <h3 className={styles.blockTitle}>{displayTitle}</h3>
-          {!expanded ? (
-            <span className={styles.blockSummary}>
-              {props.block.exercises.length} exercise{props.block.exercises.length === 1 ? "" : "s"}
-            </span>
-          ) : null}
-        </button>
-
-        {notesPreview && expanded ? (
-          <p className={styles.blockNotePreview}>{notesPreview}</p>
-        ) : null}
+        </header>
 
         {expanded ? (
           <div className={styles.blockBody}>
-            <div className={styles.typeRow} onClick={(event) => event.stopPropagation()}>
-              {props.block.blockType === "custom" ? (
-                <input
-                  className={styles.customTitleInput}
-                  value={props.block.customTitle}
-                  placeholder="Custom block name"
-                  aria-label={`Custom title for ${blockLabel}`}
-                  onChange={(event) => {
-                    props.onUpdate({ customTitle: event.target.value });
-                  }}
-                />
-              ) : (
-                <span className={styles.typeSpacer} />
-              )}
-              <label className={styles.typeSelectWrap}>
-                <span className={styles.typeSelectLabel}>Block type</span>
-                <select
-                  className={styles.typeSelect}
-                  value={props.block.blockType}
-                  aria-label={`Block type for ${blockLabel}`}
-                  onChange={(event) => {
-                    props.onUpdate({ blockType: event.target.value as WorkoutBlockType });
-                  }}
-                >
-                  {WORKOUT_BLOCK_TYPES.map((blockType) => (
-                    <option key={blockType} value={blockType}>
-                      {WORKOUT_BLOCK_TYPE_LABELS[blockType]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            {props.block.blockType === "custom" ? (
+              <input
+                className={styles.customTitleInput}
+                value={props.block.customTitle}
+                placeholder="Custom block name"
+                aria-label={`Custom title for ${blockLabel}`}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => {
+                  props.onUpdate({ customTitle: event.target.value });
+                }}
+              />
+            ) : null}
 
             {props.block.exercises.length === 0 ? (
               <div
@@ -241,8 +233,8 @@ export function WorkoutBlockCard(props: WorkoutBlockCardProps) {
                     onUpdate={(patch) => {
                       props.onUpdateExercise(exercise.id, patch);
                     }}
-                    onCustomize={() => {
-                      props.onOpenExerciseExperience(exercise.id);
+                    onCustomize={(initialTab) => {
+                      props.onOpenExerciseExperience(exercise.id, initialTab);
                     }}
                     onRemove={() => {
                       props.onRemoveExercise(exercise.id);
@@ -272,7 +264,12 @@ export function WorkoutBlockCard(props: WorkoutBlockCardProps) {
               ))}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <p className={styles.collapsedSummary}>
+            {displayTitle} · {props.block.exercises.length} exercise
+            {props.block.exercises.length === 1 ? "" : "s"}
+          </p>
+        )}
       </article>
 
       <BlockNotesEditor

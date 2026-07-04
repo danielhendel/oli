@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 
 import { ExerciseThumbnail } from "@/components/workout-studio/ExerciseThumbnail";
-import { hasExerciseAcademyIntelligence, getExerciseAcademyIntelligenceById } from "@/features/exercise-academy/exerciseAcademyIntelligenceRegistry";
 import { resolveExerciseThumbnail } from "@/features/workout-studio/resolveExerciseThumbnail";
 import {
   WORKOUT_LIBRARY_FILTER_LABELS,
@@ -23,6 +22,8 @@ type WorkoutLibraryPanelProps = {
   onAddCustomExercise: () => void;
 };
 
+type LibraryViewMode = "card" | "list";
+
 export function WorkoutLibraryPanel({
   selectedBlockId,
   onAddExercise,
@@ -30,7 +31,7 @@ export function WorkoutLibraryPanel({
 }: WorkoutLibraryPanelProps) {
   const [filter, setFilter] = useState<WorkoutLibraryFilter>("all");
   const [search, setSearch] = useState("");
-  const [expandedIntelId, setExpandedIntelId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<LibraryViewMode>("card");
 
   const catalog = useMemo(() => listCanonicalWorkoutLibraryExercises(), []);
   const filtered = useMemo(
@@ -39,58 +40,115 @@ export function WorkoutLibraryPanel({
   );
 
   return (
-    <aside id="studio-exercise-library" className={styles.panel}>
-      <header className={styles.header}>
+    <aside
+      id="studio-exercise-library"
+      className={styles.panel}
+      aria-label="Workout library"
+      data-testid="workout-library-panel"
+    >
+      <div className={styles.libraryControls}>
         <div className={styles.eyebrow}>Workout Library</div>
-        <h2 className={styles.title}>Exercise palette</h2>
-        <p className={styles.subtitle}>Drag or add exercises into the selected block</p>
-        {selectedBlockId ? (
-          <p className={styles.selectedHint}>Adding to selected block</p>
-        ) : (
-          <p className={styles.hint}>Select a block to add exercises.</p>
-        )}
-      </header>
 
-      <input
-        className={styles.search}
-        value={search}
-        onChange={(event) => {
-          setSearch(event.target.value);
-        }}
-        placeholder="Search exercises, muscles, equipment…"
-        aria-label="Search workout library"
-      />
+        <input
+          className={styles.search}
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+          }}
+          placeholder="Search exercises, muscles, equipment…"
+          aria-label="Search workout library"
+        />
 
-      <div className={styles.chips} role="tablist" aria-label="Exercise filters">
-        {WORKOUT_LIBRARY_FILTERS.map((chip) => (
-          <button
-            key={chip}
-            type="button"
-            role="tab"
-            aria-selected={filter === chip}
-            className={filter === chip ? styles.chipActive : styles.chip}
-            onClick={() => {
-              setFilter(chip);
-            }}
-          >
-            {WORKOUT_LIBRARY_FILTER_LABELS[chip]}
-          </button>
-        ))}
+        <div className={styles.toolbar}>
+          <div className={styles.chips} role="tablist" aria-label="Exercise filters">
+            {WORKOUT_LIBRARY_FILTERS.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                role="tab"
+                aria-selected={filter === chip}
+                className={filter === chip ? styles.chipActive : styles.chip}
+                onClick={() => {
+                  setFilter(chip);
+                }}
+              >
+                {WORKOUT_LIBRARY_FILTER_LABELS[chip]}
+              </button>
+            ))}
+          </div>
+          <div className={styles.viewToggle} role="group" aria-label="Library view mode">
+            <button
+              type="button"
+              className={viewMode === "card" ? styles.viewButtonActive : styles.viewButton}
+              aria-pressed={viewMode === "card"}
+              onClick={() => setViewMode("card")}
+            >
+              Cards
+            </button>
+            <button
+              type="button"
+              className={viewMode === "list" ? styles.viewButtonActive : styles.viewButton}
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+            >
+              List
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className={styles.list}>
+      <div
+        className={styles.libraryResults}
+        aria-label="Exercise library results"
+        data-testid="library-results-scroll"
+      >
+        <div className={viewMode === "list" ? styles.listView : styles.cardGrid}>
         {filtered.slice(0, 80).map((exercise) => {
-          const hasIntel = hasExerciseAcademyIntelligence(exercise.exerciseId);
-          const intelligence = hasIntel
-            ? getExerciseAcademyIntelligenceById(exercise.exerciseId)
-            : null;
-          const isExpanded = expandedIntelId === exercise.exerciseId;
           const thumbnail = resolveExerciseThumbnail({
             exerciseId: exercise.exerciseId,
             exerciseName: exercise.name,
             primaryMuscle: exercise.primaryMuscles[0],
             equipment: exercise.equipment,
           });
+
+          if (viewMode === "list") {
+            return (
+              <article
+                key={exercise.exerciseId}
+                className={styles.listRow}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(exercise));
+                  event.dataTransfer.effectAllowed = "copy";
+                }}
+              >
+                <div className={styles.listRowInner}>
+                  <ExerciseThumbnail source={thumbnail} size="sm" hideStatusBadge />
+                  <h3 className={styles.listRowTitle}>{exercise.name}</h3>
+                  <div className={styles.cardActions}>
+                    <span
+                      className={styles.dragHandle}
+                      aria-label={`Drag ${exercise.name}`}
+                      title={`Drag ${exercise.name}`}
+                    >
+                      ⠿
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.addButton}
+                      disabled={!selectedBlockId}
+                      aria-label={`Add ${exercise.name}`}
+                      onClick={() => {
+                        onAddExercise(exercise);
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          }
 
           return (
             <article
@@ -102,35 +160,21 @@ export function WorkoutLibraryPanel({
                 event.dataTransfer.effectAllowed = "copy";
               }}
             >
-              <div className={styles.cardTop}>
-                <div className={styles.cardMain}>
-                  <ExerciseThumbnail source={thumbnail} size="sm" />
-                  <div className={styles.cardContent}>
-                    <div className={styles.cardTitleRow}>
-                      <h3 className={styles.cardTitle}>{exercise.name}</h3>
-                      {hasIntel ? <span className={styles.intelBadge}>Academy</span> : null}
-                    </div>
-                    <p className={styles.cardMeta}>
-                      {exercise.primaryMuscles.join(" · ")} · {exercise.equipment}
-                    </p>
-                    {intelligence ? (
-                      <p className={styles.intelSummary}>
-                        Primary: {intelligence.primaryMuscles.join(", ")}
-                        {intelligence.secondaryMuscles.length > 0
-                          ? ` · Secondary: ${intelligence.secondaryMuscles.join(", ")}`
-                          : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>{exercise.name}</h3>
                 <div className={styles.cardActions}>
-                  <span className={styles.dragHandle} aria-hidden="true">
+                  <span
+                    className={styles.dragHandle}
+                    aria-label={`Drag ${exercise.name}`}
+                    title={`Drag ${exercise.name}`}
+                  >
                     ⠿
                   </span>
                   <button
                     type="button"
                     className={styles.addButton}
                     disabled={!selectedBlockId}
+                    aria-label={`Add ${exercise.name}`}
                     onClick={() => {
                       onAddExercise(exercise);
                     }}
@@ -139,43 +183,9 @@ export function WorkoutLibraryPanel({
                   </button>
                 </div>
               </div>
-              <div className={styles.tags}>
-                <span className={styles.tag}>{exercise.movementPattern}</span>
-                <span className={styles.tagMono}>{exercise.exerciseId}</span>
-                {intelligence ? (
-                  <button
-                    type="button"
-                    className={styles.whyButton}
-                    aria-expanded={isExpanded}
-                    onClick={() => {
-                      setExpandedIntelId(isExpanded ? null : exercise.exerciseId);
-                    }}
-                  >
-                    Why use it?
-                  </button>
-                ) : null}
+              <div className={styles.cardImageWrap}>
+                <ExerciseThumbnail source={thumbnail} size="libraryCard" hideStatusBadge />
               </div>
-              {isExpanded && intelligence ? (
-                <div className={styles.intelDetail}>
-                  <p>{intelligence.coachingDecisionNotes}</p>
-                  <p className={styles.intelDetailMeta}>
-                    Best for:{" "}
-                    {intelligence.programmingUseCases
-                      .filter((item) => item.fit === "primary")
-                      .map((item) => item.goal)
-                      .join(", ") || "general programming"}
-                  </p>
-                  <p className={styles.intelDetailMeta}>
-                    Joints:{" "}
-                    {intelligence.jointConsiderations
-                      .map((item) => `${item.joint} (${item.stressLevel})`)
-                      .join(" · ")}
-                  </p>
-                  <p className={styles.intelDetailMeta}>
-                    Swap: {intelligence.substitutions.substitutionOptions[0] ?? "—"}
-                  </p>
-                </div>
-              ) : null}
             </article>
           );
         })}
@@ -185,6 +195,7 @@ export function WorkoutLibraryPanel({
         {filtered.length > 80 ? (
           <p className={styles.more}>Showing first 80 of {filtered.length} matches.</p>
         ) : null}
+        </div>
       </div>
 
       <button type="button" className={styles.customButton} onClick={onAddCustomExercise}>

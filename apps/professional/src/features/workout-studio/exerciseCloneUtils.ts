@@ -1,4 +1,8 @@
 import { createId } from "./ids";
+import {
+  DEFAULT_BLOCK_REST_SECONDS,
+  DEFAULT_BLOCK_TARGET_SET_COUNT,
+} from "./blockPrescriptionUtils";
 import type {
   ExerciseCoachingCue,
   ExerciseCommonMistake,
@@ -64,6 +68,21 @@ export function cloneExerciseCard(
     regressionOptions: [...exercise.regressionOptions],
     substitutionOptions: [...exercise.substitutionOptions],
     mediaComposer: { ...exercise.mediaComposer, enabledSlots: [...exercise.mediaComposer.enabledSlots] },
+    builderPrescription: exercise.builderPrescription
+      ? {
+          ...exercise.builderPrescription,
+          perSetFields: { ...(exercise.builderPrescription.perSetFields ?? {}) },
+        }
+      : {
+          repsMode: "reps",
+          sideMode: "total",
+          loadMode: "totalWeight",
+          loadUnit: "lbs",
+          loadValue: "",
+          customizeEachSet: true,
+          exerciseNotes: "",
+          perSetFields: {},
+        },
   };
 }
 
@@ -80,6 +99,8 @@ export function cloneWorkoutBlock(block: WorkoutBlock, order: number): WorkoutBl
     customTitle,
     notes: block.notes,
     order,
+    targetSetCount: block.targetSetCount ?? DEFAULT_BLOCK_TARGET_SET_COUNT,
+    defaultRestSeconds: block.defaultRestSeconds ?? DEFAULT_BLOCK_REST_SECONDS,
     exercises: block.exercises.map((exercise) => cloneExerciseCard(exercise, { suffix: "" })),
   };
 }

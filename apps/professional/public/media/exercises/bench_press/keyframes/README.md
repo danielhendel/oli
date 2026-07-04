@@ -1,6 +1,9 @@
 # Bench Press Keyframe Images
 
-Local-only keyframe image paths for Sprint M11 image pack production.
+Local-only keyframe image paths for Bench Press image pack production.
+
+**Operator guide (Google Flow export):**  
+`docs/authoritative/Oli Bench Press Google Flow Export Checklist v1.md`
 
 ## Expected 16:9 master paths
 

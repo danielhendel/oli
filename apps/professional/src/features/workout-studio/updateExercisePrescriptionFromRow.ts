@@ -134,6 +134,14 @@ export function parseRpeTargetInput(raw: string): number | null {
   return Math.max(1, Math.min(10, Math.round(parsed)));
 }
 
+export function parseRirTargetInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, Math.min(10, Math.round(parsed)));
+}
+
 export function parseRestSecondsInput(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;

@@ -1,9 +1,11 @@
+import type { ExerciseCardTab } from "@/components/workout-studio/exercise-card/types";
 import { getBlockDisplayTitle } from "./blockUtils";
 import type { WorkoutBlock, WorkoutExerciseCard, WorkoutExperience } from "./types";
 
 export type ExerciseExperienceRef = {
   blockId: string;
   exerciseCardId: string;
+  initialTab?: ExerciseCardTab;
 };
 
 export type ExerciseExperienceContext = {

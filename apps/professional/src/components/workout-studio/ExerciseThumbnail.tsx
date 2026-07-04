@@ -3,7 +3,8 @@ import styles from "./ExerciseThumbnail.module.css";
 
 type ExerciseThumbnailProps = {
   readonly source: ExerciseThumbnailSource;
-  readonly size?: "sm" | "md" | "lg";
+  readonly size?: "sm" | "md" | "lg" | "builder" | "libraryCard";
+  readonly hideStatusBadge?: boolean;
 };
 
 function placeholderInitial(source: ExerciseThumbnailSource): string {
@@ -14,17 +15,23 @@ function placeholderInitial(source: ExerciseThumbnailSource): string {
 function sizeClass(size: NonNullable<ExerciseThumbnailProps["size"]>): string {
   if (size === "sm") return styles.thumbnailSm ?? "";
   if (size === "lg") return styles.thumbnailLg ?? "";
+  if (size === "builder") return styles.thumbnailBuilder ?? "";
+  if (size === "libraryCard") return styles.thumbnailLibraryCard ?? "";
   return styles.thumbnailMd ?? "";
 }
 
-export function ExerciseThumbnail({ source, size = "md" }: ExerciseThumbnailProps) {
+export function ExerciseThumbnail({
+  source,
+  size = "md",
+  hideStatusBadge = false,
+}: ExerciseThumbnailProps) {
   const resolvedSizeClass = sizeClass(size);
 
   if (source.isRenderableImage && source.src) {
     return (
       <div className={`${styles.thumbnailWrap} ${resolvedSizeClass}`}>
         <img className={styles.thumbnailImage} src={source.src} alt={source.alt} />
-        {source.kind !== "approved-master-image" ? (
+        {!hideStatusBadge && source.kind !== "approved-master-image" ? (
           <span className={styles.thumbnailBadge}>{source.label}</span>
         ) : null}
       </div>
@@ -35,10 +42,12 @@ export function ExerciseThumbnail({ source, size = "md" }: ExerciseThumbnailProp
     <div
       className={`${styles.placeholder} ${resolvedSizeClass} ${styles[`placeholder_${source.kind}`]}`}
       aria-label={source.alt}
-      title={source.label}
+      title={hideStatusBadge ? source.alt : source.label}
     >
       <span className={styles.placeholderInitial}>{placeholderInitial(source)}</span>
-      <span className={styles.placeholderLabel}>{source.label}</span>
+      {hideStatusBadge || size === "libraryCard" ? null : (
+        <span className={styles.placeholderLabel}>{source.label}</span>
+      )}
     </div>
   );
 }

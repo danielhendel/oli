@@ -21,12 +21,17 @@ describe("workout studio mode", () => {
     expect(getDefaultWorkoutStudioMode("Upper Body Strength — Session 1")).toBe("blocks");
   });
 
-  it("lists overview, stats, and blocks modes in order", () => {
+  it("lists overview, stats, and blocks modes in order with Workout label", () => {
     expect(WORKOUT_STUDIO_MODE_IDS).toEqual(["overview", "stats", "blocks"]);
     expect(WORKOUT_STUDIO_MODES.map((mode) => mode.id)).toEqual([
       "overview",
       "stats",
       "blocks",
+    ]);
+    expect(WORKOUT_STUDIO_MODES.map((mode) => mode.label)).toEqual([
+      "Overview",
+      "Workout Stats",
+      "Workout",
     ]);
   });
 

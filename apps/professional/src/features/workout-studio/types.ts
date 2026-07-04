@@ -89,6 +89,47 @@ export type WorkoutDesignedSet = {
   notes: string;
 };
 
+export const EXERCISE_REPS_MODES = ["reps", "time", "distance"] as const;
+export type ExerciseRepsMode = (typeof EXERCISE_REPS_MODES)[number];
+
+export const EXERCISE_SIDE_MODES = ["total", "each", "left", "right"] as const;
+export type ExerciseSideMode = (typeof EXERCISE_SIDE_MODES)[number];
+
+export const EXERCISE_LOAD_MODES = ["totalWeight", "repMaxPercent"] as const;
+export type ExerciseLoadMode = (typeof EXERCISE_LOAD_MODES)[number];
+
+export const EXERCISE_LOAD_UNITS = ["lbs", "kg", "percent"] as const;
+export type ExerciseLoadUnit = (typeof EXERCISE_LOAD_UNITS)[number];
+
+export const REST_DISPLAY_UNITS = ["sec", "min"] as const;
+export type RestDisplayUnit = (typeof REST_DISPLAY_UNITS)[number];
+
+export const INTENSITY_TARGET_KINDS = ["rpe", "rir"] as const;
+export type IntensityTargetKind = (typeof INTENSITY_TARGET_KINDS)[number];
+
+/** Per-set builder UI fields — keyed by setId in ExerciseBuilderPrescription.perSetFields */
+export type PerSetBuilderFields = {
+  repsMode: ExerciseRepsMode;
+  sideMode: ExerciseSideMode;
+  loadMode: ExerciseLoadMode;
+  loadUnit: ExerciseLoadUnit;
+  loadValue: string;
+  restUnit: RestDisplayUnit;
+  intensityKind: IntensityTargetKind;
+};
+
+/** Inline builder UI state — synced to designedSets in general mode */
+export type ExerciseBuilderPrescription = {
+  repsMode: ExerciseRepsMode;
+  sideMode: ExerciseSideMode;
+  loadMode: ExerciseLoadMode;
+  loadUnit: ExerciseLoadUnit;
+  loadValue: string;
+  customizeEachSet: boolean;
+  exerciseNotes: string;
+  perSetFields: Record<string, PerSetBuilderFields>;
+};
+
 /** A) Professional design / education fields */
 export type ExerciseDesignFields = {
   whyThisExercise: string;
@@ -176,6 +217,8 @@ export type WorkoutExerciseCard = {
   substitutionOptions: string[];
   /** Media OS composer state — session/client media experience customization. */
   mediaComposer: MediaComposerState;
+  /** Fast builder prescription controls (general vs per-set). */
+  builderPrescription: ExerciseBuilderPrescription;
 };
 
 export type WorkoutBlock = {
@@ -185,6 +228,10 @@ export type WorkoutBlock = {
   customTitle: string;
   notes: string;
   order: number;
+  /** Default set count applied to exercises in this block */
+  targetSetCount: number;
+  /** Default rest between sets in this block (seconds) */
+  defaultRestSeconds: number | null;
   exercises: WorkoutExerciseCard[];
 };
 

@@ -11,7 +11,7 @@ export const WORKOUT_STUDIO_MODES = [
   },
   {
     id: "blocks",
-    label: "Blocks",
+    label: "Workout",
     description: "Build the workout.",
   },
 ] as const;
@@ -25,7 +25,7 @@ export const WORKOUT_STUDIO_MODE_IDS: readonly WorkoutStudioMode[] = WORKOUT_STU
 export const WORKOUT_STUDIO_MODE_LABELS: Record<WorkoutStudioMode, string> = {
   overview: "Overview",
   stats: "Workout Stats",
-  blocks: "Blocks",
+  blocks: "Workout",
 };
 
 /** @deprecated UX-2 — scroll-spy sections replaced by WORKOUT_STUDIO_MODES */

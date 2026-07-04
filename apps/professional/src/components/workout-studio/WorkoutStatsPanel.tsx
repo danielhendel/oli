@@ -35,7 +35,7 @@ export function WorkoutStatsPanel({
         <div className={styles.panelEyebrow}>Workout Stats</div>
         <h2 className={styles.panelTitle}>Volume, balance, and readiness</h2>
         <p className={styles.toolbarHint}>
-          Inspect projected load and quality signals. Edit exercises in Blocks.
+          Inspect projected load and quality signals. Edit exercises in Workout.
         </p>
       </div>
 
@@ -71,7 +71,7 @@ export function WorkoutStatsPanel({
                       style={{ color: "#9eb4ff", background: "none", border: "none", padding: 0, cursor: "pointer" }}
                       onClick={onGoToBlocks}
                     >
-                      Go to Blocks
+                      Go to Workout
                     </button>
                   </>
                 ) : null}
