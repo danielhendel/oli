@@ -81,7 +81,10 @@ export function useDailyReadinessCard(day: DayKey, options?: { enabled?: boolean
     };
   }, [day, enabled, ouraConnected, readiness]);
 
-  return { vm, refetch: readiness.refetch };
+  return useMemo(
+    () => ({ vm, refetch: readiness.refetch }),
+    [vm, readiness.refetch],
+  );
 }
 
 export { READINESS_DETAIL_HREF };

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
+import { normalizeChromeHeight } from "@/lib/ui/navigation/normalizeChromeHeight";
 
 /**
  * Horizontal inset for floating dock; bottom margin added to the safe-area inset.
@@ -45,6 +46,7 @@ export function FloatingNavigationChrome({
 }: FloatingNavigationChromeProps) {
   const insets = useSafeAreaInsets();
   const fabRef = useRef<View>(null);
+  const lastReportedHeightRef = useRef<number | undefined>(undefined);
   const onTabBarHeightFromTabs = useContext(BottomTabBarHeightCallbackContext);
   const bottomOffset = insets.bottom + FLOATING_NAV_DOCK_BOTTOM_MARGIN;
   const [navSlotHeight, setNavSlotHeight] = useState(() => bottomOffset + 56);
@@ -54,9 +56,12 @@ export function FloatingNavigationChrome({
   const onDockRowLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const rowH = e.nativeEvent.layout.height;
-      const total = bottomOffset + rowH;
-      setNavSlotHeight(total);
-      reportChromeHeight?.(total);
+      const total = normalizeChromeHeight(bottomOffset + rowH) ?? 0;
+      setNavSlotHeight((current) => (current === total ? current : total));
+      if (lastReportedHeightRef.current !== total) {
+        lastReportedHeightRef.current = total;
+        reportChromeHeight?.(total);
+      }
     },
     [bottomOffset, reportChromeHeight],
   );
@@ -67,7 +72,10 @@ export function FloatingNavigationChrome({
 
   useEffect(() => {
     if (onStackChromeHeightChange) {
-      return () => onStackChromeHeightChange(undefined);
+      return () => {
+        lastReportedHeightRef.current = undefined;
+        onStackChromeHeightChange(undefined);
+      };
     }
     return undefined;
   }, [onStackChromeHeightChange]);

@@ -145,15 +145,22 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
     ouraPresence,
   ]);
 
+  const refetchTodayFacts = todayFacts.refetch;
+  const refetchPriorFacts = priorFacts.refetch;
+  const refetchReadiness = readiness.refetch;
+
   const refetch = useCallback(
     (opts?: TruthGetOptions) => {
-      void todayFacts.refetch(opts);
-      void priorFacts.refetch(opts);
-      readiness.refetch(opts);
+      void refetchTodayFacts(opts);
+      void refetchPriorFacts(opts);
+      void refetchReadiness(opts);
       void fetchSleep(opts);
     },
-    [todayFacts, priorFacts, readiness, fetchSleep],
+    [refetchTodayFacts, refetchPriorFacts, refetchReadiness, fetchSleep],
   );
 
-  return { model, loading, error, refetch };
+  return useMemo(
+    () => ({ model, loading, error, refetch }),
+    [model, loading, error, refetch],
+  );
 }
