@@ -35,7 +35,7 @@ export function TodayCommandSection({ model, loading, error, dateLine }: Props):
 
   const completion = model?.completionPercent ?? null;
   const readiness = model?.readiness ?? {
-    status: "unknown" as const,
+    status: "missing" as const,
     headline: "Loading readiness…",
     sleepScore: null,
     readinessScore: null,

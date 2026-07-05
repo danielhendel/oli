@@ -1,5 +1,7 @@
 /** Shared Today Command Center view model — single source for Dash, Timeline, Program surfaces. */
 
+import type { Readiness } from "@/lib/contracts/readiness";
+
 export type TodayScoreConfidence = "high" | "medium" | "low";
 
 export type TodayScoreSource =
@@ -16,8 +18,6 @@ export type ScoreFact = {
   observedAt: string | null;
   confidence: TodayScoreConfidence;
 };
-
-export type TodayReadinessStatus = "ready" | "moderate" | "take-it-easy" | "unknown";
 
 export type TodayTargetId = "activity" | "workout" | "cardio" | "calories" | "protein";
 
@@ -53,7 +53,7 @@ export type TodayCommandModel = {
   timezone: string;
   completionPercent: number;
   readiness: {
-    status: TodayReadinessStatus;
+    status: Readiness;
     headline: string;
     sleepScore: ScoreFact | null;
     readinessScore: ScoreFact | null;

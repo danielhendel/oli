@@ -10,10 +10,13 @@ import {
   TODAY_TARGET_DEFAULTS,
 } from "@/lib/today/defaults";
 import { todayTargetRoute } from "@/lib/today/todayTargetRoutes";
+import {
+  normalizeTodayReadinessStatus,
+  readinessActivityPhraseFromScore,
+} from "@/lib/today/normalizeTodayReadinessStatus";
 import type {
   ScoreFact,
   TodayCommandModel,
-  TodayReadinessStatus,
   TodayTargetProgress,
   TodayTargetStatus,
 } from "@/lib/today/types";
@@ -113,19 +116,8 @@ function scoreFactFromSleepNight(
   return ouraScoreFact(view.sleepNight.score, view.sleepNight.updatedAt ?? null);
 }
 
-function readinessStatusFromScores(
-  readinessScore: number | null,
-  sleepScore: number | null,
-): TodayReadinessStatus {
-  const score = readinessScore ?? sleepScore;
-  if (score == null || !Number.isFinite(score)) return "unknown";
-  if (score >= 80) return "ready";
-  if (score >= 65) return "moderate";
-  return "take-it-easy";
-}
-
 function buildReadinessHeadline(args: {
-  status: TodayReadinessStatus;
+  status: TodayCommandModel["readiness"]["status"];
   sleepScore: ScoreFact | null;
   readinessScore: ScoreFact | null;
   priorDaySteps: number | null;
@@ -134,6 +126,10 @@ function buildReadinessHeadline(args: {
 }): string {
   const { status, sleepScore, readinessScore, priorDaySteps, priorDayCaloriesBurned, ouraConnected } =
     args;
+
+  if (status === "error") {
+    return "Readiness is unavailable. Today's plan is still available.";
+  }
 
   if (ouraConnected === false) {
     return "Connect Oura for sleep and Oura readiness scores. Today's plan is still available.";
@@ -149,13 +145,9 @@ function buildReadinessHeadline(args: {
   }
 
   const statusPhrase =
-    status === "ready"
-      ? "You're ready for an active day."
-      : status === "moderate"
-        ? "You're ready for a moderate day."
-        : status === "take-it-easy"
-          ? "Take it a bit easier today."
-          : "Readiness is still settling in.";
+    readinessScore != null
+      ? readinessActivityPhraseFromScore(readinessScore.value)
+      : "Readiness is still settling in.";
 
   const parts: string[] = [statusPhrase];
   const scoreParts: string[] = [];
@@ -350,10 +342,10 @@ export function buildTodayCommandModel(input: BuildTodayCommandModelInput): Toda
   const sleepScore = scoreFactFromSleepNight(input.day, input.sleepNightView);
   const readinessScore = ouraScoreFact(input.readinessView?.score, input.readinessView?.fetchedAt);
 
-  const readinessStatus = readinessStatusFromScores(
-    readinessScore?.value ?? null,
-    sleepScore?.value ?? null,
-  );
+  const readinessStatus = normalizeTodayReadinessStatus({
+    readinessScore: readinessScore?.value ?? null,
+    sleepScore: sleepScore?.value ?? null,
+  });
 
   const priorDaySteps = input.priorDayFacts?.activity?.steps ?? null;
   const priorEnergy =

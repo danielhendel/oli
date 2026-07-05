@@ -71,6 +71,7 @@ describe("buildTodayCommandModel", () => {
     expect(model.readiness.readinessScore?.sourceLabel).toBe("Oura");
     expect(model.readiness.headline).toContain("Oura sleep 84");
     expect(model.readiness.headline).toContain("Oura readiness 78");
+    expect(model.readiness.status).toBe("ready");
   });
 
   it("handles missing Oura readiness without crashing", () => {
@@ -81,12 +82,14 @@ describe("buildTodayCommandModel", () => {
     });
     expect(model.readiness.readinessScore).toBeNull();
     expect(model.readiness.sleepScore?.value).toBe(80);
+    expect(model.readiness.status).toBe("partial");
     expect(model.readiness.headline).toContain("Waiting for Oura readiness");
     expect(model.readiness.headline).toContain("Sleep score is available");
   });
 
   it("uses recovery copy when both Oura scores are missing", () => {
     const model = buildTodayCommandModel({ ...BASE_INPUT, ouraConnected: true });
+    expect(model.readiness.status).toBe("missing");
     expect(model.readiness.headline).toContain("Waiting for recovery data");
     expect(model.readiness.headline).not.toContain("Oura readiness 0");
   });
