@@ -15,7 +15,7 @@ export function TimelineEmptyState({ isToday }: TimelineEmptyStateProps) {
       <Text style={styles.title}>{isToday ? "Nothing logged yet" : "Nothing logged"}</Text>
       <Text style={styles.body}>
         {isToday
-          ? "Your day will appear here as data is logged or synced."
+          ? "Nothing logged yet today. Your plan is ready."
           : "No entries were recorded on this day."}
       </Text>
     </View>

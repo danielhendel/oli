@@ -11,7 +11,6 @@ import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardView
 import { resolveUserProfileMainForUi } from "@/lib/data/profile/resolveUserProfileMainForUi";
 import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
-import { useHealthScore } from "@/lib/data/useHealthScore";
 import { useDailySleepCard } from "@/lib/hooks/useDailySleepCard";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
@@ -25,12 +24,14 @@ export type UseTodayHealthHeroResult = {
 };
 
 /**
- * Dash hero plus shared truth payloads from `useDailyFacts`, `useHealthScore`, and `useDailySleepCard`.
+ * Dash hero plus shared truth payloads from `useDailyFacts` and `useDailySleepCard`.
+ *
+ * Health score is intentionally not fetched on Dash: the endpoint is optional on staging
+ * and recovery is surfaced via Today Command Center / Daily Readiness instead.
  */
 export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
   const { user, initializing } = useAuth();
   const facts = useDailyFacts(day);
-  const health = useHealthScore(day);
   const dailySleep = useDailySleepCard(day, { enabled: Boolean(user) && !initializing });
   const { state: profileState } = useUserProfileMain();
 
@@ -47,29 +48,27 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
 
   const vm = useMemo(() => {
     const dailyFactsSettled = facts.status !== "partial";
-    const healthSettled = health.status !== "partial";
 
     const headerLoading =
       Boolean(user) && !initializing && profileState.status === "partial";
 
     const sleepRecoveryLoading =
-      Boolean(user) && !initializing && (!dailyFactsSettled || !healthSettled);
+      Boolean(user) && !initializing && !dailyFactsSettled;
 
     const dailyFactsData =
       facts.status === "ready" && facts.data.date === day ? facts.data : undefined;
-    const healthScore = health.status === "ready" ? health.data : undefined;
 
     return buildTodayHealthHeroViewModel({
       now: new Date(),
       firstName,
       dailyFacts: dailyFactsData,
       dailyFactsSettled,
-      healthScore,
-      healthSettled,
+      healthScore: undefined,
+      healthSettled: true,
       headerLoading,
       sleepRecoveryLoading,
     });
-  }, [user, initializing, facts, health, profileState, firstName, day]);
+  }, [user, initializing, facts, profileState, firstName, day]);
 
   const energyLoading = facts.status === "partial";
   const energyError = facts.status === "error" ? facts.error : null;
@@ -77,10 +76,9 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
   const refetch = useCallback(
     (opts?: TruthGetOptions) => {
       void facts.refetch(opts);
-      void health.refetch(opts);
       dailySleep.refetch(opts);
     },
-    [facts.refetch, health.refetch, dailySleep.refetch],
+    [facts.refetch, dailySleep.refetch],
   );
 
   useEffect(() => {

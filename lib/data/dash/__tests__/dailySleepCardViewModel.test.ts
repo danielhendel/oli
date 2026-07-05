@@ -1,6 +1,7 @@
 import type { SleepNightViewDto } from "@oli/contracts";
 
 import {
+  attributedSleepNightViewForCalendarDay,
   buildDailySleepCardViewModel,
   sleepNightIsAttributedToCalendarDay,
 } from "../dailySleepCardViewModel";
@@ -84,6 +85,45 @@ describe("sleepNightIsAttributedToCalendarDay", () => {
     expect(
       sleepNightIsAttributedToCalendarDay(day, view({ requestedDay: "2026-05-16" })),
     ).toBe(false);
+  });
+});
+
+describe("attributedSleepNightViewForCalendarDay", () => {
+  it("returns view when settled and attributed", () => {
+    const v = view({ sleepNight: { ...view({}).sleepNight, score: 84 } });
+    expect(
+      attributedSleepNightViewForCalendarDay(day, { view: v, settled: true }),
+    ).toBe(v);
+  });
+
+  it("returns null when unsettled", () => {
+    expect(
+      attributedSleepNightViewForCalendarDay(day, { view: view({}), settled: false }),
+    ).toBeNull();
+  });
+
+  it("returns null for bounded prior-night fallback", () => {
+    expect(
+      attributedSleepNightViewForCalendarDay(day, {
+        view: view({
+          anchorDay: "2026-05-16",
+          wakeDay: "2026-05-16",
+          resolution: "latest_completed_prior_night",
+          sleepNight: {
+            anchorDay: "2026-05-16",
+            wakeDay: "2026-05-16",
+            provider: "oura",
+            source: "ouraVendorSleep",
+            sourceDocumentId: "s1",
+            isComplete: true,
+            totalSleepMinutes: 445,
+            updatedAt: "2026-05-16T12:00:00.000Z",
+            score: 84,
+          },
+        }),
+        settled: true,
+      }),
+    ).toBeNull();
   });
 });
 

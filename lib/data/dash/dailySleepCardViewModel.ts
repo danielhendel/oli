@@ -60,6 +60,15 @@ export function sleepNightIsAttributedToCalendarDay(
   return false;
 }
 
+/** Settled sleep-night view when attributed to the calendar day; null otherwise. */
+export function attributedSleepNightViewForCalendarDay(
+  day: string,
+  sleepNight: Pick<UseSleepNightResult, "view" | "settled">,
+): SleepNightViewDto | null {
+  if (!sleepNight.settled || sleepNight.view == null) return null;
+  return sleepNightIsAttributedToCalendarDay(day, sleepNight.view) ? sleepNight.view : null;
+}
+
 export type BuildDailySleepCardViewModelInput = {
   day: string;
   sleepNight: Pick<UseSleepNightResult, "view" | "loading" | "settled" | "error">;
@@ -130,6 +139,8 @@ export function buildDailySleepCardViewModel(
   };
 }
 
+import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
+
 export function logDailySleepTruthDev(input: {
   requestedDay: string;
   factsStatus: string;
@@ -141,6 +152,7 @@ export function logDailySleepTruthDev(input: {
   blockedStale: boolean;
 }): void {
   if (!__DEV__) return;
+  if (!isDebugDataLogsEnabled()) return;
   // eslint-disable-next-line no-console -- dev-only truth audit (no PII)
   console.log(
     `[DAILY_SLEEP_TRUTH] requestedDay=${input.requestedDay} factsStatus=${input.factsStatus} factsDay=${input.factsDay ?? "null"} renderStatus=${input.renderStatus} blockedStale=${input.blockedStale} sleepSettled=${input.sleepSettled} sleepResolution=${input.sleepResolution ?? "null"} sleepRequestedDay=${input.sleepRequestedDay ?? "null"}`,

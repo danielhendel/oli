@@ -184,7 +184,34 @@ describe("runSleepTodayRecoveryIfMissing", () => {
     expect(refetch).not.toHaveBeenCalled();
 
     const second = await runSleepTodayRecoveryIfMissing({ ...args, now: () => 2_000 });
-    expect(second).toEqual({ ran: false, reason: "rate_limited" });
+    expect(second).toEqual({ ran: false, reason: "refresh_failed_backoff" });
+    expect(mockPostOuraSleepDayRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps refresh_failed_backoff for 15 minutes after a 500", async () => {
+    mockPostOuraSleepDayRefresh.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      requestId: "rid-500",
+      error: "server error",
+      kind: "http",
+    });
+    const refetch = jest.fn();
+    const args = {
+      uid: "user-a",
+      requestedDay: "2026-04-06",
+      todayDayKey: "2026-04-06",
+      isMissing: true,
+      rateLimitMs: 1_000,
+      getIdToken: jest.fn().mockResolvedValue("tok"),
+      refetchSleep: refetch,
+    };
+
+    const first = await runSleepTodayRecoveryIfMissing({ ...args, now: () => 1_000 });
+    expect(first).toEqual({ ran: false, reason: "refresh_failed" });
+
+    const duringBackoff = await runSleepTodayRecoveryIfMissing({ ...args, now: () => 120_000 });
+    expect(duringBackoff).toEqual({ ran: false, reason: "refresh_failed_backoff" });
     expect(mockPostOuraSleepDayRefresh).toHaveBeenCalledTimes(1);
   });
 

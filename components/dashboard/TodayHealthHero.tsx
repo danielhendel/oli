@@ -16,26 +16,23 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
   }, [vm.firstName, vm.greetingPhrase]);
 
   const headerA11y = useMemo(() => {
-    return vm.loading ? "Loading greeting" : `${headline}. ${vm.dateLine}.`;
-  }, [vm.loading, headline, vm.dateLine]);
+    return vm.loading ? "Loading greeting" : headline;
+  }, [vm.loading, headline]);
 
   return (
     <View style={styles.wrap} testID="today-health-hero">
       <View style={styles.headerBlock} accessible accessibilityRole="header" accessibilityLabel={headerA11y}>
         {vm.loading ? (
-          <>
-            <View style={styles.skLineLong} />
-            <View style={styles.skLineShort} />
-          </>
+          <View style={styles.skLineLong} />
+        ) : vm.firstName ? (
+          <Text style={styles.greetingLine} maxFontSizeMultiplier={1.35}>
+            <Text style={styles.greetingPhrase}>{vm.greetingPhrase}, </Text>
+            <Text style={styles.greetingName}>{vm.firstName}</Text>
+          </Text>
         ) : (
-          <>
-            <Text style={styles.greeting} maxFontSizeMultiplier={1.35}>
-              {headline}
-            </Text>
-            <Text style={styles.dateLine} maxFontSizeMultiplier={1.35}>
-              {vm.dateLine}
-            </Text>
-          </>
+          <Text style={[styles.greetingLine, styles.greetingName]} maxFontSizeMultiplier={1.35}>
+            {vm.greetingPhrase}
+          </Text>
         )}
       </View>
     </View>
@@ -44,35 +41,35 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 14,
+    paddingBottom: 20,
+    alignItems: "center",
   },
   headerBlock: {
+    width: "100%",
+    alignItems: "center",
     paddingHorizontal: 15,
   },
-  greeting: {
-    fontSize: 26,
-    fontWeight: "600",
-    letterSpacing: -0.35,
-    color: UI_TEXT_PRIMARY,
+  greetingLine: {
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: "center",
   },
-  dateLine: {
-    fontSize: 15,
+  greetingPhrase: {
     fontWeight: "500",
+    letterSpacing: -0.25,
     color: UI_TEXT_SECONDARY,
-    marginTop: 4,
+  },
+  greetingName: {
+    fontWeight: "600",
+    letterSpacing: -0.45,
+    color: UI_TEXT_PRIMARY,
   },
   skLineLong: {
     height: 28,
     borderRadius: 8,
     width: "72%",
+    maxWidth: 280,
     backgroundColor: "rgba(140, 150, 170, 0.2)",
-  },
-  skLineShort: {
-    marginTop: 10,
-    height: 16,
-    borderRadius: 8,
-    width: "48%",
-    backgroundColor: "rgba(140, 150, 170, 0.16)",
   },
 });

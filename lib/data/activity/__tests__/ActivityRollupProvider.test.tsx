@@ -24,7 +24,7 @@ jest.mock("@/lib/ui/calendar/dateUtils", () => {
 });
 
 import { getDailyFactsSessionCached } from "@/lib/data/dailyFactsSessionCache";
-import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
+import { computeActivityOverviewFetchDayKeys, computeShellActivityFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
 import {
   ActivityRollupProvider,
   useActivityStepsRollupMap,
@@ -71,7 +71,7 @@ describe("ActivityRollupProvider", () => {
   });
 
   it("uses one DailyFacts wave for two useActivityStepsRollupMap consumers (no duplicate per-day GETs)", async () => {
-    const expectedKeys = computeActivityOverviewFetchDayKeys(TODAY, TODAY);
+    const expectedKeys = computeShellActivityFetchDayKeys(TODAY);
 
     await act(async () => {
       renderer.create(
@@ -124,7 +124,7 @@ describe("ActivityRollupProvider", () => {
   });
 
   it("extends union when a strip anchor is registered (Activity) without doubling base keys", async () => {
-    const baseKeys = computeActivityOverviewFetchDayKeys(TODAY, TODAY);
+    const baseKeys = computeShellActivityFetchDayKeys(TODAY);
     const stripDay = "2026-03-01";
     const union = new Set<DayKey>([...baseKeys, ...computeActivityOverviewFetchDayKeys(stripDay, TODAY)]);
 

@@ -61,6 +61,22 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
+jest.mock("@/lib/hooks/useTodayCommand", () => ({
+  useTodayCommand: () => ({
+    model: null,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
+  useDailyReadinessCard: () => ({
+    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
+    refetch: jest.fn(),
+  }),
+}));
+
 const HERO_VM_BASE = {
   greetingPhrase: "Good afternoon",
   firstName: null as string | null,
@@ -78,6 +94,19 @@ const HERO_VM_BASE = {
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
+}));
+
+jest.mock("@/components/navigation/ManageNavigationContext", () => ({
+  useManageNavigation: () => ({
+    manageVisible: false,
+    menuAnchor: null,
+    openManage: jest.fn(),
+    closeManage: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({ state: { status: "missing" } }),
 }));
 
 const mockUseBodyCompositionDashCard = jest.fn(() => ({

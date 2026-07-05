@@ -8,6 +8,7 @@ import {
   activityYtdInclusiveThroughEndDay,
   computeActivityCalendarFetchDayKeys,
   computeActivityOverviewFetchDayKeys,
+  computeShellActivityFetchDayKeys,
   getActivityOverviewAnchorEndDay,
 } from "@/lib/data/activity/activityOverviewRanges";
 import { addCalendarDaysToDayKey, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
@@ -46,6 +47,27 @@ describe("activityYtdInclusiveThroughEndDay", () => {
 
   it("includes only Jan 1 when end is Jan 1", () => {
     expect(activityYtdInclusiveThroughEndDay("2027-01-01" as DayKey)).toEqual(["2027-01-01"]);
+  });
+});
+
+describe("computeShellActivityFetchDayKeys", () => {
+  it("returns today, yesterday, and elapsed current-week days only (no year-scale history)", () => {
+    const today = "2026-07-05" as DayKey; // Sunday
+    const keys = computeShellActivityFetchDayKeys(today);
+    expect(keys).toEqual(["2026-07-04", "2026-07-05"]);
+    expect(keys.length).toBeLessThanOrEqual(8);
+  });
+
+  it("includes Sunday through Wednesday on a mid-week day", () => {
+    const today = "2026-07-01" as DayKey; // Wednesday when Jul 5 2026 is Sunday
+    const keys = computeShellActivityFetchDayKeys(today);
+    expect(keys).toEqual([
+      "2026-06-28",
+      "2026-06-29",
+      "2026-06-30",
+      "2026-07-01",
+    ]);
+    expect(keys.length).toBeLessThanOrEqual(8);
   });
 });
 

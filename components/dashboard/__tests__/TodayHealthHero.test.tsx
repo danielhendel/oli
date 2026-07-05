@@ -9,7 +9,7 @@ function mkVm(over: Partial<TodayHealthHeroViewModel> = {}): TodayHealthHeroView
   return {
     greetingPhrase: "Good afternoon",
     firstName: "Daniel",
-    dateLine: "Wednesday, May 13",
+    dateLine: "Today Wednesday, May 13",
     loading: false,
     sleepRecovery: {
       sleepDisplay: "8h 12m",
@@ -24,7 +24,7 @@ function mkVm(over: Partial<TodayHealthHeroViewModel> = {}): TodayHealthHeroView
 }
 
 describe("TodayHealthHero", () => {
-  it("renders greeting and date", () => {
+  it("renders greeting without the date line", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<TodayHealthHero vm={mkVm()} />);
@@ -37,8 +37,27 @@ describe("TodayHealthHero", () => {
           .join(""),
       )
       .join(" ");
-    expect(text).toContain("Good afternoon, Daniel");
-    expect(text).toContain("Wednesday, May 13");
+    expect(text).toContain("Good afternoon");
+    expect(text).toContain("Daniel");
+    expect(text).not.toContain("Today Wednesday, May 13");
+  });
+
+  it("centers greeting text with distinct phrase and name styling", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodayHealthHero vm={mkVm()} />);
+    });
+    const texts = root.root.findAllByType("Text");
+    const phrase = texts.find((n) => {
+      const children = n.children as (string | number)[];
+      return children.some((c) => typeof c === "string" && c.includes("Good afternoon"));
+    });
+    const name = texts.find((n) => {
+      const children = n.children as (string | number)[];
+      return children.some((c) => c === "Daniel");
+    });
+    expect(phrase?.props.style).toEqual(expect.objectContaining({ color: expect.any(String) }));
+    expect(name?.props.style).toEqual(expect.objectContaining({ fontWeight: "600" }));
   });
 
   it("shows greeting skeleton while loading", () => {

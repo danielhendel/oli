@@ -1,5 +1,5 @@
 import type { DailyFactsDto, HealthScoreDoc, HealthScoreTier } from "@/lib/contracts";
-import { formatDashboardDate } from "@/lib/date/formatDashboardDate";
+import { formatTodayDashboardDate } from "@/lib/date/formatDashboardDate";
 import { formatHealthScoreTier } from "@/lib/format/healthScore";
 
 /** Display when sleep or recovery is unavailable (em dash). */
@@ -148,7 +148,7 @@ export function buildSleepRecoverySummaryModel(args: {
 
 export function buildTodayHealthHeroViewModel(input: BuildTodayHealthHeroVmInput): TodayHealthHeroViewModel {
   const { phrase } = greetingHeadline(input.now);
-  const dateLine = formatDashboardDate(input.now, input.dateLocale);
+  const dateLine = formatTodayDashboardDate(input.now, input.dateLocale);
   const firstName = input.firstName?.trim() ? input.firstName.trim() : null;
 
   const sleepRecovery = buildSleepRecoverySummaryModel({

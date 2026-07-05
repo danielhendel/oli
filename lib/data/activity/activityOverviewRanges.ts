@@ -55,6 +55,16 @@ export function getActivityOverviewAnchorEndDay(todayDayKey: DayKey): DayKey {
  * - the 7 strip days around `overviewStripSelectedDay` so the weekly strip can render regardless of anchor,
  * - `overviewStripSelectedDay` when it is after `todayDayKey` (future strip selection still fetchable).
  */
+/**
+ * Minimal Activity steps keys for the app shell (Dash + tabs) before any Activity overview
+ * strip anchor registers. Today + yesterday + elapsed current-week days only — never year-scale.
+ */
+export function computeShellActivityFetchDayKeys(todayDayKey: DayKey): DayKey[] {
+  const yesterday = addCalendarDaysToDayKey(todayDayKey, -1);
+  const weekElapsed = getWeekDaysForAnchor(todayDayKey).filter((d) => d <= todayDayKey);
+  return [...new Set<DayKey>([todayDayKey, yesterday, ...weekElapsed])].sort();
+}
+
 export function computeActivityOverviewFetchDayKeys(
   overviewStripSelectedDay: DayKey,
   todayDayKey: DayKey,

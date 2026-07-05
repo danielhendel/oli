@@ -68,6 +68,10 @@ jest.mock("@/lib/data/activity/useActivityStepsRollupMap", () => ({
   useActivityStepsRollupForKeys: (...args: unknown[]) => mockUseActivityStepsRollupForKeys(...args),
 }));
 
+jest.mock("@/lib/data/activity/ActivityRollupProvider", () => ({
+  useActivityStepsRollupMap: (...args: unknown[]) => mockUseActivityStepsRollupForKeys(...args),
+}));
+
 jest.mock("@/lib/data/activity/useActivityHealthKitTodayStepsCard", () => ({
   useActivityHealthKitTodayStepsCard: (...args: unknown[]) =>
     mockUseActivityHealthKitTodayStepsCard(...args),

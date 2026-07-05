@@ -9,7 +9,11 @@ import React, {
   type ReactNode,
 } from "react";
 
-import { computeActivityOverviewFetchDayKeys } from "@/lib/data/activity/activityOverviewRanges";
+import {
+  computeActivityOverviewFetchDayKeys,
+  computeShellActivityFetchDayKeys,
+} from "@/lib/data/activity/activityOverviewRanges";
+import { warnDashDataBudgetOnce } from "@/lib/dates/boundDayKeys";
 import {
   useActivityStepsRollupForKeys,
   type ActivityStepsRollupHookState,
@@ -37,7 +41,7 @@ const ActivityRollupContext = createContext<ActivityRollupContextValue | null>(n
 function mergeUnionActivityDayKeys(stripAnchors: ReadonlyMap<string, DayKey>): DayKey[] {
   const today = getTodayDayKeyLocal();
   const set = new Set<DayKey>();
-  for (const k of computeActivityOverviewFetchDayKeys(today, today)) {
+  for (const k of computeShellActivityFetchDayKeys(today)) {
     set.add(k);
   }
   for (const anchor of stripAnchors.values()) {
@@ -45,12 +49,17 @@ function mergeUnionActivityDayKeys(stripAnchors: ReadonlyMap<string, DayKey>): D
       set.add(k);
     }
   }
-  return [...set].sort();
+  const keys = [...set].sort();
+  if (stripAnchors.size === 0) {
+    warnDashDataBudgetOnce("ActivityRollupProvider", keys.length);
+  }
+  return keys;
 }
 
 /**
  * Single shared Activity steps rollup (DailyFacts) for Dash + Activity overview.
- * Union key set = today-anchored overview keys ∪ each registered strip `selectedDay` (Activity only).
+ * Union key set = shell budget keys (today + week elapsed) ∪ full overview keys when an Activity
+ * strip anchor is registered.
  */
 export function ActivityRollupProvider({ children }: { children: ReactNode }) {
   const [stripAnchors, setStripAnchors] = useState(() => new Map<string, DayKey>());

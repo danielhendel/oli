@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import { ThemeProvider } from "@react-navigation/native";
 import { OliFloatingNavigationHost } from "@/components/navigation/OliFloatingNavigationHost";
 import { FloatingNavChromeHeightProvider } from "@/lib/ui/navigation/FloatingNavChromeHeightContext";
+import { nextChromeHeightState } from "@/lib/ui/navigation/normalizeChromeHeight";
 import { RestTimerProvider, RestTimerPanel } from "@/lib/workouts/restTimer";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
@@ -13,7 +14,7 @@ import { useOliTheme } from "@/lib/ui/theme/OliThemeContext";
 export default function AppLayout() {
   const [stackFloatingNavInset, setStackFloatingNavInset] = useState<number | undefined>();
   const onStackFloatingNavHeight = useCallback((height: number | undefined) => {
-    setStackFloatingNavInset(height);
+    setStackFloatingNavInset((current) => nextChromeHeightState(current, height));
   }, []);
 
   const { navigationTheme } = useOliTheme();
@@ -84,7 +85,7 @@ export default function AppLayout() {
             options={{ title: "Weekly Split", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
-            name="program/workout/muscle-group/[muscleGroupId]"
+            name="program/workout/muscle-group/[muscleGroupId]/index"
             options={{ ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen

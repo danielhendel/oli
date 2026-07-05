@@ -1,10 +1,8 @@
 import { useCallback, useMemo } from "react";
-import { Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
-import { useActivityStepsRollupForKeys } from "@/lib/data/activity/useActivityStepsRollupMap";
+import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupProvider";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
 import {
@@ -25,6 +23,8 @@ import {
   type WeeklyFitnessGoalStatus,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
 import { useWeeklyFitnessDailyFactsRollup } from "@/lib/data/dash/useWeeklyFitnessDailyFactsRollup";
+import { networkDayKeysThroughToday } from "@/lib/dates/boundDayKeys";
+import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
@@ -92,7 +92,7 @@ export type UseWeeklyFitnessCardResult = {
  * network/timeout/contract failure.
  */
 export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
-  const { user, initializing, getIdToken } = useAuth();
+  const { user, initializing } = useAuth();
   const todayDayKey = getTodayDayKeyLocal();
 
   const { state: prefState } = usePreferences();
@@ -103,12 +103,12 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   );
 
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(todayDayKey), [todayDayKey]);
-  const weekElapsedDayKeys = useMemo(
-    () => weekDayKeys.filter((d) => d <= todayDayKey),
+  const weekNetworkDayKeys = useMemo(
+    () => networkDayKeysThroughToday(weekDayKeys, todayDayKey),
     [weekDayKeys, todayDayKey],
   );
 
-  const stepsRollup = useActivityStepsRollupForKeys(weekElapsedDayKeys);
+  const stepsRollup = useActivityStepsRollupMap(todayDayKey, { registerStripAnchor: false });
   const displayRollup = stepsRollup.rollupDisplayByDay;
 
   const { hkToday } = useActivityHealthKitTodayStepsCard({
@@ -124,25 +124,19 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     return m;
   }, [displayRollup, hkToday, todayDayKey, user]);
 
-  const scheduleActivityStepsRepair = useCallback(() => {
-    if (Platform.OS !== "ios" || !user || initializing) return;
-    scheduleAppleHealthStepsRepair({ trigger: "recovery", getIdToken, userUid: user.uid });
-  }, [getIdToken, initializing, user]);
-
   const weekStartDay = weekDayKeys[0]!;
   const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
 
-  const dailyFactsWeeklyRollup = useWeeklyFitnessDailyFactsRollup(weekDayKeys);
+  const dailyFactsWeeklyRollup = useWeeklyFitnessDailyFactsRollup(weekNetworkDayKeys);
 
-  const sleepRollup = useWeeklyFitnessSleepRollupMap(weekDayKeys);
+  const sleepRollup = useWeeklyFitnessSleepRollupMap(weekNetworkDayKeys);
 
   useFocusEffect(
     useCallback(() => {
       void stepsRollup.refetch({ cacheBust: `weeklyFitnessSteps:${Date.now()}` });
       sleepRollup.refetch({ cacheBust: `weeklyFitnessSleep:${Date.now()}` });
       dailyFactsWeeklyRollup.refetch({ cacheBust: `weeklyFitnessDailyFacts:${Date.now()}` });
-      scheduleActivityStepsRepair();
-    }, [dailyFactsWeeklyRollup.refetch, scheduleActivityStepsRepair, sleepRollup.refetch, stepsRollup.refetch]),
+    }, [dailyFactsWeeklyRollup.refetch, sleepRollup.refetch, stepsRollup.refetch]),
   );
 
   const { rows, combined, progressToGoalVm } = useMemo((): {
@@ -168,7 +162,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalWorkoutsPerWeek: goals.strengthWorkoutsPerWeekGoal,
     });
 
-    if (__DEV__) {
+    if (__DEV__ && isDebugDataLogsEnabled()) {
       const { perDay, total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(strengthFactsInput);
       // eslint-disable-next-line no-console
       console.log("[WEEKLY_FITNESS_STRENGTH_TOTAL]", {

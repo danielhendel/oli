@@ -27,6 +27,15 @@ jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
   }),
 }));
 
+jest.mock("@/lib/hooks/useTodayCommand", () => ({
+  useTodayCommand: () => ({
+    model: null,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const TimelineIndexScreen = require("../timeline/index").default;
 

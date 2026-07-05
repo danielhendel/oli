@@ -10,6 +10,22 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
+jest.mock("@/lib/hooks/useTodayCommand", () => ({
+  useTodayCommand: () => ({
+    model: null,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
+  useDailyReadinessCard: () => ({
+    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
+    refetch: jest.fn(),
+  }),
+}));
+
 const HERO_VM_BASE = {
   greetingPhrase: "Good afternoon",
   firstName: null as string | null,
@@ -27,6 +43,19 @@ const HERO_VM_BASE = {
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
+}));
+
+jest.mock("@/components/navigation/ManageNavigationContext", () => ({
+  useManageNavigation: () => ({
+    manageVisible: false,
+    menuAnchor: null,
+    openManage: jest.fn(),
+    closeManage: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({ state: { status: "missing" } }),
 }));
 
 jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
@@ -184,24 +213,29 @@ describe("Dash provenance", () => {
     });
   });
 
-  it("shows Oli tab title and Body Composition + Daily Energy sections", () => {
+  it("shows Oli Fitness tab title and Body Composition + Daily Energy sections", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Oli");
+    expect(text).toContain("Oli Fitness");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Daily Energy");
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
   });
 
-  it("renders Settings gear on Dash (progress-to-goal is text-only)", () => {
+  it("renders header navigation controls on Dash (hamburger icon)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     expect(countDashIconPlaceholders(test.root)).toBe(1);
+    expect(
+      test.root.findAll(
+        (n) => (n.props as { testID?: string }).testID === "dash-manage-menu-trigger",
+      ).length,
+    ).toBe(1);
   });
 
   it("renders factor rows on Daily Energy without legacy Dash tagline", () => {
@@ -219,7 +253,7 @@ describe("Dash provenance", () => {
     expect(text).toContain("Weekly Fitness");
     expect(text).not.toContain("Progress to goal");
     expect(text).toContain("Daily Nutrition");
-    expect(text).not.toContain("Readiness");
+    expect(text).toContain("Oura Readiness");
     expect(text).not.toContain("Labs");
   });
 
