@@ -84,6 +84,30 @@ describe("DashScreenHeader", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/settings");
   });
 
+  it("renders hamburger on the left and user initial on the right", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<DashScreenHeader />);
+    });
+
+    const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
+    const initialButton = root.root.findByProps({ testID: "user-initial-settings-button" });
+
+    expect(root.root.findByProps({ testID: "dash-manage-menu-trigger" })).toBeTruthy();
+    expect(menuTrigger.props.accessibilityLabel).toBe("Open navigation menu");
+    expect(initialButton.props.accessibilityLabel).toBe("Open Daniel's settings");
+
+    const headerRow = root.root
+      .findAll(
+        (n) =>
+          n.props.testID === "dash-manage-menu-trigger" ||
+          n.props.testID === "user-initial-settings-button",
+      )
+      .map((n) => n.props.testID as string);
+    expect(headerRow[0]).toBe("dash-manage-menu-trigger");
+    expect(headerRow[headerRow.length - 1]).toBe("user-initial-settings-button");
+  });
+
   it("renders hamburger trigger wired to Manage navigation", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {

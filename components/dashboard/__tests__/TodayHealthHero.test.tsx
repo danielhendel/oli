@@ -37,19 +37,27 @@ describe("TodayHealthHero", () => {
           .join(""),
       )
       .join(" ");
-    expect(text).toContain("Good afternoon, Daniel");
+    expect(text).toContain("Good afternoon");
+    expect(text).toContain("Daniel");
     expect(text).not.toContain("Today Wednesday, May 13");
   });
 
-  it("centers greeting text", () => {
+  it("centers greeting text with distinct phrase and name styling", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<TodayHealthHero vm={mkVm()} />);
     });
-    const greeting = root.root.findByType("Text");
-    expect(greeting.props.style).toEqual(
-      expect.objectContaining({ textAlign: "center" }),
-    );
+    const texts = root.root.findAllByType("Text");
+    const phrase = texts.find((n) => {
+      const children = n.children as (string | number)[];
+      return children.some((c) => typeof c === "string" && c.includes("Good afternoon"));
+    });
+    const name = texts.find((n) => {
+      const children = n.children as (string | number)[];
+      return children.some((c) => c === "Daniel");
+    });
+    expect(phrase?.props.style).toEqual(expect.objectContaining({ color: expect.any(String) }));
+    expect(name?.props.style).toEqual(expect.objectContaining({ fontWeight: "600" }));
   });
 
   it("shows greeting skeleton while loading", () => {

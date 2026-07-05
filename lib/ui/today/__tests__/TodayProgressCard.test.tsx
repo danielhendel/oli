@@ -6,6 +6,8 @@ import { TodayCommandSection } from "@/lib/ui/today/TodayCommandSection";
 import { TodayProgressCard } from "@/lib/ui/today/TodayProgressCard";
 import { TodaySemiCircleProgress } from "@/lib/ui/today/TodaySemiCircleProgress";
 import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
+import { buildTodayProgressCardRows } from "@/lib/today/buildTodayProgressCardRows";
+import { sleepNightViewForDay } from "@/lib/today/testFixtures/sleepNightViewFixtures";
 import { WEEKLY_FITNESS_GOAL_DEFAULTS } from "@oli/contracts";
 
 const model = buildTodayCommandModel({
@@ -94,6 +96,54 @@ describe("TodayProgressCard", () => {
     );
     expect(rowIds.size).toBe(7);
   });
+
+  it("renders blue progress bars for all seven rows", () => {
+    const barModel = buildTodayCommandModel({
+      day: "2026-07-05",
+      timezone: "America/New_York",
+      todayFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: "2026-07-05",
+        computedAt: "2026-07-05T12:00:00.000Z",
+        activity: { steps: 3192 },
+        nutrition: { totalKcal: 640, proteinG: 82 },
+      },
+      priorDayFacts: null,
+      todayStepsOverride: null,
+      goals: {
+        activityStepsPerDayGoal: WEEKLY_FITNESS_GOAL_DEFAULTS.activityStepsPerDayGoal,
+        strengthWorkoutsPerWeekGoal: WEEKLY_FITNESS_GOAL_DEFAULTS.strengthWorkoutsPerWeekGoal,
+        cardioMilesPerWeekGoal: WEEKLY_FITNESS_GOAL_DEFAULTS.cardioMilesPerWeekGoal,
+        sleepHoursPerNightGoal: WEEKLY_FITNESS_GOAL_DEFAULTS.sleepHoursPerNightGoal,
+        isDefault: true,
+      },
+      calorieTargetKcal: 2000,
+      proteinTargetG: 150,
+      nutritionTargetsAreDefault: true,
+      sleepNightView: sleepNightViewForDay("2026-07-05", 84),
+      readinessView: {
+        requestedDay: "2026-07-05",
+        resolvedDay: "2026-07-05",
+        isFallback: false,
+        day: "2026-07-05",
+        score: 91,
+      },
+      ouraConnected: true,
+      lastUpdatedAt: null,
+    });
+
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodayProgressCard model={barModel} loading={false} />);
+    });
+
+    for (const id of buildTodayProgressCardRows(barModel).map((r) => r.id)) {
+      root.root.findByProps({ testID: `today-progress-bar-${id}` });
+      const fill = root.root.findByProps({ testID: `today-progress-bar-fill-${id}` });
+      expect(flattenBackgroundColor(fill.props.style)).toBe(ENERGY_BASELINE_FILL_COLOR);
+    }
+  });
 });
 
 describe("TodaySemiCircleProgress", () => {
@@ -168,3 +218,18 @@ describe("TodayCommandSection hero order", () => {
     ]);
   });
 });
+
+function flattenBackgroundColor(style: unknown): string | undefined {
+  if (style == null) return undefined;
+  if (Array.isArray(style)) {
+    for (const part of style) {
+      const color = flattenBackgroundColor(part);
+      if (color) return color;
+    }
+    return undefined;
+  }
+  if (typeof style === "object" && style !== null && "backgroundColor" in style) {
+    return (style as { backgroundColor?: string }).backgroundColor;
+  }
+  return undefined;
+}

@@ -95,12 +95,62 @@ describe("buildTodayProgressCardRows", () => {
     expect(allValues).not.toContain("/ 1.1");
   });
 
-  it("shows em dash when results are missing", () => {
+  it("computes blue-bar progress semantics for each row type", () => {
+    const model = buildTodayCommandModel({
+      ...BASE_INPUT,
+      todayFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: "2026-07-05",
+        computedAt: "2026-07-05T12:00:00.000Z",
+        activity: { steps: 3192 },
+        strength: { workoutsCount: 1, totalSets: 0, totalReps: 0, totalVolumeByUnit: {} },
+        nutrition: { totalKcal: 640, proteinG: 82 },
+      },
+      sleepNightView: sleepNightViewForDay("2026-07-05", 84),
+      readinessView: {
+        requestedDay: "2026-07-05",
+        resolvedDay: "2026-07-05",
+        isFallback: false,
+        day: "2026-07-05",
+        score: 91,
+      },
+    });
+
+    const byId = Object.fromEntries(buildTodayProgressCardRows(model).map((r) => [r.id, r]));
+
+    expect(byId.activity?.progress).toBeCloseTo(3192 / 10000);
+    expect(byId.workout?.progress).toBe(1);
+    expect(byId.cardio?.progress).toBe(0);
+    expect(byId.calories?.progress).toBeCloseTo(640 / 2000);
+    expect(byId.protein?.progress).toBeCloseTo(82 / 150);
+    expect(byId.sleep?.progress).toBeCloseTo(0.84);
+    expect(byId.readiness?.progress).toBeCloseTo(0.91);
+  });
+
+  it("caps calories and protein progress at 1 when over target", () => {
+    const model = buildTodayCommandModel({
+      ...BASE_INPUT,
+      todayFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: "2026-07-05",
+        computedAt: "2026-07-05T12:00:00.000Z",
+        nutrition: { totalKcal: 2300, proteinG: 180 },
+      },
+    });
+    const byId = Object.fromEntries(buildTodayProgressCardRows(model).map((r) => [r.id, r]));
+    expect(byId.calories?.progress).toBe(1);
+    expect(byId.protein?.progress).toBe(1);
+  });
+
+  it("shows em dash when results are missing and zero progress", () => {
     const model = buildTodayCommandModel({ ...BASE_INPUT });
     const rows = buildTodayProgressCardRows(model);
     for (const row of rows) {
       if (row.id === "workout") continue;
       expect(row.value).toBe("\u2014");
+      expect(row.progress).toBe(0);
     }
   });
 
@@ -111,6 +161,7 @@ describe("buildTodayProgressCardRows", () => {
     });
     const sleep = buildTodayProgressCardRows(model).find((r) => r.id === "sleep");
     expect(sleep?.value).toBe("\u2014");
+    expect(sleep?.progress).toBe(0);
   });
 
   it("preserves exact Oura sleep score when present on sleep night", () => {
@@ -120,6 +171,23 @@ describe("buildTodayProgressCardRows", () => {
     });
     const sleep = buildTodayProgressCardRows(model).find((r) => r.id === "sleep");
     expect(sleep?.value).toBe("84");
+    expect(sleep?.progress).toBeCloseTo(0.84);
+  });
+
+  it("includes result and percent complete in accessibility labels", () => {
+    const model = buildTodayCommandModel({
+      ...BASE_INPUT,
+      todayFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: "2026-07-05",
+        computedAt: "2026-07-05T12:00:00.000Z",
+        activity: { steps: 3192 },
+      },
+    });
+    const activity = buildTodayProgressCardRows(model).find((r) => r.id === "activity");
+    expect(activity?.accessibilityLabel).toContain("3,192 steps");
+    expect(activity?.accessibilityLabel).toContain("32 percent complete");
   });
 
   it("wires navigation targets from route helpers", () => {

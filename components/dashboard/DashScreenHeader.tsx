@@ -6,12 +6,14 @@ import { UserInitialSettingsButton } from "@/lib/ui/UserInitialSettingsButton";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 const TITLE = "Oli Fitness";
-const RIGHT_CLUSTER_GAP = 4;
 
 export function DashScreenHeader(): React.ReactElement {
   return (
     <View style={styles.wrap} testID="dash-screen-header">
       <View style={styles.row}>
+        <View style={styles.leftCluster}>
+          <ManageMenuTriggerButton />
+        </View>
         <View style={styles.titleLayer} pointerEvents="none">
           <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
             {TITLE}
@@ -19,7 +21,6 @@ export function DashScreenHeader(): React.ReactElement {
         </View>
         <View style={styles.rightCluster}>
           <UserInitialSettingsButton />
-          <ManageMenuTriggerButton />
         </View>
       </View>
     </View>
@@ -35,8 +36,15 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 44,
-    justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     position: "relative",
+  },
+  leftCluster: {
+    zIndex: 1,
+    minWidth: 44,
+    alignItems: "flex-start",
   },
   titleLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -52,11 +60,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   rightCluster: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: RIGHT_CLUSTER_GAP,
-    marginLeft: "auto",
     zIndex: 1,
+    minWidth: 44,
+    alignItems: "flex-end",
   },
 });
