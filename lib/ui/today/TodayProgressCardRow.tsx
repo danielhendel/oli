@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { type Href, useRouter } from "expo-router";
 
 import type { TodayProgressCardRow } from "@/lib/today/buildTodayProgressCardRows";
-import { todayProgressCardAccessibilityLabel } from "@/lib/today/todayProgressCardAccessibility";
 import {
   dashMetricRowLabelTextStyle,
   dashMetricRowValueTextStyle,
@@ -24,7 +23,7 @@ export function TodayProgressCardRow({ row, isLast }: Props): React.ReactElement
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={todayProgressCardAccessibilityLabel(row)}
+      accessibilityLabel={row.accessibilityLabel}
       accessibilityHint={`Opens ${row.label}`}
       onPress={onPress}
       style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}
@@ -41,7 +40,7 @@ export function TodayProgressCardRow({ row, isLast }: Props): React.ReactElement
             accessibilityElementsHidden
             importantForAccessibility="no"
           >
-            {row.displayValue}
+            {row.value}
           </Text>
           <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no">
             {"\u203A"}

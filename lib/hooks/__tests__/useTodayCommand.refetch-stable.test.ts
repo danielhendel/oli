@@ -7,6 +7,7 @@ describe("useTodayCommand refetch stability", () => {
     expect(src).toContain("refetchTodayFacts");
     expect(src).toContain("refetchPriorFacts");
     expect(src).toContain("refetchReadiness");
+    expect(src).toContain("refetchSleepNight");
     expect(src).not.toMatch(/\[todayFacts,\s*priorFacts,\s*readiness,/);
   });
 

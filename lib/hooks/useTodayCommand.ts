@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { getOuraSleepView, type TruthGetOptions } from "@/lib/api/usersMe";
+import type { TruthGetOptions } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import {
   NUTRITION_KCAL_GOAL,
   NUTRITION_PROTEIN_G_GOAL,
 } from "@/lib/data/nutrition/nutritionGoals";
-import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useReadinessView } from "@/lib/data/useReadinessView";
+import { useSleepNight } from "@/lib/hooks/useSleepNight";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
 import { shiftAnchor } from "@/lib/time/timelineRange";
@@ -34,11 +34,12 @@ function localTimezone(): string {
 }
 
 export function useTodayCommand(day: DayKey): UseTodayCommandResult {
-  const { user, initializing, getIdToken } = useAuth();
+  const { user, initializing } = useAuth();
   const priorDay = useMemo(() => shiftAnchor(day, -1), [day]);
   const todayFacts = useDailyFacts(day);
   const priorFacts = useDailyFacts(priorDay);
   const readiness = useReadinessView(day);
+  const sleepNight = useSleepNight(day, { enabled: Boolean(user) && !initializing });
   const ouraPresence = useOuraPresence();
   const { state: prefState } = usePreferences();
 
@@ -52,46 +53,13 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
     enabled: Boolean(user) && !initializing,
   });
 
-  const [sleepView, setSleepView] = useState<
-    import("@oli/contracts").SleepViewDto | null
-  >(null);
-  const [sleepLoading, setSleepLoading] = useState(false);
-  const sleepSeq = useRef(0);
-
-  const fetchSleep = useCallback(
-    async (opts?: TruthGetOptions) => {
-      if (initializing || !user) return;
-      const seq = ++sleepSeq.current;
-      setSleepLoading(true);
-      try {
-        const token = await getIdToken(false);
-        if (!token || seq !== sleepSeq.current) return;
-        const res = await getOuraSleepView(day, token, opts);
-        if (seq !== sleepSeq.current) return;
-        const outcome = truthOutcomeFromApiResult(res);
-        if (outcome.status === "ready") {
-          setSleepView(outcome.data);
-        } else {
-          setSleepView(null);
-        }
-      } finally {
-        if (seq === sleepSeq.current) setSleepLoading(false);
-      }
-    },
-    [day, getIdToken, initializing, user],
-  );
-
-  useEffect(() => {
-    void fetchSleep();
-  }, [fetchSleep]);
-
   const loading =
     Boolean(user) &&
     !initializing &&
     (todayFacts.status === "partial" ||
       priorFacts.status === "partial" ||
       readiness.status === "partial" ||
-      sleepLoading);
+      (sleepNight.loading && !sleepNight.settled));
 
   const error = useMemo((): string | null => {
     if (loading) return null;
@@ -116,6 +84,9 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
     const ouraConnected =
       ouraPresence.status === "ready" ? ouraPresence.data.connected : null;
 
+    const sleepNightView =
+      sleepNight.settled && sleepNight.view?.requestedDay === day ? sleepNight.view : null;
+
     return buildTodayCommandModel({
       day,
       timezone: localTimezone(),
@@ -126,7 +97,7 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
       calorieTargetKcal: NUTRITION_KCAL_GOAL,
       proteinTargetG: NUTRITION_PROTEIN_G_GOAL,
       nutritionTargetsAreDefault: true,
-      sleepView,
+      sleepNightView,
       readinessView: readinessData,
       ouraConnected,
       lastUpdatedAt: todayFacts.data.computedAt ?? null,
@@ -140,7 +111,8 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
     priorFacts,
     priorDay,
     goals,
-    sleepView,
+    sleepNight.settled,
+    sleepNight.view,
     readiness,
     ouraPresence,
   ]);
@@ -148,15 +120,16 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
   const refetchTodayFacts = todayFacts.refetch;
   const refetchPriorFacts = priorFacts.refetch;
   const refetchReadiness = readiness.refetch;
+  const refetchSleepNight = sleepNight.refetch;
 
   const refetch = useCallback(
     (opts?: TruthGetOptions) => {
       void refetchTodayFacts(opts);
       void refetchPriorFacts(opts);
       void refetchReadiness(opts);
-      void fetchSleep(opts);
+      void refetchSleepNight(opts);
     },
-    [refetchTodayFacts, refetchPriorFacts, refetchReadiness, fetchSleep],
+    [refetchTodayFacts, refetchPriorFacts, refetchReadiness, refetchSleepNight],
   );
 
   return useMemo(

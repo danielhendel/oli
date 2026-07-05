@@ -3,6 +3,7 @@ import renderer from "react-test-renderer";
 
 import { buildTodayCommandModel } from "@/lib/today/buildTodayCommandModel";
 import { TodayProgressCard } from "@/lib/ui/today/TodayProgressCard";
+import { TodaySemiCircleProgress } from "@/lib/ui/today/TodaySemiCircleProgress";
 import { WEEKLY_FITNESS_GOAL_DEFAULTS } from "@oli/contracts";
 
 const model = buildTodayCommandModel({
@@ -27,7 +28,7 @@ const model = buildTodayCommandModel({
   calorieTargetKcal: 2000,
   proteinTargetG: 150,
   nutritionTargetsAreDefault: true,
-  sleepView: null,
+  sleepNightView: null,
   readinessView: null,
   ouraConnected: true,
   lastUpdatedAt: null,
@@ -35,6 +36,11 @@ const model = buildTodayCommandModel({
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
+}));
+
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+  __esModule: true,
+  default: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }),
 }));
 
 describe("TodayProgressCard", () => {
@@ -55,12 +61,8 @@ describe("TodayProgressCard", () => {
 
     expect(text).toContain("Today's Progress");
     expect(text).toContain("Activity");
-    expect(text).toContain("Workout");
-    expect(text).toContain("Cardio");
-    expect(text).toContain("Calories");
-    expect(text).toContain("Protein");
-    expect(text).toContain("Sleep");
-    expect(text).toContain("Readiness");
+    expect(text).toContain("2,877 steps");
+    expect(text).not.toContain("/ 10,000");
 
     const rowIds = new Set(
       root.root
@@ -70,5 +72,29 @@ describe("TodayProgressCard", () => {
         .map((n) => n.props.testID as string),
     );
     expect(rowIds.size).toBe(7);
+  });
+});
+
+describe("TodaySemiCircleProgress", () => {
+  it("shows percent without visible completion subtitle", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodaySemiCircleProgress completionPercent={8} loading={false} />);
+    });
+
+    const text = root.root
+      .findAllByType("Text")
+      .map((n) =>
+        (n.children as (string | number)[])
+          .filter((c) => typeof c === "string" || typeof c === "number")
+          .join(""),
+      )
+      .join(" ");
+
+    expect(text).toContain("8%");
+    expect(text).not.toContain("of today's plan complete");
+
+    const ring = root.root.findByProps({ testID: "today-completion-ring" });
+    expect(ring.props.accessibilityLabel).toContain("8 percent of today's plan complete");
   });
 });

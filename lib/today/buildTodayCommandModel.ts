@@ -1,4 +1,5 @@
-import type { DailyFactsDto, ReadinessViewDto, SleepViewDto } from "@oli/contracts";
+import type { DailyFactsDto, ReadinessViewDto, SleepNightViewDto } from "@oli/contracts";
+import { sleepNightIsAttributedToCalendarDay } from "@/lib/data/dash/dailySleepCardViewModel";
 import type { WeeklyFitnessGoalsResolved } from "@/lib/preferences/weeklyFitnessGoals";
 import { computeCalorieIntakeProgress } from "@/lib/today/calorieProgress";
 import {
@@ -29,7 +30,8 @@ export type BuildTodayCommandModelInput = {
   proteinTargetG: number;
   /** Targets use placeholder nutrition goals until persisted. */
   nutritionTargetsAreDefault: boolean;
-  sleepView: SleepViewDto | null | undefined;
+  /** Canonical sleep night for the day (`GET /users/me/sleep-night`); supplies Oura sleep score when attributed. */
+  sleepNightView: SleepNightViewDto | null | undefined;
   readinessView: ReadinessViewDto | null | undefined;
   ouraConnected: boolean | null;
   lastUpdatedAt: string | null;
@@ -100,6 +102,15 @@ function ouraScoreFact(
     observedAt: observedAt ?? null,
     confidence: "high",
   };
+}
+
+/** Oura sleep score from attributed canonical sleep night (same source as Dash Daily Sleep card). */
+function scoreFactFromSleepNight(
+  day: string,
+  view: SleepNightViewDto | null | undefined,
+): ScoreFact | null {
+  if (!view || !sleepNightIsAttributedToCalendarDay(day, view)) return null;
+  return ouraScoreFact(view.sleepNight.score, view.sleepNight.updatedAt ?? null);
 }
 
 function readinessStatusFromScores(
@@ -336,7 +347,7 @@ export function computeTodayCompletionPercent(targets: readonly TodayTargetProgr
 }
 
 export function buildTodayCommandModel(input: BuildTodayCommandModelInput): TodayCommandModel {
-  const sleepScore = ouraScoreFact(input.sleepView?.score, input.sleepView?.fetchedAt);
+  const sleepScore = scoreFactFromSleepNight(input.day, input.sleepNightView);
   const readinessScore = ouraScoreFact(input.readinessView?.score, input.readinessView?.fetchedAt);
 
   const readinessStatus = readinessStatusFromScores(

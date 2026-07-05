@@ -9,9 +9,13 @@ type Props = {
   percent: number | null;
   size?: number;
   strokeWidth?: number;
+  /** Visible arc clip height as a fraction of `size` (default 0.5 = half circle). Lower = shorter vertical footprint. */
+  clipHeightRatio?: number;
   labelStyle?: StyleProp<TextStyle>;
   sublabel?: string;
   sublabelStyle?: StyleProp<TextStyle>;
+  /** When false, visible sublabel is omitted (accessibilityLabel still describes completion). */
+  showSublabel?: boolean;
   trackColor: string;
   progressColor: string;
   label: string;
@@ -32,9 +36,11 @@ export function SemiCircleProgressRing({
   percent,
   size = 220,
   strokeWidth = 10,
+  clipHeightRatio = 0.5,
   labelStyle,
   sublabel,
   sublabelStyle,
+  showSublabel = true,
   trackColor,
   progressColor,
   label,
@@ -47,16 +53,18 @@ export function SemiCircleProgressRing({
   const dashOffset = halfCircumference * (1 - clamped / 100);
   const cx = size / 2;
   const cy = size / 2;
+  const clipHeight = size * clipHeightRatio + strokeWidth / 2;
+  const hostHeight = size * clipHeightRatio + strokeWidth;
 
   return (
     <View
-      style={[styles.host, { width: size, height: size / 2 + strokeWidth }]}
+      style={[styles.host, { width: size, height: hostHeight }]}
       accessibilityRole="progressbar"
       accessibilityValue={percent == null ? { min: 0, max: 100 } : { now: clamped, min: 0, max: 100 }}
       accessibilityLabel={accessibilityLabel}
       testID={testID}
     >
-      <View style={[styles.clip, { width: size, height: size / 2 + strokeWidth / 2 }]}>
+      <View style={[styles.clip, { width: size, height: clipHeight }]}>
         <Svg width={size} height={size} style={styles.svg}>
           <Circle
             cx={cx}
@@ -92,8 +100,12 @@ export function SemiCircleProgressRing({
         <Text style={[styles.label, labelStyle]} {...(testID ? { testID: `${testID}-label` } : {})}>
           {label}
         </Text>
-        {sublabel ? (
-          <Text style={[styles.sublabel, sublabelStyle]} maxFontSizeMultiplier={1.25}>
+        {showSublabel && sublabel ? (
+          <Text
+            style={[styles.sublabel, sublabelStyle]}
+            maxFontSizeMultiplier={1.25}
+            testID={testID ? `${testID}-sublabel` : undefined}
+          >
             {sublabel}
           </Text>
         ) : null}

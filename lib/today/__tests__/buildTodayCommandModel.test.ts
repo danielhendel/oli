@@ -1,6 +1,7 @@
 import { buildTodayCommandModel, computeTodayCompletionPercent } from "@/lib/today/buildTodayCommandModel";
 import { computeCalorieIntakeProgress } from "@/lib/today/calorieProgress";
 import { todayTargetAccessibilityLabel } from "@/lib/today/todayTargetAccessibility";
+import { sleepNightViewForDay } from "@/lib/today/testFixtures/sleepNightViewFixtures";
 import { WEEKLY_FITNESS_GOAL_DEFAULTS } from "@oli/contracts";
 import type { WeeklyFitnessGoalsResolved } from "@/lib/preferences/weeklyFitnessGoals";
 
@@ -22,7 +23,7 @@ const BASE_INPUT = {
   calorieTargetKcal: 2000,
   proteinTargetG: 150,
   nutritionTargetsAreDefault: true,
-  sleepView: null,
+  sleepNightView: null,
   readinessView: null,
   ouraConnected: true,
   lastUpdatedAt: null,
@@ -52,15 +53,7 @@ describe("buildTodayCommandModel", () => {
   it("preserves Oura sleep and readiness scores exactly", () => {
     const model = buildTodayCommandModel({
       ...BASE_INPUT,
-      sleepView: {
-        requestedDay: "2026-07-05",
-        resolvedDay: "2026-07-05",
-        isFallback: false,
-        day: "2026-07-05",
-        sourceId: "oura",
-        score: 84,
-        fetchedAt: "2026-07-05T08:00:00.000Z",
-      },
+      sleepNightView: sleepNightViewForDay("2026-07-05", 84),
       readinessView: {
         requestedDay: "2026-07-05",
         resolvedDay: "2026-07-05",
@@ -83,13 +76,7 @@ describe("buildTodayCommandModel", () => {
   it("handles missing Oura readiness without crashing", () => {
     const model = buildTodayCommandModel({
       ...BASE_INPUT,
-      sleepView: {
-        requestedDay: "2026-07-05",
-        resolvedDay: "2026-07-05",
-        isFallback: false,
-        day: "2026-07-05",
-        score: 80,
-      },
+      sleepNightView: sleepNightViewForDay("2026-07-05", 80),
       readinessView: null,
     });
     expect(model.readiness.readinessScore).toBeNull();
@@ -102,6 +89,14 @@ describe("buildTodayCommandModel", () => {
     const model = buildTodayCommandModel({ ...BASE_INPUT, ouraConnected: true });
     expect(model.readiness.headline).toContain("Waiting for recovery data");
     expect(model.readiness.headline).not.toContain("Oura readiness 0");
+  });
+
+  it("does not infer sleep score from duration when score field is absent", () => {
+    const model = buildTodayCommandModel({
+      ...BASE_INPUT,
+      sleepNightView: sleepNightViewForDay("2026-07-05"),
+    });
+    expect(model.readiness.sleepScore).toBeNull();
   });
 
   it("does not label non-Oura fallback as Oura", () => {
@@ -214,13 +209,7 @@ describe("buildTodayCommandModel", () => {
   it("includes prior-day burn context separately from food calories", () => {
     const model = buildTodayCommandModel({
       ...BASE_INPUT,
-      sleepView: {
-        requestedDay: "2026-07-05",
-        resolvedDay: "2026-07-05",
-        isFallback: false,
-        day: "2026-07-05",
-        score: 84,
-      },
+      sleepNightView: sleepNightViewForDay("2026-07-05", 84),
       readinessView: {
         requestedDay: "2026-07-05",
         resolvedDay: "2026-07-05",
