@@ -51,8 +51,8 @@ export function TodayProgressCard({ model, loading }: Props): React.ReactElement
         </Text>
       ) : (
         <View style={styles.rowsWrap} testID="today-progress-rows">
-          {rows.map((row, index) => (
-            <TodayProgressCardRow key={row.id} row={row} isLast={index === rows.length - 1} />
+          {rows.map((row) => (
+            <TodayProgressCardRow key={row.id} row={row} />
           ))}
         </View>
       )}
@@ -107,6 +107,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   rowsWrap: {
-    marginTop: 2,
+    marginTop: 8,
+    gap: 11,
+    paddingBottom: 2,
   },
 });

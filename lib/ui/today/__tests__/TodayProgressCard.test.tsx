@@ -118,6 +118,19 @@ describe("TodayProgressCard", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/program");
   });
 
+  it("does not render hairline separators under progress bars", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodayProgressCard model={model} loading={false} />);
+    });
+
+    for (const { id } of buildTodayProgressCardRows(model)) {
+      const row = root.root.findByProps({ testID: `today-progress-row-${id}` });
+      const rowBlock = row.children[0] as renderer.ReactTestInstance;
+      expect(flattenBorderBottomWidth(rowBlock.props.style)).toBeUndefined();
+    }
+  });
+
   it("renders blue progress bars for all seven rows", () => {
     const barModel = buildTodayCommandModel({
       day: "2026-07-05",
@@ -251,6 +264,21 @@ function flattenBackgroundColor(style: unknown): string | undefined {
   }
   if (typeof style === "object" && style !== null && "backgroundColor" in style) {
     return (style as { backgroundColor?: string }).backgroundColor;
+  }
+  return undefined;
+}
+
+function flattenBorderBottomWidth(style: unknown): number | undefined {
+  if (style == null) return undefined;
+  if (Array.isArray(style)) {
+    for (const part of style) {
+      const width = flattenBorderBottomWidth(part);
+      if (width != null) return width;
+    }
+    return undefined;
+  }
+  if (typeof style === "object" && style !== null && "borderBottomWidth" in style) {
+    return (style as { borderBottomWidth?: number }).borderBottomWidth;
   }
   return undefined;
 }

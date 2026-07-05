@@ -8,18 +8,17 @@ import {
   dashMetricRowValueTextStyle,
 } from "@/lib/ui/dash/dashMetricRowTextStyle";
 import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
-import { UI_BORDER_HAIRLINE, UI_PROGRESS_TRACK_EMPTY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
+import { UI_PROGRESS_TRACK_EMPTY, UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 
 type Props = {
   row: TodayProgressCardRow;
-  isLast?: boolean;
 };
 
 /** Matches Weekly Fitness row bar geometry (height/radius) with blue fill. */
 const BAR_HEIGHT = 8;
 const BAR_RADIUS = 4;
 
-export function TodayProgressCardRow({ row, isLast }: Props): React.ReactElement {
+export function TodayProgressCardRow({ row }: Props): React.ReactElement {
   const router = useRouter();
   const onPress = useCallback(() => {
     router.push(row.routeTarget as Href);
@@ -36,7 +35,7 @@ export function TodayProgressCardRow({ row, isLast }: Props): React.ReactElement
       style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}
       testID={`today-progress-row-${row.id}`}
     >
-      <View style={[styles.rowBlock, !isLast && styles.rowBlockBorder]}>
+      <View style={styles.rowBlock}>
         <View style={styles.rowTop}>
           <Text style={[dashMetricRowLabelTextStyle, styles.label]} numberOfLines={1}>
             {row.label}
@@ -86,19 +85,13 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   rowBlock: {
-    paddingTop: 8,
-    paddingBottom: 10,
-  },
-  rowBlockBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: UI_BORDER_HAIRLINE,
+    gap: 5,
   },
   rowTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 6,
   },
   label: {
     flexShrink: 1,
