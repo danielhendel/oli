@@ -12,10 +12,12 @@ import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingT
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { shiftAnchor } from "@/lib/time/timelineRange";
 import { useTimelineDay } from "@/lib/features/timeline/useTimelineDay";
+import { useTodayCommand } from "@/lib/hooks/useTodayCommand";
 import type { TimelineDayItem } from "@/lib/features/timeline/types";
 import { TimelineDateNavigator } from "@/lib/ui/timeline/TimelineDateNavigator";
 import { TimelineRail } from "@/lib/ui/timeline/TimelineRail";
 import { TimelineEmptyState } from "@/lib/ui/timeline/TimelineEmptyState";
+import { TimelinePlanVsActualHeader } from "@/lib/ui/timeline/TimelinePlanVsActualHeader";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
@@ -35,9 +37,21 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
   );
 
   const { status, refetchAll } = useTimelineDay(day);
+  const todayCommand = useTodayCommand(day);
 
   const [refreshing, setRefreshing] = useState(false);
   const isToday = day === today;
+
+  const planHeader = useMemo(
+    () => (
+      <TimelinePlanVsActualHeader
+        model={todayCommand.model}
+        loading={todayCommand.loading}
+        isToday={isToday}
+      />
+    ),
+    [todayCommand.model, todayCommand.loading, isToday],
+  );
 
   const goPrev = useCallback(() => setDay((d) => shiftAnchor(d, -1)), []);
   const goNext = useCallback(() => setDay((d) => shiftAnchor(d, 1)), []);
@@ -47,11 +61,12 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
     setRefreshing(true);
     try {
       refetchAll({ cacheBust: `timelinePull:${Date.now()}` });
+      todayCommand.refetch({ cacheBust: `timelinePull:${Date.now()}` });
     } finally {
       // The hooks update asynchronously; release the control on next tick.
       setRefreshing(false);
     }
-  }, [refetchAll]);
+  }, [refetchAll, todayCommand.refetch]);
 
   const onPressItem = useCallback(
     (item: TimelineDayItem) => {
@@ -95,13 +110,17 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
               isContractError={status.reason === "contract"}
             />
           ) : status.vm.isEmpty ? (
-            <TimelineEmptyState isToday={isToday} />
+            <View style={styles.contentFill}>
+              {planHeader}
+              <TimelineEmptyState isToday={isToday} />
+            </View>
           ) : (
             <TimelineRail
               items={status.vm.items}
               onPressItem={onPressItem}
               refreshControl={refreshControl}
               contentBottomPadding={listBottomPad}
+              ListHeaderComponent={planHeader}
             />
           )}
         </View>
@@ -116,4 +135,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: UI_TAB_ROOT_INSET,
   },
   content: { flex: 1, paddingHorizontal: UI_TAB_ROOT_INSET, paddingTop: 4 },
+  contentFill: { flex: 1 },
 });

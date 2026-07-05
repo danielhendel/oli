@@ -10,6 +10,22 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
+jest.mock("@/lib/hooks/useTodayCommand", () => ({
+  useTodayCommand: () => ({
+    model: null,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
+  useDailyReadinessCard: () => ({
+    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
+    refetch: jest.fn(),
+  }),
+}));
+
 const HERO_VM_BASE = {
   greetingPhrase: "Good afternoon",
   firstName: null as string | null,
@@ -219,7 +235,7 @@ describe("Dash provenance", () => {
     expect(text).toContain("Weekly Fitness");
     expect(text).not.toContain("Progress to goal");
     expect(text).toContain("Daily Nutrition");
-    expect(text).not.toContain("Readiness");
+    expect(text).toContain("Oura Readiness");
     expect(text).not.toContain("Labs");
   });
 

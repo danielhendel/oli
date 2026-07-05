@@ -1,0 +1,84 @@
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+
+import type { TodayCommandModel } from "@/lib/today/types";
+import { ErrorState } from "@/lib/ui/ScreenStates";
+import { TodayReadinessSummary } from "@/lib/ui/today/TodayReadinessSummary";
+import { TodaySemiCircleProgress } from "@/lib/ui/today/TodaySemiCircleProgress";
+import { TodayTargetProgressList } from "@/lib/ui/today/TodayTargetProgressList";
+import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+
+type Props = {
+  model: TodayCommandModel | null;
+  loading: boolean;
+  error: string | null;
+};
+
+export function TodayCommandSection({ model, loading, error }: Props): React.ReactElement {
+  if (error != null && !loading) {
+    return (
+      <View style={styles.wrap} testID="today-command-error">
+        <ErrorState variant="inline" title="Could not load today's plan" message={error} />
+      </View>
+    );
+  }
+
+  if (!loading && model == null) {
+    return (
+      <View style={styles.wrap} testID="today-command-empty">
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          Today
+        </Text>
+        <Text style={styles.emptyCopy}>Sign in to see today's plan and readiness.</Text>
+      </View>
+    );
+  }
+
+  const completion = model?.completionPercent ?? null;
+  const readiness = model?.readiness ?? {
+    status: "unknown" as const,
+    headline: "Loading readiness…",
+    sleepScore: null,
+    readinessScore: null,
+    priorDaySteps: null,
+    priorDayCaloriesBurned: null,
+    sourceLabel: null,
+    confidence: "low" as const,
+  };
+  const targets = model?.targets ?? [];
+
+  return (
+    <View style={styles.wrap} accessibilityLabel="Today command center" testID="today-command-section">
+      <Text style={styles.sectionTitle} accessibilityRole="header">
+        Today
+      </Text>
+      <TodaySemiCircleProgress completionPercent={completion} loading={loading} />
+      <TodayReadinessSummary readiness={readiness} loading={loading} />
+      <TodayTargetProgressList targets={targets} loading={loading} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: {
+    paddingTop: 0,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.25,
+    paddingHorizontal: 4,
+    marginTop: 2,
+  },
+  emptyCopy: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: UI_TEXT_PRIMARY,
+    opacity: 0.72,
+    paddingHorizontal: 4,
+  },
+});

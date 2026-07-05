@@ -21,6 +21,20 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
+jest.mock("@/lib/preferences/PreferencesProvider", () => ({
+  usePreferences: () => ({
+    state: { preferences: {} },
+  }),
+}));
+
+jest.mock("react-native", () => ({
+  View: "View",
+  Text: "Text",
+  Pressable: "Pressable",
+  ScrollView: "ScrollView",
+  StyleSheet: { create: (s: unknown) => s },
+}));
+
 import ProgramScreen from "../program";
 import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
@@ -74,6 +88,12 @@ describe("Program tab", () => {
     expect(str).not.toContain("ACTIVE PROGRAM");
     expect(str).not.toContain("Workout Builder");
     expect(str).not.toContain("program-builder-card-workout");
+  });
+
+  it("renders category cards for plan design", () => {
+    const test = renderProgram();
+    expect(test.root.findByProps({ testID: "program-category-cards" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "program-category-activity" })).toBeTruthy();
   });
 
   it("renders the empty state when no current programs exist", () => {

@@ -1,5 +1,5 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: tab header + Today hero + Body Composition + Daily Energy + Weekly Fitness.
+// Oli — Dash: tab header + Today hero + Today Command Center + module cards.
 import React from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -14,11 +14,16 @@ import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDa
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
 import { useWeeklyFitnessCard } from "@/lib/data/dash/useWeeklyFitnessCard";
 import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
+import { useTodayCommand } from "@/lib/hooks/useTodayCommand";
+import { useDailyReadinessCard } from "@/lib/hooks/useDailyReadinessCard";
 import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
 import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
+import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 import { DailyNutritionCard } from "@/lib/ui/dash/DailyNutritionCard";
 import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
+import { DashWeeklySection } from "@/lib/ui/dash/DashWeeklySection";
+import { TodayCommandSection } from "@/lib/ui/today/TodayCommandSection";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 export default function DashScreen() {
@@ -34,6 +39,8 @@ export default function DashScreen() {
     sleepCardVm,
     refetch,
   } = useTodayHealthHero(todayKey);
+  const todayCommand = useTodayCommand(todayKey);
+  const readinessCard = useDailyReadinessCard(todayKey, { enabled: Boolean(user) });
   const weeklyFitness = useWeeklyFitnessCard();
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(todayKey);
@@ -41,7 +48,9 @@ export default function DashScreen() {
   useFocusEffect(
     React.useCallback(() => {
       refetch({ cacheBust: "dashEnergyFocus" });
-    }, [refetch]),
+      todayCommand.refetch({ cacheBust: "dashTodayCommandFocus" });
+      readinessCard.refetch({ cacheBust: "dashReadinessFocus" });
+    }, [refetch, todayCommand.refetch, readinessCard.refetch]),
   );
 
   return (
@@ -56,15 +65,22 @@ export default function DashScreen() {
         >
           <View style={styles.stacksSection}>
             <TodayHealthHero vm={todayHero} />
-            <WeeklyFitnessCard
-              loading={weeklyFitness.loading}
-              error={weeklyFitness.error}
-              rows={weeklyFitness.rows}
-              combined={weeklyFitness.combined}
-              progressToGoalVm={weeklyFitness.progressToGoalVm}
-              goalsHref={weeklyFitness.goalsHref}
-              hasUser={user != null}
+            <TodayCommandSection
+              model={todayCommand.model}
+              loading={todayCommand.loading}
+              error={todayCommand.error}
             />
+            <DashWeeklySection>
+              <WeeklyFitnessCard
+                loading={weeklyFitness.loading}
+                error={weeklyFitness.error}
+                rows={weeklyFitness.rows}
+                combined={weeklyFitness.combined}
+                progressToGoalVm={weeklyFitness.progressToGoalVm}
+                goalsHref={weeklyFitness.goalsHref}
+                hasUser={user != null}
+              />
+            </DashWeeklySection>
             <BodyCompositionCard
               loading={bodyComposition.loading}
               error={bodyComposition.error}
@@ -74,6 +90,7 @@ export default function DashScreen() {
             />
 
             <DailyEnergyCard energy={energy} loading={energyLoading} error={energyError} />
+            <DailyReadinessCard vm={readinessCard.vm} />
             <DailySleepCard vm={sleepCardVm} />
             <DailyNutritionCard
               model={dailyNutrition.model}

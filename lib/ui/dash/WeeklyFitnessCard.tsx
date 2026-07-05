@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     gap: 10,
-    marginTop: 12,
+    marginTop: 0,
     backgroundColor: UI_CARD_SURFACE,
   },
   headerRow: {
