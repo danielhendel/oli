@@ -130,6 +130,8 @@ export function buildDailySleepCardViewModel(
   };
 }
 
+import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
+
 export function logDailySleepTruthDev(input: {
   requestedDay: string;
   factsStatus: string;
@@ -141,6 +143,7 @@ export function logDailySleepTruthDev(input: {
   blockedStale: boolean;
 }): void {
   if (!__DEV__) return;
+  if (!isDebugDataLogsEnabled()) return;
   // eslint-disable-next-line no-console -- dev-only truth audit (no PII)
   console.log(
     `[DAILY_SLEEP_TRUTH] requestedDay=${input.requestedDay} factsStatus=${input.factsStatus} factsDay=${input.factsDay ?? "null"} renderStatus=${input.renderStatus} blockedStale=${input.blockedStale} sleepSettled=${input.sleepSettled} sleepResolution=${input.sleepResolution ?? "null"} sleepRequestedDay=${input.sleepRequestedDay ?? "null"}`,

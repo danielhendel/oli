@@ -7,6 +7,7 @@ import {
   invalidateDailyFactsSessionCacheForDays,
 } from "@/lib/data/dailyFactsSessionCache";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
@@ -224,8 +225,9 @@ export function useWeeklyFitnessDailyFactsRollup(
         resultApprox: `dayKeys:${keys.length}`,
         status: "wave-done",
       });
-      // eslint-disable-next-line no-console
-      console.log("[WEEKLY_FITNESS_DAILY_FACTS]", {
+      if (isDebugDataLogsEnabled()) {
+        // eslint-disable-next-line no-console
+        console.log("[WEEKLY_FITNESS_DAILY_FACTS]", {
         weekStart: keys[0] ?? null,
         weekEnd: keys[keys.length - 1] ?? null,
         dayCount: keys.length,
@@ -236,6 +238,7 @@ export function useWeeklyFitnessDailyFactsRollup(
         durationMs: Math.round(performance.now() - waveStart),
         status: finalStatus,
       });
+      }
     }
 
     const finalCells: WeeklyFitnessDailyFactsByDay = {};

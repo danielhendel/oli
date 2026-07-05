@@ -459,7 +459,7 @@ export const getDailyFacts = async (
   // TEMP DIAGNOSTIC (Weekly Fitness strength=8 audit): prove whether the API itself returns the
   // stale value by logging the raw response truth fields next to the resolved/redacted URL.
   // Compare strength.workoutsCount / computedAt here against the Firestore audit script output.
-  if (__DEV__ && !process.env.JEST_WORKER_ID) {
+  if (__DEV__ && !process.env.JEST_WORKER_ID && process.env.EXPO_PUBLIC_DEBUG_DATA_LOGS === "1") {
     // eslint-disable-next-line no-console
     console.log(
       "[DAILY_FACTS_RESPONSE]",

@@ -35,6 +35,7 @@ export type SleepTodayRecoveryOutcome = {
     | "not_today"
     | "not_missing"
     | "rate_limited"
+    | "refresh_failed_backoff"
     | "no_token"
     | "refresh_failed";
 };
@@ -45,13 +46,17 @@ export type SleepTodayRecoveryOutcome = {
  * so the same screen re-render cannot duplicate work.
  */
 const lastAttemptByUidDay = new Map<string, number>();
+const refreshFailedUntilByUidDay = new Map<string, number>();
 
 /** Test-only reset. Never imported by app code. */
 export function __resetSleepTodayRecoveryLedgerForTests(): void {
   lastAttemptByUidDay.clear();
+  refreshFailedUntilByUidDay.clear();
 }
 
 const DEFAULT_RATE_LIMIT_MS = 60_000;
+/** After a failed refresh, suppress retries so Dash focus cannot spam 500s. */
+const REFRESH_FAILED_BACKOFF_MS = 15 * 60_000;
 
 /**
  * Shared "today is missing → run the canonical refresh path once, then refetch
@@ -81,6 +86,11 @@ export async function runSleepTodayRecoveryIfMissing(
   if (!deps.isMissing) return { ran: false, reason: "not_missing" };
 
   const ledgerKey = `${deps.uid}:${today}`;
+  const failedUntil = refreshFailedUntilByUidDay.get(ledgerKey);
+  if (failedUntil !== undefined && now < failedUntil) {
+    return { ran: false, reason: "refresh_failed_backoff" };
+  }
+
   const last = lastAttemptByUidDay.get(ledgerKey);
   if (last !== undefined && now - last < rateLimitMs) {
     return { ran: false, reason: "rate_limited" };
@@ -99,10 +109,12 @@ export async function runSleepTodayRecoveryIfMissing(
       { idempotencyKey: idem, timeoutMs: 120_000, noStore: true },
     );
   } catch {
+    refreshFailedUntilByUidDay.set(ledgerKey, now + REFRESH_FAILED_BACKOFF_MS);
     return { ran: false, reason: "refresh_failed" };
   }
 
   if (!refreshRes.ok) {
+    refreshFailedUntilByUidDay.set(ledgerKey, now + REFRESH_FAILED_BACKOFF_MS);
     return { ran: false, reason: "refresh_failed" };
   }
 

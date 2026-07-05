@@ -1,6 +1,7 @@
 import { getDailyFacts, type TruthGetOptions } from "@/lib/api/usersMe";
 import type { ApiResult } from "@/lib/api/http";
 import type { DailyFactsDto } from "@/lib/contracts";
+import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
 
 type CacheEntry = {
   value: ApiResult<DailyFactsDto>;
@@ -41,6 +42,7 @@ function logDailyFactsCache(input: {
 }): void {
   if (!__DEV__) return;
   if (process.env.JEST_WORKER_ID) return;
+  if (!isDebugDataLogsEnabled()) return;
   // eslint-disable-next-line no-console
   console.log(
     "[DAILY_FACTS_CACHE]",

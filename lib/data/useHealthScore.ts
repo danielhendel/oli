@@ -21,7 +21,11 @@ function withUniqueCacheBust(opts: RefetchOpts | undefined, seq: number): Refetc
   return { ...opts, cacheBust: `${cb}:${seq}` };
 }
 
-export function useHealthScore(day: string): HealthScoreState & { refetch: (opts?: RefetchOpts) => void } {
+export function useHealthScore(
+  day: string,
+  options?: { enabled?: boolean },
+): HealthScoreState & { refetch: (opts?: RefetchOpts) => void } {
+  const enabled = options?.enabled ?? true;
   const { user, initializing, getIdToken } = useAuth();
 
   const dayRef = useRef(day);
@@ -44,6 +48,11 @@ export function useHealthScore(day: string): HealthScoreState & { refetch: (opts
 
       if (initializing || !user) {
         if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
+        return;
+      }
+
+      if (!enabled) {
+        if (stateRef.current.status !== "ready") safeSet({ status: "missing" });
         return;
       }
 
@@ -77,18 +86,21 @@ export function useHealthScore(day: string): HealthScoreState & { refetch: (opts
         reason: outcome.reason,
       });
     },
-    [getIdToken, initializing, user],
+    [enabled, getIdToken, initializing, user],
   );
 
   useEffect(() => {
+    if (!enabled) return;
     void fetchOnce();
-  }, [fetchOnce, day, user?.uid]);
+  }, [enabled, fetchOnce, day, user?.uid]);
+
+  const effectiveState = enabled ? state : ({ status: "missing" } as const);
 
   return useMemo(
     () => ({
-      ...state,
+      ...effectiveState,
       refetch: fetchOnce,
     }),
-    [state, fetchOnce],
+    [effectiveState, fetchOnce],
   );
 }
