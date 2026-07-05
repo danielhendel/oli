@@ -3,9 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { TodayCommandModel } from "@/lib/today/types";
 import { ErrorState } from "@/lib/ui/ScreenStates";
+import { TodayProgressCard } from "@/lib/ui/today/TodayProgressCard";
 import { TodayReadinessSummary } from "@/lib/ui/today/TodayReadinessSummary";
 import { TodaySemiCircleProgress } from "@/lib/ui/today/TodaySemiCircleProgress";
-import { TodayTargetProgressList } from "@/lib/ui/today/TodayTargetProgressList";
 import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 type Props = {
@@ -26,9 +26,6 @@ export function TodayCommandSection({ model, loading, error }: Props): React.Rea
   if (!loading && model == null) {
     return (
       <View style={styles.wrap} testID="today-command-empty">
-        <Text style={styles.sectionTitle} accessibilityRole="header">
-          Today
-        </Text>
         <Text style={styles.emptyCopy}>Sign in to see today's plan and readiness.</Text>
       </View>
     );
@@ -45,16 +42,12 @@ export function TodayCommandSection({ model, loading, error }: Props): React.Rea
     sourceLabel: null,
     confidence: "low" as const,
   };
-  const targets = model?.targets ?? [];
 
   return (
     <View style={styles.wrap} accessibilityLabel="Today command center" testID="today-command-section">
-      <Text style={styles.sectionTitle} accessibilityRole="header">
-        Today
-      </Text>
       <TodaySemiCircleProgress completionPercent={completion} loading={loading} />
       <TodayReadinessSummary readiness={readiness} loading={loading} />
-      <TodayTargetProgressList targets={targets} loading={loading} />
+      <TodayProgressCard model={model} loading={loading} />
     </View>
   );
 }
@@ -62,17 +55,8 @@ export function TodayCommandSection({ model, loading, error }: Props): React.Rea
 const styles = StyleSheet.create({
   wrap: {
     paddingTop: 0,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.25,
-    paddingHorizontal: 4,
-    marginTop: 2,
+    paddingBottom: 4,
+    gap: 8,
   },
   emptyCopy: {
     fontSize: 15,

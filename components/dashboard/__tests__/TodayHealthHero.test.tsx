@@ -9,7 +9,7 @@ function mkVm(over: Partial<TodayHealthHeroViewModel> = {}): TodayHealthHeroView
   return {
     greetingPhrase: "Good afternoon",
     firstName: "Daniel",
-    dateLine: "Wednesday, May 13",
+    dateLine: "Today Wednesday, May 13",
     loading: false,
     sleepRecovery: {
       sleepDisplay: "8h 12m",
@@ -38,7 +38,7 @@ describe("TodayHealthHero", () => {
       )
       .join(" ");
     expect(text).toContain("Good afternoon, Daniel");
-    expect(text).toContain("Wednesday, May 13");
+    expect(text).toContain("Today Wednesday, May 13");
   });
 
   it("shows greeting skeleton while loading", () => {

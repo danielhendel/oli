@@ -1,10 +1,11 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 
 import { SemiCircleProgressRing } from "@/lib/ui/progress/SemiCircleProgressRing";
 import { WEEKLY_FITNESS_BAR_FILL_COLOR } from "@/lib/data/dash/weeklyFitnessDashProgress";
 import {
   UI_PROGRESS_TRACK_EMPTY,
+  UI_TAB_ROOT_INSET,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
@@ -13,14 +14,23 @@ type Props = {
   loading?: boolean;
 };
 
-const RING_SIZE = 200;
 const RING_STROKE = 10;
+const RING_MIN_SIZE = 260;
+const RING_MAX_SIZE = 340;
+
+function ringSizeForWindowWidth(windowWidth: number): number {
+  const contentWidth = windowWidth - UI_TAB_ROOT_INSET * 2;
+  return Math.round(Math.min(RING_MAX_SIZE, Math.max(RING_MIN_SIZE, contentWidth)));
+}
 
 export function TodaySemiCircleProgress({ completionPercent, loading }: Props): React.ReactElement {
+  const { width: windowWidth } = useWindowDimensions();
+  const ringSize = ringSizeForWindowWidth(windowWidth);
+
   if (loading) {
     return (
       <View style={styles.loadingWrap} testID="today-semi-circle-loading">
-        <View style={styles.skArc} />
+        <View style={[styles.skArc, { width: ringSize, height: ringSize / 2 }]} />
       </View>
     );
   }
@@ -32,10 +42,10 @@ export function TodaySemiCircleProgress({ completionPercent, loading }: Props): 
       : `Today plan ${completionPercent} percent complete.`;
 
   return (
-    <View style={styles.wrap} testID="today-semi-circle-progress">
+    <View style={[styles.wrap, { width: ringSize }]} testID="today-semi-circle-progress">
       <SemiCircleProgressRing
         percent={completionPercent}
-        size={RING_SIZE}
+        size={ringSize}
         strokeWidth={RING_STROKE}
         label={label}
         sublabel="of today's plan complete"
@@ -52,19 +62,18 @@ export function TodaySemiCircleProgress({ completionPercent, loading }: Props): 
 
 const styles = StyleSheet.create({
   wrap: {
+    alignSelf: "center",
     alignItems: "center",
-    paddingTop: 2,
-    paddingBottom: 2,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   loadingWrap: {
     alignItems: "center",
     paddingVertical: 16,
   },
   skArc: {
-    width: RING_SIZE,
-    height: RING_SIZE / 2,
-    borderTopLeftRadius: RING_SIZE / 2,
-    borderTopRightRadius: RING_SIZE / 2,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
     backgroundColor: "rgba(140, 150, 170, 0.14)",
   },
   ringLabel: {

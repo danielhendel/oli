@@ -34,7 +34,8 @@ export function TodayReadinessSummary({ readiness, loading }: Props): React.Reac
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 4,
-    paddingTop: 4,
+    paddingTop: 2,
+    paddingBottom: 6,
   },
   text: {
     fontSize: 15,
