@@ -8,6 +8,18 @@ export type ManageHubItem = {
   href: string;
 };
 
+export function getManageHubItemById(id: string): ManageHubItem | undefined {
+  return MANAGE_HUB_ITEMS.find((item) => item.id === id);
+}
+
+export function getManageHubItemHref(id: string): string {
+  const item = getManageHubItemById(id);
+  if (item == null) {
+    throw new Error(`Unknown manage hub item: ${id}`);
+  }
+  return item.href;
+}
+
 export const MANAGE_HUB_ITEMS: readonly ManageHubItem[] = [
   {
     id: "profile",

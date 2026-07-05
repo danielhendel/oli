@@ -207,12 +207,12 @@ describe("TabsLayout", () => {
     expect(names).not.toContain("profile");
   });
 
-  it("renders Manage FAB in tab bar chrome", () => {
+  it("renders Profile shortcut FAB in tab bar chrome", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
-    test.root.findByProps({ testID: "oli-manage-fab" });
+    test.root.findByProps({ testID: "oli-profile-fab" });
   });
 
   it("sets tab scene background to app screen token so default RN theme gray does not show behind content", () => {

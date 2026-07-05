@@ -2,10 +2,12 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from "rea
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext.js";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OliBottomNav } from "@/components/navigation/OliBottomNav";
-import { ManageFab } from "@/components/navigation/ManageFab";
+import { ProfileShortcutFab } from "@/components/navigation/ProfileShortcutFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
+import { getManageHubItemHref } from "@/components/navigation/manageHubItems";
 import { normalizeChromeHeight } from "@/lib/ui/navigation/normalizeChromeHeight";
 
 /**
@@ -21,7 +23,6 @@ export type FloatingNavigationChromeProps = {
   tabBarProps: BottomTabBarProps;
   manageVisible: boolean;
   menuAnchor: ManageMenuAnchor | null;
-  openManage: (anchor: ManageMenuAnchor) => void;
   closeManage: () => void;
   /**
    * Stack routes: report height for `FloatingNavChromeHeightContext` / scroll padding.
@@ -32,20 +33,19 @@ export type FloatingNavigationChromeProps = {
 };
 
 /**
- * Shared floating pill + Manage FAB + menu. Used by the tab navigator custom bar and by the
- * root stack overlay on health module screens.
+ * Shared floating pill + Profile shortcut FAB + Manage menu. Used by the tab navigator custom
+ * bar and by the root stack overlay on health module screens.
  */
 export function FloatingNavigationChrome({
   tabBarProps,
   manageVisible,
   menuAnchor,
-  openManage,
   closeManage,
   onStackChromeHeightChange,
   testID = "oli-tab-bar-chrome",
 }: FloatingNavigationChromeProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const fabRef = useRef<View>(null);
   const lastReportedHeightRef = useRef<number | undefined>(undefined);
   const onTabBarHeightFromTabs = useContext(BottomTabBarHeightCallbackContext);
   const bottomOffset = insets.bottom + FLOATING_NAV_DOCK_BOTTOM_MARGIN;
@@ -80,11 +80,9 @@ export function FloatingNavigationChrome({
     return undefined;
   }, [onStackChromeHeightChange]);
 
-  const measureAndOpen = useCallback(() => {
-    fabRef.current?.measureInWindow((x, y, width, height) => {
-      openManage({ x, y, width, height, presentation: "fab" });
-    });
-  }, [openManage]);
+  const openProfile = useCallback(() => {
+    router.push(getManageHubItemHref("profile") as never);
+  }, [router]);
 
   return (
     <>
@@ -112,7 +110,7 @@ export function FloatingNavigationChrome({
           onLayout={onDockRowLayout}
         >
           <OliBottomNav tabBarProps={tabBarProps} style={chromeStyles.navPillSlot} />
-          <ManageFab ref={fabRef} open={manageVisible} onPress={measureAndOpen} />
+          <ProfileShortcutFab onPress={openProfile} />
         </View>
       </View>
     </>
