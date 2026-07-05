@@ -22,7 +22,7 @@ export function ManageMenuTriggerButton({
 
   const onPress = useCallback(() => {
     triggerRef.current?.measureInWindow((x, y, width, height) => {
-      openManage({ x, y, width, height });
+      openManage({ x, y, width, height, presentation: "popover" });
     });
   }, [openManage]);
 

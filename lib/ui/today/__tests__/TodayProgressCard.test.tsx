@@ -38,8 +38,10 @@ const model = buildTodayCommandModel({
   lastUpdatedAt: null,
 });
 
+const mockPush = jest.fn();
+
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
@@ -74,7 +76,11 @@ function orderedHeroTestIds(root: renderer.ReactTestRenderer): string[] {
 }
 
 describe("TodayProgressCard", () => {
-  it("renders title and seven metric rows", () => {
+  beforeEach(() => {
+    mockPush.mockReset();
+  });
+
+  it("renders title, My Program action, and seven metric rows", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<TodayProgressCard model={model} loading={false} />);
@@ -83,6 +89,7 @@ describe("TodayProgressCard", () => {
     const text = flattenText(root);
 
     expect(text).toContain("Today's Progress");
+    expect(text).toContain("My Program");
     expect(text).toContain("Activity");
     expect(text).toContain("2,877 steps");
     expect(text).not.toContain("/ 10,000");
@@ -95,6 +102,20 @@ describe("TodayProgressCard", () => {
         .map((n) => n.props.testID as string),
     );
     expect(rowIds.size).toBe(7);
+  });
+
+  it("navigates to Program tab when My Program is pressed", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodayProgressCard model={model} loading={false} />);
+    });
+
+    const button = root.root.findByProps({ testID: "today-progress-my-program" });
+    expect(button.props.accessibilityLabel).toBe("Open my program");
+    act(() => {
+      button.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/program");
   });
 
   it("renders blue progress bars for all seven rows", () => {

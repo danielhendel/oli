@@ -82,7 +82,7 @@ export function FloatingNavigationChrome({
 
   const measureAndOpen = useCallback(() => {
     fabRef.current?.measureInWindow((x, y, width, height) => {
-      openManage({ x, y, width, height });
+      openManage({ x, y, width, height, presentation: "fab" });
     });
   }, [openManage]);
 

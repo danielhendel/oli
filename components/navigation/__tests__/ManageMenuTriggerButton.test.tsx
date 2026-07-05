@@ -43,3 +43,15 @@ describe("ManageMenuTriggerButton", () => {
     }
   });
 });
+
+describe("ManageMenuTriggerButton popover wiring", () => {
+  it("requests popover presentation when opening manage menu", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const src = fs.readFileSync(
+      path.join(__dirname, "../ManageMenuTriggerButton.tsx"),
+      "utf8",
+    );
+    expect(src).toContain('presentation: "popover"');
+  });
+});
