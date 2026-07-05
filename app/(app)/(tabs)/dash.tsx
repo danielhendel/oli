@@ -5,8 +5,7 @@ import { ScrollView, View, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { TodayHealthHero } from "@/components/dashboard/TodayHealthHero";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
-import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
+import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -56,9 +55,7 @@ export default function DashScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.root}>
-        <View style={styles.headerWrap}>
-          <TabRootScreenHeader title="Oli" rightSlot={<SettingsGearButton />} />
-        </View>
+        <DashScreenHeader />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
@@ -112,9 +109,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: UI_APP_SCREEN_BG,
-  },
-  headerWrap: {
-    paddingBottom: 4,
   },
   scrollView: {
     flex: 1,

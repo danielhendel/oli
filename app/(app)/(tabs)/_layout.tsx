@@ -1,11 +1,14 @@
 // app/(app)/(tabs)/_layout.tsx
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { View } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { FloatingNavigationChrome } from "@/components/navigation/FloatingNavigationChrome";
-import type { ManageMenuAnchor } from "@/components/navigation/ManageMenu";
+import {
+  ManageNavigationProvider,
+  useManageNavigation,
+} from "@/components/navigation/ManageNavigationContext";
 import { UI_APP_SCREEN_BG, UI_NAV_TAB_ICON_ACTIVE, UI_NAV_TAB_ICON_INACTIVE } from "@/lib/ui/theme/uiTokens";
 import { ThemeProvider } from "@react-navigation/native";
 import { createOliTabNavigationTheme } from "@/lib/ui/theme/oliTheme";
@@ -39,23 +42,11 @@ export const OLI_TAB_SCREEN_OPTIONS = {
   },
 } as const;
 
-type OliTabBarProps = BottomTabBarProps & {
-  manageVisible: boolean;
-  menuAnchor: ManageMenuAnchor | null;
-  openManage: (anchor: ManageMenuAnchor) => void;
-  closeManage: () => void;
-};
-
-function OliTabBar({
-  manageVisible,
-  menuAnchor,
-  openManage,
-  closeManage,
-  ...tabProps
-}: OliTabBarProps) {
+function OliTabBar(props: BottomTabBarProps) {
+  const { manageVisible, menuAnchor, openManage, closeManage } = useManageNavigation();
   return (
     <FloatingNavigationChrome
-      tabBarProps={tabProps}
+      tabBarProps={props}
       manageVisible={manageVisible}
       menuAnchor={menuAnchor}
       openManage={openManage}
@@ -64,37 +55,13 @@ function OliTabBar({
   );
 }
 
-export default function TabsLayout() {
+function TabsLayoutInner() {
   const tabTheme = useMemo(() => createOliTabNavigationTheme(), []);
-  const [manageVisible, setManageVisible] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<ManageMenuAnchor | null>(null);
-
-  const openManage = useCallback((anchor: ManageMenuAnchor) => {
-    setMenuAnchor(anchor);
-    setManageVisible(true);
-  }, []);
-
-  const closeManage = useCallback(() => {
-    setManageVisible(false);
-    setMenuAnchor(null);
-  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG }}>
       <ThemeProvider value={tabTheme}>
-        <Tabs
-          initialRouteName="dash"
-          tabBar={(props) => (
-            <OliTabBar
-              {...props}
-              manageVisible={manageVisible}
-              menuAnchor={menuAnchor}
-              openManage={openManage}
-              closeManage={closeManage}
-            />
-          )}
-          screenOptions={OLI_TAB_SCREEN_OPTIONS}
-        >
+        <Tabs initialRouteName="dash" tabBar={(props) => <OliTabBar {...props} />} screenOptions={OLI_TAB_SCREEN_OPTIONS}>
           <Tabs.Screen
             name="dash"
             options={{
@@ -142,5 +109,13 @@ export default function TabsLayout() {
         </Tabs>
       </ThemeProvider>
     </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <ManageNavigationProvider>
+      <TabsLayoutInner />
+    </ManageNavigationProvider>
   );
 }

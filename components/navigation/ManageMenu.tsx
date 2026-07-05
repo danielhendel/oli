@@ -119,13 +119,14 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps) {
   const rightEdge = anchor.x + anchor.width;
   const rightOffset = Math.max(MENU_PAD, windowWidth - rightEdge);
 
+  const menuOpensFromTop = anchor.y < windowHeight * 0.45;
   const spaceAboveFab = anchor.y - insets.top - GAP_ABOVE_FAB;
-  const maxMenuHeight = Math.min(
-    windowHeight * 0.78,
-    Math.max(200, spaceAboveFab - 12),
-  );
+  const maxMenuHeight = menuOpensFromTop
+    ? Math.min(windowHeight * 0.78, Math.max(200, windowHeight - anchor.y - anchor.height - insets.bottom - 24))
+    : Math.min(windowHeight * 0.78, Math.max(200, spaceAboveFab - 12));
 
   const menuBottomFromScreenBottom = windowHeight - anchor.y + GAP_ABOVE_FAB;
+  const menuTopFromScreenTop = anchor.y + anchor.height + GAP_ABOVE_FAB;
 
   return (
     <Modal
@@ -152,7 +153,9 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps) {
             {
               width: menuWidth,
               maxHeight: maxMenuHeight,
-              bottom: menuBottomFromScreenBottom,
+              ...(menuOpensFromTop
+                ? { top: menuTopFromScreenTop }
+                : { bottom: menuBottomFromScreenBottom }),
               right: rightOffset,
               zIndex: 2,
             },

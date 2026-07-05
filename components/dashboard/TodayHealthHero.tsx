@@ -38,8 +38,11 @@ const styles = StyleSheet.create({
   wrap: {
     paddingTop: 14,
     paddingBottom: 20,
+    alignItems: "center",
   },
   headerBlock: {
+    width: "100%",
+    alignItems: "center",
     paddingHorizontal: 15,
   },
   greeting: {
@@ -47,11 +50,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: -0.35,
     color: UI_TEXT_PRIMARY,
+    textAlign: "center",
   },
   skLineLong: {
     height: 28,
     borderRadius: 8,
     width: "72%",
+    maxWidth: 280,
     backgroundColor: "rgba(140, 150, 170, 0.2)",
   },
 });

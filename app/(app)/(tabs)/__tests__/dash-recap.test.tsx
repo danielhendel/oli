@@ -96,6 +96,19 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
 }));
 
+jest.mock("@/components/navigation/ManageNavigationContext", () => ({
+  useManageNavigation: () => ({
+    manageVisible: false,
+    menuAnchor: null,
+    openManage: jest.fn(),
+    closeManage: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({ state: { status: "missing" } }),
+}));
+
 const mockUseBodyCompositionDashCard = jest.fn(() => ({
   loading: false,
   error: null,

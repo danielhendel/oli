@@ -45,6 +45,19 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
 }));
 
+jest.mock("@/components/navigation/ManageNavigationContext", () => ({
+  useManageNavigation: () => ({
+    manageVisible: false,
+    menuAnchor: null,
+    openManage: jest.fn(),
+    closeManage: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({ state: { status: "missing" } }),
+}));
+
 const mockUseBodyCompositionDashCard = jest.fn(() => ({
   loading: false,
   error: null,
@@ -242,12 +255,12 @@ describe("Dash accessibility", () => {
     });
   });
 
-  it("exposes accessibilityLabel on Settings button", () => {
+  it("exposes accessibilityLabel on settings initial button", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
-    const settings = findPressablesWithLabel(test.root, "Settings");
+    const settings = findPressablesWithLabel(test.root, "Open settings");
     expect(settings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -314,7 +327,7 @@ describe("Dash accessibility", () => {
     expect(idxNutrition).toBeGreaterThan(idxSleepCard);
   });
 
-  it("keeps at least one actionable button (Settings)", () => {
+  it("keeps at least one actionable header button", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);

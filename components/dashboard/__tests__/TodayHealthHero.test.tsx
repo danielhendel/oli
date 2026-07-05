@@ -41,6 +41,17 @@ describe("TodayHealthHero", () => {
     expect(text).not.toContain("Today Wednesday, May 13");
   });
 
+  it("centers greeting text", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodayHealthHero vm={mkVm()} />);
+    });
+    const greeting = root.root.findByType("Text");
+    expect(greeting.props.style).toEqual(
+      expect.objectContaining({ textAlign: "center" }),
+    );
+  });
+
   it("shows greeting skeleton while loading", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
