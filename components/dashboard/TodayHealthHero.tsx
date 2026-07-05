@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { TodayHealthHeroViewModel } from "@/lib/dashboard/todayHealthHero";
 
-import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 type Props = {
   vm: TodayHealthHeroViewModel;
@@ -16,26 +16,18 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
   }, [vm.firstName, vm.greetingPhrase]);
 
   const headerA11y = useMemo(() => {
-    return vm.loading ? "Loading greeting" : `${headline}. ${vm.dateLine}.`;
-  }, [vm.loading, headline, vm.dateLine]);
+    return vm.loading ? "Loading greeting" : headline;
+  }, [vm.loading, headline]);
 
   return (
     <View style={styles.wrap} testID="today-health-hero">
       <View style={styles.headerBlock} accessible accessibilityRole="header" accessibilityLabel={headerA11y}>
         {vm.loading ? (
-          <>
-            <View style={styles.skLineLong} />
-            <View style={styles.skLineShort} />
-          </>
+          <View style={styles.skLineLong} />
         ) : (
-          <>
-            <Text style={styles.greeting} maxFontSizeMultiplier={1.35}>
-              {headline}
-            </Text>
-            <Text style={styles.dateLine} maxFontSizeMultiplier={1.35}>
-              {vm.dateLine}
-            </Text>
-          </>
+          <Text style={styles.greeting} maxFontSizeMultiplier={1.35}>
+            {headline}
+          </Text>
         )}
       </View>
     </View>
@@ -44,8 +36,8 @@ export function TodayHealthHero({ vm }: Props): React.ReactElement {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 14,
+    paddingBottom: 20,
   },
   headerBlock: {
     paddingHorizontal: 15,
@@ -56,23 +48,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
     color: UI_TEXT_PRIMARY,
   },
-  dateLine: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: UI_TEXT_SECONDARY,
-    marginTop: 4,
-  },
   skLineLong: {
     height: 28,
     borderRadius: 8,
     width: "72%",
     backgroundColor: "rgba(140, 150, 170, 0.2)",
-  },
-  skLineShort: {
-    marginTop: 10,
-    height: 16,
-    borderRadius: 8,
-    width: "48%",
-    backgroundColor: "rgba(140, 150, 170, 0.16)",
   },
 });

@@ -2,8 +2,10 @@ import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import { buildTodayCommandModel } from "@/lib/today/buildTodayCommandModel";
+import { TodayCommandSection } from "@/lib/ui/today/TodayCommandSection";
 import { TodayProgressCard } from "@/lib/ui/today/TodayProgressCard";
 import { TodaySemiCircleProgress } from "@/lib/ui/today/TodaySemiCircleProgress";
+import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
 import { WEEKLY_FITNESS_GOAL_DEFAULTS } from "@oli/contracts";
 
 const model = buildTodayCommandModel({
@@ -43,6 +45,32 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   default: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }),
 }));
 
+function flattenText(root: renderer.ReactTestRenderer): string {
+  return root.root
+    .findAllByType("Text")
+    .map((n) =>
+      (n.children as (string | number)[])
+        .filter((c) => typeof c === "string" || typeof c === "number")
+        .join(""),
+    )
+    .join(" ");
+}
+
+function orderedHeroTestIds(root: renderer.ReactTestRenderer): string[] {
+  const order = ["today-semi-circle-progress", "today-readiness-summary", "today-progress-card"];
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const node of root.root.findAll(
+    (n) => typeof n.props.testID === "string" && order.includes(n.props.testID as string),
+  )) {
+    const id = node.props.testID as string;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
 describe("TodayProgressCard", () => {
   it("renders title and seven metric rows", () => {
     let root!: renderer.ReactTestRenderer;
@@ -50,14 +78,7 @@ describe("TodayProgressCard", () => {
       root = renderer.create(<TodayProgressCard model={model} loading={false} />);
     });
 
-    const text = root.root
-      .findAllByType("Text")
-      .map((n) =>
-        (n.children as (string | number)[])
-          .filter((c) => typeof c === "string" || typeof c === "number")
-          .join(""),
-      )
-      .join(" ");
+    const text = flattenText(root);
 
     expect(text).toContain("Today's Progress");
     expect(text).toContain("Activity");
@@ -79,22 +100,71 @@ describe("TodaySemiCircleProgress", () => {
   it("shows percent without visible completion subtitle", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<TodaySemiCircleProgress completionPercent={8} loading={false} />);
+      root = renderer.create(
+        <TodaySemiCircleProgress completionPercent={8} dateLine="Today Sunday, July 5" loading={false} />,
+      );
     });
 
-    const text = root.root
-      .findAllByType("Text")
-      .map((n) =>
-        (n.children as (string | number)[])
-          .filter((c) => typeof c === "string" || typeof c === "number")
-          .join(""),
-      )
-      .join(" ");
+    const text = flattenText(root);
 
     expect(text).toContain("8%");
+    expect(text).toContain("Today Sunday, July 5");
     expect(text).not.toContain("of today's plan complete");
 
     const ring = root.root.findByProps({ testID: "today-completion-ring" });
     expect(ring.props.accessibilityLabel).toContain("8 percent of today's plan complete");
+  });
+
+  it("uses workout blue progress color and thicker stroke", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<TodaySemiCircleProgress completionPercent={8} loading={false} />);
+    });
+
+    const ring = root.root.findByProps({ testID: "today-completion-ring" });
+    expect(ring.props.progressColor).toBe(ENERGY_BASELINE_FILL_COLOR);
+    expect(ring.props.strokeWidth).toBeGreaterThanOrEqual(12);
+  });
+
+  it("renders date line below percent in hierarchy", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <TodaySemiCircleProgress completionPercent={8} dateLine="Today Sunday, July 5" loading={false} />,
+      );
+    });
+
+    const labels = root.root.findAllByType("Text").map((n) =>
+      (n.children as (string | number)[])
+        .filter((c) => typeof c === "string" || typeof c === "number")
+        .join(""),
+    );
+    const percentIndex = labels.indexOf("8%");
+    const dateIndex = labels.indexOf("Today Sunday, July 5");
+    expect(percentIndex).toBeGreaterThanOrEqual(0);
+    expect(dateIndex).toBeGreaterThan(percentIndex);
+  });
+});
+
+describe("TodayCommandSection hero order", () => {
+  it("orders semi-circle, readiness, and progress card", () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <TodayCommandSection
+          model={model}
+          loading={false}
+          error={null}
+          dateLine="Today Sunday, July 5"
+        />,
+      );
+    });
+
+    const ids = orderedHeroTestIds(root);
+    expect(ids).toEqual([
+      "today-semi-circle-progress",
+      "today-readiness-summary",
+      "today-progress-card",
+    ]);
   });
 });

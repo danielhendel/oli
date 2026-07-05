@@ -56,7 +56,9 @@ export default function DashScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.root}>
-        <TabRootScreenHeader title="Oli" rightSlot={<SettingsGearButton />} />
+        <View style={styles.headerWrap}>
+          <TabRootScreenHeader title="Oli" rightSlot={<SettingsGearButton />} />
+        </View>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
@@ -69,6 +71,7 @@ export default function DashScreen() {
               model={todayCommand.model}
               loading={todayCommand.loading}
               error={todayCommand.error}
+              dateLine={todayHero.dateLine}
             />
             <DashWeeklySection>
               <WeeklyFitnessCard
@@ -109,6 +112,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: UI_APP_SCREEN_BG,
+  },
+  headerWrap: {
+    paddingBottom: 4,
   },
   scrollView: {
     flex: 1,

@@ -1,16 +1,18 @@
 import React from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { SemiCircleProgressRing } from "@/lib/ui/progress/SemiCircleProgressRing";
-import { WEEKLY_FITNESS_BAR_FILL_COLOR } from "@/lib/data/dash/weeklyFitnessDashProgress";
-import { UI_PROGRESS_TRACK_EMPTY, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { ENERGY_BASELINE_FILL_COLOR } from "@/lib/ui/energy/EnergyBaselineProgressTrack";
+import { UI_PROGRESS_TRACK_EMPTY, UI_TAB_ROOT_INSET, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 type Props = {
   completionPercent: number | null;
+  /** Formatted calendar line, e.g. "Today Sunday, July 5". */
+  dateLine?: string | null;
   loading?: boolean;
 };
 
-const RING_STROKE = 9;
+const RING_STROKE = 14;
 const RING_MIN_SIZE = 260;
 const RING_MAX_SIZE = 320;
 /** Shorter visible arc — wide but less vertical dominance. */
@@ -21,7 +23,11 @@ function ringSizeForWindowWidth(windowWidth: number): number {
   return Math.round(Math.min(RING_MAX_SIZE, Math.max(RING_MIN_SIZE, contentWidth)));
 }
 
-export function TodaySemiCircleProgress({ completionPercent, loading }: Props): React.ReactElement {
+export function TodaySemiCircleProgress({
+  completionPercent,
+  dateLine,
+  loading,
+}: Props): React.ReactElement {
   const { width: windowWidth } = useWindowDimensions();
   const ringSize = ringSizeForWindowWidth(windowWidth);
 
@@ -54,11 +60,16 @@ export function TodaySemiCircleProgress({ completionPercent, loading }: Props): 
         label={label}
         showSublabel={false}
         trackColor={UI_PROGRESS_TRACK_EMPTY}
-        progressColor={WEEKLY_FITNESS_BAR_FILL_COLOR}
+        progressColor={ENERGY_BASELINE_FILL_COLOR}
         accessibilityLabel={a11y}
         testID="today-completion-ring"
         labelStyle={styles.ringLabel}
       />
+      {dateLine ? (
+        <Text style={styles.dateLine} maxFontSizeMultiplier={1.35} testID="today-hero-date-line">
+          {dateLine}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -67,13 +78,13 @@ const styles = StyleSheet.create({
   wrap: {
     alignSelf: "center",
     alignItems: "center",
-    paddingTop: 0,
-    paddingBottom: 0,
-    marginTop: -4,
+    paddingTop: 4,
+    paddingBottom: 2,
+    marginTop: 4,
   },
   loadingWrap: {
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   skArc: {
     borderTopLeftRadius: 999,
@@ -85,5 +96,13 @@ const styles = StyleSheet.create({
     lineHeight: 62,
     fontWeight: "700",
     letterSpacing: -1,
+  },
+  dateLine: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: UI_TEXT_SECONDARY,
+    marginTop: 6,
+    textAlign: "center",
   },
 });

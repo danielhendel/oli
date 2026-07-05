@@ -24,7 +24,7 @@ function mkVm(over: Partial<TodayHealthHeroViewModel> = {}): TodayHealthHeroView
 }
 
 describe("TodayHealthHero", () => {
-  it("renders greeting and date", () => {
+  it("renders greeting without the date line", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<TodayHealthHero vm={mkVm()} />);
@@ -38,7 +38,7 @@ describe("TodayHealthHero", () => {
       )
       .join(" ");
     expect(text).toContain("Good afternoon, Daniel");
-    expect(text).toContain("Today Wednesday, May 13");
+    expect(text).not.toContain("Today Wednesday, May 13");
   });
 
   it("shows greeting skeleton while loading", () => {

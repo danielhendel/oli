@@ -12,9 +12,11 @@ type Props = {
   model: TodayCommandModel | null;
   loading: boolean;
   error: string | null;
+  /** Dash hero date line rendered under completion percent. */
+  dateLine?: string | null;
 };
 
-export function TodayCommandSection({ model, loading, error }: Props): React.ReactElement {
+export function TodayCommandSection({ model, loading, error, dateLine }: Props): React.ReactElement {
   if (error != null && !loading) {
     return (
       <View style={styles.wrap} testID="today-command-error">
@@ -45,7 +47,11 @@ export function TodayCommandSection({ model, loading, error }: Props): React.Rea
 
   return (
     <View style={styles.wrap} accessibilityLabel="Today command center" testID="today-command-section">
-      <TodaySemiCircleProgress completionPercent={completion} loading={loading} />
+      <TodaySemiCircleProgress
+        completionPercent={completion}
+        dateLine={dateLine ?? null}
+        loading={loading}
+      />
       <TodayReadinessSummary readiness={readiness} loading={loading} />
       <TodayProgressCard model={model} loading={loading} />
     </View>
@@ -56,7 +62,7 @@ const styles = StyleSheet.create({
   wrap: {
     paddingTop: 0,
     paddingBottom: 4,
-    gap: 8,
+    gap: 12,
   },
   emptyCopy: {
     fontSize: 15,

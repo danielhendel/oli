@@ -10,6 +10,7 @@ import {
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useReadinessView } from "@/lib/data/useReadinessView";
+import { attributedSleepNightViewForCalendarDay } from "@/lib/data/dash/dailySleepCardViewModel";
 import { useSleepNight } from "@/lib/hooks/useSleepNight";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
@@ -84,8 +85,7 @@ export function useTodayCommand(day: DayKey): UseTodayCommandResult {
     const ouraConnected =
       ouraPresence.status === "ready" ? ouraPresence.data.connected : null;
 
-    const sleepNightView =
-      sleepNight.settled && sleepNight.view?.requestedDay === day ? sleepNight.view : null;
+    const sleepNightView = attributedSleepNightViewForCalendarDay(day, sleepNight);
 
     return buildTodayCommandModel({
       day,

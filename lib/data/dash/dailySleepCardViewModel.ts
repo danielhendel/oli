@@ -60,6 +60,15 @@ export function sleepNightIsAttributedToCalendarDay(
   return false;
 }
 
+/** Settled sleep-night view when attributed to the calendar day; null otherwise. */
+export function attributedSleepNightViewForCalendarDay(
+  day: string,
+  sleepNight: Pick<UseSleepNightResult, "view" | "settled">,
+): SleepNightViewDto | null {
+  if (!sleepNight.settled || sleepNight.view == null) return null;
+  return sleepNightIsAttributedToCalendarDay(day, sleepNight.view) ? sleepNight.view : null;
+}
+
 export type BuildDailySleepCardViewModelInput = {
   day: string;
   sleepNight: Pick<UseSleepNightResult, "view" | "loading" | "settled" | "error">;
