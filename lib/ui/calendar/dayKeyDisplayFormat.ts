@@ -45,6 +45,29 @@ export function formatDayKeyWeekdayShortMonthDay(dayKey: DayKey): string {
 }
 
 /**
+ * Compact month + day for chart labels and weight hero qualifiers, e.g. `Jul 5`.
+ * Uses the same UTC-noon DayKey anchor as other Body calendar formatters.
+ */
+export function formatDayKeyShortMonthDay(dayKey: DayKey): string {
+  const d = new Date(`${dayKey}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return dayKey;
+  const month = MONTH_SHORT_LABELS[d.getUTCMonth()] ?? "";
+  const day = d.getUTCDate();
+  return `${month} ${day}`;
+}
+
+/**
+ * Weight hero headline qualifier: `today` when the reading day is local today, else `Jul 5`.
+ */
+export function formatBodyWeightHeroDateQualifier(
+  latestReadingDayKey: DayKey,
+  todayDayKey: DayKey,
+): string {
+  if (latestReadingDayKey === todayDayKey) return "today";
+  return formatDayKeyShortMonthDay(latestReadingDayKey);
+}
+
+/**
  * Overview header line: "As of Today" when `dayKey` is the device-local today, else "As of Tue 4/6".
  */
 export function formatOverviewAsOfLabel(dayKey: string): string {

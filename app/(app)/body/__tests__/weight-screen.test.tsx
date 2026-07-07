@@ -39,11 +39,21 @@ const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
+  useFocusEffect: (cb: () => void) => cb(),
 }));
 
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
     state: { preferences: { units: { mass: "lb" } } },
+  }),
+}));
+
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: { body: { heightCm: 180 } },
+    },
   }),
 }));
 
@@ -100,6 +110,7 @@ function buildBody(overrides: Record<string, unknown> = {}) {
     dayFacts: { status: "missing" as const },
     isBodySyncing: false,
     syncAppleHealthBodyNow: jest.fn(),
+    refreshOverview: jest.fn(),
     hasSuccessfulBodySync: false,
     weekDays: [] as { day: string; meta: { hasMeasurement: boolean } }[],
     markedDays: new Set<string>(),
@@ -171,7 +182,7 @@ describe("Body Composition main screen", () => {
     expect(stripDay).toBeUndefined();
   });
 
-  it("renders Today, This Week's Weight, Weight Baseline, and 2026 Weight in order", () => {
+  it("renders Today, Weight graph, Physique Estimate, Weight Baseline, and 2026 Weight in order", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -179,12 +190,29 @@ describe("Body Composition main screen", () => {
     });
     const text = collectText(tree);
     expect(text).toContain("Today");
-    expect(text).toContain("This Week's Weight");
+    expect(text).toContain("Physique Estimate");
     expect(text).toContain("Weight Baseline");
     expect(text).toContain("2026 Weight");
-    expect(text.indexOf("Today")).toBeLessThan(text.indexOf("This Week's Weight"));
-    expect(text.indexOf("This Week's Weight")).toBeLessThan(text.indexOf("Weight Baseline"));
+    expect(text).not.toContain("This Week's Weight");
+    expect(text.indexOf("Today")).toBeLessThan(text.indexOf("Physique Estimate"));
+    expect(text.indexOf("Physique Estimate")).toBeLessThan(text.indexOf("Weight Baseline"));
     expect(text.indexOf("Weight Baseline")).toBeLessThan(text.indexOf("2026 Weight"));
+    expect(tree.root.findByProps({ testID: "body-today-card" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-weight-hero-card" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-physique-estimate-card" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-this-week-card" })).toHaveLength(0);
+  });
+
+  it("shows the weight range selector and delta without a large headline weight value", () => {
+    mockHook.mockReturnValue(buildPopulatedBody());
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    expect(tree.root.findByProps({ testID: "body-weight-hero-range-selector" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-weight-hero-delta" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-weight-hero-current" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-weight-hero-date-qualifier" })).toHaveLength(0);
   });
 
   it("renders Today card weight, BMI, body fat, and lean mass when available", () => {
@@ -201,16 +229,6 @@ describe("Body Composition main screen", () => {
     expect(text).toContain("18.0%");
     expect(text).toContain("Lean Mass");
     expect(text).toContain("132.3 lb");
-  });
-
-  it("renders the This Week's Weight line chart with a date range label", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    expect(tree.root.findByProps({ testID: "body-this-week-line-chart" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-this-week-range-label" })).toBeDefined();
   });
 
   it("renders all five Weight Baseline periods", () => {

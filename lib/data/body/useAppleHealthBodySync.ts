@@ -9,6 +9,7 @@ import {
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
 import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
+import { runAppleHealthBodySyncSerialized } from "@/lib/data/body/appleHealthBodySyncCoordinator";
 import {
   getAppleHealthBodyLastCheckedAt,
   getAppleHealthConnected,
@@ -43,10 +44,11 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
   hasSuccessfulBodySync: boolean;
 } {
   const { user, getIdToken } = useAuth();
-  const inFlight = useRef(false);
   const [isBodySyncing, setIsBodySyncing] = useState(false);
   const [hasSuccessfulBodySync, setHasSuccessfulBodySync] = useState(false);
   const previousUserUid = useRef<string | undefined>(undefined);
+  const onSyncedRef = useRef(onSynced);
+  onSyncedRef.current = onSynced;
 
   useEffect(() => {
     const uid = user?.uid;
@@ -95,28 +97,27 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
         ...(uid ? { userUid: uid } : {}),
       });
     }
-    onSynced?.();
+    onSyncedRef.current?.();
     return { ok: true as const };
-  }, [getIdToken, onSynced, user?.uid]);
+  }, [getIdToken, user?.uid]);
 
   const doSync = useCallback(
     async (opts: { skipThrottle: boolean }) => {
-      if (!user || inFlight.current) return;
+      const uid = user?.uid;
+      if (!uid) return;
       if (!opts.skipThrottle) {
         const lastChecked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
         if (!shouldRun(lastChecked, BODY_SYNC_MIN_MS)) return;
       }
 
-      inFlight.current = true;
       setIsBodySyncing(true);
       try {
-        await runAppleHealthBodyIngest();
+        await runAppleHealthBodySyncSerialized(runAppleHealthBodyIngest);
       } finally {
-        inFlight.current = false;
         setIsBodySyncing(false);
       }
     },
-    [user, runAppleHealthBodyIngest],
+    [user?.uid, runAppleHealthBodyIngest],
   );
 
   const syncAppleHealthBodyNow = useCallback(async () => {

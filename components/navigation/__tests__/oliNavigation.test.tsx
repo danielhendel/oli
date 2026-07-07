@@ -67,9 +67,10 @@ import renderer from "react-test-renderer";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { OliBottomNav } from "@/components/navigation/OliBottomNav";
-import { ManageFab } from "@/components/navigation/ManageFab";
+import { ProfileShortcutFab } from "@/components/navigation/ProfileShortcutFab";
+import { FloatingNavigationChrome } from "@/components/navigation/FloatingNavigationChrome";
 import { ManageMenu } from "@/components/navigation/ManageMenu";
-import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
+import { MANAGE_HUB_ITEMS, getManageHubItemHref } from "@/components/navigation/manageHubItems";
 
 const TEST_ANCHOR = { x: 300, y: 680, width: 52, height: 52 };
 
@@ -185,12 +186,12 @@ describe("Oli bottom navigation", () => {
     expect(json).not.toContain("rgba(18,22,27,0.96)");
   });
 
-  it("renders the Manage FAB on the same dock surface token as the pill (one unified dock)", () => {
+  it("renders the Profile shortcut FAB on the same dock surface token as the pill (one unified dock)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<ManageFab onPress={jest.fn()} />);
+      test = renderer.create(<ProfileShortcutFab onPress={jest.fn()} />);
     });
-    const fab = test.root.findByProps({ testID: "oli-manage-fab" });
+    const fab = test.root.findByProps({ testID: "oli-profile-fab" });
     const styleProp = fab.props.style as unknown;
     const resolved =
       typeof styleProp === "function"
@@ -202,8 +203,6 @@ describe("Oli bottom navigation", () => {
           ...resolved.filter((s): s is Record<string, unknown> => typeof s === "object" && s != null),
         )
       : (resolved as Record<string, unknown>);
-    // Same dock token as the pill — no longer the opaque card/elevated surface (#181D23)
-    // that read as a separate darker circle.
     expect(flat.backgroundColor).toBe("rgba(48,56,66,0.88)");
     expect(flat.backgroundColor).not.toBe("#181D23");
   });
@@ -239,13 +238,25 @@ describe("Oli bottom navigation", () => {
     }
   });
 
-  it("renders Manage FAB with expected accessibility label", () => {
+  it("renders Profile shortcut FAB with expected accessibility label, hint, and role", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<ManageFab onPress={jest.fn()} />);
+      test = renderer.create(<ProfileShortcutFab onPress={jest.fn()} />);
     });
-    const fab = test.root.findByProps({ testID: "oli-manage-fab" });
-    expect(fab.props.accessibilityLabel).toBe("Open Manage menu");
+    const fab = test.root.findByProps({ testID: "oli-profile-fab" });
+    expect(fab.props.accessibilityRole).toBe("button");
+    expect(fab.props.accessibilityLabel).toBe("Open profile");
+    expect(fab.props.accessibilityHint).toBe("Opens your health profile");
+  });
+
+  it("renders profile icon on the shortcut FAB (not manage grid icon)", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<ProfileShortcutFab onPress={jest.fn()} />);
+    });
+    const icon = test.root.findByProps({ testID: "oli-profile-fab-icon" });
+    expect(icon.props.name).toBe("person-circle-outline");
+    expect(icon.props.name).not.toBe("apps");
   });
 
   it("renders anchored manage menu with all module rows when visible (not full-screen sheet)", () => {
@@ -297,7 +308,7 @@ describe("Oli bottom navigation", () => {
     act(() => {
       profileRow.props.onPress();
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/profile");
+    expect(mockPush).toHaveBeenCalledWith(getManageHubItemHref("profile"));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -389,32 +400,44 @@ describe("Oli bottom navigation", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("opens the manage menu modal when visible with anchor (FAB-driven flow)", () => {
-    function Harness() {
-      const [open, setOpen] = React.useState(false);
-      return (
-        <>
-          <ManageFab onPress={() => setOpen(true)} />
-          <ManageMenu
-            visible={open}
-            anchor={open ? TEST_ANCHOR : null}
-            onClose={() => setOpen(false)}
-          />
-        </>
-      );
-    }
+  it("navigates to Profile when the floating shortcut FAB is pressed", () => {
+    const props = buildTabBarProps(0);
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<Harness />);
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={props}
+          manageVisible={false}
+          menuAnchor={null}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    const fab = test.root.findByProps({ testID: "oli-profile-fab" });
+    act(() => {
+      fab.props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith(getManageHubItemHref("profile"));
+  });
+
+  it("does not open the Manage menu when the Profile shortcut FAB is pressed", () => {
+    const props = buildTabBarProps(0);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={props}
+          manageVisible={false}
+          menuAnchor={null}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    act(() => {
+      test.root.findByProps({ testID: "oli-profile-fab" }).props.onPress();
     });
     expect(
       test.root.findAll((n) => (n as { type?: unknown }).type === "Modal").length,
     ).toBe(0);
-    act(() => {
-      test.root.findByProps({ testID: "oli-manage-fab" }).props.onPress();
-    });
-    const modal = test.root.findByType("Modal" as unknown as React.ElementType);
-    expect(modal.props.visible).toBe(true);
-    test.root.findByProps({ testID: "oli-manage-menu" });
   });
 });

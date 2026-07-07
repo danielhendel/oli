@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
@@ -12,7 +12,8 @@ import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
 import { BodyTodayCard } from "@/lib/ui/body/BodyTodayCard";
-import { BodyWeeklyWeightCard } from "@/lib/ui/body/BodyWeeklyWeightCard";
+import { PhysiqueEstimateGraphCard } from "@/lib/ui/body/PhysiqueEstimateGraphCard";
+import { WeightHeroGraphCard } from "@/lib/ui/body/WeightHeroGraphCard";
 import { BodyWeightBaselineDeltaCard } from "@/lib/ui/body/BodyWeightBaselineDeltaCard";
 import { BodyYearlyWeightCard } from "@/lib/ui/body/BodyYearlyWeightCard";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
@@ -95,8 +96,14 @@ export default function BodyOverviewScreen() {
     />
   ) : undefined;
 
-  const seriesLoading = body.series.status === "partial";
-  const overviewLoading = seriesLoading || body.peek.status === "partial";
+  useFocusEffect(
+    useCallback(() => {
+      body.refreshOverview();
+    }, [body.refreshOverview]),
+  );
+
+  const seriesLoading = body.series.status === "partial" && body.weightSamples.length === 0;
+  const overviewLoading = body.peek.status === "partial" && !body.overview.hasAnyMetric;
   const overviewError =
     body.series.status === "error"
       ? {
@@ -113,6 +120,7 @@ export default function BodyOverviewScreen() {
     unit,
     samples: body.weightSamples ?? [],
     overview: body.overview,
+    peekRows: body.peek.status === "ready" ? body.peek.items : [],
   });
 
   if (body.series.status === "error") {
@@ -184,9 +192,11 @@ export default function BodyOverviewScreen() {
         {...(headerContent != null ? { headerContent } : {})}
       >
         <View style={styles.pageBody}>
-          {access.phase === "syncing" ? (
+          {access.phase === "syncing" || body.isSeriesBackgroundRefreshing ? (
             <View style={styles.syncBanner}>
-              <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
+              <Text style={styles.syncBannerText}>
+                {access.phase === "syncing" ? "Syncing Apple Health…" : "Refreshing body data…"}
+              </Text>
             </View>
           ) : null}
 
@@ -199,15 +209,17 @@ export default function BodyOverviewScreen() {
             onPressRow={(href) => router.push(href as never)}
           />
 
-          <BodyWeeklyWeightCard
+          <WeightHeroGraphCard
             loading={seriesLoading}
-            unit={unit}
-            model={trend.weekly.model}
-            weekRangeLabel={trend.weekly.weekRangeLabel}
-            canGoPrevious={trend.weekly.canGoPrevious}
-            canGoNext={trend.weekly.canGoNext}
-            onPressPrevious={trend.weekly.onPressPrevious}
-            onPressNext={trend.weekly.onPressNext}
+            error={overviewError}
+            model={trend.weightHero.model}
+            selectedRange={trend.weightHero.selectedRange}
+            onSelectRange={trend.weightHero.onSelectRange}
+          />
+
+          <PhysiqueEstimateGraphCard
+            loading={overviewLoading}
+            model={trend.physiqueEstimateModel}
           />
 
           <BodyWeightBaselineDeltaCard loading={seriesLoading} model={trend.baselineModel} />

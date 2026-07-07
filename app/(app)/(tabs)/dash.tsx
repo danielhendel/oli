@@ -49,7 +49,8 @@ export default function DashScreen() {
       refetch({ cacheBust: "dashEnergyFocus" });
       todayCommand.refetch({ cacheBust: "dashTodayCommandFocus" });
       readinessCard.refetch({ cacheBust: "dashReadinessFocus" });
-    }, [refetch, todayCommand.refetch, readinessCard.refetch]),
+      bodyComposition.refresh();
+    }, [refetch, todayCommand.refetch, readinessCard.refetch, bodyComposition.refresh]),
   );
 
   return (

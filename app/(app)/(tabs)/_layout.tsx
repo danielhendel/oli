@@ -43,13 +43,12 @@ export const OLI_TAB_SCREEN_OPTIONS = {
 } as const;
 
 function OliTabBar(props: BottomTabBarProps) {
-  const { manageVisible, menuAnchor, openManage, closeManage } = useManageNavigation();
+  const { manageVisible, menuAnchor, closeManage } = useManageNavigation();
   return (
     <FloatingNavigationChrome
       tabBarProps={props}
       manageVisible={manageVisible}
       menuAnchor={menuAnchor}
-      openManage={openManage}
       closeManage={closeManage}
     />
   );

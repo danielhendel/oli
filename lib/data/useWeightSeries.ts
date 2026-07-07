@@ -1,7 +1,7 @@
 // lib/data/useWeightSeries.ts
 // Read-only weight series from raw events. Deterministic VM; no client writes.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getRawEvents, getRawEvent } from "@/lib/api/usersMe";
 import type { FailureKind, GetOptions } from "@/lib/api/http";
@@ -440,5 +440,5 @@ export function useWeightSeries(range: WeightRangeKey): State & { refetch: (opts
     void loadOnce();
   }, [loadOnce, range, user?.uid]);
 
-  return { ...state, refetch: loadOnce };
+  return useMemo(() => ({ ...state, refetch: loadOnce }), [state, loadOnce]);
 }

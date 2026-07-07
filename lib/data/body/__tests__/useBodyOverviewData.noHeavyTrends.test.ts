@@ -14,9 +14,9 @@ describe("useBodyOverviewData", () => {
     const p = join(__dirname, "../useBodyOverviewData.ts");
     const src = readFileSync(p, "utf8");
     expect(src).toContain("useAppleHealthBodySync(");
-    expect(src).toContain("void series.refetch({ cacheBust:");
-    expect(src).toContain("void peek.refetch({ cacheBust:");
-    expect(src).toContain("void snapshotDayPeek.refetch({ cacheBust:");
-    expect(src).toContain("void dayFacts.refetch({ cacheBust:");
+    expect(src).toContain("seriesRef.current.refetch({ cacheBust:");
+    expect(src).toContain("peekRef.current.refetch({ cacheBust:");
+    expect(src).toContain("snapshotDayPeekRef.current.refetch({ cacheBust:");
+    expect(src).toContain("dayFactsRef.current.refetch({ cacheBust:");
   });
 });

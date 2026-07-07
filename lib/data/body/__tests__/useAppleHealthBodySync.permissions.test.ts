@@ -27,10 +27,13 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   setLastSyncAt: jest.fn(async () => undefined),
 }));
 
+const mockStableAuthUser = { uid: "test-user" };
+const mockStableGetIdToken = jest.fn(async () => "token");
+
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
-    user: { uid: "test-user" },
-    getIdToken: jest.fn(async () => "token"),
+    user: mockStableAuthUser,
+    getIdToken: mockStableGetIdToken,
   }),
 }));
 
@@ -38,8 +41,8 @@ import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthS
 import { requestPermissions, runAppleHealthBodySync } from "@/lib/integrations/appleHealth";
 import { useAppleHealthBodySync } from "../useAppleHealthBodySync";
 
-function Host() {
-  useAppleHealthBodySync();
+function Host({ onSynced }: { onSynced?: () => void }) {
+  useAppleHealthBodySync(onSynced);
   return null;
 }
 
@@ -98,5 +101,28 @@ describe("useAppleHealthBodySync", () => {
         bypassCooldown: true,
       }),
     );
+  });
+
+  it("does not re-run mount sync when onSynced callback identity changes", async () => {
+    const onSyncedA = jest.fn();
+    const onSyncedB = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(React.createElement(Host, { onSynced: onSyncedA }));
+    });
+    await act(async () => {
+      await new Promise<void>((r) => setImmediate(r));
+    });
+    const callsAfterMount = sync.mock.calls.length;
+
+    await act(async () => {
+      tree.update(React.createElement(Host, { onSynced: onSyncedB }));
+    });
+    await act(async () => {
+      await new Promise<void>((r) => setImmediate(r));
+    });
+
+    expect(sync.mock.calls.length).toBe(callsAfterMount);
   });
 });
