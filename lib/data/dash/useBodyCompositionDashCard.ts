@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
@@ -33,11 +33,14 @@ export type UseBodyCompositionDashCardResult = {
   goalsHref: string;
   /** Present after auth settles; may be `partial` while upstream series hydrates (prefer `loading`). */
   built: BuiltBodyCompositionDashCard | null;
+  /** Refetch peek/facts and trigger Apple Health body sync (e.g. on Dash focus). */
+  refresh: () => void;
 };
 
 function resolveSeriesStatus(body: ReturnType<typeof useBodyOverviewData>): BodyCompositionDashSeriesStatus {
   if (body.series.status === "error") return "error";
   if (body.series.status === "ready") return "ready";
+  if (body.peek.status === "ready" && body.overview.hasAnyMetric) return "ready";
   return "partial";
 }
 
@@ -77,10 +80,17 @@ export function useBodyCompositionDashCard(): UseBodyCompositionDashCardResult {
   const seriesStatus = resolveSeriesStatus(body);
   const seriesError = body.series.status === "error" ? body.series.error : null;
 
+  const peekHydrated = body.peek.status === "ready" && body.overview.hasAnyMetric;
+
   const loading =
     Boolean(user) &&
     !initializing &&
+    !peekHydrated &&
     (seriesStatus === "partial" || body.peek.status === "partial");
+
+  const refresh = useCallback(() => {
+    body.refreshOverview();
+  }, [body.refreshOverview]);
 
   const peekError = body.peek.status === "error" ? body.peek.error : null;
 
@@ -133,6 +143,7 @@ export function useBodyCompositionDashCard(): UseBodyCompositionDashCardResult {
     hasUser: Boolean(user),
     goalsHref: BODY_COMPOSITION_DASH_ROUTES.goalsEditor,
     built,
+    refresh,
   };
 }
 

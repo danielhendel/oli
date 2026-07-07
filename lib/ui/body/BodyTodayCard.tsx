@@ -125,6 +125,11 @@ export function BodyTodayCard({
               </Pressable>
             ))}
           </View>
+          {model!.supportingRows.some((r) => r.hasValue && r.key !== "bmi") ? (
+            <Text style={styles.estimateDisclaimer} testID="body-today-estimate-disclaimer">
+              Body composition values are estimates unless measured by DEXA.
+            </Text>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -225,5 +230,12 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: UI_TEXT_SECONDARY,
     letterSpacing: -0.1,
+  },
+  estimateDisclaimer: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: -0.05,
+    marginTop: 4,
   },
 });

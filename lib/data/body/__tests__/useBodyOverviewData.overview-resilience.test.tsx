@@ -31,6 +31,12 @@ jest.mock("../useBodyOverviewSnapshotDayPeek", () => ({
 jest.mock("../useAppleHealthBodySync", () => ({
   useAppleHealthBodySync: jest.fn(),
 }));
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { uid: "test-user" } }),
+}));
+jest.mock("@/lib/data/dailyFactsSessionCache", () => ({
+  scheduleDailyFactsInvalidationAfterIngest: jest.fn(),
+}));
 
 const mockUseWeightSeries = useWeightSeries as jest.MockedFunction<typeof useWeightSeries>;
 const mockUseDailyFacts = useDailyFacts as jest.MockedFunction<typeof useDailyFacts>;
@@ -170,5 +176,108 @@ describe("useBodyOverviewData overview resilience", () => {
 
     expect(last.overview.bmi).toBe(21);
     expect(last.overview.hasAnyMetric).toBe(true);
+  });
+
+  it("hydrates overview from peek while the 5Y weight series is still partial", () => {
+    const day = "2026-03-31";
+    mockUseWeightSeries.mockReturnValue({
+      status: "partial",
+      refetch: jest.fn(),
+    } as ReturnType<typeof useWeightSeries>);
+
+    mockUseBodyOverviewPeek.mockReturnValue({
+      status: "ready",
+      items: [
+        {
+          id: "w1",
+          observedAt: `${day}T10:00:00.000Z`,
+          sourceId: "apple_health",
+          kind: "weight",
+          payload: { weightKg: 82 },
+        },
+        {
+          id: "c1",
+          observedAt: `${day}T12:00:00.000Z`,
+          sourceId: "apple_health",
+          kind: "body_composition",
+          payload: { bmi: 22 },
+        },
+      ],
+      refetch: jest.fn(),
+    });
+
+    mockUseDailyFacts.mockReturnValue({
+      status: "missing",
+      refetch: jest.fn(),
+    });
+
+    let last!: ReturnType<typeof useBodyOverviewData>;
+    act(() => {
+      renderer.create(<Harness onResult={(v) => (last = v)} />);
+    });
+
+    expect(last.series.status).toBe("partial");
+    expect(last.overview.overviewDay).toBe(day);
+    expect(last.overview.weightKg).toBe(82);
+    expect(last.overview.bmi).toBe(22);
+    expect(last.weightSamples.length).toBeGreaterThan(0);
+    expect(last.byDay.size).toBeGreaterThan(0);
+  });
+
+  it("keeps refreshOverview callback identity stable across re-renders when upstream data is unchanged", () => {
+    const day = "2026-03-31";
+    const pt = buildSeriesPoint(day);
+    const seriesReturn = {
+      status: "ready" as const,
+      data: {
+        points: [pt],
+        latest: pt,
+        avg7Kg: null,
+        weeklyDeltaKg: null,
+        rolling7: [],
+        insights: {
+          change30dKg: null,
+          weeklyRateKg: null,
+          consistency: "low" as const,
+          volatilityKg: null,
+          streakDays: 0,
+          trendNote: "",
+        },
+      },
+      refetch: jest.fn(),
+    };
+    mockUseWeightSeries.mockReturnValue(seriesReturn as ReturnType<typeof useWeightSeries>);
+
+    mockUseBodyOverviewPeek.mockReturnValue({
+      status: "ready",
+      items: [
+        {
+          id: "w1",
+          observedAt: `${day}T10:00:00.000Z`,
+          sourceId: "apple_health",
+          kind: "weight",
+          payload: { weightKg: 80 },
+        },
+      ],
+      refetch: jest.fn(),
+    });
+
+    mockUseDailyFacts.mockReturnValue({
+      status: "missing",
+      refetch: jest.fn(),
+    });
+
+    let last!: ReturnType<typeof useBodyOverviewData>;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<Harness onResult={(v) => (last = v)} />);
+    });
+    const firstRefresh = last.refreshOverview;
+
+    act(() => {
+      tree.update(<Harness onResult={(v) => (last = v)} />);
+    });
+
+    expect(last.refreshOverview).toBe(firstRefresh);
   });
 });
