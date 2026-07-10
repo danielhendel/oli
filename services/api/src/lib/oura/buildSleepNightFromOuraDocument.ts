@@ -13,6 +13,7 @@ import {
   resolveOuraSleepIngestBase,
   type OuraSleepWindowDocument,
 } from "./resolveOuraSleepIngestBase";
+import { normalizeProviderDay, resolveSleepNightWakeDay } from "./resolveSleepNightWakeDay";
 
 export type SleepNightBuildContext = {
   /** Oura sleep document id (matches `users/{uid}/ouraVendorSleep/{id}` when present). */
@@ -65,7 +66,12 @@ export function buildSleepNightFromOuraSleepDocument(
   if (!resolved) return null;
 
   const { start, end, rollupDay: anchorDay } = resolved;
-  const wakeDay = localCalendarDayKeyFromIsoInTimeZone(end, "UTC") ?? toYmd(end);
+  const utcEndDay = localCalendarDayKeyFromIsoInTimeZone(end, "UTC") ?? toYmd(end);
+  const wakeDay = resolveSleepNightWakeDay({
+    utcEndDay,
+    providerDay: normalizeProviderDay(doc.day),
+  });
+  if (wakeDay == null) return null;
 
   const totalSec = typeof doc.total_sleep_duration === "number" ? doc.total_sleep_duration : null;
   const totalSleepMinutes = totalSec != null && totalSec >= 0 ? Math.round(totalSec / 60) : undefined;

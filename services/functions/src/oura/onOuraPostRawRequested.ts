@@ -14,6 +14,7 @@ type OuraPostRawMessage = {
   requestId?: string;
   sleepDocs?: unknown[];
   readinessDocs?: unknown[];
+  dailySleepDocs?: unknown[];
 };
 
 function assertUid(uid: unknown): uid is string {
@@ -34,7 +35,13 @@ export const onOuraPostRawRequested = onMessagePublished(
       return;
     }
 
-    const { uid, requestId = event.id ?? "unknown", sleepDocs = [], readinessDocs = [] } = payload as OuraPostRawMessage;
+    const {
+      uid,
+      requestId = event.id ?? "unknown",
+      sleepDocs = [],
+      readinessDocs = [],
+      dailySleepDocs = [],
+    } = payload as OuraPostRawMessage;
 
     if (!assertUid(uid)) {
       logger.error("oura.post_raw: invalid uid", { uid });
@@ -43,9 +50,16 @@ export const onOuraPostRawRequested = onMessagePublished(
 
     const sleep = Array.isArray(sleepDocs) ? sleepDocs : [];
     const readiness = Array.isArray(readinessDocs) ? readinessDocs : [];
+    const dailySleep = Array.isArray(dailySleepDocs) ? dailySleepDocs : [];
 
     try {
-      await runOuraPostRaw(uid, requestId, sleep as SleepDoc[], readiness as ReadinessDoc[]);
+      await runOuraPostRaw(
+        uid,
+        requestId,
+        sleep as SleepDoc[],
+        readiness as ReadinessDoc[],
+        dailySleep as import("../../../api/src/lib/ouraApi").OuraDailySleepDocument[],
+      );
     } catch (err) {
       logger.error("oura.post_raw: failed", { uid, requestId, err });
       throw err;

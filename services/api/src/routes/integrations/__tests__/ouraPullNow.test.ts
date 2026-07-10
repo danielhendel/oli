@@ -60,6 +60,7 @@ jest.mock("../../../lib/ouraApi", () => ({
   ),
   resolveOuraSleepIngestBase: jest.fn(() => null),
   fetchOuraDailyReadiness: jest.fn(),
+  fetchOuraDailySleep: jest.fn().mockResolvedValue([]),
   fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
   fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),
   fetchOuraWorkouts: jest.fn().mockResolvedValue([]),
@@ -336,6 +337,7 @@ describe("POST /integrations/oura/pull-now", () => {
       expect.any(Array),
       "req-oura-pull",
       expect.any(Array),
+      expect.any(Array),
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
@@ -405,10 +407,14 @@ describe("POST /integrations/oura/pull-now", () => {
       "req-oura-pull",
       expect.any(Array),
       expect.any(Array),
+      expect.any(Array),
     );
-    const [, , sleepDocs, readinessDocs] = (ouraPostRawJob.publishOuraPostRawJob as jest.Mock).mock.calls[0];
+    const [, , sleepDocs, readinessDocs, dailySleepDocs] = (
+      ouraPostRawJob.publishOuraPostRawJob as jest.Mock
+    ).mock.calls[0];
     expect(sleepDocs).toHaveLength(1);
     expect(readinessDocs).toHaveLength(1);
+    expect(dailySleepDocs).toEqual([]);
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalled();
@@ -510,6 +516,7 @@ describe("performOuraPostRawPersistence", () => {
       sleepDocs,
       "req-post-raw",
       readinessDocs,
+      [],
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "uid-post-raw",

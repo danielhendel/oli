@@ -7,6 +7,7 @@
 import {
   resolveOuraSleepIngestBase,
   type OuraDailyReadinessDocument,
+  type OuraDailySleepDocument,
   type OuraSleepDocument,
 } from "./ouraApi";
 import {
@@ -16,6 +17,10 @@ import {
   pickAverageHrvMsFromReadinessRecord,
   pickLowestHeartRateBpmFromReadinessRecord,
 } from "./oura/readinessForSleepNightMerge";
+import {
+  dailySleepDayFromDoc,
+  scoreFromOuraDailySleepDoc,
+} from "./oura/dailySleepScoreForSleepNight";
 import {
   logOuraSleepPhysiologyDebugForDoc,
   pickOuraSleepAverageHrvMs,
@@ -212,6 +217,38 @@ function buildSleepContributors(doc: OuraSleepDocument): Record<string, number> 
   return out;
 }
 
+function extractDailySleepSnapshot(
+  doc: OuraDailySleepDocument,
+  fetchedAt: string,
+): OuraSleepSnapshot | null {
+  const day = dailySleepDayFromDoc(doc);
+  if (!day) return null;
+  const id =
+    typeof doc.id === "string" && doc.id.trim().length > 0
+      ? doc.id.trim()
+      : `oura_daily_sleep_${day}`;
+  const score = scoreFromOuraDailySleepDoc(doc);
+  const contributors =
+    doc.contributors && typeof doc.contributors === "object"
+      ? (doc.contributors as Record<string, unknown>)
+      : undefined;
+  const out: Record<string, unknown> = {
+    id: String(id),
+    day,
+    source: SOURCE,
+    fetchedAt,
+    updatedAt: fetchedAt,
+    /** Marks this vendor row as the calendar-day Daily Sleep summary (score source). */
+    kind: "daily_sleep",
+  };
+  if (score != null) out.score = score;
+  if (contributors && Object.keys(contributors).length > 0) {
+    out.contributors = stripUndefined(contributors);
+  }
+  out.payload = stripUndefined(doc as Record<string, unknown>);
+  return out as OuraSleepSnapshot;
+}
+
 function extractSleepSnapshot(
   doc: OuraSleepDocument,
   fetchedAt: string,
@@ -305,12 +342,14 @@ export async function writeOuraVendorSleepSnapshots(
   docs: OuraSleepDocument[],
   requestId: string,
   readinessDocs?: OuraDailyReadinessDocument[],
+  dailySleepDocs?: OuraDailySleepDocument[],
 ): Promise<OuraSnapshotWriteResult> {
   logger.info({
     msg: "oura_sleep_snapshot_docs_received",
     uid,
     requestId,
     sleepDocCount: docs.length,
+    dailySleepDocCount: dailySleepDocs?.length ?? 0,
   });
 
   const col = userCollection(uid, "ouraVendorSleep");
@@ -334,7 +373,17 @@ export async function writeOuraVendorSleepSnapshots(
     pairs.push({ doc, snapshot });
   }
 
-  const snapshots = pairs.map((p) => p.snapshot);
+  const dailySnapshots: OuraSleepSnapshot[] = [];
+  for (const d of dailySleepDocs ?? []) {
+    const snap = extractDailySleepSnapshot(d, fetchedAt);
+    if (!snap) {
+      skippedMissingDay += 1;
+      continue;
+    }
+    dailySnapshots.push(snap);
+  }
+
+  const snapshots = [...pairs.map((p) => p.snapshot), ...dailySnapshots];
 
   if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
     logger.info({
@@ -372,6 +421,7 @@ export async function writeOuraVendorSleepSnapshots(
         readinessDocs,
         persistedReadinessByDay,
         { uid, requestedDay: snapshot.day },
+        dailySleepDocs,
       );
       const merge = merged?.payload;
       logger.info({
@@ -451,6 +501,7 @@ export async function writeOuraVendorSleepSnapshots(
         readinessDocs,
         persistedReadinessByDay,
         { uid, requestedDay: snapshot.day },
+        dailySleepDocs,
       );
       if (!merged) continue;
       batch.set(
@@ -482,6 +533,7 @@ export async function writeOuraVendorSleepSnapshots(
           readinessDocs,
           persistedReadinessByDay,
           { uid, requestedDay: snapshot.day },
+          dailySleepDocs,
         );
         if (!merged) continue;
         try {

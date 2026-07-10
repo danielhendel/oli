@@ -53,6 +53,54 @@ describe("buildSleepNightFromOuraSleepDocument", () => {
     expect(r?.merge.wakeDay).toBe("2026-04-19");
   });
 
+  it("prefers Oura day as wakeDay when it is after UTC(endedAt) (east-of-UTC morning skew)", () => {
+    // Wake 06:30 Asia/Tokyo on 2026-07-10 == 2026-07-09T21:30:00.000Z
+    const r = buildSleepNightFromOuraSleepDocument(
+      {
+        id: "asia1",
+        day: "2026-07-10",
+        bed_time: "2026-07-09T15:00:00.000Z",
+        wake_time: "2026-07-09T21:30:00.000Z",
+        total_sleep_duration: 23400,
+        type: "long_sleep",
+      } as OuraSleepDocument,
+      { sourceDocumentId: "asia1" },
+    );
+    expect(r).not.toBeNull();
+    expect(r?.anchorDay).toBe("2026-07-10");
+    expect(r?.merge.wakeDay).toBe("2026-07-10");
+  });
+
+  it("keeps UTC end as wakeDay when Oura day is earlier (bed-day rollup)", () => {
+    const r = buildSleepNightFromOuraSleepDocument(
+      {
+        id: "bed1",
+        day: "2026-07-09",
+        bed_time: "2026-07-09T02:00:00.000Z",
+        wake_time: "2026-07-10T10:30:00.000Z",
+        total_sleep_duration: 28800,
+        type: "long_sleep",
+      } as OuraSleepDocument,
+      { sourceDocumentId: "bed1" },
+    );
+    expect(r).not.toBeNull();
+    expect(r?.anchorDay).toBe("2026-07-09");
+    expect(r?.merge.wakeDay).toBe("2026-07-10");
+  });
+
+  it("returns null for nap when bed/wake unresolved; long_sleep only builds nights", () => {
+    const nap = buildSleepNightFromOuraSleepDocument(
+      {
+        id: "nap1",
+        day: "2026-07-10",
+        type: "nap",
+        total_sleep_duration: 2400,
+      } as OuraSleepDocument,
+      { sourceDocumentId: "nap1" },
+    );
+    expect(nap).toBeNull();
+  });
+
   it("maps score string to number in merge payload", () => {
     const r = buildSleepNightFromOuraSleepDocument(
       { ...baseDoc, score: "88" } as OuraSleepDocument,

@@ -3,10 +3,12 @@
  */
 
 import { buildSleepNightFromOuraSleepDocument } from "./buildSleepNightFromOuraDocument";
+import { mergeDailySleepScoreIntoSleepNightPayload } from "./dailySleepScoreForSleepNight";
 import {
   pickOuraReadinessAverageHrvMs,
   pickOuraReadinessLowestHeartRateBpm,
   type OuraDailyReadinessDocument,
+  type OuraDailySleepDocument,
 } from "../ouraApi";
 import { logger } from "../logger";
 import type { OuraSleepWindowDocument } from "./resolveOuraSleepIngestBase";
@@ -313,6 +315,7 @@ export function buildSleepNightFirestorePayloadWithOuraReadiness(
   readinessDocs: OuraDailyReadinessDocument[] | undefined,
   persistedReadinessByDay?: Map<string, Record<string, unknown>>,
   physiologyDebug?: BuildSleepNightPhysiologyDebugContext,
+  dailySleepDocs?: OuraDailySleepDocument[],
 ): { anchorDay: string; payload: Record<string, unknown> } | null {
   const built = buildSleepNightFromOuraSleepDocument(doc, { sourceDocumentId });
   if (!built) return null;
@@ -328,6 +331,7 @@ export function buildSleepNightFirestorePayloadWithOuraReadiness(
     apiRd as Record<string, unknown> | null,
     persistedRd,
   ]);
+  mergeDailySleepScoreIntoSleepNightPayload(merge, dailySleepDocs);
 
   const matchedRecord = apiRd ?? persistedRd;
   const readinessDay =
@@ -345,11 +349,11 @@ export function buildSleepNightFirestorePayloadWithOuraReadiness(
     averageHrvCandidate: pickAverageHrvMsFromReadinessRecord(
       (matchedRecord ?? {}) as Record<string, unknown>,
     ),
-    mergedPayloadKeys: ["lowestHeartRateBpm", "averageHrvMs"].filter((k) => merge[k] != null),
+    mergedPayloadKeys: ["lowestHeartRateBpm", "averageHrvMs", "score"].filter((k) => merge[k] != null),
     source: apiRd ? "api" : persistedRd ? "persisted" : "none",
   });
 
-  const writePayloadKeys = ["lowestHeartRateBpm", "averageHrvMs"].filter((k) => merge[k] != null);
+  const writePayloadKeys = ["lowestHeartRateBpm", "averageHrvMs", "score"].filter((k) => merge[k] != null);
   logSleepNightPhysiologyDebugIfEnabled({
     ...(physiologyDebug?.uid != null ? { uid: physiologyDebug.uid } : {}),
     requestedDay: physiologyDebug?.requestedDay ?? built.anchorDay,

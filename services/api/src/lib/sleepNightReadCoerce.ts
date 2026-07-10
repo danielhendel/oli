@@ -1,5 +1,7 @@
 import { localCalendarDayKeyFromIsoInTimeZone } from "@oli/contracts";
 
+import { isValidDayKey, repairWakeDayFromAnchorSkew } from "./oura/resolveSleepNightWakeDay";
+
 /** YYYY-MM-DD from ISO start (UTC slice). */
 function toYmdUtc(iso: string): string {
   return iso.slice(0, 10);
@@ -7,15 +9,18 @@ function toYmdUtc(iso: string): string {
 
 /**
  * Repair legacy / partial `sleepNights` payloads before Zod parse so GET /sleep-night can resolve.
- * - Ensures `anchorDay` matches doc id when absent or invalid.
- * - Derives `wakeDay` from `endedAt` when missing (same semantics as `buildSleepNightFromOuraSleepDocument`).
- * - Upgrades `isComplete` when duration + end + wake are present (score not required).
+ *
+ * Pure / deterministic / idempotent: copies `flat`, never mutates the caller's object.
+ * Does not invent wake days from invalid anchors; does not move wake earlier than UTC(end).
+ * No schemaVersion/logicVersion fields exist on SleepNight today — eligibility is structural
+ * (valid day keys + endedAt). Remove this skew repair after a bounded reprocess backfills
+ * wakeDay on write for all active users.
  */
 export function coerceRawSleepNightForRead(flat: Record<string, unknown>, docId: string): Record<string, unknown> {
   const out: Record<string, unknown> = { ...flat };
 
   const anchorFromFlat = typeof out.anchorDay === "string" ? out.anchorDay.trim() : "";
-  out.anchorDay = /^\d{4}-\d{2}-\d{2}$/.test(anchorFromFlat) ? anchorFromFlat : docId;
+  out.anchorDay = isValidDayKey(anchorFromFlat) ? anchorFromFlat : docId;
 
   const main = out.mainSleepMinutes;
   const total = out.totalSleepMinutes;
@@ -37,19 +42,29 @@ export function coerceRawSleepNightForRead(flat: Record<string, unknown>, docId:
     }
   }
 
-  const endedOk = endedRaw.length > 0;
+  const endedOk = endedRaw.length > 0 && !Number.isNaN(Date.parse(endedRaw));
+  const utcEndDay = endedOk
+    ? localCalendarDayKeyFromIsoInTimeZone(endedRaw, "UTC") ?? toYmdUtc(endedRaw)
+    : null;
 
-  let wake = typeof out.wakeDay === "string" ? out.wakeDay.trim() : "";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(wake) && endedOk) {
-    wake = localCalendarDayKeyFromIsoInTimeZone(endedRaw, "UTC") ?? toYmdUtc(endedRaw);
-    out.wakeDay = wake;
+  const wakeRaw = typeof out.wakeDay === "string" ? out.wakeDay.trim() : null;
+  const wakeInitial = isValidDayKey(wakeRaw) ? wakeRaw : null;
+  const anchorFinal = typeof out.anchorDay === "string" ? out.anchorDay.trim() : null;
+
+  const repaired = repairWakeDayFromAnchorSkew({
+    wakeDay: wakeInitial ?? utcEndDay,
+    anchorDay: isValidDayKey(anchorFinal) ? anchorFinal : null,
+    utcEndDay,
+  });
+  if (repaired != null) {
+    out.wakeDay = repaired;
   }
 
   const hasDuration =
     (typeof main === "number" && Number.isFinite(main) && main > 0) ||
     (typeof total === "number" && Number.isFinite(total) && total > 0);
   const wakeFinal = typeof out.wakeDay === "string" ? out.wakeDay.trim() : "";
-  const wakeOk = /^\d{4}-\d{2}-\d{2}$/.test(wakeFinal);
+  const wakeOk = isValidDayKey(wakeFinal);
   const derivedComplete = Boolean(out.anchorDay && hasDuration && endedOk && wakeOk);
 
   if (typeof out.isComplete !== "boolean") {

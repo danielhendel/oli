@@ -15,6 +15,7 @@ import {
   pickLowestHeartRateBpmFromReadinessRecord,
   readinessDayFromReadinessRecord,
 } from "./oura/readinessForSleepNightMerge";
+import { coerceOuraSleepScore0to100 } from "./oura/buildSleepNightFromOuraDocument";
 import { coerceRawSleepNightForRead } from "./sleepNightReadCoerce";
 
 /** Minimal snapshot surface (avoids runtime firebase-admin resolution in Jest). */
@@ -233,6 +234,63 @@ export async function hydrateSleepNightPhysiologyMetrics(
   return { ...view, sleepNight: parsed.data };
 }
 
+function scoreFromVendorSleepRecord(raw: Record<string, unknown>): number | null {
+  // Only calendar-day Daily Sleep summaries carry the trusted provider Sleep Score.
+  if (raw.kind !== "daily_sleep") return null;
+  const direct = coerceOuraSleepScore0to100(raw.score);
+  if (direct != null) return direct;
+  const payload =
+    raw.payload && typeof raw.payload === "object" && !Array.isArray(raw.payload)
+      ? (raw.payload as Record<string, unknown>)
+      : null;
+  if (payload) return coerceOuraSleepScore0to100(payload.score);
+  return null;
+}
+
+/**
+ * When SleepNight predates Daily Sleep score merge, fill `score` from persisted
+ * `ouraVendorSleep` rows with `kind: "daily_sleep"` (wake day, then anchor).
+ */
+export async function hydrateSleepNightDailyScore(
+  uid: string,
+  view: SleepNightViewDto,
+): Promise<SleepNightViewDto> {
+  const night = view.sleepNight;
+  if (coerceOuraSleepScore0to100(night.score) != null) return view;
+
+  const col = userCollection(uid, "ouraVendorSleep");
+
+  const tryDay = async (day: string): Promise<number | null> => {
+    const directIds = [`oura_daily_sleep_${day}`, day];
+    for (const id of directIds) {
+      const snap = await col.doc(id).get();
+      if (!snap.exists) continue;
+      const score = scoreFromVendorSleepRecord(snap.data() as Record<string, unknown>);
+      if (score != null) return score;
+    }
+    const q = await col.where("day", "==", day).limit(20).get();
+    for (const doc of q.docs) {
+      const raw = doc.data() as Record<string, unknown>;
+      if (raw.kind !== "daily_sleep") continue;
+      const score = scoreFromVendorSleepRecord(raw);
+      if (score != null) return score;
+    }
+    return null;
+  };
+
+  let score: number | null = null;
+  for (const day of dedupeDayKeys([night.wakeDay, night.anchorDay])) {
+    score = await tryDay(day);
+    if (score != null) break;
+  }
+  if (score == null) return view;
+
+  const candidate = { ...night, score };
+  const parsed = sleepNightDocumentSchema.safeParse(candidate);
+  if (!parsed.success) return view;
+  return { ...view, sleepNight: parsed.data };
+}
+
 /**
  * Bounded resolution for `GET /users/me/sleep-night` (max lookback: anchors `day-1`, `day-2` only).
  * Complete nights only. Caller supplies reads for exact path + two prior anchors.
@@ -312,6 +370,7 @@ export async function loadSleepNightView(uid: string, requestedDay: string): Pro
   let view = resolveSleepNightViewFromBoundedReads(requestedDay, exact, minus1, minus2);
   if (view) {
     view = await hydrateSleepNightPhysiologyMetrics(uid, view);
+    view = await hydrateSleepNightDailyScore(uid, view);
   }
 
   if (process.env.SLEEP_NIGHT_READ_DEBUG === "1" || process.env.SLEEP_NIGHT_READ_DEBUG === "true") {
