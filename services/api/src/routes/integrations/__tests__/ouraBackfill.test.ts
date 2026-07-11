@@ -20,6 +20,7 @@ jest.mock("../../../lib/ouraApi", () => ({
   refreshOuraAccessToken: jest.fn(),
   fetchOuraSleep: jest.fn().mockResolvedValue([]),
   fetchOuraDailyReadiness: jest.fn().mockResolvedValue([]),
+  fetchOuraDailySleep: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../../../lib/ouraIngestWrite", () => ({

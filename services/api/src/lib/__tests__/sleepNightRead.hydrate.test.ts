@@ -3,7 +3,10 @@ jest.mock("../../db", () => ({
 }));
 
 import type { SleepNightViewDto } from "@oli/contracts/sleepNight";
-import { hydrateSleepNightPhysiologyMetrics } from "../sleepNightRead";
+import {
+  hydrateSleepNightDailyScore,
+  hydrateSleepNightPhysiologyMetrics,
+} from "../sleepNightRead";
 
 const userCollection = jest.requireMock("../../db").userCollection as jest.Mock;
 
@@ -174,5 +177,68 @@ describe("hydrateSleepNightPhysiologyMetrics", () => {
     const out = await hydrateSleepNightPhysiologyMetrics("u1", baseView());
     expect(out.sleepNight.lowestHeartRateBpm).toBe(50);
     expect(out.sleepNight.averageHrvMs).toBe(23);
+  });
+});
+
+describe("hydrateSleepNightDailyScore", () => {
+  beforeEach(() => {
+    userCollection.mockReset();
+  });
+
+  it("fills score from ouraVendorSleep daily_sleep snapshot when SleepNight lacks score", async () => {
+    const directGet = jest.fn().mockImplementation(async (id: string) => {
+      if (id === "oura_daily_sleep_2026-05-14") {
+        return {
+          exists: true,
+          data: () => ({ kind: "daily_sleep", day: "2026-05-14", score: 87 }),
+        };
+      }
+      return { exists: false };
+    });
+
+    userCollection.mockImplementation((_uid: string, name: string) => {
+      if (name === "ouraVendorSleep") {
+        return {
+          doc: jest.fn((id: string) => ({ get: () => directGet(id) })),
+          where: jest.fn(() => ({
+            limit: jest.fn(() => ({ get: async () => ({ docs: [] }) })),
+          })),
+        };
+      }
+      return {};
+    });
+
+    const out = await hydrateSleepNightDailyScore("u1", baseView());
+    expect(out.sleepNight.score).toBe(87);
+  });
+
+  it("preserves score 0 already on SleepNight", async () => {
+    const out = await hydrateSleepNightDailyScore("u1", baseView({ score: 0 }));
+    expect(out.sleepNight.score).toBe(0);
+    expect(userCollection).not.toHaveBeenCalled();
+  });
+
+  it("ignores period sleep snapshots without kind daily_sleep", async () => {
+    const directGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ day: "2026-05-14", score: 99 }),
+    });
+    userCollection.mockImplementation((_uid: string, name: string) => {
+      if (name === "ouraVendorSleep") {
+        return {
+          doc: jest.fn(() => ({ get: directGet })),
+          where: jest.fn(() => ({
+            limit: jest.fn(() => ({
+              get: async () => ({
+                docs: [{ data: () => ({ day: "2026-05-14", score: 99 }) }],
+              }),
+            })),
+          })),
+        };
+      }
+      return {};
+    });
+    const out = await hydrateSleepNightDailyScore("u1", baseView());
+    expect(out.sleepNight.score).toBeUndefined();
   });
 });

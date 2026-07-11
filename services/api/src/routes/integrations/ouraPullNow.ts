@@ -13,6 +13,7 @@ import * as ouraSecrets from "../../lib/ouraSecrets";
 import {
   fetchOuraSleep,
   fetchOuraDailyReadiness,
+  fetchOuraDailySleep,
   fetchOuraPersonalInfo,
   fetchOuraDailyActivity,
   fetchOuraWorkouts,
@@ -32,6 +33,7 @@ import {
   type OuraRawIngestItem,
   type OuraSleepDocument,
   type OuraDailyReadinessDocument,
+  type OuraDailySleepDocument,
   OuraApiError,
   ouraSleepWakeIsoForLog,
   resolveOuraSleepIngestBase,
@@ -388,6 +390,7 @@ export async function performOuraPullNowCore(
   const ouraRawItems: OuraRawIngestItem[] = [];
   let sleepDocs: Awaited<ReturnType<typeof fetchOuraSleep>> = [];
   let readinessDocs: Awaited<ReturnType<typeof fetchOuraDailyReadiness>> = [];
+  let dailySleepDocs: OuraDailySleepDocument[] = [];
 
   const safeFetch = async <T>(
     name: string,
@@ -407,6 +410,7 @@ export async function performOuraPullNowCore(
     const [
       sleepDocsFetched,
       readinessDocsFetched,
+      dailySleepDocsFetched,
       personalDoc,
       dailyActivityDocs,
       workoutDocs,
@@ -418,6 +422,8 @@ export async function performOuraPullNowCore(
       fetchOuraSleep(accessToken, sleepStartStr, sleepEndStr, { requestId, uid }),
       /** Same inclusive window as sleep so readiness/HRV rows near rolling boundaries are not dropped. */
       fetchOuraDailyReadiness(accessToken, sleepStartStr, sleepEndStr),
+      /** Calendar-day Sleep Score + contributors (distinct from period `/sleep` docs). */
+      fetchOuraDailySleep(accessToken, sleepStartStr, sleepEndStr),
       safeFetch("personal_info", () => fetchOuraPersonalInfo(accessToken)),
       safeFetch("daily_activity", () => fetchOuraDailyActivity(accessToken, startStr, endStr)),
       safeFetch("workout", () => fetchOuraWorkouts(accessToken, startStr, endStr)),
@@ -429,6 +435,7 @@ export async function performOuraPullNowCore(
 
     sleepDocs = sleepDocsFetched ?? [];
     readinessDocs = readinessDocsFetched ?? [];
+    dailySleepDocs = dailySleepDocsFetched ?? [];
 
     let latestWakeIso: string | null = null;
     let latestSleepId: string | null = null;
@@ -565,6 +572,21 @@ export async function performOuraPullNowCore(
         ouraRawItems.push(toOuraRawIngestItem("sleep", id, doc as Record<string, unknown>));
       }
     }
+    for (const doc of dailySleepDocs) {
+      const day =
+        typeof doc.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(doc.day.trim())
+          ? doc.day.trim()
+          : null;
+      const id =
+        typeof doc.id === "string" && doc.id.trim().length > 0
+          ? doc.id.trim()
+          : day != null
+            ? `oura_daily_sleep_${day}`
+            : null;
+      if (id) {
+        ouraRawItems.push(toOuraRawIngestItem("daily_sleep", id, doc as Record<string, unknown>));
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const code = err instanceof OuraApiError ? err.code : "OURA_FETCH_FAILED";
@@ -623,6 +645,7 @@ export async function performOuraPullNowCore(
 
   const sleepDocsToUse = sleepDocs ?? [];
   const readinessDocsToUse = readinessDocs ?? [];
+  const dailySleepDocsToUse = dailySleepDocs ?? [];
 
   if (getOuraPostRawTopic()) {
     try {
@@ -631,6 +654,7 @@ export async function performOuraPullNowCore(
         requestId,
         sleepDocsToUse,
         readinessDocsToUse,
+        dailySleepDocsToUse,
       );
       logger.info({
         msg: "oura_post_raw_job_enqueued",
@@ -639,9 +663,15 @@ export async function performOuraPullNowCore(
         messageId: messageId ?? undefined,
         sleepDocCount: sleepDocsToUse.length,
         readinessDocCount: readinessDocsToUse.length,
+        dailySleepDocCount: dailySleepDocsToUse.length,
       });
-      void performOuraPostRawPersistence(uid, requestId, sleepDocsToUse, readinessDocsToUse).catch(
-        (persistErr: unknown) => {
+      void performOuraPostRawPersistence(
+        uid,
+        requestId,
+        sleepDocsToUse,
+        readinessDocsToUse,
+        dailySleepDocsToUse,
+      ).catch((persistErr: unknown) => {
           logger.error({
             msg: "oura_post_raw_persistence_after_enqueue_error",
             uid,
@@ -657,8 +687,13 @@ export async function performOuraPullNowCore(
         requestId,
         err: err instanceof Error ? err.message : String(err),
       });
-      void performOuraPostRawPersistence(uid, requestId, sleepDocsToUse, readinessDocsToUse).catch(
-        (fallbackErr: unknown) => {
+      void performOuraPostRawPersistence(
+        uid,
+        requestId,
+        sleepDocsToUse,
+        readinessDocsToUse,
+        dailySleepDocsToUse,
+      ).catch((fallbackErr: unknown) => {
           logger.error({
             msg: "oura_post_raw_persistence_error",
             uid,
@@ -669,16 +704,20 @@ export async function performOuraPullNowCore(
       );
     }
   } else {
-    void performOuraPostRawPersistence(uid, requestId, sleepDocsToUse, readinessDocsToUse).catch(
-      (err: unknown) => {
-        logger.error({
-          msg: "oura_post_raw_persistence_error",
-          uid,
-          requestId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      },
-    );
+    void performOuraPostRawPersistence(
+      uid,
+      requestId,
+      sleepDocsToUse,
+      readinessDocsToUse,
+      dailySleepDocsToUse,
+    ).catch((err: unknown) => {
+      logger.error({
+        msg: "oura_post_raw_persistence_error",
+        uid,
+        requestId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   return {
@@ -704,6 +743,7 @@ export async function performOuraPostRawPersistence(
   requestId: string,
   sleepDocs: OuraSleepDocument[],
   readinessDocs: OuraDailyReadinessDocument[],
+  dailySleepDocs: OuraDailySleepDocument[] = [],
 ): Promise<void> {
   logger.info({
     msg: "oura_post_raw_persistence_started",
@@ -711,13 +751,14 @@ export async function performOuraPostRawPersistence(
     requestId,
     sleepDocCount: sleepDocs.length,
     readinessDocCount: readinessDocs.length,
+    dailySleepDocCount: dailySleepDocs.length,
   });
 
   let sleepResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
   let readinessResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
   try {
     const [sleepRes, readinessRes] = await Promise.all([
-      writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs),
+      writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs, dailySleepDocs),
       writeOuraVendorReadinessSnapshots(uid, readinessDocs, requestId),
     ]);
     sleepResult = sleepRes;
@@ -899,18 +940,20 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
     const endStr = dayMinus(today, offsetStart);
 
     try {
-      const [sleepDocsFetched, readinessDocsFetched] = await Promise.all([
+      const [sleepDocsFetched, readinessDocsFetched, dailySleepDocsFetched] = await Promise.all([
         fetchOuraSleep(accessToken, startStr, endStr, { requestId, uid }),
         fetchOuraDailyReadiness(accessToken, startStr, endStr),
+        fetchOuraDailySleep(accessToken, startStr, endStr),
       ]);
       const sleepDocs = sleepDocsFetched ?? [];
       const readinessDocs = readinessDocsFetched ?? [];
+      const dailySleepDocsChunk = dailySleepDocsFetched ?? [];
       const sleepItems = sleepDocs.map(mapOuraSleepToIngestItem).filter((x): x is OuraSleepIngestItem => x !== null);
       const hrvItems = readinessDocs.map(mapOuraReadinessToHrvItem).filter((x): x is OuraHrvIngestItem => x !== null);
 
       await writeOuraRawEvents(uid, sleepItems, hrvItems, requestId, {});
       const [sleepRes, readinessRes] = await Promise.all([
-        writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs),
+        writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs, dailySleepDocsChunk),
         writeOuraVendorReadinessSnapshots(uid, readinessDocs, requestId),
       ]);
       totalSleepWritten += sleepRes.written;

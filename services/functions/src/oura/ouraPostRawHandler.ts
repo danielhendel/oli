@@ -13,7 +13,11 @@ import {
   collectReadinessLookupDaysForSleepPairs,
   loadPersistedOuraVendorReadinessByDaysFromCollection,
 } from "../../../api/src/lib/oura/readinessForSleepNightMerge";
-import type { OuraDailyReadinessDocument } from "../../../api/src/lib/ouraApi";
+import {
+  dailySleepDayFromDoc,
+  scoreFromOuraDailySleepDoc,
+} from "../../../api/src/lib/oura/dailySleepScoreForSleepNight";
+import type { OuraDailyReadinessDocument, OuraDailySleepDocument } from "../../../api/src/lib/ouraApi";
 import {
   logOuraSleepPhysiologyDebugForDoc,
   pickOuraSleepAverageHrvMs,
@@ -157,6 +161,7 @@ type SleepSnapshot = {
   source: string;
   fetchedAt: string;
   updatedAt: string;
+  kind?: "daily_sleep";
   totalSleepDuration?: number;
   efficiency?: number;
   latency?: number;
@@ -234,6 +239,37 @@ function extractSleepSnapshot(
   return out;
 }
 
+function extractDailySleepSnapshot(
+  doc: OuraDailySleepDocument,
+  fetchedAt: string,
+): SleepSnapshot | null {
+  const day = dailySleepDayFromDoc(doc);
+  if (!day) return null;
+  const id =
+    typeof doc.id === "string" && doc.id.trim().length > 0
+      ? doc.id.trim()
+      : `oura_daily_sleep_${day}`;
+  const score = scoreFromOuraDailySleepDoc(doc);
+  const contributors =
+    doc.contributors && typeof doc.contributors === "object"
+      ? (doc.contributors as Record<string, unknown>)
+      : undefined;
+  const out: SleepSnapshot = {
+    id: String(id),
+    day,
+    source: SOURCE,
+    fetchedAt,
+    updatedAt: fetchedAt,
+    kind: "daily_sleep",
+  };
+  if (score != null) out.score = score;
+  if (contributors && Object.keys(contributors).length > 0) {
+    out.contributors = stripUndefined(contributors);
+  }
+  out.payload = stripUndefined(doc as Record<string, unknown>);
+  return out;
+}
+
 function extractReadinessSnapshot(doc: ReadinessDoc, fetchedAt: string): ReadinessSnapshot | null {
   const day = doc.day ?? (doc.timestamp ? toYmd(String(doc.timestamp)) : null);
   if (!day) return null;
@@ -276,6 +312,7 @@ async function writeSleepSnapshots(
   docs: SleepDoc[],
   requestId: string,
   readinessDocs: ReadinessDoc[],
+  dailySleepDocs: OuraDailySleepDocument[] = [],
 ): Promise<{
   written: number;
   attempted: number;
@@ -284,7 +321,12 @@ async function writeSleepSnapshots(
   sleepNightsWritten: number;
   sleepNightsErrors: number;
 }> {
-  logger.info("oura_post_raw: sleep docs received", { uid, requestId, sleepDocCount: docs.length });
+  logger.info("oura_post_raw: sleep docs received", {
+    uid,
+    requestId,
+    sleepDocCount: docs.length,
+    dailySleepDocCount: dailySleepDocs.length,
+  });
 
   const fetchedAt = new Date().toISOString();
   const col = db.collection("users").doc(uid).collection("ouraVendorSleep");
@@ -307,7 +349,17 @@ async function writeSleepSnapshots(
     pairs.push({ doc, snapshot });
   }
 
-  const snapshots = pairs.map((p) => p.snapshot);
+  const dailySnapshots: SleepSnapshot[] = [];
+  for (const d of dailySleepDocs) {
+    const snap = extractDailySleepSnapshot(d, fetchedAt);
+    if (!snap) {
+      skippedMissingDay += 1;
+      continue;
+    }
+    dailySnapshots.push(snap);
+  }
+
+  const snapshots = [...pairs.map((p) => p.snapshot), ...dailySnapshots];
 
   if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
     logger.info("oura_post_raw: sleep docs dropped", {
@@ -384,6 +436,8 @@ async function writeSleepSnapshots(
         snapshot.id,
         readinessDocs as OuraDailyReadinessDocument[],
         persistedReadinessByDay,
+        { uid, requestedDay: snapshot.day },
+        dailySleepDocs,
       );
       if (!merged) continue;
       batch.set(
@@ -408,6 +462,8 @@ async function writeSleepSnapshots(
           snapshot.id,
           readinessDocs as OuraDailyReadinessDocument[],
           persistedReadinessByDay,
+          { uid, requestedDay: snapshot.day },
+          dailySleepDocs,
         );
         if (!merged) continue;
         try {
@@ -518,6 +574,7 @@ export async function runOuraPostRaw(
   requestId: string,
   sleepDocs: SleepDoc[],
   readinessDocs: ReadinessDoc[],
+  dailySleepDocs: OuraDailySleepDocument[] = [],
 ): Promise<RunOuraPostRawResult> {
   const db = getFirestore();
 
@@ -526,10 +583,11 @@ export async function runOuraPostRaw(
     requestId,
     sleepDocCount: sleepDocs.length,
     readinessDocCount: readinessDocs.length,
+    dailySleepDocCount: dailySleepDocs.length,
   });
 
   const [sleepResult, readinessResult] = await Promise.all([
-    writeSleepSnapshots(db, uid, sleepDocs, requestId, readinessDocs),
+    writeSleepSnapshots(db, uid, sleepDocs, requestId, readinessDocs, dailySleepDocs),
     writeReadinessSnapshots(db, uid, readinessDocs, requestId),
   ]);
 

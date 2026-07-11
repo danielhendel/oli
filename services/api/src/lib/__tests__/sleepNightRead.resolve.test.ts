@@ -142,6 +142,29 @@ describe("resolveSleepNightViewFromBoundedReads", () => {
     expect(r?.anchorDay).toBe("2026-05-12");
   });
 
+  it("coerced UTC-skewed prior night resolves as wake_day for the local wake morning", () => {
+    const exact = night({ anchorDay: "2026-07-10", wakeDay: "2026-07-11", isComplete: false });
+    // Prior doc id = D−1; Oura rollup anchor already on wake morning while wakeDay was UTC-skewed.
+    const rawPrior: Record<string, unknown> = {
+      provider: "oura",
+      source: "ouraVendorSleep",
+      sourceDocumentId: "asia1",
+      anchorDay: "2026-07-10",
+      wakeDay: "2026-07-09",
+      endedAt: "2026-07-09T21:30:00.000Z",
+      mainSleepMinutes: 390,
+      totalSleepMinutes: 390,
+      isComplete: true,
+      score: 84,
+    };
+    const prior = sleepNightDocumentSchema.parse(coerceRawSleepNightForRead(rawPrior, "2026-07-09"));
+    expect(prior.wakeDay).toBe("2026-07-10");
+    const r = resolveSleepNightViewFromBoundedReads("2026-07-10", exact, prior, null);
+    expect(r?.resolution).toBe("wake_day");
+    expect(r?.sleepNight.score).toBe(84);
+    expect(r?.wakeDay).toBe("2026-07-10");
+  });
+
   it("prefers wake_day over a complete prior night whose wakeDay does not match requested", () => {
     const exact = night({ anchorDay: "2026-05-13", wakeDay: "2026-05-14", isComplete: false });
     const d12 = night({

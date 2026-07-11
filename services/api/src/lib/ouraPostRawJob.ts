@@ -4,13 +4,18 @@
  */
 
 import { publishJSON } from "./pubsub";
-import type { OuraSleepDocument, OuraDailyReadinessDocument } from "./ouraApi";
+import type {
+  OuraSleepDocument,
+  OuraDailyReadinessDocument,
+  OuraDailySleepDocument,
+} from "./ouraApi";
 
 export type OuraPostRawPayload = {
   uid: string;
   requestId: string;
   sleepDocs: OuraSleepDocument[];
   readinessDocs: OuraDailyReadinessDocument[];
+  dailySleepDocs?: OuraDailySleepDocument[];
 };
 
 const TOPIC_ENV_KEY = "TOPIC_OURA_POST_RAW";
@@ -33,6 +38,7 @@ export async function publishOuraPostRawJob(
   requestId: string,
   sleepDocs: OuraSleepDocument[],
   readinessDocs: OuraDailyReadinessDocument[],
+  dailySleepDocs: OuraDailySleepDocument[] = [],
 ): Promise<string | null> {
   const topic = getOuraPostRawTopic();
   if (!topic) return null;
@@ -42,6 +48,7 @@ export async function publishOuraPostRawJob(
     requestId,
     sleepDocs,
     readinessDocs,
+    dailySleepDocs,
   };
   const messageId = await publishJSON(topic, payload, {
     uid,

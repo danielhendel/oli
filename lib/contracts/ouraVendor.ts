@@ -44,6 +44,8 @@ export const ouraSleepSnapshotSchema = z.object({
   averageHrvMs: z.number().min(0).max(50_000).optional(),
   /** Full Oura API sleep document for backfill / field recovery. */
   payload: z.record(z.string(), z.unknown()).optional(),
+  /** Calendar-day Daily Sleep summary (score source); absent on period sleep docs. */
+  kind: z.literal("daily_sleep").optional(),
 });
 export type OuraSleepSnapshot = z.infer<typeof ouraSleepSnapshotSchema>;
 

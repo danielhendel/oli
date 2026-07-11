@@ -71,6 +71,19 @@ export type OuraDailyReadinessDocument = {
   [key: string]: unknown;
 };
 
+/**
+ * Oura API v2 daily_sleep — calendar-day Sleep Score + contributors.
+ * Distinct from `/sleep` period documents (duration/stages); this is the Daily Sleep summary.
+ */
+export type OuraDailySleepDocument = {
+  id?: string;
+  day?: string;
+  timestamp?: string;
+  score?: number | null;
+  contributors?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 /** Oura API v2 personal_info — single doc per user. */
 export type OuraPersonalInfoDocument = Record<string, unknown>;
 
@@ -284,6 +297,86 @@ export async function fetchOuraDailyReadiness(
   };
   const data = Array.isArray(json.data) ? json.data : [];
   return data;
+}
+
+/**
+ * GET /v2/usercollection/daily_sleep?start_date=...&end_date=...[&next_token=...]
+ * Calendar-day Sleep Score + contributors (not individual sleep periods).
+ * Paginates with `next_token` until exhausted (same contract as {@link fetchOuraSleep}).
+ */
+export async function fetchOuraDailySleep(
+  accessToken: string,
+  startDate: string,
+  endDate: string,
+  options?: { requestId?: string; uid?: string },
+): Promise<OuraDailySleepDocument[]> {
+  const aggregated: OuraDailySleepDocument[] = [];
+  let nextRequestToken: string | undefined;
+  let pages = 0;
+
+  for (;;) {
+    const url = new URL(`${OURA_API_BASE}/daily_sleep`);
+    url.searchParams.set("start_date", startDate);
+    url.searchParams.set("end_date", endDate);
+    if (nextRequestToken) {
+      url.searchParams.set("next_token", nextRequestToken);
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (res.status === 401) {
+      throw new OuraApiError("Unauthorized", "OURA_UNAUTHORIZED", 401);
+    }
+    if (res.status !== 200) {
+      const text = await res.text();
+      throw new OuraApiError(
+        text || `HTTP ${res.status}`,
+        "OURA_DAILY_SLEEP_FETCH_FAILED",
+        res.status,
+      );
+    }
+
+    const json = (await res.json()) as {
+      data?: OuraDailySleepDocument[];
+      next_token?: string;
+    };
+    const chunk = Array.isArray(json.data) ? json.data : [];
+    aggregated.push(...chunk);
+    pages += 1;
+
+    const token =
+      typeof json.next_token === "string" && json.next_token.trim().length > 0
+        ? json.next_token.trim()
+        : undefined;
+    if (!token) break;
+    nextRequestToken = token;
+    if (pages >= 50) {
+      logger.warn({
+        msg: "oura_daily_sleep_fetch_page_cap",
+        startDate,
+        endDate,
+        pages,
+        rowCount: aggregated.length,
+        ...(options?.requestId ? { requestId: options.requestId } : {}),
+        ...(options?.uid ? { uid: options.uid } : {}),
+      });
+      break;
+    }
+  }
+
+  logger.info({
+    msg: "oura_daily_sleep_fetch_complete",
+    startDate,
+    endDate,
+    pages,
+    rowCount: aggregated.length,
+    ...(options?.requestId ? { requestId: options.requestId } : {}),
+    ...(options?.uid ? { uid: options.uid } : {}),
+  });
+
+  return aggregated;
 }
 
 /**
