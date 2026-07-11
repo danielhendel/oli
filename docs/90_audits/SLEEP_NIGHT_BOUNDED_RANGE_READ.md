@@ -22,9 +22,10 @@ Authenticated clients that need Sleep overview or Profile Health Baseline curren
 ## Storage / read path
 
 - Collection: existing `users/{uid}/sleepNights/{anchorDay}` only
-- Per requested day: same resolution rules as exact-day `GET /users/me/sleep-night`
-- Prefetch window: `start-2` through `end` via **one** document-ID range query (no per-day `.get()` fan-out)
-- Physiology hydrate for range: vendor readiness + dailyFacts only — **no `rawEvents` reads**
+- Prefetch: **one** document-ID range query for `[start-2, end]` (wake-day lookback; no per-day `.get()`)
+- Sparse resolutions only: `exact_anchor` and `wake_day`
+  - Exact-day Dash fallback `latest_completed_prior_night` is **not** used (avoids densifying empty days)
+- Stored SleepNight fields only — **no** per-night hydrate I/O (`ouraVendor*`, `dailyFacts`, `rawEvents`, `events`)
 - No new Firestore collection; no Firestore rules change in this change set
 
 ## Privacy

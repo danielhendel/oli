@@ -421,10 +421,11 @@ function enumerateDayKeysInclusive(start: string, end: string): string[] {
 /**
  * Bounded range read over `users/{uid}/sleepNights` for inclusive [start, end].
  *
- * - Does **not** query `rawEvents` (physiology hydrate uses vendor readiness + dailyFacts only).
- * - Missing calendar days are omitted (no per-day 404).
- * - Uses the same resolution rules as GET /users/me/sleep-night per requested day.
- * - Prefetches `[start-2, end]` with **one** document-ID range query (no per-day `.get()` fan-out).
+ * - **One** document-ID range query for `[start-2, end]` (no per-day `.get()` fan-out).
+ * - **No** per-night hydrate I/O (`ouraVendor*`, `dailyFacts`, `rawEvents`, `events`).
+ * - Sparse semantics: only `exact_anchor` and `wake_day` resolutions are returned.
+ *   `latest_completed_prior_night` is exact-day Dash fallback and must not densify ranges.
+ * - Missing / unresolved calendar days are omitted (no per-day 404).
  */
 export async function loadSleepNightViewsForRange(
   uid: string,
@@ -467,16 +468,11 @@ export async function loadSleepNightViewsForRange(
     const minus1 = byId.get(dayMinus(day, 1)) ?? null;
     const minus2 = byId.get(dayMinus(day, 2)) ?? null;
     const view = resolveSleepNightViewFromBoundedReads(day, exact, minus1, minus2);
-    if (view) resolved.push(view);
+    // Sparse range: do not fill empty calendar days with prior-night Dash fallback.
+    if (view && view.resolution !== "latest_completed_prior_night") {
+      resolved.push(view);
+    }
   }
 
-  const hydrated = await Promise.all(
-    resolved.map(async (view) => {
-      let next = await hydrateSleepNightPhysiologyMetrics(uid, view, { allowRawEventLookup: false });
-      next = await hydrateSleepNightDailyScore(uid, next);
-      return next;
-    }),
-  );
-
-  return hydrated;
+  return resolved;
 }
