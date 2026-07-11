@@ -127,9 +127,15 @@ function redactUrlForLogs(rawUrl: string): string {
   try {
     const u = new URL(rawUrl);
     if (u.searchParams.has("key")) u.searchParams.set("key", "REDACTED");
+    // Health day queries and similar calendar keys — keep param presence, hide values.
+    for (const param of ["day", "start", "end", "from", "to", "anchorDay", "wakeDay"]) {
+      if (u.searchParams.has(param)) u.searchParams.set(param, "REDACTED_DAY");
+    }
+    // Path segments that look like YYYY-MM-DD
+    u.pathname = u.pathname.replace(/\d{4}-\d{2}-\d{2}/g, "REDACTED_DAY");
     return u.toString();
   } catch {
-    return rawUrl;
+    return rawUrl.replace(/\d{4}-\d{2}-\d{2}/g, "REDACTED_DAY");
   }
 }
 

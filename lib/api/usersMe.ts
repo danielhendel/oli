@@ -427,17 +427,17 @@ export const logWorkoutTitleOverride = async (
   const idempotencyKey = workoutTitleOverrideIdempotencyKey();
 
   if (__DEV__ && !process.env.JEST_WORKER_ID) {
-    // Temporary: trace ingest shape when debugging HTTP 400 (remove once stable).
+    // Privacy-safe: never log full ingest payload, titles, IDs, or timestamps.
     // eslint-disable-next-line no-console
     console.log("[workout_title_override] POST /ingest (pre-send)", {
+      operation: "workout_title_override_ingest",
       kind: ingestBody.kind,
-      fullPayload: ingestBody,
-      targetWorkoutId: payload.targetWorkoutId,
-      displayName: payload.displayName,
-      appliedAt: payload.appliedAt,
-      timeZone: ingestBody.timeZone,
-      observedAt: ingestBody.observedAt,
-      idempotencyKey,
+      hasTargetWorkoutId: Boolean(payload.targetWorkoutId),
+      hasDisplayName: typeof payload.displayName === "string" && payload.displayName.length > 0,
+      hasAppliedAt: Boolean(payload.appliedAt),
+      hasTimeZone: Boolean(ingestBody.timeZone),
+      hasObservedAt: Boolean(ingestBody.observedAt),
+      hasIdempotencyKey: Boolean(idempotencyKey),
     });
   }
 

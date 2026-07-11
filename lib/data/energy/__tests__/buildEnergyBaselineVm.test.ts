@@ -455,7 +455,7 @@ describe("buildEnergyBaselineVm — per-range coverage thresholds", () => {
 });
 
 describe("buildEnergyBaselineVm — diagnostic logging", () => {
-  it("logs todayDayKey, baselineEndDay, requiredDayCount, validDayCount, earliest/latestIncludedDay per row", () => {
+  it("logs privacy-safe counts only (no energy magnitudes or calendar day keys)", () => {
     const spy = jest.spyOn(console, "log").mockImplementation(jest.fn());
     try {
       const energyByDay = fillCompleteSame(days7, 2230, 2714);
@@ -466,13 +466,18 @@ describe("buildEnergyBaselineVm — diagnostic logging", () => {
       });
       expect(day7Calls.length).toBeGreaterThan(0);
       const payload = day7Calls[0]![1] as Record<string, unknown>;
-      expect(payload.todayDayKey).toBe(today);
-      expect(payload.baselineEndDay).toBe(baselineEndDay);
+      expect(payload.operation).toBe("energy_baseline_window");
       expect(payload.requiredDayCount).toBe(REQUIRED_DAY_COUNT_7);
       expect(payload.validDayCount).toBe(REQUIRED_DAY_COUNT_7);
       expect(payload.hasFullCoverage).toBe(true);
-      expect(payload.earliestIncludedDay).toBe(days7[0]);
-      expect(payload.latestIncludedDay).toBe(baselineEndDay);
+      expect(payload.hasAvgLow).toBe(true);
+      expect(payload.hasAvgHigh).toBe(true);
+      const serialized = JSON.stringify(payload);
+      expect(serialized).not.toMatch(/2230|2714/);
+      expect(serialized).not.toMatch(/2026-/);
+      expect(payload).not.toHaveProperty("todayDayKey");
+      expect(payload).not.toHaveProperty("avgLow");
+      expect(payload).not.toHaveProperty("earliestIncludedDay");
     } finally {
       spy.mockRestore();
     }

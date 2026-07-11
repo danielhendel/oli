@@ -111,7 +111,7 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
 
   const pulled = await pullStepCountForLocalCalendarDay(todayKey);
   if (!pulled.ok) {
-    devLog("skip: hk pull failed", { day: todayKey, error: pulled.error });
+    devLog("skip: hk pull failed", { hasError: Boolean(pulled.error) });
     return;
   }
 
@@ -119,9 +119,9 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
   const storedSteps = await fetchStoredStepsForDay(todayKey, token);
 
   devLog("hk vs stored", {
-    day: todayKey,
-    hkSteps: hkStepsRounded,
-    storedSteps,
+    hasHkSteps: true,
+    hasStoredSteps: storedSteps !== null,
+    stepsMatch: storedSteps === null ? null : storedSteps === hkStepsRounded,
     hkEmpty: pulled.hkEmpty === true,
   });
 
@@ -144,11 +144,10 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
   const idempotencyKey = stepsIdempotencyKey(todayKey);
 
   devLog("post /ingest", {
-    day: todayKey,
-    idempotencyKey,
-    payloadSteps: body.payload.steps,
-    payloadStart: body.payload.start,
-    payloadTimezone: body.payload.timezone,
+    hasIdempotencyKey: Boolean(idempotencyKey),
+    hasPayloadSteps: typeof body.payload.steps === "number",
+    hasPayloadStart: Boolean(body.payload.start),
+    hasPayloadTimezone: Boolean(body.payload.timezone),
   });
 
   const res = await ingestRawEvent(body, token, {
@@ -157,9 +156,9 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
   });
 
   devLog("ingest response", {
-    day: todayKey,
     ok: res.ok,
-    ...(res.ok ? {} : { error: res.error, requestId: res.requestId }),
+    status: res.status,
+    ...(res.ok ? {} : { hasError: Boolean(res.error), hasRequestId: Boolean(res.requestId) }),
   });
 
   if (!res.ok) return;
