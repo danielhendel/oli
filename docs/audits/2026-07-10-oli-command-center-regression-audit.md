@@ -1,11 +1,11 @@
 # Oli Command Center Regression Audit — Clean Baseline Restoration
 
-**Date:** 2026-07-10  
-**Branch:** `fix/command-center-clean-baseline`  
-**Starting commit:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1` (`Feat/today command center (#177)`)  
-**Working-tree at start:** clean (no uncommitted user changes)  
-**Package manager:** npm (`package-lock.json` present)  
-**Mobile package location:** repository root (Expo app; workspaces: `lib/contracts`, `services/api`, `services/functions`, `apps/professional`)  
+**Date:** 2026-07-10
+**Branch:** `fix/command-center-clean-baseline`
+**Starting commit:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1` (`Feat/today command center (#177)`)
+**Working-tree at start:** clean (no uncommitted user changes)
+**Package manager:** npm (`package-lock.json` present)
+**Mobile package location:** repository root (Expo app; workspaces: `lib/contracts`, `services/api`, `services/functions`, `apps/professional`)
 **Current roadmap sprint (repo truth):** recovery/stabilization gate after `#177` Today Command Center; architecture doc updated from “Today Command Center (Dash)” to “Dash home (Oli Fitness)” in `docs/20_architecture/SYSTEM_STATE.md`. No separate Repo-Truth Progress Map file exists beyond `docs/90_audits/OLI_REPO_AUDIT_CURRENT_TRUTH.md` (stale relative to current Dash cards) and `SYSTEM_STATE.md`.
 
 ---

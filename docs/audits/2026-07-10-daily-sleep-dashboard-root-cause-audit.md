@@ -1,10 +1,10 @@
 # Daily Sleep Dashboard Root-Cause Audit — Closure Gate
 
-**Date:** 2026-07-10  
-**Branch:** `fix/dashboard-daily-sleep-data`  
-**Starting commit SHA:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1`  
-**HEAD at closure:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1` (uncommitted WIP)  
-**Package manager:** npm  
+**Date:** 2026-07-10
+**Branch:** `fix/dashboard-daily-sleep-data`
+**Starting commit SHA:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1`
+**HEAD at closure:** `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1` (uncommitted WIP)
+**Package manager:** npm
 **Evidence dir (ephemeral):** `/tmp/oli-audit-evidence-2026-07-10/` (`command-center-wip.patch`, `status.txt`) — not durable; non-sensitive command summaries copied below only.
 
 ---
@@ -233,11 +233,11 @@ Synthetic / fixture chain (privacy-safe):
 
 ### expo-doctor failures (justified as pre-existing / out of scope)
 
-1. `@types/react-native` installed directly  
-2. Missing peer `expo-constants` (expo-router)  
-3. non-CNG app.json vs ios/android folders  
-4. RN Directory metadata (`react-native-health`, firebase packages)  
-5. `@react-native-picker/picker` version skew vs Expo SDK  
+1. `@types/react-native` installed directly
+2. Missing peer `expo-constants` (expo-router)
+3. non-CNG app.json vs ios/android folders
+4. RN Directory metadata (`react-native-health`, firebase packages)
+5. `@react-native-picker/picker` version skew vs Expo SDK
 
 None are caused by sleep/readiness or Command Center WIP diffs.
 

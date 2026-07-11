@@ -1,12 +1,12 @@
 # Appendix: Oura Daily Sleep Score — Release Verification Gate
 
-**Date:** 2026-07-10  
-**Parent audit:** `docs/audits/2026-07-10-daily-sleep-dashboard-root-cause-audit.md`  
-**Working branch (dirty WIP preserved):** `fix/dashboard-daily-sleep-data` @ `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1`  
-**Release worktree:** `/Users/danielhendel/oli-release-oura-daily-sleep-score`  
-**Release branch:** `release/oura-daily-sleep-score`  
-**Release commit:** `93af6fef14111259d7670a1b2f28f302fd0d86f8` (`93af6fe`)  
-**Release tree object:** `b1ec36dc552252a8845fc6f20a6949f08507b0bf`  
+**Date:** 2026-07-10
+**Parent audit:** `docs/audits/2026-07-10-daily-sleep-dashboard-root-cause-audit.md`
+**Working branch (dirty WIP preserved):** `fix/dashboard-daily-sleep-data` @ `1ecfa0d97f4a7a6d55f48cb78164e34119f9a5b1`
+**Release worktree:** `/Users/danielhendel/oli-release-oura-daily-sleep-score`
+**Release branch:** `release/oura-daily-sleep-score`
+**Release commit:** `93af6fef14111259d7670a1b2f28f302fd0d86f8` (`93af6fe`)
+**Release tree object:** `b1ec36dc552252a8845fc6f20a6949f08507b0bf`
 **Deployment authorization:** **GRANTED** for `oli-staging-fdbba` (2026-07-10) — Function + `oli-api` + bounded refresh + privacy-safe verify only.
 
 ---
@@ -165,7 +165,7 @@ Mobile binary / EAS: not redeployed (authorized exclusion).
 Physical phone: restart Expo against live gateway; expect Sleep Score hero (UI already in dirty mobile WIP).
 ```
 
-**Score pipeline status:** **VERIFIED** on live gateway (`oli-api-00225-vb2`).  
+**Score pipeline status:** **VERIFIED** on live gateway (`oli-api-00225-vb2`).
 **Full sleep-day-refresh HTTP success:** **NOT VERIFIED** (immutability conflict after recompute path fix).
 ---
 
