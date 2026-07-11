@@ -43,8 +43,11 @@ ENV PORT=8080
 COPY --from=build /app/services/api/dist ./services/api/dist
 COPY --from=build /app/services/api/package.json ./services/api/package.json
 
-# Shared recompute bundle (see loadRecomputeDerivedTruthForDay.ts path resolution)
+# Shared recompute bundle (see loadRecomputeDerivedTruthForDay.ts path resolution).
+# Loader resolves from dist/services/api/src/lib with 4x .. → dist/functions/lib.
+# Also keep services/functions/lib for layout clarity / future path fixes.
 COPY --from=build /app/services/functions/lib/recomputeForDayExport.js ./services/functions/lib/recomputeForDayExport.js
+COPY --from=build /app/services/functions/lib/recomputeForDayExport.js ./services/api/dist/functions/lib/recomputeForDayExport.js
 
 # Monorepo workspace runtime deps (prevents MODULE_NOT_FOUND for @oli/contracts)
 COPY --from=build /app/lib/contracts/dist ./lib/contracts/dist
