@@ -93,6 +93,7 @@ function dedupeDayKeys(days: (string | undefined)[]): string[] {
 export async function hydrateSleepNightPhysiologyMetrics(
   uid: string,
   view: SleepNightViewDto,
+  opts?: { allowRawEventLookup?: boolean },
 ): Promise<SleepNightViewDto> {
   const night = view.sleepNight;
   const hasLowest = typeof night.lowestHeartRateBpm === "number" && Number.isFinite(night.lowestHeartRateBpm);
@@ -110,7 +111,8 @@ export async function hydrateSleepNightPhysiologyMetrics(
     : "none";
 
   const readinessCol = userCollection(uid, "ouraVendorReadiness");
-  const rawEventsCol = userCollection(uid, "rawEvents");
+  const allowRawEventLookup = opts?.allowRawEventLookup !== false;
+  const rawEventsCol = allowRawEventLookup ? userCollection(uid, "rawEvents") : null;
 
   const tryReadinessRecord = async (raw: Record<string, unknown>, docId?: string) => {
     readinessDocFound = true;
@@ -141,7 +143,7 @@ export async function hydrateSleepNightPhysiologyMetrics(
     const linkedId =
       (typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id.trim() : null) ??
       (typeof docId === "string" && docId.trim().length > 0 ? docId.trim() : null);
-    if (!linkedId) return;
+    if (!linkedId || !rawEventsCol) return;
 
     const rawSnap = await rawEventsCol.doc(linkedId).get();
     if (!rawSnap.exists) return;
@@ -403,4 +405,61 @@ export async function loadSleepNightView(uid: string, requestedDay: string): Pro
   }
 
   return view;
+}
+
+function enumerateDayKeysInclusive(start: string, end: string): string[] {
+  if (start > end) return [];
+  const out: string[] = [];
+  let current = start;
+  while (current <= end) {
+    out.push(current);
+    current = dayMinus(current, -1);
+  }
+  return out;
+}
+
+/**
+ * Bounded range read over `users/{uid}/sleepNights` for inclusive [start, end].
+ *
+ * - Does **not** query `rawEvents` (physiology hydrate uses vendor readiness + dailyFacts only).
+ * - Missing calendar days are omitted (no per-day 404).
+ * - Uses the same resolution rules as GET /users/me/sleep-night per requested day.
+ * - Prefetches doc IDs from `start-2` through `end` so wake-day lookback stays in-memory.
+ */
+export async function loadSleepNightViewsForRange(
+  uid: string,
+  start: string,
+  end: string,
+): Promise<SleepNightViewDto[]> {
+  if (start > end) return [];
+
+  const col = userCollection(uid, "sleepNights");
+  const fetchStart = dayMinus(start, 2);
+  const fetchIds = enumerateDayKeysInclusive(fetchStart, end);
+
+  const snaps = await Promise.all(fetchIds.map((id) => col.doc(id).get()));
+  const byId = new Map<string, SleepNightDocumentDto | null>();
+  for (let i = 0; i < fetchIds.length; i++) {
+    byId.set(fetchIds[i]!, parseSleepNightSnapshot(snaps[i]!));
+  }
+
+  const requestedDays = enumerateDayKeysInclusive(start, end);
+  const resolved: SleepNightViewDto[] = [];
+  for (const day of requestedDays) {
+    const exact = byId.get(day) ?? null;
+    const minus1 = byId.get(dayMinus(day, 1)) ?? null;
+    const minus2 = byId.get(dayMinus(day, 2)) ?? null;
+    const view = resolveSleepNightViewFromBoundedReads(day, exact, minus1, minus2);
+    if (view) resolved.push(view);
+  }
+
+  const hydrated = await Promise.all(
+    resolved.map(async (view) => {
+      let next = await hydrateSleepNightPhysiologyMetrics(uid, view, { allowRawEventLookup: false });
+      next = await hydrateSleepNightDailyScore(uid, next);
+      return next;
+    }),
+  );
+
+  return hydrated;
 }

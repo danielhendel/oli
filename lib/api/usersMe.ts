@@ -60,11 +60,13 @@ import {
   sleepViewDtoSchema,
   readinessViewDtoSchema,
   sleepNightViewDtoSchema,
+  sleepNightRangeResponseDtoSchema,
   type HealthScoreDoc,
   type HealthSignalDoc,
   type SleepViewDto,
   type ReadinessViewDto,
   type SleepNightViewDto,
+  type SleepNightRangeResponseDto,
   workoutDaySummariesResponseDtoSchema,
   workoutDaySummariesRebuildResponseDtoSchema,
   workoutMonthSummariesResponseDtoSchema,
@@ -543,6 +545,22 @@ export const getSleepNight = async (
     `/users/me/sleep-night?day=${encodeURIComponent(day)}`,
     idToken,
     sleepNightViewDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+/** GET /users/me/sleep-nights?start=&end= — bounded SleepNight range (missing days omitted; max 90 inclusive days). */
+export const getSleepNightsRange = async (
+  start: string,
+  end: string,
+  idToken: string,
+  opts?: TruthGetOptions,
+): Promise<ApiResult<SleepNightRangeResponseDto>> => {
+  const q = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  return apiGetZodAuthed(
+    `/users/me/sleep-nights?${q}`,
+    idToken,
+    sleepNightRangeResponseDtoSchema,
     truthGetOpts(opts),
   );
 };
