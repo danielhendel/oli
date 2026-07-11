@@ -91,12 +91,12 @@ Not yet wired to UI.
 
 ---
 
-## Today Command Center (Dash)
+## Dash home (Oli Fitness)
 
-**As built (2026-07):**
-- `TodayCommandModel` in `lib/today/` — shared view model for Dash, Timeline plan-vs-actual, and Program target summaries
-- Dash **Today Command Center** — non-card hero under greeting: semi-circle completion, readiness summary, daily target rows
-- Timeline today view uses the same model for plan vs actual header
+**As built (2026-07-10 recovery baseline):**
+- Dash tab (`app/(app)/(tabs)/dash.tsx`) composes six retained cards after `DashScreenHeader`: Weekly Fitness → Body Composition → Daily Energy → Daily Sleep → Oura Readiness → Daily Nutrition
+- Semi-circle / composite daily % / “Today’s Progress” card removed from Dash (no replacement hero)
+- `TodayCommandModel` in `lib/today/` remains for Timeline plan-vs-actual (and shared target helpers); not rendered on Dash
 - Program tab shows category cards (Weight, Activity, Workout, Cardio, Nutrition) fed by preferences + typed defaults
 - Oura sleep/readiness scores displayed exactly as received; labeled Oura when vendor-sourced
 
