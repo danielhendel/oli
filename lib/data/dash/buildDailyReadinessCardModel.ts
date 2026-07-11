@@ -1,5 +1,9 @@
 import type { ReadinessViewDto } from "@oli/contracts";
-import { scoreToRatingLabel } from "@/lib/format/ouraScore";
+import {
+  buildDashReadinessMetricRows,
+  type DashReadinessMetricRow,
+} from "@/lib/data/dash/buildDashReadinessMetricRows";
+import { normalizeOuraScore0to100, tryClassifyOuraScore } from "@/lib/format/ouraScore";
 
 const EMPTY = "\u2014";
 
@@ -12,16 +16,34 @@ export type DailyReadinessCardModel = {
   hasAnySignal: boolean;
   emptyStateTitle: string | null;
   emptyStateSubtitle: string | null;
+  metricRows: DashReadinessMetricRow[];
 };
+
+function readinessSummary(score: number): string {
+  if (score >= 80) return "Ready. Recovery signals are strong today.";
+  if (score >= 65) return "Good overall recovery with some room to improve.";
+  if (score >= 50) return "Take it easy. Recovery signals suggest a lighter day.";
+  return "Recovery focus. Prioritize rest and easy movement today.";
+}
 
 export function buildDailyReadinessCardModel(args: {
   day: string;
   readinessView: ReadinessViewDto | null | undefined;
   ouraConnected: boolean | null;
+  /**
+   * Exact-day resting HR from the attributed SleepNight for the same calendar day.
+   * Must not be supplied from a mismatched or fallback night.
+   */
+  exactDayRestingHeartRateBpm?: number | null;
 }): DailyReadinessCardModel {
-  const score = args.readinessView?.score;
-  const hasScore = typeof score === "number" && Number.isFinite(score);
+  const emptyRows: DashReadinessMetricRow[] = [];
   const sourceLabel = args.readinessView?.sourceId === "oura" ? "Oura" : null;
+  /** Dash must not present 7-day / last-resort fallback readiness as current-day truth. */
+  const isCurrentDayReadiness =
+    args.readinessView != null &&
+    args.readinessView.isFallback !== true &&
+    args.readinessView.resolvedDay === args.day &&
+    args.readinessView.requestedDay === args.day;
 
   if (args.ouraConnected === false) {
     return {
@@ -33,35 +55,51 @@ export function buildDailyReadinessCardModel(args: {
       hasAnySignal: false,
       emptyStateTitle: "Oura not connected",
       emptyStateSubtitle: "Reconnect Oura to sync readiness.",
+      metricRows: emptyRows,
     };
   }
 
-  if (!hasScore) {
+  const score = normalizeOuraScore0to100(args.readinessView?.score);
+  const hasScore = score != null;
+
+  if (!hasScore || !isCurrentDayReadiness) {
     return {
       day: args.day,
       headlineValueText: null,
       ratingLabel: null,
-      summarySentence: "Waiting for Oura readiness data.",
+      summarySentence: "No current-day readiness signal is available yet.",
       sourceLabel: null,
       hasAnySignal: false,
-      emptyStateTitle: "Readiness pending",
+      emptyStateTitle: "No readiness for today",
       emptyStateSubtitle: "Today's plan is still available.",
+      metricRows: emptyRows,
     };
   }
 
-  const rating = scoreToRatingLabel(score);
-  const statusWord =
-    score >= 80 ? "Ready" : score >= 65 ? "Moderate" : score >= 50 ? "Take it easy" : "Recovery focus";
+  const contributors =
+    args.readinessView?.contributors && typeof args.readinessView.contributors === "object"
+      ? (args.readinessView.contributors as Record<string, unknown>)
+      : {};
+
+  const metricRows = buildDashReadinessMetricRows({
+    contributors,
+    ...(args.exactDayRestingHeartRateBpm !== undefined
+      ? { exactDayRestingHeartRateBpm: args.exactDayRestingHeartRateBpm }
+      : {}),
+  });
+
+  const rating = tryClassifyOuraScore(score);
 
   return {
     day: args.day,
-    headlineValueText: String(Math.round(score)),
+    headlineValueText: String(score),
     ratingLabel: rating,
-    summarySentence: `${statusWord}. Oura readiness score for today.`,
+    summarySentence: readinessSummary(score),
     sourceLabel,
     hasAnySignal: true,
     emptyStateTitle: null,
     emptyStateSubtitle: null,
+    metricRows,
   };
 }
 
@@ -69,5 +107,8 @@ export function dailyReadinessCardAccessibilityLabel(model: DailyReadinessCardMo
   if (!model.hasAnySignal) {
     return `Oura Readiness. ${model.summarySentence}`;
   }
-  return `Oura readiness. Score ${model.headlineValueText ?? EMPTY}. ${model.ratingLabel ?? ""}. Opens Readiness details.`;
+  const rowParts = model.metricRows
+    .map((r) => `${r.label} ${r.accessibilityValue}`)
+    .join(". ");
+  return `Oura readiness. Score ${model.headlineValueText ?? EMPTY}. ${model.ratingLabel ?? ""}. ${model.summarySentence} ${rowParts}. Opens Readiness details.`;
 }

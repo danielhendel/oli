@@ -2,16 +2,46 @@ import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import type { DailyReadinessCardViewModel } from "@/lib/hooks/useDailyReadinessCard";
-import { READINESS_DETAIL_HREF } from "@/lib/hooks/useDailyReadinessCard";
+import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
+import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
+import type { Readiness } from "@/lib/contracts/readiness";
+import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
+  UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
+
+const READINESS_DETAIL_HREF = "/(app)/recovery/readiness" as const;
+
+/** Semantic contributor ids for readiness detail deep-link (query). */
+export const READINESS_CONTRIBUTOR_ROUTE_IDS: Record<DashReadinessMetricRowId, string> = {
+  resting_heart_rate: "resting-heart-rate",
+  hrv_balance: "hrv-balance",
+  body_temperature: "body-temperature",
+  recovery_index: "recovery-index",
+  sleep_balance: "sleep-balance",
+};
+
+export type DailyReadinessCardViewModel =
+  | { status: Extract<Readiness, "partial">; day: string }
+  | {
+      status: Extract<Readiness, "missing">;
+      day: string;
+      message: string;
+      cta?: { label: string; href: string };
+    }
+  | { status: Extract<Readiness, "error">; day: string; message: string }
+  | {
+      status: Extract<Readiness, "ready">;
+      day: string;
+      model: DailyReadinessCardModel;
+      accessibilityLabel: string;
+    };
 
 type Props = {
   vm: DailyReadinessCardViewModel;
@@ -23,6 +53,7 @@ const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
   color: UI_TEXT_PRIMARY,
   fontWeight: "700",
   letterSpacing: -0.2,
+  fontVariant: ["tabular-nums"],
 };
 
 export function DailyReadinessCard({ vm }: Props): React.ReactElement {
@@ -39,6 +70,18 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
     router.push(READINESS_DETAIL_HREF);
   }, [error, loading, router, vm.status]);
 
+  const onOpenReadinessContributor = useCallback(
+    (rowId: DashReadinessMetricRowId) => {
+      if (loading || error || vm.status !== "ready") return;
+      const contributor = READINESS_CONTRIBUTOR_ROUTE_IDS[rowId];
+      router.push({
+        pathname: READINESS_DETAIL_HREF,
+        params: { contributor },
+      });
+    },
+    [error, loading, router, vm.status],
+  );
+
   const onOpenOuraReconnect = useCallback(() => {
     if (missingCta == null) return;
     router.push(missingCta.href as Parameters<typeof router.push>[0]);
@@ -54,6 +97,8 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
           : `Oura Readiness header. ${missingMessage ?? "No readiness data."}`;
 
   const canOpen = vm.status === "ready" && model?.hasAnySignal;
+  const showMetricSection =
+    vm.status === "ready" && model?.hasAnySignal === true && (model.metricRows?.length ?? 0) > 0;
 
   return (
     <View style={styles.outer} accessibilityLabel="Oura Readiness card">
@@ -95,6 +140,24 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
             <Text style={styles.summary}>{model.summarySentence}</Text>
           ) : null}
         </Pressable>
+
+        {showMetricSection && model ? (
+          <View style={styles.metricSection} accessibilityRole="list">
+            {model.metricRows.map((row) => (
+              <DashMetricRow
+                key={row.id}
+                testID={`readiness-metric-row-${row.id}`}
+                label={row.label}
+                displayValue={row.displayValue}
+                accessibilityValue={row.accessibilityValue}
+                accessibilityHint="Opens readiness details"
+                onPress={() => {
+                  onOpenReadinessContributor(row.id);
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -109,6 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     backgroundColor: UI_CARD_SURFACE,
+    gap: 8,
   },
   headerPressable: {
     gap: 4,
@@ -151,5 +215,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+  },
+  metricSection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: UI_BORDER_HAIRLINE,
+    paddingTop: 6,
+    gap: 2,
   },
 });

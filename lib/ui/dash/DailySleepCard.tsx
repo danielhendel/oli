@@ -3,8 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import type { DailySleepMetricDetail } from "@/lib/data/dash/buildDailySleepCardModel";
+import { SCORE_UNAVAILABLE_A11Y } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
 import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
+import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -17,13 +19,14 @@ import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetr
 
 const SLEEP_DETAIL_HREF = "/(app)/recovery/sleep" as const;
 
-/** Match Daily Energy main result (`DailyEnergyCard` `rangeValue`). */
+/** Match Oura Readiness / Daily Energy hero score treatment. */
 const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
   fontSize: 34,
   lineHeight: 40,
   color: UI_TEXT_PRIMARY,
   fontWeight: "700",
   letterSpacing: -0.2,
+  fontVariant: ["tabular-nums"],
 };
 
 type Props = {
@@ -60,7 +63,12 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
     if (!model) return "Daily Sleep header. Not enough data.";
     const parts: string[] = [];
     if (model.lastNightSubtitle) parts.push(model.lastNightSubtitle);
-    if (model.headlineValueText) parts.push(`Sleep duration ${model.headlineValueText}.`);
+    if (model.scoreUnavailable) {
+      parts.push(SCORE_UNAVAILABLE_A11Y);
+    } else if (model.headlineValueText) {
+      parts.push(`Sleep score ${model.headlineValueText}.`);
+      if (model.ratingLabel) parts.push(model.ratingLabel);
+    }
     if (model.summarySentence) parts.push(model.summarySentence);
     return `Daily Sleep header. ${parts.join(" ")} Opens Sleep details.`;
   }, [loading, isRefreshing, error, vm.status, missingMessage, model]);
@@ -85,10 +93,26 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
           {vm.status === "ready" && model?.lastNightSubtitle ? (
             <Text style={styles.subtitle}>{model.lastNightSubtitle}</Text>
           ) : null}
-          {vm.status === "ready" && model?.headlineValueText ? (
-            <Text style={styles.headlineValue} accessibilityRole="text">
-              {model.headlineValueText}
-            </Text>
+          {vm.status === "ready" && model?.hasAnySignal ? (
+            model.scoreUnavailable ? (
+              <>
+                <Text
+                  style={styles.headlineValue}
+                  accessibilityLabel={SCORE_UNAVAILABLE_A11Y}
+                  accessibilityRole="text"
+                >
+                  {"\u2014"}
+                </Text>
+                <Text style={styles.rating}>{model.scoreUnavailableLabel}</Text>
+              </>
+            ) : model.headlineValueText ? (
+              <>
+                <Text style={styles.headlineValue} accessibilityRole="text">
+                  {model.headlineValueText}
+                </Text>
+                {model.ratingLabel ? <Text style={styles.rating}>{model.ratingLabel}</Text> : null}
+              </>
+            ) : null
           ) : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily sleep\u2026</Text> : null}
           {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
@@ -129,30 +153,17 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
         {showMetricSection && model ? (
           <View style={styles.metricSection} accessibilityRole="list">
             {model.metricRows.map((row) => (
-              <Pressable
+              <DashMetricRow
                 key={row.id}
                 testID={`sleep-metric-row-${row.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${row.label}. ${row.value}. Open details`}
+                label={row.label}
+                displayValue={row.value}
+                accessibilityValue={row.accessibilityValue}
+                accessibilityHint="Opens sleep metric details"
                 onPress={() => {
                   setMetricSheet(row.detail);
                 }}
-                style={({ pressed }) => [styles.metricPressable, pressed && styles.metricPressablePressed]}
-              >
-                <View style={styles.metricRowInner}>
-                  <Text style={styles.label}>{row.label}</Text>
-                  <View style={styles.metricRight}>
-                    <Text style={styles.value}>{row.value}</Text>
-                    <Text
-                      style={styles.chevron}
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                    >
-                      {"\u203A"}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
+              />
             ))}
           </View>
         ) : null}
@@ -201,6 +212,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
     paddingHorizontal: 6,
     paddingVertical: 4,
+    gap: 4,
   },
   headerPressed: {
     opacity: 0.92,
@@ -212,10 +224,17 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
   },
   headlineValue: HEADLINE_VALUE_TEXT,
+  rating: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+    color: UI_TEXT_SECONDARY,
+  },
   summary: {
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_SECONDARY,
+    marginTop: 2,
   },
   mutedLine: {
     fontSize: 14,
@@ -226,6 +245,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 4,
     paddingVertical: 4,
+    minHeight: 44,
+    justifyContent: "center",
   },
   reconnectCtaPressed: {
     opacity: 0.75,
@@ -252,50 +273,5 @@ const styles = StyleSheet.create({
     borderTopColor: UI_BORDER_HAIRLINE,
     paddingTop: 6,
     gap: 2,
-  },
-  metricPressable: {
-    borderRadius: 8,
-    marginHorizontal: -6,
-    paddingHorizontal: 6,
-    paddingVertical: 7,
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  metricPressablePressed: {
-    opacity: 0.75,
-  },
-  metricRowInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  metricRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 6,
-    flexShrink: 1,
-  },
-  chevron: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "500",
-    color: UI_TEXT_MUTED,
-    flexShrink: 0,
-  },
-  label: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-    fontWeight: "500",
-    flexShrink: 1,
-  },
-  value: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: UI_TEXT_PRIMARY,
-    fontWeight: "600",
-    textAlign: "right",
   },
 });

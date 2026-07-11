@@ -1,9 +1,15 @@
 import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
 import { formatEfficiencyRatio } from "@/lib/format/sleepDisplay";
 import type { OuraRatingLabel } from "@/lib/format/ouraScore";
-import { formatSleepDurationMinutes, scoreToRatingLabel } from "@/lib/format/ouraScore";
+import {
+  formatSleepDurationMinutes,
+  normalizeOuraScore0to100,
+  tryClassifyOuraScore,
+} from "@/lib/format/ouraScore";
 
 const EMPTY = "\u2014";
+const SCORE_UNAVAILABLE_LABEL = "Sleep score unavailable";
+const SCORE_UNAVAILABLE_A11Y = "Sleep score unavailable";
 
 export type DailySleepRatingTone = "optimal" | "good" | "watch" | "low";
 
@@ -35,14 +41,26 @@ export type DailySleepMetricRow = {
   id: string;
   label: string;
   value: string;
+  accessibilityValue: string;
+  isAvailable: boolean;
   detail: DailySleepMetricDetail;
 };
 
 export type DailySleepCardModel = {
   /** Calendar day Dash requested (e.g. today). */
   day: string;
-  /** Main headline (total sleep duration), same scale intent as Daily Energy `rangeValue`. */
+  /**
+   * Large hero value for the active presentation:
+   * - dash: Sleep Score text (or null when unavailable)
+   * - detail: sleep duration text
+   */
   headlineValueText: string | null;
+  /** Formatted duration when known (Dash metric row + detail hero source). */
+  durationValueText: string | null;
+  /** True when dash metrics exist but Sleep Score is not displayable. */
+  scoreUnavailable: boolean;
+  /** VoiceOver / UI label when scoreUnavailable. */
+  scoreUnavailableLabel: string | null;
   scoreValueText: string | null;
   ratingLabel: string | null;
   ratingTone: DailySleepRatingTone | null;
@@ -66,6 +84,13 @@ function sleepNightContextLine(ctx: MetricDetailCtx): string {
   return `Sleep night: ${ctx.anchorDay} · Calendar day: ${ctx.requestedCalendarDay}`;
 }
 
+function displayOrEmpty(value: string): { value: string; accessibilityValue: string; isAvailable: boolean } {
+  if (value === EMPTY) {
+    return { value: EMPTY, accessibilityValue: "Not available", isAvailable: false };
+  }
+  return { value, accessibilityValue: value, isAvailable: true };
+}
+
 function formatLowestHeartRate(night: SleepNightDocumentDto): string {
   const v = night.lowestHeartRateBpm;
   if (typeof v !== "number" || !Number.isFinite(v)) return EMPTY;
@@ -86,6 +111,14 @@ export function buildSleepMetricDetail(
 ): DailySleepMetricDetail {
   const ctxLine = sleepNightContextLine(ctx);
   switch (id) {
+    case "sleep_duration":
+      return {
+        title: label,
+        value,
+        body: "Total time asleep for this sleep night from your stored SleepNight summary.",
+        sourceLine: "Canonical SleepNight duration (main sleep when present).",
+        contextLine: ctxLine,
+      };
     case "deep_sleep":
       return {
         title: label,
@@ -160,11 +193,23 @@ function remPercentFromNight(night: SleepNightDocumentDto): number | null {
   return Math.round((rem / total) * 100);
 }
 
+/**
+ * Sleep Score is trusted only when it is a finite 0–100 on the same attributed SleepNight
+ * document that supplies duration/stage metrics (same-day join by construction).
+ */
+export function resolveTrustedSleepScore(night: SleepNightDocumentDto | undefined): number | null {
+  if (night == null) return null;
+  return normalizeOuraScore0to100(night.score);
+}
+
 function metricRowsFromSleepNight(
   requestedCalendarDay: string,
   night: SleepNightDocumentDto,
+  presentation: "dash" | "detail",
 ): DailySleepMetricRow[] {
   const anchorDay = night.anchorDay;
+  const totalMin = totalMinutesForDenominator(night);
+  const durationVal = totalMin != null ? formatSleepDurationMinutes(Math.round(totalMin)) : EMPTY;
   const deepM = typeof night.deepMinutes === "number" ? Math.round(night.deepMinutes) : undefined;
   const remM = typeof night.remMinutes === "number" ? Math.round(night.remMinutes) : undefined;
   const deepVal = deepM != null ? formatSleepDurationMinutes(deepM) : EMPTY;
@@ -174,34 +219,63 @@ function metricRowsFromSleepNight(
   const ctx: MetricDetailCtx = { requestedCalendarDay, anchorDay, remPercent };
   const hrVal = formatLowestHeartRate(night);
   const hrvVal = formatAverageHrv(night);
-  const specs = [
-    { id: "deep_sleep", label: "Deep sleep", value: deepVal },
-    { id: "rem_sleep", label: "REM sleep", value: remVal },
-    { id: "sleep_efficiency", label: "Sleep efficiency", value: effVal },
-    { id: "lowest_heart_rate", label: "Lowest heart rate", value: hrVal },
-    { id: "average_hrv", label: "Average HRV", value: hrvVal },
-  ] as const;
-  return specs.map((s) => ({
-    id: s.id,
-    label: s.label,
-    value: s.value,
-    detail: buildSleepMetricDetail(s.id, s.label, s.value, ctx),
-  }));
+
+  const specs =
+    presentation === "dash"
+      ? ([
+          { id: "sleep_duration", label: "Duration", value: durationVal },
+          { id: "deep_sleep", label: "Deep sleep", value: deepVal },
+          { id: "rem_sleep", label: "REM sleep", value: remVal },
+          { id: "sleep_efficiency", label: "Sleep efficiency", value: effVal },
+        ] as const)
+      : ([
+          { id: "deep_sleep", label: "Deep sleep", value: deepVal },
+          { id: "rem_sleep", label: "REM sleep", value: remVal },
+          { id: "sleep_efficiency", label: "Sleep efficiency", value: effVal },
+          { id: "lowest_heart_rate", label: "Lowest heart rate", value: hrVal },
+          { id: "average_hrv", label: "Average HRV", value: hrvVal },
+        ] as const);
+
+  return specs.map((s) => {
+    const disp = displayOrEmpty(s.value);
+    return {
+      id: s.id,
+      label: s.label,
+      value: disp.value,
+      accessibilityValue: disp.accessibilityValue,
+      isAvailable: disp.isAvailable,
+      detail: buildSleepMetricDetail(s.id, s.label, s.value, ctx),
+    };
+  });
 }
 
-function emptyMetricRows(requestedCalendarDay: string, anchorDay: string): DailySleepMetricRow[] {
+function emptyMetricRows(
+  requestedCalendarDay: string,
+  anchorDay: string,
+  presentation: "dash" | "detail",
+): DailySleepMetricRow[] {
   const ctx: MetricDetailCtx = { requestedCalendarDay, anchorDay, remPercent: null };
-  const specs = [
-    { id: "deep_sleep", label: "Deep sleep", value: EMPTY },
-    { id: "rem_sleep", label: "REM sleep", value: EMPTY },
-    { id: "sleep_efficiency", label: "Sleep efficiency", value: EMPTY },
-    { id: "lowest_heart_rate", label: "Lowest heart rate", value: EMPTY },
-    { id: "average_hrv", label: "Average HRV", value: EMPTY },
-  ] as const;
+  const specs =
+    presentation === "dash"
+      ? ([
+          { id: "sleep_duration", label: "Duration", value: EMPTY },
+          { id: "deep_sleep", label: "Deep sleep", value: EMPTY },
+          { id: "rem_sleep", label: "REM sleep", value: EMPTY },
+          { id: "sleep_efficiency", label: "Sleep efficiency", value: EMPTY },
+        ] as const)
+      : ([
+          { id: "deep_sleep", label: "Deep sleep", value: EMPTY },
+          { id: "rem_sleep", label: "REM sleep", value: EMPTY },
+          { id: "sleep_efficiency", label: "Sleep efficiency", value: EMPTY },
+          { id: "lowest_heart_rate", label: "Lowest heart rate", value: EMPTY },
+          { id: "average_hrv", label: "Average HRV", value: EMPTY },
+        ] as const);
   return specs.map((s) => ({
     id: s.id,
     label: s.label,
     value: s.value,
+    accessibilityValue: "Not available",
+    isAvailable: false,
     detail: buildSleepMetricDetail(s.id, s.label, s.value, ctx),
   }));
 }
@@ -215,6 +289,7 @@ function efficiencyRatioForSummary(night: SleepNightDocumentDto): number | null 
 function buildSleepSummarySentence(args: {
   inputsSettled: boolean;
   hasAnySignal: boolean;
+  score: number | null;
   shortSleep: boolean;
   sleepGood: boolean;
 }): { summary: string; emptyTitle: string | null; emptySubtitle: string | null } {
@@ -226,6 +301,34 @@ function buildSleepSummarySentence(args: {
       summary: "",
       emptyTitle: "No sleep data yet",
       emptySubtitle: "Sync Oura or check back after your next sleep.",
+    };
+  }
+  if (args.score != null) {
+    if (args.score >= 85) {
+      return {
+        summary: "Strong overall sleep quality for this day.",
+        emptyTitle: null,
+        emptySubtitle: null,
+      };
+    }
+    if (args.score >= 70) {
+      return {
+        summary: "Good overall sleep quality for this day.",
+        emptyTitle: null,
+        emptySubtitle: null,
+      };
+    }
+    if (args.score >= 55) {
+      return {
+        summary: "Fair sleep quality with some room to improve.",
+        emptyTitle: null,
+        emptySubtitle: null,
+      };
+    }
+    return {
+      summary: "Sleep quality signals suggest focusing on recovery tonight.",
+      emptyTitle: null,
+      emptySubtitle: null,
     };
   }
   if (args.shortSleep) {
@@ -255,35 +358,38 @@ export function buildDailySleepCardModel(input: {
   resolution?: SleepNightResolution;
   sleepNight: SleepNightDocumentDto | undefined;
   sleepNightSettled: boolean;
+  /**
+   * `dash` (default): Sleep Score hero + Duration-first rows (no LHR/HRV).
+   * `detail`: duration hero + stage/physiology rows including LHR/HRV (Sleep screen).
+   */
+  presentation?: "dash" | "detail";
 }): DailySleepCardModel {
   const { day, sleepNight, sleepNightSettled } = input;
+  const presentation = input.presentation ?? "dash";
 
   const inputsSettled = sleepNightSettled;
 
-  let scoreValueText: string | null = null;
-  let ratingLabel: string | null = null;
-  let ratingTone: DailySleepRatingTone | null = null;
-  if (sleepNight != null && typeof sleepNight.score === "number") {
-    scoreValueText = String(Math.round(sleepNight.score));
-    const label = scoreToRatingLabel(sleepNight.score);
-    ratingLabel = label;
-    ratingTone = ouraLabelToTone(label);
-  }
+  const trustedScore = resolveTrustedSleepScore(sleepNight);
+  const scoreValueText = trustedScore != null ? String(trustedScore) : null;
+  const ratingLabel = tryClassifyOuraScore(trustedScore);
+  const ratingTone = ratingLabel != null ? ouraLabelToTone(ratingLabel) : null;
 
   const totalMin = sleepNight != null ? totalMinutesForDenominator(sleepNight) : null;
-  const headlineValueText =
+  const durationValueText =
     sleepNight != null && totalMin != null ? formatSleepDurationMinutes(Math.round(totalMin)) : null;
 
   const anchorDayForEmpty = sleepNight?.anchorDay ?? day;
   const metricRows =
-    sleepNight != null ? metricRowsFromSleepNight(day, sleepNight) : emptyMetricRows(day, anchorDayForEmpty);
+    sleepNight != null
+      ? metricRowsFromSleepNight(day, sleepNight, presentation)
+      : emptyMetricRows(day, anchorDayForEmpty, presentation);
 
-  const rowHasSignal = (r: DailySleepMetricRow) => r.value !== EMPTY;
+  const rowHasSignal = (r: DailySleepMetricRow) => r.isAvailable;
   const hasRowSignal = metricRows.some(rowHasSignal);
   const hasAnySignal =
-    headlineValueText != null ||
-    hasRowSignal ||
-    (sleepNight != null && typeof sleepNight.score === "number");
+    hasRowSignal || trustedScore != null || durationValueText != null;
+
+  const scoreUnavailable = presentation === "dash" && hasAnySignal && trustedScore == null;
 
   let totalMinutesForShort: number | null = null;
   let efficiencyForGood: number | null = null;
@@ -303,6 +409,7 @@ export function buildDailySleepCardModel(input: {
   const { summary: summarySentence, emptyTitle, emptySubtitle } = buildSleepSummarySentence({
     inputsSettled,
     hasAnySignal,
+    score: presentation === "dash" ? trustedScore : null,
     shortSleep,
     sleepGood,
   });
@@ -313,9 +420,15 @@ export function buildDailySleepCardModel(input: {
 
   const lastNightSubtitle = inputsSettled && hasAnySignal ? "Last night\u2019s sleep" : null;
 
+  const headlineValueText =
+    presentation === "detail" ? durationValueText : scoreValueText;
+
   return {
     day,
     headlineValueText,
+    durationValueText,
+    scoreUnavailable,
+    scoreUnavailableLabel: scoreUnavailable ? SCORE_UNAVAILABLE_LABEL : null,
     scoreValueText,
     ratingLabel,
     ratingTone,
@@ -335,3 +448,5 @@ export function emptyDailySleepCardModel(day: string): DailySleepCardModel {
     sleepNightSettled: true,
   });
 }
+
+export { SCORE_UNAVAILABLE_A11Y };

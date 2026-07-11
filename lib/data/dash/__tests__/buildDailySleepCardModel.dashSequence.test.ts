@@ -36,6 +36,8 @@ describe("buildDailySleepCardModel Dash sleep sequencing", () => {
     });
     expect(after.scoreValueText).toBe("96");
     expect(after.ratingLabel).toBe("Optimal");
-    expect(after.headlineValueText).toBe("8h");
+    expect(after.headlineValueText).toBe("96");
+    expect(after.metricRows[0]?.id).toBe("sleep_duration");
+    expect(after.metricRows[0]?.value).toBe("8h");
   });
 });

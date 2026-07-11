@@ -89,9 +89,10 @@ export function buildSleepTodayDetailVm(input: BuildSleepTodayDetailVmInput): Sl
     resolution: view.resolution,
     sleepNight: view.sleepNight,
     sleepNightSettled: true,
+    presentation: "detail",
   });
 
-  if (model.day !== day || model.headlineValueText == null) {
+  if (model.day !== day || model.durationValueText == null) {
     return buildMissing(day, ouraDisconnected);
   }
 
@@ -99,6 +100,6 @@ export function buildSleepTodayDetailVm(input: BuildSleepTodayDetailVmInput): Sl
     status: "ready",
     day,
     model,
-    headlineWithUnit: formatSleepTodayHeadlineWithUnit(model.headlineValueText),
+    headlineWithUnit: formatSleepTodayHeadlineWithUnit(model.durationValueText),
   };
 }
