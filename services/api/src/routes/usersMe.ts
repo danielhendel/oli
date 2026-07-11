@@ -24,6 +24,7 @@ import {
   workoutMonthSummariesRebuildRangeRequestDtoSchema,
   workoutMonthSummariesRebuildRangeResponseDtoSchema,
   isAcceptedWorkoutMonthSummaryRow,
+  countInclusiveCalendarDays,
 } from "@oli/contracts";
 import {
   nutritionReadProviderForItem,
@@ -57,6 +58,9 @@ import {
   sleepViewDtoSchema,
   readinessViewDtoSchema,
   sleepNightViewDtoSchema,
+  sleepNightRangeQuerySchema,
+  sleepNightRangeResponseDtoSchema,
+  SLEEP_NIGHT_RANGE_MAX_DAYS,
   nutritionFoodSearchResponseDtoSchema,
   nutritionFoodDetailResponseDtoSchema,
   type InsightDto,
@@ -65,7 +69,7 @@ import {
 
 import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
-import { loadSleepNightView } from "../lib/sleepNightRead";
+import { loadSleepNightView, loadSleepNightViewsForRange } from "../lib/sleepNightRead";
 import {
   isRawEventIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
@@ -2178,6 +2182,75 @@ router.get(
     const parsed = sleepNightViewDtoSchema.safeParse(view);
     if (!parsed.success) {
       invalidDoc500(req, res, "sleepNight", parsed.error.flatten());
+      return;
+    }
+    res.status(200).json(parsed.data);
+  }),
+);
+
+router.get(
+  "/sleep-nights",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = sleepNightRangeQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsedQ.data;
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "start must be <= end",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const dayCount = countInclusiveCalendarDays(start, end);
+    if (dayCount < 1 || dayCount > SLEEP_NIGHT_RANGE_MAX_DAYS) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: `Inclusive day span must be 1..${SLEEP_NIGHT_RANGE_MAX_DAYS}`,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    logger.info({
+      msg: "[SLEEP_NIGHT_RANGE_ROUTE]",
+      version: "sleep-night-range-v1",
+      dayCount,
+    });
+
+    const nights = await loadSleepNightViewsForRange(uid, start, end);
+    const out = {
+      start,
+      end,
+      dayCount,
+      resolvedCount: nights.length,
+      nights,
+    };
+    const parsed = sleepNightRangeResponseDtoSchema.safeParse(out);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "sleepNightRange", parsed.error.flatten());
       return;
     }
     res.status(200).json(parsed.data);

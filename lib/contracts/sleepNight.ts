@@ -99,3 +99,31 @@ export const sleepNightViewDtoSchema = z.object({
 });
 
 export type SleepNightViewDto = z.infer<typeof sleepNightViewDtoSchema>;
+
+/** Inclusive calendar-day span cap for GET /users/me/sleep-nights range reads. */
+export const SLEEP_NIGHT_RANGE_MAX_DAYS = 90;
+
+export const sleepNightRangeQuerySchema = z
+  .object({
+    start: dayKeySchema,
+    end: dayKeySchema,
+  })
+  .strip();
+
+export type SleepNightRangeQuery = z.infer<typeof sleepNightRangeQuerySchema>;
+
+/**
+ * Bounded range response: only nights that resolve are included (missing days omitted — no per-day 404).
+ * Each item is the same view DTO as GET /users/me/sleep-night for that requestedDay.
+ */
+export const sleepNightRangeResponseDtoSchema = z.object({
+  start: dayKeySchema,
+  end: dayKeySchema,
+  /** Number of calendar days in the inclusive [start, end] window (policy-checked). */
+  dayCount: z.number().int().positive(),
+  /** Number of resolved SleepNight views returned. */
+  resolvedCount: z.number().int().nonnegative(),
+  nights: z.array(sleepNightViewDtoSchema),
+});
+
+export type SleepNightRangeResponseDto = z.infer<typeof sleepNightRangeResponseDtoSchema>;
