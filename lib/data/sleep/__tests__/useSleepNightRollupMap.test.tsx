@@ -162,4 +162,31 @@ describe("useSleepNightRollupMap", () => {
     expect(out).toContain("settled=1/1");
     expect(out).toContain("views=1");
   });
+
+  it("caps year-long dayKeys to SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS network calls", async () => {
+    getSleepNightMock.mockImplementation(async () => ({
+      ok: false,
+      status: 404,
+      requestId: "r",
+      error: { code: "NOT_FOUND", message: "missing" },
+    }) as never);
+
+    const yearKeys: DayKey[] = [];
+    for (let i = 365; i >= 0; i--) {
+      const d = new Date(Date.UTC(2026, 3, 6));
+      d.setUTCDate(d.getUTCDate() - i);
+      yearKeys.push(d.toISOString().slice(0, 10) as DayKey);
+    }
+
+    await act(async () => {
+      renderer.create(<Probe dayKeys={yearKeys} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getSleepNightMock.mock.calls.length).toBeLessThanOrEqual(14);
+    expect(getSleepNightMock.mock.calls.length).toBeGreaterThan(0);
+  });
 });

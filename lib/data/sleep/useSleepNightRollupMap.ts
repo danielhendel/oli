@@ -4,6 +4,10 @@ import { getSleepNight } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import { partitionOuraWeekPresenceDayKeys } from "@/lib/data/oura/useOuraViewWeekSnapshotPresence";
+import {
+  SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS,
+  boundSleepNightFetchDayKeys,
+} from "@/lib/data/sleep/sleepOverviewRanges";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
@@ -43,10 +47,10 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
   });
 
   const keySig = useMemo(() => [...dayKeys].sort().join("\0"), [dayKeys]);
-  const { daysToFetch } = useMemo(
-    () => partitionOuraWeekPresenceDayKeys(dayKeys, todayDayKey),
-    [keySig, todayDayKey, dayKeys],
-  );
+  const { daysToFetch } = useMemo(() => {
+    const bounded = boundSleepNightFetchDayKeys(dayKeys, todayDayKey);
+    return partitionOuraWeekPresenceDayKeys(bounded, todayDayKey);
+  }, [keySig, todayDayKey, dayKeys]);
   const fetchSig = useMemo(() => [...daysToFetch].sort().join("\0"), [daysToFetch]);
 
   const sleepNightByDay = useMemo(
@@ -65,8 +69,16 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
     async (cacheBust?: string) => {
       const seq = ++requestSeq.current;
       const keys = keysRef.current;
-      const { daysToFetch: days } = partitionOuraWeekPresenceDayKeys(keys, todayDayKey);
+      const bounded = boundSleepNightFetchDayKeys(keys, todayDayKey);
+      const { daysToFetch: days } = partitionOuraWeekPresenceDayKeys(bounded, todayDayKey);
       const { initializing: init, userUid, getIdToken: getToken } = authRef.current;
+
+      if (__DEV__ && keys.filter((d) => d <= todayDayKey).length > SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS) {
+        logDataHookTiming("useSleepNightRollupMap", "start", {
+          status: "bounded-fetch",
+          resultApprox: `requestedElapsed:${keys.filter((d) => d <= todayDayKey).length};capped:${SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS}`,
+        });
+      }
 
       const safeSet = (next: RollupInternalState) => {
         if (seq === requestSeq.current) setState(next);
