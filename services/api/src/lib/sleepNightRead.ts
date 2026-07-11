@@ -4,7 +4,7 @@ import {
   type SleepNightViewDto,
 } from "@oli/contracts/sleepNight";
 
-import { userCollection } from "../db";
+import { documentIdPath, userCollection } from "../db";
 import { firestoreDocToPlainJson } from "./sleepNightFirestore";
 import { logger } from "./logger";
 import {
@@ -424,7 +424,7 @@ function enumerateDayKeysInclusive(start: string, end: string): string[] {
  * - Does **not** query `rawEvents` (physiology hydrate uses vendor readiness + dailyFacts only).
  * - Missing calendar days are omitted (no per-day 404).
  * - Uses the same resolution rules as GET /users/me/sleep-night per requested day.
- * - Prefetches doc IDs from `start-2` through `end` so wake-day lookback stays in-memory.
+ * - Prefetches `[start-2, end]` with **one** document-ID range query (no per-day `.get()` fan-out).
  */
 export async function loadSleepNightViewsForRange(
   uid: string,
@@ -437,10 +437,27 @@ export async function loadSleepNightViewsForRange(
   const fetchStart = dayMinus(start, 2);
   const fetchIds = enumerateDayKeysInclusive(fetchStart, end);
 
-  const snaps = await Promise.all(fetchIds.map((id) => col.doc(id).get()));
+  // Single bounded query: YYYY-MM-DD doc ids sort lexicographically with calendar order.
+  const rangeSnap = await col
+    .where(documentIdPath, ">=", fetchStart)
+    .where(documentIdPath, "<=", end)
+    .get();
+
   const byId = new Map<string, SleepNightDocumentDto | null>();
-  for (let i = 0; i < fetchIds.length; i++) {
-    byId.set(fetchIds[i]!, parseSleepNightSnapshot(snaps[i]!));
+  for (const id of fetchIds) {
+    byId.set(id, null);
+  }
+  for (const doc of rangeSnap.docs) {
+    // Ignore unexpected ids outside the enumerated window (defensive).
+    if (!byId.has(doc.id)) continue;
+    byId.set(
+      doc.id,
+      parseSleepNightSnapshot({
+        exists: true,
+        id: doc.id,
+        data: () => doc.data() as Record<string, unknown> | undefined,
+      }),
+    );
   }
 
   const requestedDays = enumerateDayKeysInclusive(start, end);
