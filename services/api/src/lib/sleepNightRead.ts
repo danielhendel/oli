@@ -4,7 +4,7 @@ import {
   type SleepNightViewDto,
 } from "@oli/contracts/sleepNight";
 
-import { userCollection } from "../db";
+import { documentIdPath, userCollection } from "../db";
 import { firestoreDocToPlainJson } from "./sleepNightFirestore";
 import { logger } from "./logger";
 import {
@@ -93,6 +93,7 @@ function dedupeDayKeys(days: (string | undefined)[]): string[] {
 export async function hydrateSleepNightPhysiologyMetrics(
   uid: string,
   view: SleepNightViewDto,
+  opts?: { allowRawEventLookup?: boolean },
 ): Promise<SleepNightViewDto> {
   const night = view.sleepNight;
   const hasLowest = typeof night.lowestHeartRateBpm === "number" && Number.isFinite(night.lowestHeartRateBpm);
@@ -110,7 +111,8 @@ export async function hydrateSleepNightPhysiologyMetrics(
     : "none";
 
   const readinessCol = userCollection(uid, "ouraVendorReadiness");
-  const rawEventsCol = userCollection(uid, "rawEvents");
+  const allowRawEventLookup = opts?.allowRawEventLookup !== false;
+  const rawEventsCol = allowRawEventLookup ? userCollection(uid, "rawEvents") : null;
 
   const tryReadinessRecord = async (raw: Record<string, unknown>, docId?: string) => {
     readinessDocFound = true;
@@ -141,7 +143,7 @@ export async function hydrateSleepNightPhysiologyMetrics(
     const linkedId =
       (typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id.trim() : null) ??
       (typeof docId === "string" && docId.trim().length > 0 ? docId.trim() : null);
-    if (!linkedId) return;
+    if (!linkedId || !rawEventsCol) return;
 
     const rawSnap = await rawEventsCol.doc(linkedId).get();
     if (!rawSnap.exists) return;
@@ -403,4 +405,74 @@ export async function loadSleepNightView(uid: string, requestedDay: string): Pro
   }
 
   return view;
+}
+
+function enumerateDayKeysInclusive(start: string, end: string): string[] {
+  if (start > end) return [];
+  const out: string[] = [];
+  let current = start;
+  while (current <= end) {
+    out.push(current);
+    current = dayMinus(current, -1);
+  }
+  return out;
+}
+
+/**
+ * Bounded range read over `users/{uid}/sleepNights` for inclusive [start, end].
+ *
+ * - **One** document-ID range query for `[start-2, end]` (no per-day `.get()` fan-out).
+ * - **No** per-night hydrate I/O (`ouraVendor*`, `dailyFacts`, `rawEvents`, `events`).
+ * - Sparse semantics: only `exact_anchor` and `wake_day` resolutions are returned.
+ *   `latest_completed_prior_night` is exact-day Dash fallback and must not densify ranges.
+ * - Missing / unresolved calendar days are omitted (no per-day 404).
+ */
+export async function loadSleepNightViewsForRange(
+  uid: string,
+  start: string,
+  end: string,
+): Promise<SleepNightViewDto[]> {
+  if (start > end) return [];
+
+  const col = userCollection(uid, "sleepNights");
+  const fetchStart = dayMinus(start, 2);
+  const fetchIds = enumerateDayKeysInclusive(fetchStart, end);
+
+  // Single bounded query: YYYY-MM-DD doc ids sort lexicographically with calendar order.
+  const rangeSnap = await col
+    .where(documentIdPath, ">=", fetchStart)
+    .where(documentIdPath, "<=", end)
+    .get();
+
+  const byId = new Map<string, SleepNightDocumentDto | null>();
+  for (const id of fetchIds) {
+    byId.set(id, null);
+  }
+  for (const doc of rangeSnap.docs) {
+    // Ignore unexpected ids outside the enumerated window (defensive).
+    if (!byId.has(doc.id)) continue;
+    byId.set(
+      doc.id,
+      parseSleepNightSnapshot({
+        exists: true,
+        id: doc.id,
+        data: () => doc.data() as Record<string, unknown> | undefined,
+      }),
+    );
+  }
+
+  const requestedDays = enumerateDayKeysInclusive(start, end);
+  const resolved: SleepNightViewDto[] = [];
+  for (const day of requestedDays) {
+    const exact = byId.get(day) ?? null;
+    const minus1 = byId.get(dayMinus(day, 1)) ?? null;
+    const minus2 = byId.get(dayMinus(day, 2)) ?? null;
+    const view = resolveSleepNightViewFromBoundedReads(day, exact, minus1, minus2);
+    // Sparse range: do not fill empty calendar days with prior-night Dash fallback.
+    if (view && view.resolution !== "latest_completed_prior_night") {
+      resolved.push(view);
+    }
+  }
+
+  return resolved;
 }

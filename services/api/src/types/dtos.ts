@@ -69,8 +69,20 @@ export {
 export type { SleepViewDto, ReadinessViewDto } from "@oli/contracts/ouraVendor";
 
 // Canonical SleepNight read surface (GET /users/me/sleep-night)
-export { sleepNightViewDtoSchema, sleepNightDocumentSchema } from "@oli/contracts/sleepNight";
-export type { SleepNightViewDto, SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts/sleepNight";
+export {
+  sleepNightViewDtoSchema,
+  sleepNightDocumentSchema,
+  sleepNightRangeQuerySchema,
+  sleepNightRangeResponseDtoSchema,
+  SLEEP_NIGHT_RANGE_MAX_DAYS,
+} from "@oli/contracts/sleepNight";
+export type {
+  SleepNightViewDto,
+  SleepNightDocumentDto,
+  SleepNightResolution,
+  SleepNightRangeQuery,
+  SleepNightRangeResponseDto,
+} from "@oli/contracts/sleepNight";
 
 // Nutrition — dev food catalog read surface (GET /users/me/nutrition/*)
 export {
