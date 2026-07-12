@@ -199,7 +199,7 @@ describe("POST /integrations/oura/pull-now", () => {
     app.use(express.json());
     app.use((req, _res, next) => {
       (req as unknown as { uid: string; rid: string }).uid = "user_oura_1";
-      (req as unknown as { rid: string }).rid = "req-oura-pull";
+      (req as unknown as { rid: string }).rid = "3237605a-ceb7-44bc-958e-be8954b9e939";
       next();
     });
     app.use("/integrations/oura/pull-now", ouraPullNowRouter);
@@ -316,7 +316,7 @@ describe("POST /integrations/oura/pull-now", () => {
       .set("Idempotency-Key", "oura-pull-success");
     expect(res.status).toBe(202);
     expect(res.body.ok).toBe(true);
-    expect(res.body.requestId).toBe("req-oura-pull");
+    expect(res.body.requestId).toBe("3237605a-ceb7-44bc-958e-be8954b9e939");
     expect(res.body.eventsCreated).toBe(2);
     expect(res.body.eventsAlreadyExists).toBe(0);
     expect(res.body.windowDays).toBe(30);
@@ -329,7 +329,7 @@ describe("POST /integrations/oura/pull-now", () => {
       "user_oura_1",
       expect.any(Array),
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
       expect.objectContaining({
         stepsItems: expect.any(Array),
         workoutItems: expect.any(Array),
@@ -351,14 +351,14 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
       expect.any(Array),
       expect.any(Array),
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
     );
   });
 
@@ -428,7 +428,7 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(res.body.ok).toBe(true);
     expect(ouraPostRawJob.publishOuraPostRawJob).toHaveBeenCalledWith(
       "user_oura_1",
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
       expect.any(Array),
       expect.any(Array),
       expect.any(Array),

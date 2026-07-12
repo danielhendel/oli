@@ -74,16 +74,20 @@ describe("writeOuraRawEvents", () => {
       expect.objectContaining({
         msg: "oura_raw_events_core_write_done",
         operation: "oura_raw_events_core_write_done",
-        requestId: "req-1",
         rawEventCreatedCount: 1,
         rawEventExistingCount: 0,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
       }),
     );
     expect(infoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         msg: "oura_raw_events_vendor_detail_deferred",
-        requestId: "req-1",
         rawItemCount: 2,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
       }),
     );
     assertAllLoggedPrivacySafe();

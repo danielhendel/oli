@@ -8,6 +8,7 @@ import { runOuraPostRaw, type SleepDoc, type ReadinessDoc } from "./ouraPostRawH
 import {
   categorizeOuraPostRawSafeError,
   logOuraPostRawTelemetry,
+  sanitizeOuraPostRawRequestId,
 } from "./ouraPostRawTelemetry";
 
 const TOPIC = "oura.post_raw.v1";
@@ -45,17 +46,16 @@ export const onOuraPostRawRequested = onMessagePublished(
 
     const {
       uid,
-      requestId = "unknown",
+      requestId,
       sleepDocs = [],
       readinessDocs = [],
       dailySleepDocs = [],
       dailyStressDocs = [],
     } = payload as OuraPostRawMessage;
 
-    // Prefer producer requestId (API middleware UUID / client x-request-id). Do not
-    // fall back to Pub/Sub event/message ids — those are transport identifiers.
-    const safeRequestId =
-      typeof requestId === "string" && requestId.trim().length > 0 ? requestId.trim() : "unknown";
+    // Prefer sanitized producer requestId only. Never fall back to Pub/Sub
+    // event/message ids — those are transport identifiers, not telemetry traces.
+    const safeRequestId = sanitizeOuraPostRawRequestId(requestId);
 
     if (!assertUid(uid)) {
       logOuraPostRawTelemetry({

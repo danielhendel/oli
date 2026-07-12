@@ -104,13 +104,18 @@ HTTP status or retry control flow.
 
 ## requestId origin
 
-- API: `requestIdMiddleware` in `services/api/src/lib/logger.ts` sets `req.rid`
-  from client `x-request-id` when length > 6, otherwise `crypto.randomUUID()`.
-- Pull-now reads `req.rid` / `x-request-id` — **not** `Idempotency-Key`.
-- Idempotency remains a separate header and is never logged.
-- Function consumer uses producer `requestId` from the post-raw payload; it does
-  **not** fall back to Pub/Sub `messageId` / `event.id`.
-- Enqueue telemetry logs `queued: true` and never logs Pub/Sub `messageId`.
+- API middleware (`requestIdMiddleware`) may still echo a client `x-request-id`
+  on the HTTP response for general request correlation.
+- **Oura refresh telemetry and post-raw producer/consumer traces use Option B:**
+  `sanitizeOuraTelemetryRequestId` / `sanitizeOuraPostRawRequestId` accept only
+  RFC UUID form (max 36 chars). Invalid values are discarded and replaced with
+  `crypto.randomUUID()` — never hashed, truncated, or encoded.
+- Pull-now `getRequestId` sanitizes before telemetry, requestRecords correlation,
+  and post-raw publish so the Function never receives an arbitrary client string.
+- Function `onOuraPostRawRequested` sanitizes the producer `requestId` and never
+  falls back to Pub/Sub `messageId` / `event.id`.
+- Idempotency remains a separate `Idempotency-Key` header and is never used as
+  `requestId`.
 
 ## API logger boundary
 

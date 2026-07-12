@@ -8,7 +8,33 @@
  * messages are ever accepted by this module's event types.
  */
 
+import { randomUUID } from "crypto";
+
 import { logger } from "./logger";
+
+/**
+ * Strict opaque request-trace ID for Oura telemetry (Option B).
+ * Accepts only lowercase/uppercase RFC UUID form (36 chars). Anything else —
+ * including arbitrary `x-request-id`, emails, dates, URLs, tokens, idempotency
+ * keys, UIDs, or oversized strings — is discarded and replaced with a new
+ * server-generated UUID. Never hashes, truncates, or encodes unsafe input.
+ */
+const OURA_TELEMETRY_REQUEST_ID_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const OURA_TELEMETRY_REQUEST_ID_MAX_LEN = 36;
+
+export function sanitizeOuraTelemetryRequestId(candidate: unknown): string {
+  if (typeof candidate !== "string") return randomUUID();
+  const trimmed = candidate.trim();
+  if (trimmed.length === 0 || trimmed.length > OURA_TELEMETRY_REQUEST_ID_MAX_LEN) {
+    return randomUUID();
+  }
+  if (!OURA_TELEMETRY_REQUEST_ID_UUID.test(trimmed)) {
+    return randomUUID();
+  }
+  return trimmed;
+}
 
 /** Closed set of privacy-safe error codes for the Oura refresh path. */
 export type OuraSafeErrorCode =
@@ -387,11 +413,14 @@ const WARN_OPERATIONS: ReadonlySet<string> = new Set([
 /**
  * Log a single Oura refresh telemetry event. Only the event's own typed fields are
  * emitted (plus `msg`/`operation`, which are the same value) — no free-form fields,
- * no error messages, no identifiers.
+ * no error messages, no identifiers. `requestId` is always sanitized before emit.
  */
 export function logOuraRefreshTelemetry(event: OuraRefreshTelemetryEvent): void {
-  const { operation, ...rest } = event;
+  const { operation, requestId, ...rest } = event;
   const payload: Record<string, unknown> = { msg: operation, operation, ...rest };
+  if (requestId !== undefined) {
+    payload.requestId = sanitizeOuraTelemetryRequestId(requestId);
+  }
 
   if (ERROR_OPERATIONS.has(operation)) {
     logger.error(payload);

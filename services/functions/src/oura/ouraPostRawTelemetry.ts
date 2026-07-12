@@ -6,7 +6,30 @@
  * raw error messages, Pub/Sub payloads, or tokens.
  */
 
+import { randomUUID } from "crypto";
 import { logger } from "firebase-functions";
+
+/**
+ * Strict opaque request-trace ID for post-raw telemetry (mirrors API Option B).
+ * Accepts only RFC UUID form. Invalid/missing values are replaced with a new
+ * server UUID — never Pub/Sub message IDs, never hashed/truncated unsafe input.
+ */
+const OURA_POST_RAW_REQUEST_ID_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const OURA_POST_RAW_REQUEST_ID_MAX_LEN = 36;
+
+export function sanitizeOuraPostRawRequestId(candidate: unknown): string {
+  if (typeof candidate !== "string") return randomUUID();
+  const trimmed = candidate.trim();
+  if (trimmed.length === 0 || trimmed.length > OURA_POST_RAW_REQUEST_ID_MAX_LEN) {
+    return randomUUID();
+  }
+  if (!OURA_POST_RAW_REQUEST_ID_UUID.test(trimmed)) {
+    return randomUUID();
+  }
+  return trimmed;
+}
 
 /** Closed set of privacy-safe error codes for the post-raw Function path. */
 export type OuraPostRawSafeErrorCode =
@@ -116,8 +139,11 @@ const WARN_OPERATIONS: ReadonlySet<string> = new Set([]);
  * no free-form metadata, error messages, or identifiers.
  */
 export function logOuraPostRawTelemetry(event: OuraPostRawTelemetryEvent): void {
-  const { operation, ...rest } = event;
+  const { operation, requestId, ...rest } = event;
   const payload: Record<string, unknown> = { msg: operation, operation, ...rest };
+  if (requestId !== undefined) {
+    payload.requestId = sanitizeOuraPostRawRequestId(requestId);
+  }
 
   if (ERROR_OPERATIONS.has(operation)) {
     logger.error(payload);

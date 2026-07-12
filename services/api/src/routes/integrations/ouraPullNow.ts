@@ -50,6 +50,7 @@ import { writeFailure } from "../../lib/writeFailure";
 import {
   categorizeOuraSafeError,
   logOuraRefreshTelemetry,
+  sanitizeOuraTelemetryRequestId,
   type OuraSafeErrorCode,
 } from "../../lib/ouraRefreshTelemetry";
 import { publishOuraPostRawJob, getOuraPostRawTopic } from "../../lib/ouraPostRawJob";
@@ -78,8 +79,15 @@ function dayMinus(ymd: string, days: number): string {
 
 export type OuraPullNowResult = { statusCode: number; body: Record<string, unknown> };
 
+/**
+ * Trace ID for the Oura refresh path (telemetry + post-raw producer payload).
+ * Sanitizes middleware/header values so arbitrary client `x-request-id` cannot
+ * enter logs or the Function consumer. Idempotency-Key remains a separate header.
+ */
 function getRequestId(req: Request): string {
-  return (req as AuthedRequest).rid ?? (req.header("x-request-id") ?? "unknown").toString();
+  const candidate =
+    (req as AuthedRequest).rid ?? (req.header("x-request-id") ?? "").toString();
+  return sanitizeOuraTelemetryRequestId(candidate);
 }
 
 function getIdempotencyKey(req: Request): string | undefined {
