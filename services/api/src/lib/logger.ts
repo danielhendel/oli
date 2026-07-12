@@ -12,32 +12,12 @@ export const logger = {
 
 export type RequestWithRid = Request & { rid?: string };
 
-const SECRET_QUERY_KEYS = ["key", "token", "access_token", "id_token", "refresh_token"];
-
-/**
- * Returns path + query string with secret query param values redacted for logs.
- */
-function sanitizePathForLogs(originalUrl: string): string {
-  try {
-    const q = originalUrl.indexOf("?");
-    if (q === -1) return originalUrl;
-    const pathPart = originalUrl.slice(0, q);
-    const search = originalUrl.slice(q + 1);
-    const params = new URLSearchParams(search);
-    const redacted = new URLSearchParams();
-    for (const [k, v] of params) {
-      redacted.set(k, SECRET_QUERY_KEYS.includes(k) ? "[REDACTED]" : v);
-    }
-    const newSearch = redacted.toString();
-    return newSearch ? `${pathPart}?${newSearch}` : pathPart;
-  } catch {
-    return originalUrl.replace(/key=[^&]*/g, "key=[REDACTED]");
-  }
-}
-
 /**
  * Ensures every request has a request id AND every response echoes it as `x-request-id`.
  * Mobile sends `x-request-id` so Cloud Run logs can be correlated in <60 seconds.
+ *
+ * Note: access-log telemetry may replace a non-UUID request id with a fresh UUID for
+ * logging only — HTTP response correlation still uses this `rid` / header value.
  */
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction) {
   const incoming = req.header("x-request-id");
@@ -46,28 +26,5 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   (req as RequestWithRid).rid = rid;
   res.setHeader("x-request-id", rid);
 
-  next();
-}
-
-/**
- * Structured access logging (Cloud Run friendly).
- * Emits one JSON line per request on finish.
- */
-export function accessLogMiddleware(req: Request, res: Response, next: NextFunction) {
-  const start = Date.now();
-  res.on("finish", () => {
-    const ms = Date.now() - start;
-    const withRid = req as RequestWithRid & { uid?: string };
-
-    logger.info({
-      msg: "request",
-      rid: withRid.rid ?? null,
-      method: req.method,
-      path: sanitizePathForLogs(req.originalUrl),
-      status: res.statusCode,
-      ms,
-      uid: withRid.uid ?? null,
-    });
-  });
   next();
 }
