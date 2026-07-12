@@ -17,7 +17,7 @@ import {
   dailySleepDayFromDoc,
   scoreFromOuraDailySleepDoc,
 } from "../../../api/src/lib/oura/dailySleepScoreForSleepNight";
-import type { OuraDailyReadinessDocument, OuraDailySleepDocument } from "../../../api/src/lib/ouraApi";
+import type { OuraDailyReadinessDocument, OuraDailySleepDocument, OuraDailyStressDocument } from "../../../api/src/lib/ouraApi";
 import {
   logOuraSleepPhysiologyDebugForDoc,
   pickOuraSleepAverageHrvMs,
@@ -299,6 +299,7 @@ function extractReadinessSnapshot(doc: ReadinessDoc, fetchedAt: string): Readine
 export type RunOuraPostRawResult = {
   sleepWritten: number;
   readinessWritten: number;
+  stressWritten: number;
   sleepNightsWritten: number;
   metadataWritten: boolean;
 };
@@ -565,9 +566,139 @@ async function writeReadinessSnapshots(
   return { written };
 }
 
+type StressDoc = {
+  id?: string;
+  day?: string;
+  day_summary?: "restored" | "normal" | "stressful" | null;
+  stress_high?: number | null;
+  recovery_high?: number | null;
+  [key: string]: unknown;
+};
+
+type StressSnapshot = {
+  id: string;
+  day: string;
+  daySummary?: "restored" | "normal" | "stressful" | null;
+  stressHighSeconds?: number | null;
+  recoveryHighSeconds?: number | null;
+  source: "oura";
+  fetchedAt: string;
+  updatedAt?: string;
+  schemaVersion: 1;
+};
+
+function extractStressSnapshot(doc: StressDoc, fetchedAt: string): StressSnapshot | null {
+  const day = typeof doc.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(doc.day.trim()) ? doc.day.trim() : null;
+  if (!day) return null;
+
+  const id =
+    typeof doc.id === "string" && doc.id.trim().length > 0 ? doc.id.trim() : `oura_daily_stress_${day}`;
+
+  const out: StressSnapshot = {
+    id: String(id),
+    day,
+    source: SOURCE,
+    fetchedAt,
+    updatedAt: fetchedAt,
+    schemaVersion: 1,
+  };
+
+  if (doc.day_summary === null) {
+    out.daySummary = null;
+  } else if (doc.day_summary === "restored" || doc.day_summary === "normal" || doc.day_summary === "stressful") {
+    out.daySummary = doc.day_summary;
+  }
+
+  if (doc.stress_high === null) {
+    out.stressHighSeconds = null;
+  } else if (typeof doc.stress_high === "number" && Number.isFinite(doc.stress_high) && doc.stress_high >= 0) {
+    out.stressHighSeconds = doc.stress_high;
+  }
+
+  if (doc.recovery_high === null) {
+    out.recoveryHighSeconds = null;
+  } else if (
+    typeof doc.recovery_high === "number" &&
+    Number.isFinite(doc.recovery_high) &&
+    doc.recovery_high >= 0
+  ) {
+    out.recoveryHighSeconds = doc.recovery_high;
+  }
+
+  return out;
+}
+
+async function writeStressSnapshots(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  docs: StressDoc[],
+  requestId: string,
+): Promise<{ written: number }> {
+  const fetchedAt = new Date().toISOString();
+  const col = db.collection("users").doc(uid).collection("ouraVendorStress");
+  let written = 0;
+
+  const snapshots: StressSnapshot[] = [];
+  let droppedStress = 0;
+  for (const doc of docs) {
+    const snapshot = extractStressSnapshot(doc, fetchedAt);
+    if (!snapshot) {
+      droppedStress += 1;
+      continue;
+    }
+    snapshots.push(snapshot);
+  }
+
+  if (droppedStress > 0) {
+    logger.info("oura_post_raw: stress docs dropped", {
+      requestId,
+      stressDocCount: docs.length,
+      droppedStress,
+      reason: "missing_day",
+    });
+  }
+
+  for (let i = 0; i < snapshots.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = snapshots.slice(i, i + BATCH_CHUNK_SIZE);
+    const batch = db.batch();
+    for (const snapshot of chunk) {
+      batch.set(col.doc(snapshot.id), stripUndefined(snapshot as unknown as Record<string, unknown>), {
+        merge: true,
+      });
+    }
+    try {
+      await batch.commit();
+      written += chunk.length;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("oura_post_raw: stress batch error", {
+        requestId,
+        chunkSize: chunk.length,
+        err: message,
+      });
+      for (const snapshot of chunk) {
+        try {
+          await col.doc(snapshot.id).set(stripUndefined(snapshot as unknown as Record<string, unknown>), {
+            merge: true,
+          });
+          written += 1;
+        } catch (singleErr) {
+          logger.error("oura_post_raw: stress write error", {
+            requestId,
+            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+          });
+        }
+      }
+    }
+  }
+
+  return { written };
+}
+
 /**
- * Run post-raw persistence: sleep snapshots, readiness snapshots, integration metadata.
+ * Run post-raw persistence: sleep snapshots, readiness snapshots, stress snapshots, integration metadata.
  * lastRefreshAt always; lastSyncAt/lastSnapshotAt only when at least one snapshot written.
+ * `dailyStressDocs` defaults to [] so older Pub/Sub producers without stress still work.
  */
 export async function runOuraPostRaw(
   uid: string,
@@ -575,6 +706,7 @@ export async function runOuraPostRaw(
   sleepDocs: SleepDoc[],
   readinessDocs: ReadinessDoc[],
   dailySleepDocs: OuraDailySleepDocument[] = [],
+  dailyStressDocs: OuraDailyStressDocument[] = [],
 ): Promise<RunOuraPostRawResult> {
   const db = getFirestore();
 
@@ -584,14 +716,16 @@ export async function runOuraPostRaw(
     sleepDocCount: sleepDocs.length,
     readinessDocCount: readinessDocs.length,
     dailySleepDocCount: dailySleepDocs.length,
+    dailyStressDocCount: dailyStressDocs.length,
   });
 
-  const [sleepResult, readinessResult] = await Promise.all([
+  const [sleepResult, readinessResult, stressResult] = await Promise.all([
     writeSleepSnapshots(db, uid, sleepDocs, requestId, readinessDocs, dailySleepDocs),
     writeReadinessSnapshots(db, uid, readinessDocs, requestId),
+    writeStressSnapshots(db, uid, dailyStressDocs as StressDoc[], requestId),
   ]);
 
-  const totalSnapshotWritten = sleepResult.written + readinessResult.written;
+  const totalSnapshotWritten = sleepResult.written + readinessResult.written + stressResult.written;
   const setLastSyncAt = totalSnapshotWritten > 0;
   const setLastSnapshotAt = totalSnapshotWritten > 0;
 
@@ -611,6 +745,7 @@ export async function runOuraPostRaw(
       requestId,
       sleepWritten: sleepResult.written,
       readinessWritten: readinessResult.written,
+      stressWritten: stressResult.written,
       err: metaErr instanceof Error ? metaErr.message : String(metaErr),
     });
   }
@@ -620,6 +755,7 @@ export async function runOuraPostRaw(
     requestId,
     sleepWritten: sleepResult.written,
     readinessWritten: readinessResult.written,
+    stressWritten: stressResult.written,
     sleepNightsWritten: sleepResult.sleepNightsWritten,
     metadataWritten,
   });
@@ -627,6 +763,7 @@ export async function runOuraPostRaw(
   return {
     sleepWritten: sleepResult.written,
     readinessWritten: readinessResult.written,
+    stressWritten: stressResult.written,
     sleepNightsWritten: sleepResult.sleepNightsWritten,
     metadataWritten,
   };

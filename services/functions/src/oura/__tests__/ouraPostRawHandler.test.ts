@@ -52,6 +52,7 @@ describe("runOuraPostRaw", () => {
     expect(result.sleepWritten).toBe(0);
     expect(result.sleepNightsWritten).toBe(0);
     expect(result.readinessWritten).toBe(0);
+    expect(result.stressWritten).toBe(0);
     expect(mockSet).toHaveBeenCalled();
     const setCalls = mockSet.mock.calls;
     const integrationUpdate = setCalls.find(
@@ -192,5 +193,43 @@ describe("runOuraPostRaw", () => {
     )?.[1];
     expect(sleepNightPayload?.isComplete).toBe(true);
     expect(sleepNightPayload?.score).toBe(81);
+  });
+
+  it("tolerates absent dailyStressDocs (old producers) and reports stressWritten 0", async () => {
+    const sleepDocs = [
+      { id: "s1", bed_time: "2025-03-13T22:00:00Z", wake_time: "2025-03-14T06:00:00Z" },
+    ];
+    const readinessDocs = [{ id: "r1", day: "2025-03-14" }];
+
+    const result = await runOuraPostRaw("uid8", "req8", sleepDocs, readinessDocs);
+
+    expect(result.stressWritten).toBe(0);
+    expect(result.metadataWritten).toBe(true);
+  });
+
+  it("persists stress snapshots when dailyStressDocs are present", async () => {
+    const stressDocs = [
+      {
+        id: "st1",
+        day: "2025-03-14",
+        day_summary: "normal" as const,
+        stress_high: 120,
+        recovery_high: 60,
+      },
+    ];
+
+    const result = await runOuraPostRaw("uid9", "req9", [], [], [], stressDocs);
+
+    expect(result.stressWritten).toBeGreaterThanOrEqual(1);
+    expect(result.metadataWritten).toBe(true);
+    const batchSetCalls = mockBatchSet.mock.calls as [unknown, Record<string, unknown>, unknown][];
+    const stressPayload = batchSetCalls.find(
+      (c) => c[1]?.source === "oura" && c[1]?.schemaVersion === 1 && c[1]?.day === "2025-03-14",
+    )?.[1];
+    expect(stressPayload).toBeDefined();
+    expect(stressPayload?.daySummary).toBe("normal");
+    expect(stressPayload?.stressHighSeconds).toBe(120);
+    expect(stressPayload?.recoveryHighSeconds).toBe(60);
+    expect(stressPayload).not.toHaveProperty("payload");
   });
 });

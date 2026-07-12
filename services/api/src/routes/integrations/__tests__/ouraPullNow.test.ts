@@ -61,6 +61,7 @@ jest.mock("../../../lib/ouraApi", () => ({
   resolveOuraSleepIngestBase: jest.fn(() => null),
   fetchOuraDailyReadiness: jest.fn(),
   fetchOuraDailySleep: jest.fn().mockResolvedValue([]),
+  fetchOuraDailyStress: jest.fn().mockResolvedValue([]),
   fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
   fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),
   fetchOuraWorkouts: jest.fn().mockResolvedValue([]),
@@ -163,6 +164,12 @@ jest.mock("../../../lib/ouraVendorSnapshot", () => ({
   writeOuraVendorReadinessSnapshots: jest.fn().mockResolvedValue({
     attempted: 1,
     written: 1,
+    skippedMissingDay: 0,
+    errors: 0,
+  }),
+  writeOuraVendorStressSnapshots: jest.fn().mockResolvedValue({
+    attempted: 0,
+    written: 0,
     skippedMissingDay: 0,
     errors: 0,
   }),
@@ -408,17 +415,20 @@ describe("POST /integrations/oura/pull-now", () => {
       expect.any(Array),
       expect.any(Array),
       expect.any(Array),
+      expect.any(Array),
     );
-    const [, , sleepDocs, readinessDocs, dailySleepDocs] = (
+    const [, , sleepDocs, readinessDocs, dailySleepDocs, dailyStressDocs] = (
       ouraPostRawJob.publishOuraPostRawJob as jest.Mock
     ).mock.calls[0];
     expect(sleepDocs).toHaveLength(1);
     expect(readinessDocs).toHaveLength(1);
     expect(dailySleepDocs).toEqual([]);
+    expect(dailyStressDocs).toEqual([]);
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalled();
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalled();
+    expect(ouraVendorSnapshot.writeOuraVendorStressSnapshots).toHaveBeenCalled();
   });
 
   it("falls back to in-process post-raw when enqueue fails", async () => {

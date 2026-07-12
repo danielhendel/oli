@@ -8,6 +8,7 @@ import {
   resolveOuraSleepIngestBase,
   type OuraDailyReadinessDocument,
   type OuraDailySleepDocument,
+  type OuraDailyStressDocument,
   type OuraSleepDocument,
 } from "./ouraApi";
 import {
@@ -29,7 +30,8 @@ import {
 import { pickPrimaryOuraSleepPairs } from "./oura/pickPrimaryOuraSleepForAnchorDay";
 import { coerceOuraSleepScore0to100 } from "./sleepNight";
 import { FieldValue, userCollection } from "../db";
-import type { OuraSleepSnapshot, OuraReadinessSnapshot } from "@oli/contracts";
+import type { OuraSleepSnapshot, OuraReadinessSnapshot, OuraStressSnapshot } from "@oli/contracts";
+import { ouraDailyStressSummarySchema } from "@oli/contracts";
 import { logger } from "./logger";
 
 export type OuraSnapshotWriteResult = {
@@ -647,6 +649,135 @@ export async function writeOuraVendorReadinessSnapshots(
             requestId,
             snapshotId: snapshot.id,
             day: snapshot.day,
+            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    attempted: docs.length,
+    written,
+    skippedMissingDay,
+    errors,
+  };
+}
+
+function extractStressSnapshot(
+  doc: OuraDailyStressDocument,
+  fetchedAt: string,
+): OuraStressSnapshot | null {
+  const dayRaw = typeof doc.day === "string" ? doc.day.trim() : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayRaw)) return null;
+
+  const id =
+    typeof doc.id === "string" && doc.id.trim().length > 0
+      ? doc.id.trim()
+      : `oura_daily_stress_${dayRaw}`;
+
+  const out: Record<string, unknown> = {
+    id: String(id),
+    day: dayRaw,
+    source: SOURCE,
+    fetchedAt,
+    updatedAt: fetchedAt,
+    schemaVersion: 1,
+  };
+
+  if (doc.day_summary === null) {
+    out.daySummary = null;
+  } else if (typeof doc.day_summary === "string") {
+    const summary = ouraDailyStressSummarySchema.safeParse(doc.day_summary);
+    if (summary.success) out.daySummary = summary.data;
+  }
+
+  if (doc.stress_high === null) {
+    out.stressHighSeconds = null;
+  } else if (typeof doc.stress_high === "number" && Number.isFinite(doc.stress_high) && doc.stress_high >= 0) {
+    out.stressHighSeconds = doc.stress_high;
+  }
+
+  if (doc.recovery_high === null) {
+    out.recoveryHighSeconds = null;
+  } else if (
+    typeof doc.recovery_high === "number" &&
+    Number.isFinite(doc.recovery_high) &&
+    doc.recovery_high >= 0
+  ) {
+    out.recoveryHighSeconds = doc.recovery_high;
+  }
+
+  return out as OuraStressSnapshot;
+}
+
+/**
+ * Write Oura daily_stress vendor snapshots. One doc per calendar day identity.
+ * Doc id: Oura id or deterministic `oura_daily_stress_{day}`. Logs errors but does not throw.
+ */
+export async function writeOuraVendorStressSnapshots(
+  uid: string,
+  docs: OuraDailyStressDocument[],
+  requestId: string,
+): Promise<OuraSnapshotWriteResult> {
+  const col = userCollection(uid, "ouraVendorStress");
+  const fetchedAt = new Date().toISOString();
+  let written = 0;
+  let skippedMissingDay = 0;
+  let errors = 0;
+
+  const snapshots: OuraStressSnapshot[] = [];
+  let droppedStress = 0;
+  for (const doc of docs) {
+    const snapshot = extractStressSnapshot(doc, fetchedAt);
+    if (!snapshot) {
+      skippedMissingDay += 1;
+      droppedStress += 1;
+      continue;
+    }
+    snapshots.push(snapshot);
+  }
+
+  if (droppedStress > 0) {
+    logger.info({
+      msg: "oura_stress_snapshot_docs_dropped",
+      requestId,
+      stressDocCount: docs.length,
+      droppedStress,
+      reason: "missing_day",
+    });
+  }
+
+  for (let i = 0; i < snapshots.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = snapshots.slice(i, i + BATCH_CHUNK_SIZE);
+    const batch = (col as FirebaseFirestore.CollectionReference).firestore.batch();
+    for (const snapshot of chunk) {
+      batch.set(col.doc(snapshot.id), stripUndefined(snapshot as unknown as Record<string, unknown>), {
+        merge: true,
+      });
+    }
+    try {
+      await batch.commit();
+      written += chunk.length;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({
+        msg: "oura_vendor_stress_snapshot_batch_error",
+        requestId,
+        chunkSize: chunk.length,
+        err: message,
+      });
+      for (const snapshot of chunk) {
+        try {
+          await col.doc(snapshot.id).set(stripUndefined(snapshot as unknown as Record<string, unknown>), {
+            merge: true,
+          });
+          written += 1;
+        } catch (singleErr) {
+          errors += 1;
+          logger.error({
+            msg: "oura_vendor_stress_snapshot_write_error",
+            requestId,
             err: singleErr instanceof Error ? singleErr.message : String(singleErr),
           });
         }

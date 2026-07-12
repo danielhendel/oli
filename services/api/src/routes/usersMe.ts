@@ -61,10 +61,20 @@ import {
   sleepNightRangeQuerySchema,
   sleepNightRangeResponseDtoSchema,
   SLEEP_NIGHT_RANGE_MAX_DAYS,
+  ouraStressRangeQuerySchema,
+  ouraStressRangeResponseDtoSchema,
+  OURA_STRESS_RANGE_MAX_DAYS,
+  ouraDailyStressDayDtoSchema,
+  ouraReadinessRangeQuerySchema,
+  ouraReadinessRangeResponseDtoSchema,
+  OURA_READINESS_RANGE_MAX_DAYS,
+  ouraReadinessRangeDayDtoSchema,
   nutritionFoodSearchResponseDtoSchema,
   nutritionFoodDetailResponseDtoSchema,
   type InsightDto,
   type RawEventListItem,
+  type OuraDailyStressDayDto,
+  type OuraReadinessRangeDayDto,
 } from "../types/dtos";
 
 import { db, userCollection, documentIdPath } from "../db";
@@ -2251,6 +2261,201 @@ router.get(
     const parsed = sleepNightRangeResponseDtoSchema.safeParse(out);
     if (!parsed.success) {
       invalidDoc500(req, res, "sleepNightRange", parsed.error.flatten());
+      return;
+    }
+    res.status(200).json(parsed.data);
+  }),
+);
+
+/**
+ * GET /users/me/oura-readiness-range?start=&end=
+ * Bounded Oura Daily Readiness vendor snapshots — exact provider days only (sparse; no fallback densification / no Oura call).
+ */
+router.get(
+  "/oura-readiness-range",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = ouraReadinessRangeQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsedQ.data;
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "start must be <= end",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const dayCount = countInclusiveCalendarDays(start, end);
+    if (dayCount < 1 || dayCount > OURA_READINESS_RANGE_MAX_DAYS) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: `Inclusive day span must be 1..${OURA_READINESS_RANGE_MAX_DAYS}`,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    logger.info({
+      msg: "[OURA_READINESS_RANGE_ROUTE]",
+      version: "oura-readiness-range-v1",
+      dayCount,
+    });
+
+    const snap = await userCollection(uid, "ouraVendorReadiness")
+      .where("day", ">=", start)
+      .where("day", "<=", end)
+      .orderBy("day", "asc")
+      .get();
+
+    const byDay = new Map<string, OuraReadinessRangeDayDto>();
+    for (const d of snap.docs) {
+      const raw = d.data() as Record<string, unknown>;
+      const scoreRaw = raw.score;
+      const score =
+        typeof scoreRaw === "number" && Number.isFinite(scoreRaw) ? scoreRaw : null;
+      const dtoCandidate = {
+        day: raw.day,
+        score,
+        source: "oura" as const,
+      };
+      const parsedDay = ouraReadinessRangeDayDtoSchema.safeParse(dtoCandidate);
+      if (!parsedDay.success) continue;
+      // Exact day only; first ascending wins if duplicates exist.
+      if (!byDay.has(parsedDay.data.day)) {
+        byDay.set(parsedDay.data.day, parsedDay.data);
+      }
+    }
+
+    const days = Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+    const out = {
+      start,
+      end,
+      dayCount,
+      resolvedCount: days.length,
+      days,
+    };
+    const parsed = ouraReadinessRangeResponseDtoSchema.safeParse(out);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "ouraReadinessRange", parsed.error.flatten());
+      return;
+    }
+    res.status(200).json(parsed.data);
+  }),
+);
+
+/**
+ * GET /users/me/oura-stress?start=&end=
+ * Bounded Oura Daily Stress vendor snapshots — exact provider days only (sparse; no fill / no Oura call).
+ */
+router.get(
+  "/oura-stress",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsedQ = ouraStressRangeQuerySchema.safeParse(req.query);
+    if (!parsedQ.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsedQ.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { start, end } = parsedQ.data;
+    if (start > end) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "start must be <= end",
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const dayCount = countInclusiveCalendarDays(start, end);
+    if (dayCount < 1 || dayCount > OURA_STRESS_RANGE_MAX_DAYS) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: `Inclusive day span must be 1..${OURA_STRESS_RANGE_MAX_DAYS}`,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    logger.info({
+      msg: "[OURA_STRESS_RANGE_ROUTE]",
+      version: "oura-stress-range-v1",
+      dayCount,
+    });
+
+    const snap = await userCollection(uid, "ouraVendorStress")
+      .where("day", ">=", start)
+      .where("day", "<=", end)
+      .orderBy("day", "asc")
+      .get();
+
+    const byDay = new Map<string, OuraDailyStressDayDto>();
+    for (const d of snap.docs) {
+      const raw = d.data() as Record<string, unknown>;
+      const dtoCandidate = {
+        day: raw.day,
+        daySummary: raw.daySummary,
+        stressHighSeconds: raw.stressHighSeconds,
+        recoveryHighSeconds: raw.recoveryHighSeconds,
+        source: "oura" as const,
+      };
+      const parsedDay = ouraDailyStressDayDtoSchema.safeParse(dtoCandidate);
+      if (!parsedDay.success) continue;
+      // One day → one identity; first ascending wins if duplicates exist.
+      if (!byDay.has(parsedDay.data.day)) {
+        byDay.set(parsedDay.data.day, parsedDay.data);
+      }
+    }
+
+    const days = Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+    const out = {
+      start,
+      end,
+      dayCount,
+      resolvedCount: days.length,
+      days,
+    };
+    const parsed = ouraStressRangeResponseDtoSchema.safeParse(out);
+    if (!parsed.success) {
+      invalidDoc500(req, res, "ouraStressRange", parsed.error.flatten());
       return;
     }
     res.status(200).json(parsed.data);

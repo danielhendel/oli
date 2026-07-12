@@ -14,6 +14,7 @@ import {
   fetchOuraSleep,
   fetchOuraDailyReadiness,
   fetchOuraDailySleep,
+  fetchOuraDailyStress,
   fetchOuraPersonalInfo,
   fetchOuraDailyActivity,
   fetchOuraWorkouts,
@@ -34,6 +35,7 @@ import {
   type OuraSleepDocument,
   type OuraDailyReadinessDocument,
   type OuraDailySleepDocument,
+  type OuraDailyStressDocument,
   OuraApiError,
   ouraSleepWakeIsoForLog,
   resolveOuraSleepIngestBase,
@@ -42,6 +44,7 @@ import { writeOuraRawEvents } from "../../lib/ouraIngestWrite";
 import {
   writeOuraVendorSleepSnapshots,
   writeOuraVendorReadinessSnapshots,
+  writeOuraVendorStressSnapshots,
 } from "../../lib/ouraVendorSnapshot";
 import { deriveOuraSyncMetadataFields, isLegacyOuraIntegration } from "./ouraSyncMetadata";
 import { writeFailure } from "../../lib/writeFailure";
@@ -391,6 +394,7 @@ export async function performOuraPullNowCore(
   let sleepDocs: Awaited<ReturnType<typeof fetchOuraSleep>> = [];
   let readinessDocs: Awaited<ReturnType<typeof fetchOuraDailyReadiness>> = [];
   let dailySleepDocs: OuraDailySleepDocument[] = [];
+  let dailyStressDocs: OuraDailyStressDocument[] = [];
 
   const safeFetch = async <T>(
     name: string,
@@ -411,6 +415,7 @@ export async function performOuraPullNowCore(
       sleepDocsFetched,
       readinessDocsFetched,
       dailySleepDocsFetched,
+      dailyStressDocsFetched,
       personalDoc,
       dailyActivityDocs,
       workoutDocs,
@@ -424,6 +429,8 @@ export async function performOuraPullNowCore(
       fetchOuraDailyReadiness(accessToken, sleepStartStr, sleepEndStr),
       /** Calendar-day Sleep Score + contributors (distinct from period `/sleep` docs). */
       fetchOuraDailySleep(accessToken, sleepStartStr, sleepEndStr),
+      /** Calendar-day Daily Stress summaries (same window as other daily collections). */
+      fetchOuraDailyStress(accessToken, sleepStartStr, sleepEndStr, { requestId }),
       safeFetch("personal_info", () => fetchOuraPersonalInfo(accessToken)),
       safeFetch("daily_activity", () => fetchOuraDailyActivity(accessToken, startStr, endStr)),
       safeFetch("workout", () => fetchOuraWorkouts(accessToken, startStr, endStr)),
@@ -436,6 +443,7 @@ export async function performOuraPullNowCore(
     sleepDocs = sleepDocsFetched ?? [];
     readinessDocs = readinessDocsFetched ?? [];
     dailySleepDocs = dailySleepDocsFetched ?? [];
+    dailyStressDocs = dailyStressDocsFetched ?? [];
 
     let latestWakeIso: string | null = null;
     let latestSleepId: string | null = null;
@@ -646,6 +654,7 @@ export async function performOuraPullNowCore(
   const sleepDocsToUse = sleepDocs ?? [];
   const readinessDocsToUse = readinessDocs ?? [];
   const dailySleepDocsToUse = dailySleepDocs ?? [];
+  const dailyStressDocsToUse = dailyStressDocs ?? [];
 
   if (getOuraPostRawTopic()) {
     try {
@@ -655,6 +664,7 @@ export async function performOuraPullNowCore(
         sleepDocsToUse,
         readinessDocsToUse,
         dailySleepDocsToUse,
+        dailyStressDocsToUse,
       );
       logger.info({
         msg: "oura_post_raw_job_enqueued",
@@ -664,6 +674,7 @@ export async function performOuraPullNowCore(
         sleepDocCount: sleepDocsToUse.length,
         readinessDocCount: readinessDocsToUse.length,
         dailySleepDocCount: dailySleepDocsToUse.length,
+        dailyStressDocCount: dailyStressDocsToUse.length,
       });
       void performOuraPostRawPersistence(
         uid,
@@ -671,6 +682,7 @@ export async function performOuraPullNowCore(
         sleepDocsToUse,
         readinessDocsToUse,
         dailySleepDocsToUse,
+        dailyStressDocsToUse,
       ).catch((persistErr: unknown) => {
           logger.error({
             msg: "oura_post_raw_persistence_after_enqueue_error",
@@ -693,6 +705,7 @@ export async function performOuraPullNowCore(
         sleepDocsToUse,
         readinessDocsToUse,
         dailySleepDocsToUse,
+        dailyStressDocsToUse,
       ).catch((fallbackErr: unknown) => {
           logger.error({
             msg: "oura_post_raw_persistence_error",
@@ -710,6 +723,7 @@ export async function performOuraPullNowCore(
       sleepDocsToUse,
       readinessDocsToUse,
       dailySleepDocsToUse,
+      dailyStressDocsToUse,
     ).catch((err: unknown) => {
       logger.error({
         msg: "oura_post_raw_persistence_error",
@@ -744,6 +758,7 @@ export async function performOuraPostRawPersistence(
   sleepDocs: OuraSleepDocument[],
   readinessDocs: OuraDailyReadinessDocument[],
   dailySleepDocs: OuraDailySleepDocument[] = [],
+  dailyStressDocs: OuraDailyStressDocument[] = [],
 ): Promise<void> {
   logger.info({
     msg: "oura_post_raw_persistence_started",
@@ -752,17 +767,21 @@ export async function performOuraPostRawPersistence(
     sleepDocCount: sleepDocs.length,
     readinessDocCount: readinessDocs.length,
     dailySleepDocCount: dailySleepDocs.length,
+    dailyStressDocCount: dailyStressDocs.length,
   });
 
   let sleepResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
   let readinessResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
+  let stressResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
   try {
-    const [sleepRes, readinessRes] = await Promise.all([
+    const [sleepRes, readinessRes, stressRes] = await Promise.all([
       writeOuraVendorSleepSnapshots(uid, sleepDocs, requestId, readinessDocs, dailySleepDocs),
       writeOuraVendorReadinessSnapshots(uid, readinessDocs, requestId),
+      writeOuraVendorStressSnapshots(uid, dailyStressDocs, requestId),
     ]);
     sleepResult = sleepRes;
     readinessResult = readinessRes;
+    stressResult = stressRes;
   } catch (snapErr) {
     logger.error({
       msg: "oura_post_raw_persistence_error",
@@ -770,13 +789,14 @@ export async function performOuraPostRawPersistence(
       requestId,
       sleepWritten: 0,
       readinessWritten: 0,
+      stressWritten: 0,
       metadataWritten: false,
       err: snapErr instanceof Error ? snapErr.message : String(snapErr),
     });
     return;
   }
 
-  const totalSnapshotWritten = sleepResult.written + readinessResult.written;
+  const totalSnapshotWritten = sleepResult.written + readinessResult.written + stressResult.written;
   const meta = deriveOuraSyncMetadataFields(totalSnapshotWritten);
 
   let metadataWritten = false;
@@ -800,6 +820,7 @@ export async function performOuraPostRawPersistence(
       requestId,
       sleepWritten: sleepResult.written,
       readinessWritten: readinessResult.written,
+      stressWritten: stressResult.written,
       metadataWritten: false,
       err: metaErr instanceof Error ? metaErr.message : String(metaErr),
     });
@@ -812,6 +833,7 @@ export async function performOuraPostRawPersistence(
     requestId,
     sleepWritten: sleepResult.written,
     readinessWritten: readinessResult.written,
+    stressWritten: stressResult.written,
     metadataWritten,
   });
 }

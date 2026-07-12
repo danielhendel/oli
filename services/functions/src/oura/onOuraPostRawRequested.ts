@@ -1,6 +1,6 @@
 /**
  * Oura post-raw durable handler: subscribed to oura.post_raw.v1.
- * Writes vendor sleep + readiness snapshots and integration metadata.
+ * Writes vendor sleep + readiness + stress snapshots and integration metadata.
  */
 
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
@@ -15,6 +15,8 @@ type OuraPostRawMessage = {
   sleepDocs?: unknown[];
   readinessDocs?: unknown[];
   dailySleepDocs?: unknown[];
+  /** Optional — older producers omit this field. */
+  dailyStressDocs?: unknown[];
 };
 
 function assertUid(uid: unknown): uid is string {
@@ -41,6 +43,7 @@ export const onOuraPostRawRequested = onMessagePublished(
       sleepDocs = [],
       readinessDocs = [],
       dailySleepDocs = [],
+      dailyStressDocs = [],
     } = payload as OuraPostRawMessage;
 
     if (!assertUid(uid)) {
@@ -51,6 +54,7 @@ export const onOuraPostRawRequested = onMessagePublished(
     const sleep = Array.isArray(sleepDocs) ? sleepDocs : [];
     const readiness = Array.isArray(readinessDocs) ? readinessDocs : [];
     const dailySleep = Array.isArray(dailySleepDocs) ? dailySleepDocs : [];
+    const dailyStress = Array.isArray(dailyStressDocs) ? dailyStressDocs : [];
 
     try {
       await runOuraPostRaw(
@@ -59,6 +63,7 @@ export const onOuraPostRawRequested = onMessagePublished(
         sleep as SleepDoc[],
         readiness as ReadinessDoc[],
         dailySleep as import("../../../api/src/lib/ouraApi").OuraDailySleepDocument[],
+        dailyStress as import("../../../api/src/lib/ouraApi").OuraDailyStressDocument[],
       );
     } catch (err) {
       logger.error("oura.post_raw: failed", { uid, requestId, err });
