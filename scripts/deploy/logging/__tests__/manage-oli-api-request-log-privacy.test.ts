@@ -335,6 +335,7 @@ esac
     backupDir: string,
     project = ALLOWED_PROJECT,
   ) {
+    fs.chmodSync(backupDir, 0o700);
     return spawnSync(
       "bash",
       [SCRIPT, mode, "--project", project, "--backup-dir", backupDir],

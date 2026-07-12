@@ -87,13 +87,20 @@ require_backup_dir() {
   [[ -n "$BACKUP_DIR" ]] || die "--backup-dir is required"
   [[ -d "$BACKUP_DIR" ]] || die "backup dir does not exist: $BACKUP_DIR"
   local mode
-  mode="$(stat -f '%Lp' "$BACKUP_DIR" 2>/dev/null || stat -c '%a' "$BACKUP_DIR")"
-  # Accept 700 or more restrictive owner-only modes.
+  # GNU stat treats -f as --file-system; only use BSD -f on Darwin.
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    mode="$(stat -f '%Lp' "$BACKUP_DIR")"
+  else
+    mode="$(stat -c '%a' "$BACKUP_DIR")"
+  fi
+  # Require owner-only access (700-style). Accept exact 700 or owner rwx with no group/other bits.
   case "$mode" in
-    7??|70?) ;;
+    700|7000) ;;
     *)
-      # Soft warning only if sticky bits differ; still require owner rwx and no group/other write.
-      if [[ ! "$mode" =~ ^7 ]]; then
+      # Also accept when sticky/setgid digits prefix a 700 mode (rare).
+      if [[ "$mode" =~ ^[0-7]?700$ ]]; then
+        :
+      else
         die "backup dir permissions must be owner-restricted (got $mode; prefer 700)"
       fi
       ;;
