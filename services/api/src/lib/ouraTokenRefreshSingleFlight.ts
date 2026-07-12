@@ -232,7 +232,7 @@ async function runRefresh(
     waitBudgetMs,
     pollBaseMs: DEFAULT_POLL_BASE_MS,
     pollJitterMs: DEFAULT_POLL_JITTER_MS,
-    onWait: (waitedMs) => {
+    onWait: () => {
       logOuraRefreshTelemetry({ operation: "oura_token_refresh_lock_wait", requestId });
     },
   });

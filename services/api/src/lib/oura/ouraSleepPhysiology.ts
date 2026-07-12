@@ -83,7 +83,8 @@ export type OuraSleepPhysiologyDebug = {
  * document ids, and physiology fields. Environment gating is not privacy protection.
  * Call sites may remain; this function is a no-op.
  */
-export function logOuraSleepPhysiologyDebugIfEnabled(_debug: OuraSleepPhysiologyDebug): void {
+export function logOuraSleepPhysiologyDebugIfEnabled(debug: OuraSleepPhysiologyDebug): void {
+  void debug;
   return;
 }
 
