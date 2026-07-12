@@ -105,7 +105,7 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
 
   const perm = await requestPermissions();
   if (!perm.ok) {
-    devLog("skip: no permissions", { day: todayKey });
+    devLog("skip: no permissions", { hasDayKey: Boolean(todayKey) });
     return;
   }
 

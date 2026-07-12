@@ -153,8 +153,15 @@ export function logDailySleepTruthDev(input: {
 }): void {
   if (!__DEV__) return;
   if (!isDebugDataLogsEnabled()) return;
-  // eslint-disable-next-line no-console -- dev-only truth audit (no PII)
-  console.log(
-    `[DAILY_SLEEP_TRUTH] requestedDay=${input.requestedDay} factsStatus=${input.factsStatus} factsDay=${input.factsDay ?? "null"} renderStatus=${input.renderStatus} blockedStale=${input.blockedStale} sleepSettled=${input.sleepSettled} sleepResolution=${input.sleepResolution ?? "null"} sleepRequestedDay=${input.sleepRequestedDay ?? "null"}`,
-  );
+  // eslint-disable-next-line no-console -- dev-only truth audit (no day keys / health values)
+  console.log("[DAILY_SLEEP_TRUTH]", {
+    operation: "daily_sleep_truth",
+    factsStatus: input.factsStatus,
+    hasFactsDay: input.factsDay != null,
+    renderStatus: input.renderStatus,
+    blockedStale: input.blockedStale,
+    sleepSettled: input.sleepSettled,
+    hasSleepResolution: input.sleepResolution != null,
+    sleepRequestedDayMatches: input.sleepRequestedDay === input.requestedDay,
+  });
 }

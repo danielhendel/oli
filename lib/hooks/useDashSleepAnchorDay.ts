@@ -68,19 +68,20 @@ export function useDashSleepAnchorDay(calendarToday: string): UseDashSleepAnchor
 
   useEffect(() => {
     if (!__DEV__) return;
-    // eslint-disable-next-line no-console -- Dash sleep lock audit (dev-only)
+    // eslint-disable-next-line no-console -- Dash sleep lock audit (dev-only, privacy-safe)
     console.log("[DASH_SLEEP_LOCK_DEBUG]", {
-      calendarDay: calendarToday,
+      operation: "dash_sleep_lock",
+      hasCalendarDay: Boolean(calendarToday),
       freshReason: fresh.selectedReason,
-      freshAnchorDay: fresh.sleepAnchorDay,
+      hasFreshAnchorDay: Boolean(fresh.sleepAnchorDay),
       freshSettled: fresh.sleepAnchorSettled,
-      lockBeforeDay: lockBefore?.resolution.sleepAnchorDay ?? null,
+      hasLockBefore: lockBefore != null,
       lockBeforeReason: lockBefore?.resolution.selectedReason ?? null,
       lockBeforeSettled: lockBefore?.resolution.sleepAnchorSettled ?? null,
-      lockAfterDay: lockAfter?.resolution.sleepAnchorDay ?? null,
+      hasLockAfter: lockAfter != null,
       lockAfterReason: lockAfter?.resolution.selectedReason ?? null,
       lockAfterSettled: lockAfter?.resolution.sleepAnchorSettled ?? null,
-      mergedDay: merged.sleepAnchorDay,
+      hasMergedDay: Boolean(merged.sleepAnchorDay),
       mergedReason: merged.selectedReason,
       mergedSettled: merged.sleepAnchorSettled,
       isUsingCachedSettledAnchor,
@@ -106,12 +107,11 @@ export function useDashSleepAnchorDay(calendarToday: string): UseDashSleepAnchor
 
   const invalidateSettledAnchor = useCallback(() => {
     if (__DEV__) {
-      const stackHint = new Error("invalidateSettledAnchor").stack?.split("\n").slice(1, 4).join(" \u2192 ");
-      // eslint-disable-next-line no-console -- Dash sleep lock audit (dev-only)
+      // eslint-disable-next-line no-console -- Dash sleep lock audit (dev-only, privacy-safe)
       console.log("[DASH_SLEEP_INVALIDATE_DEBUG]", {
-        calendarDay: calendarToday,
+        operation: "dash_sleep_invalidate",
+        hasCalendarDay: Boolean(calendarToday),
         reason: "invalidateSettledAnchor",
-        stackHint: stackHint ?? null,
       });
     }
     anchorLockRef.current = null;
@@ -120,12 +120,13 @@ export function useDashSleepAnchorDay(calendarToday: string): UseDashSleepAnchor
 
   useEffect(() => {
     if (!__DEV__) return;
-    // eslint-disable-next-line no-console -- Dash sleep anchor audit (dev-only)
+    // eslint-disable-next-line no-console -- Dash sleep anchor audit (dev-only, privacy-safe)
     console.log("[DASH_SLEEP_ANCHOR_DEBUG]", {
-      calendarDay: calendarToday,
-      previousDay,
+      operation: "dash_sleep_anchor",
+      hasCalendarDay: Boolean(calendarToday),
+      hasPreviousDay: Boolean(previousDay),
       selectedReason: merged.selectedReason,
-      sleepAnchorDay: merged.sleepAnchorDay,
+      hasSleepAnchorDay: Boolean(merged.sleepAnchorDay),
       sleepAnchorSettled: merged.sleepAnchorSettled,
       isUsingCachedSettledAnchor,
       probeLoading: probe.loading,

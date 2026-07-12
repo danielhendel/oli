@@ -97,15 +97,15 @@ export function useSleepDayView(
       const hasSleepSignal = dailyFactsHasSleepSignal(sleepForSignal);
 
       if (__DEV__ && typeof process.env.JEST_WORKER_ID === "undefined") {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- privacy-safe sleep day view audit
         console.log("SLEEP_DEBUG", {
-          day: dayKey,
+          operation: "sleep_day_view",
+          hasDayKey: Boolean(dayKey),
           factsOutcome: factsOutcome.status,
           hasSleepSignal,
           hasScore: sleepForSignal?.oliSleepScore != null,
-          oliScoreValue: sleepForSignal?.oliSleepScore?.value ?? null,
-          mainSleepMinutes: sleepForSignal?.mainSleepMinutes,
-          totalMinutes: sleepForSignal?.totalMinutes,
+          hasMainSleepMinutes: typeof sleepForSignal?.mainSleepMinutes === "number",
+          hasTotalMinutes: typeof sleepForSignal?.totalMinutes === "number",
           chosenStatus:
             factsOutcome.status === "ready" && hasSleepSignal
               ? "oli"
