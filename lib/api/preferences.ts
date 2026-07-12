@@ -1,5 +1,5 @@
 // lib/api/preferences.ts
-import type { Preferences, MassUnit, WeeklyFitnessGoals } from "@oli/contracts";
+import type { Preferences, MassUnit, WeeklyFitnessGoals, BodyCompositionGoalV1 } from "@oli/contracts";
 import type { ApiResult } from "./http";
 import { apiGetJsonAuthed, apiPutJsonAuthed } from "./http";
 import { parsePreferencesFromApi } from "@/lib/preferences/parsePreferencesFromApi";
@@ -75,6 +75,16 @@ export async function updateWeeklyFitnessGoals(
   >,
 ): Promise<ApiResult<Preferences>> {
   const body = { weeklyFitnessGoals: goals };
+  const res = await apiPutJsonAuthed<unknown>("/preferences", body, idToken);
+  return parsePreferencesResult(res);
+}
+
+/** Set or clear Body Composition Goal V1. Pass null to clear. */
+export async function updateBodyCompositionGoal(
+  idToken: string,
+  goal: BodyCompositionGoalV1 | null,
+): Promise<ApiResult<Preferences>> {
+  const body = { bodyCompositionGoal: goal };
   const res = await apiPutJsonAuthed<unknown>("/preferences", body, idToken);
   return parsePreferencesResult(res);
 }
