@@ -353,7 +353,19 @@ export function buildWeeklyFitnessCardModel(
     }),
   };
 
-  const metrics = WEEKLY_FITNESS_METRIC_ORDER.map((k) => byKey[k]) as WeeklyFitnessCardModel["metrics"];
+  const ordered = WEEKLY_FITNESS_METRIC_ORDER.map((k) => byKey[k]);
+  if (ordered.length !== 7) {
+    throw new Error("Weekly Fitness metrics must contain exactly seven rows");
+  }
+  const metrics: WeeklyFitnessCardModel["metrics"] = [
+    ordered[0]!,
+    ordered[1]!,
+    ordered[2]!,
+    ordered[3]!,
+    ordered[4]!,
+    ordered[5]!,
+    ordered[6]!,
+  ];
 
   return {
     weeklyProgress: weeklyHero,
