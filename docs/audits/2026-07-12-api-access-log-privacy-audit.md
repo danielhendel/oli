@@ -1,10 +1,10 @@
 # API Access-Log Privacy Repair Audit
 
-**Date:** 2026-07-12  
-**Privacy branch:** `fix/pr183-api-access-log-privacy`  
-**Privacy worktree:** `/Users/danielhendel/oli-api-access-log-privacy`  
-**Feature base SHA:** `8788c526e42b04eee7e7a1fc050a1e0f53923c49`  
-**Feature base tree:** `00b6f99f8efb90c475d529d8dd44a37ff4b94b10`  
+**Date:** 2026-07-12
+**Privacy branch:** `fix/pr183-api-access-log-privacy`
+**Privacy worktree:** `/Users/danielhendel/oli-api-access-log-privacy`
+**Feature base SHA:** `8788c526e42b04eee7e7a1fc050a1e0f53923c49`
+**Feature base tree:** `00b6f99f8efb90c475d529d8dd44a37ff4b94b10`
 **Safety ref:** `safety/weekly-fitness-before-access-log-privacy-8788c52` (local only)
 
 This audit is privacy-safe. It contains no UIDs, emails, IPs, tokens, keys,
