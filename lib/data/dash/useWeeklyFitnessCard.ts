@@ -56,7 +56,7 @@ import {
   canonicalUnitForBodyCompositionMetric,
   type BodyCompositionPrimaryMetric,
 } from "@oli/contracts";
-import type { OuraDailyStressSummary } from "@oli/contracts/ouraVendor";
+import type { OuraDailyStressSummary } from "@oli/contracts";
 
 export type { WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
 export { WEEKLY_FITNESS_ROUTES, weeklyFitnessMetricPageHref } from "@/lib/data/dash/weeklyFitnessRoutes";

@@ -19,7 +19,7 @@ import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStr
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import { networkDayKeysThroughToday } from "@/lib/dates/boundDayKeys";
 import type { CalendarDay } from "@/lib/ui/calendar/types";
-import type { OuraDailyStressSummary } from "@oli/contracts/ouraVendor";
+import type { OuraDailyStressSummary } from "@oli/contracts";
 import { UI_SCREEN_BG, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 function RecoveryShell({
