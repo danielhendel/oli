@@ -1,10 +1,10 @@
 # Oura Refresh Telemetry Privacy Audit
 
-**Date:** 2026-07-12  
-**Base SHA:** `02a7b1b7d95027a0066eeee6527376cf3be312e0`  
-**Base tree:** `ed46b86cf07d804747b0feb24cd663863c21e599`  
-**Privacy branch:** `fix/pr183-oura-refresh-privacy`  
-**Privacy worktree:** `/Users/danielhendel/oli-oura-refresh-privacy`  
+**Date:** 2026-07-12
+**Base SHA:** `02a7b1b7d95027a0066eeee6527376cf3be312e0`
+**Base tree:** `ed46b86cf07d804747b0feb24cd663863c21e599`
+**Privacy branch:** `fix/pr183-oura-refresh-privacy`
+**Privacy worktree:** `/Users/danielhendel/oli-oura-refresh-privacy`
 **Safety ref:** `safety/weekly-fitness-before-oura-privacy-02a7b1b` → `02a7b1b7d95027a0066eeee6527376cf3be312e0`
 
 ## Original gate result
