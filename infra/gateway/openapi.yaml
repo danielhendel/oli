@@ -426,6 +426,41 @@ paths:
         500:
           description: Server Error
 
+  # Canonical SleepNight bounded range read (Firestore sleepNights; missing days omitted)
+  /users/me/sleep-nights:
+    options:
+      operationId: sleepNightsRangeOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: sleepNightsRangeGet
+      security:
+        - firebase: []
+      parameters:
+        - name: start
+          in: query
+          required: true
+          type: string
+          description: Inclusive range start YYYY-MM-DD
+        - name: end
+          in: query
+          required: true
+          type: string
+          description: Inclusive range end YYYY-MM-DD (span max 90 days)
+      produces:
+        - application/json
+      responses:
+        200:
+          description: Bounded SleepNight range (start, end, dayCount, resolvedCount, nights[])
+        400:
+          description: Bad Request (missing/invalid range or span exceeds policy max)
+        401:
+          description: Unauthorized
+        500:
+          description: Server Error
+
   # Oura Tier 1 — Sleep view (vendor snapshot read; 404 when no snapshot in window)
   /users/me/oura-sleep-view:
     options:
