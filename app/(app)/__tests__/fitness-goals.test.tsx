@@ -34,7 +34,29 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
     state: mockPrefState,
     setWeeklyFitnessGoals: mockSetWeeklyFitnessGoals,
+    setBodyCompositionGoal: jest.fn(async () => true),
   }),
+}));
+
+jest.mock("@/lib/preferences/useBodyCompositionGoalEditor", () => ({
+  useBodyCompositionGoalEditor: () => ({
+    initializing: false,
+    isSignedOut: false,
+    saving: false,
+    primaryMetric: "weight",
+    setPrimaryMetric: jest.fn(),
+    targetText: "",
+    setTargetText: jest.fn(),
+    currentValueLabel: "—",
+    errorMessage: null,
+    hasExistingGoal: false,
+    save: jest.fn(async () => undefined),
+    clear: jest.fn(async () => undefined),
+  }),
+}));
+
+jest.mock("@/lib/ui/dash/BodyCompositionGoalForm", () => ({
+  BodyCompositionGoalForm: () => null,
 }));
 
 jest.mock("react-native", () => ({
@@ -45,6 +67,7 @@ jest.mock("react-native", () => ({
   ActivityIndicator: "ActivityIndicator",
   TextInput: "TextInput",
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
+  Alert: { alert: jest.fn() },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
