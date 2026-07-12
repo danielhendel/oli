@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { SLEEP_NIGHT_RANGE_MAX_DAYS } from "@oli/contracts";
+
 import {
-  SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS,
-  boundSleepNightFetchDayKeys,
   computeSleepBaselineFetchDayKeys,
   computeSleepOverviewFetchDayKeys,
+  sleepNightRangeFetchWindows,
 } from "@/lib/data/sleep/sleepOverviewRanges";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
@@ -32,42 +33,41 @@ describe("computeSleepBaselineFetchDayKeys", () => {
     }
   });
 
-  it("stays within the interactive per-day fetch bound (no 30/90/365 fan-out)", () => {
+  it("includes today and a year-ago day (covers d365)", () => {
     const keys = computeSleepBaselineFetchDayKeys(today);
-    expect(keys.length).toBeLessThanOrEqual(SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS);
-    expect(keys.length).toBeLessThanOrEqual(7);
-    expect(keys.length).toBeGreaterThan(0);
-  });
-
-  it("does not include a year-ago day (range API required for long baselines)", () => {
-    const keys = computeSleepBaselineFetchDayKeys(today);
-    expect(keys.some((d) => d.startsWith("2025-"))).toBe(false);
+    expect(keys).toContain(today);
+    expect(keys.some((d) => d.startsWith("2025-"))).toBe(true);
   });
 });
 
-describe("computeSleepOverviewFetchDayKeys", () => {
-  const today = "2026-04-06" as DayKey;
-
-  it("stays within the interactive per-day fetch bound", () => {
-    const keys = computeSleepOverviewFetchDayKeys(today, today);
-    const elapsed = keys.filter((d) => d <= today);
-    expect(elapsed.length).toBeLessThanOrEqual(SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS);
+describe("sleepNightRangeFetchWindows", () => {
+  it("returns empty for no keys", () => {
+    expect(sleepNightRangeFetchWindows([])).toEqual([]);
   });
-});
 
-describe("boundSleepNightFetchDayKeys", () => {
-  it("keeps the most recent maxDays when given a year of keys", () => {
-    const today = "2026-07-10" as DayKey;
+  it("returns one window when span is within API max", () => {
+    const keys = ["2026-04-01", "2026-04-06"] as DayKey[];
+    expect(sleepNightRangeFetchWindows(keys)).toEqual([{ start: "2026-04-01", end: "2026-04-06" }]);
+  });
+
+  it("chunks a year span into windows of at most SLEEP_NIGHT_RANGE_MAX_DAYS", () => {
     const yearKeys: DayKey[] = [];
     for (let i = 365; i >= 0; i--) {
-      const d = new Date(Date.UTC(2026, 6, 10));
+      const d = new Date(Date.UTC(2026, 3, 6));
       d.setUTCDate(d.getUTCDate() - i);
       yearKeys.push(d.toISOString().slice(0, 10) as DayKey);
     }
-    expect(yearKeys.length).toBeGreaterThan(SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS);
-    const bounded = boundSleepNightFetchDayKeys(yearKeys, today);
-    expect(bounded.filter((d) => d <= today).length).toBe(SLEEP_NIGHT_PER_DAY_FETCH_MAX_DAYS);
-    expect(bounded[bounded.length - 1] === today || bounded.includes(today)).toBe(true);
-    expect(bounded.filter((d) => d <= today).every((d) => d <= today)).toBe(true);
+    const windows = sleepNightRangeFetchWindows(yearKeys);
+    expect(windows.length).toBeGreaterThan(1);
+    expect(windows.length).toBe(Math.ceil(yearKeys.length / SLEEP_NIGHT_RANGE_MAX_DAYS));
+    for (const w of windows) {
+      const start = new Date(`${w.start}T12:00:00.000Z`);
+      const end = new Date(`${w.end}T12:00:00.000Z`);
+      const inclusive = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+      expect(inclusive).toBeLessThanOrEqual(SLEEP_NIGHT_RANGE_MAX_DAYS);
+      expect(w.start <= w.end).toBe(true);
+    }
+    expect(windows[0]!.start).toBe(yearKeys[0]);
+    expect(windows[windows.length - 1]!.end).toBe(yearKeys[yearKeys.length - 1]);
   });
 });
