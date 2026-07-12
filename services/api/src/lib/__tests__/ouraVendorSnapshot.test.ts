@@ -1,6 +1,7 @@
 /**
  * Oura vendor snapshot writer — shape and write behavior.
  */
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 import { userCollection } from "../../db";
 import {
   writeOuraVendorSleepSnapshots,
@@ -38,6 +39,10 @@ function mockReadinessCollection() {
 describe("ouraVendorSnapshot", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    allowConsoleForThisTest({
+      error: [/oura_vendor_snapshot_/],
+      warn: [/oura_vendor_snapshot_/],
+    });
     (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
       if (name === "ouraVendorReadiness") return mockReadinessCollection();
       return {

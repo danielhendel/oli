@@ -4,6 +4,7 @@
 import { writeOuraRawEvents } from "../ouraIngestWrite";
 import { userCollection } from "../../db";
 import { logger } from "../logger";
+import { assertOuraTelemetryPrivacy } from "../testSupport/assertOuraTelemetryPrivacy";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -19,6 +20,7 @@ const mockSet = jest.fn().mockResolvedValue(undefined);
 
 describe("writeOuraRawEvents", () => {
   let infoSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -29,11 +31,21 @@ describe("writeOuraRawEvents", () => {
       doc: () => ({ create: mockCreate, get: mockGet, set: mockSet }),
     });
     infoSpy = jest.spyOn(logger, "info").mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(logger, "error").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     infoSpy.mockRestore();
+    errorSpy.mockRestore();
   });
+
+  function assertAllLoggedPrivacySafe(): void {
+    for (const spy of [infoSpy, errorSpy]) {
+      for (const call of spy.mock.calls) {
+        assertOuraTelemetryPrivacy(call[0]);
+      }
+    }
+  }
 
   it("awaits core writes and returns core-only counts when ouraRawItems are deferred", async () => {
     const sleepItems = [
@@ -61,20 +73,20 @@ describe("writeOuraRawEvents", () => {
     expect(infoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         msg: "oura_raw_events_core_write_done",
-        uid: "uid1",
+        operation: "oura_raw_events_core_write_done",
         requestId: "req-1",
-        eventsCreated: 1,
-        eventsAlreadyExists: 0,
+        rawEventCreatedCount: 1,
+        rawEventExistingCount: 0,
       }),
     );
     expect(infoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         msg: "oura_raw_events_vendor_detail_deferred",
-        uid: "uid1",
         requestId: "req-1",
-        ouraRawCount: 2,
+        rawItemCount: 2,
       }),
     );
+    assertAllLoggedPrivacySafe();
   });
 
   it("does not log deferred when ouraRawItems is empty", async () => {
@@ -87,5 +99,6 @@ describe("writeOuraRawEvents", () => {
       (c: [Record<string, unknown>]) => c[0]?.msg === "oura_raw_events_vendor_detail_deferred",
     );
     expect(deferredCalls).toHaveLength(0);
+    assertAllLoggedPrivacySafe();
   });
 });

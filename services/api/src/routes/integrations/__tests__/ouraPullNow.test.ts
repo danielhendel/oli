@@ -217,8 +217,17 @@ describe("POST /integrations/oura/pull-now", () => {
     allowConsoleForThisTest({
       error: [
         (args: unknown[]) => String(args[0] ?? "").includes("oura_pull_now"),
-        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_persistence"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_pull_failed"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_persist"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_enqueue"),
         (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_job"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_legacy_recovery"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_reconnect"),
+      ],
+      warn: [
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_token_refresh"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_provider_fetch"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_backfill"),
       ],
     });
     jest.clearAllMocks();
@@ -396,9 +405,17 @@ describe("POST /integrations/oura/pull-now", () => {
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     const errorCalls = errorSpy.mock.calls.filter(
-      (c: unknown[]) => Array.isArray(c) && c[0]?.msg === "oura_post_raw_persistence_error",
+      (c: unknown[]) =>
+        Array.isArray(c) &&
+        typeof c[0] === "object" &&
+        c[0] != null &&
+        (c[0] as { msg?: string }).msg === "oura_post_raw_persist_failed",
     );
     expect(errorCalls.length).toBeGreaterThanOrEqual(1);
+    const payload = errorCalls[0]![0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("uid");
+    expect(payload).toHaveProperty("safeErrorCode");
+    expect(payload).not.toHaveProperty("err");
     errorSpy.mockRestore();
   });
 
