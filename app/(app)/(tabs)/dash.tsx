@@ -63,9 +63,7 @@ export default function DashScreen() {
             <WeeklyFitnessCard
               loading={weeklyFitness.loading}
               error={weeklyFitness.error}
-              rows={weeklyFitness.rows}
-              combined={weeklyFitness.combined}
-              progressToGoalVm={weeklyFitness.progressToGoalVm}
+              model={weeklyFitness.model}
               goalsHref={weeklyFitness.goalsHref}
               hasUser={user != null}
             />

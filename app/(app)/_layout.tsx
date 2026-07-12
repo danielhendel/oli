@@ -488,6 +488,10 @@ export default function AppLayout() {
             options={{ title: "", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="recovery/stress"
+            options={{ title: "Stress", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
             name="dna/index"
             options={{ title: "DNA", ...workoutsStackNavigationOptions("module") }}
           />
