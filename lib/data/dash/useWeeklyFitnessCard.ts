@@ -221,7 +221,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     }
 
     let stress = computeWeeklyStressBalancedCoverage({ days: stressDays });
-    let stressState: "ready" | "no_data" | "connect_oura" | "reconnect_oura" | "error" | "loading" =
+    let stressState: "ready" | "no_data" | "connect_oura" | "reconnect_oura" | "error" | "partial" =
       stress.progress01 != null ? "ready" : "no_data";
 
     if (ouraConnection === "disconnected") {
@@ -249,7 +249,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
         displayValue: "\u2014",
         accessibilityLabel: "Stress, loading, button. Opens Stress analytics.",
       };
-      stressState = "loading";
+      stressState = "partial";
     } else if (stressRange.status === "error") {
       stress = {
         ...stress,

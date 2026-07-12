@@ -10,7 +10,7 @@ export type WeeklyNutritionCoverageResult = {
   resolvedDayCount: number;
   /** logged / elapsed; null when no elapsed days or read incomplete/error without trusted zeros. */
   progress01: number | null;
-  state: "ready" | "partial" | "empty" | "error" | "loading";
+  state: "ready" | "partial" | "missing" | "error";
   displayValue: string;
   accessibilityLabel: string;
 };
@@ -37,7 +37,7 @@ export function computeWeeklyNutritionLoggingCoverage(input: {
       elapsedEligibleDayCount: 0,
       resolvedDayCount: 0,
       progress01: null,
-      state: "empty",
+      state: "missing",
       displayValue: "\u2014",
       accessibilityLabel:
         "Nutrition, not available, logging coverage, button. Opens Nutrition analytics.",
@@ -50,7 +50,7 @@ export function computeWeeklyNutritionLoggingCoverage(input: {
       elapsedEligibleDayCount,
       resolvedDayCount: 0,
       progress01: null,
-      state: "loading",
+      state: "partial",
       displayValue: "\u2014",
       accessibilityLabel:
         "Nutrition, loading, logging coverage, button. Opens Nutrition analytics.",

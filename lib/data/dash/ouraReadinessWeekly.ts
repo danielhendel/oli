@@ -2,7 +2,7 @@
  * Weekly Readiness V1 — mean of exact current-week Oura readiness scores.
  * Fallbacks / mismatched days are excluded by the range API (exact days only).
  */
-import type { OuraReadinessRangeDayDto } from "@oli/contracts/ouraVendor";
+import type { OuraReadinessRangeDayDto } from "@oli/contracts";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type WeeklyReadinessResult = {
@@ -12,7 +12,7 @@ export type WeeklyReadinessResult = {
   progress01: number | null;
   displayValue: string;
   accessibilityLabel: string;
-  state: "ready" | "no_data" | "loading" | "error" | "connect_oura" | "reconnect_oura";
+  state: "ready" | "no_data" | "partial" | "error" | "connect_oura" | "reconnect_oura";
 };
 
 export type OuraConnectionDisplayState =
@@ -67,7 +67,7 @@ export function computeWeeklyReadinessAverage(input: {
       progress01: null,
       displayValue: "\u2014",
       accessibilityLabel: "Readiness, loading, button. Opens Readiness analytics.",
-      state: "loading",
+      state: "partial",
     };
   }
 

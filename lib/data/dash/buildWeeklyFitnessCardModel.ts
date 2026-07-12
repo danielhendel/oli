@@ -78,7 +78,7 @@ export type BuildWeeklyFitnessCardModelInput = {
   readiness: WeeklyReadinessResult;
   nutrition: WeeklyNutritionCoverageResult;
   stress: WeeklyStressCoverageResult & {
-    state?: "ready" | "no_data" | "connect_oura" | "reconnect_oura" | "error" | "loading";
+    state?: "ready" | "no_data" | "connect_oura" | "reconnect_oura" | "error" | "partial";
   };
   bodyGoal: BodyCompositionGoalV1 | null | undefined;
   latestTrusted: {
