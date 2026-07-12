@@ -10,8 +10,6 @@ import type { WeeklyFitnessDailyFactsByDay } from "@/lib/data/dash/useWeeklyFitn
 import {
   averageMinutesFromCompletedSleepNights,
   collectCompletedSleepNightsForWeek,
-  logWeeklyFitnessSleepAverageDev,
-  weeklyFitnessWeekWakeWindow,
   type WeeklyFitnessSleepNightCell,
 } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import { formatSleepDurationCompact } from "@/lib/dashboard/todayHealthHero";
@@ -197,22 +195,12 @@ export function computeWeeklyFitnessSleepMetrics(input: {
   sleepNightByDay: Readonly<Partial<Record<DayKey, WeeklyFitnessSleepNightCell>>>;
   goalHoursPerNight: number;
 }): WeeklyFitnessSleepMetrics {
-  const wakeWindow = weeklyFitnessWeekWakeWindow(input.weekDayKeys, input.todayDayKey);
-  const { completedNights, skipped } = collectCompletedSleepNightsForWeek({
+  const { completedNights } = collectCompletedSleepNightsForWeek({
     weekDayKeys: input.weekDayKeys,
     todayDayKey: input.todayDayKey,
     sleepNightByDay: input.sleepNightByDay,
   });
   const avgMinutes = averageMinutesFromCompletedSleepNights(completedNights);
-  logWeeklyFitnessSleepAverageDev({
-    todayDayKey: input.todayDayKey,
-    weekStartDay: wakeWindow.weekStartDay,
-    weekEndDay: wakeWindow.weekEndDay,
-    lastCountableWakeDay: wakeWindow.lastCountableWakeDay,
-    completedNights,
-    skipped,
-    averageMinutes: avgMinutes,
-  });
   const goalHours = Math.max(0, input.goalHoursPerNight);
   const goalMinutes = Math.round(goalHours * 60);
   const hasGoal = goalHours > 0;
@@ -322,18 +310,26 @@ export const WEEKLY_FITNESS_METERS_PER_MILE = 1609.344;
 /**
  * Sum `dailyFacts.strength.workoutsCount` for the current Sun–Sat window.
  *
- * - De-duplicates `weekDayKeys` (guards against accidental `weekDayKeys ∪ weekElapsed` passes).
- * - Only `status: "ready"` cells contribute; missing/error days contribute 0.
+ * - De-duplicates `weekDayKeys`.
+ * - Only `status: "ready"` cells with a **defined** finite workoutsCount contribute.
+ * - Missing/error/undefined-count days are omitted (never filled as zero).
+ * - Trusted zero (`workoutsCount === 0`) is included in the sum.
  */
 export function sumWeeklyStrengthWorkoutsCountFromDailyFacts(input: {
   factsByDay: WeeklyFitnessDailyFactsByDay;
   weekDayKeys: readonly DayKey[];
   weekStartDay: DayKey;
   weekEndDay: DayKey;
-}): { total: number; perDay: Partial<Record<DayKey, number>> } {
+}): {
+  total: number;
+  resolvedDayCount: number;
+  perDay: Partial<Record<DayKey, number>>;
+  hasTrustedData: boolean;
+} {
   const seen = new Set<DayKey>();
   const perDay: Partial<Record<DayKey, number>> = {};
   let totalRaw = 0;
+  let resolvedDayCount = 0;
 
   for (const day of input.weekDayKeys) {
     if (seen.has(day)) continue;
@@ -341,31 +337,42 @@ export function sumWeeklyStrengthWorkoutsCountFromDailyFacts(input: {
     if (day < input.weekStartDay || day > input.weekEndDay) continue;
 
     const cell = input.factsByDay[day];
-    if (cell?.status !== "ready") {
-      perDay[day] = 0;
-      continue;
-    }
+    if (cell?.status !== "ready") continue;
 
     const raw = cell.strengthWorkoutsCount;
-    const count =
-      typeof raw === "number" && Number.isFinite(raw) && raw > 0
-        ? Math.max(0, Math.floor(raw))
-        : 0;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) continue;
+
+    const count = Math.max(0, Math.floor(raw));
     perDay[day] = count;
     totalRaw += count;
+    resolvedDayCount += 1;
   }
 
-  return { total: Math.max(0, Math.round(totalRaw)), perDay };
+  return {
+    total: Math.max(0, Math.round(totalRaw)),
+    resolvedDayCount,
+    perDay,
+    hasTrustedData: resolvedDayCount > 0,
+  };
 }
+
+export type WeeklyFitnessStrengthMetricsFromFacts = {
+  workoutsThisWeek: number | null;
+  goalWorkoutsPerWeek: number;
+  /** Null when missing/no goal; 0 is valid trusted zero progress. */
+  goalProgress01: number | null;
+  hasTrustedData: boolean;
+  resolvedDayCount: number;
+  valueLabel: string;
+  accessibilityValueLabel: string;
+};
 
 /**
  * Strength row metrics derived from `dailyFacts.strength.workoutsCount` per day.
  *
- * Source rules:
- * - Only days inside `[weekStartDay, weekEndDay]` contribute (lexicographic ISO compare).
- * - Missing/unknown days contribute 0 (already absorbed by the rollup as `status: "missing"`).
- * - Same `valueLabel` / `accessibilityValueLabel` shape as {@link computeWeeklyFitnessStrengthMetrics}
- *   so the existing card row stays visually identical.
+ * - Missing week → display `—`, progress null (excluded from Weekly Progress).
+ * - Trusted zero → display `0 workouts`, progress 0 when goal exists.
+ * - No goal + trusted data → show value, progress null.
  */
 export function computeWeeklyFitnessStrengthMetricsFromFacts(input: {
   factsByDay: WeeklyFitnessDailyFactsByDay;
@@ -373,34 +380,65 @@ export function computeWeeklyFitnessStrengthMetricsFromFacts(input: {
   weekStartDay: DayKey;
   weekEndDay: DayKey;
   goalWorkoutsPerWeek: number;
-}): WeeklyFitnessStrengthMetrics {
-  const { total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(input);
+}): WeeklyFitnessStrengthMetricsFromFacts {
+  const { total, resolvedDayCount, hasTrustedData } =
+    sumWeeklyStrengthWorkoutsCountFromDailyFacts(input);
   const goal = Math.max(0, Math.round(input.goalWorkoutsPerWeek));
   const hasGoal = goal > 0;
-  const goalProgress01 = hasGoal ? clampGoalProgress01(total / goal) : 0;
+
+  if (!hasTrustedData) {
+    return {
+      workoutsThisWeek: null,
+      goalWorkoutsPerWeek: goal,
+      goalProgress01: null,
+      hasTrustedData: false,
+      resolvedDayCount: 0,
+      valueLabel: "\u2014",
+      accessibilityValueLabel: "not available",
+    };
+  }
+
   const totalNoun = total === 1 ? "workout" : "workouts";
   const goalNoun = goal === 1 ? "workout" : "workouts";
-  const valueLabel = hasGoal ? `${total} ${totalNoun}` : "No goal set";
-  const accessibilityValueLabel = hasGoal
-    ? `${total} ${totalNoun}, goal ${goal} ${goalNoun}`
-    : `${total} ${totalNoun}, no goal set`;
+  if (!hasGoal) {
+    return {
+      workoutsThisWeek: total,
+      goalWorkoutsPerWeek: goal,
+      goalProgress01: null,
+      hasTrustedData: true,
+      resolvedDayCount,
+      valueLabel: `${total} ${totalNoun}`,
+      accessibilityValueLabel: `${total} ${totalNoun}, no goal set`,
+    };
+  }
+
   return {
     workoutsThisWeek: total,
     goalWorkoutsPerWeek: goal,
-    goalProgress01,
-    valueLabel,
-    accessibilityValueLabel,
+    goalProgress01: clampGoalProgress01(total / goal),
+    hasTrustedData: true,
+    resolvedDayCount,
+    valueLabel: `${total} ${totalNoun}`,
+    accessibilityValueLabel: `${total} ${totalNoun}, goal ${goal} ${goalNoun}`,
   };
 }
 
+export type WeeklyFitnessCardioMetricsFromFacts = {
+  totalMilesThisWeek: number | null;
+  goalMilesPerWeek: number;
+  goalProgress01: number | null;
+  hasTrustedData: boolean;
+  resolvedDayCount: number;
+  valueLabel: string;
+  accessibilityValueLabel: string;
+};
+
 /**
- * Cardio row metrics derived from `dailyFacts.cardio.distanceMeters` per day.
+ * Cardio row metrics from `dailyFacts.cardio.distanceMeters`.
  *
- * Source rules:
- * - Only days inside `[weekStartDay, weekEndDay]` contribute.
- * - Missing/unknown days contribute 0.
- * - Converts the **server-aggregated meters** to miles via {@link WEEKLY_FITNESS_METERS_PER_MILE}.
- * - Same label/accessibility shape as {@link computeWeeklyFitnessCardioMetrics}.
+ * - Only ready days with a defined finite meters value contribute (including 0).
+ * - Missing week → `—` / null progress.
+ * - Trusted zero → 0.0 miles / progress 0 when goal exists.
  */
 export function computeWeeklyFitnessCardioMetricsFromFacts(input: {
   factsByDay: WeeklyFitnessDailyFactsByDay;
@@ -408,50 +446,118 @@ export function computeWeeklyFitnessCardioMetricsFromFacts(input: {
   weekStartDay: DayKey;
   weekEndDay: DayKey;
   goalMilesPerWeek: number;
-}): WeeklyFitnessCardioMetrics {
+}): WeeklyFitnessCardioMetricsFromFacts {
   let totalMeters = 0;
+  let resolvedDayCount = 0;
   for (const day of input.weekDayKeys) {
     if (day < input.weekStartDay || day > input.weekEndDay) continue;
     const cell = input.factsByDay[day];
-    const meters = cell?.cardioDistanceMeters;
-    if (typeof meters === "number" && Number.isFinite(meters) && meters > 0) {
-      totalMeters += meters;
-    }
+    if (cell?.status !== "ready") continue;
+    const meters = cell.cardioDistanceMeters;
+    if (typeof meters !== "number" || !Number.isFinite(meters) || meters < 0) continue;
+    totalMeters += meters;
+    resolvedDayCount += 1;
   }
-  const totalMiles = Math.max(0, totalMeters / WEEKLY_FITNESS_METERS_PER_MILE);
+
+  const hasTrustedData = resolvedDayCount > 0;
   const goal = Math.max(0, input.goalMilesPerWeek);
   const hasGoal = goal > 0;
-  const goalProgress01 = hasGoal ? clampGoalProgress01(totalMiles / goal) : 0;
+
+  if (!hasTrustedData) {
+    return {
+      totalMilesThisWeek: null,
+      goalMilesPerWeek: goal,
+      goalProgress01: null,
+      hasTrustedData: false,
+      resolvedDayCount: 0,
+      valueLabel: "\u2014",
+      accessibilityValueLabel: "not available",
+    };
+  }
+
+  const totalMiles = Math.max(0, totalMeters / WEEKLY_FITNESS_METERS_PER_MILE);
   const milesText = totalMiles.toFixed(1);
   const goalText = goal % 1 === 0 ? goal.toFixed(0) : goal.toFixed(1);
   const totalNoun = Math.abs(totalMiles - 1) < 0.05 ? "mile" : "miles";
   const goalNoun = Math.abs(goal - 1) < 0.0001 ? "mile" : "miles";
-  const valueLabel = hasGoal ? `${milesText} ${totalNoun}` : "No goal set";
-  const accessibilityValueLabel = hasGoal
-    ? `${milesText} ${totalNoun}, goal ${goalText} ${goalNoun}`
-    : `${milesText} ${totalNoun}, no goal set`;
+
+  if (!hasGoal) {
+    return {
+      totalMilesThisWeek: totalMiles,
+      goalMilesPerWeek: goal,
+      goalProgress01: null,
+      hasTrustedData: true,
+      resolvedDayCount,
+      valueLabel: `${milesText} ${totalNoun}`,
+      accessibilityValueLabel: `${milesText} ${totalNoun}, no goal set`,
+    };
+  }
+
   return {
     totalMilesThisWeek: totalMiles,
     goalMilesPerWeek: goal,
-    goalProgress01,
-    valueLabel,
-    accessibilityValueLabel,
+    goalProgress01: clampGoalProgress01(totalMiles / goal),
+    hasTrustedData: true,
+    resolvedDayCount,
+    valueLabel: `${milesText} ${totalNoun}`,
+    accessibilityValueLabel: `${milesText} ${totalNoun}, goal ${goalText} ${goalNoun}`,
   };
 }
 
+/**
+ * @deprecated Prefer {@link computeWeeklyProgressV1}. Kept for transitional call sites.
+ */
 export function computeWeeklyFitnessCombinedProgress(input: {
-  activity: Pick<WeeklyFitnessActivityMetrics, "goalProgress01" | "goalStepsPerDay">;
-  strength: Pick<WeeklyFitnessStrengthMetrics, "goalProgress01" | "goalWorkoutsPerWeek">;
-  cardio: Pick<WeeklyFitnessCardioMetrics, "goalProgress01" | "goalMilesPerWeek">;
-  sleep: Pick<WeeklyFitnessSleepMetrics, "goalProgress01" | "goalHoursPerNight">;
+  activity: Pick<WeeklyFitnessActivityMetrics, "goalProgress01" | "goalStepsPerDay"> & {
+    hasTrustedData?: boolean;
+  };
+  strength: {
+    goalProgress01: number | null;
+    goalWorkoutsPerWeek: number;
+    hasTrustedData?: boolean;
+  };
+  cardio: {
+    goalProgress01: number | null;
+    goalMilesPerWeek: number;
+    hasTrustedData?: boolean;
+  };
+  sleep: Pick<WeeklyFitnessSleepMetrics, "goalProgress01" | "goalHoursPerNight"> & {
+    completedNightsWithData?: number;
+  };
 }): WeeklyFitnessCombinedProgress {
   const enabled: number[] = [];
-  if (input.activity.goalStepsPerDay > 0) enabled.push(clampGoalProgress01(input.activity.goalProgress01));
-  if (input.strength.goalWorkoutsPerWeek > 0) enabled.push(clampGoalProgress01(input.strength.goalProgress01));
-  if (input.cardio.goalMilesPerWeek > 0) enabled.push(clampGoalProgress01(input.cardio.goalProgress01));
-  if (input.sleep.goalHoursPerNight > 0) enabled.push(clampGoalProgress01(input.sleep.goalProgress01));
-  if (enabled.length === 0) {
-    return { progress: 0, percent: 0, enabledCategoryCount: 0 };
+  if (
+    input.activity.goalStepsPerDay > 0 &&
+    Number.isFinite(input.activity.goalProgress01) &&
+    (input.activity.hasTrustedData !== false)
+  ) {
+    enabled.push(clampGoalProgress01(input.activity.goalProgress01));
+  }
+  if (
+    input.strength.goalWorkoutsPerWeek > 0 &&
+    input.strength.hasTrustedData !== false &&
+    input.strength.goalProgress01 != null &&
+    Number.isFinite(input.strength.goalProgress01)
+  ) {
+    enabled.push(clampGoalProgress01(input.strength.goalProgress01));
+  }
+  if (
+    input.cardio.goalMilesPerWeek > 0 &&
+    input.cardio.hasTrustedData !== false &&
+    input.cardio.goalProgress01 != null &&
+    Number.isFinite(input.cardio.goalProgress01)
+  ) {
+    enabled.push(clampGoalProgress01(input.cardio.goalProgress01));
+  }
+  if (
+    input.sleep.goalHoursPerNight > 0 &&
+    (input.sleep.completedNightsWithData ?? 1) > 0 &&
+    Number.isFinite(input.sleep.goalProgress01)
+  ) {
+    enabled.push(clampGoalProgress01(input.sleep.goalProgress01));
+  }
+  if (enabled.length < 2) {
+    return { progress: 0, percent: 0, enabledCategoryCount: enabled.length };
   }
   const sum = enabled.reduce((acc, p) => acc + p, 0);
   const progress = clampGoalProgress01(sum / enabled.length);

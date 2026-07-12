@@ -64,7 +64,20 @@ describe("computeWeeklyFitnessStrengthMetricsFromFacts", () => {
     expect(m.accessibilityValueLabel).toBe("3 workouts, goal 5 workouts");
   });
 
-  it("treats missing days as zero (no error)", () => {
+  it("treats missing week as em dash with null progress", () => {
+    const m = computeWeeklyFitnessStrengthMetricsFromFacts({
+      factsByDay: {},
+      weekDayKeys: WEEK_DAYS,
+      weekStartDay: WEEK_START,
+      weekEndDay: WEEK_END,
+      goalWorkoutsPerWeek: 5,
+    });
+    expect(m.hasTrustedData).toBe(false);
+    expect(m.goalProgress01).toBeNull();
+    expect(m.valueLabel).toBe("\u2014");
+  });
+
+  it("sums ready days and ignores missing status cells", () => {
     const factsByDay: WeeklyFitnessDailyFactsByDay = {};
     factsByDay["2026-05-05" as DayKey] = { settled: true, status: "missing" };
     factsByDay["2026-05-07" as DayKey] = { settled: true, status: "ready", strengthWorkoutsCount: 2 };
@@ -76,6 +89,7 @@ describe("computeWeeklyFitnessStrengthMetricsFromFacts", () => {
       goalWorkoutsPerWeek: 5,
     });
     expect(m.workoutsThisWeek).toBe(2);
+    expect(m.hasTrustedData).toBe(true);
   });
 
   it("ignores days outside the week window", () => {
@@ -97,7 +111,7 @@ describe("computeWeeklyFitnessStrengthMetricsFromFacts", () => {
     expect(m.workoutsThisWeek).toBe(1);
   });
 
-  it("falls back to 'No goal set' when goal is 0", () => {
+  it("falls back to value + no-goal a11y when goal is 0", () => {
     const m = computeWeeklyFitnessStrengthMetricsFromFacts({
       factsByDay: cellsStrength({ "2026-05-05": 2 } as Partial<Record<DayKey, number>>),
       weekDayKeys: WEEK_DAYS,
@@ -105,8 +119,9 @@ describe("computeWeeklyFitnessStrengthMetricsFromFacts", () => {
       weekEndDay: WEEK_END,
       goalWorkoutsPerWeek: 0,
     });
-    expect(m.goalProgress01).toBe(0);
-    expect(m.valueLabel).toBe("No goal set");
+    expect(m.goalProgress01).toBeNull();
+    expect(m.valueLabel).toBe("2 workouts");
+    expect(m.accessibilityValueLabel).toBe("2 workouts, no goal set");
   });
 
   it("sums audit week [1,1,1,0,1,0,0] to 4 workouts (not 8)", () => {
@@ -234,7 +249,7 @@ describe("computeWeeklyFitnessCardioMetricsFromFacts", () => {
     expect(m.goalProgress01).toBe(1);
   });
 
-  it("falls back to 'No goal set' when goal is 0", () => {
+  it("falls back to value + no-goal a11y when goal is 0", () => {
     const m = computeWeeklyFitnessCardioMetricsFromFacts({
       factsByDay: cellsCardio({
         "2026-05-04": 2.4 * WEEKLY_FITNESS_METERS_PER_MILE,
@@ -244,7 +259,8 @@ describe("computeWeeklyFitnessCardioMetricsFromFacts", () => {
       weekEndDay: WEEK_END,
       goalMilesPerWeek: 0,
     });
-    expect(m.goalProgress01).toBe(0);
-    expect(m.valueLabel).toBe("No goal set");
+    expect(m.goalProgress01).toBeNull();
+    expect(m.valueLabel).toBe("2.4 miles");
+    expect(m.accessibilityValueLabel).toBe("2.4 miles, no goal set");
   });
 });

@@ -7,6 +7,7 @@ import {
   invalidateDailyFactsSessionCacheForDays,
 } from "@/lib/data/dailyFactsSessionCache";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { hasNutritionRollupFacts } from "@/lib/data/nutrition/nutritionRollupPresence";
 import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 import type { DayKey } from "@/lib/ui/calendar/types";
@@ -25,6 +26,8 @@ export type WeeklyFitnessDailyFactsCell = {
   strengthWorkoutsCount?: number;
   cardioDistanceMeters?: number;
   cardioSessions?: number;
+  /** True when trusted nutrition rollup indicates at least one logged meal/macros. */
+  nutritionLogged?: boolean;
   errorMessage?: string;
 };
 
@@ -177,12 +180,14 @@ export function useWeeklyFitnessDailyFactsRollup(
             const swc = extractStrengthWorkoutsCount(outcome.data);
             const cdm = extractCardioDistanceMeters(outcome.data);
             const cs = extractCardioSessions(outcome.data);
+            const nutritionLogged = hasNutritionRollupFacts(outcome.data.nutrition);
             cell = {
               settled: true,
               status: "ready",
               ...(swc !== undefined ? { strengthWorkoutsCount: swc } : {}),
               ...(cdm !== undefined ? { cardioDistanceMeters: cdm } : {}),
               ...(cs !== undefined ? { cardioSessions: cs } : {}),
+              nutritionLogged,
             };
           } else if (outcome.status === "missing") {
             cell = { settled: true, status: "missing" };
