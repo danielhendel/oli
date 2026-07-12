@@ -1,7 +1,9 @@
 /**
  * Unit tests: Oura post-raw handler (runOuraPostRaw) writes snapshots + metadata.
  */
+import { logger } from "firebase-functions";
 import { runOuraPostRaw } from "../ouraPostRawHandler";
+import { assertOuraTelemetryPrivacy } from "../../../../api/src/lib/testSupport/assertOuraTelemetryPrivacy";
 
 const mockSet = jest.fn().mockResolvedValue(undefined);
 const mockCommit = jest.fn().mockResolvedValue(undefined);
@@ -34,15 +36,28 @@ jest.mock("firebase-admin/firestore", () => ({
 jest.mock("firebase-functions", () => ({
   logger: {
     info: jest.fn(),
+    warn: jest.fn(),
     error: jest.fn(),
   },
 }));
+
+function assertCapturedLoggerPrivacy(): void {
+  for (const method of ["info", "warn", "error"] as const) {
+    for (const call of (logger[method] as jest.Mock).mock.calls) {
+      assertOuraTelemetryPrivacy(call[0]);
+    }
+  }
+}
 
 describe("runOuraPostRaw", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSet.mockResolvedValue(undefined);
     mockCommit.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    assertCapturedLoggerPrivacy();
   });
 
   it("writes integration metadata with lastRefreshAt even when zero snapshots", async () => {

@@ -4,7 +4,10 @@
  */
 
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { logger } from "firebase-functions";
+import {
+  categorizeOuraPostRawSafeError,
+  logOuraPostRawTelemetry,
+} from "./ouraPostRawTelemetry";
 
 import { coerceOuraSleepScore0to100 } from "../../../api/src/lib/oura/buildSleepNightFromOuraDocument";
 import { resolveOuraSleepIngestBase } from "../../../api/src/lib/oura/resolveOuraSleepIngestBase";
@@ -322,11 +325,12 @@ async function writeSleepSnapshots(
   sleepNightsWritten: number;
   sleepNightsErrors: number;
 }> {
-  logger.info("oura_post_raw: sleep docs received", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_docs_received",
     requestId,
-    sleepDocCount: docs.length,
-    dailySleepDocCount: dailySleepDocs.length,
+    domain: "sleep",
+    sleepDocumentCount: docs.length,
+    dailySleepDocumentCount: dailySleepDocs.length,
   });
 
   const fetchedAt = new Date().toISOString();
@@ -337,14 +341,10 @@ async function writeSleepSnapshots(
   let errors = 0;
 
   const pairs: { doc: SleepDoc; snapshot: SleepSnapshot }[] = [];
-  let droppedSampleKeys: string[] | undefined;
   for (const doc of docs) {
     const snapshot = extractSleepSnapshot(doc, fetchedAt, { uid });
     if (!snapshot) {
       skippedMissingDay += 1;
-      if (!droppedSampleKeys && doc && typeof doc === "object") {
-        droppedSampleKeys = Object.keys(doc).slice(0, 20);
-      }
       continue;
     }
     pairs.push({ doc, snapshot });
@@ -362,22 +362,20 @@ async function writeSleepSnapshots(
 
   const snapshots = [...pairs.map((p) => p.snapshot), ...dailySnapshots];
 
-  if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
-    logger.info("oura_post_raw: sleep docs dropped", {
-      uid,
+  if (skippedMissingDay > 0) {
+    logOuraPostRawTelemetry({
+      operation: "oura_post_raw_domain_docs_dropped",
       requestId,
-      sleepDocCount: docs.length,
-      skippedMissingDay,
-      reason: "missing_day",
-      sampleKeys: droppedSampleKeys,
+      domain: "sleep",
+      rejectedItemCount: skippedMissingDay,
     });
   }
 
-  logger.info("oura_post_raw: sleep snapshots extracted", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_extracted",
     requestId,
-    sleepDocsReceived: docs.length,
-    sleepSnapshotsExtracted: snapshots.length,
+    domain: "sleep",
+    validatedItemCount: snapshots.length,
   });
 
   for (let i = 0; i < snapshots.length; i += BATCH_CHUNK_SIZE) {
@@ -390,31 +388,41 @@ async function writeSleepSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error("oura_post_raw: sleep batch error", { uid, requestId, chunkSize: chunk.length, err: message });
+      const { safeErrorCode, retryable } = categorizeOuraPostRawSafeError(err, "FUNCTION_PERSIST_FAILED");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_domain_write_failed",
+        requestId,
+        domain: "sleep",
+        safeErrorCode,
+        failedCount: chunk.length,
+        retryable,
+      });
       for (const snapshot of chunk) {
         try {
           await col.doc(snapshot.id).set(stripUndefined(snapshot as unknown as Record<string, unknown>), { merge: true });
           written += 1;
         } catch (singleErr) {
           errors += 1;
-          logger.error("oura_post_raw: sleep write error", {
-            uid,
+          const cat = categorizeOuraPostRawSafeError(singleErr, "FUNCTION_PERSIST_FAILED");
+          logOuraPostRawTelemetry({
+            operation: "oura_post_raw_domain_write_failed",
             requestId,
-            snapshotId: snapshot.id,
-            day: snapshot.day,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            domain: "sleep",
+            safeErrorCode: cat.safeErrorCode,
+            failedCount: 1,
+            retryable: cat.retryable,
           });
         }
       }
     }
   }
 
-  logger.info("oura_post_raw: sleep snapshots written", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_written",
     requestId,
-    sleepSnapshotsWritten: written,
-    sleepSnapshotsErrors: errors,
+    domain: "sleep",
+    writtenCount: written,
+    failedCount: errors,
   });
 
   const readinessCol = db.collection("users").doc(uid).collection("ouraVendorReadiness");
@@ -455,8 +463,15 @@ async function writeSleepSnapshots(
       await batch.commit();
       sleepNightsWritten += ops;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error("oura_post_raw: sleep_night_batch_error", { uid, requestId, chunkSize: chunk.length, err: message });
+      const { safeErrorCode, retryable } = categorizeOuraPostRawSafeError(err, "FUNCTION_PERSIST_FAILED");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_domain_write_failed",
+        requestId,
+        domain: "sleep_night",
+        safeErrorCode,
+        failedCount: chunk.length,
+        retryable,
+      });
       for (const { doc, snapshot } of chunk) {
         const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
           doc,
@@ -477,22 +492,26 @@ async function writeSleepSnapshots(
           sleepNightsWritten += 1;
         } catch (singleErr) {
           sleepNightsErrors += 1;
-          logger.error("oura_post_raw: sleep_night_write_error", {
-            uid,
+          const cat = categorizeOuraPostRawSafeError(singleErr, "FUNCTION_PERSIST_FAILED");
+          logOuraPostRawTelemetry({
+            operation: "oura_post_raw_domain_write_failed",
             requestId,
-            anchorDay: merged.anchorDay,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            domain: "sleep_night",
+            safeErrorCode: cat.safeErrorCode,
+            failedCount: 1,
+            retryable: cat.retryable,
           });
         }
       }
     }
   }
 
-  logger.info("oura_post_raw: sleep_nights_written", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_written",
     requestId,
-    sleepNightsWritten,
-    sleepNightsErrors,
+    domain: "sleep_night",
+    writtenCount: sleepNightsWritten,
+    failedCount: sleepNightsErrors,
   });
 
   return { written, attempted: docs.length, skippedMissingDay, errors, sleepNightsWritten, sleepNightsErrors };
@@ -510,27 +529,21 @@ async function writeReadinessSnapshots(
 
   const snapshots: ReadinessSnapshot[] = [];
   let droppedReadiness = 0;
-  let droppedSampleKeys: string[] | undefined;
   for (const doc of docs) {
     const snapshot = extractReadinessSnapshot(doc, fetchedAt);
     if (!snapshot) {
       droppedReadiness += 1;
-      if (!droppedSampleKeys && doc && typeof doc === "object") {
-        droppedSampleKeys = Object.keys(doc).slice(0, 20);
-      }
       continue;
     }
     snapshots.push(snapshot);
   }
 
   if (droppedReadiness > 0) {
-    logger.info("oura_post_raw: readiness docs dropped", {
-      uid,
+    logOuraPostRawTelemetry({
+      operation: "oura_post_raw_domain_docs_dropped",
       requestId,
-      readinessDocCount: docs.length,
-      droppedReadiness,
-      reason: "missing_day",
-      sampleKeys: droppedSampleKeys ?? [],
+      domain: "readiness",
+      rejectedItemCount: droppedReadiness,
     });
   }
 
@@ -544,24 +557,41 @@ async function writeReadinessSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error("oura_post_raw: readiness batch error", { uid, requestId, chunkSize: chunk.length, err: message });
+      const { safeErrorCode, retryable } = categorizeOuraPostRawSafeError(err, "FUNCTION_PERSIST_FAILED");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_domain_write_failed",
+        requestId,
+        domain: "readiness",
+        safeErrorCode,
+        failedCount: chunk.length,
+        retryable,
+      });
       for (const snapshot of chunk) {
         try {
           await col.doc(snapshot.id).set(stripUndefined(snapshot as unknown as Record<string, unknown>), { merge: true });
           written += 1;
         } catch (singleErr) {
-          logger.error("oura_post_raw: readiness write error", {
-            uid,
+          const cat = categorizeOuraPostRawSafeError(singleErr, "FUNCTION_PERSIST_FAILED");
+          logOuraPostRawTelemetry({
+            operation: "oura_post_raw_domain_write_failed",
             requestId,
-            snapshotId: snapshot.id,
-            day: snapshot.day,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            domain: "readiness",
+            safeErrorCode: cat.safeErrorCode,
+            failedCount: 1,
+            retryable: cat.retryable,
           });
         }
       }
     }
   }
+
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_written",
+    requestId,
+    domain: "readiness",
+    writtenCount: written,
+    failedCount: 0,
+  });
 
   return { written };
 }
@@ -650,11 +680,11 @@ async function writeStressSnapshots(
   }
 
   if (droppedStress > 0) {
-    logger.info("oura_post_raw: stress docs dropped", {
+    logOuraPostRawTelemetry({
+      operation: "oura_post_raw_domain_docs_dropped",
       requestId,
-      stressDocCount: docs.length,
-      droppedStress,
-      reason: "missing_day",
+      domain: "daily_stress",
+      rejectedItemCount: droppedStress,
     });
   }
 
@@ -670,11 +700,14 @@ async function writeStressSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error("oura_post_raw: stress batch error", {
+      const { safeErrorCode, retryable } = categorizeOuraPostRawSafeError(err, "FUNCTION_PERSIST_FAILED");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_domain_write_failed",
         requestId,
-        chunkSize: chunk.length,
-        err: message,
+        domain: "daily_stress",
+        safeErrorCode,
+        failedCount: chunk.length,
+        retryable,
       });
       for (const snapshot of chunk) {
         try {
@@ -683,14 +716,27 @@ async function writeStressSnapshots(
           });
           written += 1;
         } catch (singleErr) {
-          logger.error("oura_post_raw: stress write error", {
+          const cat = categorizeOuraPostRawSafeError(singleErr, "FUNCTION_PERSIST_FAILED");
+          logOuraPostRawTelemetry({
+            operation: "oura_post_raw_domain_write_failed",
             requestId,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            domain: "daily_stress",
+            safeErrorCode: cat.safeErrorCode,
+            failedCount: 1,
+            retryable: cat.retryable,
           });
         }
       }
     }
   }
+
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_domain_written",
+    requestId,
+    domain: "daily_stress",
+    writtenCount: written,
+    failedCount: 0,
+  });
 
   return { written };
 }
@@ -710,13 +756,13 @@ export async function runOuraPostRaw(
 ): Promise<RunOuraPostRawResult> {
   const db = getFirestore();
 
-  logger.info("oura_post_raw: started", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_started",
     requestId,
-    sleepDocCount: sleepDocs.length,
-    readinessDocCount: readinessDocs.length,
-    dailySleepDocCount: dailySleepDocs.length,
-    dailyStressDocCount: dailyStressDocs.length,
+    sleepDocumentCount: sleepDocs.length,
+    readinessDocumentCount: readinessDocs.length,
+    dailySleepDocumentCount: dailySleepDocs.length,
+    dailyStressDocumentCount: dailyStressDocs.length,
   });
 
   const [sleepResult, readinessResult, stressResult] = await Promise.all([
@@ -740,23 +786,23 @@ export async function runOuraPostRaw(
     await integrationRef.set(update, { merge: true });
     metadataWritten = true;
   } catch (metaErr) {
-    logger.error("oura_post_raw: metadata error", {
-      uid,
+    const { safeErrorCode } = categorizeOuraPostRawSafeError(metaErr, "FUNCTION_PERSIST_FAILED");
+    logOuraPostRawTelemetry({
+      operation: "oura_post_raw_metadata_failed",
       requestId,
-      sleepWritten: sleepResult.written,
-      readinessWritten: readinessResult.written,
-      stressWritten: stressResult.written,
-      err: metaErr instanceof Error ? metaErr.message : String(metaErr),
+      safeErrorCode,
+      writtenCount: totalSnapshotWritten,
     });
   }
 
-  logger.info("oura_post_raw: done", {
-    uid,
+  logOuraPostRawTelemetry({
+    operation: "oura_post_raw_completed",
     requestId,
-    sleepWritten: sleepResult.written,
-    readinessWritten: readinessResult.written,
-    stressWritten: stressResult.written,
-    sleepNightsWritten: sleepResult.sleepNightsWritten,
+    writtenCount: totalSnapshotWritten,
+    sleepDocumentCount: sleepResult.written,
+    readinessDocumentCount: readinessResult.written,
+    dailyStressDocumentCount: stressResult.written,
+    sleepNightDocumentCount: sleepResult.sleepNightsWritten,
     metadataWritten,
   });
 

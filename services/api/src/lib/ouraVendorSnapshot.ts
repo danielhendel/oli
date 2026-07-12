@@ -32,7 +32,7 @@ import { coerceOuraSleepScore0to100 } from "./sleepNight";
 import { FieldValue, userCollection } from "../db";
 import type { OuraSleepSnapshot, OuraReadinessSnapshot, OuraStressSnapshot } from "@oli/contracts";
 import { ouraDailyStressSummarySchema } from "@oli/contracts";
-import { logger } from "./logger";
+import { categorizeOuraSafeError, logOuraRefreshTelemetry } from "./ouraRefreshTelemetry";
 
 export type OuraSnapshotWriteResult = {
   attempted: number;
@@ -346,12 +346,12 @@ export async function writeOuraVendorSleepSnapshots(
   readinessDocs?: OuraDailyReadinessDocument[],
   dailySleepDocs?: OuraDailySleepDocument[],
 ): Promise<OuraSnapshotWriteResult> {
-  logger.info({
-    msg: "oura_sleep_snapshot_docs_received",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_vendor_snapshot_docs_received",
+    domain: "sleep",
     requestId,
-    sleepDocCount: docs.length,
-    dailySleepDocCount: dailySleepDocs?.length ?? 0,
+    sleepDocumentCount: docs.length,
+    dailySleepDocumentCount: dailySleepDocs?.length ?? 0,
   });
 
   const col = userCollection(uid, "ouraVendorSleep");
@@ -362,14 +362,12 @@ export async function writeOuraVendorSleepSnapshots(
   let errors = 0;
 
   const pairs: { doc: OuraSleepDocument; snapshot: OuraSleepSnapshot }[] = [];
-  let droppedSampleKeys: string[] | undefined;
+  let anyDroppedForMissingDay = false;
   for (const doc of docs) {
     const snapshot = extractSleepSnapshot(doc, fetchedAt, { uid });
     if (!snapshot) {
       skippedMissingDay += 1;
-      if (!droppedSampleKeys && doc && typeof doc === "object") {
-        droppedSampleKeys = Object.keys(doc).slice(0, 20);
-      }
+      anyDroppedForMissingDay = true;
       continue;
     }
     pairs.push({ doc, snapshot });
@@ -387,25 +385,23 @@ export async function writeOuraVendorSleepSnapshots(
 
   const snapshots = [...pairs.map((p) => p.snapshot), ...dailySnapshots];
 
-  if (droppedSampleKeys !== undefined && skippedMissingDay > 0) {
-    logger.info({
-      msg: "oura_sleep_snapshot_docs_dropped",
-      uid,
+  if (anyDroppedForMissingDay && skippedMissingDay > 0) {
+    logOuraRefreshTelemetry({
+      operation: "oura_vendor_snapshot_docs_dropped",
+      domain: "sleep",
       requestId,
-      sleepDocCount: docs.length,
-      skippedMissingDay,
-      reason: "missing_day",
-      sampleKeys: droppedSampleKeys,
+      sleepDocumentCount: docs.length,
+      rejectedItemCount: skippedMissingDay,
     });
   }
 
-  logger.info({
-    msg: "oura_sleep_snapshot_extracted",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_vendor_snapshot_extracted",
+    domain: "sleep",
     requestId,
-    sleepDocsReceived: docs.length,
-    sleepSnapshotsExtracted: snapshots.length,
-    readinessDocsForMerge: readinessDocs?.length ?? 0,
+    sleepDocumentCount: docs.length,
+    validatedItemCount: snapshots.length,
+    readinessDocumentCount: readinessDocs?.length ?? 0,
   });
 
   const readinessCol = userCollection(uid, "ouraVendorReadiness");
@@ -414,35 +410,6 @@ export async function writeOuraVendorSleepSnapshots(
     readinessCol as FirebaseFirestore.CollectionReference,
     lookupDays,
   );
-
-  if (process.env.OURA_SLEEP_SNAPSHOT_WRITE_AUDIT === "1" || process.env.OURA_SLEEP_SNAPSHOT_WRITE_AUDIT === "true") {
-    for (const { doc, snapshot } of pairs) {
-      const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
-        doc,
-        snapshot.id,
-        readinessDocs,
-        persistedReadinessByDay,
-        { uid, requestedDay: snapshot.day },
-        dailySleepDocs,
-      );
-      const merge = merged?.payload;
-      logger.info({
-        msg: "[OURA_SLEEP_SNAPSHOT_WRITE_AUDIT]",
-        uid,
-        sourceDocumentId: snapshot.id,
-        vendorDay: snapshot.day,
-        anchorDay: merged?.anchorDay ?? null,
-        wakeDay: typeof merge?.wakeDay === "string" ? merge.wakeDay : null,
-        score: typeof merge?.score === "number" ? merge.score : null,
-        totalSleepMinutes: typeof merge?.totalSleepMinutes === "number" ? merge.totalSleepMinutes : null,
-        lowestHeartRateBpm: typeof merge?.lowestHeartRateBpm === "number" ? merge.lowestHeartRateBpm : null,
-        averageHrvMs: typeof merge?.averageHrvMs === "number" ? merge.averageHrvMs : null,
-        wroteVendorSleep: true,
-        wroteSleepNight: merged != null,
-        skippedReason: merged == null ? "sleep_night_build_failed" : null,
-      });
-    }
-  }
 
   for (let i = 0; i < snapshots.length; i += BATCH_CHUNK_SIZE) {
     const chunk = snapshots.slice(i, i + BATCH_CHUNK_SIZE);
@@ -454,13 +421,13 @@ export async function writeOuraVendorSleepSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error({
-        msg: "oura_vendor_sleep_snapshot_batch_error",
-        uid,
+      const { safeErrorCode } = categorizeOuraSafeError(err);
+      logOuraRefreshTelemetry({
+        operation: "oura_vendor_snapshot_write_failed",
+        domain: "sleep",
         requestId,
-        chunkSize: chunk.length,
-        err: message,
+        safeErrorCode,
+        failedCount: chunk.length,
       });
       for (const snapshot of chunk) {
         try {
@@ -468,25 +435,24 @@ export async function writeOuraVendorSleepSnapshots(
           written += 1;
         } catch (singleErr) {
           errors += 1;
-          logger.error({
-            msg: "oura_vendor_sleep_snapshot_write_error",
-            uid,
+          logOuraRefreshTelemetry({
+            operation: "oura_vendor_snapshot_write_failed",
+            domain: "sleep",
             requestId,
-            snapshotId: snapshot.id,
-            day: snapshot.day,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            safeErrorCode: categorizeOuraSafeError(singleErr).safeErrorCode,
+            failedCount: 1,
           });
         }
       }
     }
   }
 
-  logger.info({
-    msg: "oura_sleep_snapshot_written",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_vendor_snapshot_written",
+    domain: "sleep",
     requestId,
-    sleepSnapshotsWritten: written,
-    sleepSnapshotsErrors: errors,
+    writtenCount: written,
+    failedCount: errors,
   });
 
   let sleepNightsWritten = 0;
@@ -520,13 +486,13 @@ export async function writeOuraVendorSleepSnapshots(
       await batch.commit();
       sleepNightsWritten += ops;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error({
-        msg: "sleep_night_batch_error",
-        uid,
+      const { safeErrorCode } = categorizeOuraSafeError(err);
+      logOuraRefreshTelemetry({
+        operation: "oura_vendor_snapshot_write_failed",
+        domain: "sleep_night",
         requestId,
-        chunkSize: chunk.length,
-        err: message,
+        safeErrorCode,
+        failedCount: chunk.length,
       });
       for (const { doc, snapshot } of chunk) {
         const merged = buildSleepNightFirestorePayloadWithOuraReadiness(
@@ -548,24 +514,24 @@ export async function writeOuraVendorSleepSnapshots(
           sleepNightsWritten += 1;
         } catch (singleErr) {
           sleepNightsErrors += 1;
-          logger.error({
-            msg: "sleep_night_write_error",
-            uid,
+          logOuraRefreshTelemetry({
+            operation: "oura_vendor_snapshot_write_failed",
+            domain: "sleep_night",
             requestId,
-            anchorDay: merged.anchorDay,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            safeErrorCode: categorizeOuraSafeError(singleErr).safeErrorCode,
+            failedCount: 1,
           });
         }
       }
     }
   }
 
-  logger.info({
-    msg: "sleep_night_written_after_vendor_sleep",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_vendor_snapshot_written",
+    domain: "sleep_night",
     requestId,
-    sleepNightsWritten,
-    sleepNightsErrors,
+    writtenCount: sleepNightsWritten,
+    failedCount: sleepNightsErrors,
   });
 
   return {
@@ -593,29 +559,23 @@ export async function writeOuraVendorReadinessSnapshots(
 
   const snapshots: OuraReadinessSnapshot[] = [];
   let droppedReadiness = 0;
-  let droppedSampleKeys: string[] | undefined;
   for (const doc of docs) {
     const snapshot = extractReadinessSnapshot(doc, fetchedAt);
     if (!snapshot) {
       skippedMissingDay += 1;
       droppedReadiness += 1;
-      if (!droppedSampleKeys && doc && typeof doc === "object") {
-        droppedSampleKeys = Object.keys(doc).slice(0, 20);
-      }
       continue;
     }
     snapshots.push(snapshot);
   }
 
   if (droppedReadiness > 0) {
-    logger.info({
-      msg: "oura_readiness_snapshot_docs_dropped",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_vendor_snapshot_docs_dropped",
+      domain: "readiness",
       requestId,
-      readinessDocCount: docs.length,
-      droppedReadiness,
-      reason: "missing_day",
-      sampleKeys: droppedSampleKeys ?? [],
+      readinessDocumentCount: docs.length,
+      rejectedItemCount: droppedReadiness,
     });
   }
 
@@ -629,13 +589,13 @@ export async function writeOuraVendorReadinessSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error({
-        msg: "oura_vendor_readiness_snapshot_batch_error",
-        uid,
+      const { safeErrorCode } = categorizeOuraSafeError(err);
+      logOuraRefreshTelemetry({
+        operation: "oura_vendor_snapshot_write_failed",
+        domain: "readiness",
         requestId,
-        chunkSize: chunk.length,
-        err: message,
+        safeErrorCode,
+        failedCount: chunk.length,
       });
       for (const snapshot of chunk) {
         try {
@@ -643,13 +603,12 @@ export async function writeOuraVendorReadinessSnapshots(
           written += 1;
         } catch (singleErr) {
           errors += 1;
-          logger.error({
-            msg: "oura_vendor_readiness_snapshot_write_error",
-            uid,
+          logOuraRefreshTelemetry({
+            operation: "oura_vendor_snapshot_write_failed",
+            domain: "readiness",
             requestId,
-            snapshotId: snapshot.id,
-            day: snapshot.day,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            safeErrorCode: categorizeOuraSafeError(singleErr).safeErrorCode,
+            failedCount: 1,
           });
         }
       }
@@ -739,12 +698,12 @@ export async function writeOuraVendorStressSnapshots(
   }
 
   if (droppedStress > 0) {
-    logger.info({
-      msg: "oura_stress_snapshot_docs_dropped",
+    logOuraRefreshTelemetry({
+      operation: "oura_vendor_snapshot_docs_dropped",
+      domain: "daily_stress",
       requestId,
-      stressDocCount: docs.length,
-      droppedStress,
-      reason: "missing_day",
+      dailyStressDocumentCount: docs.length,
+      rejectedItemCount: droppedStress,
     });
   }
 
@@ -760,12 +719,13 @@ export async function writeOuraVendorStressSnapshots(
       await batch.commit();
       written += chunk.length;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error({
-        msg: "oura_vendor_stress_snapshot_batch_error",
+      const { safeErrorCode } = categorizeOuraSafeError(err);
+      logOuraRefreshTelemetry({
+        operation: "oura_vendor_snapshot_write_failed",
+        domain: "daily_stress",
         requestId,
-        chunkSize: chunk.length,
-        err: message,
+        safeErrorCode,
+        failedCount: chunk.length,
       });
       for (const snapshot of chunk) {
         try {
@@ -775,10 +735,12 @@ export async function writeOuraVendorStressSnapshots(
           written += 1;
         } catch (singleErr) {
           errors += 1;
-          logger.error({
-            msg: "oura_vendor_stress_snapshot_write_error",
+          logOuraRefreshTelemetry({
+            operation: "oura_vendor_snapshot_write_failed",
+            domain: "daily_stress",
             requestId,
-            err: singleErr instanceof Error ? singleErr.message : String(singleErr),
+            safeErrorCode: categorizeOuraSafeError(singleErr).safeErrorCode,
+            failedCount: 1,
           });
         }
       }

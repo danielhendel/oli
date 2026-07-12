@@ -4,8 +4,12 @@
  */
 
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
-import { logger } from "firebase-functions";
 import { runOuraPostRaw, type SleepDoc, type ReadinessDoc } from "./ouraPostRawHandler";
+import {
+  categorizeOuraPostRawSafeError,
+  logOuraPostRawTelemetry,
+  sanitizeOuraPostRawRequestId,
+} from "./ouraPostRawTelemetry";
 
 const TOPIC = "oura.post_raw.v1";
 
@@ -33,21 +37,32 @@ export const onOuraPostRawRequested = onMessagePublished(
     const payload = event.data?.message?.json as unknown;
 
     if (!payload || typeof payload !== "object") {
-      logger.error("oura.post_raw: invalid payload");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_rejected",
+        safeErrorCode: "FUNCTION_PAYLOAD_INVALID",
+      });
       return;
     }
 
     const {
       uid,
-      requestId = event.id ?? "unknown",
+      requestId,
       sleepDocs = [],
       readinessDocs = [],
       dailySleepDocs = [],
       dailyStressDocs = [],
     } = payload as OuraPostRawMessage;
 
+    // Prefer sanitized producer requestId only. Never fall back to Pub/Sub
+    // event/message ids — those are transport identifiers, not telemetry traces.
+    const safeRequestId = sanitizeOuraPostRawRequestId(requestId);
+
     if (!assertUid(uid)) {
-      logger.error("oura.post_raw: invalid uid", { uid });
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_rejected",
+        requestId: safeRequestId,
+        safeErrorCode: "FUNCTION_PAYLOAD_INVALID",
+      });
       return;
     }
 
@@ -59,14 +74,20 @@ export const onOuraPostRawRequested = onMessagePublished(
     try {
       await runOuraPostRaw(
         uid,
-        requestId,
+        safeRequestId,
         sleep as SleepDoc[],
         readiness as ReadinessDoc[],
         dailySleep as import("../../../api/src/lib/ouraApi").OuraDailySleepDocument[],
         dailyStress as import("../../../api/src/lib/ouraApi").OuraDailyStressDocument[],
       );
     } catch (err) {
-      logger.error("oura.post_raw: failed", { uid, requestId, err });
+      const { safeErrorCode, retryable } = categorizeOuraPostRawSafeError(err, "FUNCTION_PERSIST_FAILED");
+      logOuraPostRawTelemetry({
+        operation: "oura_post_raw_failed",
+        requestId: safeRequestId,
+        safeErrorCode,
+        retryable,
+      });
       throw err;
     }
   },

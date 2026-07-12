@@ -4,6 +4,7 @@
 import { writeOuraRawEvents } from "../ouraIngestWrite";
 import { userCollection } from "../../db";
 import { logger } from "../logger";
+import { assertOuraTelemetryPrivacy } from "../testSupport/assertOuraTelemetryPrivacy";
 
 jest.mock("../../db", () => ({
   userCollection: jest.fn(),
@@ -19,6 +20,7 @@ const mockSet = jest.fn().mockResolvedValue(undefined);
 
 describe("writeOuraRawEvents", () => {
   let infoSpy: jest.SpyInstance;
+  let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -29,11 +31,21 @@ describe("writeOuraRawEvents", () => {
       doc: () => ({ create: mockCreate, get: mockGet, set: mockSet }),
     });
     infoSpy = jest.spyOn(logger, "info").mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(logger, "error").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     infoSpy.mockRestore();
+    errorSpy.mockRestore();
   });
+
+  function assertAllLoggedPrivacySafe(): void {
+    for (const spy of [infoSpy, errorSpy]) {
+      for (const call of spy.mock.calls) {
+        assertOuraTelemetryPrivacy(call[0]);
+      }
+    }
+  }
 
   it("awaits core writes and returns core-only counts when ouraRawItems are deferred", async () => {
     const sleepItems = [
@@ -61,20 +73,24 @@ describe("writeOuraRawEvents", () => {
     expect(infoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         msg: "oura_raw_events_core_write_done",
-        uid: "uid1",
-        requestId: "req-1",
-        eventsCreated: 1,
-        eventsAlreadyExists: 0,
+        operation: "oura_raw_events_core_write_done",
+        rawEventCreatedCount: 1,
+        rawEventExistingCount: 0,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
       }),
     );
     expect(infoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         msg: "oura_raw_events_vendor_detail_deferred",
-        uid: "uid1",
-        requestId: "req-1",
-        ouraRawCount: 2,
+        rawItemCount: 2,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
       }),
     );
+    assertAllLoggedPrivacySafe();
   });
 
   it("does not log deferred when ouraRawItems is empty", async () => {
@@ -87,5 +103,6 @@ describe("writeOuraRawEvents", () => {
       (c: [Record<string, unknown>]) => c[0]?.msg === "oura_raw_events_vendor_detail_deferred",
     );
     expect(deferredCalls).toHaveLength(0);
+    assertAllLoggedPrivacySafe();
   });
 });

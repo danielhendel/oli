@@ -3,7 +3,7 @@
  * Used by POST /integrations/oura/pull-now. OAuth token URL and scopes match integrations.ts.
  */
 
-import { logger } from "./logger";
+import { logOuraRefreshTelemetry } from "./ouraRefreshTelemetry";
 import {
   normalizeOuraLatencyRawToMinutes,
   ouraSleepWakeIsoForLog,
@@ -250,27 +250,24 @@ export async function fetchOuraSleep(
       break;
     }
     if (pages >= OURA_SLEEP_FETCH_MAX_PAGES) {
-      logger.error({
-        msg: "oura_sleep_fetch_page_cap",
-        startDate,
-        endDate,
-        pages,
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "sleep",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
         ...(options?.requestId ? { requestId: options.requestId } : {}),
-        ...(options?.uid ? { uid: options.uid } : {}),
       });
       break;
     }
     nextRequestToken = responseNext;
   }
 
-  logger.info({
-    msg: "oura_sleep_fetch_complete",
-    startDate,
-    endDate,
-    pages,
-    rowCount: aggregated.length,
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "sleep",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
     ...(options?.requestId ? { requestId: options.requestId } : {}),
-    ...(options?.uid ? { uid: options.uid } : {}),
   });
 
   return aggregated;
@@ -367,27 +364,23 @@ export async function fetchOuraDailySleep(
     if (!token) break;
     nextRequestToken = token;
     if (pages >= 50) {
-      logger.warn({
-        msg: "oura_daily_sleep_fetch_page_cap",
-        startDate,
-        endDate,
-        pages,
-        rowCount: aggregated.length,
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "daily_sleep",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
         ...(options?.requestId ? { requestId: options.requestId } : {}),
-        ...(options?.uid ? { uid: options.uid } : {}),
       });
       break;
     }
   }
 
-  logger.info({
-    msg: "oura_daily_sleep_fetch_complete",
-    startDate,
-    endDate,
-    pages,
-    rowCount: aggregated.length,
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "daily_sleep",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
     ...(options?.requestId ? { requestId: options.requestId } : {}),
-    ...(options?.uid ? { uid: options.uid } : {}),
   });
 
   return aggregated;
@@ -450,20 +443,22 @@ export async function fetchOuraDailyStress(
     if (!token) break;
     nextRequestToken = token;
     if (pages >= OURA_DAILY_STRESS_FETCH_MAX_PAGES) {
-      logger.warn({
-        msg: "oura_daily_stress_fetch_page_cap",
-        pages,
-        rowCount: aggregated.length,
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "daily_stress",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
         ...(options?.requestId ? { requestId: options.requestId } : {}),
       });
       break;
     }
   }
 
-  logger.info({
-    msg: "oura_daily_stress_fetch_complete",
-    pages,
-    rowCount: aggregated.length,
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "daily_stress",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
     ...(options?.requestId ? { requestId: options.requestId } : {}),
   });
 

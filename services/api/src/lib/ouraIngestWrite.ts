@@ -13,7 +13,7 @@ import type {
 } from "./ouraApi";
 import { userCollection } from "../db";
 import { writeFailure } from "./writeFailure";
-import { logger } from "./logger";
+import { categorizeOuraSafeError, logOuraRefreshTelemetry } from "./ouraRefreshTelemetry";
 
 const OURA_SOURCE_ID = "oura";
 const OURA_SOURCE_TYPE = "oura";
@@ -65,37 +65,31 @@ export async function writeOuraRawEvents(
     stepsRes.alreadyExists +
     workoutRes.alreadyExists;
 
-  logger.info({
-    msg: "oura_raw_events_core_write_done",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_raw_events_core_write_done",
     requestId,
-    sleepCreated: sleepRes.created,
-    sleepAlreadyExists: sleepRes.alreadyExists,
-    hrvCreated: hrvRes.created,
-    hrvAlreadyExists: hrvRes.alreadyExists,
-    stepsCreated: stepsRes.created,
-    stepsAlreadyExists: stepsRes.alreadyExists,
-    workoutCreated: workoutRes.created,
-    workoutAlreadyExists: workoutRes.alreadyExists,
-    eventsCreated,
-    eventsAlreadyExists,
+    rawEventCreatedCount: eventsCreated,
+    rawEventExistingCount: eventsAlreadyExists,
+    sleepDocumentCount: sleepRes.created,
+    hrvDocumentCount: hrvRes.created,
+    stepsDocumentCount: stepsRes.created,
+    workoutDocumentCount: workoutRes.created,
   });
 
   if (ouraRawItems.length > 0) {
-    logger.info({
-      msg: "oura_raw_events_vendor_detail_deferred",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_raw_events_vendor_detail_deferred",
       requestId,
-      ouraRawCount: ouraRawItems.length,
+      rawItemCount: ouraRawItems.length,
     });
     void writeOuraRawLoop(rawEventsCol, ouraRawItems, receivedAt, uid, requestId).catch(
       (err: unknown) => {
-        logger.error({
-          msg: "oura_raw_events_vendor_detail_deferred_error",
-          uid,
+        const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+        logOuraRefreshTelemetry({
+          operation: "oura_raw_events_vendor_detail_deferred_failed",
           requestId,
-          ouraRawCount: ouraRawItems.length,
-          err: err instanceof Error ? err.message : String(err),
+          rawItemCount: ouraRawItems.length,
+          safeErrorCode,
         });
       },
     );
@@ -173,12 +167,13 @@ async function writeSleepLoop(
         created += 1;
       }
     } catch (err: unknown) {
-      logger.error({
-        msg: "oura_ingest_sleep_write_error",
-        uid,
-        rawEventId: item.idempotencyKey,
+      const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+      logOuraRefreshTelemetry({
+        operation: "oura_raw_event_write_failed",
         requestId,
-        err: err instanceof Error ? err.message : String(err),
+        domain: "sleep",
+        safeErrorCode,
+        failedCount: 1,
       });
     }
   }
@@ -243,12 +238,13 @@ async function writeHrvLoop(
       if (existing.exists) {
         alreadyExists += 1;
       } else {
-        logger.error({
-          msg: "oura_ingest_hrv_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
+        const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+        logOuraRefreshTelemetry({
+          operation: "oura_raw_event_write_failed",
           requestId,
-          err: err instanceof Error ? err.message : String(err),
+          domain: "hrv",
+          safeErrorCode,
+          failedCount: 1,
         });
       }
     }
@@ -314,12 +310,13 @@ async function writeStepsLoop(
       if (existing.exists) {
         alreadyExists += 1;
       } else {
-        logger.error({
-          msg: "oura_ingest_steps_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
+        const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+        logOuraRefreshTelemetry({
+          operation: "oura_raw_event_write_failed",
           requestId,
-          err: err instanceof Error ? err.message : String(err),
+          domain: "steps",
+          safeErrorCode,
+          failedCount: 1,
         });
       }
     }
@@ -386,12 +383,13 @@ async function writeWorkoutLoop(
       if (existing.exists) {
         alreadyExists += 1;
       } else {
-        logger.error({
-          msg: "oura_ingest_workout_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
+        const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+        logOuraRefreshTelemetry({
+          operation: "oura_raw_event_write_failed",
           requestId,
-          err: err instanceof Error ? err.message : String(err),
+          domain: "workout",
+          safeErrorCode,
+          failedCount: 1,
         });
       }
     }
@@ -449,12 +447,13 @@ async function writeOuraRawLoop(
       if (existing.exists) {
         alreadyExists += 1;
       } else {
-        logger.error({
-          msg: "oura_ingest_oura_raw_write_error",
-          uid,
-          rawEventId: item.idempotencyKey,
+        const { safeErrorCode } = categorizeOuraSafeError(err, "RAW_EVENT_PERSIST_FAILED");
+        logOuraRefreshTelemetry({
+          operation: "oura_raw_event_write_failed",
           requestId,
-          err: err instanceof Error ? err.message : String(err),
+          domain: "oura_raw",
+          safeErrorCode,
+          failedCount: 1,
         });
       }
     }
