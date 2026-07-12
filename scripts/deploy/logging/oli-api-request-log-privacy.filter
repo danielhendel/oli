@@ -1,0 +1,26 @@
+(
+  resource.type="cloud_run_revision"
+  AND resource.labels.service_name="oli-api"
+  AND resource.labels.location="us-central1"
+  AND LOG_ID("run.googleapis.com/requests")
+)
+OR
+(
+  resource.type="apigateway.googleapis.com/Gateway"
+  AND resource.labels.gateway_id="oli-gateway"
+  AND resource.labels.location="us-central1"
+  AND LOG_ID("apigateway.googleapis.com/requests")
+)
+OR
+(
+  resource.type="api"
+  AND resource.labels.service="oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog"
+  AND resource.labels.location="us-central1"
+  AND LOG_ID("oli-api-0drj1f1cbrv7k.apigateway.oli-staging-fdbba.cloud.goog/endpoints_log")
+)
+OR
+(
+  resource.type="cloud_run_revision"
+  AND resource.labels.service_name="oli-api"
+  AND jsonPayload.msg="request"
+)
