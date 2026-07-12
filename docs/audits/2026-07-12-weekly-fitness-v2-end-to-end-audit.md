@@ -1,9 +1,13 @@
 # Weekly Fitness v2 — End-to-End Architecture Audit
 
-**Date:** 2026-07-12  
-**Branch:** `feat/weekly-fitness-v2`  
-**Worktree:** `/Users/danielhendel/oli-weekly-fitness-v2`  
-**Status:** Implementation complete locally — awaiting push review  
+**Date:** 2026-07-12
+
+**Branch:** `feat/weekly-fitness-v2`
+
+**Worktree:** `/Users/danielhendel/oli-weekly-fitness-v2`
+
+**Status:** Implementation complete locally — awaiting push review
+
 **Decision:** Local implementation complete. Physical device / live Oura Stress remain honestly unverified.
 
 This audit is privacy-safe. It contains no UIDs, emails, tokens, health magnitudes,
@@ -101,18 +105,24 @@ Missing days are **not** filled with zero.
 
 ## 6. Nutrition V1
 
-Logging coverage only: `loggedDayCount / elapsedEligibleDayCount`.  
-Display: `N of M logged`. Accessibility says “logging coverage”.  
+Logging coverage only: `loggedDayCount / elapsedEligibleDayCount`.
+
+Display: `N of M logged`. Accessibility says “logging coverage”.
+
 **Excluded from Weekly Progress.** Missing/error → `—` (not zero).
 
 ---
 
 ## 7. Readiness V1
 
-Exact current-week Oura readiness scores only (fallback / mismatched days excluded).  
-Weekly avg 0–100; progress = avg/100.  
-Bounded API: `GET /users/me/oura-readiness-range`.  
-States: Connect Oura / No data / Unavailable.  
+Exact current-week Oura readiness scores only (fallback / mismatched days excluded).
+
+Weekly avg 0–100; progress = avg/100.
+
+Bounded API: `GET /users/me/oura-readiness-range`.
+
+States: Connect Oura / No data / Unavailable.
+
 **Excluded from Weekly Progress.**
 
 ---
@@ -143,7 +153,8 @@ Oura daily_stress
 
 Classification: **Oura compatibility read model** (not canonical DailyFacts; not an invented 0–100 score).
 
-Weekly display: `N of M balanced` where balanced = restored|normal.  
+Weekly display: `N of M balanced` where balanced = restored|normal.
+
 **Excluded from Weekly Progress.**
 
 States: Connect Oura / Reconnect Oura (future scope gap path) / No data / Unavailable / partial.
@@ -168,8 +179,10 @@ Historical refresh: required after deploy for existing users — **not run in th
 
 ## 10. Request budget (designed)
 
-Cold mount (authenticated): preferences + activity week keys + ≤7 daily-facts + 1 sleep-nights range + 1 readiness range + 1 stress range + body overview (shared).  
-No per-day Sleep fan-out; no year workout hydrate; no pull-now / sleep-day-refresh on render.  
+Cold mount (authenticated): preferences + activity week keys + ≤7 daily-facts + 1 sleep-nights range + 1 readiness range + 1 stress range + body overview (shared).
+
+No per-day Sleep fan-out; no year workout hydrate; no pull-now / sleep-day-refresh on render.
+
 Rerender: no duplicate intentional fetch. User switch: auth-scoped cache identity.
 
 ---
@@ -188,11 +201,11 @@ Rerender: no duplicate intentional fetch. User switch: auth-scoped cache identit
 
 ## 12. Local commits (feature)
 
-1. `b604ab1` — docs blockers (base audit)  
-2. `ec7da41` — feat(body): Body Composition Score v1  
-3. `540d9ec` — feat(oura): bounded Daily Stress  
-4. `3836522` — feat(dash): seven-domain model  
-5. `ee78758` — feat(dash): dual hero circles  
+1. `b604ab1` — docs blockers (base audit)
+2. `ec7da41` — feat(body): Body Composition Score v1
+3. `540d9ec` — feat(oura): bounded Daily Stress
+4. `3836522` — feat(dash): seven-domain model
+5. `ee78758` — feat(dash): dual hero circles
 6. (this docs finalize commit)
 
 ---
@@ -215,34 +228,39 @@ Gate results (feature worktree after `npm ci`):
 | npx expo export --platform ios | 0 |
 | npx expo-doctor | 1 (pre-existing; identical 5 findings on PR #182 base) |
 
-Physical device: `PHYSICAL DEVICE NOT VERIFIED`  
-Live Oura Stress: `LIVE OURA STRESS NOT VERIFIED — BACKEND DEPLOYMENT REQUIRED`  
+Physical device: `PHYSICAL DEVICE NOT VERIFIED`
+
+Live Oura Stress: `LIVE OURA STRESS NOT VERIFIED — BACKEND DEPLOYMENT REQUIRED`
+
 User isolation physical: `USER-ISOLATION PHYSICAL TEST NOT VERIFIED`
 
 ---
 
 ## 14. Deployment plan (do not execute)
 
-1. Merge/backend deploy Functions post-raw with `dailyStressDocs`  
-2. Immutable Cloud Run API (oura-stress + readiness-range + prefs body goal)  
-3. Gateway OpenAPI attach for new routes  
-4. Bounded Oura Stress historical refresh (approved separately)  
-5. Mobile release  
+1. Merge/backend deploy Functions post-raw with `dailyStressDocs`
+2. Immutable Cloud Run API (oura-stress + readiness-range + prefs body goal)
+3. Gateway OpenAPI attach for new routes
+4. Bounded Oura Stress historical refresh (approved separately)
+5. Mobile release
 
-Resources: Cloud Run, API Gateway, Firebase Functions, mobile update.  
-Firestore rules/indexes: likely none for preferences field; vendor collection user-scoped.  
-Reconnect: not required for `daily` scope.  
+Resources: Cloud Run, API Gateway, Firebase Functions, mobile update.
+
+Firestore rules/indexes: likely none for preferences field; vendor collection user-scoped.
+
+Reconnect: not required for `daily` scope.
+
 No live action in this task.
 
 ---
 
 ## 15. Remaining risks
 
-1. Live Stress empty until deploy + bounded refresh.  
-2. Strength/Cardio depend on dailyFacts field presence for trusted zero.  
-3. Nutrition coverage uses macro rollup presence (not mealCount) — may under-count edge cases.  
-4. Weekly Progress circle routes to fitness-goals (no dedicated weekly detail).  
-5. Physical-device / VoiceOver evidence may be incomplete on this host.  
+1. Live Stress empty until deploy + bounded refresh.
+2. Strength/Cardio depend on dailyFacts field presence for trusted zero.
+3. Nutrition coverage uses macro rollup presence (not mealCount) — may under-count edge cases.
+4. Weekly Progress circle routes to fitness-goals (no dedicated weekly detail).
+5. Physical-device / VoiceOver evidence may be incomplete on this host.
 6. `buildWeeklyFitnessProgressToGoalVm` remains in repo unused by the card (cleanup optional).
 
 ---
