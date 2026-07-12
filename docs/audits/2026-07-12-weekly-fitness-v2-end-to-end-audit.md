@@ -4,7 +4,7 @@
 **Branch:** `feat/weekly-fitness-v2`  
 **Worktree:** `/Users/danielhendel/oli-weekly-fitness-v2`  
 **Status:** Implementation complete locally — awaiting push review  
-**Decision target:** `READY FOR WEEKLY FITNESS V2 PUSH REVIEW` (pending Code Check Gate + device evidence below)
+**Decision:** Local implementation complete. Physical device / live Oura Stress remain honestly unverified.
 
 This audit is privacy-safe. It contains no UIDs, emails, tokens, health magnitudes,
 exact personal dates, raw provider payloads, or raw runtime logs.
@@ -199,9 +199,25 @@ Rerender: no duplicate intentional fetch. User switch: auth-scoped cache identit
 
 ## 13. Code Check Gate / runtime
 
-Recorded in the final Cursor response after execution.  
-Physical device: may be `PHYSICAL DEVICE NOT VERIFIED` if host cannot drive device.  
-Live Oura Stress: `LIVE OURA STRESS NOT VERIFIED — BACKEND DEPLOYMENT REQUIRED`.
+Gate results (feature worktree after `npm ci`):
+
+| Command | Exit |
+|---|---|
+| npm ci | 0 |
+| npm run typecheck | 0 |
+| npm run lint | 0 |
+| npm run check:client-trust-boundary | 0 |
+| npm run check:invariants | 0 |
+| npm test -- --ci --watchman=false | 0 (790 suites) |
+| git diff --check | 0 |
+| npm --prefix services/api run build | 0 |
+| npm --prefix services/functions run build | 0 |
+| npx expo export --platform ios | 0 |
+| npx expo-doctor | 1 (pre-existing; identical 5 findings on PR #182 base) |
+
+Physical device: `PHYSICAL DEVICE NOT VERIFIED`  
+Live Oura Stress: `LIVE OURA STRESS NOT VERIFIED — BACKEND DEPLOYMENT REQUIRED`  
+User isolation physical: `USER-ISOLATION PHYSICAL TEST NOT VERIFIED`
 
 ---
 
