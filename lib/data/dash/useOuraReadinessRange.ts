@@ -72,7 +72,8 @@ export function useOuraReadinessRange(
     void fetchOnce();
   }, [fetchOnce, bust, user?.uid]);
 
-  const refetch = useCallback((_opts?: { cacheBust?: string }) => {
+  const refetch = useCallback((opts?: { cacheBust?: string }) => {
+    void opts;
     setBust((n) => n + 1);
   }, []);
 

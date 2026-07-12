@@ -22,7 +22,6 @@ import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOvervie
 import {
   buildWeeklyFitnessCardModel,
   type WeeklyFitnessCardModel,
-  type WeeklyFitnessMetricRowModel,
 } from "@/lib/data/dash/buildWeeklyFitnessCardModel";
 import {
   computeWeeklyFitnessActivityMetrics,
@@ -49,7 +48,6 @@ import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
 import {
   WEEKLY_FITNESS_ROUTES,
-  type WeeklyFitnessRowKey,
 } from "@/lib/data/dash/weeklyFitnessRoutes";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import {
@@ -211,7 +209,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       rollupStatus: dailyFactsWeeklyRollup.status,
     });
 
-    let stressDays: WeeklyStressDayInput[] = [];
+    const stressDays: WeeklyStressDayInput[] = [];
     if (stressRange.status === "ready" || stressRange.status === "error") {
       for (const d of stressRange.days) {
         if (d.daySummary == null) continue;
@@ -264,7 +262,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
 
     const metric: BodyCompositionPrimaryMetric | null = bodyGoal?.primaryMetric ?? null;
     let latestValue: number | null = null;
-    let latestUnit = metric != null ? canonicalUnitForBodyCompositionMetric(metric) : null;
+    const latestUnit = metric != null ? canonicalUnitForBodyCompositionMetric(metric) : null;
     if (metric === "weight") latestValue = body.overview.weightKg;
     else if (metric === "bodyFat") latestValue = body.overview.bodyFatPercent;
     else if (metric === "leanMass") latestValue = body.overview.leanBodyMassKg;
