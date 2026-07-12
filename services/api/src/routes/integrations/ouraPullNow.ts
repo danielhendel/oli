@@ -37,7 +37,6 @@ import {
   type OuraDailySleepDocument,
   type OuraDailyStressDocument,
   OuraApiError,
-  ouraSleepWakeIsoForLog,
   resolveOuraSleepIngestBase,
 } from "../../lib/ouraApi";
 import { writeOuraRawEvents } from "../../lib/ouraIngestWrite";
@@ -48,7 +47,11 @@ import {
 } from "../../lib/ouraVendorSnapshot";
 import { deriveOuraSyncMetadataFields, isLegacyOuraIntegration } from "./ouraSyncMetadata";
 import { writeFailure } from "../../lib/writeFailure";
-import { logger } from "../../lib/logger";
+import {
+  categorizeOuraSafeError,
+  logOuraRefreshTelemetry,
+  type OuraSafeErrorCode,
+} from "../../lib/ouraRefreshTelemetry";
 import { publishOuraPostRawJob, getOuraPostRawTopic } from "../../lib/ouraPostRawJob";
 import { refreshOuraTokenSingleFlight } from "../../lib/ouraTokenRefreshSingleFlight";
 
@@ -113,12 +116,10 @@ async function performReconnectCleanupBestEffort(
     );
     await ouraConnectedRegistryDoc(uid).delete();
   } catch (cleanupErr) {
-    const sanitized = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-    logger.error({
-      msg: "oura_pull_now_reconnect_cleanup_error",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_reconnect_cleanup_failed",
       requestId,
-      err: sanitized,
+      safeErrorCode: categorizeOuraSafeError(cleanupErr).safeErrorCode,
     });
   }
 }
@@ -133,7 +134,12 @@ export async function performOuraPullNowCore(
 ): Promise<OuraPullNowResult> {
   const refreshToken = await ouraSecrets.getRefreshToken(uid);
   if (!refreshToken) {
-    logger.error({ msg: "oura_pull_now_no_refresh_token", rid: requestId, uid });
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_failed",
+      requestId,
+      safeErrorCode: "NO_CONNECTION",
+      retryable: false,
+    });
     try {
       await writeFailure({
         userId: uid,
@@ -170,7 +176,12 @@ export async function performOuraPullNowCore(
   }
 
   if (!clientId || !clientSecret) {
-    logger.error({ msg: "oura_pull_now_misconfig", rid: requestId, hasClientId: !!clientId });
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_failed",
+      requestId,
+      safeErrorCode: "TOKEN_UNAVAILABLE",
+      retryable: false,
+    });
     return {
       statusCode: 500,
       body: {
@@ -197,7 +208,12 @@ export async function performOuraPullNowCore(
     if (outcome.kind === "refreshed") {
       accessToken = outcome.tokens.access_token;
     } else if (outcome.kind === "no_refresh_token") {
-      logger.error({ msg: "oura_pull_now_no_refresh_token", rid: requestId, uid });
+      logOuraRefreshTelemetry({
+        operation: "oura_pull_failed",
+        requestId,
+        safeErrorCode: "NO_CONNECTION",
+        retryable: false,
+      });
       try {
         await writeFailure({
           userId: uid,
@@ -224,11 +240,10 @@ export async function performOuraPullNowCore(
         },
       };
     } else if (outcome.kind === "lock_unavailable") {
-      logger.info({
-        msg: "oura_pull_now_token_refresh_busy",
-        rid: requestId,
-        uid,
-        waitedMs: outcome.waitedMs,
+      logOuraRefreshTelemetry({
+        operation: "oura_token_refresh_busy",
+        requestId,
+        retryable: true,
       });
       return {
         statusCode: 503,
@@ -242,10 +257,11 @@ export async function performOuraPullNowCore(
         },
       };
     } else {
-      logger.error({
-        msg: "oura_pull_now_token_refresh_failed",
-        rid: requestId,
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_pull_failed",
+        requestId,
+        safeErrorCode: "PROVIDER_UNAUTHORIZED",
+        retryable: false,
         cleanedUp: outcome.cleanedUp,
       });
       try {
@@ -276,7 +292,11 @@ export async function performOuraPullNowCore(
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error({ msg: "oura_pull_now_token_refresh_failed", rid: requestId, uid, err: message });
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_failed",
+      requestId,
+      ...categorizeOuraSafeError(err, "PROVIDER_UNAUTHORIZED"),
+    });
     try {
       await writeFailure({
         userId: uid,
@@ -311,21 +331,15 @@ export async function performOuraPullNowCore(
   if (isLegacyOuraIntegration(integrationData)) {
     const backfillStatus = integrationData?.backfillStatus ?? null;
     if (backfillStatus === "running") {
-      logger.info({
-        msg: "oura_legacy_recovery_skipped_running",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_legacy_recovery_skipped",
         requestId,
-        connected: true,
-        hasLastSnapshotAt: false,
         backfillStatus: "running",
       });
     } else {
-      logger.info({
-        msg: "oura_legacy_recovery_detected",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_legacy_recovery_detected",
         requestId,
-        connected: true,
-        hasLastSnapshotAt: false,
         backfillStatus,
       });
       try {
@@ -338,20 +352,18 @@ export async function performOuraPullNowCore(
           { merge: true },
         );
       } catch (mergeErr) {
-        logger.error({
-          msg: "oura_legacy_recovery_metadata_error",
-          uid,
+        logOuraRefreshTelemetry({
+          operation: "oura_legacy_recovery_failed",
           requestId,
-          err: mergeErr instanceof Error ? mergeErr.message : String(mergeErr),
+          safeErrorCode: categorizeOuraSafeError(mergeErr).safeErrorCode,
         });
       }
-      logger.info({ msg: "oura_legacy_recovery_started", uid, requestId });
+      logOuraRefreshTelemetry({ operation: "oura_legacy_recovery_started", requestId });
       void triggerOuraBackfill(uid, requestId).catch((err: unknown) =>
-        logger.error({
-          msg: "oura_legacy_recovery_backfill_error",
-          uid,
+        logOuraRefreshTelemetry({
+          operation: "oura_legacy_recovery_failed",
           requestId,
-          err: err instanceof Error ? err.message : String(err),
+          safeErrorCode: categorizeOuraSafeError(err).safeErrorCode,
         }),
       );
     }
@@ -374,16 +386,12 @@ export async function performOuraPullNowCore(
   const sleepStartStr = toYmd(sleepRangeStart);
   const sleepEndStr = toYmd(sleepRangeEnd);
 
-  logger.info({
-    msg: "oura_pull_sleep_date_window",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_pull_window",
     requestId,
-    sleepStartStr,
-    sleepEndStr,
-    coreStartStr: startStr,
-    coreEndStr: endStr,
-    sleepStartOverlapDays: PULL_SLEEP_START_OVERLAP_DAYS,
-    sleepEndOverlapDays: PULL_SLEEP_END_OVERLAP_DAYS,
+    windowDayCount: WINDOW_DAYS,
+    sleepStartOverlapDayCount: PULL_SLEEP_START_OVERLAP_DAYS,
+    sleepEndOverlapDayCount: PULL_SLEEP_END_OVERLAP_DAYS,
   });
 
   let sleepItems: OuraSleepIngestItem[] = [];
@@ -403,9 +411,12 @@ export async function performOuraPullNowCore(
     try {
       return await fn();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const code = err instanceof OuraApiError ? err.code : "OURA_FETCH_FAILED";
-      logger.info({ msg: "oura_pull_now_fetch_skipped", rid: requestId, uid, dataset: name, code, err: message });
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_skipped",
+        requestId,
+        dataset: name,
+        safeErrorCode: categorizeOuraSafeError(err).safeErrorCode,
+      });
       return null;
     }
   };
@@ -445,96 +456,32 @@ export async function performOuraPullNowCore(
     dailySleepDocs = dailySleepDocsFetched ?? [];
     dailyStressDocs = dailyStressDocsFetched ?? [];
 
-    let latestWakeIso: string | null = null;
-    let latestSleepId: string | null = null;
-    for (const d of sleepDocs) {
-      const w = ouraSleepWakeIsoForLog(d);
-      if (!w) continue;
-      const t = Date.parse(w);
-      if (Number.isNaN(t)) continue;
-      if (!latestWakeIso || t > Date.parse(latestWakeIso)) {
-        latestWakeIso = w;
-        latestSleepId = typeof d.id === "string" ? d.id : null;
-      }
-    }
-    logger.info({
-      msg: "oura_pull_sleep_latest_wake",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_sleep_summary",
       requestId,
-      latestWakeIso,
-      latestSleepId,
-      sleepDocCount: sleepDocs.length,
+      hasSleepDocuments: sleepDocs.length > 0,
+      sleepDocumentCount: sleepDocs.length,
     });
 
-    if (process.env.OURA_SLEEP_LATEST_AUDIT === "1" || process.env.OURA_SLEEP_LATEST_AUDIT === "true") {
-      let latestDoc: OuraSleepDocument | null = null;
-      let latestWakeMs = -1;
-      for (const d of sleepDocs) {
-        const w = ouraSleepWakeIsoForLog(d);
-        if (!w) continue;
-        const t = Date.parse(w);
-        if (Number.isNaN(t)) continue;
-        if (!latestDoc || t > latestWakeMs) {
-          latestWakeMs = t;
-          latestDoc = d;
-        }
-      }
-      const r = latestDoc ? resolveOuraSleepIngestBase(latestDoc) : null;
-      const totalSec =
-        latestDoc && typeof latestDoc.total_sleep_duration === "number" ? latestDoc.total_sleep_duration : null;
-      const scoreRaw = latestDoc
-        ? ((latestDoc as { score?: unknown }).score ?? (latestDoc as { composite_score?: unknown }).composite_score)
-        : undefined;
-      const latestScore =
-        typeof scoreRaw === "number" && Number.isFinite(scoreRaw)
-          ? Math.round(Math.max(0, Math.min(100, scoreRaw)))
-          : typeof scoreRaw === "string"
-            ? (() => {
-                const n = Number(scoreRaw.trim());
-                return Number.isFinite(n) ? Math.round(Math.max(0, Math.min(100, n))) : null;
-              })()
-            : null;
-      logger.info({
-        msg: "[OURA_SLEEP_LATEST_AUDIT]",
-        uid,
-        requestedStart: sleepStartStr,
-        requestedEnd: sleepEndStr,
-        docsFetched: sleepDocs.length,
-        latestOuraDay: typeof latestDoc?.day === "string" ? latestDoc.day : null,
-        latestStart: r?.start ?? null,
-        latestEnd: r?.end ?? null,
-        latestScore,
-        latestTotalSleep: totalSec != null && totalSec >= 0 ? Math.round(totalSec / 60) : null,
-        latestEfficiency: typeof latestDoc?.efficiency === "number" ? latestDoc.efficiency : null,
-      });
-    }
-
-    logger.info({
-      msg: "oura_fetch_counts",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_fetch_completed",
       requestId,
-      sleepDocCount: sleepDocs.length,
-      readinessDocCount: readinessDocs.length,
+      sleepDocumentCount: sleepDocs.length,
+      readinessDocumentCount: readinessDocs.length,
     });
     sleepItems = sleepDocs.map(mapOuraSleepToIngestItem).filter((x): x is OuraSleepIngestItem => x !== null);
     hrvItems = readinessDocs.map(mapOuraReadinessToHrvItem).filter((x): x is OuraHrvIngestItem => x !== null);
     const sleepDropped = sleepDocs.length - sleepItems.length;
     if (sleepDropped > 0) {
-      const firstDoc = sleepDocs[0];
-      const sampleKeys = firstDoc && typeof firstDoc === "object" ? Object.keys(firstDoc).slice(0, 20) : [];
-      logger.info({
-        msg: "oura_sleep_docs_dropped",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_ingest_docs_dropped",
         requestId,
-        sleepDocCount: sleepDocs.length,
-        sleepItemCount: sleepItems.length,
-        sleepDroppedCount: sleepDropped,
-        sampleKeys,
+        sleepDocumentCount: sleepDocs.length,
+        rejectedItemCount: sleepDropped,
       });
     }
-    logger.info({
-      msg: "oura_ingest_item_counts",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_ingest_item_counts",
       requestId,
       sleepItemCount: sleepItems.length,
       hrvItemCount: hrvItems.length,
@@ -598,7 +545,11 @@ export async function performOuraPullNowCore(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const code = err instanceof OuraApiError ? err.code : "OURA_FETCH_FAILED";
-    logger.error({ msg: "oura_pull_now_fetch_failed", rid: requestId, uid, code, err: message });
+    logOuraRefreshTelemetry({
+      operation: "oura_pull_failed",
+      requestId,
+      ...categorizeOuraSafeError(err),
+    });
     try {
       await writeFailure({
         userId: uid,
@@ -626,15 +577,14 @@ export async function performOuraPullNowCore(
     };
   }
 
-  logger.info({
-    msg: "oura_raw_events_write_start",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_raw_event_persist_started",
     requestId,
-    sleepCount: sleepItems.length,
-    hrvCount: hrvItems.length,
-    stepsCount: stepsItems.length,
-    workoutCount: workoutItems.length,
-    ouraRawCount: ouraRawItems.length,
+    sleepItemCount: sleepItems.length,
+    hrvItemCount: hrvItems.length,
+    stepsItemCount: stepsItems.length,
+    workoutItemCount: workoutItems.length,
+    rawItemCount: ouraRawItems.length,
   });
   const { eventsCreated, eventsAlreadyExists } = await writeOuraRawEvents(
     uid,
@@ -643,12 +593,11 @@ export async function performOuraPullNowCore(
     requestId,
     { stepsItems, workoutItems, ouraRawItems },
   );
-  logger.info({
-    msg: "oura_raw_events_write_done",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_raw_event_persist_completed",
     requestId,
-    eventsCreated,
-    eventsAlreadyExists,
+    rawEventCreatedCount: eventsCreated,
+    rawEventExistingCount: eventsAlreadyExists,
   });
 
   const sleepDocsToUse = sleepDocs ?? [];
@@ -658,7 +607,7 @@ export async function performOuraPullNowCore(
 
   if (getOuraPostRawTopic()) {
     try {
-      const messageId = await publishOuraPostRawJob(
+      await publishOuraPostRawJob(
         uid,
         requestId,
         sleepDocsToUse,
@@ -666,15 +615,14 @@ export async function performOuraPullNowCore(
         dailySleepDocsToUse,
         dailyStressDocsToUse,
       );
-      logger.info({
-        msg: "oura_post_raw_job_enqueued",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_post_raw_enqueued",
         requestId,
-        messageId: messageId ?? undefined,
-        sleepDocCount: sleepDocsToUse.length,
-        readinessDocCount: readinessDocsToUse.length,
-        dailySleepDocCount: dailySleepDocsToUse.length,
-        dailyStressDocCount: dailyStressDocsToUse.length,
+        queued: true,
+        sleepDocumentCount: sleepDocsToUse.length,
+        readinessDocumentCount: readinessDocsToUse.length,
+        dailySleepDocumentCount: dailySleepDocsToUse.length,
+        dailyStressDocumentCount: dailyStressDocsToUse.length,
       });
       void performOuraPostRawPersistence(
         uid,
@@ -684,20 +632,19 @@ export async function performOuraPullNowCore(
         dailySleepDocsToUse,
         dailyStressDocsToUse,
       ).catch((persistErr: unknown) => {
-          logger.error({
-            msg: "oura_post_raw_persistence_after_enqueue_error",
-            uid,
+          logOuraRefreshTelemetry({
+            operation: "oura_post_raw_persist_failed",
             requestId,
-            err: persistErr instanceof Error ? persistErr.message : String(persistErr),
+            safeErrorCode: categorizeOuraSafeError(persistErr, "POST_RAW_PERSIST_FAILED").safeErrorCode,
+            metadataWritten: false,
           });
         },
       );
     } catch (err) {
-      logger.error({
-        msg: "oura_post_raw_job_enqueue_error",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_post_raw_enqueue_failed",
         requestId,
-        err: err instanceof Error ? err.message : String(err),
+        safeErrorCode: categorizeOuraSafeError(err, "POST_RAW_PUBLISH_FAILED").safeErrorCode,
       });
       void performOuraPostRawPersistence(
         uid,
@@ -707,11 +654,11 @@ export async function performOuraPullNowCore(
         dailySleepDocsToUse,
         dailyStressDocsToUse,
       ).catch((fallbackErr: unknown) => {
-          logger.error({
-            msg: "oura_post_raw_persistence_error",
-            uid,
+          logOuraRefreshTelemetry({
+            operation: "oura_post_raw_persist_failed",
             requestId,
-            err: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+            safeErrorCode: categorizeOuraSafeError(fallbackErr, "POST_RAW_PERSIST_FAILED").safeErrorCode,
+            metadataWritten: false,
           });
         },
       );
@@ -725,11 +672,11 @@ export async function performOuraPullNowCore(
       dailySleepDocsToUse,
       dailyStressDocsToUse,
     ).catch((err: unknown) => {
-      logger.error({
-        msg: "oura_post_raw_persistence_error",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_post_raw_persist_failed",
         requestId,
-        err: err instanceof Error ? err.message : String(err),
+        safeErrorCode: categorizeOuraSafeError(err, "POST_RAW_PERSIST_FAILED").safeErrorCode,
+        metadataWritten: false,
       });
     });
   }
@@ -760,14 +707,13 @@ export async function performOuraPostRawPersistence(
   dailySleepDocs: OuraDailySleepDocument[] = [],
   dailyStressDocs: OuraDailyStressDocument[] = [],
 ): Promise<void> {
-  logger.info({
-    msg: "oura_post_raw_persistence_started",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_post_raw_persist_started",
     requestId,
-    sleepDocCount: sleepDocs.length,
-    readinessDocCount: readinessDocs.length,
-    dailySleepDocCount: dailySleepDocs.length,
-    dailyStressDocCount: dailyStressDocs.length,
+    sleepDocumentCount: sleepDocs.length,
+    readinessDocumentCount: readinessDocs.length,
+    dailySleepDocumentCount: dailySleepDocs.length,
+    dailyStressDocumentCount: dailyStressDocs.length,
   });
 
   let sleepResult = { attempted: 0, written: 0, skippedMissingDay: 0, errors: 0 };
@@ -783,15 +729,11 @@ export async function performOuraPostRawPersistence(
     readinessResult = readinessRes;
     stressResult = stressRes;
   } catch (snapErr) {
-    logger.error({
-      msg: "oura_post_raw_persistence_error",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_post_raw_persist_failed",
       requestId,
-      sleepWritten: 0,
-      readinessWritten: 0,
-      stressWritten: 0,
+      safeErrorCode: categorizeOuraSafeError(snapErr, "POST_RAW_PERSIST_FAILED").safeErrorCode,
       metadataWritten: false,
-      err: snapErr instanceof Error ? snapErr.message : String(snapErr),
     });
     return;
   }
@@ -814,26 +756,19 @@ export async function performOuraPostRawPersistence(
     await integrationRef.set(update, { merge: true });
     metadataWritten = true;
   } catch (metaErr) {
-    logger.error({
-      msg: "oura_post_raw_persistence_error",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_post_raw_persist_failed",
       requestId,
-      sleepWritten: sleepResult.written,
-      readinessWritten: readinessResult.written,
-      stressWritten: stressResult.written,
+      safeErrorCode: categorizeOuraSafeError(metaErr, "POST_RAW_PERSIST_FAILED").safeErrorCode,
       metadataWritten: false,
-      err: metaErr instanceof Error ? metaErr.message : String(metaErr),
     });
     return;
   }
 
-  logger.info({
-    msg: "oura_post_raw_persistence_done",
-    uid,
+  logOuraRefreshTelemetry({
+    operation: "oura_post_raw_persist_completed",
     requestId,
-    sleepWritten: sleepResult.written,
-    readinessWritten: readinessResult.written,
-    stressWritten: stressResult.written,
+    writtenCount: totalSnapshotWritten,
     metadataWritten,
   });
 }
@@ -882,7 +817,7 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
 
   const refreshToken = await ouraSecrets.getRefreshToken(uid);
   if (!refreshToken) {
-    logger.info({ msg: "oura_backfill_skipped_no_token", uid, requestId });
+    logOuraRefreshTelemetry({ operation: "oura_backfill_skipped", requestId, safeErrorCode: "NO_CONNECTION" });
     return;
   }
 
@@ -894,7 +829,7 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
     // fall through
   }
   if (!clientId || !clientSecret) {
-    logger.info({ msg: "oura_backfill_skipped_misconfig", uid, requestId });
+    logOuraRefreshTelemetry({ operation: "oura_backfill_skipped", requestId, safeErrorCode: "TOKEN_UNAVAILABLE" });
     return;
   }
 
@@ -916,48 +851,56 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
           : outcome.kind === "no_refresh_token"
             ? "no_refresh_token"
             : `invalid_grant_cleanup=${outcome.cleanedUp}`;
-      logger.info({ msg: "oura_backfill_token_failed", uid, requestId, err: message });
+      const safeErrorCode: OuraSafeErrorCode =
+        outcome.kind === "lock_unavailable"
+          ? "PROVIDER_TIMEOUT"
+          : outcome.kind === "no_refresh_token"
+            ? "NO_CONNECTION"
+            : "PROVIDER_UNAUTHORIZED";
       try {
         await setBackfillRunning();
         await setBackfillFailed(message);
       } catch {
         // best-effort
       }
-      logger.info({ msg: "oura_backfill_failed", uid, requestId, err: message });
+      logOuraRefreshTelemetry({ operation: "oura_backfill_failed", requestId, safeErrorCode });
       return;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.info({ msg: "oura_backfill_token_failed", uid, requestId, err: message });
+    const { safeErrorCode } = categorizeOuraSafeError(err, "PROVIDER_UNAUTHORIZED");
     try {
       await setBackfillRunning();
       await setBackfillFailed(message);
     } catch {
       // best-effort
     }
-    logger.info({ msg: "oura_backfill_failed", uid, requestId, err: message });
+    logOuraRefreshTelemetry({ operation: "oura_backfill_failed", requestId, safeErrorCode });
     return;
   }
 
   try {
     await setBackfillRunning();
   } catch (mergeErr) {
-    logger.error({
-      msg: "oura_backfill_start_metadata_error",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_backfill_failed",
       requestId,
-      err: mergeErr instanceof Error ? mergeErr.message : String(mergeErr),
+      safeErrorCode: categorizeOuraSafeError(mergeErr).safeErrorCode,
     });
   }
-  logger.info({ msg: "oura_backfill_started", uid, requestId });
+  logOuraRefreshTelemetry({ operation: "oura_backfill_started", requestId });
 
   const today = toYmd(new Date());
   let totalSleepWritten = 0;
   let totalReadinessWritten = 0;
   let lastChunkError: string | null = null;
+  let lastChunkSafeErrorCode: OuraSafeErrorCode | null = null;
+  const chunkCount = Math.ceil(BACKFILL_TOTAL_DAYS / BACKFILL_CHUNK_DAYS);
+  let chunkIndex = 0;
 
   for (let offsetEnd = BACKFILL_TOTAL_DAYS; offsetEnd > 0; offsetEnd -= BACKFILL_CHUNK_DAYS) {
     const offsetStart = Math.max(0, offsetEnd - BACKFILL_CHUNK_DAYS);
+    const chunkDayCount = offsetEnd - offsetStart;
     const startStr = dayMinus(today, offsetEnd);
     const endStr = dayMinus(today, offsetStart);
 
@@ -980,51 +923,56 @@ export async function triggerOuraBackfill(uid: string, requestId: string): Promi
       ]);
       totalSleepWritten += sleepRes.written;
       totalReadinessWritten += readinessRes.written;
-      logger.info({
-        msg: "oura_backfill_chunk_done",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_backfill_chunk_completed",
         requestId,
-        startStr,
-        endStr,
-        sleepWritten: sleepRes.written,
-        readinessWritten: readinessRes.written,
+        chunkIndex,
+        chunkCount,
+        chunkDayCount,
+        sleepSnapshotWrittenCount: sleepRes.written,
+        readinessSnapshotWrittenCount: readinessRes.written,
       });
     } catch (chunkErr) {
       const message = chunkErr instanceof Error ? chunkErr.message : String(chunkErr);
+      const { safeErrorCode } = categorizeOuraSafeError(chunkErr);
       lastChunkError = message;
-      logger.info({
-        msg: "oura_backfill_chunk_error",
-        uid,
+      lastChunkSafeErrorCode = safeErrorCode;
+      logOuraRefreshTelemetry({
+        operation: "oura_backfill_chunk_failed",
         requestId,
-        startStr,
-        endStr,
-        err: message,
+        chunkIndex,
+        chunkCount,
+        chunkDayCount,
+        safeErrorCode,
       });
     }
+    chunkIndex += 1;
   }
 
   const anyWritten = totalSleepWritten + totalReadinessWritten > 0;
   try {
     if (anyWritten) {
       await setBackfillCompleted();
-      logger.info({
-        msg: "oura_backfill_completed",
-        uid,
+      logOuraRefreshTelemetry({
+        operation: "oura_backfill_completed",
         requestId,
-        sleepSnapshotsWritten: totalSleepWritten,
-        readinessSnapshotsWritten: totalReadinessWritten,
+        sleepSnapshotWrittenCount: totalSleepWritten,
+        readinessSnapshotWrittenCount: totalReadinessWritten,
       });
     } else {
       const errMsg = lastChunkError ?? "No data imported";
       await setBackfillFailed(errMsg);
-      logger.info({ msg: "oura_backfill_failed", uid, requestId, err: errMsg });
+      logOuraRefreshTelemetry({
+        operation: "oura_backfill_failed",
+        requestId,
+        safeErrorCode: lastChunkSafeErrorCode ?? "UNKNOWN",
+      });
     }
   } catch (metaErr) {
-    logger.error({
-      msg: "oura_backfill_finish_metadata_error",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_backfill_failed",
       requestId,
-      err: metaErr instanceof Error ? metaErr.message : String(metaErr),
+      safeErrorCode: categorizeOuraSafeError(metaErr).safeErrorCode,
     });
   }
 }

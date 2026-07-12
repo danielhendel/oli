@@ -24,7 +24,7 @@
  */
 
 import { FieldValue, db, userCollection } from "../db";
-import { logger } from "./logger";
+import { logOuraRefreshTelemetry } from "./ouraRefreshTelemetry";
 import * as ouraSecrets from "./ouraSecrets";
 import { OuraApiError, refreshOuraAccessToken, type OuraTokenResult } from "./ouraApi";
 
@@ -192,9 +192,8 @@ export function refreshOuraTokenSingleFlight(
 ): Promise<OuraTokenRefreshOutcome> {
   const existing = inFlight.get(args.uid);
   if (existing) {
-    logger.info({
-      msg: "oura_token_refresh_in_flight_join",
-      uid: args.uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_token_refresh_in_flight_join",
       requestId: args.requestId,
     });
     return existing;
@@ -234,24 +233,22 @@ async function runRefresh(
     pollBaseMs: DEFAULT_POLL_BASE_MS,
     pollJitterMs: DEFAULT_POLL_JITTER_MS,
     onWait: (waitedMs) => {
-      logger.info({ msg: "oura_token_refresh_lock_wait", uid, requestId, waitedMs });
+      logOuraRefreshTelemetry({ operation: "oura_token_refresh_lock_wait", requestId });
     },
   });
 
   if (!("release" in acquired)) {
-    logger.info({
-      msg: "oura_token_refresh_lock_unavailable",
-      uid,
+    logOuraRefreshTelemetry({
+      operation: "oura_token_refresh_lock_unavailable",
       requestId,
-      waitedMs: acquired.waitedMs,
     });
     return { kind: "lock_unavailable", waitedMs: acquired.waitedMs };
   }
 
   if (acquired.stolen) {
-    logger.info({ msg: "oura_token_refresh_lock_stolen", uid, requestId });
+    logOuraRefreshTelemetry({ operation: "oura_token_refresh_lock_stolen", requestId });
   } else {
-    logger.info({ msg: "oura_token_refresh_lock_acquired", uid, requestId });
+    logOuraRefreshTelemetry({ operation: "oura_token_refresh_lock_acquired", requestId });
   }
 
   try {
@@ -271,15 +268,14 @@ async function runRefresh(
 
       const currentToken = await ouraSecrets.getRefreshToken(uid);
       if (currentToken && currentToken !== attemptedToken) {
-        logger.info({
-          msg: "oura_token_refresh_concurrent_success_detected",
-          uid,
+        logOuraRefreshTelemetry({
+          operation: "oura_token_refresh_concurrent_success_detected",
           requestId,
         });
         return { kind: "invalid_grant", cleanedUp: false };
       }
 
-      logger.info({ msg: "oura_token_refresh_invalid_grant_cleanup", uid, requestId });
+      logOuraRefreshTelemetry({ operation: "oura_token_refresh_invalid_grant_cleanup", requestId });
       await performReconnectCleanup(uid, requestId);
       return { kind: "invalid_grant", cleanedUp: true };
     }
@@ -288,6 +284,6 @@ async function runRefresh(
     return { kind: "refreshed", tokens, rotated: true };
   } finally {
     await acquired.release();
-    logger.info({ msg: "oura_token_refresh_lock_released", uid, requestId });
+    logOuraRefreshTelemetry({ operation: "oura_token_refresh_lock_released", requestId });
   }
 }
