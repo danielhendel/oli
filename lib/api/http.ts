@@ -1,4 +1,6 @@
 // lib/api/http.ts
+import { emitMobileHttpTelemetry } from "@/lib/api/mobileHttpTelemetry";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
@@ -139,29 +141,6 @@ function redactUrlForLogs(rawUrl: string): string {
   }
 }
 
-/** When `1`, log every successful HTTP response in dev (verbose). Default: only failures/timeouts. */
-function netTraceVerboseSuccess(): boolean {
-  return process.env.EXPO_PUBLIC_NET_TRACE === "1";
-}
-
-function safeNetTraceLog(fields: Record<string, unknown>): void {
-  // DEV ONLY: keep deterministic network traces without shipping logs.
-  if (!__DEV__) return;
-  // Silence Jest/CI to keep logs clean and deterministic.
-  if (process.env.JEST_WORKER_ID) return;
-
-  const status = typeof fields.status === "number" ? fields.status : undefined;
-  const networkError =
-    typeof fields.networkError === "string" && fields.networkError.trim().length > 0;
-  const isFailure =
-    networkError || status === undefined || status < 200 || status > 299;
-  if (!isFailure && !netTraceVerboseSuccess()) return;
-
-  // No secrets: url is redacted (key=REDACTED) + booleans + status + requestId.
-  // eslint-disable-next-line no-console
-  console.log("[NET_TRACE]", JSON.stringify(fields));
-}
-
 function debugLogBackendBaseUrlOncePerCall(baseRaw: string | undefined): void {
   if (!__DEV__ || process.env.JEST_WORKER_ID) return;
   if (process.env.EXPO_PUBLIC_DEBUG_API_BASE_URL !== "1") return;
@@ -209,20 +188,31 @@ export function debugRedactedAuthedUrl(path: string, opts?: { cacheBust?: string
   return redactUrlForLogs(url);
 }
 
-async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: number): Promise<ApiResult<T>> {
+type ApiFetchTelemetry = {
+  /** Caller path (may include query). Used only for route-template mapping. */
+  routePath: string;
+};
+
+async function apiFetchJson<T>(
+  url: string,
+  init: RequestInit,
+  timeoutMs?: number,
+  telemetry?: ApiFetchTelemetry,
+): Promise<ApiResult<T>> {
   const controller = new AbortController();
   const t = timeoutMs ?? 15000;
   const timer = setTimeout(() => controller.abort(), t);
+  const startedAt = Date.now();
 
   // ---- instrumentation (privacy-safe) ----
   const h = toHeaderRecord(init.headers);
   const hasAuthHeader = typeof h["authorization"] === "string" && h["authorization"].trim().length > 0;
-  const hasForwardedAuthHeader =
-    typeof h["x-forwarded-authorization"] === "string" && h["x-forwarded-authorization"].trim().length > 0;
   const hasApiKeyHeader = typeof h["x-api-key"] === "string" && h["x-api-key"].trim().length > 0;
   const hasApiKeyQueryParam = hasApiKeyInUrl(url);
   const method = (init.method ?? "GET").toUpperCase();
-  const urlForLogs = redactUrlForLogs(url);
+  const routePath = telemetry?.routePath ?? "/";
+  const authenticated = hasAuthHeader;
+  const apiKeyPresent = hasApiKeyHeader || hasApiKeyQueryParam;
   // ----------------------------------------
 
   try {
@@ -237,16 +227,14 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
     const status = res.status;
     const responseContentType = res.headers.get("content-type");
 
-    // ---- instrumentation (privacy-safe) ----
-    safeNetTraceLog({
+    // ---- instrumentation (privacy-safe route template only) ----
+    emitMobileHttpTelemetry({
       method,
-      url: urlForLogs,
-      hasAuthHeader,
-      hasForwardedAuthHeader,
-      hasApiKeyHeader,
-      hasApiKeyQueryParam,
-      status,
-      requestId: rid ?? "missing",
+      routePath,
+      statusCode: status,
+      durationMs: Date.now() - startedAt,
+      authenticated,
+      apiKeyPresent,
     });
     // ----------------------------------------
 
@@ -335,16 +323,14 @@ async function apiFetchJson<T>(url: string, init: RequestInit, timeoutMs?: numbe
 
     const msg = isAbort ? "Request timed out" : e instanceof Error ? e.message : "Network error";
 
-    // ---- instrumentation (privacy-safe) ----
-    safeNetTraceLog({
+    // ---- instrumentation (privacy-safe route template only) ----
+    emitMobileHttpTelemetry({
       method,
-      url: urlForLogs,
-      hasAuthHeader,
-      hasForwardedAuthHeader,
-      hasApiKeyHeader,
-      hasApiKeyQueryParam,
-      status: 0,
-      requestId: "missing",
+      routePath,
+      statusCode: 0,
+      durationMs: Date.now() - startedAt,
+      authenticated,
+      apiKeyPresent,
       networkError: msg,
     });
     // ----------------------------------------
@@ -411,7 +397,7 @@ export async function apiGetJsonAuthed<T>(path: string, idToken: string, opts?: 
   const headers = buildHeaders(headerOpts);
   headers.Authorization = `Bearer ${idToken}`;
 
-  return apiFetchJson<T>(url, { method: "GET", headers }, opts?.timeoutMs);
+  return apiFetchJson<T>(url, { method: "GET", headers }, opts?.timeoutMs, { routePath: path });
 }
 
 export async function apiPostJsonAuthed<T>(
@@ -459,7 +445,12 @@ export async function apiPostJsonAuthed<T>(
 
   const bodyStr = JSON.stringify(body);
 
-  return apiFetchJson<T>(url, { method: "POST", headers, body: bodyStr }, opts?.timeoutMs);
+  return apiFetchJson<T>(
+    url,
+    { method: "POST", headers, body: bodyStr },
+    opts?.timeoutMs,
+    { routePath: path },
+  );
 }
 
 export async function apiPutJsonAuthed<T>(
@@ -506,7 +497,12 @@ export async function apiPutJsonAuthed<T>(
 
   const bodyStr = JSON.stringify(body);
 
-  return apiFetchJson<T>(url, { method: "PUT", headers, body: bodyStr }, opts?.timeoutMs);
+  return apiFetchJson<T>(
+    url,
+    { method: "PUT", headers, body: bodyStr },
+    opts?.timeoutMs,
+    { routePath: path },
+  );
 }
 
 export async function apiDeleteJsonAuthed<T>(
@@ -549,5 +545,7 @@ export async function apiDeleteJsonAuthed<T>(
   const headers = buildHeaders(headerOpts);
   headers.Authorization = `Bearer ${idToken}`;
 
-  return apiFetchJson<T>(url, { method: "DELETE", headers }, opts?.timeoutMs);
+  return apiFetchJson<T>(url, { method: "DELETE", headers }, opts?.timeoutMs, {
+    routePath: path,
+  });
 }
