@@ -93,7 +93,7 @@ export function toMobileRouteTemplate(routePath: string): string {
   if (!bare.startsWith("/")) return UNMATCHED_ROUTE_TEMPLATE;
   if (bare.includes("://") || bare.includes("@")) return UNMATCHED_ROUTE_TEMPLATE;
 
-  let template = bare
+  const template = bare
     .replace(/\/\d{4}-\d{2}-\d{2}(?=\/|$)/g, "/:day")
     .replace(
       /\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=\/|$)/gi,
