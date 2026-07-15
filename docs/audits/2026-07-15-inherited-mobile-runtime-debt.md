@@ -1,9 +1,10 @@
 # Inherited Mobile Runtime Debt — Weekly Fitness Stack Gate
 
 **Date:** 2026-07-15
-**Feature HEAD:** `9c8624812695498f75dfb0df6360ccd41d075313`
+**Feature HEAD (pre-repair docs):** `9c8624812695498f75dfb0df6360ccd41d075313`
 **Worktree:** isolated `feat/weekly-fitness-v2`
 **PR stack:** #180 → #182 → #183
+**PR #182 head after repairs:** `668013af202a9c062cb35074bcd75bc8d862089d`
 
 Privacy-safe. No raw log lines, health values, dates, IDs, URLs, tokens, or keys.
 
@@ -18,7 +19,7 @@ Privacy-safe. No raw log lines, health values, dates, IDs, URLs, tokens, or keys
 | Lifecycle / accessibility / physical truth | NOT VERIFIED — deferred by product owner |
 | Body Goal mutation | NOT AUTHORIZED |
 | Physical User A→B | NOT VERIFIED — second account unavailable |
-| Stack merge | **blocked pending privacy/runtime repairs + deferred gates** |
+| Stack merge | **blocked pending deferred physical gates** (two active runtime blockers repaired on #182; not merge-ready) |
 | Timeline source implementation | **blocked** until stack merges and main verifies |
 
 ---
@@ -60,8 +61,8 @@ Notes:
 
 | Finding | Reproduced on final branch this session? | Trigger | Owner module | Introduced by | Severity | Merge blocker? | Required follow-up |
 |---|---:|---|---|---|---|---:|---|
-| NET_TRACE residual query values, esp. `t=` cacheBust carrying DayKeys from Dash WF / activity shells | Partially (NET_TRACE count ≥1; URL-like strings present). Source confirms | Any authed HTTP in `__DEV__` / `EXPO_PUBLIC_NET_TRACE` | `lib/api/http.ts` + Dash cacheBust callers (`useWeeklyFitnessDailyFactsRollup`, activity shell) | Partial redact #182; residual `t=` / focus busts #183 + pre-existing | privacy | **yes** | `fix(privacy): redact cacheBust and remaining NET_TRACE query values` |
-| sleep-day-refresh 500 on Dash when today SleepNight missing | Mention count 1; source confirms Dash path via Daily Sleep card | Dash cold/focus recovery | Sleep recovery client + `ouraSleepDayRefresh` API | Pre-existing / stack parents; not introduced by #183 WF card | correctness (+ server privacy risk if UID/day logged) | **yes** (Dash sibling path) | Own on #182/#180 sleep path: `fix(api): sleep-day-refresh recompute failure path` + keep client backoff |
+| NET_TRACE residual query values, esp. `t=` cacheBust carrying DayKeys from Dash WF / activity shells | Pre-repair: yes (count ≥1). **Repaired on #182** — legacy label removed; route-template telemetry only | Any authed HTTP in `__DEV__` | `lib/api/mobileHttpTelemetry.ts` + `lib/api/http.ts` | Residual on #182; callers may still cache-bust operationally | privacy | **repaired (await Dash proof zeros)** | Keep source guards; do not reintroduce URL fields |
+| sleep-day-refresh 500 on Dash when today SleepNight missing | Pre-repair: yes. **Repaired on #182 (client)** — auto POST removed from `useDailySleepCard` | Was: Dash cold/focus + missing today | formerly Daily Sleep card recovery | Pre-existing / stack parents | correctness | **repaired client-side (await Dash proof zeros)** | Keep maintenance refresh explicit; do not auto-call from Dash |
 | Year-scale Activity transport | Not exercised this session (nav opened Activity once earlier in other sessions) | Activity overview mount registering strip | `lib/data/activity/*` | Pre-existing | perf | no — off Dash shell unless overview registers | `perf(activity): keep year rollup off shell/Dash` |
 | Year-scale Workout/raw-event hydration | Not exercised as WF-initiated | Workouts overview/calendar | `lib/data/workouts/*` | Pre-existing; #183 asserts WF does not hydrate | perf | no — off WF card path | `perf(workouts): stop year-scale raw-event hydrate on overview` |
 | Raw-event cursors / diagnostic IDs in WORKOUT_TRUTH_DEBUG | Not in this capture (0) | Workout calendar hydrate (dev) | workouts calendar | Pre-existing | privacy | no — off WF Dash | `fix(privacy): scrub WORKOUT_TRUTH_DEBUG cursors and ids` |
@@ -73,10 +74,12 @@ Notes:
 
 ## Merge-blocking vs deferred physical verification
 
-### Merge-blocking privacy/runtime defects (must repair before stack ready)
+### Former merge-blocking privacy/runtime defects (repaired on PR #182)
 
-1. **NET_TRACE query residual** — DayKeys in `cacheBust`/`t=` can survive redaction; privacy violation class.
-2. **sleep-day-refresh 500 on Dash** — active sibling of Weekly Fitness on Dash; correctness defect and prior 500 loop risk.
+1. **NET_TRACE query residual** — **repaired**: emit `mobile_http_request_completed` with route templates only (`46d2b3bb…` + typing/lint follow-ups).
+2. **sleep-day-refresh auto from Dash** — **repaired (client)**: removed automatic invocation from `useDailySleepCard` (`f220badf…`). Normal Dash uses SleepNight GET. No API deploy required for this path.
+
+These remain separate from deferred physical gates. Inherited non-blocking debt below was **not** treated as fixed.
 
 ### Explicitly NOT VERIFIED (deferred by product owner — not PASS/FAIL)
 
@@ -89,12 +92,18 @@ Notes:
 
 These deferred gates must not be converted to PASS without evidence. They remain open before declaring the stack merge-ready, together with merge-blocking repairs above.
 
-### Non-blocking inherited module debt (document; fix on owning module)
+### Non-blocking inherited module debt (document; fix on owning module — not fixed here)
 
-- Year-scale Activity transport
-- Year-scale Workout hydrate / WORKOUT_TRUTH_DEBUG
-- AH repair/backfill loops on Activity/Workouts focus
-- Orphaned WEEKLY_FITNESS_SLEEP logger
+- Year-scale Activity analytics transport
+- Year-scale Workout/raw-event hydration
+- Workout diagnostic identifiers (`WORKOUT_TRUTH_DEBUG`)
+- Apple Health focus-triggered repair/backfill
+- Energy audit verbosity
+- Orphaned Weekly Fitness Sleep logger
+- Dedicated Weekly Progress detail route
+- Nutrition logging-coverage edge under-count
+- Gateway API-key query transport
+- Health-range query transport
 
 ---
 

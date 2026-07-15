@@ -3,9 +3,10 @@
 **Date:** 2026-07-15
 **Branch:** `feat/weekly-fitness-v2`
 **Worktree:** isolated feature worktree
-**Feature HEAD:** `9c8624812695498f75dfb0df6360ccd41d075313`
-**Tree:** `b1455ac1875c8db0678b387594222c5ac5f86ef7`
+**Feature HEAD (pre-repair docs):** `9c8624812695498f75dfb0df6360ccd41d075313`
+**Tree (pre-repair docs):** `b1455ac1875c8db0678b387594222c5ac5f86ef7`
 **Feature PR:** #183
+**Parent sync:** merge commit synchronizing `fix/pr180-runtime-privacy-bounded-sleep` into this branch
 
 This document is privacy-safe. It contains no health values, screenshots, account
 identities, tokens, provider IDs, URLs, or raw logs.
@@ -174,10 +175,41 @@ evidence artifacts:
 | sleep-day-refresh mentions | 1 |
 | redbox / fatal | 0 / 0 |
 
-Source-backed merge blockers identified for follow-up (see inherited debt audit):
+Source-backed merge blockers (original captures above) repaired on PR #182 and
+synced into this branch (see repair record below). Deferred physical gates remain
+NOT VERIFIED.
 
-1. NET_TRACE residual query / cacheBust DayKey leakage class
-2. sleep-day-refresh 500 path active from Dash Daily Sleep sibling
+---
+
+## Runtime blocker repairs (2026-07-15)
+
+| Blocker | Root cause | Owner | Repair commits on #182 | Staging deploy required? |
+|---|---|---|---|---|
+| Legacy `NET_TRACE` URL/query telemetry | `lib/api/http.ts` logged a URL-bearing field; cache-bust/`t=` callers could carry DayKeys into that field | PR #182 | `46d2b3bbf8aeaa89d872d450480fca7370656202` (+ typing/lint follow-ups `054a043ea96da8522b9dd0aeaf64c679631c9b90`, `668013af202a9c062cb35074bcd75bc8d862089d`) | no |
+| Automatic Dash `sleep-day-refresh` → HTTP 500 | `useDailySleepCard` auto-POSTed maintenance refresh when today SleepNight was missing | PR #182 (client) | `f220badfaa1c782bd4bf50a2922c27986fc081c3` | no — client no longer auto-invokes; API left unmodified |
+
+Repair contract:
+
+- Mobile completion telemetry emits `mobile_http_request_completed` / `[MOBILE_HTTP]` with only: operation, method, routeTemplate, statusCode, durationMs, requestId (strict UUID), authenticated, apiKeyPresent, retryCount, safeErrorCode.
+- No `url`, query, day/date, cacheBust, key, token, body, or host fields.
+- Dash Daily Sleep relies on `GET /users/me/sleep-night`; automatic `sleep-day-refresh` removed from mount/focus/missing paths.
+- Explicit Sleep overview / PTR coordinators unchanged.
+
+Bounded post-repair Dash cold-smoke aggregate targets (count-only; fill after physical proof):
+
+| Check | Required |
+|---|---:|
+| legacy NET_TRACE | 0 |
+| raw URL fields | 0 |
+| query / day / cache-bust / Gateway-key values in telemetry | 0 |
+| automatic sleep-day-refresh POST | 0 |
+| sleep-day-refresh 500 | 0 |
+| redbox / fatal / request loop | 0 |
+
+Deferred gates (still NOT VERIFIED — do not convert to PASS):
+
+- lifecycle; accessibility; VoiceOver; Dynamic Type; Reduce Motion;
+- physical truth; valid Body Goal mutation; physical User A → B isolation.
 
 ---
 
@@ -204,10 +236,9 @@ oli_api_request_metadata_privacy_v1
 ## PR stack (verified)
 
 ```text
-PR #180 OPEN draft — not marked ready
-PR #182 OPEN draft — not marked ready
-PR #183 OPEN draft — not marked ready
-head #183: 9c8624812695498f75dfb0df6360ccd41d075313
+PR #180 OPEN draft — unchanged, not marked ready
+PR #182 OPEN draft — head updated with runtime repairs, not marked ready
+PR #183 OPEN draft — parent synced + docs, not marked ready
 ```
 
 Related audit:
