@@ -163,7 +163,7 @@ export function buildMobileHttpTelemetryEvent(input: {
     retryCount,
     safeErrorCode: resolveSafeErrorCode({
       statusCode: input.statusCode,
-      networkError: input.networkError,
+      ...(input.networkError != null ? { networkError: input.networkError } : {}),
     }),
   };
 }
