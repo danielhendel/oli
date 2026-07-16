@@ -213,23 +213,24 @@ export async function runAppleHealthStepsBackfill(
         payloadDay: body.payload.day,
       });
       devLog("post /ingest", {
-        day,
-        idempotencyKey,
-        hkSteps: pulled.steps,
-        payloadSteps: body.payload.steps,
-        payloadStart: body.payload.start,
-        payloadTimezone: body.payload.timezone,
-        lastIngested,
+        operation: "steps_backfill_ingest",
+        hasIdempotencyKey: Boolean(idempotencyKey),
+        hasHkSteps: typeof pulled.steps === "number" && Number.isFinite(pulled.steps),
+        hasPayloadSteps: typeof body.payload.steps === "number",
+        hasPayloadStart: Boolean(body.payload.start),
+        hasPayloadTimezone: Boolean(body.payload.timezone),
+        hasLastIngested: lastIngested != null,
       });
       const res = await deps.ingestRawEvent(body, opts.token, {
         idempotencyKey,
         timeoutMs: 15000,
       });
       devLog("ingest response", {
-        day,
-        idempotencyKey,
+        operation: "steps_backfill_ingest_response",
         ok: res.ok,
-        ...(res.ok ? {} : { error: res.error, requestId: res.requestId }),
+        ...(res.ok
+          ? {}
+          : { hasError: Boolean(res.error), hasRequestId: Boolean(res.requestId) }),
       });
       if (!res.ok) {
         await deps.setBackfillState({

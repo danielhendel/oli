@@ -4,15 +4,8 @@ import { Text } from "react-native";
 
 import { getSleepNight } from "@/lib/api/usersMe";
 import { useDailySleepCard } from "@/lib/hooks/useDailySleepCard";
-import { __resetSleepTodayRecoveryLedgerForTests } from "@/lib/data/sleep/runSleepTodayRecoveryIfMissing";
 
 const DAY = "2026-05-26";
-
-const mockPostOuraSleepDayRefresh = jest.fn();
-jest.mock("@/lib/api/ouraSleepDayRefresh", () => ({
-  postOuraSleepDayRefresh: (...args: unknown[]) =>
-    mockPostOuraSleepDayRefresh(...args),
-}));
 
 const mockUseOuraPresence = jest.fn();
 jest.mock("@/lib/data/useOuraPresence", () => ({
@@ -50,13 +43,6 @@ function Probe({ day }: { day: string }) {
 describe("useDailySleepCard — ouraDisconnected", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    __resetSleepTodayRecoveryLedgerForTests();
-    mockPostOuraSleepDayRefresh.mockResolvedValue({
-      ok: true,
-      status: 200,
-      requestId: "r1",
-      json: { ok: true, requestId: "r1", day: DAY, pullNowStatus: 202 },
-    });
     mockUseAuth.mockReturnValue({
       user: { uid: "user-a" },
       initializing: false,

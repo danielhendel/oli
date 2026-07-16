@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getSleepNight } from "@/lib/api/usersMe";
+import type { SleepNightViewDto } from "@oli/contracts";
+
+import { getSleepNightsRange } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import { partitionOuraWeekPresenceDayKeys } from "@/lib/data/oura/useOuraViewWeekSnapshotPresence";
+import { sleepNightRangeFetchWindows } from "@/lib/data/sleep/sleepOverviewRanges";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import { logDataHookTiming } from "@/lib/dev/logDataHookTiming";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
@@ -23,8 +26,16 @@ export type SleepNightRollupHookState = RollupInternalState & {
 
 const emptyCells = (): Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> => ({});
 
+function cellFromRangeNight(view: SleepNightViewDto | undefined): WeeklyFitnessSleepNightCell {
+  if (view == null) return { settled: true };
+  // Range API returns exact_anchor / wake_day only; ignore densifying prior-night if ever present.
+  if (view.resolution === "latest_completed_prior_night") return { settled: true };
+  return { settled: true, view };
+}
+
 /**
- * Fetches GET /users/me/sleep-night for elapsed keys only (no future calendar days).
+ * Fetches GET /users/me/sleep-nights for elapsed keys (chunked at the API 90-day max).
+ * Maps sparse nights into per-day cells; missing days settle empty.
  * Same cell shape and attribution rules as Dash Daily Sleep / Weekly Fitness sleep.
  */
 export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRollupHookState {
@@ -67,6 +78,7 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
       const keys = keysRef.current;
       const { daysToFetch: days } = partitionOuraWeekPresenceDayKeys(keys, todayDayKey);
       const { initializing: init, userUid, getIdToken: getToken } = authRef.current;
+      const windows = sleepNightRangeFetchWindows(days);
 
       const safeSet = (next: RollupInternalState) => {
         if (seq === requestSeq.current) setState(next);
@@ -123,26 +135,58 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
 
       const bust = cacheBust ? `${cacheBust}` : undefined;
       const waveResults: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
+      const daySet = new Set(days);
       const waveStart = __DEV__ ? performance.now() : 0;
 
+      if (__DEV__) {
+        logDataHookTiming("useSleepNightRollupMap", "start", {
+          status: "range-fetch",
+          resultApprox: `daysToFetch:${days.length};windows:${windows.length}`,
+        });
+      }
+
       await Promise.all(
-        days.map(async (day) => {
-          let cell: WeeklyFitnessSleepNightCell = { settled: true };
+        windows.map(async (window) => {
+          const windowDays = days.filter((d) => d >= window.start && d <= window.end);
+          const settleEmpty = () => {
+            for (const day of windowDays) {
+              waveResults[day] = { settled: true };
+            }
+          };
+
           try {
-            const res = await getSleepNight(day, token, bust ? { cacheBust: `${bust}:${day}` } : undefined);
+            const res = await getSleepNightsRange(
+              window.start,
+              window.end,
+              token,
+              bust ? { cacheBust: `${bust}:${window.start}:${window.end}` } : undefined,
+            );
             const outcome = truthOutcomeFromApiResult(res);
-            if (outcome.status === "ready") {
-              cell = { settled: true, view: outcome.data };
+            if (outcome.status !== "ready") {
+              settleEmpty();
+            } else {
+              const byRequested = new Map<string, SleepNightViewDto>();
+              for (const night of outcome.data.nights) {
+                if (!daySet.has(night.requestedDay as DayKey)) continue;
+                byRequested.set(night.requestedDay, night);
+              }
+              for (const day of windowDays) {
+                waveResults[day] = cellFromRangeNight(byRequested.get(day));
+              }
             }
           } catch {
-            cell = { settled: true };
+            settleEmpty();
           }
-          waveResults[day] = cell;
+
           setState((prev) => {
             if (seq !== requestSeq.current) return prev;
+            const patch: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
+            for (const day of windowDays) {
+              patch[day] = waveResults[day]!;
+            }
             return {
               ...prev,
-              sleepNightByDay: { ...prev.sleepNightByDay, [day]: cell },
+              sleepNightByDay: { ...prev.sleepNightByDay, ...patch },
               isRefreshing: true,
             };
           });
@@ -155,14 +199,14 @@ export function useSleepNightRollupMap(dayKeys: readonly DayKey[]): SleepNightRo
         logDataHookTiming("useSleepNightRollupMap", "end", {
           durationMs: Math.round(performance.now() - waveStart),
           userAvailable: Boolean(userUid),
-          resultApprox: `daysToFetch:${days.length}`,
+          resultApprox: `daysToFetch:${days.length};windows:${windows.length}`,
           status: "wave-done",
         });
       }
 
       const finalCells: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
       for (const day of days) {
-        finalCells[day] = waveResults[day]!;
+        finalCells[day] = waveResults[day] ?? { settled: true };
       }
       setState((prev) => {
         if (seq !== requestSeq.current) return prev;

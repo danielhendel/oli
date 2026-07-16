@@ -4,7 +4,6 @@ import { Text } from "react-native";
 
 import { getSleepNight } from "@/lib/api/usersMe";
 import { useDailySleepCard } from "@/lib/hooks/useDailySleepCard";
-import { __resetSleepTodayRecoveryLedgerForTests } from "@/lib/data/sleep/runSleepTodayRecoveryIfMissing";
 
 const TODAY = "2026-04-06";
 const YESTERDAY = "2026-04-05";
@@ -12,8 +11,7 @@ const YESTERDAY = "2026-04-05";
 const mockPostOuraSleepDayRefresh = jest.fn();
 
 jest.mock("@/lib/api/ouraSleepDayRefresh", () => ({
-  postOuraSleepDayRefresh: (...args: unknown[]) =>
-    mockPostOuraSleepDayRefresh(...args),
+  postOuraSleepDayRefresh: (...args: unknown[]) => mockPostOuraSleepDayRefresh(...args),
 }));
 
 const mockUseAuth = jest.fn();
@@ -37,10 +35,9 @@ function Probe({ day }: { day: string }) {
   return <Text testID="out">{vm.status}</Text>;
 }
 
-describe("useDailySleepCard today-recovery", () => {
+describe("useDailySleepCard Dash sleep-day-refresh gate", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    __resetSleepTodayRecoveryLedgerForTests();
     mockUseAuth.mockReturnValue({
       user: { uid: "user-a" },
       initializing: false,
@@ -54,7 +51,7 @@ describe("useDailySleepCard today-recovery", () => {
     });
   });
 
-  it("fires exactly one canonical recovery call when today is settled-and-missing", async () => {
+  it("does NOT POST sleep-day-refresh when today is settled-and-missing", async () => {
     getSleepNightMock.mockResolvedValue({
       ok: false,
       status: 404,
@@ -73,11 +70,10 @@ describe("useDailySleepCard today-recovery", () => {
     });
 
     expect(root.root.findByProps({ testID: "out" }).props.children).toBe("missing");
-    expect(mockPostOuraSleepDayRefresh).toHaveBeenCalledTimes(1);
-    expect(mockPostOuraSleepDayRefresh.mock.calls[0]?.[1]).toEqual({ day: TODAY });
+    expect(mockPostOuraSleepDayRefresh).not.toHaveBeenCalled();
   });
 
-  it("does NOT fire recovery for a historical missing day (yesterday)", async () => {
+  it("does NOT POST sleep-day-refresh for a historical missing day", async () => {
     getSleepNightMock.mockResolvedValue({
       ok: false,
       status: 404,
@@ -96,7 +92,7 @@ describe("useDailySleepCard today-recovery", () => {
     expect(mockPostOuraSleepDayRefresh).not.toHaveBeenCalled();
   });
 
-  it("does NOT fire recovery when today's sleep is already attributed (ready)", async () => {
+  it("still settles ready attributed nights without refresh", async () => {
     getSleepNightMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -119,7 +115,7 @@ describe("useDailySleepCard today-recovery", () => {
           updatedAt: `${TODAY}T12:00:00.000Z`,
         },
       },
-    });
+    } as never);
 
     let root!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -129,46 +125,7 @@ describe("useDailySleepCard today-recovery", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-
     expect(root.root.findByProps({ testID: "out" }).props.children).toBe("ready");
     expect(mockPostOuraSleepDayRefresh).not.toHaveBeenCalled();
-  });
-
-  it("rejects latest_completed_prior_night as not-attributed and triggers recovery", async () => {
-    getSleepNightMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      requestId: null,
-      json: {
-        requestedDay: TODAY,
-        anchorDay: YESTERDAY,
-        wakeDay: YESTERDAY,
-        resolution: "latest_completed_prior_night",
-        isFallback: false,
-        sleepNight: {
-          anchorDay: YESTERDAY,
-          wakeDay: YESTERDAY,
-          provider: "oura",
-          source: "ouraVendorSleep",
-          sourceDocumentId: "s1",
-          isComplete: true,
-          mainSleepMinutes: 420,
-          totalSleepMinutes: 420,
-          updatedAt: `${YESTERDAY}T12:00:00.000Z`,
-        },
-      },
-    });
-
-    let root!: renderer.ReactTestRenderer;
-    await act(async () => {
-      root = renderer.create(<Probe day={TODAY} />);
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(root.root.findByProps({ testID: "out" }).props.children).toBe("missing");
-    expect(mockPostOuraSleepDayRefresh).toHaveBeenCalledTimes(1);
   });
 });

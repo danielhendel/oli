@@ -66,8 +66,31 @@ export function workoutDayDebugRowTouchesAuditDates(args: {
 
 export function logWorkoutDayDebug(tag: string, payload: Record<string, unknown>): void {
   if (!workoutDayDebugEnabled()) return;
+  // Privacy-safe: counts / booleans / redacted presence only — never timestamps, titles, IDs, or health values.
+  const safe: Record<string, unknown> = { operation: tag };
+  for (const [k, v] of Object.entries(payload)) {
+    if (typeof v === "boolean" || typeof v === "number") {
+      safe[k] = v;
+      continue;
+    }
+    if (Array.isArray(v)) {
+      safe[`${k}Count`] = v.length;
+      continue;
+    }
+    if (v == null) {
+      safe[`has${k[0]!.toUpperCase()}${k.slice(1)}`] = false;
+      continue;
+    }
+    if (typeof v === "string") {
+      safe[`has${k[0]!.toUpperCase()}${k.slice(1)}`] = v.length > 0;
+      continue;
+    }
+    if (typeof v === "object") {
+      safe[`has${k[0]!.toUpperCase()}${k.slice(1)}`] = true;
+    }
+  }
   // eslint-disable-next-line no-console
-  console.log(`[WORKOUT_DAY_DEBUG] ${tag}`, payload);
+  console.log(`[WORKOUT_DAY_DEBUG] ${tag}`, safe);
 }
 
 export function workoutDayDebugPayloadStartedAt(payload: unknown): string | null {

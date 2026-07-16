@@ -228,16 +228,15 @@ export function useWeeklyFitnessDailyFactsRollup(
       if (isDebugDataLogsEnabled()) {
         // eslint-disable-next-line no-console
         console.log("[WEEKLY_FITNESS_DAILY_FACTS]", {
-        weekStart: keys[0] ?? null,
-        weekEnd: keys[keys.length - 1] ?? null,
-        dayCount: keys.length,
-        missingDayCount,
-        errorDayCount,
-        strengthByDay,
-        strengthWeekTotal,
-        durationMs: Math.round(performance.now() - waveStart),
-        status: finalStatus,
-      });
+          operation: "weekly_fitness_daily_facts",
+          dayCount: keys.length,
+          missingDayCount,
+          errorDayCount,
+          strengthDayCount: Object.keys(strengthByDay).length,
+          hasStrengthWeekTotal: Number.isFinite(strengthWeekTotal),
+          durationMs: Math.round(performance.now() - waveStart),
+          status: finalStatus,
+        });
       }
     }
 

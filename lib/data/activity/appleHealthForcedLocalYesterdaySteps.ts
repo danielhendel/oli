@@ -32,6 +32,19 @@ function devLog(message: string, data: Record<string, unknown>): void {
   console.log(`[AH:steps-yesterday] ${message}`, data);
 }
 
+/** Privacy-safe fields only — never log step counts or other health magnitudes. */
+function privacySafeStepsCompareLog(input: {
+  hasHkSteps: boolean;
+  hasStoredSteps: boolean;
+  stepsMatch: boolean | null;
+}): Record<string, unknown> {
+  return {
+    hasHkSteps: input.hasHkSteps,
+    hasStoredSteps: input.hasStoredSteps,
+    stepsMatch: input.stepsMatch,
+  };
+}
+
 function roundSteps(n: number): number {
   return Math.round(n);
 }
@@ -99,13 +112,20 @@ export async function runForcedLocalYesterdayAppleHealthStepsIngest(
 
   const pulled = await pullStepCountForLocalCalendarDay(yesterdayYmd);
   if (!pulled.ok) {
-    devLog("skip: hk pull failed", { day: yesterdayYmd, error: pulled.error });
+    devLog("skip: hk pull failed", { hasError: Boolean(pulled.error) });
     return;
   }
 
   const hkStepsRounded = roundSteps(pulled.steps);
   const storedSteps = await fetchStoredStepsForDay(yesterdayYmd, token);
-  devLog("hk vs stored", { day: yesterdayYmd, hkSteps: hkStepsRounded, storedSteps });
+  devLog(
+    "hk vs stored",
+    privacySafeStepsCompareLog({
+      hasHkSteps: true,
+      hasStoredSteps: storedSteps !== null,
+      stepsMatch: storedSteps === null ? null : storedSteps === hkStepsRounded,
+    }),
+  );
   if (storedSteps !== null && storedSteps === hkStepsRounded) {
     await setLastIngestedStepsForDay(yesterdayYmd, hkStepsRounded);
     return;
@@ -123,11 +143,10 @@ export async function runForcedLocalYesterdayAppleHealthStepsIngest(
   const idempotencyKey = stepsIdempotencyKey(yesterdayYmd);
 
   devLog("post /ingest", {
-    day: yesterdayYmd,
-    idempotencyKey,
-    payloadSteps: body.payload.steps,
-    payloadStart: body.payload.start,
-    payloadTimezone: body.payload.timezone,
+    hasIdempotencyKey: Boolean(idempotencyKey),
+    hasPayloadSteps: typeof body.payload.steps === "number",
+    hasPayloadStart: Boolean(body.payload.start),
+    hasPayloadTimezone: Boolean(body.payload.timezone),
   });
 
   const res = await ingestRawEvent(body, token, {
@@ -136,9 +155,9 @@ export async function runForcedLocalYesterdayAppleHealthStepsIngest(
   });
 
   devLog("ingest response", {
-    day: yesterdayYmd,
     ok: res.ok,
-    ...(res.ok ? {} : { error: res.error, requestId: res.requestId }),
+    status: res.status,
+    ...(res.ok ? {} : { hasError: Boolean(res.error), hasRequestId: Boolean(res.requestId) }),
   });
 
   if (!res.ok) return;

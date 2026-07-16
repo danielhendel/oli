@@ -166,11 +166,10 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       const { perDay, total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(strengthFactsInput);
       // eslint-disable-next-line no-console
       console.log("[WEEKLY_FITNESS_STRENGTH_TOTAL]", {
-        weekStartDay,
-        weekEndDay,
-        perDayStrengthWorkoutsCount: perDay,
-        computedWeeklyTotal: total,
-        renderedValueLabel: strength.valueLabel,
+        operation: "weekly_fitness_strength_total",
+        dayCount: Object.keys(perDay).length,
+        hasWeeklyTotal: Number.isFinite(total),
+        hasValueLabel: Boolean(strength.valueLabel),
       });
     }
 

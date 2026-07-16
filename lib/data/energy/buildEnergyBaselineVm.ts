@@ -211,18 +211,16 @@ function averagesFromPairs(
  * values have been validated against backend data.
  */
 function logEnergyBaselineDiagnostics(
-  todayDayKey: DayKey,
-  baselineEndDay: DayKey,
+  _todayDayKey: DayKey,
+  _baselineEndDay: DayKey,
   diagnostics: readonly EnergyWindowDiagnostic[],
 ): void {
   if (!__DEV__) return;
   for (const d of diagnostics) {
-    // eslint-disable-next-line no-console -- intentional dev diagnostics (Energy Baseline QA verification)
+    // eslint-disable-next-line no-console -- intentional privacy-safe Energy Baseline diagnostics
     console.log("[EnergyBaseline audit]", {
-      todayDayKey,
-      baselineEndDay,
+      operation: "energy_baseline_window",
       key: d.key,
-      label: d.label,
       windowDayCount: d.windowDayCount,
       requiredDayCount: d.requiredDayCount,
       validDayCount: d.validDayCount,
@@ -232,14 +230,8 @@ function logEnergyBaselineDiagnostics(
       excludedIncompleteCount: d.excludedIncompleteCount,
       excludedBmrOnlyCount: d.excludedBmrOnlyCount,
       excludedStepsOnlyCount: d.excludedStepsOnlyCount,
-      earliestIncludedDay: d.earliestIncludedDay,
-      latestIncludedDay: d.latestIncludedDay,
-      avgLow: d.avgLow,
-      avgHigh: d.avgHigh,
-      minLow: d.minLow,
-      maxLow: d.maxLow,
-      minHigh: d.minHigh,
-      maxHigh: d.maxHigh,
+      hasAvgLow: d.avgLow != null && Number.isFinite(d.avgLow),
+      hasAvgHigh: d.avgHigh != null && Number.isFinite(d.avgHigh),
       includedConfidenceMix: d.includedConfidenceMix,
     });
   }

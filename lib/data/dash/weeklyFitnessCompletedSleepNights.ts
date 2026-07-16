@@ -167,7 +167,10 @@ export function averageMinutesFromCompletedSleepNights(
   return Math.round(total / completedNights.length);
 }
 
-/** Dev-only: log included nights and denominator for Weekly Fitness sleep average audits. */
+/**
+ * Dev-only: privacy-safe Weekly Fitness sleep average audit.
+ * Never logs minutes, scores, calendar day keys, or per-night health samples.
+ */
 export function logWeeklyFitnessSleepAverageDev(input: {
   todayDayKey: DayKey;
   weekStartDay: DayKey;
@@ -180,20 +183,9 @@ export function logWeeklyFitnessSleepAverageDev(input: {
   if (!__DEV__) return;
   // eslint-disable-next-line no-console -- dev-only Weekly Fitness sleep audit
   console.log("[WEEKLY_FITNESS_SLEEP]", {
-    todayDayKey: input.todayDayKey,
-    weekWakeWindow: {
-      start: input.weekStartDay,
-      end: input.weekEndDay,
-      lastCountableWakeDay: input.lastCountableWakeDay,
-    },
+    operation: "weekly_fitness_sleep_average",
     denominatorNights: input.completedNights.length,
-    averageMinutes: input.averageMinutes,
-    included: input.completedNights.map((n) => ({
-      calendarDay: n.calendarDay,
-      wakeDay: n.wakeDay,
-      minutes: n.minutes,
-      resolution: n.resolution,
-    })),
-    skipped: input.skipped,
+    skippedCount: input.skipped.length,
+    hasAverageMinutes: Number.isFinite(input.averageMinutes),
   });
 }

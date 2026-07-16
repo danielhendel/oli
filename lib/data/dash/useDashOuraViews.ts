@@ -93,8 +93,12 @@ export function useDashOuraViews(day: string, options?: UseDashOuraViewsOptions)
     const bust = withUniqueCacheBust(bustOpts, myGen);
 
     if (__DEV__) {
-      // eslint-disable-next-line no-console -- Dash Oura sleep fetch audit (dev-only)
-      console.log("[DASH_OURA_SLEEP_FETCH_START]", { day: dayKey, enabled: enabledRef.current });
+      // eslint-disable-next-line no-console -- Dash Oura sleep fetch audit (dev-only, privacy-safe)
+      console.log("[DASH_OURA_SLEEP_FETCH_START]", {
+        operation: "dash_oura_sleep_fetch_start",
+        hasDayKey: Boolean(dayKey),
+        enabled: enabledRef.current,
+      });
     }
 
     let devSleepDone: Record<string, unknown> | null = null;
@@ -107,36 +111,40 @@ export function useDashOuraViews(day: string, options?: UseDashOuraViewsOptions)
         devSleepDone = {
           ok: sleepRes.ok,
           outcome: sleepOutcome.status,
-          requestedDay: ready?.requestedDay,
-          resolvedDay: ready?.resolvedDay,
-          score: ready?.score,
-          error: sleepOutcome.status === "error" ? sleepOutcome.error : undefined,
+          hasRequestedDay: Boolean(ready?.requestedDay),
+          requestedDayMatches: ready?.requestedDay === dayKey,
+          hasResolvedDay: Boolean(ready?.resolvedDay),
+          hasScore: typeof ready?.score === "number" && Number.isFinite(ready.score),
+          hasError: sleepOutcome.status === "error",
         };
         if (myGen !== generationRef.current) return;
         setSleepView(sleepOutcome.status === "ready" ? sleepOutcome.data : undefined);
       })
       .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : String(e);
         devSleepDone = {
           ok: false,
           outcome: "error",
-          error: e instanceof Error ? e.message : String(e),
+          hasError: true,
         };
-        sleepErrorRef.current = typeof devSleepDone.error === "string" ? devSleepDone.error : undefined;
+        sleepErrorRef.current = message;
         if (myGen === generationRef.current) setSleepView(undefined);
       })
       .finally(() => {
         if (__DEV__) {
           const stale = myGen !== generationRef.current;
           const d = devSleepDone;
-          // eslint-disable-next-line no-console -- Dash Oura sleep fetch audit (dev-only)
+          // eslint-disable-next-line no-console -- Dash Oura sleep fetch audit (dev-only, privacy-safe)
           console.log("[DASH_OURA_SLEEP_FETCH_DONE]", {
-            day: dayKey,
+            operation: "dash_oura_sleep_fetch_done",
+            hasDayKey: Boolean(dayKey),
             ok: Boolean(d?.ok),
             outcome: typeof d?.outcome === "string" ? d.outcome : "incomplete",
-            requestedDay: d?.requestedDay,
-            resolvedDay: d?.resolvedDay,
-            score: d?.score,
-            error: d?.error,
+            hasRequestedDay: Boolean(d?.hasRequestedDay),
+            requestedDayMatches: Boolean(d?.requestedDayMatches),
+            hasResolvedDay: Boolean(d?.hasResolvedDay),
+            hasScore: Boolean(d?.hasScore),
+            hasError: Boolean(d?.hasError),
             cancelled: stale,
             stale,
           });
@@ -201,26 +209,26 @@ export function useDashOuraViews(day: string, options?: UseDashOuraViewsOptions)
 
   useEffect(() => {
     if (!__DEV__) return;
-    // eslint-disable-next-line no-console -- Dash Oura views audit (dev-only)
+    // eslint-disable-next-line no-console -- Dash Oura views audit (dev-only, privacy-safe)
     console.log("[DASH_OURA_VIEWS_DEBUG]", {
-      day,
+      operation: "dash_oura_views",
+      hasDayKey: Boolean(day),
       enabled,
       sleepViewLoading,
       readinessViewLoading,
-      sleepViewRequestedDay: sleepView?.requestedDay,
-      sleepViewResolvedDay: sleepView?.resolvedDay,
-      sleepViewScore: sleepView?.score,
-      sleepError: sleepErrorRef.current,
-      readinessError: readinessErrorRef.current,
+      hasSleepView: sleepView != null,
+      sleepRequestedDayMatches: sleepView?.requestedDay === day,
+      hasSleepResolvedDay: Boolean(sleepView?.resolvedDay),
+      hasSleepScore: typeof sleepView?.score === "number" && Number.isFinite(sleepView.score),
+      hasSleepError: Boolean(sleepErrorRef.current),
+      hasReadinessError: Boolean(readinessErrorRef.current),
     });
   }, [
     day,
     enabled,
     sleepViewLoading,
     readinessViewLoading,
-    sleepView?.requestedDay,
-    sleepView?.resolvedDay,
-    sleepView?.score,
+    sleepView,
   ]);
 
   return useMemo(
