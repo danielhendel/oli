@@ -9,6 +9,7 @@ import {
   rawEventsListQuerySchema,
   canonicalEventsListQuerySchema,
   timelineQuerySchema,
+  timelineFeedQuerySchema,
   lineageQuerySchema,
   workoutDaySummariesQuerySchema,
   workoutDaySummariesResponseDtoSchema,
@@ -80,6 +81,7 @@ import {
 import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
 import { loadSleepNightView, loadSleepNightViewsForRange } from "../lib/sleepNightRead";
+import { assembleTimelineFeedPage } from "../lib/timeline/assembleFeedPage";
 import {
   isRawEventIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
@@ -1639,6 +1641,57 @@ router.get(
     }
 
     res.status(200).json(validated.data);
+  }),
+);
+
+// ----------------------------
+// Timeline V1 — GET /users/me/timeline-feed (bounded presentation feed)
+// ----------------------------
+
+router.get(
+  "/timeline-feed",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = timelineFeedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { anchorDay, cursor, limit } = parsed.data;
+    const effectiveAnchor = anchorDay ?? new Date().toISOString().slice(0, 10);
+
+    const assembled = await assembleTimelineFeedPage({
+      uid,
+      anchorDay: effectiveAnchor,
+      ...(cursor ? { cursor } : {}),
+      limit,
+    });
+
+    if (!assembled.ok) {
+      const status = assembled.code === "INVALID_CURSOR" ? 400 : 500;
+      res.status(status).json({
+        ok: false,
+        error: {
+          code: assembled.code,
+          message: assembled.message,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    res.status(200).json(assembled.data);
   }),
 );
 

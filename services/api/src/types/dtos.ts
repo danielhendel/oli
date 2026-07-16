@@ -53,6 +53,22 @@ export type {
   LineageResponseDto,
 } from "@oli/contracts/retrieval";
 
+// Timeline V1 — bounded presentation feed
+export {
+  timelinePresentationItemSchema,
+  timelineFeedQuerySchema,
+  timelineFeedResponseDtoSchema,
+  timelineFeedKindPriority,
+  TIMELINE_FEED_KIND_PRIORITY,
+} from "@oli/contracts/timelineFeed";
+export type {
+  TimelinePresentationItem,
+  TimelineFeedQuery,
+  TimelineFeedResponseDto,
+  TimelinePresentationKind,
+  TimelineDisplayRole,
+} from "@oli/contracts/timelineFeed";
+
 // Phase 1.5 Sprint 1 — Health Score (derived truth read surface)
 export { healthScoreDocSchema } from "@oli/contracts/healthScore";
 export type { HealthScoreDoc } from "@oli/contracts/healthScore";

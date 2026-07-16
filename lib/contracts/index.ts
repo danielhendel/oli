@@ -38,6 +38,9 @@ export * from "./workoutMonthSummary";
 // Sprint 1 — Retrieval Surfaces
 export * from "./retrieval";
 
+// Timeline V1 — bounded presentation feed
+export * from "./timelineFeed";
+
 // Workout summary rebuild bounds (range validation + helpers)
 export * from "./workoutSummaryRebuildLimits";
 
