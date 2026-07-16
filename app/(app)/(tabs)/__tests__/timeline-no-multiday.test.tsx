@@ -17,6 +17,7 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
 jest.mock("@react-navigation/native", () => ({ useIsFocused: () => true }));
@@ -39,15 +40,6 @@ jest.mock("@/lib/data/useInsights", () => ({
   useInsights: () => ({
     status: "ready",
     data: { day: "2026-06-10", count: 0, items: [] },
-    refetch: jest.fn(),
-  }),
-}));
-
-jest.mock("@/lib/hooks/useTodayCommand", () => ({
-  useTodayCommand: () => ({
-    model: null,
-    loading: false,
-    error: null,
     refetch: jest.fn(),
   }),
 }));

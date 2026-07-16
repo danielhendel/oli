@@ -12,6 +12,7 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
 jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
@@ -24,15 +25,6 @@ jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
       reason: "network",
     },
     refetchAll: jest.fn(),
-  }),
-}));
-
-jest.mock("@/lib/hooks/useTodayCommand", () => ({
-  useTodayCommand: () => ({
-    model: null,
-    loading: false,
-    error: null,
-    refetch: jest.fn(),
   }),
 }));
 
