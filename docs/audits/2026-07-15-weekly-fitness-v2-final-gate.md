@@ -235,6 +235,32 @@ Deferred gates (still NOT VERIFIED — do not convert to PASS):
 
 ---
 
+## Weekly Fitness checkpoint (2026-07-16)
+
+```text
+RESTORED UI: PASS
+NAVIGATION: PASS
+
+RUNTIME REPAIRS: PASS BY SOURCE, TESTS, FULL SUITE, PR #182 CI, AND HUMAN DASH SMOKE
+FINAL MACHINE TELEMETRY COUNTS: NOT VERIFIED — EXTERNAL METRO STDOUT WAS NOT PERSISTED
+
+LIFECYCLE: NOT VERIFIED — DEFERRED
+ACCESSIBILITY: NOT VERIFIED — DEFERRED
+PHYSICAL VOICEOVER: NOT VERIFIED
+PHYSICAL DYNAMIC TYPE: NOT VERIFIED
+PHYSICAL REDUCE MOTION: NOT VERIFIED
+PHYSICAL TRUTH MATRIX: NOT VERIFIED — DEFERRED
+BODY GOAL MUTATION: NOT AUTHORIZED
+USER A → USER B: NOT VERIFIED — SECOND APPROVED ACCOUNT UNAVAILABLE
+```
+
+PR #183 exact-head CI (`5423bcb…` docs commit; prior repair sync `adaaeb7…`): **SUCCESS** (check + tf-validate).
+
+Stack merge: **held**. Timeline audit authorized; Timeline product source **blocked** until
+#180 → #182 → #183 merge in order and updated `main` passes CI + physical Dash smoke.
+
+---
+
 ## Staging backend (unchanged)
 
 ```text
