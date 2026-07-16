@@ -1,72 +1,60 @@
 // lib/ui/timeline/TimelineDayScreen.tsx
-// Single-day chronological Timeline. Owns the selected-day state and renders the
-// loading / error / empty / ready states. All data access is via useTimelineDay
-// (no Firebase, no multi-day timeline request).
+// Timeline v1 chrome: calendar jump, no Plan vs actual, no day arrows.
+// Continuous feed loads only when EXPO_PUBLIC_TIMELINE_FEED=1 (live API required).
 import { useCallback, useMemo, useState } from "react";
-import { RefreshControl, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { SettingsGearButton } from "@/lib/ui/SettingsGearButton";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { getTodayDayKey } from "@/lib/time/dayKey";
-import { shiftAnchor } from "@/lib/time/timelineRange";
 import { useTimelineDay } from "@/lib/features/timeline/useTimelineDay";
-import { useTodayCommand } from "@/lib/hooks/useTodayCommand";
 import type { TimelineDayItem } from "@/lib/features/timeline/types";
-import { TimelineDateNavigator } from "@/lib/ui/timeline/TimelineDateNavigator";
 import { TimelineRail } from "@/lib/ui/timeline/TimelineRail";
 import { TimelineEmptyState } from "@/lib/ui/timeline/TimelineEmptyState";
-import { TimelinePlanVsActualHeader } from "@/lib/ui/timeline/TimelinePlanVsActualHeader";
+import { TimelineCalendarButton } from "@/lib/ui/timeline/TimelineCalendarButton";
+import { TimelineCalendarSheet } from "@/lib/ui/timeline/TimelineCalendarSheet";
+import { TimelineDaySectionHeader } from "@/lib/ui/timeline/TimelineDaySectionHeader";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
+const FEED_ENABLED = process.env.EXPO_PUBLIC_TIMELINE_FEED === "1";
 
 export type TimelineDayScreenProps = {
   /** Optional starting day (deep links / [day] route). Defaults to today. */
   initialDay?: string;
 };
 
-export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
+export function TimelineDayScreen(props: TimelineDayScreenProps) {
+  if (FEED_ENABLED) {
+    // Lazy require keeps Auth/firebase out of the default single-day path (Jest + Metro).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { TimelineFeedScreen } = require("@/lib/ui/timeline/TimelineFeedScreen") as typeof import("@/lib/ui/timeline/TimelineFeedScreen");
+    return <TimelineFeedScreen {...props} />;
+  }
+  return <TimelineDayScreenLegacy {...props} />;
+}
+
+function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
   const router = useRouter();
   const listBottomPad = useFloatingTabBarScrollPadding(40);
-
   const today = useMemo(() => getTodayDayKey(), []);
   const [day, setDay] = useState(() =>
     initialDay && YYYY_MM_DD.test(initialDay) ? initialDay : today,
   );
-
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const { status, refetchAll } = useTimelineDay(day);
-  const todayCommand = useTodayCommand(day);
-
   const [refreshing, setRefreshing] = useState(false);
   const isToday = day === today;
-
-  const planHeader = useMemo(
-    () => (
-      <TimelinePlanVsActualHeader
-        model={todayCommand.model}
-        loading={todayCommand.loading}
-        isToday={isToday}
-      />
-    ),
-    [todayCommand.model, todayCommand.loading, isToday],
-  );
-
-  const goPrev = useCallback(() => setDay((d) => shiftAnchor(d, -1)), []);
-  const goNext = useCallback(() => setDay((d) => shiftAnchor(d, 1)), []);
-  const goToday = useCallback(() => setDay(today), [today]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       refetchAll({ cacheBust: `timelinePull:${Date.now()}` });
-      todayCommand.refetch({ cacheBust: `timelinePull:${Date.now()}` });
     } finally {
-      // The hooks update asynchronously; release the control on next tick.
       setRefreshing(false);
     }
-  }, [refetchAll, todayCommand.refetch]);
+  }, [refetchAll]);
 
   const onPressItem = useCallback(
     (item: TimelineDayItem) => {
@@ -80,25 +68,25 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
     [refreshing, onRefresh],
   );
 
+  const daySectionHeader = useMemo(
+    () => (
+      <TimelineDaySectionHeader
+        dayKey={day}
+        todayDayKey={today}
+        testID="timeline-day-section-header"
+      />
+    ),
+    [day, today],
+  );
+
   return (
     <ScreenContainer padded={false}>
       <View style={styles.main}>
         <TabRootScreenHeader
           title="Timeline"
           subtitle="Your day, in order"
-          rightSlot={<SettingsGearButton />}
+          rightSlot={<TimelineCalendarButton onPress={() => setCalendarOpen(true)} />}
         />
-
-        <View style={styles.navWrap}>
-          <TimelineDateNavigator
-            day={day}
-            isToday={isToday}
-            onPrev={goPrev}
-            onNext={goNext}
-            onToday={goToday}
-          />
-        </View>
-
         <View style={styles.content}>
           {status.status === "partial" ? (
             <LoadingState message="Loading timeline…" />
@@ -110,30 +98,50 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
               isContractError={status.reason === "contract"}
             />
           ) : status.vm.isEmpty ? (
-            <View style={styles.contentFill}>
-              {planHeader}
+            <ScrollView
+              key={`empty:${day}`}
+              style={styles.contentFill}
+              contentContainerStyle={[
+                styles.emptyScrollContent,
+                { paddingBottom: listBottomPad },
+              ]}
+              refreshControl={refreshControl}
+            >
+              {daySectionHeader}
               <TimelineEmptyState isToday={isToday} />
-            </View>
+            </ScrollView>
           ) : (
             <TimelineRail
+              key={`rail:${day}`}
               items={status.vm.items}
               onPressItem={onPressItem}
               refreshControl={refreshControl}
               contentBottomPadding={listBottomPad}
-              ListHeaderComponent={planHeader}
+              ListHeaderComponent={daySectionHeader}
             />
           )}
         </View>
       </View>
+      <TimelineCalendarSheet
+        visible={calendarOpen}
+        selectedDay={day}
+        onSelectDay={(next) => {
+          setDay(next);
+          setCalendarOpen(false);
+        }}
+        onCancel={() => setCalendarOpen(false)}
+        onReturnToToday={() => {
+          setDay(today);
+          setCalendarOpen(false);
+        }}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   main: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
-  navWrap: {
-    paddingHorizontal: UI_TAB_ROOT_INSET,
-  },
   content: { flex: 1, paddingHorizontal: UI_TAB_ROOT_INSET, paddingTop: 4 },
   contentFill: { flex: 1 },
+  emptyScrollContent: { flexGrow: 1 },
 });
