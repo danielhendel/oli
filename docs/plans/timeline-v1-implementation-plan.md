@@ -1,8 +1,9 @@
 # Timeline V1 — Post-Merge Implementation Plan
 
-**Status:** PLAN ONLY — no implementation authorized
+**Status:** LOCAL IMPLEMENTATION COMPLETE on `feat/timeline-v1` — pending feed staging preflight authorization
 **Date:** 2026-07-16
 **Audit branch:** `audit/timeline-v1` (documentation only; **not** the implementation branch)
+**Implementation worktree:** `/Users/danielhendel/oli-timeline-v1-impl`
 
 ---
 
@@ -148,3 +149,163 @@ Run T1–T35 matrix on device after staging API attached. VoiceOver, Dynamic Typ
 - Persisted reminders
 - Recommendation cards
 - Raw weight hydration on mobile
+
+---
+
+## Implementation evidence (2026-07-16)
+
+Local implementation complete on `feat/timeline-v1`. Evidence below is
+aggregate-only. No screenshots, health values, event titles, dates, UIDs,
+provider IDs, raw-event IDs, cursor values, URLs, query values, tokens, keys,
+or raw logs are recorded.
+
+### Compact day-date header — physical PASS
+
+| Check | Result |
+|---|---|
+| Compact date header present | PASS |
+| Header line count | ONE |
+| Today format `Today Month D, YYYY` | PASS |
+| Today/date typography identical | PASS |
+| Today label size compact | PASS |
+| Historical `EEE Month D, YYYY` | PASS |
+| Historical weekday abbreviated | PASS |
+| Centered alignment | PASS |
+| Selected prior-day updates header | PASS |
+| Return to Today updates header | PASS |
+| Header scrolls with fallback content | PASS |
+| Duplicate visible date heading | NONE |
+| Dark mode | PASS |
+| Redbox / blank screen | NONE |
+
+### Explicitly unverified gates (do not convert to PASS)
+
+| Gate | Status | Reason |
+|---|---|---|
+| Empty prior-day keeps header | NOT VERIFIED | not exercised on device |
+| Light mode | NOT VERIFIED | not exercised on device |
+| Sticky multi-day header | NOT VERIFIED | feed disabled (`EXPO_PUBLIC_TIMELINE_FEED` unset) |
+| Continuous previous-day scroll | NOT VERIFIED | feed disabled; route not yet deployed |
+| Feed request budget (device) | NOT VERIFIED | feed disabled |
+| Busy-day pagination (device) | NOT VERIFIED | feed disabled |
+| User-switch physical isolation | NOT VERIFIED | feed disabled |
+| Physical VoiceOver | NOT VERIFIED | not exercised on device |
+| Physical Dynamic Type | NOT VERIFIED | not exercised on device |
+
+The live development client remains on the single-day fallback because
+`EXPO_PUBLIC_TIMELINE_FEED` is unset and `/users/me/timeline-feed` is not yet
+served through Cloud Run and API Gateway. Continuous history has **not** been
+physically verified.
+
+Fallback event truth is intentionally unchanged; it is not modified to imitate
+the undeployed feed.
+
+---
+
+## Deployment impact (from the committed diff)
+
+| Surface | Required |
+|---|---|
+| Cloud Run API (`services/api`) | Required — additive `GET /users/me/timeline-feed` |
+| API Gateway | Required — new route must be exposed via a new config |
+| Firebase Functions | Not required — no `services/functions` source change in scope |
+| Firestore rules | Not required — no rules change |
+| Firestore indexes | Not required — reads use existing per-user collections |
+| Data migration | Not required |
+| Historical backfill | Not required |
+| Mobile feature flag | Required — `EXPO_PUBLIC_TIMELINE_FEED` gates the feed path |
+
+The Timeline feed handler performs reads only within the authenticated user's
+own collections. It issues no provider refresh and performs no writes during a
+feed GET.
+
+---
+
+## Plan-only staging preflight (no cloud action taken)
+
+This section is documentation only. No image was built, no revision deployed,
+no Gateway config created or attached, no traffic shifted, and no flag enabled.
+
+### Immutable build plan
+
+1. Build from clean committed Timeline HEAD only.
+2. Submit the repository-approved Cloud Build; record the Cloud Build ID and
+   source archive.
+3. Record the produced image tag and its immutable digest.
+4. Deploy the API **by digest** as a **no-traffic tagged** revision.
+5. Diff the new revision's configuration against the current serving revision;
+   only image reference and revision metadata may differ.
+
+### Tagged-revision smoke plan (privacy-safe)
+
+Probe the tagged, zero-traffic revision URL:
+
+- `/health` → 200
+- existing Sleep read → 200
+- existing Oura status → 200
+- existing preferences read → 200
+- one unrelated authenticated read → 200
+- `timeline-feed` unauthenticated → 401 (never 404)
+- `timeline-feed` initial page → 200
+- `timeline-feed` with `anchorDay` → 200
+- `timeline-feed` cursor continuation → 200
+- invalid limit → 400
+- invalid cursor → 400
+- invalid anchor → 400
+- assert: no UID in response, no raw payload, no provider call, no write,
+  stable ordering, busy-day continuation, no 5xx
+
+No health values or private event dates are captured in probe evidence.
+
+### Unattached Gateway config plan
+
+1. Name the Gateway config using the final short SHA for provenance.
+2. Create it **ACTIVE but unattached**.
+3. Verify the `timeline-feed` route, Firebase JWT security, and OPTIONS/CORS.
+4. Confirm existing routes are preserved.
+5. Leave the live Gateway unchanged during preflight.
+
+### Cutover order (later authorization only)
+
+1. Shift Cloud Run traffic to the verified Timeline revision.
+2. Smoke existing routes before Gateway attachment.
+3. Attach the verified Gateway config.
+4. Wait for propagation.
+5. Verify invalid auth → 401 (not 404).
+6. Run the authenticated Timeline feed matrix.
+7. Monitor errors, latency, and privacy-safe telemetry.
+8. Preserve rollback artifacts.
+
+### Mobile enablement (after backend/Gateway cutover)
+
+- Add `EXPO_PUBLIC_TIMELINE_FEED=1` to the approved staging mobile environment.
+- Do not commit `.env.local`.
+- Restart Metro with `--clear`; force-quit and reopen the dev client.
+- Confirm the client runs from the Timeline implementation worktree.
+- Run the continuous-feed physical matrix.
+
+### Rollback order (later authorization only)
+
+1. Roll back the Gateway config first.
+2. Roll back Cloud Run traffic second.
+3. Retain/restore a Function only if the diff proves a Function deploy was
+   required (it does not in this slice).
+4. Preserve logging privacy controls.
+5. Disable the mobile feature flag.
+6. Restart the development client.
+
+---
+
+## Physical verification matrix (continuous feed) — for later
+
+Required later on a physical device once the feed is deployed and enabled:
+
+Today initial · compact Today header · scroll to prior day ·
+historical abbreviated-weekday header · multiple day sections ·
+sticky header transitions · older-page loading · scroll back up ·
+Return to Today · calendar jump · empty anchored day ·
+no duplicate sections · no duplicate items · Sleep then Recovery ·
+one Activity-live marker · no midnight fabricated Steps ·
+chronological actions · bedtime · no spinner loop · no redbox ·
+request budget · account-switch isolation · accessibility ·
+light and dark modes.
