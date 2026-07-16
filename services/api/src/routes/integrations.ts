@@ -14,7 +14,11 @@ const router = Router();
 
 const OURA_AUTHORIZE_URL = "https://cloud.ouraring.com/oauth/authorize";
 const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
-/** Full Oura API v2 scopes: email, personal, daily (sleep/readiness/activity), heartrate, workout, tag, session, spo2Daily. */
+/**
+ * Full Oura API v2 scopes: email, personal, daily (sleep/readiness/activity/daily_stress),
+ * heartrate, workout, tag, session, spo2Daily.
+ * `daily` already covers Daily Stress (`/v2/usercollection/daily_stress`) — no OAuth reconnect required.
+ */
 const OURA_SCOPE = "email personal daily heartrate workout tag session spo2Daily";
 const OURA_OAUTH_PURPOSE = "oura_oauth";
 

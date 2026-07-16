@@ -1,6 +1,7 @@
 // lib/contracts/preferences.ts
 import { z } from "zod";
 
+import { bodyCompositionGoalV1Schema } from "./bodyCompositionGoal";
 import { isoDateTimeStringSchema } from "./rawEvent";
 
 export const massUnitSchema = z.enum(["lb", "kg"]);
@@ -98,6 +99,13 @@ export function mergeStoredPreferences(raw: Record<string, unknown>): Record<str
     if (coerced) merged.weeklyFitnessGoals = coerced;
     else delete merged.weeklyFitnessGoals;
   }
+  if (merged.bodyCompositionGoal != null) {
+    const parsed = bodyCompositionGoalV1Schema.safeParse(merged.bodyCompositionGoal);
+    if (parsed.success) merged.bodyCompositionGoal = parsed.data;
+    else delete merged.bodyCompositionGoal;
+  } else if (merged.bodyCompositionGoal === null) {
+    delete merged.bodyCompositionGoal;
+  }
   return merged;
 }
 
@@ -145,6 +153,12 @@ export const preferencesSchema = z
 
     /** Dash Weekly Fitness goals (display-only). Coerced when legacy docs omit sleep. */
     weeklyFitnessGoals: weeklyFitnessGoalsParsedSchema.optional(),
+
+    /**
+     * Body Composition Goal Score V1 (additive). Progress toward a single primary
+     * body metric target. Null clears the goal when present on write paths.
+     */
+    bodyCompositionGoal: bodyCompositionGoalV1Schema.nullable().optional(),
   })
   .strip()
   .superRefine((val, ctx) => {

@@ -5,9 +5,11 @@ import {
   preferencesSchema,
   defaultPreferences,
   weeklyFitnessGoalsSchema,
+  bodyCompositionGoalV1Schema,
   WEEKLY_FITNESS_GOAL_LIMITS,
   mergeStoredPreferences,
   type WeeklyFitnessGoals,
+  type BodyCompositionGoalV1,
 } from "@oli/contracts";
 
 import type { AuthedRequest } from "../middleware/auth";
@@ -101,6 +103,8 @@ const preferencesPatchSchema = z
       })
       .strip()
       .optional(),
+    /** Body Composition Goal V1. Null clears the stored goal. */
+    bodyCompositionGoal: bodyCompositionGoalV1Schema.nullable().optional(),
   })
   .strip();
 
@@ -289,6 +293,12 @@ router.put(
       };
     }
 
+    let nextBodyCompositionGoal: BodyCompositionGoalV1 | null | undefined =
+      base.bodyCompositionGoal;
+    if (patch.bodyCompositionGoal !== undefined) {
+      nextBodyCompositionGoal = patch.bodyCompositionGoal;
+    }
+
     const candidate = {
       units: {
         mass: patch.units?.mass ?? base.units.mass,
@@ -306,6 +316,9 @@ router.put(
       metricSources: nextMetricSources,
       ...(mergedAllowlist !== undefined ? { workoutPickerBundledAllowlistExerciseIds: mergedAllowlist } : {}),
       ...(nextWeeklyFitnessGoals !== undefined ? { weeklyFitnessGoals: nextWeeklyFitnessGoals } : {}),
+      ...(nextBodyCompositionGoal !== undefined
+        ? { bodyCompositionGoal: nextBodyCompositionGoal }
+        : {}),
     };
 
     const normalizedMetricSources = normalizeMetricSourcesForAppleHealthOnly(candidate.metricSources);

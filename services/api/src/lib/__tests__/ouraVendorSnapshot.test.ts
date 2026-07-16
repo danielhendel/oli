@@ -1,10 +1,12 @@
 /**
  * Oura vendor snapshot writer — shape and write behavior.
  */
+import { allowConsoleForThisTest } from "../../../../../scripts/test/consoleGuard";
 import { userCollection } from "../../db";
 import {
   writeOuraVendorSleepSnapshots,
   writeOuraVendorReadinessSnapshots,
+  writeOuraVendorStressSnapshots,
   fillSleepContributorsFromStored,
 } from "../ouraVendorSnapshot";
 
@@ -37,6 +39,10 @@ function mockReadinessCollection() {
 describe("ouraVendorSnapshot", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    allowConsoleForThisTest({
+      error: [/oura_vendor_snapshot_/],
+      warn: [/oura_vendor_snapshot_/],
+    });
     (userCollection as jest.Mock).mockImplementation((_uid: string, name: string) => {
       if (name === "ouraVendorReadiness") return mockReadinessCollection();
       return {
@@ -471,6 +477,41 @@ describe("ouraVendorSnapshot", () => {
       expect(payload.source).toBe("oura");
       expect(Object.prototype.hasOwnProperty.call(payload, "score")).toBe(false);
       expect(Object.values(payload).every((v) => v !== undefined)).toBe(true);
+    });
+  });
+
+  describe("writeOuraVendorStressSnapshots", () => {
+    it("writes snapshot with camelCase fields, schemaVersion 1, and deterministic id fallback", async () => {
+      const docs = [
+        {
+          day: "2025-03-15",
+          day_summary: "restored",
+          stress_high: 90,
+          recovery_high: 120,
+        } as unknown as import("../ouraApi").OuraDailyStressDocument,
+      ];
+
+      await writeOuraVendorStressSnapshots("uid1", docs, "req-1");
+
+      expect(userCollection).toHaveBeenCalledWith("uid1", "ouraVendorStress");
+      expect(mockBatchSet).toHaveBeenCalledTimes(1);
+      const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.id).toBe("oura_daily_stress_2025-03-15");
+      expect(payload.day).toBe("2025-03-15");
+      expect(payload.daySummary).toBe("restored");
+      expect(payload.stressHighSeconds).toBe(90);
+      expect(payload.recoveryHighSeconds).toBe(120);
+      expect(payload.source).toBe("oura");
+      expect(payload.schemaVersion).toBe(1);
+      expect(typeof payload.fetchedAt).toBe("string");
+      expect(payload).not.toHaveProperty("payload");
+      expect(Object.values(payload).every((v) => v !== undefined)).toBe(true);
+    });
+
+    it("skips doc when day is missing", async () => {
+      await writeOuraVendorStressSnapshots("uid1", [{} as import("../ouraApi").OuraDailyStressDocument], "req-1");
+      expect(mockBatchSet).not.toHaveBeenCalled();
+      expect(mockBatchCommit).not.toHaveBeenCalled();
     });
   });
 });

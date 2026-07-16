@@ -24,7 +24,8 @@ import ouraSleepDayRefreshRouter from "./routes/integrations/ouraSleepDayRefresh
 import ouraPullRouter from "./routes/ouraPull";
 import { authMiddleware } from "./middleware/auth";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
-import { accessLogMiddleware, requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
+import { requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
+import { accessLogMiddleware } from "./middleware/accessLogMiddleware";
 
 const assertNoUsersMeWriteRoutes = (router: Router): void => {
   // Regression invariant: /users/me must be READ-only.

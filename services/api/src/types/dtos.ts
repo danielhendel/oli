@@ -65,8 +65,25 @@ export type { HealthSignalDoc } from "@oli/contracts/healthSignals";
 export {
   sleepViewDtoSchema,
   readinessViewDtoSchema,
+  ouraDailyStressDayDtoSchema,
+  ouraStressRangeQuerySchema,
+  ouraStressRangeResponseDtoSchema,
+  OURA_STRESS_RANGE_MAX_DAYS,
+  ouraReadinessRangeDayDtoSchema,
+  ouraReadinessRangeQuerySchema,
+  ouraReadinessRangeResponseDtoSchema,
+  OURA_READINESS_RANGE_MAX_DAYS,
 } from "@oli/contracts/ouraVendor";
-export type { SleepViewDto, ReadinessViewDto } from "@oli/contracts/ouraVendor";
+export type {
+  SleepViewDto,
+  ReadinessViewDto,
+  OuraDailyStressDayDto,
+  OuraStressRangeQuery,
+  OuraStressRangeResponseDto,
+  OuraReadinessRangeDayDto,
+  OuraReadinessRangeQuery,
+  OuraReadinessRangeResponseDto,
+} from "@oli/contracts/ouraVendor";
 
 // Canonical SleepNight read surface (GET /users/me/sleep-night)
 export {

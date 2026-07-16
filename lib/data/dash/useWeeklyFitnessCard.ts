@@ -1,3 +1,17 @@
+/**
+ * Dash Weekly Fitness card data source — assembles one {@link WeeklyFitnessCardModel}.
+ *
+ * Request budget (elapsed week ≤7 days):
+ * - prefs (shared)
+ * - activity steps rollup (shell keys; no year)
+ * - ≤7 daily-facts (week)
+ * - 1 sleep-nights range
+ * - 1 oura-readiness-range
+ * - 1 oura-stress range
+ * - body overview (shared; for Body Composition Score)
+ *
+ * No sleep-day-refresh, pull-now, or year workout hydrate.
+ */
 import { useCallback, useMemo } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -6,94 +20,80 @@ import { useActivityStepsRollupMap } from "@/lib/data/activity/ActivityRollupPro
 import { useActivityHealthKitTodayStepsCard } from "@/lib/data/activity/useActivityHealthKitTodayStepsCard";
 import type { ActivityStepsRollupMap } from "@/lib/data/activity/activityOverviewRollupTypes";
 import {
-  buildWeeklyFitnessProgressToGoalVm,
-  type WeeklyFitnessProgressToGoalVm,
-} from "@/lib/data/dash/buildWeeklyFitnessProgressToGoalVm";
+  buildWeeklyFitnessCardModel,
+  type WeeklyFitnessCardModel,
+} from "@/lib/data/dash/buildWeeklyFitnessCardModel";
 import {
   computeWeeklyFitnessActivityMetrics,
   computeWeeklyFitnessCardioMetricsFromFacts,
-  computeWeeklyFitnessCombinedProgress,
   computeWeeklyFitnessSleepMetrics,
   computeWeeklyFitnessStrengthMetricsFromFacts,
-  sumWeeklyStrengthWorkoutsCountFromDailyFacts,
-  weeklyFitnessGoalStatusForProgress,
-  weeklyFitnessGoalStatusLabel,
-  WEEKLY_FITNESS_BAR_FILL_COLOR,
-  type WeeklyFitnessCombinedProgress,
-  type WeeklyFitnessGoalStatus,
 } from "@/lib/data/dash/weeklyFitnessDashProgress";
+import { computeWeeklyNutritionLoggingCoverage } from "@/lib/data/dash/weeklyNutritionCoverage";
+import {
+  computeWeeklyStressBalancedCoverage,
+  type WeeklyStressDayInput,
+} from "@/lib/data/dash/ouraStressWeekly";
+import { computeWeeklyReadinessAverage } from "@/lib/data/dash/ouraReadinessWeekly";
 import { useWeeklyFitnessDailyFactsRollup } from "@/lib/data/dash/useWeeklyFitnessDailyFactsRollup";
+import { useWeeklyFitnessSleepRollupMap } from "@/lib/data/dash/useWeeklyFitnessSleepRollupMap";
+import { useOuraStressRange } from "@/lib/data/dash/useOuraStressRange";
+import { useOuraReadinessRange } from "@/lib/data/dash/useOuraReadinessRange";
+import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
+import { useOuraPresence } from "@/lib/data/useOuraPresence";
+import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { networkDayKeysThroughToday } from "@/lib/dates/boundDayKeys";
-import { isDebugDataLogsEnabled } from "@/lib/dev/debugDataLogs";
 import { getTodayDayKeyLocal, getWeekDaysForAnchor } from "@/lib/ui/calendar/dateUtils";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
-import { useWeeklyFitnessSleepRollupMap } from "@/lib/data/dash/useWeeklyFitnessSleepRollupMap";
-import { WEEKLY_FITNESS_ROUTES, type WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
+import {
+  WEEKLY_FITNESS_ROUTES,
+} from "@/lib/data/dash/weeklyFitnessRoutes";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import {
+  canonicalUnitForBodyCompositionMetric,
+  type BodyCompositionPrimaryMetric,
+} from "@oli/contracts";
+import type { OuraDailyStressSummary } from "@oli/contracts";
 
 export type { WeeklyFitnessRowKey } from "@/lib/data/dash/weeklyFitnessRoutes";
 export { WEEKLY_FITNESS_ROUTES, weeklyFitnessMetricPageHref } from "@/lib/data/dash/weeklyFitnessRoutes";
-
-export type WeeklyFitnessRow = {
-  key: WeeklyFitnessRowKey;
-  label: "Activity" | "Strength" | "Cardio" | "Sleep";
-  /** Visible row value: actual completed only ("9,992 avg steps", "3 workouts", "2.6 miles"). */
-  valueLabel: string;
-  /** Accessibility phrase that includes goal context (e.g. "9,992 average steps, goal 10,000 steps per day"). */
-  accessibilityValueLabel: string;
-  /** 0..1 visual bar fill (clamped, even when value exceeds goal). */
-  progress: number;
-  /** Whether this row's category has a goal configured (>0). When false, bar is muted. */
-  hasGoal: boolean;
-  /** Domain bar accent color (matches existing palette). */
-  barColor: string;
-  /** Goal completion status for accessibility / optional pill. */
-  status: WeeklyFitnessGoalStatus;
-  statusLabel: string;
-};
+export type { WeeklyFitnessMetricRowModel as WeeklyFitnessRow } from "@/lib/data/dash/buildWeeklyFitnessCardModel";
 
 export type UseWeeklyFitnessCardResult = {
   loading: boolean;
   error: string | null;
-  rows: WeeklyFitnessRow[];
-  /** Combined Weekly Fitness completion across enabled (goal>0) categories. */
-  combined: WeeklyFitnessCombinedProgress;
-  /** Right-aligned progress-to-goal summary for the ring row (same source as rows). */
-  progressToGoalVm: WeeklyFitnessProgressToGoalVm;
+  model: WeeklyFitnessCardModel | null;
   /** Always present; resolves to defaults when no goals are persisted. */
   goals: ReturnType<typeof resolveWeeklyFitnessGoals>;
-  /** Route for the "My goal" pressable. */
   goalsHref: string;
-  /** Shared source data underlying Dash Weekly Fitness rows. */
   baselineSource: {
     todayDayKey: DayKey;
     rollupByDay: Readonly<ActivityStepsRollupMap>;
-    /** Window the strength/cardio rows aggregate over (the current local week). */
     availableRangeStart: DayKey;
     availableRangeEnd: DayKey;
   };
 };
 
-/**
- * Dash Weekly Fitness card data source.
- *
- * **Workouts data path:** server-aggregated `dailyFacts.{strength.workoutsCount,
- * cardio.distanceMeters}` for the current week's day keys (7 lightweight
- * `GET /users/me/daily-facts?day=…` requests, de-duped via `dailyFactsSessionCache`).
- *
- * This hook intentionally does **not** call `useWorkoutsCalendarRange` or hydrate
- * raw workout payloads. Per the "Dashboard Weekly Fitness Timeout" audit, the legacy
- * year-wide raw-events hydrate (~0.5–1.5 MB, multiple paginated walks) was the root
- * cause of the "Could not load this week's data / Request timed out" failure.
- *
- * 404 dailyFacts docs (future or empty days) are treated as zero, never as errors.
- * The card surfaces an error only when at least one day produced a real
- * network/timeout/contract failure.
- */
+function resolveOuraConnection(
+  presence: ReturnType<typeof useOuraPresence>,
+): "connected" | "disconnected" | "reconnect_required" | "unknown" {
+  if (presence.status === "partial") return "unknown";
+  if (presence.status === "error") return "unknown";
+  if (!presence.data.connected) return "disconnected";
+  const importState = deriveOuraImportState({
+    connected: presence.data.connected,
+    lastSnapshotAt: presence.data.lastSnapshotAt,
+    backfillStatus: presence.data.backfillStatus,
+  });
+  if (importState === "failed") return "reconnect_required";
+  return "connected";
+}
+
 export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   const { user, initializing } = useAuth();
   const todayDayKey = getTodayDayKeyLocal();
+  const enabled = Boolean(user) && !initializing;
 
   const { state: prefState } = usePreferences();
   const weeklyGoalsStamp = prefState.preferences.weeklyFitnessGoals?.updatedAt;
@@ -101,6 +101,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     () => resolveWeeklyFitnessGoals(prefState.preferences),
     [prefState.preferences, weeklyGoalsStamp],
   );
+  const bodyGoal = prefState.preferences.bodyCompositionGoal ?? null;
 
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(todayDayKey), [todayDayKey]);
   const weekNetworkDayKeys = useMemo(
@@ -108,12 +109,20 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     [weekDayKeys, todayDayKey],
   );
 
+  const weekStartDay = weekDayKeys[0]!;
+  const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
+  const networkStart = weekNetworkDayKeys[0] ?? null;
+  const networkEnd =
+    weekNetworkDayKeys.length > 0
+      ? weekNetworkDayKeys[weekNetworkDayKeys.length - 1]!
+      : null;
+
   const stepsRollup = useActivityStepsRollupMap(todayDayKey, { registerStripAnchor: false });
   const displayRollup = stepsRollup.rollupDisplayByDay;
 
   const { hkToday } = useActivityHealthKitTodayStepsCard({
     todayDayKey,
-    enabled: Boolean(user) && !initializing,
+    enabled,
   });
 
   const rollupMergedForWeek = useMemo(() => {
@@ -124,26 +133,34 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
     return m;
   }, [displayRollup, hkToday, todayDayKey, user]);
 
-  const weekStartDay = weekDayKeys[0]!;
-  const weekEndDay = weekDayKeys[weekDayKeys.length - 1]!;
-
   const dailyFactsWeeklyRollup = useWeeklyFitnessDailyFactsRollup(weekNetworkDayKeys);
-
   const sleepRollup = useWeeklyFitnessSleepRollupMap(weekNetworkDayKeys);
+  const readinessRange = useOuraReadinessRange(networkStart, networkEnd, { enabled });
+  const stressRange = useOuraStressRange(networkStart, networkEnd, { enabled });
+  const ouraPresence = useOuraPresence();
+  const body = useBodyOverviewData();
 
   useFocusEffect(
     useCallback(() => {
       void stepsRollup.refetch({ cacheBust: `weeklyFitnessSteps:${Date.now()}` });
       sleepRollup.refetch({ cacheBust: `weeklyFitnessSleep:${Date.now()}` });
       dailyFactsWeeklyRollup.refetch({ cacheBust: `weeklyFitnessDailyFacts:${Date.now()}` });
-    }, [dailyFactsWeeklyRollup.refetch, sleepRollup.refetch, stepsRollup.refetch]),
+      readinessRange.refetch({ cacheBust: `weeklyFitnessReadiness:${Date.now()}` });
+      stressRange.refetch({ cacheBust: `weeklyFitnessStress:${Date.now()}` });
+    }, [
+      dailyFactsWeeklyRollup.refetch,
+      sleepRollup.refetch,
+      stepsRollup.refetch,
+      readinessRange.refetch,
+      stressRange.refetch,
+    ]),
   );
 
-  const { rows, combined, progressToGoalVm } = useMemo((): {
-    rows: WeeklyFitnessRow[];
-    combined: WeeklyFitnessCombinedProgress;
-    progressToGoalVm: WeeklyFitnessProgressToGoalVm;
-  } => {
+  const ouraConnection = resolveOuraConnection(ouraPresence);
+
+  const model = useMemo((): WeeklyFitnessCardModel | null => {
+    if (!user || initializing) return null;
+
     const activity = computeWeeklyFitnessActivityMetrics({
       weekDayKeys,
       todayDayKey,
@@ -151,27 +168,13 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalStepsPerDay: goals.activityStepsPerDayGoal,
     });
 
-    const strengthFactsInput = {
+    const strength = computeWeeklyFitnessStrengthMetricsFromFacts({
       factsByDay: dailyFactsWeeklyRollup.byDay,
       weekDayKeys,
       weekStartDay,
       weekEndDay,
-    };
-    const strength = computeWeeklyFitnessStrengthMetricsFromFacts({
-      ...strengthFactsInput,
       goalWorkoutsPerWeek: goals.strengthWorkoutsPerWeekGoal,
     });
-
-    if (__DEV__ && isDebugDataLogsEnabled()) {
-      const { perDay, total } = sumWeeklyStrengthWorkoutsCountFromDailyFacts(strengthFactsInput);
-      // eslint-disable-next-line no-console
-      console.log("[WEEKLY_FITNESS_STRENGTH_TOTAL]", {
-        operation: "weekly_fitness_strength_total",
-        dayCount: Object.keys(perDay).length,
-        hasWeeklyTotal: Number.isFinite(total),
-        hasValueLabel: Boolean(strength.valueLabel),
-      });
-    }
 
     const cardio = computeWeeklyFitnessCardioMetricsFromFacts({
       factsByDay: dailyFactsWeeklyRollup.byDay,
@@ -188,99 +191,134 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
       goalHoursPerNight: goals.sleepHoursPerNightGoal,
     });
 
-    const activityStatus = weeklyFitnessGoalStatusForProgress(activity.goalProgress01);
-    const strengthStatus = weeklyFitnessGoalStatusForProgress(strength.goalProgress01);
-    const cardioStatus = weeklyFitnessGoalStatusForProgress(cardio.goalProgress01);
-    const sleepStatus = weeklyFitnessGoalStatusForProgress(sleep.goalProgress01);
+    const readiness = computeWeeklyReadinessAverage({
+      days: readinessRange.status === "partial" ? [] : readinessRange.days,
+      elapsedDayKeys: weekNetworkDayKeys,
+      rangeStatus:
+        readinessRange.status === "partial"
+          ? "partial"
+          : readinessRange.status === "error"
+            ? "error"
+            : "ready",
+      ouraConnection,
+    });
 
-    const computedRows: WeeklyFitnessRow[] = [
-      {
-        key: "activity",
-        label: "Activity",
-        valueLabel: activity.valueLabel,
-        accessibilityValueLabel: activity.accessibilityValueLabel,
-        progress: activity.goalProgress01,
-        hasGoal: activity.goalStepsPerDay > 0,
-        barColor: WEEKLY_FITNESS_BAR_FILL_COLOR,
-        status: activityStatus,
-        statusLabel: weeklyFitnessGoalStatusLabel(activityStatus),
-      },
-      {
-        key: "strength",
-        label: "Strength",
-        valueLabel: strength.valueLabel,
-        accessibilityValueLabel: strength.accessibilityValueLabel,
-        progress: strength.goalProgress01,
-        hasGoal: strength.goalWorkoutsPerWeek > 0,
-        barColor: WEEKLY_FITNESS_BAR_FILL_COLOR,
-        status: strengthStatus,
-        statusLabel: weeklyFitnessGoalStatusLabel(strengthStatus),
-      },
-      {
-        key: "cardio",
-        label: "Cardio",
-        valueLabel: cardio.valueLabel,
-        accessibilityValueLabel: cardio.accessibilityValueLabel,
-        progress: cardio.goalProgress01,
-        hasGoal: cardio.goalMilesPerWeek > 0,
-        barColor: WEEKLY_FITNESS_BAR_FILL_COLOR,
-        status: cardioStatus,
-        statusLabel: weeklyFitnessGoalStatusLabel(cardioStatus),
-      },
-      {
-        key: "sleep",
-        label: "Sleep",
-        valueLabel: sleep.valueLabel,
-        accessibilityValueLabel: sleep.accessibilityValueLabel,
-        progress: sleep.goalProgress01,
-        hasGoal: sleep.goalHoursPerNight > 0,
-        barColor: WEEKLY_FITNESS_BAR_FILL_COLOR,
-        status: sleepStatus,
-        statusLabel: weeklyFitnessGoalStatusLabel(sleepStatus),
-      },
-    ];
+    const nutrition = computeWeeklyNutritionLoggingCoverage({
+      factsByDay: dailyFactsWeeklyRollup.byDay,
+      elapsedDayKeys: weekNetworkDayKeys,
+      rollupStatus: dailyFactsWeeklyRollup.status,
+    });
 
-    const combinedNext = computeWeeklyFitnessCombinedProgress({
+    const stressDays: WeeklyStressDayInput[] = [];
+    if (stressRange.status === "ready" || stressRange.status === "error") {
+      for (const d of stressRange.days) {
+        if (d.daySummary == null) continue;
+        stressDays.push({
+          day: d.day,
+          daySummary: d.daySummary as OuraDailyStressSummary,
+        });
+      }
+    }
+
+    let stress = computeWeeklyStressBalancedCoverage({ days: stressDays });
+    let stressState: "ready" | "no_data" | "connect_oura" | "reconnect_oura" | "error" | "partial" =
+      stress.progress01 != null ? "ready" : "no_data";
+
+    if (ouraConnection === "disconnected") {
+      stress = {
+        ...stress,
+        progress01: null,
+        displayValue: "Connect Oura",
+        accessibilityLabel:
+          "Stress, connect Oura, button. Opens Oura connection settings.",
+      };
+      stressState = "connect_oura";
+    } else if (ouraConnection === "reconnect_required") {
+      stress = {
+        ...stress,
+        progress01: null,
+        displayValue: "Reconnect Oura",
+        accessibilityLabel:
+          "Stress, reconnect Oura, button. Opens Oura connection settings.",
+      };
+      stressState = "reconnect_oura";
+    } else if (stressRange.status === "partial") {
+      stress = {
+        ...stress,
+        progress01: null,
+        displayValue: "\u2014",
+        accessibilityLabel: "Stress, loading, button. Opens Stress analytics.",
+      };
+      stressState = "partial";
+    } else if (stressRange.status === "error") {
+      stress = {
+        ...stress,
+        progress01: null,
+        displayValue: "Unavailable",
+        accessibilityLabel: "Stress, unavailable, button. Opens Stress analytics.",
+      };
+      stressState = "error";
+    }
+
+    const metric: BodyCompositionPrimaryMetric | null = bodyGoal?.primaryMetric ?? null;
+    let latestValue: number | null = null;
+    const latestUnit = metric != null ? canonicalUnitForBodyCompositionMetric(metric) : null;
+    if (metric === "weight") latestValue = body.overview.weightKg;
+    else if (metric === "bodyFat") latestValue = body.overview.bodyFatPercent;
+    else if (metric === "leanMass") latestValue = body.overview.leanBodyMassKg;
+
+    return buildWeeklyFitnessCardModel({
       activity,
       strength,
       cardio,
       sleep,
+      readiness,
+      nutrition,
+      stress: { ...stress, state: stressState },
+      bodyGoal,
+      latestTrusted: {
+        metric,
+        value: latestValue,
+        unit: latestUnit,
+        measuredAt: body.overview.latestObservedAtIso,
+      },
     });
-
-    const progressToGoalVmNext = buildWeeklyFitnessProgressToGoalVm({
-      activity,
-      strength,
-      cardio,
-      sleep,
-    });
-
-    return { rows: computedRows, combined: combinedNext, progressToGoalVm: progressToGoalVmNext };
   }, [
-    dailyFactsWeeklyRollup.byDay,
+    user,
+    initializing,
+    weekDayKeys,
+    todayDayKey,
+    rollupMergedForWeek,
     goals.activityStepsPerDayGoal,
+    goals.strengthWorkoutsPerWeekGoal,
     goals.cardioMilesPerWeekGoal,
     goals.sleepHoursPerNightGoal,
-    goals.strengthWorkoutsPerWeekGoal,
-    rollupMergedForWeek,
-    sleepRollup.sleepNightByDay,
-    todayDayKey,
-    weekDayKeys,
-    weekEndDay,
+    dailyFactsWeeklyRollup.byDay,
+    dailyFactsWeeklyRollup.status,
     weekStartDay,
+    weekEndDay,
+    sleepRollup.sleepNightByDay,
+    readinessRange,
+    weekNetworkDayKeys,
+    ouraConnection,
+    stressRange,
+    bodyGoal,
+    body.overview.weightKg,
+    body.overview.bodyFatPercent,
+    body.overview.leanBodyMassKg,
+    body.overview.latestObservedAtIso,
   ]);
 
   const activityLoading =
-    Boolean(user) &&
-    !initializing &&
-    stepsRollup.status === "partial" &&
-    Object.keys(displayRollup).length === 0;
+    enabled && stepsRollup.status === "partial" && Object.keys(displayRollup).length === 0;
+  const dailyFactsLoading = enabled && dailyFactsWeeklyRollup.status === "partial";
+  const sleepLoading = enabled && sleepRollup.status === "partial";
+  const readinessLoading = enabled && readinessRange.status === "partial";
+  const stressLoading = enabled && stressRange.status === "partial";
 
-  const dailyFactsLoading =
-    Boolean(user) && !initializing && dailyFactsWeeklyRollup.status === "partial";
-
-  const sleepLoading = Boolean(user) && !initializing && sleepRollup.status === "partial";
-
-  const loading = Boolean(initializing || activityLoading || dailyFactsLoading || sleepLoading);
+  const loading = Boolean(
+    initializing || activityLoading || dailyFactsLoading || sleepLoading || readinessLoading || stressLoading,
+  );
 
   const error = useMemo((): string | null => {
     if (!user || initializing || loading) return null;
@@ -291,9 +329,7 @@ export function useWeeklyFitnessCard(): UseWeeklyFitnessCardResult {
   return {
     loading,
     error,
-    rows,
-    combined,
-    progressToGoalVm,
+    model,
     goals,
     goalsHref: WEEKLY_FITNESS_ROUTES.goalsEditor,
     baselineSource: {

@@ -54,17 +54,7 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
   useWeeklyFitnessCard: () => ({
     loading: false,
     error: null,
-    rows: [],
-    combined: { progress: 0, percent: 0, enabledCategoryCount: 0 },
-    progressToGoalVm: {
-      items: [
-        { key: "activity", iconKey: "activity", primary: "Goal not set", support: "" },
-        { key: "strength", iconKey: "strength", primary: "Goal not set", support: "" },
-        { key: "cardio", iconKey: "cardio", primary: "Goal not set", support: "" },
-        { key: "sleep", iconKey: "sleep", primary: "Goal not set", support: "" },
-      ],
-      accessibilityLabel: "Progress to goal. Goal not set. Goal not set. Goal not set. Goal not set.",
-    },
+    model: null,
     goals: {
       activityStepsPerDayGoal: 10000,
       strengthWorkoutsPerWeekGoal: 5,

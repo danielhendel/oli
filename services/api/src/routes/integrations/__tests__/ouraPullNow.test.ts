@@ -61,6 +61,7 @@ jest.mock("../../../lib/ouraApi", () => ({
   resolveOuraSleepIngestBase: jest.fn(() => null),
   fetchOuraDailyReadiness: jest.fn(),
   fetchOuraDailySleep: jest.fn().mockResolvedValue([]),
+  fetchOuraDailyStress: jest.fn().mockResolvedValue([]),
   fetchOuraPersonalInfo: jest.fn().mockResolvedValue(null),
   fetchOuraDailyActivity: jest.fn().mockResolvedValue([]),
   fetchOuraWorkouts: jest.fn().mockResolvedValue([]),
@@ -166,6 +167,12 @@ jest.mock("../../../lib/ouraVendorSnapshot", () => ({
     skippedMissingDay: 0,
     errors: 0,
   }),
+  writeOuraVendorStressSnapshots: jest.fn().mockResolvedValue({
+    attempted: 0,
+    written: 0,
+    skippedMissingDay: 0,
+    errors: 0,
+  }),
 }));
 
 jest.mock("../../../lib/writeFailure", () => ({
@@ -192,7 +199,7 @@ describe("POST /integrations/oura/pull-now", () => {
     app.use(express.json());
     app.use((req, _res, next) => {
       (req as unknown as { uid: string; rid: string }).uid = "user_oura_1";
-      (req as unknown as { rid: string }).rid = "req-oura-pull";
+      (req as unknown as { rid: string }).rid = "3237605a-ceb7-44bc-958e-be8954b9e939";
       next();
     });
     app.use("/integrations/oura/pull-now", ouraPullNowRouter);
@@ -210,8 +217,17 @@ describe("POST /integrations/oura/pull-now", () => {
     allowConsoleForThisTest({
       error: [
         (args: unknown[]) => String(args[0] ?? "").includes("oura_pull_now"),
-        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_persistence"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_pull_failed"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_persist"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_enqueue"),
         (args: unknown[]) => String(args[0] ?? "").includes("oura_post_raw_job"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_legacy_recovery"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_reconnect"),
+      ],
+      warn: [
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_token_refresh"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_provider_fetch"),
+        (args: unknown[]) => String(args[0] ?? "").includes("oura_backfill"),
       ],
     });
     jest.clearAllMocks();
@@ -300,7 +316,7 @@ describe("POST /integrations/oura/pull-now", () => {
       .set("Idempotency-Key", "oura-pull-success");
     expect(res.status).toBe(202);
     expect(res.body.ok).toBe(true);
-    expect(res.body.requestId).toBe("req-oura-pull");
+    expect(res.body.requestId).toBe("3237605a-ceb7-44bc-958e-be8954b9e939");
     expect(res.body.eventsCreated).toBe(2);
     expect(res.body.eventsAlreadyExists).toBe(0);
     expect(res.body.windowDays).toBe(30);
@@ -313,7 +329,7 @@ describe("POST /integrations/oura/pull-now", () => {
       "user_oura_1",
       expect.any(Array),
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
       expect.objectContaining({
         stepsItems: expect.any(Array),
         workoutItems: expect.any(Array),
@@ -335,14 +351,14 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
       expect.any(Array),
       expect.any(Array),
     );
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalledWith(
       "user_oura_1",
       expect.any(Array),
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
     );
   });
 
@@ -389,9 +405,17 @@ describe("POST /integrations/oura/pull-now", () => {
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     const errorCalls = errorSpy.mock.calls.filter(
-      (c: unknown[]) => Array.isArray(c) && c[0]?.msg === "oura_post_raw_persistence_error",
+      (c: unknown[]) =>
+        Array.isArray(c) &&
+        typeof c[0] === "object" &&
+        c[0] != null &&
+        (c[0] as { msg?: string }).msg === "oura_post_raw_persist_failed",
     );
     expect(errorCalls.length).toBeGreaterThanOrEqual(1);
+    const payload = errorCalls[0]![0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("uid");
+    expect(payload).toHaveProperty("safeErrorCode");
+    expect(payload).not.toHaveProperty("err");
     errorSpy.mockRestore();
   });
 
@@ -404,21 +428,24 @@ describe("POST /integrations/oura/pull-now", () => {
     expect(res.body.ok).toBe(true);
     expect(ouraPostRawJob.publishOuraPostRawJob).toHaveBeenCalledWith(
       "user_oura_1",
-      "req-oura-pull",
+      "3237605a-ceb7-44bc-958e-be8954b9e939",
+      expect.any(Array),
       expect.any(Array),
       expect.any(Array),
       expect.any(Array),
     );
-    const [, , sleepDocs, readinessDocs, dailySleepDocs] = (
+    const [, , sleepDocs, readinessDocs, dailySleepDocs, dailyStressDocs] = (
       ouraPostRawJob.publishOuraPostRawJob as jest.Mock
     ).mock.calls[0];
     expect(sleepDocs).toHaveLength(1);
     expect(readinessDocs).toHaveLength(1);
     expect(dailySleepDocs).toEqual([]);
+    expect(dailyStressDocs).toEqual([]);
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     expect(ouraVendorSnapshot.writeOuraVendorSleepSnapshots).toHaveBeenCalled();
     expect(ouraVendorSnapshot.writeOuraVendorReadinessSnapshots).toHaveBeenCalled();
+    expect(ouraVendorSnapshot.writeOuraVendorStressSnapshots).toHaveBeenCalled();
   });
 
   it("falls back to in-process post-raw when enqueue fails", async () => {

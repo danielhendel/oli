@@ -3,7 +3,7 @@
  * Used by POST /integrations/oura/pull-now. OAuth token URL and scopes match integrations.ts.
  */
 
-import { logger } from "./logger";
+import { logOuraRefreshTelemetry } from "./ouraRefreshTelemetry";
 import {
   normalizeOuraLatencyRawToMinutes,
   ouraSleepWakeIsoForLog,
@@ -81,6 +81,20 @@ export type OuraDailySleepDocument = {
   timestamp?: string;
   score?: number | null;
   contributors?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+/**
+ * Oura API v2 daily_stress — calendar-day stress summary.
+ * `day_summary`: restored | normal | stressful (nullable).
+ * `stress_high` / `recovery_high`: seconds (number | null).
+ */
+export type OuraDailyStressDocument = {
+  id?: string;
+  day?: string;
+  day_summary?: "restored" | "normal" | "stressful" | null;
+  stress_high?: number | null;
+  recovery_high?: number | null;
   [key: string]: unknown;
 };
 
@@ -236,27 +250,24 @@ export async function fetchOuraSleep(
       break;
     }
     if (pages >= OURA_SLEEP_FETCH_MAX_PAGES) {
-      logger.error({
-        msg: "oura_sleep_fetch_page_cap",
-        startDate,
-        endDate,
-        pages,
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "sleep",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
         ...(options?.requestId ? { requestId: options.requestId } : {}),
-        ...(options?.uid ? { uid: options.uid } : {}),
       });
       break;
     }
     nextRequestToken = responseNext;
   }
 
-  logger.info({
-    msg: "oura_sleep_fetch_complete",
-    startDate,
-    endDate,
-    pages,
-    rowCount: aggregated.length,
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "sleep",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
     ...(options?.requestId ? { requestId: options.requestId } : {}),
-    ...(options?.uid ? { uid: options.uid } : {}),
   });
 
   return aggregated;
@@ -353,27 +364,102 @@ export async function fetchOuraDailySleep(
     if (!token) break;
     nextRequestToken = token;
     if (pages >= 50) {
-      logger.warn({
-        msg: "oura_daily_sleep_fetch_page_cap",
-        startDate,
-        endDate,
-        pages,
-        rowCount: aggregated.length,
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "daily_sleep",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
         ...(options?.requestId ? { requestId: options.requestId } : {}),
-        ...(options?.uid ? { uid: options.uid } : {}),
       });
       break;
     }
   }
 
-  logger.info({
-    msg: "oura_daily_sleep_fetch_complete",
-    startDate,
-    endDate,
-    pages,
-    rowCount: aggregated.length,
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "daily_sleep",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
     ...(options?.requestId ? { requestId: options.requestId } : {}),
-    ...(options?.uid ? { uid: options.uid } : {}),
+  });
+
+  return aggregated;
+}
+
+/** Follow `next_token` up to this many daily_stress list pages. */
+const OURA_DAILY_STRESS_FETCH_MAX_PAGES = 50;
+
+/**
+ * GET /v2/usercollection/daily_stress?start_date=...&end_date=...[&next_token=...]
+ * Paginates with `next_token` until exhausted (same contract as {@link fetchOuraDailySleep}).
+ * Routine logs are privacy-safe aggregates only (counts / pages — no days, values, or tokens).
+ */
+export async function fetchOuraDailyStress(
+  accessToken: string,
+  startDate: string,
+  endDate: string,
+  options?: { requestId?: string },
+): Promise<OuraDailyStressDocument[]> {
+  const aggregated: OuraDailyStressDocument[] = [];
+  let nextRequestToken: string | undefined;
+  let pages = 0;
+
+  for (;;) {
+    const url = new URL(`${OURA_API_BASE}/daily_stress`);
+    url.searchParams.set("start_date", startDate);
+    url.searchParams.set("end_date", endDate);
+    if (nextRequestToken) {
+      url.searchParams.set("next_token", nextRequestToken);
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (res.status === 401) {
+      throw new OuraApiError("Unauthorized", "OURA_UNAUTHORIZED", 401);
+    }
+    if (res.status !== 200) {
+      const text = await res.text();
+      throw new OuraApiError(
+        text || `HTTP ${res.status}`,
+        "OURA_DAILY_STRESS_FETCH_FAILED",
+        res.status,
+      );
+    }
+
+    const json = (await res.json()) as {
+      data?: OuraDailyStressDocument[];
+      next_token?: string;
+    };
+    const chunk = Array.isArray(json.data) ? json.data : [];
+    aggregated.push(...chunk);
+    pages += 1;
+
+    const token =
+      typeof json.next_token === "string" && json.next_token.trim().length > 0
+        ? json.next_token.trim()
+        : undefined;
+    if (!token) break;
+    nextRequestToken = token;
+    if (pages >= OURA_DAILY_STRESS_FETCH_MAX_PAGES) {
+      logOuraRefreshTelemetry({
+        operation: "oura_provider_fetch_page_capped",
+        dataset: "daily_stress",
+        pageCount: pages,
+        providerItemCount: aggregated.length,
+        ...(options?.requestId ? { requestId: options.requestId } : {}),
+      });
+      break;
+    }
+  }
+
+  logOuraRefreshTelemetry({
+    operation: "oura_provider_fetch_completed",
+    dataset: "daily_stress",
+    pageCount: pages,
+    providerItemCount: aggregated.length,
+    ...(options?.requestId ? { requestId: options.requestId } : {}),
   });
 
   return aggregated;

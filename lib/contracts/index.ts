@@ -14,6 +14,7 @@ export * from "./weight";
 
 // ✅ Preferences (Phase 1)
 export * from "./preferences";
+export * from "./bodyCompositionGoal";
 
 // User profile main doc (`users/{uid}/profile/main`)
 export * from "./userProfileMain";

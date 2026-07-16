@@ -7,14 +7,17 @@ import {
   useWeeklyFitnessGoalsEditor,
   WEEKLY_FITNESS_GOALS_EXPLAINER,
 } from "@/lib/preferences/useWeeklyFitnessGoalsEditor";
+import { useBodyCompositionGoalEditor } from "@/lib/preferences/useBodyCompositionGoalEditor";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { WeeklyFitnessGoalsForm } from "@/lib/ui/dash/WeeklyFitnessGoalsForm";
+import { BodyCompositionGoalForm } from "@/lib/ui/dash/BodyCompositionGoalForm";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 export default function FitnessGoalsScreen() {
   const navigation = useNavigation();
   const editor = useWeeklyFitnessGoalsEditor();
+  const bodyGoalEditor = useBodyCompositionGoalEditor();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -42,6 +45,7 @@ export default function FitnessGoalsScreen() {
         onChangeField={editor.setFieldText}
         onSave={() => void editor.save()}
       />
+      <BodyCompositionGoalForm editor={bodyGoalEditor} />
     </ScrollView>
   );
 }

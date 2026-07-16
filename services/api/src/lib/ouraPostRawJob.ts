@@ -8,6 +8,7 @@ import type {
   OuraSleepDocument,
   OuraDailyReadinessDocument,
   OuraDailySleepDocument,
+  OuraDailyStressDocument,
 } from "./ouraApi";
 
 export type OuraPostRawPayload = {
@@ -16,6 +17,8 @@ export type OuraPostRawPayload = {
   sleepDocs: OuraSleepDocument[];
   readinessDocs: OuraDailyReadinessDocument[];
   dailySleepDocs?: OuraDailySleepDocument[];
+  /** Optional for backward compatibility with older producers. */
+  dailyStressDocs?: OuraDailyStressDocument[];
 };
 
 const TOPIC_ENV_KEY = "TOPIC_OURA_POST_RAW";
@@ -32,6 +35,7 @@ export function getOuraPostRawTopic(): string | null {
 
 /**
  * Publish a post-raw job to Pub/Sub. Returns message id if topic is configured and publish succeeds; null otherwise.
+ * Additive: `dailyStressDocs` defaults to [] so older callers remain valid.
  */
 export async function publishOuraPostRawJob(
   uid: string,
@@ -39,6 +43,7 @@ export async function publishOuraPostRawJob(
   sleepDocs: OuraSleepDocument[],
   readinessDocs: OuraDailyReadinessDocument[],
   dailySleepDocs: OuraDailySleepDocument[] = [],
+  dailyStressDocs: OuraDailyStressDocument[] = [],
 ): Promise<string | null> {
   const topic = getOuraPostRawTopic();
   if (!topic) return null;
@@ -49,6 +54,7 @@ export async function publishOuraPostRawJob(
     sleepDocs,
     readinessDocs,
     dailySleepDocs,
+    dailyStressDocs,
   };
   const messageId = await publishJSON(topic, payload, {
     uid,

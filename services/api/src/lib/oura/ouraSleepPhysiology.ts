@@ -4,7 +4,6 @@
  * Matches Oura app sleep summary; not derived from heartrate/HRV time series.
  */
 
-import { logger } from "../logger";
 import type { OuraSleepWindowDocument } from "./resolveOuraSleepIngestBase";
 
 function coerceOptionalNumber(val: unknown): number | undefined {
@@ -79,17 +78,14 @@ export type OuraSleepPhysiologyDebug = {
   end: string | null;
 };
 
+/**
+ * Permanently disabled: previously env-gated debug telemetry logged uid, day,
+ * document ids, and physiology fields. Environment gating is not privacy protection.
+ * Call sites may remain; this function is a no-op.
+ */
 export function logOuraSleepPhysiologyDebugIfEnabled(debug: OuraSleepPhysiologyDebug): void {
-  if (
-    process.env.OURA_SLEEP_PHYSIOLOGY_DEBUG !== "1" &&
-    process.env.OURA_SLEEP_PHYSIOLOGY_DEBUG !== "true"
-  ) {
-    return;
-  }
-  logger.info({
-    msg: "[OURA_SLEEP_PHYSIOLOGY_DEBUG]",
-    ...debug,
-  });
+  void debug;
+  return;
 }
 
 /** Emit debug line for one Oura sleep API document (pull-now / snapshot write). */

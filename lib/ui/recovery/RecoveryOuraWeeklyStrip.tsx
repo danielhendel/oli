@@ -16,7 +16,7 @@ export type RecoveryOuraWeeklyStripProps = {
   selectedDay?: string;
   onDayPress: (day: string) => void;
   /** Used for accessibility strings only. */
-  categoryLabel: "sleep" | "readiness";
+  categoryLabel: "sleep" | "readiness" | "stress";
   testIDPrefix?: string;
   /** Stronger selected-day typography + softer unselected labels (Sleep polish). */
   stripVariant?: "default" | "sleep";
@@ -41,9 +41,13 @@ export function RecoveryOuraWeeklyStrip({
               ? hasOuraSnapshot
                 ? `${d.day}, has sleep data`
                 : `${d.day}, no sleep data`
-              : hasOuraSnapshot
-                ? `${d.day}, has Oura readiness data`
-                : `${d.day}, no Oura readiness data`;
+              : categoryLabel === "stress"
+                ? hasOuraSnapshot
+                  ? `${d.day}, has Oura stress data`
+                  : `${d.day}, no Oura stress data`
+                : hasOuraSnapshot
+                  ? `${d.day}, has Oura readiness data`
+                  : `${d.day}, no Oura readiness data`;
           return (
             <CalendarDayCell
               key={d.day}

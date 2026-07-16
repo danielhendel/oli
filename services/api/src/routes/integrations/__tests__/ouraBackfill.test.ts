@@ -1,6 +1,7 @@
 /**
  * Oura backfill — chunked, idempotent historical pull for sleep + readiness.
  */
+import { allowConsoleForThisTest } from "../../../../../../scripts/test/consoleGuard";
 import { triggerOuraBackfill } from "../ouraPullNow";
 
 jest.mock("../../../db", () => ({
@@ -76,6 +77,10 @@ const ouraVendorSnapshot = require("../../../lib/ouraVendorSnapshot");
 describe("triggerOuraBackfill", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    allowConsoleForThisTest({
+      error: [/oura_backfill_/],
+      warn: [/oura_backfill_/],
+    });
     (ouraSecrets.getRefreshToken as jest.Mock).mockResolvedValue("rt_xxx");
     (ouraApi.refreshOuraAccessToken as jest.Mock).mockResolvedValue({
       access_token: "at_yyy",

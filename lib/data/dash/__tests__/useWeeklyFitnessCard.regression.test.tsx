@@ -81,6 +81,48 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessSleepRollupMap", () => ({
   useWeeklyFitnessSleepRollupMap: (...args: unknown[]) => mockUseWeeklyFitnessSleepRollupMap(...args),
 }));
 
+jest.mock("@/lib/data/dash/useOuraStressRange", () => ({
+  useOuraStressRange: () => ({
+    status: "ready" as const,
+    days: [],
+    start: "2026-05-31",
+    end: "2026-06-04",
+    refetch: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/dash/useOuraReadinessRange", () => ({
+  useOuraReadinessRange: () => ({
+    status: "ready" as const,
+    days: [],
+    start: "2026-05-31",
+    end: "2026-06-04",
+    refetch: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
+  useBodyOverviewData: () => ({
+    overview: {
+      weightKg: null,
+      bodyFatPercent: null,
+      leanBodyMassKg: null,
+      latestObservedAtIso: null,
+      hasAnyMetric: false,
+    },
+    series: { status: "ready" },
+    peek: { status: "ready", items: [] },
+  }),
+}));
+
+jest.mock("@/lib/data/useOuraPresence", () => ({
+  useOuraPresence: () => ({
+    status: "ready" as const,
+    data: { connected: false, lastSyncAt: null },
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => mockUsePreferences(),
 }));
@@ -215,10 +257,11 @@ describe("useWeeklyFitnessCard regression (audit fix)", () => {
     await flush();
 
     expect(latest!.error).toBeNull();
-    const strengthRow = latest!.rows.find((r) => r.key === "strength");
-    const cardioRow = latest!.rows.find((r) => r.key === "cardio");
-    expect(strengthRow?.valueLabel).toBe("0 workouts");
-    expect(cardioRow?.valueLabel).toBe("0.0 miles");
+    const strengthRow = latest!.model?.metrics.find((r) => r.key === "strength");
+    const cardioRow = latest!.model?.metrics.find((r) => r.key === "cardio");
+    // Missing dailyFacts (404) → no trusted data → em dash (not fabricated zero).
+    expect(strengthRow?.valueLabel).toBe("\u2014");
+    expect(cardioRow?.valueLabel).toBe("\u2014");
   });
 
   it("surfaces an error when a real network timeout occurs", async () => {
@@ -273,7 +316,7 @@ describe("useWeeklyFitnessCard regression (audit fix)", () => {
     });
     await flush();
 
-    const strengthRow = latest!.rows.find((r) => r.key === "strength");
+    const strengthRow = latest!.model?.metrics.find((r) => r.key === "strength");
     expect(strengthRow?.valueLabel).toBe("4 workouts");
     expect(mockGetDailyFacts.mock.calls.length).toBeLessThanOrEqual(14);
   });
@@ -305,11 +348,11 @@ describe("useWeeklyFitnessCard regression (audit fix)", () => {
     const dayCount = mockGetDailyFacts.mock.calls.length;
     expect(dayCount).toBeGreaterThan(0);
 
-    const strengthRow = latest!.rows.find((r) => r.key === "strength");
+    const strengthRow = latest!.model?.metrics.find((r) => r.key === "strength");
     expect(strengthRow?.valueLabel).toBe(`${dayCount} ${dayCount === 1 ? "workout" : "workouts"}`);
 
     const expectedMiles = ((dayCount * 1_000) / 1609.344).toFixed(1);
-    const cardioRow = latest!.rows.find((r) => r.key === "cardio");
+    const cardioRow = latest!.model?.metrics.find((r) => r.key === "cardio");
     expect(cardioRow?.valueLabel).toBe(`${expectedMiles} miles`);
   });
 });

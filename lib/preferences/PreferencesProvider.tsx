@@ -7,7 +7,13 @@ import React, {
     useState,
   } from "react";
   
-  import { defaultPreferences, type Preferences, type MassUnit, type WeeklyFitnessGoals } from "@oli/contracts";
+  import {
+    defaultPreferences,
+    type Preferences,
+    type MassUnit,
+    type WeeklyFitnessGoals,
+    type BodyCompositionGoalV1,
+  } from "@oli/contracts";
   import { useAuth } from "@/lib/auth/AuthProvider";
   import {
     getPreferences,
@@ -15,6 +21,7 @@ import React, {
     updateSelectedGymId,
     updateMetricSourcePreference,
     updateWeeklyFitnessGoals,
+    updateBodyCompositionGoal,
   } from "@/lib/api/preferences";
   import { applySubmittedWeeklyFitnessGoalsToPreferences } from "@/lib/preferences/weeklyFitnessGoals";
   
@@ -42,6 +49,11 @@ import React, {
         | "sleepHoursPerNightGoal"
       >,
     ) => Promise<boolean>;
+    /**
+     * Persist or clear Body Composition Goal V1 via PUT /preferences.
+     * Pass null to clear. Returns true on success.
+     */
+    setBodyCompositionGoal: (goal: BodyCompositionGoalV1 | null) => Promise<boolean>;
   };
   
   const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -229,6 +241,53 @@ import React, {
       return true;
     };
 
+    const setBodyCompositionGoalFn = async (
+      goal: BodyCompositionGoalV1 | null,
+    ): Promise<boolean> => {
+      if (initializing || !user) {
+        setState((s) => ({
+          status: "ready",
+          preferences: {
+            ...s.preferences,
+            bodyCompositionGoal: goal ?? undefined,
+          },
+        }));
+        return true;
+      }
+
+      let prevForRollback: Preferences | null = null;
+      setState((s) => {
+        prevForRollback = s.preferences;
+        const nextPrefs = { ...s.preferences };
+        if (goal == null) delete nextPrefs.bodyCompositionGoal;
+        else nextPrefs.bodyCompositionGoal = goal;
+        return { status: "ready", preferences: nextPrefs };
+      });
+
+      const token = await getIdToken(false);
+      if (!token) {
+        setState((s) => ({
+          status: "error",
+          preferences: prevForRollback ?? s.preferences,
+          message: "No auth token (try Debug → Re-auth)",
+        }));
+        return false;
+      }
+
+      const res = await updateBodyCompositionGoal(token, goal);
+      if (!res.ok) {
+        setState((s) => ({
+          status: "error",
+          preferences: prevForRollback ?? s.preferences,
+          message: `${res.error} (kind=${res.kind}, status=${res.status}, requestId=${res.requestId ?? "n/a"})`,
+        }));
+        return false;
+      }
+
+      setState({ status: "ready", preferences: res.json });
+      return true;
+    };
+
     const setMetricSourcePreferenceFn = async (metricId: string, sourceId: string | null): Promise<void> => {
       if (initializing || !user) {
         const m = { ...(state.preferences.metricSources ?? {}) };
@@ -271,6 +330,7 @@ import React, {
         setSelectedGymId: setSelectedGymIdFn,
         setMetricSourcePreference: setMetricSourcePreferenceFn,
         setWeeklyFitnessGoals: setWeeklyFitnessGoalsFn,
+        setBodyCompositionGoal: setBodyCompositionGoalFn,
       }),
       [state],
     );
