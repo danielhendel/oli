@@ -195,16 +195,38 @@ Repair contract:
 - Dash Daily Sleep relies on `GET /users/me/sleep-night`; automatic `sleep-day-refresh` removed from mount/focus/missing paths.
 - Explicit Sleep overview / PTR coordinators unchanged.
 
-Bounded post-repair Dash cold-smoke aggregate targets (count-only; fill after physical proof):
+Bounded post-repair Dash cold-smoke (2026-07-16; human Terminal Metro on port **8084**,
+worktree `/Users/danielhendel/oli-weekly-fitness-v2`, HEAD `adaaeb7a50949bb1c6f004ed7f92ee4e7fb60193`):
 
-| Check | Required |
-|---|---:|
-| legacy NET_TRACE | 0 |
-| raw URL fields | 0 |
-| query / day / cache-bust / Gateway-key values in telemetry | 0 |
-| automatic sleep-day-refresh POST | 0 |
-| sleep-day-refresh 500 | 0 |
-| redbox / fatal / request loop | 0 |
+```text
+FINAL DASH COLD SMOKE: PASS
+FRESH IOS BUNDLE: PASS
+REDBOX: NONE
+BLANK SCREEN: NONE
+VISIBLE SLEEP ERROR: NONE
+FIRST FAILURE: NONE
+```
+
+Machine log aggregation from the same session:
+
+| Check | Required | Result |
+|---|---:|---|
+| legacy NET_TRACE | 0 | **not machine-captured** (external Terminal; no persisted Metro log) |
+| raw URL / query values in telemetry | 0 | **not machine-captured** |
+| day / date / cache-bust values in telemetry | 0 | **not machine-captured** |
+| API-key / token values in telemetry | 0 | **not machine-captured** |
+| automatic sleep-day-refresh POST | 0 | **not machine-captured** |
+| sleep-day-refresh 500 | 0 | **not machine-captured** |
+| redbox | 0 | **0** (human) |
+| fatal | 0 | **0** (human; no crash observed) |
+| request loop | 0 | **not machine-captured** |
+
+Human-observable Dash smoke passed. Technical telemetry/network counts could not be
+recomputed after the session because Metro stdout was not persisted to an aggregatable
+capture path. Pre-repair aggregates above (8081/8083-era captures) are **not** post-repair
+evidence.
+
+Safe telemetry events (`mobile_http_request_completed` / `[MOBILE_HTTP]`): **not machine-captured**.
 
 Deferred gates (still NOT VERIFIED — do not convert to PASS):
 

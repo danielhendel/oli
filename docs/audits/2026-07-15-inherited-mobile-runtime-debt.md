@@ -72,6 +72,20 @@ Notes:
 
 ---
 
+## Post-repair Dash cold smoke (2026-07-16)
+
+Human result on port **8084** feature worktree Metro (not 8081/8083):
+
+```text
+PASS — redbox none, blank screen none, visible sleep error none
+```
+
+Machine telemetry/network recomputation from the same session: **not available**
+(external Terminal; Metro log not persisted). Do not treat pre-repair capture
+counts in the table above as post-repair proof.
+
+---
+
 ## Merge-blocking vs deferred physical verification
 
 ### Former merge-blocking privacy/runtime defects (repaired on PR #182)
