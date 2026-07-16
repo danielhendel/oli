@@ -6,6 +6,7 @@ import {
   type OliTheme,
 } from "@/lib/ui/theme/oliTheme";
 import type { OliSemanticColors } from "@/lib/ui/theme/oliSemantic";
+import { OliColorProvider } from "@/lib/ui/theme/OliColorContext";
 
 const OliThemeContext = createContext<OliTheme | null>(null);
 
@@ -17,7 +18,11 @@ export type OliThemeProviderProps = {
 
 export function OliThemeProvider({ children, mode = OLI_DEFAULT_THEME_MODE }: OliThemeProviderProps) {
   const value = useMemo(() => getOliTheme(mode), [mode]);
-  return <OliThemeContext.Provider value={value}>{children}</OliThemeContext.Provider>;
+  return (
+    <OliColorProvider mode={mode}>
+      <OliThemeContext.Provider value={value}>{children}</OliThemeContext.Provider>
+    </OliColorProvider>
+  );
 }
 
 export function useOliTheme(): OliTheme {
