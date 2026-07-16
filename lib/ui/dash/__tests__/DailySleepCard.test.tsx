@@ -54,7 +54,7 @@ describe("DailySleepCard", () => {
     mockPush.mockReset();
   });
 
-  it("renders large headline 9h 11m and Last night subtitle", () => {
+  it("renders large Sleep Score hero with rating and Duration as first row", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
@@ -63,6 +63,7 @@ describe("DailySleepCard", () => {
         efficiency: 0.92,
         remMinutes: 124,
         deepMinutes: 76,
+        score: 88,
       }),
     });
 
@@ -73,11 +74,14 @@ describe("DailySleepCard", () => {
 
     const flat = allVisibleText(root.root);
     expect(flat).toContain("Last night\u2019s sleep");
+    expect(flat).toContain("88");
+    expect(flat).toContain("Optimal");
     expect(flat).toContain("9h 11m");
+    expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findAllByType(Image)).toHaveLength(0);
   });
 
-  it("lists metric rows Deep sleep through Average HRV without Sleep duration row", () => {
+  it("lists Duration → Deep → REM → Efficiency without LHR/HRV", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
@@ -86,6 +90,9 @@ describe("DailySleepCard", () => {
         deepMinutes: 76,
         remMinutes: 124,
         efficiency: 0.92,
+        score: 88,
+        lowestHeartRateBpm: 50,
+        averageHrvMs: 21,
       }),
     });
 
@@ -94,29 +101,26 @@ describe("DailySleepCard", () => {
       root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
 
-    expect(() => root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toThrow();
+    expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" })).toBeDefined();
     expect(root.root.findByProps({ testID: "sleep-metric-row-rem_sleep" })).toBeDefined();
     expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_efficiency" })).toBeDefined();
-    expect(root.root.findByProps({ testID: "sleep-metric-row-lowest_heart_rate" })).toBeDefined();
-    expect(root.root.findByProps({ testID: "sleep-metric-row-average_hrv" })).toBeDefined();
+    expect(() => root.root.findByProps({ testID: "sleep-metric-row-lowest_heart_rate" })).toThrow();
+    expect(() => root.root.findByProps({ testID: "sleep-metric-row-average_hrv" })).toThrow();
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Lowest heart rate");
-    expect(flat).toContain("Average HRV");
-    expect(flat).toContain("\u2014");
-    expect(root.root.findAllByType(Image)).toHaveLength(0);
+    expect(flat).not.toContain("Lowest heart rate");
+    expect(flat).not.toContain("Average HRV");
   });
 
-  it("shows Last night\u2019s sleep when model has prior-night resolution", () => {
+  it("shows Sleep score unavailable without fabricating zero when score missing", () => {
     const model = buildDailySleepCardModel({
-      day: "2026-05-13",
-      resolution: "wake_day",
+      day,
       sleepNightSettled: true,
       sleepNight: minimalNight({
-        anchorDay: "2026-05-12",
-        wakeDay: "2026-05-13",
-        mainSleepMinutes: 530,
-        score: 77,
+        mainSleepMinutes: 480,
+        deepMinutes: 60,
+        remMinutes: 90,
+        efficiency: 0.9,
       }),
     });
 
@@ -126,32 +130,40 @@ describe("DailySleepCard", () => {
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Last night\u2019s sleep");
-    expect(flat).toContain("8h 50m");
+    expect(flat).toContain("Sleep score unavailable");
+    expect(flat).toContain("8h");
+    expect(flat).not.toMatch(/\|0\|/);
+    const header = root.root
+      .findAllByType(Pressable)
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Daily Sleep header"),
+      );
+    expect(header?.props.accessibilityLabel).toContain("Sleep score unavailable");
   });
 
-  it("renders Daily Sleep title and does not show readiness copy", () => {
+  it("renders score 0 as a real score with Pay attention", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
-      sleepNight: minimalNight({ score: 82 }),
+      sleepNight: minimalNight({ score: 0, totalSleepMinutes: 300 }),
     });
-
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
-
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Daily Sleep");
-    expect(flat).not.toMatch(/readiness/i);
+    expect(flat).toContain("0");
+    expect(flat).toContain("Pay attention");
+    expect(flat).not.toContain("Sleep score unavailable");
   });
 
   it("renders chevron on metric rows", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
-      sleepNight: minimalNight(),
+      sleepNight: minimalNight({ score: 80 }),
     });
 
     let root!: renderer.ReactTestRenderer;
@@ -167,7 +179,7 @@ describe("DailySleepCard", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
-      sleepNight: minimalNight({ deepMinutes: 30 }),
+      sleepNight: minimalNight({ deepMinutes: 30, score: 80 }),
     });
 
     let root!: renderer.ReactTestRenderer;
@@ -212,7 +224,7 @@ describe("DailySleepCard", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/recovery/sleep");
   });
 
-  it("shows a muted refreshing line when isRefreshing without hiding headline", () => {
+  it("shows a muted refreshing line when isRefreshing without hiding score", () => {
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,
@@ -225,7 +237,7 @@ describe("DailySleepCard", () => {
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("8h");
+    expect(flat).toContain("96");
     expect(flat).toContain("Refreshing daily sleep");
   });
 
@@ -252,6 +264,6 @@ describe("DailySleepCard", () => {
     });
     const flat = allVisibleText(root.root);
     expect(flat).toContain("Loading daily sleep");
-    expect(flat).not.toContain("8h");
+    expect(flat).not.toContain("88");
   });
 });

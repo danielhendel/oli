@@ -20,14 +20,16 @@ export type UseTodayHealthHeroResult = {
   energyLoading: boolean;
   energyError: string | null;
   sleepCardVm: DailySleepCardViewModel;
+  /** Exact-day RHR from attributed SleepNight; for Readiness card join only. */
+  exactDayRestingHeartRateBpm: number | null;
   refetch: (opts?: TruthGetOptions) => void;
 };
 
 /**
- * Dash hero plus shared truth payloads from `useDailyFacts` and `useDailySleepCard`.
+ * Shared Dash truth payloads from `useDailyFacts` and `useDailySleepCard`.
  *
- * Health score is intentionally not fetched on Dash: the endpoint is optional on staging
- * and recovery is surfaced via Today Command Center / Daily Readiness instead.
+ * Greeting/`vm` remains available for callers that need it; Dash no longer renders
+ * a Today hero. Health score is intentionally not fetched on Dash.
  */
 export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
   const { user, initializing } = useAuth();
@@ -102,6 +104,7 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
     energyLoading,
     energyError,
     sleepCardVm: dailySleep.vm,
+    exactDayRestingHeartRateBpm: dailySleep.exactDayRestingHeartRateBpm,
     refetch,
   };
 }

@@ -10,14 +10,48 @@ export type OuraRatingLabel =
   | "Pay attention";
 
 /**
- * Map a 0–100 score to Oura-style rating label.
+ * Normalize a candidate Oura-style score to a finite integer in 0–100.
+ * Returns null for missing, non-finite, or out-of-range values (does not coerce).
+ * Score `0` is valid.
+ */
+export function normalizeOuraScore0to100(score: unknown): number | null {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  if (score < 0 || score > 100) return null;
+  return Math.round(score);
+}
+
+/**
+ * Map a validated 0–100 score to legacy Oli rating bands (Fair starts at 55).
+ * Prefer {@link classifyOuraProviderScore} for provider-sourced Oura Sleep / Readiness scores.
  */
 export function scoreToRatingLabel(score: number | null | undefined): OuraRatingLabel {
-  if (score == null || typeof score !== "number") return "Pay attention";
+  if (score == null || typeof score !== "number" || !Number.isFinite(score)) return "Pay attention";
   if (score >= 85) return "Optimal";
   if (score >= 70) return "Good";
   if (score >= 55) return "Fair";
   return "Pay attention";
+}
+
+/**
+ * Oura provider Sleep / Readiness score bands (product-accurate):
+ * 85–100 Optimal, 70–84 Good, 60–69 Fair, 0–59 Pay attention.
+ * Accepts only finite integers already normalized to 0–100; score `0` is valid.
+ */
+export function classifyOuraProviderScore(score: number): OuraRatingLabel {
+  if (score >= 85) return "Optimal";
+  if (score >= 70) return "Good";
+  if (score >= 60) return "Fair";
+  return "Pay attention";
+}
+
+/**
+ * Presentation classification for provider-sourced Oura Sleep / Readiness scores.
+ * Returns null when the input is not a valid 0–100 score (never invents a rating).
+ */
+export function tryClassifyOuraScore(score: unknown): OuraRatingLabel | null {
+  const n = normalizeOuraScore0to100(score);
+  if (n == null) return null;
+  return classifyOuraProviderScore(n);
 }
 
 /**
@@ -34,8 +68,9 @@ export function contributorValueToProgress(value: unknown): number {
  * Rating label for a single contributor value (0–100).
  */
 export function contributorValueToRatingLabel(value: unknown): OuraRatingLabel {
-  if (value == null || typeof value !== "number") return "Pay attention";
-  return scoreToRatingLabel(value);
+  const n = normalizeOuraScore0to100(value);
+  if (n == null) return "Pay attention";
+  return classifyOuraProviderScore(n);
 }
 
 const DASH = "—";

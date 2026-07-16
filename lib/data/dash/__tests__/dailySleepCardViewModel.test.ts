@@ -58,6 +58,61 @@ describe("sleepNightIsAttributedToCalendarDay", () => {
     ).toBe(true);
   });
 
+  it("pre-fix UTC-skewed wakeDay → latest_completed_prior_night → Dash empty; repaired wake_day → ready", () => {
+    const requested = "2026-07-10";
+    const preFix = view({
+      requestedDay: requested,
+      anchorDay: "2026-07-09",
+      wakeDay: "2026-07-09",
+      resolution: "latest_completed_prior_night",
+      sleepNight: {
+        anchorDay: "2026-07-09",
+        wakeDay: "2026-07-09",
+        provider: "oura",
+        source: "ouraVendorSleep",
+        sourceDocumentId: "asia1",
+        isComplete: true,
+        totalSleepMinutes: 390,
+        mainSleepMinutes: 390,
+        score: 84,
+        updatedAt: "2026-07-10T01:00:00.000Z",
+      },
+    });
+    expect(sleepNightIsAttributedToCalendarDay(requested, preFix)).toBe(false);
+    expect(
+      buildDailySleepCardViewModel({
+        day: requested,
+        sleepNight: { view: preFix, loading: false, settled: true, error: null },
+      }).status,
+    ).toBe("missing");
+
+    const postFix = view({
+      requestedDay: requested,
+      anchorDay: "2026-07-09",
+      wakeDay: requested,
+      resolution: "wake_day",
+      sleepNight: {
+        anchorDay: "2026-07-09",
+        wakeDay: requested,
+        provider: "oura",
+        source: "ouraVendorSleep",
+        sourceDocumentId: "asia1",
+        isComplete: true,
+        totalSleepMinutes: 390,
+        mainSleepMinutes: 390,
+        score: 84,
+        updatedAt: "2026-07-10T01:00:00.000Z",
+      },
+    });
+    expect(sleepNightIsAttributedToCalendarDay(requested, postFix)).toBe(true);
+    expect(
+      buildDailySleepCardViewModel({
+        day: requested,
+        sleepNight: { view: postFix, loading: false, settled: true, error: null },
+      }).status,
+    ).toBe("ready");
+  });
+
   it("rejects latest_completed_prior_night (bounded fallback)", () => {
     expect(
       sleepNightIsAttributedToCalendarDay(
@@ -175,7 +230,7 @@ describe("buildDailySleepCardViewModel", () => {
     expect(vm.status).toBe("missing");
   });
 
-  it("returns ready with headline when sleep is attributed to the calendar day", () => {
+  it("returns ready with duration when sleep is attributed to the calendar day", () => {
     const vm = buildDailySleepCardViewModel({
       day,
       sleepNight: {
@@ -188,7 +243,8 @@ describe("buildDailySleepCardViewModel", () => {
     expect(vm.status).toBe("ready");
     if (vm.status === "ready") {
       expect(vm.model.day).toBe(day);
-      expect(vm.model.headlineValueText).toBe("7h 25m");
+      expect(vm.model.durationValueText).toBe("7h 25m");
+      expect(vm.model.metricRows[0]?.id).toBe("sleep_duration");
     }
   });
 

@@ -61,36 +61,12 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
-jest.mock("@/lib/hooks/useTodayCommand", () => ({
-  useTodayCommand: () => ({
-    model: null,
-    loading: false,
-    error: null,
-    refetch: jest.fn(),
-  }),
-}));
-
 jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
   useDailyReadinessCard: () => ({
     vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
     refetch: jest.fn(),
   }),
 }));
-
-const HERO_VM_BASE = {
-  greetingPhrase: "Good afternoon",
-  firstName: null as string | null,
-  dateLine: "Wednesday, May 7",
-  loading: false,
-  sleepRecovery: {
-    sleepDisplay: "\u2014",
-    recoveryDisplay: "\u2014",
-    footerLabel: "Last night",
-    loading: false,
-    accessibilityLabel:
-      "Last night summary. Sleep not available. Recovery not available.",
-  },
-};
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
@@ -211,7 +187,6 @@ describe("Dash Daily Energy card", () => {
 
   it("renders Weekly Fitness first and removes Sleep/Recovery summary", () => {
     mockUseTodayHealthHero.mockReturnValue({
-      vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
       refetch: jest.fn(),
@@ -244,6 +219,8 @@ describe("Dash Daily Energy card", () => {
     const text = collectAllText(test);
     /** Legacy title + tagline must be gone (audit-driven removal). */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
+    expect(text).not.toContain("Good afternoon");
+    expect(text).not.toContain("Today's Progress");
     /** Weekly Fitness + remaining cards. */
     expect(text).toContain("Weekly Fitness");
     expect(text).toContain("Body Composition");
@@ -260,29 +237,25 @@ describe("Dash Daily Energy card", () => {
     expect(text).toContain("NEAT");
     expect(text).toContain("Confidence");
     expect(text).toContain("Daily Sleep");
+    expect(text).toContain("Oura Readiness");
 
-    /** Today hero precedes Weekly Fitness; then Body Composition, Daily Energy, Daily Sleep, Daily Nutrition. */
-    const idxHero = text.indexOf("Good afternoon");
+    /** Weekly Fitness first; then Body, Energy, Sleep, Readiness, Nutrition. */
     const idxWeeklyFitness = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     const idxSleep = text.indexOf("Daily Sleep");
+    const idxReadiness = text.indexOf("Oura Readiness");
     const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxHero).toBeGreaterThan(-1);
-    expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
+    expect(idxWeeklyFitness).toBeGreaterThan(-1);
     expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
     expect(idxSleep).toBeGreaterThan(idxEnergy);
-    expect(idxNutrition).toBeGreaterThan(idxSleep);
+    expect(idxReadiness).toBeGreaterThan(idxSleep);
+    expect(idxNutrition).toBeGreaterThan(idxReadiness);
   });
 
   it("shows loading copy while Daily Energy is hydrating", () => {
     mockUseTodayHealthHero.mockReturnValue({
-      vm: {
-        ...HERO_VM_BASE,
-        loading: true,
-        sleepRecovery: { ...HERO_VM_BASE.sleepRecovery, loading: true },
-      },
       energyLoading: true,
       energyError: null,
       refetch: jest.fn(),
@@ -302,7 +275,6 @@ describe("Dash Daily Energy card", () => {
 
   it("shows empty-state copy when energy is missing", () => {
     mockUseTodayHealthHero.mockReturnValue({
-      vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
       refetch: jest.fn(),

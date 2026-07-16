@@ -4,28 +4,13 @@ import type { TruthGetOptions } from "@/lib/api/usersMe";
 import {
   buildDailyReadinessCardModel,
   dailyReadinessCardAccessibilityLabel,
-  type DailyReadinessCardModel,
 } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
 import { useReadinessView } from "@/lib/data/useReadinessView";
-import type { Readiness } from "@/lib/contracts/readiness";
 import type { DayKey } from "@/lib/ui/calendar/types";
+import type { DailyReadinessCardViewModel } from "@/lib/ui/dash/DailyReadinessCard";
 
-export type DailyReadinessCardViewModel =
-  | { status: Extract<Readiness, "partial">; day: string }
-  | {
-      status: Extract<Readiness, "missing">;
-      day: string;
-      message: string;
-      cta?: { label: string; href: string };
-    }
-  | { status: Extract<Readiness, "error">; day: string; message: string }
-  | {
-      status: Extract<Readiness, "ready">;
-      day: string;
-      model: DailyReadinessCardModel;
-      accessibilityLabel: string;
-    };
+export type { DailyReadinessCardViewModel };
 
 const READINESS_DETAIL_HREF = "/(app)/recovery/readiness" as const;
 const OURA_RECONNECT_HREF = "/(app)/settings/devices/oura" as const;
@@ -35,8 +20,12 @@ export type UseDailyReadinessCardResult = {
   refetch: (opts?: TruthGetOptions) => void;
 };
 
-export function useDailyReadinessCard(day: DayKey, options?: { enabled?: boolean }): UseDailyReadinessCardResult {
+export function useDailyReadinessCard(
+  day: DayKey,
+  options?: { enabled?: boolean; exactDayRestingHeartRateBpm?: number | null },
+): UseDailyReadinessCardResult {
   const enabled = options?.enabled ?? true;
+  const exactDayRestingHeartRateBpm = options?.exactDayRestingHeartRateBpm ?? null;
   const readiness = useReadinessView(day);
   const ouraPresence = useOuraPresence();
 
@@ -58,6 +47,7 @@ export function useDailyReadinessCard(day: DayKey, options?: { enabled?: boolean
       day,
       readinessView: readiness.status === "ready" ? readiness.data : null,
       ouraConnected,
+      exactDayRestingHeartRateBpm,
     });
 
     if (ouraConnected === false) {
@@ -79,7 +69,7 @@ export function useDailyReadinessCard(day: DayKey, options?: { enabled?: boolean
       model,
       accessibilityLabel: dailyReadinessCardAccessibilityLabel(model),
     };
-  }, [day, enabled, ouraConnected, readiness]);
+  }, [day, enabled, exactDayRestingHeartRateBpm, ouraConnected, readiness]);
 
   return useMemo(
     () => ({ vm, refetch: readiness.refetch }),

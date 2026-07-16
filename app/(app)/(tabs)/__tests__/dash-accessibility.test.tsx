@@ -10,36 +10,12 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
-jest.mock("@/lib/hooks/useTodayCommand", () => ({
-  useTodayCommand: () => ({
-    model: null,
-    loading: false,
-    error: null,
-    refetch: jest.fn(),
-  }),
-}));
-
 jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
   useDailyReadinessCard: () => ({
     vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
     refetch: jest.fn(),
   }),
 }));
-
-const HERO_VM_BASE = {
-  greetingPhrase: "Good afternoon",
-  firstName: null as string | null,
-  dateLine: "Wednesday, May 7",
-  loading: false,
-  sleepRecovery: {
-    sleepDisplay: "\u2014",
-    recoveryDisplay: "\u2014",
-    footerLabel: "Last night",
-    loading: false,
-    accessibilityLabel:
-      "Last night summary. Sleep not available. Recovery not available.",
-  },
-};
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
@@ -206,7 +182,6 @@ describe("Dash accessibility", () => {
   beforeEach(() => {
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
-      vm: HERO_VM_BASE,
       energyLoading: false,
       energyError: null,
       energy: undefined,
@@ -286,7 +261,7 @@ describe("Dash accessibility", () => {
     expect(rootViews.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("removes Sleep/Recovery summary and renders Weekly Fitness above Body Composition", () => {
+  it("removes Sleep/Recovery summary and renders Weekly Fitness as first content card", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -301,6 +276,8 @@ describe("Dash accessibility", () => {
       .join(" ");
     /** Legacy hero is gone. */
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
+    expect(text).not.toContain("Good afternoon");
+    expect(text).not.toContain("Today's Progress");
     /** Body Composition card row is present. */
     expect(text).toContain("159.3 lb");
     expect(text).toContain("Body Composition");
@@ -309,22 +286,23 @@ describe("Dash accessibility", () => {
     expect(text).toContain("Daily Energy");
     expect(text).toContain("Daily Nutrition");
     expect(text).toContain("Daily Sleep");
+    expect(text).toContain("Oura Readiness");
     /** Legacy hero row used plain "Sleep" / "Recovery" labels; dedicated card uses "Daily Sleep". */
     expect(text).not.toContain("Last night summary");
 
-    /** Today hero precedes Weekly Fitness; then Body Composition, Daily Energy, Daily Sleep, Daily Nutrition. */
-    const idxHero = text.indexOf("Good afternoon");
+    /** Weekly Fitness first; then Body, Energy, Sleep, Readiness, Nutrition. */
     const idxWeeklyFitness = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     const idxSleepCard = text.indexOf("Daily Sleep");
+    const idxReadiness = text.indexOf("Oura Readiness");
     const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxHero).toBeGreaterThan(-1);
-    expect(idxWeeklyFitness).toBeGreaterThan(idxHero);
+    expect(idxWeeklyFitness).toBeGreaterThan(-1);
     expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
     expect(idxEnergy).toBeGreaterThan(idxBody);
     expect(idxSleepCard).toBeGreaterThan(idxEnergy);
-    expect(idxNutrition).toBeGreaterThan(idxSleepCard);
+    expect(idxReadiness).toBeGreaterThan(idxSleepCard);
+    expect(idxNutrition).toBeGreaterThan(idxReadiness);
   });
 
   it("keeps at least one actionable header button", () => {

@@ -25,6 +25,11 @@ export type UseDailySleepCardResult = {
   vm: DailySleepCardViewModel;
   refetch: (opts?: TruthGetOptions) => void;
   truthDebug: DailySleepCardTruthDebug;
+  /**
+   * Exact-day resting HR from the attributed SleepNight for this calendar day.
+   * Null when sleep is not attributed, missing physiology, or unsettled.
+   */
+  exactDayRestingHeartRateBpm: number | null;
 };
 
 /**
@@ -56,6 +61,14 @@ export function useDailySleepCard(day: DayKey, options?: { enabled?: boolean }):
       ouraDisconnected,
     ],
   );
+
+  const exactDayRestingHeartRateBpm = useMemo((): number | null => {
+    if (!sleepNight.settled || sleepNight.view == null) return null;
+    if (!sleepNightIsAttributedToCalendarDay(day, sleepNight.view)) return null;
+    const bpm = sleepNight.view.sleepNight.lowestHeartRateBpm;
+    if (typeof bpm !== "number" || !Number.isFinite(bpm) || bpm < 30 || bpm > 220) return null;
+    return Math.round(bpm);
+  }, [day, sleepNight.settled, sleepNight.view]);
 
   const truthDebug = useMemo((): DailySleepCardTruthDebug => {
     const blockedStale =
@@ -96,5 +109,5 @@ export function useDailySleepCard(day: DayKey, options?: { enabled?: boolean }):
     [sleepNight.refetch],
   );
 
-  return { vm, refetch, truthDebug };
+  return { vm, refetch, truthDebug, exactDayRestingHeartRateBpm };
 }

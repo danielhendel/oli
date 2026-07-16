@@ -1,7 +1,7 @@
 import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
@@ -18,6 +18,7 @@ import {
 import { RecoveryOuraWeeklyStrip } from "@/lib/ui/recovery/RecoveryOuraWeeklyStrip";
 import {
   scoreToRatingLabel,
+  tryClassifyOuraScore,
   contributorValueToProgress,
   contributorValueToRatingLabel,
   formatContributorDisplayValue,
@@ -58,6 +59,10 @@ function RecoveryShell({
 export default function ReadinessScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ contributor?: string | string[] }>();
+  const contributorParam = Array.isArray(params.contributor)
+    ? params.contributor[0]
+    : params.contributor;
   const [selectedDay, setSelectedDay] = useState(() => getTodayDayKeyLocal());
   const weekDayKeys = useMemo(() => getWeekDaysForAnchor(selectedDay), [selectedDay]);
   const weekStripPresence = useOuraViewWeekSnapshotPresence(weekDayKeys, "readiness");
@@ -178,7 +183,26 @@ export default function ReadinessScreen() {
       ? (view.contributors as Record<string, unknown>)
       : {};
 
-  const contributorRows: ContributorRowProps[] = READINESS_CONTRIBUTOR_KEYS.map(({ key, label }) => {
+  const contributorKeyFromRoute: Record<string, string> = {
+    "resting-heart-rate": "resting_heart_rate",
+    "hrv-balance": "hrv_balance",
+    "body-temperature": "body_temperature",
+    "recovery-index": "recovery_index",
+    "sleep-balance": "sleep_balance",
+  };
+  const focusKey =
+    typeof contributorParam === "string" ? contributorKeyFromRoute[contributorParam] : undefined;
+
+  const orderedKeys = [...READINESS_CONTRIBUTOR_KEYS];
+  if (focusKey) {
+    orderedKeys.sort((a, b) => {
+      if (a.key === focusKey) return -1;
+      if (b.key === focusKey) return 1;
+      return 0;
+    });
+  }
+
+  const contributorRows: ContributorRowProps[] = orderedKeys.map(({ key, label }) => {
     const value = contributors[key];
     const displayValue = formatContributorDisplayValue(key, value);
     const progress = contributorValueToProgress(value);
@@ -190,12 +214,15 @@ export default function ReadinessScreen() {
     ? `Showing latest available Oura readiness for ${formatResolvedDay(view.resolvedDay)}`
     : null;
 
+  const scoreRating =
+    score != null ? tryClassifyOuraScore(score) ?? scoreToRatingLabel(score) : null;
+
   return (
     <RecoveryShell title="Readiness" headerContent={headerStrip}>
       <View style={styles.content}>
         <RecoveryScoreCard
           score={score}
-          ratingLabel={score != null ? scoreToRatingLabel(score) : null}
+          ratingLabel={scoreRating}
           fallbackMessage={fallbackMessage}
         />
         <RecoveryContributorsCard rows={contributorRows} />

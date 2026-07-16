@@ -1,9 +1,8 @@
-// app/(app)/(tabs)/__tests__/dash-provenance.test.tsx
-// Dash shows title, subtitle, and Daily Energy hero card.
+// app/(app)/(tabs)/__tests__/dash-composition.test.tsx
+// Command Center clean baseline: Today progress removed; six retained cards in order.
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
-
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -12,7 +11,7 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
 
 jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
   useDailyReadinessCard: () => ({
-    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
+    vm: { status: "missing", day: "2026-05-11", message: "No current-day readiness signal is available yet." },
     refetch: jest.fn(),
   }),
 }));
@@ -45,7 +44,7 @@ jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
       weightPrimaryLabel: "159.3 lb",
       readingAsOfLabel: "As of today",
       rows: [],
-      cardAccessibilityLabel: "bc",
+      cardAccessibilityLabel: "Body composition card.",
     },
   }),
 }));
@@ -78,9 +77,13 @@ jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
 jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
   useDailyNutritionCard: () => ({
     model: {
-      calorieLabel: "0 kcal",
-      hasAnyNutrition: false,
-      rows: [],
+      calorieLabel: "1,850 kcal",
+      hasAnyNutrition: true,
+      rows: [
+        { key: "protein", label: "Protein", valueLabel: "142 g" },
+        { key: "carbs", label: "Carbs", valueLabel: "210 g" },
+        { key: "fat", label: "Fat", valueLabel: "64 g" },
+      ] as const,
     },
     loading: false,
     error: null,
@@ -152,103 +155,128 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-function countDashIconPlaceholders(root: renderer.ReactTestInstance): number {
-  return root.findAll(
-    (n) => (n.props as { "data-testid"?: string } | undefined)?.["data-testid"] === "icon",
-  ).length;
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let count = 0;
+  let idx = 0;
+  while (true) {
+    const found = haystack.indexOf(needle, idx);
+    if (found === -1) return count;
+    count += 1;
+    idx = found + needle.length;
+  }
 }
 
-describe("Dash provenance", () => {
+describe("Dash composition clean baseline", () => {
   beforeEach(() => {
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
       energyError: null,
-      refetch: jest.fn(),
-      energy: {
-        modelVersion: "daily_energy_v3",
-        computedAt: "2026-05-05T12:00:00.000Z",
-        day: "2026-05-05",
-        estimatedKcal: { low: 2120, high: 2480, midpoint: 2300 },
-        variancePct: 0.081,
-        confidence: "moderate",
-        factors: {
-          baseline: { kcal: 1680 },
-          steps: { kcal: 320 },
-          cardio: { kcal: 180 },
-          strength: { kcalLow: 90, kcalHigh: 180 },
-        },
-        missingRequiredInputs: [],
-      },
-      sleepCardVm: {
-        status: "missing",
-        day: "2026-05-05",
-        message: "No sleep data logged for this day.",
-      },
-    });
-  });
-
-  it("shows Oli Fitness tab title and Body Composition + Daily Energy sections", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    const text = collectAllText(test);
-    expect(text).toContain("Oli Fitness");
-    expect(text).toContain("Body Composition");
-    expect(text).toContain("Daily Energy");
-    expect(text).not.toContain("Track, understand, and improve every part of your health.");
-  });
-
-  it("renders header navigation controls on Dash (hamburger icon)", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    expect(countDashIconPlaceholders(test.root)).toBe(1);
-    expect(
-      test.root.findAll(
-        (n) => (n.props as { testID?: string }).testID === "dash-manage-menu-trigger",
-      ).length,
-    ).toBe(1);
-  });
-
-  it("renders factor rows on Daily Energy without legacy Dash tagline", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    const text = collectAllText(test);
-    expect(text).not.toContain("Track, understand, and improve every part of your health.");
-    expect(text).toContain("Body Composition");
-    expect(text).toContain("BMR");
-    expect(text).toContain("NEAT");
-    expect(text).toContain("Cardio");
-    expect(text).toContain("Strength");
-    expect(text).toContain("Weekly Fitness");
-    expect(text).not.toContain("Progress to goal");
-    expect(text).toContain("Daily Nutrition");
-    expect(text).toContain("Oura Readiness");
-    expect(text).not.toContain("Labs");
-  });
-
-  it("renders empty-state copy when energy is unavailable", () => {
-    mockUseTodayHealthHero.mockReturnValue({
-      energyLoading: false,
-      energyError: null,
-      refetch: jest.fn(),
       energy: undefined,
       sleepCardVm: {
         status: "missing",
-        day: "2026-05-05",
+        day: "2026-05-11",
         message: "No sleep data logged for this day.",
       },
+      exactDayRestingHeartRateBpm: null,
+      refetch: jest.fn(),
     });
+  });
+
+  it("removes Today progress hero/card and keeps six retained cards in order", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Not enough data yet to estimate energy.");
+
+    expect(text).not.toContain("Today's Progress");
+    expect(text).not.toContain("My Program");
+    expect(text).not.toContain("Good afternoon");
+    expect(text).not.toContain("separate from today's plan");
+    expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "dash-weekly-section")).toHaveLength(0);
+    expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-command-section")).toHaveLength(0);
+    expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-semi-circle-progress")).toHaveLength(0);
+    expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-progress-card")).toHaveLength(0);
+    expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-health-hero")).toHaveLength(0);
+
+    expect(text).toContain("Weekly Fitness");
+    expect(text).toContain("Body Composition");
+    expect(text).toContain("Daily Energy");
+    expect(text).toContain("Daily Sleep");
+    expect(text).toContain("Oura Readiness");
+    expect(text).toContain("Daily Nutrition");
+
+    expect(countOccurrences(text, "Weekly Fitness")).toBe(1);
+    expect(countOccurrences(text, "Body Composition")).toBe(1);
+    expect(countOccurrences(text, "Daily Energy")).toBe(1);
+    expect(countOccurrences(text, "Daily Sleep")).toBe(1);
+    expect(countOccurrences(text, "Oura Readiness")).toBe(1);
+    expect(countOccurrences(text, "Daily Nutrition")).toBe(1);
+
+    const idxWeekly = text.indexOf("Weekly Fitness");
+    const idxBody = text.indexOf("Body Composition");
+    const idxEnergy = text.indexOf("Daily Energy");
+    const idxSleep = text.indexOf("Daily Sleep");
+    const idxReadiness = text.indexOf("Oura Readiness");
+    const idxNutrition = text.indexOf("Daily Nutrition");
+    expect(idxWeekly).toBeGreaterThan(-1);
+    expect(idxBody).toBeGreaterThan(idxWeekly);
+    expect(idxEnergy).toBeGreaterThan(idxBody);
+    expect(idxSleep).toBeGreaterThan(idxEnergy);
+    expect(idxReadiness).toBeGreaterThan(idxSleep);
+    expect(idxNutrition).toBeGreaterThan(idxReadiness);
+  });
+
+  it("sleep hero can show score without duplicating readiness card", () => {
+    mockUseTodayHealthHero.mockReturnValue({
+      energyLoading: false,
+      energyError: null,
+      energy: undefined,
+      sleepCardVm: {
+        status: "ready",
+        day: "2026-05-11",
+        isRefreshing: false,
+        model: {
+          day: "2026-05-11",
+          headlineValueText: "88",
+          scoreUnavailable: false,
+          scoreUnavailableLabel: null,
+          scoreValueText: "88",
+          durationValueText: "8h",
+          ratingLabel: "Optimal",
+          ratingTone: "optimal",
+          summarySentence: "Strong overall sleep quality for this day.",
+          metricRows: [
+            {
+              id: "sleep_duration",
+              label: "Duration",
+              value: "8h",
+              accessibilityValue: "8h",
+              isAvailable: true,
+              detail: { title: "Duration", value: "8h", body: "x" },
+            },
+          ],
+          hasAnySignal: true,
+          emptyStateTitle: null,
+          emptyStateSubtitle: null,
+          lastNightSubtitle: "Last night’s sleep",
+        },
+      },
+      exactDayRestingHeartRateBpm: 49,
+      refetch: jest.fn(),
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("88");
+    expect(text).toContain("Duration");
+    expect(countOccurrences(text, "Oura Readiness")).toBe(1);
+    expect(countOccurrences(text, "Daily Sleep")).toBe(1);
+    expect(text).not.toContain("Today's Progress");
   });
 });

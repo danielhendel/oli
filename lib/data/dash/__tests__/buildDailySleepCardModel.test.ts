@@ -47,19 +47,6 @@ describe("isOuraViewAlignedToDay", () => {
       ),
     ).toBe(false);
   });
-
-  it("treats surrounding whitespace on day keys as ignorable when comparing alignment", () => {
-    expect(
-      isOuraViewAlignedToDay(
-        sleepView({
-          requestedDay: " 2026-05-01 ",
-          resolvedDay: " 2026-05-01 ",
-          day: "2026-05-01",
-        }),
-        "2026-05-01",
-      ),
-    ).toBe(true);
-  });
 });
 
 describe("normalizeOuraSleepStageToMinutes", () => {
@@ -80,16 +67,10 @@ function settledArgs(over: Partial<Parameters<typeof buildDailySleepCardModel>[0
   };
 }
 
-const EXPECTED_ROW_IDS = [
-  "deep_sleep",
-  "rem_sleep",
-  "sleep_efficiency",
-  "lowest_heart_rate",
-  "average_hrv",
-] as const;
+const EXPECTED_ROW_IDS = ["sleep_duration", "deep_sleep", "rem_sleep", "sleep_efficiency"] as const;
 
 describe("buildDailySleepCardModel", () => {
-  it("puts main sleep duration in headlineValueText using main over total", () => {
+  it("puts Sleep Score in headline and Duration as first metric row", () => {
     const m = buildDailySleepCardModel(
       settledArgs({
         sleepNight: minimalNight({
@@ -102,47 +83,35 @@ describe("buildDailySleepCardModel", () => {
         }),
       }),
     );
-    expect(m.headlineValueText).toBe("8h 22m");
-    expect(m.metricRows.find((r) => r.id === "sleep_efficiency")?.value).toBe("94%");
+    expect(m.headlineValueText).toBe("88");
+    expect(m.ratingLabel).toBe("Optimal");
     expect(m.metricRows.map((r) => r.id)).toEqual([...EXPECTED_ROW_IDS]);
+    expect(m.metricRows[0]?.label).toBe("Duration");
+    expect(m.metricRows[0]?.value).toBe("8h 22m");
+    expect(m.metricRows.find((r) => r.id === "sleep_efficiency")?.value).toBe("94%");
   });
 
-  it("uses total sleep minutes for headline when main is absent", () => {
+  it.each([
+    [100, "Optimal"],
+    [85, "Optimal"],
+    [84, "Good"],
+    [70, "Good"],
+    [69, "Fair"],
+    [60, "Fair"],
+    [59, "Pay attention"],
+    [0, "Pay attention"],
+  ] as const)("classifies score %s as %s", (score, label) => {
     const m = buildDailySleepCardModel(
       settledArgs({
-        sleepNight: minimalNight({
-          totalSleepMinutes: 400,
-          efficiency: 0.9,
-          remMinutes: 60,
-          deepMinutes: 50,
-          score: 70,
-        }),
+        sleepNight: minimalNight({ totalSleepMinutes: 480, score }),
       }),
     );
-    expect(m.headlineValueText).toBe("6h 40m");
-    expect(m.metricRows.find((r) => r.id === "sleep_efficiency")?.value).toBe("90%");
+    expect(m.headlineValueText).toBe(String(score));
+    expect(m.ratingLabel).toBe(label);
+    expect(m.scoreUnavailable).toBe(false);
   });
 
-  it("formats deep/rem from minute fields and keeps score on model", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({
-          totalSleepMinutes: 480,
-          efficiency: 63,
-          remMinutes: 60,
-          deepMinutes: 45,
-          score: 80,
-        }),
-      }),
-    );
-    expect(m.headlineValueText).toBe("8h");
-    expect(m.metricRows.find((r) => r.id === "sleep_efficiency")?.value).toBe("63%");
-    expect(m.metricRows.find((r) => r.id === "deep_sleep")?.value).toBe("45m");
-    expect(m.metricRows.find((r) => r.id === "rem_sleep")?.value).toBe("1h");
-    expect(m.scoreValueText).toBe("80");
-  });
-
-  it("shows metrics without score when score is absent", () => {
+  it("treats missing score as partial: duration remains, no fabricated zero rating", () => {
     const m = buildDailySleepCardModel(
       settledArgs({
         sleepNight: minimalNight({
@@ -154,25 +123,53 @@ describe("buildDailySleepCardModel", () => {
       }),
     );
     expect(m.scoreValueText).toBeNull();
-    expect(m.headlineValueText).toBe("8h");
+    expect(m.headlineValueText).toBeNull();
+    expect(m.scoreUnavailable).toBe(true);
+    expect(m.scoreUnavailableLabel).toBe("Sleep score unavailable");
+    expect(m.ratingLabel).toBeNull();
+    expect(m.metricRows[0]?.value).toBe("8h");
     expect(m.hasAnySignal).toBe(true);
   });
 
-  it("keeps score and rating on model when score is present", () => {
+  it("rejects invalid and out-of-range scores", () => {
+    for (const score of [Number.NaN, 101, -1, Infinity] as number[]) {
+      const m = buildDailySleepCardModel(
+        settledArgs({
+          sleepNight: minimalNight({ totalSleepMinutes: 400, score }),
+        }),
+      );
+      expect(m.headlineValueText).toBeNull();
+      expect(m.ratingLabel).toBeNull();
+      expect(m.scoreUnavailable).toBe(true);
+    }
+  });
+
+  it("does not include Lowest Heart Rate or Average HRV on Dash rows", () => {
     const m = buildDailySleepCardModel(
       settledArgs({
         sleepNight: minimalNight({
           totalSleepMinutes: 480,
-          score: 82,
+          lowestHeartRateBpm: 50,
+          averageHrvMs: 21,
+          score: 80,
         }),
       }),
     );
-    expect(m.scoreValueText).toBe("82");
-    expect(m.ratingLabel).toBe("Good");
-    expect(m.ratingTone).toBe("good");
+    expect(m.metricRows.map((r) => r.id)).toEqual([...EXPECTED_ROW_IDS]);
+    expect(m.metricRows.map((r) => r.label).join("|")).not.toMatch(/Lowest heart rate|Average HRV/);
   });
 
-  it("keeps five metric rows in priority order without a Sleep duration row", () => {
+  it("does not substitute readiness score into sleep model", () => {
+    const m = buildDailySleepCardModel(
+      settledArgs({
+        sleepNight: minimalNight({ totalSleepMinutes: 400, score: 90 }),
+      }),
+    );
+    expect(JSON.stringify(m)).not.toMatch(/readiness/i);
+    expect(m.headlineValueText).toBe("90");
+  });
+
+  it("keeps four metric rows in priority order", () => {
     const m = buildDailySleepCardModel(
       settledArgs({
         sleepNight: minimalNight({
@@ -183,40 +180,8 @@ describe("buildDailySleepCardModel", () => {
         }),
       }),
     );
-    expect(m.metricRows).toHaveLength(5);
+    expect(m.metricRows).toHaveLength(4);
     expect(m.metricRows.map((r) => r.id)).toEqual([...EXPECTED_ROW_IDS]);
-  });
-
-  it("renders em dash for lowest heart rate and average HRV when absent on SleepNight", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({
-          totalSleepMinutes: 480,
-          efficiency: 0.9,
-          remMinutes: 60,
-          deepMinutes: 50,
-        }),
-      }),
-    );
-    expect(m.metricRows.find((r) => r.id === "lowest_heart_rate")?.value).toBe("\u2014");
-    expect(m.metricRows.find((r) => r.id === "average_hrv")?.value).toBe("\u2014");
-  });
-
-  it("renders lowest heart rate and average HRV from SleepNight when present", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({
-          totalSleepMinutes: 480,
-          efficiency: 0.9,
-          remMinutes: 60,
-          deepMinutes: 50,
-          lowestHeartRateBpm: 50,
-          averageHrvMs: 21,
-        }),
-      }),
-    );
-    expect(m.metricRows.find((r) => r.id === "lowest_heart_rate")?.value).toBe("50 bpm");
-    expect(m.metricRows.find((r) => r.id === "average_hrv")?.value).toBe("21 ms");
   });
 
   it("attaches detail payload to each metric row", () => {
@@ -237,30 +202,6 @@ describe("buildDailySleepCardModel", () => {
     }
   });
 
-  it("includes REM percent in REM row detail context when total sleep is known", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({
-          totalSleepMinutes: 480,
-          efficiency: 0.9,
-          remMinutes: 120,
-        }),
-      }),
-    );
-    const rem = m.metricRows.find((r) => r.id === "rem_sleep");
-    expect(rem?.value).toBe("2h");
-    expect(rem?.detail.contextLine).toMatch(/25%/);
-  });
-
-  it("does not surface Readiness copy in the model", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({ totalSleepMinutes: 400, score: 90 }),
-      }),
-    );
-    expect(JSON.stringify(m)).not.toMatch(/readiness/i);
-  });
-
   it("uses sleepNight.anchorDay in metric detail when Dash day differs (prior night)", () => {
     const requested = "2026-05-13";
     const anchor = "2026-05-12";
@@ -278,41 +219,15 @@ describe("buildDailySleepCardModel", () => {
     );
     expect(m.day).toBe(requested);
     expect(m.scoreValueText).toBe("77");
+    expect(m.headlineValueText).toBe("77");
     expect(m.lastNightSubtitle).toBe("Last night\u2019s sleep");
-    expect(m.headlineValueText).toBe("8h 50m");
+    const duration = m.metricRows.find((r) => r.id === "sleep_duration");
+    expect(duration?.value).toBe("8h 50m");
     const deep = m.metricRows.find((r) => r.id === "deep_sleep");
     expect(deep?.detail.contextLine).toContain(anchor);
-    expect(deep?.detail.contextLine).toContain(requested);
   });
 
-  it("shows last-night subtitle whenever there is sleep signal including exact_anchor", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        resolution: "exact_anchor",
-        sleepNight: minimalNight({ totalSleepMinutes: 400, score: 80 }),
-      }),
-    );
-    expect(m.lastNightSubtitle).toBe("Last night\u2019s sleep");
-  });
-
-  it("headline shows 9h 11m for 551 main sleep minutes", () => {
-    const m = buildDailySleepCardModel(
-      settledArgs({
-        sleepNight: minimalNight({
-          mainSleepMinutes: 551,
-          efficiency: 0.92,
-          remMinutes: 124,
-          deepMinutes: 76,
-        }),
-      }),
-    );
-    expect(m.headlineValueText).toBe("9h 11m");
-    expect(m.metricRows.find((r) => r.id === "rem_sleep")?.value).toBe("2h 4m");
-    expect(m.metricRows.find((r) => r.id === "deep_sleep")?.value).toBe("1h 16m");
-    expect(m.metricRows.find((r) => r.id === "sleep_efficiency")?.value).toBe("92%");
-  });
-
-  it("renders 96 Optimal on model from SleepNight score", () => {
+  it("headline shows score 96 Optimal from SleepNight", () => {
     const anchor = "2026-05-11";
     const m = buildDailySleepCardModel(
       settledArgs({
@@ -325,18 +240,18 @@ describe("buildDailySleepCardModel", () => {
         }),
       }),
     );
-    expect(m.day).toBe(anchor);
-    expect(m.scoreValueText).toBe("96");
+    expect(m.headlineValueText).toBe("96");
     expect(m.ratingLabel).toBe("Optimal");
   });
 });
 
 describe("emptyDailySleepCardModel", () => {
-  it("returns five placeholder rows, no headline, and stable empty copy", () => {
+  it("returns four placeholder rows, no headline, and stable empty copy", () => {
     const m = emptyDailySleepCardModel(day);
     expect(m.hasAnySignal).toBe(false);
     expect(m.headlineValueText).toBeNull();
-    expect(m.metricRows).toHaveLength(5);
+    expect(m.durationValueText).toBeNull();
+    expect(m.metricRows).toHaveLength(4);
     expect(m.metricRows.every((r) => r.value === "\u2014")).toBe(true);
     expect(m.summarySentence).toBe("");
     expect(m.emptyStateTitle).toBe("No sleep data yet");

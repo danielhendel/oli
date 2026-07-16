@@ -12,6 +12,7 @@ jest.mock("expo-router", () => ({
     goBack: jest.fn(),
   }),
   useRouter: () => ({ push: mockRouterPush }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("@react-navigation/native", () => ({
