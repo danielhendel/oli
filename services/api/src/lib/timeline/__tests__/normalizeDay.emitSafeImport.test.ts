@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Timeline API emit-safe workout core import", () => {
-  const apiRoot = join(__dirname, "..", "..", "..");
+  // __dirname = services/api/src/lib/timeline/__tests__
+  const apiRoot = join(__dirname, "..", "..", "..", "..");
   const normalizeSrc = join(apiRoot, "src/lib/timeline/normalizeDay.ts");
   const packageJson = join(apiRoot, "package.json");
 
