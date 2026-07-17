@@ -6,10 +6,12 @@
   "type": "commonjs",
   "scripts": {
     "dev": "node scripts/bundle-workout-day-summary-rebuild.mjs && node scripts/write-workout-summary-rebuild-bundle-checksum.mjs && node -r ts-node/register/transpile-only src/server.ts",
-    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && node scripts/write-workout-summary-rebuild-bundle-checksum.mjs && tsc -b tsconfig.json && node scripts/copy-workout-summary-rebuild-bundle-to-dist.mjs",
+    "build": "node scripts/bundle-workout-day-summary-rebuild.mjs && node scripts/write-workout-summary-rebuild-bundle-checksum.mjs && tsc -b tsconfig.json && node scripts/copy-workout-summary-rebuild-bundle-to-dist.mjs && node scripts/assert-runtime-module-resolution.mjs && node scripts/smoke-emitted-timeline-normalize.mjs",
     "bundle:workout-summary-rebuild": "node scripts/bundle-workout-day-summary-rebuild.mjs",
     "bundle:workout-summary-rebuild:checksum": "node scripts/write-workout-summary-rebuild-bundle-checksum.mjs",
     "verify:workout-summary-rebuild-bundle": "node scripts/verify-workout-summary-rebuild-bundle.mjs",
+    "check:runtime-module-resolution": "node scripts/assert-runtime-module-resolution.mjs",
+    "smoke:emitted-timeline-normalize": "node scripts/smoke-emitted-timeline-normalize.mjs",
     "start": "node dist/services/api/src/server.js",
     "typecheck": "tsc --noEmit"
   },
