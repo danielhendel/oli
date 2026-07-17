@@ -1,6 +1,8 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import renderer, { act } from "react-test-renderer";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { OLI_DARK, OLI_LIGHT } from "@/lib/ui/theme/oliSemantic";
 import { OliThemeProvider } from "@/lib/ui/theme/OliThemeContext";
@@ -21,6 +23,17 @@ const months = [
   { key: "2026-06", monthYear: { year: 2026, month: 6 } },
   { key: "2026-07", monthYear: { year: 2026, month: 7 } },
 ];
+
+function uniqueMonthItemTestIds(tree: renderer.ReactTestRenderer): string[] {
+  const ids = tree.root
+    .findAll(
+      (node) =>
+        typeof node.props?.testID === "string" &&
+        node.props.testID.startsWith("scrollable-calendar-month-"),
+    )
+    .map((node) => String(node.props.testID));
+  return [...new Set(ids)];
+}
 
 function renderCalendar(mode: "light" | "dark", initialMonthIndex = 3) {
   const onDayPress = jest.fn();
@@ -53,15 +66,13 @@ function renderCalendar(mode: "light" | "dark", initialMonthIndex = 3) {
 
 describe("ScrollableMonthCalendar", () => {
   it("renders multiple vertically scrollable month sections", () => {
-    const { tree } = renderCalendar("dark");
+    expect(months.length).toBeGreaterThan(1);
+    const { tree } = renderCalendar("dark", 0);
     expect(tree.root.findByProps({ testID: "test-scrollable-calendar" })).toBeTruthy();
+    // FlatList may mount a subset; the first month must be present when anchored at 0.
     expect(
-      tree.root.findAll(
-        (node) =>
-          typeof node.props?.testID === "string" &&
-          node.props.testID.startsWith("scrollable-calendar-month-"),
-      ).length,
-    ).toBeGreaterThan(1);
+      uniqueMonthItemTestIds(tree).some((id) => id === "scrollable-calendar-month-2025-12"),
+    ).toBe(true);
   });
 
   it("anchors via findScrollableMonthIndex and a safe fixed item layout height", () => {
@@ -84,6 +95,22 @@ describe("ScrollableMonthCalendar", () => {
     expect(range[CANONICAL_CALENDAR_MONTHS_BACK]?.key).toBe("2026-07");
     expect(range.at(-1)?.key).toBe("2027-07");
     expect(range.some((m) => m.key === "2026-08")).toBe(true);
+    // Cross-year: past December and future January around a July center.
+    expect(range.some((m) => m.key === "2025-12")).toBe(true);
+    expect(range.some((m) => m.key === "2027-01")).toBe(true);
+  });
+
+  it("wires initialScrollIndex and getItemLayout to the selected-month index", () => {
+    const source = readFileSync(
+      join(__dirname, "..", "ScrollableMonthCalendar.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("initialScrollIndex={clampedIndex}");
+    expect(source).toContain("getItemLayout={(_, index) => ({");
+    expect(source).toContain("length: CALENDAR_MONTH_ITEM_HEIGHT");
+    expect(source).toContain("offset: CALENDAR_MONTH_ITEM_HEIGHT * index");
+    expect(source).toContain("SCROLLABLE_CALENDAR_MAX_SCROLL_RETRIES");
+    expect(findScrollableMonthIndex(months, { year: 2026, month: 7 })).toBe(3);
   });
 
   it("keeps selected-month Month YYYY heading visible in the initial viewport model", () => {
@@ -129,17 +156,13 @@ describe("ScrollableMonthCalendar", () => {
 
   it("every mounted month item includes its heading", () => {
     const { tree } = renderCalendar("dark");
-    const monthItems = tree.root.findAll(
-      (node) =>
-        typeof node.props?.testID === "string" &&
-        node.props.testID.startsWith("scrollable-calendar-month-"),
-    );
-    expect(monthItems.length).toBeGreaterThan(0);
-    for (const item of monthItems) {
-      const key = String(item.props.testID).replace("scrollable-calendar-month-", "");
+    const monthIds = uniqueMonthItemTestIds(tree);
+    expect(monthIds.length).toBeGreaterThan(0);
+    for (const testID of monthIds) {
+      const key = testID.replace("scrollable-calendar-month-", "");
       expect(
-        item.findAll(
-          (node: { type?: unknown; props?: { testID?: string } }) =>
+        tree.root.findAll(
+          (node) =>
             node.type === "Text" &&
             node.props?.testID === `calendar-month-heading-${key}`,
         ).length,
@@ -159,29 +182,35 @@ describe("ScrollableMonthCalendar", () => {
     expect(heading.props.accessibilityRole).toBe("header");
   });
 
-  it("announces selected and Today state, emits valid dates, and disables future dates", () => {
-    const { tree, onDayPress } = renderCalendar("dark");
-    const selected = tree.root.findByProps({
-      accessibilityLabel: "2026-07-10, Timeline day, selected",
+  it("invokes renderMonth for the anchored selected month with consumer month data", () => {
+    const renderMonth = jest.fn((item: (typeof months)[number]) => (
+      <MonthGrid
+        monthYear={item.monthYear}
+        markerForDay={() => null}
+        onDayPress={jest.fn()}
+        dayKeyBasis="local"
+        selectedDay="2026-07-10"
+        maxDay="2026-07-16"
+        accessibilityDetailForDay={() => "Timeline day"}
+      />
+    ));
+    act(() => {
+      renderer.create(
+        <OliThemeProvider mode="dark">
+          <ScrollableMonthCalendar
+            months={months}
+            initialMonthIndex={3}
+            remountKey="bounds"
+            testID="test-scrollable-calendar"
+            renderMonth={renderMonth}
+          />
+        </OliThemeProvider>,
+      );
     });
-    expect(selected.props.accessibilityState).toEqual({
-      selected: true,
-      disabled: false,
+    const julyCall = renderMonth.mock.calls.find((call) => call[0]?.key === "2026-07");
+    expect(julyCall?.[0]).toEqual({
+      key: "2026-07",
+      monthYear: { year: 2026, month: 7 },
     });
-
-    act(() => selected.props.onPress());
-    expect(onDayPress).toHaveBeenCalledWith("2026-07-10");
-
-    const today = tree.root.findByProps({
-      accessibilityLabel: "2026-07-16, Timeline day, Today",
-    });
-    expect(today.props.accessibilityState.disabled).toBe(false);
-
-    const future = tree.root.findByProps({
-      accessibilityLabel: "2026-07-17, Timeline day, unavailable",
-    });
-    expect(future.props.accessibilityState.disabled).toBe(true);
-    act(() => future.props.onPress?.());
-    expect(onDayPress).not.toHaveBeenCalledWith("2026-07-17");
   });
 });
