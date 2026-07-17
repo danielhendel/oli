@@ -17,7 +17,7 @@ import {
 import {
   familyFromWorkoutKind,
   reconcileWorkoutSessionsCore,
-} from "@/lib/domain/workouts/reconcileWorkoutSessionsCore";
+} from "../../../../../lib/domain/workouts/reconcileWorkoutSessionsCore";
 import { dedupeTimelineFeedItems } from "./dedupe";
 import { sortTimelineFeedItems } from "./order";
 
