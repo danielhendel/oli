@@ -39,6 +39,10 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { loadBodyFactsFromRawForApi } from "../lib/bodyFactsSynthesizeFromRaw";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
+import {
+  logSleepNightRangeRouteTelemetry,
+  logSleepNightRouteVersionTelemetry,
+} from "../lib/sleepNightRouteTelemetry";
 import { dayQuerySchema, dayKeySchema } from "../types/day";
 import {
   dailyFactsDtoSchema,
@@ -2229,12 +2233,7 @@ router.get(
     const requestedDay = parseDay(req, res);
     if (!requestedDay) return;
 
-    logger.info({
-      msg: "[SLEEP_NIGHT_ROUTE_VERSION]",
-      version: "sleep-night-resolution-v2",
-      requestedDay,
-      uid,
-    });
+    logSleepNightRouteVersionTelemetry();
 
     const view = await loadSleepNightView(uid, requestedDay);
     if (!view) {
@@ -2297,11 +2296,7 @@ router.get(
       return;
     }
 
-    logger.info({
-      msg: "[SLEEP_NIGHT_RANGE_ROUTE]",
-      version: "sleep-night-range-v1",
-      dayCount,
-    });
+    logSleepNightRangeRouteTelemetry(dayCount);
 
     const nights = await loadSleepNightViewsForRange(uid, start, end);
     const out = {
