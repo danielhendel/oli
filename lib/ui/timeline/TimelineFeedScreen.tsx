@@ -82,11 +82,12 @@ export function TimelineFeedScreen({ initialDay }: TimelineFeedScreenProps) {
             <TimelineFeedList
               sections={feed.status.sections}
               onPressItem={onPressItem}
-              onEndReached={feed.loadMore}
+              onStartReached={feed.loadOlder}
               loadingMore={feed.status.loadingMore}
               refreshing={refreshing}
               onRefresh={onRefresh}
               contentBottomPadding={listBottomPad}
+              listGeneration={feed.listGeneration}
             />
           )}
         </View>

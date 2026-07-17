@@ -1,6 +1,7 @@
 // lib/features/timeline/useTimelineFeed.ts
 // Cursor-accumulating Timeline feed hook. Issues GET /users/me/timeline-feed only.
 // Resets on user switch / anchor change. Does not call multi-day /timeline aggregates.
+// Display sections are ascending (oldest→newest); older pages load via top-boundary only.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
@@ -9,11 +10,14 @@ import type { FailureKind, GetOptions } from "@/lib/api/http";
 import { getTimelineFeed } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getTodayDayKey } from "@/lib/time/dayKey";
+import {
+  canRequestOlderPage,
+  groupSectionsAscending,
+  mergeFeedPageItems,
+  type TimelineFeedSection,
+} from "@/lib/features/timeline/timelineFeedOrder";
 
-export type TimelineFeedSection = {
-  day: string;
-  data: TimelinePresentationItem[];
-};
+export type { TimelineFeedSection };
 
 export type UseTimelineFeedStatus =
   | { status: "partial" }
@@ -30,38 +34,14 @@ export type UseTimelineFeedStatus =
 export type UseTimelineFeedResult = {
   anchorDay: string;
   status: UseTimelineFeedStatus;
+  /** Increments on hard reset (anchor / return-to-today / user switch / refetch). */
+  listGeneration: number;
   setAnchorDay: (day: string) => void;
   returnToToday: () => void;
-  loadMore: () => void;
+  /** Load one older cursor page (top-boundary). */
+  loadOlder: () => void;
   refetch: (opts?: GetOptions) => void;
 };
-
-function groupSections(items: TimelinePresentationItem[]): TimelineFeedSection[] {
-  const order: string[] = [];
-  const map = new Map<string, TimelinePresentationItem[]>();
-  for (const item of items) {
-    if (!map.has(item.day)) {
-      map.set(item.day, []);
-      order.push(item.day);
-    }
-    map.get(item.day)!.push(item);
-  }
-  return order.map((day) => ({ day, data: map.get(day)! }));
-}
-
-function mergeItems(
-  prev: TimelinePresentationItem[],
-  next: TimelinePresentationItem[],
-): TimelinePresentationItem[] {
-  const seen = new Set(prev.map((i) => i.dedupeKey));
-  const out = [...prev];
-  for (const item of next) {
-    if (seen.has(item.dedupeKey)) continue;
-    seen.add(item.dedupeKey);
-    out.push(item);
-  }
-  return out;
-}
 
 export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
   const isFocused = useIsFocused();
@@ -75,6 +55,7 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [listGeneration, setListGeneration] = useState(0);
   const [error, setError] = useState<{
     error: string;
     requestId: string | null;
@@ -85,6 +66,12 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
   const uidRef = useRef(user?.uid ?? null);
   const anchorRef = useRef(anchorDay);
   anchorRef.current = anchorDay;
+  const loadingMoreRef = useRef(false);
+  const inFlightOlderCursorRef = useRef<string | null>(null);
+
+  const bumpListGeneration = useCallback(() => {
+    setListGeneration((g) => g + 1);
+  }, []);
 
   // User-switch reset
   useEffect(() => {
@@ -97,8 +84,11 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
       setError(null);
       setAnchorDayState(today);
       genRef.current += 1;
+      inFlightOlderCursorRef.current = null;
+      loadingMoreRef.current = false;
+      bumpListGeneration();
     }
-  }, [user?.uid, today]);
+  }, [user?.uid, today, bumpListGeneration]);
 
   const fetchPage = useCallback(
     async (args: {
@@ -109,8 +99,10 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
     }) => {
       if (!isFocused || initializing) return;
       const gen = ++genRef.current;
-      if (args.append) setLoadingMore(true);
-      else {
+      if (args.append) {
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+      } else {
         setLoading(true);
         setError(null);
       }
@@ -150,7 +142,7 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
         }
 
         const page: TimelineFeedResponseDto = result.json;
-        setItems((prev) => (args.append ? mergeItems(prev, page.items) : page.items));
+        setItems((prev) => (args.append ? mergeFeedPageItems(prev, page.items) : page.items));
         setNextCursor(page.nextCursor);
         setHasMore(page.hasMore);
         setError(null);
@@ -165,6 +157,10 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
         if (gen === genRef.current) {
           setLoading(false);
           setLoadingMore(false);
+          loadingMoreRef.current = false;
+          if (args.append) {
+            inFlightOlderCursorRef.current = null;
+          }
         }
       }
     },
@@ -176,26 +172,46 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
     void fetchPage({ anchor: anchorDay, append: false });
   }, [anchorDay, fetchPage, initializing, isFocused]);
 
-  const setAnchorDay = useCallback((day: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
-    setItems([]);
-    setNextCursor(null);
-    setHasMore(false);
-    setAnchorDayState(day);
-  }, []);
+  const setAnchorDay = useCallback(
+    (day: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+      setItems([]);
+      setNextCursor(null);
+      setHasMore(false);
+      inFlightOlderCursorRef.current = null;
+      setAnchorDayState(day);
+      bumpListGeneration();
+    },
+    [bumpListGeneration],
+  );
 
   const returnToToday = useCallback(() => {
     setItems([]);
     setNextCursor(null);
     setHasMore(false);
+    inFlightOlderCursorRef.current = null;
     setAnchorDayState(today);
-  }, [today]);
+    bumpListGeneration();
+  }, [today, bumpListGeneration]);
 
-  const loadMore = useCallback(() => {
-    if (!hasMore || !nextCursor || loadingMore || loading) return;
+  const loadOlder = useCallback(() => {
+    const cursor = nextCursor;
+    if (
+      !canRequestOlderPage({
+        hasMore,
+        nextCursor: cursor,
+        loadingMore: loadingMoreRef.current || loadingMore,
+        loading,
+      })
+    ) {
+      return;
+    }
+    if (!cursor) return;
+    if (inFlightOlderCursorRef.current === cursor) return;
+    inFlightOlderCursorRef.current = cursor;
     void fetchPage({
       anchor: anchorRef.current,
-      cursor: nextCursor,
+      cursor,
       append: true,
     });
   }, [fetchPage, hasMore, loading, loadingMore, nextCursor]);
@@ -204,6 +220,8 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
     (opts?: GetOptions) => {
       setItems([]);
       setNextCursor(null);
+      inFlightOlderCursorRef.current = null;
+      bumpListGeneration();
       // exactOptionalPropertyTypes: omit `opts` when absent (do not pass undefined).
       void fetchPage({
         anchor: anchorRef.current,
@@ -211,7 +229,7 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
         ...(opts !== undefined ? { opts } : {}),
       });
     },
-    [fetchPage],
+    [fetchPage, bumpListGeneration],
   );
 
   let status: UseTimelineFeedStatus;
@@ -227,7 +245,7 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
   } else {
     status = {
       status: "ready",
-      sections: groupSections(items),
+      sections: groupSectionsAscending(items),
       items,
       hasMore,
       loadingMore,
@@ -238,9 +256,10 @@ export function useTimelineFeed(initialAnchor?: string): UseTimelineFeedResult {
   return {
     anchorDay,
     status,
+    listGeneration,
     setAnchorDay,
     returnToToday,
-    loadMore,
+    loadOlder,
     refetch,
   };
 }
