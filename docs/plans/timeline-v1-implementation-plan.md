@@ -226,13 +226,30 @@ feed GET.
 This section is documentation only. No image was built, no revision deployed,
 no Gateway config created or attached, no traffic shifted, and no flag enabled.
 
+### Current known-good staging rollback baseline
+
+Preserve the backend and Gateway state serving before any Timeline deployment:
+
+| Surface | Known-good rollback target |
+|---|---|
+| Cloud Run service | `oli-api` |
+| Cloud Run revision | `oli-api-00233-qum` (100% normal traffic) |
+| Immutable image digest | `sha256:32f62038dff4378fecdcc2664fc77d1d7ea54ad886344a43508472cc6c44d90b` |
+| API Gateway config | `projects/1010034434203/locations/global/apis/oli-api/configs/oli-api-config-weekly-fitness-8788c52-20260712-201806` |
+| Firebase Functions | Unchanged; no Timeline Function deployment |
+| Logging/privacy controls | Retain unchanged |
+
+Older non-serving revisions, including `oli-api-00232-*`, are preserved
+artifacts but are not the primary Timeline rollback target.
+
 ### Immutable build plan
 
 1. Build from clean committed Timeline HEAD only.
 2. Submit the repository-approved Cloud Build; record the Cloud Build ID and
    source archive.
-3. Record the produced image tag and its immutable digest.
-4. Deploy the API **by digest** as a **no-traffic tagged** revision.
+3. Tag the image with `<FINAL_SHORT_SHA>` and record its immutable digest.
+4. Deploy the API **by digest** as a **no-traffic tagged** revision using
+   `timeline-feed-<FINAL_SHORT_SHA>`.
 5. Diff the new revision's configuration against the current serving revision;
    only image reference and revision metadata may differ.
 
@@ -259,7 +276,9 @@ No health values or private event dates are captured in probe evidence.
 
 ### Unattached Gateway config plan
 
-1. Name the Gateway config using the final short SHA for provenance.
+1. Name the Gateway config
+   `oli-api-config-timeline-feed-<FINAL_SHORT_SHA>-<TIMESTAMP>` for
+   provenance.
 2. Create it **ACTIVE but unattached**.
 3. Verify the `timeline-feed` route, Firebase JWT security, and OPTIONS/CORS.
 4. Confirm existing routes are preserved.
@@ -286,8 +305,11 @@ No health values or private event dates are captured in probe evidence.
 
 ### Rollback order (later authorization only)
 
-1. Roll back the Gateway config first.
-2. Roll back Cloud Run traffic second.
+1. Roll back the Gateway first to
+   `oli-api-config-weekly-fitness-8788c52-20260712-201806`.
+2. Roll back Cloud Run traffic second to `oli-api-00233-qum` at immutable
+   digest
+   `sha256:32f62038dff4378fecdcc2664fc77d1d7ea54ad886344a43508472cc6c44d90b`.
 3. Retain/restore a Function only if the diff proves a Function deploy was
    required (it does not in this slice).
 4. Preserve logging privacy controls.
