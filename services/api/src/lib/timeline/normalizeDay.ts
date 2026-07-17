@@ -14,6 +14,10 @@ import {
   type TimelinePresentationSource,
 } from "@oli/contracts";
 
+import {
+  familyFromWorkoutKind,
+  reconcileWorkoutSessionsCore,
+} from "@/lib/domain/workouts/reconcileWorkoutSessionsCore";
 import { dedupeTimelineFeedItems } from "./dedupe";
 import { sortTimelineFeedItems } from "./order";
 
@@ -296,22 +300,79 @@ const CANONICAL_KIND_MAP: Record<
   string,
   { kind: TimelinePresentationItem["kind"]; title: string; destination: (day: string) => string } | undefined
 > = {
-  strength_workout: {
-    kind: "workout_strength",
-    title: "Strength workout",
-    destination: (d) => `/(app)/workouts/day/${d}`,
-  },
-  workout: {
-    kind: "workout",
-    title: "Workout",
-    destination: (d) => `/(app)/workouts/day/${d}`,
-  },
   weight: {
     kind: "weight",
     title: "Weight",
     destination: (d) => `/(app)/body/day/${d}`,
   },
 };
+
+function presentationKindForSession(
+  sessionType: "strength" | "cardio" | "mixed" | "unknown",
+): TimelinePresentationItem["kind"] {
+  if (sessionType === "strength") return "workout_strength";
+  if (sessionType === "cardio") return "workout_cardio";
+  return "workout";
+}
+
+function buildReconciledWorkoutItems(
+  day: string,
+  timezone: string,
+  events: readonly CanonicalEventListItem[],
+): TimelinePresentationItem[] {
+  const candidates = events.filter(
+    (ev) => ev.kind === "workout" || ev.kind === "strength_workout",
+  );
+  if (candidates.length === 0) return [];
+
+  const records = candidates
+    .filter((ev) => Number.isFinite(Date.parse(ev.start)))
+    .map((ev) => ({
+      id: ev.id,
+      sourceId: ev.sourceId,
+      rawKind: ev.kind,
+      title: null as string | null,
+      start: ev.start,
+      end: ev.end,
+      observedAt: ev.start,
+      durationMinutes:
+        Number.isFinite(Date.parse(ev.end)) && Date.parse(ev.end) > Date.parse(ev.start)
+          ? Math.max(1, Math.round((Date.parse(ev.end) - Date.parse(ev.start)) / 60_000))
+          : null,
+      calories: null as number | null,
+      family: familyFromWorkoutKind(ev.kind),
+    }));
+
+  const sessions = reconcileWorkoutSessionsCore(day, records);
+  return sessions.map((session) => {
+    const kind = presentationKindForSession(session.sessionType);
+    const title =
+      session.sessionType === "strength"
+        ? "Strength workout"
+        : session.sessionType === "cardio"
+          ? "Cardio workout"
+          : session.title || "Workout";
+    const occurredAt = session.start ?? records[0]!.start;
+    const tz =
+      candidates.find((c) => session.memberIds.includes(c.id))?.timezone || timezone;
+    const hasManual = session.members.some((m) => m.sourceId === "manual");
+    return {
+      id: session.id,
+      kind,
+      day,
+      occurredAt,
+      timezone: tz,
+      title,
+      status: "ready" as const,
+      source: hasManual ? ("manual" as const) : ("device" as const),
+      destination: `/(app)/workouts/day/${day}`,
+      accessibilityLabel: title,
+      dedupeKey: `workout_session:${[...session.memberIds].sort().join("|")}`,
+      isSynthetic: false,
+      displayRole: "chronological_event" as const,
+    };
+  });
+}
 
 function buildCanonicalItems(
   day: string,
@@ -320,11 +381,14 @@ function buildCanonicalItems(
   skipSleep: boolean,
 ): TimelinePresentationItem[] {
   const out: TimelinePresentationItem[] = [];
+  out.push(...buildReconciledWorkoutItems(day, timezone, events));
+
   for (const ev of events) {
     if (ev.kind === "nutrition") continue;
     if (ev.kind === "steps") continue; // forbid midnight Steps fabrication
     if (ev.kind === "sleep" && skipSleep) continue;
     if (ev.kind === "hrv") continue; // recovery context covers readiness
+    if (ev.kind === "workout" || ev.kind === "strength_workout") continue; // reconciled above
     const map = CANONICAL_KIND_MAP[ev.kind];
     if (!map) continue;
     if (!Number.isFinite(Date.parse(ev.start))) continue;

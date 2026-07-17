@@ -178,6 +178,93 @@ describe("normalizeTimelineDay", () => {
     expect(items.some((i) => i.kind === "steps")).toBe(false);
   });
 
+  test("merges matching strength_workout + workout into one presentation item", () => {
+    const items = normalizeTimelineDay({
+      day: "2026-07-16",
+      todayDay: "2026-07-16",
+      nowIso: "2026-07-16T20:00:00.000Z",
+      events: [
+        {
+          id: "m1",
+          userId: "u",
+          sourceId: "manual",
+          kind: "strength_workout",
+          start: "2026-07-16T18:00:00.000Z",
+          end: "2026-07-16T18:00:00.000Z",
+          day: "2026-07-16",
+          timezone: "UTC",
+          createdAt: "2026-07-16T18:00:00.000Z",
+          updatedAt: "2026-07-16T18:00:00.000Z",
+          schemaVersion: 1,
+        },
+        {
+          id: "a1",
+          userId: "u",
+          sourceId: "apple_health",
+          kind: "workout",
+          start: "2026-07-16T18:02:00.000Z",
+          end: "2026-07-16T19:00:00.000Z",
+          day: "2026-07-16",
+          timezone: "UTC",
+          createdAt: "2026-07-16T19:00:00.000Z",
+          updatedAt: "2026-07-16T19:00:00.000Z",
+          schemaVersion: 1,
+        },
+      ],
+      readiness: { connected: false, score: null },
+    });
+    const workouts = items.filter(
+      (i) =>
+        i.kind === "workout" ||
+        i.kind === "workout_strength" ||
+        i.kind === "workout_cardio",
+    );
+    expect(workouts).toHaveLength(1);
+    expect(workouts[0]!.dedupeKey).toBe("workout_session:a1|m1");
+    expect(workouts[0]!.id).toContain("m1");
+    expect(workouts[0]!.id).toContain("a1");
+    expect(JSON.stringify(workouts[0])).not.toMatch(/providerPayload|rawPayload/);
+  });
+
+  test("keeps two far-apart same-kind workouts distinct", () => {
+    const items = normalizeTimelineDay({
+      day: "2026-07-16",
+      todayDay: "2026-07-16",
+      nowIso: "2026-07-16T20:00:00.000Z",
+      events: [
+        {
+          id: "w1",
+          userId: "u",
+          sourceId: "apple_health",
+          kind: "workout",
+          start: "2026-07-16T07:00:00.000Z",
+          end: "2026-07-16T07:30:00.000Z",
+          day: "2026-07-16",
+          timezone: "UTC",
+          createdAt: "2026-07-16T07:30:00.000Z",
+          updatedAt: "2026-07-16T07:30:00.000Z",
+          schemaVersion: 1,
+        },
+        {
+          id: "w2",
+          userId: "u",
+          sourceId: "apple_health",
+          kind: "workout",
+          start: "2026-07-16T18:00:00.000Z",
+          end: "2026-07-16T18:30:00.000Z",
+          day: "2026-07-16",
+          timezone: "UTC",
+          createdAt: "2026-07-16T18:30:00.000Z",
+          updatedAt: "2026-07-16T18:30:00.000Z",
+          schemaVersion: 1,
+        },
+      ],
+      readiness: { connected: false, score: null },
+    });
+    const workouts = items.filter((i) => i.kind === "workout");
+    expect(workouts).toHaveLength(2);
+  });
+
   test("skips canonical steps and emits historical activity_final", () => {
     const items = normalizeTimelineDay({
       day: "2026-07-15",
