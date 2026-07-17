@@ -15,7 +15,11 @@
     "skipLibCheck": true
   },
   "references": [{ "path": "../../lib/contracts/tsconfig.json" }],
-  "include": ["src/**/*.ts", "../../lib/labs/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "../../lib/labs/**/*.ts",
+    "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",

@@ -2,11 +2,9 @@
 // Vertical timeline rail: time label + connector dot + event card per item.
 // Virtualized via FlatList; this component owns the day's scroll + pull-to-refresh.
 import type { ReactElement } from "react";
-import { FlatList, StyleSheet, Text, View, type RefreshControlProps } from "react-native";
+import { FlatList, View, type RefreshControlProps } from "react-native";
 import type { TimelineDayItem } from "@/lib/features/timeline/types";
-import { TimelineEventCard } from "@/lib/ui/timeline/TimelineEventCard";
-import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
-import { UI_BORDER_HAIRLINE, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
+import { TimelineRailRow } from "@/lib/ui/timeline/TimelineRailRow";
 
 export function formatTimelineTimeLabel(iso: string): string {
   const d = new Date(iso);
@@ -36,30 +34,18 @@ export function TimelineRail({
       {...(refreshControl ? { refreshControl } : {})}
       {...(ListHeaderComponent ? { ListHeaderComponent } : {})}
       renderItem={({ item, index }) => (
-        <View style={styles.row}>
-          <View style={styles.timeColumn}>
-            <Text style={styles.timeText}>{formatTimelineTimeLabel(item.timestamp)}</Text>
-          </View>
-          <View style={styles.railColumn}>
-            <View
-              style={[
-                styles.railLine,
-                index === 0 && styles.railLineTopHidden,
-                index === items.length - 1 && styles.railLineBottomHidden,
-              ]}
-            />
-            <View style={styles.railDot} />
-          </View>
-          <View style={styles.cardColumn}>
-            <TimelineEventCard
-              item={item}
-              timeLabel={formatTimelineTimeLabel(item.timestamp)}
-              onPress={onPressItem}
-            />
-          </View>
-        </View>
+        <TimelineRailRow
+          timeLabel={formatTimelineTimeLabel(item.timestamp)}
+          title={item.title}
+          {...(item.subtitle ? { subtitle: item.subtitle } : {})}
+          icon={item.icon}
+          accessibilityLabel={item.accessibilityLabel}
+          actionable
+          isFirstInSegment={index === 0}
+          isLastInSegment={index === items.length - 1}
+          onPress={() => onPressItem(item)}
+        />
       )}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListFooterComponent={<View style={{ height: contentBottomPadding }} />}
       initialNumToRender={16}
       maxToRenderPerBatch={12}
@@ -69,40 +55,3 @@ export function TimelineRail({
     />
   );
 }
-
-const TIME_COL_WIDTH = 64;
-const RAIL_COL_WIDTH = 20;
-const DOT_SIZE = 10;
-
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "stretch" },
-  timeColumn: {
-    width: TIME_COL_WIDTH,
-    paddingTop: 16,
-    alignItems: "flex-end",
-    paddingRight: 8,
-  },
-  timeText: { fontSize: 12, fontWeight: "600", color: UI_TEXT_TERTIARY_LABEL },
-  railColumn: {
-    width: RAIL_COL_WIDTH,
-    alignItems: "center",
-  },
-  railLine: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: UI_BORDER_HAIRLINE,
-  },
-  railLineTopHidden: { top: 22 },
-  railLineBottomHidden: { bottom: "50%" },
-  railDot: {
-    width: DOT_SIZE,
-    height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
-    backgroundColor: SYSTEM_ACCENT,
-    marginTop: 18,
-  },
-  cardColumn: { flex: 1, paddingVertical: 4 },
-  separator: { height: 8 },
-});

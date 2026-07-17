@@ -2,7 +2,6 @@
 // Single elevated timeline row card (icon + title + subtitle). Presentational only.
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { TimelineDayItem } from "@/lib/features/timeline/types";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
@@ -12,23 +11,42 @@ import {
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 
-export type TimelineEventCardProps = {
-  item: TimelineDayItem;
-  /** Pre-formatted local time, e.g. "7:20 AM". Used for the accessibility label. */
-  timeLabel: string;
-  onPress: (item: TimelineDayItem) => void;
+export type TimelineEventCardModel = {
+  title: string;
+  subtitle?: string;
+  icon: string;
+  accessibilityLabel: string;
 };
 
-export function TimelineEventCard({ item, timeLabel, onPress }: TimelineEventCardProps) {
+export type TimelineEventCardProps = {
+  item: TimelineEventCardModel;
+  /** Pre-formatted local time, e.g. "7:20 AM". Used for the accessibility label. */
+  timeLabel: string;
+  onPress: () => void;
+  /** When false, omit chevron and disable press affordance. */
+  actionable?: boolean;
+};
+
+export function TimelineEventCard({
+  item,
+  timeLabel,
+  onPress,
+  actionable = true,
+}: TimelineEventCardProps) {
   const accessibilityLabel = [timeLabel, item.accessibilityLabel]
     .filter((s) => s && s.length > 0)
     .join(", ");
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() => onPress(item)}
-      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.card,
+        actionable && pressed && styles.cardPressed,
+        !actionable && styles.cardStatic,
+      ]}
+      onPress={actionable ? onPress : undefined}
+      disabled={!actionable}
+      accessibilityRole={actionable ? "button" : "text"}
       accessibilityLabel={accessibilityLabel}
     >
       <View style={styles.iconWrap}>
@@ -44,7 +62,9 @@ export function TimelineEventCard({ item, timeLabel, onPress }: TimelineEventCar
           </Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={UI_TEXT_TERTIARY_LABEL} />
+      {actionable ? (
+        <Ionicons name="chevron-forward" size={16} color={UI_TEXT_TERTIARY_LABEL} />
+      ) : null}
     </Pressable>
   );
 }
@@ -58,9 +78,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: UI_GROUPED_CARD_RADIUS,
+    minHeight: 44,
     ...elevatedCardSurfaceStyle,
   },
   cardPressed: { opacity: 0.7 },
+  cardStatic: {},
   iconWrap: {
     width: 32,
     height: 32,

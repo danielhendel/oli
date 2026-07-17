@@ -2,33 +2,10 @@
 // Pure merge/group behavior for the feed hook (no Auth/Firebase).
 
 import type { TimelinePresentationItem } from "@oli/contracts";
-
-function mergeItems(
-  prev: TimelinePresentationItem[],
-  next: TimelinePresentationItem[],
-): TimelinePresentationItem[] {
-  const seen = new Set(prev.map((i) => i.dedupeKey));
-  const out = [...prev];
-  for (const item of next) {
-    if (seen.has(item.dedupeKey)) continue;
-    seen.add(item.dedupeKey);
-    out.push(item);
-  }
-  return out;
-}
-
-function groupSections(items: TimelinePresentationItem[]) {
-  const order: string[] = [];
-  const map = new Map<string, TimelinePresentationItem[]>();
-  for (const item of items) {
-    if (!map.has(item.day)) {
-      map.set(item.day, []);
-      order.push(item.day);
-    }
-    map.get(item.day)!.push(item);
-  }
-  return order.map((day) => ({ day, data: map.get(day)! }));
-}
+import {
+  groupSectionsAscending,
+  mergeFeedPageItems,
+} from "@/lib/features/timeline/timelineFeedOrder";
 
 function item(
   id: string,
@@ -53,14 +30,14 @@ function item(
 }
 
 describe("timeline feed merge helpers", () => {
-  test("mergeItems drops duplicate dedupeKeys", () => {
+  test("mergeFeedPageItems drops duplicate dedupeKeys", () => {
     const a = item("a", "2026-07-16", "nutrition:a");
     const b = item("b", "2026-07-15", "canonical:b");
-    const merged = mergeItems([a], [a, b]);
+    const merged = mergeFeedPageItems([a], [a, b]);
     expect(merged.map((i) => i.dedupeKey)).toEqual(["nutrition:a", "canonical:b"]);
   });
 
-  test("groupSections preserves first-seen day order with Today first and older below", () => {
+  test("groupSectionsAscending places Today/newest last for chat-style chronology", () => {
     const page1 = [
       item("a", "2026-07-16", "a"),
       item("b", "2026-07-16", "b"),
@@ -69,14 +46,14 @@ describe("timeline feed merge helpers", () => {
       item("c", "2026-07-15", "c"),
       item("d", "2026-07-14", "d"),
     ];
-    const merged = mergeItems(page1, page2);
-    const sections = groupSections(merged);
+    const merged = mergeFeedPageItems(page1, page2);
+    const sections = groupSectionsAscending(merged);
     expect(sections.map((s) => s.day)).toEqual([
-      "2026-07-16",
-      "2026-07-15",
       "2026-07-14",
+      "2026-07-15",
+      "2026-07-16",
     ]);
-    expect(sections[0]?.data).toHaveLength(2);
+    expect(sections[sections.length - 1]?.data).toHaveLength(2);
   });
 
   test("refetch omits optional opts under exactOptionalPropertyTypes", () => {
@@ -87,21 +64,29 @@ describe("timeline feed merge helpers", () => {
     expect(src).not.toMatch(/append:\s*false,\s*opts,/);
   });
 
-  test("request-budget contract: one feed client, guarded loadMore, no per-day fan-out", () => {
+  test("request-budget contract: one feed client, guarded loadOlder, no per-day fan-out", () => {
     const { readFileSync } = require("node:fs") as typeof import("node:fs");
     const { join } = require("node:path") as typeof import("node:path");
     const hook = readFileSync(join(__dirname, "..", "useTimelineFeed.ts"), "utf8");
+    const list = readFileSync(
+      join(__dirname, "..", "..", "..", "ui", "timeline", "TimelineFeedList.tsx"),
+      "utf8",
+    );
     const screen = readFileSync(
       join(__dirname, "..", "..", "..", "ui", "timeline", "TimelineDayScreen.tsx"),
       "utf8",
     );
     expect(hook).toContain("import { getTimelineFeed }");
     expect(hook).toContain("await getTimelineFeed(token,");
-    expect(hook).toContain("if (!hasMore || !nextCursor || loadingMore || loading) return");
-    expect(hook).toContain("setAnchorDayState");
-    expect(hook).toContain("returnToToday");
+    expect(hook).toContain("loadOlder");
+    expect(hook).toContain("canRequestOlderPage");
+    expect(hook).toContain("inFlightOlderCursorRef");
+    expect(hook).toContain("groupSectionsAscending");
     expect(hook).not.toContain("getRawEvents");
     expect(hook).not.toContain("oura");
+    expect(list).toContain("onStartReached");
+    expect(list).not.toContain("onEndReached=");
+    expect(list).toContain("maintainVisibleContentPosition");
     expect(screen).toContain('EXPO_PUBLIC_TIMELINE_FEED === "1"');
     expect(screen).not.toMatch(/EXPO_PUBLIC_TIMELINE_FEED\s*=\s*["']1["']/);
   });

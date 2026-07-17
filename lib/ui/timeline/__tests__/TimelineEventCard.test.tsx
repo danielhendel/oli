@@ -4,20 +4,11 @@ import renderer, { act } from "react-test-renderer";
 import { Pressable } from "react-native";
 
 import { TimelineEventCard } from "@/lib/ui/timeline/TimelineEventCard";
-import type { TimelineDayItem } from "@/lib/features/timeline/types";
 
-const ITEM: TimelineDayItem = {
-  id: "n1",
-  day: "2026-06-10",
-  timestamp: "2026-06-10T07:25:00.000Z",
-  sortKey: "2026-06-10T07:25:00.000Z#n1",
+const ITEM = {
   title: "Coffee",
   subtitle: "Breakfast · 5 kcal",
-  sourceType: "caffeine",
-  sourceId: "n1",
   icon: "cafe-outline",
-  href: "/(app)/nutrition/day/2026-06-10",
-  isPassive: false,
   accessibilityLabel: "Coffee, Breakfast · 5 kcal",
 };
 
@@ -38,7 +29,7 @@ describe("TimelineEventCard", () => {
     expect((pressable.props as { accessibilityRole?: string }).accessibilityRole).toBe("button");
   });
 
-  it("calls onPress with the item", () => {
+  it("calls onPress when pressed", () => {
     const onPress = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -50,6 +41,23 @@ describe("TimelineEventCard", () => {
     act(() => {
       (tree.root.findByType(Pressable).props as { onPress: () => void }).onPress();
     });
-    expect(onPress).toHaveBeenCalledWith(ITEM);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits chevron and press when not actionable", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <TimelineEventCard
+          item={ITEM}
+          timeLabel=""
+          onPress={jest.fn()}
+          actionable={false}
+        />,
+      );
+    });
+    const pressable = tree.root.findByType(Pressable);
+    expect((pressable.props as { disabled?: boolean }).disabled).toBe(true);
+    expect((pressable.props as { accessibilityRole?: string }).accessibilityRole).toBe("text");
   });
 });

@@ -36,16 +36,17 @@ describe("TimelineFeedList day section headers", () => {
         <OliThemeProvider mode="dark">
           <TimelineFeedList
             sections={[
-              { day: "2026-07-16", data: [item("2026-07-16", "a")] },
-              { day: "2026-07-15", data: [item("2026-07-15", "b")] },
               { day: "2026-07-14", data: [] },
+              { day: "2026-07-15", data: [item("2026-07-15", "b")] },
+              { day: "2026-07-16", data: [item("2026-07-16", "a")] },
             ]}
             onPressItem={jest.fn()}
-            onEndReached={jest.fn()}
+            onStartReached={jest.fn()}
             loadingMore={false}
             refreshing={false}
             onRefresh={jest.fn()}
             contentBottomPadding={40}
+            listGeneration={0}
           />
         </OliThemeProvider>,
       );
@@ -58,10 +59,12 @@ describe("TimelineFeedList day section headers", () => {
     expect(typeof sectionList.props.renderSectionHeader).toBe("function");
     expect(sectionList.props.sections).toHaveLength(3);
     expect(sectionList.props.sections.map((s: { day: string }) => s.day)).toEqual([
-      "2026-07-16",
-      "2026-07-15",
       "2026-07-14",
+      "2026-07-15",
+      "2026-07-16",
     ]);
+    expect(sectionList.props.onStartReached).toEqual(expect.any(Function));
+    expect(sectionList.props.onEndReached).toBeUndefined();
     // Section data contains events only — no duplicate date rows.
     for (const section of sectionList.props.sections as {
       day: string;
