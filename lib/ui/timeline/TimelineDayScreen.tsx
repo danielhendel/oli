@@ -1,8 +1,16 @@
 // lib/ui/timeline/TimelineDayScreen.tsx
 // Daily Timeline v1: deterministic single-day experience (shipping path).
 // Continuous feed modules remain deferred research and are not imported here.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type RefreshControlProps,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
@@ -10,13 +18,19 @@ import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingT
 import { getTodayDayKey } from "@/lib/time/dayKey";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useTimelineDay } from "@/lib/features/timeline/useTimelineDay";
-import type { TimelineDayContextRow, TimelineDayItem } from "@/lib/features/timeline/types";
+import {
+  timelineDayStatusHasVm,
+  type TimelineDayContextRow,
+  type TimelineDayItem,
+  type TimelineDayStatus,
+} from "@/lib/features/timeline/types";
 import { TimelineRail } from "@/lib/ui/timeline/TimelineRail";
 import { TimelineEmptyState } from "@/lib/ui/timeline/TimelineEmptyState";
 import { TimelineCalendarButton } from "@/lib/ui/timeline/TimelineCalendarButton";
 import { TimelineCalendarSheet } from "@/lib/ui/timeline/TimelineCalendarSheet";
 import { TimelineDaySectionHeader } from "@/lib/ui/timeline/TimelineDaySectionHeader";
 import { DailyTimelineContextCard } from "@/lib/ui/timeline/DailyTimelineContextCard";
+import { TimelineDayIncompleteNotice } from "@/lib/ui/timeline/TimelineDayIncompleteNotice";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 
@@ -26,6 +40,16 @@ export type TimelineDayScreenProps = {
   /** Optional starting day (deep links / [day] route). Defaults to today. */
   initialDay?: string;
 };
+
+function daySectionHeaderFor(day: string, today: string) {
+  return (
+    <TimelineDaySectionHeader
+      dayKey={day}
+      todayDayKey={today}
+      testID="timeline-day-section-header"
+    />
+  );
+}
 
 export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
   const router = useRouter();
@@ -80,36 +104,24 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
     [refreshing, onRefresh],
   );
 
-  const daySectionHeader = useMemo(
-    () => (
-      <TimelineDaySectionHeader
-        dayKey={day}
-        todayDayKey={today}
-        testID="timeline-day-section-header"
-      />
-    ),
-    [day, today],
-  );
+  const daySectionHeader = useMemo(() => daySectionHeaderFor(day, today), [day, today]);
 
-  const contextCard = useMemo(() => {
-    if (status.status !== "ready") return null;
+  const listHeader = useMemo(() => {
+    const hasVm = timelineDayStatusHasVm(status);
+    const incomplete =
+      status.status === "partial" && status.history === "incomplete" ? status : null;
     return (
-      <DailyTimelineContextCard
-        rows={status.vm.context}
-        onPressRow={onPressContext}
-      />
-    );
-  }, [status, onPressContext]);
-
-  const listHeader = useMemo(
-    () => (
       <View>
         {daySectionHeader}
-        {contextCard}
+        {hasVm ? (
+          <DailyTimelineContextCard rows={status.vm.context} onPressRow={onPressContext} />
+        ) : null}
+        {incomplete ? (
+          <TimelineDayIncompleteNotice onRetry={() => refetchAll()} />
+        ) : null}
       </View>
-    ),
-    [daySectionHeader, contextCard],
-  );
+    );
+  }, [daySectionHeader, status, onPressContext, refetchAll]);
 
   return (
     <ScreenContainer padded={false}>
@@ -131,38 +143,17 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
           </Pressable>
         ) : null}
         <View style={styles.content}>
-          {status.status === "partial" ? (
-            <LoadingState message="Loading timeline…" />
-          ) : status.status === "error" ? (
-            <ErrorState
-              message={status.error}
-              requestId={status.requestId}
-              onRetry={() => refetchAll()}
-              isContractError={status.reason === "contract"}
-            />
-          ) : status.vm.isEmpty ? (
-            <ScrollView
-              key={`empty:${day}`}
-              style={styles.contentFill}
-              contentContainerStyle={[
-                styles.emptyScrollContent,
-                { paddingBottom: listBottomPad },
-              ]}
-              refreshControl={refreshControl}
-            >
-              {listHeader}
-              <TimelineEmptyState isToday={isToday} />
-            </ScrollView>
-          ) : (
-            <TimelineRail
-              key={`rail:${day}`}
-              items={status.vm.items}
-              onPressItem={onPressItem}
-              refreshControl={refreshControl}
-              contentBottomPadding={listBottomPad}
-              ListHeaderComponent={listHeader}
-            />
-          )}
+          {renderBody({
+            status,
+            isToday,
+            listBottomPad,
+            refreshControl,
+            listHeader,
+            daySectionHeader,
+            onPressItem,
+            onRetry: () => refetchAll(),
+            day,
+          })}
         </View>
       </View>
       <TimelineCalendarSheet
@@ -179,6 +170,71 @@ export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
         }}
       />
     </ScreenContainer>
+  );
+}
+
+function renderBody(args: {
+  status: TimelineDayStatus;
+  isToday: boolean;
+  listBottomPad: number;
+  refreshControl: ReactElement<RefreshControlProps>;
+  listHeader: ReactElement;
+  daySectionHeader: ReactElement;
+  onPressItem: (item: TimelineDayItem) => void;
+  onRetry: () => void;
+  day: string;
+}) {
+  const { status } = args;
+
+  if (status.status === "partial" && status.history === "settling") {
+    return <LoadingState message="Loading timeline…" />;
+  }
+
+  if (status.status === "error") {
+    return (
+      <ScrollView
+        key={`error:${args.day}`}
+        style={styles.contentFill}
+        contentContainerStyle={[styles.emptyScrollContent, { paddingBottom: args.listBottomPad }]}
+      >
+        {args.daySectionHeader}
+        <ErrorState
+          message={status.error}
+          requestId={status.requestId}
+          onRetry={args.onRetry}
+          isContractError={status.reason === "contract"}
+        />
+      </ScrollView>
+    );
+  }
+
+  if (!timelineDayStatusHasVm(status)) {
+    return <LoadingState message="Loading timeline…" />;
+  }
+
+  if (status.vm.isEmpty) {
+    return (
+      <ScrollView
+        key={`empty:${args.day}`}
+        style={styles.contentFill}
+        contentContainerStyle={[styles.emptyScrollContent, { paddingBottom: args.listBottomPad }]}
+        refreshControl={args.refreshControl}
+      >
+        {args.listHeader}
+        <TimelineEmptyState isToday={args.isToday} />
+      </ScrollView>
+    );
+  }
+
+  return (
+    <TimelineRail
+      key={`rail:${args.day}`}
+      items={status.vm.items}
+      onPressItem={args.onPressItem}
+      refreshControl={args.refreshControl}
+      contentBottomPadding={args.listBottomPad}
+      ListHeaderComponent={args.listHeader}
+    />
   );
 }
 
