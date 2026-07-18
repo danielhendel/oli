@@ -33,11 +33,12 @@ describe("Daily Timeline v1 shipping path", () => {
     expect(screen).not.toContain("getTimelineFeed");
   });
 
-  test("request-budget: useTimelineDay has no feed client and no per-day loop", () => {
+  test("request-budget: useTimelineDay has no feed client and uses selected-day loaders", () => {
     const hook = readFileSync(join(root, "lib/features/timeline/useTimelineDay.ts"), "utf8");
     expect(hook).not.toContain("getTimelineFeed");
     expect(hook).not.toContain("while (");
-    expect(hook).toContain("useEvents");
+    expect(hook).toContain("fetchTimelineDayEventsPages");
+    expect(hook).toContain("fetchTimelineDayRawEventsPages");
     expect(hook).toContain("useSleepNight");
     expect(hook).toContain("useDailyFacts");
   });
