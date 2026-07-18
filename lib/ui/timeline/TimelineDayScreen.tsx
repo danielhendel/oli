@@ -1,42 +1,35 @@
 // lib/ui/timeline/TimelineDayScreen.tsx
-// Timeline v1 chrome: calendar jump, no Plan vs actual, no day arrows.
-// Continuous feed loads only when EXPO_PUBLIC_TIMELINE_FEED=1 (live API required).
-import { useCallback, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+// Daily Timeline v1: deterministic single-day experience (shipping path).
+// Continuous feed modules remain deferred research and are not imported here.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { getTodayDayKey } from "@/lib/time/dayKey";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useTimelineDay } from "@/lib/features/timeline/useTimelineDay";
-import type { TimelineDayItem } from "@/lib/features/timeline/types";
+import type { TimelineDayContextRow, TimelineDayItem } from "@/lib/features/timeline/types";
 import { TimelineRail } from "@/lib/ui/timeline/TimelineRail";
 import { TimelineEmptyState } from "@/lib/ui/timeline/TimelineEmptyState";
 import { TimelineCalendarButton } from "@/lib/ui/timeline/TimelineCalendarButton";
 import { TimelineCalendarSheet } from "@/lib/ui/timeline/TimelineCalendarSheet";
 import { TimelineDaySectionHeader } from "@/lib/ui/timeline/TimelineDaySectionHeader";
+import { DailyTimelineContextCard } from "@/lib/ui/timeline/DailyTimelineContextCard";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
 
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
-const FEED_ENABLED = process.env.EXPO_PUBLIC_TIMELINE_FEED === "1";
 
 export type TimelineDayScreenProps = {
   /** Optional starting day (deep links / [day] route). Defaults to today. */
   initialDay?: string;
 };
 
-export function TimelineDayScreen(props: TimelineDayScreenProps) {
-  if (FEED_ENABLED) {
-    // Lazy require keeps Auth/firebase out of the default single-day path (Jest + Metro).
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { TimelineFeedScreen } = require("@/lib/ui/timeline/TimelineFeedScreen") as typeof import("@/lib/ui/timeline/TimelineFeedScreen");
-    return <TimelineFeedScreen {...props} />;
-  }
-  return <TimelineDayScreenLegacy {...props} />;
-}
-
-function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
+export function TimelineDayScreen({ initialDay }: TimelineDayScreenProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const listBottomPad = useFloatingTabBarScrollPadding(40);
   const today = useMemo(() => getTodayDayKey(), []);
   const [day, setDay] = useState(() =>
@@ -46,6 +39,17 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
   const { status, refetchAll } = useTimelineDay(day);
   const [refreshing, setRefreshing] = useState(false);
   const isToday = day === today;
+
+  // Account switch: clear selected day back to Today (do not clobber cold/deep-link day on mount).
+  const uidRef = useRef(user?.uid ?? null);
+  useEffect(() => {
+    const nextUid = user?.uid ?? null;
+    if (uidRef.current !== nextUid) {
+      uidRef.current = nextUid;
+      setDay(today);
+      setCalendarOpen(false);
+    }
+  }, [user?.uid, today]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -59,6 +63,14 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
   const onPressItem = useCallback(
     (item: TimelineDayItem) => {
       router.push(item.href as never);
+    },
+    [router],
+  );
+
+  const onPressContext = useCallback(
+    (row: TimelineDayContextRow) => {
+      if (!row.href) return;
+      router.push(row.href as never);
     },
     [router],
   );
@@ -79,6 +91,26 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
     [day, today],
   );
 
+  const contextCard = useMemo(() => {
+    if (status.status !== "ready") return null;
+    return (
+      <DailyTimelineContextCard
+        rows={status.vm.context}
+        onPressRow={onPressContext}
+      />
+    );
+  }, [status, onPressContext]);
+
+  const listHeader = useMemo(
+    () => (
+      <View>
+        {daySectionHeader}
+        {contextCard}
+      </View>
+    ),
+    [daySectionHeader, contextCard],
+  );
+
   return (
     <ScreenContainer padded={false}>
       <View style={styles.main}>
@@ -87,6 +119,17 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
           subtitle="Your day, in order"
           rightSlot={<TimelineCalendarButton onPress={() => setCalendarOpen(true)} />}
         />
+        {!isToday ? (
+          <Pressable
+            onPress={() => setDay(today)}
+            accessibilityRole="button"
+            accessibilityLabel="Return to Today"
+            style={styles.todayControl}
+            testID="timeline-return-to-today"
+          >
+            <Text style={styles.todayControlText}>Today</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.content}>
           {status.status === "partial" ? (
             <LoadingState message="Loading timeline…" />
@@ -107,7 +150,7 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
               ]}
               refreshControl={refreshControl}
             >
-              {daySectionHeader}
+              {listHeader}
               <TimelineEmptyState isToday={isToday} />
             </ScrollView>
           ) : (
@@ -117,7 +160,7 @@ function TimelineDayScreenLegacy({ initialDay }: TimelineDayScreenProps) {
               onPressItem={onPressItem}
               refreshControl={refreshControl}
               contentBottomPadding={listBottomPad}
-              ListHeaderComponent={daySectionHeader}
+              ListHeaderComponent={listHeader}
             />
           )}
         </View>
@@ -144,4 +187,17 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: UI_TAB_ROOT_INSET, paddingTop: 4 },
   contentFill: { flex: 1 },
   emptyScrollContent: { flexGrow: 1 },
+  todayControl: {
+    alignSelf: "center",
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  todayControlText: {
+    color: SYSTEM_ACCENT,
+    fontSize: 15,
+    fontWeight: "600",
+  },
 });

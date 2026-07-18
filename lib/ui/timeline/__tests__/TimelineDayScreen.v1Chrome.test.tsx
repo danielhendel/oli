@@ -24,6 +24,10 @@ jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
   useTimelineDay: (...args: unknown[]) => mockUseTimelineDay(...args),
 }));
 
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { uid: "test-user" }, initializing: false }),
+}));
+
 import { TimelineDayScreen } from "@/lib/ui/timeline/TimelineDayScreen";
 import { OliThemeProvider } from "@/lib/ui/theme/OliThemeContext";
 
@@ -53,6 +57,32 @@ function readyVm(day: string, empty: boolean) {
             ],
         isEmpty: empty,
         summary: null,
+        context: [
+          {
+            kind: "sleep",
+            title: "Sleep",
+            availability: "unavailable",
+            accessibilityLabel: "Sleep, unavailable",
+            icon: "moon-outline",
+            href: "/(app)/recovery/sleep?day=" + day,
+          },
+          {
+            kind: "recovery",
+            title: "Recovery",
+            availability: "unavailable",
+            accessibilityLabel: "Recovery, unavailable",
+            icon: "heart-outline",
+            href: "/(app)/recovery/readiness",
+          },
+          {
+            kind: "activity",
+            title: "Activity",
+            availability: "unavailable",
+            accessibilityLabel: "Activity, unavailable",
+            icon: "walk-outline",
+            href: "/(app)/activity/day/" + day,
+          },
+        ],
       },
     },
     refetchAll: jest.fn(),
@@ -200,5 +230,28 @@ describe("TimelineDayScreen v1 chrome", () => {
       true,
     );
     act(() => test.unmount());
+  });
+
+  it("shows compact Today control only when viewing another day", () => {
+    const todayTree = renderScreen("2026-07-16");
+    expect(todayTree.root.findAllByProps({ testID: "timeline-return-to-today" })).toHaveLength(0);
+    const hist = renderScreen("2026-07-14");
+    expect(hist.root.findByProps({ testID: "timeline-return-to-today" }).props.accessibilityRole).toBe(
+      "button",
+    );
+  });
+
+  it("renders daily context card and never TimelineFeedScreen", () => {
+    const src = require("node:fs").readFileSync(
+      require("node:path").join(__dirname, "..", "TimelineDayScreen.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("DailyTimelineContextCard");
+    expect(src).not.toContain("EXPO_PUBLIC_TIMELINE_FEED");
+    expect(src).not.toContain("TimelineFeedScreen");
+    const test = renderScreen();
+    expect(test.root.findByProps({ testID: "timeline-daily-context-card" }).props.accessibilityRole).toBe(
+      "summary",
+    );
   });
 });

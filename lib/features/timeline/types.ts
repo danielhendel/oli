@@ -61,6 +61,21 @@ export type TimelineDayItem = {
   accessibilityLabel: string;
 };
 
+
+/** Compact daily-context metric shown above chronological actions. */
+export type TimelineDayContextKind = "sleep" | "recovery" | "activity";
+
+export type TimelineDayContextRow = {
+  kind: TimelineDayContextKind;
+  title: string;
+  /** Value label when available; omit when unavailable (do not show fabricated zero). */
+  valueLabel?: string;
+  availability: "available" | "unavailable";
+  accessibilityLabel: string;
+  href?: string;
+  icon: string;
+};
+
 /** Optional, lightweight day-at-a-glance summary derived from DailyFacts (no heavy aggregation). */
 export type TimelineDaySummary = {
   steps?: number;
@@ -71,6 +86,8 @@ export type TimelineDaySummary = {
 /** View model for a single day's timeline. */
 export type TimelineDayVm = {
   day: string;
+  /** Sleep → Recovery → Activity context (not chronological event twins). */
+  context: readonly TimelineDayContextRow[];
   items: readonly TimelineDayItem[];
   isEmpty: boolean;
   summary: TimelineDaySummary | null;

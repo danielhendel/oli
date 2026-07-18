@@ -12,6 +12,7 @@ import {
 } from "@oli/contracts";
 import { resolveTimelineItemHref } from "@/lib/features/timeline/resolveTimelineItemHref";
 import type {
+  TimelineDayContextRow,
   TimelineDayItem,
   TimelineDaySummary,
   TimelineDayVm,
@@ -257,6 +258,111 @@ function buildInsightItems(day: string, insights: readonly InsightDto[]): Timeli
   return out;
 }
 
+
+function formatDurationMinutesLabel(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+/** True when a Steps item is a midnight-anchored fabrication (not a real timed action). */
+export function isMidnightFabricatedStepsItem(item: TimelineDayItem): boolean {
+  if (item.sourceType !== "steps") return false;
+  const ms = Date.parse(item.timestamp);
+  if (!Number.isFinite(ms)) return false;
+  const d = new Date(ms);
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
+export function buildDailyTimelineContext(input: {
+  day: string;
+  sleepNight?: SleepNightViewDto | null;
+  dailyFacts?: DailyFactsDto | null;
+}): TimelineDayContextRow[] {
+  const { day } = input;
+  const night = input.sleepNight?.sleepNight;
+  const facts = input.dailyFacts;
+
+  const sleepMinutes =
+    (typeof night?.totalSleepMinutes === "number" ? night.totalSleepMinutes : undefined) ??
+    (typeof night?.mainSleepMinutes === "number" ? night.mainSleepMinutes : undefined) ??
+    (typeof facts?.sleep?.totalMinutes === "number" ? facts.sleep.totalMinutes : undefined);
+  const sleepScore = typeof night?.score === "number" ? night.score : undefined;
+  let sleepValue: string | undefined;
+  if (typeof sleepScore === "number" && Number.isFinite(sleepScore)) {
+    sleepValue = `Score ${Math.round(sleepScore)}`;
+    if (typeof sleepMinutes === "number") {
+      sleepValue = `${sleepValue} · ${formatDurationMinutesLabel(sleepMinutes)}`;
+    }
+  } else if (typeof sleepMinutes === "number") {
+    sleepValue = formatDurationMinutesLabel(sleepMinutes);
+  }
+  const sleepAvailable = sleepValue != null;
+  const sleep: TimelineDayContextRow = {
+    kind: "sleep",
+    title: "Sleep",
+    ...(sleepValue ? { valueLabel: sleepValue } : {}),
+    availability: sleepAvailable ? "available" : "unavailable",
+    accessibilityLabel: sleepAvailable
+      ? `Sleep, ${sleepValue}`
+      : "Sleep, unavailable",
+    href: `/(app)/recovery/sleep?day=${day}`,
+    icon: "moon-outline",
+  };
+
+  const hrv =
+    (typeof facts?.recovery?.hrvRmssd === "number" ? facts.recovery.hrvRmssd : undefined) ??
+    (typeof night?.averageHrvMs === "number" ? night.averageHrvMs : undefined);
+  const rhr =
+    (typeof facts?.recovery?.restingHeartRate === "number"
+      ? facts.recovery.restingHeartRate
+      : undefined) ??
+    (typeof night?.lowestHeartRateBpm === "number" ? night.lowestHeartRateBpm : undefined);
+  let recoveryValue: string | undefined;
+  if (typeof hrv === "number" && Number.isFinite(hrv)) {
+    recoveryValue = `HRV ${Math.round(hrv)} ms`;
+    if (typeof rhr === "number") recoveryValue = `${recoveryValue} · RHR ${Math.round(rhr)}`;
+  } else if (typeof rhr === "number" && Number.isFinite(rhr)) {
+    recoveryValue = `RHR ${Math.round(rhr)}`;
+  }
+  const recoveryAvailable = recoveryValue != null;
+  const recovery: TimelineDayContextRow = {
+    kind: "recovery",
+    title: "Recovery",
+    ...(recoveryValue ? { valueLabel: recoveryValue } : {}),
+    availability: recoveryAvailable ? "available" : "unavailable",
+    accessibilityLabel: recoveryAvailable
+      ? `Recovery, ${recoveryValue}`
+      : "Recovery, unavailable",
+    href: "/(app)/recovery/readiness",
+    icon: "heart-outline",
+  };
+
+  const steps = typeof facts?.activity?.steps === "number" ? facts.activity.steps : undefined;
+  const activityValue =
+    typeof steps === "number" && Number.isFinite(steps)
+      ? `${Math.round(steps).toLocaleString("en-US")} steps`
+      : undefined;
+  const activityAvailable = activityValue != null;
+  const activity: TimelineDayContextRow = {
+    kind: "activity",
+    title: "Activity",
+    ...(activityValue ? { valueLabel: activityValue } : {}),
+    availability: activityAvailable ? "available" : "unavailable",
+    accessibilityLabel: activityAvailable
+      ? `Activity, ${activityValue}`
+      : "Activity, unavailable",
+    href: `/(app)/activity/day/${day}`,
+    icon: "walk-outline",
+  };
+
+  return [sleep, recovery, activity];
+}
+
+
 function buildSummary(dailyFacts: DailyFactsDto | null | undefined): TimelineDaySummary | null {
   if (!dailyFacts) return null;
   const summary: TimelineDaySummary = {};
@@ -299,10 +405,16 @@ export function buildTimelineDayVm(input: BuildTimelineDayVmInput): TimelineDayV
   ];
   if (wake) merged.push(wake);
 
-  const items = sortItems(merged);
+  const items = sortItems(merged).filter((item) => !isMidnightFabricatedStepsItem(item));
+  const context = buildDailyTimelineContext({
+    day,
+    ...(input.sleepNight !== undefined ? { sleepNight: input.sleepNight } : {}),
+    ...(input.dailyFacts !== undefined ? { dailyFacts: input.dailyFacts } : {}),
+  });
 
   return {
     day,
+    context,
     items,
     isEmpty: items.length === 0,
     summary: buildSummary(input.dailyFacts),

@@ -1,5 +1,9 @@
 // lib/features/timeline/__tests__/buildTimelineDayVm.test.ts
-import { buildTimelineDayVm } from "@/lib/features/timeline/buildTimelineDayVm";
+import {
+  buildDailyTimelineContext,
+  buildTimelineDayVm,
+  isMidnightFabricatedStepsItem,
+} from "@/lib/features/timeline/buildTimelineDayVm";
 import type {
   CanonicalEventListItem,
   InsightDto,
@@ -210,4 +214,60 @@ describe("buildTimelineDayVm", () => {
     });
     expect(vm.items).toHaveLength(0);
   });
+
+  it("builds Sleep → Recovery → Activity context without fabricating zeros", () => {
+    const context = buildDailyTimelineContext({
+      day: DAY,
+      sleepNight: sleepNight(`${DAY}T07:20:00.000Z`, 465),
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 0 },
+        recovery: { hrvRmssd: 42 },
+      } as never,
+    });
+    expect(context.map((r) => r.kind)).toEqual(["sleep", "recovery", "activity"]);
+    expect(context[0]?.availability).toBe("available");
+    expect(context[1]?.availability).toBe("available");
+    expect(context[2]?.availability).toBe("available");
+    expect(context[2]?.valueLabel).toMatch(/0 steps/);
+    const missing = buildDailyTimelineContext({ day: DAY });
+    expect(missing.every((r) => r.availability === "unavailable")).toBe(true);
+    expect(missing.every((r) => r.valueLabel == null)).toBe(true);
+  });
+
+  it("drops midnight fabricated Steps from chronological actions", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({ id: "st1", kind: "steps", start: `${DAY}T00:00:00.000Z` }),
+        canonical({ id: "w1", kind: "workout", start: `${DAY}T09:00:00.000Z` }),
+      ],
+    });
+    expect(vm.items.find((i) => i.sourceType === "steps")).toBeUndefined();
+    expect(vm.items.find((i) => i.id === "w1")).toBeDefined();
+    expect(
+      isMidnightFabricatedStepsItem({
+        id: "x",
+        day: DAY,
+        timestamp: `${DAY}T00:00:00.000Z`,
+        sortKey: "x",
+        title: "Steps",
+        sourceType: "steps",
+        sourceId: "x",
+        icon: "walk-outline",
+        href: "/",
+        isPassive: true,
+        accessibilityLabel: "Steps",
+      }),
+    ).toBe(true);
+  });
+
+  it("always includes three context rows on the view model", () => {
+    const vm = buildTimelineDayVm({ day: DAY });
+    expect(vm.context).toHaveLength(3);
+  });
+
 });
