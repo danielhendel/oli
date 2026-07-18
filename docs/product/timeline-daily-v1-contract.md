@@ -169,11 +169,13 @@ with these constraints:
 
 | State | Behavior |
 | --- | --- |
-| Loading | Explicit partial/loading for the selected day |
+| Loading | Explicit `partial` + settling for the selected day |
 | Empty | Honest empty for that day; no silent day substitution |
-| Partial | Show known sections; do not invent the rest |
-| Error | Fail-closed message + retry; no provider call from retry beyond the same read |
-| Retry | Re-issues the single-day presentation read only |
+| Partial | Useful context/actions shown with an honest incomplete notice when selected-day cursors are unproven (page cap, cursor cycle, continuation/validation failure); never report `ready` with an unresolved `nextCursor` |
+| Error | Fail-closed message + retry; selected date chrome preserved; no provider call from retry beyond the same read |
+| Retry | Re-issues the selected-day paginated reads only (bounded; no retry loop) |
+
+Selected-day pagination (canonical events + raw nutrition/incomplete): follow opaque `nextCursor` within a finite page cap; ordinary days remain one request per family; silent first-page truncation is forbidden.
 
 ---
 
@@ -198,11 +200,12 @@ with these constraints:
 
 ## 10. Performance budgets (v1)
 
-- Cold open: one presentation request for Today;
-- Calendar jump: one presentation request for D (when not cache-fresh);
+- Cold open: one bounded selected-day wave for Today (events + raw + sleep + facts + insights; cursor continuation only when `nextCursor` is present, ≤ 10 pages/family);
+- Calendar jump: one bounded selected-day wave for D (when not cache-fresh);
 - No prepend/chat scroll machines;
 - No sticky header measurement fights;
-- Physical high-speed multi-day scroll is out of scope.
+- Physical high-speed multi-day scroll is out of scope;
+- No `/users/me/timeline-feed` on the shipping tab.
 
 ---
 
