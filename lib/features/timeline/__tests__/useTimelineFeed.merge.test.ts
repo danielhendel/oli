@@ -87,7 +87,8 @@ describe("timeline feed merge helpers", () => {
     expect(list).toContain("onStartReached");
     expect(list).not.toContain("onEndReached=");
     expect(list).toContain("maintainVisibleContentPosition");
-    expect(screen).toContain('EXPO_PUBLIC_TIMELINE_FEED === "1"');
-    expect(screen).not.toMatch(/EXPO_PUBLIC_TIMELINE_FEED\s*=\s*["']1["']/);
+    // Daily Timeline v1: shipping screen must not gate on the continuous-feed flag.
+    expect(screen).not.toContain("EXPO_PUBLIC_TIMELINE_FEED");
+    expect(screen).not.toContain("TimelineFeedScreen");
   });
 });
