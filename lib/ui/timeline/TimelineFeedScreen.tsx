@@ -1,7 +1,7 @@
 // lib/ui/timeline/TimelineFeedScreen.tsx
 // Continuous Timeline feed UI (requires EXPO_PUBLIC_TIMELINE_FEED=1 + live API).
 import { useCallback, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { TimelinePresentationItem } from "@oli/contracts";
 import { ScreenContainer, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -14,7 +14,7 @@ import { TimelineEmptyState } from "@/lib/ui/timeline/TimelineEmptyState";
 import { TimelineCalendarButton } from "@/lib/ui/timeline/TimelineCalendarButton";
 import { TimelineCalendarSheet } from "@/lib/ui/timeline/TimelineCalendarSheet";
 import { TimelineDaySectionHeader } from "@/lib/ui/timeline/TimelineDaySectionHeader";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type TimelineFeedScreenProps = {
   initialDay?: string;
@@ -64,7 +64,7 @@ export function TimelineFeedScreen({ initialDay }: TimelineFeedScreenProps) {
             />
           ) : feed.status.isEmpty ? (
             <ScrollView
-              key={`feed-empty:${feed.anchorDay}`}
+              key={`feed-empty:${feed.selectedDay}`}
               style={styles.contentFill}
               contentContainerStyle={[
                 styles.emptyScrollContent,
@@ -72,31 +72,39 @@ export function TimelineFeedScreen({ initialDay }: TimelineFeedScreenProps) {
               ]}
             >
               <TimelineDaySectionHeader
-                dayKey={feed.anchorDay}
+                dayKey={feed.selectedDay}
                 todayDayKey={today}
                 testID="timeline-day-section-header"
               />
-              <TimelineEmptyState isToday={feed.anchorDay === today} />
+              <TimelineEmptyState isToday={feed.selectedDay === today} />
             </ScrollView>
           ) : (
-            <TimelineFeedList
-              sections={feed.status.sections}
-              onPressItem={onPressItem}
-              onStartReached={feed.loadOlder}
-              loadingMore={feed.status.loadingMore}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              contentBottomPadding={listBottomPad}
-              listGeneration={feed.listGeneration}
-            />
+            <>
+              {feed.ensureDayError ? (
+                <Text style={styles.ensureError} accessibilityRole="text">
+                  {feed.ensureDayError}
+                </Text>
+              ) : null}
+              <TimelineFeedList
+                sections={feed.status.sections}
+                onPressItem={onPressItem}
+                onStartReached={feed.loadOlder}
+                loadingMore={feed.status.loadingMore}
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                contentBottomPadding={listBottomPad}
+                scrollTarget={feed.scrollTarget}
+                onScrollTargetSettled={feed.onScrollTargetSettled}
+              />
+            </>
           )}
         </View>
       </View>
       <TimelineCalendarSheet
         visible={calendarOpen}
-        selectedDay={feed.anchorDay}
+        selectedDay={feed.selectedDay}
         onSelectDay={(next) => {
-          feed.setAnchorDay(next);
+          feed.jumpToDay(next);
           setCalendarOpen(false);
         }}
         onCancel={() => setCalendarOpen(false)}
@@ -114,4 +122,10 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: UI_TAB_ROOT_INSET, paddingTop: 4 },
   contentFill: { flex: 1 },
   emptyScrollContent: { flexGrow: 1 },
+  ensureError: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 6,
+  },
 });

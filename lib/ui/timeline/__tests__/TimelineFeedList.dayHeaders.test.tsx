@@ -28,8 +28,10 @@ function item(day: string, id: string): TimelinePresentationItem {
   };
 }
 
+const scrollTarget = { id: 1, mode: "newest" as const };
+
 describe("TimelineFeedList day section headers", () => {
-  it("enables sticky section headers and uses one header component per day", () => {
+  it("disables sticky section headers and keeps one inline header per day", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -46,17 +48,19 @@ describe("TimelineFeedList day section headers", () => {
             refreshing={false}
             onRefresh={jest.fn()}
             contentBottomPadding={40}
-            listGeneration={0}
+            scrollTarget={scrollTarget}
           />
         </OliThemeProvider>,
       );
     });
 
     const sectionList = tree.root.find(
-      (n) => n.props?.stickySectionHeadersEnabled === true,
+      (n) => n.props?.stickySectionHeadersEnabled === false,
     );
-    expect(sectionList.props.stickySectionHeadersEnabled).toBe(true);
+    expect(sectionList.props.stickySectionHeadersEnabled).toBe(false);
     expect(typeof sectionList.props.renderSectionHeader).toBe("function");
+    expect(typeof sectionList.props.onScrollToIndexFailed).toBe("function");
+    expect(typeof sectionList.props.onScrollBeginDrag).toBe("function");
     expect(sectionList.props.sections).toHaveLength(3);
     expect(sectionList.props.sections.map((s: { day: string }) => s.day)).toEqual([
       "2026-07-14",
@@ -65,7 +69,6 @@ describe("TimelineFeedList day section headers", () => {
     ]);
     expect(sectionList.props.onStartReached).toEqual(expect.any(Function));
     expect(sectionList.props.onEndReached).toBeUndefined();
-    // Section data contains events only — no duplicate date rows.
     for (const section of sectionList.props.sections as {
       day: string;
       data: TimelinePresentationItem[];
@@ -73,6 +76,9 @@ describe("TimelineFeedList day section headers", () => {
       expect(section.data.every((row) => row.day === section.day)).toBe(true);
       expect(section.data.every((row) => row.kind != null)).toBe(true);
     }
+    act(() => {
+      tree.unmount();
+    });
   });
 
   it("formats Today / abbreviated weekday headings for feed section days", () => {
@@ -105,7 +111,6 @@ describe("TimelineFeedList day section headers", () => {
           <TimelineDaySectionHeader
             dayKey="2026-07-14"
             todayDayKey="2026-07-16"
-            sticky
             testID="timeline-feed-section-header-2026-07-14"
           />
         </OliThemeProvider>,
@@ -120,14 +125,17 @@ describe("TimelineFeedList day section headers", () => {
     ).toBe("Tuesday, July 14, 2026");
   });
 
-  it("uses TimelineDaySectionHeader from source and keeps sticky headers enabled", () => {
+  it("uses TimelineDaySectionHeader and keeps sticky headers disabled", () => {
     const src = require("node:fs").readFileSync(
       require("node:path").join(__dirname, "..", "TimelineFeedList.tsx"),
       "utf8",
     );
     expect(src).toContain("TimelineDaySectionHeader");
-    expect(src).toContain("stickySectionHeadersEnabled");
+    expect(src).toContain("stickySectionHeadersEnabled={false}");
     expect(src).toContain("renderSectionHeader");
+    expect(src).toContain("onScrollToIndexFailed");
+    expect(src).toContain("onScrollBeginDrag");
     expect(src).not.toContain("formatSectionLabel");
+    expect(src).not.toMatch(/stickySectionHeadersEnabled\s*\n/);
   });
 });

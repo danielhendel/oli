@@ -17,7 +17,11 @@ import {
 } from "react-native";
 import type { TimelinePresentationItem } from "@oli/contracts";
 import type { TimelineFeedSection } from "@/lib/features/timeline/timelineFeedOrder";
-import { finalSectionIndex } from "@/lib/features/timeline/timelineFeedOrder";
+import {
+  MAX_FEED_SCROLL_RETRIES,
+  resolveScrollLocation,
+  type FeedScrollTarget,
+} from "@/lib/features/timeline/timelineFeedScrollIntent";
 import { TimelineDaySectionHeader } from "@/lib/ui/timeline/TimelineDaySectionHeader";
 import { TimelineRailRow } from "@/lib/ui/timeline/TimelineRailRow";
 import { formatTimelineTimeLabel } from "@/lib/ui/timeline/TimelineRail";
@@ -35,8 +39,13 @@ export type TimelineFeedListProps = {
   refreshing: boolean;
   onRefresh: () => void;
   contentBottomPadding: number;
-  /** Bumps on hard reset so initial scroll-to-newest re-runs. */
-  listGeneration: number;
+  /**
+   * Intentional scroll target. New `id` arms one bounded scroll attempt
+   * (cold open, Return to Today, or calendar jump).
+   */
+  scrollTarget: FeedScrollTarget;
+  /** Fired once the target is applied or abandoned after bounded retries / user drag. */
+  onScrollTargetSettled?: (id: number) => void;
   paginationError?: string | null;
   onRetryPage?: () => void;
 };
@@ -49,16 +58,21 @@ export function TimelineFeedList({
   refreshing,
   onRefresh,
   contentBottomPadding,
-  listGeneration,
+  scrollTarget,
+  onScrollTargetSettled,
   paginationError,
   onRetryPage,
 }: TimelineFeedListProps) {
   const today = useMemo(() => getTodayDayKey(), []);
   const listRef = useRef<SectionList<TimelinePresentationItem, TimelineFeedSection>>(null);
-  const didInitialScrollRef = useRef(false);
   const startReachedArmedRef = useRef(false);
   const lastStartReachedAtRef = useRef(0);
   const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTargetIdRef = useRef<number | null>(null);
+  const retryCountRef = useRef(0);
+  const userDragCancelRef = useRef(false);
+  const layoutReadyRef = useRef(false);
+  const settledIdsRef = useRef(new Set<number>());
 
   const clearArmTimer = useCallback(() => {
     if (armTimerRef.current) {
@@ -75,52 +89,110 @@ export function TimelineFeedList({
     }, 400);
   }, [clearArmTimer]);
 
-  useEffect(() => {
-    didInitialScrollRef.current = false;
-    startReachedArmedRef.current = false;
-    clearArmTimer();
-  }, [listGeneration, clearArmTimer]);
-
   useEffect(() => () => clearArmTimer(), [clearArmTimer]);
 
-  const scrollToNewest = useCallback(
-    (animated: boolean) => {
-      if (sections.length === 0) return;
-      const sectionIndex = finalSectionIndex(sections);
-      const last = sections[sectionIndex];
-      const itemIndex = Math.max(0, (last?.data.length ?? 1) - 1);
-      try {
-        listRef.current?.scrollToLocation({
-          sectionIndex,
-          itemIndex,
-          animated,
-          viewPosition: 1,
-        });
-      } catch {
-        // SectionList may throw if layout is not ready; contentSizeChange retries once.
-      }
+  const markSettled = useCallback(
+    (id: number) => {
+      if (settledIdsRef.current.has(id)) return;
+      settledIdsRef.current.add(id);
+      pendingTargetIdRef.current = null;
+      retryCountRef.current = 0;
+      userDragCancelRef.current = false;
+      armStartReached();
+      onScrollTargetSettled?.(id);
     },
-    [sections],
+    [armStartReached, onScrollTargetSettled],
   );
 
-  useEffect(() => {
-    if (didInitialScrollRef.current) return;
+  const attemptScroll = useCallback(() => {
+    const id = pendingTargetIdRef.current;
+    if (id == null) return;
+    if (userDragCancelRef.current) {
+      markSettled(id);
+      return;
+    }
+    if (!layoutReadyRef.current) return;
     if (sections.length === 0) return;
+
+    const location = resolveScrollLocation(sections, scrollTarget);
+    if (!location) {
+      // Day not loaded yet — keep pending; ensureDayLoaded will grow sections.
+      return;
+    }
+    if (retryCountRef.current >= MAX_FEED_SCROLL_RETRIES) {
+      markSettled(id);
+      return;
+    }
+    retryCountRef.current += 1;
+    try {
+      listRef.current?.scrollToLocation({
+        sectionIndex: location.sectionIndex,
+        itemIndex: location.itemIndex,
+        animated: false,
+        viewPosition: location.viewPosition,
+      });
+    } catch {
+      // Layout not ready; onScrollToIndexFailed / contentSizeChange retries.
+    }
+  }, [markSettled, scrollTarget, sections]);
+
+  // Arm a new intentional target.
+  useEffect(() => {
+    if (settledIdsRef.current.has(scrollTarget.id)) return;
+    pendingTargetIdRef.current = scrollTarget.id;
+    retryCountRef.current = 0;
+    userDragCancelRef.current = false;
+    startReachedArmedRef.current = false;
+    clearArmTimer();
+    // Attempt after paint when content already measured.
     const id = requestAnimationFrame(() => {
-      scrollToNewest(false);
-      didInitialScrollRef.current = true;
-      armStartReached();
+      attemptScroll();
     });
     return () => cancelAnimationFrame(id);
-  }, [sections, scrollToNewest, listGeneration, armStartReached]);
+  }, [scrollTarget.id, scrollTarget.mode, scrollTarget.day, attemptScroll, clearArmTimer]);
 
+  // Retry when content size changes (sections grew or first layout).
   const onContentSizeChange = useCallback(() => {
-    if (didInitialScrollRef.current) return;
-    if (sections.length === 0) return;
-    scrollToNewest(false);
-    didInitialScrollRef.current = true;
-    armStartReached();
-  }, [scrollToNewest, sections.length, armStartReached]);
+    layoutReadyRef.current = true;
+    attemptScroll();
+  }, [attemptScroll]);
+
+  const onScrollToIndexFailed = useCallback(() => {
+    const id = pendingTargetIdRef.current;
+    if (id == null) return;
+    if (retryCountRef.current >= MAX_FEED_SCROLL_RETRIES) {
+      markSettled(id);
+      return;
+    }
+    // Short deferred retry without device-speed timeouts.
+    requestAnimationFrame(() => {
+      attemptScroll();
+    });
+  }, [attemptScroll, markSettled]);
+
+  // Treat a successful scroll frame as settled once we have retried at least once
+  // or content was ready and we issued a scroll. Use content-size + one rAF settle.
+  useEffect(() => {
+    const id = pendingTargetIdRef.current;
+    if (id == null) return;
+    if (userDragCancelRef.current) {
+      markSettled(id);
+      return;
+    }
+    const location = resolveScrollLocation(sections, scrollTarget);
+    if (!location) return;
+    if (!layoutReadyRef.current) return;
+    // After a successful scrollToLocation call path, settle on next frame when
+    // retries have started (or first attempt with layout ready).
+    if (retryCountRef.current >= 1) {
+      const raf = requestAnimationFrame(() => {
+        if (pendingTargetIdRef.current === id && !userDragCancelRef.current) {
+          markSettled(id);
+        }
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [sections, scrollTarget, markSettled]);
 
   const handleStartReached = useCallback(() => {
     if (!startReachedArmedRef.current) return;
@@ -136,6 +208,13 @@ export function TimelineFeedList({
       startReachedArmedRef.current = true;
     }
   }, []);
+
+  const onScrollBeginDrag = useCallback(() => {
+    if (pendingTargetIdRef.current != null) {
+      userDragCancelRef.current = true;
+      markSettled(pendingTargetIdRef.current);
+    }
+  }, [markSettled]);
 
   const renderItem = useCallback(
     ({
@@ -171,7 +250,6 @@ export function TimelineFeedList({
       <TimelineDaySectionHeader
         dayKey={section.day}
         todayDayKey={today}
-        sticky
         testID={`timeline-feed-section-header-${section.day}`}
       />
     ),
@@ -209,12 +287,14 @@ export function TimelineFeedList({
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      stickySectionHeadersEnabled
+      stickySectionHeadersEnabled={false}
       onStartReached={handleStartReached}
       onStartReachedThreshold={0.2}
       onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
       scrollEventThrottle={16}
       onContentSizeChange={onContentSizeChange}
+      onScrollToIndexFailed={onScrollToIndexFailed}
       maintainVisibleContentPosition={{
         minIndexForVisible: 0,
         autoscrollToTopThreshold: 24,

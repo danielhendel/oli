@@ -65,7 +65,7 @@ describe("TimelineFeedList rail/card parity", () => {
             refreshing={false}
             onRefresh={jest.fn()}
             contentBottomPadding={40}
-            listGeneration={0}
+            scrollTarget={{ id: 1, mode: "newest" }}
           />
         </OliThemeProvider>,
       );
@@ -77,6 +77,9 @@ describe("TimelineFeedList rail/card parity", () => {
     expect(context?.props.timeLabel).toBe("");
     const meal = rows.find((r) => r.props.title === "Lunch");
     expect(meal?.props.timeLabel.length).toBeGreaterThan(0);
+    act(() => {
+      tree.unmount();
+    });
   });
 
   it("source uses shared rail row and no hairline-only feed row", () => {
@@ -87,7 +90,8 @@ describe("TimelineFeedList rail/card parity", () => {
     expect(src).not.toContain("borderBottomWidth: StyleSheet.hairlineWidth");
     expect(rail).toContain("TimelineRailRow");
     expect(src).toContain("onStartReached");
-    expect(src).toContain("stickySectionHeadersEnabled");
+    expect(src).toContain("stickySectionHeadersEnabled={false}");
     expect(src).toContain("contentBottomPadding");
+    expect(src).toContain("scrollTarget");
   });
 });
