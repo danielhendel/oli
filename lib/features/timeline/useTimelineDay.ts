@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSleepNight } from "@/lib/hooks/useSleepNight";
 import { useDailyFacts } from "@/lib/data/useDailyFacts";
 import { useInsights } from "@/lib/data/useInsights";
+import { useReadinessView } from "@/lib/data/useReadinessView";
 import { buildTimelineDayVm } from "@/lib/features/timeline/buildTimelineDayVm";
 import { fetchTimelineDayEventsPages } from "@/lib/features/timeline/fetchTimelineDayEventsPages";
 import { fetchTimelineDayRawEventsPages } from "@/lib/features/timeline/fetchTimelineDayRawEventsPages";
@@ -55,6 +56,7 @@ function buildVm(args: {
   raw: readonly RawEventListItem[];
   sleepView: ReturnType<typeof useSleepNight>["view"];
   facts: ReturnType<typeof useDailyFacts>;
+  readiness: ReturnType<typeof useReadinessView>;
   insights: ReturnType<typeof useInsights>;
 }): TimelineDayVm {
   return buildTimelineDayVm({
@@ -63,6 +65,7 @@ function buildVm(args: {
     rawItems: args.raw,
     ...(args.sleepView ? { sleepNight: args.sleepView } : {}),
     ...(args.facts.status === "ready" ? { dailyFacts: args.facts.data } : {}),
+    ...(args.readiness.status === "ready" ? { readinessView: args.readiness.data } : {}),
     ...(args.insights.status === "ready" ? { insights: args.insights.data.items } : {}),
   });
 }
@@ -80,6 +83,7 @@ export function useTimelineDay(day: string): UseTimelineDayResult {
 
   const sleep = useSleepNight(day, { enabled });
   const facts = useDailyFacts(day, { enabled });
+  const readiness = useReadinessView(day);
   const insights = useInsights(day);
 
   const generationRef = useRef(0);
@@ -165,16 +169,18 @@ export function useTimelineDay(day: string): UseTimelineDayResult {
 
   const sleepRefetch = sleep.refetch;
   const factsRefetch = facts.refetch;
+  const readinessRefetch = readiness.refetch;
   const insightsRefetch = insights.refetch;
 
   const refetchAll = useCallback(
     (opts?: GetOptions) => {
       sleepRefetch(opts);
       factsRefetch(opts);
+      readinessRefetch(opts);
       insightsRefetch(opts);
       void loadHistory(opts);
     },
-    [sleepRefetch, factsRefetch, insightsRefetch, loadHistory],
+    [sleepRefetch, factsRefetch, readinessRefetch, insightsRefetch, loadHistory],
   );
 
   const { status, completeness } = useMemo((): {
@@ -232,6 +238,7 @@ export function useTimelineDay(day: string): UseTimelineDayResult {
       raw: raw.completeness === "error" ? [] : raw.items,
       sleepView: sleep.view,
       facts,
+      readiness,
       insights,
     });
 
@@ -252,7 +259,7 @@ export function useTimelineDay(day: string): UseTimelineDayResult {
       },
       completeness: { state: "unproven", reason },
     };
-  }, [valid, authError, historySettling, history, day, sleep.view, facts, insights]);
+  }, [valid, authError, historySettling, history, day, sleep.view, facts, readiness, insights]);
 
   return { day, status, completeness, refetchAll };
 }

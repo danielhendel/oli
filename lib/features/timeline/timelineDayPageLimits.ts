@@ -17,9 +17,9 @@ export const TIMELINE_DAY_RAW_EVENTS_MAX_ITEMS =
   TIMELINE_DAY_RAW_EVENTS_PAGE_SIZE * TIMELINE_DAY_MAX_PAGES_PER_FAMILY;
 
 /**
- * Ordinary selected day (no nextCursor): 1 events + 1 raw + sleep + facts + insights.
- * Worst case with full continuation: 10 + 10 + 3 context reads.
+ * Ordinary selected day (no nextCursor): 1 events + 1 raw + sleep + facts + readiness + insights.
+ * Worst case with full continuation: 10 + 10 + 4 context reads.
  */
-export const TIMELINE_DAY_ORDINARY_SELECTED_DAY_REQUESTS = 5 as const;
+export const TIMELINE_DAY_ORDINARY_SELECTED_DAY_REQUESTS = 6 as const;
 export const TIMELINE_DAY_WORST_CASE_SELECTED_DAY_REQUESTS =
-  TIMELINE_DAY_MAX_PAGES_PER_FAMILY * 2 + 3;
+  TIMELINE_DAY_MAX_PAGES_PER_FAMILY * 2 + 4;

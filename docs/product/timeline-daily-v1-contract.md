@@ -144,8 +144,8 @@ Daily Timeline v1 ships on the existing `useTimelineDay` composition (Option A)
 with these constraints:
 
 - request budget: the existing focused single-day hooks only (events, bounded
-  raw nutrition/incomplete, sleep night, daily facts, insights) — no continuous
-  feed cursor loop;
+  raw nutrition/incomplete, sleep night, daily facts, readiness, insights) — no
+  continuous feed cursor loop;
 - raw payloads are parsed only inside `buildTimelineDayVm` and never rendered;
 - continuous `getTimelineFeed` is not used by the shipping tab;
 - server normalize/reconcile remain retained for platform/Timeline v2;

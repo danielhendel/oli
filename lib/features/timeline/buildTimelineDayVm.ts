@@ -8,9 +8,12 @@ import {
   type DailyFactsDto,
   type InsightDto,
   type RawEventListItem,
+  type ReadinessViewDto,
   type SleepNightViewDto,
 } from "@oli/contracts";
+import { normalizeOuraScore0to100 } from "@/lib/format/ouraScore";
 import { isDailyTimelineAggregateAction } from "@/lib/features/timeline/isDailyTimelineAggregateAction";
+import { buildReconciledDailyTimelineWorkoutItems } from "@/lib/features/timeline/reconcileDailyTimelineWorkoutActions";
 import { resolveTimelineItemHref } from "@/lib/features/timeline/resolveTimelineItemHref";
 import type {
   TimelineDayContextRow,
@@ -26,6 +29,8 @@ export type BuildTimelineDayVmInput = {
   rawItems?: readonly RawEventListItem[];
   sleepNight?: SleepNightViewDto | null;
   dailyFacts?: DailyFactsDto | null;
+  /** Exact-day readiness view; proxy HRV/RHR must never substitute for the score. */
+  readinessView?: ReadinessViewDto | null;
   insights?: readonly InsightDto[];
 };
 
@@ -224,6 +229,8 @@ function buildCanonicalItems(
     if (ev.kind === "sleep" && skipSleep) continue;
     // Aggregates belong in Daily context only — never as chronological actions.
     if (isDailyTimelineAggregateAction({ kind: ev.kind })) continue;
+    // Workouts are emitted once via shared session reconciliation.
+    if (ev.kind === "workout" || ev.kind === "strength_workout") continue;
     const map = CANONICAL_KIND_MAP[ev.kind];
     const meta = map ?? { sourceType: "unknown" as const, title: ev.kind };
     if (!Number.isFinite(Date.parse(ev.start))) continue;
@@ -285,10 +292,21 @@ export function isMidnightFabricatedStepsItem(item: TimelineDayItem): boolean {
   return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
 }
 
+function exactDayReadinessScore(
+  day: string,
+  readinessView: ReadinessViewDto | null | undefined,
+): number | null {
+  if (!readinessView) return null;
+  if (readinessView.isFallback === true) return null;
+  if (readinessView.requestedDay !== day || readinessView.resolvedDay !== day) return null;
+  return normalizeOuraScore0to100(readinessView.score);
+}
+
 export function buildDailyTimelineContext(input: {
   day: string;
   sleepNight?: SleepNightViewDto | null;
   dailyFacts?: DailyFactsDto | null;
+  readinessView?: ReadinessViewDto | null;
 }): TimelineDayContextRow[] {
   const { day } = input;
   const night = input.sleepNight?.sleepNight;
@@ -321,21 +339,11 @@ export function buildDailyTimelineContext(input: {
     icon: "moon-outline",
   };
 
-  const hrv =
-    (typeof facts?.recovery?.hrvRmssd === "number" ? facts.recovery.hrvRmssd : undefined) ??
-    (typeof night?.averageHrvMs === "number" ? night.averageHrvMs : undefined);
-  const rhr =
-    (typeof facts?.recovery?.restingHeartRate === "number"
-      ? facts.recovery.restingHeartRate
-      : undefined) ??
-    (typeof night?.lowestHeartRateBpm === "number" ? night.lowestHeartRateBpm : undefined);
-  let recoveryValue: string | undefined;
-  if (typeof hrv === "number" && Number.isFinite(hrv)) {
-    recoveryValue = `HRV ${Math.round(hrv)} ms`;
-    if (typeof rhr === "number") recoveryValue = `${recoveryValue} · RHR ${Math.round(rhr)}`;
-  } else if (typeof rhr === "number" && Number.isFinite(rhr)) {
-    recoveryValue = `RHR ${Math.round(rhr)}`;
-  }
+  // Recovery contract: exact-day readiness score, otherwise unavailable.
+  // Never substitute HRV / RHR / contributors for the score in context.
+  const recoveryScore = exactDayReadinessScore(day, input.readinessView);
+  const recoveryValue =
+    recoveryScore != null ? `Score ${recoveryScore}` : undefined;
   const recoveryAvailable = recoveryValue != null;
   const recovery: TimelineDayContextRow = {
     kind: "recovery",
@@ -409,6 +417,7 @@ export function buildTimelineDayVm(input: BuildTimelineDayVmInput): TimelineDayV
     ...buildNutritionItems(day, rawItems),
     ...buildIncompleteItems(day, rawItems),
     ...buildCanonicalItems(day, events, wake != null),
+    ...buildReconciledDailyTimelineWorkoutItems(day, events),
     ...buildInsightItems(day, insights),
   ];
   if (wake) merged.push(wake);
@@ -418,6 +427,7 @@ export function buildTimelineDayVm(input: BuildTimelineDayVmInput): TimelineDayV
     day,
     ...(input.sleepNight !== undefined ? { sleepNight: input.sleepNight } : {}),
     ...(input.dailyFacts !== undefined ? { dailyFacts: input.dailyFacts } : {}),
+    ...(input.readinessView !== undefined ? { readinessView: input.readinessView } : {}),
   });
 
   return {
