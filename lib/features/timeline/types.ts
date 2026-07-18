@@ -112,9 +112,9 @@ export type TimelineDayCompleteness =
 
 /**
  * Discriminated status for the orchestrating hook (canonical readiness vocabulary:
- * partial | error | ready — never status:"loading").
+ * partial | error | ready — never invent a fourth readiness string).
  *
- * - partial + settling: selected-day history still loading
+ * - partial + settling: selected-day history still settling
  * - partial + incomplete: useful history available but completeness unproven
  * - ready: selected-day cursors exhausted; history proven complete
  * - error: no usable canonical action page
