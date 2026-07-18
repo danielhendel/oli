@@ -71,10 +71,10 @@ const RAIL_COL_WIDTH = 20;
 const DOT_SIZE = 10;
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "stretch", marginBottom: 8 },
+  row: { flexDirection: "row", alignItems: "stretch", marginBottom: 4 },
   timeColumn: {
     width: TIME_COL_WIDTH,
-    paddingTop: 16,
+    paddingTop: 12,
     alignItems: "flex-end",
     paddingRight: 8,
   },
@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
     width: 2,
     backgroundColor: UI_BORDER_HAIRLINE,
   },
-  railLineTopHidden: { top: 22 },
+  railLineTopHidden: { top: 18 },
   railLineBottomHidden: { bottom: "50%" },
   railDot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
     borderRadius: DOT_SIZE / 2,
     backgroundColor: SYSTEM_ACCENT,
-    marginTop: 18,
+    marginTop: 14,
   },
   cardColumn: { flex: 1, paddingVertical: 4 },
 });
