@@ -10,6 +10,7 @@ import {
   type RawEventListItem,
   type SleepNightViewDto,
 } from "@oli/contracts";
+import { isDailyTimelineAggregateAction } from "@/lib/features/timeline/isDailyTimelineAggregateAction";
 import { resolveTimelineItemHref } from "@/lib/features/timeline/resolveTimelineItemHref";
 import type {
   TimelineDayContextRow,
@@ -27,6 +28,8 @@ export type BuildTimelineDayVmInput = {
   dailyFacts?: DailyFactsDto | null;
   insights?: readonly InsightDto[];
 };
+
+export { isDailyTimelineAggregateAction } from "@/lib/features/timeline/isDailyTimelineAggregateAction";
 
 const ICONS: Record<TimelineSourceType, string> = {
   sleep_wake: "sunny-outline",
@@ -219,6 +222,8 @@ function buildCanonicalItems(
   for (const ev of events) {
     if (ev.kind === "nutrition") continue; // raw nutrition events are the source of truth for meals
     if (ev.kind === "sleep" && skipSleep) continue;
+    // Aggregates belong in Daily context only — never as chronological actions.
+    if (isDailyTimelineAggregateAction({ kind: ev.kind })) continue;
     const map = CANONICAL_KIND_MAP[ev.kind];
     const meta = map ?? { sourceType: "unknown" as const, title: ev.kind };
     if (!Number.isFinite(Date.parse(ev.start))) continue;
@@ -268,9 +273,12 @@ function formatDurationMinutesLabel(minutes: number): string {
   return `${m}m`;
 }
 
-/** True when a Steps item is a midnight-anchored fabrication (not a real timed action). */
+/**
+ * Legacy midnight Steps detector. Daily Timeline now excludes all aggregate Steps
+ * via {@link isDailyTimelineAggregateAction}; this remains for focused regression tests.
+ */
 export function isMidnightFabricatedStepsItem(item: TimelineDayItem): boolean {
-  if (item.sourceType !== "steps") return false;
+  if (!isDailyTimelineAggregateAction(item)) return false;
   const ms = Date.parse(item.timestamp);
   if (!Number.isFinite(ms)) return false;
   const d = new Date(ms);
@@ -405,7 +413,7 @@ export function buildTimelineDayVm(input: BuildTimelineDayVmInput): TimelineDayV
   ];
   if (wake) merged.push(wake);
 
-  const items = sortItems(merged).filter((item) => !isMidnightFabricatedStepsItem(item));
+  const items = sortItems(merged).filter((item) => !isDailyTimelineAggregateAction(item));
   const context = buildDailyTimelineContext({
     day,
     ...(input.sleepNight !== undefined ? { sleepNight: input.sleepNight } : {}),

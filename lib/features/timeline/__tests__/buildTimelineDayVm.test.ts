@@ -2,6 +2,7 @@
 import {
   buildDailyTimelineContext,
   buildTimelineDayVm,
+  isDailyTimelineAggregateAction,
   isMidnightFabricatedStepsItem,
 } from "@/lib/features/timeline/buildTimelineDayVm";
 import type {
@@ -238,16 +239,29 @@ describe("buildTimelineDayVm", () => {
     expect(missing.every((r) => r.valueLabel == null)).toBe(true);
   });
 
-  it("drops midnight fabricated Steps from chronological actions", () => {
+  it("drops all aggregate Steps from chronological actions", () => {
     const vm = buildTimelineDayVm({
       day: DAY,
       events: [
         canonical({ id: "st1", kind: "steps", start: `${DAY}T00:00:00.000Z` }),
+        canonical({ id: "st2", kind: "steps", start: `${DAY}T15:30:00.000Z` }),
         canonical({ id: "w1", kind: "workout", start: `${DAY}T09:00:00.000Z` }),
       ],
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 8000 },
+      } as never,
     });
     expect(vm.items.find((i) => i.sourceType === "steps")).toBeUndefined();
+    expect(vm.items.find((i) => i.sourceType === "activity")).toBeUndefined();
+    expect(vm.items.find((i) => i.title === "Steps")).toBeUndefined();
     expect(vm.items.find((i) => i.id === "w1")).toBeDefined();
+    expect(vm.context.find((r) => r.kind === "activity")?.valueLabel).toMatch(/8,000 steps/);
+    expect(isDailyTimelineAggregateAction({ kind: "steps" })).toBe(true);
+    expect(isDailyTimelineAggregateAction({ kind: "activity_final" })).toBe(true);
     expect(
       isMidnightFabricatedStepsItem({
         id: "x",
@@ -263,6 +277,47 @@ describe("buildTimelineDayVm", () => {
         accessibilityLabel: "Steps",
       }),
     ).toBe(true);
+  });
+
+  it("keeps one Activity representation in context only", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [canonical({ id: "st1", kind: "steps", start: `${DAY}T00:00:00.000Z` })],
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 1200 },
+      } as never,
+      insights: [insight("mov1", `${DAY}T14:00:00.000Z`)],
+    });
+    const activityish = vm.items.filter(
+      (i) =>
+        i.sourceType === "steps" ||
+        i.sourceType === "activity" ||
+        i.title === "Steps" ||
+        i.title === "Activity",
+    );
+    expect(activityish).toHaveLength(0);
+    expect(vm.context.filter((r) => r.kind === "activity")).toHaveLength(1);
+    expect(vm.items.find((i) => i.title === "Good sleep")).toBeDefined();
+  });
+
+  it("treats missing Activity as unavailable and trusted zero as zero", () => {
+    const missing = buildDailyTimelineContext({ day: DAY });
+    expect(missing.find((r) => r.kind === "activity")?.availability).toBe("unavailable");
+    const zero = buildDailyTimelineContext({
+      day: DAY,
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 0 },
+      } as never,
+    });
+    expect(zero.find((r) => r.kind === "activity")?.valueLabel).toMatch(/0 steps/);
   });
 
   it("always includes three context rows on the view model", () => {
