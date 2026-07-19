@@ -4,6 +4,8 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -172,10 +174,15 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
 
 describe("Dash Daily Energy card", () => {
   beforeEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
   });
 
-  it("renders Weekly Fitness first and removes Sleep/Recovery summary", () => {
+  afterEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(null);
+  });
+
+  it("renders Body Composition first (relocation) and removes Sleep/Recovery summary", () => {
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
       energyError: null,
@@ -211,8 +218,8 @@ describe("Dash Daily Energy card", () => {
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
     expect(text).not.toContain("Good afternoon");
     expect(text).not.toContain("Today's Progress");
-    /** Weekly Fitness + remaining cards. */
-    expect(text).toContain("Weekly Fitness");
+    /** Weekly Fitness relocated off Dash by default. */
+    expect(text).not.toContain("Weekly Fitness");
     expect(text).toContain("Body Composition");
     expect(text).toContain("159.3 lb");
     expect(text).toContain("BMI");
@@ -229,15 +236,13 @@ describe("Dash Daily Energy card", () => {
     expect(text).toContain("Daily Sleep");
     expect(text).toContain("Oura Readiness");
 
-    /** Weekly Fitness first; then Body, Energy, Sleep, Readiness, Nutrition. */
-    const idxWeeklyFitness = text.indexOf("Weekly Fitness");
+    /** Body first; then Energy, Sleep, Readiness, Nutrition. */
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     const idxSleep = text.indexOf("Daily Sleep");
     const idxReadiness = text.indexOf("Oura Readiness");
     const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxWeeklyFitness).toBeGreaterThan(-1);
-    expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
+    expect(idxBody).toBeGreaterThan(-1);
     expect(idxEnergy).toBeGreaterThan(idxBody);
     expect(idxSleep).toBeGreaterThan(idxEnergy);
     expect(idxReadiness).toBeGreaterThan(idxSleep);

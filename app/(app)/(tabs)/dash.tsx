@@ -1,5 +1,7 @@
 // app/(app)/(tabs)/dash.tsx
-// Oli — Dash: header + retained module cards (Weekly Fitness first).
+// Oli — Dash: header + retained module cards (current health/fitness state).
+// Weekly Fitness / Weekly Progress placement is controlled by
+// `isDashWeeklyProgressRelocationEnabled` (Program when enabled; Dash when disabled).
 import React from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -10,7 +12,7 @@ import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingT
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
-import { useWeeklyFitnessCard } from "@/lib/data/dash/useWeeklyFitnessCard";
+import { isDashWeeklyProgressRelocationEnabled } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
 import { useDailyReadinessCard } from "@/lib/hooks/useDailyReadinessCard";
 import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
@@ -18,7 +20,7 @@ import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
 import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 import { DailyNutritionCard } from "@/lib/ui/dash/DailyNutritionCard";
-import { WeeklyFitnessCard } from "@/lib/ui/dash/WeeklyFitnessCard";
+import { WeeklyFitnessCardHost } from "@/lib/ui/dash/WeeklyFitnessCardHost";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 export default function DashScreen() {
@@ -26,6 +28,7 @@ export default function DashScreen() {
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const { user } = useAuth();
   const todayKey = getTodayDayKeyLocal();
+  const showWeeklyFitnessOnDash = !isDashWeeklyProgressRelocationEnabled();
   const {
     energy,
     energyLoading,
@@ -38,7 +41,6 @@ export default function DashScreen() {
     enabled: Boolean(user),
     exactDayRestingHeartRateBpm,
   });
-  const weeklyFitness = useWeeklyFitnessCard();
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(todayKey);
 
@@ -60,13 +62,7 @@ export default function DashScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.stacksSection}>
-            <WeeklyFitnessCard
-              loading={weeklyFitness.loading}
-              error={weeklyFitness.error}
-              model={weeklyFitness.model}
-              goalsHref={weeklyFitness.goalsHref}
-              hasUser={user != null}
-            />
+            {showWeeklyFitnessOnDash ? <WeeklyFitnessCardHost /> : null}
             <BodyCompositionCard
               loading={bodyComposition.loading}
               error={bodyComposition.error}

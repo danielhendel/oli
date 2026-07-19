@@ -4,6 +4,7 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -150,6 +151,7 @@ function countDashIconPlaceholders(root: renderer.ReactTestInstance): number {
 
 describe("Dash provenance", () => {
   beforeEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
@@ -176,6 +178,10 @@ describe("Dash provenance", () => {
         message: "No sleep data logged for this day.",
       },
     });
+  });
+
+  afterEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(null);
   });
 
   it("shows Oli Fitness tab title and Body Composition + Daily Energy sections", () => {
@@ -215,7 +221,7 @@ describe("Dash provenance", () => {
     expect(text).toContain("NEAT");
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
-    expect(text).toContain("Weekly Fitness");
+    expect(text).not.toContain("Weekly Fitness");
     expect(text).not.toContain("Progress to goal");
     expect(text).toContain("Daily Nutrition");
     expect(text).toContain("Oura Readiness");

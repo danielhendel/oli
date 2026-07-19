@@ -1,8 +1,11 @@
 // app/(app)/(tabs)/__tests__/dash-composition.test.tsx
-// Command Center clean baseline: Today progress removed; six retained cards in order.
+// Command Center clean baseline: Today progress removed; state cards retained on Dash.
+// Weekly Fitness is on Dash only when relocation is disabled (rollback).
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
+
+import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -159,6 +162,7 @@ function countOccurrences(haystack: string, needle: string): number {
 
 describe("Dash composition clean baseline", () => {
   beforeEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
@@ -174,7 +178,11 @@ describe("Dash composition clean baseline", () => {
     });
   });
 
-  it("removes Today progress hero/card and keeps six retained cards in order", () => {
+  afterEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(null);
+  });
+
+  it("removes Today progress hero/card and keeps state cards in order (relocation enabled)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -191,32 +199,44 @@ describe("Dash composition clean baseline", () => {
     expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-progress-card")).toHaveLength(0);
     expect(test.root.findAll((n) => (n.props as { testID?: string }).testID === "today-health-hero")).toHaveLength(0);
 
-    expect(text).toContain("Weekly Fitness");
+    expect(text).not.toContain("Weekly Fitness");
+    expect(text).not.toContain("Weekly Progress");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Daily Energy");
     expect(text).toContain("Daily Sleep");
     expect(text).toContain("Oura Readiness");
     expect(text).toContain("Daily Nutrition");
 
-    expect(countOccurrences(text, "Weekly Fitness")).toBe(1);
     expect(countOccurrences(text, "Body Composition")).toBe(1);
     expect(countOccurrences(text, "Daily Energy")).toBe(1);
     expect(countOccurrences(text, "Daily Sleep")).toBe(1);
     expect(countOccurrences(text, "Oura Readiness")).toBe(1);
     expect(countOccurrences(text, "Daily Nutrition")).toBe(1);
 
-    const idxWeekly = text.indexOf("Weekly Fitness");
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     const idxSleep = text.indexOf("Daily Sleep");
     const idxReadiness = text.indexOf("Oura Readiness");
     const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxWeekly).toBeGreaterThan(-1);
-    expect(idxBody).toBeGreaterThan(idxWeekly);
+    expect(idxBody).toBeGreaterThan(-1);
     expect(idxEnergy).toBeGreaterThan(idxBody);
     expect(idxSleep).toBeGreaterThan(idxEnergy);
     expect(idxReadiness).toBeGreaterThan(idxSleep);
     expect(idxNutrition).toBeGreaterThan(idxReadiness);
+  });
+
+  it("rollback: restores Weekly Fitness as first Dash card when relocation is disabled", () => {
+    setDashWeeklyProgressRelocationEnabledForTests(false);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<DashScreen />);
+    });
+    const text = collectAllText(test);
+    expect(text).toContain("Weekly Fitness");
+    const idxWeekly = text.indexOf("Weekly Fitness");
+    const idxBody = text.indexOf("Body Composition");
+    expect(idxWeekly).toBeGreaterThan(-1);
+    expect(idxBody).toBeGreaterThan(idxWeekly);
   });
 
   it("sleep hero can show score without duplicating readiness card", () => {
