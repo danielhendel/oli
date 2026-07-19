@@ -29,6 +29,18 @@ type Props = {
   hasUser: boolean;
   /** Route for the "My goal" pressable (Dash Weekly Fitness goals editor). */
   goalsHref: string;
+  /**
+   * Consumer-visible title. Defaults to “Weekly Fitness” for the Dash rollback path.
+   * Program relocation passes “Weekly Progress”.
+   */
+  title?: string;
+  /**
+   * Supporting line shown when ready (and not loading/error). When omitted, uses
+   * “This week’s results” (legacy Dash copy).
+   */
+  subtitle?: string;
+  /** Root accessibility label. Defaults to legacy “Weekly fitness card”. */
+  cardAccessibilityLabel?: string;
 };
 
 export function WeeklyFitnessCard({
@@ -37,6 +49,9 @@ export function WeeklyFitnessCard({
   model,
   hasUser,
   goalsHref,
+  title = "Weekly Fitness",
+  subtitle = "This week’s results",
+  cardAccessibilityLabel = "Weekly fitness card",
 }: Props): React.ReactElement {
   const router = useRouter();
 
@@ -48,10 +63,10 @@ export function WeeklyFitnessCard({
   const showRows = showHeroes;
 
   return (
-    <View style={styles.card} accessibilityLabel="Weekly fitness card">
+    <View style={styles.card} accessibilityLabel={cardAccessibilityLabel}>
       <View style={styles.headerRow}>
         <Text style={styles.title} accessibilityRole="header">
-          Weekly Fitness
+          {title}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -73,7 +88,7 @@ export function WeeklyFitnessCard({
       ) : null}
 
       {!loading && hasUser && error == null ? (
-        <Text style={styles.subtitle}>This week’s results</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
       ) : null}
 
       {loading ? <Text style={styles.status}>Loading this week’s results…</Text> : null}
