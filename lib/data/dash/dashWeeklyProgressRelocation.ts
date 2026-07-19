@@ -9,6 +9,11 @@
  * Overrides:
  * - `process.env.EXPO_PUBLIC_DASH_WEEKLY_PROGRESS_RELOCATION === "0"` → disabled
  * - `process.env.EXPO_PUBLIC_DASH_WEEKLY_PROGRESS_RELOCATION === "1"` → enabled
+ * - unset / any other string → enabled (same as default / `"1"`)
+ *
+ * Non-secret. Value is embedded when Metro/EAS builds the JS bundle; changing
+ * it requires a cleared Metro reload or a new EAS Update / binary — it is not a
+ * server-side remote kill switch by itself. Documented in `.env.example`.
  *
  * Tests may call {@link setDashWeeklyProgressRelocationEnabledForTests}.
  */

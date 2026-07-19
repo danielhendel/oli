@@ -39,6 +39,15 @@ describe("dashWeeklyProgressRelocation flag", () => {
     expect(isDashWeeklyProgressRelocationEnabled()).toBe(true);
   });
 
+  it("treats unexpected env values as enabled (same as default)", () => {
+    process.env[DASH_WEEKLY_PROGRESS_RELOCATION_ENV_KEY] = "false";
+    expect(isDashWeeklyProgressRelocationEnabled()).toBe(true);
+    process.env[DASH_WEEKLY_PROGRESS_RELOCATION_ENV_KEY] = "2";
+    expect(isDashWeeklyProgressRelocationEnabled()).toBe(true);
+    process.env[DASH_WEEKLY_PROGRESS_RELOCATION_ENV_KEY] = "";
+    expect(isDashWeeklyProgressRelocationEnabled()).toBe(true);
+  });
+
   it("test override wins over env", () => {
     process.env[DASH_WEEKLY_PROGRESS_RELOCATION_ENV_KEY] = "0";
     setDashWeeklyProgressRelocationEnabledForTests(true);
