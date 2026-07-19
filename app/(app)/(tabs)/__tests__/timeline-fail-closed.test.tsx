@@ -28,6 +28,10 @@ jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
   }),
 }));
 
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { uid: "test-user" }, initializing: false, getIdToken: jest.fn() }),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const TimelineIndexScreen = require("../timeline/index").default;
 

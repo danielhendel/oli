@@ -24,23 +24,29 @@ jest.mock("@react-navigation/native", () => ({ useIsFocused: () => true }));
 
 jest.mock("@/lib/data/useTimeline", () => ({ useTimeline: mockUseTimeline }));
 
-jest.mock("@/lib/data/useEvents", () => ({
-  useEvents: () => ({ status: "ready", data: { items: [], nextCursor: null }, refetch: jest.fn() }),
+jest.mock("@/lib/features/timeline/useTimelineDay", () => ({
+  useTimelineDay: () => ({
+    day: "2026-06-10",
+    status: {
+      status: "ready",
+      vm: {
+        day: "2026-06-10",
+        items: [],
+        isEmpty: true,
+        summary: null,
+        context: [],
+      },
+    },
+    completeness: { state: "complete" },
+    refetchAll: jest.fn(),
+  }),
 }));
-jest.mock("@/lib/data/useRawEvents", () => ({
-  useRawEvents: () => ({ status: "ready", data: { items: [], nextCursor: null }, refetch: jest.fn() }),
-}));
-jest.mock("@/lib/hooks/useSleepNight", () => ({
-  useSleepNight: () => ({ view: undefined, loading: false, settled: true, error: null, refetch: jest.fn() }),
-}));
-jest.mock("@/lib/data/useDailyFacts", () => ({
-  useDailyFacts: () => ({ status: "missing", refetch: jest.fn() }),
-}));
-jest.mock("@/lib/data/useInsights", () => ({
-  useInsights: () => ({
-    status: "ready",
-    data: { day: "2026-06-10", count: 0, items: [] },
-    refetch: jest.fn(),
+
+jest.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({
+    user: { uid: "test-user" },
+    initializing: false,
+    getIdToken: jest.fn(async () => "tok"),
   }),
 }));
 
