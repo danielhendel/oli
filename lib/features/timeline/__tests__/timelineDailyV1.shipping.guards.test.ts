@@ -41,5 +41,6 @@ describe("Daily Timeline v1 shipping path", () => {
     expect(hook).toContain("fetchTimelineDayRawEventsPages");
     expect(hook).toContain("useSleepNight");
     expect(hook).toContain("useDailyFacts");
+    expect(hook).toContain("useReadinessView");
   });
 });

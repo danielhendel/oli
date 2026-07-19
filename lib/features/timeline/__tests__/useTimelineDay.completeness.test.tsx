@@ -46,6 +46,13 @@ jest.mock("@/lib/data/useInsights", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/useReadinessView", () => ({
+  useReadinessView: () => ({
+    status: "missing",
+    refetch: jest.fn(),
+  }),
+}));
+
 import { useTimelineDay } from "@/lib/features/timeline/useTimelineDay";
 
 const DAY = "2026-07-16";

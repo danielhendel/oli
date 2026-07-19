@@ -35,7 +35,7 @@ describe("Daily Timeline selected-day completeness guards", () => {
     expect(TIMELINE_DAY_RAW_EVENTS_MAX_ITEMS).toBe(
       TIMELINE_DAY_RAW_EVENTS_PAGE_SIZE * TIMELINE_DAY_MAX_PAGES_PER_FAMILY,
     );
-    expect(TIMELINE_DAY_WORST_CASE_SELECTED_DAY_REQUESTS).toBeLessThanOrEqual(23);
+    expect(TIMELINE_DAY_WORST_CASE_SELECTED_DAY_REQUESTS).toBeLessThanOrEqual(24);
   });
 
   test("collector enforces cursor cycle and page cap reasons", () => {

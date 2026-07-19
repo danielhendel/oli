@@ -2,12 +2,14 @@
 import {
   buildDailyTimelineContext,
   buildTimelineDayVm,
+  isDailyTimelineAggregateAction,
   isMidnightFabricatedStepsItem,
 } from "@/lib/features/timeline/buildTimelineDayVm";
 import type {
   CanonicalEventListItem,
   InsightDto,
   RawEventListItem,
+  ReadinessViewDto,
   SleepNightViewDto,
 } from "@oli/contracts";
 
@@ -90,14 +92,26 @@ function sleepNight(endedAt: string, totalSleepMinutes?: number): SleepNightView
   };
 }
 
-function insight(id: string, createdAt: string): InsightDto {
+function readiness(score: number | null, overrides?: Partial<ReadinessViewDto>): ReadinessViewDto {
+  return {
+    requestedDay: DAY,
+    resolvedDay: DAY,
+    isFallback: false,
+    day: DAY,
+    sourceId: "oura",
+    score,
+    ...overrides,
+  };
+}
+
+function insight(id: string, createdAt: string, title = "Good sleep"): InsightDto {
   return {
     schemaVersion: 1,
     id,
     userId: "u1",
     date: DAY,
     kind: "sleep",
-    title: "Good sleep",
+    title,
     message: "You slept well",
     severity: "info",
     evidence: [],
@@ -145,13 +159,13 @@ describe("buildTimelineDayVm", () => {
     });
 
     const ids = vm.items.map((i) => i.id);
-    expect(ids).toContain("w1");
+    expect(ids).toContain(`${DAY}:session:w1`);
     expect(ids).toContain("n1");
     expect(ids).toContain("i1");
 
     const nutrition = vm.items.find((i) => i.id === "n1");
     expect(nutrition?.isPassive).toBe(false);
-    const workout = vm.items.find((i) => i.id === "w1");
+    const workout = vm.items.find((i) => i.id === `${DAY}:session:w1`);
     expect(workout?.isPassive).toBe(true);
   });
 
@@ -207,6 +221,24 @@ describe("buildTimelineDayVm", () => {
     expect(vm.summary).toEqual({ steps: 8000, totalKcal: 2100, sleepMinutes: 465 });
   });
 
+  it("orders nutrition chronologically with wake and incomplete", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      rawItems: [
+        rawNutrition("n2", `${DAY}T13:00:00.000Z`, { foodLabel: "Lunch" }),
+        rawIncomplete("i1", `${DAY}T11:00:00.000Z`),
+        rawNutrition("n1", `${DAY}T08:00:00.000Z`, { foodLabel: "Breakfast" }),
+      ],
+      sleepNight: sleepNight(`${DAY}T07:00:00.000Z`, 420),
+    });
+    expect(vm.items.map((i) => i.id)).toEqual([
+      `sleep_wake:${DAY}`,
+      "n1",
+      "i1",
+      "n2",
+    ]);
+  });
+
   it("skips items with unparseable timestamps", () => {
     const vm = buildTimelineDayVm({
       day: DAY,
@@ -227,10 +259,12 @@ describe("buildTimelineDayVm", () => {
         activity: { steps: 0 },
         recovery: { hrvRmssd: 42 },
       } as never,
+      readinessView: readiness(78),
     });
     expect(context.map((r) => r.kind)).toEqual(["sleep", "recovery", "activity"]);
     expect(context[0]?.availability).toBe("available");
     expect(context[1]?.availability).toBe("available");
+    expect(context[1]?.valueLabel).toBe("Score 78");
     expect(context[2]?.availability).toBe("available");
     expect(context[2]?.valueLabel).toMatch(/0 steps/);
     const missing = buildDailyTimelineContext({ day: DAY });
@@ -238,16 +272,29 @@ describe("buildTimelineDayVm", () => {
     expect(missing.every((r) => r.valueLabel == null)).toBe(true);
   });
 
-  it("drops midnight fabricated Steps from chronological actions", () => {
+  it("drops all aggregate Steps from chronological actions", () => {
     const vm = buildTimelineDayVm({
       day: DAY,
       events: [
         canonical({ id: "st1", kind: "steps", start: `${DAY}T00:00:00.000Z` }),
+        canonical({ id: "st2", kind: "steps", start: `${DAY}T15:30:00.000Z` }),
         canonical({ id: "w1", kind: "workout", start: `${DAY}T09:00:00.000Z` }),
       ],
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 8000 },
+      } as never,
     });
     expect(vm.items.find((i) => i.sourceType === "steps")).toBeUndefined();
-    expect(vm.items.find((i) => i.id === "w1")).toBeDefined();
+    expect(vm.items.find((i) => i.sourceType === "activity")).toBeUndefined();
+    expect(vm.items.find((i) => i.title === "Steps")).toBeUndefined();
+    expect(vm.items.find((i) => i.id === `${DAY}:session:w1`)).toBeDefined();
+    expect(vm.context.find((r) => r.kind === "activity")?.valueLabel).toMatch(/8,000 steps/);
+    expect(isDailyTimelineAggregateAction({ kind: "steps" })).toBe(true);
+    expect(isDailyTimelineAggregateAction({ kind: "activity_final" })).toBe(true);
     expect(
       isMidnightFabricatedStepsItem({
         id: "x",
@@ -265,9 +312,255 @@ describe("buildTimelineDayVm", () => {
     ).toBe(true);
   });
 
+  it("keeps one Activity representation in context only", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [canonical({ id: "st1", kind: "steps", start: `${DAY}T00:00:00.000Z` })],
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 1200 },
+      } as never,
+      insights: [insight("mov1", `${DAY}T14:00:00.000Z`, "Movement insight")],
+    });
+    const activityish = vm.items.filter(
+      (i) =>
+        i.sourceType === "steps" ||
+        i.sourceType === "activity" ||
+        i.title === "Steps" ||
+        i.title === "Activity",
+    );
+    expect(activityish).toHaveLength(0);
+    expect(vm.context.filter((r) => r.kind === "activity")).toHaveLength(1);
+    expect(vm.items.find((i) => i.title === "Movement insight")).toBeDefined();
+  });
+
+  it("treats missing Activity as unavailable and trusted zero as zero", () => {
+    const missing = buildDailyTimelineContext({ day: DAY });
+    expect(missing.find((r) => r.kind === "activity")?.availability).toBe("unavailable");
+    const zero = buildDailyTimelineContext({
+      day: DAY,
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        activity: { steps: 0 },
+      } as never,
+    });
+    expect(zero.find((r) => r.kind === "activity")?.valueLabel).toMatch(/0 steps/);
+  });
+
   it("always includes three context rows on the view model", () => {
     const vm = buildTimelineDayVm({ day: DAY });
     expect(vm.context).toHaveLength(3);
   });
+});
 
+describe("Daily Timeline Recovery score contract", () => {
+  it("displays exact-day readiness score", () => {
+    const context = buildDailyTimelineContext({
+      day: DAY,
+      readinessView: readiness(82),
+    });
+    const recovery = context.find((r) => r.kind === "recovery");
+    expect(recovery?.valueLabel).toBe("Score 82");
+    expect(recovery?.availability).toBe("available");
+    expect(recovery?.accessibilityLabel).toBe("Recovery, Score 82");
+  });
+
+  it("shows unavailable when score is missing", () => {
+    const context = buildDailyTimelineContext({
+      day: DAY,
+      readinessView: readiness(null),
+    });
+    const recovery = context.find((r) => r.kind === "recovery");
+    expect(recovery?.valueLabel).toBeUndefined();
+    expect(recovery?.availability).toBe("unavailable");
+    expect(recovery?.accessibilityLabel).toBe("Recovery, unavailable");
+  });
+
+  it("does not substitute HRV/RHR for the score", () => {
+    const context = buildDailyTimelineContext({
+      day: DAY,
+      dailyFacts: {
+        schemaVersion: 1,
+        userId: "u1",
+        date: DAY,
+        computedAt: `${DAY}T23:00:00.000Z`,
+        recovery: { hrvRmssd: 55, restingHeartRate: 48 },
+      } as never,
+      sleepNight: {
+        ...sleepNight(`${DAY}T07:00:00.000Z`),
+        sleepNight: {
+          ...sleepNight(`${DAY}T07:00:00.000Z`).sleepNight,
+          averageHrvMs: 60,
+          lowestHeartRateBpm: 50,
+        },
+      },
+    });
+    const recovery = context.find((r) => r.kind === "recovery");
+    expect(recovery?.valueLabel).toBeUndefined();
+    expect(recovery?.availability).toBe("unavailable");
+    expect(JSON.stringify(recovery)).not.toMatch(/HRV|RHR|hrv|restingHeartRate/i);
+  });
+
+  it("keeps score zero when valid", () => {
+    const recovery = buildDailyTimelineContext({
+      day: DAY,
+      readinessView: readiness(0),
+    }).find((r) => r.kind === "recovery");
+    expect(recovery?.valueLabel).toBe("Score 0");
+    expect(recovery?.availability).toBe("available");
+  });
+
+  it("rejects fallback and mismatched-day readiness", () => {
+    expect(
+      buildDailyTimelineContext({
+        day: DAY,
+        readinessView: readiness(90, { isFallback: true }),
+      }).find((r) => r.kind === "recovery")?.availability,
+    ).toBe("unavailable");
+    expect(
+      buildDailyTimelineContext({
+        day: DAY,
+        readinessView: readiness(90, { resolvedDay: "2026-06-09" }),
+      }).find((r) => r.kind === "recovery")?.availability,
+    ).toBe("unavailable");
+  });
+
+  it("does not pass vendor contributor payloads into context rows", () => {
+    const context = buildDailyTimelineContext({
+      day: DAY,
+      readinessView: readiness(70, {
+        contributors: { hrv_balance: 80, resting_heart_rate: 90 },
+      }),
+    });
+    const serialized = JSON.stringify(context);
+    expect(serialized).not.toContain("contributors");
+    expect(serialized).not.toContain("hrv_balance");
+    expect(serialized).not.toContain("resting_heart_rate");
+  });
+});
+
+describe("Daily Timeline workout reconciliation", () => {
+  it("merges matching manual/watch representations into one action", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({
+          id: "watch-1",
+          kind: "workout",
+          sourceId: "apple_health",
+          start: `${DAY}T09:00:00.000Z`,
+          end: `${DAY}T09:45:00.000Z`,
+        }),
+        canonical({
+          id: "manual-1",
+          kind: "strength_workout",
+          sourceId: "manual",
+          start: `${DAY}T09:05:00.000Z`,
+          end: `${DAY}T09:50:00.000Z`,
+        }),
+      ],
+    });
+    const workouts = vm.items.filter(
+      (i) =>
+        i.sourceType === "workout" ||
+        i.sourceType === "workout_strength" ||
+        i.sourceType === "workout_cardio",
+    );
+    expect(workouts).toHaveLength(1);
+    expect(workouts[0]?.title).toBe("Strength workout");
+    expect(workouts[0]?.id).toBe(`${DAY}:session:manual-1|watch-1`);
+    expect(JSON.stringify(workouts[0])).not.toContain("memberIds");
+  });
+
+  it("is order-independent for the same source pair", () => {
+    const forward = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({
+          id: "a",
+          kind: "workout",
+          sourceId: "apple_health",
+          start: `${DAY}T10:00:00.000Z`,
+          end: `${DAY}T10:40:00.000Z`,
+        }),
+        canonical({
+          id: "b",
+          kind: "strength_workout",
+          sourceId: "manual",
+          start: `${DAY}T10:02:00.000Z`,
+          end: `${DAY}T10:42:00.000Z`,
+        }),
+      ],
+    });
+    const reverse = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({
+          id: "b",
+          kind: "strength_workout",
+          sourceId: "manual",
+          start: `${DAY}T10:02:00.000Z`,
+          end: `${DAY}T10:42:00.000Z`,
+        }),
+        canonical({
+          id: "a",
+          kind: "workout",
+          sourceId: "apple_health",
+          start: `${DAY}T10:00:00.000Z`,
+          end: `${DAY}T10:40:00.000Z`,
+        }),
+      ],
+    });
+    expect(forward.items.map((i) => i.id)).toEqual(reverse.items.map((i) => i.id));
+  });
+
+  it("keeps distant same-title sessions distinct", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({
+          id: "m1",
+          kind: "workout",
+          sourceId: "manual",
+          start: `${DAY}T08:00:00.000Z`,
+          end: `${DAY}T08:40:00.000Z`,
+        }),
+        canonical({
+          id: "m2",
+          kind: "workout",
+          sourceId: "manual",
+          start: `${DAY}T18:00:00.000Z`,
+          end: `${DAY}T18:40:00.000Z`,
+        }),
+      ],
+    });
+    expect(vm.items.filter((i) => i.sourceType.startsWith("workout"))).toHaveLength(2);
+  });
+
+  it("keeps chronologically ordered reconciled actions among other items", () => {
+    const vm = buildTimelineDayVm({
+      day: DAY,
+      events: [
+        canonical({
+          id: "w1",
+          kind: "workout",
+          start: `${DAY}T12:00:00.000Z`,
+          end: `${DAY}T12:30:00.000Z`,
+        }),
+      ],
+      rawItems: [rawNutrition("n1", `${DAY}T09:00:00.000Z`, { foodLabel: "Breakfast" })],
+      insights: [insight("i1", `${DAY}T15:00:00.000Z`)],
+    });
+    expect(vm.items.map((i) => i.id)).toEqual([
+      "n1",
+      `${DAY}:session:w1`,
+      "insight:i1",
+    ]);
+  });
 });
