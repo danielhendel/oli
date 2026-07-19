@@ -334,6 +334,34 @@ paths:
         200:
           description: OK
 
+  /users/me/timeline-feed:
+    options:
+      operationId: timelineFeedOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: timelineFeedGet
+      security:
+        - firebase: []
+      parameters:
+        - name: anchorDay
+          in: query
+          required: false
+          type: string
+        - name: cursor
+          in: query
+          required: false
+          type: string
+        - name: limit
+          in: query
+          required: false
+          type: integer
+      responses:
+        200:
+          description: OK
+
   /users/me/lineage:
     options:
       operationId: lineageOptions

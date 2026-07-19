@@ -8,10 +8,15 @@ import {
   type DailyFactsDto,
   type InsightDto,
   type RawEventListItem,
+  type ReadinessViewDto,
   type SleepNightViewDto,
 } from "@oli/contracts";
+import { normalizeOuraScore0to100 } from "@/lib/format/ouraScore";
+import { isDailyTimelineAggregateAction } from "@/lib/features/timeline/isDailyTimelineAggregateAction";
+import { buildReconciledDailyTimelineWorkoutItems } from "@/lib/features/timeline/reconcileDailyTimelineWorkoutActions";
 import { resolveTimelineItemHref } from "@/lib/features/timeline/resolveTimelineItemHref";
 import type {
+  TimelineDayContextRow,
   TimelineDayItem,
   TimelineDaySummary,
   TimelineDayVm,
@@ -24,8 +29,12 @@ export type BuildTimelineDayVmInput = {
   rawItems?: readonly RawEventListItem[];
   sleepNight?: SleepNightViewDto | null;
   dailyFacts?: DailyFactsDto | null;
+  /** Exact-day readiness view; proxy HRV/RHR must never substitute for the score. */
+  readinessView?: ReadinessViewDto | null;
   insights?: readonly InsightDto[];
 };
+
+export { isDailyTimelineAggregateAction } from "@/lib/features/timeline/isDailyTimelineAggregateAction";
 
 const ICONS: Record<TimelineSourceType, string> = {
   sleep_wake: "sunny-outline",
@@ -218,6 +227,10 @@ function buildCanonicalItems(
   for (const ev of events) {
     if (ev.kind === "nutrition") continue; // raw nutrition events are the source of truth for meals
     if (ev.kind === "sleep" && skipSleep) continue;
+    // Aggregates belong in Daily context only — never as chronological actions.
+    if (isDailyTimelineAggregateAction({ kind: ev.kind })) continue;
+    // Workouts are emitted once via shared session reconciliation.
+    if (ev.kind === "workout" || ev.kind === "strength_workout") continue;
     const map = CANONICAL_KIND_MAP[ev.kind];
     const meta = map ?? { sourceType: "unknown" as const, title: ev.kind };
     if (!Number.isFinite(Date.parse(ev.start))) continue;
@@ -257,6 +270,115 @@ function buildInsightItems(day: string, insights: readonly InsightDto[]): Timeli
   return out;
 }
 
+
+function formatDurationMinutesLabel(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+/**
+ * Legacy midnight Steps detector. Daily Timeline now excludes all aggregate Steps
+ * via {@link isDailyTimelineAggregateAction}; this remains for focused regression tests.
+ */
+export function isMidnightFabricatedStepsItem(item: TimelineDayItem): boolean {
+  if (!isDailyTimelineAggregateAction(item)) return false;
+  const ms = Date.parse(item.timestamp);
+  if (!Number.isFinite(ms)) return false;
+  const d = new Date(ms);
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
+function exactDayReadinessScore(
+  day: string,
+  readinessView: ReadinessViewDto | null | undefined,
+): number | null {
+  if (!readinessView) return null;
+  if (readinessView.isFallback === true) return null;
+  if (readinessView.requestedDay !== day || readinessView.resolvedDay !== day) return null;
+  return normalizeOuraScore0to100(readinessView.score);
+}
+
+export function buildDailyTimelineContext(input: {
+  day: string;
+  sleepNight?: SleepNightViewDto | null;
+  dailyFacts?: DailyFactsDto | null;
+  readinessView?: ReadinessViewDto | null;
+}): TimelineDayContextRow[] {
+  const { day } = input;
+  const night = input.sleepNight?.sleepNight;
+  const facts = input.dailyFacts;
+
+  const sleepMinutes =
+    (typeof night?.totalSleepMinutes === "number" ? night.totalSleepMinutes : undefined) ??
+    (typeof night?.mainSleepMinutes === "number" ? night.mainSleepMinutes : undefined) ??
+    (typeof facts?.sleep?.totalMinutes === "number" ? facts.sleep.totalMinutes : undefined);
+  const sleepScore = typeof night?.score === "number" ? night.score : undefined;
+  let sleepValue: string | undefined;
+  if (typeof sleepScore === "number" && Number.isFinite(sleepScore)) {
+    sleepValue = `Score ${Math.round(sleepScore)}`;
+    if (typeof sleepMinutes === "number") {
+      sleepValue = `${sleepValue} · ${formatDurationMinutesLabel(sleepMinutes)}`;
+    }
+  } else if (typeof sleepMinutes === "number") {
+    sleepValue = formatDurationMinutesLabel(sleepMinutes);
+  }
+  const sleepAvailable = sleepValue != null;
+  const sleep: TimelineDayContextRow = {
+    kind: "sleep",
+    title: "Sleep",
+    ...(sleepValue ? { valueLabel: sleepValue } : {}),
+    availability: sleepAvailable ? "available" : "unavailable",
+    accessibilityLabel: sleepAvailable
+      ? `Sleep, ${sleepValue}`
+      : "Sleep, unavailable",
+    href: `/(app)/recovery/sleep?day=${day}`,
+    icon: "moon-outline",
+  };
+
+  // Recovery contract: exact-day readiness score, otherwise unavailable.
+  // Never substitute HRV / RHR / contributors for the score in context.
+  const recoveryScore = exactDayReadinessScore(day, input.readinessView);
+  const recoveryValue =
+    recoveryScore != null ? `Score ${recoveryScore}` : undefined;
+  const recoveryAvailable = recoveryValue != null;
+  const recovery: TimelineDayContextRow = {
+    kind: "recovery",
+    title: "Recovery",
+    ...(recoveryValue ? { valueLabel: recoveryValue } : {}),
+    availability: recoveryAvailable ? "available" : "unavailable",
+    accessibilityLabel: recoveryAvailable
+      ? `Recovery, ${recoveryValue}`
+      : "Recovery, unavailable",
+    href: "/(app)/recovery/readiness",
+    icon: "heart-outline",
+  };
+
+  const steps = typeof facts?.activity?.steps === "number" ? facts.activity.steps : undefined;
+  const activityValue =
+    typeof steps === "number" && Number.isFinite(steps)
+      ? `${Math.round(steps).toLocaleString("en-US")} steps`
+      : undefined;
+  const activityAvailable = activityValue != null;
+  const activity: TimelineDayContextRow = {
+    kind: "activity",
+    title: "Activity",
+    ...(activityValue ? { valueLabel: activityValue } : {}),
+    availability: activityAvailable ? "available" : "unavailable",
+    accessibilityLabel: activityAvailable
+      ? `Activity, ${activityValue}`
+      : "Activity, unavailable",
+    href: `/(app)/activity/day/${day}`,
+    icon: "walk-outline",
+  };
+
+  return [sleep, recovery, activity];
+}
+
+
 function buildSummary(dailyFacts: DailyFactsDto | null | undefined): TimelineDaySummary | null {
   if (!dailyFacts) return null;
   const summary: TimelineDaySummary = {};
@@ -295,14 +417,22 @@ export function buildTimelineDayVm(input: BuildTimelineDayVmInput): TimelineDayV
     ...buildNutritionItems(day, rawItems),
     ...buildIncompleteItems(day, rawItems),
     ...buildCanonicalItems(day, events, wake != null),
+    ...buildReconciledDailyTimelineWorkoutItems(day, events),
     ...buildInsightItems(day, insights),
   ];
   if (wake) merged.push(wake);
 
-  const items = sortItems(merged);
+  const items = sortItems(merged).filter((item) => !isDailyTimelineAggregateAction(item));
+  const context = buildDailyTimelineContext({
+    day,
+    ...(input.sleepNight !== undefined ? { sleepNight: input.sleepNight } : {}),
+    ...(input.dailyFacts !== undefined ? { dailyFacts: input.dailyFacts } : {}),
+    ...(input.readinessView !== undefined ? { readinessView: input.readinessView } : {}),
+  });
 
   return {
     day,
+    context,
     items,
     isEmpty: items.length === 0,
     summary: buildSummary(input.dailyFacts),

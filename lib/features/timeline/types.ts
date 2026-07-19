@@ -61,6 +61,21 @@ export type TimelineDayItem = {
   accessibilityLabel: string;
 };
 
+
+/** Compact daily-context metric shown above chronological actions. */
+export type TimelineDayContextKind = "sleep" | "recovery" | "activity";
+
+export type TimelineDayContextRow = {
+  kind: TimelineDayContextKind;
+  title: string;
+  /** Value label when available; omit when unavailable (do not show fabricated zero). */
+  valueLabel?: string;
+  availability: "available" | "unavailable";
+  accessibilityLabel: string;
+  href?: string;
+  icon: string;
+};
+
 /** Optional, lightweight day-at-a-glance summary derived from DailyFacts (no heavy aggregation). */
 export type TimelineDaySummary = {
   steps?: number;
@@ -71,16 +86,64 @@ export type TimelineDaySummary = {
 /** View model for a single day's timeline. */
 export type TimelineDayVm = {
   day: string;
+  /** Sleep → Recovery → Activity context (not chronological event twins). */
+  context: readonly TimelineDayContextRow[];
   items: readonly TimelineDayItem[];
   isEmpty: boolean;
   summary: TimelineDaySummary | null;
 };
 
+/** Why selected-day history completeness could not be proven. Never shown raw to users. */
+export type TimelineDayIncompletenessReason =
+  | "page_cap"
+  | "cursor_cycle"
+  | "continuation_error"
+  | "validation_error";
+
 /**
- * Discriminated status for the orchestrating hook (canonical readiness vocabulary).
- * Only the primary source (canonical events) gates `partial` / `error`.
+ * Aggregate completeness for selected-day paginated families (events + raw).
+ * Cursors and item IDs are never included.
+ */
+export type TimelineDayCompleteness =
+  | { state: "settling" }
+  | { state: "complete" }
+  | { state: "unproven"; reason: TimelineDayIncompletenessReason }
+  | { state: "unavailable" };
+
+/**
+ * Discriminated status for the orchestrating hook (canonical readiness vocabulary:
+ * partial | error | ready — never invent a fourth readiness string).
+ *
+ * - partial + settling: selected-day history still settling
+ * - partial + incomplete: useful history available but completeness unproven
+ * - ready: selected-day cursors exhausted; history proven complete
+ * - error: no usable canonical action page
  */
 export type TimelineDayStatus =
-  | { status: "partial" }
+  | { status: "partial"; history: "settling" }
+  | {
+      status: "partial";
+      history: "incomplete";
+      vm: TimelineDayVm;
+      incompletenessReason: TimelineDayIncompletenessReason;
+    }
   | { status: "error"; error: string; requestId: string | null; reason: FailureKind }
   | { status: "ready"; vm: TimelineDayVm };
+
+/** Ready means proven complete — never pair ready with an unresolved cursor family. */
+export function isTimelineDayStatusReadyComplete(status: TimelineDayStatus): boolean {
+  return status.status === "ready";
+}
+
+export function timelineDayStatusHasVm(
+  status: TimelineDayStatus,
+): status is
+  | { status: "ready"; vm: TimelineDayVm }
+  | {
+      status: "partial";
+      history: "incomplete";
+      vm: TimelineDayVm;
+      incompletenessReason: TimelineDayIncompletenessReason;
+    } {
+  return status.status === "ready" || (status.status === "partial" && status.history === "incomplete");
+}

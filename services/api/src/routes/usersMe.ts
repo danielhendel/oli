@@ -9,6 +9,7 @@ import {
   rawEventsListQuerySchema,
   canonicalEventsListQuerySchema,
   timelineQuerySchema,
+  timelineFeedQuerySchema,
   lineageQuerySchema,
   workoutDaySummariesQuerySchema,
   workoutDaySummariesResponseDtoSchema,
@@ -38,6 +39,10 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { loadBodyFactsFromRawForApi } from "../lib/bodyFactsSynthesizeFromRaw";
 import type { RequestWithRid } from "../lib/logger";
 import { logger } from "../lib/logger";
+import {
+  logSleepNightRangeRouteTelemetry,
+  logSleepNightRouteVersionTelemetry,
+} from "../lib/sleepNightRouteTelemetry";
 import { dayQuerySchema, dayKeySchema } from "../types/day";
 import {
   dailyFactsDtoSchema,
@@ -80,6 +85,7 @@ import {
 import { db, userCollection, documentIdPath } from "../db";
 import { fillSleepContributorsFromStored } from "../lib/ouraVendorSnapshot";
 import { loadSleepNightView, loadSleepNightViewsForRange } from "../lib/sleepNightRead";
+import { assembleTimelineFeedPage } from "../lib/timeline/assembleFeedPage";
 import {
   isRawEventIngestSuppressionDocId,
   shouldLogSuppressionAuditForId,
@@ -1643,6 +1649,57 @@ router.get(
 );
 
 // ----------------------------
+// Timeline V1 — GET /users/me/timeline-feed (bounded presentation feed)
+// ----------------------------
+
+router.get(
+  "/timeline-feed",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = requireUid(req, res);
+    if (!uid) return;
+
+    const parsed = timelineFeedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "INVALID_QUERY",
+          message: "Invalid query params",
+          details: parsed.error.flatten(),
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    const { anchorDay, cursor, limit } = parsed.data;
+    const effectiveAnchor = anchorDay ?? new Date().toISOString().slice(0, 10);
+
+    const assembled = await assembleTimelineFeedPage({
+      uid,
+      anchorDay: effectiveAnchor,
+      ...(cursor ? { cursor } : {}),
+      limit,
+    });
+
+    if (!assembled.ok) {
+      const status = assembled.code === "INVALID_CURSOR" ? 400 : 500;
+      res.status(status).json({
+        ok: false,
+        error: {
+          code: assembled.code,
+          message: assembled.message,
+          requestId: getRid(req),
+        },
+      });
+      return;
+    }
+
+    res.status(200).json(assembled.data);
+  }),
+);
+
+// ----------------------------
 // Sprint 1 — GET /users/me/lineage (raw → canonical → derived)
 // ----------------------------
 
@@ -2176,12 +2233,7 @@ router.get(
     const requestedDay = parseDay(req, res);
     if (!requestedDay) return;
 
-    logger.info({
-      msg: "[SLEEP_NIGHT_ROUTE_VERSION]",
-      version: "sleep-night-resolution-v2",
-      requestedDay,
-      uid,
-    });
+    logSleepNightRouteVersionTelemetry();
 
     const view = await loadSleepNightView(uid, requestedDay);
     if (!view) {
@@ -2244,11 +2296,7 @@ router.get(
       return;
     }
 
-    logger.info({
-      msg: "[SLEEP_NIGHT_RANGE_ROUTE]",
-      version: "sleep-night-range-v1",
-      dayCount,
-    });
+    logSleepNightRangeRouteTelemetry(dayCount);
 
     const nights = await loadSleepNightViewsForRange(uid, start, end);
     const out = {

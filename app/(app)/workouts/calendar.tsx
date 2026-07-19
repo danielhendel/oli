@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, FlatList, Platform, type ViewToken } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ScreenContainer, ErrorState, EmptyState } from "@/lib/ui/ScreenStates";
 import { MonthGrid } from "@/lib/ui/calendar/MonthGrid";
-import { headerYearFromViewableMonthItems } from "@/lib/ui/calendar/moduleCalendarHeaderYear";
+import {
+  CANONICAL_CALENDAR_MONTHS_BACK,
+  buildCanonicalScrollableMonths,
+  ScrollableMonthCalendar,
+} from "@/lib/ui/calendar/ScrollableMonthCalendar";
 import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
 import type { DayKey } from "@/lib/ui/calendar/types";
 import {
@@ -35,31 +39,7 @@ function monthYearFromToday(): MonthYear {
   return clampMonthYear({ year: Number(d.slice(0, 4)), month: Number(d.slice(5, 7)) });
 }
 
-function shiftMonth(monthYear: MonthYear, delta: number): MonthYear {
-  return clampMonthYear({ year: monthYear.year, month: monthYear.month + delta });
-}
-
-type CalendarMonthModel = {
-  key: string;
-  monthYear: MonthYear;
-};
-
-const MONTHS_BACK = 12;
-const MONTHS_FORWARD = 12;
 const FETCH_WINDOW_MARGIN_MONTHS = 1;
-const CALENDAR_MONTH_ITEM_HEIGHT = 372;
-
-function buildMonthRange(center: MonthYear): CalendarMonthModel[] {
-  const out: CalendarMonthModel[] = [];
-  for (let i = -MONTHS_BACK; i <= MONTHS_FORWARD; i += 1) {
-    const m = shiftMonth(center, i);
-    out.push({
-      key: `${m.year}-${String(m.month).padStart(2, "0")}`,
-      monthYear: m,
-    });
-  }
-  return out;
-}
 
 export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain }) {
   const navigation = useNavigation();
@@ -68,14 +48,16 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
   const todayMonth = monthYearFromToday();
   const [refreshEpoch, setRefreshEpoch] = useState(0);
   const [windowBounds, setWindowBounds] = useState(() => ({
-    startIndex: MONTHS_BACK,
-    endIndex: MONTHS_BACK,
+    startIndex: CANONICAL_CALENDAR_MONTHS_BACK,
+    endIndex: CANONICAL_CALENDAR_MONTHS_BACK,
   }));
   const [markerMap, setMarkerMap] = useState<Map<DayKey, WorkoutMarkerFlags>>(new Map());
   const [headerYear, setHeaderYear] = useState(todayMonth.year);
-  const months = useMemo(() => buildMonthRange(todayMonth), [todayMonth.year, todayMonth.month]);
-  const todayMonthIndex = MONTHS_BACK;
-  const flatListRef = useRef<FlatList<CalendarMonthModel>>(null);
+  const months = useMemo(
+    () => buildCanonicalScrollableMonths(todayMonth),
+    [todayMonth.year, todayMonth.month],
+  );
+  const todayMonthIndex = CANONICAL_CALENDAR_MONTHS_BACK;
 
   useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
@@ -173,29 +155,8 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
     });
   }, [rangeReady, rangeDays, summaryMarkerFlags, domain]);
 
-  useEffect(() => {
-    if (process.env.JEST_WORKER_ID) return;
-    const id = requestAnimationFrame(() => {
-      flatListRef.current?.scrollToIndex({
-        index: todayMonthIndex,
-        animated: false,
-        viewPosition: 0,
-      });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [todayMonthIndex]);
-
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length === 0) return;
-      let min = Number.POSITIVE_INFINITY;
-      let max = Number.NEGATIVE_INFINITY;
-      for (const token of viewableItems) {
-        if (typeof token.index !== "number") continue;
-        if (token.index < min) min = token.index;
-        if (token.index > max) max = token.index;
-      }
-      if (!Number.isFinite(min) || !Number.isFinite(max)) return;
+  const onVisibleRangeChange = useCallback(
+    (min: number, max: number, year: number) => {
       const nextStart = Math.max(0, min - FETCH_WINDOW_MARGIN_MONTHS);
       const nextEnd = Math.min(months.length - 1, max + FETCH_WINDOW_MARGIN_MONTHS);
       setWindowBounds((prev) =>
@@ -203,15 +164,10 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
           ? prev
           : { startIndex: nextStart, endIndex: nextEnd },
       );
-
-      const y = headerYearFromViewableMonthItems(viewableItems, months);
-      if (y != null) setHeaderYear(y);
+      setHeaderYear(year);
     },
     [months],
   );
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 20,
-  }).current;
 
   useEffect(() => {
     if (!(__DEV__ && !process.env.JEST_WORKER_ID)) return;
@@ -291,33 +247,17 @@ export function WorkoutsCalendarRoute({ domain }: { domain: WorkoutProductDomain
 
   return (
     <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
-      <FlatList
-        ref={flatListRef}
-        data={months}
-        keyExtractor={(item) => item.key}
-        contentContainerStyle={styles.scroll}
-        initialScrollIndex={todayMonthIndex}
-        initialNumToRender={5}
-        maxToRenderPerBatch={6}
-        windowSize={7}
-        getItemLayout={(_, index) => ({
-          length: CALENDAR_MONTH_ITEM_HEIGHT,
-          offset: CALENDAR_MONTH_ITEM_HEIGHT * index,
-          index,
-        })}
-        viewabilityConfig={viewabilityConfig}
-        onViewableItemsChanged={onViewableItemsChanged}
-        onScrollToIndexFailed={() => {
-          flatListRef.current?.scrollToOffset({
-            offset: todayMonthIndex * CALENDAR_MONTH_ITEM_HEIGHT,
-            animated: false,
-          });
-        }}
-        {...(Platform.OS === "ios" ? { contentInsetAdjustmentBehavior: "never" as const } : {})}
-        renderItem={({ item }) => (
-          <View style={styles.monthItem}>
-            <MonthGrid monthYear={item.monthYear} markerForDay={markerForDay} onDayPress={onDayPress} />
-          </View>
+      <ScrollableMonthCalendar
+        months={months}
+        initialMonthIndex={todayMonthIndex}
+        testID="workouts-scrollable-calendar"
+        onVisibleRangeChange={onVisibleRangeChange}
+        renderMonth={(item) => (
+          <MonthGrid
+            monthYear={item.monthYear}
+            markerForDay={markerForDay}
+            onDayPress={onDayPress}
+          />
         )}
         ListFooterComponent={
           showEmptyFooter ? (
@@ -339,12 +279,6 @@ export default function WorkoutsStrengthCalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    paddingBottom: 32,
-  },
-  monthItem: {
-    height: CALENDAR_MONTH_ITEM_HEIGHT,
-  },
   emptyWrapper: {
     marginTop: 24,
     paddingHorizontal: 16,

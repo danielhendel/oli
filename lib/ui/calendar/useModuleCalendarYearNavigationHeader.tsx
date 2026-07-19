@@ -2,11 +2,8 @@ import { useEffect } from "react";
 import { Platform, Text } from "react-native";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import {
-  workoutsStackNavigationOptions,
-  WORKOUTS_HEADER_TITLE_COLOR,
-} from "@/lib/ui/headers/workoutsStackHeader";
-import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { useOliColors } from "@/lib/ui/theme/OliColorContext";
 
 import { MODULE_CALENDAR_HEADER_YEAR_TEXT_STYLE } from "./moduleCalendarHeaderYear";
 
@@ -22,14 +19,26 @@ export function useModuleCalendarYearNavigationHeader(
   navigation: MinimalStackNav,
   headerYear: number,
 ): void {
+  const colors = useOliColors();
+
   useEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      headerStyle: { backgroundColor: UI_APP_SCREEN_BG },
-      headerTintColor: WORKOUTS_HEADER_TITLE_COLOR,
+      headerStyle: { backgroundColor: colors.appScreenBg },
+      headerTintColor: colors.textPrimary,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-      headerTitle: () => <Text style={MODULE_CALENDAR_HEADER_YEAR_TEXT_STYLE}>{String(headerYear)}</Text>,
+      headerTitle: () => (
+        <Text
+          style={[
+            MODULE_CALENDAR_HEADER_YEAR_TEXT_STYLE,
+            { color: colors.textPrimary },
+          ]}
+          accessibilityRole="header"
+        >
+          {String(headerYear)}
+        </Text>
+      ),
       ...(Platform.OS === "ios" ? { headerTitleAlign: "center" as const } : {}),
     });
-  }, [navigation, headerYear]);
+  }, [colors.appScreenBg, colors.textPrimary, navigation, headerYear]);
 }

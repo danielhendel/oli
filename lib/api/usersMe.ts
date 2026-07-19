@@ -37,6 +37,7 @@ import {
   rawEventsListResponseDtoSchema,
   rawEventDocSchema,
   timelineResponseDtoSchema,
+  timelineFeedResponseDtoSchema,
   lineageResponseDtoSchema,
   type LogWeightRequestDto,
   type LogWeightResponseDto,
@@ -54,6 +55,7 @@ import {
   type RawEventsListResponseDto,
   type RawEventDoc,
   type TimelineResponseDto,
+  type TimelineFeedResponseDto,
   type LineageResponseDto,
   healthScoreDocSchema,
   healthSignalDocSchema,
@@ -587,6 +589,28 @@ export const getTimeline = async (
     `/users/me/timeline?${qs}`,
     idToken,
     timelineResponseDtoSchema,
+    truthGetOpts(opts),
+  );
+};
+
+/** Timeline V1 bounded presentation feed (additive; requires API + Gateway deploy). */
+export const getTimelineFeed = async (
+  idToken: string,
+  opts?: {
+    anchorDay?: string;
+    cursor?: string;
+    limit?: number;
+  } & TruthGetOptions,
+): Promise<ApiResult<TimelineFeedResponseDto>> => {
+  const params = new URLSearchParams();
+  if (opts?.anchorDay) params.set("anchorDay", opts.anchorDay);
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (typeof opts?.limit === "number") params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiGetZodAuthed(
+    `/users/me/timeline-feed${qs ? `?${qs}` : ""}`,
+    idToken,
+    timelineFeedResponseDtoSchema,
     truthGetOpts(opts),
   );
 };
