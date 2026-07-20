@@ -19,6 +19,10 @@ export type DailyMonitorPresenceStatus = (typeof DAILY_MONITOR_PRESENCE_STATUSES
 export type DailyMonitorDomainId =
   | "sleep"
   | "readiness"
+  | "stress"
+  | "activity"
+  | "workout"
+  | "cardio"
   | "energy"
   | "nutrition"
   | "body_composition";
@@ -54,21 +58,30 @@ export const DAILY_MONITOR_SECTION_TITLES: Record<DailyMonitorSectionId, string>
   measurements: "Measurements",
 };
 
-/** Stable domain order within each section for Phase 2C. */
+/** Stable domain order within each section for Phase 2C completion. */
 export const DAILY_MONITOR_DOMAIN_SECTION: Record<
   DailyMonitorDomainId,
   DailyMonitorSectionId
 > = {
   sleep: "recovery",
   readiness: "recovery",
+  stress: "recovery",
+  activity: "movement_output",
+  workout: "movement_output",
+  cardio: "movement_output",
   energy: "movement_output",
   nutrition: "intake_exposures",
   body_composition: "measurements",
 };
 
+/** Stable card order across the full Monitor stack. */
 export const DAILY_MONITOR_DOMAIN_ORDER: readonly DailyMonitorDomainId[] = [
   "sleep",
   "readiness",
+  "stress",
+  "activity",
+  "workout",
+  "cardio",
   "energy",
   "nutrition",
   "body_composition",

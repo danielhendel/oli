@@ -1,6 +1,7 @@
 import {
   DASH_DAILY_MONITOR_FOUNDATION_ENV_KEY,
   DASH_DAILY_MONITOR_FOUNDATION_FLAG_ID,
+  DAILY_MONITOR_APP_HEADER_TITLE,
   DAILY_MONITOR_SCREEN_TITLE,
   DAILY_MONITOR_TAB_A11Y_LABEL,
   DAILY_MONITOR_TAB_TITLE,
@@ -22,6 +23,7 @@ describe("dashDailyMonitorFoundation flag", () => {
 
   it("exposes the conceptual product flag id and consumer copy", () => {
     expect(DASH_DAILY_MONITOR_FOUNDATION_FLAG_ID).toBe("dashDailyMonitorFoundation");
+    expect(DAILY_MONITOR_APP_HEADER_TITLE).toBe("Oli");
     expect(DAILY_MONITOR_SCREEN_TITLE).toBe("Daily Monitor");
     expect(DAILY_MONITOR_TAB_TITLE).toBe("Monitor");
     expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Daily Monitor");

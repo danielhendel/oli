@@ -1,16 +1,24 @@
+import type { DailyMonitorDomainId, DailyMonitorPresenceStatus } from "../dailyMonitorPresence";
 import { buildDailyMonitorViewModel } from "../buildDailyMonitorViewModel";
-import type { DailyMonitorPresenceStatus } from "../dailyMonitorPresence";
 
-function domain(
-  domainId:
-    | "sleep"
-    | "readiness"
-    | "energy"
-    | "nutrition"
-    | "body_composition",
-  presence: DailyMonitorPresenceStatus,
-) {
+function domain(domainId: DailyMonitorDomainId, presence: DailyMonitorPresenceStatus) {
   return { domainId, presence };
+}
+
+function allDomains(presence: DailyMonitorPresenceStatus) {
+  return (
+    [
+      "sleep",
+      "readiness",
+      "stress",
+      "activity",
+      "workout",
+      "cardio",
+      "energy",
+      "nutrition",
+      "body_composition",
+    ] as const
+  ).map((id) => domain(id, presence));
 }
 
 describe("buildDailyMonitorViewModel", () => {
@@ -19,20 +27,14 @@ describe("buildDailyMonitorViewModel", () => {
       requestedDay: "2026-07-20",
       dateLabel: "Mon Jul 20, 2026",
       signedOut: false,
-      domains: [
-        domain("sleep", "loading_presence"),
-        domain("readiness", "loading_presence"),
-        domain("energy", "loading_presence"),
-        domain("nutrition", "loading_presence"),
-        domain("body_composition", "loading_presence"),
-      ],
+      domains: allDomains("loading_presence"),
     });
     expect(vm.screenStatus).toBe("loading");
     expect(vm.visibleDomainIds).toEqual([]);
     expect(vm.sections).toEqual([]);
   });
 
-  it("omits empty sections and keeps stable domain order", () => {
+  it("omits empty sections and keeps stable domain order including new domains", () => {
     const vm = buildDailyMonitorViewModel({
       requestedDay: "2026-07-20",
       dateLabel: "Mon Jul 20, 2026",
@@ -40,16 +42,20 @@ describe("buildDailyMonitorViewModel", () => {
       domains: [
         domain("sleep", "present_complete"),
         domain("readiness", "absent_no_day_evidence"),
+        domain("stress", "present_complete"),
+        domain("activity", "present_complete"),
+        domain("workout", "present_complete"),
+        domain("cardio", "absent_no_day_evidence"),
         domain("energy", "present_partial"),
         domain("nutrition", "absent_no_day_evidence"),
         domain("body_composition", "absent_no_day_evidence"),
       ],
     });
     expect(vm.screenStatus).toBe("ready");
-    expect(vm.visibleDomainIds).toEqual(["sleep", "energy"]);
+    expect(vm.visibleDomainIds).toEqual(["sleep", "stress", "activity", "workout", "energy"]);
     expect(vm.sections.map((s) => s.id)).toEqual(["recovery", "movement_output"]);
-    expect(vm.sections[0]?.domainIds).toEqual(["sleep"]);
-    expect(vm.sections[1]?.domainIds).toEqual(["energy"]);
+    expect(vm.sections[0]?.domainIds).toEqual(["sleep", "stress"]);
+    expect(vm.sections[1]?.domainIds).toEqual(["activity", "workout", "energy"]);
   });
 
   it("shows empty Monitor when all domains lack current-day evidence", () => {
@@ -57,13 +63,7 @@ describe("buildDailyMonitorViewModel", () => {
       requestedDay: "2026-07-20",
       dateLabel: "Mon Jul 20, 2026",
       signedOut: false,
-      domains: [
-        domain("sleep", "absent_no_day_evidence"),
-        domain("readiness", "unavailable_source"),
-        domain("energy", "absent_no_day_evidence"),
-        domain("nutrition", "absent_no_day_evidence"),
-        domain("body_composition", "absent_no_day_evidence"),
-      ],
+      domains: allDomains("absent_no_day_evidence"),
     });
     expect(vm.screenStatus).toBe("empty");
     expect(vm.emptyTitle).toMatch(/No health data is available for today/i);
@@ -78,6 +78,10 @@ describe("buildDailyMonitorViewModel", () => {
       domains: [
         domain("sleep", "present_complete"),
         domain("readiness", "screen_level_error"),
+        domain("stress", "absent_no_day_evidence"),
+        domain("activity", "absent_no_day_evidence"),
+        domain("workout", "absent_no_day_evidence"),
+        domain("cardio", "absent_no_day_evidence"),
         domain("energy", "absent_no_day_evidence"),
         domain("nutrition", "absent_no_day_evidence"),
         domain("body_composition", "absent_no_day_evidence"),
@@ -93,13 +97,7 @@ describe("buildDailyMonitorViewModel", () => {
       requestedDay: "2026-07-20",
       dateLabel: "Mon Jul 20, 2026",
       signedOut: false,
-      domains: [
-        domain("sleep", "screen_level_error"),
-        domain("readiness", "screen_level_error"),
-        domain("energy", "screen_level_error"),
-        domain("nutrition", "screen_level_error"),
-        domain("body_composition", "screen_level_error"),
-      ],
+      domains: allDomains("screen_level_error"),
     });
     expect(vm.screenStatus).toBe("error");
     expect(vm.errorMessage).toBeTruthy();

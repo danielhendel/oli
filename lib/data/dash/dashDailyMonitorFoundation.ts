@@ -26,7 +26,13 @@ export const DASH_DAILY_MONITOR_FOUNDATION_ENV_KEY =
 /** Conceptual product id; env key is the runtime control surface. */
 export const DASH_DAILY_MONITOR_FOUNDATION_FLAG_ID = "dashDailyMonitorFoundation" as const;
 
-/** Consumer-visible screen title when Daily Monitor is active. */
+/**
+ * Fixed app-header wordmark in Daily Monitor mode.
+ * Must not include “Daily Monitor” or the current date (those live in page content).
+ */
+export const DAILY_MONITOR_APP_HEADER_TITLE = "Oli" as const;
+
+/** Consumer-visible page heading inside scroll content when Daily Monitor is active. */
 export const DAILY_MONITOR_SCREEN_TITLE = "Daily Monitor" as const;
 
 /** Consumer-visible tab title (width-constrained). */

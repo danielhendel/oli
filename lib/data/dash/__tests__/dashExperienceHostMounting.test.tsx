@@ -2,6 +2,9 @@
  * Proves only one Dash experience host mounts for each flag combination.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
@@ -85,5 +88,16 @@ describe("Dash experience host mounting", () => {
     expect(mockLegacyDashHost).toHaveBeenCalledTimes(1);
     expect(mockDailyMonitorHost).not.toHaveBeenCalled();
     tree.unmount();
+  });
+
+  it("keeps Monitor-only domain hooks out of LegacyDashHost source", () => {
+    const legacySrc = fs.readFileSync(
+      path.join(__dirname, "../../../../components/dashboard/LegacyDashHost.tsx"),
+      "utf8",
+    );
+    expect(legacySrc).not.toMatch(/useDailyMonitorActivityCard/);
+    expect(legacySrc).not.toMatch(/useDailyMonitorSessionCards/);
+    expect(legacySrc).not.toMatch(/useDailyMonitorStressCard/);
+    expect(legacySrc).not.toMatch(/DailyMonitorDomainCards/);
   });
 });
