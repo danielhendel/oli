@@ -15,6 +15,8 @@ import {
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
+import { useDailyMonitorActivityCard } from "@/lib/data/dash/useDailyMonitorActivityCard";
+import { useDailyMonitorSessionCards } from "@/lib/data/dash/useDailyMonitorSessionCards";
 import {
   resolveBodyCompositionMonitorPresence,
   resolveEnergyMonitorPresence,
@@ -32,6 +34,11 @@ import { DailyEnergyCard } from "@/lib/ui/dash/DailyEnergyCard";
 import { DailyNutritionCard } from "@/lib/ui/dash/DailyNutritionCard";
 import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
+import {
+  DailyMonitorActivityCard,
+  DailyMonitorCardioCard,
+  DailyMonitorWorkoutCard,
+} from "@/lib/ui/dash/DailyMonitorDomainCards";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import {
@@ -65,9 +72,14 @@ export function DailyMonitorHost(): React.ReactElement {
   });
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(dayKey);
+  const activityCard = useDailyMonitorActivityCard(dayKey);
+  const sessionCards = useDailyMonitorSessionCards(dayKey);
 
   const sleepPresence = resolveSleepMonitorPresence(sleepCardVm);
   const readinessPresence = resolveReadinessMonitorPresence(readinessCard.vm);
+  const activityPresence = activityCard.presence;
+  const workoutPresence = sessionCards.workoutPresence;
+  const cardioPresence = sessionCards.cardioPresence;
   const energyPresence = resolveEnergyMonitorPresence({
     energy,
     loading: energyLoading,
@@ -97,6 +109,9 @@ export function DailyMonitorHost(): React.ReactElement {
         domains: [
           { domainId: "sleep", presence: sleepPresence },
           { domainId: "readiness", presence: readinessPresence },
+          { domainId: "activity", presence: activityPresence },
+          { domainId: "workout", presence: workoutPresence },
+          { domainId: "cardio", presence: cardioPresence },
           { domainId: "energy", presence: energyPresence },
           { domainId: "nutrition", presence: nutritionPresence },
           { domainId: "body_composition", presence: bodyPresence },
@@ -108,6 +123,9 @@ export function DailyMonitorHost(): React.ReactElement {
       user,
       sleepPresence,
       readinessPresence,
+      activityPresence,
+      workoutPresence,
+      cardioPresence,
       energyPresence,
       nutritionPresence,
       bodyPresence,
@@ -115,8 +133,9 @@ export function DailyMonitorHost(): React.ReactElement {
   );
 
   const onRetry = useCallback(() => {
-    refetch({ cacheBust: `dailyMonitorRetry:${Date.now()}` });
-    readinessCard.refetch({ cacheBust: `dailyMonitorRetry:${Date.now()}` });
+    const bust = `dailyMonitorRetry:${Date.now()}`;
+    refetch({ cacheBust: bust });
+    readinessCard.refetch({ cacheBust: bust });
   }, [refetch, readinessCard.refetch]);
 
   useFocusEffect(
@@ -128,6 +147,9 @@ export function DailyMonitorHost(): React.ReactElement {
 
   const showSleep = presenceCreatesMainStackCard(sleepPresence);
   const showReadiness = presenceCreatesMainStackCard(readinessPresence);
+  const showActivity = presenceCreatesMainStackCard(activityPresence);
+  const showWorkout = presenceCreatesMainStackCard(workoutPresence);
+  const showCardio = presenceCreatesMainStackCard(cardioPresence);
   const showEnergy = presenceCreatesMainStackCard(energyPresence);
   const showNutrition = presenceCreatesMainStackCard(nutritionPresence);
   const showBody = presenceCreatesMainStackCard(bodyPresence);
@@ -206,7 +228,7 @@ export function DailyMonitorHost(): React.ReactElement {
         ) : null}
 
         {monitorVm.sections.map((section) => (
-          <View key={section.id} style={styles.section} accessibilityRole="header">
+          <View key={section.id} style={styles.section}>
             <Text
               style={styles.sectionTitle}
               accessibilityRole="header"
@@ -225,14 +247,31 @@ export function DailyMonitorHost(): React.ReactElement {
             {section.domainIds.includes("readiness") && showReadiness ? (
               <DailyReadinessCard vm={readinessCard.vm} title="Readiness" />
             ) : null}
+            {section.domainIds.includes("activity") && showActivity && activityCard.model != null ? (
+              <DailyMonitorActivityCard model={activityCard.model} href={activityCard.href} />
+            ) : null}
+            {section.domainIds.includes("workout") &&
+            showWorkout &&
+            sessionCards.workoutModel != null ? (
+              <DailyMonitorWorkoutCard
+                model={sessionCards.workoutModel}
+                href={sessionCards.workoutHref}
+              />
+            ) : null}
+            {section.domainIds.includes("cardio") &&
+            showCardio &&
+            sessionCards.cardioModel != null ? (
+              <DailyMonitorCardioCard
+                model={sessionCards.cardioModel}
+                href={sessionCards.cardioHref}
+              />
+            ) : null}
             {section.domainIds.includes("energy") && showEnergy ? (
               <DailyEnergyCard
                 energy={energy}
                 loading={false}
                 error={
-                  energyPresence === "refresh_error_with_cached_day_evidence"
-                    ? energyError
-                    : null
+                  energyPresence === "refresh_error_with_cached_day_evidence" ? energyError : null
                 }
                 title="Energy Expenditure"
               />
@@ -253,7 +292,6 @@ export function DailyMonitorHost(): React.ReactElement {
                 hasUser={bodyComposition.hasUser}
                 goalsHref={bodyComposition.goalsHref}
                 built={bodyComposition.built}
-                /** Same-day reading — omit prior-day “As of …” carry-forward copy. */
                 suppressAsOfLabel
               />
             ) : null}
