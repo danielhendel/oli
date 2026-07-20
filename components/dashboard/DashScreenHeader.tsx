@@ -15,7 +15,7 @@ const DEFAULT_TITLE = "Oli Fitness";
 export type DashScreenHeaderProps = {
   /** Consumer screen title. Defaults to legacy “Oli Fitness”. */
   title?: string;
-  /** Optional current-day label shown under the title (Daily Monitor). */
+  /** Optional subtitle under the title. Daily Monitor keeps date in page content instead. */
   dateLabel?: string | null;
   /** Combined accessibility label for title (+ date when present). */
   accessibilityLabel?: string;

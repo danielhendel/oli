@@ -9,6 +9,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
+  DAILY_MONITOR_APP_HEADER_TITLE,
   DAILY_MONITOR_SCREEN_TITLE,
 } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
@@ -134,9 +135,8 @@ export function DailyMonitorHost(): React.ReactElement {
   return (
     <View style={styles.root} testID="daily-monitor-host">
       <DashScreenHeader
-        title={DAILY_MONITOR_SCREEN_TITLE}
-        dateLabel={dateLabel}
-        accessibilityLabel={`${DAILY_MONITOR_SCREEN_TITLE}. ${dateLabel}`}
+        title={DAILY_MONITOR_APP_HEADER_TITLE}
+        accessibilityLabel={DAILY_MONITOR_APP_HEADER_TITLE}
       />
       <ScrollView
         style={styles.scrollView}
@@ -144,6 +144,23 @@ export function DailyMonitorHost(): React.ReactElement {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View
+          style={styles.pageIntro}
+          accessible
+          accessibilityLabel={`${DAILY_MONITOR_SCREEN_TITLE}. ${dateLabel}`}
+        >
+          <Text
+            style={styles.pageTitle}
+            accessibilityRole="header"
+            testID="daily-monitor-page-title"
+          >
+            {DAILY_MONITOR_SCREEN_TITLE}
+          </Text>
+          <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
+            {dateLabel}
+          </Text>
+        </View>
+
         {monitorVm.showPartialRefreshBanner ? (
           <View
             style={styles.banner}
@@ -261,6 +278,22 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
+  },
+  pageIntro: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: 0.1,
+  },
+  pageDate: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "500",
+    color: UI_TEXT_SECONDARY,
   },
   section: {
     marginTop: 8,
