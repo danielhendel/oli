@@ -11,6 +11,7 @@ import type {
   DailyMonitorCardioCardModel,
   DailyMonitorWorkoutCardModel,
 } from "@/lib/data/dash/buildDailyMonitorSessionCards";
+import type { DailyMonitorStressCardModel } from "@/lib/data/dash/buildDailyMonitorStressCardModel";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -117,6 +118,50 @@ export function DailyMonitorCardioCard({
   );
 }
 
+export function DailyMonitorStressCard({
+  model,
+  href,
+}: {
+  model: DailyMonitorStressCardModel;
+  href: "/(app)/recovery/stress";
+}): React.ReactElement {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={model.accessibilityLabel}
+      accessibilityHint="Opens Stress"
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+    >
+      <Text style={styles.title}>Stress</Text>
+      <Text style={styles.primaryValue}>{model.daySummaryLabel}</Text>
+      <Text style={styles.subtitle}>Source: {model.sourceLabel}</Text>
+      {model.stressedMinutesLabel != null ? (
+        <View style={styles.row}>
+          <Text style={dashMetricRowLabelTextStyle}>Stressed time</Text>
+          <Text style={dashMetricRowValueTextStyle}>{model.stressedMinutesLabel}</Text>
+        </View>
+      ) : (
+        <View style={styles.row}>
+          <Text style={dashMetricRowLabelTextStyle}>Stressed time</Text>
+          <Text style={dashMetricRowValueTextStyle}>Unavailable</Text>
+        </View>
+      )}
+      {model.restoredMinutesLabel != null ? (
+        <View style={styles.row}>
+          <Text style={dashMetricRowLabelTextStyle}>Restored time</Text>
+          <Text style={dashMetricRowValueTextStyle}>{model.restoredMinutesLabel}</Text>
+        </View>
+      ) : (
+        <View style={styles.row}>
+          <Text style={dashMetricRowLabelTextStyle}>Restored time</Text>
+          <Text style={dashMetricRowValueTextStyle}>Unavailable</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
   card: cardChrome,

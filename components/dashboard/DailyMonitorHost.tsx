@@ -17,6 +17,7 @@ import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDa
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
 import { useDailyMonitorActivityCard } from "@/lib/data/dash/useDailyMonitorActivityCard";
 import { useDailyMonitorSessionCards } from "@/lib/data/dash/useDailyMonitorSessionCards";
+import { useDailyMonitorStressCard } from "@/lib/data/dash/useDailyMonitorStressCard";
 import {
   resolveBodyCompositionMonitorPresence,
   resolveEnergyMonitorPresence,
@@ -37,6 +38,7 @@ import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 import {
   DailyMonitorActivityCard,
   DailyMonitorCardioCard,
+  DailyMonitorStressCard,
   DailyMonitorWorkoutCard,
 } from "@/lib/ui/dash/DailyMonitorDomainCards";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
@@ -74,9 +76,11 @@ export function DailyMonitorHost(): React.ReactElement {
   const dailyNutrition = useDailyNutritionCard(dayKey);
   const activityCard = useDailyMonitorActivityCard(dayKey);
   const sessionCards = useDailyMonitorSessionCards(dayKey);
+  const stressCard = useDailyMonitorStressCard(dayKey);
 
   const sleepPresence = resolveSleepMonitorPresence(sleepCardVm);
   const readinessPresence = resolveReadinessMonitorPresence(readinessCard.vm);
+  const stressPresence = stressCard.presence;
   const activityPresence = activityCard.presence;
   const workoutPresence = sessionCards.workoutPresence;
   const cardioPresence = sessionCards.cardioPresence;
@@ -109,6 +113,7 @@ export function DailyMonitorHost(): React.ReactElement {
         domains: [
           { domainId: "sleep", presence: sleepPresence },
           { domainId: "readiness", presence: readinessPresence },
+          { domainId: "stress", presence: stressPresence },
           { domainId: "activity", presence: activityPresence },
           { domainId: "workout", presence: workoutPresence },
           { domainId: "cardio", presence: cardioPresence },
@@ -123,6 +128,7 @@ export function DailyMonitorHost(): React.ReactElement {
       user,
       sleepPresence,
       readinessPresence,
+      stressPresence,
       activityPresence,
       workoutPresence,
       cardioPresence,
@@ -147,6 +153,7 @@ export function DailyMonitorHost(): React.ReactElement {
 
   const showSleep = presenceCreatesMainStackCard(sleepPresence);
   const showReadiness = presenceCreatesMainStackCard(readinessPresence);
+  const showStress = presenceCreatesMainStackCard(stressPresence);
   const showActivity = presenceCreatesMainStackCard(activityPresence);
   const showWorkout = presenceCreatesMainStackCard(workoutPresence);
   const showCardio = presenceCreatesMainStackCard(cardioPresence);
@@ -246,6 +253,9 @@ export function DailyMonitorHost(): React.ReactElement {
             ) : null}
             {section.domainIds.includes("readiness") && showReadiness ? (
               <DailyReadinessCard vm={readinessCard.vm} title="Readiness" />
+            ) : null}
+            {section.domainIds.includes("stress") && showStress && stressCard.model != null ? (
+              <DailyMonitorStressCard model={stressCard.model} href={stressCard.href} />
             ) : null}
             {section.domainIds.includes("activity") && showActivity && activityCard.model != null ? (
               <DailyMonitorActivityCard model={activityCard.model} href={activityCard.href} />
