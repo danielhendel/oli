@@ -5,6 +5,7 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 
 const mockUseTodayHealthHero = jest.fn();
@@ -42,6 +43,7 @@ jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
     error: null,
     hasUser: true,
     goalsHref: "/(app)/body/settings",
+    overviewDay: "2026-05-11",
     built: {
       tag: "ready" as const,
       weightPrimaryLabel: "159.3 lb",
@@ -162,6 +164,7 @@ function countOccurrences(haystack: string, needle: string): number {
 
 describe("Dash composition clean baseline", () => {
   beforeEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(false);
     setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
@@ -180,6 +183,7 @@ describe("Dash composition clean baseline", () => {
 
   afterEach(() => {
     setDashWeeklyProgressRelocationEnabledForTests(null);
+    setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
   it("removes Today progress hero/card and keeps state cards in order (relocation enabled)", () => {

@@ -65,7 +65,8 @@ describe("DailyNutritionCard", () => {
       );
     });
     const text = renderText(tree);
-    expect(text).toContain("No nutrition logged today");
+    expect(text).toContain("No nutrition record is available for today.");
+    expect(text).not.toMatch(/ate nothing|failed|nutritionally poor/i);
     expect(text).not.toContain("Logged today");
     expect(text).toContain("Protein");
     expect(text).toContain("Carbs");
