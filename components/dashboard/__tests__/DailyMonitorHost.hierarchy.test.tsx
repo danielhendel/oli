@@ -13,7 +13,11 @@ import {
 import { allowConsoleForThisTest } from "../../../scripts/test/consoleGuard";
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
-  useAuth: () => ({ user: { uid: "u1" }, initializing: false }),
+  useAuth: () => ({
+    user: { uid: "u1" },
+    initializing: false,
+    getIdToken: jest.fn(async () => "test-token"),
+  }),
 }));
 
 jest.mock("@/lib/hooks/useCurrentLocalDayKey", () => ({
@@ -61,6 +65,35 @@ jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
   }),
 }));
 
+const mockActivityHook = jest.fn(() => ({
+  presence: "absent_no_day_evidence" as const,
+  model: null,
+  href: "/(app)/activity" as const,
+}));
+const mockSessionHook = jest.fn(() => ({
+  workoutPresence: "absent_no_day_evidence" as const,
+  workoutModel: null,
+  workoutHref: "/(app)/workouts" as const,
+  cardioPresence: "absent_no_day_evidence" as const,
+  cardioModel: null,
+  cardioHref: "/(app)/cardio" as const,
+}));
+const mockStressHook = jest.fn(() => ({
+  presence: "absent_no_day_evidence" as const,
+  model: null,
+  href: "/(app)/recovery/stress" as const,
+}));
+
+jest.mock("@/lib/data/dash/useDailyMonitorActivityCard", () => ({
+  useDailyMonitorActivityCard: (...args: unknown[]) => mockActivityHook(...args),
+}));
+jest.mock("@/lib/data/dash/useDailyMonitorSessionCards", () => ({
+  useDailyMonitorSessionCards: (...args: unknown[]) => mockSessionHook(...args),
+}));
+jest.mock("@/lib/data/dash/useDailyMonitorStressCard", () => ({
+  useDailyMonitorStressCard: (...args: unknown[]) => mockStressHook(...args),
+}));
+
 jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
   useFloatingTabBarScrollPadding: () => 120,
 }));
@@ -106,6 +139,12 @@ function collectText(root: renderer.ReactTestInstance): string {
 }
 
 describe("Daily Monitor header hierarchy", () => {
+  beforeEach(() => {
+    mockActivityHook.mockClear();
+    mockSessionHook.mockClear();
+    mockStressHook.mockClear();
+  });
+
   it("uses Oli in the fixed header and Daily Monitor + date in page content", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
@@ -153,11 +192,19 @@ describe("Daily Monitor header hierarchy", () => {
       .join(" ");
     expect(headerJoined).not.toContain("Daily Monitor");
     expect(headerJoined).not.toContain("Mon Jul 20");
+
+    expect(mockActivityHook).toHaveBeenCalled();
+    expect(mockSessionHook).toHaveBeenCalled();
+    expect(mockStressHook).toHaveBeenCalled();
     tree.unmount();
   });
 
-  it("preserves legacy Oli Fitness header and does not show Monitor page intro", async () => {
+  it("preserves legacy Oli Fitness header and does not mount Monitor-only domain hooks", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    mockActivityHook.mockClear();
+    mockSessionHook.mockClear();
+    mockStressHook.mockClear();
+
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(LegacyDashHost));
@@ -175,6 +222,9 @@ describe("Daily Monitor header hierarchy", () => {
     expect(headerTexts).toContain(LEGACY_DASH_SCREEN_TITLE);
     expect(headerTexts.join(" ")).not.toContain("Daily Monitor");
     expect(tree.root.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
+    expect(mockActivityHook).not.toHaveBeenCalled();
+    expect(mockSessionHook).not.toHaveBeenCalled();
+    expect(mockStressHook).not.toHaveBeenCalled();
     tree.unmount();
   });
 });
