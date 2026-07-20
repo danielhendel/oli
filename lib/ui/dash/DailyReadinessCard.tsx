@@ -45,18 +45,14 @@ export type DailyReadinessCardViewModel =
 
 type Props = {
   vm: DailyReadinessCardViewModel;
+  /** Consumer card title. Defaults to “Oura Readiness”. */
+  title?: string;
 };
 
-const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
-  fontSize: 34,
-  lineHeight: 40,
-  color: UI_TEXT_PRIMARY,
-  fontWeight: "700",
-  letterSpacing: -0.2,
-  fontVariant: ["tabular-nums"],
-};
-
-export function DailyReadinessCard({ vm }: Props): React.ReactElement {
+export function DailyReadinessCard({
+  vm,
+  title = "Oura Readiness",
+}: Props): React.ReactElement {
   const router = useRouter();
 
   const loading = vm.status === "partial";
@@ -91,17 +87,17 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
     vm.status === "ready"
       ? vm.accessibilityLabel
       : loading
-        ? "Oura Readiness header. Loading."
+        ? `${title} header. Loading.`
         : error
-          ? "Oura Readiness header. Could not load data."
-          : `Oura Readiness header. ${missingMessage ?? "No readiness data."}`;
+          ? `${title} header. Could not load data.`
+          : `${title} header. ${missingMessage ?? "No readiness data."}`;
 
   const canOpen = vm.status === "ready" && model?.hasAnySignal;
   const showMetricSection =
     vm.status === "ready" && model?.hasAnySignal === true && (model.metricRows?.length ?? 0) > 0;
 
   return (
-    <View style={styles.outer} accessibilityLabel="Oura Readiness card">
+    <View style={styles.outer} accessibilityLabel={`${title} card`}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -111,7 +107,7 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
           onPress={onOpenReadiness}
           style={({ pressed }) => [styles.headerPressable, pressed && canOpen && styles.headerPressed]}
         >
-          <Text style={styles.title}>Oura Readiness</Text>
+          <Text style={styles.title}>{title}</Text>
           {model?.sourceLabel ? (
             <Text style={styles.subtitle}>Source: {model.sourceLabel}</Text>
           ) : null}
@@ -162,6 +158,15 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
     </View>
   );
 }
+
+const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
+  fontSize: 34,
+  lineHeight: 40,
+  color: UI_TEXT_PRIMARY,
+  fontWeight: "700",
+  letterSpacing: -0.2,
+  fontVariant: ["tabular-nums"],
+};
 
 const styles = StyleSheet.create({
   outer: {

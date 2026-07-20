@@ -29,6 +29,8 @@ export type BodyCompositionCardProps = {
   hasUser: boolean;
   goalsHref: string;
   built: BuiltBodyCompositionDashCard | null;
+  /** When true, hide prior-day “As of …” subtitle (Daily Monitor same-day only). */
+  suppressAsOfLabel?: boolean;
 };
 
 export function BodyCompositionCard({
@@ -37,6 +39,7 @@ export function BodyCompositionCard({
   hasUser,
   goalsHref,
   built,
+  suppressAsOfLabel = false,
 }: BodyCompositionCardProps): React.ReactElement {
   const router = useRouter();
 
@@ -115,7 +118,7 @@ export function BodyCompositionCard({
               {built.weightPrimaryLabel}
             </Text>
           </Pressable>
-          {built.readingAsOfLabel ? (
+          {built.readingAsOfLabel && !suppressAsOfLabel ? (
             <Text style={styles.subtitle} testID="body-composition-reading-as-of">
               {built.readingAsOfLabel}
             </Text>

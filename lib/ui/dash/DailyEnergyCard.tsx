@@ -27,6 +27,8 @@ type Props = {
   energy: DailyEnergyCardDto | undefined;
   loading: boolean;
   error: string | null;
+  /** Consumer card title. Defaults to “Daily Energy”. */
+  title?: string;
 };
 
 function formatRange(energy: DailyEnergyCardDto): string {
@@ -43,7 +45,12 @@ function formatVariancePct(variancePct: number): string {
   return `${(variancePct * 100).toFixed(1)}%`;
 }
 
-export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactElement {
+export function DailyEnergyCard({
+  energy,
+  loading,
+  error,
+  title = "Daily Energy",
+}: Props): React.ReactElement {
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
 
@@ -55,11 +62,11 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
   }, [canOpenEnergy, router]);
 
   const headerA11y = useMemo(() => {
-    if (loading) return "Daily Energy header. Loading daily energy.";
-    if (error) return "Daily Energy header. Could not load data.";
-    if (!energy) return "Daily Energy header. Not enough data yet to estimate energy.";
-    return `Daily Energy header. ${formatRange(energy)}. Estimated burn today. Opens Daily Energy details.`;
-  }, [loading, error, energy]);
+    if (loading) return `${title} header. Loading daily energy.`;
+    if (error) return `${title} header. Could not load data.`;
+    if (!energy) return `${title} header. Not enough data yet to estimate energy.`;
+    return `${title} header. ${formatRange(energy)}. Estimated burn today. Opens Daily Energy details.`;
+  }, [loading, error, energy, title]);
 
   const onPressMetricRow = useCallback(
     (metricKey: (typeof rows)[number]["key"]) => {
@@ -82,7 +89,7 @@ export function DailyEnergyCard({ energy, loading, error }: Props): React.ReactE
         onPress={onOpenEnergy}
         style={({ pressed }) => [styles.headerPressable, pressed && canOpenEnergy && styles.headerPressed]}
       >
-        <Text style={styles.title}>Daily Energy</Text>
+        <Text style={styles.title}>{title}</Text>
         {loading ? <Text style={styles.status}>Loading daily energy\u2026</Text> : null}
         {!loading && error ? <Text style={styles.status}>Could not load daily energy</Text> : null}
         {!loading && !error && !energy ? (

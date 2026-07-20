@@ -31,9 +31,19 @@ const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
 
 type Props = {
   vm: DailySleepCardViewModel;
+  /** Consumer card title. Defaults to “Daily Sleep”. */
+  title?: string;
+  /** Caption under the score (e.g. “Oura Sleep Score”). */
+  scoreCaption?: string | null;
+  cardAccessibilityLabel?: string;
 };
 
-export function DailySleepCard({ vm }: Props): React.ReactElement {
+export function DailySleepCard({
+  vm,
+  title = "Daily Sleep",
+  scoreCaption = null,
+  cardAccessibilityLabel = "Daily Sleep card",
+}: Props): React.ReactElement {
   const router = useRouter();
   const [metricSheet, setMetricSheet] = useState<DailySleepMetricDetail | null>(null);
 
@@ -56,22 +66,26 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
   }, [error, loading, router, vm.status]);
 
   const headerA11y = useMemo(() => {
-    if (loading) return "Daily Sleep header. Loading sleep summary.";
-    if (isRefreshing) return "Daily Sleep header. Refreshing.";
-    if (error) return "Daily Sleep header. Could not load data.";
-    if (vm.status === "missing") return `Daily Sleep header. ${missingMessage ?? "No sleep data."}`;
-    if (!model) return "Daily Sleep header. Not enough data.";
+    if (loading) return `${title} header. Loading sleep summary.`;
+    if (isRefreshing) return `${title} header. Refreshing.`;
+    if (error) return `${title} header. Could not load data.`;
+    if (vm.status === "missing") return `${title} header. ${missingMessage ?? "No sleep data."}`;
+    if (!model) return `${title} header. Not enough data.`;
     const parts: string[] = [];
     if (model.lastNightSubtitle) parts.push(model.lastNightSubtitle);
     if (model.scoreUnavailable) {
       parts.push(SCORE_UNAVAILABLE_A11Y);
     } else if (model.headlineValueText) {
-      parts.push(`Sleep score ${model.headlineValueText}.`);
+      parts.push(
+        scoreCaption
+          ? `${scoreCaption} ${model.headlineValueText}.`
+          : `Sleep score ${model.headlineValueText}.`,
+      );
       if (model.ratingLabel) parts.push(model.ratingLabel);
     }
     if (model.summarySentence) parts.push(model.summarySentence);
-    return `Daily Sleep header. ${parts.join(" ")} Opens Sleep details.`;
-  }, [loading, isRefreshing, error, vm.status, missingMessage, model]);
+    return `${title} header. ${parts.join(" ")} Opens Sleep details.`;
+  }, [loading, isRefreshing, error, vm.status, missingMessage, model, title, scoreCaption]);
 
   const showEmptyBody = vm.status === "missing" || (vm.status === "ready" && model != null && !model.hasAnySignal);
   const canOpenSleep = vm.status === "ready" && model != null && model.hasAnySignal;
@@ -79,7 +93,7 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
   const showMetricSection = vm.status === "ready" && Boolean(model?.metricRows.length) && model?.hasAnySignal;
 
   return (
-    <View style={styles.outer} accessibilityLabel="Daily Sleep card">
+    <View style={styles.outer} accessibilityLabel={cardAccessibilityLabel}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -89,7 +103,7 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
           onPress={onOpenSleep}
           style={({ pressed }) => [styles.headerPressable, pressed && canOpenSleep && styles.headerPressed]}
         >
-          <Text style={styles.title}>Daily Sleep</Text>
+          <Text style={styles.title}>{title}</Text>
           {vm.status === "ready" && model?.lastNightSubtitle ? (
             <Text style={styles.subtitle}>{model.lastNightSubtitle}</Text>
           ) : null}
@@ -110,6 +124,11 @@ export function DailySleepCard({ vm }: Props): React.ReactElement {
                 <Text style={styles.headlineValue} accessibilityRole="text">
                   {model.headlineValueText}
                 </Text>
+                {scoreCaption ? (
+                  <Text style={styles.rating} accessibilityRole="text">
+                    {scoreCaption}
+                  </Text>
+                ) : null}
                 {model.ratingLabel ? <Text style={styles.rating}>{model.ratingLabel}</Text> : null}
               </>
             ) : null
