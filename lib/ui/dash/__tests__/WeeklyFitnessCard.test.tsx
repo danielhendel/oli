@@ -153,4 +153,34 @@ describe("WeeklyFitnessCard v2", () => {
     });
     expect(mockPush).toHaveBeenCalledWith(WEEKLY_FITNESS_ROUTES.goalsEditor);
   });
+
+  it("accepts Weekly Progress title and supporting copy without claiming adherence", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WeeklyFitnessCard
+          loading={false}
+          error={null}
+          model={sampleModel}
+          hasUser
+          goalsHref={WEEKLY_FITNESS_ROUTES.goalsEditor}
+          title="Weekly Progress"
+          subtitle="Progress against this week’s fitness targets."
+          cardAccessibilityLabel="Weekly Progress card"
+        />,
+      );
+    });
+    const text = flatten(tree.root);
+    expect(text).toContain("Weekly Progress");
+    expect(text).toContain("Progress against this week’s fitness targets.");
+    expect(text).not.toContain("Weekly Fitness");
+    expect(text).not.toMatch(/adherence/i);
+    expect(text).not.toMatch(/health score/i);
+    expect(
+      tree.root.findAll(
+        (n) =>
+          (n.props as { accessibilityLabel?: string }).accessibilityLabel === "Weekly Progress card",
+      ).length,
+    ).toBe(1);
+  });
 });

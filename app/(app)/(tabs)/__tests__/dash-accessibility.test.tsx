@@ -4,6 +4,7 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
+import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -170,6 +171,7 @@ function findPressablesWithLabel(
 
 describe("Dash accessibility", () => {
   beforeEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
@@ -220,6 +222,10 @@ describe("Dash accessibility", () => {
     });
   });
 
+  afterEach(() => {
+    setDashWeeklyProgressRelocationEnabledForTests(null);
+  });
+
   it("exposes accessibilityLabel on settings initial button", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -251,7 +257,7 @@ describe("Dash accessibility", () => {
     expect(rootViews.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("removes Sleep/Recovery summary and renders Weekly Fitness as first content card", () => {
+  it("removes Sleep/Recovery summary; Body Composition is first when relocation is enabled", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
@@ -271,7 +277,7 @@ describe("Dash accessibility", () => {
     /** Body Composition card row is present. */
     expect(text).toContain("159.3 lb");
     expect(text).toContain("Body Composition");
-    expect(text).toContain("Weekly Fitness");
+    expect(text).not.toContain("Weekly Fitness");
     /** Daily Energy still renders. */
     expect(text).toContain("Daily Energy");
     expect(text).toContain("Daily Nutrition");
@@ -280,15 +286,13 @@ describe("Dash accessibility", () => {
     /** Legacy hero row used plain "Sleep" / "Recovery" labels; dedicated card uses "Daily Sleep". */
     expect(text).not.toContain("Last night summary");
 
-    /** Weekly Fitness first; then Body, Energy, Sleep, Readiness, Nutrition. */
-    const idxWeeklyFitness = text.indexOf("Weekly Fitness");
+    /** Body first when Weekly Progress is relocated; then Energy, Sleep, Readiness, Nutrition. */
     const idxBody = text.indexOf("Body Composition");
     const idxEnergy = text.indexOf("Daily Energy");
     const idxSleepCard = text.indexOf("Daily Sleep");
     const idxReadiness = text.indexOf("Oura Readiness");
     const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxWeeklyFitness).toBeGreaterThan(-1);
-    expect(idxBody).toBeGreaterThan(idxWeeklyFitness);
+    expect(idxBody).toBeGreaterThan(-1);
     expect(idxEnergy).toBeGreaterThan(idxBody);
     expect(idxSleepCard).toBeGreaterThan(idxEnergy);
     expect(idxReadiness).toBeGreaterThan(idxSleepCard);

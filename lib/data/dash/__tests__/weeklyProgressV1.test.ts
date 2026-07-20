@@ -30,6 +30,16 @@ describe("computeWeeklyProgressV1", () => {
     expect(two.eligibleContributorCount).toBe(WEEKLY_PROGRESS_MIN_ELIGIBLE_CONTRIBUTORS);
   });
 
+  it("regression: insufficient eligible contributors → score remains null (missing is not zero)", () => {
+    const empty = computeWeeklyProgressV1([]);
+    expect(empty.score0to100).toBeNull();
+    expect(empty.eligibleContributorCount).toBe(0);
+
+    const singleTrustedZero = computeWeeklyProgressV1([{ key: "cardio", progress01: 0 }]);
+    expect(singleTrustedZero.score0to100).toBeNull();
+    expect(singleTrustedZero.eligibleContributorCount).toBe(1);
+  });
+
   it("includes trusted zero", () => {
     const r = computeWeeklyProgressV1([
       { key: "strength", progress01: 0 },
