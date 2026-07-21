@@ -1,20 +1,23 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
 import type { Readiness } from "@/lib/contracts/readiness";
+import { buildOuraScoreRatingAccessibility } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
+import {
+  DashCompactCardHeader,
+  dashCompactPrimaryValueTextStyle,
+} from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
-import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 const READINESS_DETAIL_HREF = "/(app)/recovery/readiness" as const;
 
@@ -83,9 +86,36 @@ export function DailyReadinessCard({
     router.push(missingCta.href as Parameters<typeof router.push>[0]);
   }, [missingCta, router]);
 
+  const primaryScoreLabel = useMemo(() => {
+    if (model?.headlineValueText == null || model.headlineValueText.length === 0) return null;
+    return `Readiness Score ${model.headlineValueText}`;
+  }, [model]);
+
+  const rating = useMemo(() => {
+    if (model?.ratingLabel == null) return null;
+    const source =
+      model.sourceLabel != null && model.sourceLabel.trim().length > 0 ? model.sourceLabel : "Oura";
+    return {
+      label: model.ratingLabel,
+      sourceLabel: source,
+      accessibilityLabel: buildOuraScoreRatingAccessibility({
+        domain: "readiness",
+        ratingLabel: model.ratingLabel,
+      }),
+    };
+  }, [model]);
+
   const headerA11y =
     vm.status === "ready"
-      ? vm.accessibilityLabel
+      ? [
+          title,
+          primaryScoreLabel != null ? `${primaryScoreLabel}.` : null,
+          // Single Oura+rating announcement (badge is accessibility-hidden under the Pressable).
+          rating != null ? `${rating.accessibilityLabel}.` : "Source Oura.",
+          "Opens Readiness details.",
+        ]
+          .filter(Boolean)
+          .join(" ")
       : loading
         ? `${title} header. Loading.`
         : error
@@ -107,14 +137,10 @@ export function DailyReadinessCard({
           onPress={onOpenReadiness}
           style={({ pressed }) => [styles.headerPressable, pressed && canOpen && styles.headerPressed]}
         >
-          <Text style={styles.title}>{title}</Text>
-          {model?.sourceLabel ? (
-            <Text style={styles.subtitle}>Source: {model.sourceLabel}</Text>
+          <DashCompactCardHeader title={title} rating={rating} />
+          {primaryScoreLabel != null ? (
+            <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
           ) : null}
-          {model?.headlineValueText ? (
-            <Text style={styles.headlineValue}>{model.headlineValueText}</Text>
-          ) : null}
-          {model?.ratingLabel ? <Text style={styles.rating}>{model.ratingLabel}</Text> : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily readiness…</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily readiness</Text> : null}
           {vm.status === "missing" ? (
@@ -131,9 +157,6 @@ export function DailyReadinessCard({
                 </Pressable>
               ) : null}
             </>
-          ) : null}
-          {model?.summarySentence && model.hasAnySignal ? (
-            <Text style={styles.summary}>{model.summarySentence}</Text>
           ) : null}
         </Pressable>
 
@@ -159,15 +182,6 @@ export function DailyReadinessCard({
   );
 }
 
-const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
-  fontSize: 34,
-  lineHeight: 40,
-  color: UI_TEXT_PRIMARY,
-  fontWeight: "700",
-  letterSpacing: -0.2,
-  fontVariant: ["tabular-nums"],
-};
-
 const styles = StyleSheet.create({
   outer: {
     marginTop: 12,
@@ -185,26 +199,7 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.9,
   },
-  title: strengthMetricCardTitleTextStyle,
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: UI_TEXT_MUTED,
-    fontWeight: "500",
-  },
-  headlineValue: HEADLINE_VALUE_TEXT,
-  rating: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "600",
-    color: UI_TEXT_SECONDARY,
-  },
-  summary: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-    marginTop: 4,
-  },
+  headlineValue: dashCompactPrimaryValueTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,

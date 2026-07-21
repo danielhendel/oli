@@ -69,16 +69,31 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} title="Sleep" />);
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Last night\u2019s sleep");
-    expect(flat).toContain("88");
+    expect(flat).toContain("Sleep Score 88");
     expect(flat).toContain("Optimal");
+    expect(flat).toContain("Oura");
     expect(flat).toContain("9h 11m");
+    expect(flat).not.toContain("Last night\u2019s sleep");
+    expect(flat).not.toContain("Oura Sleep Score");
+    expect(flat).not.toContain("Strong overall sleep quality for this day.");
     expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findAllByType(Image)).toHaveLength(0);
+
+    const header = root.root
+      .findAllByType(Pressable)
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.includes("Sleep Score 88"),
+      );
+    expect(header?.props.accessibilityLabel).toMatch(/Oura sleep rating: Optimal/);
+    expect(header?.props.accessibilityLabel).toMatch(/Opens Sleep details/);
+    // Spoken summary mentions Oura once via the rating cluster (not duplicated before the score).
+    expect(header?.props.accessibilityLabel.match(/Oura/g)?.length).toBe(1);
   });
 
   it("lists Duration → Deep → REM → Efficiency without LHR/HRV", () => {
@@ -130,7 +145,7 @@ describe("DailySleepCard", () => {
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Sleep score unavailable");
+    expect(flat).toContain("Unavailable");
     expect(flat).toContain("8h");
     expect(flat).not.toMatch(/\|0\|/);
     const header = root.root
@@ -138,9 +153,9 @@ describe("DailySleepCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Sleep header"),
+          p.props.accessibilityLabel.includes("Daily Sleep"),
       );
-    expect(header?.props.accessibilityLabel).toContain("Sleep score unavailable");
+    expect(header?.props.accessibilityLabel).toMatch(/unavailable|Unavailable/i);
   });
 
   it("renders score 0 as a real score with Pay attention", () => {
@@ -154,7 +169,7 @@ describe("DailySleepCard", () => {
       root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("0");
+    expect(flat).toContain("Sleep Score 0");
     expect(flat).toContain("Pay attention");
     expect(flat).not.toContain("Sleep score unavailable");
   });
@@ -215,7 +230,7 @@ describe("DailySleepCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Sleep header"),
+          p.props.accessibilityLabel.includes("Daily Sleep"),
       );
     expect(header).toBeDefined();
     act(() => {
