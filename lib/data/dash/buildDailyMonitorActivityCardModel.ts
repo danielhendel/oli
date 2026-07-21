@@ -5,10 +5,11 @@
 
 import type { DailyFactsDto } from "@/lib/contracts/dailyFacts";
 import type { DailyMonitorPresenceStatus } from "@/lib/data/dash/dailyMonitorPresence";
+import { buildDailyMonitorActivityRatingLabel } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type DailyMonitorActivityMetricRow = {
-  key: string;
+  key: "distance" | "neat_steps" | "workout_steps" | "cardio_steps";
   label: string;
   valueLabel: string;
   isAvailable: boolean;
@@ -17,31 +18,18 @@ export type DailyMonitorActivityMetricRow = {
 export type DailyMonitorActivityCardModel = {
   day: DayKey;
   steps: number;
-  stepsLabel: string;
+  /** Locale-aware digits only (e.g. `2,883`). */
+  stepsDigits: string;
+  /** Primary display: `{digits} Steps`. */
+  primaryLabel: string;
+  ratingLabel: string;
+  ratingAccessibilityLabel: string;
   rows: readonly DailyMonitorActivityMetricRow[];
-  sourceLabel: string | null;
   accessibilityLabel: string;
 };
 
-function formatSteps(steps: number): string {
+function formatStepsDigits(steps: number): string {
   return steps.toLocaleString("en-US");
-}
-
-function formatOptionalMinutes(value: number | undefined): DailyMonitorActivityMetricRow {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
-    return {
-      key: "move_minutes",
-      label: "Move minutes",
-      valueLabel: `${Math.round(value)} min`,
-      isAvailable: true,
-    };
-  }
-  return {
-    key: "move_minutes",
-    label: "Move minutes",
-    valueLabel: "Unavailable",
-    isAvailable: false,
-  };
 }
 
 function formatOptionalDistanceKm(value: number | undefined): DailyMonitorActivityMetricRow {
@@ -61,9 +49,33 @@ function formatOptionalDistanceKm(value: number | undefined): DailyMonitorActivi
   };
 }
 
+function formatOptionalStepBucket(
+  key: DailyMonitorActivityMetricRow["key"],
+  label: string,
+  value: number | undefined | null,
+): DailyMonitorActivityMetricRow {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return {
+      key,
+      label,
+      valueLabel: `${Math.round(value).toLocaleString("en-US")} steps`,
+      isAvailable: true,
+    };
+  }
+  return {
+    key,
+    label,
+    valueLabel: "Unavailable",
+    isAvailable: false,
+  };
+}
+
 /**
  * Builds Activity Monitor card when DailyFacts for requestedDay includes a finite steps value
  * (including 0). Returns null when steps evidence is absent.
+ *
+ * Rows (exact order): Distance → NEAT steps → Workout steps → Cardio steps.
+ * Allocation uses DailyFacts `activity.stepsAllocation` (strength → Workout steps).
  */
 export function buildDailyMonitorActivityCardModel(input: {
   requestedDay: DayKey;
@@ -75,20 +87,26 @@ export function buildDailyMonitorActivityCardModel(input: {
   if (typeof steps !== "number" || !Number.isFinite(steps) || steps < 0) return null;
 
   const rounded = Math.round(steps);
-  const stepsLabel = formatSteps(rounded);
-  const rows = [
-    formatOptionalMinutes(input.facts.activity?.moveMinutes),
+  const stepsDigits = formatStepsDigits(rounded);
+  const primaryLabel = `${stepsDigits} Steps`;
+  const rating = buildDailyMonitorActivityRatingLabel(rounded);
+  const allocation = input.facts.activity?.stepsAllocation;
+  const rows: DailyMonitorActivityMetricRow[] = [
     formatOptionalDistanceKm(input.facts.activity?.distanceKm),
+    formatOptionalStepBucket("neat_steps", "NEAT Steps", allocation?.neatSteps),
+    formatOptionalStepBucket("workout_steps", "Workout Steps", allocation?.strengthSteps),
+    formatOptionalStepBucket("cardio_steps", "Cardio Steps", allocation?.cardioSteps),
   ];
-  const sourceLabel = null;
 
   return {
     day: input.requestedDay,
     steps: rounded,
-    stepsLabel,
+    stepsDigits,
+    primaryLabel,
+    ratingLabel: rating.label,
+    ratingAccessibilityLabel: rating.accessibilityLabel,
     rows,
-    sourceLabel,
-    accessibilityLabel: `Activity. ${stepsLabel} steps.`,
+    accessibilityLabel: `Activity. ${primaryLabel}. ${rating.accessibilityLabel} Opens Activity.`,
   };
 }
 

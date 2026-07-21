@@ -75,7 +75,7 @@ export function DailyMonitorHost(): React.ReactElement {
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(dayKey);
   const activityCard = useDailyMonitorActivityCard(dayKey);
-  const sessionCards = useDailyMonitorSessionCards(dayKey);
+  const sessionCards = useDailyMonitorSessionCards(dayKey, energy);
   const stressCard = useDailyMonitorStressCard(dayKey);
 
   const sleepPresence = resolveSleepMonitorPresence(sleepCardVm);

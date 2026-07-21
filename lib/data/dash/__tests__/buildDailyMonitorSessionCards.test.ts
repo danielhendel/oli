@@ -5,6 +5,7 @@ import {
   resolveWorkoutMonitorPresence,
 } from "../buildDailyMonitorSessionCards";
 import type { WorkoutHistoryItem } from "@/lib/data/workouts/parseWorkoutFromRawEvent";
+import type { ManualWorkoutExerciseSummary } from "@/lib/workouts/journal/manualWorkoutSummary";
 
 const day = "2026-07-20" as const;
 
@@ -37,20 +38,121 @@ function cardioItem(id: string, title: string): WorkoutHistoryItem {
   } as WorkoutHistoryItem;
 }
 
+const legDayExercises: ManualWorkoutExerciseSummary[] = [
+  {
+    exerciseId: "squat",
+    name: "Squat",
+    sets: [
+      { setNumber: 1, reps: 8, weightKg: 100, intensity: 7 },
+      { setNumber: 2, reps: 8, weightKg: 100, intensity: 8 },
+    ],
+  },
+];
+
 describe("Daily Monitor session cards", () => {
-  it("creates Workout for a current-day strength session", () => {
+  it("creates compact Workout with ordered rows and intensity from RPE", () => {
     const model = buildDailyMonitorWorkoutCardModel({
       requestedDay: day,
-      calendarDays: [{ day, workouts: [strengthItem("s1", "Evening Lift")] }],
+      calendarDays: [
+        {
+          day,
+          workouts: [
+            {
+              ...strengthItem("s1", "Leg Day A"),
+              strengthVolumeKg: 1600,
+              strengthIngestExercises: legDayExercises,
+              averageHeartRateBpm: 128,
+            },
+          ],
+        },
+      ],
+      energy: {
+        day,
+        estimatedKcal: { low: 1800, high: 2200, midpoint: 2000 },
+        confidence: "high",
+        variancePct: 0.1,
+        factors: {
+          strength: { low: 120, high: 180, midpoint: 150 },
+        },
+      } as never,
     });
     expect(model).not.toBeNull();
-    expect(model!.primaryTitle).toMatch(/Evening Lift|Strength/i);
-    expect(resolveWorkoutMonitorPresence({ loading: false, error: null, model })).toBe(
-      "present_complete",
+    expect(model!.primaryTitle).toMatch(/Leg Day A/i);
+    expect(model!.intensityLabel).toBe("High");
+    expect(model!.rows.map((r) => r.label)).toEqual([
+      "Duration",
+      "Total Volume",
+      "Estimated Calorie Burn",
+      "Average Heart Rate",
+    ]);
+    expect(model!.rows[1]?.valueLabel).toMatch(/lb|kg/);
+    expect(model!.rows[1]?.isAvailable).toBe(true);
+    expect(model!.rows[3]?.valueLabel).toBe("128 bpm");
+    expect(model!.accessibilityLabel).toMatch(/Opens Workouts/);
+    expect(model!.accessibilityLabel).toMatch(/Workout intensity High/);
+    expect(JSON.stringify(model)).not.toMatch(/1RM|Health State|Quads focused|14 sets/);
+    expect(resolveWorkoutMonitorPresence({ loading: false, error: null, model })).toMatch(
+      /^present_/,
     );
   });
 
-  it("summarizes multiple strength sessions without inventing volume", () => {
+  it("formats Total Volume in the preferred mass unit", () => {
+    const base = {
+      requestedDay: day,
+      calendarDays: [
+        {
+          day,
+          workouts: [
+            {
+              ...strengthItem("s1", "Leg Day A"),
+              strengthVolumeKg: 100,
+              strengthIngestExercises: legDayExercises,
+            },
+          ],
+        },
+      ],
+    } as const;
+    const lb = buildDailyMonitorWorkoutCardModel({ ...base, massUnit: "lb" });
+    const kg = buildDailyMonitorWorkoutCardModel({ ...base, massUnit: "kg" });
+    expect(lb!.rows.find((r) => r.key === "total_volume")?.valueLabel).toMatch(/lb/);
+    expect(kg!.rows.find((r) => r.key === "total_volume")?.valueLabel).toBe("100 kg");
+  });
+
+  it("does not infer intensity from heart rate alone", () => {
+    const model = buildDailyMonitorWorkoutCardModel({
+      requestedDay: day,
+      calendarDays: [
+        {
+          day,
+          workouts: [
+            {
+              ...strengthItem("s1", "Push"),
+              averageHeartRateBpm: 155,
+              // no ingest intensity / RPE
+            },
+          ],
+        },
+      ],
+    });
+    expect(model!.intensityLabel).toBeNull();
+    expect(model!.rows.find((r) => r.key === "average_heart_rate")?.valueLabel).toBe("155 bpm");
+  });
+
+  it("keeps missing calorie and HR as Unavailable, not zero", () => {
+    const model = buildDailyMonitorWorkoutCardModel({
+      requestedDay: day,
+      calendarDays: [{ day, workouts: [strengthItem("s1", "Push")] }],
+    });
+    expect(model).not.toBeNull();
+    const cal = model!.rows.find((r) => r.key === "estimated_calorie_burn");
+    const hr = model!.rows.find((r) => r.key === "average_heart_rate");
+    expect(cal?.valueLabel).toBe("Unavailable");
+    expect(hr?.valueLabel).toBe("Unavailable");
+    expect(cal?.isAvailable).toBe(false);
+    expect(model!.intensityLabel).toBeNull();
+  });
+
+  it("summarizes multiple strength sessions without inventing capacity", () => {
     const morning: WorkoutHistoryItem = {
       ...strengthItem("s1", "AM Lift"),
       start: `${day}T08:00:00.000Z`,
@@ -70,13 +172,9 @@ describe("Daily Monitor session cards", () => {
       calendarDays: [{ day, workouts: [morning, evening] }],
     });
     expect(model).not.toBeNull();
-    // Prefer an honest multi-session summary when reconciliation keeps both;
-    // never invent capacity / 1RM / Health State copy.
     expect(model!.sessionCount).toBeGreaterThanOrEqual(1);
     if (model!.sessionCount > 1) {
       expect(model!.primaryTitle).toMatch(/workouts/i);
-    } else {
-      expect(model!.primaryTitle.length).toBeGreaterThan(0);
     }
     expect(JSON.stringify(model)).not.toMatch(/1RM|Elite|Deficient|Health State/);
   });

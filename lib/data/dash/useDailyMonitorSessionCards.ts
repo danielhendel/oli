@@ -13,7 +13,9 @@ import {
   type DailyMonitorWorkoutCardModel,
 } from "@/lib/data/dash/buildDailyMonitorSessionCards";
 import type { DailyMonitorPresenceStatus } from "@/lib/data/dash/dailyMonitorPresence";
+import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
 import { useWorkoutsCalendarRange } from "@/lib/data/workouts/useWorkoutsCalendar";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type UseDailyMonitorSessionCardsResult = {
@@ -27,8 +29,11 @@ export type UseDailyMonitorSessionCardsResult = {
 
 export function useDailyMonitorSessionCards(
   requestedDay: DayKey,
+  energy?: DailyEnergyCardDto | null,
 ): UseDailyMonitorSessionCardsResult {
   const range = useWorkoutsCalendarRange(requestedDay, requestedDay);
+  const { state: prefState } = usePreferences();
+  const massUnit = prefState.preferences?.units?.mass ?? "lb";
 
   return useMemo(() => {
     const loading = range.status === "partial";
@@ -42,6 +47,8 @@ export function useDailyMonitorSessionCards(
             requestedDay,
             calendarDays: days,
             durableTitlesByWorkoutId: durable,
+            energy: energy ?? null,
+            massUnit,
           })
         : null;
     const cardioModel =
@@ -61,5 +68,5 @@ export function useDailyMonitorSessionCards(
       cardioModel,
       cardioHref: "/(app)/cardio" as const,
     };
-  }, [range, requestedDay]);
+  }, [range, requestedDay, energy, massUnit]);
 }

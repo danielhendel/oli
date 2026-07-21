@@ -12,6 +12,11 @@ import type {
   DailyMonitorWorkoutCardModel,
 } from "@/lib/data/dash/buildDailyMonitorSessionCards";
 import type { DailyMonitorStressCardModel } from "@/lib/data/dash/buildDailyMonitorStressCardModel";
+import {
+  DashCompactCardHeader,
+  dashCompactCardDividerStyle,
+  dashCompactPrimaryValueTextStyle,
+} from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -53,19 +58,26 @@ export function DailyMonitorActivityCard({
       onPress={() => router.push(href)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <Text style={styles.title}>Activity</Text>
+      <DashCompactCardHeader
+        title="Activity"
+        rating={{
+          label: model.ratingLabel,
+          accessibilityLabel: model.ratingAccessibilityLabel,
+        }}
+      />
       <Text style={styles.primaryValue} accessibilityRole="text">
-        {model.stepsLabel}
+        {model.primaryLabel}
       </Text>
-      <Text style={styles.subtitle}>Steps</Text>
-      {model.rows.map((row) => (
-        <View key={row.key} style={styles.row}>
-          <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
-          <Text style={dashMetricRowValueTextStyle}>
-            {row.isAvailable ? row.valueLabel : "Unavailable"}
-          </Text>
-        </View>
-      ))}
+      <View style={styles.divider}>
+        {model.rows.map((row) => (
+          <View key={row.key} style={styles.row}>
+            <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+            <Text style={dashMetricRowValueTextStyle}>
+              {row.isAvailable ? row.valueLabel : "Unavailable"}
+            </Text>
+          </View>
+        ))}
+      </View>
     </Pressable>
   );
 }
@@ -86,10 +98,29 @@ export function DailyMonitorWorkoutCard({
       onPress={() => router.push(href)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <Text style={styles.title}>Workout</Text>
+      <DashCompactCardHeader
+        title="Workout"
+        rating={
+          model.intensityLabel != null
+            ? {
+                label: model.intensityLabel,
+                accessibilityLabel:
+                  model.intensityAccessibilityLabel ?? `Workout intensity ${model.intensityLabel}.`,
+              }
+            : null
+        }
+      />
       <Text style={styles.primaryValue}>{model.primaryTitle}</Text>
-      {model.durationLabel ? <Text style={styles.subtitle}>{model.durationLabel}</Text> : null}
-      {model.subtitle ? <Text style={styles.muted}>{model.subtitle}</Text> : null}
+      <View style={styles.divider}>
+        {model.rows.map((row) => (
+          <View key={row.key} style={styles.row}>
+            <Text style={dashMetricRowLabelTextStyle}>{row.label}</Text>
+            <Text style={dashMetricRowValueTextStyle}>
+              {row.isAvailable ? row.valueLabel : "Unavailable"}
+            </Text>
+          </View>
+        ))}
+      </View>
     </Pressable>
   );
 }
@@ -170,12 +201,7 @@ const styles = StyleSheet.create({
     ...strengthMetricCardTitleTextStyle,
     color: UI_TEXT_PRIMARY,
   },
-  primaryValue: {
-    marginTop: 8,
-    fontSize: 28,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-  },
+  primaryValue: dashCompactPrimaryValueTextStyle,
   subtitle: {
     marginTop: 4,
     fontSize: 14,
@@ -186,6 +212,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     color: UI_TEXT_MUTED,
+  },
+  divider: {
+    ...dashCompactCardDividerStyle,
   },
   row: {
     marginTop: 8,
