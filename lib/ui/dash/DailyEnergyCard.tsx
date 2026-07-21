@@ -7,21 +7,23 @@ import {
   ENERGY_METRIC_EXPLAINER_PATHNAME,
 } from "@/lib/data/energy/energyMetricExplainerRoutes";
 import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
+import { buildDailyMonitorEnergyEstimatedRating } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
+import {
+  DashCompactCardHeader,
+  dashCompactDescriptorTextStyle,
+  dashCompactPrimaryValueTextStyle,
+} from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
   UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
-  UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 import {
   dashMetricRowLabelTextStyle,
   dashMetricRowValueTextStyle,
 } from "@/lib/ui/dash/dashMetricRowTextStyle";
-import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 type Props = {
   energy: DailyEnergyCardDto | undefined;
@@ -37,14 +39,6 @@ function formatRange(energy: DailyEnergyCardDto): string {
   return `${low}\u2013${high} kcal`;
 }
 
-function capitalizeConfidence(confidence: DailyEnergyCardDto["confidence"]): string {
-  return confidence.charAt(0).toUpperCase() + confidence.slice(1);
-}
-
-function formatVariancePct(variancePct: number): string {
-  return `${(variancePct * 100).toFixed(1)}%`;
-}
-
 export function DailyEnergyCard({
   energy,
   loading,
@@ -53,6 +47,7 @@ export function DailyEnergyCard({
 }: Props): React.ReactElement {
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
+  const estimatedRating = buildDailyMonitorEnergyEstimatedRating();
 
   const canOpenEnergy = !loading && !error && energy != null;
 
@@ -65,8 +60,8 @@ export function DailyEnergyCard({
     if (loading) return `${title} header. Loading daily energy.`;
     if (error) return `${title} header. Could not load data.`;
     if (!energy) return `${title} header. Not enough data yet to estimate energy.`;
-    return `${title} header. ${formatRange(energy)}. Estimated burn today. Opens Daily Energy details.`;
-  }, [loading, error, energy, title]);
+    return `${title}. Estimated ${Math.round(energy.estimatedKcal.low).toLocaleString()} to ${Math.round(energy.estimatedKcal.high).toLocaleString()} kilocalories. ${estimatedRating.accessibilityLabel} Opens Daily Energy details.`;
+  }, [loading, error, energy, title, estimatedRating.accessibilityLabel]);
 
   const onPressMetricRow = useCallback(
     (metricKey: (typeof rows)[number]["key"]) => {
@@ -89,7 +84,17 @@ export function DailyEnergyCard({
         onPress={onOpenEnergy}
         style={({ pressed }) => [styles.headerPressable, pressed && canOpenEnergy && styles.headerPressed]}
       >
-        <Text style={styles.title}>{title}</Text>
+        <DashCompactCardHeader
+          title={title}
+          rating={
+            !loading && !error && energy != null
+              ? {
+                  label: estimatedRating.label,
+                  accessibilityLabel: estimatedRating.accessibilityLabel,
+                }
+              : null
+          }
+        />
         {loading ? <Text style={styles.status}>Loading daily energy\u2026</Text> : null}
         {!loading && error ? <Text style={styles.status}>Could not load daily energy</Text> : null}
         {!loading && !error && !energy ? (
@@ -99,10 +104,6 @@ export function DailyEnergyCard({
           <>
             <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
             <Text style={styles.subtitle}>Estimated burn today</Text>
-            <Text style={styles.meta}>
-              {`Confidence ${capitalizeConfidence(energy.confidence)} · ±`}
-              {formatVariancePct(energy.variancePct)}
-            </Text>
           </>
         ) : null}
       </Pressable>
@@ -154,29 +155,13 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.92,
   },
-  title: strengthMetricCardTitleTextStyle,
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-  },
+  subtitle: dashCompactDescriptorTextStyle,
   status: {
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_MUTED,
   },
-  rangeValue: {
-    fontSize: 34,
-    lineHeight: 40,
-    color: UI_TEXT_PRIMARY,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  meta: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_TERTIARY_LABEL,
-  },
+  rangeValue: dashCompactPrimaryValueTextStyle,
   factors: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: UI_BORDER_HAIRLINE,

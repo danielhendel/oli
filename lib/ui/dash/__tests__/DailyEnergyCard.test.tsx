@@ -69,17 +69,31 @@ describe("DailyEnergyCard", () => {
       .filter((c) => typeof c === "string")
       .join(" ");
     expect(text).toContain("2,120–2,480 kcal");
+    expect(text).toContain("Estimated burn today");
+    expect(text).toContain("Estimated");
     expect(text).toContain("+1,520–1,710 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
     expect(text).toContain("Cardio");
     expect(text).toContain("Strength");
     expect(text).toContain("+90–180 kcal");
-    expect(text).toMatch(/Confidence \w+ · ±/);
+    expect(text).not.toMatch(/Confidence \w+ · ±/);
+    expect(text).not.toContain("Confidence High");
+    expect(text).not.toContain("8.1%");
+    expect(text).not.toContain("±");
     const factorPressables = tree.root
       .findAllByType("Pressable")
       .filter((p) => typeof p.props.testID === "string" && p.props.testID.startsWith("energy-row-"));
     expect(factorPressables).toHaveLength(4);
+    const header = tree.root
+      .findAllByType("Pressable")
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.startsWith("Daily Energy"),
+      );
+    expect(header?.props.accessibilityLabel).toMatch(/Estimated energy expenditure level/);
+    expect(header?.props.accessibilityLabel).toMatch(/Opens Daily Energy details/);
   });
 
   it("hides Strength row when strength factor is absent", () => {
@@ -145,7 +159,7 @@ describe("DailyEnergyCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Energy header"),
+          p.props.accessibilityLabel.startsWith("Daily Energy"),
       );
     expect(header).toBeDefined();
     act(() => {
@@ -164,7 +178,7 @@ describe("DailyEnergyCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Energy header"),
+          p.props.accessibilityLabel.startsWith("Daily Energy"),
       );
     expect(header?.props.disabled).toBe(true);
   });
