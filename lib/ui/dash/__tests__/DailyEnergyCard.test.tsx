@@ -70,7 +70,7 @@ describe("DailyEnergyCard", () => {
       .join(" ");
     expect(text).toContain("2,120–2,480 kcal");
     expect(text).not.toContain("Estimated burn today");
-    expect(text).toContain("Estimated");
+    expect(text).not.toMatch(/(^|\s)Estimated(\s|$)/);
     expect(text).toContain("+1,520–1,710 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
@@ -81,6 +81,8 @@ describe("DailyEnergyCard", () => {
     expect(text).not.toContain("Confidence High");
     expect(text).not.toContain("8.1%");
     expect(text).not.toContain("±");
+    expect(text).not.toMatch(/\b(Low|Moderate|High|Very High)\b/);
+    expect(text).not.toMatch(/\bPAL\b/);
     const factorPressables = tree.root
       .findAllByType("Pressable")
       .filter((p) => typeof p.props.testID === "string" && p.props.testID.startsWith("energy-row-"));
@@ -92,9 +94,10 @@ describe("DailyEnergyCard", () => {
           typeof p.props.accessibilityLabel === "string" &&
           p.props.accessibilityLabel.startsWith("Daily Energy"),
       );
-    expect(header?.props.accessibilityLabel).toMatch(/Estimated energy expenditure level/);
+    expect(header?.props.accessibilityLabel).not.toMatch(/Estimated energy expenditure level/);
+    expect(header?.props.accessibilityLabel).not.toMatch(/Estimated/);
     expect(header?.props.accessibilityLabel).toMatch(/Opens Daily Energy details/);
-    expect(header?.props.accessibilityLabel).not.toMatch(/Estimated burn today/);
+    expect(() => tree.root.findByProps({ testID: "dash-compact-rating-badge" })).toThrow();
   });
 
   it("hides Strength row when strength factor is absent", () => {

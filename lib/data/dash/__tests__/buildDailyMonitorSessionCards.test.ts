@@ -152,13 +152,14 @@ describe("Daily Monitor session cards", () => {
     expect(model!.intensityLabel).toBeNull();
   });
 
-  it("summarizes multiple strength sessions without inventing capacity", () => {
+  it("summarizes multiple strength sessions with latest-session title and metrics", () => {
     const morning: WorkoutHistoryItem = {
       ...strengthItem("s1", "AM Lift"),
       start: `${day}T08:00:00.000Z`,
       end: `${day}T08:45:00.000Z`,
       observedAt: `${day}T08:00:00.000Z`,
       durationMinutes: 45,
+      strengthVolumeKg: 500,
     };
     const evening: WorkoutHistoryItem = {
       ...strengthItem("s2", "PM Lift"),
@@ -166,17 +167,52 @@ describe("Daily Monitor session cards", () => {
       end: `${day}T19:10:00.000Z`,
       observedAt: `${day}T18:00:00.000Z`,
       durationMinutes: 70,
+      strengthVolumeKg: 1600,
+      strengthIngestExercises: legDayExercises,
     };
     const model = buildDailyMonitorWorkoutCardModel({
       requestedDay: day,
       calendarDays: [{ day, workouts: [morning, evening] }],
     });
     expect(model).not.toBeNull();
-    expect(model!.sessionCount).toBeGreaterThanOrEqual(1);
-    if (model!.sessionCount > 1) {
-      expect(model!.primaryTitle).toMatch(/workouts/i);
-    }
+    expect(model!.sessionCount).toBeGreaterThanOrEqual(2);
+    expect(model!.primaryTitle).toMatch(/PM Lift/i);
+    expect(model!.primaryTitle).not.toMatch(/^\d+ workouts$/i);
+    expect(model!.rows.find((r) => r.key === "total_volume")?.isAvailable).toBe(true);
+    expect(model!.accessibilityLabel).toMatch(/Latest of \d+ workouts today/);
     expect(JSON.stringify(model)).not.toMatch(/1RM|Elite|Deficient|Health State/);
+  });
+
+  it("keeps Total Volume Unavailable when load data is absent (no missing-as-zero)", () => {
+    const model = buildDailyMonitorWorkoutCardModel({
+      requestedDay: day,
+      calendarDays: [{ day, workouts: [strengthItem("s1", "Push")] }],
+    });
+    expect(model!.rows.find((r) => r.key === "total_volume")?.valueLabel).toBe("Unavailable");
+    expect(model!.rows.find((r) => r.key === "total_volume")?.isAvailable).toBe(false);
+    expect(model!.intensityLabel).toBeNull();
+  });
+
+  it("does not invent an absolute-tonnage Low/Moderate/High volume badge", () => {
+    const model = buildDailyMonitorWorkoutCardModel({
+      requestedDay: day,
+      calendarDays: [
+        {
+          day,
+          workouts: [
+            {
+              ...strengthItem("s1", "Leg Day A"),
+              strengthVolumeKg: 1600,
+              strengthIngestExercises: legDayExercises,
+            },
+          ],
+        },
+      ],
+    });
+    expect(model!.intensityLabel).toBe("High");
+    expect(model!.accessibilityLabel).toMatch(/Workout intensity High/);
+    expect(model!.accessibilityLabel).not.toMatch(/volume (Low|Moderate|High)/i);
+    expect(JSON.stringify(model)).not.toMatch(/vs recent|On target for this workout|tonnage/i);
   });
 
   it("does not create Workout for rest / empty day", () => {

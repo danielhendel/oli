@@ -236,7 +236,7 @@ describe("Dash Daily Energy card", () => {
     expect(text).toContain("2,120–2,480 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
-    expect(text).toContain("Estimated");
+    expect(text).not.toContain("Estimated");
     expect(text).not.toContain("Estimated burn today");
     expect(text).not.toContain("Confidence");
     expect(text).toContain("Daily Sleep");

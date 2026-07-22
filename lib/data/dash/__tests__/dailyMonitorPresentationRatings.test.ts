@@ -1,20 +1,51 @@
 import {
   buildDailyMonitorActivityRatingLabel,
-  buildDailyMonitorEnergyEstimatedRating,
   buildOuraProviderSourceAccessibility,
   buildOuraRatingAccessibility,
   buildOuraScoreRatingAccessibility,
+  mapActivityStepDescriptorToTone,
   mapOuraProviderRatingToTone,
   mapWorkoutAverageIntensityToLabel,
 } from "../dailyMonitorPresentationRatings";
+import { ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS } from "@/lib/utils/activityStepRating";
 import { DASH_MONITOR_RATING_TONE_CHROME_DARK } from "@/lib/ui/theme/dashMonitorRatingToneChrome";
 
 describe("dailyMonitorPresentationRatings", () => {
-  it("appends so far to Activity Today descriptors", () => {
-    expect(buildDailyMonitorActivityRatingLabel(0).label).toBe("Sedentary so far");
-    expect(buildDailyMonitorActivityRatingLabel(6000).label).toBe("Lightly Active so far");
-    expect(buildDailyMonitorActivityRatingLabel(11000).label).toBe("Active so far");
-    expect(buildDailyMonitorActivityRatingLabel(0).accessibilityLabel).toMatch(/Activity level/);
+  it("uses Activity Today descriptors without so far and maps tones", () => {
+    expect(buildDailyMonitorActivityRatingLabel(0).label).toBe("Sedentary");
+    expect(buildDailyMonitorActivityRatingLabel(0).label).not.toMatch(/so far/i);
+    expect(buildDailyMonitorActivityRatingLabel(6000).label).toBe("Lightly Active");
+    expect(buildDailyMonitorActivityRatingLabel(8000).label).toBe("Moderately Active");
+    expect(buildDailyMonitorActivityRatingLabel(11000).label).toBe("Active");
+    expect(buildDailyMonitorActivityRatingLabel(13000).label).toBe("Very Active");
+    expect(buildDailyMonitorActivityRatingLabel(16000).label).toBe("Highly Active");
+    expect(buildDailyMonitorActivityRatingLabel(0).accessibilityLabel).toBe("Activity level Sedentary.");
+    expect(buildDailyMonitorActivityRatingLabel(0).accessibilityLabel).not.toMatch(/so far/i);
+    expect(buildDailyMonitorActivityRatingLabel(0).tone).toBe("critical");
+    expect(buildDailyMonitorActivityRatingLabel(6000).tone).toBe("caution");
+    expect(buildDailyMonitorActivityRatingLabel(11000).tone).toBe("positive");
+    expect(buildDailyMonitorActivityRatingLabel(16000).tone).toBe("optimal");
+    expect(ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS).toEqual([
+      "Sedentary",
+      "Lightly Active",
+      "Moderately Active",
+      "Active",
+      "Very Active",
+      "Highly Active",
+    ]);
+  });
+
+  it("maps activity step descriptors to tones without embedding step thresholds", () => {
+    expect(mapActivityStepDescriptorToTone(0)).toBe("critical");
+    expect(mapActivityStepDescriptorToTone(4999)).toBe("critical");
+    expect(mapActivityStepDescriptorToTone(5000)).toBe("caution");
+    expect(mapActivityStepDescriptorToTone(9999)).toBe("caution");
+    expect(mapActivityStepDescriptorToTone(10000)).toBe("positive");
+    expect(mapActivityStepDescriptorToTone(14999)).toBe("positive");
+    expect(mapActivityStepDescriptorToTone(15000)).toBe("optimal");
+    const src = mapActivityStepDescriptorToTone.toString();
+    expect(src).not.toMatch(/\b5000\b/);
+    expect(src).not.toMatch(/\b7500\b/);
   });
 
   it("maps 0–10 average intensity to Low/Moderate/High/Very High", () => {
@@ -31,11 +62,9 @@ describe("dailyMonitorPresentationRatings", () => {
     expect(mapWorkoutAverageIntensityToLabel(-1)).toBeNull();
   });
 
-  it("uses Estimated for Energy when no normalized PAL classifier exists", () => {
-    expect(buildDailyMonitorEnergyEstimatedRating().label).toBe("Estimated");
-    expect(buildDailyMonitorEnergyEstimatedRating().accessibilityLabel).toMatch(
-      /Estimated energy expenditure level/,
-    );
+  it("does not classify Energy with Estimated or absolute-kcal bands", () => {
+    expect(buildDailyMonitorActivityRatingLabel.toString()).not.toMatch(/Estimated/);
+    expect(mapWorkoutAverageIntensityToLabel.toString()).not.toMatch(/PAL|kcal/i);
   });
 
   it("maps Oura provider labels to semantic tones without numeric thresholds", () => {
@@ -69,5 +98,8 @@ describe("dailyMonitorPresentationRatings", () => {
       "Rating Optimal.",
     );
     expect(buildOuraRatingAccessibility("Good")).not.toMatch(/blue|green|red|amber|color/i);
+    expect(buildDailyMonitorActivityRatingLabel(11000).accessibilityLabel).not.toMatch(
+      /blue|green|red|amber|color/i,
+    );
   });
 });

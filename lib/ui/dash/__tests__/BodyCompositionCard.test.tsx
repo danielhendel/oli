@@ -19,8 +19,6 @@ jest.mock("react-native", () => ({
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
-const goalsHref = "/(app)/body/settings";
-
 const sampleReadyBuilt: BuiltBodyCompositionDashCard = {
   tag: "ready",
   weightPrimaryLabel: "159.3 lb",
@@ -90,14 +88,14 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
     });
     const text = collectAllText(test);
     expect(text).toContain("Body Composition");
-    expect(text).toContain("My goal");
+    expect(text).not.toContain("My goal");
+    expect(text).not.toContain("My Goal");
     expect(text).toContain("159.3 lb");
     expect(text).toContain("As of today");
     expect(text).toContain("BMI");
@@ -108,7 +106,7 @@ describe("BodyCompositionCard", () => {
     expect(text).toContain("130.4 lb");
   });
 
-  it("does not render Optimal range/status pills", () => {
+  it("does not render Optimal range/status pills or a card-level composition badge", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -116,7 +114,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
@@ -125,6 +122,8 @@ describe("BodyCompositionCard", () => {
     expect(text).not.toContain("Optimal");
     expect(text).not.toContain("Good");
     expect(text).not.toContain("Fair");
+    expect(() => test.root.findByProps({ testID: "dash-compact-rating-badge" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "body-composition-my-goal" })).toThrow();
   });
 
   it("renders the weight value", () => {
@@ -135,7 +134,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
@@ -152,7 +150,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
@@ -172,7 +169,6 @@ describe("BodyCompositionCard", () => {
           loading
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={null}
         />,
       );
@@ -188,7 +184,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error="Offline"
           hasUser
-          goalsHref={goalsHref}
           built={null}
         />,
       );
@@ -204,7 +199,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={{
             tag: "missing",
             cardAccessibilityLabel: "Body composition. Add body data to see your composition.",
@@ -223,7 +217,6 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
@@ -236,7 +229,7 @@ describe("BodyCompositionCard", () => {
     });
   });
 
-  it("My goal navigates to goalsHref", () => {
+  it("does not retain My Goal navigation from the summary card", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -244,13 +237,11 @@ describe("BodyCompositionCard", () => {
           loading={false}
           error={null}
           hasUser
-          goalsHref={goalsHref}
           built={sampleReadyBuilt}
         />,
       );
     });
-    const btn = test.root.findByProps({ testID: "body-composition-my-goal" });
-    btn.props.onPress();
-    expect(mockPush).toHaveBeenCalledWith(goalsHref);
+    expect(() => test.root.findByProps({ testID: "body-composition-my-goal" })).toThrow();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
