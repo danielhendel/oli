@@ -4,9 +4,12 @@
  */
 
 import type { OuraRatingLabel } from "@/lib/format/ouraScore";
-import { getStepRatingActivityDescriptorPill } from "@/lib/utils/activityStepRating";
+import {
+  getStepRatingActivityDescriptorPill,
+  getStepRatingTierIndex,
+} from "@/lib/utils/activityStepRating";
 
-/** Semantic presentation tones for Oura provider rating badges (Sleep / Readiness only). */
+/** Semantic presentation tones for Monitor rating badges (written label remains primary). */
 export type DailyMonitorRatingTone = "critical" | "caution" | "positive" | "optimal";
 
 /**
@@ -36,18 +39,32 @@ export function mapOuraProviderRatingToTone(
 }
 
 /**
- * Current-day Activity descriptor with in-progress wording.
- * Reuses Activity Today classifier labels; appends ` so far` for unfinished day semantics.
+ * Maps current-day Activity step descriptor tiers onto Monitor presentation tones.
+ * Thresholds remain owned by {@link getStepRatingTierIndex} — this only picks chrome.
+ * Color is supplemental; the written Activity descriptor remains the primary signal.
+ */
+export function mapActivityStepDescriptorToTone(steps: number): DailyMonitorRatingTone {
+  const i = getStepRatingTierIndex(steps);
+  if (i <= 0) return "critical";
+  if (i <= 2) return "caution";
+  if (i <= 4) return "positive";
+  return "optimal";
+}
+
+/**
+ * Current-day Activity step-category label (not a health or fitness-capacity grade).
+ * Reuses Activity Today classifier labels exactly — no `so far` suffix.
  */
 export function buildDailyMonitorActivityRatingLabel(steps: number): {
   label: string;
   accessibilityLabel: string;
+  tone: DailyMonitorRatingTone;
 } {
   const base = getStepRatingActivityDescriptorPill(steps).label;
-  const label = `${base} so far`;
   return {
-    label,
-    accessibilityLabel: `Activity level ${label}.`,
+    label: base,
+    accessibilityLabel: `Activity level ${base}.`,
+    tone: mapActivityStepDescriptorToTone(steps),
   };
 }
 
@@ -81,18 +98,10 @@ export function mapWorkoutAverageIntensityToLabel(
 }
 
 /**
- * Energy expenditure presentation badge when no normalized PAL/activity-level classifier exists.
- * Neutral presentation — not a health grade.
+ * Energy Monitor has no top-right badge until a projected 24-hour TEE / age-gated PAL
+ * contract exists. The current hybrid output mixes full-day baseline with activity so far
+ * and must not be labeled Estimated, Low/Moderate/High, or used to derive PAL.
  */
-export function buildDailyMonitorEnergyEstimatedRating(): {
-  label: "Estimated";
-  accessibilityLabel: string;
-} {
-  return {
-    label: "Estimated",
-    accessibilityLabel: "Estimated energy expenditure level: Estimated.",
-  };
-}
 
 /** Neutral provider source announcement (distinct from the rating label). */
 export function buildOuraProviderSourceAccessibility(): string {

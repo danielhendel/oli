@@ -62,6 +62,7 @@ export function DailyMonitorActivityCard({
         title="Activity"
         rating={{
           label: model.ratingLabel,
+          tone: model.ratingTone,
           accessibilityLabel: model.ratingAccessibilityLabel,
         }}
       />

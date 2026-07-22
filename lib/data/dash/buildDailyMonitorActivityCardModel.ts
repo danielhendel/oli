@@ -5,7 +5,9 @@
 
 import type { DailyFactsDto } from "@/lib/contracts/dailyFacts";
 import type { DailyMonitorPresenceStatus } from "@/lib/data/dash/dailyMonitorPresence";
+import type { DailyMonitorRatingTone } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { buildDailyMonitorActivityRatingLabel } from "@/lib/data/dash/dailyMonitorPresentationRatings";
+import { formatDistanceDualDisplay } from "@/lib/modules/commandCenterCardio";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type DailyMonitorActivityMetricRow = {
@@ -24,6 +26,8 @@ export type DailyMonitorActivityCardModel = {
   primaryLabel: string;
   ratingLabel: string;
   ratingAccessibilityLabel: string;
+  /** Supplemental semantic tone for the Activity category badge. */
+  ratingTone: DailyMonitorRatingTone;
   rows: readonly DailyMonitorActivityMetricRow[];
   accessibilityLabel: string;
 };
@@ -32,12 +36,20 @@ function formatStepsDigits(steps: number): string {
   return steps.toLocaleString("en-US");
 }
 
-function formatOptionalDistanceKm(value: number | undefined): DailyMonitorActivityMetricRow {
+/**
+ * Measured current-day `activity.distanceKm` only — never estimated from steps/stride.
+ * Formatting reuses {@link formatDistanceDualDisplay} (locale miles/km preference).
+ */
+function formatOptionalDistanceKm(
+  value: number | undefined,
+  locale: string,
+): DailyMonitorActivityMetricRow {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    const { primary } = formatDistanceDualDisplay({ distanceKm: value, locale });
     return {
       key: "distance",
       label: "Distance",
-      valueLabel: `${value.toFixed(value >= 10 ? 0 : 1)} km`,
+      valueLabel: primary,
       isAvailable: true,
     };
   }
@@ -80,6 +92,8 @@ function formatOptionalStepBucket(
 export function buildDailyMonitorActivityCardModel(input: {
   requestedDay: DayKey;
   facts: DailyFactsDto | null | undefined;
+  /** Locale for distance primary unit (miles-first for en-US). Defaults to en-US. */
+  locale?: string;
 }): DailyMonitorActivityCardModel | null {
   if (input.facts == null) return null;
   if (input.facts.date !== input.requestedDay) return null;
@@ -91,8 +105,9 @@ export function buildDailyMonitorActivityCardModel(input: {
   const primaryLabel = `${stepsDigits} Steps`;
   const rating = buildDailyMonitorActivityRatingLabel(rounded);
   const allocation = input.facts.activity?.stepsAllocation;
+  const locale = input.locale ?? "en-US";
   const rows: DailyMonitorActivityMetricRow[] = [
-    formatOptionalDistanceKm(input.facts.activity?.distanceKm),
+    formatOptionalDistanceKm(input.facts.activity?.distanceKm, locale),
     formatOptionalStepBucket("neat_steps", "NEAT Steps", allocation?.neatSteps),
     formatOptionalStepBucket("workout_steps", "Workout Steps", allocation?.strengthSteps),
     formatOptionalStepBucket("cardio_steps", "Cardio Steps", allocation?.cardioSteps),
@@ -105,6 +120,7 @@ export function buildDailyMonitorActivityCardModel(input: {
     primaryLabel,
     ratingLabel: rating.label,
     ratingAccessibilityLabel: rating.accessibilityLabel,
+    ratingTone: rating.tone,
     rows,
     accessibilityLabel: `Activity. ${primaryLabel}. ${rating.accessibilityLabel} Opens Activity.`,
   };
