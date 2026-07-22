@@ -23,9 +23,8 @@ import {
   STRENGTH_TODAY_DETAIL_MISSING_VALUE,
 } from "@/lib/data/workouts/strengthTodayDetailVm";
 import { resolveStrengthTodayAverageHeartRateBpm } from "@/lib/data/workouts/resolveStrengthTodayAverageHeartRateBpm";
-import { computeStrengthMetricsFromExercises } from "@/lib/workouts/journal/manualWorkoutSummary";
 import { kgToLbs } from "@/lib/metrics/metricUnits";
-import { trainingVolumeKgForManualExercises } from "@/lib/workouts/strength/strengthVolumeKg";
+import { resolveStrengthSessionExerciseDisplay } from "@/lib/data/workouts/workoutSessionSurface";
 
 const UNAVAILABLE = "Unavailable" as const;
 
@@ -95,27 +94,31 @@ export function buildDailyMonitorWorkoutCardModel(input: {
     ? collectStrengthOverviewTabSessions([{ day: input.requestedDay, workouts: dayRow.workouts }])
     : [];
   const sessionCount = Math.max(1, sessions.length);
+  /**
+   * Latest-session title + latest-session metrics (honest multi-session contract).
+   * Do not pair an aggregate “N workouts” title with unlabeled latest-session values.
+   */
   const primaryTitle =
-    sessionCount > 1
-      ? `${sessionCount} workouts`
-      : todayModel.primaryTitle.trim().length > 0
-        ? todayModel.primaryTitle
-        : "Strength";
+    todayModel.primaryTitle.trim().length > 0 ? todayModel.primaryTitle : "Strength";
 
   const latest = pickLatestStrengthSessionToday(sessions);
   const actionWorkout = latest?.workouts[0];
-  const ingestExercises = actionWorkout?.strengthIngestExercises ?? [];
-  const metricsFromIngest =
-    ingestExercises.length > 0 ? computeStrengthMetricsFromExercises(ingestExercises) : null;
-  const volumeKg =
-    (typeof actionWorkout?.strengthVolumeKg === "number" &&
+  const resolved = actionWorkout
+    ? resolveStrengthSessionExerciseDisplay(null, actionWorkout)
+    : { exercises: [], totalVolume: null, avgIntensity: null };
+  const volumeKgFromField =
+    typeof actionWorkout?.strengthVolumeKg === "number" &&
     Number.isFinite(actionWorkout.strengthVolumeKg) &&
     actionWorkout.strengthVolumeKg > 0
       ? actionWorkout.strengthVolumeKg
-      : null) ??
-    (ingestExercises.length > 0 ? trainingVolumeKgForManualExercises(ingestExercises) : null) ??
-    metricsFromIngest?.totalVolume ??
-    null;
+      : null;
+  const volumeKgFromSets =
+    typeof resolved.totalVolume === "number" &&
+    Number.isFinite(resolved.totalVolume) &&
+    resolved.totalVolume > 0
+      ? resolved.totalVolume
+      : null;
+  const volumeKg = volumeKgFromField ?? volumeKgFromSets;
   const volumeLabel = formatVolumeKg(volumeKg, input.massUnit ?? "lb");
 
   const calorieRaw = formatStrengthTodayCalorieBurnValue(input.energy?.factors.strength);
@@ -128,7 +131,7 @@ export function buildDailyMonitorWorkoutCardModel(input: {
   const hrRaw = formatStrengthTodayAvgHeartRateValue(avgHrBpm);
   const hr = missingDashToUnavailable(hrRaw);
 
-  const intensity = mapWorkoutAverageIntensityToLabel(metricsFromIngest?.avgIntensity ?? null);
+  const intensity = mapWorkoutAverageIntensityToLabel(resolved.avgIntensity ?? null);
 
   const durationAvailable =
     todayModel.durationLabel.trim().length > 0 && todayModel.durationLabel !== "—";
@@ -162,6 +165,8 @@ export function buildDailyMonitorWorkoutCardModel(input: {
 
   const intensityPart =
     intensity != null ? ` ${intensity.accessibilityLabel}` : "";
+  const multiSessionPart =
+    sessionCount > 1 ? ` Latest of ${sessionCount} workouts today.` : "";
   return {
     day: input.requestedDay,
     sessionCount,
@@ -169,7 +174,7 @@ export function buildDailyMonitorWorkoutCardModel(input: {
     intensityLabel: intensity?.label ?? null,
     intensityAccessibilityLabel: intensity?.accessibilityLabel ?? null,
     rows,
-    accessibilityLabel: `Workout. ${primaryTitle}.${intensityPart} Opens Workouts.`.trim(),
+    accessibilityLabel: `Workout. ${primaryTitle}.${multiSessionPart}${intensityPart} Opens Workouts.`.trim(),
   };
 }
 
