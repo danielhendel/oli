@@ -7,7 +7,6 @@ import {
   ENERGY_METRIC_EXPLAINER_PATHNAME,
 } from "@/lib/data/energy/energyMetricExplainerRoutes";
 import type { DailyEnergyCardDto } from "@/lib/data/dash/useDailyEnergyCard";
-import { buildDailyMonitorEnergyEstimatedRating } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
 import {
   DashCompactCardHeader,
@@ -46,7 +45,6 @@ export function DailyEnergyCard({
 }: Props): React.ReactElement {
   const router = useRouter();
   const rows = energy ? getEnergyFactorRows(energy) : [];
-  const estimatedRating = buildDailyMonitorEnergyEstimatedRating();
 
   const canOpenEnergy = !loading && !error && energy != null;
 
@@ -59,8 +57,8 @@ export function DailyEnergyCard({
     if (loading) return `${title} header. Loading daily energy.`;
     if (error) return `${title} header. Could not load data.`;
     if (!energy) return `${title} header. Not enough data yet to estimate energy.`;
-    return `${title}. Estimated ${Math.round(energy.estimatedKcal.low).toLocaleString()} to ${Math.round(energy.estimatedKcal.high).toLocaleString()} kilocalories. ${estimatedRating.accessibilityLabel} Opens Daily Energy details.`;
-  }, [loading, error, energy, title, estimatedRating.accessibilityLabel]);
+    return `${title}. ${Math.round(energy.estimatedKcal.low).toLocaleString()} to ${Math.round(energy.estimatedKcal.high).toLocaleString()} kilocalories. Opens Daily Energy details.`;
+  }, [loading, error, energy, title]);
 
   const onPressMetricRow = useCallback(
     (metricKey: (typeof rows)[number]["key"]) => {
@@ -83,17 +81,7 @@ export function DailyEnergyCard({
         onPress={onOpenEnergy}
         style={({ pressed }) => [styles.headerPressable, pressed && canOpenEnergy && styles.headerPressed]}
       >
-        <DashCompactCardHeader
-          title={title}
-          rating={
-            !loading && !error && energy != null
-              ? {
-                  label: estimatedRating.label,
-                  accessibilityLabel: estimatedRating.accessibilityLabel,
-                }
-              : null
-          }
-        />
+        <DashCompactCardHeader title={title} rating={null} />
         {loading ? <Text style={styles.status}>Loading daily energy\u2026</Text> : null}
         {!loading && error ? <Text style={styles.status}>Could not load daily energy</Text> : null}
         {!loading && !error && !energy ? (

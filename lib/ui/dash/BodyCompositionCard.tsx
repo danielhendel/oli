@@ -12,7 +12,6 @@ import { ErrorState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_CARD_SURFACE,
-  UI_GOAL_PILL_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -27,25 +26,25 @@ export type BodyCompositionCardProps = {
   loading: boolean;
   error: string | null;
   hasUser: boolean;
-  goalsHref: string;
   built: BuiltBodyCompositionDashCard | null;
   /** When true, hide prior-day “As of …” subtitle (Daily Monitor same-day only). */
   suppressAsOfLabel?: boolean;
 };
 
+/**
+ * Daily Monitor Body Composition summary.
+ * No goal chip / My Goal navigation — goals remain under Body / Program settings.
+ * No card-level composition badge: existing interpretation bars are per-metric and BMI-inclusive;
+ * a safe single Monitor badge requires a sex-aware, non-BMI-alone model with method limitations.
+ */
 export function BodyCompositionCard({
   loading,
   error,
   hasUser,
-  goalsHref,
   built,
   suppressAsOfLabel = false,
 }: BodyCompositionCardProps): React.ReactElement {
   const router = useRouter();
-
-  const onPressGoals = useCallback(() => {
-    router.push(goalsHref as Href);
-  }, [goalsHref, router]);
 
   const onPressWeight = useCallback(() => {
     router.push("/(app)/body" as Href);
@@ -72,21 +71,9 @@ export function BodyCompositionCard({
 
   return (
     <View style={styles.card} accessibilityLabel={cardAccessibilityLabel}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title} accessibilityRole="header">
-          Body Composition
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="My goal, open body composition settings"
-          onPress={onPressGoals}
-          style={({ pressed }) => [styles.goalsButton, pressed && styles.goalsButtonPressed]}
-          testID="body-composition-my-goal"
-          hitSlop={8}
-        >
-          <Text style={styles.goalsButtonText}>My goal</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.title} accessibilityRole="header">
+        Body Composition
+      </Text>
 
       {loading ? <Text style={styles.status}>Loading body composition…</Text> : null}
 
@@ -173,31 +160,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     backgroundColor: UI_CARD_SURFACE,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
   title: strengthMetricCardTitleTextStyle,
-  goalsButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: UI_GOAL_PILL_SURFACE,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalsButtonPressed: {
-    opacity: 0.85,
-  },
-  goalsButtonText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.08,
-  },
   status: {
     fontSize: 14,
     lineHeight: 20,

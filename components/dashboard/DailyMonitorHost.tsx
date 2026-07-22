@@ -300,7 +300,6 @@ export function DailyMonitorHost(): React.ReactElement {
                 loading={false}
                 error={null}
                 hasUser={bodyComposition.hasUser}
-                goalsHref={bodyComposition.goalsHref}
                 built={bodyComposition.built}
                 suppressAsOfLabel
               />

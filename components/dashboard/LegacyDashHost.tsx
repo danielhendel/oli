@@ -68,7 +68,6 @@ export function LegacyDashHost(): React.ReactElement {
             loading={bodyComposition.loading}
             error={bodyComposition.error}
             hasUser={bodyComposition.hasUser}
-            goalsHref={bodyComposition.goalsHref}
             built={bodyComposition.built}
           />
 
