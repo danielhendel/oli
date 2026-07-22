@@ -66,7 +66,7 @@ describe("DailyReadinessCard", () => {
     const flat = allVisibleText(root.root);
     expect(flat).toContain("Readiness Score 87");
     expect(flat).toContain("Optimal");
-    expect(flat).toContain("Oura");
+    expect(flat).not.toContain("Oura");
     expect(flat).toContain("49 bpm");
     expect(flat).toContain("HRV balance");
     expect(flat).not.toContain("Source: Oura");
@@ -74,20 +74,17 @@ describe("DailyReadinessCard", () => {
     expect(flat).not.toContain("Sleep regularity");
     expect(root.root.findByProps({ testID: "readiness-metric-row-resting_heart_rate" })).toBeDefined();
     expect(root.root.findByProps({ testID: "readiness-metric-row-sleep_balance" })).toBeDefined();
+    expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
 
     const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
     expect(allVisibleText(badge)).toBe("Optimal");
     expect(allVisibleText(badge)).not.toContain("Oura");
-    expect(allVisibleText(root.root.findByProps({ testID: "dash-compact-provider-source" }))).toBe(
-      "Oura",
-    );
 
     const header = root.root.findAllByType(Pressable)[0];
     expect(header.props.accessibilityLabel).toMatch(/Readiness Score 87/);
-    expect(header.props.accessibilityLabel).toMatch(/Oura\./);
     expect(header.props.accessibilityLabel).toMatch(/Rating Optimal/);
     expect(header.props.accessibilityLabel).toMatch(/Opens Readiness details/);
-    expect(header.props.accessibilityLabel.match(/Oura/g)?.length).toBe(1);
+    expect(header.props.accessibilityLabel).not.toMatch(/Oura/i);
     expect(header.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
     expect(header.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
   });

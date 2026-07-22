@@ -9,9 +9,7 @@ import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
   DashCompactCardHeader,
-  DashCompactProviderSourceChip,
-  dashCompactPrimaryRowStyle,
-  dashCompactPrimaryValueInRowTextStyle,
+  dashCompactPrimaryValueTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
 import {
   buildOuraRatingAccessibility,
@@ -31,7 +29,7 @@ type Props = {
   vm: DailySleepCardViewModel;
   /** Consumer card title. Defaults to “Daily Sleep”. */
   title?: string;
-  /** @deprecated Kept for call-site compatibility; Oura provenance is a separate neutral chip. */
+  /** @deprecated Kept for call-site compatibility; Monitor summary no longer shows provider copy. */
   scoreCaption?: string | null;
   cardAccessibilityLabel?: string;
 };
@@ -71,8 +69,6 @@ export function DailySleepCard({
     return `Sleep Score ${model.headlineValueText}`;
   }, [model]);
 
-  const showOuraSource = vm.status === "ready" && model != null && model.hasAnySignal;
-
   const rating = useMemo(() => {
     if (!model?.ratingLabel || model.scoreUnavailable) return null;
     return {
@@ -94,8 +90,7 @@ export function DailySleepCard({
     } else if (model.scoreUnavailable) {
       parts.push(SCORE_UNAVAILABLE_A11Y);
     }
-    // Distinct source + rating; badge/source chip are a11y-hidden under the Pressable.
-    if (showOuraSource) parts.push("Oura.");
+    // Provider provenance is retained in typed/detail data; Monitor summary omits Oura.
     if (rating != null) parts.push(`Rating ${rating.label}.`);
     return `${parts.join(" ")} Opens Sleep details.`;
   }, [
@@ -108,7 +103,6 @@ export function DailySleepCard({
     title,
     primaryScoreLabel,
     rating,
-    showOuraSource,
   ]);
 
   const showEmptyBody = vm.status === "missing" || (vm.status === "ready" && model != null && !model.hasAnySignal);
@@ -129,22 +123,19 @@ export function DailySleepCard({
         >
           <DashCompactCardHeader title={title} rating={rating} />
           {vm.status === "ready" && model?.hasAnySignal ? (
-            <View style={styles.primaryRow}>
-              {primaryScoreLabel != null ? (
-                <Text style={styles.headlineValue} accessibilityRole="text">
-                  {primaryScoreLabel}
-                </Text>
-              ) : model.scoreUnavailable ? (
-                <Text
-                  style={styles.mutedLine}
-                  accessibilityLabel={SCORE_UNAVAILABLE_A11Y}
-                  accessibilityRole="text"
-                >
-                  Unavailable
-                </Text>
-              ) : null}
-              {showOuraSource ? <DashCompactProviderSourceChip label="Oura" /> : null}
-            </View>
+            primaryScoreLabel != null ? (
+              <Text style={styles.headlineValue} accessibilityRole="text">
+                {primaryScoreLabel}
+              </Text>
+            ) : model.scoreUnavailable ? (
+              <Text
+                style={styles.mutedLine}
+                accessibilityLabel={SCORE_UNAVAILABLE_A11Y}
+                accessibilityRole="text"
+              >
+                Unavailable
+              </Text>
+            ) : null
           ) : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily sleep\u2026</Text> : null}
           {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
@@ -244,8 +235,7 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.92,
   },
-  primaryRow: dashCompactPrimaryRowStyle,
-  headlineValue: dashCompactPrimaryValueInRowTextStyle,
+  headlineValue: dashCompactPrimaryValueTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,

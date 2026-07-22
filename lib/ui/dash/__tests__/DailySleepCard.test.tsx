@@ -76,19 +76,18 @@ describe("DailySleepCard", () => {
     const flat = allVisibleText(root.root);
     expect(flat).toContain("Sleep Score 88");
     expect(flat).toContain("Optimal");
-    expect(flat).toContain("Oura");
+    expect(flat).not.toContain("Oura");
     expect(flat).toContain("9h 11m");
     expect(flat).not.toContain("Last night\u2019s sleep");
     expect(flat).not.toContain("Oura Sleep Score");
     expect(flat).not.toContain("Strong overall sleep quality for this day.");
     expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findAllByType(Image)).toHaveLength(0);
+    expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
 
     const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
     expect(allVisibleText(badge)).toBe("Optimal");
     expect(allVisibleText(badge)).not.toContain("Oura");
-    const chip = root.root.findByProps({ testID: "dash-compact-provider-source" });
-    expect(allVisibleText(chip)).toBe("Oura");
 
     const header = root.root
       .findAllByType(Pressable)
@@ -98,10 +97,9 @@ describe("DailySleepCard", () => {
           p.props.accessibilityLabel.includes("Sleep Score 88"),
       );
     expect(header?.props.accessibilityLabel).toMatch(/Sleep Score 88/);
-    expect(header?.props.accessibilityLabel).toMatch(/Oura\./);
     expect(header?.props.accessibilityLabel).toMatch(/Rating Optimal/);
     expect(header?.props.accessibilityLabel).toMatch(/Opens Sleep details/);
-    expect(header?.props.accessibilityLabel.match(/Oura/g)?.length).toBe(1);
+    expect(header?.props.accessibilityLabel).not.toMatch(/Oura/i);
     expect(header?.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
     expect(header?.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
   });
@@ -127,9 +125,8 @@ describe("DailySleepCard", () => {
       const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
       expect(allVisibleText(badge)).toBe(c.label);
       expect(allVisibleText(badge)).not.toContain("Oura");
-      expect(allVisibleText(root.root.findByProps({ testID: "dash-compact-provider-source" }))).toBe(
-        "Oura",
-      );
+      expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
+      expect(allVisibleText(root.root)).not.toContain("Oura");
       act(() => {
         root.unmount();
       });

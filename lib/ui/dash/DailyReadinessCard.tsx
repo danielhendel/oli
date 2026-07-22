@@ -12,9 +12,7 @@ import {
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
   DashCompactCardHeader,
-  DashCompactProviderSourceChip,
-  dashCompactPrimaryRowStyle,
-  dashCompactPrimaryValueInRowTextStyle,
+  dashCompactPrimaryValueTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -96,8 +94,6 @@ export function DailyReadinessCard({
     return `Readiness Score ${model.headlineValueText}`;
   }, [model]);
 
-  const showOuraSource = vm.status === "ready" && model?.hasAnySignal === true;
-
   const rating = useMemo(() => {
     if (model?.ratingLabel == null) return null;
     return {
@@ -112,7 +108,7 @@ export function DailyReadinessCard({
       ? [
           title,
           primaryScoreLabel != null ? `${primaryScoreLabel}.` : null,
-          showOuraSource ? "Oura." : null,
+          // Provider provenance remains in typed/detail data; Monitor summary omits Oura.
           rating != null ? `Rating ${rating.label}.` : null,
           "Opens Readiness details.",
         ]
@@ -140,13 +136,8 @@ export function DailyReadinessCard({
           style={({ pressed }) => [styles.headerPressable, pressed && canOpen && styles.headerPressed]}
         >
           <DashCompactCardHeader title={title} rating={rating} />
-          {vm.status === "ready" && model?.hasAnySignal ? (
-            <View style={styles.primaryRow}>
-              {primaryScoreLabel != null ? (
-                <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
-              ) : null}
-              {showOuraSource ? <DashCompactProviderSourceChip label="Oura" /> : null}
-            </View>
+          {primaryScoreLabel != null ? (
+            <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
           ) : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily readiness…</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily readiness</Text> : null}
@@ -206,8 +197,7 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.9,
   },
-  primaryRow: dashCompactPrimaryRowStyle,
-  headlineValue: dashCompactPrimaryValueInRowTextStyle,
+  headlineValue: dashCompactPrimaryValueTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,
