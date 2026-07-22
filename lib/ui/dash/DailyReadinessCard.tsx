@@ -5,11 +5,16 @@ import { useRouter } from "expo-router";
 import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
 import type { Readiness } from "@/lib/contracts/readiness";
-import { buildOuraScoreRatingAccessibility } from "@/lib/data/dash/dailyMonitorPresentationRatings";
+import {
+  buildOuraRatingAccessibility,
+  mapOuraProviderRatingToTone,
+} from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
   DashCompactCardHeader,
-  dashCompactPrimaryValueTextStyle,
+  DashCompactProviderSourceChip,
+  dashCompactPrimaryRowStyle,
+  dashCompactPrimaryValueInRowTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -91,17 +96,14 @@ export function DailyReadinessCard({
     return `Readiness Score ${model.headlineValueText}`;
   }, [model]);
 
+  const showOuraSource = vm.status === "ready" && model?.hasAnySignal === true;
+
   const rating = useMemo(() => {
     if (model?.ratingLabel == null) return null;
-    const source =
-      model.sourceLabel != null && model.sourceLabel.trim().length > 0 ? model.sourceLabel : "Oura";
     return {
       label: model.ratingLabel,
-      sourceLabel: source,
-      accessibilityLabel: buildOuraScoreRatingAccessibility({
-        domain: "readiness",
-        ratingLabel: model.ratingLabel,
-      }),
+      tone: mapOuraProviderRatingToTone(model.ratingLabel),
+      accessibilityLabel: buildOuraRatingAccessibility(model.ratingLabel),
     };
   }, [model]);
 
@@ -110,8 +112,8 @@ export function DailyReadinessCard({
       ? [
           title,
           primaryScoreLabel != null ? `${primaryScoreLabel}.` : null,
-          // Single Oura+rating announcement (badge is accessibility-hidden under the Pressable).
-          rating != null ? `${rating.accessibilityLabel}.` : "Source Oura.",
+          showOuraSource ? "Oura." : null,
+          rating != null ? `Rating ${rating.label}.` : null,
           "Opens Readiness details.",
         ]
           .filter(Boolean)
@@ -138,8 +140,13 @@ export function DailyReadinessCard({
           style={({ pressed }) => [styles.headerPressable, pressed && canOpen && styles.headerPressed]}
         >
           <DashCompactCardHeader title={title} rating={rating} />
-          {primaryScoreLabel != null ? (
-            <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
+          {vm.status === "ready" && model?.hasAnySignal ? (
+            <View style={styles.primaryRow}>
+              {primaryScoreLabel != null ? (
+                <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
+              ) : null}
+              {showOuraSource ? <DashCompactProviderSourceChip label="Oura" /> : null}
+            </View>
           ) : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily readiness…</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily readiness</Text> : null}
@@ -199,7 +206,8 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.9,
   },
-  headlineValue: dashCompactPrimaryValueTextStyle,
+  primaryRow: dashCompactPrimaryRowStyle,
+  headlineValue: dashCompactPrimaryValueInRowTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,

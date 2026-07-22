@@ -6,6 +6,7 @@ import type { SleepNightDocumentDto } from "@oli/contracts";
 import { buildDailySleepCardModel, type DailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 const mockPush = jest.fn();
 
@@ -83,6 +84,12 @@ describe("DailySleepCard", () => {
     expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findAllByType(Image)).toHaveLength(0);
 
+    const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+    expect(allVisibleText(badge)).toBe("Optimal");
+    expect(allVisibleText(badge)).not.toContain("Oura");
+    const chip = root.root.findByProps({ testID: "dash-compact-provider-source" });
+    expect(allVisibleText(chip)).toBe("Oura");
+
     const header = root.root
       .findAllByType(Pressable)
       .find(
@@ -90,10 +97,43 @@ describe("DailySleepCard", () => {
           typeof p.props.accessibilityLabel === "string" &&
           p.props.accessibilityLabel.includes("Sleep Score 88"),
       );
-    expect(header?.props.accessibilityLabel).toMatch(/Oura sleep rating: Optimal/);
+    expect(header?.props.accessibilityLabel).toMatch(/Sleep Score 88/);
+    expect(header?.props.accessibilityLabel).toMatch(/Oura\./);
+    expect(header?.props.accessibilityLabel).toMatch(/Rating Optimal/);
     expect(header?.props.accessibilityLabel).toMatch(/Opens Sleep details/);
-    // Spoken summary mentions Oura once via the rating cluster (not duplicated before the score).
     expect(header?.props.accessibilityLabel.match(/Oura/g)?.length).toBe(1);
+    expect(header?.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
+    expect(header?.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
+  });
+
+  it("applies semantic tones for representative Oura sleep ratings", () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    const cases: { score: number; label: string }[] = [
+      { score: 88, label: "Optimal" },
+      { score: 75, label: "Good" },
+      { score: 65, label: "Fair" },
+      { score: 40, label: "Pay attention" },
+    ];
+    for (const c of cases) {
+      const model = buildDailySleepCardModel({
+        day,
+        sleepNightSettled: true,
+        sleepNight: minimalNight({ score: c.score, totalSleepMinutes: 480 }),
+      });
+      let root!: renderer.ReactTestRenderer;
+      act(() => {
+        root = renderer.create(<DailySleepCard vm={readyVm(model)} title="Sleep" />);
+      });
+      const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+      expect(allVisibleText(badge)).toBe(c.label);
+      expect(allVisibleText(badge)).not.toContain("Oura");
+      expect(allVisibleText(root.root.findByProps({ testID: "dash-compact-provider-source" }))).toBe(
+        "Oura",
+      );
+      act(() => {
+        root.unmount();
+      });
+    }
   });
 
   it("lists Duration → Deep → REM → Efficiency without LHR/HRV", () => {

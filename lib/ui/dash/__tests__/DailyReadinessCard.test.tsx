@@ -75,11 +75,21 @@ describe("DailyReadinessCard", () => {
     expect(root.root.findByProps({ testID: "readiness-metric-row-resting_heart_rate" })).toBeDefined();
     expect(root.root.findByProps({ testID: "readiness-metric-row-sleep_balance" })).toBeDefined();
 
+    const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+    expect(allVisibleText(badge)).toBe("Optimal");
+    expect(allVisibleText(badge)).not.toContain("Oura");
+    expect(allVisibleText(root.root.findByProps({ testID: "dash-compact-provider-source" }))).toBe(
+      "Oura",
+    );
+
     const header = root.root.findAllByType(Pressable)[0];
     expect(header.props.accessibilityLabel).toMatch(/Readiness Score 87/);
-    expect(header.props.accessibilityLabel).toMatch(/Oura readiness rating: Optimal/);
+    expect(header.props.accessibilityLabel).toMatch(/Oura\./);
+    expect(header.props.accessibilityLabel).toMatch(/Rating Optimal/);
     expect(header.props.accessibilityLabel).toMatch(/Opens Readiness details/);
     expect(header.props.accessibilityLabel.match(/Oura/g)?.length).toBe(1);
+    expect(header.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
+    expect(header.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
   });
 
   it("does not render contributor rows for fallback readiness", () => {

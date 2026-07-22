@@ -9,9 +9,14 @@ import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
   DashCompactCardHeader,
-  dashCompactPrimaryValueTextStyle,
+  DashCompactProviderSourceChip,
+  dashCompactPrimaryRowStyle,
+  dashCompactPrimaryValueInRowTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
-import { buildOuraScoreRatingAccessibility } from "@/lib/data/dash/dailyMonitorPresentationRatings";
+import {
+  buildOuraRatingAccessibility,
+  mapOuraProviderRatingToTone,
+} from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -26,7 +31,7 @@ type Props = {
   vm: DailySleepCardViewModel;
   /** Consumer card title. Defaults to “Daily Sleep”. */
   title?: string;
-  /** @deprecated Kept for call-site compatibility; Oura provenance now lives on the rating badge. */
+  /** @deprecated Kept for call-site compatibility; Oura provenance is a separate neutral chip. */
   scoreCaption?: string | null;
   cardAccessibilityLabel?: string;
 };
@@ -66,15 +71,14 @@ export function DailySleepCard({
     return `Sleep Score ${model.headlineValueText}`;
   }, [model]);
 
+  const showOuraSource = vm.status === "ready" && model != null && model.hasAnySignal;
+
   const rating = useMemo(() => {
     if (!model?.ratingLabel || model.scoreUnavailable) return null;
     return {
       label: model.ratingLabel,
-      sourceLabel: "Oura" as const,
-      accessibilityLabel: buildOuraScoreRatingAccessibility({
-        domain: "sleep",
-        ratingLabel: model.ratingLabel,
-      }),
+      tone: mapOuraProviderRatingToTone(model.ratingLabel),
+      accessibilityLabel: buildOuraRatingAccessibility(model.ratingLabel),
     };
   }, [model]);
 
@@ -90,9 +94,9 @@ export function DailySleepCard({
     } else if (model.scoreUnavailable) {
       parts.push(SCORE_UNAVAILABLE_A11Y);
     }
-    // Single Oura+rating announcement (badge is accessibility-hidden under the Pressable).
-    if (rating != null) parts.push(`${rating.accessibilityLabel}.`);
-    else parts.push("Source Oura.");
+    // Distinct source + rating; badge/source chip are a11y-hidden under the Pressable.
+    if (showOuraSource) parts.push("Oura.");
+    if (rating != null) parts.push(`Rating ${rating.label}.`);
     return `${parts.join(" ")} Opens Sleep details.`;
   }, [
     loading,
@@ -104,6 +108,7 @@ export function DailySleepCard({
     title,
     primaryScoreLabel,
     rating,
+    showOuraSource,
   ]);
 
   const showEmptyBody = vm.status === "missing" || (vm.status === "ready" && model != null && !model.hasAnySignal);
@@ -124,19 +129,22 @@ export function DailySleepCard({
         >
           <DashCompactCardHeader title={title} rating={rating} />
           {vm.status === "ready" && model?.hasAnySignal ? (
-            primaryScoreLabel != null ? (
-              <Text style={styles.headlineValue} accessibilityRole="text">
-                {primaryScoreLabel}
-              </Text>
-            ) : model.scoreUnavailable ? (
-              <Text
-                style={styles.mutedLine}
-                accessibilityLabel={SCORE_UNAVAILABLE_A11Y}
-                accessibilityRole="text"
-              >
-                Unavailable
-              </Text>
-            ) : null
+            <View style={styles.primaryRow}>
+              {primaryScoreLabel != null ? (
+                <Text style={styles.headlineValue} accessibilityRole="text">
+                  {primaryScoreLabel}
+                </Text>
+              ) : model.scoreUnavailable ? (
+                <Text
+                  style={styles.mutedLine}
+                  accessibilityLabel={SCORE_UNAVAILABLE_A11Y}
+                  accessibilityRole="text"
+                >
+                  Unavailable
+                </Text>
+              ) : null}
+              {showOuraSource ? <DashCompactProviderSourceChip label="Oura" /> : null}
+            </View>
           ) : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily sleep\u2026</Text> : null}
           {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
@@ -236,7 +244,8 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.92,
   },
-  headlineValue: dashCompactPrimaryValueTextStyle,
+  primaryRow: dashCompactPrimaryRowStyle,
+  headlineValue: dashCompactPrimaryValueInRowTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,

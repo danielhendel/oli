@@ -2,7 +2,11 @@ import React, { act } from "react";
 import { Text } from "react-native";
 import renderer from "react-test-renderer";
 
-import { DashCompactCardHeader } from "../DashCompactCardHeader";
+import {
+  DashCompactCardHeader,
+  DashCompactProviderSourceChip,
+} from "../DashCompactCardHeader";
+import { resolveDashMonitorRatingToneChrome } from "@/lib/ui/theme/dashMonitorRatingToneChrome";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 function allText(root: renderer.ReactTestInstance): string {
@@ -18,7 +22,7 @@ function allText(root: renderer.ReactTestInstance): string {
 }
 
 describe("DashCompactCardHeader", () => {
-  it("renders title left and rating/source right with a combined rating a11y label", async () => {
+  it("renders title and rating-only badge without nesting Oura in the badge", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -27,8 +31,8 @@ describe("DashCompactCardHeader", () => {
           title="Sleep"
           rating={{
             label: "Optimal",
-            sourceLabel: "Oura",
-            accessibilityLabel: "Oura sleep rating: Optimal",
+            tone: "optimal",
+            accessibilityLabel: "Rating Optimal.",
           }}
         />,
       );
@@ -37,13 +41,20 @@ describe("DashCompactCardHeader", () => {
     const flat = allText(tree.root);
     expect(flat).toContain("Sleep");
     expect(flat).toContain("Optimal");
-    expect(flat).toContain("Oura");
-    const badge = tree.root.find(
-      (n) =>
-        (n.props as { accessibilityLabel?: string }).accessibilityLabel ===
-        "Oura sleep rating: Optimal",
+    expect(flat).not.toContain("Oura");
+    const badge = tree.root.findByProps({ testID: "dash-compact-rating-badge" });
+    const badgeText = allText(badge);
+    expect(badgeText).toBe("Optimal");
+    expect(badgeText).not.toContain("Oura");
+    const chrome = resolveDashMonitorRatingToneChrome("optimal");
+    expect(badge.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: chrome.background,
+          borderColor: chrome.border,
+        }),
+      ]),
     );
-    expect(badge).toBeTruthy();
     tree.unmount();
   });
 
@@ -57,10 +68,11 @@ describe("DashCompactCardHeader", () => {
     const flat = allText(tree.root);
     expect(flat).toBe("Activity");
     expect(flat).not.toContain("Optimal");
+    expect(() => tree.root.findByProps({ testID: "dash-compact-rating-badge" })).toThrow();
     tree.unmount();
   });
 
-  it("does not treat the rating cluster as an interactive control", async () => {
+  it("does not treat the rating badge as an interactive control", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -75,13 +87,47 @@ describe("DashCompactCardHeader", () => {
       );
       await Promise.resolve();
     });
-    const badge = tree.root.find(
-      (n) =>
-        (n.props as { accessibilityLabel?: string }).accessibilityLabel ===
-        "Workout intensity High.",
-    );
+    const badge = tree.root.findByProps({ testID: "dash-compact-rating-badge" });
     expect(badge.props.accessibilityRole).toBe("text");
     expect(badge.props.accessible).toBe(false);
+    tree.unmount();
+  });
+
+  it("renders a neutral provider source chip separate from the rating badge", async () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <>
+          <DashCompactCardHeader
+            title="Sleep"
+            rating={{
+              label: "Fair",
+              tone: "caution",
+              accessibilityLabel: "Rating Fair.",
+            }}
+          />
+          <DashCompactProviderSourceChip label="Oura" />
+        </>,
+      );
+      await Promise.resolve();
+    });
+    const badge = tree.root.findByProps({ testID: "dash-compact-rating-badge" });
+    const chip = tree.root.findByProps({ testID: "dash-compact-provider-source" });
+    expect(allText(badge)).toBe("Fair");
+    expect(allText(badge)).not.toContain("Oura");
+    expect(allText(chip)).toBe("Oura");
+    expect(chip.props.accessibilityLabel).toBe("Source: Oura");
+    expect(chip.props.accessible).toBe(false);
+    expect(chip.props.accessibilityRole).toBe("text");
+    const caution = resolveDashMonitorRatingToneChrome("caution");
+    expect(badge.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ backgroundColor: caution.background }),
+      ]),
+    );
+    // Source chip must not inherit caution chrome.
+    expect(JSON.stringify(chip.props.style)).not.toContain(caution.background);
     tree.unmount();
   });
 });

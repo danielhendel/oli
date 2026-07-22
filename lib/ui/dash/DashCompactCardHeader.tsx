@@ -1,14 +1,18 @@
 /**
  * Presentation-only compact Daily Monitor / Dash card header.
- * Title left; optional rating (+ source) right. No classification logic.
+ * Title left; optional rating badge right. Provider source is a separate chip.
+ * No classification / threshold logic.
  */
 
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useMemo } from "react";
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
+import type { DailyMonitorRatingTone } from "@/lib/data/dash/dailyMonitorPresentationRatings";
+import { resolveDashMonitorRatingToneChrome } from "@/lib/ui/theme/dashMonitorRatingToneChrome";
 import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
+  UI_PROVIDER_SOURCE_CHIP_BG,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -16,11 +20,11 @@ import {
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 export type DashCompactCardRating = {
-  /** Visible primary rating label (e.g. Optimal, Moderate). */
+  /** Visible primary rating label (e.g. Optimal). Source must not be nested here. */
   label: string;
-  /** Optional small source under the rating (e.g. Oura). */
-  sourceLabel?: string | null;
-  /** Combined announcement for the rating cluster (includes purpose + source). */
+  /** Optional semantic tone for Sleep/Readiness Oura badges. Omit for neutral badges. */
+  tone?: DailyMonitorRatingTone | null;
+  /** Combined announcement for the rating (rating only — no color names). */
   accessibilityLabel: string;
 };
 
@@ -38,32 +42,75 @@ export function DashCompactCardHeader({
   rating = null,
 }: DashCompactCardHeaderProps): React.ReactElement {
   const showRating = rating != null && rating.label.trim().length > 0;
+  const toneChrome = useMemo(() => {
+    if (!showRating || rating?.tone == null) return null;
+    return resolveDashMonitorRatingToneChrome(rating.tone);
+  }, [showRating, rating?.tone]);
+
+  const badgeStyle: StyleProp<ViewStyle> = toneChrome
+    ? [
+        styles.badge,
+        {
+          backgroundColor: toneChrome.background,
+          borderColor: toneChrome.border,
+        },
+      ]
+    : styles.badge;
 
   return (
     <View style={styles.row} accessibilityRole="header">
       <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
-      {showRating ? (
+      {showRating && rating != null ? (
         <View
-          style={styles.badge}
+          style={badgeStyle}
           // Parent card Pressable owns spoken order; keep label for tests / tooling.
           accessible={false}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           accessibilityLabel={rating.accessibilityLabel}
           accessibilityRole="text"
+          testID="dash-compact-rating-badge"
         >
-          <Text style={styles.ratingLabel} numberOfLines={2}>
+          <Text
+            style={[styles.ratingLabel, toneChrome != null ? { color: toneChrome.foreground } : null]}
+            numberOfLines={2}
+          >
             {rating.label}
           </Text>
-          {rating.sourceLabel != null && rating.sourceLabel.trim().length > 0 ? (
-            <Text style={styles.sourceLabel} numberOfLines={1}>
-              {rating.sourceLabel}
-            </Text>
-          ) : null}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+export type DashCompactProviderSourceChipProps = {
+  /** Visible provider name (e.g. Oura). */
+  label?: string;
+};
+
+/**
+ * Neutral provider provenance chip — visually separate from the semantic rating badge.
+ * Non-interactive; parent card Pressable owns the spoken summary.
+ */
+export function DashCompactProviderSourceChip({
+  label = "Oura",
+}: DashCompactProviderSourceChipProps): React.ReactElement {
+  const trimmed = label.trim().length > 0 ? label.trim() : "Oura";
+  return (
+    <View
+      style={styles.sourceChip}
+      accessible={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      accessibilityLabel={`Source: ${trimmed}`}
+      accessibilityRole="text"
+      testID="dash-compact-provider-source"
+    >
+      <Text style={styles.sourceChipText} numberOfLines={1}>
+        {trimmed}
+      </Text>
     </View>
   );
 }
@@ -101,13 +148,23 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
     textAlign: "right",
   },
-  sourceLabel: {
-    marginTop: 2,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "500",
+  sourceChip: {
+    flexShrink: 0,
+    alignSelf: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: UI_PROVIDER_SOURCE_CHIP_BG,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_BORDER_HAIRLINE,
+    minHeight: 28,
+    justifyContent: "center",
+  },
+  sourceChipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
     color: UI_TEXT_SECONDARY,
-    textAlign: "right",
   },
 });
 
@@ -143,4 +200,23 @@ export const dashCompactMutedTextStyle = {
   fontSize: 13,
   lineHeight: 18,
   color: UI_TEXT_MUTED,
+};
+
+/** Primary metric row: large value + optional neutral provider chip. */
+export const dashCompactPrimaryRowStyle = {
+  marginTop: 8,
+  flexDirection: "row" as const,
+  flexWrap: "wrap" as const,
+  alignItems: "center" as const,
+  gap: 8,
+};
+
+export const dashCompactPrimaryValueInRowTextStyle = {
+  fontSize: 28,
+  lineHeight: 34,
+  fontWeight: "700" as const,
+  letterSpacing: -0.2,
+  color: UI_TEXT_PRIMARY,
+  fontVariant: ["tabular-nums" as const],
+  flexShrink: 1,
 };
