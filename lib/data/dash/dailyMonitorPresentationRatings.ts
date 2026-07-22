@@ -3,7 +3,37 @@
  * Not Health State, not medical grades, not absolute-kcal classifiers.
  */
 
+import type { OuraRatingLabel } from "@/lib/format/ouraScore";
 import { getStepRatingActivityDescriptorPill } from "@/lib/utils/activityStepRating";
+
+/** Semantic presentation tones for Oura provider rating badges (Sleep / Readiness only). */
+export type DailyMonitorRatingTone = "critical" | "caution" | "positive" | "optimal";
+
+/**
+ * Maps an existing Oura provider rating label to a presentation tone.
+ * Does not inspect numeric scores and does not duplicate provider thresholds.
+ * Unknown / absent labels fail closed (null) — never invent a positive tone.
+ */
+export function mapOuraProviderRatingToTone(
+  ratingLabel: OuraRatingLabel | string | null | undefined,
+): DailyMonitorRatingTone | null {
+  if (ratingLabel == null) return null;
+  switch (ratingLabel) {
+    case "Pay attention":
+      return "critical";
+    case "Fair":
+      return "caution";
+    case "Good":
+      return "positive";
+    case "Optimal":
+      return "optimal";
+    default: {
+      const _exhaustive: string = ratingLabel;
+      void _exhaustive;
+      return null;
+    }
+  }
+}
 
 /**
  * Current-day Activity descriptor with in-progress wording.
@@ -64,10 +94,24 @@ export function buildDailyMonitorEnergyEstimatedRating(): {
   };
 }
 
+/** Neutral provider source announcement (distinct from the rating label). */
+export function buildOuraProviderSourceAccessibility(): string {
+  return "Source: Oura";
+}
+
+/** Rating-only announcement — does not include provider source or color names. */
+export function buildOuraRatingAccessibility(ratingLabel: string): string {
+  return `Rating ${ratingLabel}.`;
+}
+
+/**
+ * @deprecated Prefer {@link buildOuraRatingAccessibility} + separate source announcement.
+ * Kept for call-site migration; does not include color names.
+ */
 export function buildOuraScoreRatingAccessibility(input: {
   domain: "sleep" | "readiness";
   ratingLabel: string;
 }): string {
-  const noun = input.domain === "sleep" ? "sleep" : "readiness";
-  return `Oura ${noun} rating: ${input.ratingLabel}`;
+  void input.domain;
+  return buildOuraRatingAccessibility(input.ratingLabel);
 }
