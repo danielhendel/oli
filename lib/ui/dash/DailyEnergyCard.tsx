@@ -11,7 +11,6 @@ import { buildDailyMonitorEnergyEstimatedRating } from "@/lib/data/dash/dailyMon
 import { getEnergyFactorRows } from "@/lib/ui/energy/energyPresentation";
 import {
   DashCompactCardHeader,
-  dashCompactDescriptorTextStyle,
   dashCompactPrimaryValueTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -101,10 +100,7 @@ export function DailyEnergyCard({
           <Text style={styles.status}>Not enough data yet to estimate energy.</Text>
         ) : null}
         {!loading && !error && energy ? (
-          <>
-            <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
-            <Text style={styles.subtitle}>Estimated burn today</Text>
-          </>
+          <Text style={styles.rangeValue}>{formatRange(energy)}</Text>
         ) : null}
       </Pressable>
       {!loading && !error && energy ? (
@@ -155,7 +151,6 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.92,
   },
-  subtitle: dashCompactDescriptorTextStyle,
   status: {
     fontSize: 14,
     lineHeight: 20,
