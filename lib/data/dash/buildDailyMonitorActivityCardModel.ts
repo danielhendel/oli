@@ -1,6 +1,7 @@
 /**
  * Pure Activity card model + presence for Daily Monitor (current-day Steps).
  * Valid measured zero is present; missing activity.steps is absent.
+ * Compact rows are applicability-gated (Distance measured; Workout/Cardio from session truth).
  */
 
 import type { DailyFactsDto } from "@/lib/contracts/dailyFacts";
@@ -28,8 +29,16 @@ export type DailyMonitorActivityCardModel = {
   ratingAccessibilityLabel: string;
   /** Supplemental semantic tone for the Activity category badge. */
   ratingTone: DailyMonitorRatingTone;
+  /** Applicable secondary rows only (stable order among those present). */
   rows: readonly DailyMonitorActivityMetricRow[];
   accessibilityLabel: string;
+};
+
+export type DailyMonitorActivitySessionApplicability = {
+  /** True only when a current-day Workout-domain completed session exists. */
+  hasCurrentDayWorkout: boolean;
+  /** True only when a current-day Cardio-domain completed session exists. */
+  hasCurrentDayCardio: boolean;
 };
 
 function formatStepsDigits(steps: number): string {
@@ -38,31 +47,24 @@ function formatStepsDigits(steps: number): string {
 
 /**
  * Measured current-day `activity.distanceKm` only — never estimated from steps/stride.
- * Formatting reuses {@link formatDistanceDualDisplay} (locale miles/km preference).
+ * Returns null when unmeasured so the compact card can omit the row.
  */
-function formatOptionalDistanceKm(
+function formatMeasuredDistanceRow(
   value: number | undefined,
   locale: string,
-): DailyMonitorActivityMetricRow {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
-    const { primary } = formatDistanceDualDisplay({ distanceKm: value, locale });
-    return {
-      key: "distance",
-      label: "Distance",
-      valueLabel: primary,
-      isAvailable: true,
-    };
-  }
+): DailyMonitorActivityMetricRow | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  const { primary } = formatDistanceDualDisplay({ distanceKm: value, locale });
   return {
     key: "distance",
     label: "Distance",
-    valueLabel: "Unavailable",
-    isAvailable: false,
+    valueLabel: primary,
+    isAvailable: true,
   };
 }
 
-function formatOptionalStepBucket(
-  key: DailyMonitorActivityMetricRow["key"],
+function formatStepBucketRow(
+  key: Exclude<DailyMonitorActivityMetricRow["key"], "distance">,
   label: string,
   value: number | undefined | null,
 ): DailyMonitorActivityMetricRow {
@@ -86,14 +88,17 @@ function formatOptionalStepBucket(
  * Builds Activity Monitor card when DailyFacts for requestedDay includes a finite steps value
  * (including 0). Returns null when steps evidence is absent.
  *
- * Rows (exact order): Distance → NEAT steps → Workout steps → Cardio steps.
- * Allocation uses DailyFacts `activity.stepsAllocation` (strength → Workout steps).
+ * Compact rows (stable order among those present): Distance → NEAT → Workout → Cardio.
+ * Distance omitted when unmeasured. Workout/Cardio rows require session applicability —
+ * never inferred from allocation alone.
  */
 export function buildDailyMonitorActivityCardModel(input: {
   requestedDay: DayKey;
   facts: DailyFactsDto | null | undefined;
   /** Locale for distance primary unit (miles-first for en-US). Defaults to en-US. */
   locale?: string;
+  /** Current-day Workout/Cardio session applicability from Monitor session models. */
+  sessionApplicability?: DailyMonitorActivitySessionApplicability;
 }): DailyMonitorActivityCardModel | null {
   if (input.facts == null) return null;
   if (input.facts.date !== input.requestedDay) return null;
@@ -106,12 +111,30 @@ export function buildDailyMonitorActivityCardModel(input: {
   const rating = buildDailyMonitorActivityRatingLabel(rounded);
   const allocation = input.facts.activity?.stepsAllocation;
   const locale = input.locale ?? "en-US";
-  const rows: DailyMonitorActivityMetricRow[] = [
-    formatOptionalDistanceKm(input.facts.activity?.distanceKm, locale),
-    formatOptionalStepBucket("neat_steps", "NEAT Steps", allocation?.neatSteps),
-    formatOptionalStepBucket("workout_steps", "Workout Steps", allocation?.strengthSteps),
-    formatOptionalStepBucket("cardio_steps", "Cardio Steps", allocation?.cardioSteps),
-  ];
+  const hasWorkout = input.sessionApplicability?.hasCurrentDayWorkout === true;
+  const hasCardio = input.sessionApplicability?.hasCurrentDayCardio === true;
+
+  const rows: DailyMonitorActivityMetricRow[] = [];
+
+  const distanceRow = formatMeasuredDistanceRow(input.facts.activity?.distanceKm, locale);
+  if (distanceRow != null) rows.push(distanceRow);
+
+  if (
+    allocation != null &&
+    typeof allocation.neatSteps === "number" &&
+    Number.isFinite(allocation.neatSteps) &&
+    allocation.neatSteps >= 0
+  ) {
+    rows.push(formatStepBucketRow("neat_steps", "NEAT Steps", allocation.neatSteps));
+  }
+
+  if (hasWorkout) {
+    rows.push(formatStepBucketRow("workout_steps", "Workout Steps", allocation?.strengthSteps));
+  }
+
+  if (hasCardio) {
+    rows.push(formatStepBucketRow("cardio_steps", "Cardio Steps", allocation?.cardioSteps));
+  }
 
   return {
     day: input.requestedDay,
