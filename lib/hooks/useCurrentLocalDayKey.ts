@@ -14,16 +14,29 @@ function msUntilNextLocalMidnight(now: Date = new Date()): number {
   return Math.max(250, next.getTime() - now.getTime() + 50);
 }
 
+export type UseCurrentLocalDayKeyOptions = {
+  /**
+   * Invoked when the app becomes active (after local dayKey refresh).
+   * Single AppState listener — callers must not add a second foreground listener.
+   */
+  onForeground?: () => void;
+};
+
 export type UseCurrentLocalDayKeyResult = {
   dayKey: DayKey;
   /** Force re-read from the canonical local-day helper (e.g. tests). */
   refreshDayKey: () => void;
 };
 
-export function useCurrentLocalDayKey(): UseCurrentLocalDayKeyResult {
+export function useCurrentLocalDayKey(
+  options?: UseCurrentLocalDayKeyOptions,
+): UseCurrentLocalDayKeyResult {
   const [dayKey, setDayKey] = useState<DayKey>(() => getTodayDayKeyLocal());
   const dayKeyRef = useRef(dayKey);
   dayKeyRef.current = dayKey;
+
+  const onForegroundRef = useRef(options?.onForeground);
+  onForegroundRef.current = options?.onForeground;
 
   const refreshDayKey = useCallback(() => {
     const next = getTodayDayKeyLocal();
@@ -53,6 +66,7 @@ export function useCurrentLocalDayKey(): UseCurrentLocalDayKeyResult {
       if (next === "active") {
         refreshDayKey();
         scheduleMidnight();
+        onForegroundRef.current?.();
       }
     };
     const sub = AppState.addEventListener("change", onAppState);

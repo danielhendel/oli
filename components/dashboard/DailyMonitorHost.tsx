@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
@@ -18,6 +18,7 @@ import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
 import { useDailyMonitorActivityCard } from "@/lib/data/dash/useDailyMonitorActivityCard";
 import { useDailyMonitorSessionCards } from "@/lib/data/dash/useDailyMonitorSessionCards";
 import { useDailyMonitorStressCard } from "@/lib/data/dash/useDailyMonitorStressCard";
+import { useDailyMonitorRefresh } from "@/lib/data/dash/useDailyMonitorRefresh";
 import {
   resolveBodyCompositionMonitorPresence,
   resolveEnergyMonitorPresence,
@@ -56,8 +57,15 @@ import {
 export function DailyMonitorHost(): React.ReactElement {
   const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
-  const { user } = useAuth();
-  const { dayKey } = useCurrentLocalDayKey();
+  const { user, getIdToken } = useAuth();
+
+  const refreshQuietRef = React.useRef<(reason: "focus" | "foreground") => void>(() => undefined);
+
+  const { dayKey, refreshDayKey } = useCurrentLocalDayKey({
+    onForeground: () => {
+      refreshQuietRef.current("foreground");
+    },
+  });
   const dateLabel = useMemo(() => formatDayKeyStackNavTitle(dayKey), [dayKey]);
 
   const {
@@ -66,7 +74,7 @@ export function DailyMonitorHost(): React.ReactElement {
     energyError,
     sleepCardVm,
     exactDayRestingHeartRateBpm,
-    refetch,
+    refetchSleep,
   } = useTodayHealthHero(dayKey);
   const readinessCard = useDailyReadinessCard(dayKey, {
     enabled: Boolean(user),
@@ -74,9 +82,23 @@ export function DailyMonitorHost(): React.ReactElement {
   });
   const bodyComposition = useBodyCompositionDashCard();
   const dailyNutrition = useDailyNutritionCard(dayKey);
-  const activityCard = useDailyMonitorActivityCard(dayKey);
   const sessionCards = useDailyMonitorSessionCards(dayKey, energy);
+  const activityCard = useDailyMonitorActivityCard(dayKey, {
+    hasCurrentDayWorkout: sessionCards.workoutModel != null,
+    hasCurrentDayCardio: sessionCards.cardioModel != null,
+  });
   const stressCard = useDailyMonitorStressCard(dayKey);
+
+  const monitorRefresh = useDailyMonitorRefresh({
+    dayKey,
+    userUid: user?.uid ?? null,
+    getIdToken,
+    refreshDayKey,
+    refetchSleep,
+    refetchReadiness: readinessCard.refetch,
+    refetchStress: stressCard.refetch,
+  });
+  refreshQuietRef.current = monitorRefresh.refreshQuiet;
 
   const sleepPresence = resolveSleepMonitorPresence(sleepCardVm);
   const readinessPresence = resolveReadinessMonitorPresence(readinessCard.vm);
@@ -139,16 +161,13 @@ export function DailyMonitorHost(): React.ReactElement {
   );
 
   const onRetry = useCallback(() => {
-    const bust = `dailyMonitorRetry:${Date.now()}`;
-    refetch({ cacheBust: bust });
-    readinessCard.refetch({ cacheBust: bust });
-  }, [refetch, readinessCard.refetch]);
+    monitorRefresh.onRefresh();
+  }, [monitorRefresh.onRefresh]);
 
   useFocusEffect(
     React.useCallback(() => {
-      refetch({ cacheBust: "dailyMonitorFocus" });
-      readinessCard.refetch({ cacheBust: "dailyMonitorFocus" });
-    }, [refetch, readinessCard.refetch]),
+      monitorRefresh.refreshQuiet("focus");
+    }, [monitorRefresh.refreshQuiet]),
   );
 
   const showSleep = presenceCreatesMainStackCard(sleepPresence);
@@ -161,6 +180,18 @@ export function DailyMonitorHost(): React.ReactElement {
   const showNutrition = presenceCreatesMainStackCard(nutritionPresence);
   const showBody = presenceCreatesMainStackCard(bodyPresence);
 
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={monitorRefresh.refreshing}
+        onRefresh={monitorRefresh.onRefresh}
+        tintColor={UI_TEXT_MUTED}
+        colors={[UI_TEXT_MUTED]}
+      />
+    ),
+    [monitorRefresh.refreshing, monitorRefresh.onRefresh],
+  );
+
   return (
     <View style={styles.root} testID="daily-monitor-host">
       <DashScreenHeader
@@ -172,6 +203,8 @@ export function DailyMonitorHost(): React.ReactElement {
         contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
+        testID="daily-monitor-scroll"
       >
         <View
           style={styles.pageIntro}

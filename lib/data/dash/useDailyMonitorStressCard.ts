@@ -19,6 +19,7 @@ export type UseDailyMonitorStressCardResult = {
   presence: DailyMonitorPresenceStatus;
   model: DailyMonitorStressCardModel | null;
   href: "/(app)/recovery/stress";
+  refetch: (opts?: { cacheBust?: string }) => void;
 };
 
 export function useDailyMonitorStressCard(requestedDay: DayKey): UseDailyMonitorStressCardResult {
@@ -56,6 +57,7 @@ export function useDailyMonitorStressCard(requestedDay: DayKey): UseDailyMonitor
       }),
       model,
       href: "/(app)/recovery/stress" as const,
+      refetch: stressRange.refetch,
     };
   }, [enabled, presenceState, stressRange, requestedDay]);
 }
