@@ -36,6 +36,7 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
     sleepCardVm: { status: "missing", day: "2026-07-20", message: "No sleep" },
     exactDayRestingHeartRateBpm: null,
     refetch: jest.fn(),
+    refetchSleep: jest.fn(),
   }),
 }));
 
@@ -69,6 +70,7 @@ const mockActivityHook = jest.fn(() => ({
   presence: "absent_no_day_evidence" as const,
   model: null,
   href: "/(app)/activity" as const,
+  refetch: jest.fn(),
 }));
 const mockSessionHook = jest.fn(() => ({
   workoutPresence: "absent_no_day_evidence" as const,
@@ -82,6 +84,7 @@ const mockStressHook = jest.fn(() => ({
   presence: "absent_no_day_evidence" as const,
   model: null,
   href: "/(app)/recovery/stress" as const,
+  refetch: jest.fn(),
 }));
 
 jest.mock("@/lib/data/dash/useDailyMonitorActivityCard", () => ({
