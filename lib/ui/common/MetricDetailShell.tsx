@@ -1,24 +1,41 @@
 /**
  * Reusable metric-detail bottom-sheet shell (Phase 2D).
  *
- * Presentation-only Modal foundation with slots. Domain thresholds/averages stay
- * outside this component. Legacy MetricDetailsSheet remains for other metrics.
+ * Near-full-screen Modal with:
+ * - fixed header (handle, title, Close)
+ * - independently scrolling body
+ * - fixed Done footer with Safe Area clearance
+ *
+ * Domain thresholds/averages stay outside this component.
+ * Legacy MetricDetailsSheet remains for other metrics.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
+  type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  METRIC_DETAIL_BODY_END_SPACING,
+  METRIC_DETAIL_FOOTER_MIN_HEIGHT,
+  METRIC_DETAIL_HORIZONTAL_PADDING,
+  METRIC_DETAIL_TOP_BACKDROP_GAP,
+  METRIC_DETAIL_TOP_CORNER_RADIUS,
+  metricDetailBodyBottomInset,
+  metricDetailSheetHeight,
+} from "@/lib/ui/common/metricDetailShellLayout";
+import {
+  UI_BORDER_HAIRLINE,
   UI_BORDER_STRONG,
   UI_OVERLAY,
   UI_PANEL_SURFACE,
@@ -77,6 +94,30 @@ export function MetricDetailShell({
   contentStyle,
 }: MetricDetailShellProps): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const [measuredFooterChrome, setMeasuredFooterChrome] = useState(METRIC_DETAIL_FOOTER_MIN_HEIGHT);
+
+  const sheetHeight = metricDetailSheetHeight({
+    windowHeight,
+    topSafeArea: insets.top,
+    topBackdropGap: METRIC_DETAIL_TOP_BACKDROP_GAP,
+  });
+
+  const bottomSafe = Math.max(insets.bottom, 12);
+  const bodyBottomInset = showDone
+    ? metricDetailBodyBottomInset({
+        footerHeight: measuredFooterChrome,
+        bottomSafeArea: bottomSafe,
+        endSpacing: METRIC_DETAIL_BODY_END_SPACING,
+      })
+    : bottomSafe + METRIC_DETAIL_BODY_END_SPACING;
+
+  const onFooterChromeLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && Math.abs(h - measuredFooterChrome) > 0.5) {
+      setMeasuredFooterChrome(h);
+    }
+  };
 
   return (
     <Modal
@@ -94,35 +135,54 @@ export function MetricDetailShell({
           testID={`${testID}-backdrop`}
         />
         <View
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }, contentStyle]}
+          testID={`${testID}-sheet`}
+          style={[
+            styles.sheet,
+            {
+              height: sheetHeight,
+              borderTopLeftRadius: METRIC_DETAIL_TOP_CORNER_RADIUS,
+              borderTopRightRadius: METRIC_DETAIL_TOP_CORNER_RADIUS,
+            },
+            contentStyle,
+          ]}
           onStartShouldSetResponder={() => true}
         >
-          <View style={styles.handleRow}>
-            <View style={styles.handle} accessibilityElementsHidden />
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
-              style={({ pressed }) => [styles.closeButton, pressed && styles.closePressed]}
-              testID={`${testID}-close`}
-            >
-              <Text style={styles.closeLabel}>Close</Text>
-            </Pressable>
+          <View style={styles.header} testID={`${testID}-header`}>
+            <View style={styles.handle} accessibilityElementsHidden importantForAccessibility="no" />
+            <View style={styles.headerRow}>
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+                numberOfLines={2}
+              >
+                {title}
+              </Text>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={8}
+                style={({ pressed }) => [styles.closeButton, pressed && styles.closePressed]}
+                testID={`${testID}-close`}
+              >
+                <Text style={styles.closeLabel}>Close</Text>
+              </Pressable>
+            </View>
+            <View style={styles.headerDivider} importantForAccessibility="no" />
           </View>
 
           <ScrollView
+            testID={`${testID}-scroll`}
+            style={styles.scroll}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator
+            bounces
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: bodyBottomInset }]}
           >
             <View
               accessible
               accessibilityLabel={accessibilitySummary ?? `${title}. ${heroValue}.`}
             >
-              <Text style={styles.title} accessibilityRole="header">
-                {title}
-              </Text>
               <Text style={styles.value}>{heroValue}</Text>
               {statusSentence ? <Text style={styles.status}>{statusSentence}</Text> : null}
             </View>
@@ -156,15 +216,23 @@ export function MetricDetailShell({
           </ScrollView>
 
           {showDone ? (
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-              style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
-              testID={`${testID}-done`}
+            <View
+              style={[styles.footer, { paddingBottom: bottomSafe }]}
+              testID={`${testID}-footer`}
             >
-              <Text style={styles.doneLabel}>Done</Text>
-            </Pressable>
+              <View onLayout={onFooterChromeLayout}>
+                <View style={styles.footerDivider} importantForAccessibility="no" />
+                <Pressable
+                  onPress={onClose}
+                  accessibilityRole="button"
+                  accessibilityLabel="Done"
+                  style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
+                  testID={`${testID}-done`}
+                >
+                  <Text style={styles.doneLabel}>Done</Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null}
         </View>
       </View>
@@ -183,33 +251,41 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: UI_PANEL_SURFACE,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
     paddingTop: 8,
-    paddingHorizontal: 20,
-    maxHeight: "88%",
+    paddingHorizontal: METRIC_DETAIL_HORIZONTAL_PADDING,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_STRONG,
+    overflow: "hidden",
   },
-  handleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-    minHeight: 44,
+  header: {
+    flexShrink: 0,
   },
   handle: {
-    position: "absolute",
     alignSelf: "center",
     width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: UI_TEXT_MUTED,
     opacity: 0.85,
+    marginBottom: 10,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 44,
+    paddingBottom: 10,
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 20,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.3,
   },
   closeButton: {
-    position: "absolute",
-    right: 0,
+    flexShrink: 0,
     minHeight: 44,
     minWidth: 44,
     paddingHorizontal: 8,
@@ -224,22 +300,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
   },
-  scrollContent: {
-    paddingBottom: 12,
-    gap: 12,
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: UI_BORDER_HAIRLINE,
+    marginHorizontal: -METRIC_DETAIL_HORIZONTAL_PADDING,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: -0.3,
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    gap: 12,
+    paddingTop: 12,
   },
   value: {
     fontSize: 28,
     fontWeight: "700",
     color: UI_TEXT_PRIMARY,
     letterSpacing: -0.35,
-    marginTop: 4,
   },
   status: {
     fontSize: 15,
@@ -269,10 +347,19 @@ const styles = StyleSheet.create({
     color: UI_TEXT_MUTED,
     marginTop: 4,
   },
+  footer: {
+    flexShrink: 0,
+    backgroundColor: UI_PANEL_SURFACE,
+    paddingTop: 8,
+  },
+  footerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: UI_BORDER_HAIRLINE,
+    marginHorizontal: -METRIC_DETAIL_HORIZONTAL_PADDING,
+    marginBottom: 8,
+  },
   done: {
-    marginTop: 4,
-    marginBottom: 4,
-    minHeight: 48,
+    minHeight: METRIC_DETAIL_FOOTER_MIN_HEIGHT,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
