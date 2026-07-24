@@ -5,6 +5,7 @@ import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
 
 
 jest.mock("react-native", () => ({
@@ -92,6 +93,7 @@ const mockUseBodyCompositionDashCard = jest.fn(() => ({
   error: null,
   hasUser: true,
   goalsHref: "/(app)/body/settings",
+    overviewDay: "2026-05-11",
   built: {
     tag: "ready" as const,
     weightPrimaryLabel: "159.3 lb",
@@ -174,12 +176,14 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
 
 describe("Dash Daily Energy card", () => {
   beforeEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(false);
     setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
   });
 
   afterEach(() => {
     setDashWeeklyProgressRelocationEnabledForTests(null);
+    setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
   it("renders Body Composition first (relocation) and removes Sleep/Recovery summary", () => {
@@ -232,7 +236,9 @@ describe("Dash Daily Energy card", () => {
     expect(text).toContain("2,120–2,480 kcal");
     expect(text).toContain("BMR");
     expect(text).toContain("NEAT");
-    expect(text).toContain("Confidence");
+    expect(text).not.toContain("Estimated");
+    expect(text).not.toContain("Estimated burn today");
+    expect(text).not.toContain("Confidence");
     expect(text).toContain("Daily Sleep");
     expect(text).toContain("Oura Readiness");
 

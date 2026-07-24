@@ -6,6 +6,7 @@ import type { SleepNightDocumentDto } from "@oli/contracts";
 import { buildDailySleepCardModel, type DailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 const mockPush = jest.fn();
 
@@ -69,16 +70,67 @@ describe("DailySleepCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
+      root = renderer.create(<DailySleepCard vm={readyVm(model)} title="Sleep" />);
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Last night\u2019s sleep");
-    expect(flat).toContain("88");
+    expect(flat).toContain("Sleep Score 88");
     expect(flat).toContain("Optimal");
+    expect(flat).not.toContain("Oura");
     expect(flat).toContain("9h 11m");
+    expect(flat).not.toContain("Last night\u2019s sleep");
+    expect(flat).not.toContain("Oura Sleep Score");
+    expect(flat).not.toContain("Strong overall sleep quality for this day.");
     expect(root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" })).toBeDefined();
     expect(root.root.findAllByType(Image)).toHaveLength(0);
+    expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
+
+    const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+    expect(allVisibleText(badge)).toBe("Optimal");
+    expect(allVisibleText(badge)).not.toContain("Oura");
+
+    const header = root.root
+      .findAllByType(Pressable)
+      .find(
+        (p) =>
+          typeof p.props.accessibilityLabel === "string" &&
+          p.props.accessibilityLabel.includes("Sleep Score 88"),
+      );
+    expect(header?.props.accessibilityLabel).toMatch(/Sleep Score 88/);
+    expect(header?.props.accessibilityLabel).toMatch(/Rating Optimal/);
+    expect(header?.props.accessibilityLabel).toMatch(/Opens Sleep details/);
+    expect(header?.props.accessibilityLabel).not.toMatch(/Oura/i);
+    expect(header?.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
+    expect(header?.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
+  });
+
+  it("applies semantic tones for representative Oura sleep ratings", () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    const cases: { score: number; label: string }[] = [
+      { score: 88, label: "Optimal" },
+      { score: 75, label: "Good" },
+      { score: 65, label: "Fair" },
+      { score: 40, label: "Pay attention" },
+    ];
+    for (const c of cases) {
+      const model = buildDailySleepCardModel({
+        day,
+        sleepNightSettled: true,
+        sleepNight: minimalNight({ score: c.score, totalSleepMinutes: 480 }),
+      });
+      let root!: renderer.ReactTestRenderer;
+      act(() => {
+        root = renderer.create(<DailySleepCard vm={readyVm(model)} title="Sleep" />);
+      });
+      const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+      expect(allVisibleText(badge)).toBe(c.label);
+      expect(allVisibleText(badge)).not.toContain("Oura");
+      expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
+      expect(allVisibleText(root.root)).not.toContain("Oura");
+      act(() => {
+        root.unmount();
+      });
+    }
   });
 
   it("lists Duration → Deep → REM → Efficiency without LHR/HRV", () => {
@@ -130,7 +182,7 @@ describe("DailySleepCard", () => {
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Sleep score unavailable");
+    expect(flat).toContain("Unavailable");
     expect(flat).toContain("8h");
     expect(flat).not.toMatch(/\|0\|/);
     const header = root.root
@@ -138,9 +190,9 @@ describe("DailySleepCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Sleep header"),
+          p.props.accessibilityLabel.includes("Daily Sleep"),
       );
-    expect(header?.props.accessibilityLabel).toContain("Sleep score unavailable");
+    expect(header?.props.accessibilityLabel).toMatch(/unavailable|Unavailable/i);
   });
 
   it("renders score 0 as a real score with Pay attention", () => {
@@ -154,7 +206,7 @@ describe("DailySleepCard", () => {
       root = renderer.create(<DailySleepCard vm={readyVm(model)} />);
     });
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("0");
+    expect(flat).toContain("Sleep Score 0");
     expect(flat).toContain("Pay attention");
     expect(flat).not.toContain("Sleep score unavailable");
   });
@@ -215,7 +267,7 @@ describe("DailySleepCard", () => {
       .find(
         (p) =>
           typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.startsWith("Daily Sleep header"),
+          p.props.accessibilityLabel.includes("Daily Sleep"),
       );
     expect(header).toBeDefined();
     act(() => {

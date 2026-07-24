@@ -5,6 +5,7 @@ import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
 
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
@@ -40,6 +41,7 @@ const mockUseBodyCompositionDashCard = jest.fn(() => ({
   error: null,
   hasUser: true,
   goalsHref: "/(app)/body/settings",
+    overviewDay: "2026-05-11",
   built: {
     tag: "ready" as const,
     weightPrimaryLabel: "159.3 lb",
@@ -171,6 +173,7 @@ function findPressablesWithLabel(
 
 describe("Dash accessibility", () => {
   beforeEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(false);
     setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
     mockUseTodayHealthHero.mockReturnValue({
@@ -190,6 +193,7 @@ describe("Dash accessibility", () => {
       error: null,
       hasUser: true,
       goalsHref: "/(app)/body/settings",
+    overviewDay: "2026-05-11",
       built: {
         tag: "ready" as const,
         weightPrimaryLabel: "159.3 lb",
@@ -224,6 +228,7 @@ describe("Dash accessibility", () => {
 
   afterEach(() => {
     setDashWeeklyProgressRelocationEnabledForTests(null);
+    setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
   it("exposes accessibilityLabel on settings initial button", () => {

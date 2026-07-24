@@ -111,3 +111,6 @@ export const UI_PROGRESS_TRACK_EMPTY = T.progressTrackEmpty;
 
 export const UI_BORDER_SUBTLE = T.borderSubtle;
 export const UI_BORDER_STRONG = T.borderStrong;
+
+/** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
+export const UI_PROVIDER_SOURCE_CHIP_BG = "rgba(255, 255, 255, 0.06)";

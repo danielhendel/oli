@@ -11,6 +11,7 @@ import {
   WEEKLY_PROGRESS_CONSUMER_TITLE,
   WEEKLY_PROGRESS_SUPPORTING_COPY,
 } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { WEEKLY_FITNESS_ROUTES } from "@/lib/data/dash/weeklyFitnessRoutes";
 
 const mockUseWeeklyFitnessCard = jest.fn();
@@ -54,6 +55,7 @@ jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
     error: null,
     hasUser: true,
     goalsHref: "/(app)/body/settings",
+    overviewDay: "2026-05-11",
     built: {
       tag: "ready" as const,
       weightPrimaryLabel: "159.3 lb",
@@ -205,6 +207,7 @@ const sampleModel = {
 
 describe("Weekly Progress relocation", () => {
   beforeEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(false);
     mockPush.mockClear();
     mockUseWeeklyFitnessCard.mockReset();
     mockUseWeeklyFitnessCard.mockReturnValue({
@@ -230,6 +233,7 @@ describe("Weekly Progress relocation", () => {
 
   afterEach(() => {
     setDashWeeklyProgressRelocationEnabledForTests(null);
+    setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
   it("enabled: Program shows Weekly Progress; Dash does not; hook mounts once", () => {
@@ -318,12 +322,16 @@ describe("Weekly Progress relocation", () => {
   it("source guards: screens do not call Firebase/API; only the host imports the heavy hook", () => {
     const dashSrc = fs.readFileSync(path.join(__dirname, "..", "dash.tsx"), "utf8");
     const programSrc = fs.readFileSync(path.join(__dirname, "..", "program.tsx"), "utf8");
+    const legacyDashHostSrc = fs.readFileSync(
+      path.join(__dirname, "../../../../components/dashboard/LegacyDashHost.tsx"),
+      "utf8",
+    );
     const hostSrc = fs.readFileSync(
       path.join(__dirname, "../../../../lib/ui/dash/WeeklyFitnessCardHost.tsx"),
       "utf8",
     );
 
-    for (const src of [dashSrc, programSrc]) {
+    for (const src of [dashSrc, programSrc, legacyDashHostSrc]) {
       expect(src).not.toMatch(/\bfetch\s*\(/);
       expect(src).not.toMatch(/from\s+["'][^"']*firebase[^"']*["']/i);
       expect(src).not.toMatch(/from\s+["'][^"']*lib\/api\/http["']/);
@@ -331,7 +339,8 @@ describe("Weekly Progress relocation", () => {
       expect(src).not.toContain("useWeeklyFitnessCard");
     }
     expect(hostSrc).toContain("useWeeklyFitnessCard");
-    expect(dashSrc).toContain("WeeklyFitnessCardHost");
+    expect(dashSrc).toContain("LegacyDashHost");
+    expect(legacyDashHostSrc).toContain("WeeklyFitnessCardHost");
     expect(programSrc).toContain("WeeklyFitnessCardHost");
   });
 

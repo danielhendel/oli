@@ -31,6 +31,11 @@ export type UseBodyCompositionDashCardResult = {
   error: string | null;
   hasUser: boolean;
   goalsHref: string;
+  /**
+   * Calendar day of the overview snapshot (latest observation day).
+   * Daily Monitor presence must require this to equal the requested Monitor day.
+   */
+  overviewDay: string | null;
   /** Present after auth settles; may be `partial` while upstream series hydrates (prefer `loading`). */
   built: BuiltBodyCompositionDashCard | null;
 };
@@ -132,6 +137,7 @@ export function useBodyCompositionDashCard(): UseBodyCompositionDashCardResult {
     error,
     hasUser: Boolean(user),
     goalsHref: BODY_COMPOSITION_DASH_ROUTES.goalsEditor,
+    overviewDay: overviewSlice.overviewDay,
     built,
   };
 }

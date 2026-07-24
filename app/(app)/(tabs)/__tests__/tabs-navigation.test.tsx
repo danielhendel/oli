@@ -145,6 +145,12 @@ jest.mock("expo-router", () => {
 });
 
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import {
+  DAILY_MONITOR_TAB_A11Y_LABEL,
+  DAILY_MONITOR_TAB_TITLE,
+  setDashDailyMonitorFoundationEnabledForTests,
+} from "@/lib/data/dash/dashDailyMonitorFoundation";
+import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const layoutModule = require("../_layout");
@@ -170,6 +176,11 @@ function findTabs(test: renderer.ReactTestRenderer): { name: string; title: stri
 }
 
 describe("TabsLayout", () => {
+  afterEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(null);
+    setDashWeeklyProgressRelocationEnabledForTests(null);
+  });
+
   it("has initialRouteName dash", () => {
     let test!: renderer.ReactTestRenderer;
 
@@ -181,7 +192,10 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("registers four primary tabs in order (Dash, Timeline, Program, Library)", () => {
+  it("registers four primary tabs in order (route identity preserved)", () => {
+    setDashDailyMonitorFoundationEnabledForTests(true);
+    setDashWeeklyProgressRelocationEnabledForTests(true);
+
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -193,7 +207,43 @@ describe("TabsLayout", () => {
     expect(names).toEqual(["dash", "timeline", "program", "library"]);
 
     const primaryTitles = tabs.map((t) => t.title);
-    expect(primaryTitles).toEqual(["Dash", "Timeline", "Program", "Library"]);
+    expect(primaryTitles).toEqual([
+      DAILY_MONITOR_TAB_TITLE,
+      "Timeline",
+      "Program",
+      "Library",
+    ]);
+  });
+
+  it("uses legacy Dash tab title when Daily Monitor experience is inactive", () => {
+    setDashDailyMonitorFoundationEnabledForTests(false);
+    setDashWeeklyProgressRelocationEnabledForTests(true);
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<TabsLayout />);
+    });
+
+    expect(findTabs(test).map((t) => t.title)).toEqual([
+      "Dash",
+      "Timeline",
+      "Program",
+      "Library",
+    ]);
+  });
+
+  it("exposes Daily Monitor accessibility label while keeping route name dash", () => {
+    setDashDailyMonitorFoundationEnabledForTests(true);
+    setDashWeeklyProgressRelocationEnabledForTests(true);
+    // Re-require is unnecessary; layout reads flags at render time.
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<TabsLayout />);
+    });
+    const dash = findTabs(test).find((t) => t.name === "dash");
+    expect(dash?.name).toBe("dash");
+    expect(dash?.title).toBe(DAILY_MONITOR_TAB_TITLE);
+    expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Daily Monitor");
   });
 
   it("does not register Profile as a bottom nav tab", () => {

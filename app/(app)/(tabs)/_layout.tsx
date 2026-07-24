@@ -9,6 +9,13 @@ import {
   ManageNavigationProvider,
   useManageNavigation,
 } from "@/components/navigation/ManageNavigationContext";
+import {
+  DAILY_MONITOR_TAB_A11Y_LABEL,
+  DAILY_MONITOR_TAB_TITLE,
+  isDashDailyMonitorFoundationEnabled,
+} from "@/lib/data/dash/dashDailyMonitorFoundation";
+import { isDashWeeklyProgressRelocationEnabled } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+import { resolveDashExperienceMode } from "@/lib/data/dash/resolveDashExperienceMode";
 import { UI_APP_SCREEN_BG, UI_NAV_TAB_ICON_ACTIVE, UI_NAV_TAB_ICON_INACTIVE } from "@/lib/ui/theme/uiTokens";
 import { ThemeProvider } from "@react-navigation/native";
 import { createOliTabNavigationTheme } from "@/lib/ui/theme/oliTheme";
@@ -57,6 +64,13 @@ function OliTabBar(props: BottomTabBarProps) {
 
 function TabsLayoutInner() {
   const tabTheme = useMemo(() => createOliTabNavigationTheme(), []);
+  const dashExperience = resolveDashExperienceMode({
+    dailyMonitorEnabled: isDashDailyMonitorFoundationEnabled(),
+    weeklyProgressRelocationEnabled: isDashWeeklyProgressRelocationEnabled(),
+  });
+  const dashTabTitle = dashExperience === "daily_monitor" ? DAILY_MONITOR_TAB_TITLE : "Dash";
+  const dashTabA11y =
+    dashExperience === "daily_monitor" ? DAILY_MONITOR_TAB_A11Y_LABEL : "Dash";
 
   return (
     <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG }}>
@@ -65,8 +79,8 @@ function TabsLayoutInner() {
           <Tabs.Screen
             name="dash"
             options={{
-              title: "Dash",
-              tabBarAccessibilityLabel: "Dash",
+              title: dashTabTitle,
+              tabBarAccessibilityLabel: dashTabA11y,
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? "home" : "home-outline"} size={size ?? 24} color={color} />
               ),

@@ -23,6 +23,8 @@ export type UseTodayHealthHeroResult = {
   /** Exact-day RHR from attributed SleepNight; for Readiness card join only. */
   exactDayRestingHeartRateBpm: number | null;
   refetch: (opts?: TruthGetOptions) => void;
+  /** SleepNight only — pair with DailyFacts invalidation to avoid duplicate facts GETs. */
+  refetchSleep: (opts?: TruthGetOptions) => void;
 };
 
 /**
@@ -83,6 +85,13 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
     [facts.refetch, dailySleep.refetch],
   );
 
+  const refetchSleep = useCallback(
+    (opts?: TruthGetOptions) => {
+      dailySleep.refetch(opts);
+    },
+    [dailySleep.refetch],
+  );
+
   useEffect(() => {
     if (!__DEV__) return;
     const factsDay = facts.status === "ready" && facts.data.date === day ? facts.data.date : null;
@@ -106,5 +115,6 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
     sleepCardVm: dailySleep.vm,
     exactDayRestingHeartRateBpm: dailySleep.exactDayRestingHeartRateBpm,
     refetch,
+    refetchSleep,
   };
 }

@@ -21,14 +21,22 @@ type Props = {
   loading: boolean;
   error: string | null;
   onPress?: () => void;
+  /** Consumer card title. Defaults to “Daily Nutrition”. */
+  title?: string;
 };
 
-export function DailyNutritionCard({ model, loading, error, onPress }: Props): React.ReactElement {
+export function DailyNutritionCard({
+  model,
+  loading,
+  error,
+  onPress,
+  title = "Daily Nutrition",
+}: Props): React.ReactElement {
   const content = (
     <>
-      <Text style={styles.title}>Daily Nutrition</Text>
+      <Text style={styles.title}>{title}</Text>
 
-      {loading ? <Text style={styles.status}>Loading daily nutrition…</Text> : null}
+      {loading ? <Text style={styles.status}>Loading daily nutrition{"\u2026"}</Text> : null}
       {!loading && error ? <Text style={styles.status}>Could not load daily nutrition</Text> : null}
 
       {!loading && !error ? (
@@ -39,7 +47,7 @@ export function DailyNutritionCard({ model, loading, error, onPress }: Props): R
               <Text style={styles.subtitle}>Logged today</Text>
             </>
           ) : (
-            <Text style={styles.status}>No nutrition logged today</Text>
+            <Text style={styles.status}>No nutrition record is available for today.</Text>
           )}
 
           <View style={styles.factors} accessibilityRole="list">

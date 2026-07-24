@@ -1,20 +1,26 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
 import type { Readiness } from "@/lib/contracts/readiness";
+import {
+  buildOuraRatingAccessibility,
+  mapOuraProviderRatingToTone,
+} from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
+import {
+  DashCompactCardHeader,
+  dashCompactPrimaryValueTextStyle,
+} from "@/lib/ui/dash/DashCompactCardHeader";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
   UI_CARD_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
-import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 const READINESS_DETAIL_HREF = "/(app)/recovery/readiness" as const;
 
@@ -45,18 +51,14 @@ export type DailyReadinessCardViewModel =
 
 type Props = {
   vm: DailyReadinessCardViewModel;
+  /** Consumer card title. Defaults to “Oura Readiness”. */
+  title?: string;
 };
 
-const HEADLINE_VALUE_TEXT: React.ComponentProps<typeof Text>["style"] = {
-  fontSize: 34,
-  lineHeight: 40,
-  color: UI_TEXT_PRIMARY,
-  fontWeight: "700",
-  letterSpacing: -0.2,
-  fontVariant: ["tabular-nums"],
-};
-
-export function DailyReadinessCard({ vm }: Props): React.ReactElement {
+export function DailyReadinessCard({
+  vm,
+  title = "Oura Readiness",
+}: Props): React.ReactElement {
   const router = useRouter();
 
   const loading = vm.status === "partial";
@@ -87,21 +89,43 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
     router.push(missingCta.href as Parameters<typeof router.push>[0]);
   }, [missingCta, router]);
 
+  const primaryScoreLabel = useMemo(() => {
+    if (model?.headlineValueText == null || model.headlineValueText.length === 0) return null;
+    return `Readiness Score ${model.headlineValueText}`;
+  }, [model]);
+
+  const rating = useMemo(() => {
+    if (model?.ratingLabel == null) return null;
+    return {
+      label: model.ratingLabel,
+      tone: mapOuraProviderRatingToTone(model.ratingLabel),
+      accessibilityLabel: buildOuraRatingAccessibility(model.ratingLabel),
+    };
+  }, [model]);
+
   const headerA11y =
     vm.status === "ready"
-      ? vm.accessibilityLabel
+      ? [
+          title,
+          primaryScoreLabel != null ? `${primaryScoreLabel}.` : null,
+          // Provider provenance remains in typed/detail data; Monitor summary omits Oura.
+          rating != null ? `Rating ${rating.label}.` : null,
+          "Opens Readiness details.",
+        ]
+          .filter(Boolean)
+          .join(" ")
       : loading
-        ? "Oura Readiness header. Loading."
+        ? `${title} header. Loading.`
         : error
-          ? "Oura Readiness header. Could not load data."
-          : `Oura Readiness header. ${missingMessage ?? "No readiness data."}`;
+          ? `${title} header. Could not load data.`
+          : `${title} header. ${missingMessage ?? "No readiness data."}`;
 
   const canOpen = vm.status === "ready" && model?.hasAnySignal;
   const showMetricSection =
     vm.status === "ready" && model?.hasAnySignal === true && (model.metricRows?.length ?? 0) > 0;
 
   return (
-    <View style={styles.outer} accessibilityLabel="Oura Readiness card">
+    <View style={styles.outer} accessibilityLabel={`${title} card`}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -111,14 +135,10 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
           onPress={onOpenReadiness}
           style={({ pressed }) => [styles.headerPressable, pressed && canOpen && styles.headerPressed]}
         >
-          <Text style={styles.title}>Oura Readiness</Text>
-          {model?.sourceLabel ? (
-            <Text style={styles.subtitle}>Source: {model.sourceLabel}</Text>
+          <DashCompactCardHeader title={title} rating={rating} />
+          {primaryScoreLabel != null ? (
+            <Text style={styles.headlineValue}>{primaryScoreLabel}</Text>
           ) : null}
-          {model?.headlineValueText ? (
-            <Text style={styles.headlineValue}>{model.headlineValueText}</Text>
-          ) : null}
-          {model?.ratingLabel ? <Text style={styles.rating}>{model.ratingLabel}</Text> : null}
           {loading ? <Text style={styles.mutedLine}>Loading daily readiness…</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily readiness</Text> : null}
           {vm.status === "missing" ? (
@@ -135,9 +155,6 @@ export function DailyReadinessCard({ vm }: Props): React.ReactElement {
                 </Pressable>
               ) : null}
             </>
-          ) : null}
-          {model?.summarySentence && model.hasAnySignal ? (
-            <Text style={styles.summary}>{model.summarySentence}</Text>
           ) : null}
         </Pressable>
 
@@ -180,26 +197,7 @@ const styles = StyleSheet.create({
   headerPressed: {
     opacity: 0.9,
   },
-  title: strengthMetricCardTitleTextStyle,
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: UI_TEXT_MUTED,
-    fontWeight: "500",
-  },
-  headlineValue: HEADLINE_VALUE_TEXT,
-  rating: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "600",
-    color: UI_TEXT_SECONDARY,
-  },
-  summary: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-    marginTop: 4,
-  },
+  headlineValue: dashCompactPrimaryValueTextStyle,
   mutedLine: {
     fontSize: 14,
     lineHeight: 20,

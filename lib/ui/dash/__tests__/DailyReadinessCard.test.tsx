@@ -40,7 +40,7 @@ describe("DailyReadinessCard", () => {
         isFallback: false,
         day: "2026-07-10",
         sourceId: "oura",
-        score: 86,
+        score: 87,
         contributors: {
           resting_heart_rate: 80,
           hrv_balance: 90,
@@ -60,17 +60,33 @@ describe("DailyReadinessCard", () => {
 
     let root!: renderer.ReactTestRenderer;
     act(() => {
-      root = renderer.create(<DailyReadinessCard vm={vm} />);
+      root = renderer.create(<DailyReadinessCard vm={vm} title="Readiness" />);
     });
 
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("86");
+    expect(flat).toContain("Readiness Score 87");
     expect(flat).toContain("Optimal");
+    expect(flat).not.toContain("Oura");
     expect(flat).toContain("49 bpm");
     expect(flat).toContain("HRV balance");
+    expect(flat).not.toContain("Source: Oura");
+    expect(flat).not.toContain("Ready. Recovery signals are strong today.");
     expect(flat).not.toContain("Sleep regularity");
     expect(root.root.findByProps({ testID: "readiness-metric-row-resting_heart_rate" })).toBeDefined();
     expect(root.root.findByProps({ testID: "readiness-metric-row-sleep_balance" })).toBeDefined();
+    expect(() => root.root.findByProps({ testID: "dash-compact-provider-source" })).toThrow();
+
+    const badge = root.root.findByProps({ testID: "dash-compact-rating-badge" });
+    expect(allVisibleText(badge)).toBe("Optimal");
+    expect(allVisibleText(badge)).not.toContain("Oura");
+
+    const header = root.root.findAllByType(Pressable)[0];
+    expect(header.props.accessibilityLabel).toMatch(/Readiness Score 87/);
+    expect(header.props.accessibilityLabel).toMatch(/Rating Optimal/);
+    expect(header.props.accessibilityLabel).toMatch(/Opens Readiness details/);
+    expect(header.props.accessibilityLabel).not.toMatch(/Oura/i);
+    expect(header.props.accessibilityLabel.match(/Optimal/g)?.length).toBe(1);
+    expect(header.props.accessibilityLabel).not.toMatch(/blue|green|red|amber/i);
   });
 
   it("does not render contributor rows for fallback readiness", () => {
