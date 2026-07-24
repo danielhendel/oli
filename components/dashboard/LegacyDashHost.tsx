@@ -37,6 +37,8 @@ export function LegacyDashHost(): React.ReactElement {
     energyError,
     sleepCardVm,
     exactDayRestingHeartRateBpm,
+    attributedSleepNight,
+    attributedSleepResolution,
     refetch,
   } = useTodayHealthHero(todayKey);
   const readinessCard = useDailyReadinessCard(todayKey, {
@@ -72,7 +74,11 @@ export function LegacyDashHost(): React.ReactElement {
           />
 
           <DailyEnergyCard energy={energy} loading={energyLoading} error={energyError} />
-          <DailySleepCard vm={sleepCardVm} />
+          <DailySleepCard
+            vm={sleepCardVm}
+            attributedSleepNight={attributedSleepNight}
+            attributedSleepResolution={attributedSleepResolution}
+          />
           <DailyReadinessCard vm={readinessCard.vm} />
           <DailyNutritionCard
             model={dailyNutrition.model}

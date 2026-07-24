@@ -74,6 +74,8 @@ export function DailyMonitorHost(): React.ReactElement {
     energyError,
     sleepCardVm,
     exactDayRestingHeartRateBpm,
+    attributedSleepNight,
+    attributedSleepResolution,
     refetchSleep,
   } = useTodayHealthHero(dayKey);
   const readinessCard = useDailyReadinessCard(dayKey, {
@@ -282,6 +284,8 @@ export function DailyMonitorHost(): React.ReactElement {
                 title="Sleep"
                 scoreCaption="Oura Sleep Score"
                 cardAccessibilityLabel="Sleep card"
+                attributedSleepNight={attributedSleepNight}
+                attributedSleepResolution={attributedSleepResolution}
               />
             ) : null}
             {section.domainIds.includes("readiness") && showReadiness ? (

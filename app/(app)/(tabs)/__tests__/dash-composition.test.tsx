@@ -177,6 +177,8 @@ describe("Dash composition clean baseline", () => {
         message: "No sleep data logged for this day.",
       },
       exactDayRestingHeartRateBpm: null,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
       refetch: jest.fn(),
     });
   });
@@ -279,6 +281,8 @@ describe("Dash composition clean baseline", () => {
         },
       },
       exactDayRestingHeartRateBpm: 49,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
       refetch: jest.fn(),
     });
 
