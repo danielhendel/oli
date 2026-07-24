@@ -1,10 +1,13 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, findNodeHandle, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+
+import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
 
 import type { DailySleepMetricDetail } from "@/lib/data/dash/buildDailySleepCardModel";
 import { SCORE_UNAVAILABLE_A11Y } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
+import { isSleepDurationDetailV1Enabled } from "@/lib/data/sleep/sleepDurationDetailFlag";
 import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
@@ -15,6 +18,7 @@ import {
   buildOuraRatingAccessibility,
   mapOuraProviderRatingToTone,
 } from "@/lib/data/dash/dailyMonitorPresentationRatings";
+import { SleepDurationDetailController } from "@/lib/ui/sleep/SleepDurationDetailController";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -22,6 +26,7 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 const SLEEP_DETAIL_HREF = "/(app)/recovery/sleep" as const;
 
@@ -32,6 +37,9 @@ type Props = {
   /** @deprecated Kept for call-site compatibility; Monitor summary no longer shows provider copy. */
   scoreCaption?: string | null;
   cardAccessibilityLabel?: string;
+  /** Attributed SleepNight for Duration detail when the Phase 2D flag is enabled. */
+  attributedSleepNight?: SleepNightDocumentDto | null;
+  attributedSleepResolution?: SleepNightResolution | null;
 };
 
 export function DailySleepCard({
@@ -39,10 +47,15 @@ export function DailySleepCard({
   title = "Daily Sleep",
   scoreCaption: _scoreCaption = null,
   cardAccessibilityLabel = "Daily Sleep card",
+  attributedSleepNight = null,
+  attributedSleepResolution = null,
 }: Props): React.ReactElement {
   void _scoreCaption;
   const router = useRouter();
   const [metricSheet, setMetricSheet] = useState<DailySleepMetricDetail | null>(null);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const durationRowRef = React.useRef<View>(null);
+  const durationDetailEnabled = isSleepDurationDetailV1Enabled();
 
   const loading = vm.status === "partial";
   const isRefreshing = vm.status === "ready" && vm.isRefreshing;
@@ -51,6 +64,8 @@ export function DailySleepCard({
   const missingMessage = vm.status === "missing" ? vm.message : null;
   const missingCta =
     vm.status === "missing" && vm.reason === "oura_disconnected" ? vm.cta : undefined;
+
+  const selectedDay = vm.day as DayKey;
 
   const onOpenOuraReconnect = useCallback(() => {
     if (missingCta == null) return;
@@ -61,6 +76,33 @@ export function DailySleepCard({
     if (loading || error || vm.status !== "ready") return;
     router.push(SLEEP_DETAIL_HREF);
   }, [error, loading, router, vm.status]);
+
+  const restoreDurationFocus = useCallback(() => {
+    const node = durationRowRef.current;
+    if (node == null) return;
+    const handle = findNodeHandle(node);
+    if (handle == null) return;
+    AccessibilityInfo.setAccessibilityFocus(handle);
+  }, []);
+
+  const closeDurationDetail = useCallback(() => {
+    setDurationOpen(false);
+    requestAnimationFrame(() => {
+      restoreDurationFocus();
+    });
+  }, [restoreDurationFocus]);
+
+  const onPressMetricRow = useCallback(
+    (row: { id: string; isAvailable: boolean; detail: DailySleepMetricDetail }) => {
+      if (row.id === "sleep_duration" && durationDetailEnabled) {
+        if (!row.isAvailable) return;
+        setDurationOpen(true);
+        return;
+      }
+      setMetricSheet(row.detail);
+    },
+    [durationDetailEnabled],
+  );
 
   const primaryScoreLabel = useMemo(() => {
     if (!model?.hasAnySignal) return null;
@@ -170,19 +212,40 @@ export function DailySleepCard({
 
         {showMetricSection && model ? (
           <View style={styles.metricSection} accessibilityRole="list">
-            {model.metricRows.map((row) => (
-              <DashMetricRow
-                key={row.id}
-                testID={`sleep-metric-row-${row.id}`}
-                label={row.label}
-                displayValue={row.value}
-                accessibilityValue={row.accessibilityValue}
-                accessibilityHint="Opens sleep metric details"
-                onPress={() => {
-                  setMetricSheet(row.detail);
-                }}
-              />
-            ))}
+            {model.metricRows.map((row) => {
+              const isDuration = row.id === "sleep_duration";
+              const canPress =
+                !(isDuration && durationDetailEnabled && !row.isAvailable);
+              const rowEl = (
+                <DashMetricRow
+                  key={row.id}
+                  testID={`sleep-metric-row-${row.id}`}
+                  label={row.label}
+                  displayValue={row.value}
+                  accessibilityValue={row.accessibilityValue}
+                  accessibilityHint={
+                    isDuration && durationDetailEnabled
+                      ? "Opens sleep duration details"
+                      : "Opens sleep metric details"
+                  }
+                  {...(canPress
+                    ? {
+                        onPress: () => {
+                          onPressMetricRow(row);
+                        },
+                      }
+                    : {})}
+                />
+              );
+              if (isDuration) {
+                return (
+                  <View key={row.id} ref={durationRowRef} collapsable={false}>
+                    {rowEl}
+                  </View>
+                );
+              }
+              return rowEl;
+            })}
           </View>
         ) : null}
 
@@ -209,6 +272,16 @@ export function DailySleepCard({
                 body: "",
               })}
         />
+
+        {durationDetailEnabled && durationOpen ? (
+          <SleepDurationDetailController
+            selectedDay={selectedDay}
+            sleepNight={attributedSleepNight}
+            resolution={attributedSleepResolution}
+            currentFormattedOverride={model?.durationValueText ?? null}
+            onClose={closeDurationDetail}
+          />
+        ) : null}
       </View>
     </View>
   );
