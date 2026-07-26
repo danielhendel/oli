@@ -21,24 +21,28 @@ function baseVm(over: Partial<SleepStageDetailViewModel> = {}): SleepStageDetail
     currentPercentDisplay: 11,
     adultContext: {
       status: "below_typical",
-      statusLabel: "Below typical adult context",
+      statusLabel: "Below typical range",
       typicalPercentRangeText: "16–20% of total sleep",
       equivalentMinutesSentence: "About 1h 12m–1h 30m for this sleep duration",
-      belowLabel: "Below typical",
-      typicalLabel: "Typical adult context",
-      aboveLabel: "Above typical",
+      belowLabel: "Below Typical",
+      typicalLabel: "Typical Range",
+      aboveLabel: "Above Typical",
       belowRangeText: "<16%",
       typicalRangeText: "16–20%",
       aboveRangeText: ">20%",
-      zoneFractions: { below: 16 / 36, typical: 4 / 36, above: 16 / 36 },
-      markerPosition01: 0.3,
+      zoneFractions: { below: 0.4, typical: 0.2, above: 0.4 },
+      markerPosition01: 0.2,
+      currentMarkerPosition01: 0.2,
+      ninetyDayMarkerPosition01: 0.28,
+      currentPercentDisplay: 11,
+      ninetyDayPercentDisplay: 13,
       accessibilitySummary:
-        "Below typical adult context. Typical adult context is 16 to 20 percent, which is about 1h 12m–1h 30m for this sleep duration.",
+        "Below typical range. The typical range is 16 to 20 percent. Today is 11 percent. Your 90-day average is 13 percent.",
     },
     adultContextResult: {
       metricId: "deep_sleep",
       status: "below_typical",
-      label: "Below typical adult context",
+      label: "Below typical range",
       lowerPercent: 16,
       upperPercent: 20,
       equivalentLowerMinutes: 72,
@@ -118,22 +122,22 @@ function baseVm(over: Partial<SleepStageDetailViewModel> = {}): SleepStageDetail
       sevenDay: {
         id: "7d",
         label: "7-day average",
-        value: "50m",
-        secondaryValue: "11% of total sleep",
+        value: "50m · 11%",
+        secondaryValue: null,
         accessibilitySummary: "7 days average 50m. 11% of total sleep.",
       },
       thirtyDay: {
         id: "30d",
         label: "30-day average",
-        value: "54m",
-        secondaryValue: "12% of total sleep",
+        value: "54m · 12%",
+        secondaryValue: null,
         accessibilitySummary: "30 days average 54m. 12% of total sleep.",
       },
       ninetyDay: {
         id: "90d",
         label: "90-day average",
-        value: "52m",
-        secondaryValue: "11% of total sleep",
+        value: "52m · 11%",
+        secondaryValue: null,
         accessibilitySummary: "90 days average 52m. 11% of total sleep.",
       },
     },
@@ -159,7 +163,8 @@ function baseVm(over: Partial<SleepStageDetailViewModel> = {}): SleepStageDetail
     historyErrorMessage: null,
     canRetryHistory: false,
     isHistoryLoading: false,
-    accessibilitySummary: "Deep Sleep. 50m. 11% of total sleep. Below typical adult context.",
+    accessibilitySummary:
+      "Deep Sleep. 50m. 11% of total sleep. Below typical range. The typical range is 16 to 20 percent. Today is 11 percent. Your 90-day average is 13 percent.",
     ...over,
   };
 }
@@ -177,7 +182,7 @@ function allText(root: renderer.ReactTestInstance): string {
 }
 
 describe("SleepStageDetailSheet — Deep", () => {
-  it("renders hero, percent, adult context, personal context, and pattern without population Optimal labels", () => {
+  it("renders hero, percent, single range bar, and pattern without Personal Context rail", () => {
     const onClose = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -189,29 +194,35 @@ describe("SleepStageDetailSheet — Deep", () => {
     expect(flat).toContain("Deep Sleep");
     expect(flat).toContain("50m");
     expect(flat).toContain("11% of total sleep");
-    expect(flat).toContain("Below typical adult context");
-    expect(flat).toContain("Typical adult context");
-    expect(flat).toContain("16–20% of total sleep");
-    expect(flat).toContain("Personal context");
-    expect(flat).toContain("2m below your recent average");
+    expect(flat).toContain("Below typical range");
+    expect(flat).toContain("Below Typical");
+    expect(flat).toContain("Typical Range");
+    expect(flat).toContain("Above Typical");
+    expect(flat).toContain("Today");
+    expect(flat).toContain("90-day average");
     expect(flat).toContain("Your Pattern");
+    expect(flat).toContain("50m · 11%");
     expect(flat).toContain("7-day average");
     expect(flat).toContain("30-day average");
-    expect(flat).toContain("90-day average");
     expect(flat).toContain("What it measures");
     expect(flat).toContain("clinical sleep study");
+    expect(flat).not.toContain("Personal context");
+    expect(flat).not.toContain("2m below your recent average");
+    expect(flat).not.toContain("Typical adult context");
+    expect(flat).not.toContain("for this sleep duration");
     expect(flat).not.toMatch(
-      /\bIn range\b|\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|\bBelow Typical\b|Recommended|sourceDocumentId|SleepNight/,
+      /\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|Recommended|sourceDocumentId|SleepNight/,
     );
     expect(tree.root.findByProps({ testID: "deep-sleep-detail-sheet" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "deep-sleep-adult-context" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "deep-sleep-pattern-7d-percent" }).props.children).toBe(
-      "11% of total sleep",
-    );
+    expect(tree.root.findByProps({ testID: "deep-sleep-adult-context-marker" })).toBeDefined();
+    expect(
+      tree.root.findByProps({ testID: "deep-sleep-adult-context-ninety-day-marker" }),
+    ).toBeDefined();
+    expect(() => tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toThrow();
   });
 
-  it("omits adult-context block when withheld without leaving blank status space", () => {
+  it("omits adult-context block when withheld without leaving Personal Context", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -235,13 +246,14 @@ describe("SleepStageDetailSheet — Deep", () => {
     const flat = allText(tree.root);
     expect(flat).toContain("50m");
     expect(flat).toContain("11% of total sleep");
-    expect(flat).toContain("Personal context");
-    expect(flat).not.toContain("Below typical adult context");
+    expect(flat).toContain("Your Pattern");
+    expect(flat).not.toContain("Below typical range");
+    expect(flat).not.toContain("Personal context");
     expect(() => tree.root.findByProps({ testID: "deep-sleep-adult-context" })).toThrow();
-    expect(tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toBeDefined();
+    expect(() => tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toThrow();
   });
 
-  it("omits percent and personal rail when unavailable; shows history error with retry", () => {
+  it("omits percent when unavailable; shows history error with retry", () => {
     const onRetry = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -269,7 +281,7 @@ describe("SleepStageDetailSheet — Deep", () => {
     const flat = allText(tree.root);
     expect(flat).toContain("50m");
     expect(flat).not.toContain("11% of total sleep");
-    expect(() => tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toThrow();
+    expect(flat).not.toContain("Personal context");
     const retry = tree.root.findByProps({ testID: "deep-sleep-history-retry" });
     expect(retry.props.style).toBeDefined();
     act(() => {
@@ -335,6 +347,26 @@ describe("SleepStageDetailSheet — REM", () => {
             currentFormatted: "2h 12m",
             currentValueMinutes: 132,
             percentOfTotalSleepSentence: "29% of total sleep",
+            adultContext: {
+              status: "within_typical",
+              statusLabel: "In typical range",
+              typicalPercentRangeText: "21–30% of total sleep",
+              equivalentMinutesSentence: "About 1h 35m–2h 15m for this sleep duration",
+              belowLabel: "Below Typical",
+              typicalLabel: "Typical Range",
+              aboveLabel: "Above Typical",
+              belowRangeText: "<21%",
+              typicalRangeText: "21–30%",
+              aboveRangeText: ">30%",
+              zoneFractions: { below: 0.34, typical: 0.28, above: 0.38 },
+              markerPosition01: 0.62,
+              currentMarkerPosition01: 0.62,
+              ninetyDayMarkerPosition01: 0.45,
+              currentPercentDisplay: 29,
+              ninetyDayPercentDisplay: 23,
+              accessibilitySummary:
+                "In typical range. The typical range is 21 to 30 percent. Today is 29 percent. Your 90-day average is 23 percent.",
+            },
             explainers: [
               {
                 heading: "What it measures",
@@ -349,7 +381,10 @@ describe("SleepStageDetailSheet — REM", () => {
     expect(flat).toContain("REM Sleep");
     expect(flat).toContain("2h 12m");
     expect(flat).toContain("29% of total sleep");
+    expect(flat).toContain("In typical range");
     expect(flat).toContain("dreaming");
+    expect(flat).not.toContain("Personal context");
     expect(tree.root.findByProps({ testID: "rem-sleep-detail-sheet" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "rem-sleep-adult-context" })).toBeDefined();
   });
 });

@@ -5,13 +5,19 @@ import {
   classifySleepStageAdultContextStatus,
   DEEP_SLEEP_ADULT_CONTEXT_LOWER_PERCENT,
   DEEP_SLEEP_ADULT_CONTEXT_UPPER_PERCENT,
+  DEEP_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+  DEEP_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
   formatSleepStageAdultContextEquivalentMinutes,
   REM_SLEEP_ADULT_CONTEXT_LOWER_PERCENT,
   REM_SLEEP_ADULT_CONTEXT_UPPER_PERCENT,
+  REM_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+  REM_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
   SLEEP_STAGE_ADULT_CONTEXT_EVIDENCE_IDS,
   SLEEP_STAGE_ADULT_CONTEXT_MODEL_ID,
   SLEEP_STAGE_ADULT_CONTEXT_MODEL_VERSION,
+  sleepStageAdultContextAccessibilitySummary,
   sleepStageAdultContextMarkerPosition01,
+  sleepStageAdultContextVisualDomain,
   sleepStageAdultContextZoneFractions,
 } from "@/lib/data/sleep/sleepStageAdultContext";
 
@@ -50,20 +56,22 @@ describe("classifySleepStageAdultContext", () => {
     resolution: "exact_anchor" as const,
   };
 
-  it("returns Below typical adult context for Deep 11%", () => {
+  it("returns Below typical range for Deep 11%", () => {
     const result = classifySleepStageAdultContext(base);
     expect(result).not.toBeNull();
     expect(result!.status).toBe("below_typical");
-    expect(result!.label).toBe("Below typical adult context");
+    expect(result!.label).toBe("Below typical range");
     expect(result!.lowerPercent).toBe(16);
     expect(result!.upperPercent).toBe(20);
     expect(result!.modelId).toBe(SLEEP_STAGE_ADULT_CONTEXT_MODEL_ID);
     expect(result!.modelVersion).toBe(SLEEP_STAGE_ADULT_CONTEXT_MODEL_VERSION);
     expect(result!.evidenceIds).toEqual([...SLEEP_STAGE_ADULT_CONTEXT_EVIDENCE_IDS]);
-    expect(result!.label).not.toMatch(/\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|\bhealthy\b|\bclinical\b/i);
+    expect(result!.label).not.toMatch(
+      /\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|\bhealthy\b|\bclinical\b|Recommended/i,
+    );
   });
 
-  it("returns Within typical adult context for REM 30%", () => {
+  it("returns In typical range for REM 30%", () => {
     const result = classifySleepStageAdultContext({
       metricId: "rem_sleep",
       stageMinutes: 135,
@@ -74,9 +82,18 @@ describe("classifySleepStageAdultContext", () => {
       resolution: "exact_anchor",
     });
     expect(result!.status).toBe("within_typical");
-    expect(result!.label).toBe("Within typical adult context");
+    expect(result!.label).toBe("In typical range");
     expect(result!.lowerPercent).toBe(21);
     expect(result!.upperPercent).toBe(30);
+  });
+
+  it("returns Above typical range above the band", () => {
+    const result = classifySleepStageAdultContext({
+      ...base,
+      stagePercentUnrounded: 24,
+    });
+    expect(result!.status).toBe("above_typical");
+    expect(result!.label).toBe("Above typical range");
   });
 
   it("withholds for unsupported ages and missing inputs", () => {
@@ -146,14 +163,36 @@ describe("formatSleepStageAdultContextEquivalentMinutes", () => {
 });
 
 describe("sleepStageAdultContext visualization geometry", () => {
-  it("keeps typical band between equal outer zones without progress semantics", () => {
+  it("exposes named visual domains without changing scientific thresholds", () => {
+    expect(sleepStageAdultContextVisualDomain("deep_sleep")).toEqual({
+      minPercent: DEEP_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
+      maxPercent: DEEP_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+    });
+    expect(sleepStageAdultContextVisualDomain("rem_sleep")).toEqual({
+      minPercent: REM_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
+      maxPercent: REM_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+    });
+    expect(DEEP_SLEEP_ADULT_CONTEXT_LOWER_PERCENT).toBe(16);
+    expect(DEEP_SLEEP_ADULT_CONTEXT_UPPER_PERCENT).toBe(20);
+    expect(REM_SLEEP_ADULT_CONTEXT_LOWER_PERCENT).toBe(21);
+    expect(REM_SLEEP_ADULT_CONTEXT_UPPER_PERCENT).toBe(30);
+  });
+
+  it("maps Deep 16–20% onto a visibly meaningful center width", () => {
     const deep = sleepStageAdultContextZoneFractions("deep_sleep");
     expect(deep.below).toBeCloseTo(deep.above, 5);
-    expect(deep.typical).toBeGreaterThan(0);
+    expect(deep.typical).toBeGreaterThanOrEqual(0.18);
     expect(deep.below + deep.typical + deep.above).toBeCloseTo(1, 5);
+    // Legacy 0→(16+20) scale made typical only ~11% of the bar.
+    expect(deep.typical).toBeGreaterThan(4 / 36);
+  });
 
+  it("maps REM 21–30% onto a visibly meaningful center width", () => {
     const rem = sleepStageAdultContextZoneFractions("rem_sleep");
-    expect(rem.below).toBeCloseTo(rem.above, 5);
+    expect(rem.typical).toBeGreaterThanOrEqual(0.22);
+    expect(rem.below).toBeGreaterThan(0.15);
+    expect(rem.above).toBeGreaterThan(0.15);
+    expect(rem.below + rem.typical + rem.above).toBeCloseTo(1, 5);
   });
 
   it("clamps marker at visual edges without changing real percent", () => {
@@ -169,5 +208,39 @@ describe("sleepStageAdultContext visualization geometry", () => {
         stagePercentUnrounded: 200,
       }),
     ).toBe(0.98);
+    // 11% Deep stays below typical and maps inside the below zone.
+    const pos = sleepStageAdultContextMarkerPosition01({
+      metricId: "deep_sleep",
+      stagePercentUnrounded: 11.111,
+    });
+    const deep = sleepStageAdultContextZoneFractions("deep_sleep");
+    expect(pos).toBeLessThan(deep.below);
+  });
+});
+
+describe("sleepStageAdultContextAccessibilitySummary", () => {
+  it("announces status, typical band, today, and optional 90-day percent", () => {
+    expect(
+      sleepStageAdultContextAccessibilitySummary({
+        label: "Below typical range",
+        lowerPercent: 16,
+        upperPercent: 20,
+        currentPercentDisplay: 11,
+        ninetyDayPercentDisplay: 13,
+      }),
+    ).toBe(
+      "Below typical range. The typical range is 16 to 20 percent. Today is 11 percent. Your 90-day average is 13 percent.",
+    );
+    expect(
+      sleepStageAdultContextAccessibilitySummary({
+        label: "In typical range",
+        lowerPercent: 21,
+        upperPercent: 30,
+        currentPercentDisplay: 30,
+        ninetyDayPercentDisplay: null,
+      }),
+    ).toBe(
+      "In typical range. The typical range is 21 to 30 percent. Today is 30 percent.",
+    );
   });
 });
