@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
 import { logDailySleepTruthDev } from "@/lib/data/dash/dailySleepCardViewModel";
 import type { TruthGetOptions } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -22,6 +23,8 @@ export type UseTodayHealthHeroResult = {
   sleepCardVm: DailySleepCardViewModel;
   /** Exact-day RHR from attributed SleepNight; for Readiness card join only. */
   exactDayRestingHeartRateBpm: number | null;
+  attributedSleepNight: SleepNightDocumentDto | null;
+  attributedSleepResolution: SleepNightResolution | null;
   refetch: (opts?: TruthGetOptions) => void;
   /** SleepNight only — pair with DailyFacts invalidation to avoid duplicate facts GETs. */
   refetchSleep: (opts?: TruthGetOptions) => void;
@@ -114,6 +117,8 @@ export function useTodayHealthHero(day: DayKey): UseTodayHealthHeroResult {
     energyError,
     sleepCardVm: dailySleep.vm,
     exactDayRestingHeartRateBpm: dailySleep.exactDayRestingHeartRateBpm,
+    attributedSleepNight: dailySleep.attributedSleepNight,
+    attributedSleepResolution: dailySleep.attributedResolution,
     refetch,
     refetchSleep,
   };

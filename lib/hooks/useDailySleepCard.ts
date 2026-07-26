@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 
+import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
+
 import {
+  attributedSleepNightViewForCalendarDay,
   buildDailySleepCardViewModel,
   sleepNightIsAttributedToCalendarDay,
   type DailySleepCardViewModel,
@@ -27,6 +30,9 @@ export type UseDailySleepCardResult = {
    * Null when sleep is not attributed, missing physiology, or unsettled.
    */
   exactDayRestingHeartRateBpm: number | null;
+  /** Attributed SleepNight document for Duration detail (null when not attributed). */
+  attributedSleepNight: SleepNightDocumentDto | null;
+  attributedResolution: SleepNightResolution | null;
 };
 
 /**
@@ -70,6 +76,11 @@ export function useDailySleepCard(day: DayKey, options?: { enabled?: boolean }):
     return Math.round(bpm);
   }, [day, sleepNight.settled, sleepNight.view]);
 
+  const attributedView = useMemo(
+    () => attributedSleepNightViewForCalendarDay(day, sleepNight),
+    [day, sleepNight.settled, sleepNight.view],
+  );
+
   const truthDebug = useMemo((): DailySleepCardTruthDebug => {
     const blockedStale =
       sleepNight.settled &&
@@ -90,5 +101,12 @@ export function useDailySleepCard(day: DayKey, options?: { enabled?: boolean }):
     [sleepNight.refetch],
   );
 
-  return { vm, refetch, truthDebug, exactDayRestingHeartRateBpm };
+  return {
+    vm,
+    refetch,
+    truthDebug,
+    exactDayRestingHeartRateBpm,
+    attributedSleepNight: attributedView?.sleepNight ?? null,
+    attributedResolution: attributedView?.resolution ?? null,
+  };
 }

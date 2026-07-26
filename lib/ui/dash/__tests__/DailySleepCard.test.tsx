@@ -5,7 +5,7 @@ import renderer, { type ReactTestInstance } from "react-test-renderer";
 import type { SleepNightDocumentDto } from "@oli/contracts";
 import { buildDailySleepCardModel, type DailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
-import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
+import { DailySleepCard, DAILY_SLEEP_LOADING_COPY, DAILY_SLEEP_REFRESHING_COPY } from "@/lib/ui/dash/DailySleepCard";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 const mockPush = jest.fn();
@@ -16,6 +16,10 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }),
+}));
+
+jest.mock("@/lib/ui/sleep/SleepDurationDetailController", () => ({
+  SleepDurationDetailController: () => null,
 }));
 
 const day = "2026-05-01";
@@ -290,7 +294,52 @@ describe("DailySleepCard", () => {
 
     const flat = allVisibleText(root.root);
     expect(flat).toContain("96");
-    expect(flat).toContain("Refreshing daily sleep");
+    expect(flat).toContain(DAILY_SLEEP_REFRESHING_COPY);
+    expect(flat).toContain("Refreshing daily sleep…");
+    expect(flat).not.toMatch(/\\u2026/);
+    expect(flat).not.toMatch(/scoreUnavailable|mainSleepMinutes|Canonical/i);
+  });
+
+  it("loading and refreshing copy use a real ellipsis without literal Unicode escapes", () => {
+    expect(DAILY_SLEEP_LOADING_COPY).toBe("Loading daily sleep…");
+    expect(DAILY_SLEEP_REFRESHING_COPY).toBe("Refreshing daily sleep…");
+    expect(DAILY_SLEEP_LOADING_COPY.includes("\\")).toBe(false);
+    expect(DAILY_SLEEP_REFRESHING_COPY.includes("\\")).toBe(false);
+
+    let loadingRoot!: renderer.ReactTestRenderer;
+    act(() => {
+      loadingRoot = renderer.create(
+        <DailySleepCard vm={{ status: "partial", day }} />,
+      );
+    });
+    const loadingFlat = allVisibleText(loadingRoot.root);
+    expect(loadingFlat).toContain(DAILY_SLEEP_LOADING_COPY);
+    expect(loadingFlat).toContain("Loading daily sleep…");
+    expect(loadingFlat).not.toMatch(/\\u2026/);
+    expect(loadingFlat).not.toMatch(/scoreUnavailable|mainSleepMinutes|Canonical/i);
+
+    const model = buildDailySleepCardModel({
+      day,
+      sleepNightSettled: true,
+      sleepNight: minimalNight({ score: 96 }),
+    });
+    let refreshRoot!: renderer.ReactTestRenderer;
+    act(() => {
+      refreshRoot = renderer.create(<DailySleepCard vm={readyVm(model, true)} />);
+    });
+    const refreshFlat = allVisibleText(refreshRoot.root);
+    expect(refreshFlat).toContain(DAILY_SLEEP_REFRESHING_COPY);
+    expect(refreshFlat).not.toMatch(/\\u2026/);
+
+    const header = refreshRoot.root.findAll(
+      (p) =>
+        typeof p.props?.accessibilityLabel === "string" &&
+        String(p.props.accessibilityLabel).includes("Refreshing"),
+    )[0];
+    expect(header).toBeDefined();
+    expect(String(header!.props.accessibilityLabel)).toContain("Refreshing");
+    expect(String(header!.props.accessibilityLabel)).not.toMatch(/\\u2026/);
+    expect(String(header!.props.accessibilityLabel)).not.toContain("\\u");
   });
 
   it("missing vm shows no-data message without stale metric rows", () => {
@@ -315,7 +364,9 @@ describe("DailySleepCard", () => {
       root = renderer.create(<DailySleepCard vm={vm} />);
     });
     const flat = allVisibleText(root.root);
-    expect(flat).toContain("Loading daily sleep");
+    expect(flat).toContain(DAILY_SLEEP_LOADING_COPY);
+    expect(flat).toContain("Loading daily sleep…");
+    expect(flat).not.toMatch(/\\u2026/);
     expect(flat).not.toContain("88");
   });
 });

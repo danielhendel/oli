@@ -227,6 +227,8 @@ describe("Weekly Progress relocation", () => {
         message: "No sleep data logged for this day.",
       },
       exactDayRestingHeartRateBpm: null,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
       refetch: jest.fn(),
     });
   });

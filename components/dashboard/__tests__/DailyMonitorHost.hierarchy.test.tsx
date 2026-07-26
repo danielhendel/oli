@@ -35,6 +35,8 @@ jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
     energyError: null,
     sleepCardVm: { status: "missing", day: "2026-07-20", message: "No sleep" },
     exactDayRestingHeartRateBpm: null,
+    attributedSleepNight: null,
+    attributedSleepResolution: null,
     refetch: jest.fn(),
     refetchSleep: jest.fn(),
   }),
