@@ -19,6 +19,39 @@ function baseVm(over: Partial<SleepStageDetailViewModel> = {}): SleepStageDetail
     currentPresence: "present",
     percentOfTotalSleepSentence: "11% of total sleep",
     currentPercentDisplay: 11,
+    adultContext: {
+      status: "below_typical",
+      statusLabel: "Below typical adult context",
+      typicalPercentRangeText: "16–20% of total sleep",
+      equivalentMinutesSentence: "About 1h 12m–1h 30m for this sleep duration",
+      belowLabel: "Below typical",
+      typicalLabel: "Typical adult context",
+      aboveLabel: "Above typical",
+      belowRangeText: "<16%",
+      typicalRangeText: "16–20%",
+      aboveRangeText: ">20%",
+      zoneFractions: { below: 16 / 36, typical: 4 / 36, above: 16 / 36 },
+      markerPosition01: 0.3,
+      accessibilitySummary:
+        "Below typical adult context. Typical adult context is 16 to 20 percent, which is about 1h 12m–1h 30m for this sleep duration.",
+    },
+    adultContextResult: {
+      metricId: "deep_sleep",
+      status: "below_typical",
+      label: "Below typical adult context",
+      lowerPercent: 16,
+      upperPercent: 20,
+      equivalentLowerMinutes: 72,
+      equivalentUpperMinutes: 90,
+      modelId: "sleep-stage-adult-context",
+      modelVersion: "sleep-stage-adult-context-v1",
+      evidenceIds: [
+        "nsf-sleep-quality-architecture-2017",
+        "adult-sleep-architecture-context",
+      ],
+    },
+    adultContextWithheldReason: "none",
+    ageYears: 30,
     personalComparison: {
       heading: "Personal context",
       currentFormatted: "50m",
@@ -111,22 +144,22 @@ function baseVm(over: Partial<SleepStageDetailViewModel> = {}): SleepStageDetail
       },
       {
         heading: "How to understand it",
-        body: "Deep sleep naturally varies from night to night and often changes with age.",
+        body: "Adults often spend roughly 16–20% of total sleep in deep sleep, but deep sleep changes with age and varies from night to night.",
       },
       {
         heading: "What can help",
-        body: "A consistent sleep schedule, enough total sleep time, regular activity, and limiting late alcohol may support healthier sleep patterns.",
+        body: "Focus first on enough total sleep and a consistent sleep schedule.",
       },
     ],
     dataAccuracyBody:
-      "Your wearable estimates sleep stages from signals such as movement and heart rate. Stage estimates may differ from a clinical sleep study.",
+      "Your wearable estimates sleep stages using signals such as movement and heart rate. Stage estimates may differ from a clinical sleep study.",
     dataAccuracyContextLine: null,
     sourceLine: null,
     historyStatus: "ready",
     historyErrorMessage: null,
     canRetryHistory: false,
     isHistoryLoading: false,
-    accessibilitySummary: "Deep Sleep. 50m. 11% of total sleep.",
+    accessibilitySummary: "Deep Sleep. 50m. 11% of total sleep. Below typical adult context.",
     ...over,
   };
 }
@@ -144,7 +177,7 @@ function allText(root: renderer.ReactTestInstance): string {
 }
 
 describe("SleepStageDetailSheet — Deep", () => {
-  it("renders hero, percent, personal context, pattern, and education without population status", () => {
+  it("renders hero, percent, adult context, personal context, and pattern without population Optimal labels", () => {
     const onClose = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -156,6 +189,9 @@ describe("SleepStageDetailSheet — Deep", () => {
     expect(flat).toContain("Deep Sleep");
     expect(flat).toContain("50m");
     expect(flat).toContain("11% of total sleep");
+    expect(flat).toContain("Below typical adult context");
+    expect(flat).toContain("Typical adult context");
+    expect(flat).toContain("16–20% of total sleep");
     expect(flat).toContain("Personal context");
     expect(flat).toContain("2m below your recent average");
     expect(flat).toContain("Your Pattern");
@@ -165,13 +201,44 @@ describe("SleepStageDetailSheet — Deep", () => {
     expect(flat).toContain("What it measures");
     expect(flat).toContain("clinical sleep study");
     expect(flat).not.toMatch(
-      /\bIn range\b|\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|\bBelow Typical\b|sourceDocumentId|SleepNight/,
+      /\bIn range\b|\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|\bBelow Typical\b|Recommended|sourceDocumentId|SleepNight/,
     );
     expect(tree.root.findByProps({ testID: "deep-sleep-detail-sheet" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "deep-sleep-adult-context" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "deep-sleep-pattern-7d-percent" }).props.children).toBe(
       "11% of total sleep",
     );
+  });
+
+  it("omits adult-context block when withheld without leaving blank status space", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <SleepStageDetailSheet
+          visible
+          onClose={jest.fn()}
+          vm={baseVm({
+            adultContext: null,
+            adultContextResult: null,
+            adultContextWithheldReason: "unknown_age",
+            explainers: [
+              {
+                heading: "How to understand it",
+                body: "Sleep-stage patterns change with age. Your current result and recent personal pattern are shown without a general adult-context classification.",
+              },
+            ],
+          })}
+        />,
+      );
+    });
+    const flat = allText(tree.root);
+    expect(flat).toContain("50m");
+    expect(flat).toContain("11% of total sleep");
+    expect(flat).toContain("Personal context");
+    expect(flat).not.toContain("Below typical adult context");
+    expect(() => tree.root.findByProps({ testID: "deep-sleep-adult-context" })).toThrow();
+    expect(tree.root.findByProps({ testID: "deep-sleep-personal-baseline" })).toBeDefined();
   });
 
   it("omits percent and personal rail when unavailable; shows history error with retry", () => {
@@ -185,6 +252,9 @@ describe("SleepStageDetailSheet — Deep", () => {
           onRetryHistory={onRetry}
           vm={baseVm({
             percentOfTotalSleepSentence: null,
+            adultContext: null,
+            adultContextResult: null,
+            adultContextWithheldReason: "missing_inputs",
             personalComparison: null,
             ninetyDay: null,
             pattern: null,
@@ -220,6 +290,8 @@ describe("SleepStageDetailSheet — Deep", () => {
             historyStatus: "loading",
             pattern: null,
             personalComparison: null,
+            adultContext: null,
+            adultContextResult: null,
             ninetyDay: null,
           })}
         />,

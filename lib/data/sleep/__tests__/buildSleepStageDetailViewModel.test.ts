@@ -67,12 +67,14 @@ function fill(count: number, deepMinutes: number): Partial<Record<DayKey, Weekly
 }
 
 describe("buildSleepStageDetailViewModel — Deep", () => {
-  it("ready with minutes hero and percent secondary", () => {
+  it("ready with minutes hero, percent secondary, and adult context for ages 18–64", () => {
     const vm = buildSleepStageDetailViewModel({
       metricId: "deep_sleep",
       selectedDay: selected,
       todayDayKey: today,
       sleepNight: night(),
+      resolution: "exact_anchor",
+      dateOfBirth: "1990-01-01",
       sleepNightByDay: fill(90, 52),
       historyStatus: "ready",
     });
@@ -80,16 +82,68 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
     expect(vm.currentFormatted).toBe("50m");
     expect(vm.currentPresence).toBe("present");
     expect(vm.percentOfTotalSleepSentence).toBe("11% of total sleep");
+    expect(vm.adultContext?.statusLabel).toBe("Below typical adult context");
+    expect(vm.adultContext?.typicalPercentRangeText).toBe("16–20% of total sleep");
+    expect(vm.adultContext?.equivalentMinutesSentence).toContain("for this sleep duration");
+    expect(vm.adultContextResult?.modelVersion).toBe("sleep-stage-adult-context-v1");
     expect(vm.pattern?.sevenDay.value).not.toBe("Not enough data");
     expect(vm.personalComparison).not.toBeNull();
+    expect(vm.explainers[1]?.body).toContain("16–20%");
     expect(vm.accessibilitySummary).toContain("Deep Sleep");
     expect(vm.accessibilitySummary).toContain("50m");
     expect(vm.accessibilitySummary).toContain("11% of total sleep");
+    expect(vm.accessibilitySummary).toContain("Below typical adult context");
     expect(vm.sourceLine).toBeNull();
     expect(vm.dataAccuracyContextLine).toBeNull();
     expect(vm.accessibilitySummary).not.toMatch(
-      /\bIn range\b|\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|sourceDocumentId/i,
+      /\bIn range\b|\bOptimal\b|\bGood\b|\bFair\b|\bLow\b|sourceDocumentId|evidenceIds|dateOfBirth/i,
     );
+  });
+
+  it("withholds adult context for unknown age while keeping personal pattern", () => {
+    const vm = buildSleepStageDetailViewModel({
+      metricId: "deep_sleep",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNight: night(),
+      resolution: "exact_anchor",
+      dateOfBirth: null,
+      sleepNightByDay: fill(90, 52),
+      historyStatus: "ready",
+    });
+    expect(vm.percentOfTotalSleepSentence).toBe("11% of total sleep");
+    expect(vm.adultContext).toBeNull();
+    expect(vm.adultContextWithheldReason).toBe("unknown_age");
+    expect(vm.personalComparison).not.toBeNull();
+    expect(vm.explainers[1]?.body).toContain("without a general adult-context classification");
+  });
+
+  it("withholds adult context for age 65+ and minors", () => {
+    const older = buildSleepStageDetailViewModel({
+      metricId: "deep_sleep",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNight: night(),
+      resolution: "exact_anchor",
+      dateOfBirth: "1950-01-01",
+      sleepNightByDay: {},
+      historyStatus: "idle",
+    });
+    expect(older.adultContext).toBeNull();
+    expect(older.adultContextWithheldReason).toBe("older_adult");
+
+    const minor = buildSleepStageDetailViewModel({
+      metricId: "deep_sleep",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNight: night(),
+      resolution: "exact_anchor",
+      dateOfBirth: "2012-01-01",
+      sleepNightByDay: {},
+      historyStatus: "idle",
+    });
+    expect(minor.adultContext).toBeNull();
+    expect(minor.adultContextWithheldReason).toBe("minor");
   });
 
   it("ready without percentage when denominator missing", () => {
@@ -98,11 +152,14 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
       selectedDay: selected,
       todayDayKey: today,
       sleepNight: night({ totalSleepMinutes: undefined, deepPercent: undefined }),
+      dateOfBirth: "1990-01-01",
+      resolution: "exact_anchor",
       sleepNightByDay: {},
       historyStatus: "ready",
     });
     expect(vm.currentFormatted).toBe("50m");
     expect(vm.percentOfTotalSleepSentence).toBeNull();
+    expect(vm.adultContext).toBeNull();
   });
 
   it("insufficient history shows Not enough data without zero", () => {
@@ -193,19 +250,24 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
 });
 
 describe("buildSleepStageDetailViewModel — REM", () => {
-  it("ready with rem minutes and percent", () => {
+  it("ready with rem minutes, percent, and within typical adult context", () => {
     const vm = buildSleepStageDetailViewModel({
       metricId: "rem_sleep",
       selectedDay: selected,
       todayDayKey: today,
-      sleepNight: night(),
+      sleepNight: night({ remMinutes: 135, remPercent: 30 }),
+      resolution: "exact_anchor",
+      dateOfBirth: "1990-01-01",
       sleepNightByDay: fill(90, 52),
       historyStatus: "ready",
     });
     expect(vm.title).toBe("REM Sleep");
-    expect(vm.currentFormatted).toBe("2h 12m");
-    expect(vm.percentOfTotalSleepSentence).toBe("29% of total sleep");
+    expect(vm.currentFormatted).toBe("2h 15m");
+    expect(vm.percentOfTotalSleepSentence).toBe("30% of total sleep");
+    expect(vm.adultContext?.statusLabel).toBe("Within typical adult context");
+    expect(vm.adultContext?.typicalPercentRangeText).toBe("21–30% of total sleep");
     expect(vm.explainers[0]?.body).toContain("dreaming");
+    expect(vm.explainers[1]?.body).toContain("21–30%");
     expect(vm.accessibilitySummary).not.toMatch(/\bIn range\b|\bOptimal\b|\bquality\b/i);
   });
 });
