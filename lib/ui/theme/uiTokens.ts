@@ -146,5 +146,20 @@ export {
   sleepStagePatternStatusTextColor,
 } from "@/lib/ui/theme/sleepStageAdultContextChrome";
 
+/**
+ * Educational Sleep Efficiency two-zone guideline chrome.
+ * Green = meets ≥85%; muted gray = below; amber/green status text only.
+ */
+export {
+  UI_SLEEP_EFFICIENCY_BELOW_FILL,
+  UI_SLEEP_EFFICIENCY_BELOW_TEXT,
+  UI_SLEEP_EFFICIENCY_MEETS_BORDER,
+  UI_SLEEP_EFFICIENCY_MEETS_FILL,
+  UI_SLEEP_EFFICIENCY_MEETS_TEXT,
+  resolveSleepEfficiencyGuidelineChrome,
+  sleepEfficiencyGuidelineStatusTextColor,
+  sleepEfficiencyPatternStatusTextColor,
+} from "@/lib/ui/theme/sleepEfficiencyGuidelineChrome";
+
 /** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
 export const UI_PROVIDER_SOURCE_CHIP_BG = "rgba(255, 255, 255, 0.06)";
