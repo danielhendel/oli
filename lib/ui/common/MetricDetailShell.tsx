@@ -160,7 +160,7 @@ export function MetricDetailShell({
               testID={`${testID}-scroll`}
               style={styles.scroll}
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={false}
               bounces
               scrollEnabled
               nestedScrollEnabled

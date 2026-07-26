@@ -95,6 +95,7 @@ describe("MetricDetailShell layout", () => {
     const scroll = tree.root.findByProps({ testID: "metric-detail-shell-scroll" });
     expect(scroll.type).toBe(ScrollView);
     expect(scroll.props.scrollEnabled).toBe(true);
+    expect(scroll.props.showsVerticalScrollIndicator).toBe(false);
     const scrollStyle = Array.isArray(scroll.props.style)
       ? Object.assign({}, ...scroll.props.style.filter(Boolean))
       : scroll.props.style;
