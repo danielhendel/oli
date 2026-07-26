@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { SleepStageDetailViewModel } from "@/lib/data/sleep/buildSleepStageDetailViewModel";
 import { MetricDetailShell } from "@/lib/ui/common/MetricDetailShell";
+import { SleepStageAdultContextBar } from "@/lib/ui/sleep/SleepStageAdultContextBar";
 import {
   SleepStagePatternComparisonSkeleton,
   SleepStagePatternComparisonView,
@@ -43,12 +44,58 @@ export function SleepStageDetailSheet({
     vm.metricId === "deep_sleep"
       ? "deep-sleep-history-retry"
       : "rem-sleep-history-retry";
+  const adultTestID =
+    vm.metricId === "deep_sleep"
+      ? "deep-sleep-adult-context"
+      : "rem-sleep-adult-context";
+  const personalTestID =
+    vm.metricId === "deep_sleep"
+      ? "deep-sleep-personal-baseline"
+      : "rem-sleep-personal-baseline";
 
+  const showAdult = vm.adultContext != null;
   const showPersonal =
     vm.personalComparison != null &&
     vm.currentPresence === "present" &&
     vm.currentValueMinutes != null &&
     vm.ninetyDay?.averageMinutes != null;
+
+  let referenceSlot: React.ReactNode = null;
+  if (showAdult || showPersonal) {
+    referenceSlot = (
+      <View>
+        {showAdult && vm.adultContext != null ? (
+          <SleepStageAdultContextBar
+            status={vm.adultContext.status}
+            statusLabel={vm.adultContext.statusLabel}
+            typicalPercentRangeText={vm.adultContext.typicalPercentRangeText}
+            equivalentMinutesSentence={vm.adultContext.equivalentMinutesSentence}
+            belowLabel={vm.adultContext.belowLabel}
+            typicalLabel={vm.adultContext.typicalLabel}
+            aboveLabel={vm.adultContext.aboveLabel}
+            belowRangeText={vm.adultContext.belowRangeText}
+            typicalRangeText={vm.adultContext.typicalRangeText}
+            aboveRangeText={vm.adultContext.aboveRangeText}
+            zoneFractions={vm.adultContext.zoneFractions}
+            markerPosition01={vm.adultContext.markerPosition01}
+            accessibilitySummary={vm.adultContext.accessibilitySummary}
+            testID={adultTestID}
+          />
+        ) : null}
+        {showPersonal &&
+        vm.personalComparison != null &&
+        vm.currentValueMinutes != null &&
+        vm.ninetyDay?.averageMinutes != null ? (
+          <SleepStagePersonalBaselineRail
+            comparison={vm.personalComparison}
+            currentMinutes={vm.currentValueMinutes}
+            baselineMinutes={vm.ninetyDay.averageMinutes}
+            testID={personalTestID}
+          />
+        ) : null}
+      </View>
+    );
+  }
 
   let patternSlot: React.ReactNode = null;
   if (vm.isHistoryLoading) {
@@ -87,23 +134,7 @@ export function SleepStageDetailSheet({
       statusSentence={vm.percentOfTotalSleepSentence}
       accessibilitySummary={vm.accessibilitySummary}
       testID={resolvedTestID}
-      referenceVisualization={
-        showPersonal &&
-        vm.personalComparison != null &&
-        vm.currentValueMinutes != null &&
-        vm.ninetyDay?.averageMinutes != null ? (
-          <SleepStagePersonalBaselineRail
-            comparison={vm.personalComparison}
-            currentMinutes={vm.currentValueMinutes}
-            baselineMinutes={vm.ninetyDay.averageMinutes}
-            testID={
-              vm.metricId === "deep_sleep"
-                ? "deep-sleep-personal-baseline"
-                : "rem-sleep-personal-baseline"
-            }
-          />
-        ) : null
-      }
+      referenceVisualization={referenceSlot}
       averages={patternSlot}
       sections={vm.explainers}
       dataAccuracyBody={vm.dataAccuracyBody}

@@ -1,14 +1,15 @@
 /**
  * Pure Sleep stage detail view model (Phase 2E-B Deep / REM).
  *
- * Composes current stage minutes + percent-of-total-sleep + bounded history averages
- * + personal numerical comparison into presentation-ready fields.
+ * Composes current stage minutes + percent-of-total-sleep + educational adult
+ * context (ages 18–64) + personal numerical comparison + bounded history averages.
  *
- * No React/RN, no I/O, no population In range, no quality-score tiers, no YTD, no chart.
+ * No React/RN, no I/O, no clinical diagnosis, no quality-score tiers, no YTD, no chart.
  */
 
 import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
 
+import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
 import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import {
   buildSleepStageAverageSummaries,
@@ -17,10 +18,25 @@ import {
   SLEEP_STAGE_AVERAGE_90D_EXPECTED,
   type SleepStageAverageSummary,
 } from "@/lib/data/sleep/sleepStageAverages";
-import { sleepStageExplainerCopyFor } from "@/lib/data/sleep/sleepStageExplainerCopy";
+import {
+  classifySleepStageAdultContext,
+  formatSleepStageAdultContextEquivalentMinutes,
+  resolveSleepStageAdultContextWithheldReason,
+  sleepStageAdultContextAccessibilitySummary,
+  sleepStageAdultContextMarkerPosition01,
+  sleepStageAdultContextZoneFractions,
+  type SleepStageAdultContextResult,
+  type SleepStageAdultContextStatus,
+  type SleepStageAdultContextWithheldReason,
+} from "@/lib/data/sleep/sleepStageAdultContext";
+import {
+  sleepStageExplainerCopyFor,
+  sleepStageHowToUnderstandBody,
+} from "@/lib/data/sleep/sleepStageExplainerCopy";
 import {
   sleepStageDefinitionFor,
   stageMinutesFromNight,
+  totalSleepMinutesDenominator,
   type SleepStageMetricId,
 } from "@/lib/data/sleep/sleepStageMetric";
 import {
@@ -60,6 +76,23 @@ export type SleepStagePatternComparison = {
   ninetyDay: SleepStagePatternRow;
 };
 
+/** Presentation-ready adult-context block — no DOB or evidence IDs. */
+export type SleepStageAdultContextPresentation = {
+  status: SleepStageAdultContextStatus;
+  statusLabel: string;
+  typicalPercentRangeText: string;
+  equivalentMinutesSentence: string;
+  belowLabel: "Below typical";
+  typicalLabel: "Typical adult context";
+  aboveLabel: "Above typical";
+  belowRangeText: string;
+  typicalRangeText: string;
+  aboveRangeText: string;
+  zoneFractions: { below: number; typical: number; above: number };
+  markerPosition01: number;
+  accessibilitySummary: string;
+};
+
 export type SleepStageDetailViewModel = {
   metricId: SleepStageMetricId;
   selectedDay: DayKey;
@@ -70,6 +103,10 @@ export type SleepStageDetailViewModel = {
   /** Secondary hero line — e.g. "11% of total sleep"; null when omitted. */
   percentOfTotalSleepSentence: string | null;
   currentPercentDisplay: number | null;
+  adultContext: SleepStageAdultContextPresentation | null;
+  adultContextResult: SleepStageAdultContextResult | null;
+  adultContextWithheldReason: SleepStageAdultContextWithheldReason;
+  ageYears: number | null;
   personalComparison: SleepStagePersonalComparison | null;
   sevenDay: SleepStageAverageSummary | null;
   thirtyDay: SleepStageAverageSummary | null;
@@ -155,6 +192,52 @@ function emptyAverage(window: "7d" | "30d" | "90d"): SleepStageAverageSummary {
   };
 }
 
+function refDateFromDayKey(day: DayKey): Date {
+  const parts = day.split("-").map(Number);
+  const y = parts[0]!;
+  const m = parts[1]!;
+  const d = parts[2]!;
+  return new Date(y, m - 1, d);
+}
+
+function buildAdultContextPresentation(
+  result: SleepStageAdultContextResult,
+  totalSleepMinutes: number,
+  stagePercentUnrounded: number,
+): SleepStageAdultContextPresentation {
+  const equivalents = formatSleepStageAdultContextEquivalentMinutes({
+    totalSleepMinutes,
+    lowerPercent: result.lowerPercent,
+    upperPercent: result.upperPercent,
+  });
+  const typicalPercentRangeText = `${result.lowerPercent}–${result.upperPercent}% of total sleep`;
+  const accessibilitySummary = sleepStageAdultContextAccessibilitySummary({
+    label: result.label,
+    lowerPercent: result.lowerPercent,
+    upperPercent: result.upperPercent,
+    equivalentSentence: equivalents.equivalentSentence,
+  });
+
+  return {
+    status: result.status,
+    statusLabel: result.label,
+    typicalPercentRangeText,
+    equivalentMinutesSentence: equivalents.equivalentSentence,
+    belowLabel: "Below typical",
+    typicalLabel: "Typical adult context",
+    aboveLabel: "Above typical",
+    belowRangeText: `<${result.lowerPercent}%`,
+    typicalRangeText: `${result.lowerPercent}–${result.upperPercent}%`,
+    aboveRangeText: `>${result.upperPercent}%`,
+    zoneFractions: sleepStageAdultContextZoneFractions(result.metricId),
+    markerPosition01: sleepStageAdultContextMarkerPosition01({
+      metricId: result.metricId,
+      stagePercentUnrounded,
+    }),
+    accessibilitySummary,
+  };
+}
+
 export function buildSleepStageDetailViewModel(input: {
   metricId: SleepStageMetricId;
   selectedDay: DayKey;
@@ -163,16 +246,17 @@ export function buildSleepStageDetailViewModel(input: {
   resolution?: SleepNightResolution | null | undefined;
   /** Optional preformatted value from the card row (must match SleepNight minutes). */
   currentFormattedOverride?: string | null | undefined;
+  dateOfBirth?: string | null | undefined;
   sleepNightByDay: Readonly<Partial<Record<DayKey, WeeklyFitnessSleepNightCell>>>;
   historyStatus: SleepStageDetailHistoryStatus;
   historyErrorMessage?: string | null;
 }): SleepStageDetailViewModel {
-  void input.resolution;
   const {
     metricId,
     selectedDay,
     todayDayKey,
     sleepNight,
+    resolution = null,
     sleepNightByDay,
     historyStatus,
     historyErrorMessage = null,
@@ -195,6 +279,36 @@ export function buildSleepStageDetailViewModel(input: {
   const percentOfTotalSleepSentence =
     percentResult != null
       ? formatSleepStagePercentOfTotal(percentResult.displayPercent)
+      : null;
+
+  const ageYears = ageYearsFromProfileDateOfBirth(
+    input.dateOfBirth ?? null,
+    refDateFromDayKey(selectedDay),
+  );
+  const totalSleepMinutes = totalSleepMinutesDenominator(sleepNight ?? undefined);
+
+  const adultContextResult = classifySleepStageAdultContext({
+    metricId,
+    stageMinutes: currentValueMinutes,
+    totalSleepMinutes,
+    stagePercentUnrounded: percentResult?.value ?? null,
+    ageYears,
+    isComplete: sleepNight?.isComplete,
+    resolution,
+  });
+  const adultContextWithheldReason = resolveSleepStageAdultContextWithheldReason({
+    ageYears,
+    result: adultContextResult,
+  });
+  const adultContext =
+    adultContextResult != null &&
+    totalSleepMinutes != null &&
+    percentResult != null
+      ? buildAdultContextPresentation(
+          adultContextResult,
+          totalSleepMinutes,
+          percentResult.value,
+        )
       : null;
 
   const historyReady = historyStatus === "ready";
@@ -237,7 +351,13 @@ export function buildSleepStageDetailViewModel(input: {
   const copy = sleepStageExplainerCopyFor(metricId);
   const explainers: SleepStageDetailExplainerSection[] = [
     { heading: copy.whatItMeasures.heading, body: copy.whatItMeasures.body },
-    { heading: copy.howToUnderstand.heading, body: copy.howToUnderstand.body },
+    {
+      heading: copy.howToUnderstand.heading,
+      body: sleepStageHowToUnderstandBody({
+        metricId,
+        adultContextAvailable: adultContext != null,
+      }),
+    },
     { heading: copy.whatCanHelp.heading, body: copy.whatCanHelp.body },
   ];
 
@@ -248,6 +368,7 @@ export function buildSleepStageDetailViewModel(input: {
   if (percentOfTotalSleepSentence != null) {
     heroA11yParts.push(`${percentOfTotalSleepSentence}.`);
   }
+  const adultA11y = adultContext?.accessibilitySummary ?? "";
   const personalA11y = personalComparison?.accessibilitySummary ?? "";
   const patternA11y = pattern
     ? [
@@ -270,6 +391,10 @@ export function buildSleepStageDetailViewModel(input: {
     currentPresence,
     percentOfTotalSleepSentence,
     currentPercentDisplay: percentResult?.displayPercent ?? null,
+    adultContext,
+    adultContextResult,
+    adultContextWithheldReason,
+    ageYears,
     personalComparison,
     sevenDay,
     thirtyDay,
@@ -283,6 +408,7 @@ export function buildSleepStageDetailViewModel(input: {
     historyErrorMessage,
     canRetryHistory: historyStatus === "error",
     isHistoryLoading: historyStatus === "loading",
-    accessibilitySummary: `${heroA11yParts.join(" ")} ${personalA11y} ${patternA11y}`.trim(),
+    accessibilitySummary:
+      `${heroA11yParts.join(" ")} ${adultA11y} ${personalA11y} ${patternA11y}`.trim(),
   };
 }
