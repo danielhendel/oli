@@ -19,6 +19,10 @@ jest.mock("@/lib/ui/sleep/SleepDurationDetailController", () => ({
   SleepDurationDetailController: () => null,
 }));
 
+jest.mock("@/lib/ui/sleep/SleepStageDetailController", () => ({
+  SleepStageDetailController: () => null,
+}));
+
 function ouraDisconnectedMissingVm(): DailySleepCardViewModel {
   return {
     status: "missing",

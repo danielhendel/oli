@@ -7,6 +7,8 @@ import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts
 import type { DailySleepMetricDetail } from "@/lib/data/dash/buildDailySleepCardModel";
 import { SCORE_UNAVAILABLE_A11Y } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
+import { isDeepSleepDetailV1Enabled } from "@/lib/data/sleep/deepSleepDetailFlag";
+import { isRemSleepDetailV1Enabled } from "@/lib/data/sleep/remSleepDetailFlag";
 import { isSleepDurationDetailV1Enabled } from "@/lib/data/sleep/sleepDurationDetailFlag";
 import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
@@ -19,6 +21,7 @@ import {
   mapOuraProviderRatingToTone,
 } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { SleepDurationDetailController } from "@/lib/ui/sleep/SleepDurationDetailController";
+import { SleepStageDetailController } from "@/lib/ui/sleep/SleepStageDetailController";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -27,6 +30,8 @@ import {
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
 import type { DayKey } from "@/lib/ui/calendar/types";
+
+type StageDetailOpen = "deep_sleep" | "rem_sleep" | null;
 
 const SLEEP_DETAIL_HREF = "/(app)/recovery/sleep" as const;
 
@@ -58,8 +63,13 @@ export function DailySleepCard({
   const router = useRouter();
   const [metricSheet, setMetricSheet] = useState<DailySleepMetricDetail | null>(null);
   const [durationOpen, setDurationOpen] = useState(false);
+  const [stageDetailOpen, setStageDetailOpen] = useState<StageDetailOpen>(null);
   const durationRowRef = React.useRef<View>(null);
+  const deepRowRef = React.useRef<View>(null);
+  const remRowRef = React.useRef<View>(null);
   const durationDetailEnabled = isSleepDurationDetailV1Enabled();
+  const deepDetailEnabled = isDeepSleepDetailV1Enabled();
+  const remDetailEnabled = isRemSleepDetailV1Enabled();
 
   const loading = vm.status === "partial";
   const isRefreshing = vm.status === "ready" && vm.isRefreshing;
@@ -81,8 +91,8 @@ export function DailySleepCard({
     router.push(SLEEP_DETAIL_HREF);
   }, [error, loading, router, vm.status]);
 
-  const restoreDurationFocus = useCallback(() => {
-    const node = durationRowRef.current;
+  const restoreFocusToRef = useCallback((ref: React.RefObject<View | null>) => {
+    const node = ref.current;
     if (node == null) return;
     const handle = findNodeHandle(node);
     if (handle == null) return;
@@ -92,9 +102,18 @@ export function DailySleepCard({
   const closeDurationDetail = useCallback(() => {
     setDurationOpen(false);
     requestAnimationFrame(() => {
-      restoreDurationFocus();
+      restoreFocusToRef(durationRowRef);
     });
-  }, [restoreDurationFocus]);
+  }, [restoreFocusToRef]);
+
+  const closeStageDetail = useCallback(() => {
+    const closing = stageDetailOpen;
+    setStageDetailOpen(null);
+    requestAnimationFrame(() => {
+      if (closing === "deep_sleep") restoreFocusToRef(deepRowRef);
+      else if (closing === "rem_sleep") restoreFocusToRef(remRowRef);
+    });
+  }, [restoreFocusToRef, stageDetailOpen]);
 
   const onPressMetricRow = useCallback(
     (row: { id: string; isAvailable: boolean; detail: DailySleepMetricDetail }) => {
@@ -103,9 +122,19 @@ export function DailySleepCard({
         setDurationOpen(true);
         return;
       }
+      if (row.id === "deep_sleep" && deepDetailEnabled) {
+        if (!row.isAvailable) return;
+        setStageDetailOpen("deep_sleep");
+        return;
+      }
+      if (row.id === "rem_sleep" && remDetailEnabled) {
+        if (!row.isAvailable) return;
+        setStageDetailOpen("rem_sleep");
+        return;
+      }
       setMetricSheet(row.detail);
     },
-    [durationDetailEnabled],
+    [durationDetailEnabled, deepDetailEnabled, remDetailEnabled],
   );
 
   const primaryScoreLabel = useMemo(() => {
@@ -218,8 +247,21 @@ export function DailySleepCard({
           <View style={styles.metricSection} accessibilityRole="list">
             {model.metricRows.map((row) => {
               const isDuration = row.id === "sleep_duration";
-              const canPress =
-                !(isDuration && durationDetailEnabled && !row.isAvailable);
+              const isDeep = row.id === "deep_sleep";
+              const isRem = row.id === "rem_sleep";
+              const usesNewDetail =
+                (isDuration && durationDetailEnabled) ||
+                (isDeep && deepDetailEnabled) ||
+                (isRem && remDetailEnabled);
+              const canPress = !(usesNewDetail && !row.isAvailable);
+              let accessibilityHint = "Opens sleep metric details";
+              if (isDuration && durationDetailEnabled) {
+                accessibilityHint = "Opens sleep duration details";
+              } else if (isDeep && deepDetailEnabled) {
+                accessibilityHint = "Opens deep sleep details";
+              } else if (isRem && remDetailEnabled) {
+                accessibilityHint = "Opens REM sleep details";
+              }
               const rowEl = (
                 <DashMetricRow
                   key={row.id}
@@ -227,11 +269,7 @@ export function DailySleepCard({
                   label={row.label}
                   displayValue={row.value}
                   accessibilityValue={row.accessibilityValue}
-                  accessibilityHint={
-                    isDuration && durationDetailEnabled
-                      ? "Opens sleep duration details"
-                      : "Opens sleep metric details"
-                  }
+                  accessibilityHint={accessibilityHint}
                   {...(canPress
                     ? {
                         onPress: () => {
@@ -244,6 +282,20 @@ export function DailySleepCard({
               if (isDuration) {
                 return (
                   <View key={row.id} ref={durationRowRef} collapsable={false}>
+                    {rowEl}
+                  </View>
+                );
+              }
+              if (isDeep) {
+                return (
+                  <View key={row.id} ref={deepRowRef} collapsable={false}>
+                    {rowEl}
+                  </View>
+                );
+              }
+              if (isRem) {
+                return (
+                  <View key={row.id} ref={remRowRef} collapsable={false}>
                     {rowEl}
                   </View>
                 );
@@ -284,6 +336,19 @@ export function DailySleepCard({
             resolution={attributedSleepResolution}
             currentFormattedOverride={model?.durationValueText ?? null}
             onClose={closeDurationDetail}
+          />
+        ) : null}
+
+        {stageDetailOpen != null ? (
+          <SleepStageDetailController
+            metricId={stageDetailOpen}
+            selectedDay={selectedDay}
+            sleepNight={attributedSleepNight}
+            resolution={attributedSleepResolution}
+            currentFormattedOverride={
+              model?.metricRows.find((r) => r.id === stageDetailOpen)?.value ?? null
+            }
+            onClose={closeStageDetail}
           />
         ) : null}
       </View>
