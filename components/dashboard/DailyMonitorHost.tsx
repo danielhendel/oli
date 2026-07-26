@@ -289,7 +289,12 @@ export function DailyMonitorHost(): React.ReactElement {
               />
             ) : null}
             {section.domainIds.includes("readiness") && showReadiness ? (
-              <DailyReadinessCard vm={readinessCard.vm} title="Readiness" />
+              <DailyReadinessCard
+                vm={readinessCard.vm}
+                title="Readiness"
+                attributedSleepNight={attributedSleepNight}
+                attributedSleepResolution={attributedSleepResolution}
+              />
             ) : null}
             {section.domainIds.includes("stress") && showStress && stressCard.model != null ? (
               <DailyMonitorStressCard model={stressCard.model} href={stressCard.href} />
