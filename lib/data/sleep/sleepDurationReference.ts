@@ -38,9 +38,9 @@ export type SleepDurationReferenceStatus =
   | "above_typical";
 
 export type SleepDurationReferenceLabel =
-  | "Below recommended"
+  | "Below Typical"
   | "Recommended"
-  | "Above typical";
+  | "Above Typical";
 
 export type SleepDurationReferenceResult = {
   status: SleepDurationReferenceStatus;
@@ -116,11 +116,11 @@ export function classifySleepDurationReference(input: {
 
   if (minutes < lowerRecommendedMinutes) {
     status = "below_recommended";
-    label = "Below recommended";
+    label = "Below Typical";
     deltaMinutes = lowerRecommendedMinutes - minutes;
   } else if (minutes > upperRecommendedMinutes) {
     status = "above_typical";
-    label = "Above typical";
+    label = "Above Typical";
     deltaMinutes = minutes - upperRecommendedMinutes;
   } else {
     status = "within_recommended";
@@ -184,9 +184,9 @@ export function sleepDurationReferenceZoneCopy(result: SleepDurationReferenceRes
   const lowerText = Number.isInteger(lowerH) ? `${lowerH}h` : `${lowerH}h`;
   const upperText = Number.isInteger(upperH) ? `${upperH}h` : `${upperH}h`;
   return {
-    belowLabel: "Below recommended",
+    belowLabel: "Below Typical",
     recommendedLabel: "Recommended",
-    aboveLabel: "Above typical",
+    aboveLabel: "Above Typical",
     belowRangeText: `< ${lowerText}`,
     recommendedRangeText: `${lowerText}–${upperText}`,
     aboveRangeText: `> ${upperText}`,
@@ -242,18 +242,42 @@ export function sleepDurationReferenceAccessibilitySummary(input: {
 export const SLEEP_DURATION_DETAIL_EXPLAINER_COPY = {
   whatItMeasures: {
     heading: "What it measures",
-    body: "Sleep Duration is the estimated time you were asleep in your main sleep session. It is not the same as time in bed.",
+    body:
+      "Sleep duration is the total time you were asleep during your main sleep period. It is different from time in bed, which can include time spent awake.",
   },
   howToUnderstand: {
     heading: "How to understand it",
-    body: "For adults in the supported age group, experts commonly recommend about 7–9 hours, or 7–8 hours at age 65 and older. One night is one data point; weekly and monthly patterns give better context. Duration is only one part of sleep.",
+    adult_18_64:
+      "Most adults need about 7–9 hours. Compare tonight with your 7- and 30-day averages to see whether it was one unusual night or part of your usual pattern.",
+    older_adult_65_plus:
+      "Most adults age 65 and older need about 7–8 hours. Compare tonight with your 7- and 30-day averages to see whether it was one unusual night or part of your usual pattern.",
+    withheld:
+      "Sleep needs vary by age. Your result and recent averages are shown without a personalized reference range.",
+  },
+  whatCanHelp: {
+    heading: "What can help",
+    body:
+      "Protect enough time for sleep and keep your bedtime and wake time consistent. Look for patterns across several nights rather than judging one result alone.",
   },
   dataAccuracyBase: {
     heading: "Data & accuracy",
-    body: "This estimate comes from your connected wearable sleep summary, not a clinical sleep study. Missing nights are omitted from averages. Results may change after late synchronization or completion updates.",
+    body:
+      "Your wearable estimates sleep using signals such as movement and heart rate. Results may change after syncing and may differ from a clinical sleep study.",
   },
-  unknownAgeNote:
-    "Personalized recommended ranges need a valid age from your profile. Averages still use your sleep history when available.",
-  minorAgeNote:
-    "Age-specific recommended ranges for people under 18 are not shown in this experience yet.",
 } as const;
+
+/**
+ * Age-aware How to understand it body. Uses the approved band wording (or withheld copy).
+ */
+export function sleepDurationHowToUnderstandBody(input: {
+  ageYears: number | null | undefined;
+}): string {
+  const band = sleepDurationReferenceAgeBand(input.ageYears);
+  if (band === "older_adult_65_plus") {
+    return SLEEP_DURATION_DETAIL_EXPLAINER_COPY.howToUnderstand.older_adult_65_plus;
+  }
+  if (band === "adult_18_64") {
+    return SLEEP_DURATION_DETAIL_EXPLAINER_COPY.howToUnderstand.adult_18_64;
+  }
+  return SLEEP_DURATION_DETAIL_EXPLAINER_COPY.howToUnderstand.withheld;
+}

@@ -115,8 +115,7 @@ export function buildSleepMetricDetail(
       return {
         title: label,
         value,
-        body: "Total time asleep for this sleep night from your stored SleepNight summary.",
-        sourceLine: "Canonical SleepNight duration (main sleep when present).",
+        body: "Total time asleep for this sleep night from your connected wearable.",
         contextLine: ctxLine,
       };
     case "deep_sleep":

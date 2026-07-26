@@ -20,7 +20,9 @@ import {
   formatSleepDurationReferenceStatusSentence,
   SLEEP_DURATION_DETAIL_EXPLAINER_COPY,
   SLEEP_DURATION_REFERENCE_MODEL_VERSION,
+  sleepDurationHowToUnderstandBody,
   sleepDurationReferenceAccessibilitySummary,
+  type SleepDurationReferenceLabel,
   type SleepDurationReferenceResult,
 } from "@/lib/data/sleep/sleepDurationReference";
 import { formatSleepDurationMinutes } from "@/lib/format/ouraScore";
@@ -31,6 +33,26 @@ export type SleepDurationDetailHistoryStatus = "idle" | "loading" | "ready" | "e
 export type SleepDurationDetailExplainerSection = {
   heading: string;
   body: string;
+};
+
+export type SleepDurationPatternRowId = "today" | "7d" | "30d";
+
+/** Presentation-ready Your Pattern row — no classification in JSX. */
+export type SleepDurationPatternRow = {
+  id: SleepDurationPatternRowId;
+  label: string;
+  value: string;
+  statusLabel: SleepDurationReferenceLabel | null;
+  coverageLabel: string | null;
+  emphasized: boolean;
+  accessibilitySummary: string;
+};
+
+export type SleepDurationPatternComparison = {
+  heading: "Your Pattern";
+  today: SleepDurationPatternRow;
+  sevenDay: SleepDurationPatternRow;
+  thirtyDay: SleepDurationPatternRow;
 };
 
 export type SleepDurationDetailViewModel = {
@@ -47,9 +69,11 @@ export type SleepDurationDetailViewModel = {
   rangeWithheldReason: "unknown_age" | "minor" | "none";
   sevenDay: SleepDurationAverageSummary | null;
   thirtyDay: SleepDurationAverageSummary | null;
+  pattern: SleepDurationPatternComparison | null;
   explainers: readonly SleepDurationDetailExplainerSection[];
   dataAccuracyBody: string;
   dataAccuracyContextLine: string | null;
+  /** Consumer sheets omit implementation source lines (always null in v1). */
   sourceLine: string | null;
   historyStatus: SleepDurationDetailHistoryStatus;
   historyErrorMessage: string | null;
@@ -82,17 +106,109 @@ function sleepNightContextLine(input: {
   return `Sleep night: ${input.anchorDay} · Calendar day: ${input.selectedDay}`;
 }
 
-function buildDataAccuracyBody(input: {
-  rangeWithheldReason: SleepDurationDetailViewModel["rangeWithheldReason"];
-}): string {
-  const base = SLEEP_DURATION_DETAIL_EXPLAINER_COPY.dataAccuracyBase.body;
-  if (input.rangeWithheldReason === "unknown_age") {
-    return `${base} ${SLEEP_DURATION_DETAIL_EXPLAINER_COPY.unknownAgeNote}`;
-  }
-  if (input.rangeWithheldReason === "minor") {
-    return `${base} ${SLEEP_DURATION_DETAIL_EXPLAINER_COPY.minorAgeNote}`;
-  }
-  return base;
+function classifyLabel(
+  durationMinutes: number | null,
+  ageYears: number | null,
+): SleepDurationReferenceLabel | null {
+  if (durationMinutes == null || ageYears == null) return null;
+  return (
+    classifySleepDurationReference({
+      durationMinutes,
+      ageYears,
+    })?.label ?? null
+  );
+}
+
+export function buildSleepDurationPatternComparison(input: {
+  currentFormatted: string;
+  currentValueMinutes: number | null;
+  currentPresence: "present" | "absent";
+  ageYears: number | null;
+  sevenDay: SleepDurationAverageSummary;
+  thirtyDay: SleepDurationAverageSummary;
+}): SleepDurationPatternComparison {
+  const { ageYears, sevenDay, thirtyDay } = input;
+
+  const todayStatus =
+    input.currentPresence === "present"
+      ? classifyLabel(input.currentValueMinutes, ageYears)
+      : null;
+
+  const sevenStatus =
+    sevenDay.hasEnoughData && sevenDay.averageMinutes != null
+      ? classifyLabel(sevenDay.averageMinutes, ageYears)
+      : null;
+
+  const thirtyStatus =
+    thirtyDay.hasEnoughData && thirtyDay.averageMinutes != null
+      ? classifyLabel(thirtyDay.averageMinutes, ageYears)
+      : null;
+
+  const todayValue =
+    input.currentPresence === "present" ? input.currentFormatted : "Not available";
+
+  const todayA11yParts = [
+    `Today ${todayValue}`,
+    todayStatus,
+  ].filter(Boolean);
+
+  const sevenA11yParts = [
+    `7-day average ${sevenDay.displayValue}`,
+    sevenDay.coverageLabel,
+    sevenStatus,
+  ].filter(Boolean);
+
+  const thirtyA11yParts = [
+    `30-day average ${thirtyDay.displayValue}`,
+    thirtyDay.coverageLabel,
+    thirtyStatus,
+  ].filter(Boolean);
+
+  return {
+    heading: "Your Pattern",
+    today: {
+      id: "today",
+      label: "Today",
+      value: todayValue,
+      statusLabel: todayStatus,
+      coverageLabel: null,
+      emphasized: true,
+      accessibilitySummary: todayA11yParts.join(". ") + ".",
+    },
+    sevenDay: {
+      id: "7d",
+      label: "7-day average",
+      value: sevenDay.displayValue,
+      statusLabel: sevenStatus,
+      coverageLabel: sevenDay.coverageLabel,
+      emphasized: false,
+      accessibilitySummary: sevenA11yParts.join(". ") + ".",
+    },
+    thirtyDay: {
+      id: "30d",
+      label: "30-day average",
+      value: thirtyDay.displayValue,
+      statusLabel: thirtyStatus,
+      coverageLabel: thirtyDay.coverageLabel,
+      emphasized: false,
+      accessibilitySummary: thirtyA11yParts.join(". ") + ".",
+    },
+  };
+}
+
+function emptyAverage(window: "7d" | "30d"): SleepDurationAverageSummary {
+  const expectedNightCount = window === "7d" ? 7 : 30;
+  return {
+    window,
+    averageMinutes: null,
+    formattedAverage: null,
+    validNightCount: 0,
+    expectedNightCount,
+    hasEnoughData: false,
+    coverageLabel: `0 of ${expectedNightCount} nights`,
+    displayValue: "Not enough data",
+    accessibilitySummary: `${window === "7d" ? "7 days" : "30 days"} average not enough data.`,
+  };
 }
 
 export function buildSleepDurationDetailViewModel(input: {
@@ -158,6 +274,30 @@ export function buildSleepDurationDetailViewModel(input: {
       })
     : null;
 
+  const sevenDay = averages?.sevenDay ?? null;
+  const thirtyDay = averages?.thirtyDay ?? null;
+
+  const pattern =
+    sevenDay != null && thirtyDay != null
+      ? buildSleepDurationPatternComparison({
+          currentFormatted,
+          currentValueMinutes,
+          currentPresence,
+          ageYears,
+          sevenDay,
+          thirtyDay,
+        })
+      : historyReady
+        ? buildSleepDurationPatternComparison({
+            currentFormatted,
+            currentValueMinutes,
+            currentPresence,
+            ageYears,
+            sevenDay: emptyAverage("7d"),
+            thirtyDay: emptyAverage("30d"),
+          })
+        : null;
+
   const explainers: SleepDurationDetailExplainerSection[] = [
     {
       heading: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.whatItMeasures.heading,
@@ -165,14 +305,14 @@ export function buildSleepDurationDetailViewModel(input: {
     },
     {
       heading: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.howToUnderstand.heading,
-      body: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.howToUnderstand.body,
+      body: sleepDurationHowToUnderstandBody({ ageYears }),
+    },
+    {
+      heading: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.whatCanHelp.heading,
+      body: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.whatCanHelp.body,
     },
   ];
 
-  const sourceLine =
-    sleepNight != null
-      ? "Canonical SleepNight duration (main sleep when present)."
-      : null;
   const contextLine = sleepNightContextLine({
     selectedDay,
     anchorDay: sleepNight?.anchorDay ?? null,
@@ -187,8 +327,12 @@ export function buildSleepDurationDetailViewModel(input: {
     formattedDuration: currentFormatted,
     result: rangeResult,
   });
-  const avgA11y = averages
-    ? `${averages.sevenDay.accessibilitySummary} ${averages.thirtyDay.accessibilitySummary}`
+  const patternA11y = pattern
+    ? [
+        pattern.today.accessibilitySummary,
+        pattern.sevenDay.accessibilitySummary,
+        pattern.thirtyDay.accessibilitySummary,
+      ].join(" ")
     : historyStatus === "loading"
       ? "Loading recent sleep averages."
       : historyStatus === "error"
@@ -207,16 +351,17 @@ export function buildSleepDurationDetailViewModel(input: {
     statusSentence,
     ageYears,
     rangeWithheldReason,
-    sevenDay: averages?.sevenDay ?? null,
-    thirtyDay: averages?.thirtyDay ?? null,
+    sevenDay,
+    thirtyDay,
+    pattern,
     explainers,
-    dataAccuracyBody: buildDataAccuracyBody({ rangeWithheldReason }),
+    dataAccuracyBody: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.dataAccuracyBase.body,
     dataAccuracyContextLine,
-    sourceLine,
+    sourceLine: null,
     historyStatus,
     historyErrorMessage,
     canRetryHistory: historyStatus === "error",
     isHistoryLoading: historyStatus === "loading",
-    accessibilitySummary: `${rangeA11y} ${avgA11y}`.trim(),
+    accessibilitySummary: `${rangeA11y} ${patternA11y}`.trim(),
   };
 }

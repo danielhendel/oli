@@ -7,17 +7,12 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { SleepDurationDetailViewModel } from "@/lib/data/sleep/buildSleepDurationDetailViewModel";
-import {
-  SLEEP_DURATION_AVERAGE_30D_EXPECTED,
-  SLEEP_DURATION_AVERAGE_7D_EXPECTED,
-  type SleepDurationAverageSummary,
-} from "@/lib/data/sleep/sleepDurationAverages";
 import { sleepDurationReferenceAccessibilitySummary } from "@/lib/data/sleep/sleepDurationReference";
 import { MetricDetailShell } from "@/lib/ui/common/MetricDetailShell";
 import {
-  SleepDurationAverageTiles,
-  SleepDurationAverageTilesSkeleton,
-} from "@/lib/ui/sleep/SleepDurationAverageTiles";
+  SleepDurationPatternComparisonSkeleton,
+  SleepDurationPatternComparisonView,
+} from "@/lib/ui/sleep/SleepDurationPatternComparison";
 import { SleepDurationReferenceRangeBar } from "@/lib/ui/sleep/SleepDurationReferenceRangeBar";
 import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
@@ -27,22 +22,6 @@ export type SleepDurationDetailSheetProps = {
   vm: SleepDurationDetailViewModel;
   onRetryHistory?: () => void;
 };
-
-function emptyAverage(window: "7d" | "30d"): SleepDurationAverageSummary {
-  const expectedNightCount =
-    window === "7d" ? SLEEP_DURATION_AVERAGE_7D_EXPECTED : SLEEP_DURATION_AVERAGE_30D_EXPECTED;
-  return {
-    window,
-    averageMinutes: null,
-    formattedAverage: null,
-    validNightCount: 0,
-    expectedNightCount,
-    hasEnoughData: false,
-    coverageLabel: `0 of ${expectedNightCount} nights`,
-    displayValue: "Not enough data",
-    accessibilitySummary: `${window === "7d" ? "7 days" : "30 days"} average not enough data.`,
-  };
-}
 
 export function SleepDurationDetailSheet({
   visible,
@@ -63,11 +42,11 @@ export function SleepDurationDetailSheet({
         })
       : "";
 
-  let averagesSlot: React.ReactNode = null;
+  let patternSlot: React.ReactNode = null;
   if (vm.isHistoryLoading) {
-    averagesSlot = <SleepDurationAverageTilesSkeleton />;
+    patternSlot = <SleepDurationPatternComparisonSkeleton />;
   } else if (vm.historyStatus === "error") {
-    averagesSlot = (
+    patternSlot = (
       <View style={styles.errorBlock} testID="sleep-duration-history-error">
         <Text style={styles.errorText}>
           {vm.historyErrorMessage ?? "Could not load recent sleep averages."}
@@ -85,17 +64,8 @@ export function SleepDurationDetailSheet({
         ) : null}
       </View>
     );
-  } else if (vm.sevenDay != null && vm.thirtyDay != null) {
-    averagesSlot = (
-      <SleepDurationAverageTiles sevenDay={vm.sevenDay} thirtyDay={vm.thirtyDay} />
-    );
-  } else if (vm.historyStatus === "ready") {
-    averagesSlot = (
-      <SleepDurationAverageTiles
-        sevenDay={emptyAverage("7d")}
-        thirtyDay={emptyAverage("30d")}
-      />
-    );
+  } else if (vm.pattern != null) {
+    patternSlot = <SleepDurationPatternComparisonView pattern={vm.pattern} />;
   }
 
   return (
@@ -116,11 +86,10 @@ export function SleepDurationDetailSheet({
           />
         ) : null
       }
-      averages={averagesSlot}
+      averages={patternSlot}
       sections={vm.explainers}
       dataAccuracyBody={vm.dataAccuracyBody}
       dataAccuracyMeta={vm.dataAccuracyContextLine}
-      sourceLine={vm.sourceLine}
       showDone
     />
   );

@@ -12,7 +12,15 @@ import {
   sleepDurationReferenceZoneFractions,
   type SleepDurationReferenceResult,
 } from "@/lib/data/sleep/sleepDurationReference";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_RECOMMENDED_RANGE_BORDER,
+  UI_RECOMMENDED_RANGE_FILL,
+  UI_REFERENCE_ZONE_NEUTRAL_FILL,
+  UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export type SleepDurationReferenceRangeBarProps = {
   result: SleepDurationReferenceResult;
@@ -20,11 +28,6 @@ export type SleepDurationReferenceRangeBarProps = {
   accessibilitySummary: string;
   testID?: string;
 };
-
-/** Supplementary zone fills — labels carry meaning. */
-const ZONE_BELOW = "rgba(148, 163, 184, 0.35)";
-const ZONE_RECOMMENDED = "rgba(96, 165, 250, 0.45)";
-const ZONE_ABOVE = "rgba(148, 163, 184, 0.28)";
 
 export function SleepDurationReferenceRangeBar({
   result,
@@ -52,7 +55,7 @@ export function SleepDurationReferenceRangeBar({
           <Text style={styles.zoneRange}>{copy.belowRangeText}</Text>
         </View>
         <View style={[styles.labelCol, { flex: zones.recommended }]}>
-          <Text style={styles.zoneTitle} numberOfLines={2}>
+          <Text style={[styles.zoneTitle, styles.recommendedTitle]} numberOfLines={2}>
             {copy.recommendedLabel}
           </Text>
           <Text style={styles.zoneRange}>{copy.recommendedRangeText}</Text>
@@ -69,19 +72,31 @@ export function SleepDurationReferenceRangeBar({
         <View
           style={[
             styles.zone,
-            { flex: Math.max(zones.below, 0.001), backgroundColor: ZONE_BELOW },
+            {
+              flex: Math.max(zones.below, 0.001),
+              backgroundColor: UI_REFERENCE_ZONE_NEUTRAL_FILL,
+            },
           ]}
         />
         <View
           style={[
             styles.zone,
-            { flex: Math.max(zones.recommended, 0.001), backgroundColor: ZONE_RECOMMENDED },
+            styles.recommendedZone,
+            {
+              flex: Math.max(zones.recommended, 0.001),
+              backgroundColor: UI_RECOMMENDED_RANGE_FILL,
+              borderColor: UI_RECOMMENDED_RANGE_BORDER,
+            },
           ]}
+          testID={`${testID}-recommended-zone`}
         />
         <View
           style={[
             styles.zone,
-            { flex: Math.max(zones.above, 0.001), backgroundColor: ZONE_ABOVE },
+            {
+              flex: Math.max(zones.above, 0.001),
+              backgroundColor: UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
+            },
           ]}
         />
         <View
@@ -113,6 +128,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: UI_TEXT_MUTED,
   },
+  recommendedTitle: {
+    color: UI_TEXT_PRIMARY,
+  },
   zoneRange: {
     fontSize: 12,
     lineHeight: 16,
@@ -120,8 +138,8 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   track: {
-    height: 14,
-    borderRadius: 7,
+    height: 16,
+    borderRadius: 8,
     overflow: "visible",
     flexDirection: "row",
     backgroundColor: "rgba(255,255,255,0.06)",
@@ -129,13 +147,19 @@ const styles = StyleSheet.create({
   zone: {
     height: "100%",
   },
+  recommendedZone: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    zIndex: 1,
+  },
   marker: {
     position: "absolute",
-    top: -4,
-    marginLeft: -2,
-    width: 4,
-    height: 22,
-    borderRadius: 2,
+    top: -5,
+    marginLeft: -2.5,
+    width: 5,
+    height: 26,
+    borderRadius: 2.5,
     backgroundColor: UI_TEXT_PRIMARY,
+    zIndex: 2,
   },
 });
