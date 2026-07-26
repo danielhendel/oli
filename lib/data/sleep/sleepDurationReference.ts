@@ -42,6 +42,12 @@ export type SleepDurationReferenceLabel =
   | "Recommended"
   | "Above Typical";
 
+/** Consumer-facing Your Pattern status (within_recommended → "In range"). */
+export type SleepDurationPatternStatusLabel =
+  | "Below Typical"
+  | "In range"
+  | "Above Typical";
+
 export type SleepDurationReferenceResult = {
   status: SleepDurationReferenceStatus;
   label: SleepDurationReferenceLabel;
@@ -137,6 +143,19 @@ export function classifySleepDurationReference(input: {
     modelVersion: SLEEP_DURATION_REFERENCE_MODEL_VERSION,
     evidenceIds: SLEEP_DURATION_REFERENCE_EVIDENCE_IDS,
   };
+}
+
+/**
+ * Your Pattern row status copy. Keeps range-bar / classifier label "Recommended"
+ * while showing "In range" on historical averages.
+ */
+export function sleepDurationPatternStatusLabel(
+  result: SleepDurationReferenceResult | null,
+): SleepDurationPatternStatusLabel | null {
+  if (result == null) return null;
+  if (result.status === "within_recommended") return "In range";
+  if (result.status === "below_recommended") return "Below Typical";
+  return "Above Typical";
 }
 
 function formatDeltaPhrase(deltaMinutes: number): string {

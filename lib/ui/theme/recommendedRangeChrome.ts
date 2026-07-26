@@ -6,7 +6,7 @@
  * Status text colors align with Monitor positive (green) / caution (amber) / neutral slate.
  */
 
-import type { SleepDurationReferenceLabel } from "@/lib/data/sleep/sleepDurationReference";
+import type { SleepDurationPatternStatusLabel } from "@/lib/data/sleep/sleepDurationReference";
 import type { OliThemeMode } from "@/lib/ui/theme/oliTheme";
 import { DASH_MONITOR_RATING_TONE_CHROME_DARK, DASH_MONITOR_RATING_TONE_CHROME_LIGHT } from "@/lib/ui/theme/dashMonitorRatingToneChrome";
 import { OLI_DARK, OLI_LIGHT } from "@/lib/ui/theme/oliSemantic";
@@ -20,7 +20,7 @@ export type RecommendedRangeChrome = {
   outerFill: string;
   /** Slightly softer outer fill for the above-typical side. */
   outerFillSoft: string;
-  /** Pattern status text — Recommended (in-range). */
+  /** Pattern status text — In range (within_recommended). */
   statusRecommendedText: string;
   /** Pattern status text — Below Typical. */
   statusBelowTypicalText: string;
@@ -60,11 +60,11 @@ export function resolveRecommendedRangeChrome(
  * Maps presentation labels only — does not classify durations.
  */
 export function sleepDurationReferenceStatusTextColor(
-  label: SleepDurationReferenceLabel,
+  label: SleepDurationPatternStatusLabel,
   mode: OliThemeMode = "dark",
 ): string {
   const chrome = resolveRecommendedRangeChrome(mode);
-  if (label === "Recommended") return chrome.statusRecommendedText;
+  if (label === "In range") return chrome.statusRecommendedText;
   if (label === "Below Typical") return chrome.statusBelowTypicalText;
   return chrome.statusAboveTypicalText;
 }

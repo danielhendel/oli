@@ -8,7 +8,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { SleepDurationPatternComparison } from "@/lib/data/sleep/buildSleepDurationDetailViewModel";
-import type { SleepDurationReferenceLabel } from "@/lib/data/sleep/sleepDurationReference";
+import type { SleepDurationPatternStatusLabel } from "@/lib/data/sleep/sleepDurationReference";
 import {
   METRIC_DETAIL_SECTION_BREAK,
   METRIC_DETAIL_SECTION_HEADING_GAP,
@@ -37,7 +37,7 @@ function PatternRow({
 }: {
   label: string;
   value: string;
-  statusLabel: SleepDurationReferenceLabel | null;
+  statusLabel: SleepDurationPatternStatusLabel | null;
   accessibilitySummary: string;
   loading?: boolean;
   testID: string;

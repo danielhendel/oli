@@ -24,8 +24,9 @@ import {
   SLEEP_DURATION_DETAIL_EXPLAINER_COPY,
   SLEEP_DURATION_REFERENCE_MODEL_VERSION,
   sleepDurationHowToUnderstandBody,
+  sleepDurationPatternStatusLabel,
   sleepDurationReferenceAccessibilitySummary,
-  type SleepDurationReferenceLabel,
+  type SleepDurationPatternStatusLabel,
   type SleepDurationReferenceResult,
 } from "@/lib/data/sleep/sleepDurationReference";
 import { formatSleepDurationMinutes } from "@/lib/format/ouraScore";
@@ -45,7 +46,7 @@ export type SleepDurationPatternRow = {
   id: SleepDurationPatternRowId;
   label: string;
   value: string;
-  statusLabel: SleepDurationReferenceLabel | null;
+  statusLabel: SleepDurationPatternStatusLabel | null;
   accessibilitySummary: string;
 };
 
@@ -100,16 +101,16 @@ function refDateFromDayKey(day: DayKey): Date {
   return new Date(y, m - 1, d);
 }
 
-function classifyLabel(
+function classifyPatternStatus(
   durationMinutes: number | null,
   ageYears: number | null,
-): SleepDurationReferenceLabel | null {
+): SleepDurationPatternStatusLabel | null {
   if (durationMinutes == null || ageYears == null) return null;
-  return (
+  return sleepDurationPatternStatusLabel(
     classifySleepDurationReference({
       durationMinutes,
       ageYears,
-    })?.label ?? null
+    }),
   );
 }
 
@@ -121,7 +122,7 @@ function patternRowFromAverage(input: {
 }): SleepDurationPatternRow {
   const statusLabel =
     input.summary.hasEnoughData && input.summary.averageMinutes != null
-      ? classifyLabel(input.summary.averageMinutes, input.ageYears)
+      ? classifyPatternStatus(input.summary.averageMinutes, input.ageYears)
       : null;
   const accessibilitySummary = statusLabel
     ? `${input.label} ${input.summary.displayValue}. ${statusLabel}.`

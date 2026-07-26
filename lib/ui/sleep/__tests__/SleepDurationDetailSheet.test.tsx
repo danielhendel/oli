@@ -78,15 +78,15 @@ function baseVm(over: Partial<SleepDurationDetailViewModel> = {}): SleepDuration
         id: "30d",
         label: "30-day average",
         value: "7h 8m",
-        statusLabel: "Recommended",
-        accessibilitySummary: "30-day average 7h 8m. Recommended.",
+        statusLabel: "In range",
+        accessibilitySummary: "30-day average 7h 8m. In range.",
       },
       ninetyDay: {
         id: "90d",
         label: "90-day average",
         value: "7h 10m",
-        statusLabel: "Recommended",
-        accessibilitySummary: "90-day average 7h 10m. Recommended.",
+        statusLabel: "In range",
+        accessibilitySummary: "90-day average 7h 10m. In range.",
       },
     },
     explainers: [
@@ -142,10 +142,21 @@ describe("SleepDurationDetailSheet", () => {
     expect(flat).toContain("6h 31m");
     expect(flat).toContain("29 min below the recommended range.");
     expect(flat).toContain("Below Typical");
+    expect(flat).toContain("In range");
     expect(flat).toContain("Your Pattern");
     expect(flat).toContain("7-day average");
     expect(flat).toContain("30-day average");
     expect(flat).toContain("90-day average");
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-30d-status" }).props.children).toBe(
+      "In range",
+    );
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-90d-status" }).props.children).toBe(
+      "In range",
+    );
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-7d-status" }).props.children).toBe(
+      "Below Typical",
+    );
+    expect(flat).toContain("Recommended");
     expect(flat).not.toContain("Today");
     expect(flat).not.toContain("7 of 7 nights");
     expect(flat).not.toContain("30 of 30 nights");
@@ -243,5 +254,67 @@ describe("SleepDurationDetailSheet", () => {
       );
     });
     expect(() => tree.root.findByProps({ testID: "sleep-duration-reference-bar" })).toThrow();
+  });
+
+  it("keeps range-bar Recommended heading and hero sentence while pattern uses In range", () => {
+    const rangeResult = classifySleepDurationReference({ durationMinutes: 450, ageYears: 30 });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <SleepDurationDetailSheet
+          visible
+          onClose={jest.fn()}
+          vm={baseVm({
+            currentValueMinutes: 450,
+            currentFormatted: "7h 30m",
+            rangeResult,
+            rangeModelVersion: rangeResult?.modelVersion ?? null,
+            statusSentence: "Within the recommended range.",
+            pattern: {
+              heading: "Your Pattern",
+              sevenDay: {
+                id: "7d",
+                label: "7-day average",
+                value: "7h 27m",
+                statusLabel: "In range",
+                accessibilitySummary: "7-day average 7h 27m. In range.",
+              },
+              thirtyDay: {
+                id: "30d",
+                label: "30-day average",
+                value: "7h 43m",
+                statusLabel: "In range",
+                accessibilitySummary: "30-day average 7h 43m. In range.",
+              },
+              ninetyDay: {
+                id: "90d",
+                label: "90-day average",
+                value: "7h 40m",
+                statusLabel: "In range",
+                accessibilitySummary: "90-day average 7h 40m. In range.",
+              },
+            },
+          })}
+        />,
+      );
+    });
+    const flat = allText(tree.root);
+    expect(flat).toContain("Within the recommended range.");
+    expect(flat).toContain("Recommended");
+    expect(flat).toContain("In range");
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-7d-status" }).props.children).toBe(
+      "In range",
+    );
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-30d-status" }).props.children).toBe(
+      "In range",
+    );
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-90d-status" }).props.children).toBe(
+      "In range",
+    );
+    for (const id of ["7d", "30d", "90d"] as const) {
+      expect(
+        tree.root.findByProps({ testID: `sleep-duration-pattern-${id}-status` }).props.children,
+      ).not.toBe("Recommended");
+    }
   });
 });

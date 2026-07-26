@@ -6,6 +6,7 @@ import {
   SLEEP_DURATION_REFERENCE_EVIDENCE_IDS,
   SLEEP_DURATION_REFERENCE_MODEL_VERSION,
   sleepDurationHowToUnderstandBody,
+  sleepDurationPatternStatusLabel,
   sleepDurationReferenceAccessibilitySummary,
   sleepDurationReferenceAgeBand,
   sleepDurationReferenceMarkerPosition01,
@@ -103,6 +104,22 @@ describe("formatSleepDurationReferenceStatusSentence", () => {
       /above the typical recommended range/,
     );
     expect(formatSleepDurationReferenceStatusSentence(null)).toBeNull();
+  });
+});
+
+describe("sleepDurationPatternStatusLabel", () => {
+  it("maps within_recommended to In range while classifier label stays Recommended", () => {
+    const within = classifySleepDurationReference({ durationMinutes: 480, ageYears: 30 })!;
+    expect(within.status).toBe("within_recommended");
+    expect(within.label).toBe("Recommended");
+    expect(sleepDurationPatternStatusLabel(within)).toBe("In range");
+    expect(sleepDurationPatternStatusLabel(classifySleepDurationReference({ durationMinutes: 391, ageYears: 30 }))).toBe(
+      "Below Typical",
+    );
+    expect(sleepDurationPatternStatusLabel(classifySleepDurationReference({ durationMinutes: 570, ageYears: 30 }))).toBe(
+      "Above Typical",
+    );
+    expect(sleepDurationPatternStatusLabel(null)).toBeNull();
   });
 });
 

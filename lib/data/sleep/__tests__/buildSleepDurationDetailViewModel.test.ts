@@ -74,6 +74,9 @@ describe("buildSleepDurationDetailViewModel", () => {
     expect(vm.pattern?.heading).toBe("Your Pattern");
     expect(vm.pattern?.sevenDay.label).toBe("7-day average");
     expect(vm.pattern?.ninetyDay.label).toBe("90-day average");
+    expect(vm.pattern?.sevenDay.statusLabel).toBe("In range");
+    expect(vm.pattern?.thirtyDay.statusLabel).toBe("In range");
+    expect(vm.pattern?.ninetyDay.statusLabel).toBeNull();
     expect((vm.pattern as { today?: unknown } | null)?.today).toBeUndefined();
     expect(vm.sevenDay?.coverageLabel).toMatch(/nights/);
     expect(vm.ninetyDay?.expectedNightCount).toBe(90);

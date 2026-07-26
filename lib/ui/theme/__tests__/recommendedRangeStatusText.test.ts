@@ -10,8 +10,8 @@ import { DASH_MONITOR_RATING_TONE_CHROME_DARK } from "@/lib/ui/theme/dashMonitor
 import { OLI_DARK } from "@/lib/ui/theme/oliSemantic";
 
 describe("sleepDurationReferenceStatusTextColor", () => {
-  it("maps Recommended to Monitor positive green", () => {
-    expect(sleepDurationReferenceStatusTextColor("Recommended")).toBe(
+  it("maps In range to Monitor positive green", () => {
+    expect(sleepDurationReferenceStatusTextColor("In range")).toBe(
       DASH_MONITOR_RATING_TONE_CHROME_DARK.positive.foreground,
     );
     expect(UI_DURATION_STATUS_RECOMMENDED_TEXT).toBe(

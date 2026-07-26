@@ -27,8 +27,8 @@ const pattern: SleepDurationPatternComparison = {
     id: "30d",
     label: "30-day average",
     value: "7h 27m",
-    statusLabel: "Recommended",
-    accessibilitySummary: "30-day average 7h 27m. Recommended.",
+    statusLabel: "In range",
+    accessibilitySummary: "30-day average 7h 27m. In range.",
   },
   ninetyDay: {
     id: "90d",
@@ -69,26 +69,36 @@ describe("SleepDurationPatternComparisonView", () => {
     expect(flat.gap).toBe(METRIC_DETAIL_SECTION_HEADING_GAP);
   });
 
-  it("color-codes Recommended / Below Typical / Above Typical status text", () => {
+  it("color-codes In range / Below Typical / Above Typical status text", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(<SleepDurationPatternComparisonView pattern={pattern} />);
     });
 
+    const text = tree.root
+      .findAllByType(Text)
+      .map((t) => String(t.props.children ?? ""))
+      .join("|");
+    expect(text).toContain("In range");
+    expect(text).not.toMatch(/(^|\|)Recommended(\||$)/);
+
     const below = flatStyle(
       tree.root.findByProps({ testID: "sleep-duration-pattern-7d-status" }).props.style,
     );
-    const recommended = flatStyle(
+    const inRange = flatStyle(
       tree.root.findByProps({ testID: "sleep-duration-pattern-30d-status" }).props.style,
     );
     const above = flatStyle(
       tree.root.findByProps({ testID: "sleep-duration-pattern-90d-status" }).props.style,
     );
 
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-30d-status" }).props.children).toBe(
+      "In range",
+    );
     expect(below.color).toBe(UI_DURATION_STATUS_BELOW_TYPICAL_TEXT);
-    expect(recommended.color).toBe(UI_DURATION_STATUS_RECOMMENDED_TEXT);
+    expect(inRange.color).toBe(UI_DURATION_STATUS_RECOMMENDED_TEXT);
     expect(above.color).toBe(UI_DURATION_STATUS_ABOVE_TYPICAL_TEXT);
-    expect(recommended.color).not.toBe(below.color);
+    expect(inRange.color).not.toBe(below.color);
   });
 
   it("omits status styling when statusLabel is null (insufficient data)", () => {
