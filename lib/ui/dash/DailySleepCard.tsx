@@ -30,6 +30,10 @@ import type { DayKey } from "@/lib/ui/calendar/types";
 
 const SLEEP_DETAIL_HREF = "/(app)/recovery/sleep" as const;
 
+/** Consumer loading/refresh copy — real ellipsis (never literal `\u2026` in JSX text). */
+export const DAILY_SLEEP_LOADING_COPY = "Loading daily sleep…" as const;
+export const DAILY_SLEEP_REFRESHING_COPY = "Refreshing daily sleep…" as const;
+
 type Props = {
   vm: DailySleepCardViewModel;
   /** Consumer card title. Defaults to “Daily Sleep”. */
@@ -179,8 +183,8 @@ export function DailySleepCard({
               </Text>
             ) : null
           ) : null}
-          {loading ? <Text style={styles.mutedLine}>Loading daily sleep\u2026</Text> : null}
-          {isRefreshing ? <Text style={styles.mutedLine}>Refreshing daily sleep\u2026</Text> : null}
+          {loading ? <Text style={styles.mutedLine}>{DAILY_SLEEP_LOADING_COPY}</Text> : null}
+          {isRefreshing ? <Text style={styles.mutedLine}>{DAILY_SLEEP_REFRESHING_COPY}</Text> : null}
           {error ? <Text style={styles.mutedLine}>Could not load daily sleep</Text> : null}
           {vm.status === "missing" ? (
             <>
