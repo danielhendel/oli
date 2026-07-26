@@ -1,6 +1,8 @@
 /**
- * Educational adult-context bar for Deep / REM detail.
- * Presentation only — thresholds and classification live on the typed model.
+ * Simplified Deep / REM typical-range bar (Duration visual grammar).
+ * Presentation only — thresholds, domains, and markers come from the view model.
+ *
+ * gray → green → gray with white current marker and optional outlined 90-day marker.
  */
 
 import React from "react";
@@ -12,8 +14,7 @@ import {
   METRIC_DETAIL_SECTION_HEADING_GAP,
 } from "@/lib/ui/common/metricDetailShellLayout";
 import {
-  UI_STAGE_ADULT_CONTEXT_ABOVE_FILL,
-  UI_STAGE_ADULT_CONTEXT_BELOW_FILL,
+  UI_STAGE_ADULT_CONTEXT_OUTER_FILL,
   UI_STAGE_ADULT_CONTEXT_TYPICAL_BORDER,
   UI_STAGE_ADULT_CONTEXT_TYPICAL_FILL,
   UI_TEXT_MUTED,
@@ -25,8 +26,6 @@ import {
 export type SleepStageAdultContextBarProps = {
   status: SleepStageAdultContextStatus;
   statusLabel: string;
-  typicalPercentRangeText: string;
-  equivalentMinutesSentence: string;
   belowLabel: string;
   typicalLabel: string;
   aboveLabel: string;
@@ -34,7 +33,9 @@ export type SleepStageAdultContextBarProps = {
   typicalRangeText: string;
   aboveRangeText: string;
   zoneFractions: { below: number; typical: number; above: number };
-  markerPosition01: number;
+  currentMarkerPosition01: number;
+  /** Null when 90-day average percent is insufficient. */
+  ninetyDayMarkerPosition01: number | null;
   accessibilitySummary: string;
   testID?: string;
 };
@@ -42,8 +43,6 @@ export type SleepStageAdultContextBarProps = {
 export function SleepStageAdultContextBar({
   status,
   statusLabel,
-  typicalPercentRangeText,
-  equivalentMinutesSentence,
   belowLabel,
   typicalLabel,
   aboveLabel,
@@ -51,11 +50,13 @@ export function SleepStageAdultContextBar({
   typicalRangeText,
   aboveRangeText,
   zoneFractions,
-  markerPosition01,
+  currentMarkerPosition01,
+  ninetyDayMarkerPosition01,
   accessibilitySummary,
   testID = "sleep-stage-adult-context",
 }: SleepStageAdultContextBarProps): React.ReactElement {
   const statusColor = sleepStageAdultContextStatusTextColor(status);
+  const showNinetyDay = ninetyDayMarkerPosition01 != null;
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -67,12 +68,6 @@ export function SleepStageAdultContextBar({
         {statusLabel}
       </Text>
 
-      <View style={styles.bandBlock} importantForAccessibility="no">
-        <Text style={styles.bandHeading}>Typical adult context</Text>
-        <Text style={styles.bandPercent}>{typicalPercentRangeText}</Text>
-        <Text style={styles.bandEquivalent}>{equivalentMinutesSentence}</Text>
-      </View>
-
       <View
         accessible
         accessibilityRole="summary"
@@ -80,23 +75,29 @@ export function SleepStageAdultContextBar({
         testID={`${testID}-bar`}
       >
         <View style={styles.labelRow} importantForAccessibility="no">
-          <View style={[styles.labelCol, { flex: zoneFractions.below }]}>
-            <Text style={styles.zoneTitle} numberOfLines={2}>
+          <View style={[styles.labelCol, { flex: Math.max(zoneFractions.below, 0.18) }]}>
+            <Text style={styles.zoneTitle} numberOfLines={1}>
               {belowLabel}
             </Text>
-            <Text style={styles.zoneRange}>{belowRangeText}</Text>
+            <Text style={styles.zoneRange} numberOfLines={1}>
+              {belowRangeText}
+            </Text>
           </View>
-          <View style={[styles.labelCol, { flex: zoneFractions.typical }]}>
-            <Text style={[styles.zoneTitle, styles.typicalTitle]} numberOfLines={2}>
+          <View style={[styles.labelCol, styles.labelColCenter, { flex: Math.max(zoneFractions.typical, 0.22) }]}>
+            <Text style={[styles.zoneTitle, styles.typicalTitle]} numberOfLines={1}>
               {typicalLabel}
             </Text>
-            <Text style={styles.zoneRange}>{typicalRangeText}</Text>
+            <Text style={[styles.zoneRange, styles.zoneRangeCenter]} numberOfLines={1}>
+              {typicalRangeText}
+            </Text>
           </View>
-          <View style={[styles.labelCol, { flex: zoneFractions.above }]}>
-            <Text style={styles.zoneTitle} numberOfLines={2}>
+          <View style={[styles.labelCol, styles.labelColEnd, { flex: Math.max(zoneFractions.above, 0.18) }]}>
+            <Text style={[styles.zoneTitle, styles.zoneTitleEnd]} numberOfLines={1}>
               {aboveLabel}
             </Text>
-            <Text style={styles.zoneRange}>{aboveRangeText}</Text>
+            <Text style={[styles.zoneRange, styles.zoneRangeEnd]} numberOfLines={1}>
+              {aboveRangeText}
+            </Text>
           </View>
         </View>
 
@@ -106,7 +107,7 @@ export function SleepStageAdultContextBar({
               styles.zone,
               {
                 flex: Math.max(zoneFractions.below, 0.001),
-                backgroundColor: UI_STAGE_ADULT_CONTEXT_BELOW_FILL,
+                backgroundColor: UI_STAGE_ADULT_CONTEXT_OUTER_FILL,
               },
             ]}
             testID={`${testID}-below-zone`}
@@ -128,15 +129,39 @@ export function SleepStageAdultContextBar({
               styles.zone,
               {
                 flex: Math.max(zoneFractions.above, 0.001),
-                backgroundColor: UI_STAGE_ADULT_CONTEXT_ABOVE_FILL,
+                backgroundColor: UI_STAGE_ADULT_CONTEXT_OUTER_FILL,
               },
             ]}
             testID={`${testID}-above-zone`}
           />
+
+          {showNinetyDay ? (
+            <View
+              style={[
+                styles.ninetyDayMarker,
+                { left: `${ninetyDayMarkerPosition01! * 100}%` },
+              ]}
+              testID={`${testID}-ninety-day-marker`}
+            />
+          ) : null}
+
           <View
-            style={[styles.marker, { left: `${markerPosition01 * 100}%` }]}
+            style={[styles.currentMarker, { left: `${currentMarkerPosition01 * 100}%` }]}
             testID={`${testID}-marker`}
           />
+        </View>
+
+        <View style={styles.legend} importantForAccessibility="no" testID={`${testID}-legend`}>
+          <View style={styles.legendItem}>
+            <View style={styles.legendCurrentGlyph} />
+            <Text style={styles.legendText}>Today</Text>
+          </View>
+          {showNinetyDay ? (
+            <View style={styles.legendItem}>
+              <View style={styles.legendNinetyGlyph} />
+              <Text style={styles.legendText}>90-day average</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -153,33 +178,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 20,
   },
-  bandBlock: {
-    gap: 2,
-  },
-  bandHeading: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: UI_TEXT_SECONDARY,
-  },
-  bandPercent: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-    fontVariant: ["tabular-nums"],
-  },
-  bandEquivalent: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_MUTED,
-  },
   labelRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
     marginTop: 4,
   },
   labelCol: {
     minWidth: 0,
     gap: 2,
+  },
+  labelColCenter: {
+    alignItems: "center",
+  },
+  labelColEnd: {
+    alignItems: "flex-end",
   },
   zoneTitle: {
     fontSize: 11,
@@ -188,14 +200,24 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: UI_TEXT_MUTED,
   },
+  zoneTitleEnd: {
+    textAlign: "right",
+  },
   typicalTitle: {
     color: UI_TEXT_PRIMARY,
+    textAlign: "center",
   },
   zoneRange: {
     fontSize: 12,
     lineHeight: 16,
     color: UI_TEXT_SECONDARY,
     fontVariant: ["tabular-nums"],
+  },
+  zoneRangeCenter: {
+    textAlign: "center",
+  },
+  zoneRangeEnd: {
+    textAlign: "right",
   },
   track: {
     height: 16,
@@ -213,7 +235,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     zIndex: 1,
   },
-  marker: {
+  currentMarker: {
     position: "absolute",
     top: -5,
     marginLeft: -2.5,
@@ -221,6 +243,48 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 2.5,
     backgroundColor: UI_TEXT_PRIMARY,
+    zIndex: 3,
+  },
+  ninetyDayMarker: {
+    position: "absolute",
+    top: 1,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: UI_TEXT_PRIMARY,
+    backgroundColor: "transparent",
     zIndex: 2,
+  },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+    marginTop: 10,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  legendCurrentGlyph: {
+    width: 3,
+    height: 14,
+    borderRadius: 1.5,
+    backgroundColor: UI_TEXT_PRIMARY,
+  },
+  legendNinetyGlyph: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: UI_TEXT_PRIMARY,
+    backgroundColor: "transparent",
+  },
+  legendText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: UI_TEXT_SECONDARY,
   },
 });

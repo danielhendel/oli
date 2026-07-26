@@ -38,9 +38,9 @@ export type SleepStageAdultContextStatus =
   | "above_typical";
 
 export type SleepStageAdultContextLabel =
-  | "Below typical adult context"
-  | "Within typical adult context"
-  | "Above typical adult context";
+  | "Below typical range"
+  | "In typical range"
+  | "Above typical range";
 
 export type SleepStageAdultContextResult = {
   metricId: SleepStageMetricId;
@@ -48,7 +48,7 @@ export type SleepStageAdultContextResult = {
   label: SleepStageAdultContextLabel;
   lowerPercent: number;
   upperPercent: number;
-  /** Unrounded equivalent minutes from that night's totalSleepMinutes. */
+  /** Unrounded equivalent minutes from that night's totalSleepMinutes (not shown by default). */
   equivalentLowerMinutes: number;
   equivalentUpperMinutes: number;
   modelId: typeof SLEEP_STAGE_ADULT_CONTEXT_MODEL_ID;
@@ -62,6 +62,39 @@ export type SleepStageAdultContextWithheldReason =
   | "older_adult"
   | "missing_inputs"
   | "none";
+
+/**
+ * Bounded visual domains for the dual-marker range bar.
+ * Scientific thresholds stay 16–20% (Deep) and 21–30% (REM); these only control
+ * comprehension geometry so the typical segment is immediately recognizable.
+ *
+ * Deep 8–28 → typical ≈20% of bar width (was ~11% on 0–36).
+ * REM 10–42 → typical ≈28% of bar width.
+ */
+export const DEEP_SLEEP_CONTEXT_VISUAL_MIN_PERCENT = 8 as const;
+export const DEEP_SLEEP_CONTEXT_VISUAL_MAX_PERCENT = 28 as const;
+export const REM_SLEEP_CONTEXT_VISUAL_MIN_PERCENT = 10 as const;
+export const REM_SLEEP_CONTEXT_VISUAL_MAX_PERCENT = 42 as const;
+
+export function sleepStageAdultContextVisualDomain(metricId: SleepStageMetricId): {
+  minPercent: number;
+  maxPercent: number;
+} {
+  if (metricId === "deep_sleep") {
+    return {
+      minPercent: DEEP_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
+      maxPercent: DEEP_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+    };
+  }
+  if (metricId === "rem_sleep") {
+    return {
+      minPercent: REM_SLEEP_CONTEXT_VISUAL_MIN_PERCENT,
+      maxPercent: REM_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
+    };
+  }
+  const _exhaustive: never = metricId;
+  return _exhaustive;
+}
 
 export function sleepStageAdultContextBand(metricId: SleepStageMetricId): {
   lowerPercent: number;
@@ -96,20 +129,17 @@ export function classifySleepStageAdultContextStatus(
 export function sleepStageAdultContextStatusLabel(
   status: SleepStageAdultContextStatus,
 ): SleepStageAdultContextLabel {
-  if (status === "below_typical") return "Below typical adult context";
-  if (status === "within_typical") return "Within typical adult context";
-  if (status === "above_typical") return "Above typical adult context";
+  if (status === "below_typical") return "Below typical range";
+  if (status === "within_typical") return "In typical range";
+  if (status === "above_typical") return "Above typical range";
   const _exhaustive: never = status;
   return _exhaustive;
 }
 
-/**
- * Symmetric visual scale max so the typical band sits between equal outer zones.
- * Geometry only — classification uses absolute percentages.
- */
+/** @deprecated Prefer {@link sleepStageAdultContextVisualDomain}. */
 export function sleepStageAdultContextVisualScaleMax(metricId: SleepStageMetricId): number {
-  const { lowerPercent, upperPercent } = sleepStageAdultContextBand(metricId);
-  return lowerPercent + upperPercent;
+  const domain = sleepStageAdultContextVisualDomain(metricId);
+  return domain.maxPercent - domain.minPercent;
 }
 
 export function sleepStageAdultContextZoneFractions(metricId: SleepStageMetricId): {
@@ -118,25 +148,30 @@ export function sleepStageAdultContextZoneFractions(metricId: SleepStageMetricId
   above: number;
 } {
   const { lowerPercent, upperPercent } = sleepStageAdultContextBand(metricId);
-  const scaleMax = sleepStageAdultContextVisualScaleMax(metricId);
+  const { minPercent, maxPercent } = sleepStageAdultContextVisualDomain(metricId);
+  const span = maxPercent - minPercent;
+  if (!(span > 0)) {
+    return { below: 1 / 3, typical: 1 / 3, above: 1 / 3 };
+  }
   return {
-    below: lowerPercent / scaleMax,
-    typical: (upperPercent - lowerPercent) / scaleMax,
-    above: lowerPercent / scaleMax,
+    below: (lowerPercent - minPercent) / span,
+    typical: (upperPercent - lowerPercent) / span,
+    above: (maxPercent - upperPercent) / span,
   };
 }
 
 /**
  * Marker position on the visual rail (0–1). Clamped for edge visibility only;
- * does not alter the classified result.
+ * does not alter the classified result or displayed percentage.
  */
 export function sleepStageAdultContextMarkerPosition01(input: {
   metricId: SleepStageMetricId;
   stagePercentUnrounded: number;
 }): number {
-  const scaleMax = sleepStageAdultContextVisualScaleMax(input.metricId);
-  if (!Number.isFinite(input.stagePercentUnrounded) || scaleMax <= 0) return 0.5;
-  const raw = input.stagePercentUnrounded / scaleMax;
+  const { minPercent, maxPercent } = sleepStageAdultContextVisualDomain(input.metricId);
+  const span = maxPercent - minPercent;
+  if (!Number.isFinite(input.stagePercentUnrounded) || !(span > 0)) return 0.5;
+  const raw = (input.stagePercentUnrounded - minPercent) / span;
   return Math.min(0.98, Math.max(0.02, raw));
 }
 
@@ -168,9 +203,18 @@ export function sleepStageAdultContextAccessibilitySummary(input: {
   label: SleepStageAdultContextLabel;
   lowerPercent: number;
   upperPercent: number;
-  equivalentSentence: string;
+  currentPercentDisplay: number;
+  ninetyDayPercentDisplay: number | null;
 }): string {
-  return `${input.label}. Typical adult context is ${input.lowerPercent} to ${input.upperPercent} percent, which is ${input.equivalentSentence.toLowerCase()}.`;
+  const parts = [
+    `${input.label}.`,
+    `The typical range is ${input.lowerPercent} to ${input.upperPercent} percent.`,
+    `Today is ${input.currentPercentDisplay} percent.`,
+  ];
+  if (input.ninetyDayPercentDisplay != null) {
+    parts.push(`Your 90-day average is ${input.ninetyDayPercentDisplay} percent.`);
+  }
+  return parts.join(" ");
 }
 
 /**

@@ -63,8 +63,9 @@ export type SleepStagePatternRowId = "7d" | "30d" | "90d";
 export type SleepStagePatternRow = {
   id: SleepStagePatternRowId;
   label: string;
+  /** Compact `57m · 13%` when percent is valid; minutes-only or Not enough data otherwise. */
   value: string;
-  /** Optional secondary: average % of total sleep when sufficiently supported. */
+  /** Always null in simplified v1 — percent is folded into `value`. */
   secondaryValue: string | null;
   accessibilitySummary: string;
 };
@@ -76,20 +77,28 @@ export type SleepStagePatternComparison = {
   ninetyDay: SleepStagePatternRow;
 };
 
-/** Presentation-ready adult-context block — no DOB or evidence IDs. */
+/** Presentation-ready dual-marker typical-range bar — no DOB or evidence IDs. */
 export type SleepStageAdultContextPresentation = {
   status: SleepStageAdultContextStatus;
   statusLabel: string;
+  /** Retained for education/tests; not shown on the primary bar hierarchy. */
   typicalPercentRangeText: string;
+  /** Retained for typed model completeness; not shown on the primary sheet. */
   equivalentMinutesSentence: string;
-  belowLabel: "Below typical";
-  typicalLabel: "Typical adult context";
-  aboveLabel: "Above typical";
+  belowLabel: "Below Typical";
+  typicalLabel: "Typical Range";
+  aboveLabel: "Above Typical";
   belowRangeText: string;
   typicalRangeText: string;
   aboveRangeText: string;
   zoneFractions: { below: number; typical: number; above: number };
+  /** Current-night marker on the visual domain (0–1). */
   markerPosition01: number;
+  currentMarkerPosition01: number;
+  /** Null when 90-day average percent is insufficient. */
+  ninetyDayMarkerPosition01: number | null;
+  currentPercentDisplay: number;
+  ninetyDayPercentDisplay: number | null;
   accessibilitySummary: string;
 };
 
@@ -130,11 +139,21 @@ function patternRowFromAverage(input: {
   label: string;
   summary: SleepStageAverageSummary;
 }): SleepStagePatternRow {
+  const minutesValue = input.summary.displayValue;
+  let value = minutesValue;
+  if (
+    input.summary.hasEnoughData &&
+    minutesValue !== "Not enough data" &&
+    input.summary.hasEnoughPercentData &&
+    input.summary.averagePercent != null
+  ) {
+    value = `${minutesValue} · ${Math.round(input.summary.averagePercent)}%`;
+  }
   return {
     id: input.id,
     label: input.label,
-    value: input.summary.displayValue,
-    secondaryValue: input.summary.displayPercentValue,
+    value,
+    secondaryValue: null,
     accessibilitySummary: input.summary.accessibilitySummary,
   };
 }
@@ -200,22 +219,41 @@ function refDateFromDayKey(day: DayKey): Date {
   return new Date(y, m - 1, d);
 }
 
-function buildAdultContextPresentation(
-  result: SleepStageAdultContextResult,
-  totalSleepMinutes: number,
-  stagePercentUnrounded: number,
-): SleepStageAdultContextPresentation {
+function buildAdultContextPresentation(input: {
+  result: SleepStageAdultContextResult;
+  totalSleepMinutes: number;
+  stagePercentUnrounded: number;
+  currentPercentDisplay: number;
+  ninetyDayPercentUnrounded: number | null;
+}): SleepStageAdultContextPresentation {
+  const { result } = input;
   const equivalents = formatSleepStageAdultContextEquivalentMinutes({
-    totalSleepMinutes,
+    totalSleepMinutes: input.totalSleepMinutes,
     lowerPercent: result.lowerPercent,
     upperPercent: result.upperPercent,
   });
   const typicalPercentRangeText = `${result.lowerPercent}–${result.upperPercent}% of total sleep`;
+  const ninetyDayPercentDisplay =
+    input.ninetyDayPercentUnrounded != null && Number.isFinite(input.ninetyDayPercentUnrounded)
+      ? Math.round(input.ninetyDayPercentUnrounded)
+      : null;
+  const currentMarkerPosition01 = sleepStageAdultContextMarkerPosition01({
+    metricId: result.metricId,
+    stagePercentUnrounded: input.stagePercentUnrounded,
+  });
+  const ninetyDayMarkerPosition01 =
+    input.ninetyDayPercentUnrounded != null && Number.isFinite(input.ninetyDayPercentUnrounded)
+      ? sleepStageAdultContextMarkerPosition01({
+          metricId: result.metricId,
+          stagePercentUnrounded: input.ninetyDayPercentUnrounded,
+        })
+      : null;
   const accessibilitySummary = sleepStageAdultContextAccessibilitySummary({
     label: result.label,
     lowerPercent: result.lowerPercent,
     upperPercent: result.upperPercent,
-    equivalentSentence: equivalents.equivalentSentence,
+    currentPercentDisplay: input.currentPercentDisplay,
+    ninetyDayPercentDisplay,
   });
 
   return {
@@ -223,17 +261,18 @@ function buildAdultContextPresentation(
     statusLabel: result.label,
     typicalPercentRangeText,
     equivalentMinutesSentence: equivalents.equivalentSentence,
-    belowLabel: "Below typical",
-    typicalLabel: "Typical adult context",
-    aboveLabel: "Above typical",
+    belowLabel: "Below Typical",
+    typicalLabel: "Typical Range",
+    aboveLabel: "Above Typical",
     belowRangeText: `<${result.lowerPercent}%`,
     typicalRangeText: `${result.lowerPercent}–${result.upperPercent}%`,
     aboveRangeText: `>${result.upperPercent}%`,
     zoneFractions: sleepStageAdultContextZoneFractions(result.metricId),
-    markerPosition01: sleepStageAdultContextMarkerPosition01({
-      metricId: result.metricId,
-      stagePercentUnrounded,
-    }),
+    markerPosition01: currentMarkerPosition01,
+    currentMarkerPosition01,
+    ninetyDayMarkerPosition01,
+    currentPercentDisplay: input.currentPercentDisplay,
+    ninetyDayPercentDisplay,
     accessibilitySummary,
   };
 }
@@ -300,17 +339,6 @@ export function buildSleepStageDetailViewModel(input: {
     ageYears,
     result: adultContextResult,
   });
-  const adultContext =
-    adultContextResult != null &&
-    totalSleepMinutes != null &&
-    percentResult != null
-      ? buildAdultContextPresentation(
-          adultContextResult,
-          totalSleepMinutes,
-          percentResult.value,
-        )
-      : null;
-
   const historyReady = historyStatus === "ready";
   const averages = historyReady
     ? buildSleepStageAverageSummaries({
@@ -324,6 +352,26 @@ export function buildSleepStageDetailViewModel(input: {
   const sevenDay = averages?.sevenDay ?? null;
   const thirtyDay = averages?.thirtyDay ?? null;
   const ninetyDay = averages?.ninetyDay ?? null;
+
+  const ninetyDayPercentUnrounded =
+    ninetyDay != null &&
+    ninetyDay.hasEnoughPercentData &&
+    ninetyDay.averagePercent != null
+      ? ninetyDay.averagePercent
+      : null;
+
+  const adultContext =
+    adultContextResult != null &&
+    totalSleepMinutes != null &&
+    percentResult != null
+      ? buildAdultContextPresentation({
+          result: adultContextResult,
+          totalSleepMinutes,
+          stagePercentUnrounded: percentResult.value,
+          currentPercentDisplay: percentResult.displayPercent,
+          ninetyDayPercentUnrounded,
+        })
+      : null;
 
   const pattern =
     sevenDay != null && thirtyDay != null && ninetyDay != null
@@ -369,7 +417,6 @@ export function buildSleepStageDetailViewModel(input: {
     heroA11yParts.push(`${percentOfTotalSleepSentence}.`);
   }
   const adultA11y = adultContext?.accessibilitySummary ?? "";
-  const personalA11y = personalComparison?.accessibilitySummary ?? "";
   const patternA11y = pattern
     ? [
         pattern.sevenDay.accessibilitySummary,
@@ -409,6 +456,6 @@ export function buildSleepStageDetailViewModel(input: {
     canRetryHistory: historyStatus === "error",
     isHistoryLoading: historyStatus === "loading",
     accessibilitySummary:
-      `${heroA11yParts.join(" ")} ${adultA11y} ${personalA11y} ${patternA11y}`.trim(),
+      `${heroA11yParts.join(" ")} ${adultA11y} ${patternA11y}`.trim(),
   };
 }
