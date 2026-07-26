@@ -5,6 +5,10 @@ import renderer from "react-test-renderer";
 import type { SleepDurationDetailViewModel } from "@/lib/data/sleep/buildSleepDurationDetailViewModel";
 import { classifySleepDurationReference } from "@/lib/data/sleep/sleepDurationReference";
 import { SleepDurationDetailSheet } from "@/lib/ui/sleep/SleepDurationDetailSheet";
+import {
+  METRIC_DETAIL_SECTION_BREAK,
+  METRIC_DETAIL_SECTION_HEADING_GAP,
+} from "@/lib/ui/common/metricDetailShellLayout";
 import { UI_RECOMMENDED_RANGE_FILL } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -31,10 +35,11 @@ function baseVm(over: Partial<SleepDurationDetailViewModel> = {}): SleepDuration
       formattedAverage: "6h 52m",
       validNightCount: 6,
       expectedNightCount: 7,
+      minimumRequiredNightCount: 3,
       hasEnoughData: true,
       coverageLabel: "6 of 7 nights",
       displayValue: "6h 52m",
-      accessibilitySummary: "7 days average 6h 52m, based on 6 of 7 nights.",
+      accessibilitySummary: "7 days average 6h 52m.",
     },
     thirtyDay: {
       window: "30d",
@@ -42,39 +47,46 @@ function baseVm(over: Partial<SleepDurationDetailViewModel> = {}): SleepDuration
       formattedAverage: "7h 8m",
       validNightCount: 27,
       expectedNightCount: 30,
+      minimumRequiredNightCount: 10,
       hasEnoughData: true,
       coverageLabel: "27 of 30 nights",
       displayValue: "7h 8m",
-      accessibilitySummary: "30 days average 7h 8m, based on 27 of 30 nights.",
+      accessibilitySummary: "30 days average 7h 8m.",
+    },
+    ninetyDay: {
+      window: "90d",
+      averageMinutes: 430,
+      formattedAverage: "7h 10m",
+      validNightCount: 80,
+      expectedNightCount: 90,
+      minimumRequiredNightCount: 30,
+      hasEnoughData: true,
+      coverageLabel: "80 of 90 nights",
+      displayValue: "7h 10m",
+      accessibilitySummary: "90 days average 7h 10m.",
     },
     pattern: {
       heading: "Your Pattern",
-      today: {
-        id: "today",
-        label: "Today",
-        value: "6h 31m",
-        statusLabel: "Below Typical",
-        coverageLabel: null,
-        emphasized: true,
-        accessibilitySummary: "Today 6h 31m. Below Typical.",
-      },
       sevenDay: {
         id: "7d",
         label: "7-day average",
         value: "6h 52m",
         statusLabel: "Below Typical",
-        coverageLabel: "6 of 7 nights",
-        emphasized: false,
-        accessibilitySummary: "7-day average 6h 52m. 6 of 7 nights. Below Typical.",
+        accessibilitySummary: "7-day average 6h 52m. Below Typical.",
       },
       thirtyDay: {
         id: "30d",
         label: "30-day average",
         value: "7h 8m",
         statusLabel: "Recommended",
-        coverageLabel: "27 of 30 nights",
-        emphasized: false,
-        accessibilitySummary: "30-day average 7h 8m. 27 of 30 nights. Recommended.",
+        accessibilitySummary: "30-day average 7h 8m. Recommended.",
+      },
+      ninetyDay: {
+        id: "90d",
+        label: "90-day average",
+        value: "7h 10m",
+        statusLabel: "Recommended",
+        accessibilitySummary: "90-day average 7h 10m. Recommended.",
       },
     },
     explainers: [
@@ -84,7 +96,7 @@ function baseVm(over: Partial<SleepDurationDetailViewModel> = {}): SleepDuration
       },
       {
         heading: "How to understand it",
-        body: "Most adults need about 7–9 hours. Compare tonight with your 7- and 30-day averages to see whether it was one unusual night or part of your usual pattern.",
+        body: "Most adults need about 7–9 hours. Compare your recent averages to see whether this result was unusual or part of your normal pattern.",
       },
       {
         heading: "What can help",
@@ -93,7 +105,7 @@ function baseVm(over: Partial<SleepDurationDetailViewModel> = {}): SleepDuration
     ],
     dataAccuracyBody:
       "Your wearable estimates sleep using signals such as movement and heart rate. Results may change after syncing and may differ from a clinical sleep study.",
-    dataAccuracyContextLine: "Sleep night: 2026-05-18",
+    dataAccuracyContextLine: null,
     sourceLine: null,
     historyStatus: "ready",
     historyErrorMessage: null,
@@ -117,7 +129,7 @@ function allText(root: renderer.ReactTestInstance): string {
 }
 
 describe("SleepDurationDetailSheet", () => {
-  it("renders result-first hierarchy with Your Pattern and simplified copy", () => {
+  it("renders 7/30/90 pattern without Today, coverage, or technical metadata", () => {
     const onClose = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -130,24 +142,30 @@ describe("SleepDurationDetailSheet", () => {
     expect(flat).toContain("6h 31m");
     expect(flat).toContain("29 min below the recommended range.");
     expect(flat).toContain("Below Typical");
-    expect(flat).not.toContain("Below recommended");
     expect(flat).toContain("Your Pattern");
-    expect(flat).toContain("Today");
     expect(flat).toContain("7-day average");
     expect(flat).toContain("30-day average");
-    expect(flat).toContain("6 of 7 nights");
-    expect(flat).toContain("27 of 30 nights");
-    expect(flat).toContain("What it measures");
+    expect(flat).toContain("90-day average");
+    expect(flat).not.toContain("Today");
+    expect(flat).not.toContain("7 of 7 nights");
+    expect(flat).not.toContain("30 of 30 nights");
+    expect(flat).not.toContain("90 of 90 nights");
+    expect(flat).not.toMatch(/Sleep night:|Updated |Canonical SleepNight|mainSleepMinutes/i);
     expect(flat).toContain("What can help");
-    expect(flat).toContain("main sleep period");
-    expect(flat).toContain("Data & accuracy");
+    expect(flat).toContain("Compare your recent averages");
     expect(flat).not.toContain("YTD");
-    expect(flat).not.toMatch(/Optimal|Good|Fair|Low/);
-    expect(flat).not.toMatch(/Canonical SleepNight|mainSleepMinutes|totalSleepMinutes/i);
 
-    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-today" })).toBeDefined();
+    expect(() => tree.root.findByProps({ testID: "sleep-duration-pattern-today" })).toThrow();
     expect(tree.root.findByProps({ testID: "sleep-duration-pattern-7d" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "sleep-duration-pattern-30d" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-90d" })).toBeDefined();
+
+    const pattern = tree.root.findByProps({ testID: "sleep-duration-pattern" });
+    const patternStyle = Array.isArray(pattern.props.style)
+      ? Object.assign({}, ...pattern.props.style.filter(Boolean))
+      : pattern.props.style;
+    expect(patternStyle.marginTop).toBe(METRIC_DETAIL_SECTION_BREAK);
+    expect(patternStyle.gap).toBe(METRIC_DETAIL_SECTION_HEADING_GAP);
 
     const recommended = tree.root.findByProps({
       testID: "sleep-duration-reference-bar-recommended-zone",
@@ -157,9 +175,8 @@ describe("SleepDurationDetailSheet", () => {
       : recommended.props.style;
     expect(recStyle.backgroundColor).toBe(UI_RECOMMENDED_RANGE_FILL);
 
-    const close = tree.root.findByProps({ testID: "sleep-duration-detail-sheet-close" });
     act(() => {
-      close.props.onPress();
+      tree.root.findByProps({ testID: "sleep-duration-detail-sheet-close" }).props.onPress();
     });
     expect(onClose).toHaveBeenCalled();
   });
@@ -176,12 +193,13 @@ describe("SleepDurationDetailSheet", () => {
             historyStatus: "loading",
             sevenDay: null,
             thirtyDay: null,
+            ninetyDay: null,
             pattern: null,
           })}
         />,
       );
     });
-    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-today-skeleton" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "sleep-duration-pattern-7d-skeleton" })).toBeDefined();
 
     const onRetry = jest.fn();
     act(() => {
@@ -197,14 +215,14 @@ describe("SleepDurationDetailSheet", () => {
             historyErrorMessage: "Could not load recent sleep averages.",
             sevenDay: null,
             thirtyDay: null,
+            ninetyDay: null,
             pattern: null,
           })}
         />,
       );
     });
-    const retry = tree.root.findByProps({ testID: "sleep-duration-history-retry" });
     act(() => {
-      retry.props.onPress();
+      tree.root.findByProps({ testID: "sleep-duration-history-retry" }).props.onPress();
     });
     expect(onRetry).toHaveBeenCalled();
   });

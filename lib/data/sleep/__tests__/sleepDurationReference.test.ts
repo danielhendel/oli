@@ -153,6 +153,7 @@ describe("sleepDurationReferenceZoneCopy and labels", () => {
 describe("sleepDurationHowToUnderstandBody", () => {
   it("selects age-band copy without hardcoding 7–9 for 65+", () => {
     expect(sleepDurationHowToUnderstandBody({ ageYears: 30 })).toContain("7–9 hours");
+    expect(sleepDurationHowToUnderstandBody({ ageYears: 30 })).toContain("Compare your recent averages");
     expect(sleepDurationHowToUnderstandBody({ ageYears: 70 })).toContain("7–8 hours");
     expect(sleepDurationHowToUnderstandBody({ ageYears: 70 })).not.toContain("7–9 hours");
     expect(sleepDurationHowToUnderstandBody({ ageYears: null })).toMatch(/vary by age/i);

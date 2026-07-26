@@ -3,9 +3,13 @@ import { describe, expect, it } from "@jest/globals";
 import type { SleepNightViewDto } from "@oli/contracts";
 
 import {
+  buildSleepDurationAverageSummaries,
   buildSleepDurationAverageSummary,
   SLEEP_DURATION_AVERAGE_30D_MIN_VALID,
   SLEEP_DURATION_AVERAGE_7D_MIN_VALID,
+  SLEEP_DURATION_AVERAGE_90D_MIN_VALID,
+  SLEEP_DURATION_DETAIL_HISTORY_DAY_COUNT,
+  sleepDurationDetailHistoryDayKeys,
 } from "@/lib/data/sleep/sleepDurationAverages";
 import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
 import { addCalendarDaysToDayKey } from "@/lib/ui/calendar/dateUtils";
@@ -226,5 +230,68 @@ describe("buildSleepDurationAverageSummary — 30d", () => {
     expect(s.validNightCount).toBe(30);
     expect(s.hasEnoughData).toBe(true);
     expect(s.displayValue).toBe("8h");
+  });
+});
+
+describe("buildSleepDurationAverageSummary — 90d", () => {
+  it("publishes at 30/90 and withholds at 29/90", () => {
+    const thirty = fillNights(selected, SLEEP_DURATION_AVERAGE_90D_MIN_VALID, 450);
+    const ok = buildSleepDurationAverageSummary({
+      window: "90d",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNightByDay: thirty,
+    });
+    expect(ok.validNightCount).toBe(30);
+    expect(ok.expectedNightCount).toBe(90);
+    expect(ok.minimumRequiredNightCount).toBe(30);
+    expect(ok.hasEnoughData).toBe(true);
+    expect(ok.coverageLabel).toBe("30 of 90 nights");
+
+    const twentyNineDays = Object.keys(thirty).slice(0, 29) as DayKey[];
+    const shortMap: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
+    for (const d of twentyNineDays) shortMap[d] = thirty[d]!;
+    const short = buildSleepDurationAverageSummary({
+      window: "90d",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNightByDay: shortMap,
+    });
+    expect(short.validNightCount).toBe(29);
+    expect(short.hasEnoughData).toBe(false);
+    expect(short.displayValue).toBe("Not enough data");
+    expect(short.averageMinutes).toBeNull();
+  });
+
+  it("shows average for 90/90 and history day keys span 90 inclusive days", () => {
+    const all = fillNights(selected, 90, 460);
+    const s = buildSleepDurationAverageSummary({
+      window: "90d",
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNightByDay: all,
+    });
+    expect(s.validNightCount).toBe(90);
+    expect(s.hasEnoughData).toBe(true);
+    expect(s.displayValue).toMatch(/7h/);
+    expect(sleepDurationDetailHistoryDayKeys(selected)).toHaveLength(90);
+    expect(SLEEP_DURATION_DETAIL_HISTORY_DAY_COUNT).toBe(90);
+  });
+});
+
+describe("buildSleepDurationAverageSummaries", () => {
+  it("builds 7/30/90 from one night map", () => {
+    const map = fillNights(selected, 90, 420);
+    const summaries = buildSleepDurationAverageSummaries({
+      selectedDay: selected,
+      todayDayKey: today,
+      sleepNightByDay: map,
+    });
+    expect(summaries.sevenDay.validNightCount).toBe(7);
+    expect(summaries.thirtyDay.validNightCount).toBe(30);
+    expect(summaries.ninetyDay.validNightCount).toBe(90);
+    expect(summaries.sevenDay.hasEnoughData).toBe(true);
+    expect(summaries.thirtyDay.hasEnoughData).toBe(true);
+    expect(summaries.ninetyDay.hasEnoughData).toBe(true);
   });
 });

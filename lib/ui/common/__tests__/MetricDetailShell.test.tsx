@@ -211,6 +211,28 @@ describe("MetricDetailShell layout", () => {
     expect(scroll.findByProps({ testID: "metric-detail-shell-data-accuracy" })).toBeDefined();
   });
 
+  it("does not render header or footer scroll seams", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MetricDetailShell visible onClose={jest.fn()} title="Duration" heroValue="6h 31m" />,
+      );
+    });
+    const header = tree.root.findByProps({ testID: "metric-detail-shell-header" });
+    const footer = tree.root.findByProps({ testID: "metric-detail-shell-footer" });
+    expect(() => header.findByProps({ testID: "metric-detail-shell-header-divider" })).toThrow();
+    expect(() => footer.findByProps({ testID: "metric-detail-shell-footer-divider" })).toThrow();
+    const headerFlat = Array.isArray(header.props.style)
+      ? Object.assign({}, ...header.props.style.filter(Boolean))
+      : header.props.style;
+    const footerFlat = Array.isArray(footer.props.style)
+      ? Object.assign({}, ...footer.props.style.filter(Boolean))
+      : footer.props.style;
+    expect(headerFlat.borderBottomWidth ?? 0).toBe(0);
+    expect(footerFlat.borderTopWidth ?? 0).toBe(0);
+    expect(headerFlat.backgroundColor).toBe(footerFlat.backgroundColor);
+  });
+
   it("exposes modal semantics and Close/Done labels", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

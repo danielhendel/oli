@@ -72,16 +72,21 @@ describe("buildSleepDurationDetailViewModel", () => {
     expect(vm.sevenDay?.hasEnoughData).toBe(true);
     expect(vm.thirtyDay?.hasEnoughData).toBe(true);
     expect(vm.pattern?.heading).toBe("Your Pattern");
-    expect(vm.pattern?.today.emphasized).toBe(true);
-    expect(vm.pattern?.today.statusLabel).toBe("Below Typical");
-    expect(vm.pattern?.sevenDay.coverageLabel).toMatch(/nights/);
+    expect(vm.pattern?.sevenDay.label).toBe("7-day average");
+    expect(vm.pattern?.ninetyDay.label).toBe("90-day average");
+    expect((vm.pattern as { today?: unknown } | null)?.today).toBeUndefined();
+    expect(vm.sevenDay?.coverageLabel).toMatch(/nights/);
+    expect(vm.ninetyDay?.expectedNightCount).toBe(90);
     expect(vm.explainers).toHaveLength(3);
     expect(vm.explainers[0]?.body).toContain("main sleep period");
-    expect(vm.explainers[1]?.body).toContain("7–9 hours");
+    expect(vm.explainers[1]?.body).toContain("Compare your recent averages");
     expect(vm.explainers[2]?.heading).toBe("What can help");
     expect(vm.dataAccuracyBody).toContain("wearable estimates sleep");
     expect(vm.sourceLine).toBeNull();
-    expect(vm.accessibilitySummary).not.toMatch(/Canonical SleepNight|Optimal|insomnia/i);
+    expect(vm.dataAccuracyContextLine).toBeNull();
+    expect(vm.accessibilitySummary).not.toMatch(
+      /Canonical SleepNight|Sleep night:|Updated |Optimal|insomnia/i,
+    );
   });
 
   it("withholds range when age unknown and uses neutral how-to copy", () => {
@@ -96,9 +101,10 @@ describe("buildSleepDurationDetailViewModel", () => {
     expect(vm.rangeResult).toBeNull();
     expect(vm.statusSentence).toBeNull();
     expect(vm.rangeWithheldReason).toBe("unknown_age");
-    expect(vm.pattern?.today.statusLabel).toBeNull();
+    expect(vm.pattern?.sevenDay.statusLabel).toBeNull();
     expect(vm.explainers[1]?.body).toMatch(/Sleep needs vary by age/);
     expect(vm.dataAccuracyBody).not.toMatch(/Canonical|SleepNight/);
+    expect(vm.dataAccuracyContextLine).toBeNull();
   });
 
   it("uses 7–8 hour how-to copy for age 65+", () => {
