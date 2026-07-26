@@ -7,7 +7,10 @@
  * zone fills; no red alarm for one night outside the band).
  */
 
-import type { SleepStageAdultContextStatus } from "@/lib/data/sleep/sleepStageAdultContext";
+import type {
+  SleepStageAdultContextStatus,
+  SleepStagePatternStatusLabel,
+} from "@/lib/data/sleep/sleepStageAdultContext";
 import type { OliThemeMode } from "@/lib/ui/theme/oliTheme";
 import {
   DASH_MONITOR_RATING_TONE_CHROME_DARK,
@@ -64,6 +67,19 @@ export function sleepStageAdultContextStatusTextColor(
   if (status === "below_typical") return chrome.statusBelowText;
   if (status === "above_typical") return chrome.statusAboveText;
   const _exhaustive: never = status;
+  return _exhaustive;
+}
+
+/** Text color for Your Pattern secondary classifications. */
+export function sleepStagePatternStatusTextColor(
+  label: SleepStagePatternStatusLabel,
+  mode: OliThemeMode = "dark",
+): string {
+  const chrome = resolveSleepStageAdultContextChrome(mode);
+  if (label === "In range") return chrome.statusWithinText;
+  if (label === "Below range") return chrome.statusBelowText;
+  if (label === "Above range") return chrome.statusAboveText;
+  const _exhaustive: never = label;
   return _exhaustive;
 }
 

@@ -136,6 +136,41 @@ export function sleepStageAdultContextStatusLabel(
   return _exhaustive;
 }
 
+/** Consumer-facing Your Pattern classification (7 / 30 / 90 only). */
+export type SleepStagePatternStatusLabel = "Below range" | "In range" | "Above range";
+
+export function sleepStagePatternStatusLabel(
+  status: SleepStageAdultContextStatus,
+): SleepStagePatternStatusLabel {
+  if (status === "below_typical") return "Below range";
+  if (status === "within_typical") return "In range";
+  if (status === "above_typical") return "Above range";
+  const _exhaustive: never = status;
+  return _exhaustive;
+}
+
+/**
+ * Classify a historical average % against the same scientific adult bands.
+ * Returns null when percent data is insufficient — never fabricates.
+ */
+export function classifySleepStagePatternStatus(input: {
+  metricId: SleepStageMetricId;
+  averagePercent: number | null | undefined;
+  hasEnoughPercentData: boolean;
+}): SleepStagePatternStatusLabel | null {
+  if (!input.hasEnoughPercentData) return null;
+  if (typeof input.averagePercent !== "number" || !Number.isFinite(input.averagePercent)) {
+    return null;
+  }
+  const { lowerPercent, upperPercent } = sleepStageAdultContextBand(input.metricId);
+  const status = classifySleepStageAdultContextStatus(
+    input.averagePercent,
+    lowerPercent,
+    upperPercent,
+  );
+  return sleepStagePatternStatusLabel(status);
+}
+
 /** @deprecated Prefer {@link sleepStageAdultContextVisualDomain}. */
 export function sleepStageAdultContextVisualScaleMax(metricId: SleepStageMetricId): number {
   const domain = sleepStageAdultContextVisualDomain(metricId);

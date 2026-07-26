@@ -1,18 +1,24 @@
 /**
- * Your Pattern — 7 / 30 / 90-day stage averages.
- * Presentation only; averages live on the view model.
- * Compact one-line values (`57m · 13%`). No population status labels.
+ * Your Pattern — 7 / 30 / 90-day stage averages with optional range classification.
+ * Presentation only; averages and status live on the view model.
+ * Compact one-line values (`57m · 13%`) + Duration-like secondary status.
  */
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { SleepStagePatternComparison } from "@/lib/data/sleep/buildSleepStageDetailViewModel";
+import type { SleepStagePatternStatusLabel } from "@/lib/data/sleep/sleepStageAdultContext";
 import {
   METRIC_DETAIL_SECTION_BREAK,
   METRIC_DETAIL_SECTION_HEADING_GAP,
 } from "@/lib/ui/common/metricDetailShellLayout";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import {
+  sleepStagePatternStatusTextColor,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export type SleepStagePatternComparisonProps = {
   pattern: SleepStagePatternComparison;
@@ -23,12 +29,14 @@ export type SleepStagePatternComparisonProps = {
 function PatternRow({
   label,
   value,
+  statusLabel,
   accessibilitySummary,
   loading,
   testID,
 }: {
   label: string;
   value: string;
+  statusLabel: SleepStagePatternStatusLabel | null;
   accessibilitySummary: string;
   loading?: boolean;
   testID: string;
@@ -41,16 +49,29 @@ function PatternRow({
       accessibilityLabel={loading ? `${label}. Loading.` : accessibilitySummary}
     >
       <Text style={styles.rowLabel}>{label}</Text>
-      {loading ? (
-        <View style={styles.skeletonValue} testID={`${testID}-skeleton`} />
-      ) : (
-        <Text
-          style={[styles.rowValue, value === "Not enough data" && styles.rowValueMuted]}
-          numberOfLines={2}
-        >
-          {value}
-        </Text>
-      )}
+      <View style={styles.rowRight}>
+        {loading ? (
+          <View style={styles.skeletonValue} testID={`${testID}-skeleton`} />
+        ) : (
+          <Text
+            style={[styles.rowValue, value === "Not enough data" && styles.rowValueMuted]}
+            numberOfLines={2}
+          >
+            {value}
+          </Text>
+        )}
+        {statusLabel && !loading ? (
+          <Text
+            style={[
+              styles.statusLabel,
+              { color: sleepStagePatternStatusTextColor(statusLabel) },
+            ]}
+            testID={`${testID}-status`}
+          >
+            {statusLabel}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -69,6 +90,7 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.sevenDay.label}
           value={pattern.sevenDay.value}
+          statusLabel={pattern.sevenDay.statusLabel}
           accessibilitySummary={pattern.sevenDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-7d`}
@@ -76,6 +98,7 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.thirtyDay.label}
           value={pattern.thirtyDay.value}
+          statusLabel={pattern.thirtyDay.statusLabel}
           accessibilitySummary={pattern.thirtyDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-30d`}
@@ -83,6 +106,7 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.ninetyDay.label}
           value={pattern.ninetyDay.value}
+          statusLabel={pattern.ninetyDay.statusLabel}
           accessibilitySummary={pattern.ninetyDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-90d`}
@@ -105,6 +129,7 @@ export function SleepStagePatternComparisonSkeleton({
       label: "7-day average",
       value: "—",
       secondaryValue: null,
+      statusLabel: null,
       accessibilitySummary: "7-day average. Loading.",
     },
     thirtyDay: {
@@ -112,6 +137,7 @@ export function SleepStagePatternComparisonSkeleton({
       label: "30-day average",
       value: "—",
       secondaryValue: null,
+      statusLabel: null,
       accessibilitySummary: "30-day average. Loading.",
     },
     ninetyDay: {
@@ -119,6 +145,7 @@ export function SleepStagePatternComparisonSkeleton({
       label: "90-day average",
       value: "—",
       secondaryValue: null,
+      statusLabel: null,
       accessibilitySummary: "90-day average. Loading.",
     },
   };
@@ -147,6 +174,12 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 10,
   },
+  rowRight: {
+    flexShrink: 0,
+    alignItems: "flex-end",
+    gap: 4,
+    maxWidth: "52%",
+  },
   rowLabel: {
     flex: 1,
     minWidth: 0,
@@ -156,8 +189,6 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   rowValue: {
-    flexShrink: 1,
-    maxWidth: "52%",
     fontSize: 17,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
@@ -168,6 +199,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: UI_TEXT_SECONDARY,
+  },
+  statusLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "right",
   },
   skeletonValue: {
     width: 88,

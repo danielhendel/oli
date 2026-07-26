@@ -3,16 +3,12 @@
  * Presentation only — thresholds, domains, and markers come from the view model.
  *
  * gray → green → gray with white current marker and optional outlined 90-day marker.
+ * Visible status sentence is intentionally omitted — the bar is the interpretation.
  */
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import type { SleepStageAdultContextStatus } from "@/lib/data/sleep/sleepStageAdultContext";
-import {
-  METRIC_DETAIL_SECTION_BREAK,
-  METRIC_DETAIL_SECTION_HEADING_GAP,
-} from "@/lib/ui/common/metricDetailShellLayout";
 import {
   UI_STAGE_ADULT_CONTEXT_OUTER_FILL,
   UI_STAGE_ADULT_CONTEXT_TYPICAL_BORDER,
@@ -20,12 +16,9 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
-  sleepStageAdultContextStatusTextColor,
 } from "@/lib/ui/theme/uiTokens";
 
 export type SleepStageAdultContextBarProps = {
-  status: SleepStageAdultContextStatus;
-  statusLabel: string;
   belowLabel: string;
   typicalLabel: string;
   aboveLabel: string;
@@ -41,8 +34,6 @@ export type SleepStageAdultContextBarProps = {
 };
 
 export function SleepStageAdultContextBar({
-  status,
-  statusLabel,
   belowLabel,
   typicalLabel,
   aboveLabel,
@@ -55,19 +46,10 @@ export function SleepStageAdultContextBar({
   accessibilitySummary,
   testID = "sleep-stage-adult-context",
 }: SleepStageAdultContextBarProps): React.ReactElement {
-  const statusColor = sleepStageAdultContextStatusTextColor(status);
   const showNinetyDay = ninetyDayMarkerPosition01 != null;
 
   return (
     <View style={styles.wrap} testID={testID}>
-      <Text
-        style={[styles.statusLabel, { color: statusColor }]}
-        testID={`${testID}-status`}
-        accessibilityRole="text"
-      >
-        {statusLabel}
-      </Text>
-
       <View
         accessible
         accessibilityRole="summary"
@@ -83,7 +65,7 @@ export function SleepStageAdultContextBar({
               {belowRangeText}
             </Text>
           </View>
-          <View style={[styles.labelCol, styles.labelColCenter, { flex: Math.max(zoneFractions.typical, 0.22) }]}>
+          <View style={[styles.labelCol, styles.labelColCenter, { flex: Math.max(zoneFractions.typical, 0.18) }]}>
             <Text style={[styles.zoneTitle, styles.typicalTitle]} numberOfLines={1}>
               {typicalLabel}
             </Text>
@@ -169,19 +151,14 @@ export function SleepStageAdultContextBar({
 }
 
 const styles = StyleSheet.create({
+  /** Match Duration reference-bar rhythm: tight under hero, no section-break gap. */
   wrap: {
-    marginTop: METRIC_DETAIL_SECTION_BREAK,
-    gap: METRIC_DETAIL_SECTION_HEADING_GAP,
-  },
-  statusLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 20,
+    gap: 8,
+    marginTop: 4,
   },
   labelRow: {
     flexDirection: "row",
-    gap: 6,
-    marginTop: 4,
+    gap: 4,
   },
   labelCol: {
     minWidth: 0,
@@ -225,7 +202,6 @@ const styles = StyleSheet.create({
     overflow: "visible",
     flexDirection: "row",
     backgroundColor: "rgba(255,255,255,0.06)",
-    marginTop: 8,
   },
   zone: {
     height: "100%",
@@ -261,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 16,
-    marginTop: 10,
+    marginTop: 2,
   },
   legendItem: {
     flexDirection: "row",

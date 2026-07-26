@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/sleep/sleepStageAverages";
 import {
   classifySleepStageAdultContext,
+  classifySleepStagePatternStatus,
   formatSleepStageAdultContextEquivalentMinutes,
   resolveSleepStageAdultContextWithheldReason,
   sleepStageAdultContextAccessibilitySummary,
@@ -28,6 +29,7 @@ import {
   type SleepStageAdultContextResult,
   type SleepStageAdultContextStatus,
   type SleepStageAdultContextWithheldReason,
+  type SleepStagePatternStatusLabel,
 } from "@/lib/data/sleep/sleepStageAdultContext";
 import {
   sleepStageExplainerCopyFor,
@@ -59,7 +61,7 @@ export type SleepStageDetailExplainerSection = {
 
 export type SleepStagePatternRowId = "7d" | "30d" | "90d";
 
-/** Presentation-ready Your Pattern row — no population status labels. */
+/** Presentation-ready Your Pattern row — optional range classification under value. */
 export type SleepStagePatternRow = {
   id: SleepStagePatternRowId;
   label: string;
@@ -67,6 +69,8 @@ export type SleepStagePatternRow = {
   value: string;
   /** Always null in simplified v1 — percent is folded into `value`. */
   secondaryValue: string | null;
+  /** Below / In / Above range when average percent is valid; otherwise null. */
+  statusLabel: SleepStagePatternStatusLabel | null;
   accessibilitySummary: string;
 };
 
@@ -86,7 +90,7 @@ export type SleepStageAdultContextPresentation = {
   /** Retained for typed model completeness; not shown on the primary sheet. */
   equivalentMinutesSentence: string;
   belowLabel: "Below Typical";
-  typicalLabel: "Typical Range";
+  typicalLabel: "Typical";
   aboveLabel: "Above Typical";
   belowRangeText: string;
   typicalRangeText: string;
@@ -138,6 +142,7 @@ function patternRowFromAverage(input: {
   id: SleepStagePatternRowId;
   label: string;
   summary: SleepStageAverageSummary;
+  metricId: SleepStageMetricId;
 }): SleepStagePatternRow {
   const minutesValue = input.summary.displayValue;
   let value = minutesValue;
@@ -149,16 +154,27 @@ function patternRowFromAverage(input: {
   ) {
     value = `${minutesValue} · ${Math.round(input.summary.averagePercent)}%`;
   }
+  const statusLabel = classifySleepStagePatternStatus({
+    metricId: input.metricId,
+    averagePercent: input.summary.averagePercent,
+    hasEnoughPercentData: input.summary.hasEnoughPercentData,
+  });
+  const accessibilitySummary =
+    statusLabel != null && minutesValue !== "Not enough data"
+      ? `${input.summary.accessibilitySummary} ${statusLabel}.`
+      : input.summary.accessibilitySummary;
   return {
     id: input.id,
     label: input.label,
     value,
     secondaryValue: null,
-    accessibilitySummary: input.summary.accessibilitySummary,
+    statusLabel,
+    accessibilitySummary,
   };
 }
 
 export function buildSleepStagePatternComparison(input: {
+  metricId: SleepStageMetricId;
   sevenDay: SleepStageAverageSummary;
   thirtyDay: SleepStageAverageSummary;
   ninetyDay: SleepStageAverageSummary;
@@ -169,16 +185,19 @@ export function buildSleepStagePatternComparison(input: {
       id: "7d",
       label: "7-day average",
       summary: input.sevenDay,
+      metricId: input.metricId,
     }),
     thirtyDay: patternRowFromAverage({
       id: "30d",
       label: "30-day average",
       summary: input.thirtyDay,
+      metricId: input.metricId,
     }),
     ninetyDay: patternRowFromAverage({
       id: "90d",
       label: "90-day average",
       summary: input.ninetyDay,
+      metricId: input.metricId,
     }),
   };
 }
@@ -262,7 +281,7 @@ function buildAdultContextPresentation(input: {
     typicalPercentRangeText,
     equivalentMinutesSentence: equivalents.equivalentSentence,
     belowLabel: "Below Typical",
-    typicalLabel: "Typical Range",
+    typicalLabel: "Typical",
     aboveLabel: "Above Typical",
     belowRangeText: `<${result.lowerPercent}%`,
     typicalRangeText: `${result.lowerPercent}–${result.upperPercent}%`,
@@ -375,9 +394,10 @@ export function buildSleepStageDetailViewModel(input: {
 
   const pattern =
     sevenDay != null && thirtyDay != null && ninetyDay != null
-      ? buildSleepStagePatternComparison({ sevenDay, thirtyDay, ninetyDay })
+      ? buildSleepStagePatternComparison({ metricId, sevenDay, thirtyDay, ninetyDay })
       : historyReady
         ? buildSleepStagePatternComparison({
+            metricId,
             sevenDay: emptyAverage("7d"),
             thirtyDay: emptyAverage("30d"),
             ninetyDay: emptyAverage("90d"),

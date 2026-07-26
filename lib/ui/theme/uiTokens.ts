@@ -143,6 +143,7 @@ export {
   UI_STAGE_ADULT_CONTEXT_WITHIN_TEXT,
   resolveSleepStageAdultContextChrome,
   sleepStageAdultContextStatusTextColor,
+  sleepStagePatternStatusTextColor,
 } from "@/lib/ui/theme/sleepStageAdultContextChrome";
 
 /** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
