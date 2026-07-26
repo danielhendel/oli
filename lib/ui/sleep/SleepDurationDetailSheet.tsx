@@ -89,7 +89,6 @@ export function SleepDurationDetailSheet({
       averages={patternSlot}
       sections={vm.explainers}
       dataAccuracyBody={vm.dataAccuracyBody}
-      dataAccuracyMeta={vm.dataAccuracyContextLine}
       showDone
     />
   );
