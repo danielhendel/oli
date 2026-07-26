@@ -84,7 +84,7 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
     expect(vm.percentOfTotalSleepSentence).toBe("11% of total sleep");
     expect(vm.adultContext?.statusLabel).toBe("Below typical range");
     expect(vm.adultContext?.belowLabel).toBe("Below Typical");
-    expect(vm.adultContext?.typicalLabel).toBe("Typical Range");
+    expect(vm.adultContext?.typicalLabel).toBe("Typical");
     expect(vm.adultContext?.aboveLabel).toBe("Above Typical");
     expect(vm.adultContext?.typicalPercentRangeText).toBe("16–20% of total sleep");
     expect(vm.adultContext?.equivalentMinutesSentence).toContain("for this sleep duration");
@@ -94,6 +94,10 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
     expect(vm.adultContextResult?.modelVersion).toBe("sleep-stage-adult-context-v1");
     expect(vm.pattern?.sevenDay.value).toMatch(/· \d+%$/);
     expect(vm.pattern?.sevenDay.secondaryValue).toBeNull();
+    expect(vm.pattern?.sevenDay.statusLabel).toBe("Below range");
+    expect(vm.pattern?.thirtyDay.statusLabel).toBe("Below range");
+    expect(vm.pattern?.ninetyDay.statusLabel).toBe("Below range");
+    expect(vm.pattern?.sevenDay.accessibilitySummary).toContain("Below range");
     expect(vm.personalComparison).not.toBeNull();
     expect(vm.explainers[1]?.body).toContain("16–20%");
     expect(vm.accessibilitySummary).toContain("Deep Sleep");
@@ -172,7 +176,7 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
     expect(vm.adultContext).toBeNull();
   });
 
-  it("insufficient history shows Not enough data without zero", () => {
+  it("insufficient history shows Not enough data without zero or fabricated status", () => {
     const vm = buildSleepStageDetailViewModel({
       metricId: "deep_sleep",
       selectedDay: selected,
@@ -183,6 +187,7 @@ describe("buildSleepStageDetailViewModel — Deep", () => {
     });
     expect(vm.currentFormatted).toBe("50m");
     expect(vm.pattern?.sevenDay.value).toBe("Not enough data");
+    expect(vm.pattern?.sevenDay.statusLabel).toBeNull();
     expect(vm.personalComparison).toBeNull();
   });
 
@@ -275,8 +280,10 @@ describe("buildSleepStageDetailViewModel — REM", () => {
     expect(vm.currentFormatted).toBe("2h 15m");
     expect(vm.percentOfTotalSleepSentence).toBe("30% of total sleep");
     expect(vm.adultContext?.statusLabel).toBe("In typical range");
+    expect(vm.adultContext?.typicalLabel).toBe("Typical");
     expect(vm.adultContext?.typicalPercentRangeText).toBe("21–30% of total sleep");
     expect(vm.adultContext?.zoneFractions.typical).toBeGreaterThanOrEqual(0.22);
+    expect(vm.pattern?.sevenDay.statusLabel).toBe("In range");
     expect(vm.explainers[0]?.body).toContain("dreaming");
     expect(vm.explainers[1]?.body).toContain("21–30%");
     expect(vm.accessibilitySummary).toContain("In typical range");

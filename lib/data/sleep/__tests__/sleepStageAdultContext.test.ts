@@ -3,6 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
   classifySleepStageAdultContext,
   classifySleepStageAdultContextStatus,
+  classifySleepStagePatternStatus,
   DEEP_SLEEP_ADULT_CONTEXT_LOWER_PERCENT,
   DEEP_SLEEP_ADULT_CONTEXT_UPPER_PERCENT,
   DEEP_SLEEP_CONTEXT_VISUAL_MAX_PERCENT,
@@ -242,5 +243,79 @@ describe("sleepStageAdultContextAccessibilitySummary", () => {
     ).toBe(
       "In typical range. The typical range is 21 to 30 percent. Today is 30 percent.",
     );
+  });
+});
+
+describe("classifySleepStagePatternStatus", () => {
+  it("classifies Deep average percents against 16–20%", () => {
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: 15.9,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("Below range");
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: 16,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("In range");
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: 20,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("In range");
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: 20.1,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("Above range");
+  });
+
+  it("classifies REM average percents against 21–30%", () => {
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "rem_sleep",
+        averagePercent: 20.9,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("Below range");
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "rem_sleep",
+        averagePercent: 25,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("In range");
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "rem_sleep",
+        averagePercent: 30.1,
+        hasEnoughPercentData: true,
+      }),
+    ).toBe("Above range");
+  });
+
+  it("omits classification when percent data is insufficient", () => {
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: 18,
+        hasEnoughPercentData: false,
+      }),
+    ).toBeNull();
+    expect(
+      classifySleepStagePatternStatus({
+        metricId: "deep_sleep",
+        averagePercent: null,
+        hasEnoughPercentData: true,
+      }),
+    ).toBeNull();
   });
 });
