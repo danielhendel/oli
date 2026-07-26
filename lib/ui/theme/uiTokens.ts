@@ -161,5 +161,18 @@ export {
   sleepEfficiencyPatternStatusTextColor,
 } from "@/lib/ui/theme/sleepEfficiencyGuidelineChrome";
 
+/**
+ * Resting Heart Rate personal usual-range chrome (Phase 2F-B).
+ * Green/teal = within personal usual; muted gray outer zones; no red single-night alert.
+ */
+export {
+  UI_RHR_ABOVE_USUAL_FILL,
+  UI_RHR_BELOW_USUAL_FILL,
+  UI_RHR_USUAL_RANGE_BORDER,
+  UI_RHR_USUAL_RANGE_FILL,
+  resolveRestingHeartRatePersonalRangeChrome,
+  restingHeartRatePatternStatusTextColor,
+} from "@/lib/ui/theme/restingHeartRatePersonalRangeChrome";
+
 /** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
 export const UI_PROVIDER_SOURCE_CHIP_BG = "rgba(255, 255, 255, 0.06)";

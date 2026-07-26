@@ -1,10 +1,21 @@
-import React, { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import {
+  AccessibilityInfo,
+  findNodeHandle,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
+
+import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts";
 
 import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
 import type { Readiness } from "@/lib/contracts/readiness";
+import { isRestingHeartRateDetailV1Enabled } from "@/lib/data/readiness/restingHeartRateDetailFlag";
+import { resolveRestingHeartRateBpm } from "@/lib/data/readiness/restingHeartRateValue";
 import {
   buildOuraRatingAccessibility,
   mapOuraProviderRatingToTone,
@@ -14,6 +25,7 @@ import {
   DashCompactCardHeader,
   dashCompactPrimaryValueTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
+import { RestingHeartRateDetailController } from "@/lib/ui/readiness/RestingHeartRateDetailController";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_BORDER_HAIRLINE,
@@ -21,6 +33,7 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
+import type { DayKey } from "@/lib/ui/calendar/types";
 
 const READINESS_DETAIL_HREF = "/(app)/recovery/readiness" as const;
 
@@ -53,19 +66,53 @@ type Props = {
   vm: DailyReadinessCardViewModel;
   /** Consumer card title. Defaults to “Oura Readiness”. */
   title?: string;
+  /** Attributed SleepNight for Resting Heart Rate detail when the Phase 2F-B flag is enabled. */
+  attributedSleepNight?: SleepNightDocumentDto | null;
+  attributedSleepResolution?: SleepNightResolution | null;
 };
+
+function hasPhysiologicalRestingHeartRateBpm(input: {
+  sleepNight: SleepNightDocumentDto | null | undefined;
+  resolution: SleepNightResolution | null | undefined;
+}): boolean {
+  if (input.sleepNight == null) return false;
+  if (input.resolution === "latest_completed_prior_night") return false;
+  if (input.sleepNight.isComplete !== true) return false;
+  return resolveRestingHeartRateBpm(input.sleepNight.lowestHeartRateBpm) != null;
+}
 
 export function DailyReadinessCard({
   vm,
   title = "Oura Readiness",
+  attributedSleepNight = null,
+  attributedSleepResolution = null,
 }: Props): React.ReactElement {
   const router = useRouter();
+  const [rhrDetailOpen, setRhrDetailOpen] = useState(false);
+  const rhrRowRef = useRef<View>(null);
+  const rhrDetailEnabled = isRestingHeartRateDetailV1Enabled();
 
   const loading = vm.status === "partial";
   const error = vm.status === "error" ? vm.message : null;
   const model = vm.status === "ready" ? vm.model : undefined;
   const missingMessage = vm.status === "missing" ? vm.message : null;
   const missingCta = vm.status === "missing" ? vm.cta : undefined;
+  const selectedDay = vm.day as DayKey;
+
+  const restoreFocusToRef = useCallback((ref: React.RefObject<View | null>) => {
+    const node = ref.current;
+    if (node == null) return;
+    const handle = findNodeHandle(node);
+    if (handle == null) return;
+    AccessibilityInfo.setAccessibilityFocus(handle);
+  }, []);
+
+  const closeRhrDetail = useCallback(() => {
+    setRhrDetailOpen(false);
+    requestAnimationFrame(() => {
+      restoreFocusToRef(rhrRowRef);
+    });
+  }, [restoreFocusToRef]);
 
   const onOpenReadiness = useCallback(() => {
     if (loading || error || vm.status !== "ready") return;
@@ -75,13 +122,32 @@ export function DailyReadinessCard({
   const onOpenReadinessContributor = useCallback(
     (rowId: DashReadinessMetricRowId) => {
       if (loading || error || vm.status !== "ready") return;
+
+      if (rowId === "resting_heart_rate" && rhrDetailEnabled) {
+        const canOpenDetail = hasPhysiologicalRestingHeartRateBpm({
+          sleepNight: attributedSleepNight,
+          resolution: attributedSleepResolution,
+        });
+        if (!canOpenDetail) return;
+        setRhrDetailOpen(true);
+        return;
+      }
+
       const contributor = READINESS_CONTRIBUTOR_ROUTE_IDS[rowId];
       router.push({
         pathname: READINESS_DETAIL_HREF,
         params: { contributor },
       });
     },
-    [error, loading, router, vm.status],
+    [
+      attributedSleepNight,
+      attributedSleepResolution,
+      error,
+      loading,
+      rhrDetailEnabled,
+      router,
+      vm.status,
+    ],
   );
 
   const onOpenOuraReconnect = useCallback(() => {
@@ -124,6 +190,9 @@ export function DailyReadinessCard({
   const showMetricSection =
     vm.status === "ready" && model?.hasAnySignal === true && (model.metricRows?.length ?? 0) > 0;
 
+  const rhrOverride =
+    model?.metricRows.find((r) => r.id === "resting_heart_rate")?.displayValue ?? null;
+
   return (
     <View style={styles.outer} accessibilityLabel={`${title} card`}>
       <View style={styles.card}>
@@ -160,20 +229,59 @@ export function DailyReadinessCard({
 
         {showMetricSection && model ? (
           <View style={styles.metricSection} accessibilityRole="list">
-            {model.metricRows.map((row) => (
-              <DashMetricRow
-                key={row.id}
-                testID={`readiness-metric-row-${row.id}`}
-                label={row.label}
-                displayValue={row.displayValue}
-                accessibilityValue={row.accessibilityValue}
-                accessibilityHint="Opens readiness details"
-                onPress={() => {
-                  onOpenReadinessContributor(row.id);
-                }}
-              />
-            ))}
+            {model.metricRows.map((row) => {
+              const isRhr = row.id === "resting_heart_rate";
+              const rhrCanOpenDetail =
+                isRhr &&
+                rhrDetailEnabled &&
+                hasPhysiologicalRestingHeartRateBpm({
+                  sleepNight: attributedSleepNight,
+                  resolution: attributedSleepResolution,
+                });
+              const canPress = !(isRhr && rhrDetailEnabled && !rhrCanOpenDetail);
+              const accessibilityHint =
+                isRhr && rhrDetailEnabled
+                  ? "Opens resting heart rate details"
+                  : "Opens readiness details";
+
+              const rowEl = (
+                <DashMetricRow
+                  key={row.id}
+                  testID={`readiness-metric-row-${row.id}`}
+                  label={row.label}
+                  displayValue={row.displayValue}
+                  accessibilityValue={row.accessibilityValue}
+                  accessibilityHint={accessibilityHint}
+                  {...(canPress
+                    ? {
+                        onPress: () => {
+                          onOpenReadinessContributor(row.id);
+                        },
+                      }
+                    : {})}
+                />
+              );
+
+              if (isRhr) {
+                return (
+                  <View key={row.id} ref={rhrRowRef} collapsable={false}>
+                    {rowEl}
+                  </View>
+                );
+              }
+              return rowEl;
+            })}
           </View>
+        ) : null}
+
+        {rhrDetailEnabled && rhrDetailOpen ? (
+          <RestingHeartRateDetailController
+            selectedDay={selectedDay}
+            sleepNight={attributedSleepNight}
+            resolution={attributedSleepResolution}
+            currentFormattedOverride={rhrOverride}
+            onClose={closeRhrDetail}
+          />
         ) : null}
       </View>
     </View>

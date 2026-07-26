@@ -79,7 +79,11 @@ export function LegacyDashHost(): React.ReactElement {
             attributedSleepNight={attributedSleepNight}
             attributedSleepResolution={attributedSleepResolution}
           />
-          <DailyReadinessCard vm={readinessCard.vm} />
+          <DailyReadinessCard
+            vm={readinessCard.vm}
+            attributedSleepNight={attributedSleepNight}
+            attributedSleepResolution={attributedSleepResolution}
+          />
           <DailyNutritionCard
             model={dailyNutrition.model}
             loading={dailyNutrition.loading}
