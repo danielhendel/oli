@@ -10,6 +10,7 @@ import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardView
 import { isDeepSleepDetailV1Enabled } from "@/lib/data/sleep/deepSleepDetailFlag";
 import { isRemSleepDetailV1Enabled } from "@/lib/data/sleep/remSleepDetailFlag";
 import { isSleepDurationDetailV1Enabled } from "@/lib/data/sleep/sleepDurationDetailFlag";
+import { isSleepEfficiencyDetailV1Enabled } from "@/lib/data/sleep/sleepEfficiencyDetailFlag";
 import { MetricDetailsSheet } from "@/lib/ui/common/MetricDetailsSheet";
 import { DashMetricRow } from "@/lib/ui/dash/DashMetricRow";
 import {
@@ -21,6 +22,7 @@ import {
   mapOuraProviderRatingToTone,
 } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { SleepDurationDetailController } from "@/lib/ui/sleep/SleepDurationDetailController";
+import { SleepEfficiencyDetailController } from "@/lib/ui/sleep/SleepEfficiencyDetailController";
 import { SleepStageDetailController } from "@/lib/ui/sleep/SleepStageDetailController";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -64,12 +66,15 @@ export function DailySleepCard({
   const [metricSheet, setMetricSheet] = useState<DailySleepMetricDetail | null>(null);
   const [durationOpen, setDurationOpen] = useState(false);
   const [stageDetailOpen, setStageDetailOpen] = useState<StageDetailOpen>(null);
+  const [efficiencyOpen, setEfficiencyOpen] = useState(false);
   const durationRowRef = React.useRef<View>(null);
   const deepRowRef = React.useRef<View>(null);
   const remRowRef = React.useRef<View>(null);
+  const efficiencyRowRef = React.useRef<View>(null);
   const durationDetailEnabled = isSleepDurationDetailV1Enabled();
   const deepDetailEnabled = isDeepSleepDetailV1Enabled();
   const remDetailEnabled = isRemSleepDetailV1Enabled();
+  const efficiencyDetailEnabled = isSleepEfficiencyDetailV1Enabled();
 
   const loading = vm.status === "partial";
   const isRefreshing = vm.status === "ready" && vm.isRefreshing;
@@ -115,6 +120,13 @@ export function DailySleepCard({
     });
   }, [restoreFocusToRef, stageDetailOpen]);
 
+  const closeEfficiencyDetail = useCallback(() => {
+    setEfficiencyOpen(false);
+    requestAnimationFrame(() => {
+      restoreFocusToRef(efficiencyRowRef);
+    });
+  }, [restoreFocusToRef]);
+
   const onPressMetricRow = useCallback(
     (row: { id: string; isAvailable: boolean; detail: DailySleepMetricDetail }) => {
       if (row.id === "sleep_duration" && durationDetailEnabled) {
@@ -132,9 +144,14 @@ export function DailySleepCard({
         setStageDetailOpen("rem_sleep");
         return;
       }
+      if (row.id === "sleep_efficiency" && efficiencyDetailEnabled) {
+        if (!row.isAvailable) return;
+        setEfficiencyOpen(true);
+        return;
+      }
       setMetricSheet(row.detail);
     },
-    [durationDetailEnabled, deepDetailEnabled, remDetailEnabled],
+    [durationDetailEnabled, deepDetailEnabled, remDetailEnabled, efficiencyDetailEnabled],
   );
 
   const primaryScoreLabel = useMemo(() => {
@@ -249,10 +266,12 @@ export function DailySleepCard({
               const isDuration = row.id === "sleep_duration";
               const isDeep = row.id === "deep_sleep";
               const isRem = row.id === "rem_sleep";
+              const isEfficiency = row.id === "sleep_efficiency";
               const usesNewDetail =
                 (isDuration && durationDetailEnabled) ||
                 (isDeep && deepDetailEnabled) ||
-                (isRem && remDetailEnabled);
+                (isRem && remDetailEnabled) ||
+                (isEfficiency && efficiencyDetailEnabled);
               const canPress = !(usesNewDetail && !row.isAvailable);
               let accessibilityHint = "Opens sleep metric details";
               if (isDuration && durationDetailEnabled) {
@@ -261,6 +280,8 @@ export function DailySleepCard({
                 accessibilityHint = "Opens deep sleep details";
               } else if (isRem && remDetailEnabled) {
                 accessibilityHint = "Opens REM sleep details";
+              } else if (isEfficiency && efficiencyDetailEnabled) {
+                accessibilityHint = "Opens sleep efficiency details";
               }
               const rowEl = (
                 <DashMetricRow
@@ -296,6 +317,13 @@ export function DailySleepCard({
               if (isRem) {
                 return (
                   <View key={row.id} ref={remRowRef} collapsable={false}>
+                    {rowEl}
+                  </View>
+                );
+              }
+              if (isEfficiency) {
+                return (
+                  <View key={row.id} ref={efficiencyRowRef} collapsable={false}>
                     {rowEl}
                   </View>
                 );
@@ -349,6 +377,18 @@ export function DailySleepCard({
               model?.metricRows.find((r) => r.id === stageDetailOpen)?.value ?? null
             }
             onClose={closeStageDetail}
+          />
+        ) : null}
+
+        {efficiencyDetailEnabled && efficiencyOpen ? (
+          <SleepEfficiencyDetailController
+            selectedDay={selectedDay}
+            sleepNight={attributedSleepNight}
+            resolution={attributedSleepResolution}
+            currentFormattedOverride={
+              model?.metricRows.find((r) => r.id === "sleep_efficiency")?.value ?? null
+            }
+            onClose={closeEfficiencyDetail}
           />
         ) : null}
       </View>

@@ -27,6 +27,10 @@ jest.mock("@/lib/ui/sleep/SleepStageDetailController", () => ({
   SleepStageDetailController: () => null,
 }));
 
+jest.mock("@/lib/ui/sleep/SleepEfficiencyDetailController", () => ({
+  SleepEfficiencyDetailController: () => null,
+}));
+
 const day = "2026-05-01";
 
 function minimalNight(over: Partial<SleepNightDocumentDto> = {}): SleepNightDocumentDto {
