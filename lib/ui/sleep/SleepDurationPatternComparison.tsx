@@ -8,11 +8,17 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { SleepDurationPatternComparison } from "@/lib/data/sleep/buildSleepDurationDetailViewModel";
+import type { SleepDurationReferenceLabel } from "@/lib/data/sleep/sleepDurationReference";
 import {
   METRIC_DETAIL_SECTION_BREAK,
   METRIC_DETAIL_SECTION_HEADING_GAP,
 } from "@/lib/ui/common/metricDetailShellLayout";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import {
+  sleepDurationReferenceStatusTextColor,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export type SleepDurationPatternComparisonProps = {
   pattern: SleepDurationPatternComparison;
@@ -31,7 +37,7 @@ function PatternRow({
 }: {
   label: string;
   value: string;
-  statusLabel: string | null;
+  statusLabel: SleepDurationReferenceLabel | null;
   accessibilitySummary: string;
   loading?: boolean;
   testID: string;
@@ -56,7 +62,15 @@ function PatternRow({
           </Text>
         )}
         {statusLabel && !loading ? (
-          <Text style={styles.statusLabel}>{statusLabel}</Text>
+          <Text
+            style={[
+              styles.statusLabel,
+              { color: sleepDurationReferenceStatusTextColor(statusLabel) },
+            ]}
+            testID={`${testID}-status`}
+          >
+            {statusLabel}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -188,8 +202,7 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 13,
-    fontWeight: "500",
-    color: UI_TEXT_MUTED,
+    fontWeight: "600",
     textAlign: "right",
   },
   skeletonValue: {

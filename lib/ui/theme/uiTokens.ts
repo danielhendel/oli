@@ -117,11 +117,15 @@ export const UI_BORDER_STRONG = T.borderStrong;
  * Not action-success — see {@link resolveRecommendedRangeChrome}.
  */
 export {
+  UI_DURATION_STATUS_ABOVE_TYPICAL_TEXT,
+  UI_DURATION_STATUS_BELOW_TYPICAL_TEXT,
+  UI_DURATION_STATUS_RECOMMENDED_TEXT,
   UI_RECOMMENDED_RANGE_BORDER,
   UI_RECOMMENDED_RANGE_FILL,
   UI_REFERENCE_ZONE_NEUTRAL_FILL,
   UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
   resolveRecommendedRangeChrome,
+  sleepDurationReferenceStatusTextColor,
 } from "@/lib/ui/theme/recommendedRangeChrome";
 
 /** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
