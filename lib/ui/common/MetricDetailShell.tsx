@@ -28,12 +28,13 @@ import {
   METRIC_DETAIL_BODY_END_SPACING,
   METRIC_DETAIL_FOOTER_MIN_HEIGHT,
   METRIC_DETAIL_HORIZONTAL_PADDING,
+  METRIC_DETAIL_SECTION_BREAK,
+  METRIC_DETAIL_STACK_GAP,
   METRIC_DETAIL_TOP_BACKDROP_GAP,
   METRIC_DETAIL_TOP_CORNER_RADIUS,
   metricDetailSheetHeight,
 } from "@/lib/ui/common/metricDetailShellLayout";
 import {
-  UI_BORDER_HAIRLINE,
   UI_BORDER_STRONG,
   UI_OVERLAY,
   UI_PANEL_SURFACE,
@@ -152,7 +153,6 @@ export function MetricDetailShell({
                 <Text style={styles.closeLabel}>Close</Text>
               </Pressable>
             </View>
-            <View style={styles.headerDivider} importantForAccessibility="no" />
           </View>
 
           <View style={styles.bodyViewport} testID={`${testID}-body-viewport`}>
@@ -167,6 +167,7 @@ export function MetricDetailShell({
               contentContainerStyle={[styles.scrollContent, { paddingBottom: bodyBottomInset }]}
             >
               <View
+                style={styles.heroBlock}
                 accessible
                 accessibilityLabel={accessibilitySummary ?? `${title}. ${heroValue}.`}
               >
@@ -174,32 +175,37 @@ export function MetricDetailShell({
                 {statusSentence ? <Text style={styles.status}>{statusSentence}</Text> : null}
               </View>
 
-              {referenceVisualization}
+              {referenceVisualization ? (
+                <View style={styles.rangeBlock}>{referenceVisualization}</View>
+              ) : null}
 
               {loadingSlot}
               {errorSlot}
               {averages}
               {historySlot}
 
-              {sections?.map((section) => (
-                <View
-                  key={section.heading}
-                  style={styles.section}
-                  testID={`${testID}-section-${section.heading}`}
-                >
-                  <Text style={styles.sectionHeading}>{section.heading}</Text>
-                  <Text style={styles.sectionBody}>{section.body}</Text>
-                </View>
-              ))}
+              <View style={styles.educationBlock}>
+                {sections?.map((section) => (
+                  <View
+                    key={section.heading}
+                    style={styles.section}
+                    testID={`${testID}-section-${section.heading}`}
+                  >
+                    <Text style={styles.sectionHeading}>{section.heading}</Text>
+                    <Text style={styles.sectionBody}>{section.body}</Text>
+                  </View>
+                ))}
 
-              {dataAccuracyBody ? (
-                <View style={styles.section} testID={`${testID}-data-accuracy`}>
-                  <Text style={styles.sectionHeading}>{dataAccuracyHeading}</Text>
-                  <Text style={styles.sectionBody}>{dataAccuracyBody}</Text>
-                  {sourceLine ? <Text style={styles.meta}>{sourceLine}</Text> : null}
-                  {dataAccuracyMeta ? <Text style={styles.meta}>{dataAccuracyMeta}</Text> : null}
-                </View>
-              ) : null}
+                {dataAccuracyBody ? (
+                  <View style={styles.section} testID={`${testID}-data-accuracy`}>
+                    <Text style={styles.sectionHeading}>{dataAccuracyHeading}</Text>
+                    <Text style={styles.sectionBody}>{dataAccuracyBody}</Text>
+                    {/* Consumer sheets omit technical source/context metadata. */}
+                    {sourceLine ? <Text style={styles.meta}>{sourceLine}</Text> : null}
+                    {dataAccuracyMeta ? <Text style={styles.meta}>{dataAccuracyMeta}</Text> : null}
+                  </View>
+                ) : null}
+              </View>
             </ScrollView>
           </View>
 
@@ -208,7 +214,6 @@ export function MetricDetailShell({
               style={[styles.footer, { paddingBottom: bottomSafe }]}
               testID={`${testID}-footer`}
             >
-              <View style={styles.footerDivider} importantForAccessibility="no" />
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
@@ -246,6 +251,8 @@ const styles = StyleSheet.create({
   },
   header: {
     flexShrink: 0,
+    backgroundColor: UI_PANEL_SURFACE,
+    paddingBottom: 4,
   },
   handle: {
     alignSelf: "center",
@@ -287,22 +294,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
   },
-  headerDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: UI_BORDER_HAIRLINE,
-    marginHorizontal: -METRIC_DETAIL_HORIZONTAL_PADDING,
-  },
   bodyViewport: {
     flex: 1,
     minHeight: 0,
+    backgroundColor: UI_PANEL_SURFACE,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 0,
-    gap: 12,
-    paddingTop: 12,
+    gap: METRIC_DETAIL_STACK_GAP,
+    paddingTop: 8,
+  },
+  heroBlock: {
+    gap: 6,
+  },
+  rangeBlock: {
+    marginTop: 4,
+  },
+  educationBlock: {
+    marginTop: METRIC_DETAIL_SECTION_BREAK,
+    gap: METRIC_DETAIL_SECTION_BREAK,
   },
   value: {
     fontSize: 28,
@@ -314,11 +327,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: UI_TEXT_SECONDARY,
-    marginTop: 6,
   },
   section: {
-    marginTop: 4,
-    gap: 6,
+    gap: 8,
   },
   sectionHeading: {
     fontSize: 13,
@@ -341,13 +352,7 @@ const styles = StyleSheet.create({
   footer: {
     flexShrink: 0,
     backgroundColor: UI_PANEL_SURFACE,
-    paddingTop: 8,
-  },
-  footerDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: UI_BORDER_HAIRLINE,
-    marginHorizontal: -METRIC_DETAIL_HORIZONTAL_PADDING,
-    marginBottom: 8,
+    paddingTop: 12,
   },
   done: {
     minHeight: METRIC_DETAIL_FOOTER_MIN_HEIGHT,

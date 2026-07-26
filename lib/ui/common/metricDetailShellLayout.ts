@@ -18,6 +18,15 @@ export const METRIC_DETAIL_TOP_CORNER_RADIUS = 18;
 /** Horizontal sheet inset. */
 export const METRIC_DETAIL_HORIZONTAL_PADDING = 20;
 
+/** Large vertical break between major sections (e.g. range → pattern, pattern → education). */
+export const METRIC_DETAIL_SECTION_BREAK = 28;
+
+/** Gap between a section heading and its first row/paragraph. */
+export const METRIC_DETAIL_SECTION_HEADING_GAP = 10;
+
+/** Default stack gap inside the scroll body for tight hero/status grouping. */
+export const METRIC_DETAIL_STACK_GAP = 12;
+
 /**
  * Near-full-screen sheet height:
  * windowHeight − topSafeArea − topBackdropGap
