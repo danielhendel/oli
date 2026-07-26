@@ -54,8 +54,6 @@ export function SleepStageDetailSheet({
   const referenceSlot =
     vm.adultContext != null ? (
       <SleepStageAdultContextBar
-        status={vm.adultContext.status}
-        statusLabel={vm.adultContext.statusLabel}
         belowLabel={vm.adultContext.belowLabel}
         typicalLabel={vm.adultContext.typicalLabel}
         aboveLabel={vm.adultContext.aboveLabel}
