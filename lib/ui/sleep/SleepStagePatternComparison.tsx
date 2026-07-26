@@ -1,7 +1,7 @@
 /**
- * Your Pattern — 7 / 30 / 90-day stage averages with optional percent secondary.
+ * Your Pattern — 7 / 30 / 90-day stage averages.
  * Presentation only; averages live on the view model.
- * No population status labels. Coverage subtext omitted from consumer UI.
+ * Compact one-line values (`57m · 13%`). No population status labels.
  */
 
 import React from "react";
@@ -23,14 +23,12 @@ export type SleepStagePatternComparisonProps = {
 function PatternRow({
   label,
   value,
-  secondaryValue,
   accessibilitySummary,
   loading,
   testID,
 }: {
   label: string;
   value: string;
-  secondaryValue: string | null;
   accessibilitySummary: string;
   loading?: boolean;
   testID: string;
@@ -43,25 +41,16 @@ function PatternRow({
       accessibilityLabel={loading ? `${label}. Loading.` : accessibilitySummary}
     >
       <Text style={styles.rowLabel}>{label}</Text>
-      <View style={styles.rowRight}>
-        {loading ? (
-          <View style={styles.skeletonValue} testID={`${testID}-skeleton`} />
-        ) : (
-          <>
-            <Text
-              style={[styles.rowValue, value === "Not enough data" && styles.rowValueMuted]}
-              numberOfLines={2}
-            >
-              {value}
-            </Text>
-            {secondaryValue != null ? (
-              <Text style={styles.secondaryValue} testID={`${testID}-percent`}>
-                {secondaryValue}
-              </Text>
-            ) : null}
-          </>
-        )}
-      </View>
+      {loading ? (
+        <View style={styles.skeletonValue} testID={`${testID}-skeleton`} />
+      ) : (
+        <Text
+          style={[styles.rowValue, value === "Not enough data" && styles.rowValueMuted]}
+          numberOfLines={2}
+        >
+          {value}
+        </Text>
+      )}
     </View>
   );
 }
@@ -80,7 +69,6 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.sevenDay.label}
           value={pattern.sevenDay.value}
-          secondaryValue={pattern.sevenDay.secondaryValue}
           accessibilitySummary={pattern.sevenDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-7d`}
@@ -88,7 +76,6 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.thirtyDay.label}
           value={pattern.thirtyDay.value}
-          secondaryValue={pattern.thirtyDay.secondaryValue}
           accessibilitySummary={pattern.thirtyDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-30d`}
@@ -96,7 +83,6 @@ export function SleepStagePatternComparisonView({
         <PatternRow
           label={pattern.ninetyDay.label}
           value={pattern.ninetyDay.value}
-          secondaryValue={pattern.ninetyDay.secondaryValue}
           accessibilitySummary={pattern.ninetyDay.accessibilitySummary}
           loading={loading}
           testID={`${testID}-90d`}
@@ -161,12 +147,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 10,
   },
-  rowRight: {
-    flexShrink: 0,
-    alignItems: "flex-end",
-    gap: 4,
-    maxWidth: "48%",
-  },
   rowLabel: {
     flex: 1,
     minWidth: 0,
@@ -176,6 +156,8 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   rowValue: {
+    flexShrink: 1,
+    maxWidth: "52%",
     fontSize: 17,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
@@ -187,14 +169,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: UI_TEXT_SECONDARY,
   },
-  secondaryValue: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: UI_TEXT_MUTED,
-    textAlign: "right",
-  },
   skeletonValue: {
-    width: 72,
+    width: 88,
     height: 22,
     borderRadius: 6,
     backgroundColor: "rgba(255,255,255,0.08)",

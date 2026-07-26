@@ -1,6 +1,9 @@
 /**
  * Sleep stage detail sheet (Deep / REM) — presentation only.
  * View model and history are owned by the card/container hook.
+ *
+ * Single dual-marker typical-range bar (Duration visual grammar).
+ * Personal Context rail is intentionally omitted from the visible hierarchy.
  */
 
 import React from "react";
@@ -13,7 +16,6 @@ import {
   SleepStagePatternComparisonSkeleton,
   SleepStagePatternComparisonView,
 } from "@/lib/ui/sleep/SleepStagePatternComparison";
-import { SleepStagePersonalBaselineRail } from "@/lib/ui/sleep/SleepStagePersonalBaselineRail";
 import { UI_TEXT_MUTED, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 export type SleepStageDetailSheetProps = {
@@ -48,54 +50,25 @@ export function SleepStageDetailSheet({
     vm.metricId === "deep_sleep"
       ? "deep-sleep-adult-context"
       : "rem-sleep-adult-context";
-  const personalTestID =
-    vm.metricId === "deep_sleep"
-      ? "deep-sleep-personal-baseline"
-      : "rem-sleep-personal-baseline";
 
-  const showAdult = vm.adultContext != null;
-  const showPersonal =
-    vm.personalComparison != null &&
-    vm.currentPresence === "present" &&
-    vm.currentValueMinutes != null &&
-    vm.ninetyDay?.averageMinutes != null;
-
-  let referenceSlot: React.ReactNode = null;
-  if (showAdult || showPersonal) {
-    referenceSlot = (
-      <View>
-        {showAdult && vm.adultContext != null ? (
-          <SleepStageAdultContextBar
-            status={vm.adultContext.status}
-            statusLabel={vm.adultContext.statusLabel}
-            typicalPercentRangeText={vm.adultContext.typicalPercentRangeText}
-            equivalentMinutesSentence={vm.adultContext.equivalentMinutesSentence}
-            belowLabel={vm.adultContext.belowLabel}
-            typicalLabel={vm.adultContext.typicalLabel}
-            aboveLabel={vm.adultContext.aboveLabel}
-            belowRangeText={vm.adultContext.belowRangeText}
-            typicalRangeText={vm.adultContext.typicalRangeText}
-            aboveRangeText={vm.adultContext.aboveRangeText}
-            zoneFractions={vm.adultContext.zoneFractions}
-            markerPosition01={vm.adultContext.markerPosition01}
-            accessibilitySummary={vm.adultContext.accessibilitySummary}
-            testID={adultTestID}
-          />
-        ) : null}
-        {showPersonal &&
-        vm.personalComparison != null &&
-        vm.currentValueMinutes != null &&
-        vm.ninetyDay?.averageMinutes != null ? (
-          <SleepStagePersonalBaselineRail
-            comparison={vm.personalComparison}
-            currentMinutes={vm.currentValueMinutes}
-            baselineMinutes={vm.ninetyDay.averageMinutes}
-            testID={personalTestID}
-          />
-        ) : null}
-      </View>
-    );
-  }
+  const referenceSlot =
+    vm.adultContext != null ? (
+      <SleepStageAdultContextBar
+        status={vm.adultContext.status}
+        statusLabel={vm.adultContext.statusLabel}
+        belowLabel={vm.adultContext.belowLabel}
+        typicalLabel={vm.adultContext.typicalLabel}
+        aboveLabel={vm.adultContext.aboveLabel}
+        belowRangeText={vm.adultContext.belowRangeText}
+        typicalRangeText={vm.adultContext.typicalRangeText}
+        aboveRangeText={vm.adultContext.aboveRangeText}
+        zoneFractions={vm.adultContext.zoneFractions}
+        currentMarkerPosition01={vm.adultContext.currentMarkerPosition01}
+        ninetyDayMarkerPosition01={vm.adultContext.ninetyDayMarkerPosition01}
+        accessibilitySummary={vm.adultContext.accessibilitySummary}
+        testID={adultTestID}
+      />
+    ) : null;
 
   let patternSlot: React.ReactNode = null;
   if (vm.isHistoryLoading) {
