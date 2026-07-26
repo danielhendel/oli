@@ -77,6 +77,7 @@ function minimalNight(over: Partial<SleepNightDocumentDto> = {}): SleepNightDocu
     remMinutes: 132,
     deepPercent: 11,
     remPercent: 29,
+    efficiency: 0.93,
     score: 88,
     ...over,
   };
@@ -91,7 +92,7 @@ function readyVm(night: SleepNightDocumentDto = minimalNight()): DailySleepCardV
   return { status: "ready", day, model, isRefreshing: false };
 }
 
-describe("DailySleepCard Deep and REM detail flags", () => {
+describe("DailySleepCard Sleep Efficiency detail flag", () => {
   afterEach(() => {
     setSleepDurationDetailV1EnabledForTests(null);
     setDeepSleepDetailV1EnabledForTests(null);
@@ -100,147 +101,89 @@ describe("DailySleepCard Deep and REM detail flags", () => {
     mockPush.mockReset();
   });
 
-  it("opens Deep detail controller when Deep flag enabled and deep available", () => {
+  it("opens Efficiency detail controller when flag enabled and efficiency available", () => {
+    setSleepEfficiencyDetailV1EnabledForTests(true);
     setDeepSleepDetailV1EnabledForTests(true);
-    setRemSleepDetailV1EnabledForTests(false);
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(
-        <DailySleepCard
-          vm={readyVm()}
-          attributedSleepNight={minimalNight()}
-          attributedSleepResolution="exact_anchor"
-        />,
-      );
-    });
-    const deepRow = root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" });
-    act(() => {
-      deepRow.props.onPress();
-    });
-    expect(root.root.findByProps({ testID: "sleep-stage-detail-controller-deep_sleep" })).toBeDefined();
-    expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).not.toBe(true);
-  });
-
-  it("opens REM detail controller when REM flag enabled and rem available", () => {
-    setDeepSleepDetailV1EnabledForTests(false);
     setRemSleepDetailV1EnabledForTests(true);
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(
-        <DailySleepCard
-          vm={readyVm()}
-          attributedSleepNight={minimalNight()}
-          attributedSleepResolution="exact_anchor"
-        />,
-      );
-    });
-    const remRow = root.root.findByProps({ testID: "sleep-metric-row-rem_sleep" });
-    act(() => {
-      remRow.props.onPress();
-    });
-    expect(root.root.findByProps({ testID: "sleep-stage-detail-controller-rem_sleep" })).toBeDefined();
-    expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).not.toBe(true);
-  });
-
-  it("opens legacy sheet when Deep flag disabled", () => {
-    setDeepSleepDetailV1EnabledForTests(false);
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(
-        <DailySleepCard vm={readyVm()} attributedSleepNight={minimalNight()} />,
-      );
-    });
-    const deepRow = root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" });
-    act(() => {
-      deepRow.props.onPress();
-    });
-    expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).toBe(true);
-    expect(() =>
-      root.root.findByProps({ testID: "sleep-stage-detail-controller-deep_sleep" }),
-    ).toThrow();
-  });
-
-  it("opens legacy sheet when REM flag disabled", () => {
-    setRemSleepDetailV1EnabledForTests(false);
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(
-        <DailySleepCard vm={readyVm()} attributedSleepNight={minimalNight()} />,
-      );
-    });
-    const remRow = root.root.findByProps({ testID: "sleep-metric-row-rem_sleep" });
-    act(() => {
-      remRow.props.onPress();
-    });
-    expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).toBe(true);
-    expect(() =>
-      root.root.findByProps({ testID: "sleep-stage-detail-controller-rem_sleep" }),
-    ).toThrow();
-  });
-
-  it("does not open Deep detail when deep unavailable", () => {
-    setDeepSleepDetailV1EnabledForTests(true);
-    const night = minimalNight({ deepMinutes: undefined, deepPercent: undefined });
-    const model = buildDailySleepCardModel({
-      day,
-      sleepNightSettled: true,
-      sleepNight: night,
-    });
-    const deepRowModel = model.metricRows.find((r) => r.id === "deep_sleep");
-    expect(deepRowModel?.isAvailable).toBe(false);
-
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(
-        <DailySleepCard
-          vm={{ status: "ready", day, model, isRefreshing: false }}
-          attributedSleepNight={night}
-        />,
-      );
-    });
-    const deepRow = root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" });
-    expect(deepRow.props.onPress).toBeUndefined();
-    expect(() =>
-      root.root.findByProps({ testID: "sleep-stage-detail-controller-deep_sleep" }),
-    ).toThrow();
-  });
-
-  it("keeps Duration on new sheet and Efficiency on legacy when Efficiency flag disabled", () => {
     setSleepDurationDetailV1EnabledForTests(true);
-    setDeepSleepDetailV1EnabledForTests(true);
-    setRemSleepDetailV1EnabledForTests(true);
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <DailySleepCard
+          vm={readyVm()}
+          attributedSleepNight={minimalNight()}
+          attributedSleepResolution="exact_anchor"
+        />,
+      );
+    });
+    const row = root.root.findByProps({ testID: "sleep-metric-row-sleep_efficiency" });
+    act(() => {
+      row.props.onPress();
+    });
+    expect(root.root.findByProps({ testID: "sleep-efficiency-detail-controller" })).toBeDefined();
+    expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).not.toBe(true);
+  });
+
+  it("opens legacy sheet when Efficiency flag disabled", () => {
     setSleepEfficiencyDetailV1EnabledForTests(false);
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(
-        <DailySleepCard
-          vm={readyVm(minimalNight({ efficiency: 0.93 }))}
-          attributedSleepNight={minimalNight({ efficiency: 0.93 })}
-        />,
+        <DailySleepCard vm={readyVm()} attributedSleepNight={minimalNight()} />,
       );
     });
-
-    const durationRow = root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" });
+    const row = root.root.findByProps({ testID: "sleep-metric-row-sleep_efficiency" });
     act(() => {
-      durationRow.props.onPress();
-    });
-    expect(root.root.findByProps({ testID: "sleep-duration-detail-controller" })).toBeDefined();
-
-    act(() => {
-      root.update(
-        <DailySleepCard
-          vm={readyVm(minimalNight({ efficiency: 0.93 }))}
-          attributedSleepNight={minimalNight({ efficiency: 0.93 })}
-        />,
-      );
-    });
-    const efficiency = root.root.findByProps({ testID: "sleep-metric-row-sleep_efficiency" });
-    act(() => {
-      efficiency.props.onPress();
+      row.props.onPress();
     });
     expect(root.root.findByProps({ testID: "metric-details-sheet" }).props.visible).toBe(true);
     expect(() =>
       root.root.findByProps({ testID: "sleep-efficiency-detail-controller" }),
     ).toThrow();
+  });
+
+  it("does not open Efficiency detail when unavailable", () => {
+    setSleepEfficiencyDetailV1EnabledForTests(true);
+    const night = minimalNight({ efficiency: undefined });
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <DailySleepCard vm={readyVm(night)} attributedSleepNight={night} />,
+      );
+    });
+    const row = root.root.findByProps({ testID: "sleep-metric-row-sleep_efficiency" });
+    expect(row.props.onPress).toBeUndefined();
+    expect(() =>
+      root.root.findByProps({ testID: "sleep-efficiency-detail-controller" }),
+    ).toThrow();
+  });
+
+  it("leaves Duration, Deep, and REM routing unchanged when Efficiency opens", () => {
+    setSleepEfficiencyDetailV1EnabledForTests(true);
+    setDeepSleepDetailV1EnabledForTests(true);
+    setRemSleepDetailV1EnabledForTests(true);
+    setSleepDurationDetailV1EnabledForTests(true);
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <DailySleepCard
+          vm={readyVm()}
+          attributedSleepNight={minimalNight()}
+          attributedSleepResolution="exact_anchor"
+        />,
+      );
+    });
+    act(() => {
+      root.root.findByProps({ testID: "sleep-metric-row-deep_sleep" }).props.onPress();
+    });
+    expect(root.root.findByProps({ testID: "sleep-stage-detail-controller-deep_sleep" })).toBeDefined();
+    expect(() =>
+      root.root.findByProps({ testID: "sleep-efficiency-detail-controller" }),
+    ).toThrow();
+
+    act(() => {
+      root.root.findByProps({ testID: "sleep-metric-row-sleep_duration" }).props.onPress();
+    });
+    expect(root.root.findByProps({ testID: "sleep-duration-detail-controller" })).toBeDefined();
   });
 });
