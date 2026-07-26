@@ -5,9 +5,11 @@ import {
   formatSleepDurationReferenceStatusSentence,
   SLEEP_DURATION_REFERENCE_EVIDENCE_IDS,
   SLEEP_DURATION_REFERENCE_MODEL_VERSION,
+  sleepDurationHowToUnderstandBody,
   sleepDurationReferenceAccessibilitySummary,
   sleepDurationReferenceAgeBand,
   sleepDurationReferenceMarkerPosition01,
+  sleepDurationReferenceZoneCopy,
   SLEEP_DURATION_REFERENCE_VISUAL_DOMAIN_MAX_MINUTES,
   SLEEP_DURATION_REFERENCE_VISUAL_DOMAIN_MIN_MINUTES,
 } from "@/lib/data/sleep/sleepDurationReference";
@@ -130,5 +132,29 @@ describe("sleepDurationReferenceAccessibilitySummary", () => {
     expect(summary).toContain("6h 31m");
     expect(summary).toContain("7 to 9 hours");
     expect(summary).not.toMatch(/Optimal|deficient|insomnia|unhealthy/i);
+  });
+});
+
+describe("sleepDurationReferenceZoneCopy and labels", () => {
+  it("uses Below Typical zone label while status sentences keep recommended-range wording", () => {
+    const below = classifySleepDurationReference({ durationMinutes: 391, ageYears: 30 })!;
+    expect(below.label).toBe("Below Typical");
+    expect(below.status).toBe("below_recommended");
+    expect(formatSleepDurationReferenceStatusSentence(below)).toBe(
+      "29 min below the recommended range.",
+    );
+    const zones = sleepDurationReferenceZoneCopy(below);
+    expect(zones.belowLabel).toBe("Below Typical");
+    expect(zones.recommendedLabel).toBe("Recommended");
+    expect(zones.aboveLabel).toBe("Above Typical");
+  });
+});
+
+describe("sleepDurationHowToUnderstandBody", () => {
+  it("selects age-band copy without hardcoding 7–9 for 65+", () => {
+    expect(sleepDurationHowToUnderstandBody({ ageYears: 30 })).toContain("7–9 hours");
+    expect(sleepDurationHowToUnderstandBody({ ageYears: 70 })).toContain("7–8 hours");
+    expect(sleepDurationHowToUnderstandBody({ ageYears: 70 })).not.toContain("7–9 hours");
+    expect(sleepDurationHowToUnderstandBody({ ageYears: null })).toMatch(/vary by age/i);
   });
 });

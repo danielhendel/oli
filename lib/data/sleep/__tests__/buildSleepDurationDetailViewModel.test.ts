@@ -50,7 +50,7 @@ function attributedCell(
 }
 
 describe("buildSleepDurationDetailViewModel", () => {
-  it("builds ready model with age and history", () => {
+  it("builds ready model with age, pattern, and simplified copy", () => {
     const sleepNightByDay: Partial<Record<DayKey, WeeklyFitnessSleepNightCell>> = {};
     for (let i = 0; i < 10; i += 1) {
       const d = addCalendarDaysToDayKey(day, -i);
@@ -67,14 +67,24 @@ describe("buildSleepDurationDetailViewModel", () => {
     expect(vm.title).toBe("Duration");
     expect(vm.currentFormatted).toMatch(/6h/);
     expect(vm.rangeResult?.status).toBe("below_recommended");
+    expect(vm.rangeResult?.label).toBe("Below Typical");
     expect(vm.statusSentence).toMatch(/below the recommended range/);
     expect(vm.sevenDay?.hasEnoughData).toBe(true);
     expect(vm.thirtyDay?.hasEnoughData).toBe(true);
-    expect(vm.explainers.length).toBe(2);
-    expect(vm.accessibilitySummary).not.toMatch(/Optimal|insomnia/i);
+    expect(vm.pattern?.heading).toBe("Your Pattern");
+    expect(vm.pattern?.today.emphasized).toBe(true);
+    expect(vm.pattern?.today.statusLabel).toBe("Below Typical");
+    expect(vm.pattern?.sevenDay.coverageLabel).toMatch(/nights/);
+    expect(vm.explainers).toHaveLength(3);
+    expect(vm.explainers[0]?.body).toContain("main sleep period");
+    expect(vm.explainers[1]?.body).toContain("7–9 hours");
+    expect(vm.explainers[2]?.heading).toBe("What can help");
+    expect(vm.dataAccuracyBody).toContain("wearable estimates sleep");
+    expect(vm.sourceLine).toBeNull();
+    expect(vm.accessibilitySummary).not.toMatch(/Canonical SleepNight|Optimal|insomnia/i);
   });
 
-  it("withholds range when age unknown", () => {
+  it("withholds range when age unknown and uses neutral how-to copy", () => {
     const vm = buildSleepDurationDetailViewModel({
       selectedDay: day,
       todayDayKey: day,
@@ -86,7 +96,22 @@ describe("buildSleepDurationDetailViewModel", () => {
     expect(vm.rangeResult).toBeNull();
     expect(vm.statusSentence).toBeNull();
     expect(vm.rangeWithheldReason).toBe("unknown_age");
-    expect(vm.dataAccuracyBody).toMatch(/age/i);
+    expect(vm.pattern?.today.statusLabel).toBeNull();
+    expect(vm.explainers[1]?.body).toMatch(/Sleep needs vary by age/);
+    expect(vm.dataAccuracyBody).not.toMatch(/Canonical|SleepNight/);
+  });
+
+  it("uses 7–8 hour how-to copy for age 65+", () => {
+    const vm = buildSleepDurationDetailViewModel({
+      selectedDay: day,
+      todayDayKey: day,
+      sleepNight: night({ mainSleepMinutes: 450 }),
+      dateOfBirth: "1950-01-01",
+      sleepNightByDay: {},
+      historyStatus: "loading",
+    });
+    expect(vm.explainers[1]?.body).toContain("7–8 hours");
+    expect(vm.explainers[1]?.body).not.toContain("7–9 hours");
   });
 
   it("keeps hero while history loading or error", () => {

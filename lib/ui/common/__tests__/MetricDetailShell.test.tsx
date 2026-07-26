@@ -4,9 +4,9 @@ import renderer from "react-test-renderer";
 
 import { MetricDetailShell } from "@/lib/ui/common/MetricDetailShell";
 import {
+  METRIC_DETAIL_BODY_END_SPACING,
   METRIC_DETAIL_FOOTER_MIN_HEIGHT,
   METRIC_DETAIL_TOP_CORNER_RADIUS,
-  metricDetailBodyBottomInset,
   metricDetailSheetHeight,
 } from "@/lib/ui/common/metricDetailShellLayout";
 
@@ -45,6 +45,8 @@ describe("MetricDetailShell layout", () => {
     expect(flat.borderTopRightRadius).toBe(METRIC_DETAIL_TOP_CORNER_RADIUS);
     expect(flat.borderBottomLeftRadius ?? 0).toBe(0);
     expect(flat.borderBottomRightRadius ?? 0).toBe(0);
+    // Sheet must not steal the responder from ScrollView pans.
+    expect(sheet.props.onStartShouldSetResponder).toBeUndefined();
   });
 
   it("keeps title and Close outside the body ScrollView", () => {
@@ -63,7 +65,7 @@ describe("MetricDetailShell layout", () => {
     expect(scroll.findAllByType(Text).some((t) => t.props.children === "6h 31m")).toBe(true);
   });
 
-  it("keeps Done outside ScrollView with footer clearance padding on body", () => {
+  it("gives ScrollView a flex:1 viewport and keeps Done outside it", () => {
     const onClose = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -74,39 +76,47 @@ describe("MetricDetailShell layout", () => {
           title="Duration"
           heroValue="6h 31m"
           dataAccuracyBody="Final accuracy line."
+          sections={[
+            { heading: "What it measures", body: "A".repeat(400) },
+            { heading: "How to understand it", body: "B".repeat(400) },
+            { heading: "What can help", body: "C".repeat(400) },
+          ]}
         />,
       );
     });
 
+    const viewport = tree.root.findByProps({ testID: "metric-detail-shell-body-viewport" });
+    const viewportStyle = Array.isArray(viewport.props.style)
+      ? Object.assign({}, ...viewport.props.style.filter(Boolean))
+      : viewport.props.style;
+    expect(viewportStyle.flex).toBe(1);
+    expect(viewportStyle.minHeight).toBe(0);
+
     const scroll = tree.root.findByProps({ testID: "metric-detail-shell-scroll" });
     expect(scroll.type).toBe(ScrollView);
-    const nestedScroll = scroll.findAllByType(ScrollView);
-    expect(nestedScroll).toHaveLength(1);
+    expect(scroll.props.scrollEnabled).toBe(true);
+    const scrollStyle = Array.isArray(scroll.props.style)
+      ? Object.assign({}, ...scroll.props.style.filter(Boolean))
+      : scroll.props.style;
+    expect(scrollStyle.flex).toBe(1);
+    expect(scroll.findAllByType(ScrollView)).toHaveLength(1);
+
+    const contentStyle = scroll.props.contentContainerStyle;
+    const flatContent = Array.isArray(contentStyle)
+      ? Object.assign({}, ...contentStyle.filter(Boolean))
+      : contentStyle;
+    expect(flatContent.paddingBottom).toBe(METRIC_DETAIL_BODY_END_SPACING);
+    expect(flatContent.flexGrow ?? 0).toBe(0);
+    expect(flatContent.height).toBeUndefined();
 
     const footer = tree.root.findByProps({ testID: "metric-detail-shell-footer" });
     expect(footer.findByProps({ testID: "metric-detail-shell-done" })).toBeDefined();
     expect(scroll.findAllByProps({ testID: "metric-detail-shell-done" })).toHaveLength(0);
+    expect(scroll.findByProps({ testID: "metric-detail-shell-data-accuracy" })).toBeDefined();
 
-    const chrome = footer.findAllByType(View).find((v) => typeof v.props.onLayout === "function");
-    expect(chrome).toBeDefined();
-
-    act(() => {
-      chrome!.props.onLayout?.({
-        nativeEvent: { layout: { height: METRIC_DETAIL_FOOTER_MIN_HEIGHT + 8, width: 350, x: 0, y: 0 } },
-      });
-    });
-
-    const updatedScroll = tree.root.findByProps({ testID: "metric-detail-shell-scroll" });
-    const contentStyle = updatedScroll.props.contentContainerStyle;
-    const flat = Array.isArray(contentStyle)
-      ? Object.assign({}, ...contentStyle.filter(Boolean))
-      : contentStyle;
-    expect(flat.paddingBottom).toBe(
-      metricDetailBodyBottomInset({
-        footerHeight: METRIC_DETAIL_FOOTER_MIN_HEIGHT + 8,
-        bottomSafeArea: 34,
-      }),
-    );
+    // Backdrop is a sibling Pressable, not a parent wrapping the sheet body.
+    const backdrop = tree.root.findByProps({ testID: "metric-detail-shell-backdrop" });
+    expect(backdrop.parent).not.toBe(scroll.parent);
 
     const done = tree.root.findByProps({ testID: "metric-detail-shell-done" });
     const doneFlat = (() => {
@@ -125,6 +135,30 @@ describe("MetricDetailShell layout", () => {
       done.props.onPress();
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("accepts scroll events on the body ScrollView", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MetricDetailShell
+          visible
+          onClose={jest.fn()}
+          title="Duration"
+          heroValue="6h 31m"
+          dataAccuracyBody={"Final line. ".repeat(40)}
+        />,
+      );
+    });
+    const scroll = tree.root.findByProps({ testID: "metric-detail-shell-scroll" });
+    expect(() => {
+      act(() => {
+        scroll.props.onScroll?.({
+          nativeEvent: { contentOffset: { y: 120, x: 0 } },
+        });
+      });
+    }).not.toThrow();
+    expect(scroll.props.scrollEnabled).not.toBe(false);
   });
 
   it("dismisses via Close and backdrop", () => {
