@@ -1,5 +1,5 @@
 /**
- * Sleep Duration detail averages — 7-day and 30-day windows with coverage.
+ * Sleep Duration detail averages — 7 / 30 / 90-day windows with coverage.
  *
  * Pure helpers. Reuses {@link collectCompletedAttributedSleepNights} and
  * {@link averageMinutesFromCompletedNights}; does not invent a second inclusion stack.
@@ -11,7 +11,9 @@
  * Minimum sufficiency (authoritative mean):
  * - 7d: ≥3 valid nights
  * - 30d: ≥10 valid nights
+ * - 90d: ≥30 valid nights
  *
+ * History fetch is one bounded 90-day range; averages slice that map.
  * YTD is intentionally not implemented in Phase 2D pilot.
  */
 
@@ -24,21 +26,28 @@ import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessC
 import { formatSleepDurationMinutes } from "@/lib/format/ouraScore";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
-export const SLEEP_DURATION_DETAIL_HISTORY_DAY_COUNT = 30 as const;
+/** Inclusive day count for the single Duration detail history request. */
+export const SLEEP_DURATION_DETAIL_HISTORY_DAY_COUNT = 90 as const;
+
 export const SLEEP_DURATION_AVERAGE_7D_EXPECTED = 7 as const;
 export const SLEEP_DURATION_AVERAGE_30D_EXPECTED = 30 as const;
+export const SLEEP_DURATION_AVERAGE_90D_EXPECTED = 90 as const;
+
 export const SLEEP_DURATION_AVERAGE_7D_MIN_VALID = 3 as const;
 export const SLEEP_DURATION_AVERAGE_30D_MIN_VALID = 10 as const;
+export const SLEEP_DURATION_AVERAGE_90D_MIN_VALID = 30 as const;
 
-export type SleepDurationAverageWindow = "7d" | "30d";
+export type SleepDurationAverageWindow = "7d" | "30d" | "90d";
 
 export type SleepDurationAverageSummary = {
   window: SleepDurationAverageWindow;
   averageMinutes: number | null;
   formattedAverage: string | null;
   validNightCount: number;
-  expectedNightCount: 7 | 30;
+  expectedNightCount: 7 | 30 | 90;
+  minimumRequiredNightCount: number;
   hasEnoughData: boolean;
+  /** Internal coverage string — not shown in consumer Pattern UI. */
   coverageLabel: string;
   displayValue: string;
   accessibilitySummary: string;
@@ -52,30 +61,37 @@ export function sleepDurationAverageWindowDayKeys(
   selectedDay: DayKey,
   window: SleepDurationAverageWindow,
 ): DayKey[] {
-  const count = window === "7d" ? SLEEP_DURATION_AVERAGE_7D_EXPECTED : SLEEP_DURATION_AVERAGE_30D_EXPECTED;
+  const count =
+    window === "7d"
+      ? SLEEP_DURATION_AVERAGE_7D_EXPECTED
+      : window === "30d"
+        ? SLEEP_DURATION_AVERAGE_30D_EXPECTED
+        : SLEEP_DURATION_AVERAGE_90D_EXPECTED;
   return activityTrailingNDaysInclusive(selectedDay, count);
 }
 
 function minValidForWindow(window: SleepDurationAverageWindow): number {
-  return window === "7d"
-    ? SLEEP_DURATION_AVERAGE_7D_MIN_VALID
-    : SLEEP_DURATION_AVERAGE_30D_MIN_VALID;
+  if (window === "7d") return SLEEP_DURATION_AVERAGE_7D_MIN_VALID;
+  if (window === "30d") return SLEEP_DURATION_AVERAGE_30D_MIN_VALID;
+  return SLEEP_DURATION_AVERAGE_90D_MIN_VALID;
 }
 
-function expectedForWindow(window: SleepDurationAverageWindow): 7 | 30 {
-  return window === "7d" ? SLEEP_DURATION_AVERAGE_7D_EXPECTED : SLEEP_DURATION_AVERAGE_30D_EXPECTED;
+function expectedForWindow(window: SleepDurationAverageWindow): 7 | 30 | 90 {
+  if (window === "7d") return SLEEP_DURATION_AVERAGE_7D_EXPECTED;
+  if (window === "30d") return SLEEP_DURATION_AVERAGE_30D_EXPECTED;
+  return SLEEP_DURATION_AVERAGE_90D_EXPECTED;
 }
 
 function windowTitle(window: SleepDurationAverageWindow): string {
-  return window === "7d" ? "7 days" : "30 days";
+  if (window === "7d") return "7 days";
+  if (window === "30d") return "30 days";
+  return "90 days";
 }
 
 /**
- * Build one average tile summary for the Duration detail pilot.
+ * Build one average summary for the Duration detail pilot.
  *
  * @param todayDayKey Device “today” for future-day exclusion inside the collector.
- *   Selected-day windows never include days after `selectedDay`; this still blocks
- *   accidental future keys if the map is denser.
  */
 export function buildSleepDurationAverageSummary(input: {
   window: SleepDurationAverageWindow;
@@ -85,6 +101,7 @@ export function buildSleepDurationAverageSummary(input: {
 }): SleepDurationAverageSummary {
   const { window, selectedDay, todayDayKey, sleepNightByDay } = input;
   const expectedNightCount = expectedForWindow(window);
+  const minimumRequiredNightCount = minValidForWindow(window);
   const calendarDays = sleepDurationAverageWindowDayKeys(selectedDay, window);
   const nights = collectCompletedAttributedSleepNights({
     calendarDays,
@@ -92,16 +109,18 @@ export function buildSleepDurationAverageSummary(input: {
     sleepNightByDay,
   });
   const validNightCount = nights.length;
-  const hasEnoughData = validNightCount >= minValidForWindow(window);
+  const hasEnoughData = validNightCount >= minimumRequiredNightCount;
   const mean = averageMinutesFromCompletedNights(nights);
   const averageMinutes = hasEnoughData && mean != null ? mean : null;
   const formattedAverage =
     averageMinutes != null ? formatSleepDurationMinutes(averageMinutes) : null;
   const coverageLabel = `${validNightCount} of ${expectedNightCount} nights`;
   const displayValue = hasEnoughData && formattedAverage != null ? formattedAverage : "Not enough data";
-  const accessibilitySummary = hasEnoughData && formattedAverage != null
-    ? `${windowTitle(window)} average ${formattedAverage}, based on ${coverageLabel}.`
-    : `${windowTitle(window)} average not enough data, ${coverageLabel}.`;
+  // Concise a11y without coverage ratios (coverage remains on the typed model).
+  const accessibilitySummary =
+    hasEnoughData && formattedAverage != null
+      ? `${windowTitle(window)} average ${formattedAverage}.`
+      : `${windowTitle(window)} average not enough data.`;
 
   return {
     window,
@@ -109,6 +128,7 @@ export function buildSleepDurationAverageSummary(input: {
     formattedAverage,
     validNightCount,
     expectedNightCount,
+    minimumRequiredNightCount,
     hasEnoughData,
     coverageLabel,
     displayValue,
@@ -120,9 +140,14 @@ export function buildSleepDurationAverageSummaries(input: {
   selectedDay: DayKey;
   todayDayKey: DayKey;
   sleepNightByDay: Readonly<Partial<Record<DayKey, WeeklyFitnessSleepNightCell>>>;
-}): { sevenDay: SleepDurationAverageSummary; thirtyDay: SleepDurationAverageSummary } {
+}): {
+  sevenDay: SleepDurationAverageSummary;
+  thirtyDay: SleepDurationAverageSummary;
+  ninetyDay: SleepDurationAverageSummary;
+} {
   return {
     sevenDay: buildSleepDurationAverageSummary({ ...input, window: "7d" }),
     thirtyDay: buildSleepDurationAverageSummary({ ...input, window: "30d" }),
+    ninetyDay: buildSleepDurationAverageSummary({ ...input, window: "90d" }),
   };
 }

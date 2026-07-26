@@ -1,8 +1,8 @@
 /**
- * Bounded SleepNight history for Sleep Duration detail (30 inclusive days).
+ * Bounded SleepNight history for Sleep Duration detail (90 inclusive days).
  *
- * One GET /users/me/sleep-nights request for [selectedDay−29, selectedDay].
- * No YTD. No separate 7-day request. Presentation must use the pure average VM.
+ * One GET /users/me/sleep-nights request for [selectedDay−89, selectedDay].
+ * No YTD. No separate 7/30/90 requests. Presentation must use the pure average VM.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,7 +44,7 @@ export type UseSleepDurationDetailHistoryOptions = {
 };
 
 /**
- * Fetches a single bounded 30-day SleepNight range ending on `selectedDay`
+ * Fetches a single bounded 90-day SleepNight range ending on `selectedDay`
  * (clamped so the end is never after device today).
  */
 export function useSleepDurationDetailHistory(

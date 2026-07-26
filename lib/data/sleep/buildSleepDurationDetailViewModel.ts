@@ -12,6 +12,9 @@ import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts
 import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
 import {
   buildSleepDurationAverageSummaries,
+  SLEEP_DURATION_AVERAGE_30D_EXPECTED,
+  SLEEP_DURATION_AVERAGE_7D_EXPECTED,
+  SLEEP_DURATION_AVERAGE_90D_EXPECTED,
   type SleepDurationAverageSummary,
 } from "@/lib/data/sleep/sleepDurationAverages";
 import type { WeeklyFitnessSleepNightCell } from "@/lib/data/dash/weeklyFitnessCompletedSleepNights";
@@ -35,7 +38,7 @@ export type SleepDurationDetailExplainerSection = {
   body: string;
 };
 
-export type SleepDurationPatternRowId = "today" | "7d" | "30d";
+export type SleepDurationPatternRowId = "7d" | "30d" | "90d";
 
 /** Presentation-ready Your Pattern row — no classification in JSX. */
 export type SleepDurationPatternRow = {
@@ -43,16 +46,14 @@ export type SleepDurationPatternRow = {
   label: string;
   value: string;
   statusLabel: SleepDurationReferenceLabel | null;
-  coverageLabel: string | null;
-  emphasized: boolean;
   accessibilitySummary: string;
 };
 
 export type SleepDurationPatternComparison = {
   heading: "Your Pattern";
-  today: SleepDurationPatternRow;
   sevenDay: SleepDurationPatternRow;
   thirtyDay: SleepDurationPatternRow;
+  ninetyDay: SleepDurationPatternRow;
 };
 
 export type SleepDurationDetailViewModel = {
@@ -69,11 +70,13 @@ export type SleepDurationDetailViewModel = {
   rangeWithheldReason: "unknown_age" | "minor" | "none";
   sevenDay: SleepDurationAverageSummary | null;
   thirtyDay: SleepDurationAverageSummary | null;
+  ninetyDay: SleepDurationAverageSummary | null;
   pattern: SleepDurationPatternComparison | null;
   explainers: readonly SleepDurationDetailExplainerSection[];
   dataAccuracyBody: string;
+  /** Always null in consumer v1 — technical provenance stays off the sheet. */
   dataAccuracyContextLine: string | null;
-  /** Consumer sheets omit implementation source lines (always null in v1). */
+  /** Always null in consumer v1. */
   sourceLine: string | null;
   historyStatus: SleepDurationDetailHistoryStatus;
   historyErrorMessage: string | null;
@@ -97,15 +100,6 @@ function refDateFromDayKey(day: DayKey): Date {
   return new Date(y, m - 1, d);
 }
 
-function sleepNightContextLine(input: {
-  selectedDay: DayKey;
-  anchorDay: string | null;
-}): string | null {
-  if (input.anchorDay == null || input.anchorDay === "") return null;
-  if (input.selectedDay === input.anchorDay) return `Sleep night: ${input.anchorDay}`;
-  return `Sleep night: ${input.anchorDay} · Calendar day: ${input.selectedDay}`;
-}
-
 function classifyLabel(
   durationMinutes: number | null,
   ageYears: number | null,
@@ -119,95 +113,76 @@ function classifyLabel(
   );
 }
 
-export function buildSleepDurationPatternComparison(input: {
-  currentFormatted: string;
-  currentValueMinutes: number | null;
-  currentPresence: "present" | "absent";
+function patternRowFromAverage(input: {
+  id: SleepDurationPatternRowId;
+  label: string;
+  summary: SleepDurationAverageSummary;
   ageYears: number | null;
-  sevenDay: SleepDurationAverageSummary;
-  thirtyDay: SleepDurationAverageSummary;
-}): SleepDurationPatternComparison {
-  const { ageYears, sevenDay, thirtyDay } = input;
-
-  const todayStatus =
-    input.currentPresence === "present"
-      ? classifyLabel(input.currentValueMinutes, ageYears)
+}): SleepDurationPatternRow {
+  const statusLabel =
+    input.summary.hasEnoughData && input.summary.averageMinutes != null
+      ? classifyLabel(input.summary.averageMinutes, input.ageYears)
       : null;
-
-  const sevenStatus =
-    sevenDay.hasEnoughData && sevenDay.averageMinutes != null
-      ? classifyLabel(sevenDay.averageMinutes, ageYears)
-      : null;
-
-  const thirtyStatus =
-    thirtyDay.hasEnoughData && thirtyDay.averageMinutes != null
-      ? classifyLabel(thirtyDay.averageMinutes, ageYears)
-      : null;
-
-  const todayValue =
-    input.currentPresence === "present" ? input.currentFormatted : "Not available";
-
-  const todayA11yParts = [
-    `Today ${todayValue}`,
-    todayStatus,
-  ].filter(Boolean);
-
-  const sevenA11yParts = [
-    `7-day average ${sevenDay.displayValue}`,
-    sevenDay.coverageLabel,
-    sevenStatus,
-  ].filter(Boolean);
-
-  const thirtyA11yParts = [
-    `30-day average ${thirtyDay.displayValue}`,
-    thirtyDay.coverageLabel,
-    thirtyStatus,
-  ].filter(Boolean);
-
+  const accessibilitySummary = statusLabel
+    ? `${input.label} ${input.summary.displayValue}. ${statusLabel}.`
+    : `${input.label} ${input.summary.displayValue}.`;
   return {
-    heading: "Your Pattern",
-    today: {
-      id: "today",
-      label: "Today",
-      value: todayValue,
-      statusLabel: todayStatus,
-      coverageLabel: null,
-      emphasized: true,
-      accessibilitySummary: todayA11yParts.join(". ") + ".",
-    },
-    sevenDay: {
-      id: "7d",
-      label: "7-day average",
-      value: sevenDay.displayValue,
-      statusLabel: sevenStatus,
-      coverageLabel: sevenDay.coverageLabel,
-      emphasized: false,
-      accessibilitySummary: sevenA11yParts.join(". ") + ".",
-    },
-    thirtyDay: {
-      id: "30d",
-      label: "30-day average",
-      value: thirtyDay.displayValue,
-      statusLabel: thirtyStatus,
-      coverageLabel: thirtyDay.coverageLabel,
-      emphasized: false,
-      accessibilitySummary: thirtyA11yParts.join(". ") + ".",
-    },
+    id: input.id,
+    label: input.label,
+    value: input.summary.displayValue,
+    statusLabel,
+    accessibilitySummary,
   };
 }
 
-function emptyAverage(window: "7d" | "30d"): SleepDurationAverageSummary {
-  const expectedNightCount = window === "7d" ? 7 : 30;
+export function buildSleepDurationPatternComparison(input: {
+  ageYears: number | null;
+  sevenDay: SleepDurationAverageSummary;
+  thirtyDay: SleepDurationAverageSummary;
+  ninetyDay: SleepDurationAverageSummary;
+}): SleepDurationPatternComparison {
+  return {
+    heading: "Your Pattern",
+    sevenDay: patternRowFromAverage({
+      id: "7d",
+      label: "7-day average",
+      summary: input.sevenDay,
+      ageYears: input.ageYears,
+    }),
+    thirtyDay: patternRowFromAverage({
+      id: "30d",
+      label: "30-day average",
+      summary: input.thirtyDay,
+      ageYears: input.ageYears,
+    }),
+    ninetyDay: patternRowFromAverage({
+      id: "90d",
+      label: "90-day average",
+      summary: input.ninetyDay,
+      ageYears: input.ageYears,
+    }),
+  };
+}
+
+function emptyAverage(window: "7d" | "30d" | "90d"): SleepDurationAverageSummary {
+  const expectedNightCount =
+    window === "7d"
+      ? SLEEP_DURATION_AVERAGE_7D_EXPECTED
+      : window === "30d"
+        ? SLEEP_DURATION_AVERAGE_30D_EXPECTED
+        : SLEEP_DURATION_AVERAGE_90D_EXPECTED;
+  const minimumRequiredNightCount = window === "7d" ? 3 : window === "30d" ? 10 : 30;
   return {
     window,
     averageMinutes: null,
     formattedAverage: null,
     validNightCount: 0,
     expectedNightCount,
+    minimumRequiredNightCount,
     hasEnoughData: false,
     coverageLabel: `0 of ${expectedNightCount} nights`,
     displayValue: "Not enough data",
-    accessibilitySummary: `${window === "7d" ? "7 days" : "30 days"} average not enough data.`,
+    accessibilitySummary: `${window === "7d" ? "7 days" : window === "30d" ? "30 days" : "90 days"} average not enough data.`,
   };
 }
 
@@ -276,25 +251,22 @@ export function buildSleepDurationDetailViewModel(input: {
 
   const sevenDay = averages?.sevenDay ?? null;
   const thirtyDay = averages?.thirtyDay ?? null;
+  const ninetyDay = averages?.ninetyDay ?? null;
 
   const pattern =
-    sevenDay != null && thirtyDay != null
+    sevenDay != null && thirtyDay != null && ninetyDay != null
       ? buildSleepDurationPatternComparison({
-          currentFormatted,
-          currentValueMinutes,
-          currentPresence,
           ageYears,
           sevenDay,
           thirtyDay,
+          ninetyDay,
         })
       : historyReady
         ? buildSleepDurationPatternComparison({
-            currentFormatted,
-            currentValueMinutes,
-            currentPresence,
             ageYears,
             sevenDay: emptyAverage("7d"),
             thirtyDay: emptyAverage("30d"),
+            ninetyDay: emptyAverage("90d"),
           })
         : null;
 
@@ -313,25 +285,15 @@ export function buildSleepDurationDetailViewModel(input: {
     },
   ];
 
-  const contextLine = sleepNightContextLine({
-    selectedDay,
-    anchorDay: sleepNight?.anchorDay ?? null,
-  });
-  const updated =
-    sleepNight?.updatedAt != null && sleepNight.updatedAt.length > 0
-      ? `Updated ${sleepNight.updatedAt}`
-      : null;
-  const dataAccuracyContextLine = [contextLine, updated].filter(Boolean).join(" · ") || null;
-
   const rangeA11y = sleepDurationReferenceAccessibilitySummary({
     formattedDuration: currentFormatted,
     result: rangeResult,
   });
   const patternA11y = pattern
     ? [
-        pattern.today.accessibilitySummary,
         pattern.sevenDay.accessibilitySummary,
         pattern.thirtyDay.accessibilitySummary,
+        pattern.ninetyDay.accessibilitySummary,
       ].join(" ")
     : historyStatus === "loading"
       ? "Loading recent sleep averages."
@@ -353,10 +315,11 @@ export function buildSleepDurationDetailViewModel(input: {
     rangeWithheldReason,
     sevenDay,
     thirtyDay,
+    ninetyDay,
     pattern,
     explainers,
     dataAccuracyBody: SLEEP_DURATION_DETAIL_EXPLAINER_COPY.dataAccuracyBase.body,
-    dataAccuracyContextLine,
+    dataAccuracyContextLine: null,
     sourceLine: null,
     historyStatus,
     historyErrorMessage,

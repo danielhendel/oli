@@ -248,9 +248,9 @@ export const SLEEP_DURATION_DETAIL_EXPLAINER_COPY = {
   howToUnderstand: {
     heading: "How to understand it",
     adult_18_64:
-      "Most adults need about 7–9 hours. Compare tonight with your 7- and 30-day averages to see whether it was one unusual night or part of your usual pattern.",
+      "Most adults need about 7–9 hours. Compare your recent averages to see whether this result was unusual or part of your normal pattern.",
     older_adult_65_plus:
-      "Most adults age 65 and older need about 7–8 hours. Compare tonight with your 7- and 30-day averages to see whether it was one unusual night or part of your usual pattern.",
+      "Most adults age 65 and older need about 7–8 hours. Compare your recent averages to see whether this result was unusual or part of your normal pattern.",
     withheld:
       "Sleep needs vary by age. Your result and recent averages are shown without a personalized reference range.",
   },
