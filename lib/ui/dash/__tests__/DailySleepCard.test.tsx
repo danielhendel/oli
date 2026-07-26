@@ -5,6 +5,7 @@ import renderer, { type ReactTestInstance } from "react-test-renderer";
 import type { SleepNightDocumentDto } from "@oli/contracts";
 import { buildDailySleepCardModel, type DailySleepCardModel } from "@/lib/data/dash/buildDailySleepCardModel";
 import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardViewModel";
+import { setDeepSleepDetailV1EnabledForTests } from "@/lib/data/sleep/deepSleepDetailFlag";
 import { DailySleepCard, DAILY_SLEEP_LOADING_COPY, DAILY_SLEEP_REFRESHING_COPY } from "@/lib/ui/dash/DailySleepCard";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
@@ -20,6 +21,10 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("@/lib/ui/sleep/SleepDurationDetailController", () => ({
   SleepDurationDetailController: () => null,
+}));
+
+jest.mock("@/lib/ui/sleep/SleepStageDetailController", () => ({
+  SleepStageDetailController: () => null,
 }));
 
 const day = "2026-05-01";
@@ -57,6 +62,10 @@ function allVisibleText(root: ReactTestInstance): string {
 describe("DailySleepCard", () => {
   beforeEach(() => {
     mockPush.mockReset();
+  });
+
+  afterEach(() => {
+    setDeepSleepDetailV1EnabledForTests(null);
   });
 
   it("renders large Sleep Score hero with rating and Duration as first row", () => {
@@ -232,6 +241,7 @@ describe("DailySleepCard", () => {
   });
 
   it("opens metric details sheet on deep_sleep row press without navigating", () => {
+    setDeepSleepDetailV1EnabledForTests(false);
     const model = buildDailySleepCardModel({
       day,
       sleepNightSettled: true,

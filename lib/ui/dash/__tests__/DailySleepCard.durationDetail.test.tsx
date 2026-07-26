@@ -7,6 +7,12 @@ import type { DailySleepCardViewModel } from "@/lib/data/dash/dailySleepCardView
 import {
   setSleepDurationDetailV1EnabledForTests,
 } from "@/lib/data/sleep/sleepDurationDetailFlag";
+import {
+  setDeepSleepDetailV1EnabledForTests,
+} from "@/lib/data/sleep/deepSleepDetailFlag";
+import {
+  setRemSleepDetailV1EnabledForTests,
+} from "@/lib/data/sleep/remSleepDetailFlag";
 import { DailySleepCard } from "@/lib/ui/dash/DailySleepCard";
 
 const mockPush = jest.fn();
@@ -25,6 +31,10 @@ jest.mock("@/lib/ui/sleep/SleepDurationDetailController", () => ({
     const { Text: T } = require("react-native");
     return React.createElement(T, { testID: "sleep-duration-detail-controller" }, props.selectedDay);
   },
+}));
+
+jest.mock("@/lib/ui/sleep/SleepStageDetailController", () => ({
+  SleepStageDetailController: () => null,
 }));
 
 const day = "2026-05-01";
@@ -56,6 +66,8 @@ function readyVm(): DailySleepCardViewModel {
 describe("DailySleepCard Duration detail flag", () => {
   afterEach(() => {
     setSleepDurationDetailV1EnabledForTests(null);
+    setDeepSleepDetailV1EnabledForTests(null);
+    setRemSleepDetailV1EnabledForTests(null);
     mockPush.mockReset();
   });
 
@@ -128,8 +140,10 @@ describe("DailySleepCard Duration detail flag", () => {
     expect(() => root.root.findByProps({ testID: "sleep-duration-detail-controller" })).toThrow();
   });
 
-  it("keeps non-duration rows on legacy sheet when flag enabled", () => {
+  it("keeps non-duration rows on legacy sheet when duration flag enabled and stage flags off", () => {
     setSleepDurationDetailV1EnabledForTests(true);
+    setDeepSleepDetailV1EnabledForTests(false);
+    setRemSleepDetailV1EnabledForTests(false);
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(

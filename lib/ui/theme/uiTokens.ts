@@ -128,5 +128,23 @@ export {
   sleepDurationReferenceStatusTextColor,
 } from "@/lib/ui/theme/recommendedRangeChrome";
 
+/**
+ * Educational Deep / REM adult-context zone chrome.
+ * Green = typical adult context; amber = below; cool blue = above.
+ */
+export {
+  UI_STAGE_ADULT_CONTEXT_ABOVE_FILL,
+  UI_STAGE_ADULT_CONTEXT_ABOVE_TEXT,
+  UI_STAGE_ADULT_CONTEXT_BELOW_FILL,
+  UI_STAGE_ADULT_CONTEXT_BELOW_TEXT,
+  UI_STAGE_ADULT_CONTEXT_OUTER_FILL,
+  UI_STAGE_ADULT_CONTEXT_TYPICAL_BORDER,
+  UI_STAGE_ADULT_CONTEXT_TYPICAL_FILL,
+  UI_STAGE_ADULT_CONTEXT_WITHIN_TEXT,
+  resolveSleepStageAdultContextChrome,
+  sleepStageAdultContextStatusTextColor,
+  sleepStagePatternStatusTextColor,
+} from "@/lib/ui/theme/sleepStageAdultContextChrome";
+
 /** Neutral provider-source chip fill on dark elevated Monitor cards (not rating-semantic). */
 export const UI_PROVIDER_SOURCE_CHIP_BG = "rgba(255, 255, 255, 0.06)";
