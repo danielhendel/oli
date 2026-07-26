@@ -239,17 +239,18 @@ export function sleepStageAdultContextAccessibilitySummary(input: {
   lowerPercent: number;
   upperPercent: number;
   currentPercentDisplay: number;
-  ninetyDayPercentDisplay: number | null;
 }): string {
-  const parts = [
-    `${input.label}.`,
+  const resultPhrase =
+    input.label === "Below typical range"
+      ? "This result is below the typical range."
+      : input.label === "In typical range"
+        ? "This result is in the typical range."
+        : "This result is above the typical range.";
+  return [
+    `${input.currentPercentDisplay} percent of total sleep.`,
     `The typical range is ${input.lowerPercent} to ${input.upperPercent} percent.`,
-    `Today is ${input.currentPercentDisplay} percent.`,
-  ];
-  if (input.ninetyDayPercentDisplay != null) {
-    parts.push(`Your 90-day average is ${input.ninetyDayPercentDisplay} percent.`);
-  }
-  return parts.join(" ");
+    resultPhrase,
+  ].join(" ");
 }
 
 /**

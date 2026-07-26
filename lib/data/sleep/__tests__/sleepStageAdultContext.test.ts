@@ -220,17 +220,16 @@ describe("sleepStageAdultContext visualization geometry", () => {
 });
 
 describe("sleepStageAdultContextAccessibilitySummary", () => {
-  it("announces status, typical band, today, and optional 90-day percent", () => {
+  it("announces percent, typical band, and result without 90-day marker copy", () => {
     expect(
       sleepStageAdultContextAccessibilitySummary({
         label: "Below typical range",
         lowerPercent: 16,
         upperPercent: 20,
         currentPercentDisplay: 11,
-        ninetyDayPercentDisplay: 13,
       }),
     ).toBe(
-      "Below typical range. The typical range is 16 to 20 percent. Today is 11 percent. Your 90-day average is 13 percent.",
+      "11 percent of total sleep. The typical range is 16 to 20 percent. This result is below the typical range.",
     );
     expect(
       sleepStageAdultContextAccessibilitySummary({
@@ -238,10 +237,9 @@ describe("sleepStageAdultContextAccessibilitySummary", () => {
         lowerPercent: 21,
         upperPercent: 30,
         currentPercentDisplay: 30,
-        ninetyDayPercentDisplay: null,
       }),
     ).toBe(
-      "In typical range. The typical range is 21 to 30 percent. Today is 30 percent.",
+      "30 percent of total sleep. The typical range is 21 to 30 percent. This result is in the typical range.",
     );
   });
 });

@@ -17,13 +17,12 @@ const baseProps = {
   aboveRangeText: ">20%",
   zoneFractions: { below: 0.4, typical: 0.2, above: 0.4 },
   currentMarkerPosition01: 0.2,
-  ninetyDayMarkerPosition01: 0.28 as number | null,
   accessibilitySummary:
-    "Below typical range. The typical range is 16 to 20 percent. Today is 11 percent. Your 90-day average is 13 percent.",
+    "11 percent of total sleep. The typical range is 16 to 20 percent. This result is below the typical range.",
 };
 
 describe("SleepStageAdultContextBar", () => {
-  it("renders short TYPICAL labels without visible status sentence", () => {
+  it("renders single today marker without 90-day marker or legend", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(<SleepStageAdultContextBar {...baseProps} />);
@@ -36,12 +35,10 @@ describe("SleepStageAdultContextBar", () => {
     expect(flat).toContain("Below Typical");
     expect(flat).toContain("Typical");
     expect(flat).toContain("Above Typical");
-    expect(flat).toContain("Today");
-    expect(flat).toContain("90-day average");
+    expect(flat).not.toContain("Today");
+    expect(flat).not.toContain("90-day average");
     expect(flat).not.toContain("Below typical range");
-    expect(flat).not.toContain("In typical range");
-    expect(flat).not.toContain("Typical Range");
-    expect(flat).not.toMatch(/TYPICAL RA|Recommended|Optimal|Good|Fair|Low|Personal context/);
+    expect(flat).not.toMatch(/TYPICAL RA|Recommended|Optimal|Good|Fair|Low/);
 
     const typical = tree.root.findByProps({ testID: "sleep-stage-adult-context-typical-zone" });
     const below = tree.root.findByProps({ testID: "sleep-stage-adult-context-below-zone" });
@@ -62,17 +59,18 @@ describe("SleepStageAdultContextBar", () => {
       ]),
     );
     expect(tree.root.findByProps({ testID: "sleep-stage-adult-context-marker" })).toBeDefined();
-    expect(
+    expect(() =>
       tree.root.findByProps({ testID: "sleep-stage-adult-context-ninety-day-marker" }),
-    ).toBeDefined();
-    expect(() => tree.root.findByProps({ testID: "sleep-stage-adult-context-status" })).toThrow();
+    ).toThrow();
+    expect(() => tree.root.findByProps({ testID: "sleep-stage-adult-context-legend" })).toThrow();
 
     const bar = tree.root.findByProps({ testID: "sleep-stage-adult-context-bar" });
-    expect(bar.props.accessibilityLabel).toContain("Below typical range");
-    expect(bar.props.accessibilityLabel).toContain("Today is 11 percent");
+    expect(bar.props.accessibilityLabel).toContain("11 percent of total sleep");
+    expect(bar.props.accessibilityLabel).toContain("This result is below the typical range");
+    expect(bar.props.accessibilityLabel).not.toMatch(/90-day|Today is/);
   });
 
-  it("omits 90-day marker and legend entry when unavailable", () => {
+  it("keeps short TYPICAL labels for REM-style bands", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -83,8 +81,7 @@ describe("SleepStageAdultContextBar", () => {
           aboveRangeText=">30%"
           zoneFractions={{ below: 0.34, typical: 0.28, above: 0.38 }}
           currentMarkerPosition01={0.55}
-          ninetyDayMarkerPosition01={null}
-          accessibilitySummary="In typical range. The typical range is 21 to 30 percent. Today is 30 percent."
+          accessibilitySummary="30 percent of total sleep. The typical range is 21 to 30 percent. This result is in the typical range."
         />,
       );
     });
@@ -92,11 +89,9 @@ describe("SleepStageAdultContextBar", () => {
       .findAllByType(Text)
       .map((t) => String(t.props.children))
       .join("|");
-    expect(flat).toContain("Today");
+    expect(flat).toContain("Typical");
+    expect(flat).not.toContain("Today");
     expect(flat).not.toContain("90-day average");
     expect(flat).not.toContain("In typical range");
-    expect(() =>
-      tree.root.findByProps({ testID: "sleep-stage-adult-context-ninety-day-marker" }),
-    ).toThrow();
   });
 });

@@ -99,10 +99,7 @@ export type SleepStageAdultContextPresentation = {
   /** Current-night marker on the visual domain (0–1). */
   markerPosition01: number;
   currentMarkerPosition01: number;
-  /** Null when 90-day average percent is insufficient. */
-  ninetyDayMarkerPosition01: number | null;
   currentPercentDisplay: number;
-  ninetyDayPercentDisplay: number | null;
   accessibilitySummary: string;
 };
 
@@ -243,7 +240,6 @@ function buildAdultContextPresentation(input: {
   totalSleepMinutes: number;
   stagePercentUnrounded: number;
   currentPercentDisplay: number;
-  ninetyDayPercentUnrounded: number | null;
 }): SleepStageAdultContextPresentation {
   const { result } = input;
   const equivalents = formatSleepStageAdultContextEquivalentMinutes({
@@ -252,27 +248,15 @@ function buildAdultContextPresentation(input: {
     upperPercent: result.upperPercent,
   });
   const typicalPercentRangeText = `${result.lowerPercent}–${result.upperPercent}% of total sleep`;
-  const ninetyDayPercentDisplay =
-    input.ninetyDayPercentUnrounded != null && Number.isFinite(input.ninetyDayPercentUnrounded)
-      ? Math.round(input.ninetyDayPercentUnrounded)
-      : null;
   const currentMarkerPosition01 = sleepStageAdultContextMarkerPosition01({
     metricId: result.metricId,
     stagePercentUnrounded: input.stagePercentUnrounded,
   });
-  const ninetyDayMarkerPosition01 =
-    input.ninetyDayPercentUnrounded != null && Number.isFinite(input.ninetyDayPercentUnrounded)
-      ? sleepStageAdultContextMarkerPosition01({
-          metricId: result.metricId,
-          stagePercentUnrounded: input.ninetyDayPercentUnrounded,
-        })
-      : null;
   const accessibilitySummary = sleepStageAdultContextAccessibilitySummary({
     label: result.label,
     lowerPercent: result.lowerPercent,
     upperPercent: result.upperPercent,
     currentPercentDisplay: input.currentPercentDisplay,
-    ninetyDayPercentDisplay,
   });
 
   return {
@@ -289,9 +273,7 @@ function buildAdultContextPresentation(input: {
     zoneFractions: sleepStageAdultContextZoneFractions(result.metricId),
     markerPosition01: currentMarkerPosition01,
     currentMarkerPosition01,
-    ninetyDayMarkerPosition01,
     currentPercentDisplay: input.currentPercentDisplay,
-    ninetyDayPercentDisplay,
     accessibilitySummary,
   };
 }
@@ -372,13 +354,6 @@ export function buildSleepStageDetailViewModel(input: {
   const thirtyDay = averages?.thirtyDay ?? null;
   const ninetyDay = averages?.ninetyDay ?? null;
 
-  const ninetyDayPercentUnrounded =
-    ninetyDay != null &&
-    ninetyDay.hasEnoughPercentData &&
-    ninetyDay.averagePercent != null
-      ? ninetyDay.averagePercent
-      : null;
-
   const adultContext =
     adultContextResult != null &&
     totalSleepMinutes != null &&
@@ -388,7 +363,6 @@ export function buildSleepStageDetailViewModel(input: {
           totalSleepMinutes,
           stagePercentUnrounded: percentResult.value,
           currentPercentDisplay: percentResult.displayPercent,
-          ninetyDayPercentUnrounded,
         })
       : null;
 

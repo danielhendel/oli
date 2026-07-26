@@ -2,8 +2,8 @@
  * Simplified Deep / REM typical-range bar (Duration visual grammar).
  * Presentation only — thresholds, domains, and markers come from the view model.
  *
- * gray → green → gray with white current marker and optional outlined 90-day marker.
- * Visible status sentence is intentionally omitted — the bar is the interpretation.
+ * gray → green → gray with a single white current/today marker.
+ * Visible status sentence and history legend are intentionally omitted.
  */
 
 import React from "react";
@@ -27,8 +27,6 @@ export type SleepStageAdultContextBarProps = {
   aboveRangeText: string;
   zoneFractions: { below: number; typical: number; above: number };
   currentMarkerPosition01: number;
-  /** Null when 90-day average percent is insufficient. */
-  ninetyDayMarkerPosition01: number | null;
   accessibilitySummary: string;
   testID?: string;
 };
@@ -42,12 +40,9 @@ export function SleepStageAdultContextBar({
   aboveRangeText,
   zoneFractions,
   currentMarkerPosition01,
-  ninetyDayMarkerPosition01,
   accessibilitySummary,
   testID = "sleep-stage-adult-context",
 }: SleepStageAdultContextBarProps): React.ReactElement {
-  const showNinetyDay = ninetyDayMarkerPosition01 != null;
-
   return (
     <View style={styles.wrap} testID={testID}>
       <View
@@ -117,33 +112,10 @@ export function SleepStageAdultContextBar({
             testID={`${testID}-above-zone`}
           />
 
-          {showNinetyDay ? (
-            <View
-              style={[
-                styles.ninetyDayMarker,
-                { left: `${ninetyDayMarkerPosition01! * 100}%` },
-              ]}
-              testID={`${testID}-ninety-day-marker`}
-            />
-          ) : null}
-
           <View
             style={[styles.currentMarker, { left: `${currentMarkerPosition01 * 100}%` }]}
             testID={`${testID}-marker`}
           />
-        </View>
-
-        <View style={styles.legend} importantForAccessibility="no" testID={`${testID}-legend`}>
-          <View style={styles.legendItem}>
-            <View style={styles.legendCurrentGlyph} />
-            <Text style={styles.legendText}>Today</Text>
-          </View>
-          {showNinetyDay ? (
-            <View style={styles.legendItem}>
-              <View style={styles.legendNinetyGlyph} />
-              <Text style={styles.legendText}>90-day average</Text>
-            </View>
-          ) : null}
         </View>
       </View>
     </View>
@@ -151,7 +123,7 @@ export function SleepStageAdultContextBar({
 }
 
 const styles = StyleSheet.create({
-  /** Match Duration reference-bar rhythm: tight under hero, no section-break gap. */
+  /** Match Duration reference-bar rhythm: tight under hero, no legend gap. */
   wrap: {
     gap: 8,
     marginTop: 4,
@@ -219,48 +191,6 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 2.5,
     backgroundColor: UI_TEXT_PRIMARY,
-    zIndex: 3,
-  },
-  ninetyDayMarker: {
-    position: "absolute",
-    top: 1,
-    marginLeft: -6,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: UI_TEXT_PRIMARY,
-    backgroundColor: "transparent",
     zIndex: 2,
-  },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16,
-    marginTop: 2,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  legendCurrentGlyph: {
-    width: 3,
-    height: 14,
-    borderRadius: 1.5,
-    backgroundColor: UI_TEXT_PRIMARY,
-  },
-  legendNinetyGlyph: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: UI_TEXT_PRIMARY,
-    backgroundColor: "transparent",
-  },
-  legendText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: UI_TEXT_SECONDARY,
   },
 });

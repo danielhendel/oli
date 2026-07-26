@@ -2,7 +2,7 @@
  * Sleep stage detail sheet (Deep / REM) — presentation only.
  * View model and history are owned by the card/container hook.
  *
- * Single dual-marker typical-range bar (Duration visual grammar).
+ * Single-marker typical-range bar (Duration visual grammar).
  * Personal Context rail is intentionally omitted from the visible hierarchy.
  */
 
@@ -62,7 +62,6 @@ export function SleepStageDetailSheet({
         aboveRangeText={vm.adultContext.aboveRangeText}
         zoneFractions={vm.adultContext.zoneFractions}
         currentMarkerPosition01={vm.adultContext.currentMarkerPosition01}
-        ninetyDayMarkerPosition01={vm.adultContext.ninetyDayMarkerPosition01}
         accessibilitySummary={vm.adultContext.accessibilitySummary}
         testID={adultTestID}
       />
