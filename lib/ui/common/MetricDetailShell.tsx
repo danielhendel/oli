@@ -10,7 +10,7 @@
  * Legacy MetricDetailsSheet remains for other metrics.
  */
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Modal,
   Pressable,
@@ -19,7 +19,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -31,7 +30,6 @@ import {
   METRIC_DETAIL_HORIZONTAL_PADDING,
   METRIC_DETAIL_TOP_BACKDROP_GAP,
   METRIC_DETAIL_TOP_CORNER_RADIUS,
-  metricDetailBodyBottomInset,
   metricDetailSheetHeight,
 } from "@/lib/ui/common/metricDetailShellLayout";
 import {
@@ -95,7 +93,6 @@ export function MetricDetailShell({
 }: MetricDetailShellProps): React.ReactElement {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const [measuredFooterChrome, setMeasuredFooterChrome] = useState(METRIC_DETAIL_FOOTER_MIN_HEIGHT);
 
   const sheetHeight = metricDetailSheetHeight({
     windowHeight,
@@ -103,21 +100,9 @@ export function MetricDetailShell({
     topBackdropGap: METRIC_DETAIL_TOP_BACKDROP_GAP,
   });
 
+  // Footer is a flex sibling outside the ScrollView viewport — only end spacing is needed.
+  const bodyBottomInset = METRIC_DETAIL_BODY_END_SPACING;
   const bottomSafe = Math.max(insets.bottom, 12);
-  const bodyBottomInset = showDone
-    ? metricDetailBodyBottomInset({
-        footerHeight: measuredFooterChrome,
-        bottomSafeArea: bottomSafe,
-        endSpacing: METRIC_DETAIL_BODY_END_SPACING,
-      })
-    : bottomSafe + METRIC_DETAIL_BODY_END_SPACING;
-
-  const onFooterChromeLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h > 0 && Math.abs(h - measuredFooterChrome) > 0.5) {
-      setMeasuredFooterChrome(h);
-    }
-  };
 
   return (
     <Modal
@@ -145,7 +130,6 @@ export function MetricDetailShell({
             },
             contentStyle,
           ]}
-          onStartShouldSetResponder={() => true}
         >
           <View style={styles.header} testID={`${testID}-header`}>
             <View style={styles.handle} accessibilityElementsHidden importantForAccessibility="no" />
@@ -171,67 +155,69 @@ export function MetricDetailShell({
             <View style={styles.headerDivider} importantForAccessibility="no" />
           </View>
 
-          <ScrollView
-            testID={`${testID}-scroll`}
-            style={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator
-            bounces
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: bodyBottomInset }]}
-          >
-            <View
-              accessible
-              accessibilityLabel={accessibilitySummary ?? `${title}. ${heroValue}.`}
+          <View style={styles.bodyViewport} testID={`${testID}-body-viewport`}>
+            <ScrollView
+              testID={`${testID}-scroll`}
+              style={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+              bounces
+              scrollEnabled
+              nestedScrollEnabled
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: bodyBottomInset }]}
             >
-              <Text style={styles.value}>{heroValue}</Text>
-              {statusSentence ? <Text style={styles.status}>{statusSentence}</Text> : null}
-            </View>
-
-            {referenceVisualization}
-
-            {loadingSlot}
-            {errorSlot}
-            {averages}
-            {historySlot}
-
-            {sections?.map((section) => (
               <View
-                key={section.heading}
-                style={styles.section}
-                testID={`${testID}-section-${section.heading}`}
+                accessible
+                accessibilityLabel={accessibilitySummary ?? `${title}. ${heroValue}.`}
               >
-                <Text style={styles.sectionHeading}>{section.heading}</Text>
-                <Text style={styles.sectionBody}>{section.body}</Text>
+                <Text style={styles.value}>{heroValue}</Text>
+                {statusSentence ? <Text style={styles.status}>{statusSentence}</Text> : null}
               </View>
-            ))}
 
-            {dataAccuracyBody ? (
-              <View style={styles.section} testID={`${testID}-data-accuracy`}>
-                <Text style={styles.sectionHeading}>{dataAccuracyHeading}</Text>
-                <Text style={styles.sectionBody}>{dataAccuracyBody}</Text>
-                {sourceLine ? <Text style={styles.meta}>{sourceLine}</Text> : null}
-                {dataAccuracyMeta ? <Text style={styles.meta}>{dataAccuracyMeta}</Text> : null}
-              </View>
-            ) : null}
-          </ScrollView>
+              {referenceVisualization}
+
+              {loadingSlot}
+              {errorSlot}
+              {averages}
+              {historySlot}
+
+              {sections?.map((section) => (
+                <View
+                  key={section.heading}
+                  style={styles.section}
+                  testID={`${testID}-section-${section.heading}`}
+                >
+                  <Text style={styles.sectionHeading}>{section.heading}</Text>
+                  <Text style={styles.sectionBody}>{section.body}</Text>
+                </View>
+              ))}
+
+              {dataAccuracyBody ? (
+                <View style={styles.section} testID={`${testID}-data-accuracy`}>
+                  <Text style={styles.sectionHeading}>{dataAccuracyHeading}</Text>
+                  <Text style={styles.sectionBody}>{dataAccuracyBody}</Text>
+                  {sourceLine ? <Text style={styles.meta}>{sourceLine}</Text> : null}
+                  {dataAccuracyMeta ? <Text style={styles.meta}>{dataAccuracyMeta}</Text> : null}
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
 
           {showDone ? (
             <View
               style={[styles.footer, { paddingBottom: bottomSafe }]}
               testID={`${testID}-footer`}
             >
-              <View onLayout={onFooterChromeLayout}>
-                <View style={styles.footerDivider} importantForAccessibility="no" />
-                <Pressable
-                  onPress={onClose}
-                  accessibilityRole="button"
-                  accessibilityLabel="Done"
-                  style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
-                  testID={`${testID}-done`}
-                >
-                  <Text style={styles.doneLabel}>Done</Text>
-                </Pressable>
-              </View>
+              <View style={styles.footerDivider} importantForAccessibility="no" />
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Done"
+                style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
+                testID={`${testID}-done`}
+              >
+                <Text style={styles.doneLabel}>Done</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -256,6 +242,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_STRONG,
     overflow: "hidden",
+    flexDirection: "column",
   },
   header: {
     flexShrink: 0,
@@ -305,11 +292,15 @@ const styles = StyleSheet.create({
     backgroundColor: UI_BORDER_HAIRLINE,
     marginHorizontal: -METRIC_DETAIL_HORIZONTAL_PADDING,
   },
-  scroll: {
+  bodyViewport: {
     flex: 1,
     minHeight: 0,
   },
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
+    flexGrow: 0,
     gap: 12,
     paddingTop: 12,
   },
