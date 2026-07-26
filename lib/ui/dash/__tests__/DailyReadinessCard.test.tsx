@@ -5,11 +5,16 @@ import renderer, { type ReactTestInstance } from "react-test-renderer";
 import type { DailyReadinessCardViewModel } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
 import { buildDailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
+import { setRestingHeartRateDetailV1EnabledForTests } from "@/lib/data/readiness/restingHeartRateDetailFlag";
 
 const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+}));
+
+jest.mock("@/lib/ui/readiness/RestingHeartRateDetailController", () => ({
+  RestingHeartRateDetailController: () => null,
 }));
 
 function allVisibleText(root: ReactTestInstance): string {
@@ -27,6 +32,12 @@ function allVisibleText(root: ReactTestInstance): string {
 describe("DailyReadinessCard", () => {
   beforeEach(() => {
     mockPush.mockReset();
+    // Legacy route tests: keep RHR detail flag off so contributor deep-links stay stable.
+    setRestingHeartRateDetailV1EnabledForTests(false);
+  });
+
+  afterEach(() => {
+    setRestingHeartRateDetailV1EnabledForTests(null);
   });
 
   it("renders score and five contributor rows in order", () => {
