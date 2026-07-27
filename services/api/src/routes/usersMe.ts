@@ -74,6 +74,7 @@ import {
   ouraReadinessRangeResponseDtoSchema,
   OURA_READINESS_RANGE_MAX_DAYS,
   ouraReadinessRangeDayDtoSchema,
+  mapReadinessRangeContributors,
   nutritionFoodSearchResponseDtoSchema,
   nutritionFoodDetailResponseDtoSchema,
   type InsightDto,
@@ -2383,14 +2384,18 @@ router.get(
       const scoreRaw = raw.score;
       const score =
         typeof scoreRaw === "number" && Number.isFinite(scoreRaw) ? scoreRaw : null;
+      // Approved contributor keys only; invalid/missing omitted (never zero).
+      // Exact-day vendor docs only — no prior-night / fallback densification.
+      const contributors = mapReadinessRangeContributors(raw.contributors);
       const dtoCandidate = {
         day: raw.day,
         score,
         source: "oura" as const,
+        ...(contributors != null ? { contributors } : {}),
       };
       const parsedDay = ouraReadinessRangeDayDtoSchema.safeParse(dtoCandidate);
       if (!parsedDay.success) continue;
-      // Exact day only; first ascending wins if duplicates exist.
+      // Exact day only; first ascending wins if duplicates exist (deterministic).
       if (!byDay.has(parsedDay.data.day)) {
         byDay.set(parsedDay.data.day, parsedDay.data);
       }

@@ -89,6 +89,9 @@ export {
   ouraReadinessRangeQuerySchema,
   ouraReadinessRangeResponseDtoSchema,
   OURA_READINESS_RANGE_MAX_DAYS,
+  mapReadinessRangeContributors,
+  normalizeReadinessContributorScore,
+  READINESS_RANGE_CONTRIBUTOR_KEYS,
 } from "@oli/contracts/ouraVendor";
 export type {
   SleepViewDto,
@@ -99,6 +102,8 @@ export type {
   OuraReadinessRangeDayDto,
   OuraReadinessRangeQuery,
   OuraReadinessRangeResponseDto,
+  OuraReadinessRangeContributorsDto,
+  ReadinessRangeContributorKey,
 } from "@oli/contracts/ouraVendor";
 
 // Canonical SleepNight read surface (GET /users/me/sleep-night)
