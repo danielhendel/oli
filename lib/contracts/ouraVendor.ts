@@ -171,11 +171,82 @@ export const ouraStressRangeResponseDtoSchema = z.object({
 
 export type OuraStressRangeResponseDto = z.infer<typeof ouraStressRangeResponseDtoSchema>;
 
-/** Exact provider readiness day for bounded range reads (no fallback densification). */
+/**
+ * Approved readiness contributor keys for bounded range history (Phase 2F-C1).
+ *
+ * These are Oura-owned 0–100 contributor scores (not raw physiological
+ * measurements). Temperature deviation is intentionally excluded until
+ * storage + units + attribution are proven.
+ */
+export const READINESS_RANGE_CONTRIBUTOR_KEYS = [
+  "hrv_balance",
+  "body_temperature",
+  "recovery_index",
+  "sleep_balance",
+] as const;
+
+export type ReadinessRangeContributorKey = (typeof READINESS_RANGE_CONTRIBUTOR_KEYS)[number];
+
+/** Approved contributor scores on a readiness range day (provider-owned 0–100). */
+export const ouraReadinessRangeContributorsDtoSchema = z
+  .object({
+    hrv_balance: z.number().min(0).max(100).optional(),
+    body_temperature: z.number().min(0).max(100).optional(),
+    recovery_index: z.number().min(0).max(100).optional(),
+    sleep_balance: z.number().min(0).max(100).optional(),
+  })
+  .strict();
+
+export type OuraReadinessRangeContributorsDto = z.infer<
+  typeof ouraReadinessRangeContributorsDtoSchema
+>;
+
+/**
+ * Normalize an Oura readiness contributor score for the bounded range contract.
+ *
+ * - Accepts finite numbers in [0, 100] inclusive (0 is valid).
+ * - Preserves unrounded values (averages round only at presentation).
+ * - Missing / invalid → null (never zero-substituted, never clamped).
+ * - Rejects strings, ratios outside 0–100, NaN, Infinity (fail closed).
+ */
+export function normalizeReadinessContributorScore(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 100) return null;
+  return value;
+}
+
+/**
+ * Map a raw stored contributors record to the approved range DTO shape.
+ * Only approved keys are emitted; invalid values are omitted (not zero).
+ * Returns undefined when no approved valid keys remain.
+ */
+export function mapReadinessRangeContributors(
+  raw: unknown,
+): OuraReadinessRangeContributorsDto | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const rec = raw as Record<string, unknown>;
+  const out: OuraReadinessRangeContributorsDto = {};
+  let any = false;
+  for (const key of READINESS_RANGE_CONTRIBUTOR_KEYS) {
+    const normalized = normalizeReadinessContributorScore(rec[key]);
+    if (normalized == null) continue;
+    out[key] = normalized;
+    any = true;
+  }
+  return any ? out : undefined;
+}
+/**
+ * Exact provider readiness day for bounded range reads (no fallback densification).
+ *
+ * `contributors` is optional and, when present, includes only approved keys.
+ * Missing contributor values are omitted — never defaulted to zero.
+ */
 export const ouraReadinessRangeDayDtoSchema = z.object({
   day: dayKeySchema,
   score: z.number().min(0).max(100).nullable().optional(),
   source: z.literal("oura"),
+  contributors: ouraReadinessRangeContributorsDtoSchema.optional(),
 });
 export type OuraReadinessRangeDayDto = z.infer<typeof ouraReadinessRangeDayDtoSchema>;
 
@@ -194,6 +265,8 @@ export type OuraReadinessRangeQuery = z.infer<typeof ouraReadinessRangeQuerySche
 /**
  * Bounded range response: only exact provider readiness days present in vendor
  * snapshots (missing days omitted — no fill, no fallback, no Oura call).
+ *
+ * One response serves all four approved contributor metrics for history.
  */
 export const ouraReadinessRangeResponseDtoSchema = z.object({
   start: dayKeySchema,
