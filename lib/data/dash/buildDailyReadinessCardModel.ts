@@ -3,9 +3,18 @@ import {
   buildDashReadinessMetricRows,
   type DashReadinessMetricRow,
 } from "@/lib/data/dash/buildDashReadinessMetricRows";
+import { normalizeReadinessContributorScore } from "@/lib/data/readiness/readinessContributorScore";
+import type { ReadinessContributorDetailMetric } from "@/lib/data/readiness/readinessContributorDetailTypes";
+import { READINESS_CONTRIBUTOR_DETAIL_METRICS } from "@/lib/data/readiness/readinessContributorDetailTypes";
 import { normalizeOuraScore0to100, tryClassifyOuraScore } from "@/lib/format/ouraScore";
 
 const EMPTY = "\u2014";
+
+/** Exact-day provider contributor scores for Phase 2F-C2 detail sheets (validated 0–100). */
+export type DailyReadinessExactDayContributorScores = Record<
+  ReadinessContributorDetailMetric,
+  number | null
+>;
 
 export type DailyReadinessCardModel = {
   day: string;
@@ -17,7 +26,28 @@ export type DailyReadinessCardModel = {
   emptyStateTitle: string | null;
   emptyStateSubtitle: string | null;
   metricRows: DashReadinessMetricRow[];
+  /** Exact-day contributor scores from the readiness view (no fallback day). */
+  exactDayContributorScores: DailyReadinessExactDayContributorScores;
 };
+
+function emptyContributorScores(): DailyReadinessExactDayContributorScores {
+  return {
+    hrv_balance: null,
+    body_temperature: null,
+    recovery_index: null,
+    sleep_balance: null,
+  };
+}
+
+function resolveExactDayContributorScores(
+  contributors: Record<string, unknown>,
+): DailyReadinessExactDayContributorScores {
+  const out = emptyContributorScores();
+  for (const key of READINESS_CONTRIBUTOR_DETAIL_METRICS) {
+    out[key] = normalizeReadinessContributorScore(contributors[key]);
+  }
+  return out;
+}
 
 function readinessSummary(score: number): string {
   if (score >= 80) return "Ready. Recovery signals are strong today.";
@@ -56,6 +86,7 @@ export function buildDailyReadinessCardModel(args: {
       emptyStateTitle: "Oura not connected",
       emptyStateSubtitle: "Reconnect Oura to sync readiness.",
       metricRows: emptyRows,
+      exactDayContributorScores: emptyContributorScores(),
     };
   }
 
@@ -73,6 +104,7 @@ export function buildDailyReadinessCardModel(args: {
       emptyStateTitle: "No readiness for today",
       emptyStateSubtitle: "Today's plan is still available.",
       metricRows: emptyRows,
+      exactDayContributorScores: emptyContributorScores(),
     };
   }
 
@@ -100,6 +132,7 @@ export function buildDailyReadinessCardModel(args: {
     emptyStateTitle: null,
     emptyStateSubtitle: null,
     metricRows,
+    exactDayContributorScores: resolveExactDayContributorScores(contributors),
   };
 }
 

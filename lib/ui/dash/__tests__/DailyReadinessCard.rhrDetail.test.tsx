@@ -5,6 +5,7 @@ import renderer, { type ReactTestInstance } from "react-test-renderer";
 import type { SleepNightDocumentDto } from "@oli/contracts";
 
 import { buildDailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
+import { setHrvBalanceDetailV1EnabledForTests } from "@/lib/data/readiness/hrvBalanceDetailFlag";
 import { setRestingHeartRateDetailV1EnabledForTests } from "@/lib/data/readiness/restingHeartRateDetailFlag";
 import type { DailyReadinessCardViewModel } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
@@ -19,6 +20,17 @@ jest.mock("@/lib/ui/readiness/RestingHeartRateDetailController", () => ({
   RestingHeartRateDetailController: (props: { selectedDay: string }) => {
     const { Text: RNText } = require("react-native");
     return <RNText testID="rhr-detail-controller">{`RHR detail ${props.selectedDay}`}</RNText>;
+  },
+}));
+
+jest.mock("@/lib/ui/readiness/ReadinessContributorDetailController", () => ({
+  ReadinessContributorDetailController: (props: { metric: string }) => {
+    const { Text: RNText } = require("react-native");
+    return (
+      <RNText testID={`contributor-detail-controller-${props.metric}`}>
+        {`detail ${props.metric}`}
+      </RNText>
+    );
   },
 }));
 
@@ -81,10 +93,12 @@ describe("DailyReadinessCard resting heart rate detail wiring", () => {
   beforeEach(() => {
     mockPush.mockReset();
     setRestingHeartRateDetailV1EnabledForTests(true);
+    setHrvBalanceDetailV1EnabledForTests(null);
   });
 
   afterEach(() => {
     setRestingHeartRateDetailV1EnabledForTests(null);
+    setHrvBalanceDetailV1EnabledForTests(null);
   });
 
   it("opens RHR detail sheet when flag on and physiological bpm is available", () => {
@@ -151,7 +165,31 @@ describe("DailyReadinessCard resting heart rate detail wiring", () => {
     expect(() => root.root.findByProps({ testID: "rhr-detail-controller" })).toThrow();
   });
 
-  it("keeps other readiness rows on the legacy route", () => {
+  it("does not divert other contributor rows into the RHR detail", () => {
+    setHrvBalanceDetailV1EnabledForTests(true);
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        <DailyReadinessCard
+          vm={readyVm()}
+          attributedSleepNight={sleepNight(49)}
+          attributedSleepResolution="exact_anchor"
+        />,
+      );
+    });
+    const hrv = root.root.findByProps({ testID: "readiness-metric-row-hrv_balance" });
+    act(() => {
+      hrv.props.onPress();
+    });
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(() => root.root.findByProps({ testID: "rhr-detail-controller" })).toThrow();
+    expect(
+      root.root.findByProps({ testID: "contributor-detail-controller-hrv_balance" }),
+    ).toBeDefined();
+  });
+
+  it("keeps other readiness rows on the legacy route when their flags are off", () => {
+    setHrvBalanceDetailV1EnabledForTests(false);
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(

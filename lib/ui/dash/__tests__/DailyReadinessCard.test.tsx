@@ -5,7 +5,11 @@ import renderer, { type ReactTestInstance } from "react-test-renderer";
 import type { DailyReadinessCardViewModel } from "@/lib/ui/dash/DailyReadinessCard";
 import { DailyReadinessCard } from "@/lib/ui/dash/DailyReadinessCard";
 import { buildDailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
+import { setBodyTemperatureDetailV1EnabledForTests } from "@/lib/data/readiness/bodyTemperatureDetailFlag";
+import { setHrvBalanceDetailV1EnabledForTests } from "@/lib/data/readiness/hrvBalanceDetailFlag";
+import { setRecoveryIndexDetailV1EnabledForTests } from "@/lib/data/readiness/recoveryIndexDetailFlag";
 import { setRestingHeartRateDetailV1EnabledForTests } from "@/lib/data/readiness/restingHeartRateDetailFlag";
+import { setSleepBalanceDetailV1EnabledForTests } from "@/lib/data/readiness/sleepBalanceDetailFlag";
 
 const mockPush = jest.fn();
 
@@ -15,6 +19,10 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@/lib/ui/readiness/RestingHeartRateDetailController", () => ({
   RestingHeartRateDetailController: () => null,
+}));
+
+jest.mock("@/lib/ui/readiness/ReadinessContributorDetailController", () => ({
+  ReadinessContributorDetailController: () => null,
 }));
 
 function allVisibleText(root: ReactTestInstance): string {
@@ -32,12 +40,20 @@ function allVisibleText(root: ReactTestInstance): string {
 describe("DailyReadinessCard", () => {
   beforeEach(() => {
     mockPush.mockReset();
-    // Legacy route tests: keep RHR detail flag off so contributor deep-links stay stable.
+    // Legacy route tests: keep detail flags off so contributor deep-links stay stable.
     setRestingHeartRateDetailV1EnabledForTests(false);
+    setHrvBalanceDetailV1EnabledForTests(false);
+    setBodyTemperatureDetailV1EnabledForTests(false);
+    setRecoveryIndexDetailV1EnabledForTests(false);
+    setSleepBalanceDetailV1EnabledForTests(false);
   });
 
   afterEach(() => {
     setRestingHeartRateDetailV1EnabledForTests(null);
+    setHrvBalanceDetailV1EnabledForTests(null);
+    setBodyTemperatureDetailV1EnabledForTests(null);
+    setRecoveryIndexDetailV1EnabledForTests(null);
+    setSleepBalanceDetailV1EnabledForTests(null);
   });
 
   it("renders score and five contributor rows in order", () => {

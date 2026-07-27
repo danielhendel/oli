@@ -14,8 +14,16 @@ import type { SleepNightDocumentDto, SleepNightResolution } from "@oli/contracts
 import type { DailyReadinessCardModel } from "@/lib/data/dash/buildDailyReadinessCardModel";
 import type { DashReadinessMetricRowId } from "@/lib/data/dash/buildDashReadinessMetricRows";
 import type { Readiness } from "@/lib/contracts/readiness";
+import { isBodyTemperatureDetailV1Enabled } from "@/lib/data/readiness/bodyTemperatureDetailFlag";
+import { isHrvBalanceDetailV1Enabled } from "@/lib/data/readiness/hrvBalanceDetailFlag";
+import {
+  isReadinessContributorDetailMetric,
+  type ReadinessContributorDetailMetric,
+} from "@/lib/data/readiness/readinessContributorDetailTypes";
+import { isRecoveryIndexDetailV1Enabled } from "@/lib/data/readiness/recoveryIndexDetailFlag";
 import { isRestingHeartRateDetailV1Enabled } from "@/lib/data/readiness/restingHeartRateDetailFlag";
 import { resolveRestingHeartRateBpm } from "@/lib/data/readiness/restingHeartRateValue";
+import { isSleepBalanceDetailV1Enabled } from "@/lib/data/readiness/sleepBalanceDetailFlag";
 import {
   buildOuraRatingAccessibility,
   mapOuraProviderRatingToTone,
@@ -25,6 +33,7 @@ import {
   DashCompactCardHeader,
   dashCompactPrimaryValueTextStyle,
 } from "@/lib/ui/dash/DashCompactCardHeader";
+import { ReadinessContributorDetailController } from "@/lib/ui/readiness/ReadinessContributorDetailController";
 import { RestingHeartRateDetailController } from "@/lib/ui/readiness/RestingHeartRateDetailController";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -81,6 +90,40 @@ function hasPhysiologicalRestingHeartRateBpm(input: {
   return resolveRestingHeartRateBpm(input.sleepNight.lowestHeartRateBpm) != null;
 }
 
+function isContributorDetailFlagEnabled(metric: ReadinessContributorDetailMetric): boolean {
+  switch (metric) {
+    case "hrv_balance":
+      return isHrvBalanceDetailV1Enabled();
+    case "body_temperature":
+      return isBodyTemperatureDetailV1Enabled();
+    case "recovery_index":
+      return isRecoveryIndexDetailV1Enabled();
+    case "sleep_balance":
+      return isSleepBalanceDetailV1Enabled();
+    default: {
+      const _x: never = metric;
+      return _x;
+    }
+  }
+}
+
+function contributorDetailHint(metric: ReadinessContributorDetailMetric): string {
+  switch (metric) {
+    case "hrv_balance":
+      return "Opens HRV Balance details";
+    case "body_temperature":
+      return "Opens Body Temperature details";
+    case "recovery_index":
+      return "Opens Recovery Index details";
+    case "sleep_balance":
+      return "Opens Sleep Balance details";
+    default: {
+      const _x: never = metric;
+      return _x;
+    }
+  }
+}
+
 export function DailyReadinessCard({
   vm,
   title = "Oura Readiness",
@@ -89,7 +132,13 @@ export function DailyReadinessCard({
 }: Props): React.ReactElement {
   const router = useRouter();
   const [rhrDetailOpen, setRhrDetailOpen] = useState(false);
+  const [openContributorMetric, setOpenContributorMetric] =
+    useState<ReadinessContributorDetailMetric | null>(null);
   const rhrRowRef = useRef<View>(null);
+  const hrvRowRef = useRef<View>(null);
+  const bodyTempRowRef = useRef<View>(null);
+  const recoveryRowRef = useRef<View>(null);
+  const sleepBalanceRowRef = useRef<View>(null);
   const rhrDetailEnabled = isRestingHeartRateDetailV1Enabled();
 
   const loading = vm.status === "partial";
@@ -107,12 +156,42 @@ export function DailyReadinessCard({
     AccessibilityInfo.setAccessibilityFocus(handle);
   }, []);
 
+  const rowRefForMetric = useCallback(
+    (metric: ReadinessContributorDetailMetric): React.RefObject<View | null> => {
+      switch (metric) {
+        case "hrv_balance":
+          return hrvRowRef;
+        case "body_temperature":
+          return bodyTempRowRef;
+        case "recovery_index":
+          return recoveryRowRef;
+        case "sleep_balance":
+          return sleepBalanceRowRef;
+        default: {
+          const _x: never = metric;
+          return _x;
+        }
+      }
+    },
+    [],
+  );
+
   const closeRhrDetail = useCallback(() => {
     setRhrDetailOpen(false);
     requestAnimationFrame(() => {
       restoreFocusToRef(rhrRowRef);
     });
   }, [restoreFocusToRef]);
+
+  const closeContributorDetail = useCallback(() => {
+    const metric = openContributorMetric;
+    setOpenContributorMetric(null);
+    if (metric == null) return;
+    const ref = rowRefForMetric(metric);
+    requestAnimationFrame(() => {
+      restoreFocusToRef(ref);
+    });
+  }, [openContributorMetric, restoreFocusToRef, rowRefForMetric]);
 
   const onOpenReadiness = useCallback(() => {
     if (loading || error || vm.status !== "ready") return;
@@ -121,7 +200,7 @@ export function DailyReadinessCard({
 
   const onOpenReadinessContributor = useCallback(
     (rowId: DashReadinessMetricRowId) => {
-      if (loading || error || vm.status !== "ready") return;
+      if (loading || error || vm.status !== "ready" || model == null) return;
 
       if (rowId === "resting_heart_rate" && rhrDetailEnabled) {
         const canOpenDetail = hasPhysiologicalRestingHeartRateBpm({
@@ -130,6 +209,13 @@ export function DailyReadinessCard({
         });
         if (!canOpenDetail) return;
         setRhrDetailOpen(true);
+        return;
+      }
+
+      if (isReadinessContributorDetailMetric(rowId) && isContributorDetailFlagEnabled(rowId)) {
+        const score = model.exactDayContributorScores[rowId];
+        if (score == null) return;
+        setOpenContributorMetric(rowId);
         return;
       }
 
@@ -144,6 +230,7 @@ export function DailyReadinessCard({
       attributedSleepResolution,
       error,
       loading,
+      model,
       rhrDetailEnabled,
       router,
       vm.status,
@@ -193,6 +280,11 @@ export function DailyReadinessCard({
   const rhrOverride =
     model?.metricRows.find((r) => r.id === "resting_heart_rate")?.displayValue ?? null;
 
+  const openContributorScore =
+    openContributorMetric != null && model != null
+      ? model.exactDayContributorScores[openContributorMetric]
+      : null;
+
   return (
     <View style={styles.outer} accessibilityLabel={`${title} card`}>
       <View style={styles.card}>
@@ -231,6 +323,15 @@ export function DailyReadinessCard({
           <View style={styles.metricSection} accessibilityRole="list">
             {model.metricRows.map((row) => {
               const isRhr = row.id === "resting_heart_rate";
+              const contributorMetric = isReadinessContributorDetailMetric(row.id)
+                ? row.id
+                : null;
+              const contributorDetailEnabled =
+                contributorMetric != null && isContributorDetailFlagEnabled(contributorMetric);
+              const contributorScoreAvailable =
+                contributorMetric != null &&
+                model.exactDayContributorScores[contributorMetric] != null;
+
               const rhrCanOpenDetail =
                 isRhr &&
                 rhrDetailEnabled &&
@@ -238,11 +339,18 @@ export function DailyReadinessCard({
                   sleepNight: attributedSleepNight,
                   resolution: attributedSleepResolution,
                 });
-              const canPress = !(isRhr && rhrDetailEnabled && !rhrCanOpenDetail);
+
+              const canPress = !(
+                (isRhr && rhrDetailEnabled && !rhrCanOpenDetail) ||
+                (contributorDetailEnabled && !contributorScoreAvailable)
+              );
+
               const accessibilityHint =
                 isRhr && rhrDetailEnabled
                   ? "Opens resting heart rate details"
-                  : "Opens readiness details";
+                  : contributorDetailEnabled && contributorMetric != null
+                    ? contributorDetailHint(contributorMetric)
+                    : "Opens readiness details";
 
               const rowEl = (
                 <DashMetricRow
@@ -269,6 +377,17 @@ export function DailyReadinessCard({
                   </View>
                 );
               }
+              if (contributorMetric != null) {
+                return (
+                  <View
+                    key={row.id}
+                    ref={rowRefForMetric(contributorMetric)}
+                    collapsable={false}
+                  >
+                    {rowEl}
+                  </View>
+                );
+              }
               return rowEl;
             })}
           </View>
@@ -281,6 +400,15 @@ export function DailyReadinessCard({
             resolution={attributedSleepResolution}
             currentFormattedOverride={rhrOverride}
             onClose={closeRhrDetail}
+          />
+        ) : null}
+
+        {openContributorMetric != null && openContributorScore != null ? (
+          <ReadinessContributorDetailController
+            metric={openContributorMetric}
+            selectedDay={selectedDay}
+            currentScore={openContributorScore}
+            onClose={closeContributorDetail}
           />
         ) : null}
       </View>
