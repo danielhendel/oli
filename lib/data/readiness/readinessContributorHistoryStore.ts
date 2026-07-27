@@ -16,6 +16,11 @@ import type { OuraReadinessRangeDayDto } from "@oli/contracts/ouraVendor";
 
 import { getOuraReadinessRange } from "@/lib/api/ouraReadinessRange";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import {
+  READINESS_CONTRIBUTOR_HISTORY_CACHE_CONTRACT,
+  readinessContributorHistoryUnavailableMessage,
+  readinessRangeSupportsContributorHistory,
+} from "@/lib/data/readiness/readinessContributorHistoryContract";
 import type {
   ReadinessContributorDayCell,
   ReadinessContributorHistorySnapshot,
@@ -31,7 +36,7 @@ export type {
 type CacheKey = string;
 
 function makeKey(uid: string, start: DayKey, end: DayKey): CacheKey {
-  return `${uid}|${start}|${end}`;
+  return `${READINESS_CONTRIBUTOR_HISTORY_CACHE_CONTRACT}|${uid}|${start}|${end}`;
 }
 
 function cellFromRangeDay(day: OuraReadinessRangeDayDto | undefined): ReadinessContributorDayCell {
@@ -186,6 +191,22 @@ export async function ensureReadinessContributorHistory(input: {
       for (const row of outcome.data.days) {
         byDay.set(row.day, row);
       }
+
+      // Pre-C1 / stale API responses parse as ready but omit contributors.
+      // Surface as history unavailable (retry) — never "Not enough data".
+      if (!readinessRangeSupportsContributorHistory(outcome.data.days)) {
+        entry.snapshot = {
+          historyStatus: "error",
+          dayByDay: previousReady ?? {},
+          errorMessage: readinessContributorHistoryUnavailableMessage(),
+          rangeStart,
+          rangeEnd,
+          generation,
+        };
+        notify(entry);
+        return entry.snapshot;
+      }
+
       const next: Partial<Record<DayKey, ReadinessContributorDayCell>> = {};
       for (const day of dayKeys) {
         next[day] = cellFromRangeDay(byDay.get(day));

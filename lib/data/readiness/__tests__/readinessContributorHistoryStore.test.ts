@@ -40,6 +40,36 @@ describe("readinessContributorHistoryStore", () => {
     mockGetOuraReadinessRange.mockReset();
   });
 
+  it("treats pre-C1 scored responses without contributors as history unavailable", async () => {
+    mockGetOuraReadinessRange.mockResolvedValue({
+      ok: true,
+      status: 200,
+      requestId: "r",
+      json: {
+        start,
+        end,
+        dayCount: 90,
+        resolvedCount: 4,
+        days: [
+          { day: "2026-05-15", score: 80, source: "oura" },
+          { day: "2026-05-16", score: 81, source: "oura" },
+          { day: "2026-05-17", score: 82, source: "oura" },
+          { day: end, score: 83, source: "oura" },
+        ],
+      },
+    });
+    const snap = await ensureReadinessContributorHistory({
+      uid: "user-a",
+      rangeStart: start,
+      rangeEnd: end,
+      dayKeys,
+      getIdToken: async () => "token",
+    });
+    expect(snap.historyStatus).toBe("error");
+    expect(snap.errorMessage).toMatch(/Could not load readiness contributor history/);
+    expect(snap.dayByDay[end]?.day?.contributors).toBeUndefined();
+  });
+
   it("fetches once for all four contributors and reuses warm cache", async () => {
     mockGetOuraReadinessRange.mockResolvedValue({
       ok: true,
