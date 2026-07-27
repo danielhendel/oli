@@ -141,6 +141,77 @@ describe("DailyReadinessCard contributor detail wiring", () => {
     ).toThrow();
   });
 
+  it.each([
+    ["hrv_balance", "hrv-balance", setHrvBalanceDetailV1EnabledForTests] as const,
+    ["body_temperature", "body-temperature", setBodyTemperatureDetailV1EnabledForTests] as const,
+    ["recovery_index", "recovery-index", setRecoveryIndexDetailV1EnabledForTests] as const,
+    ["sleep_balance", "sleep-balance", setSleepBalanceDetailV1EnabledForTests] as const,
+  ])(
+    "independent rollback for %s restores legacy route without disabling the others",
+    (metric, routeParam, setOff) => {
+      setHrvBalanceDetailV1EnabledForTests(true);
+      setBodyTemperatureDetailV1EnabledForTests(true);
+      setRecoveryIndexDetailV1EnabledForTests(true);
+      setSleepBalanceDetailV1EnabledForTests(true);
+      setRestingHeartRateDetailV1EnabledForTests(true);
+      setOff(false);
+
+      const sleepNight = {
+        anchorDay: "2026-07-10",
+        wakeDay: "2026-07-10",
+        provider: "oura" as const,
+        source: "ouraVendorSleep" as const,
+        sourceDocumentId: "ep-1",
+        mainSleepMinutes: 450,
+        totalSleepMinutes: 450,
+        lowestHeartRateBpm: 49,
+        isComplete: true,
+      };
+
+      let root!: renderer.ReactTestRenderer;
+      act(() => {
+        root = renderer.create(
+          <DailyReadinessCard
+            vm={readyVm()}
+            attributedSleepNight={sleepNight}
+            attributedSleepResolution="exact_anchor"
+          />,
+        );
+      });
+
+      act(() => {
+        root.root.findByProps({ testID: `readiness-metric-row-${metric}` }).props.onPress();
+      });
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/(app)/recovery/readiness",
+        params: { contributor: routeParam },
+      });
+      expect(() =>
+        root.root.findByProps({ testID: `contributor-detail-controller-${metric}` }),
+      ).toThrow();
+
+      mockPush.mockReset();
+      const other = (
+        ["hrv_balance", "body_temperature", "recovery_index", "sleep_balance"] as const
+      ).find((id) => id !== metric)!;
+      act(() => {
+        root.root.findByProps({ testID: `readiness-metric-row-${other}` }).props.onPress();
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(
+        root.root.findByProps({ testID: `contributor-detail-controller-${other}` }),
+      ).toBeDefined();
+
+      act(() => {
+        root.root
+          .findByProps({ testID: "readiness-metric-row-resting_heart_rate" })
+          .props.onPress();
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(root.root.findByProps({ testID: "rhr-detail-controller" })).toBeDefined();
+    },
+  );
+
   it("unavailable contributor score does not open enriched sheet", () => {
     const vm = readyVm({
       contributors: {

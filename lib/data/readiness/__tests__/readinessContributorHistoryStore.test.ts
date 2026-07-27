@@ -112,6 +112,92 @@ describe("readinessContributorHistoryStore", () => {
     expect(mockGetOuraReadinessRange).toHaveBeenCalledTimes(1);
   });
 
+  it("sequential reopen across four metrics still uses one bounded request", async () => {
+    mockGetOuraReadinessRange.mockResolvedValue({
+      ok: true,
+      status: 200,
+      requestId: "r",
+      json: {
+        start,
+        end,
+        dayCount: 90,
+        resolvedCount: 1,
+        days: [rangeDay(end)],
+      },
+    });
+    const getIdToken = async () => "token";
+    // Simulate open → close → open for each metric via the shared store.
+    for (let i = 0; i < 4; i += 1) {
+      const snap = await ensureReadinessContributorHistory({
+        uid: "user-a",
+        rangeStart: start,
+        rangeEnd: end,
+        dayKeys,
+        getIdToken,
+      });
+      expect(snap.historyStatus).toBe("ready");
+      expect(snap.dayByDay[end]?.day?.contributors?.hrv_balance).toBe(70);
+      expect(snap.dayByDay[end]?.day?.contributors?.body_temperature).toBe(80);
+      expect(snap.dayByDay[end]?.day?.contributors?.recovery_index).toBe(75);
+      expect(snap.dayByDay[end]?.day?.contributors?.sleep_balance).toBe(65);
+    }
+    expect(mockGetOuraReadinessRange).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounded cacheBust retry recovers from history unavailable without storming", async () => {
+    mockGetOuraReadinessRange
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        requestId: "stale",
+        json: {
+          start,
+          end,
+          dayCount: 90,
+          resolvedCount: 3,
+          days: [
+            { day: "2026-05-16", score: 80, source: "oura" },
+            { day: "2026-05-17", score: 81, source: "oura" },
+            { day: end, score: 82, source: "oura" },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        requestId: "fresh",
+        json: {
+          start,
+          end,
+          dayCount: 90,
+          resolvedCount: 1,
+          days: [rangeDay(end)],
+        },
+      });
+
+    const unavailable = await ensureReadinessContributorHistory({
+      uid: "user-a",
+      rangeStart: start,
+      rangeEnd: end,
+      dayKeys,
+      getIdToken: async () => "token",
+    });
+    expect(unavailable.historyStatus).toBe("error");
+    expect(unavailable.errorMessage).toMatch(/Could not load readiness contributor history/);
+
+    const recovered = await ensureReadinessContributorHistory({
+      uid: "user-a",
+      rangeStart: start,
+      rangeEnd: end,
+      dayKeys,
+      getIdToken: async () => "token",
+      cacheBust: "ui-retry-1",
+    });
+    expect(recovered.historyStatus).toBe("ready");
+    expect(recovered.dayByDay[end]?.day?.contributors?.hrv_balance).toBe(70);
+    expect(mockGetOuraReadinessRange).toHaveBeenCalledTimes(2);
+  });
+
   it("does not leak cache across users", async () => {
     mockGetOuraReadinessRange.mockResolvedValue({
       ok: true,

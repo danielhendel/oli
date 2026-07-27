@@ -163,7 +163,7 @@ describe("ReadinessContributorDetailSheet", () => {
       currentScore: 90,
       dayByDay: {},
       historyStatus: "error",
-      historyErrorMessage: "Could not load recent averages.",
+      historyErrorMessage: "Could not load readiness contributor history.",
     });
     const onRetry = jest.fn();
     let tree!: renderer.ReactTestRenderer;
@@ -177,13 +177,59 @@ describe("ReadinessContributorDetailSheet", () => {
         />,
       );
     });
-    expect(allText(tree.root)).toContain("90");
+    const flat = allText(tree.root);
+    expect(flat).toContain("90");
+    expect(flat).toContain("Could not load readiness contributor history.");
+    expect(flat).not.toContain("Not enough data");
+    expect(flat).not.toMatch(/oura-readiness-range|stack|TypeError|Firestore/i);
+    expect(flat).toContain("Retry");
+    // Pattern averages are replaced by the error/retry block — not insufficiency copy.
+    expect(() => tree.root.findByProps({ testID: "readiness-contributor-detail-sheet-pattern" })).toThrow();
     const retry = tree.root.findByProps({
       testID: "readiness-contributor-detail-sheet-history-retry",
     });
+    expect(retry.props.accessibilityLabel).toBe("Retry loading averages");
     act(() => {
       retry.props.onPress();
     });
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires Close and Done through MetricDetailShell without redesign", () => {
+    const onClose = jest.fn();
+    const vm = buildReadinessContributorDetailViewModel({
+      metric: "hrv_balance",
+      selectedDay: selected,
+      todayDayKey: selected,
+      currentScore: 82,
+      dayByDay: {},
+      historyStatus: "idle",
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ReadinessContributorDetailSheet visible onClose={onClose} vm={vm} />,
+      );
+    });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "readiness-contributor-detail-sheet-close" })
+        .props.onPress();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    act(() => {
+      tree.root
+        .findByProps({ testID: "readiness-contributor-detail-sheet-done" })
+        .props.onPress();
+    });
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(
+      tree.root.findByProps({ testID: "readiness-contributor-detail-sheet-close" }).props
+        .accessibilityLabel,
+    ).toBe("Close");
+    expect(
+      tree.root.findByProps({ testID: "readiness-contributor-detail-sheet-done" }).props
+        .accessibilityLabel,
+    ).toBe("Done");
   });
 });
