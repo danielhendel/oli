@@ -583,7 +583,7 @@ paths:
         - application/json
       responses:
         200:
-          description: Bounded Oura Readiness range (start, end, dayCount, resolvedCount, days[])
+          description: Bounded Oura Readiness range (start, end, dayCount, resolvedCount, days[{day,score,source,contributors?}]). Contributors are optional approved Oura 0–100 scores only (hrv_balance, body_temperature, recovery_index, sleep_balance). Exact provider days; no fallback densification; no raw payload.
         400:
           description: Bad Request (missing/invalid range or span exceeds policy max)
         401:
