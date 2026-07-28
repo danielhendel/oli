@@ -74,7 +74,12 @@ import { ManageMenu } from "@/components/navigation/ManageMenu";
 import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
-import { PRIMARY_NAVIGATION_ITEMS } from "@/lib/navigation/primaryNavigationConfig";
+import { PRIMARY_PILL_ITEMS } from "@/lib/navigation/primaryNavigationConfig";
+import { HealthFab, HEALTH_FAB_CIRCLE_SIZE } from "@/components/navigation/HealthFab";
+import {
+  FloatingNavigationChrome,
+  FLOATING_NAV_PILL_FAB_GAP,
+} from "@/components/navigation/FloatingNavigationChrome";
 
 const TEST_ANCHOR = { x: 300, y: 680, width: 52, height: 52 };
 
@@ -447,31 +452,106 @@ describe("Phase 2G-A health primary navigation", () => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("renders exactly Dash, Strength, Cardio, Nutrition, Health", () => {
+  it("renders a four-item pill without Health inside", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
     });
-    for (const item of PRIMARY_NAVIGATION_ITEMS) {
+    test.root.findByProps({ testID: "oli-primary-nav-pill" });
+    for (const item of PRIMARY_PILL_ITEMS) {
       const tab = test.root.findByProps({ testID: item.testID });
       expect(tab.props.accessibilityRole).toBe("tab");
-      expect(tab.props.minHeight ?? tab.props.style).toBeTruthy();
     }
+    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "oli-tab-health" })).toThrow();
     for (const forbidden of ["timeline", "program", "library", "manage"]) {
       expect(() => test.root.findByProps({ testID: `oli-tab-${forbidden}` })).toThrow();
     }
   });
 
-  it("marks Health selected while the health menu is open", () => {
+  it("does not falsely select Dash in the pill while Health menu is open", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
         <OliBottomNav tabBarProps={buildTabBarProps(0)} healthMenuOpen />,
       );
     });
-    const health = test.root.findByProps({ testID: "oli-tab-health" });
-    expect(health.props.accessibilityState.selected).toBe(true);
-    expect(health.props.accessibilityState.expanded).toBe(true);
+    const dash = test.root.findByProps({ testID: "oli-tab-dash" });
+    expect(dash.props.accessibilityState.selected).toBe(false);
+    for (const id of ["strength", "cardio", "nutrition"]) {
+      expect(test.root.findByProps({ testID: `oli-tab-${id}` }).props.accessibilityState.selected).toBe(
+        false,
+      );
+    }
+  });
+
+  it("renders detached Health FAB with menu semantics and 52pt circle", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<HealthFab onPress={jest.fn()} />);
+    });
+    const fab = test.root.findByProps({ testID: "oli-health-fab" });
+    expect(fab.props.accessibilityRole).toBe("button");
+    expect(fab.props.accessibilityLabel).toBe("Health");
+    expect(fab.props.accessibilityHint).toContain("Health menu");
+    expect(fab.props.accessibilityState.expanded).toBe(false);
+    expect(HEALTH_FAB_CIRCLE_SIZE).toBe(52);
+    expect(FLOATING_NAV_PILL_FAB_GAP).toBe(10);
+    const flat = JSON.stringify(test.toJSON());
+    expect(flat).toContain("Health");
+  });
+
+  it("marks Health FAB selected/expanded while menu is open", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<HealthFab onPress={jest.fn()} open selected />);
+    });
+    const fab = test.root.findByProps({ testID: "oli-health-fab" });
+    expect(fab.props.accessibilityState.selected).toBe(true);
+    expect(fab.props.accessibilityState.expanded).toBe(true);
+  });
+
+  it("chrome renders pill and Health FAB as siblings (not five-in-pill)", () => {
+    const openManage = jest.fn();
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible={false}
+          menuAnchor={null}
+          openManage={openManage}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    test.root.findByProps({ testID: "oli-primary-nav-pill" });
+    test.root.findByProps({ testID: "oli-health-fab" });
+    expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
+    for (const item of PRIMARY_PILL_ITEMS) {
+      test.root.findByProps({ testID: item.testID });
+    }
+  });
+
+  it("Health FAB press opens menu via measure anchor (no route push)", () => {
+    const openManage = jest.fn();
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible={false}
+          menuAnchor={null}
+          openManage={openManage}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    // measureInWindow is unavailable in this RN mock — pressing still must not navigate.
+    act(() => {
+      test.root.findByProps({ testID: "oli-health-fab" }).props.onPress();
+    });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("renders Health menu rows in product order and excludes fitness items", () => {

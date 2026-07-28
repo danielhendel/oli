@@ -1,6 +1,8 @@
 import {
   PRIMARY_NAV_FORBIDDEN_LABELS,
   PRIMARY_NAVIGATION_ITEMS,
+  PRIMARY_PILL_ITEMS,
+  HEALTH_NAV_ITEM,
 } from "@/lib/navigation/primaryNavigationConfig";
 import {
   HEALTH_HUB_FORBIDDEN_LABELS,
@@ -51,7 +53,7 @@ describe("primaryNavHealthV1 flag", () => {
 });
 
 describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
-  it("has exactly Dash, Strength, Cardio, Nutrition, Health in order", () => {
+  it("has exactly Dash, Strength, Cardio, Nutrition, Health in system order", () => {
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
       "Dash",
       "Strength",
@@ -68,6 +70,19 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
     ]);
   });
 
+  it("keeps Health out of the primary pill (detached control)", () => {
+    expect(PRIMARY_PILL_ITEMS.map((i) => i.id)).toEqual([
+      "dash",
+      "strength",
+      "cardio",
+      "nutrition",
+    ]);
+    expect(PRIMARY_PILL_ITEMS.some((i) => i.id === "health")).toBe(false);
+    expect(HEALTH_NAV_ITEM.id).toBe("health");
+    expect(HEALTH_NAV_ITEM.action.kind).toBe("menu");
+    expect(HEALTH_NAV_ITEM.testID).toBe("oli-health-fab");
+  });
+
   it("does not use forbidden primary labels", () => {
     const labels = new Set(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label));
     for (const forbidden of PRIMARY_NAV_FORBIDDEN_LABELS) {
@@ -76,8 +91,7 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
   });
 
   it("models Health as a menu action", () => {
-    const health = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "health");
-    expect(health?.action.kind).toBe("menu");
+    expect(HEALTH_NAV_ITEM.action.kind).toBe("menu");
   });
 
   it("gives each destination icon, label, a11y, and testID", () => {
@@ -86,7 +100,7 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
       expect(item.iconOutline.length).toBeGreaterThan(0);
       expect(item.label.length).toBeGreaterThan(0);
       expect(item.accessibilityLabel.length).toBeGreaterThan(0);
-      expect(item.testID).toMatch(/^oli-tab-/);
+      expect(item.testID.length).toBeGreaterThan(0);
     }
   });
 });

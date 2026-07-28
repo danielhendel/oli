@@ -1,15 +1,18 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext.js";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePathname } from "expo-router";
 import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
+import { HealthFab } from "@/components/navigation/HealthFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 import { normalizeChromeHeight } from "@/lib/ui/navigation/normalizeChromeHeight";
 import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
 import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
+import { resolvePrimaryNavActiveDestination } from "@/lib/navigation/resolvePrimaryNavActiveDestination";
 
 /**
  * Horizontal inset for floating dock; bottom margin added to the safe-area inset.
@@ -19,6 +22,8 @@ import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
  */
 export const FLOATING_NAV_DOCK_H_INSET = 18;
 export const FLOATING_NAV_DOCK_BOTTOM_MARGIN = 4;
+/** Intentional gap between the four-item pill and the detached Health/Manage circle. */
+export const FLOATING_NAV_PILL_FAB_GAP = 10;
 
 export type FloatingNavigationChromeProps = {
   tabBarProps: BottomTabBarProps;
@@ -35,8 +40,9 @@ export type FloatingNavigationChromeProps = {
 };
 
 /**
- * Shared floating pill + Manage/Health menu. Used by the tab navigator custom bar and by the
- * root stack overlay on health module screens.
+ * Shared floating pill + Manage/Health circle + menu.
+ * Health v1: four-item pill + detached Health circle (Manage grammar).
+ * Legacy: four-tab pill + Manage FAB.
  */
 export function FloatingNavigationChrome({
   tabBarProps,
@@ -48,6 +54,7 @@ export function FloatingNavigationChrome({
   testID = "oli-tab-bar-chrome",
 }: FloatingNavigationChromeProps) {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const fabRef = useRef<View>(null);
   const lastReportedHeightRef = useRef<number | undefined>(undefined);
   const onTabBarHeightFromTabs = useContext(BottomTabBarHeightCallbackContext);
@@ -57,6 +64,20 @@ export function FloatingNavigationChrome({
   const hubItems = healthV1 ? HEALTH_HUB_ITEMS : MANAGE_HUB_ITEMS;
   const menuTestID = healthV1 ? "oli-health-menu" : "oli-manage-menu";
   const menuA11yDismiss = healthV1 ? "Dismiss Health menu" : "Dismiss Manage menu";
+
+  const focusedTabName = tabBarProps.state.routes[tabBarProps.state.index]?.name ?? null;
+  const activeDestination = useMemo(
+    () =>
+      healthV1
+        ? resolvePrimaryNavActiveDestination({
+            pathname,
+            healthMenuOpen: manageVisible,
+            focusedTabName,
+          })
+        : null,
+    [healthV1, pathname, manageVisible, focusedTabName],
+  );
+  const healthSelected = activeDestination === "health";
 
   const reportChromeHeight = onStackChromeHeightChange ?? onTabBarHeightFromTabs;
 
@@ -93,6 +114,14 @@ export function FloatingNavigationChrome({
     });
   }, [openManage]);
 
+  const onHealthPress = useCallback(() => {
+    if (manageVisible) {
+      closeManage();
+      return;
+    }
+    measureAndOpen();
+  }, [manageVisible, closeManage, measureAndOpen]);
+
   return (
     <>
       <ManageMenu
@@ -123,22 +152,24 @@ export function FloatingNavigationChrome({
               bottom: bottomOffset,
               left: FLOATING_NAV_DOCK_H_INSET,
               right: FLOATING_NAV_DOCK_H_INSET,
+              gap: FLOATING_NAV_PILL_FAB_GAP,
             },
           ]}
           onLayout={onDockRowLayout}
         >
           <OliBottomNav
             tabBarProps={tabBarProps}
-            style={healthV1 ? chromeStyles.navPillSlotFull : chromeStyles.navPillSlot}
+            style={chromeStyles.navPillSlot}
             healthMenuOpen={healthV1 ? manageVisible : false}
-            {...(healthV1
-              ? {
-                  onOpenHealthMenu: openManage,
-                  onCloseHealthMenu: closeManage,
-                }
-              : {})}
           />
-          {healthV1 ? null : (
+          {healthV1 ? (
+            <HealthFab
+              ref={fabRef}
+              open={manageVisible}
+              selected={healthSelected}
+              onPress={onHealthPress}
+            />
+          ) : (
             <ManageFab ref={fabRef} open={manageVisible} onPress={measureAndOpen} />
           )}
         </View>
@@ -160,18 +191,11 @@ const chromeStyles = StyleSheet.create({
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
     backgroundColor: "transparent",
   },
   navPillSlot: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: "transparent",
-  },
-  navPillSlotFull: {
-    flex: 1,
-    minWidth: 0,
-    width: "100%",
     backgroundColor: "transparent",
   },
 });

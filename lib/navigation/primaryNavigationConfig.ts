@@ -41,10 +41,10 @@ export const PRIMARY_NAV_STACK_HREFS = {
 export const PRIMARY_NAV_DASH_HREF = OLI_TAB_ROUTES.dash;
 
 /**
- * Ordered primary destinations for Phase 2G-A.
- * Health is a menu action — not a fake route.
+ * Four direct destinations inside the primary navigation pill.
+ * Health is intentionally excluded — it renders as a detached circular control.
  */
-export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
+export const PRIMARY_PILL_ITEMS: readonly PrimaryNavigationItem[] = [
   {
     id: "dash",
     label: "Dash",
@@ -81,16 +81,30 @@ export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
     iconOutline: "restaurant-outline",
     action: { kind: "href", href: PRIMARY_NAV_STACK_HREFS.nutrition },
   },
-  {
-    id: "health",
-    label: "Health",
-    accessibilityLabel: "Health",
-    accessibilityHint: "Opens the Health menu",
-    testID: "oli-tab-health",
-    icon: "heart",
-    iconOutline: "heart-outline",
-    action: { kind: "menu" },
-  },
+] as const;
+
+/**
+ * Detached Health control (menu action — not a fake route).
+ * Renders beside the pill, reusing Manage/FAB visual grammar.
+ */
+export const HEALTH_NAV_ITEM: PrimaryNavigationItem = {
+  id: "health",
+  label: "Health",
+  accessibilityLabel: "Health",
+  accessibilityHint: "Opens the Health menu",
+  testID: "oli-health-fab",
+  icon: "heart",
+  iconOutline: "heart-outline",
+  action: { kind: "menu" },
+};
+
+/**
+ * Full primary navigation system order (pill destinations + detached Health).
+ * Prefer {@link PRIMARY_PILL_ITEMS} + {@link HEALTH_NAV_ITEM} for layout.
+ */
+export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
+  ...PRIMARY_PILL_ITEMS,
+  HEALTH_NAV_ITEM,
 ] as const;
 
 /** Labels that must never appear in the Phase 2G-A primary dock. */

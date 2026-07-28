@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -21,12 +21,11 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
 import {
-  PRIMARY_NAVIGATION_ITEMS,
+  PRIMARY_PILL_ITEMS,
   type PrimaryNavigationDestination,
 } from "@/lib/navigation/primaryNavigationConfig";
 import { resolvePrimaryNavActiveDestination } from "@/lib/navigation/resolvePrimaryNavActiveDestination";
 import { navigatePrimaryDestination } from "@/lib/navigation/navigatePrimaryDestination";
-import type { ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 
 const LEGACY_TAB_ORDER = ["dash", "timeline", "program", "library"] as const;
 
@@ -39,30 +38,29 @@ const TAB_MIN_HEIGHT = 44;
 export type OliBottomNavProps = {
   tabBarProps: BottomTabBarProps;
   style?: StyleProp<ViewStyle>;
-  /** When true, Health destination appears selected (menu open). */
+  /**
+   * When true, Health menu is open. Pill destinations stay inactive unless the
+   * current route independently selects them (Health itself is detached).
+   */
   healthMenuOpen?: boolean;
-  /** Opens the Health menu anchored to the Health tab. */
-  onOpenHealthMenu?: (anchor: ManageMenuAnchor) => void;
-  /** When the Health menu is already open, dismiss it. */
-  onCloseHealthMenu?: () => void;
 };
 
+/**
+ * Primary dock pill. When health v1 is enabled this renders Dash/Strength/Cardio/Nutrition
+ * only — Health is the detached {@link HealthFab} beside the pill.
+ */
 export function OliBottomNav({
   tabBarProps,
   style,
   healthMenuOpen = false,
-  onOpenHealthMenu,
-  onCloseHealthMenu,
 }: OliBottomNavProps) {
   const healthV1 = isPrimaryNavHealthV1Enabled();
   if (healthV1) {
     return (
-      <HealthPrimaryBottomNav
+      <HealthPrimaryPill
         tabBarProps={tabBarProps}
         style={style}
         healthMenuOpen={healthMenuOpen}
-        {...(onOpenHealthMenu ? { onOpenHealthMenu } : {})}
-        {...(onCloseHealthMenu ? { onCloseHealthMenu } : {})}
       />
     );
   }
@@ -174,23 +172,18 @@ function LegacyBottomNav({
   );
 }
 
-function HealthPrimaryBottomNav({
+function HealthPrimaryPill({
   tabBarProps,
   style,
   healthMenuOpen,
-  onOpenHealthMenu,
-  onCloseHealthMenu,
 }: {
   tabBarProps: BottomTabBarProps;
   style?: StyleProp<ViewStyle>;
   healthMenuOpen: boolean;
-  onOpenHealthMenu?: (anchor: ManageMenuAnchor) => void;
-  onCloseHealthMenu?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const focusedTabName = tabBarProps.state.routes[tabBarProps.state.index]?.name ?? null;
-  const healthTabRef = useRef<View>(null);
 
   const activeDestination: PrimaryNavigationDestination | null = resolvePrimaryNavActiveDestination({
     pathname,
@@ -199,67 +192,19 @@ function HealthPrimaryBottomNav({
   });
 
   return (
-    <View style={[styles.outer, style]} accessibilityRole="tablist" pointerEvents="box-none">
+    <View
+      style={[styles.outer, style]}
+      accessibilityRole="tablist"
+      pointerEvents="box-none"
+      testID="oli-primary-nav-pill"
+    >
       <View style={styles.pill}>
-        <View style={styles.rowHealth}>
-          {PRIMARY_NAVIGATION_ITEMS.map((item) => {
+        <View style={styles.rowPill}>
+          {PRIMARY_PILL_ITEMS.map((item) => {
+            // Health is detached — never treat pill items as selected while only Health is active.
             const isFocused = activeDestination === item.id;
             const color = isFocused ? ACTIVE : INACTIVE;
             const iconName = isFocused ? item.icon : item.iconOutline;
-
-            const onPress = () => {
-              if (item.action.kind === "menu") {
-                if (healthMenuOpen) {
-                  onCloseHealthMenu?.();
-                  return;
-                }
-                healthTabRef.current?.measureInWindow((x, y, width, height) => {
-                  onOpenHealthMenu?.({ x, y, width, height, presentation: "fab" });
-                });
-                return;
-              }
-
-              navigatePrimaryDestination({
-                item,
-                activeDestination,
-                pathname,
-                router,
-                tabBarProps,
-              });
-            };
-
-            if (item.id === "health") {
-              return (
-                <View
-                  key={item.id}
-                  ref={healthTabRef}
-                  collapsable={false}
-                  style={styles.healthTabMeasure}
-                >
-                  <Pressable
-                    accessibilityRole="tab"
-                    accessibilityLabel={item.accessibilityLabel}
-                    accessibilityHint={item.accessibilityHint}
-                    accessibilityState={{ selected: isFocused, expanded: healthMenuOpen }}
-                    testID={item.testID}
-                    onPress={onPress}
-                    style={({ pressed }) => [
-                      styles.tab,
-                      styles.tabHealth,
-                      isFocused && styles.tabFocused,
-                      pressed && styles.tabPressed,
-                    ]}
-                  >
-                    <View style={styles.iconWrap}>
-                      <Ionicons name={iconName} size={20} color={color} />
-                    </View>
-                    <Text style={[styles.labelHealth, { color }]} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }
 
             return (
               <Pressable
@@ -269,18 +214,25 @@ function HealthPrimaryBottomNav({
                 accessibilityHint={item.accessibilityHint}
                 accessibilityState={{ selected: isFocused }}
                 testID={item.testID}
-                onPress={onPress}
+                onPress={() => {
+                  navigatePrimaryDestination({
+                    item,
+                    activeDestination,
+                    pathname,
+                    router,
+                    tabBarProps,
+                  });
+                }}
                 style={({ pressed }) => [
                   styles.tab,
-                  styles.tabHealth,
                   isFocused && styles.tabFocused,
                   pressed && styles.tabPressed,
                 ]}
               >
                 <View style={styles.iconWrap}>
-                  <Ionicons name={iconName} size={20} color={color} />
+                  <Ionicons name={iconName} size={22} color={color} />
                 </View>
-                <Text style={[styles.labelHealth, { color }]} numberOfLines={1}>
+                <Text style={[styles.label, { color }]} numberOfLines={1}>
                   {item.label}
                 </Text>
               </Pressable>
@@ -323,13 +275,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     gap: 2,
   },
-  rowHealth: {
+  /** Four-item pill — more horizontal room for Strength / Nutrition than five-in-pill. */
+  rowPill: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 6,
-    paddingHorizontal: 4,
-    gap: 0,
+    paddingHorizontal: 6,
+    gap: 2,
   },
   tab: {
     flex: 1,
@@ -340,14 +293,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     borderRadius: 20,
     gap: 3,
-  },
-  tabHealth: {
-    paddingHorizontal: 1,
-    gap: 2,
-  },
-  healthTabMeasure: {
-    flex: 1,
-    minWidth: 0,
   },
   tabFocused: {
     backgroundColor: UI_NAV_SURFACE_ACTIVE,
@@ -364,10 +309,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     letterSpacing: -0.1,
-  },
-  labelHealth: {
-    fontSize: 9,
-    fontWeight: "600",
-    letterSpacing: -0.2,
   },
 });

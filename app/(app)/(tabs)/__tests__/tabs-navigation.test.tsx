@@ -338,14 +338,17 @@ describe("TabsLayout health primary nav (Phase 2G-A)", () => {
     expect(tabs.filter((t) => t.name !== "dash").every((t) => t.href === "hidden")).toBe(true);
   });
 
-  it("does not render Manage FAB when health primary nav is enabled", () => {
+  it("renders four-item pill plus detached Health FAB (no Manage)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
     expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
-    for (const id of ["dash", "strength", "cardio", "nutrition", "health"]) {
+    test.root.findByProps({ testID: "oli-primary-nav-pill" });
+    test.root.findByProps({ testID: "oli-health-fab" });
+    for (const id of ["dash", "strength", "cardio", "nutrition"]) {
       test.root.findByProps({ testID: `oli-tab-${id}` });
     }
+    expect(() => test.root.findByProps({ testID: "oli-tab-health" })).toThrow();
   });
 });
