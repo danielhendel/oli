@@ -308,7 +308,7 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="labs/uploads/[uploadId]"
-            options={{ title: "Lab upload", ...workoutsStackNavigationOptions("detail") }}
+            options={{ title: "Lab report", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
             name="labs/metric/[metricKey]"

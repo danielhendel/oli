@@ -2,12 +2,12 @@
 import type { LabUploadStatus } from "@/lib/contracts";
 
 const LABELS: Record<LabUploadStatus, string> = {
-  uploaded: "Uploaded",
+  uploaded: "Stored securely",
   processing: "Processing",
   needs_review: "Needs review",
-  parsed: "Parsed",
-  unsupported: "Stored, not structured",
-  failed: "Failed",
+  parsed: "Structured",
+  unsupported: "Stored securely",
+  failed: "Upload failed",
 };
 
 export function labUploadStatusLabel(status: LabUploadStatus): string {

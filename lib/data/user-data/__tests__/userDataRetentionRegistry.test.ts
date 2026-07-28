@@ -45,6 +45,27 @@ describe("userDataRetentionRegistry", () => {
     expect(isExportDeletionCoverageComplete()).toBe(false);
   });
 
+  it("represents lab upload metadata and the related Storage object relationship", () => {
+    const metadata = USER_DATA_RETENTION_REGISTRY.lab_uploads;
+    const storage = USER_DATA_RETENTION_REGISTRY.storage_lab_uploads;
+
+    expect(metadata.path).toBe("users/{uid}/labUploads/{uploadId}");
+    expect(metadata.dataCategory).toBe("labs");
+    expect(metadata.storageObjectRelationship).toBe(true);
+    expect(metadata.exportRequired).toBe(true);
+    expect(metadata.deleteRequired).toBe(true);
+    expect(metadata.currentExportCoverage).toBe("not_covered");
+    expect(metadata.currentDeleteCoverage).toBe("not_covered");
+
+    expect(storage.path).toBe("lab-uploads/{uid}/{fileHash}/{safeName}");
+    expect(storage.dataCategory).toBe("storage");
+    expect(storage.storageObjectRelationship).toBe(true);
+    expect(storage.exportRequired).toBe(true);
+    expect(storage.deleteRequired).toBe(true);
+    expect(storage.currentExportCoverage).toBe("not_covered");
+    expect(storage.currentDeleteCoverage).toBe("not_covered");
+  });
+
   it("marks placeholder domains as n/a rather than silently omitted", () => {
     for (const id of [
       "medications_placeholder",

@@ -1,12 +1,15 @@
 // lib/ui/labs/LabUploadDetailContent.tsx
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import {
+  buildLabReportDetailViewModel,
+  type LabReportDetailViewModel,
+} from "@/lib/data/labs/buildLabReportDetailViewModel";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { formatLabUploadDate, labUploadStatusLabel } from "@/lib/ui/labs/labUploadStatusLabel";
-import { formatLabResultValue } from "@/lib/labs/labMetricCatalog";
 import {
+  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
@@ -19,6 +22,8 @@ export type LabUploadDetailContentProps = {
   requestId?: string | null;
   data?: LabUploadDetailResponseDto;
   onRetry?: () => void;
+  /** Optional injection for tests — production builds from `data`. */
+  viewModel?: LabReportDetailViewModel;
 };
 
 export function LabUploadDetailContent({
@@ -27,77 +32,101 @@ export function LabUploadDetailContent({
   requestId,
   data,
   onRetry,
+  viewModel: viewModelProp,
 }: LabUploadDetailContentProps) {
-  if (status === "partial") return <LoadingState message="Loading upload…" />;
+  if (status === "partial") return <LoadingState message="Loading report…" />;
   if (status === "error") {
     return (
       <ErrorState
-        message={error ?? "Could not load upload"}
+        message={error ?? "Could not load lab report"}
         requestId={requestId ?? null}
         {...(onRetry ? { onRetry } : {})}
       />
     );
   }
 
-  const upload = data!.upload;
+  const vm = viewModelProp ?? buildLabReportDetailViewModel(data!);
 
   return (
-    <View style={styles.root} testID="lab-upload-detail">
-      <View style={styles.card}>
-        <Text style={styles.title}>{upload.fileName}</Text>
-        <Text style={styles.meta}>Status: {labUploadStatusLabel(upload.status)}</Text>
-        <Text style={styles.meta}>Uploaded {formatLabUploadDate(upload.uploadedAt)}</Text>
-        {upload.labDate ? <Text style={styles.meta}>Lab date {formatLabUploadDate(upload.labDate)}</Text> : null}
-        <Text style={styles.meta}>
-          {upload.matchedCount} matched · {upload.unmatchedCount} unmatched · {upload.extractedCount} total
+    <View style={styles.root} testID="lab-report-detail">
+      <View style={styles.card} testID="lab-report-detail-summary">
+        <Text style={styles.title} accessibilityRole="header">
+          {vm.filename}
         </Text>
-        {upload.errorMessage ? <Text style={styles.error}>{upload.errorMessage}</Text> : null}
+        <Text style={styles.status} testID="lab-report-status">
+          {vm.statusLabel}
+        </Text>
+        <Text style={styles.meta} testID="lab-report-uploaded-date">
+          Uploaded {vm.uploadedDateLabel}
+        </Text>
+        {vm.labDateLabel ? (
+          <Text style={styles.meta}>Lab date {vm.labDateLabel}</Text>
+        ) : null}
+        {vm.fileTypeLabel ? (
+          <Text style={styles.meta} testID="lab-report-file-type">
+            {vm.fileTypeLabel}
+          </Text>
+        ) : null}
+        {vm.extractionMessage ? (
+          <Text style={styles.extraction} testID="lab-report-extraction-message">
+            {vm.extractionMessage}
+          </Text>
+        ) : null}
+        {vm.showParserCounts && vm.parserCountsLabel ? (
+          <Text style={styles.meta} testID="lab-report-parser-counts">
+            {vm.parserCountsLabel}
+          </Text>
+        ) : null}
       </View>
 
-      {data!.resultsByCategory.map((group) => (
+      {vm.resultGroups.map((group) => (
         <View key={group.categoryKey} style={styles.card}>
           <Text style={styles.sectionTitle}>{group.displayName}</Text>
           {group.results.map((r) => (
-            <View key={r.id} style={styles.resultRow}>
+            <View key={r.key} style={styles.resultRow}>
               <Text style={styles.resultName}>{r.displayName}</Text>
-              <Text style={styles.resultValue}>
-                {formatLabResultValue(r.value, r.unit, {
-                  ...(r.rawValueText !== undefined ? { rawValueText: r.rawValueText } : {}),
-                })}
-              </Text>
+              <Text style={styles.resultValue}>{r.valueText}</Text>
             </View>
           ))}
         </View>
       ))}
 
-      {data!.unmatchedResults.length > 0 ? (
+      {vm.unmatchedResults.length > 0 ? (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Needs review</Text>
           <Text style={styles.hint}>These labels could not be matched to the Oli lab catalog.</Text>
-          {data!.unmatchedResults.map((r) => (
-            <View key={r.id} style={styles.resultRow}>
-              <Text style={styles.resultName}>{r.rawName}</Text>
-              <Text style={styles.resultValue}>
-                {formatLabResultValue(r.value, r.unit, {
-                  ...(r.rawValueText !== undefined ? { rawValueText: r.rawValueText } : {}),
-                })}
-              </Text>
+          {vm.unmatchedResults.map((r) => (
+            <View key={r.key} style={styles.resultRow}>
+              <Text style={styles.resultName}>{r.displayName}</Text>
+              <Text style={styles.resultValue}>{r.valueText}</Text>
             </View>
           ))}
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Original file</Text>
-        <Text style={styles.meta}>MIME: {upload.mimeType}</Text>
-        <Text style={styles.meta} numberOfLines={2}>
-          Storage: {upload.storagePath}
-        </Text>
-        {data!.pdfUrl ? (
-          <Text style={styles.meta}>PDF link available</Text>
-        ) : (
-          <Text style={styles.hint}>Signed PDF download — follow-up sprint</Text>
-        )}
+      <View style={styles.card} testID="lab-report-original">
+        <Text style={styles.sectionTitle}>{vm.originalReport.heading}</Text>
+        <Text style={styles.meta}>{vm.originalReport.description}</Text>
+        <Pressable
+          disabled={vm.originalReport.actionDisabled}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: vm.originalReport.actionDisabled }}
+          accessibilityLabel={vm.originalReport.accessibilityLabel}
+          style={[styles.actionRow, vm.originalReport.actionDisabled && styles.actionDisabled]}
+          testID="lab-report-view-original"
+        >
+          <Text
+            style={[
+              styles.actionLabel,
+              vm.originalReport.actionDisabled && styles.actionLabelDisabled,
+            ]}
+          >
+            {vm.originalReport.actionLabel}
+          </Text>
+          {vm.originalReport.actionAvailabilityLabel ? (
+            <Text style={styles.comingSoon}>{vm.originalReport.actionAvailabilityLabel}</Text>
+          ) : null}
+        </Pressable>
       </View>
     </View>
   );
@@ -116,6 +145,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
   },
+  status: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -126,14 +160,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: UI_TEXT_SECONDARY,
   },
+  extraction: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: UI_TEXT_SECONDARY,
+    marginTop: 4,
+  },
   hint: {
     fontSize: 13,
     lineHeight: 18,
     color: UI_TEXT_TERTIARY_LABEL,
-  },
-  error: {
-    fontSize: 14,
-    color: "#FF9F0A",
   },
   resultRow: {
     flexDirection: "row",
@@ -151,5 +187,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: UI_TEXT_SECONDARY,
+  },
+  actionRow: {
+    marginTop: 4,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  actionDisabled: {
+    opacity: 0.55,
+  },
+  actionLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+  },
+  actionLabelDisabled: {
+    color: UI_TEXT_MUTED,
+  },
+  comingSoon: {
+    fontSize: 13,
+    color: UI_TEXT_TERTIARY_LABEL,
   },
 });

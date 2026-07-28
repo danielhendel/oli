@@ -19,14 +19,14 @@ export default function LabUploadDetailScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: "Lab upload",
+      title: "Lab report",
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
   }, [navigation]);
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title="Lab upload" hideTitleChrome>
+      <ModuleScreenShell title="Lab report" hideTitleChrome>
         <LabUploadDetailContent
           status={detail.status}
           {...(detail.status === "error"
