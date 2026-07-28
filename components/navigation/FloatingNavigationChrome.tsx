@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePathname } from "expo-router";
 import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
-import { HealthFab } from "@/components/navigation/HealthFab";
+import { HealthFab, HEALTH_FAB_MIN_HEIGHT } from "@/components/navigation/HealthFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 import { normalizeChromeHeight } from "@/lib/ui/navigation/normalizeChromeHeight";
 import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
@@ -59,8 +59,13 @@ export function FloatingNavigationChrome({
   const lastReportedHeightRef = useRef<number | undefined>(undefined);
   const onTabBarHeightFromTabs = useContext(BottomTabBarHeightCallbackContext);
   const bottomOffset = insets.bottom + FLOATING_NAV_DOCK_BOTTOM_MARGIN;
-  const [navSlotHeight, setNavSlotHeight] = useState(() => bottomOffset + 56);
   const healthV1 = isPrimaryNavHealthV1Enabled();
+  // Health v1 control matches pill height; legacy Manage FAB is 52pt.
+  // Dock row onLayout always reports the true measured height.
+  const minDockContentHeight = healthV1 ? HEALTH_FAB_MIN_HEIGHT : 52;
+  const [navSlotHeight, setNavSlotHeight] = useState(
+    () => bottomOffset + minDockContentHeight,
+  );
   const hubItems = healthV1 ? HEALTH_HUB_ITEMS : MANAGE_HUB_ITEMS;
   const menuTestID = healthV1 ? "oli-health-menu" : "oli-manage-menu";
   const menuA11yDismiss = healthV1 ? "Dismiss Health menu" : "Dismiss Manage menu";
@@ -95,8 +100,8 @@ export function FloatingNavigationChrome({
   );
 
   useEffect(() => {
-    setNavSlotHeight((h) => Math.max(h, bottomOffset + 56));
-  }, [bottomOffset]);
+    setNavSlotHeight((h) => Math.max(h, bottomOffset + minDockContentHeight));
+  }, [bottomOffset, minDockContentHeight]);
 
   useEffect(() => {
     if (onStackChromeHeightChange) {

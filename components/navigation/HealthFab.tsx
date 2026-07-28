@@ -10,8 +10,17 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 import { HEALTH_NAV_ITEM } from "@/lib/navigation/primaryNavigationConfig";
 
-/** Matches legacy Manage FAB circle diameter. */
-export const HEALTH_FAB_CIRCLE_SIZE = 52;
+/**
+ * Detached Health control height — matches the primary pill min height
+ * (`TAB_MIN_HEIGHT + 12` = 56) so dock row bottoms align.
+ */
+export const HEALTH_FAB_MIN_HEIGHT = 56;
+
+/** Minimum width so “Health” fits inside the control without clipping. */
+export const HEALTH_FAB_MIN_WIDTH = 56;
+
+/** @deprecated Prefer {@link HEALTH_FAB_MIN_HEIGHT}; kept for prior test imports. */
+export const HEALTH_FAB_CIRCLE_SIZE = HEALTH_FAB_MIN_HEIGHT;
 
 export type HealthFabProps = {
   onPress: () => void;
@@ -23,8 +32,9 @@ export type HealthFabProps = {
 };
 
 /**
- * Detached Health control — same circular grammar as Manage FAB, with a visible
- * Health label so the control does not read as a fifth pill destination.
+ * Detached Health control — Option A rounded vertical capsule.
+ * Icon + visible “Health” label are both inside one pressable surface so the
+ * label cannot hang below the dock chrome.
  */
 export const HealthFab = forwardRef<View, HealthFabProps>(function HealthFab(
   {
@@ -48,12 +58,20 @@ export const HealthFab = forwardRef<View, HealthFabProps>(function HealthFab(
         accessibilityHint={HEALTH_NAV_ITEM.accessibilityHint}
         accessibilityState={{ selected: active, expanded: open }}
         onPress={onPress}
-        style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.control,
+          active && styles.controlActive,
+          pressed && styles.pressed,
+        ]}
       >
-        <View style={[styles.circle, active && styles.circleActive]}>
-          <Ionicons name={iconName} size={24} color={color} />
+        <View style={styles.iconWrap} testID="oli-health-fab-icon" accessibilityElementsHidden>
+          <Ionicons name={iconName} size={22} color={color} />
         </View>
-        <Text style={[styles.label, { color }]} numberOfLines={1}>
+        <Text
+          style={[styles.label, { color }]}
+          numberOfLines={1}
+          testID="oli-health-fab-label"
+        >
           {HEALTH_NAV_ITEM.label}
         </Text>
       </Pressable>
@@ -65,25 +83,22 @@ const styles = StyleSheet.create({
   wrap: {
     flexShrink: 0,
     alignItems: "center",
-  },
-  pressable: {
-    alignItems: "center",
     justifyContent: "center",
-    minWidth: HEALTH_FAB_CIRCLE_SIZE,
-    gap: 2,
   },
-  pressed: {
-    opacity: 0.92,
-  },
-  circle: {
-    width: HEALTH_FAB_CIRCLE_SIZE,
-    height: HEALTH_FAB_CIRCLE_SIZE,
-    borderRadius: HEALTH_FAB_CIRCLE_SIZE / 2,
+  /** Single self-contained surface — icon + label live inside this pressable. */
+  control: {
+    minWidth: HEALTH_FAB_MIN_WIDTH,
+    minHeight: HEALTH_FAB_MIN_HEIGHT,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 26,
+    overflow: "hidden",
     backgroundColor: UI_NAV_DOCK_SURFACE,
-    alignItems: "center",
-    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_NAV_SURFACE_BORDER,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -95,12 +110,21 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  circleActive: {
+  controlActive: {
     backgroundColor: UI_NAV_SURFACE_ACTIVE,
   },
+  pressed: {
+    opacity: 0.92,
+  },
+  iconWrap: {
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   label: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "600",
-    letterSpacing: -0.2,
+    letterSpacing: -0.1,
+    lineHeight: 12,
   },
 });

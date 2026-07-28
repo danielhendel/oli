@@ -75,7 +75,7 @@ import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
 import { PRIMARY_PILL_ITEMS } from "@/lib/navigation/primaryNavigationConfig";
-import { HealthFab, HEALTH_FAB_CIRCLE_SIZE } from "@/components/navigation/HealthFab";
+import { HealthFab, HEALTH_FAB_MIN_HEIGHT, HEALTH_FAB_MIN_WIDTH } from "@/components/navigation/HealthFab";
 import {
   FloatingNavigationChrome,
   FLOATING_NAV_PILL_FAB_GAP,
@@ -485,7 +485,7 @@ describe("Phase 2G-A health primary navigation", () => {
     }
   });
 
-  it("renders detached Health FAB with menu semantics and 52pt circle", () => {
+  it("contains Health icon and label inside one pressable surface", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<HealthFab onPress={jest.fn()} />);
@@ -495,10 +495,32 @@ describe("Phase 2G-A health primary navigation", () => {
     expect(fab.props.accessibilityLabel).toBe("Health");
     expect(fab.props.accessibilityHint).toContain("Health menu");
     expect(fab.props.accessibilityState.expanded).toBe(false);
-    expect(HEALTH_FAB_CIRCLE_SIZE).toBe(52);
-    expect(FLOATING_NAV_PILL_FAB_GAP).toBe(10);
-    const flat = JSON.stringify(test.toJSON());
-    expect(flat).toContain("Health");
+
+    // Icon + label are descendants of the same pressable (not a circle-only sibling layout).
+    const icon = fab.findByProps({ testID: "oli-health-fab-icon" });
+    const label = fab.findByProps({ testID: "oli-health-fab-label" });
+    expect(label.children).toContain("Health");
+    expect(icon).toBeTruthy();
+
+    // Surface styles live on the pressable itself (contained control).
+    const styleProp = fab.props.style as unknown;
+    const resolved =
+      typeof styleProp === "function"
+        ? (styleProp as (s: { pressed: boolean }) => unknown)({ pressed: false })
+        : styleProp;
+    const flat = Array.isArray(resolved)
+      ? Object.assign(
+          {},
+          ...resolved.filter((s): s is Record<string, unknown> => typeof s === "object" && s != null),
+        )
+      : (resolved as Record<string, unknown>);
+    expect(flat.minHeight).toBe(HEALTH_FAB_MIN_HEIGHT);
+    expect(flat.minWidth).toBe(HEALTH_FAB_MIN_WIDTH);
+    expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+    expect(flat.overflow).toBe("hidden");
+    expect(flat.borderRadius).toBe(26);
+    // No separate outer circle surface that excludes the label.
+    expect(() => fab.findByProps({ testID: "oli-health-fab-circle" })).toThrow();
   });
 
   it("marks Health FAB selected/expanded while menu is open", () => {
@@ -509,6 +531,11 @@ describe("Phase 2G-A health primary navigation", () => {
     const fab = test.root.findByProps({ testID: "oli-health-fab" });
     expect(fab.props.accessibilityState.selected).toBe(true);
     expect(fab.props.accessibilityState.expanded).toBe(true);
+  });
+
+  it("aligns Health control height with the primary pill (56pt)", () => {
+    expect(HEALTH_FAB_MIN_HEIGHT).toBe(56);
+    expect(FLOATING_NAV_PILL_FAB_GAP).toBe(10);
   });
 
   it("chrome renders pill and Health FAB as siblings (not five-in-pill)", () => {
