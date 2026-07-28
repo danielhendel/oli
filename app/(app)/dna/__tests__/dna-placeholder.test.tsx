@@ -12,13 +12,14 @@ jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
 import DnaPlaceholderScreen from "../index";
 
 describe("DNA placeholder screen", () => {
-  it("shows empty state title and body copy", async () => {
+  it("says not implemented rather than implying empty records", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<DnaPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("DNA insights coming soon");
-    expect(str).toContain("Your genetic data and personalized insights will appear here.");
+    expect(str).toContain("Not set up yet");
+    expect(str).toContain("This record system is not implemented yet");
+    expect(str).not.toContain("DNA insights coming soon");
   });
 });

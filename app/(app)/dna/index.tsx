@@ -6,10 +6,10 @@ export default function DnaPlaceholderScreen() {
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   return (
     <ScreenContainer padded={false}>
-      <View style={[styles.pad, { paddingBottom: scrollPaddingBottom }]}>
+      <View style={[styles.pad, { paddingBottom: scrollPaddingBottom }]} testID="dna-placeholder">
         <EmptyState
-          title="DNA insights coming soon"
-          description="Your genetic data and personalized insights will appear here."
+          title="Not set up yet"
+          description="This record system is not implemented yet. Genetic data cannot be stored here until persistence ships."
         />
       </View>
     </ScreenContainer>

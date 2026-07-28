@@ -31,49 +31,51 @@ import SupplementsPlaceholderScreen from "../supplements/index";
 import MedicalHistoryPlaceholderScreen from "../medical-history/index";
 
 describe("temporary Health record landing pages", () => {
-  it("renders Scans empty state without fabricated records", async () => {
+  it("renders Scans as not implemented (not empty records)", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<ScansPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
     expect(str).toContain("Scans");
-    expect(str).toContain("No scans added yet");
-    expect(str).toContain("Your uploaded scans and imaging reports will appear here.");
-    expect(str).toContain("Add Scan");
+    expect(str).toContain("Not set up yet");
+    expect(str).toContain("This record system is not implemented yet");
+    expect(str).not.toContain("No scans added yet");
     expect(str).toContain("Coming soon");
     expect(str).not.toMatch(/DEXA|MRI|CT scan result/i);
   });
 
-  it("renders Medication empty state", async () => {
+  it("renders Medication as not implemented", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<MedicationPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
     expect(str).toContain("Medication");
-    expect(str).toContain("No medications added yet");
-    expect(str).toContain("Add Medication");
+    expect(str).toContain("Not set up yet");
+    expect(str).toContain("This record system is not implemented yet");
+    expect(str).not.toContain("No medications added yet");
   });
 
-  it("renders Supplements empty state", async () => {
+  it("renders Supplements as not implemented", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<SupplementsPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
     expect(str).toContain("Supplements");
-    expect(str).toContain("No supplements added yet");
-    expect(str).toContain("Add Supplement");
+    expect(str).toContain("Not set up yet");
+    expect(str).not.toContain("No supplements added yet");
   });
 
-  it("renders Medical History temporary page (audit: route was missing)", async () => {
+  it("renders Medical History as not implemented", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<MedicalHistoryPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
     expect(str).toContain("Medical History");
-    expect(str).toContain("No medical history added yet");
+    expect(str).toContain("Not set up yet");
+    expect(str).not.toContain("No medical history added yet");
   });
 });

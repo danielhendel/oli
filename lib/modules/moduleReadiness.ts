@@ -80,6 +80,8 @@ export function getSectionReadiness(sectionId: ModuleSectionId): SectionReadines
       return READY;
     case "settings.dataSources":
       return READY;
+    case "settings.yourData":
+      return READY;
     case "settings.privacy":
       return READY;
 

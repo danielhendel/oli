@@ -1,0 +1,59 @@
+import React, { act } from "react";
+import renderer from "react-test-renderer";
+
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaView: "SafeAreaView",
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
+jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
+  useFloatingTabBarScrollPadding: (extra: number) => extra + 0,
+}));
+
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
+import { YourDataScreen } from "@/lib/ui/settings/YourDataScreen";
+import { buildUserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
+
+describe("Your Data screen", () => {
+  it("renders source and record statuses without collection names or private values", async () => {
+    const inventory = buildUserDataInventoryViewModel({
+      authPresent: true,
+      ouraConnected: true,
+      appleHealthConnected: true,
+      labUploadCountCategory: "none",
+      withingsFirestoreConnectedFlag: true,
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(
+        <YourDataScreen state="ready" inventory={inventory} error={null} onRefresh={() => undefined} />,
+      );
+    });
+
+    const str = JSON.stringify(test.toJSON());
+    expect(str).toContain("Your Data");
+    expect(str).toContain("Connected sources");
+    expect(str).toContain("Health records");
+    expect(str).toContain("Withings");
+    expect(str).toContain("Previously connected");
+    expect(str).not.toContain("Connected\",\"title\":\"Withings");
+    expect(str).toContain("Not set up");
+    expect(str).not.toMatch(/labUploads|rawEvents|users\/\{uid\}/);
+    expect(str).not.toMatch(/LDL|HDL|mg\/dL/);
+    expect(str).toContain("your-data-screen");
+  });
+
+  it("shows loading state", async () => {
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(
+        <YourDataScreen state="loading" inventory={null} error={null} onRefresh={() => undefined} />,
+      );
+    });
+    expect(JSON.stringify(test.toJSON())).toContain("your-data-loading");
+  });
+});
