@@ -28,8 +28,6 @@ export default function MedicalHistoryPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Medical History"
-        description="Keep a longitudinal record of conditions, procedures, and clinical history in one place."
-        emptyTitle="Not set up yet"
         emptyDescription="This record system is not implemented yet. Medical history cannot be stored here until persistence ships."
         icon="clipboard-outline"
         actionLabel="Add Medical History"

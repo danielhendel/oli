@@ -12,10 +12,14 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 
 export type HealthRecordPlaceholderScreenProps = {
+  /**
+   * Nav / accessibility title. Not rendered in-page — the fixed stack header owns page identity.
+   * Kept so callers and tests share one contract.
+   */
   title: string;
-  description: string;
-  emptyTitle: string;
+  /** Supporting explanation shown inside the empty-state card (not as a page subtitle). */
   emptyDescription: string;
+  emptyTitle?: string;
   icon: ComponentProps<typeof Ionicons>["name"];
   actionLabel: string;
   /** When omitted or `disabled`, the action shows as coming soon. */
@@ -26,14 +30,15 @@ export type HealthRecordPlaceholderScreenProps = {
 };
 
 /**
- * Shared polished empty-state shell for temporary Health record destinations
- * (Scans, Medication, Supplements, Medical History).
+ * Shared empty-state shell for Health record destinations that are not implemented yet
+ * (Medical History, Scans, Medication, Supplements, DNA).
+ *
+ * Renders one card under the fixed stack header — no duplicate page title chrome.
  */
 export function HealthRecordPlaceholderScreen({
   title,
-  description,
-  emptyTitle,
   emptyDescription,
+  emptyTitle = "Not set up yet",
   icon,
   actionLabel,
   onActionPress,
@@ -44,13 +49,21 @@ export function HealthRecordPlaceholderScreen({
   const disabled = actionDisabled || onActionPress == null;
 
   return (
-    <ModuleScreenShell title={title} subtitle={description}>
-      <View style={styles.card} testID={testID ?? "health-record-placeholder"}>
+    <ModuleScreenShell title={title} hideTitleChrome>
+      <View
+        style={styles.card}
+        testID={testID ?? "health-record-placeholder"}
+        accessibilityLabel={`${title}. ${emptyTitle}. ${emptyDescription}`}
+      >
         <View style={styles.iconWrap} accessibilityElementsHidden>
           <Ionicons name={icon} size={36} color={UI_TEXT_PRIMARY} />
         </View>
-        <Text style={styles.emptyTitle}>{emptyTitle}</Text>
-        <Text style={styles.emptyDescription}>{emptyDescription}</Text>
+        <Text style={styles.emptyTitle} testID="health-record-placeholder-empty-title">
+          {emptyTitle}
+        </Text>
+        <Text style={styles.emptyDescription} testID="health-record-placeholder-empty-description">
+          {emptyDescription}
+        </Text>
         <Pressable
           testID="health-record-placeholder-action"
           accessibilityRole="button"

@@ -21,8 +21,6 @@ export default function ScansPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Scans"
-        description="Store and review imaging, body scans, and diagnostic reports in one place."
-        emptyTitle="Not set up yet"
         emptyDescription="This record system is not implemented yet. Scans and imaging reports cannot be stored here until persistence ships."
         icon="scan-outline"
         actionLabel="Add Scan"

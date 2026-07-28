@@ -1,23 +1,36 @@
-import { View, StyleSheet } from "react-native";
-import { ScreenContainer, EmptyState } from "@/lib/ui/ScreenStates";
-import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
+import React, { useLayoutEffect } from "react";
+import { StyleSheet, View } from "react-native";
+import { useNavigation } from "expo-router";
+
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { HealthRecordPlaceholderScreen } from "@/lib/ui/health/HealthRecordPlaceholderScreen";
+import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
 export default function DnaPlaceholderScreen() {
-  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      ...workoutsStackNavigationOptions("module"),
+      title: "DNA",
+      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+    });
+  }, [navigation]);
+
   return (
-    <ScreenContainer padded={false}>
-      <View style={[styles.pad, { paddingBottom: scrollPaddingBottom }]} testID="dna-placeholder">
-        <EmptyState
-          title="Not set up yet"
-          description="This record system is not implemented yet. Genetic data cannot be stored here until persistence ships."
-        />
-      </View>
-    </ScreenContainer>
+    <View style={styles.root}>
+      <HealthRecordPlaceholderScreen
+        title="DNA"
+        emptyDescription="This record system is not implemented yet. Genetic data cannot be stored here until persistence ships."
+        icon="git-branch-outline"
+        actionLabel="Add DNA"
+        actionDisabled
+        testID="dna-placeholder"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: {
-    flex: 1,
-  },
+  root: { flex: 1 },
 });
