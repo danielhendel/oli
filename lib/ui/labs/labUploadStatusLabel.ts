@@ -6,6 +6,7 @@ const LABELS: Record<LabUploadStatus, string> = {
   processing: "Processing",
   needs_review: "Needs review",
   parsed: "Parsed",
+  unsupported: "Stored, not structured",
   failed: "Failed",
 };
 

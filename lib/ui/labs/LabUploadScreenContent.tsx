@@ -39,7 +39,7 @@ export function LabUploadScreenContent({
       <View style={styles.card}>
         <Text style={styles.title}>Upload lab PDF</Text>
         <Text style={styles.privacy} testID="lab-upload-privacy-note">
-          Your lab PDF is stored securely and parsed into structured biomarkers.
+          Your lab PDF is stored securely. Structured biomarker extraction is not available yet.
         </Text>
 
         {checking ? (
@@ -82,13 +82,15 @@ export function LabUploadScreenContent({
         ) : null}
         {state.phase === "processing" ? (
           <Text style={styles.status} testID="lab-upload-status-processing">
-            Processing biomarkers…
+            Saving your report…
           </Text>
         ) : null}
         {state.phase === "success" ? (
           <View style={styles.successBox} testID="lab-upload-status-success">
             <Text style={styles.successTitle}>Upload complete</Text>
-            <Text style={styles.status}>Your lab report is being parsed into biomarkers.</Text>
+            <Text style={styles.status} testID="lab-upload-unsupported-message">
+              This report is stored, but structured extraction is not available yet.
+            </Text>
             {onViewUpload && state.uploadId ? (
               <Pressable onPress={onViewUpload} style={styles.cta} testID="lab-upload-view-upload">
                 <Text style={styles.ctaText}>View upload</Text>
