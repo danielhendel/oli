@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { usePathname, useRouter } from "expo-router";
 import {
   UI_NAV_DOCK_SURFACE,
   UI_NAV_SURFACE_BORDER,
@@ -17,8 +19,16 @@ import {
   UI_NAV_TAB_ICON_ACTIVE,
   UI_NAV_TAB_ICON_INACTIVE,
 } from "@/lib/ui/theme/uiTokens";
+import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
+import {
+  PRIMARY_NAVIGATION_ITEMS,
+  type PrimaryNavigationDestination,
+} from "@/lib/navigation/primaryNavigationConfig";
+import { resolvePrimaryNavActiveDestination } from "@/lib/navigation/resolvePrimaryNavActiveDestination";
+import { navigatePrimaryDestination } from "@/lib/navigation/navigatePrimaryDestination";
+import type { ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 
-const MAIN_TAB_ORDER = ["dash", "timeline", "program", "library"] as const;
+const LEGACY_TAB_ORDER = ["dash", "timeline", "program", "library"] as const;
 
 const ACTIVE = UI_NAV_TAB_ICON_ACTIVE;
 const INACTIVE = UI_NAV_TAB_ICON_INACTIVE;
@@ -29,13 +39,47 @@ const TAB_MIN_HEIGHT = 44;
 export type OliBottomNavProps = {
   tabBarProps: BottomTabBarProps;
   style?: StyleProp<ViewStyle>;
+  /** When true, Health destination appears selected (menu open). */
+  healthMenuOpen?: boolean;
+  /** Opens the Health menu anchored to the Health tab. */
+  onOpenHealthMenu?: (anchor: ManageMenuAnchor) => void;
+  /** When the Health menu is already open, dismiss it. */
+  onCloseHealthMenu?: () => void;
 };
 
-export function OliBottomNav({ tabBarProps, style }: OliBottomNavProps) {
+export function OliBottomNav({
+  tabBarProps,
+  style,
+  healthMenuOpen = false,
+  onOpenHealthMenu,
+  onCloseHealthMenu,
+}: OliBottomNavProps) {
+  const healthV1 = isPrimaryNavHealthV1Enabled();
+  if (healthV1) {
+    return (
+      <HealthPrimaryBottomNav
+        tabBarProps={tabBarProps}
+        style={style}
+        healthMenuOpen={healthMenuOpen}
+        {...(onOpenHealthMenu ? { onOpenHealthMenu } : {})}
+        {...(onCloseHealthMenu ? { onCloseHealthMenu } : {})}
+      />
+    );
+  }
+  return <LegacyBottomNav tabBarProps={tabBarProps} style={style} />;
+}
+
+function LegacyBottomNav({
+  tabBarProps,
+  style,
+}: {
+  tabBarProps: BottomTabBarProps;
+  style?: StyleProp<ViewStyle>;
+}) {
   const { state, descriptors, navigation } = tabBarProps;
 
   const routesInOrder = useMemo(() => {
-    return MAIN_TAB_ORDER.map((name) => state.routes.find((r) => r.name === name)).filter(
+    return LEGACY_TAB_ORDER.map((name) => state.routes.find((r) => r.name === name)).filter(
       (r): r is (typeof state.routes)[number] => r != null,
     );
   }, [state.routes]);
@@ -130,6 +174,124 @@ export function OliBottomNav({ tabBarProps, style }: OliBottomNavProps) {
   );
 }
 
+function HealthPrimaryBottomNav({
+  tabBarProps,
+  style,
+  healthMenuOpen,
+  onOpenHealthMenu,
+  onCloseHealthMenu,
+}: {
+  tabBarProps: BottomTabBarProps;
+  style?: StyleProp<ViewStyle>;
+  healthMenuOpen: boolean;
+  onOpenHealthMenu?: (anchor: ManageMenuAnchor) => void;
+  onCloseHealthMenu?: () => void;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const focusedTabName = tabBarProps.state.routes[tabBarProps.state.index]?.name ?? null;
+  const healthTabRef = useRef<View>(null);
+
+  const activeDestination: PrimaryNavigationDestination | null = resolvePrimaryNavActiveDestination({
+    pathname,
+    healthMenuOpen,
+    focusedTabName,
+  });
+
+  return (
+    <View style={[styles.outer, style]} accessibilityRole="tablist" pointerEvents="box-none">
+      <View style={styles.pill}>
+        <View style={styles.rowHealth}>
+          {PRIMARY_NAVIGATION_ITEMS.map((item) => {
+            const isFocused = activeDestination === item.id;
+            const color = isFocused ? ACTIVE : INACTIVE;
+            const iconName = isFocused ? item.icon : item.iconOutline;
+
+            const onPress = () => {
+              if (item.action.kind === "menu") {
+                if (healthMenuOpen) {
+                  onCloseHealthMenu?.();
+                  return;
+                }
+                healthTabRef.current?.measureInWindow((x, y, width, height) => {
+                  onOpenHealthMenu?.({ x, y, width, height, presentation: "fab" });
+                });
+                return;
+              }
+
+              navigatePrimaryDestination({
+                item,
+                activeDestination,
+                pathname,
+                router,
+                tabBarProps,
+              });
+            };
+
+            if (item.id === "health") {
+              return (
+                <View
+                  key={item.id}
+                  ref={healthTabRef}
+                  collapsable={false}
+                  style={styles.healthTabMeasure}
+                >
+                  <Pressable
+                    accessibilityRole="tab"
+                    accessibilityLabel={item.accessibilityLabel}
+                    accessibilityHint={item.accessibilityHint}
+                    accessibilityState={{ selected: isFocused, expanded: healthMenuOpen }}
+                    testID={item.testID}
+                    onPress={onPress}
+                    style={({ pressed }) => [
+                      styles.tab,
+                      styles.tabHealth,
+                      isFocused && styles.tabFocused,
+                      pressed && styles.tabPressed,
+                    ]}
+                  >
+                    <View style={styles.iconWrap}>
+                      <Ionicons name={iconName} size={20} color={color} />
+                    </View>
+                    <Text style={[styles.labelHealth, { color }]} numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            }
+
+            return (
+              <Pressable
+                key={item.id}
+                accessibilityRole="tab"
+                accessibilityLabel={item.accessibilityLabel}
+                accessibilityHint={item.accessibilityHint}
+                accessibilityState={{ selected: isFocused }}
+                testID={item.testID}
+                onPress={onPress}
+                style={({ pressed }) => [
+                  styles.tab,
+                  styles.tabHealth,
+                  isFocused && styles.tabFocused,
+                  pressed && styles.tabPressed,
+                ]}
+              >
+                <View style={styles.iconWrap}>
+                  <Ionicons name={iconName} size={20} color={color} />
+                </View>
+                <Text style={[styles.labelHealth, { color }]} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   /** Layout slot only — no shadow (shadow on full flex width reads as a bottom band). */
   outer: {
@@ -161,6 +323,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     gap: 2,
   },
+  rowHealth: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    gap: 0,
+  },
   tab: {
     flex: 1,
     minWidth: 0,
@@ -170,6 +340,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     borderRadius: 20,
     gap: 3,
+  },
+  tabHealth: {
+    paddingHorizontal: 1,
+    gap: 2,
+  },
+  healthTabMeasure: {
+    flex: 1,
+    minWidth: 0,
   },
   tabFocused: {
     backgroundColor: UI_NAV_SURFACE_ACTIVE,
@@ -186,5 +364,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     letterSpacing: -0.1,
+  },
+  labelHealth: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: -0.2,
   },
 });

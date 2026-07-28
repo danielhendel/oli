@@ -141,6 +141,7 @@ jest.mock("expo-router", () => {
   return {
     Tabs: MockTabs,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+    usePathname: () => "/dash",
   };
 });
 
@@ -151,20 +152,22 @@ import {
   setDashDailyMonitorFoundationEnabledForTests,
 } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
+import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const layoutModule = require("../_layout");
 const TabsLayout = layoutModule.default;
 const { OLI_TAB_SCREEN_OPTIONS, createOliTabNavigationTheme } = layoutModule;
 
-function findTabs(test: renderer.ReactTestRenderer): { name: string; title: string }[] {
-  const tabs: { name: string; title: string }[] = [];
+function findTabs(test: renderer.ReactTestRenderer): { name: string; title: string; href: string }[] {
+  const tabs: { name: string; title: string; href: string }[] = [];
   const find = (node: renderer.ReactTestInstance) => {
     const p = node.props;
     if (p && "data-tab-name" in p) {
       tabs.push({
         name: p["data-tab-name"] as string,
         title: (p["data-tab-title"] as string) ?? "",
+        href: (p["data-tab-href"] as string) ?? "visible",
       });
     }
     node.children.forEach((c) => {
@@ -179,6 +182,12 @@ describe("TabsLayout", () => {
   afterEach(() => {
     setDashDailyMonitorFoundationEnabledForTests(null);
     setDashWeeklyProgressRelocationEnabledForTests(null);
+    setPrimaryNavHealthV1EnabledForTests(null);
+  });
+
+  beforeEach(() => {
+    // Legacy assertions below; health v1 covered separately.
+    setPrimaryNavHealthV1EnabledForTests(false);
   });
 
   it("has initialRouteName dash", () => {
@@ -303,5 +312,40 @@ describe("TabsLayout", () => {
     expect((merged as { right?: number }).right).toBe(0);
     expect((merged as { bottom?: number }).bottom).toBe(0);
     expect(chrome.props.pointerEvents).toBe("box-none");
+  });
+});
+
+describe("TabsLayout health primary nav (Phase 2G-A)", () => {
+  afterEach(() => {
+    setDashDailyMonitorFoundationEnabledForTests(null);
+    setDashWeeklyProgressRelocationEnabledForTests(null);
+    setPrimaryNavHealthV1EnabledForTests(null);
+  });
+
+  beforeEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(true);
+    setDashDailyMonitorFoundationEnabledForTests(true);
+    setDashWeeklyProgressRelocationEnabledForTests(true);
+  });
+
+  it("keeps Dash label as Dash (not Monitor) and hides Timeline/Program/Library from the dock", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<TabsLayout />);
+    });
+    const tabs = findTabs(test);
+    expect(tabs.find((t) => t.name === "dash")?.title).toBe("Dash");
+    expect(tabs.filter((t) => t.name !== "dash").every((t) => t.href === "hidden")).toBe(true);
+  });
+
+  it("does not render Manage FAB when health primary nav is enabled", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<TabsLayout />);
+    });
+    expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
+    for (const id of ["dash", "strength", "cardio", "nutrition", "health"]) {
+      test.root.findByProps({ testID: `oli-tab-${id}` });
+    }
   });
 });

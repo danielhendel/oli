@@ -11,7 +11,7 @@ type OliFloatingNavigationHostProps = {
 };
 
 /**
- * Root-stack overlay: same floating pill + Manage as `(tabs)/_layout`, for health module routes
+ * Root-stack overlay: same floating pill + Manage/Health as `(tabs)/_layout`, for module routes
  * where the tab navigator is not mounted.
  */
 export function OliFloatingNavigationHost({
@@ -36,8 +36,12 @@ export function OliFloatingNavigationHost({
   }, []);
 
   const tabBarProps = useMemo(
-    () => buildOverlayTabBarProps(router, insets),
-    [router, insets],
+    () =>
+      buildOverlayTabBarProps(router, insets, {
+        pathname,
+        healthMenuOpen: manageVisible,
+      }),
+    [router, insets, pathname, manageVisible],
   );
 
   useEffect(() => {

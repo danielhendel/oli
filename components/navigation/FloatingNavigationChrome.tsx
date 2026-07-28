@@ -7,6 +7,9 @@ import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
 import { ManageMenu, type ManageMenuAnchor } from "@/components/navigation/ManageMenu";
 import { normalizeChromeHeight } from "@/lib/ui/navigation/normalizeChromeHeight";
+import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
+import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
+import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 
 /**
  * Horizontal inset for floating dock; bottom margin added to the safe-area inset.
@@ -32,7 +35,7 @@ export type FloatingNavigationChromeProps = {
 };
 
 /**
- * Shared floating pill + Manage FAB + menu. Used by the tab navigator custom bar and by the
+ * Shared floating pill + Manage/Health menu. Used by the tab navigator custom bar and by the
  * root stack overlay on health module screens.
  */
 export function FloatingNavigationChrome({
@@ -50,6 +53,10 @@ export function FloatingNavigationChrome({
   const onTabBarHeightFromTabs = useContext(BottomTabBarHeightCallbackContext);
   const bottomOffset = insets.bottom + FLOATING_NAV_DOCK_BOTTOM_MARGIN;
   const [navSlotHeight, setNavSlotHeight] = useState(() => bottomOffset + 56);
+  const healthV1 = isPrimaryNavHealthV1Enabled();
+  const hubItems = healthV1 ? HEALTH_HUB_ITEMS : MANAGE_HUB_ITEMS;
+  const menuTestID = healthV1 ? "oli-health-menu" : "oli-manage-menu";
+  const menuA11yDismiss = healthV1 ? "Dismiss Health menu" : "Dismiss Manage menu";
 
   const reportChromeHeight = onStackChromeHeightChange ?? onTabBarHeightFromTabs;
 
@@ -88,7 +95,16 @@ export function FloatingNavigationChrome({
 
   return (
     <>
-      <ManageMenu visible={manageVisible} anchor={menuAnchor} onClose={closeManage} />
+      <ManageMenu
+        visible={manageVisible}
+        anchor={menuAnchor}
+        onClose={closeManage}
+        items={hubItems}
+        menuTestID={menuTestID}
+        dismissAccessibilityLabel={menuA11yDismiss}
+        closeRowAccessibilityLabel={healthV1 ? "Close Health menu" : "Close"}
+        hubRowTestIDPrefix={healthV1 ? "health-hub" : "manage-hub"}
+      />
       <View
         testID={testID}
         pointerEvents="box-none"
@@ -111,8 +127,20 @@ export function FloatingNavigationChrome({
           ]}
           onLayout={onDockRowLayout}
         >
-          <OliBottomNav tabBarProps={tabBarProps} style={chromeStyles.navPillSlot} />
-          <ManageFab ref={fabRef} open={manageVisible} onPress={measureAndOpen} />
+          <OliBottomNav
+            tabBarProps={tabBarProps}
+            style={healthV1 ? chromeStyles.navPillSlotFull : chromeStyles.navPillSlot}
+            healthMenuOpen={healthV1 ? manageVisible : false}
+            {...(healthV1
+              ? {
+                  onOpenHealthMenu: openManage,
+                  onCloseHealthMenu: closeManage,
+                }
+              : {})}
+          />
+          {healthV1 ? null : (
+            <ManageFab ref={fabRef} open={manageVisible} onPress={measureAndOpen} />
+          )}
         </View>
       </View>
     </>
@@ -138,6 +166,12 @@ const chromeStyles = StyleSheet.create({
   navPillSlot: {
     flex: 1,
     minWidth: 0,
+    backgroundColor: "transparent",
+  },
+  navPillSlotFull: {
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
     backgroundColor: "transparent",
   },
 });

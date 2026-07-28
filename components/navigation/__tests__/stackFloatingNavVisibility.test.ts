@@ -16,6 +16,10 @@ describe("shouldShowStackFloatingNavForPathname", () => {
     expect(shouldShowStackFloatingNavForPathname("/recovery/sleep")).toBe(true);
     expect(shouldShowStackFloatingNavForPathname("/labs")).toBe(true);
     expect(shouldShowStackFloatingNavForPathname("/dna")).toBe(true);
+    expect(shouldShowStackFloatingNavForPathname("/medical-history")).toBe(true);
+    expect(shouldShowStackFloatingNavForPathname("/scans")).toBe(true);
+    expect(shouldShowStackFloatingNavForPathname("/medication")).toBe(true);
+    expect(shouldShowStackFloatingNavForPathname("/supplements")).toBe(true);
   });
 
   it("hides on tab roots (floating chrome lives in Tabs layout, not stack overlay)", () => {

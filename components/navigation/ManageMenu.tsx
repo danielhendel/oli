@@ -15,9 +15,9 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   MANAGE_HUB_ITEMS,
-  type ManageHubItem,
 } from "@/components/navigation/manageHubItems";
 import { manageHubIconName } from "@/lib/ui/navigation/manageHubIcons";
+import { healthHubIconName } from "@/lib/ui/navigation/healthHubIcons";
 import {
   UI_BORDER_STRONG,
   UI_BORDER_SUBTLE,
@@ -38,17 +38,30 @@ export type ManageMenuAnchor = {
   presentation?: ManageMenuPresentation;
 };
 
+/** Shared shape for Manage and Health hub rows. */
+export type HubMenuItem = {
+  id: string;
+  label: string;
+  accessibilityLabel: string;
+  href: string;
+  testID?: string;
+};
+
 export type ManageMenuProps = {
   visible: boolean;
   onClose: () => void;
   anchor: ManageMenuAnchor | null;
+  /** Hub rows (defaults to legacy Manage items). */
+  items?: readonly HubMenuItem[];
+  menuTestID?: string;
+  dismissAccessibilityLabel?: string;
+  closeRowAccessibilityLabel?: string;
+  hubRowTestIDPrefix?: string;
 };
 
 type MenuRow =
-  | { kind: "module"; item: ManageHubItem }
+  | { kind: "module"; item: HubMenuItem }
   | { kind: "close" };
-
-const MENU_ROW_COUNT = MANAGE_HUB_ITEMS.length + 1;
 
 const GAP_ABOVE_FAB = 10;
 const GAP_BELOW_HEADER = 8;
@@ -65,8 +78,14 @@ function resolvePresentation(
   return anchor.y < windowHeight * 0.45 ? "popover" : "fab";
 }
 
+function hubIconName(id: string): React.ComponentProps<typeof Ionicons>["name"] {
+  const health = healthHubIconName(id);
+  if (health !== "ellipse-outline") return health;
+  return manageHubIconName(id);
+}
+
 function ModuleIconFab({ id }: { id: string }) {
-  const name = manageHubIconName(id);
+  const name = hubIconName(id);
   return (
     <View style={styles.iconCircleFab}>
       <Ionicons name={name} size={20} color={UI_TEXT_PRIMARY} />
@@ -75,7 +94,7 @@ function ModuleIconFab({ id }: { id: string }) {
 }
 
 function ModuleIconPopover({ id }: { id: string }) {
-  const name = manageHubIconName(id);
+  const name = hubIconName(id);
   return (
     <View style={styles.iconCirclePopover}>
       <Ionicons name={name} size={18} color={UI_TEXT_PRIMARY} />
@@ -83,32 +102,45 @@ function ModuleIconPopover({ id }: { id: string }) {
   );
 }
 
-export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React.ReactElement | null {
+export function ManageMenu({
+  visible,
+  onClose,
+  anchor,
+  items = MANAGE_HUB_ITEMS as readonly HubMenuItem[],
+  menuTestID = "oli-manage-menu",
+  dismissAccessibilityLabel = "Dismiss Manage menu",
+  closeRowAccessibilityLabel = "Close Manage menu",
+  hubRowTestIDPrefix = "manage-hub",
+}: ManageMenuProps): React.ReactElement | null {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const itemCount = items.length;
+  const menuRowCount = itemCount + 1;
 
   const rowsTopToBottom = useMemo((): MenuRow[] => {
-    const modules = MANAGE_HUB_ITEMS.map((item) => ({
+    const modules = items.map((item) => ({
       kind: "module" as const,
       item,
     }));
     return [...modules, { kind: "close" as const }];
-  }, []);
+  }, [items]);
 
-  const popoverRows = useMemo((): { kind: "module"; item: ManageHubItem }[] => {
-    return MANAGE_HUB_ITEMS.map((item) => ({ kind: "module" as const, item }));
-  }, []);
+  const popoverRows = useMemo((): { kind: "module"; item: HubMenuItem }[] => {
+    return items.map((item) => ({ kind: "module" as const, item }));
+  }, [items]);
 
-  const rowAnims = useRef(
-    Array.from({ length: MENU_ROW_COUNT }, () => new Animated.Value(0)),
-  ).current;
+  const rowAnims = useRef<Animated.Value[]>([]).current;
+  while (rowAnims.length < menuRowCount) {
+    rowAnims.push(new Animated.Value(0));
+  }
 
-  const popoverRowAnims = useRef(
-    Array.from({ length: MANAGE_HUB_ITEMS.length }, () => new Animated.Value(0)),
-  ).current;
+  const popoverRowAnims = useRef<Animated.Value[]>([]).current;
+  while (popoverRowAnims.length < itemCount) {
+    popoverRowAnims.push(new Animated.Value(0));
+  }
 
   useEffect(() => {
     if (!visible || !anchor) {
@@ -135,7 +167,7 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
     if (presentation === "popover") {
       Animated.stagger(
         24,
-        popoverRowAnims.map((a) =>
+        popoverRowAnims.slice(0, itemCount).map((a) =>
           Animated.timing(a, {
             toValue: 1,
             duration: 160,
@@ -146,7 +178,8 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
       return;
     }
 
-    const bottomFirstOrder = [...rowAnims].reverse();
+    const activeRowAnims = rowAnims.slice(0, menuRowCount);
+    const bottomFirstOrder = [...activeRowAnims].reverse();
     Animated.stagger(
       STAGGER_MS,
       bottomFirstOrder.map((a) =>
@@ -157,7 +190,16 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
         }),
       ),
     ).start();
-  }, [visible, anchor, backdropOpacity, rowAnims, popoverRowAnims, windowHeight]);
+  }, [
+    visible,
+    anchor,
+    backdropOpacity,
+    rowAnims,
+    popoverRowAnims,
+    windowHeight,
+    itemCount,
+    menuRowCount,
+  ]);
 
   if (!visible || !anchor) {
     return null;
@@ -167,6 +209,11 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
   const isPopover = presentation === "popover";
 
   const menuWidth = Math.min(isPopover ? 280 : 300, windowWidth - MENU_PAD * 2);
+
+  const navigateThenClose = (href: string) => {
+    onClose();
+    router.push(href as never);
+  };
 
   if (isPopover) {
     const leftOffset = Math.max(MENU_PAD, Math.min(anchor.x, windowWidth - menuWidth - MENU_PAD));
@@ -190,13 +237,13 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
               style={[StyleSheet.absoluteFill, { backgroundColor: POPOVER_SCRIM }]}
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="Dismiss navigation menu"
+              accessibilityLabel={dismissAccessibilityLabel}
               testID="manage-menu-popover-scrim"
             />
           </Animated.View>
 
           <View
-            testID="oli-manage-menu-popover"
+            testID={`${menuTestID}-popover`}
             style={[
               styles.menuWrap,
               {
@@ -225,11 +272,7 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
                     outputRange: [6, 0],
                   });
                   const item = row.item;
-
-                  const onRowPress = () => {
-                    router.push(item.href as never);
-                    onClose();
-                  };
+                  const rowTestID = item.testID ?? `${hubRowTestIDPrefix}-${item.id}`;
 
                   return (
                     <Animated.View
@@ -237,10 +280,10 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
                       style={{ opacity, transform: [{ translateY }] }}
                     >
                       <Pressable
-                        testID={`manage-hub-${item.id}`}
+                        testID={rowTestID}
                         accessibilityRole="button"
                         accessibilityLabel={item.accessibilityLabel}
-                        onPress={onRowPress}
+                        onPress={() => navigateThenClose(item.href)}
                         style={({ pressed }) => [
                           styles.popoverRow,
                           pressed && styles.popoverRowPressed,
@@ -283,12 +326,12 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
             style={[StyleSheet.absoluteFill, { backgroundColor: UI_OVERLAY }]}
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="Dismiss Manage menu"
+            accessibilityLabel={dismissAccessibilityLabel}
           />
         </Animated.View>
 
         <View
-          testID="oli-manage-menu"
+          testID={menuTestID}
           style={[
             styles.menuWrap,
             {
@@ -326,7 +369,7 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
                       <Pressable
                         testID="manage-menu-close"
                         accessibilityRole="button"
-                        accessibilityLabel="Close Manage menu"
+                        accessibilityLabel={closeRowAccessibilityLabel}
                         onPress={onClose}
                         style={({ pressed }) => [
                           styles.closeRow,
@@ -345,10 +388,7 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
                 }
 
                 const item = row.item;
-                const onRowPress = () => {
-                  router.push(item.href as never);
-                  onClose();
-                };
+                const rowTestID = item.testID ?? `${hubRowTestIDPrefix}-${item.id}`;
 
                 return (
                   <Animated.View
@@ -356,10 +396,10 @@ export function ManageMenu({ visible, onClose, anchor }: ManageMenuProps): React
                     style={{ opacity, transform: [{ translateY }] }}
                   >
                     <Pressable
-                      testID={`manage-hub-${item.id}`}
+                      testID={rowTestID}
                       accessibilityRole="button"
                       accessibilityLabel={item.accessibilityLabel}
-                      onPress={onRowPress}
+                      onPress={() => navigateThenClose(item.href)}
                       style={({ pressed }) => [
                         styles.moduleRowFab,
                         pressed && styles.moduleRowFabPressed,

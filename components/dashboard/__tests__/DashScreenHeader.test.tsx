@@ -3,6 +3,8 @@ import renderer from "react-test-renderer";
 
 import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
+import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
+import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 
 const mockPush = jest.fn();
 const mockOpenManage = jest.fn();
@@ -47,6 +49,11 @@ describe("DashScreenHeader", () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockOpenManage.mockReset();
+    setPrimaryNavHealthV1EnabledForTests(false);
+  });
+
+  afterEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(null);
   });
 
   it("renders centered Oli Fitness title without standalone Oli header", () => {
@@ -117,5 +124,17 @@ describe("DashScreenHeader", () => {
     const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
     expect(menuTrigger.props.accessibilityLabel).toBe("Open navigation menu");
     expect(menuTrigger.props.accessibilityHint).toContain(MANAGE_HUB_ITEMS[0]!.label);
+  });
+
+  it("renders hamburger trigger wired to Health menu when health primary nav is on", () => {
+    setPrimaryNavHealthV1EnabledForTests(true);
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<DashScreenHeader />);
+    });
+
+    const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
+    expect(menuTrigger.props.accessibilityLabel).toBe("Open Health menu");
+    expect(menuTrigger.props.accessibilityHint).toContain(HEALTH_HUB_ITEMS[0]!.label);
   });
 });

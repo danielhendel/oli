@@ -54,8 +54,10 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  usePathname: () => "/dash",
 }));
 
 jest.mock("@expo/vector-icons", () => ({
@@ -70,6 +72,9 @@ import { OliBottomNav } from "@/components/navigation/OliBottomNav";
 import { ManageFab } from "@/components/navigation/ManageFab";
 import { ManageMenu } from "@/components/navigation/ManageMenu";
 import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
+import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
+import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
+import { PRIMARY_NAVIGATION_ITEMS } from "@/lib/navigation/primaryNavigationConfig";
 
 const TEST_ANCHOR = { x: 300, y: 680, width: 52, height: 52 };
 
@@ -125,6 +130,12 @@ function buildTabBarProps(focusedRouteIndex: number): BottomTabBarProps {
 describe("Oli bottom navigation", () => {
   beforeEach(() => {
     mockPush.mockReset();
+    mockReplace.mockReset();
+    setPrimaryNavHealthV1EnabledForTests(false);
+  });
+
+  afterEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(null);
   });
 
   it("renders four main tabs (Dash, Timeline, Program, Library)", () => {
@@ -299,6 +310,9 @@ describe("Oli bottom navigation", () => {
     });
     expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/profile");
     expect(onClose).toHaveBeenCalled();
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPush.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("renders category label text beside icons (compact row cluster, not full-width left)", () => {
@@ -338,6 +352,9 @@ describe("Oli bottom navigation", () => {
     });
     expect(mockPush).toHaveBeenCalledWith("/(app)/body");
     expect(onClose).toHaveBeenCalled();
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPush.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("navigates DNA to the placeholder route and closes", () => {
@@ -416,5 +433,119 @@ describe("Oli bottom navigation", () => {
     const modal = test.root.findByType("Modal" as unknown as React.ElementType);
     expect(modal.props.visible).toBe(true);
     test.root.findByProps({ testID: "oli-manage-menu" });
+  });
+});
+
+describe("Phase 2G-A health primary navigation", () => {
+  beforeEach(() => {
+    mockPush.mockReset();
+    mockReplace.mockReset();
+    setPrimaryNavHealthV1EnabledForTests(true);
+  });
+
+  afterEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(null);
+  });
+
+  it("renders exactly Dash, Strength, Cardio, Nutrition, Health", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
+    });
+    for (const item of PRIMARY_NAVIGATION_ITEMS) {
+      const tab = test.root.findByProps({ testID: item.testID });
+      expect(tab.props.accessibilityRole).toBe("tab");
+      expect(tab.props.minHeight ?? tab.props.style).toBeTruthy();
+    }
+    for (const forbidden of ["timeline", "program", "library", "manage"]) {
+      expect(() => test.root.findByProps({ testID: `oli-tab-${forbidden}` })).toThrow();
+    }
+  });
+
+  it("marks Health selected while the health menu is open", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <OliBottomNav tabBarProps={buildTabBarProps(0)} healthMenuOpen />,
+      );
+    });
+    const health = test.root.findByProps({ testID: "oli-tab-health" });
+    expect(health.props.accessibilityState.selected).toBe(true);
+    expect(health.props.accessibilityState.expanded).toBe(true);
+  });
+
+  it("renders Health menu rows in product order and excludes fitness items", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <ManageMenu
+          visible
+          anchor={TEST_ANCHOR}
+          onClose={jest.fn()}
+          items={HEALTH_HUB_ITEMS}
+          menuTestID="oli-health-menu"
+          hubRowTestIDPrefix="health-hub"
+        />,
+      );
+    });
+    test.root.findByProps({ testID: "oli-health-menu" });
+    for (const item of HEALTH_HUB_ITEMS) {
+      test.root.findByProps({ testID: item.testID });
+    }
+    expect(() => test.root.findByProps({ testID: "health-hub-body" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-strength" })).toThrow();
+    const flat = JSON.stringify(test.toJSON());
+    expect(flat).toContain("Close");
+    expect(flat).not.toContain("Body Composition");
+    expect(flat).not.toContain("Recovery");
+  });
+
+  it("closes Health menu before navigating", () => {
+    const onClose = jest.fn();
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <ManageMenu
+          visible
+          anchor={TEST_ANCHOR}
+          onClose={onClose}
+          items={HEALTH_HUB_ITEMS}
+          menuTestID="oli-health-menu"
+        />,
+      );
+    });
+    const labs = test.root.findByProps({ testID: "health-hub-labs" });
+    act(() => {
+      labs.props.onPress();
+    });
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith("/(app)/labs");
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(mockPush.mock.invocationCallOrder[0]!);
+  });
+
+  it("dismisses Health menu via Close and Android back (onRequestClose)", () => {
+    const onClose = jest.fn();
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <ManageMenu
+          visible
+          anchor={TEST_ANCHOR}
+          onClose={onClose}
+          items={HEALTH_HUB_ITEMS}
+          menuTestID="oli-health-menu"
+          closeRowAccessibilityLabel="Close Health menu"
+        />,
+      );
+    });
+    act(() => {
+      test.root.findByProps({ testID: "manage-menu-close" }).props.onPress();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    const modal = test.root.findByType("Modal" as unknown as React.ElementType);
+    act(() => {
+      modal.props.onRequestClose();
+    });
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });

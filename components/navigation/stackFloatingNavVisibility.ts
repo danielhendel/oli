@@ -1,5 +1,7 @@
+import { normalizePathname } from "@/lib/navigation/normalizePathname";
+
 /**
- * Stack-mounted floating nav (Manage + pill) visibility.
+ * Stack-mounted floating nav (Manage/Health + pill) visibility.
  * Tab routes use the real tab navigator chrome only — this applies to `(app)/…` stack screens.
  *
  * Match Expo Router `usePathname()` output (no route groups in the path).
@@ -18,15 +20,15 @@ export const FLOATING_NAV_STACK_PATH_EXACT = [
   "/recovery/sleep",
   "/labs",
   "/dna",
+  "/medical-history",
+  "/scans",
+  "/medication",
+  "/supplements",
 ] as const;
 
 const ALLOWED = new Set<string>(FLOATING_NAV_STACK_PATH_EXACT);
 
-export function normalizePathname(pathname: string | null | undefined): string {
-  if (pathname == null || pathname === "") return "/";
-  const trimmed = pathname.replace(/\/+$/, "");
-  return trimmed === "" ? "/" : trimmed;
-}
+export { normalizePathname };
 
 /**
  * Whether to render {@link OliFloatingNavigationHost} for the current stack URL.
