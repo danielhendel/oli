@@ -656,3 +656,90 @@ describe("Phase 2G-A health primary navigation", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("Phase 2G-A flag-off rollback gate", () => {
+  afterEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(null);
+  });
+
+  it("EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1=0 restores legacy pill + Manage FAB (no Health capsule)", () => {
+    setPrimaryNavHealthV1EnabledForTests(false);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible={false}
+          menuAnchor={null}
+          openManage={jest.fn()}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    for (const id of ["dash", "timeline", "program", "library"]) {
+      test.root.findByProps({ testID: `oli-tab-${id}` });
+    }
+    test.root.findByProps({ testID: "oli-manage-fab" });
+    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "oli-primary-nav-pill" })).toThrow();
+    for (const id of ["strength", "cardio", "nutrition"]) {
+      expect(() => test.root.findByProps({ testID: `oli-tab-${id}` })).toThrow();
+    }
+  });
+
+  it("flag off restores legacy Manage menu items (not Health hub)", () => {
+    setPrimaryNavHealthV1EnabledForTests(false);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible
+          menuAnchor={TEST_ANCHOR}
+          openManage={jest.fn()}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    test.root.findByProps({ testID: "oli-manage-menu" });
+    for (const item of MANAGE_HUB_ITEMS) {
+      test.root.findByProps({ testID: `manage-hub-${item.id}` });
+    }
+    expect(() => test.root.findByProps({ testID: "oli-health-menu" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-scans" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-medication" })).toThrow();
+  });
+
+  it("toggling flag off after health v1 does not leave Health chrome mounted", () => {
+    setPrimaryNavHealthV1EnabledForTests(true);
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible={false}
+          menuAnchor={null}
+          openManage={jest.fn()}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    test.root.findByProps({ testID: "oli-health-fab" });
+
+    setPrimaryNavHealthV1EnabledForTests(false);
+    act(() => {
+      test.update(
+        <FloatingNavigationChrome
+          tabBarProps={buildTabBarProps(0)}
+          manageVisible={false}
+          menuAnchor={null}
+          openManage={jest.fn()}
+          closeManage={jest.fn()}
+        />,
+      );
+    });
+    test.root.findByProps({ testID: "oli-manage-fab" });
+    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "oli-primary-nav-pill" })).toThrow();
+  });
+});
