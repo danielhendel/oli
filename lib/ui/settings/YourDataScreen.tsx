@@ -80,7 +80,7 @@ export function YourDataScreen({ state, inventory, error, onRefresh }: YourDataS
   const router = useRouter();
 
   return (
-    <ModuleScreenShell title="Your Data" subtitle="What Oli knows">
+    <ModuleScreenShell title="Your Data" hideTitleChrome>
       <View style={styles.root} testID="your-data-screen">
         {state === "loading" && !inventory ? (
           <View style={styles.loading} testID="your-data-loading" accessibilityLabel="Loading your data">

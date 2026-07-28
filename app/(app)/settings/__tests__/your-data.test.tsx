@@ -35,7 +35,7 @@ describe("Your Data screen", () => {
     });
 
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Your Data");
+    expect(str).toContain("your-data-screen");
     expect(str).toContain("Connected sources");
     expect(str).toContain("Health records");
     expect(str).toContain("Withings");
@@ -44,7 +44,8 @@ describe("Your Data screen", () => {
     expect(str).toContain("Not set up");
     expect(str).not.toMatch(/labUploads|rawEvents|users\/\{uid\}/);
     expect(str).not.toMatch(/LDL|HDL|mg\/dL/);
-    expect(str).toContain("your-data-screen");
+    expect(str).not.toContain("settings/your-data");
+    expect(str).not.toMatch(/"fontWeight":"900"/);
   });
 
   it("shows loading state", async () => {

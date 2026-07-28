@@ -516,6 +516,14 @@ export default function AppLayout() {
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
+          <Stack.Screen
+            name="settings/privacy"
+            options={{ title: "Privacy", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="settings/your-data"
+            options={{ title: "Your Data", ...workoutsStackNavigationOptions("module") }}
+          />
           <Stack.Screen name="profile/edit/[field]" options={{ title: "Edit" }} />
           <Stack.Screen
             name="profile/system/[systemId]"

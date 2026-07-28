@@ -25,9 +25,9 @@ export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
   const privacy = inventory?.privacy;
 
   return (
-    <ModuleScreenShell title="Privacy" subtitle="Data & permissions">
+    <ModuleScreenShell title="Privacy" hideTitleChrome>
       <View style={styles.root} testID="privacy-screen">
-        <Text style={styles.intro}>
+        <Text style={styles.intro} testID="privacy-intro">
           Oli keeps health data scoped to your account. Export and deletion are available through
           the account API; coverage is not yet complete for every store.
         </Text>
