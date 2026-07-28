@@ -495,6 +495,22 @@ export default function AppLayout() {
             name="dna/index"
             options={{ title: "DNA", ...workoutsStackNavigationOptions("module") }}
           />
+          <Stack.Screen
+            name="medical-history/index"
+            options={{ title: "Medical History", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="scans/index"
+            options={{ title: "Scans", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="medication/index"
+            options={{ title: "Medication", ...workoutsStackNavigationOptions("module") }}
+          />
+          <Stack.Screen
+            name="supplements/index"
+            options={{ title: "Supplements", ...workoutsStackNavigationOptions("module") }}
+          />
 
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
