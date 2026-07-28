@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { mapLabsLoadErrorToConsumer } from "@/lib/data/labs/mapLabsLoadErrorToConsumer";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { LabsCategoryCard, type LabsCategoryCardVm } from "@/lib/ui/labs/LabsCategoryCard";
 import { getLabCategories, getLabMetricByKey } from "@/lib/labs/labMetricCatalog";
@@ -9,7 +10,9 @@ import type { LabsSummaryResponseDto } from "@/lib/contracts";
 
 export type LabsMainContentProps = {
   status: "partial" | "error" | "ready";
+  /** @deprecated Ignored for consumer presentation — mapped to stable Labs copy. */
   error?: string;
+  /** @deprecated Never rendered in consumer Labs UI. */
   requestId?: string | null;
   data?: LabsSummaryResponseDto;
   onRetry?: () => void;
@@ -70,10 +73,14 @@ export function LabsMainContent({
   }
 
   if (status === "error") {
+    const consumer = mapLabsLoadErrorToConsumer({
+      error: error ?? null,
+      requestId: requestId ?? null,
+    });
     return (
       <ErrorState
-        message={error ?? "Could not load labs"}
-        requestId={requestId ?? null}
+        title={consumer.title}
+        message={consumer.message}
         testID="labs-error"
         {...(onRetry ? { onRetry } : {})}
       />

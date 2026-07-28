@@ -77,11 +77,9 @@ async function writeLabPdfToStorage(args: {
 }
 
 async function loadMetricResults(uid: string): Promise<LabMetricResultDto[]> {
-  const snap = await userCollection(uid, "labResults")
-    .where("schemaVersion", "==", 2)
-    .orderBy("createdAt", "desc")
-    .limit(500)
-    .get();
+  // Equality-only query avoids a composite index (schemaVersion + createdAt).
+  // Sort newest-first in memory so zero-record and populated users both succeed.
+  const snap = await userCollection(uid, "labResults").where("schemaVersion", "==", 2).limit(500).get();
 
   const items: LabMetricResultDto[] = [];
   for (const doc of snap.docs) {
@@ -91,6 +89,8 @@ async function loadMetricResults(uid: string): Promise<LabMetricResultDto[]> {
     const validated = labMetricResultDtoSchema.safeParse(normalized);
     if (validated.success) items.push(validated.data);
   }
+
+  items.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   return items;
 }
 
@@ -458,7 +458,6 @@ router.get(
     const snap = await userCollection(uid, "labResults")
       .where("metricKey", "==", metricKey)
       .where("schemaVersion", "==", 2)
-      .orderBy("collectedAt", "desc")
       .limit(50)
       .get();
 
@@ -469,6 +468,11 @@ router.get(
       const validated = labMetricResultDtoSchema.safeParse({ ...r, id: doc.id, createdAt });
       if (validated.success) history.push(validated.data);
     }
+    history.sort((a, b) => {
+      const aKey = String(a.collectedAt ?? a.createdAt ?? "");
+      const bKey = String(b.collectedAt ?? b.createdAt ?? "");
+      return bKey.localeCompare(aKey);
+    });
 
     const latest = history[0] ?? null;
     const payload = {

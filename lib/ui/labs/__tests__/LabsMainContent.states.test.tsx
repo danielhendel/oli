@@ -12,9 +12,7 @@ describe("LabsMainContent states", () => {
   it("shows loading while partial", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(
-        <LabsMainContent status="partial" onPressMetric={jest.fn()} />,
-      );
+      tree = renderer.create(<LabsMainContent status="partial" onPressMetric={jest.fn()} />);
     });
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("Loading labs…");
@@ -40,15 +38,15 @@ describe("LabsMainContent states", () => {
     expect(str).not.toMatch(/LDL|HDL|HbA1c/i);
   });
 
-  it("shows error with retry and does not remain loading", () => {
+  it("maps errors to consumer copy and never renders HTTP status or request ID", () => {
     const onRetry = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <LabsMainContent
           status="error"
-          error="Network failed"
-          requestId="rid-1"
+          error="HTTP 500"
+          requestId="rid-secret-123"
           onRetry={onRetry}
           onPressMetric={jest.fn()}
         />,
@@ -56,15 +54,20 @@ describe("LabsMainContent states", () => {
     });
     const str = JSON.stringify(tree.toJSON());
     expect(str).toContain("labs-error");
-    expect(str).toContain("Network failed");
+    expect(str).toContain("Unable to load labs");
+    expect(str).toContain("Your lab reports could not be loaded right now.");
     expect(str).toContain("Try again");
     expect(str).not.toContain("Loading labs…");
+    expect(str).not.toMatch(/HTTP\s*500/i);
+    expect(str).not.toContain("rid-secret-123");
+    expect(str).not.toMatch(/Request ID/i);
+    expect(str).not.toContain("/users/me/labs");
 
     const btn = tree.root.findByProps({ accessibilityLabel: "Try again" });
     act(() => {
       btn.props.onPress();
     });
-    expect(onRetry).toHaveBeenCalled();
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it("renders category cards when structured values exist", () => {

@@ -33,9 +33,7 @@ export default function LabsHomeScreen() {
       <ModuleScreenShell title="Labs" hideTitleChrome>
         <LabsMainContent
           status={summary.status}
-          {...(summary.status === "error"
-            ? { error: summary.error, requestId: summary.requestId, onRetry: () => summary.refetch() }
-            : {})}
+          {...(summary.status === "error" ? { onRetry: () => summary.refetch() } : {})}
           {...(summary.status === "ready" ? { data: summary.data } : {})}
           onPressMetric={(metricKey) => router.push(`/(app)/labs/metric/${metricKey}`)}
         />
