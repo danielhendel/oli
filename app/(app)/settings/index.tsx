@@ -6,6 +6,8 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 import { getModuleSections } from "@/lib/modules/moduleSectionRoutes";
 import { getSectionReadiness } from "@/lib/modules/moduleReadiness";
+import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
+import { SECONDARY_EXPLORE_DESTINATIONS } from "@/lib/navigation/secondaryExploreDestinations";
 
 type Section = ReturnType<typeof getModuleSections>[number];
 
@@ -54,6 +56,22 @@ export default function SettingsHomeScreen() {
             />
           );
         })}
+
+        {isPrimaryNavHealthV1Enabled() ? (
+          <>
+            <Text style={styles.sectionTitle} testID="settings-explore-section">
+              Explore
+            </Text>
+            {SECONDARY_EXPLORE_DESTINATIONS.map((dest) => (
+              <ModuleSectionLinkRow
+                key={dest.id}
+                title={dest.label}
+                disabled={false}
+                onPress={() => router.push(dest.href as never)}
+              />
+            ))}
+          </>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Data integrity</Text>
         <ModuleSectionLinkRow

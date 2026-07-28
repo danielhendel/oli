@@ -3,6 +3,8 @@ import renderer from "react-test-renderer";
 
 import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 import { ManageMenuTriggerButton } from "@/components/navigation/ManageMenuTriggerButton";
+import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
+import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 
 const mockOpenManage = jest.fn();
 
@@ -28,6 +30,11 @@ jest.mock("@expo/vector-icons", () => ({
 describe("ManageMenuTriggerButton", () => {
   beforeEach(() => {
     mockOpenManage.mockReset();
+    setPrimaryNavHealthV1EnabledForTests(false);
+  });
+
+  afterEach(() => {
+    setPrimaryNavHealthV1EnabledForTests(null);
   });
 
   it("uses the shared Manage hub accessibility hint", () => {
@@ -39,6 +46,19 @@ describe("ManageMenuTriggerButton", () => {
     const button = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
     expect(button.props.accessibilityLabel).toBe("Open navigation menu");
     for (const item of MANAGE_HUB_ITEMS) {
+      expect(button.props.accessibilityHint).toContain(item.label);
+    }
+  });
+
+  it("uses Health menu a11y when health primary nav is enabled", () => {
+    setPrimaryNavHealthV1EnabledForTests(true);
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(<ManageMenuTriggerButton />);
+    });
+    const button = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
+    expect(button.props.accessibilityLabel).toBe("Open Health menu");
+    for (const item of HEALTH_HUB_ITEMS) {
       expect(button.props.accessibilityHint).toContain(item.label);
     }
   });

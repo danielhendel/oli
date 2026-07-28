@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useManageNavigation } from "@/components/navigation/ManageNavigationContext";
 import { manageMenuAccessibilityHint } from "@/components/navigation/manageMenuAccessibility";
+import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
 import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
@@ -34,7 +35,9 @@ export function ManageMenuTriggerButton({
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         hitSlop={HIT_SLOP}
         accessibilityRole="button"
-        accessibilityLabel="Open navigation menu"
+        accessibilityLabel={
+          isPrimaryNavHealthV1Enabled() ? "Open Health menu" : "Open navigation menu"
+        }
         accessibilityHint={manageMenuAccessibilityHint()}
       >
         <Ionicons name="menu" size={ICON_SIZE} color={UI_TEXT_PRIMARY} />
