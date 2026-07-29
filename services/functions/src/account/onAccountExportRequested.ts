@@ -4,6 +4,10 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import {
+  DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
+  assembleDocumentExportSection,
+} from "./assembleDocumentExportSection";
 
 const TOPIC = "exports.requests.v1";
 
@@ -48,6 +52,7 @@ async function readCollectionAll(
  * - idempotent
  * - observable lifecycle (queued → in_progress → completed|failed)
  * - writes GCS artifact + pointer in Firestore
+ * - includes Document OS + Labs upload metadata (safe shapes)
  *
  * NOTE:
  * Lifecycle doc is stored outside /users/{uid} so account deletion cannot resurrect user subtree.
@@ -111,7 +116,16 @@ export const onAccountExportRequested = onMessagePublished(
       const profileMainSnap = await db.doc(`users/${uid}/profile/main`).get();
       const profileMain = profileMainSnap.exists ? profileMainSnap.data() : null;
 
-      const collections = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "healthScores", "healthSignals"] as const;
+      const collections = [
+        "rawEvents",
+        "events",
+        "dailyFacts",
+        "insights",
+        "intelligenceContext",
+        "healthScores",
+        "healthSignals",
+        ...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
+      ] as const;
 
       const data: Record<string, unknown> = {
         profile: { general: profileGeneral, main: profileMain },
@@ -121,6 +135,26 @@ export const onAccountExportRequested = onMessagePublished(
       for (const col of collections) {
         (data.collections as Record<string, unknown>)[col] = await readCollectionAll(db, `users/${uid}/${col}`);
       }
+
+      const cols = data.collections as Record<string, Record<string, unknown>[]>;
+      const documentSection = assembleDocumentExportSection({
+        documents: cols.documents ?? [],
+        jobs: cols.documentIngestionJobs ?? [],
+        extractions: cols.documentExtractions ?? [],
+        labUploads: cols.labUploads ?? [],
+      });
+
+      cols.documents = documentSection.documents as unknown as Record<string, unknown>[];
+      cols.labUploads = documentSection.labUploads as unknown as Record<string, unknown>[];
+      cols.documentIngestionJobs = documentSection.jobs;
+      cols.documentExtractions = documentSection.extractions;
+      data.documentsManifest = {
+        schemaVersion: 1,
+        originalFileRelationships: documentSection.documents.map((d) => d.originalFile),
+        legacyLabOriginalFileRelationships: documentSection.labUploads.map((d) => d.originalFile),
+        incomplete: documentSection.incomplete,
+        note: "Original binary packaging uses packageRelativePath relationships; bytes are not embedded in this JSON artifact.",
+      };
 
       const artifact = {
         schemaVersion: 1,

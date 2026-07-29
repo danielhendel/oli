@@ -65,17 +65,36 @@ function makeDocRef(store: Map<string, Record<string, unknown>>, id: string) {
 describe("Document Ingestion OS routes", () => {
   let server: http.Server;
   let baseUrl: string;
+  let storesByUid: Map<string, {
+    documents: Map<string, Record<string, unknown>>;
+    jobs: Map<string, Record<string, unknown>>;
+    labUploads: Map<string, Record<string, unknown>>;
+    extracted: Map<string, Record<string, unknown>>;
+  }>;
   let documentsStore: Map<string, Record<string, unknown>>;
-  let jobsStore: Map<string, Record<string, unknown>>;
   let labUploadsStore: Map<string, Record<string, unknown>>;
-  let extractedStore: Map<string, Record<string, unknown>>;
   let autoId = 0;
+  let requestUid = "user_123";
+
+  function ensureUidStores(uid: string) {
+    let bucket = storesByUid.get(uid);
+    if (!bucket) {
+      bucket = {
+        documents: new Map(),
+        jobs: new Map(),
+        labUploads: new Map(),
+        extracted: new Map(),
+      };
+      storesByUid.set(uid, bucket);
+    }
+    return bucket;
+  }
 
   beforeAll(async () => {
     const app = express();
     app.use(express.json({ limit: "2mb" }));
     app.use((req, _res, next) => {
-      (req as unknown as { uid: string }).uid = "user_123";
+      (req as unknown as { uid: string }).uid = requestUid;
       next();
     });
     app.use("/users/me", usersMeRoutes);
@@ -90,21 +109,23 @@ describe("Document Ingestion OS routes", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    documentsStore = new Map();
-    jobsStore = new Map();
-    labUploadsStore = new Map();
-    extractedStore = new Map();
+    storesByUid = new Map();
+    const owner = ensureUidStores("user_123");
+    documentsStore = owner.documents;
+    labUploadsStore = owner.labUploads;
     autoId = 0;
+    requestUid = "user_123";
 
-    (userCollection as jest.Mock).mockImplementation((_uid: string, col: string) => {
+    (userCollection as jest.Mock).mockImplementation((uid: string, col: string) => {
+      const bucket = ensureUidStores(uid);
       const resolvedStore =
         col === "documents"
-          ? documentsStore
+          ? bucket.documents
           : col === "documentIngestionJobs"
-            ? jobsStore
+            ? bucket.jobs
             : col === "labUploads"
-              ? labUploadsStore
-              : extractedStore;
+              ? bucket.labUploads
+              : bucket.extracted;
 
       return {
         doc: (id?: string) => {
@@ -321,5 +342,82 @@ describe("Document Ingestion OS routes", () => {
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error.code).toBe("DOMAIN_DEFERRED");
+  });
+
+  it("rejects deferred scans and medical_history upload intents", async () => {
+    for (const domain of ["scans", "medical_history"] as const) {
+      const res = await fetch(`${baseUrl}/users/me/documents/upload-intent`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          domain,
+          originalFilename: "report.pdf",
+          mediaType: "application/pdf",
+          byteSize: 1200,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error.code).toBe("DOMAIN_DEFERRED");
+    }
+  });
+
+  it("does not let an unrelated user read another user's document", async () => {
+    documentsStore.set("doc_owner_only", {
+      schemaVersion: "1.0.0",
+      id: "doc_owner_only",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "synthetic-owner.pdf",
+      safeDisplayFilename: "synthetic-owner.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "d".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_owner_only/original",
+      uploadedAt: "2026-07-01T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    requestUid = "user_other";
+    const res = await fetch(`${baseUrl}/users/me/documents/doc_owner_only`);
+    expect(res.status).toBe(404);
+    const json = await res.json();
+    expect(json.error.code).toBe("NOT_FOUND");
+    expect(JSON.stringify(json)).not.toContain("synthetic-owner.pdf");
+    expect(JSON.stringify(json)).not.toContain("storageObjectId");
+  });
+
+  it("does not let an unrelated user delete another user's document", async () => {
+    documentsStore.set("doc_owner_delete", {
+      schemaVersion: "1.0.0",
+      id: "doc_owner_delete",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "synthetic-owner-delete.pdf",
+      safeDisplayFilename: "synthetic-owner-delete.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "e".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_owner_delete/original",
+      uploadedAt: "2026-07-01T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    requestUid = "user_other";
+    const res = await fetch(`${baseUrl}/users/me/documents/doc_owner_delete`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(404);
+    expect(documentsStore.has("doc_owner_delete")).toBe(true);
   });
 });
