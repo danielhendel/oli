@@ -18,6 +18,15 @@
   "include": [
     "src/**/*.ts",
     "../../lib/labs/**/*.ts",
+    "../../lib/data/documents/documentTypes.ts",
+    "../../lib/data/documents/documentStatus.ts",
+    "../../lib/data/documents/documentStateMachine.ts",
+    "../../lib/data/documents/documentValidation.ts",
+    "../../lib/data/documents/documentClassification.ts",
+    "../../lib/data/documents/documentExtraction.ts",
+    "../../lib/data/documents/documentParser.ts",
+    "../../lib/data/documents/documentStorage.ts",
+    "../../lib/data/documents/mapLegacyLabUpload.ts",
     "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
   ],
   "exclude": [

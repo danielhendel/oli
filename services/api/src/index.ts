@@ -95,6 +95,8 @@ app.use(
 // Optional hardening: prevent accidental huge payloads (exercise media uses larger POST bodies).
 const jsonParserDefault = express.json({ limit: "1mb" });
 const jsonParserExerciseMedia = express.json({ limit: "35mb" });
+/** Document complete-upload may include base64 file bodies (Document OS v1 max 20 MiB → ~27 MiB base64). */
+const jsonParserDocumentUpload = express.json({ limit: "28mb" });
 
 /** Match media POST regardless of how `req.path` is normalized behind proxies (35mb JSON body). */
 function isExerciseDefinitionMediaPost(req: Request): boolean {
@@ -103,9 +105,19 @@ function isExerciseDefinitionMediaPost(req: Request): boolean {
   return /\/exercise-definitions\/.+\/media$/.test(pathname);
 }
 
+/** Document Ingestion OS complete-upload (authenticated, large JSON body). */
+function isDocumentCompleteUploadPost(req: Request): boolean {
+  if (req.method !== "POST") return false;
+  const pathname = (req.originalUrl ?? req.url ?? "").split("?")[0] ?? "";
+  return /\/users\/me\/documents\/[^/]+\/complete-upload$/.test(pathname);
+}
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (isExerciseDefinitionMediaPost(req)) {
     return jsonParserExerciseMedia(req, res, next);
+  }
+  if (isDocumentCompleteUploadPost(req)) {
+    return jsonParserDocumentUpload(req, res, next);
   }
   return jsonParserDefault(req, res, next);
 });
