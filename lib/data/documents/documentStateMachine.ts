@@ -3,7 +3,7 @@
  * Invalid transitions fail closed.
  */
 
-import type { DocumentIngestionJobState, DocumentRecordStatus } from "@/lib/contracts";
+import type { DocumentIngestionJobState, DocumentRecordStatus } from "@oli/contracts";
 
 export const DOCUMENT_INGESTION_JOB_STATES = [
   "created",

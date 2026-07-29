@@ -95,7 +95,7 @@ describe("validateDocumentUpload", () => {
   });
 
   it("rejects oversized files using DOCUMENT_MAX_BYTE_SIZE", () => {
-    expect(DOCUMENT_MAX_BYTE_SIZE).toBe(20 * 1024 * 1024);
+    expect(DOCUMENT_MAX_BYTE_SIZE).toBe(5 * 1024 * 1024);
     expect(
       issueCodes(
         baseInput({
@@ -132,13 +132,28 @@ describe("validateDocumentUpload", () => {
     );
   });
 
-  it("rejects deferred domains such as dna", () => {
+  it("rejects deferred domains such as dna, scans, and medical_history", () => {
     expect(
       issueCodes(
         baseInput({
           domain: "dna",
           documentType: "dna_report",
-          
+        }),
+      ),
+    ).toContain("DOMAIN_DEFERRED");
+    expect(
+      issueCodes(
+        baseInput({
+          domain: "scans",
+          documentType: "dexa_report",
+        }),
+      ),
+    ).toContain("DOMAIN_DEFERRED");
+    expect(
+      issueCodes(
+        baseInput({
+          domain: "medical_history",
+          documentType: "medical_record",
         }),
       ),
     ).toContain("DOMAIN_DEFERRED");

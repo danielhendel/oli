@@ -8,7 +8,7 @@ import type {
   DocumentExtractionResult,
   DocumentType,
   UserDocumentRecord,
-} from "@/lib/contracts";
+} from "@oli/contracts";
 
 export type DocumentParserInput = {
   documentId: string;

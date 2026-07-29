@@ -9,7 +9,7 @@ import type {
   DocumentRecordStatus,
   LabUploadDto,
   LabUploadStatus,
-} from "@/lib/contracts";
+} from "@oli/contracts";
 import { documentCanRetry } from "./documentStatus";
 
 function mapLabStatus(status: LabUploadStatus): DocumentRecordStatus {

@@ -3,8 +3,8 @@
  * Never silently upgrades unknown content to a trusted type.
  */
 
-import type { DocumentClassificationResult, DocumentDomain, DocumentType } from "@/lib/contracts";
-import { DOCUMENT_SCHEMA_VERSION } from "@/lib/contracts";
+import type { DocumentClassificationResult, DocumentDomain, DocumentType } from "@oli/contracts";
+import { DOCUMENT_SCHEMA_VERSION } from "@oli/contracts";
 import { defaultDocumentTypeForDomain, documentTypeAllowedForDomain } from "./documentTypes";
 
 export const DOCUMENT_CLASSIFIER_VERSION = "1.0.0" as const;

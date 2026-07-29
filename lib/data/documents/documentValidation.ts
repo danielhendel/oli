@@ -3,14 +3,18 @@
  * Magic-byte checks and size/MIME/filename rules. No I/O.
  */
 
-import type { DocumentDomain, DocumentMediaType, DocumentType } from "@/lib/contracts";
+import type { DocumentDomain, DocumentMediaType, DocumentType } from "@oli/contracts";
 import {
   documentTypeAllowedForDomain,
+  DOCUMENT_UPLOAD_DEFERRED_DOMAINS,
   isDocumentUploadEnabledDomain,
 } from "./documentTypes";
 
-/** Max original file size for Document OS v1 (20 MiB). Documented + tested. */
-export const DOCUMENT_MAX_BYTE_SIZE = 20 * 1024 * 1024;
+/**
+ * Max original file size for Document OS v1 base64 JSON bridge (5 MiB).
+ * Production target remains streaming/signed upload; do not raise without transport proof.
+ */
+export const DOCUMENT_MAX_BYTE_SIZE = 5 * 1024 * 1024;
 
 /** Reject empty / trivially tiny payloads. */
 export const DOCUMENT_MIN_BYTE_SIZE = 32;
@@ -126,7 +130,7 @@ export function validateDocumentUpload(input: DocumentUploadValidationInput): Do
   }
 
   if (!isDocumentUploadEnabledDomain(input.domain)) {
-    if (input.domain === "dna" || input.domain === "medications" || input.domain === "supplements") {
+    if ((DOCUMENT_UPLOAD_DEFERRED_DOMAINS as readonly string[]).includes(input.domain)) {
       issues.push({
         code: "DOMAIN_DEFERRED",
         message: "Document upload is not enabled for this domain yet",

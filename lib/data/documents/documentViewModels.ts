@@ -7,7 +7,7 @@ import type {
   DocumentDetailDto,
   DocumentListItemDto,
   DocumentRecordStatus,
-} from "@/lib/contracts";
+} from "@oli/contracts";
 import { documentStatusLabel } from "./documentStatus";
 
 export const DOCUMENT_DETAIL_FORBIDDEN_VM_KEYS = [

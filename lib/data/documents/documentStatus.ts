@@ -2,7 +2,7 @@
  * Document status presentation helpers (pure).
  */
 
-import type { DocumentRecordStatus } from "@/lib/contracts";
+import type { DocumentRecordStatus } from "@oli/contracts";
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentRecordStatus, string> = {
   uploading: "Uploading",

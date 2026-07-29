@@ -3,6 +3,9 @@
     "rules": "services/functions/firestore.rules",
     "indexes": "services/functions/firestore.indexes.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": {
     "source": "services/functions",
     "predeploy": [

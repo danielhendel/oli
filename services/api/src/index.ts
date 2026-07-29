@@ -95,8 +95,8 @@ app.use(
 // Optional hardening: prevent accidental huge payloads (exercise media uses larger POST bodies).
 const jsonParserDefault = express.json({ limit: "1mb" });
 const jsonParserExerciseMedia = express.json({ limit: "35mb" });
-/** Document complete-upload may include base64 file bodies (Document OS v1 max 20 MiB → ~27 MiB base64). */
-const jsonParserDocumentUpload = express.json({ limit: "28mb" });
+/** Document complete-upload may include base64 file bodies (Document OS v1 bridge max 5 MiB → ~7 MiB base64). */
+const jsonParserDocumentUpload = express.json({ limit: "8mb" });
 
 /** Match media POST regardless of how `req.path` is normalized behind proxies (35mb JSON body). */
 function isExerciseDefinitionMediaPost(req: Request): boolean {

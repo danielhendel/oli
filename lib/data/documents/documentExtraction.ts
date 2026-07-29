@@ -7,7 +7,7 @@ import {
   documentExtractionResultSchema,
   type DocumentExtractionResult,
   type ExtractedDocumentField,
-} from "@/lib/contracts";
+} from "@oli/contracts";
 
 export type ExtractionEnvelopeValidationIssue = {
   code:

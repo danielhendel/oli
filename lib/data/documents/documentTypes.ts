@@ -3,7 +3,7 @@
  * No React, Firebase, or network I/O.
  */
 
-import type { DocumentDomain, DocumentType } from "@/lib/contracts";
+import type { DocumentDomain, DocumentType } from "@oli/contracts";
 
 export const DOCUMENT_DOMAINS = [
   "labs",
@@ -26,8 +26,8 @@ export const DOCUMENT_TYPES = [
   "unknown",
 ] as const satisfies readonly DocumentType[];
 
-/** Domains allowed to receive uploads in Phase 3C Document OS v1. */
-export const DOCUMENT_UPLOAD_ENABLED_DOMAINS = ["labs", "scans", "medical_history"] as const;
+/** Domains allowed to receive uploads in Phase 3C Document OS v1 (lifecycle-gated). */
+export const DOCUMENT_UPLOAD_ENABLED_DOMAINS = ["labs"] as const;
 
 export type DocumentUploadEnabledDomain = (typeof DOCUMENT_UPLOAD_ENABLED_DOMAINS)[number];
 
@@ -35,8 +35,18 @@ export function isDocumentUploadEnabledDomain(domain: DocumentDomain): domain is
   return (DOCUMENT_UPLOAD_ENABLED_DOMAINS as readonly string[]).includes(domain);
 }
 
-/** Domains intentionally deferred (privacy / retention incomplete). */
-export const DOCUMENT_UPLOAD_DEFERRED_DOMAINS = ["dna", "medications", "supplements"] as const;
+/**
+ * Domains intentionally deferred until export/delete + production upload transport are proven.
+ * Scans / Medical History remain UI-listable via placeholders when flag is on, but uploads fail closed.
+ */
+export const DOCUMENT_UPLOAD_DEFERRED_DOMAINS = [
+  "dna",
+  "medications",
+  "supplements",
+  "scans",
+  "medical_history",
+  "other_health_record",
+] as const;
 
 const DOMAIN_DEFAULT_DOCUMENT_TYPE: Record<DocumentDomain, DocumentType> = {
   labs: "lab_report",
