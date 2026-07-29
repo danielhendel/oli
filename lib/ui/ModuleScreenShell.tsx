@@ -1,7 +1,7 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet, type RefreshControlProps } from "react-native";
 
-import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { UI_SCREEN_BG, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 
 export type ModuleScreenShellProps = {
@@ -115,10 +115,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "900",
+    color: UI_TEXT_PRIMARY,
   },
   subtitle: {
     fontSize: 16,
-    opacity: 0.7,
+    color: UI_TEXT_SECONDARY,
   },
   content: {
     gap: 12,

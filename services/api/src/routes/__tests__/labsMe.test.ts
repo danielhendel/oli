@@ -74,8 +74,19 @@ describe("GET /users/me/labs/summary", () => {
   });
 
   it("returns empty summary when no metric results", async () => {
+    let labResultsOrderByCalls = 0;
     (userCollection as jest.Mock).mockImplementation((_uid: string, col: string) => {
-      if (col === "labResults") return makeQueryRef([]);
+      if (col === "labResults") {
+        const chain: QueryRef = {
+          where: () => chain,
+          orderBy: () => {
+            labResultsOrderByCalls += 1;
+            return chain;
+          },
+          limit: () => ({ get: async () => ({ docs: [] }) }),
+        };
+        return chain;
+      }
       if (col === "labUploads") {
         return {
           get: async () => ({ docs: [], size: 0 }),
@@ -90,6 +101,8 @@ describe("GET /users/me/labs/summary", () => {
     expect(json.ok).toBe(true);
     expect(json.uploadCount).toBe(0);
     expect(json.categories.length).toBeGreaterThan(0);
+    // Equality-only load avoids composite index (schemaVersion + createdAt).
+    expect(labResultsOrderByCalls).toBe(0);
   });
 });
 

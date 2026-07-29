@@ -9,6 +9,7 @@ export const labUploadStatusSchema = z.enum([
   "processing",
   "needs_review",
   "parsed",
+  "unsupported",
   "failed",
 ]);
 

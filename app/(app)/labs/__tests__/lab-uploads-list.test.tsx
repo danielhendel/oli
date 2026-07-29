@@ -44,7 +44,7 @@ describe("LabsUploadsListScreen", () => {
     const row = tree!.root.findByProps({ testID: "lab-upload-row-up1" });
     expect(row).toBeTruthy();
     const text = row.findAllByType(require("react-native").Text).map((t) => t.props.children).join(" ");
-    expect(text).toContain("Parsed");
+    expect(text).toContain("Structured");
     expect(text).toContain("labs.pdf");
 
     act(() => {

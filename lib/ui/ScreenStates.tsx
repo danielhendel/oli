@@ -44,6 +44,7 @@ export type ErrorStateProps = {
   isContractError?: boolean;
   /** `inline` avoids flex:1 so the block can sit inside cards */
   variant?: "screen" | "inline";
+  testID?: string;
 };
 
 export function ErrorState({
@@ -54,6 +55,7 @@ export function ErrorState({
   secondaryAction,
   isContractError = false,
   variant = "screen",
+  testID,
 }: ErrorStateProps) {
   const displayTitle = isContractError ? "Data validation failed" : title;
   const displayMessage = isContractError
@@ -61,7 +63,10 @@ export function ErrorState({
     : message;
 
   return (
-    <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
+    <View
+      style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}
+      testID={testID}
+    >
       <Text style={styles.errorTitle}>{displayTitle}</Text>
       <Text style={styles.errorMessage}>{displayMessage}</Text>
       {__DEV__ && requestId ? (
@@ -94,11 +99,15 @@ export function ErrorState({
 export type LoadingStateProps = {
   message?: string;
   variant?: "screen" | "inline";
+  testID?: string;
 };
 
-export function LoadingState({ message = "Loading…", variant = "screen" }: LoadingStateProps) {
+export function LoadingState({ message = "Loading…", variant = "screen", testID }: LoadingStateProps) {
   return (
-    <View style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}>
+    <View
+      style={variant === "inline" ? styles.stateContainerInline : styles.stateContainer}
+      testID={testID}
+    >
       <ActivityIndicator size="small" color={UI_TEXT_PRIMARY} />
       <Text style={styles.loadingMessage}>{message}</Text>
     </View>
@@ -110,11 +119,12 @@ export type EmptyStateProps = {
   description?: string;
   /** Sprint 4 — Optional explanatory text (e.g. "Try a different date range") */
   explanation?: string;
+  testID?: string;
 };
 
-export function EmptyState({ title, description, explanation }: EmptyStateProps) {
+export function EmptyState({ title, description, explanation, testID }: EmptyStateProps) {
   return (
-    <View style={styles.stateContainer}>
+    <View style={styles.stateContainer} testID={testID}>
       <Text style={styles.emptyTitle}>{title}</Text>
       {description ? (
         <Text style={styles.emptyDescription}>{description}</Text>

@@ -13,6 +13,8 @@ type State =
 
 export type UseLabsSummaryOptions = { enabled?: boolean } & GetOptions;
 
+const EMPTY_SUMMARY: LabsSummaryResponseDto = { ok: true, categories: [], uploadCount: 0 };
+
 export function useLabsSummary(opts?: UseLabsSummaryOptions): State & { refetch: (opts?: GetOptions) => void } {
   const { user, initializing, getIdToken } = useAuth();
   const enabled = opts?.enabled ?? true;
@@ -20,6 +22,10 @@ export function useLabsSummary(opts?: UseLabsSummaryOptions): State & { refetch:
   optsRef.current = opts;
   const reqSeq = useRef(0);
   const [state, setState] = useState<State>({ status: "partial" });
+  const stateRef = useRef<State>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const fetchOnce = useCallback(
     async (refetchOpts?: GetOptions) => {
@@ -29,42 +35,52 @@ export function useLabsSummary(opts?: UseLabsSummaryOptions): State & { refetch:
       };
 
       if (!enabled) {
-        safeSet({
-          status: "ready",
-          data: { ok: true, categories: [], uploadCount: 0 },
-        });
+        safeSet({ status: "ready", data: EMPTY_SUMMARY });
         return;
       }
 
       if (initializing || !user) {
-        if (state.status !== "ready") safeSet({ status: "partial" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
-      const token = await getIdToken(false);
+      let token: string | null;
+      try {
+        token = await getIdToken(false);
+      } catch {
+        if (seq !== reqSeq.current) return;
+        safeSet({ status: "error", error: "Could not authenticate", requestId: null });
+        return;
+      }
       if (seq !== reqSeq.current) return;
       if (!token) {
         safeSet({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      if (state.status !== "ready") safeSet({ status: "partial" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
-      const res = await getLabsSummary(token, { ...optsRef.current, ...refetchOpts });
-      if (seq !== reqSeq.current) return;
+      try {
+        const res = await getLabsSummary(token, { ...optsRef.current, ...refetchOpts });
+        if (seq !== reqSeq.current) return;
 
-      const outcome = truthOutcomeFromApiResult(res);
-      if (outcome.status === "ready") {
-        safeSet({ status: "ready", data: outcome.data });
-        return;
+        const outcome = truthOutcomeFromApiResult(res);
+        if (outcome.status === "ready") {
+          safeSet({ status: "ready", data: outcome.data });
+          return;
+        }
+        if (outcome.status === "missing") {
+          safeSet({ status: "ready", data: EMPTY_SUMMARY });
+          return;
+        }
+        safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
+      } catch (err: unknown) {
+        if (seq !== reqSeq.current) return;
+        const message = err instanceof Error ? err.message : "Could not load labs";
+        safeSet({ status: "error", error: message, requestId: null });
       }
-      if (outcome.status === "missing") {
-        safeSet({ status: "ready", data: { ok: true, categories: [], uploadCount: 0 } });
-        return;
-      }
-      safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
-    [enabled, getIdToken, initializing, state.status, user],
+    [enabled, getIdToken, initializing, user],
   );
 
   useEffect(() => {

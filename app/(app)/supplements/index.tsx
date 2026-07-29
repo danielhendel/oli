@@ -21,9 +21,7 @@ export default function SupplementsPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Supplements"
-        description="Keep a current record of supplements, vitamins, and performance products you use."
-        emptyTitle="No supplements added yet"
-        emptyDescription="Your supplements will appear here once added."
+        emptyDescription="This record system is not implemented yet. Supplements cannot be stored here until persistence ships."
         icon="leaf-outline"
         actionLabel="Add Supplement"
         actionDisabled

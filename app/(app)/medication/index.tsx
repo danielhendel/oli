@@ -21,9 +21,7 @@ export default function MedicationPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Medication"
-        description="Keep a current record of medications you take and the instructions associated with them."
-        emptyTitle="No medications added yet"
-        emptyDescription="Your medications will appear here once added."
+        emptyDescription="This record system is not implemented yet. Medications cannot be stored here until persistence ships."
         icon="medical-outline"
         actionLabel="Add Medication"
         actionDisabled

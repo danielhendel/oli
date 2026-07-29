@@ -29,51 +29,74 @@ import ScansPlaceholderScreen from "../scans/index";
 import MedicationPlaceholderScreen from "../medication/index";
 import SupplementsPlaceholderScreen from "../supplements/index";
 import MedicalHistoryPlaceholderScreen from "../medical-history/index";
+import DnaPlaceholderScreen from "../dna/index";
+import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
-describe("temporary Health record landing pages", () => {
-  it("renders Scans empty state without fabricated records", async () => {
+function assertSharedPlaceholder(str: string, opts: { testID: string; action: string }) {
+  expect(str).toContain(opts.testID);
+  expect(str).toContain("Not set up yet");
+  expect(str).toContain("This record system is not implemented yet");
+  expect(str).toContain(opts.action);
+  expect(str).toContain("Coming soon");
+  expect(str).toContain("health-record-placeholder-empty-title");
+  // No ModuleScreenShell page title chrome (fontWeight 900 block) for these routes.
+  expect(str).not.toMatch(/"fontWeight":"900"/);
+  expect(str).toContain(UI_TEXT_PRIMARY);
+  expect(str).toContain(UI_TEXT_SECONDARY);
+}
+
+describe("Health record placeholder pages", () => {
+  it("renders Scans with shared placeholder and no duplicate page heading", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<ScansPlaceholderScreen />);
     });
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Scans");
-    expect(str).toContain("No scans added yet");
-    expect(str).toContain("Your uploaded scans and imaging reports will appear here.");
-    expect(str).toContain("Add Scan");
-    expect(str).toContain("Coming soon");
+    assertSharedPlaceholder(str, { testID: "scans-placeholder", action: "Add Scan" });
+    expect(str).not.toContain("No scans added yet");
     expect(str).not.toMatch(/DEXA|MRI|CT scan result/i);
   });
 
-  it("renders Medication empty state", async () => {
+  it("renders Medication with shared placeholder", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<MedicationPlaceholderScreen />);
     });
-    const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Medication");
-    expect(str).toContain("No medications added yet");
-    expect(str).toContain("Add Medication");
+    assertSharedPlaceholder(JSON.stringify(test.toJSON()), {
+      testID: "medication-placeholder",
+      action: "Add Medication",
+    });
   });
 
-  it("renders Supplements empty state", async () => {
+  it("renders Supplements with shared placeholder", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<SupplementsPlaceholderScreen />);
     });
-    const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Supplements");
-    expect(str).toContain("No supplements added yet");
-    expect(str).toContain("Add Supplement");
+    assertSharedPlaceholder(JSON.stringify(test.toJSON()), {
+      testID: "supplements-placeholder",
+      action: "Add Supplement",
+    });
   });
 
-  it("renders Medical History temporary page (audit: route was missing)", async () => {
+  it("renders Medical History with shared placeholder", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<MedicalHistoryPlaceholderScreen />);
     });
+    assertSharedPlaceholder(JSON.stringify(test.toJSON()), {
+      testID: "medical-history-placeholder",
+      action: "Add Medical History",
+    });
+  });
+
+  it("renders DNA with the same shared placeholder contract", async () => {
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(<DnaPlaceholderScreen />);
+    });
     const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Medical History");
-    expect(str).toContain("No medical history added yet");
+    assertSharedPlaceholder(str, { testID: "dna-placeholder", action: "Add DNA" });
+    expect(str).not.toContain("DNA insights coming soon");
   });
 });

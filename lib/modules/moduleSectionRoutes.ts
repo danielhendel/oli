@@ -55,6 +55,7 @@ export const MODULE_SECTIONS = [
   { id: "settings.units", moduleId: "settings", title: "Units", href: "/(app)/settings/units" },
   { id: "settings.devices", moduleId: "settings", title: "Devices", href: "/(app)/settings/devices" },
   { id: "settings.dataSources", moduleId: "settings", title: "Data sources", href: "/(app)/settings/data-sources" },
+  { id: "settings.yourData", moduleId: "settings", title: "Your Data", href: "/(app)/settings/your-data" },
   { id: "settings.privacy", moduleId: "settings", title: "Privacy", href: "/(app)/settings/privacy" },
 ] as const satisfies readonly ModuleSection[];
 

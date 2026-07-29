@@ -110,7 +110,7 @@ export function useLabUploadFlow() {
         fileName,
       });
 
-      // Brief processing state — server mock parser runs async.
+      // Brief processing state — server marks unsupported (fail-closed) async.
       await new Promise((r) => setTimeout(r, 800));
 
       setState({

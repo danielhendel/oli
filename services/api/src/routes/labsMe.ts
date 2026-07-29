@@ -77,11 +77,9 @@ async function writeLabPdfToStorage(args: {
 }
 
 async function loadMetricResults(uid: string): Promise<LabMetricResultDto[]> {
-  const snap = await userCollection(uid, "labResults")
-    .where("schemaVersion", "==", 2)
-    .orderBy("createdAt", "desc")
-    .limit(500)
-    .get();
+  // Equality-only query avoids a composite index (schemaVersion + createdAt).
+  // Sort newest-first in memory so zero-record and populated users both succeed.
+  const snap = await userCollection(uid, "labResults").where("schemaVersion", "==", 2).limit(500).get();
 
   const items: LabMetricResultDto[] = [];
   for (const doc of snap.docs) {
@@ -91,10 +89,16 @@ async function loadMetricResults(uid: string): Promise<LabMetricResultDto[]> {
     const validated = labMetricResultDtoSchema.safeParse(normalized);
     if (validated.success) items.push(validated.data);
   }
+
+  items.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   return items;
 }
 
-async function runMockProcessing(uid: string, uploadId: string, fileName: string): Promise<void> {
+/**
+ * Post-upload processing — fail closed when structured extraction is unavailable.
+ * Must never write mock biomarkers into labResults.
+ */
+async function runLabUploadPostProcess(uid: string, uploadId: string, fileName: string): Promise<void> {
   const uploadsCol = userCollection(uid, "labUploads");
   const uploadRef = uploadsCol.doc(uploadId);
   const now = new Date().toISOString();
@@ -102,23 +106,15 @@ async function runMockProcessing(uid: string, uploadId: string, fileName: string
   await uploadRef.update({ status: "processing" });
 
   const outcome = mockParseLabPdf({ uploadId, fileName, now });
-  const resultsCol = userCollection(uid, "labResults");
 
-  const batch = getAdmin().firestore().batch();
-  for (const result of outcome.results) {
-    batch.set(resultsCol.doc(result.id), result);
-  }
-
-  batch.update(uploadRef, {
+  await uploadRef.update({
     status: outcome.status,
-    extractedCount: outcome.results.length,
-    matchedCount: outcome.matchedCount,
-    unmatchedCount: outcome.unmatchedCount,
-    ...(outcome.labDate ? { labDate: outcome.labDate } : {}),
+    extractedCount: 0,
+    matchedCount: 0,
+    unmatchedCount: 0,
+    errorMessage: outcome.userMessage,
     updatedAt: now,
   });
-
-  await batch.commit();
 }
 
 router.get(
@@ -339,8 +335,8 @@ router.post(
 
     await docRef.create(uploadDoc);
 
-    // Mock async processing — production: queue Cloud Task / Pub/Sub job.
-    void runMockProcessing(uid, docRef.id, body.fileName).catch(() => {
+    // Structured extraction is fail-closed until a real parser ships.
+    void runLabUploadPostProcess(uid, docRef.id, body.fileName).catch(() => {
       void docRef.update({
         status: "failed",
         errorMessage: "Processing failed",
@@ -462,7 +458,6 @@ router.get(
     const snap = await userCollection(uid, "labResults")
       .where("metricKey", "==", metricKey)
       .where("schemaVersion", "==", 2)
-      .orderBy("collectedAt", "desc")
       .limit(50)
       .get();
 
@@ -473,6 +468,11 @@ router.get(
       const validated = labMetricResultDtoSchema.safeParse({ ...r, id: doc.id, createdAt });
       if (validated.success) history.push(validated.data);
     }
+    history.sort((a, b) => {
+      const aKey = String(a.collectedAt ?? a.createdAt ?? "");
+      const bKey = String(b.collectedAt ?? b.createdAt ?? "");
+      return bKey.localeCompare(aKey);
+    });
 
     const latest = history[0] ?? null;
     const payload = {
