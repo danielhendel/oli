@@ -78,13 +78,22 @@ export async function buildDocumentExportPackage(args: {
   const labUploads: SafeLabUploadExportRecord[] = [];
 
   for (const raw of args.documents) {
+    const status = typeof raw.status === "string" ? raw.status : "";
+    const retentionStatus = typeof raw.retentionStatus === "string" ? raw.retentionStatus : "";
+    // Incomplete upload intents / cancelled placeholders are not portable originals.
+    // Fail closed only when a durable document claims an original that cannot be packaged.
+    if (retentionStatus === "deleted") continue;
+    if (status === "uploading") continue;
+    const objectPathEarly = documentStorageObjectIdFromRecord(raw);
+    if (status === "failed" && !objectPathEarly) continue;
+
     const base = buildSafeDocumentExportRecord(raw);
     if (!base) {
       incomplete.push("document_metadata_invalid");
       continue;
     }
 
-    const objectPath = documentStorageObjectIdFromRecord(raw);
+    const objectPath = objectPathEarly;
     if (!objectPath || !assertObjectOwnedByUser(args.uid, objectPath)) {
       incomplete.push(
         !objectPath
@@ -127,16 +136,20 @@ export async function buildDocumentExportPackage(args: {
   }
 
   for (const raw of args.labUploads) {
+    const status = typeof raw.status === "string" ? raw.status : "";
+    const objectPathEarly = labUploadStoragePathFromRecord(raw);
+    // Legacy / incomplete lab rows without a Storage object are not portable originals.
+    if (!objectPathEarly) continue;
+    if (status === "uploading" || status === "failed") continue;
+
     const base = buildSafeLabUploadExportRecord(raw);
     if (!base) {
       incomplete.push("lab_upload_metadata_invalid");
       continue;
     }
-    const objectPath = labUploadStoragePathFromRecord(raw);
-    if (!objectPath || !assertObjectOwnedByUser(args.uid, objectPath)) {
-      incomplete.push(
-        !objectPath ? `lab_original_missing:${base.id}` : `lab_original_cross_user_blocked:${base.id}`,
-      );
+    const objectPath = objectPathEarly;
+    if (!assertObjectOwnedByUser(args.uid, objectPath)) {
+      incomplete.push(`lab_original_cross_user_blocked:${base.id}`);
       labUploads.push({
         ...base,
         originalFile: { packageRelativePath: "", includedInPackage: false },

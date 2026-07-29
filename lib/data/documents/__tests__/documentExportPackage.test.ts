@@ -161,6 +161,62 @@ describe("buildDocumentExportPackage", () => {
     expect(result.documents[0]!.originalFile.includedInPackage).toBe(false);
   });
 
+  it("skips uploading and failed placeholders without marking incomplete", async () => {
+    const bytes = pdfBytes("durable");
+    const digest = checksum(bytes);
+    const objectPath = `users/${UID}/documents/doc_ok/original`;
+    const result = await buildDocumentExportPackage({
+      uid: UID,
+      generatedAt: "2026-07-29T16:00:00.000Z",
+      requestId: "req_skip_placeholders",
+      documents: [
+        {
+          id: "doc_intent",
+          domain: "labs",
+          documentType: "lab_report",
+          originalFilename: "intent.pdf",
+          status: "uploading",
+          uploadedAt: "2026-07-28T12:00:00.000Z",
+          schemaVersion: "1.0.0",
+          byteSize: 1,
+          // missing checksum on purpose
+        },
+        {
+          id: "doc_failed",
+          domain: "labs",
+          documentType: "lab_report",
+          originalFilename: "failed.pdf",
+          status: "failed",
+          uploadedAt: "2026-07-28T12:00:00.000Z",
+          schemaVersion: "1.0.0",
+          byteSize: 1,
+          checksumSha256: "b".repeat(64),
+        },
+        {
+          id: "doc_ok",
+          domain: "labs",
+          documentType: "lab_report",
+          originalFilename: "ok.pdf",
+          status: "unsupported",
+          uploadedAt: "2026-07-28T12:00:00.000Z",
+          schemaVersion: "1.0.0",
+          byteSize: bytes.length,
+          checksumSha256: digest,
+          storageObjectId: objectPath,
+        },
+      ],
+      labUploads: [],
+      jobs: [],
+      extractions: [],
+      readObjectBytes: async (p) => (p === objectPath ? bytes : null),
+    });
+    expect(result.complete).toBe(true);
+    expect(result.incomplete).toEqual([]);
+    expect(result.documents).toHaveLength(1);
+    expect(result.documents[0]!.id).toBe("doc_ok");
+    expect(result.zipBytes.includes(bytes)).toBe(true);
+  });
+
   it("fails closed on checksum mismatch", async () => {
     const bytes = pdfBytes("mismatch");
     const result = await buildDocumentExportPackage({

@@ -30,6 +30,34 @@ function exportDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: s
   return db.collection(ACCOUNT_EXPORTS_COLLECTION).doc(id);
 }
 
+/** User-scoped status mirror (API creates users/{uid}/accountExports/{requestId}). */
+function userExportStatusRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
+  return db.collection("users").doc(uid).collection("accountExports").doc(requestId);
+}
+
+async function mirrorUserExportStatus(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  requestId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  // Consumer-safe: never mirror internal bucket/object paths into the user doc.
+  const safe: Record<string, unknown> = {
+    requestId,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (typeof patch.status === "string") safe.status = patch.status;
+  if (typeof patch.error === "string") safe.error = patch.error;
+  if (patch.completedAt != null) safe.completedAt = patch.completedAt;
+  if (patch.startedAt != null) safe.startedAt = patch.startedAt;
+  if (patch.incomplete != null) safe.incomplete = patch.incomplete;
+  if (patch.status === "completed") {
+    safe.packageAvailable = true;
+    safe.packageKind = "account.export.package.v1";
+  }
+  await userExportStatusRef(db, uid, requestId).set(safe, { merge: true });
+}
+
 async function readCollectionAll(
   db: FirebaseFirestore.Firestore,
   path: string,
@@ -98,6 +126,10 @@ export const onAccountExportRequested = onMessagePublished(
       },
       { merge: true },
     );
+    await mirrorUserExportStatus(db, uid, requestId, {
+      status: "in_progress",
+      startedAt: FieldValue.serverTimestamp(),
+    });
 
     try {
       const exportsBucketName = process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
@@ -228,6 +260,11 @@ export const onAccountExportRequested = onMessagePublished(
         },
         { merge: true },
       );
+      await mirrorUserExportStatus(db, uid, requestId, {
+        status: "completed",
+        completedAt: FieldValue.serverTimestamp(),
+        incomplete: [],
+      });
 
       logger.info("account.export: completed", { requestId });
     } catch (err) {
@@ -235,14 +272,19 @@ export const onAccountExportRequested = onMessagePublished(
 
       const existing = (await ref.get()).data();
       if (existing?.status !== "failed") {
+        const errorMessage = err instanceof Error ? err.message : String(err);
         await ref.set(
           {
             status: "failed",
-            error: err instanceof Error ? err.message : String(err),
+            error: errorMessage,
             updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
         );
+        await mirrorUserExportStatus(db, uid, requestId, {
+          status: "failed",
+          error: errorMessage,
+        });
       }
 
       throw err; // allow retry
