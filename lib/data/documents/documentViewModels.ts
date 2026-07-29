@@ -5,10 +5,12 @@
 
 import type {
   DocumentDetailDto,
+  DocumentDomain,
   DocumentListItemDto,
   DocumentRecordStatus,
+  DocumentType,
 } from "@oli/contracts";
-import { documentStatusLabel } from "./documentStatus";
+import { documentCanRetry, documentStatusLabel } from "./documentStatus";
 
 export const DOCUMENT_DETAIL_FORBIDDEN_VM_KEYS = [
   "storagePath",
@@ -42,6 +44,8 @@ export type DocumentListItemViewModel = {
 };
 
 export type DocumentDetailViewModel = {
+  /** Navigation / chrome title for the consumer surface. */
+  consumerTitle: string;
   title: string;
   filename: string;
   domainLabel: string;
@@ -52,6 +56,9 @@ export type DocumentDetailViewModel = {
   extractionMessage: string | null;
   safeWarnings: string[];
   canRetry: boolean;
+  /** True only when Retry processing is an honest consumer action. */
+  canRetryProcessing: boolean;
+  retryLabel: "Retry processing" | null;
   canDelete: boolean;
   originalFile: {
     heading: "Original file";
@@ -93,7 +100,15 @@ function formatUploadDate(iso: string): string {
   });
 }
 
+/** Consumer navigation title — Labs is always Lab report; other domains use approved type titles. */
+export function documentConsumerTitle(domain: DocumentDomain, documentType: DocumentType): string {
+  if (domain === "labs") return "Lab report";
+  if (documentType === "unknown") return "Document";
+  return TYPE_LABELS[documentType];
+}
+
 export function buildDocumentListItemViewModel(item: DocumentListItemDto): DocumentListItemViewModel {
+  const canRetry = documentCanRetry(item.status);
   return {
     id: item.id,
     filename: item.filename,
@@ -101,7 +116,7 @@ export function buildDocumentListItemViewModel(item: DocumentListItemDto): Docum
     documentTypeLabel: TYPE_LABELS[item.documentType],
     uploadedDateLabel: formatUploadDate(item.uploadedAt),
     statusLabel: documentStatusLabel(item.status),
-    canRetry: item.canRetry,
+    canRetry,
     canDelete: item.canDelete,
     canViewOriginal: item.canViewOriginal,
   };
@@ -124,8 +139,11 @@ function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]):
 }
 
 export function buildDocumentDetailViewModel(detail: DocumentDetailDto): DocumentDetailViewModel {
+  const consumerTitle = documentConsumerTitle(detail.domain, detail.documentType);
+  const canRetryProcessing = documentCanRetry(detail.status);
   return {
-    title: TYPE_LABELS[detail.documentType],
+    consumerTitle,
+    title: consumerTitle,
     filename: detail.filename,
     domainLabel: DOMAIN_LABELS[detail.domain],
     documentTypeLabel: TYPE_LABELS[detail.documentType],
@@ -134,7 +152,9 @@ export function buildDocumentDetailViewModel(detail: DocumentDetailDto): Documen
     processingLabel: detail.processingState ? detail.processingState.replace(/_/g, " ") : null,
     extractionMessage: extractionMessageFor(detail.status, detail.safeWarnings),
     safeWarnings: detail.safeWarnings,
-    canRetry: detail.canRetry,
+    canRetry: canRetryProcessing,
+    canRetryProcessing,
+    retryLabel: canRetryProcessing ? "Retry processing" : null,
     canDelete: detail.canDelete,
     originalFile: {
       heading: "Original file",

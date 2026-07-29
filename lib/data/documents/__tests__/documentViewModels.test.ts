@@ -21,7 +21,7 @@ function listItem(overrides: Partial<DocumentListItemDto> = {}): DocumentListIte
     uploadedAt: "2026-07-28T15:00:00.000Z",
     status: "unsupported",
     canViewOriginal: false,
-    canRetry: true,
+    canRetry: false,
     canDelete: true,
     legacySource: "document",
     ...overrides,
@@ -48,7 +48,7 @@ describe("buildDocumentListItemViewModel", () => {
       documentTypeLabel: "Lab report",
       uploadedDateLabel: expect.stringMatching(/2026/),
       statusLabel: DOCUMENT_STATUS_LABELS.unsupported,
-      canRetry: true,
+      canRetry: false,
       canDelete: true,
       canViewOriginal: false,
     });
@@ -56,17 +56,68 @@ describe("buildDocumentListItemViewModel", () => {
       expect(vm).not.toHaveProperty(key);
     }
   });
+
+  it("does not mark unsupported list rows as retryable even if DTO canRetry is stale true", () => {
+    const vm = buildDocumentListItemViewModel(listItem({ status: "unsupported", canRetry: true }));
+    expect(vm.canRetry).toBe(false);
+  });
 });
 
 describe("buildDocumentDetailViewModel", () => {
+  it("uses Lab report as the Labs consumer/navigation title", () => {
+    const vm = buildDocumentDetailViewModel(detail({ domain: "labs", documentType: "lab_report" }));
+    expect(vm.consumerTitle).toBe("Lab report");
+    expect(vm.title).toBe("Lab report");
+  });
+
+  it("retains Document as the generic non-Labs consumer title", () => {
+    const vm = buildDocumentDetailViewModel(
+      detail({
+        domain: "other_health_record",
+        documentType: "unknown",
+        status: "stored",
+        canRetry: false,
+        safeWarnings: [],
+      }),
+    );
+    expect(vm.consumerTitle).toBe("Document");
+  });
+
   it("builds consumer-safe detail with status labels and coming-soon original action", () => {
-    const vm = buildDocumentDetailViewModel(detail({ status: "failed", safeWarnings: ["Boom"] }));
+    const vm = buildDocumentDetailViewModel(
+      detail({ status: "failed", canRetry: true, safeWarnings: ["Boom"] }),
+    );
     expect(vm.title).toBe("Lab report");
     expect(vm.statusLabel).toBe(DOCUMENT_STATUS_LABELS.failed);
     expect(vm.extractionMessage).toBe("Boom");
+    expect(vm.canRetryProcessing).toBe(true);
+    expect(vm.retryLabel).toBe("Retry processing");
     expect(vm.originalFile.actionLabel).toBe("View original");
     expect(vm.originalFile.actionDisabled).toBe(true);
     expect(vm.originalFile.actionAvailabilityLabel).toBe("Coming soon");
+  });
+
+  it("does not expose retry for unsupported extraction", () => {
+    const vm = buildDocumentDetailViewModel(
+      detail({
+        status: "unsupported",
+        canRetry: true, // stale/over-permissive DTO must not drive consumer retry
+        safeWarnings: ["This document is stored, but structured extraction is not available yet."],
+      }),
+    );
+    expect(vm.statusLabel).toBe("Extraction unavailable");
+    expect(vm.extractionMessage).toMatch(/not available yet/i);
+    expect(vm.canRetry).toBe(false);
+    expect(vm.canRetryProcessing).toBe(false);
+    expect(vm.retryLabel).toBeNull();
+  });
+
+  it("exposes retry for failed retryable extraction", () => {
+    const vm = buildDocumentDetailViewModel(
+      detail({ status: "failed", canRetry: true, safeWarnings: ["Processing failed. Retry is available."] }),
+    );
+    expect(vm.canRetryProcessing).toBe(true);
+    expect(vm.retryLabel).toBe("Retry processing");
   });
 
   it("maps status labels for common record statuses", () => {

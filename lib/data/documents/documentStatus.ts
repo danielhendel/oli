@@ -19,7 +19,9 @@ export function documentStatusLabel(status: DocumentRecordStatus): string {
 }
 
 export function documentCanRetry(status: DocumentRecordStatus): boolean {
-  return status === "failed" || status === "unsupported";
+  // Unsupported means no parser exists yet — retry would not change honesty.
+  // Only genuinely retryable failures expose Retry processing.
+  return status === "failed";
 }
 
 export function documentCanViewOriginal(status: DocumentRecordStatus): boolean {

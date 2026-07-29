@@ -1,9 +1,10 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
 import { deleteDocument, reprocessDocument } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
 import { useDocumentDetail } from "@/lib/data/documents/useDocumentDetail";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { DocumentDetailContent } from "@/lib/ui/documents/DocumentDetailContent";
@@ -20,13 +21,18 @@ export default function DocumentDetailScreen() {
   const [reprocessBusy, setReprocessBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
+  const consumerTitle = useMemo(() => {
+    if (detail.status !== "ready") return "Document";
+    return buildDocumentDetailViewModel(detail.data.document).consumerTitle;
+  }, [detail]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: "Document",
+      title: consumerTitle,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
-  }, [navigation]);
+  }, [consumerTitle, navigation]);
 
   const onReprocess = useCallback(async () => {
     setReprocessBusy(true);
@@ -67,7 +73,7 @@ export default function DocumentDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title="Document" hideTitleChrome>
+      <ModuleScreenShell title={consumerTitle} hideTitleChrome>
         <DocumentDetailContent
           status={detail.status}
           {...(detail.status === "error"

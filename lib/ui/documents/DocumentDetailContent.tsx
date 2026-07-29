@@ -83,16 +83,16 @@ export function DocumentDetailContent({
         </Pressable>
       </View>
 
-      {document.canRetry && onReprocess ? (
+      {vm.canRetryProcessing && onReprocess && vm.retryLabel ? (
         <Pressable
           onPress={onReprocess}
           disabled={reprocessBusy}
           accessibilityRole="button"
-          accessibilityLabel="Retry processing"
+          accessibilityLabel={vm.retryLabel}
           style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
           testID="document-reprocess"
         >
-          <Text style={styles.actionLabel}>{reprocessBusy ? "Retrying…" : "Retry processing"}</Text>
+          <Text style={styles.actionLabel}>{reprocessBusy ? "Retrying…" : vm.retryLabel}</Text>
         </Pressable>
       ) : null}
 

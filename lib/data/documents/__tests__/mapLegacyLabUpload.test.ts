@@ -36,7 +36,7 @@ describe("mapLegacyLabUploadToListItem", () => {
       uploadedAt: "2026-07-28T15:00:00.000Z",
       status: "unsupported",
       canViewOriginal: false,
-      canRetry: true,
+      canRetry: false,
       canDelete: false,
       legacySource: "lab_upload",
     });
@@ -57,7 +57,7 @@ describe("mapLegacyLabUploadToDetail", () => {
     expect(dto.id).toBe("lab:upload_doc_secret_99");
     expect(dto.status).toBe("unsupported");
     expect(dto.canDelete).toBe(false);
-    expect(dto.canRetry).toBe(true);
+    expect(dto.canRetry).toBe(false);
     expect(dto.extractionAvailability).toBe("unavailable");
     expect(dto.safeWarnings[0]).toMatch(/not available/i);
     expect(dto).not.toHaveProperty("storagePath");
