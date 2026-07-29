@@ -48,7 +48,7 @@ describe("documentAccountLifecycle export records", () => {
     expect(safe!.parserId).toBe("noop_unsupported_v1");
     expect(safe!.parserVersion).toBe("1.0.0");
     expect(safe!.originalFile.packageRelativePath).toBe(
-      `files/documents/${SYNTHETIC_DOC_ID}/synthetic-lab-fixture.pdf`,
+      `documents/labs/synthetic-lab-fixture.pdf`,
     );
     expect(safe!.originalFile.includedInPackage).toBe(false);
     expect(JSON.stringify(safe)).not.toContain(SYNTHETIC_UID);
@@ -76,7 +76,7 @@ describe("documentAccountLifecycle export records", () => {
     });
     expect(safe).not.toBeNull();
     expect(safe!.originalFile.packageRelativePath).toBe(
-      "files/labUploads/lab_legacy_1/synthetic-legacy.pdf",
+      "documents/labs/synthetic-legacy.pdf",
     );
     expect(JSON.stringify(safe)).not.toContain("lab-uploads/");
     expect(labUploadStoragePathFromRecord({ storagePath: `lab-uploads/${SYNTHETIC_UID}/x.pdf` })).toContain(

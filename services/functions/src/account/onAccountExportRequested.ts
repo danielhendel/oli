@@ -4,10 +4,9 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import {
-  DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
-  assembleDocumentExportSection,
-} from "./assembleDocumentExportSection";
+import { DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS } from "./assembleDocumentExportSection";
+import { buildDocumentExportPackage } from "./buildDocumentExportPackage";
+import { stripExtractionForExport, stripJobForExport } from "./assembleDocumentExportSection";
 
 const TOPIC = "exports.requests.v1";
 
@@ -27,8 +26,6 @@ type AccountExportMessage = {
 const assertUid = (uid: unknown): uid is string => typeof uid === "string" && uid.trim().length > 0;
 
 function exportDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
-  // Single doc per (uid, requestId) for idempotency & observability.
-  // Keep IDs short + safe (Firestore disallows "/")
   const id = `${uid}_${requestId}`.replace(/\//g, "_");
   return db.collection(ACCOUNT_EXPORTS_COLLECTION).doc(id);
 }
@@ -44,18 +41,21 @@ async function readCollectionAll(
   }));
 }
 
+function resolveAppStorageBucket(): string | null {
+  const fromEnv = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  const project = process.env.GCLOUD_PROJECT?.trim() || process.env.GCP_PROJECT?.trim();
+  return fromEnv || (project ? `${project}.firebasestorage.app` : null);
+}
+
 /**
  * Account export executor
  *
  * Guarantees:
  * - user-scoped data read only
+ * - includes original document bytes in a ZIP package (documents/<domain>/…)
  * - idempotent
  * - observable lifecycle (queued → in_progress → completed|failed)
- * - writes GCS artifact + pointer in Firestore
- * - includes Document OS + Labs upload metadata (safe shapes)
- *
- * NOTE:
- * Lifecycle doc is stored outside /users/{uid} so account deletion cannot resurrect user subtree.
+ * - incomplete original packaging fails closed (no false completeness)
  */
 export const onAccountExportRequested = onMessagePublished(
   {
@@ -81,14 +81,12 @@ export const onAccountExportRequested = onMessagePublished(
     const db = getFirestore();
     const ref = exportDocRef(db, uid, requestId);
 
-    // Idempotency guard
     const snap = await ref.get();
     if (snap.exists && snap.data()?.status === "completed") {
       logger.info("account.export: already completed", { uid, requestId });
       return;
     }
 
-    // Mark in progress
     await ref.set(
       {
         uid,
@@ -102,12 +100,15 @@ export const onAccountExportRequested = onMessagePublished(
     );
 
     try {
-      const bucketName = process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
+      const exportsBucketName = process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
+      const appBucketName = resolveAppStorageBucket();
+      if (!appBucketName) {
+        throw new Error("firebase_storage_bucket_unresolved");
+      }
 
       logger.info("account.export: collecting data", {
-        uid,
         requestId,
-        bucketName,
+        exportsBucketName,
       });
 
       const profileGeneralSnap = await db.doc(`users/${uid}/profile/general`).get();
@@ -127,67 +128,82 @@ export const onAccountExportRequested = onMessagePublished(
         ...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
       ] as const;
 
-      const data: Record<string, unknown> = {
-        profile: { general: profileGeneral, main: profileMain },
-        collections: {},
-      };
-
+      const collectionsData: Record<string, Record<string, unknown>[]> = {};
       for (const col of collections) {
-        (data.collections as Record<string, unknown>)[col] = await readCollectionAll(db, `users/${uid}/${col}`);
+        collectionsData[col] = await readCollectionAll(db, `users/${uid}/${col}`);
       }
 
-      const cols = data.collections as Record<string, Record<string, unknown>[]>;
-      const documentSection = assembleDocumentExportSection({
-        documents: cols.documents ?? [],
-        jobs: cols.documentIngestionJobs ?? [],
-        extractions: cols.documentExtractions ?? [],
-        labUploads: cols.labUploads ?? [],
+      const appBucket = getStorage().bucket(appBucketName);
+      const generatedAt = new Date().toISOString();
+
+      const packaged = await buildDocumentExportPackage({
+        uid,
+        generatedAt,
+        requestId,
+        documents: collectionsData.documents ?? [],
+        labUploads: collectionsData.labUploads ?? [],
+        jobs: (collectionsData.documentIngestionJobs ?? []).map(stripJobForExport),
+        extractions: (collectionsData.documentExtractions ?? []).map(stripExtractionForExport),
+        profile: { general: profileGeneral, main: profileMain },
+        otherCollections: {
+          rawEvents: collectionsData.rawEvents ?? [],
+          events: collectionsData.events ?? [],
+          dailyFacts: collectionsData.dailyFacts ?? [],
+          insights: collectionsData.insights ?? [],
+          intelligenceContext: collectionsData.intelligenceContext ?? [],
+          healthScores: collectionsData.healthScores ?? [],
+          healthSignals: collectionsData.healthSignals ?? [],
+          labResults: collectionsData.labResults ?? [],
+        },
+        readObjectBytes: async (objectPath) => {
+          try {
+            const [buf] = await appBucket.file(objectPath).download();
+            return Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (/no such object|not.?found/i.test(msg)) return null;
+            throw err;
+          }
+        },
       });
 
-      cols.documents = documentSection.documents as unknown as Record<string, unknown>[];
-      cols.labUploads = documentSection.labUploads as unknown as Record<string, unknown>[];
-      cols.documentIngestionJobs = documentSection.jobs;
-      cols.documentExtractions = documentSection.extractions;
-      data.documentsManifest = {
-        schemaVersion: 1,
-        originalFileRelationships: documentSection.documents.map((d) => d.originalFile),
-        legacyLabOriginalFileRelationships: documentSection.labUploads.map((d) => d.originalFile),
-        incomplete: documentSection.incomplete,
-        note: "Original binary packaging uses packageRelativePath relationships; bytes are not embedded in this JSON artifact.",
-      };
+      if (!packaged.complete) {
+        await ref.set(
+          {
+            status: "failed",
+            error: "document_export_incomplete",
+            incomplete: packaged.incomplete,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        logger.error("account.export: incomplete original packaging", {
+          requestId,
+          incompleteCount: packaged.incomplete.length,
+        });
+        // Fail closed — do not write a "completed" artifact that omits originals.
+        throw new Error(`document_export_incomplete:${packaged.incomplete.join(",")}`);
+      }
 
-      const artifact = {
-        schemaVersion: 1,
-        kind: "account.export.v1",
-        uid,
+      const objectPath = `exports/${uid}/${requestId}.zip`;
+      const exportsBucket = getStorage().bucket(exportsBucketName);
+      const file = exportsBucket.file(objectPath);
+
+      logger.info("account.export: writing zip artifact", {
         requestId,
-        requestedAt: requestedAt ?? null,
-        generatedAt: new Date().toISOString(),
-        data,
-      };
-
-      const objectPath = `exports/${uid}/${requestId}.json`;
-      const storage = getStorage();
-      const bucket = storage.bucket(bucketName);
-      const file = bucket.file(objectPath);
-
-      const body = Buffer.from(JSON.stringify(artifact), "utf8");
-
-      logger.info("account.export: writing artifact", {
-        uid,
-        requestId,
-        objectPath,
-        bytes: body.length,
+        bytes: packaged.zipBytes.length,
+        documentFiles: packaged.documents.filter((d) => d.originalFile.includedInPackage).length,
+        labFiles: packaged.labUploads.filter((d) => d.originalFile.includedInPackage).length,
       });
 
-      await file.save(body, {
+      await file.save(packaged.zipBytes, {
         resumable: false,
-        contentType: "application/json; charset=utf-8",
+        contentType: "application/zip",
         metadata: {
           metadata: {
-            uid,
             requestId,
-            kind: "account.export.v1",
+            kind: "account.export.package.v1",
+            completeness: "complete",
           },
         },
       });
@@ -199,11 +215,12 @@ export const onAccountExportRequested = onMessagePublished(
           status: "completed",
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
+          incomplete: [],
           artifact: {
-            bucket: bucketName,
+            bucket: exportsBucketName,
             object: objectPath,
-            contentType: meta.contentType ?? "application/json",
-            size: meta.size ? Number(meta.size) : null,
+            contentType: meta.contentType ?? "application/zip",
+            size: meta.size ? Number(meta.size) : packaged.zipBytes.length,
             generation: meta.generation ?? null,
             md5Hash: meta.md5Hash ?? null,
             updated: meta.updated ?? null,
@@ -212,18 +229,21 @@ export const onAccountExportRequested = onMessagePublished(
         { merge: true },
       );
 
-      logger.info("account.export: completed", { uid, requestId });
+      logger.info("account.export: completed", { requestId });
     } catch (err) {
-      logger.error("account.export: failed", { uid, requestId, err });
+      logger.error("account.export: failed", { requestId, err });
 
-      await ref.set(
-        {
-          status: "failed",
-          error: err instanceof Error ? err.message : String(err),
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
+      const existing = (await ref.get()).data();
+      if (existing?.status !== "failed") {
+        await ref.set(
+          {
+            status: "failed",
+            error: err instanceof Error ? err.message : String(err),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
 
       throw err; // allow retry
     }

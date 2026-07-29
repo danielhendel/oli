@@ -77,8 +77,7 @@ export function buildSafeDocumentExportRecord(raw: Record<string, unknown>): Saf
     checksumSha256,
     legacyLabUploadId: typeof raw.legacyLabUploadId === "string" ? raw.legacyLabUploadId : null,
     originalFile: {
-      packageRelativePath: `files/documents/${id}/${safeName}`,
-      // Binary packaging into the export bucket is best-effort; relationship is always present.
+      packageRelativePath: `documents/${domain}/${safeName}`,
       includedInPackage: false,
     },
   };
@@ -92,6 +91,7 @@ export function buildSafeLabUploadExportRecord(raw: Record<string, unknown>): {
   extractedCount: number;
   matchedCount: number;
   unmatchedCount: number;
+  packagedChecksumSha256: string | null;
   originalFile: { packageRelativePath: string; includedInPackage: boolean };
 } | null {
   const id = typeof raw.id === "string" ? raw.id : null;
@@ -108,8 +108,9 @@ export function buildSafeLabUploadExportRecord(raw: Record<string, unknown>): {
     extractedCount: typeof raw.extractedCount === "number" ? raw.extractedCount : 0,
     matchedCount: typeof raw.matchedCount === "number" ? raw.matchedCount : 0,
     unmatchedCount: typeof raw.unmatchedCount === "number" ? raw.unmatchedCount : 0,
+    packagedChecksumSha256: null,
     originalFile: {
-      packageRelativePath: `files/labUploads/${id}/${safeName}`,
+      packageRelativePath: `documents/labs/${safeName}`,
       includedInPackage: false,
     },
   };

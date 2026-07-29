@@ -39,11 +39,11 @@ describe("userDataRetentionRegistry", () => {
     expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentExportCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentDeleteCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentDeleteCoverage).toBe("covered");
-    expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentExportCoverage).toBe("partial");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentExportCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentExportCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentDeleteCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentDeleteCoverage).toBe("covered");
-    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentExportCoverage).toBe("partial");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentExportCoverage).toBe("covered");
     expect(listExportCoverageGaps().length).toBeGreaterThan(0);
     expect(isExportDeletionCoverageComplete()).toBe(false);
   });
@@ -80,7 +80,7 @@ describe("userDataRetentionRegistry", () => {
     expect(storage.storageObjectRelationship).toBe(true);
     expect(storage.exportRequired).toBe(true);
     expect(storage.deleteRequired).toBe(true);
-    expect(storage.currentExportCoverage).toBe("partial");
+    expect(storage.currentExportCoverage).toBe("covered");
     expect(storage.currentDeleteCoverage).toBe("covered");
   });
 

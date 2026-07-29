@@ -559,8 +559,8 @@ export const USER_DATA_RETENTION_REGISTRY = {
     dataCategory: "storage",
     exportRequired: true,
     deleteRequired: true,
-    // Export includes packageRelativePath relationship; binary bytes not embedded in JSON artifact.
-    currentExportCoverage: "partial",
+    // Export packages original bytes under documents/<domain>/; account delete removes Storage prefixes.
+    currentExportCoverage: "covered",
     currentDeleteCoverage: "covered",
     storageObjectRelationship: true,
     retentionPolicy: "Account lifetime",
@@ -586,8 +586,8 @@ export const USER_DATA_RETENTION_REGISTRY = {
     dataCategory: "storage",
     exportRequired: true,
     deleteRequired: true,
-    // Export includes packageRelativePath relationship; account delete removes Storage prefixes.
-    currentExportCoverage: "partial",
+    // Original document bytes are packaged into the account export ZIP under documents/<domain>/.
+    currentExportCoverage: "covered",
     currentDeleteCoverage: "covered",
     storageObjectRelationship: true,
     retentionPolicy: "Account lifetime",
@@ -635,7 +635,7 @@ export const USER_DATA_RETENTION_REGISTRY = {
   }),
   storage_exports: entry({
     pathId: "storage_exports",
-    path: "exports/{uid}/{requestId}.json",
+    path: "exports/{uid}/{requestId}.zip",
     dataCategory: "storage",
     exportRequired: false,
     deleteRequired: true,

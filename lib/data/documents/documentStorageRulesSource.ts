@@ -7,8 +7,8 @@
 export const DOCUMENT_STORAGE_RULES_SOURCE = `rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Model A — Document Ingestion OS: no client Storage access.
-    // Authenticated Cloud Run / Functions use Admin SDK (rules do not apply).
+    // Model A — Document Ingestion OS / general app Storage:
+    // no client SDK read/write. Server Admin SDK bypasses these rules.
     match /{allPaths=**} {
       allow read, write: if false;
     }

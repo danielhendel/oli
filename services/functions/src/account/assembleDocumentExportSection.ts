@@ -19,7 +19,7 @@ export type DocumentExportSection = {
   incomplete: string[];
 };
 
-function stripExtractionForExport(raw: Record<string, unknown>): Record<string, unknown> {
+export function stripExtractionForExport(raw: Record<string, unknown>): Record<string, unknown> {
   // Keep staging envelope metadata; omit oversized field bodies if ever present at scale.
   return {
     id: raw.id,
@@ -41,7 +41,7 @@ function stripExtractionForExport(raw: Record<string, unknown>): Record<string, 
   };
 }
 
-function stripJobForExport(raw: Record<string, unknown>): Record<string, unknown> {
+export function stripJobForExport(raw: Record<string, unknown>): Record<string, unknown> {
   return {
     id: raw.id,
     documentId: raw.documentId,
