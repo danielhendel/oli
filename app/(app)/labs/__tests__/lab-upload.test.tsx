@@ -8,6 +8,19 @@ jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
 }));
 
+jest.mock("@/lib/data/documents/documentIngestionOsFlag", () => ({
+  isDocumentIngestionOsV1Enabled: () => false,
+}));
+
+jest.mock("@/lib/data/documents/useDocumentUploadFlow", () => ({
+  useDocumentUploadFlow: () => ({
+    state: { phase: "idle", documentId: null, errorMessage: null, duplicate: false },
+    startUpload: jest.fn(),
+    reset: jest.fn(),
+    cancel: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/data/labs/useLabUploadFlow", () => ({
   useLabUploadFlow: () => ({
     state: { phase: "idle", uploadId: null, error: null, fileName: null },

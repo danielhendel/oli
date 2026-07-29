@@ -8,6 +8,18 @@ jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
 }));
 
+jest.mock("@/lib/data/documents/documentIngestionOsFlag", () => ({
+  isDocumentIngestionOsV1Enabled: () => false,
+}));
+
+jest.mock("@/lib/data/documents/useDocuments", () => ({
+  useDocuments: () => ({
+    status: "ready",
+    data: { ok: true, nextCursor: null, items: [] },
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/data/labs/useLabUploads", () => ({
   useLabUploads: () => ({
     status: "ready",
