@@ -2,8 +2,11 @@ import React, { useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
+import { isDocumentIngestionOsV1Enabled } from "@/lib/data/documents/documentIngestionOsFlag";
+import { useDocuments } from "@/lib/data/documents/useDocuments";
 import { useLabUploads } from "@/lib/data/labs/useLabUploads";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { DocumentListContent } from "@/lib/ui/documents/DocumentListContent";
 import { LabUploadsListContent } from "@/lib/ui/labs/LabUploadsListContent";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
@@ -11,7 +14,9 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 export default function LabsUploadsListScreen() {
   const navigation = useNavigation();
   const router = useRouter();
-  const uploads = useLabUploads();
+  const documentOs = isDocumentIngestionOsV1Enabled();
+  const uploads = useLabUploads({ enabled: !documentOs });
+  const documents = useDocuments({ domain: "labs", enabled: documentOs });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -24,14 +29,27 @@ export default function LabsUploadsListScreen() {
   return (
     <View style={styles.root}>
       <ModuleScreenShell title="Lab uploads" hideTitleChrome>
-        <LabUploadsListContent
-          status={uploads.status}
-          {...(uploads.status === "error"
-            ? { error: uploads.error, requestId: uploads.requestId, onRetry: () => uploads.refetch() }
-            : {})}
-          {...(uploads.status === "ready" ? { items: uploads.data.items } : {})}
-          onPressUpload={(uploadId) => router.push(`/(app)/labs/uploads/${uploadId}`)}
-        />
+        {documentOs ? (
+          <DocumentListContent
+            status={documents.status}
+            {...(documents.status === "error"
+              ? { error: documents.error, requestId: documents.requestId, onRetry: () => documents.refetch() }
+              : {})}
+            {...(documents.status === "ready" ? { items: documents.data.items } : {})}
+            emptyTitle="No lab uploads yet"
+            emptyDescription="Upload a lab PDF from the Labs page to see reports here."
+            onPressDocument={(documentId) => router.push(`/(app)/documents/${documentId}`)}
+          />
+        ) : (
+          <LabUploadsListContent
+            status={uploads.status}
+            {...(uploads.status === "error"
+              ? { error: uploads.error, requestId: uploads.requestId, onRetry: () => uploads.refetch() }
+              : {})}
+            {...(uploads.status === "ready" ? { items: uploads.data.items } : {})}
+            onPressUpload={(uploadId) => router.push(`/(app)/labs/uploads/${uploadId}`)}
+          />
+        )}
       </ModuleScreenShell>
     </View>
   );
