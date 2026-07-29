@@ -42,6 +42,10 @@ export const USER_DATA_RETENTION_PATH_IDS = [
   "account_deletions_global",
   "storage_lab_uploads",
   "storage_generic_uploads",
+  "storage_document_originals",
+  "user_documents",
+  "document_ingestion_jobs",
+  "document_extractions",
   "storage_exports",
   "system_oura_connected",
   "withings_historical_raw_events",
@@ -65,6 +69,7 @@ export type UserDataRetentionCategory =
   | "workouts"
   | "nutrition"
   | "labs"
+  | "documents"
   | "storage"
   | "system"
   | "account_control"
@@ -572,6 +577,59 @@ export const USER_DATA_RETENTION_REGISTRY = {
     storageObjectRelationship: true,
     retentionPolicy: "Account lifetime",
     owner: "user",
+    testCoverage: "required",
+  }),
+  storage_document_originals: entry({
+    pathId: "storage_document_originals",
+    path: "users/{uid}/documents/{documentId}/original",
+    dataCategory: "storage",
+    exportRequired: true,
+    deleteRequired: true,
+    // Per-document DELETE covers storage objects; account-wide export/delete executors do not yet.
+    currentExportCoverage: "not_covered",
+    currentDeleteCoverage: "partial",
+    storageObjectRelationship: true,
+    retentionPolicy: "Account lifetime",
+    owner: "user",
+    testCoverage: "required",
+  }),
+  user_documents: entry({
+    pathId: "user_documents",
+    path: "users/{uid}/documents/{documentId}",
+    dataCategory: "documents",
+    exportRequired: true,
+    deleteRequired: true,
+    currentExportCoverage: "not_covered",
+    currentDeleteCoverage: "partial",
+    storageObjectRelationship: true,
+    retentionPolicy: "Account lifetime",
+    owner: "user",
+    testCoverage: "required",
+  }),
+  document_ingestion_jobs: entry({
+    pathId: "document_ingestion_jobs",
+    path: "users/{uid}/documentIngestionJobs/{jobId}",
+    dataCategory: "documents",
+    exportRequired: true,
+    deleteRequired: true,
+    currentExportCoverage: "not_covered",
+    currentDeleteCoverage: "partial",
+    storageObjectRelationship: false,
+    retentionPolicy: "Account lifetime",
+    owner: "oli",
+    testCoverage: "required",
+  }),
+  document_extractions: entry({
+    pathId: "document_extractions",
+    path: "users/{uid}/documentExtractions/{extractionId}",
+    dataCategory: "documents",
+    exportRequired: true,
+    deleteRequired: true,
+    currentExportCoverage: "not_covered",
+    currentDeleteCoverage: "partial",
+    storageObjectRelationship: false,
+    retentionPolicy: "Account lifetime; staging only — not canonical health facts",
+    owner: "oli",
     testCoverage: "required",
   }),
   storage_exports: entry({

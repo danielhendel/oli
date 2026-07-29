@@ -40,9 +40,27 @@ describe("userDataRetentionRegistry", () => {
     expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentExportCoverage).toBe("not_covered");
     expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentDeleteCoverage).toBe("not_covered");
     expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentDeleteCoverage).toBe("not_covered");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentExportCoverage).toBe("not_covered");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentDeleteCoverage).toBe("partial");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentDeleteCoverage).toBe("partial");
     expect(listExportCoverageGaps().length).toBeGreaterThan(0);
     expect(listDeleteCoverageGaps().length).toBeGreaterThan(0);
     expect(isExportDeletionCoverageComplete()).toBe(false);
+  });
+
+  it("inventories Document Ingestion OS artifacts honestly", () => {
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.path).toBe("users/{uid}/documents/{documentId}");
+    expect(USER_DATA_RETENTION_REGISTRY.document_ingestion_jobs.path).toBe(
+      "users/{uid}/documentIngestionJobs/{jobId}",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.document_extractions.path).toBe(
+      "users/{uid}/documentExtractions/{extractionId}",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.path).toBe(
+      "users/{uid}/documents/{documentId}/original",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.dataCategory).toBe("documents");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.storageObjectRelationship).toBe(true);
   });
 
   it("represents lab upload metadata and the related Storage object relationship", () => {
