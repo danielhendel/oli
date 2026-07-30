@@ -138,11 +138,14 @@ export function DocumentDetailContent({
           onPress={onDelete}
           disabled={deleteBusy}
           accessibilityRole="button"
-          accessibilityLabel="Delete document"
+          accessibilityState={{ disabled: !!deleteBusy }}
+          accessibilityLabel={vm.deleteActionLabel ?? "Delete document"}
           style={({ pressed }) => [styles.action, styles.danger, pressed && styles.actionPressed]}
           testID="document-delete"
         >
-          <Text style={styles.dangerLabel}>{deleteBusy ? "Deleting…" : "Delete document"}</Text>
+          <Text style={styles.dangerLabel}>
+            {deleteBusy ? "Deleting…" : vm.deleteActionLabel ?? "Delete document"}
+          </Text>
         </Pressable>
       ) : null}
     </View>

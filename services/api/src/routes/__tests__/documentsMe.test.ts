@@ -10,18 +10,27 @@ jest.mock("../../db", () => ({
   userCollection: jest.fn(),
 }));
 
-jest.mock("../../firebaseAdmin", () => ({
-  admin: {
-    storage: () => ({
-      bucket: () => ({
-        file: () => ({
-          save: jest.fn(async () => undefined),
-          delete: jest.fn(async () => undefined),
+jest.mock("../../firebaseAdmin", () => {
+  const deletedPaths: string[] = [];
+  return {
+    admin: {
+      storage: () => ({
+        bucket: () => ({
+          file: (objectPath: string) => ({
+            save: jest.fn(async () => undefined),
+            delete: jest.fn(async () => {
+              deletedPaths.push(objectPath);
+            }),
+          }),
         }),
       }),
-    }),
-  },
-}));
+      __deletedStoragePaths: deletedPaths,
+      __resetDeletedStoragePaths: () => {
+        deletedPaths.length = 0;
+      },
+    },
+  };
+});
 
 jest.mock("../../lib/firebaseStorageBucketId", () => ({
   requireFirebaseStorageBucketId: () => "test-bucket",
@@ -70,9 +79,12 @@ describe("Document Ingestion OS routes", () => {
     jobs: Map<string, Record<string, unknown>>;
     labUploads: Map<string, Record<string, unknown>>;
     extracted: Map<string, Record<string, unknown>>;
+    labResults: Map<string, Record<string, unknown>>;
   }>;
   let documentsStore: Map<string, Record<string, unknown>>;
   let labUploadsStore: Map<string, Record<string, unknown>>;
+  let labResultsStore: Map<string, Record<string, unknown>>;
+  let deletedStoragePaths: string[];
   let autoId = 0;
   let requestUid = "user_123";
 
@@ -84,6 +96,7 @@ describe("Document Ingestion OS routes", () => {
         jobs: new Map(),
         labUploads: new Map(),
         extracted: new Map(),
+        labResults: new Map(),
       };
       storesByUid.set(uid, bucket);
     }
@@ -113,8 +126,31 @@ describe("Document Ingestion OS routes", () => {
     const owner = ensureUidStores("user_123");
     documentsStore = owner.documents;
     labUploadsStore = owner.labUploads;
+    labResultsStore = owner.labResults;
     autoId = 0;
     requestUid = "user_123";
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { admin } = require("../../firebaseAdmin") as {
+      admin: {
+        __deletedStoragePaths: string[];
+        __resetDeletedStoragePaths: () => void;
+        storage: () => unknown;
+      };
+    };
+    admin.__resetDeletedStoragePaths();
+    deletedStoragePaths = admin.__deletedStoragePaths;
+    // Restore default storage (partial-failure tests may override).
+    admin.storage = () => ({
+      bucket: () => ({
+        file: (objectPath: string) => ({
+          save: jest.fn(async () => undefined),
+          delete: jest.fn(async () => {
+            admin.__deletedStoragePaths.push(objectPath);
+          }),
+        }),
+      }),
+    });
 
     (userCollection as jest.Mock).mockImplementation((uid: string, col: string) => {
       const bucket = ensureUidStores(uid);
@@ -125,7 +161,33 @@ describe("Document Ingestion OS routes", () => {
             ? bucket.jobs
             : col === "labUploads"
               ? bucket.labUploads
-              : bucket.extracted;
+              : col === "labResults"
+                ? bucket.labResults
+                : bucket.extracted;
+
+      const filterEntries = (field?: string, value?: unknown) => {
+        const entries = [...resolvedStore.entries()];
+        if (!field) return entries;
+        return entries.filter(([, data]) => (data as Record<string, unknown>)[field] === value);
+      };
+
+      const makeQuery = (field?: string, value?: unknown) => ({
+        where: (field2: string, _op2: string, value2: unknown) => makeQuery(field2, value2),
+        limit: () => ({
+          get: async (): Promise<QuerySnap> => ({
+            docs: filterEntries(field, value).map(([id, data]) => ({
+              id,
+              data: () => data,
+            })),
+          }),
+        }),
+        get: async (): Promise<QuerySnap> => ({
+          docs: filterEntries(field, value).map(([id, data]) => ({
+            id,
+            data: () => data,
+          })),
+        }),
+      });
 
       return {
         doc: (id?: string) => {
@@ -142,22 +204,7 @@ describe("Document Ingestion OS routes", () => {
             }),
           }),
         }),
-        where: () => ({
-          limit: () => ({
-            get: async (): Promise<QuerySnap> => ({
-              docs: [...resolvedStore.entries()].map(([id, data]) => ({
-                id,
-                data: () => data,
-              })),
-            }),
-          }),
-          get: async (): Promise<QuerySnap> => ({
-            docs: [...resolvedStore.entries()].map(([id, data]) => ({
-              id,
-              data: () => data,
-            })),
-          }),
-        }),
+        where: (field: string, _op: string, value: unknown) => makeQuery(field, value),
         get: async (): Promise<QuerySnap> => ({
           docs: [...resolvedStore.entries()].map(([id, data]) => ({
             id,
@@ -295,7 +342,7 @@ describe("Document Ingestion OS routes", () => {
     const json = await res.json();
     expect(json.document.id).toBe("lab:legacy1");
     expect(json.document.filename).toBe("DirectLabs.pdf");
-    expect(json.document.canDelete).toBe(false);
+    expect(json.document.canDelete).toBe(true);
     expect(JSON.stringify(json)).not.toContain("lab-uploads/");
   });
 
@@ -644,6 +691,194 @@ describe("Document Ingestion OS routes", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.items.map((i: { id: string }) => i.id).sort()).toEqual(["doc_a", "doc_b"]);
+  });
+
+
+  it("deletes legacy Lab report by stable lab: id without touching same-filename sibling", async () => {
+    labUploadsStore.set("lab_jul28", {
+      id: "lab_jul28",
+      fileName: "DirectLabs.pdf",
+      storagePath: "lab-uploads/user_123/hash28/DirectLabs.pdf",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T12:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    labUploadsStore.set("lab_other", {
+      id: "lab_other",
+      fileName: "DirectLabs.pdf",
+      storagePath: "lab-uploads/user_123/hashOther/DirectLabs.pdf",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-01T12:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    labResultsStore.set("res_jul28", {
+      id: "res_jul28",
+      schemaVersion: 2,
+      uploadId: "lab_jul28",
+      metricKey: "glucose",
+    });
+    labResultsStore.set("res_other", {
+      id: "res_other",
+      schemaVersion: 2,
+      uploadId: "lab_other",
+      metricKey: "glucose",
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/lab:lab_jul28`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toEqual({ ok: true, documentId: "lab:lab_jul28", deleted: true });
+    expect(labUploadsStore.has("lab_jul28")).toBe(false);
+    expect(labUploadsStore.has("lab_other")).toBe(true);
+    expect(labResultsStore.has("res_jul28")).toBe(false);
+    expect(labResultsStore.has("res_other")).toBe(true);
+    expect(deletedStoragePaths).toContain("lab-uploads/user_123/hash28/DirectLabs.pdf");
+    expect(deletedStoragePaths).not.toContain("lab-uploads/user_123/hashOther/DirectLabs.pdf");
+  });
+
+  it("deletes mirrored Document OS record when deleting legacy lab upload by linkage", async () => {
+    labUploadsStore.set("lab_mirror", {
+      id: "lab_mirror",
+      fileName: "DirectLabs.pdf",
+      storagePath: "lab-uploads/user_123/mhash/DirectLabs.pdf",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    documentsStore.set("doc_mirror", {
+      schemaVersion: "1.0.0",
+      id: "doc_mirror",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "9".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_mirror/original",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      legacyLabUploadId: "lab_mirror",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/lab:lab_mirror`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(labUploadsStore.has("lab_mirror")).toBe(false);
+    expect(documentsStore.has("doc_mirror")).toBe(false);
+  });
+
+  it("does not let another user delete a legacy Lab report", async () => {
+    labUploadsStore.set("lab_owner", {
+      id: "lab_owner",
+      fileName: "DirectLabs.pdf",
+      storagePath: "lab-uploads/user_123/ohash/DirectLabs.pdf",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    requestUid = "user_other";
+    const res = await fetch(`${baseUrl}/users/me/documents/lab:lab_owner`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+    requestUid = "user_123";
+    expect(ensureUidStores("user_123").labUploads.has("lab_owner")).toBe(true);
+    const leak = await res.json();
+    expect(JSON.stringify(leak)).not.toContain("DirectLabs");
+    expect(JSON.stringify(leak)).not.toContain("lab-uploads/");
+  });
+
+  it("second legacy delete is safe (idempotent not-found)", async () => {
+    const res = await fetch(`${baseUrl}/users/me/documents/lab:already_gone`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("surfaces partial failure when storage delete fails and keeps metadata", async () => {
+    labUploadsStore.set("lab_partial", {
+      id: "lab_partial",
+      fileName: "DirectLabs.pdf",
+      storagePath: "lab-uploads/user_123/phash/DirectLabs.pdf",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    const { admin } = require("../../firebaseAdmin");
+    admin.storage = () => ({
+      bucket: () => ({
+        file: () => ({
+          save: jest.fn(async () => undefined),
+          delete: jest.fn(async () => {
+            throw new Error("storage unavailable");
+          }),
+        }),
+      }),
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/lab:lab_partial`, { method: "DELETE" });
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error.code).toBe("PARTIAL_DELETE_FAILED");
+    expect(labUploadsStore.has("lab_partial")).toBe(true);
+  });
+
+  it("reconciles stale processing document status to unsupported from terminal job", async () => {
+    documentsStore.set("doc_proc", {
+      schemaVersion: "1.0.0",
+      id: "doc_proc",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "a.pdf",
+      safeDisplayFilename: "a.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "8".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_proc/original",
+      uploadedAt: "2026-07-30T00:00:00.000Z",
+      source: "user_upload",
+      status: "processing",
+      retentionStatus: "active",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+    });
+    ensureUidStores("user_123").jobs.set("job_proc", {
+      schemaVersion: "1.0.0",
+      id: "job_proc",
+      documentId: "doc_proc",
+      userId: "user_123",
+      state: "extraction_unsupported",
+      domain: "labs",
+      documentType: "lab_report",
+      dryRun: false,
+      warningCodes: [],
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:01:00.000Z",
+      stateHistory: [],
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/doc_proc`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.document.status).toBe("unsupported");
+    expect(documentsStore.get("doc_proc")?.status).toBe("unsupported");
   });
 
 });

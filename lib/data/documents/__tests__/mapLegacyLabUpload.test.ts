@@ -37,14 +37,14 @@ describe("mapLegacyLabUploadToListItem", () => {
       status: "unsupported",
       canViewOriginal: false,
       canRetry: false,
-      canDelete: false,
+      canDelete: true,
       legacySource: "lab_upload",
     });
   });
 
-  it("sets canDelete false and omits storage path from the DTO", () => {
+  it("sets canDelete true and omits storage path from the DTO", () => {
     const item = mapLegacyLabUploadToListItem(unsupportedUpload());
-    expect(item.canDelete).toBe(false);
+    expect(item.canDelete).toBe(true);
     expect(item).not.toHaveProperty("storagePath");
     expect(JSON.stringify(item)).not.toContain(FAKE_STORAGE_PATH);
     expect(JSON.stringify(item)).not.toContain(FAKE_UID);
@@ -56,7 +56,7 @@ describe("mapLegacyLabUploadToDetail", () => {
     const dto = mapLegacyLabUploadToDetail(unsupportedUpload());
     expect(dto.id).toBe("lab:upload_doc_secret_99");
     expect(dto.status).toBe("unsupported");
-    expect(dto.canDelete).toBe(false);
+    expect(dto.canDelete).toBe(true);
     expect(dto.canRetry).toBe(false);
     expect(dto.extractionAvailability).toBe("unavailable");
     expect(dto.safeWarnings[0]).toMatch(/not available/i);

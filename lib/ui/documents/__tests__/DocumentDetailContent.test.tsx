@@ -120,6 +120,52 @@ describe("DocumentDetailContent", () => {
     expect(str).toContain("Could not load document");
   });
 
+  it("shows Delete document for legacy lab_upload detail", () => {
+    const onDelete = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentDetailContent
+          status="ready"
+          document={detail({
+            id: "lab:upload_legacy",
+            legacySource: "lab_upload",
+            canDelete: true,
+            status: "unsupported",
+          })}
+          onDelete={onDelete}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).toContain("Delete document");
+    expect(str).not.toContain("lab:upload_legacy");
+    expect(str).not.toContain("labUploads");
+    const button = tree.root.findByProps({ testID: "document-delete" });
+    expect(button.props.accessibilityState).toEqual({ disabled: false });
+    act(() => {
+      button.props.onPress();
+    });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Delete while deleteBusy to prevent repeated taps", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentDetailContent
+          status="ready"
+          document={detail({ canDelete: true })}
+          onDelete={() => undefined}
+          deleteBusy
+        />,
+      );
+    });
+    const button = tree.root.findByProps({ testID: "document-delete" });
+    expect(button.props.accessibilityState).toEqual({ disabled: true });
+    expect(JSON.stringify(tree.toJSON())).toContain("Deleting…");
+  });
+
   it("keeps DirectLabs filename privacy-safe without storage internals", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

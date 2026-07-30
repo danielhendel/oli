@@ -42,10 +42,10 @@ export function mapLegacyLabUploadToListItem(upload: LabUploadDto): DocumentList
     documentType: "lab_report",
     uploadedAt: upload.uploadedAt,
     status,
-    // View-original and account-wide delete are not fully covered yet.
+    // View-original remains deferred; per-document delete is supported via Document OS DELETE.
     canViewOriginal: false,
     canRetry: documentCanRetry(status),
-    canDelete: false,
+    canDelete: true,
     legacySource: "lab_upload",
   };
 }
@@ -74,7 +74,7 @@ export function mapLegacyLabUploadToDetail(upload: LabUploadDto): DocumentDetail
     safeWarnings,
     canViewOriginal: false,
     canRetry: documentCanRetry(status),
-    canDelete: false,
+    canDelete: true,
     legacySource: "lab_upload",
   };
 }

@@ -27,6 +27,9 @@
     "../../lib/data/documents/documentParser.ts",
     "../../lib/data/documents/documentStorage.ts",
     "../../lib/data/documents/mapLegacyLabUpload.ts",
+    "../../lib/data/documents/documentAccountLifecycle.ts",
+    "../../lib/data/documents/documentDeleteRelationships.ts",
+    "../../lib/data/documents/documentProcessingReconcile.ts",
     "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
   ],
   "exclude": [

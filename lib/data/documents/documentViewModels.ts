@@ -10,6 +10,11 @@ import type {
   DocumentRecordStatus,
   DocumentType,
 } from "@oli/contracts";
+import {
+  DOCUMENT_DELETE_ACTION_LABEL,
+  documentDeleteActionView,
+  resolveDocumentDeleteCapability,
+} from "./documentDeleteCapability";
 import { documentCanRetry, documentStatusLabel } from "./documentStatus";
 
 export const DOCUMENT_DETAIL_FORBIDDEN_VM_KEYS = [
@@ -60,6 +65,8 @@ export type DocumentDetailViewModel = {
   canRetryProcessing: boolean;
   retryLabel: "Retry processing" | null;
   canDelete: boolean;
+  /** Consumer-safe delete action label — never exposes ownership implementation. */
+  deleteActionLabel: typeof DOCUMENT_DELETE_ACTION_LABEL | null;
   originalFile: {
     heading: "Original file";
     description: string;
@@ -141,6 +148,12 @@ function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]):
 export function buildDocumentDetailViewModel(detail: DocumentDetailDto): DocumentDetailViewModel {
   const consumerTitle = documentConsumerTitle(detail.domain, detail.documentType);
   const canRetryProcessing = documentCanRetry(detail.status);
+  const deleteCapability = resolveDocumentDeleteCapability({
+    canDelete: detail.canDelete,
+    legacySource: detail.legacySource,
+    status: detail.status,
+  });
+  const deleteAction = documentDeleteActionView(deleteCapability);
   return {
     consumerTitle,
     title: consumerTitle,
@@ -155,7 +168,8 @@ export function buildDocumentDetailViewModel(detail: DocumentDetailDto): Documen
     canRetry: canRetryProcessing,
     canRetryProcessing,
     retryLabel: canRetryProcessing ? "Retry processing" : null,
-    canDelete: detail.canDelete,
+    canDelete: deleteAction.canDelete,
+    deleteActionLabel: deleteAction.canDelete ? deleteAction.actionLabel : null,
     originalFile: {
       heading: "Original file",
       description: "Your original file is stored securely with your account.",

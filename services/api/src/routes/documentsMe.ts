@@ -47,11 +47,17 @@ import {
   runDocumentIngestionJob,
 } from "../lib/documents/runDocumentIngestion";
 import {
+  deleteDocumentOsRecord,
+  deleteLegacyLabRecord,
+  type DeleteDocumentLifecycleDeps,
+} from "../lib/documents/deleteDocumentLifecycle";
+import {
   safeWarningsForStatus,
   toDocumentDetailDto,
   toDocumentListItemDto,
 } from "../lib/documents/toSafeDocumentDto";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
+import { reconcileDocumentProcessingStatus } from "../../../../lib/data/documents/documentProcessingReconcile";
 
 function getAdmin() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -97,13 +103,14 @@ async function writeDocumentBytes(args: {
   });
 }
 
-async function deleteDocumentBytes(args: { bucket: string; objectPath: string }): Promise<void> {
+async function deleteDocumentBytes(args: { bucket: string; objectPath: string }): Promise<{ ok: true } | { ok: false }> {
   const bucketRef = getAdmin().storage().bucket(args.bucket);
   const fileRef = bucketRef.file(args.objectPath);
   try {
     await fileRef.delete({ ignoreNotFound: true });
+    return { ok: true };
   } catch {
-    // ignore — delete path reports partial failure via HTTP if metadata delete fails
+    return { ok: false };
   }
 }
 
@@ -126,6 +133,30 @@ function documentsDeps(uid: string) {
     documentsCol: userCollection(uid, "documents") as never,
     jobsCol: userCollection(uid, "documentIngestionJobs") as never,
     extractionsCol: userCollection(uid, "documentExtractions") as never,
+  };
+}
+
+function deleteLifecycleDeps(uid: string): DeleteDocumentLifecycleDeps {
+  let bucket: string | null = null;
+  try {
+    bucket = requireFirebaseStorageBucketId();
+  } catch {
+    bucket = null;
+  }
+  return {
+    documentsCol: userCollection(uid, "documents") as never,
+    jobsCol: userCollection(uid, "documentIngestionJobs") as never,
+    extractionsCol: userCollection(uid, "documentExtractions") as never,
+    labUploadsCol: userCollection(uid, "labUploads") as never,
+    labResultsCol: userCollection(uid, "labResults") as never,
+    parseUserDocument,
+    deleteStorageObject: async (objectPath: string) => {
+      if (!bucket) {
+        // Config missing — treat as soft success only when path empty; otherwise fail closed.
+        return objectPath.length === 0 ? { ok: true } : { ok: false };
+      }
+      return deleteDocumentBytes({ bucket, objectPath });
+    },
   };
 }
 
@@ -600,6 +631,7 @@ router.get(
     }
 
     let processingState: DocumentIngestionJob["state"] | null = null;
+    let jobUpdatedAt: string | null = null;
     const jobsSnap = await userCollection(uid, "documentIngestionJobs")
       .where("documentId", "==", documentId)
       .limit(10)
@@ -609,12 +641,28 @@ router.get(
         .map((d) => d.data() as DocumentIngestionJob)
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
       processingState = jobs[0]?.state ?? null;
+      jobUpdatedAt = jobs[0]?.updatedAt ?? null;
+    }
+
+    let recordForDto = record;
+    const reconciled = reconcileDocumentProcessingStatus({
+      documentStatus: record.status,
+      jobState: processingState,
+      jobUpdatedAt,
+    });
+    if (reconciled.reason !== "unchanged" && reconciled.status !== record.status) {
+      const now = new Date().toISOString();
+      await userCollection(uid, "documents").doc(documentId).update({
+        status: reconciled.status,
+        updatedAt: now,
+      });
+      recordForDto = { ...record, status: reconciled.status, updatedAt: now };
     }
 
     const detail = toDocumentDetailDto({
-      record,
+      record: recordForDto,
       processingState,
-      safeWarnings: safeWarningsForStatus(record.status),
+      safeWarnings: safeWarningsForStatus(recordForDto.status),
     });
     const payload = { ok: true as const, document: detail };
     const out = documentDetailResponseDtoSchema.safeParse(payload);
@@ -757,7 +805,7 @@ router.post(
   }),
 );
 
-/** DELETE /users/me/documents/:documentId */
+/** DELETE /users/me/documents/:documentId — Document OS + bridged legacy Labs. */
 router.delete(
   "/:documentId",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -773,60 +821,30 @@ router.delete(
       return;
     }
 
-    if (parseLegacyLabDocumentId(params.data.documentId)) {
-      res.status(400).json({
+    const { documentId } = params.data;
+    const deps = deleteLifecycleDeps(uid);
+    const legacyLabId = parseLegacyLabDocumentId(documentId);
+
+    const result = legacyLabId
+      ? await deleteLegacyLabRecord({ deps, labUploadId: legacyLabId })
+      : await deleteDocumentOsRecord({ deps, documentId });
+
+    if (!result.ok) {
+      if (result.code === "NOT_FOUND") {
+        res.status(404).json({
+          ok: false,
+          error: { code: "NOT_FOUND", resource: "documents", id: documentId },
+        });
+        return;
+      }
+      res.status(500).json({
         ok: false,
-        error: { code: "LEGACY_DELETE_UNSUPPORTED", requestId: getRid(req) },
+        error: { code: result.code, requestId: getRid(req) },
       });
       return;
     }
 
-    const { documentId } = params.data;
-    const docRef = userCollection(uid, "documents").doc(documentId);
-    const snap = await docRef.get();
-    if (!snap.exists) {
-      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "documents", id: documentId } });
-      return;
-    }
-    const record = parseUserDocument(snap.data() as Record<string, unknown>, documentId);
-    if (!record) {
-      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "documents", id: documentId } });
-      return;
-    }
-
-    let bucket: string | null = null;
-    try {
-      bucket = requireFirebaseStorageBucketId();
-    } catch {
-      bucket = null;
-    }
-    if (bucket) {
-      await deleteDocumentBytes({ bucket, objectPath: record.storageObjectId });
-    }
-
-    const jobsSnap = await userCollection(uid, "documentIngestionJobs")
-      .where("documentId", "==", documentId)
-      .limit(50)
-      .get();
-    for (const jobDoc of jobsSnap.docs) {
-      await userCollection(uid, "documentIngestionJobs").doc(jobDoc.id).delete();
-    }
-
-    const extractionsSnap = await userCollection(uid, "documentExtractions")
-      .where("documentId", "==", documentId)
-      .limit(50)
-      .get();
-    for (const extDoc of extractionsSnap.docs) {
-      await userCollection(uid, "documentExtractions").doc(extDoc.id).delete();
-    }
-
-    if (record.legacyLabUploadId) {
-      await userCollection(uid, "labUploads").doc(record.legacyLabUploadId).delete().catch(() => undefined);
-    }
-
-    await docRef.delete();
-
-    const response = { ok: true as const, documentId, deleted: true as const };
+    const response = { ok: true as const, documentId: result.consumerDocumentId, deleted: true as const };
     const validated = documentDeleteResponseDtoSchema.safeParse(response);
     if (!validated.success) {
       res.status(500).json({ ok: false, error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) } });
