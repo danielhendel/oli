@@ -4,16 +4,23 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import type { DocumentDetailDto } from "@/lib/contracts";
 import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
+import type { DocumentDetailState } from "@/lib/data/documents/useDocumentDetail";
+
+export const DOCUMENT_NOT_FOUND_TITLE = "Document no longer available";
+export const DOCUMENT_NOT_FOUND_MESSAGE = "This document may have been deleted.";
+export const DOCUMENT_NOT_FOUND_ACTION_LABEL = "Back to Lab uploads";
 
 export type DocumentDetailContentProps = {
-  status: "partial" | "error" | "ready";
+  status: DocumentDetailState | "partial";
   error?: string;
   requestId?: string | null;
   document?: DocumentDetailDto | null;
   onRetryLoad?: () => void;
+  onBackToList?: () => void;
   onReprocess?: () => void;
   onDelete?: () => void;
   reprocessBusy?: boolean;
@@ -26,12 +33,42 @@ export function DocumentDetailContent({
   requestId,
   document,
   onRetryLoad,
+  onBackToList,
   onReprocess,
   onDelete,
   reprocessBusy,
   deleteBusy,
 }: DocumentDetailContentProps) {
-  if (status === "partial") return <LoadingState message="Loading document…" />;
+  if (status === "idle" || status === "partial") {
+    return <LoadingState message="Loading document…" />;
+  }
+
+  if (status === "not_found") {
+    return (
+      <View style={styles.root} testID="document-detail-not-found">
+        <View style={styles.card}>
+          <Text style={styles.title} accessibilityRole="header">
+            {DOCUMENT_NOT_FOUND_TITLE}
+          </Text>
+          <Text style={styles.message} testID="document-detail-not-found-message">
+            {DOCUMENT_NOT_FOUND_MESSAGE}
+          </Text>
+        </View>
+        {onBackToList ? (
+          <Pressable
+            onPress={onBackToList}
+            accessibilityRole="button"
+            accessibilityLabel={DOCUMENT_NOT_FOUND_ACTION_LABEL}
+            style={({ pressed }) => [styles.primaryAction, pressed && styles.actionPressed]}
+            testID="document-detail-back-to-list"
+          >
+            <Text style={styles.primaryActionLabel}>{DOCUMENT_NOT_FOUND_ACTION_LABEL}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
   if (status === "error" || !document) {
     return (
       <ErrorState
@@ -127,10 +164,22 @@ const styles = StyleSheet.create({
   sectionTitle: { color: UI_TEXT_PRIMARY, fontSize: 16, fontWeight: "600" },
   action: {
     ...elevatedCardSurfaceStyle,
+    minHeight: 44,
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: "center",
+    justifyContent: "center",
   },
+  primaryAction: {
+    minHeight: 44,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: SYSTEM_ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryActionLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   actionPressed: { opacity: 0.85 },
   actionDisabled: { opacity: 0.7 },
   actionLabel: { color: UI_TEXT_PRIMARY, fontSize: 16, fontWeight: "600" },

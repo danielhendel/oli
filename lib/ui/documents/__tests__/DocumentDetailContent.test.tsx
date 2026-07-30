@@ -2,7 +2,12 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { describe, expect, it, jest } from "@jest/globals";
 import type { DocumentDetailDto } from "@/lib/contracts";
-import { DocumentDetailContent } from "../DocumentDetailContent";
+import {
+  DOCUMENT_NOT_FOUND_ACTION_LABEL,
+  DOCUMENT_NOT_FOUND_MESSAGE,
+  DOCUMENT_NOT_FOUND_TITLE,
+  DocumentDetailContent,
+} from "../DocumentDetailContent";
 
 function detail(overrides: Partial<DocumentDetailDto> = {}): DocumentDetailDto {
   return {
@@ -70,6 +75,49 @@ describe("DocumentDetailContent", () => {
       button.props.onPress();
     });
     expect(onReprocess).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps not_found to consumer-safe copy without loading or raw 404", () => {
+    const onBack = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentDetailContent status="not_found" onBackToList={onBack} />,
+      );
+    });
+
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain("Loading document");
+    expect(str).not.toContain("404");
+    expect(str).not.toContain("requestId");
+    expect(str).not.toContain("doc_detail_1");
+    expect(str).toContain(DOCUMENT_NOT_FOUND_TITLE);
+    expect(str).toContain(DOCUMENT_NOT_FOUND_MESSAGE);
+    expect(str).toContain(DOCUMENT_NOT_FOUND_ACTION_LABEL);
+    const back = tree.root.findByProps({ testID: "document-detail-back-to-list" });
+    act(() => {
+      back.props.onPress();
+    });
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps retryable server errors distinct from not_found", () => {
+    const onRetry = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentDetailContent
+          status="error"
+          error="Could not load document"
+          requestId="req_test"
+          onRetryLoad={onRetry}
+        />,
+      );
+    });
+    const str = JSON.stringify(tree.toJSON());
+    expect(str).not.toContain(DOCUMENT_NOT_FOUND_TITLE);
+    expect(str).not.toContain("Loading document");
+    expect(str).toContain("Could not load document");
   });
 
   it("keeps DirectLabs filename privacy-safe without storage internals", () => {
