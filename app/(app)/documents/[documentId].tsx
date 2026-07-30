@@ -4,6 +4,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
 import { deleteDocument, reprocessDocument } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
 import { useDocumentDetail } from "@/lib/data/documents/useDocumentDetail";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -22,17 +23,28 @@ export default function DocumentDetailScreen() {
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const consumerTitle = useMemo(() => {
-    if (detail.status !== "ready") return "Document";
-    return buildDocumentDetailViewModel(detail.data.document).consumerTitle;
+    if (detail.status === "ready") {
+      return buildDocumentDetailViewModel(detail.data.document).consumerTitle;
+    }
+    if (detail.status === "not_found") return "Lab report";
+    return "Document";
   }, [detail]);
+
+  const goBackToLabUploads = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(app)/labs/uploads");
+  }, [router]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
       title: consumerTitle,
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerLeft: () => <HeaderBackButton onPress={goBackToLabUploads} />,
     });
-  }, [consumerTitle, navigation]);
+  }, [consumerTitle, goBackToLabUploads, navigation]);
 
   const onReprocess = useCallback(async () => {
     setReprocessBusy(true);
@@ -57,11 +69,18 @@ export default function DocumentDetailScreen() {
             setDeleteBusy(true);
             try {
               const token = await getIdToken(false);
-              if (!token) return;
-              const res = await deleteDocument(token, documentId);
-              if (res.ok) {
-                router.back();
+              if (!token) {
+                Alert.alert("Couldn’t delete", "Sign in again and retry.", [{ text: "OK" }]);
+                return;
               }
+              const res = await deleteDocument(token, documentId);
+              if (!res.ok) {
+                Alert.alert("Couldn’t delete", "Try again in a moment.", [{ text: "Retry", onPress: () => onDelete() }, { text: "Cancel", style: "cancel" }]);
+                return;
+              }
+              // Server confirmed — update caches before navigating away.
+              markDocumentDeleted(documentId);
+              goBackToLabUploads();
             } finally {
               setDeleteBusy(false);
             }
@@ -69,7 +88,7 @@ export default function DocumentDetailScreen() {
         },
       },
     ]);
-  }, [documentId, getIdToken, router]);
+  }, [documentId, getIdToken, goBackToLabUploads]);
 
   return (
     <View style={styles.root}>
@@ -80,6 +99,7 @@ export default function DocumentDetailScreen() {
             ? { error: detail.error, requestId: detail.requestId, onRetryLoad: () => detail.refetch() }
             : {})}
           {...(detail.status === "ready" ? { document: detail.data.document } : {})}
+          onBackToList={goBackToLabUploads}
           onReprocess={() => void onReprocess()}
           onDelete={onDelete}
           reprocessBusy={reprocessBusy}

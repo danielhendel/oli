@@ -1,6 +1,6 @@
-import React, { useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 
 import { isDocumentIngestionOsV1Enabled } from "@/lib/data/documents/documentIngestionOsFlag";
 import { useDocuments } from "@/lib/data/documents/useDocuments";
@@ -17,6 +17,7 @@ export default function LabsUploadsListScreen() {
   const documentOs = isDocumentIngestionOsV1Enabled();
   const uploads = useLabUploads({ enabled: !documentOs });
   const documents = useDocuments({ domain: "labs", enabled: documentOs });
+  const refetchDocuments = documents.refetch;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -26,6 +27,13 @@ export default function LabsUploadsListScreen() {
     });
   }, [navigation]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!documentOs) return;
+      refetchDocuments({ cacheBust: `focus-${Date.now()}` });
+    }, [documentOs, refetchDocuments]),
+  );
+
   return (
     <View style={styles.root}>
       <ModuleScreenShell title="Lab uploads" hideTitleChrome>
@@ -33,7 +41,7 @@ export default function LabsUploadsListScreen() {
           <DocumentListContent
             status={documents.status}
             {...(documents.status === "error"
-              ? { error: documents.error, requestId: documents.requestId, onRetry: () => documents.refetch() }
+              ? { error: documents.error, requestId: documents.requestId, onRetry: () => refetchDocuments() }
               : {})}
             {...(documents.status === "ready" ? { items: documents.data.items } : {})}
             emptyTitle="No lab uploads yet"

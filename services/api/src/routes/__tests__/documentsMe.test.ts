@@ -420,4 +420,230 @@ describe("Document Ingestion OS routes", () => {
     expect(res.status).toBe(404);
     expect(documentsStore.has("doc_owner_delete")).toBe(true);
   });
+
+  it("owner delete removes document and mirrored lab upload; leaves other DirectLabs untouched", async () => {
+    documentsStore.set("doc_jul30", {
+      schemaVersion: "1.0.0",
+      id: "doc_jul30",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "1".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_jul30/original",
+      uploadedAt: "2026-07-30T12:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      legacyLabUploadId: "lab_jul30",
+      createdAt: "2026-07-30T12:00:00.000Z",
+      updatedAt: "2026-07-30T12:00:00.000Z",
+    });
+    documentsStore.set("doc_jul28", {
+      schemaVersion: "1.0.0",
+      id: "doc_jul28",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1100,
+      checksumSha256: "2".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_jul28/original",
+      uploadedAt: "2026-07-28T12:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      legacyLabUploadId: "lab_jul28",
+      createdAt: "2026-07-28T12:00:00.000Z",
+      updatedAt: "2026-07-28T12:00:00.000Z",
+    });
+    labUploadsStore.set("lab_jul30", {
+      id: "lab_jul30",
+      fileName: "DirectLabs.pdf",
+      storagePath: "users/user_123/documents/doc_jul30/original",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-30T12:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+    labUploadsStore.set("lab_jul28", {
+      id: "lab_jul28",
+      fileName: "DirectLabs.pdf",
+      storagePath: "users/user_123/documents/doc_jul28/original",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T12:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/doc_jul30`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toEqual({ ok: true, documentId: "doc_jul30", deleted: true });
+    expect(documentsStore.has("doc_jul30")).toBe(false);
+    expect(labUploadsStore.has("lab_jul30")).toBe(false);
+    expect(documentsStore.has("doc_jul28")).toBe(true);
+    expect(labUploadsStore.has("lab_jul28")).toBe(true);
+  });
+
+  it("complete-upload returns duplicate for same checksum without a second durable record", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const crypto = require("node:crypto") as typeof import("node:crypto");
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF\n");
+    const checksum = crypto.createHash("sha256").update(pdf).digest("hex");
+
+    documentsStore.set("doc_existing", {
+      schemaVersion: "1.0.0",
+      id: "doc_existing",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: pdf.length,
+      checksumSha256: checksum,
+      storageObjectId: "users/user_123/documents/doc_existing/original",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+    documentsStore.set("doc_intent", {
+      schemaVersion: "1.0.0",
+      id: "doc_intent",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: pdf.length,
+      checksumSha256: "b".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_intent/original",
+      uploadedAt: "2026-07-30T00:00:00.000Z",
+      source: "user_upload",
+      status: "uploading",
+      retentionStatus: "active",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents/doc_intent/complete-upload`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        originalFilename: "DirectLabs.pdf",
+        mediaType: "application/pdf",
+        fileBase64: pdf.toString("base64"),
+        checksumSha256: checksum,
+      }),
+    });
+    expect(res.status).toBe(202);
+    const json = await res.json();
+    expect(json.duplicate).toBe(true);
+    expect(json.documentId).toBe("doc_existing");
+    expect(documentsStore.get("doc_intent")?.status).toBe("failed");
+    expect(documentsStore.get("doc_intent")?.retentionStatus).toBe("deleted");
+    expect(documentsStore.has("doc_existing")).toBe(true);
+  });
+
+  it("does not list mirrored legacy lab upload twice alongside Document OS record", async () => {
+    documentsStore.set("doc_mirrored", {
+      schemaVersion: "1.0.0",
+      id: "doc_mirrored",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "c".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_mirrored/original",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      legacyLabUploadId: "lab_mirrored",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+    labUploadsStore.set("lab_mirrored", {
+      id: "lab_mirrored",
+      fileName: "DirectLabs.pdf",
+      storagePath: "users/user_123/documents/doc_mirrored/original",
+      mimeType: "application/pdf",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      status: "unsupported",
+      extractedCount: 0,
+      matchedCount: 0,
+      unmatchedCount: 0,
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents?domain=labs`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const ids = json.items.map((i: { id: string }) => i.id);
+    expect(ids).toEqual(["doc_mirrored"]);
+    expect(ids).not.toContain("lab:lab_mirrored");
+  });
+
+  it("lists separate records when checksums differ even with the same filename", async () => {
+    documentsStore.set("doc_a", {
+      schemaVersion: "1.0.0",
+      id: "doc_a",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "d".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_a/original",
+      uploadedAt: "2026-07-30T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+    });
+    documentsStore.set("doc_b", {
+      schemaVersion: "1.0.0",
+      id: "doc_b",
+      userId: "user_123",
+      domain: "labs",
+      documentType: "lab_report",
+      originalFilename: "DirectLabs.pdf",
+      safeDisplayFilename: "DirectLabs.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1100,
+      checksumSha256: "e".repeat(64),
+      storageObjectId: "users/user_123/documents/doc_b/original",
+      uploadedAt: "2026-07-28T00:00:00.000Z",
+      source: "user_upload",
+      status: "unsupported",
+      retentionStatus: "active",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/documents?domain=labs`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items.map((i: { id: string }) => i.id).sort()).toEqual(["doc_a", "doc_b"]);
+  });
+
 });

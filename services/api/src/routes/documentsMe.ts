@@ -499,17 +499,15 @@ router.get(
     // Bridge legacy lab uploads when listing labs (or unfiltered).
     if (!domainParsed?.success || domainParsed.data === "labs") {
       const labsSnap = await userCollection(uid, "labUploads").orderBy("uploadedAt", "desc").limit(limit).get();
+      // Only skip labUploads that are already mirrored by a Document OS record.
+      // Do not seed this set with document ids — those are a different id space.
       const mirroredLegacyIds = new Set(
-        items
-          .map((i) => i.id)
-          .concat(
-            snap.docs
-              .map((d) => {
-                const r = parseUserDocument(d.data() as Record<string, unknown>, d.id);
-                return r?.legacyLabUploadId;
-              })
-              .filter((x): x is string => typeof x === "string"),
-          ),
+        snap.docs
+          .map((d) => {
+            const r = parseUserDocument(d.data() as Record<string, unknown>, d.id);
+            return r?.legacyLabUploadId;
+          })
+          .filter((x): x is string => typeof x === "string"),
       );
 
       for (const doc of labsSnap.docs) {
