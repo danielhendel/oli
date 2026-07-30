@@ -3,8 +3,22 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  UI_SURFACE_PRESSED,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 import type { DocumentUploadPhase } from "@/lib/data/documents/useDocumentUploadFlow";
+
+/** Primary CTA fill — accent surface with high-contrast label. */
+export const DOCUMENT_UPLOAD_PRIMARY_BG = SYSTEM_ACCENT;
+export const DOCUMENT_UPLOAD_PRIMARY_LABEL = "#FFFFFF";
+/** Disabled CTA — muted surface with readable muted text (never white-on-white). */
+export const DOCUMENT_UPLOAD_DISABLED_BG = UI_SURFACE_PRESSED;
+export const DOCUMENT_UPLOAD_DISABLED_LABEL = UI_TEXT_MUTED;
+export const DOCUMENT_UPLOAD_MIN_TOUCH = 44;
 
 export type DocumentUploadFlowContentProps = {
   phase: DocumentUploadPhase;
@@ -40,6 +54,7 @@ export function DocumentUploadFlowContent({
           <Pressable
             onPress={onStart}
             accessibilityRole="button"
+            accessibilityState={{ disabled: false }}
             accessibilityLabel={`Choose ${domainLabel} file`}
             style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
             testID="document-upload-choose"
@@ -66,6 +81,16 @@ export function DocumentUploadFlowContent({
             >
               <Text style={styles.secondaryLabel}>Cancel</Text>
             </Pressable>
+            <Pressable
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              accessibilityLabel="Done"
+              style={styles.primaryDisabled}
+              testID="document-upload-done-disabled"
+            >
+              <Text style={styles.primaryDisabledLabel}>Done</Text>
+            </Pressable>
           </>
         ) : null}
 
@@ -77,6 +102,7 @@ export function DocumentUploadFlowContent({
             <Pressable
               onPress={onDone ?? onReset}
               accessibilityRole="button"
+              accessibilityState={{ disabled: false }}
               accessibilityLabel="Done"
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
               testID="document-upload-done"
@@ -94,8 +120,10 @@ export function DocumentUploadFlowContent({
             <Pressable
               onPress={onDone ?? onReset}
               accessibilityRole="button"
+              accessibilityState={{ disabled: false }}
               accessibilityLabel="Done"
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+              testID="document-upload-done"
             >
               <Text style={styles.primaryLabel}>Done</Text>
             </Pressable>
@@ -110,6 +138,7 @@ export function DocumentUploadFlowContent({
             <Pressable
               onPress={onReset}
               accessibilityRole="button"
+              accessibilityState={{ disabled: false }}
               accessibilityLabel="Try again"
               style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
               testID="document-upload-retry"
@@ -132,13 +161,33 @@ const styles = StyleSheet.create({
   error: { color: "#B42318", fontSize: 15 },
   primary: {
     marginTop: 4,
+    minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: UI_TEXT_PRIMARY,
+    backgroundColor: DOCUMENT_UPLOAD_PRIMARY_BG,
     alignItems: "center",
+    justifyContent: "center",
   },
-  primaryLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  secondary: { paddingVertical: 12, alignItems: "center" },
+  primaryLabel: {
+    color: DOCUMENT_UPLOAD_PRIMARY_LABEL,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  primaryDisabled: {
+    marginTop: 4,
+    minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: DOCUMENT_UPLOAD_DISABLED_BG,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryDisabledLabel: {
+    color: DOCUMENT_UPLOAD_DISABLED_LABEL,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  secondary: { minHeight: DOCUMENT_UPLOAD_MIN_TOUCH, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
   secondaryLabel: { color: UI_TEXT_SECONDARY, fontSize: 15, fontWeight: "600" },
   pressed: { opacity: 0.85 },
 });
