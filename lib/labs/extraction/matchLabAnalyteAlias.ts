@@ -56,7 +56,11 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "vitamin_d", aliases: ["vitamin d, 25-hydroxy", "25-hydroxyvitamin d", "vitamin d 25-oh", "vitamin d 25 oh total", "vitamin d 25-oh total"] },
   { metricKey: "psa", aliases: ["prostate specific antigen", "psa, total"] },
   { metricKey: "ldl_particle_number", aliases: ["ldl-p", "ldl particle number"] },
-  { metricKey: "small_ldl_p", aliases: ["small ldl-p", "small dense ldl-p"] },
+  { metricKey: "small_ldl_p", aliases: ["small ldl-p", "small dense ldl-p", "ldl small", "small ldl"] },
+  { metricKey: "co2_bicarbonate", aliases: ["carbon dioxide", "co2 content"] },
+  { metricKey: "phosphorus", aliases: ["phosphate (as phosphorus)", "phosphate as phosphorus"] },
+  { metricKey: "folate", aliases: ["folate, serum", "folate serum"] },
+  { metricKey: "cortisol", aliases: ["cortisol, total", "cortisol total"] },
   { metricKey: "total_testosterone", aliases: ["testosterone total ms", "testosterone, total, ms", "testosterone total"] },
 ];
 

@@ -205,6 +205,21 @@ export function extractQuestAnalyteRows(args: {
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;
       if (/patient\s+id|dob|date of birth|phone|address|requisition/i.test(trimmed)) return;
+      // Client/account metadata and interpretive legends are not analyte rows.
+      if (/^client\s*#|^account\s*#|^patient\s*#/i.test(trimmed)) return;
+      if (
+        /^(deficiency|insufficiency|optimal|desirable|reference\s+range|risk)\s*:/i.test(trimmed) ||
+        /^risk:\s*/i.test(trimmed)
+      ) {
+        return;
+      }
+      if (/quest\s+diagnostics|cleveland\s+heartlab|performing\s+lab/i.test(trimmed) && /,\s*[A-Z]{2}\b/.test(trimmed)) {
+        return;
+      }
+      if (/relative\s+risk|cardiovascular\s+risk\.|for\s+clinical\s+purposes|questassured/i.test(trimmed)) {
+        return;
+      }
+      if (/^value\s*\(in\s+the\s+range|^option\b/i.test(trimmed)) return;
 
       // Panel headers are single-column names — skip as analyte rows.
       if (
@@ -310,11 +325,16 @@ export function extractQuestAnalyteRows(args: {
       }
 
       if (alias.matchMethod === "unmatched" || !alias.canonicalMetricId) {
+        // confidence 0.35 = multi-metric ambiguity; 0.2 = no catalog hit (alias missing).
+        const reason =
+          alias.confidence >= 0.3 && alias.confidence < 0.5
+            ? ("ambiguous_alias" as const)
+            : ("unmatched_alias" as const);
         unmatched.push({
           id: candidateId,
           rawAnalyteLabel: rawLabel,
           rawResult,
-          reason: alias.confidence > 0 && alias.confidence < 0.5 ? "ambiguous_alias" : "unmatched_alias",
+          reason,
           provenance,
           confidence: Math.min(parsedValue.confidence, alias.confidence),
           reviewStatus: "pending",
