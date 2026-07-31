@@ -14,7 +14,7 @@ export type PdfTextExtractionResult = {
 };
 
 export const PDF_TEXT_EXTRACTOR_ID = "pdfjs_text_v1";
-export const PDF_TEXT_EXTRACTOR_VERSION = "1.1.1";
+export const PDF_TEXT_EXTRACTOR_VERSION = "1.1.2";
 
 const MAX_PAGES = 40;
 const MAX_CHARS = 500_000;
@@ -150,8 +150,10 @@ export async function extractPdfTextPages(
   // module is the supported interop path (also keeps mobile bundles from pulling pdfjs).
   const run = async (): Promise<PdfTextExtractionResult> => {
     const pdfjs = await loadPdfjs();
+    // pdfjs may transfer/detach the input ArrayBuffer — always pass a copy.
+    const data = bytes.byteLength > 0 ? bytes.slice() : bytes;
     const loadingTask = pdfjs.getDocument({
-      data: bytes,
+      data,
       useSystemFonts: true,
       isEvalSupported: false,
       disableFontFace: true,

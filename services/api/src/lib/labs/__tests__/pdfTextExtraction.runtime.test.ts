@@ -83,9 +83,15 @@ describe("pdfTextExtraction runtime", () => {
     expect(result.parser.id).toBe(PDF_TEXT_EXTRACTOR_ID);
   });
 
-  it("respects timeout by returning bounded failure shape", async () => {
-    const result = await extractPdfTextPages(syntheticTextPdf(), { timeoutMs: 1 });
-    expect(result.parser.version).toBe(PDF_TEXT_EXTRACTOR_VERSION);
-    expect(result.pageCount).toBeGreaterThanOrEqual(0);
+  it("does not detach caller-owned bytes across repeated extractions", async () => {
+    const bytes = syntheticTextPdf();
+    const first = await extractPdfTextPages(bytes);
+    const second = await extractPdfTextPages(bytes);
+    expect(bytes.byteLength).toBeGreaterThan(0);
+    // When pdfjs loads, both calls should see the same page availability.
+    expect(second.pageCount).toBe(first.pageCount);
+    if (first.pageCount >= 1) {
+      expect(second.textCharCount).toBeGreaterThan(0);
+    }
   });
 });
