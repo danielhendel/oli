@@ -703,6 +703,14 @@ async function main() {
     record(results, "drafts_removed", draftsAfter.size === 0, `n=${draftsAfter.size}`);
     record(results, "review_removed", reviewsAfter.size === 0, `n=${reviewsAfter.size}`);
     record(results, "accepted_removed", acceptedAfterDel.size === 0, `n=${acceptedAfterDel.size}`);
+    const projectedAfterDel = await db
+      .collection("users")
+      .doc(uid)
+      .collection("labResults")
+      .where("uploadId", "==", documentId)
+      .limit(50)
+      .get();
+    record(results, "projected_removed", projectedAfterDel.size === 0, `n=${projectedAfterDel.size}`);
     record(results, "document_removed_or_tombstoned", !docAfter.exists || String((docAfter.data() as any)?.retentionStatus) === "deleted");
 
     const unrelatedAfter = await db.collection("users").doc(uid).collection("documents").doc(unrelatedDocumentId).get();
