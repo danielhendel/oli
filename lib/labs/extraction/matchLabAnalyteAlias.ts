@@ -23,6 +23,24 @@ function normalizeLabel(raw: string): string {
     .trim();
 }
 
+/** Strip Quest method/assay suffixes for alias lookup (label remains original elsewhere). */
+function labelLookupKeys(raw: string): string[] {
+  const base = normalizeLabel(raw);
+  if (!base) return [];
+  const keys = [base];
+  const withoutMethod = base
+    .replace(/\b(?:ms|ia|lc ms|lc\/ms|immunoassay|calculated|calc)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (withoutMethod && withoutMethod !== base) keys.push(withoutMethod);
+  // Drop trailing assay tokens one at a time for "TESTOSTERONE TOTAL MS" style labels.
+  const parts = withoutMethod.split(" ");
+  for (let i = parts.length - 1; i >= 2; i--) {
+    keys.push(parts.slice(0, i).join(" "));
+  }
+  return [...new Set(keys.filter(Boolean))];
+}
+
 /** Extra Quest/DirectLabs label forms not already on catalog aliases. */
 const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[] = [
   { metricKey: "ldl_c", aliases: ["ldl-cholesterol", "ldl cholesterol", "cholesterol ldl"] },
@@ -35,10 +53,11 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "wbc", aliases: ["white blood cell count", "wbc count"] },
   { metricKey: "hemoglobin", aliases: ["hemoglobin", "hgb"] },
   { metricKey: "tsh", aliases: ["tsh", "thyroid stimulating hormone"] },
-  { metricKey: "vitamin_d", aliases: ["vitamin d, 25-hydroxy", "25-hydroxyvitamin d", "vitamin d 25-oh"] },
+  { metricKey: "vitamin_d", aliases: ["vitamin d, 25-hydroxy", "25-hydroxyvitamin d", "vitamin d 25-oh", "vitamin d 25 oh total", "vitamin d 25-oh total"] },
   { metricKey: "psa", aliases: ["prostate specific antigen", "psa, total"] },
   { metricKey: "ldl_particle_number", aliases: ["ldl-p", "ldl particle number"] },
   { metricKey: "small_ldl_p", aliases: ["small ldl-p", "small dense ldl-p"] },
+  { metricKey: "total_testosterone", aliases: ["testosterone total ms", "testosterone, total, ms", "testosterone total"] },
 ];
 
 type IndexEntry = { metricKey: string; method: LabAliasMatch["matchMethod"] };
@@ -82,8 +101,8 @@ const ALIAS_INDEX = buildIndex();
  * Ambiguous multi-metric hits remain unmatched and require review.
  */
 export function matchLabAnalyteAlias(rawLabel: string): AliasMatchOutcome {
-  const normalized = normalizeLabel(rawLabel);
-  if (!normalized) {
+  const lookupKeys = labelLookupKeys(rawLabel);
+  if (lookupKeys.length === 0) {
     return {
       canonicalMetricId: null,
       matchMethod: "unmatched",
@@ -93,7 +112,14 @@ export function matchLabAnalyteAlias(rawLabel: string): AliasMatchOutcome {
     };
   }
 
-  const hits = ALIAS_INDEX.get(normalized) ?? [];
+  let hits: IndexEntry[] = [];
+  for (const key of lookupKeys) {
+    const found = ALIAS_INDEX.get(key) ?? [];
+    if (found.length > 0) {
+      hits = found;
+      break;
+    }
+  }
   const uniqueKeys = [...new Set(hits.map((h) => h.metricKey))];
 
   if (uniqueKeys.length === 0) {

@@ -3,7 +3,12 @@
  * Uses synthetic bytes only — never private reports. Does not log page text.
  */
 
-import { extractPdfTextPages, PDF_TEXT_EXTRACTOR_ID, PDF_TEXT_EXTRACTOR_VERSION } from "../pdfTextExtraction";
+import {
+  extractPdfTextPages,
+  PDF_TEXT_EXTRACTOR_ID,
+  PDF_TEXT_EXTRACTOR_VERSION,
+  reconstructPdfPageText,
+} from "../pdfTextExtraction";
 
 /** Minimal valid PDF with a Helvetica text operator. */
 function syntheticTextPdf(): Uint8Array {
@@ -33,6 +38,29 @@ startxref
 }
 
 describe("pdfTextExtraction runtime", () => {
+  it("reconstructPdfPageText preserves hasEOL line breaks for Quest-like columns", () => {
+    const text = reconstructPdfPageText([
+      { str: "LDL-CHOLESTEROL", transform: [1, 0, 0, 1, 20, 700] },
+      { str: "  ", transform: [1, 0, 0, 1, 120, 700] },
+      { str: "98", transform: [1, 0, 0, 1, 200, 700] },
+      { str: "  ", transform: [1, 0, 0, 1, 230, 700] },
+      { str: "mg/dL", transform: [1, 0, 0, 1, 260, 700] },
+      { str: "  ", transform: [1, 0, 0, 1, 300, 700] },
+      { str: "<100", transform: [1, 0, 0, 1, 340, 700] },
+      { str: "", hasEOL: true, transform: [1, 0, 0, 1, 20, 680] },
+      { str: "HDL-CHOLESTEROL", transform: [1, 0, 0, 1, 20, 680] },
+      { str: "  ", transform: [1, 0, 0, 1, 120, 680] },
+      { str: "55", transform: [1, 0, 0, 1, 200, 680] },
+      { str: "  ", transform: [1, 0, 0, 1, 230, 680] },
+      { str: "mg/dL", transform: [1, 0, 0, 1, 260, 680] },
+      { str: "", hasEOL: true, transform: [1, 0, 0, 1, 20, 660] },
+    ]);
+    expect(text.split("\n")).toEqual([
+      "LDL-CHOLESTEROL  98  mg/dL  <100",
+      "HDL-CHOLESTEROL  55  mg/dL",
+    ]);
+  });
+
   it("returns versioned metadata and a closed success or failure shape", async () => {
     const result = await extractPdfTextPages(syntheticTextPdf());
     expect(result.parser).toEqual({ id: PDF_TEXT_EXTRACTOR_ID, version: PDF_TEXT_EXTRACTOR_VERSION });

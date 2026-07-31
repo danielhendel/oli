@@ -10,8 +10,8 @@ import { extractQuestReportMetadata } from "./extractQuestReportMetadata";
 import { segmentQuestReportText } from "./segmentQuestReport";
 
 export const QUEST_TEXT_PDF_PARSER_ID = "quest_text_pdf_v1";
-export const QUEST_TEXT_PDF_PARSER_VERSION = "1.0.0";
-export const QUEST_TEXT_PDF_EXTRACTION_VERSION = "1.0.0";
+export const QUEST_TEXT_PDF_PARSER_VERSION = "1.1.0";
+export const QUEST_TEXT_PDF_EXTRACTION_VERSION = "1.1.0";
 
 export type QuestPageText = { pageNumber: number; text: string };
 

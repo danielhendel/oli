@@ -14,7 +14,7 @@ export type PdfTextExtractionResult = {
 };
 
 export const PDF_TEXT_EXTRACTOR_ID = "pdfjs_text_v1";
-export const PDF_TEXT_EXTRACTOR_VERSION = "1.0.0";
+export const PDF_TEXT_EXTRACTOR_VERSION = "1.1.0";
 
 const MAX_PAGES = 40;
 const MAX_CHARS = 500_000;
@@ -46,6 +46,70 @@ function loadPdfjs(): Promise<PdfjsModule> {
     pdfjsModulePromise = import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<PdfjsModule>;
   }
   return pdfjsModulePromise;
+}
+
+/**
+ * Rebuild page text with newlines from pdfjs text items.
+ * Prefer hasEOL; fall back to y-transform jumps when hasEOL is absent.
+ */
+export function reconstructPdfPageText(
+  items: ReadonlyArray<{ str?: string; hasEOL?: boolean; transform?: number[] }>,
+): string {
+  const Y_TOLERANCE = 2.5;
+  const useHasEol = items.some((item) => item.hasEOL === true);
+  const lines: string[] = [];
+  let current = "";
+  let lastY: number | null = null;
+
+  for (const item of items) {
+    const str = typeof item.str === "string" ? item.str : "";
+    const y = Array.isArray(item.transform) && typeof item.transform[5] === "number" ? item.transform[5] : null;
+
+    if (!useHasEol && lastY !== null && y !== null && Math.abs(y - lastY) > Y_TOLERANCE) {
+      if (current.length > 0) {
+        lines.push(current.replace(/[ \t]+$/g, ""));
+      }
+      current = "";
+    }
+
+    current += str;
+    if (y !== null) lastY = y;
+
+    if (useHasEol && item.hasEOL) {
+      lines.push(current.replace(/[ \t]+$/g, ""));
+      current = "";
+    }
+  }
+
+  if (current.length > 0) {
+    lines.push(current.replace(/[ \t]+$/g, ""));
+  }
+
+  const nonEmpty = lines.filter((l) => l.trim().length > 0);
+  let text = nonEmpty.join("\n");
+  if (!useHasEol && nonEmpty.length <= 1 && items.length > 1) {
+    // y-jumps may still have produced lines; only fall back when truly flat.
+    const ySet = new Set(
+      items
+        .map((item) =>
+          Array.isArray(item.transform) && typeof item.transform[5] === "number"
+            ? Math.round(item.transform[5])
+            : null,
+        )
+        .filter((v): v is number => v !== null),
+    );
+    if (ySet.size <= 1) {
+      text = items
+        .map((item) => (typeof item.str === "string" ? item.str : ""))
+        .join(" ");
+    }
+  }
+
+  return text
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[^\S\n]{2,}/g, "  ")
+    .trim();
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -93,12 +157,15 @@ export async function extractPdfTextPages(
     for (let i = 1; i <= pageCount; i++) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      const text = content.items
-        .map((item) => (typeof item.str === "string" ? item.str : ""))
-        .join(" ")
-        .replace(/[ \t]+\n/g, "\n")
-        .replace(/\s{2,}/g, "  ")
-        .trim();
+      // Preserve visual lines via pdfjs hasEOL / y-deltas. Joining with spaces
+      // alone collapses Quest column layouts and breaks row grammar.
+      const text = reconstructPdfPageText(
+        content.items as Array<{
+          str?: string;
+          hasEOL?: boolean;
+          transform?: number[];
+        }>,
+      );
       textCharCount += text.length;
       if (textCharCount > MAX_CHARS) {
         warningCodes.push("partial_page_text");

@@ -45,7 +45,10 @@ function currentPanelName(report: SegmentedReport, pageNumber: number, lineIndex
   return best?.name ?? null;
 }
 
-function parseColumns(trimmed: string): {
+/** Trailing Quest performing-lab abbreviations (not clinical flags). */
+const LAB_CODE_LIKE = /^(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;
+
+function parseColumnsMultiSpace(trimmed: string): {
   rawLabel: string;
   rawResult: string;
   rawUnit: string | null;
@@ -73,16 +76,92 @@ function parseColumns(trimmed: string): {
     idx += 1;
   }
 
-  if (idx < cols.length && !FLAG_LIKE.test(cols[idx]!)) {
+  if (idx < cols.length && !FLAG_LIKE.test(cols[idx]!) && !LAB_CODE_LIKE.test(cols[idx]!)) {
     rawRange = cols[idx]!;
     idx += 1;
   }
 
   if (idx < cols.length && FLAG_LIKE.test(cols[idx]!)) {
     rawFlag = cols[idx]!;
+    idx += 1;
   }
 
+  // Ignore trailing performing-lab codes.
+  void idx;
+
   return { rawLabel, rawResult, rawUnit, rawRange, rawFlag };
+}
+
+/**
+ * Single-space Quest layouts (common in pdfjs hasEOL reconstruction).
+ * Walk label tokens until the first value-like token; unit/flag from the right.
+ */
+function parseColumnsSingleSpace(trimmed: string): {
+  rawLabel: string;
+  rawResult: string;
+  rawUnit: string | null;
+  rawRange: string | null;
+  rawFlag: string | null;
+} | null {
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+
+  let end = tokens.length - 1;
+  let rawFlag: string | null = null;
+  let rawUnit: string | null = null;
+
+  if (end >= 0 && LAB_CODE_LIKE.test(tokens[end]!)) {
+    end -= 1;
+  }
+  if (end >= 0 && FLAG_LIKE.test(tokens[end]!) && !UNIT_LIKE.test(tokens[end]!)) {
+    rawFlag = tokens[end]!;
+    end -= 1;
+  }
+  if (end >= 0 && LAB_CODE_LIKE.test(tokens[end]!)) {
+    end -= 1;
+  }
+  if (end >= 0 && UNIT_LIKE.test(tokens[end]!) && !FLAG_LIKE.test(tokens[end]!)) {
+    rawUnit = tokens[end]!;
+    end -= 1;
+  }
+
+  let valueIdx = -1;
+  for (let i = 0; i <= end; i++) {
+    if (VALUE_LIKE.test(tokens[i]!)) {
+      valueIdx = i;
+      break;
+    }
+  }
+  if (valueIdx <= 0) return null;
+
+  const rawLabel = tokens.slice(0, valueIdx).join(" ");
+  if (!/^[A-Za-z]/.test(rawLabel)) return null;
+  if (/^(test|analyte|result|reference|flag|units?)$/i.test(rawLabel)) return null;
+  // Avoid swallowing narrative / footnote lines as analytes.
+  if (rawLabel.split(/\s+/).length > 10) return null;
+  if (/^(consistent with|please note|note:|see |for additional)/i.test(rawLabel)) return null;
+
+  const rawResult = tokens[valueIdx]!;
+  const rangeTokens = tokens.slice(valueIdx + 1, end + 1);
+  const rawRange = rangeTokens.length > 0 ? rangeTokens.join(" ") : null;
+
+  // Require unit, range, or qualitative value so narrative footnotes do not become rows.
+  const qualitative = /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|N\/A)$/i.test(
+    rawResult,
+  );
+  if (!rawUnit && !rawRange && !qualitative) return null;
+
+  return { rawLabel, rawResult, rawUnit, rawRange, rawFlag };
+}
+
+function parseColumns(trimmed: string): {
+  rawLabel: string;
+  rawResult: string;
+  rawUnit: string | null;
+  rawRange: string | null;
+  rawFlag: string | null;
+} | null {
+  return parseColumnsMultiSpace(trimmed) ?? parseColumnsSingleSpace(trimmed);
 }
 
 export function extractQuestAnalyteRows(args: {
