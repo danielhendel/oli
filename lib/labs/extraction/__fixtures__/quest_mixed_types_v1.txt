@@ -1,0 +1,23 @@
+Quest Diagnostics
+Report Status: FINAL
+Collected: 06/01/2022 07:00 AM
+Reported: 06/02/2022 11:00 AM
+Fasting: No
+Specimen: Serum
+
+LIPID PANEL
+LDL-CHOLESTEROL         130  mg/dL  <100         H
+HDL-CHOLESTEROL          48  mg/dL  >40
+TRIGLYCERIDES            95  mg/dL  <150
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                 101  mg/dL  65-99         H
+CREATININE             0.9  mg/dL  0.60-1.35
+
+ANTIBODY PANEL
+HEPATITIS B SURFACE AB  POSITIVE
+ANA PATTERN           Pattern B
+
+CALCULATED VALUES
+HOMA-IR             NOT APPLICABLE
+SOME CUSTOM MARKER     XYZ

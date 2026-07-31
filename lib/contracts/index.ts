@@ -31,6 +31,9 @@ export * from "./labsModule";
 
 export * from "./documents";
 
+// Labs OS — extraction drafts, review, accepted structured results (Phase 3D-A)
+export * from "./labsOs";
+
 // Workout day summary read model (Calendar markers)
 export * from "./workoutDaySummary";
 

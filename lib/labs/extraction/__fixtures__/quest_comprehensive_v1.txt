@@ -1,0 +1,44 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+Collected: 03/15/2024 08:30 AM
+Received: 03/15/2024 02:10 PM
+Reported: 03/16/2024 09:00 AM
+Fasting: Yes
+Specimen: Serum
+
+LIPID PANEL
+LDL-CHOLESTEROL          98  mg/dL  <100
+HDL-CHOLESTEROL          55  mg/dL  >40
+TRIGLYCERIDES           120  mg/dL  <150
+CHOLESTEROL, TOTAL      210  mg/dL  <200         H
+APOLIPOPROTEIN B         90  mg/dL  <90
+LIPOPROTEIN (a)         <4  mg/dL  <75
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                  92  mg/dL  65-99
+CREATININE             1.0  mg/dL  0.60-1.35
+eGFR                     95  mL/min/1.73m2  >60
+ALT                      22  U/L  9-46
+AST                      19  U/L  10-35
+SODIUM                  140  mmol/L  135-146
+POTASSIUM               4.2  mmol/L  3.5-5.3
+
+CBC
+WBC                     6.2  Thousand/uL  3.8-10.8
+HEMOGLOBIN             14.5  g/dL  13.2-17.1
+HEMATOCRIT             43.0  %  38.5-50.0
+PLATELETS               220  Thousand/uL  140-400
+
+HORMONES
+TSH                    1.80  mIU/L  0.40-4.50
+TESTOSTERONE, TOTAL    550  ng/dL  250-1100
+
+VITAMIN D, 25-HYDROXY    42  ng/mL  30-100
+
+HEPATITIS C ANTIBODY
+HEPATITIS C AB       NEGATIVE              Non-Reactive
+
+CARDIO IQ
+LDL-P                1200  nmol/L  <1000         H
+SMALL LDL-P           180  nmol/L  <527
