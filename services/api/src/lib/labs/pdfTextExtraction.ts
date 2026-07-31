@@ -14,7 +14,7 @@ export type PdfTextExtractionResult = {
 };
 
 export const PDF_TEXT_EXTRACTOR_ID = "pdfjs_text_v1";
-export const PDF_TEXT_EXTRACTOR_VERSION = "1.1.0";
+export const PDF_TEXT_EXTRACTOR_VERSION = "1.1.1";
 
 const MAX_PAGES = 40;
 const MAX_CHARS = 500_000;
@@ -40,10 +40,20 @@ type PdfjsModule = {
 
 let pdfjsModulePromise: Promise<PdfjsModule> | null = null;
 
-/** Lazily load the ESM-only pdfjs-dist legacy Node build via dynamic import. */
+/** Lazily load the ESM-only pdfjs-dist legacy Node build via native dynamic import.
+ * TypeScript CommonJS emit rewrites `import()` to `require()`, which cannot load `.mjs`.
+ * `Function` keeps a real dynamic import at runtime on Cloud Run / Node 20.
+ */
 function loadPdfjs(): Promise<PdfjsModule> {
   if (!pdfjsModulePromise) {
-    pdfjsModulePromise = import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<PdfjsModule>;
+    const dynamicImport = new Function(
+      "specifier",
+      "return import(specifier)",
+    ) as (specifier: string) => Promise<PdfjsModule>;
+    pdfjsModulePromise = dynamicImport("pdfjs-dist/legacy/build/pdf.mjs").then((mod) => {
+      const resolved = (mod as { default?: PdfjsModule }).default ?? mod;
+      return resolved as PdfjsModule;
+    });
   }
   return pdfjsModulePromise;
 }

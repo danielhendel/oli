@@ -168,7 +168,13 @@ async function main() {
   const firebaseApiKey = requireEnv("EXPO_PUBLIC_FIREBASE_API_KEY");
   const projectId = requireEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
 
-  if (!getApps().length) initializeApp({ projectId });
+  if (!getApps().length) {
+    // User ADC cannot sign custom tokens without an explicit service account id.
+    initializeApp({
+      projectId,
+      serviceAccountId: process.env.FIREBASE_SERVICE_ACCOUNT_ID?.trim() || `oli-api-runtime@${projectId}.iam.gserviceaccount.com`,
+    });
+  }
   const auth = getAuth();
   const db = getFirestore();
 
@@ -195,9 +201,14 @@ async function main() {
     idToken = await exchangeCustomToken(firebaseApiKey, custom);
     record(results, "auth_synthetic_user", true);
 
-    const pdf = syntheticQuestPdfBytes();
+    const fixturePdf = resolve(
+      process.cwd(),
+      "lib/labs/extraction/__fixtures__/quest_synthetic_lifecycle_v1.pdf",
+    );
+    const pdf = existsSync(fixturePdf) ? readFileSync(fixturePdf) : syntheticQuestPdfBytes();
     const checksum = createHash("sha256").update(pdf).digest("hex");
     const b64 = pdf.toString("base64");
+    record(results, "synthetic_pdf_ready", pdf.length > 500, `bytes=${pdf.length}`);
 
     // Unrelated report first (same filename later for same-filename retention check).
     const unrelatedPdf = Buffer.from(pdf); // same bytes ok for separate intent before checksum dedupe — change one byte
@@ -274,6 +285,27 @@ async function main() {
     }
     record(results, "processing_settled", status === "review_needed" || status === "structured", status || "timeout");
     record(results, "review_needed_state", status === "review_needed", status);
+
+    // Structural draft diagnostics (codes only).
+    const draftSnap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("labExtractionDrafts")
+      .where("documentId", "==", documentId)
+      .limit(5)
+      .get();
+    const draftStatuses = draftSnap.docs.map((d) => String((d.data() as any)?.status ?? ""));
+    const draftWarningCodes = draftSnap.docs.flatMap((d) =>
+      Array.isArray((d.data() as any)?.warnings)
+        ? (d.data() as any).warnings.map((w: any) => String(w?.code ?? "unknown"))
+        : [],
+    );
+    record(
+      results,
+      "extraction_draft_present",
+      draftSnap.size > 0,
+      `drafts=${draftSnap.size};statuses=${draftStatuses.join(",") || "none"};warn=${[...new Set(draftWarningCodes)].join(",") || "none"}`,
+    );
 
     const review = await api(
       baseUrl,
