@@ -129,10 +129,25 @@ function parseUserDocument(raw: Record<string, unknown>, id: string): UserDocume
 }
 
 function documentsDeps(uid: string) {
+  let bucket: string | null = null;
+  try {
+    bucket = requireFirebaseStorageBucketId();
+  } catch {
+    bucket = null;
+  }
   return {
     documentsCol: userCollection(uid, "documents") as never,
     jobsCol: userCollection(uid, "documentIngestionJobs") as never,
     extractionsCol: userCollection(uid, "documentExtractions") as never,
+    labDraftsCol: userCollection(uid, "labExtractionDrafts") as never,
+    labReviewsCol: userCollection(uid, "labReviews") as never,
+    labUploadsCol: userCollection(uid, "labUploads") as never,
+    readDocumentBytes: async (storageObjectId: string): Promise<Uint8Array> => {
+      if (!bucket) throw new Error("STORAGE_BUCKET_MISSING");
+      const fileRef = getAdmin().storage().bucket(bucket).file(storageObjectId);
+      const [buf] = await fileRef.download();
+      return new Uint8Array(buf);
+    },
   };
 }
 
@@ -149,6 +164,9 @@ function deleteLifecycleDeps(uid: string): DeleteDocumentLifecycleDeps {
     extractionsCol: userCollection(uid, "documentExtractions") as never,
     labUploadsCol: userCollection(uid, "labUploads") as never,
     labResultsCol: userCollection(uid, "labResults") as never,
+    labDraftsCol: userCollection(uid, "labExtractionDrafts") as never,
+    labReviewsCol: userCollection(uid, "labReviews") as never,
+    labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
     parseUserDocument,
     deleteStorageObject: async (objectPath: string) => {
       if (!bucket) {
