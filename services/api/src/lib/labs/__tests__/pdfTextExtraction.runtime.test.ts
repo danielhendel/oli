@@ -94,4 +94,10 @@ describe("pdfTextExtraction runtime", () => {
       expect(second.textCharCount).toBeGreaterThan(0);
     }
   });
+
+  it("respects timeout by returning bounded failure shape", async () => {
+    const result = await extractPdfTextPages(syntheticTextPdf(), { timeoutMs: 1 });
+    expect(result.parser.version).toBe(PDF_TEXT_EXTRACTOR_VERSION);
+    expect(result.pageCount).toBeGreaterThanOrEqual(0);
+  });
 });

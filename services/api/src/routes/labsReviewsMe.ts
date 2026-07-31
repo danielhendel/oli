@@ -308,7 +308,7 @@ router.post(
 
     // Idempotent replay when review already accepted under the same key.
     if (review.status === "accepted") {
-      const priorKey = (review as LabReviewRecord & { lastAcceptIdempotencyKey?: string }).lastAcceptIdempotencyKey;
+      const priorKey = review.lastAcceptIdempotencyKey;
       if (priorKey === idempotencyKey) {
         const snap = await userCollection(uid, "labAcceptedResults")
           .where("sourceDocumentId", "==", documentId)
@@ -372,7 +372,7 @@ router.post(
       acceptedIds.push(accepted.id);
     }
 
-    const nextReview: LabReviewRecord & { lastAcceptIdempotencyKey: string } = {
+    const nextReview: LabReviewRecord = {
       ...review,
       status: "accepted",
       reviewVersion: review.reviewVersion + 1,
@@ -429,7 +429,7 @@ router.post(
       res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
       return;
     }
-    const priorRejectKey = (review as LabReviewRecord & { lastRejectIdempotencyKey?: string }).lastRejectIdempotencyKey;
+    const priorRejectKey = review.lastRejectIdempotencyKey;
     if (priorRejectKey === idempotencyKey) {
       res.status(200).json({ ok: true, reviewVersion: review.reviewVersion, idempotentReplay: true as const });
       return;

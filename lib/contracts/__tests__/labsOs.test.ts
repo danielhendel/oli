@@ -236,6 +236,29 @@ describe("labReviewRecordSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("preserves accept/reject idempotency keys for server replay", () => {
+    const parsed = labReviewRecordSchema.safeParse({
+      schemaVersion: LABS_OS_SCHEMA_VERSION,
+      id: "review_1",
+      documentId: "doc_1",
+      userId: "uid_1",
+      draftId: "draft_1",
+      status: "accepted",
+      reviewVersion: 2,
+      candidateStatuses: { cand_1: "accepted" },
+      corrections: [],
+      createdAt: ISO,
+      updatedAt: ISO,
+      acceptedAt: ISO,
+      lastAcceptIdempotencyKey: "accept-key-1",
+      lastRejectIdempotencyKey: "reject-key-1",
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.lastAcceptIdempotencyKey).toBe("accept-key-1");
+    expect(parsed.data.lastRejectIdempotencyKey).toBe("reject-key-1");
+  });
+
   it("rejects a negative reviewVersion", () => {
     expect(
       labReviewRecordSchema.safeParse({

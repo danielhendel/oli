@@ -20,6 +20,7 @@ import { resolve } from "node:path";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 type StepResult = { step: string; ok: boolean; detail?: string };
 
@@ -153,6 +154,49 @@ async function api(
 function record(results: StepResult[], step: string, ok: boolean, detail?: string) {
   results.push({ step, ok, ...(detail ? { detail } : {}) });
   console.log(JSON.stringify({ step, ok, ...(detail ? { detail } : {}) }));
+}
+
+/** Read STORE-method ZIP entries written by buildZipStoreArchive (no inflate). */
+function readZipStoreEntries(zip: Buffer): Map<string, Buffer> {
+  const out = new Map<string, Buffer>();
+  let offset = 0;
+  while (offset + 30 <= zip.length) {
+    const sig = zip.readUInt32LE(offset);
+    if (sig !== 0x04034b50) break;
+    const method = zip.readUInt16LE(offset + 8);
+    const compSize = zip.readUInt32LE(offset + 18);
+    const nameLen = zip.readUInt16LE(offset + 26);
+    const extraLen = zip.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const name = zip.subarray(nameStart, nameStart + nameLen).toString("utf8");
+    const dataStart = nameStart + nameLen + extraLen;
+    const data = zip.subarray(dataStart, dataStart + compSize);
+    if (method === 0) out.set(name, Buffer.from(data));
+    offset = dataStart + compSize;
+  }
+  return out;
+}
+
+function jsonHasForbiddenExportLeak(value: unknown): boolean {
+  const text = JSON.stringify(value);
+  // Structural leak scan only — never log matches.
+  return (
+    /gs:\/\//i.test(text) ||
+    /"storagePath"\s*:/i.test(text) ||
+    /"objectPath"\s*:/i.test(text) ||
+    /"bucket"\s*:/i.test(text) ||
+    /users\/[^/"]+\/documents\//i.test(text) ||
+    /lab-uploads\//i.test(text) ||
+    /"serviceAccount"/i.test(text) ||
+    /"Authorization"/i.test(text)
+  );
+}
+
+function countCollection(meta: any, key: string): number {
+  const cols = meta?.collections;
+  if (!cols || typeof cols !== "object") return 0;
+  const arr = (cols as Record<string, unknown>)[key];
+  return Array.isArray(arr) ? arr.length : 0;
 }
 
 async function main() {
@@ -402,6 +446,7 @@ async function main() {
     const acceptBody = {
       reviewVersion,
       candidateIds: acceptIds.length > 0 ? acceptIds : candidates.slice(0, 2).map((c) => c.id),
+      confirmAcceptSelected: true as const,
     };
     const acceptKey = `accept-${documentId}-${reviewVersion}`;
     const accept = await api(
@@ -413,7 +458,14 @@ async function main() {
       acceptBody,
       { "Idempotency-Key": acceptKey },
     );
-    record(results, "accept_selected", accept.status === 200 && Number(accept.json?.acceptedCount ?? 0) > 0, `http_${accept.status}`);
+    const acceptErr =
+      accept.json?.error?.code != null ? String(accept.json.error.code) : `http_${accept.status}`;
+    record(
+      results,
+      "accept_selected",
+      accept.status === 200 && Number(accept.json?.acceptedCount ?? 0) > 0,
+      accept.status === 200 ? `accepted=${Number(accept.json?.acceptedCount ?? 0)}` : acceptErr,
+    );
     const acceptedCount1 = Number(accept.json?.acceptedCount ?? 0);
     reviewVersion = Number(accept.json?.reviewVersion ?? reviewVersion);
 
@@ -424,15 +476,19 @@ async function main() {
       "POST",
       `/users/me/labs/reviews/${encodeURIComponent(documentId)}/accept`,
       acceptBody,
-      { "Idempotency-Key": acceptKey },
+      { "Idempotency-Key": acceptKey, "X-Idempotency-Key": acceptKey },
     );
-    record(
-      results,
-      "accept_idempotent",
+    const replayOk =
       acceptReplay.status === 200 &&
-        (acceptReplay.json?.idempotentReplay === true ||
-          Number(acceptReplay.json?.acceptedCount ?? -1) === acceptedCount1),
-    );
+      (acceptReplay.json?.idempotentReplay === true ||
+        Number(acceptReplay.json?.acceptedCount ?? -1) === acceptedCount1);
+    const replayDetail =
+      acceptReplay.json?.error?.code != null
+        ? String(acceptReplay.json.error.code)
+        : acceptReplay.status === 200
+          ? `replay=${String(!!acceptReplay.json?.idempotentReplay)};accepted=${Number(acceptReplay.json?.acceptedCount ?? -1)}`
+          : `http_${acceptReplay.status}`;
+    record(results, "accept_idempotent", replayOk, replayDetail);
 
     // Firestore structural checks (counts only)
     const acceptedSnap = await db.collection("users").doc(uid).collection("labAcceptedResults").get();
@@ -488,25 +544,124 @@ async function main() {
     const acceptedAfter = await db.collection("users").doc(uid).collection("labAcceptedResults").get();
     record(results, "accepted_unchanged_after_reprocess", acceptedAfter.size === acceptedBeforeReprocess, `n=${acceptedAfter.size}`);
 
-    // Export
+    // Export — user mirror uses status "completed" (not "succeeded"); artifact lives on global accountExports.
     const exportRes = await api(baseUrl, gatewayKey, idToken, "POST", "/export", {});
     record(results, "export_requested", exportRes.status === 202 || exportRes.status === 200, `http_${exportRes.status}`);
-    const exportId = String(exportRes.json?.exportId ?? exportRes.json?.id ?? "");
+    const exportId = String(exportRes.json?.exportId ?? exportRes.json?.id ?? exportRes.json?.requestId ?? "");
     let exportStatus = "";
-    let exportArtifactPath = "";
-    for (let i = 0; i < 40 && exportId; i++) {
+    let packageAvailable = false;
+    for (let i = 0; i < 60 && exportId; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       const expDoc = await db.collection("users").doc(uid).collection("accountExports").doc(exportId).get();
       if (!expDoc.exists) continue;
       const data = expDoc.data() as any;
       exportStatus = String(data?.status ?? "");
-      exportArtifactPath = String(data?.artifactPath ?? data?.storagePath ?? "");
-      if (exportStatus === "succeeded" || exportStatus === "failed" || exportStatus === "partial") break;
+      packageAvailable = data?.packageAvailable === true;
+      if (exportStatus === "completed" || exportStatus === "failed" || exportStatus === "partial") break;
     }
-    record(results, "export_job_terminal", exportStatus === "succeeded" || exportStatus === "partial", exportStatus || "timeout");
-    // Package content verification via Firestore export job fields / artifact metadata only when present.
-    // Full zip inspection requires Storage download — mark explicit if artifact missing.
-    record(results, "export_artifact_present", !!exportArtifactPath && exportStatus === "succeeded", exportStatus);
+    record(
+      results,
+      "export_job_terminal",
+      exportStatus === "completed" || exportStatus === "partial",
+      exportStatus || "timeout",
+    );
+
+    let exportPackageOk = false;
+    let exportPackageDetail = "not_inspected";
+    if (exportId && (exportStatus === "completed" || packageAvailable)) {
+      try {
+        const globalExportId = `${uid}_${exportId}`.replace(/\//g, "_");
+        const globalSnap = await db.collection("accountExports").doc(globalExportId).get();
+        const artifact = globalSnap.data()?.artifact as { bucket?: string; object?: string } | undefined;
+        const bucketName = typeof artifact?.bucket === "string" ? artifact.bucket : "";
+        const objectName = typeof artifact?.object === "string" ? artifact.object : "";
+        if (!bucketName || !objectName) {
+          exportPackageDetail = "artifact_missing";
+        } else {
+          const [zipBuf] = await getStorage().bucket(bucketName).file(objectName).download();
+          const entries = readZipStoreEntries(Buffer.isBuffer(zipBuf) ? zipBuf : Buffer.from(zipBuf));
+          const metaBuf = entries.get("metadata.json");
+          const pdfEntries = [...entries.keys()].filter((k) => k.startsWith("documents/") && k.toLowerCase().endsWith(".pdf"));
+          if (!metaBuf) {
+            exportPackageDetail = "metadata_missing";
+          } else {
+            const meta = JSON.parse(metaBuf.toString("utf8")) as any;
+            const docs = Array.isArray(meta.documents) ? meta.documents : [];
+            const extractions = Array.isArray(meta.documentExtractions) ? meta.documentExtractions : [];
+            const drafts = countCollection(meta, "labExtractionDrafts");
+            const reviews = countCollection(meta, "labReviews");
+            const accepted = countCollection(meta, "labAcceptedResults");
+            const projected = countCollection(meta, "labResults");
+            const hasChecksum = docs.some((d: any) => typeof d?.checksumSha256 === "string" && d.checksumSha256.length > 0);
+            const hasParserMeta = docs.some((d: any) => d?.parserId != null || d?.parserVersion != null);
+            const draftSample = (meta.collections?.labExtractionDrafts as any[] | undefined)?.[0];
+            const hasPanels = Array.isArray(draftSample?.panels);
+            const hasMatched = Array.isArray(draftSample?.results);
+            const hasUnmatched = Array.isArray(draftSample?.unmatched);
+            const hasWarnings = Array.isArray(draftSample?.warnings);
+            const hasReportMeta = draftSample?.reportCandidate != null;
+            const hasDraftParser = draftSample?.parser?.id != null && draftSample?.parser?.version != null;
+            const reviewSample = (meta.collections?.labReviews as any[] | undefined)?.[0];
+            const hasDecisions =
+              reviewSample != null &&
+              (reviewSample.candidateStatuses != null || Array.isArray(reviewSample.corrections));
+            const acceptedSample = (meta.collections?.labAcceptedResults as any[] | undefined)?.[0];
+            const hasAcceptedProvenance = acceptedSample?.provenance != null || acceptedSample?.sourceDocumentId != null;
+            const leak = jsonHasForbiddenExportLeak(meta);
+            const required =
+              meta.kind === "account.export.package.v1" &&
+              meta.completeness === "complete" &&
+              pdfEntries.length > 0 &&
+              docs.length > 0 &&
+              extractions.length > 0 &&
+              drafts > 0 &&
+              reviews > 0 &&
+              accepted > 0 &&
+              hasChecksum &&
+              hasParserMeta &&
+              hasPanels &&
+              hasMatched &&
+              hasUnmatched &&
+              hasWarnings &&
+              hasReportMeta &&
+              hasDraftParser &&
+              hasDecisions &&
+              hasAcceptedProvenance &&
+              !leak;
+            // Missing required artifact class → explicit partial/fail (never infer from registry alone).
+            exportPackageDetail = [
+              `pdfs=${pdfEntries.length}`,
+              `docs=${docs.length}`,
+              `extractions=${extractions.length}`,
+              `drafts=${drafts}`,
+              `reviews=${reviews}`,
+              `accepted=${accepted}`,
+              `projected=${projected}`,
+              `checksum=${hasChecksum}`,
+              `parser=${hasParserMeta}`,
+              `panels=${hasPanels}`,
+              `matched=${hasMatched}`,
+              `unmatched=${hasUnmatched}`,
+              `warnings=${hasWarnings}`,
+              `meta=${hasReportMeta}`,
+              `decisions=${hasDecisions}`,
+              `provenance=${hasAcceptedProvenance}`,
+              `leak=${leak}`,
+              `completeness=${String(meta.completeness ?? "")}`,
+            ].join(",");
+            exportPackageOk = required;
+          }
+        }
+      } catch {
+        exportPackageDetail = "download_or_parse_failed";
+      }
+    } else if (exportStatus === "failed") {
+      exportPackageDetail = "export_failed";
+    } else {
+      exportPackageDetail = exportStatus || "timeout";
+    }
+    record(results, "export_artifact_present", packageAvailable || exportPackageOk, exportStatus || "missing");
+    record(results, "export_package_contents", exportPackageOk, exportPackageDetail);
 
     // Cross-user deny
     const other = await auth.createUser({

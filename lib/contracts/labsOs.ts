@@ -378,6 +378,10 @@ export const labReviewRecordSchema = z
     createdAt: isoDatetimeString,
     updatedAt: isoDatetimeString,
     acceptedAt: isoDatetimeString.nullable().optional(),
+    /** Server-only accept replay key (stripped from consumer DTOs). */
+    lastAcceptIdempotencyKey: z.string().min(1).optional(),
+    /** Server-only reject replay key (stripped from consumer DTOs). */
+    lastRejectIdempotencyKey: z.string().min(1).optional(),
   })
   .strip();
 
