@@ -154,6 +154,9 @@ describe("documentAccountDelete plan and storage prefix delete", () => {
       "documentExtractions",
       "labUploads",
       "labResults",
+      "labExtractionDrafts",
+      "labReviews",
+      "labAcceptedResults",
     ]);
     expect(documentAccountStoragePrefixes(SYNTHETIC_UID)).toEqual([
       `users/${SYNTHETIC_UID}/documents/`,

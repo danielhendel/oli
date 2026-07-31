@@ -63,6 +63,9 @@ export type DeleteDocumentLifecycleDeps = {
   extractionsCol: Col;
   labUploadsCol: Col;
   labResultsCol: Col;
+  labDraftsCol?: Col;
+  labReviewsCol?: Col;
+  labAcceptedResultsCol?: Col;
   deleteStorageObject: (objectPath: string) => Promise<{ ok: true } | { ok: false }>;
   parseUserDocument: (raw: Record<string, unknown>, id: string) => UserDocumentRecord | null;
 };
@@ -167,6 +170,11 @@ export async function deleteDocumentOsRecord(args: {
 
   await deleteQueryDocs(deps.jobsCol, "documentId", documentId);
   await deleteQueryDocs(deps.extractionsCol, "documentId", documentId);
+  if (deps.labDraftsCol) await deleteQueryDocs(deps.labDraftsCol, "documentId", documentId);
+  if (deps.labReviewsCol) await deleteQueryDocs(deps.labReviewsCol, "documentId", documentId);
+  if (deps.labAcceptedResultsCol) {
+    await deleteQueryDocs(deps.labAcceptedResultsCol, "sourceDocumentId", documentId);
+  }
 
   if (labUploadId) {
     const results = await deleteLabResultsForUpload(deps, labUploadId);
