@@ -3,7 +3,7 @@
  * Never expose internal parser codes directly in UI.
  */
 
-import type { LabExtractionWarningCode } from "../../contracts/labsOs";
+import type { LabExtractionWarningCode } from "@oli/contracts";
 
 const WARNING_COPY: Record<LabExtractionWarningCode, string> = {
   unsupported_layout: "This report layout isn’t fully supported yet.",

@@ -2,7 +2,7 @@
  * Trend / history compatibility helpers (Phase 3D-A).
  */
 
-import type { AcceptedLabResult, LabHistoryPointDto } from "../../contracts/labsOs";
+import type { AcceptedLabResult, LabHistoryPointDto } from "@oli/contracts";
 import { unitsAreTrendCompatible } from "./parseLabUnit";
 
 export function isAcceptedResultTrendEligible(result: AcceptedLabResult): boolean {

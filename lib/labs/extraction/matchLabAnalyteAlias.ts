@@ -6,7 +6,7 @@
 import {
   LABS_ALIAS_REGISTRY_VERSION,
   type LabAliasMatch,
-} from "../../contracts/labsOs";
+} from "@oli/contracts";
 import { getAllLabMetrics, getLabMetricByKey, type LabMetricDefinition } from "../labMetricCatalog";
 
 export type AliasMatchOutcome = LabAliasMatch & {

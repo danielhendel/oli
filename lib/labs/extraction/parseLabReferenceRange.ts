@@ -3,7 +3,7 @@
  * Raw range remains authoritative for display; structured candidate is optional.
  */
 
-import type { LabReferenceIntervalCandidate } from "../../contracts/labsOs";
+import type { LabReferenceIntervalCandidate } from "@oli/contracts";
 
 export type ParseReferenceRangeOutcome = {
   structured: LabReferenceIntervalCandidate;

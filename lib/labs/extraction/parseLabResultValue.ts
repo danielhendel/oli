@@ -3,7 +3,7 @@
  * Never converts inequalities to bare numbers. Never invents numeric from qualitative.
  */
 
-import type { LabResultValue } from "../../contracts/labsOs";
+import type { LabResultValue } from "@oli/contracts";
 
 type QualitativeValue = Extract<LabResultValue, { kind: "qualitative" }>["value"];
 type NotReportedReason = Extract<LabResultValue, { kind: "not_reported" }>["reason"];

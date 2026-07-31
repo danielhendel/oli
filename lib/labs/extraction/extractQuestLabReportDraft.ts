@@ -2,8 +2,8 @@
  * Quest text lab report extraction orchestration (pure) — Phase 3D-A.
  */
 
-import type { LabExtractionDraft } from "../../contracts/labsOs";
-import { LABS_OS_SCHEMA_VERSION } from "../../contracts/labsOs";
+import type { LabExtractionDraft } from "@oli/contracts";
+import { LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
 import { detectQuestTextReport } from "./detectQuestTextReport";
 import { extractQuestAnalyteRows } from "./extractQuestAnalyteRows";
 import { extractQuestReportMetadata } from "./extractQuestReportMetadata";

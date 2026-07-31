@@ -3,7 +3,7 @@
  * No value conversion.
  */
 
-import { LABS_UNIT_REGISTRY_VERSION, type LabUnitCandidate } from "../../contracts/labsOs";
+import { LABS_UNIT_REGISTRY_VERSION, type LabUnitCandidate } from "@oli/contracts";
 
 /** Canonical normalized unit tokens used for trend compatibility. */
 export const LAB_UNIT_REGISTRY: Readonly<Record<string, string>> = {

@@ -3,7 +3,7 @@
  * Does not derive Oli classifications. Calculated-from-range is labeled distinctly.
  */
 
-import type { LabFlagCandidate, LabNormalizedFlag } from "../../contracts/labsOs";
+import type { LabFlagCandidate, LabNormalizedFlag } from "@oli/contracts";
 
 const FLAG_MAP: Record<string, LabNormalizedFlag> = {
   h: "high",

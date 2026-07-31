@@ -8,7 +8,7 @@ import type {
   LabPanelCandidate,
   LabResultCandidate,
   LabUnmatchedCandidate,
-} from "../../contracts/labsOs";
+} from "@oli/contracts";
 import { matchLabAnalyteAlias } from "./matchLabAnalyteAlias";
 import { parseLabFlagCandidate } from "./parseLabFlag";
 import { parseLabReferenceRange } from "./parseLabReferenceRange";

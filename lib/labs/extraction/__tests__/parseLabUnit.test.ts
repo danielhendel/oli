@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { LABS_UNIT_REGISTRY_VERSION } from "../../../contracts/labsOs";
+import { LABS_UNIT_REGISTRY_VERSION } from "@oli/contracts";
 import { parseLabUnitCandidate, unitsAreTrendCompatible } from "../parseLabUnit";
 
 describe("parseLabUnitCandidate", () => {

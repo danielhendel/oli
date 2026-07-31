@@ -3,7 +3,7 @@
  * Never emits patient identifiers into candidates.
  */
 
-import type { LabReportMetadataCandidate } from "../../contracts/labsOs";
+import type { LabReportMetadataCandidate } from "@oli/contracts";
 
 function parseQuestDateTime(raw: string): string | null {
   // Common Quest forms: 01/15/2024 08:30 AM  or  2024-01-15
