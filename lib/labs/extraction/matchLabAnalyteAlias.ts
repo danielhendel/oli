@@ -24,7 +24,7 @@ function normalizeLabel(raw: string): string {
 }
 
 /** Extra Quest/DirectLabs label forms not already on catalog aliases. */
-const EXTRA_ALIASES: ReadonlyArray<{ metricKey: string; aliases: readonly string[] }> = [
+const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[] = [
   { metricKey: "ldl_c", aliases: ["ldl-cholesterol", "ldl cholesterol", "cholesterol ldl"] },
   { metricKey: "hdl_c", aliases: ["hdl-cholesterol", "hdl cholesterol", "cholesterol hdl"] },
   { metricKey: "hba1c", aliases: ["hemoglobin a1c", "hemoglobin a1c %", "hb a1c", "a1c"] },

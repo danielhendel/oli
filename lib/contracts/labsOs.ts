@@ -545,6 +545,7 @@ export const acceptLabReviewResponseSchema = z
     acceptedIds: z.array(z.string().min(1)),
     unresolvedCount: z.number().int().nonnegative(),
     reviewVersion: z.number().int().nonnegative(),
+    idempotentReplay: z.literal(true).optional(),
   })
   .strip();
 
@@ -552,6 +553,7 @@ export const rejectLabReviewResponseSchema = z
   .object({
     ok: z.literal(true),
     reviewVersion: z.number().int().nonnegative(),
+    idempotentReplay: z.literal(true).optional(),
   })
   .strip();
 

@@ -31,7 +31,7 @@ type PdfjsModule = {
     promise: Promise<{
       numPages: number;
       getPage: (n: number) => Promise<{
-        getTextContent: () => Promise<{ items: Array<{ str?: string }> }>;
+        getTextContent: () => Promise<{ items: { str?: string }[] }>;
       }>;
       destroy: () => Promise<void>;
     }>;

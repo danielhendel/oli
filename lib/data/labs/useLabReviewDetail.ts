@@ -129,10 +129,16 @@ export function useLabReviewDetail(opts: UseLabReviewDetailOptions): State & {
     async (candidateIds: string[]) => {
       const token = await getIdToken(false);
       if (!token) return { ok: false as const, error: "No auth token", requestId: null };
-      const res = await rejectLabReviewCandidates(token, documentId, {
-        reviewVersion: reviewVersionRef.current,
-        candidateIds,
-      });
+      const idempotencyKey = `labs-reject-${documentId}-${reviewVersionRef.current}-${candidateIds.slice().sort().join(",")}`;
+      const res = await rejectLabReviewCandidates(
+        token,
+        documentId,
+        {
+          reviewVersion: reviewVersionRef.current,
+          candidateIds,
+        },
+        { idempotencyKey },
+      );
       const mapped = mapMutationResult(res);
       if (mapped.ok) {
         await fetchOnce({ cacheBust: String(Date.now()) });
@@ -151,7 +157,8 @@ export function useLabReviewDetail(opts: UseLabReviewDetailOptions): State & {
         candidateIds,
         confirmAcceptSelected: true,
       };
-      const res = await acceptLabReview(token, documentId, body);
+      const idempotencyKey = `labs-accept-${documentId}-${reviewVersionRef.current}-${candidateIds.slice().sort().join(",")}`;
+      const res = await acceptLabReview(token, documentId, body, { idempotencyKey });
       if (res.ok) {
         reviewVersionRef.current = res.json.reviewVersion;
         await fetchOnce({ cacheBust: String(Date.now()) });

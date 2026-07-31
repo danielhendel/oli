@@ -107,7 +107,21 @@ export function extractQuestAnalyteRows(args: {
   const historicalPages = new Set(args.report.historicalColumnHints.map((h) => h.pageNumber));
 
   for (const page of args.report.pages) {
-    page.bodyLines.forEach((line, lineIndex) => {
+    // Join wrapped analyte labels that end with hyphen or are clearly continued.
+    const joinedLines: string[] = [];
+    for (let i = 0; i < page.bodyLines.length; i++) {
+      const cur = page.bodyLines[i]!.trimEnd();
+      const next = page.bodyLines[i + 1]?.trim() ?? "";
+      if (/[A-Za-z]-$/.test(cur.trim()) && next && /^[A-Za-z]/.test(next)) {
+        // Preserve hyphen so LDL- + CHOLESTEROL → LDL-CHOLESTEROL
+        joinedLines.push(`${cur.trim()}${next}`);
+        i += 1;
+        continue;
+      }
+      joinedLines.push(page.bodyLines[i]!);
+    }
+
+    joinedLines.forEach((line, lineIndex) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;

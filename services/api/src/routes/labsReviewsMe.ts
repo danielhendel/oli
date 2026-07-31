@@ -31,6 +31,13 @@ import { transitionDocumentIngestionJobState } from "../../../../lib/data/docume
 const router = Router();
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
 
+const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
+  const fromHeader =
+    (typeof req.header("Idempotency-Key") === "string" ? req.header("Idempotency-Key") : undefined) ??
+    (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
+  return fromHeader ?? undefined;
+};
+
 function toIso(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && "toDate" in value) {
@@ -278,6 +285,14 @@ router.post(
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
     }
+    const idempotencyKey = getIdempotencyKey(req);
+    if (!idempotencyKey) {
+      res.status(400).json({
+        ok: false,
+        error: { code: "IDEMPOTENCY_KEY_REQUIRED", message: "Idempotency-Key header is required", requestId: getRid(req) },
+      });
+      return;
+    }
     const documentId = String(req.params.documentId ?? "");
     const body = acceptLabReviewRequestSchema.safeParse(req.body);
     if (!body.success) {
@@ -290,6 +305,33 @@ router.post(
       res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
       return;
     }
+
+    // Idempotent replay when review already accepted under the same key.
+    if (review.status === "accepted") {
+      const priorKey = (review as LabReviewRecord & { lastAcceptIdempotencyKey?: string }).lastAcceptIdempotencyKey;
+      if (priorKey === idempotencyKey) {
+        const snap = await userCollection(uid, "labAcceptedResults")
+          .where("sourceDocumentId", "==", documentId)
+          .limit(200)
+          .get();
+        const acceptedIds = snap.docs.map((d) => d.id);
+        res.status(200).json({
+          ok: true,
+          acceptedCount: acceptedIds.length,
+          acceptedIds,
+          unresolvedCount: 0,
+          reviewVersion: review.reviewVersion,
+          idempotentReplay: true as const,
+        });
+        return;
+      }
+      res.status(409).json({
+        ok: false,
+        error: { code: "REVIEW_ALREADY_ACCEPTED", requestId: getRid(req) },
+      });
+      return;
+    }
+
     if (review.reviewVersion !== body.data.reviewVersion) {
       res.status(409).json({ ok: false, error: { code: "REVIEW_VERSION_CONFLICT", requestId: getRid(req) } });
       return;
@@ -322,15 +364,15 @@ router.post(
         reportedAt: draft.reportCandidate.reportedAt ?? null,
         fasting: draft.reportCandidate.fasting ?? null,
       });
-      await userCollection(uid, "labAcceptedResults").doc(accepted.id).set(accepted);
+      await userCollection(uid, "labAcceptedResults").doc(accepted.id).set(accepted, { merge: true });
       const projection = projectAcceptedToLabMetricResultDto(accepted);
       if (projection) {
-        await userCollection(uid, "labResults").doc(projection.id).set(projection);
+        await userCollection(uid, "labResults").doc(projection.id).set(projection, { merge: true });
       }
       acceptedIds.push(accepted.id);
     }
 
-    const nextReview: LabReviewRecord = {
+    const nextReview: LabReviewRecord & { lastAcceptIdempotencyKey: string } = {
       ...review,
       status: "accepted",
       reviewVersion: review.reviewVersion + 1,
@@ -340,6 +382,7 @@ router.post(
         ...review.candidateStatuses,
         ...Object.fromEntries(resolved.accepted.map((c) => [c.id, c.reviewStatus])),
       },
+      lastAcceptIdempotencyKey: idempotencyKey,
     };
     await userCollection(uid, "labReviews").doc(review.id).set(nextReview, { merge: true });
     await userCollection(uid, "documents").doc(documentId).set(
@@ -347,7 +390,6 @@ router.post(
       { merge: true },
     );
 
-    // Best-effort job transition — ignore if no open review job.
     void transitionDocumentIngestionJobState;
     res.status(200).json({
       ok: true,
@@ -368,6 +410,14 @@ router.post(
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
     }
+    const idempotencyKey = getIdempotencyKey(req);
+    if (!idempotencyKey) {
+      res.status(400).json({
+        ok: false,
+        error: { code: "IDEMPOTENCY_KEY_REQUIRED", message: "Idempotency-Key header is required", requestId: getRid(req) },
+      });
+      return;
+    }
     const documentId = String(req.params.documentId ?? "");
     const body = rejectLabReviewRequestSchema.safeParse(req.body);
     if (!body.success) {
@@ -379,6 +429,11 @@ router.post(
       res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
       return;
     }
+    const priorRejectKey = (review as LabReviewRecord & { lastRejectIdempotencyKey?: string }).lastRejectIdempotencyKey;
+    if (priorRejectKey === idempotencyKey) {
+      res.status(200).json({ ok: true, reviewVersion: review.reviewVersion, idempotentReplay: true as const });
+      return;
+    }
     if (review.reviewVersion !== body.data.reviewVersion) {
       res.status(409).json({ ok: false, error: { code: "REVIEW_VERSION_CONFLICT", requestId: getRid(req) } });
       return;
@@ -386,12 +441,13 @@ router.post(
     const now = new Date().toISOString();
     const nextStatuses = { ...review.candidateStatuses };
     for (const id of body.data.candidateIds) nextStatuses[id] = "rejected";
-    const next: LabReviewRecord = {
+    const next = {
       ...review,
       candidateStatuses: nextStatuses,
-      status: "in_progress",
+      status: "in_progress" as const,
       reviewVersion: review.reviewVersion + 1,
       updatedAt: now,
+      lastRejectIdempotencyKey: idempotencyKey,
     };
     await userCollection(uid, "labReviews").doc(review.id).set(next, { merge: true });
     res.status(200).json({ ok: true, reviewVersion: next.reviewVersion });

@@ -186,6 +186,9 @@ export const onAccountExportRequested = onMessagePublished(
           healthScores: collectionsData.healthScores ?? [],
           healthSignals: collectionsData.healthSignals ?? [],
           labResults: collectionsData.labResults ?? [],
+          labExtractionDrafts: collectionsData.labExtractionDrafts ?? [],
+          labReviews: collectionsData.labReviews ?? [],
+          labAcceptedResults: collectionsData.labAcceptedResults ?? [],
         },
         readObjectBytes: async (objectPath) => {
           try {

@@ -82,7 +82,7 @@ export function extractQuestReportMetadata(args: {
     }
   }
 
-  let fasting: boolean | null = parseFasting(fastingRaw);
+  const fasting: boolean | null = parseFasting(fastingRaw);
 
   const fieldConfidence: Record<string, number> = {};
   const collectedAt = collectedRaw ? parseQuestDateTime(collectedRaw) : null;

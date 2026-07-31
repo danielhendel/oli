@@ -3,7 +3,6 @@
  * No auto-accept. No DailyFacts. No Insights.
  */
 
-import { randomUUID } from "crypto";
 import type {
   AcceptedLabResult,
   LabExtractionDraft,
@@ -17,6 +16,11 @@ import { LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
 import { getLabMetricByKey } from "../../../../../lib/labs/labMetricCatalog";
 
 type LabCandidateCorrectionFields = LabReviewRecord["corrections"][number]["fields"];
+
+/** Deterministic accepted-result id — prevents duplicate writes on accept replay. */
+export function acceptedLabResultId(documentId: string, candidateId: string): string {
+  return `acc_${documentId}_${candidateId}`;
+}
 
 function mapFlagToV2(flag: LabNormalizedFlag | null): LabMetricResultDto["flag"] {
   if (!flag || flag === "none") return null;
@@ -87,7 +91,7 @@ export function buildAcceptedLabResult(args: {
   }
   return {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
-    id: `acc_${randomUUID()}`,
+    id: acceptedLabResultId(args.draft.documentId, c.id),
     userId: args.userId,
     sourceDocumentId: args.draft.documentId,
     sourceExtractionId: args.draft.id,

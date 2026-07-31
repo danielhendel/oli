@@ -16,7 +16,6 @@ import {
   reviewSummaryCountsLabel,
 } from "@/lib/ui/labs/labReviewPresentation";
 import {
-  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
