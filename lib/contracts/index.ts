@@ -29,6 +29,8 @@ export * from "./labResults";
 // Labs PDF upload + per-metric results (schema v2)
 export * from "./labsModule";
 
+export * from "./documents";
+
 // Workout day summary read model (Calendar markers)
 export * from "./workoutDaySummary";
 

@@ -6,6 +6,22 @@ const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    // Focus refetch is a no-op in unit tests; invoke once like a mount effect.
+    if (typeof cb === "function") cb();
+  },
+}));
+
+jest.mock("@/lib/data/documents/documentIngestionOsFlag", () => ({
+  isDocumentIngestionOsV1Enabled: () => false,
+}));
+
+jest.mock("@/lib/data/documents/useDocuments", () => ({
+  useDocuments: () => ({
+    status: "ready",
+    data: { ok: true, nextCursor: null, items: [] },
+    refetch: jest.fn(),
+  }),
 }));
 
 jest.mock("@/lib/data/labs/useLabUploads", () => ({

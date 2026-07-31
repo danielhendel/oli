@@ -93,6 +93,7 @@ import {
 } from "../lib/rawEventIngestSuppression";
 import { getRawEventsTruthDebugConfig } from "../lib/workoutTruthDebug";
 import labsMeRoutes from "./labsMe";
+import documentsMeRoutes from "./documentsMe";
 
 const router = Router();
 
@@ -3164,5 +3165,6 @@ router.get(
 );
 
 router.use("/labs", labsMeRoutes);
+router.use("/documents", documentsMeRoutes);
 
 export default router;

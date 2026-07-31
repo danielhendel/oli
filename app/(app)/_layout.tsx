@@ -314,6 +314,18 @@ export default function AppLayout() {
             name="labs/metric/[metricKey]"
             options={{ title: "Lab metric", ...workoutsStackNavigationOptions("detail") }}
           />
+          <Stack.Screen
+            name="documents/index"
+            options={{ title: "Documents", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="documents/upload"
+            options={{ title: "Upload document", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="documents/[documentId]"
+            options={{ title: "Document", ...workoutsStackNavigationOptions("detail") }}
+          />
 
           <Stack.Screen
             name="workouts/index"

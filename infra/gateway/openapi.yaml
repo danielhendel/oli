@@ -1021,6 +1021,151 @@ paths:
         401:
           description: Unauthorized
 
+  /users/me/documents:
+    options:
+      operationId: documentsListOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: documentsListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: User document list (safe metadata only)
+        401:
+          description: Unauthorized
+
+  /users/me/documents/upload-intent:
+    options:
+      operationId: documentsUploadIntentOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: documentsUploadIntentPost
+      security:
+        - firebase: []
+      responses:
+        201:
+          description: Upload intent created
+        400:
+          description: Validation failed
+        401:
+          description: Unauthorized
+
+  /users/me/documents/{documentId}:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: documentDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: documentDetailGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Document detail (safe metadata only)
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+    delete:
+      operationId: documentDelete
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Document and derived artifacts deleted
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/documents/{documentId}/complete-upload:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: documentCompleteUploadOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: documentCompleteUploadPost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Upload completed or idempotent replay
+        400:
+          description: Validation failed
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/documents/{documentId}/reprocess:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: documentReprocessOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: documentReprocessPost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Reprocess accepted
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/documents/{documentId}/view-original:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: documentViewOriginalOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: documentViewOriginalGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Original view capability (not implemented — no signed URL)
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
   /preferences:
     options:
       operationId: preferencesOptions

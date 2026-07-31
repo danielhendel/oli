@@ -1,9 +1,5 @@
 /**
- * DISCREPANCY (Phase 2G-A audit):
- * Medical History did not exist in the repository under any of
- * medical-history / medicalHistory / MedicalHistory / medical_history.
- * This temporary landing page was added so the Health menu destination is honest
- * and reachable — not a silent omission.
+ * Medical History — upload deferred until lifecycle coverage is complete for this domain.
  */
 import React, { useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -13,7 +9,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HealthRecordPlaceholderScreen } from "@/lib/ui/health/HealthRecordPlaceholderScreen";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
-export default function MedicalHistoryPlaceholderScreen() {
+export default function MedicalHistoryScreen() {
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
@@ -28,7 +24,7 @@ export default function MedicalHistoryPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Medical History"
-        emptyDescription="This record system is not implemented yet. Medical history cannot be stored here until persistence ships."
+        emptyDescription="This record system is not implemented yet. Medical history uploads stay disabled until export and deletion coverage for this domain is complete."
         icon="clipboard-outline"
         actionLabel="Add Medical History"
         actionDisabled

@@ -9,8 +9,22 @@
  */
 import type { Firestore } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
+import { assembleDocumentExportSection } from "./assembleDocumentExportSection";
 
-const COLLECTIONS = ["rawEvents", "events", "dailyFacts", "insights", "intelligenceContext", "healthScores", "healthSignals"] as const;
+const COLLECTIONS = [
+  "rawEvents",
+  "events",
+  "dailyFacts",
+  "insights",
+  "intelligenceContext",
+  "healthScores",
+  "healthSignals",
+  "documents",
+  "documentIngestionJobs",
+  "documentExtractions",
+  "labUploads",
+  "labResults",
+] as const;
 
 async function readCollectionAll(
   db: Firestore,
@@ -68,6 +82,17 @@ export async function runExportJobForTest(args: RunExportJobForTestArgs): Promis
       collectionsData[col] = await readCollectionAll(db, `users/${userId}/${col}`);
     }
 
+    const documentSection = assembleDocumentExportSection({
+      documents: collectionsData.documents ?? [],
+      jobs: collectionsData.documentIngestionJobs ?? [],
+      extractions: collectionsData.documentExtractions ?? [],
+      labUploads: collectionsData.labUploads ?? [],
+    });
+    collectionsData.documents = documentSection.documents as unknown as Record<string, unknown>[];
+    collectionsData.labUploads = documentSection.labUploads as unknown as Record<string, unknown>[];
+    collectionsData.documentIngestionJobs = documentSection.jobs;
+    collectionsData.documentExtractions = documentSection.extractions;
+
     const artifactPayload = {
       schemaVersion: 1,
       kind: "account.export.v1",
@@ -78,6 +103,13 @@ export async function runExportJobForTest(args: RunExportJobForTestArgs): Promis
       data: {
         profile: { general: profileGeneral },
         collections: collectionsData,
+        documentsManifest: {
+          schemaVersion: 1,
+          originalFileRelationships: documentSection.documents.map((d) => d.originalFile),
+          legacyLabOriginalFileRelationships: documentSection.labUploads.map((d) => d.originalFile),
+          incomplete: documentSection.incomplete,
+          note: "Original binary packaging uses packageRelativePath relationships; bytes are not embedded in this JSON artifact.",
+        },
       },
     };
 

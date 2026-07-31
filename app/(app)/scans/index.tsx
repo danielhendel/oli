@@ -1,3 +1,7 @@
+/**
+ * Scans — upload deferred until production upload transport + lifecycle coverage for this domain.
+ * Document OS flag may enable Labs; Scans remain an honest placeholder.
+ */
 import React, { useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useNavigation } from "expo-router";
@@ -6,7 +10,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HealthRecordPlaceholderScreen } from "@/lib/ui/health/HealthRecordPlaceholderScreen";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 
-export default function ScansPlaceholderScreen() {
+export default function ScansScreen() {
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
@@ -21,7 +25,7 @@ export default function ScansPlaceholderScreen() {
     <View style={styles.root}>
       <HealthRecordPlaceholderScreen
         title="Scans"
-        emptyDescription="This record system is not implemented yet. Scans and imaging reports cannot be stored here until persistence ships."
+        emptyDescription="This record system is not implemented yet. Scan and imaging uploads stay disabled until export and deletion coverage for this domain is complete."
         icon="scan-outline"
         actionLabel="Add Scan"
         actionDisabled

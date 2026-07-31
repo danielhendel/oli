@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Model A — Document Ingestion OS / general app Storage:
+    // no client SDK read/write. Server Admin SDK bypasses these rules.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

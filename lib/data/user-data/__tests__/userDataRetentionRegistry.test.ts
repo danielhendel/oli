@@ -3,7 +3,6 @@ import {
   USER_DATA_RETENTION_PATH_IDS,
   USER_DATA_RETENTION_REGISTRY,
   isExportDeletionCoverageComplete,
-  listDeleteCoverageGaps,
   listExportCoverageGaps,
   listUserDataRetentionEntries,
 } from "../userDataRetentionRegistry";
@@ -37,12 +36,31 @@ describe("userDataRetentionRegistry", () => {
   });
 
   it("surfaces known labs and storage gaps", () => {
-    expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentExportCoverage).toBe("not_covered");
-    expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentDeleteCoverage).toBe("not_covered");
-    expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentDeleteCoverage).toBe("not_covered");
+    expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentExportCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.lab_uploads.currentDeleteCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentDeleteCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_lab_uploads.currentExportCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentExportCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.currentDeleteCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentDeleteCoverage).toBe("covered");
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentExportCoverage).toBe("covered");
     expect(listExportCoverageGaps().length).toBeGreaterThan(0);
-    expect(listDeleteCoverageGaps().length).toBeGreaterThan(0);
     expect(isExportDeletionCoverageComplete()).toBe(false);
+  });
+
+  it("inventories Document Ingestion OS artifacts honestly", () => {
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.path).toBe("users/{uid}/documents/{documentId}");
+    expect(USER_DATA_RETENTION_REGISTRY.document_ingestion_jobs.path).toBe(
+      "users/{uid}/documentIngestionJobs/{jobId}",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.document_extractions.path).toBe(
+      "users/{uid}/documentExtractions/{extractionId}",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.path).toBe(
+      "users/{uid}/documents/{documentId}/original",
+    );
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.dataCategory).toBe("documents");
+    expect(USER_DATA_RETENTION_REGISTRY.user_documents.storageObjectRelationship).toBe(true);
   });
 
   it("represents lab upload metadata and the related Storage object relationship", () => {
@@ -54,16 +72,16 @@ describe("userDataRetentionRegistry", () => {
     expect(metadata.storageObjectRelationship).toBe(true);
     expect(metadata.exportRequired).toBe(true);
     expect(metadata.deleteRequired).toBe(true);
-    expect(metadata.currentExportCoverage).toBe("not_covered");
-    expect(metadata.currentDeleteCoverage).toBe("not_covered");
+    expect(metadata.currentExportCoverage).toBe("covered");
+    expect(metadata.currentDeleteCoverage).toBe("covered");
 
     expect(storage.path).toBe("lab-uploads/{uid}/{fileHash}/{safeName}");
     expect(storage.dataCategory).toBe("storage");
     expect(storage.storageObjectRelationship).toBe(true);
     expect(storage.exportRequired).toBe(true);
     expect(storage.deleteRequired).toBe(true);
-    expect(storage.currentExportCoverage).toBe("not_covered");
-    expect(storage.currentDeleteCoverage).toBe("not_covered");
+    expect(storage.currentExportCoverage).toBe("covered");
+    expect(storage.currentDeleteCoverage).toBe("covered");
   });
 
   it("marks placeholder domains as n/a rather than silently omitted", () => {

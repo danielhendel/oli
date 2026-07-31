@@ -4,6 +4,12 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import {
+  DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
+  deleteStoragePrefix,
+  documentAccountStoragePrefixes,
+} from "./documentAccountDelete";
 
 const TOPIC = "account.delete.v1";
 
@@ -42,6 +48,7 @@ async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: 
     "healthScores",
     "healthSignals",
     "accountDeletion",
+    ...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
   ] as const;
 
   for (const col of collections) {
@@ -64,11 +71,45 @@ async function deleteAuthUser(uid: string) {
   }
 }
 
+async function deleteUserDocumentStorage(uid: string): Promise<{
+  results: Awaited<ReturnType<typeof deleteStoragePrefix>>[];
+  failed: boolean;
+}> {
+  const fromEnv = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  const project = process.env.GCLOUD_PROJECT?.trim() || process.env.GCP_PROJECT?.trim();
+  const bucketName = fromEnv || (project ? `${project}.firebasestorage.app` : null);
+
+  if (!bucketName) {
+    return {
+      results: [],
+      failed: true,
+    };
+  }
+
+  const bucket = getStorage().bucket(bucketName);
+  const results = [];
+  for (const prefix of documentAccountStoragePrefixes(uid)) {
+    const result = await deleteStoragePrefix({
+      prefix,
+      listFiles: async (p) => {
+        const [files] = await bucket.getFiles({ prefix: p });
+        return files.map((f) => f.name);
+      },
+      deleteFile: async (objectPath) => {
+        await bucket.file(objectPath).delete({ ignoreNotFound: true });
+      },
+    });
+    results.push(result);
+  }
+  return { results, failed: results.some((r) => r.errors.length > 0) };
+}
+
 /**
  * Account deletion executor
  *
  * Guarantees:
  * - user-scoped deletes only (data removed under /users/{uid})
+ * - Document OS Firestore + original Storage prefixes removed
  * - idempotent (safe retries)
  * - observable lifecycle state (stored outside user subtree)
  */
@@ -117,6 +158,21 @@ export const onAccountDeleteRequested = onMessagePublished(
     );
 
     try {
+      logger.info("account.delete: deleting document storage prefixes", { uid, requestId });
+      const storageOutcome = await deleteUserDocumentStorage(uid);
+      if (storageOutcome.failed) {
+        await ref.set(
+          {
+            status: "failed",
+            error: "document_storage_delete_partial_failure",
+            storageDelete: storageOutcome.results,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        throw new Error("document_storage_delete_partial_failure");
+      }
+
       logger.info("account.delete: deleting firestore subtree", { uid, requestId });
       await deleteUserFirestoreSubtree(db, uid);
 
@@ -128,6 +184,7 @@ export const onAccountDeleteRequested = onMessagePublished(
           status: "completed",
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
+          storageDelete: storageOutcome.results,
         },
         { merge: true },
       );
