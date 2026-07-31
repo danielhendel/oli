@@ -53,7 +53,7 @@ function loadPdfjs(): Promise<PdfjsModule> {
  * Prefer hasEOL; fall back to y-transform jumps when hasEOL is absent.
  */
 export function reconstructPdfPageText(
-  items: ReadonlyArray<{ str?: string; hasEOL?: boolean; transform?: number[] }>,
+  items: readonly { str?: string; hasEOL?: boolean; transform?: number[] }[],
 ): string {
   const Y_TOLERANCE = 2.5;
   const useHasEol = items.some((item) => item.hasEOL === true);
@@ -160,11 +160,11 @@ export async function extractPdfTextPages(
       // Preserve visual lines via pdfjs hasEOL / y-deltas. Joining with spaces
       // alone collapses Quest column layouts and breaks row grammar.
       const text = reconstructPdfPageText(
-        content.items as Array<{
+        content.items as {
           str?: string;
           hasEOL?: boolean;
           transform?: number[];
-        }>,
+        }[],
       );
       textCharCount += text.length;
       if (textCharCount > MAX_CHARS) {
