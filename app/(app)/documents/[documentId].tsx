@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
 import { useDocumentDetail } from "@/lib/data/documents/useDocumentDetail";
+import { isLabsOsV1Enabled } from "@/lib/data/labs/labsOsFlag";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { DocumentDetailContent } from "@/lib/ui/documents/DocumentDetailContent";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -19,6 +20,9 @@ export default function DocumentDetailScreen() {
   const params = useLocalSearchParams<{ documentId?: string }>();
   const documentId = typeof params.documentId === "string" ? params.documentId : "";
   const detail = useDocumentDetail({ documentId, enabled: documentId.length > 0 });
+  const labsOs = isLabsOsV1Enabled();
+  const needsReview =
+    labsOs && detail.status === "ready" && detail.data.document.status === "review_needed";
   const [reprocessBusy, setReprocessBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -95,6 +99,8 @@ export default function DocumentDetailScreen() {
       <ModuleScreenShell title={consumerTitle} hideTitleChrome>
         <DocumentDetailContent
           status={detail.status}
+          showReviewLink={needsReview}
+          onPressReview={() => router.push(`/(app)/labs/reviews/${documentId}`)}
           {...(detail.status === "error"
             ? { error: detail.error, requestId: detail.requestId, onRetryLoad: () => detail.refetch() }
             : {})}

@@ -1,0 +1,95 @@
+// lib/ui/labs/labReviewPresentation.ts
+import type { LabCandidateReviewStatus, LabReviewCandidateDto, LabReviewSummaryDto } from "@/lib/contracts";
+import { formatLabResultValue } from "@/lib/labs/labMetricCatalog";
+
+export const LAB_REVIEW_STATUS_LABELS: Record<LabCandidateReviewStatus, string> = {
+  pending: "Pending review",
+  accepted: "Accepted",
+  corrected: "Corrected",
+  rejected: "Rejected",
+  unresolved: "Unresolved",
+};
+
+export const LAB_REVIEW_GROUP_LABELS = {
+  matched: "Matched",
+  needs_review: "Needs review",
+  unmatched: "Unmatched",
+} as const;
+
+export function formatReviewDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function fastingLabel(fasting: boolean | null | undefined): string | null {
+  if (fasting === true) return "Fasting";
+  if (fasting === false) return "Non-fasting";
+  return null;
+}
+
+export function candidateDisplayName(candidate: LabReviewCandidateDto): string {
+  return candidate.displayName ?? candidate.rawAnalyteLabel;
+}
+
+export function candidateResultText(candidate: LabReviewCandidateDto): string {
+  if (candidate.result) {
+    return formatLabResultValue(
+      candidate.result.kind === "numeric" ? candidate.result.value : null,
+      candidate.unit,
+      candidate.result.kind !== "numeric" ? { rawValueText: candidate.rawResult } : {},
+    );
+  }
+  return candidate.rawResult;
+}
+
+export function reviewSummaryCountsLabel(summary: LabReviewSummaryDto): string {
+  const parts = [`${summary.matchedCount} matched`, `${summary.unmatchedCount} unmatched`];
+  if (summary.warningCount > 0) parts.push(`${summary.warningCount} warnings`);
+  return parts.join(" · ");
+}
+
+export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): string {
+  switch (status) {
+    case "not_started":
+      return "Not started";
+    case "in_progress":
+      return "In progress";
+    case "ready_to_accept":
+      return "Ready to finish";
+    case "accepted":
+      return "Accepted";
+    case "rejected":
+      return "Rejected";
+    case "superseded":
+      return "Superseded";
+    default:
+      return status;
+  }
+}
+
+/** Keys and substrings that must never appear in consumer review UI. */
+export const LAB_REVIEW_FORBIDDEN_LEAKS = [
+  "parserId",
+  "parserVersion",
+  "extractionVersion",
+  "sourceChecksumSha256",
+  "sourceLocator",
+  "canonicalMetricId",
+  "quest_text",
+] as const;
+
+export function labReviewUiLeaksInternals(serialized: string): boolean {
+  const lower = serialized.toLowerCase();
+  for (const token of LAB_REVIEW_FORBIDDEN_LEAKS) {
+    if (lower.includes(token.toLowerCase())) return true;
+  }
+  if (lower.includes("lab-uploads/")) return true;
+  if (/[a-f0-9]{64}/.test(lower)) return true;
+  return false;
+}

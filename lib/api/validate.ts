@@ -9,8 +9,14 @@
  *   - failure: return ApiFailure kind="contract" (fail-closed, never cast)
  */
 import type { ApiFailure, ApiResult, JsonValue } from "@/lib/api/http";
-import { apiDeleteJsonAuthed, apiGetJsonAuthed, apiPostJsonAuthed, apiPutJsonAuthed } from "@/lib/api/http";
-import type { DeleteOptions, GetOptions, PostOptions, PutOptions } from "@/lib/api/http";
+import {
+  apiDeleteJsonAuthed,
+  apiGetJsonAuthed,
+  apiPatchJsonAuthed,
+  apiPostJsonAuthed,
+  apiPutJsonAuthed,
+} from "@/lib/api/http";
+import type { DeleteOptions, GetOptions, PatchOptions, PostOptions, PutOptions } from "@/lib/api/http";
 import type { z } from "zod";
 
 function makeContractFailure(
@@ -150,6 +156,37 @@ export async function apiPutZodAuthed<T>(
   opts?: PutOptions,
 ): Promise<ApiResult<T>> {
   const res = await apiPutJsonAuthed<unknown>(path, body, idToken, opts);
+
+  if (!res.ok) return res as ApiResult<T>;
+
+  const parsed = schema.safeParse(res.json);
+  if (!parsed.success) {
+    return makeContractFailure(
+      res.status,
+      res.requestId,
+      "Invalid response shape",
+      parsed,
+      res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : undefined,
+    ) as ApiResult<T>;
+  }
+
+  return {
+    ok: true,
+    status: res.status,
+    requestId: res.requestId,
+    json: parsed.data,
+    ...(res.responseContentType !== undefined ? { responseContentType: res.responseContentType } : {}),
+  };
+}
+
+export async function apiPatchZodAuthed<T>(
+  path: string,
+  body: unknown,
+  idToken: string,
+  schema: z.ZodType<T>,
+  opts?: PatchOptions,
+): Promise<ApiResult<T>> {
+  const res = await apiPatchJsonAuthed<unknown>(path, body, idToken, opts);
 
   if (!res.ok) return res as ApiResult<T>;
 

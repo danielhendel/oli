@@ -25,6 +25,8 @@ export type DocumentDetailContentProps = {
   onDelete?: () => void;
   reprocessBusy?: boolean;
   deleteBusy?: boolean;
+  showReviewLink?: boolean;
+  onPressReview?: () => void;
 };
 
 export function DocumentDetailContent({
@@ -38,6 +40,8 @@ export function DocumentDetailContent({
   onDelete,
   reprocessBusy,
   deleteBusy,
+  showReviewLink = false,
+  onPressReview,
 }: DocumentDetailContentProps) {
   if (status === "idle" || status === "partial") {
     return <LoadingState message="Loading document…" />;
@@ -101,6 +105,17 @@ export function DocumentDetailContent({
           <Text style={styles.message} testID="document-detail-extraction-message">
             {vm.extractionMessage}
           </Text>
+        ) : null}
+        {showReviewLink && onPressReview ? (
+          <Pressable
+            onPress={onPressReview}
+            accessibilityRole="button"
+            accessibilityLabel="Review extracted results"
+            style={({ pressed }) => [styles.reviewLink, pressed && styles.actionPressed]}
+            testID="document-review-link"
+          >
+            <Text style={styles.reviewLinkLabel}>Review extracted results</Text>
+          </Pressable>
         ) : null}
       </View>
 
@@ -190,4 +205,16 @@ const styles = StyleSheet.create({
   comingSoon: { color: UI_TEXT_SECONDARY, fontSize: 13, marginTop: 4 },
   danger: {},
   dangerLabel: { color: "#B42318", fontSize: 16, fontWeight: "600" },
+  reviewLink: {
+    marginTop: 8,
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: "rgba(58, 91, 219, 0.15)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(58, 91, 219, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  reviewLinkLabel: { color: SYSTEM_ACCENT, fontSize: 15, fontWeight: "600" },
 });

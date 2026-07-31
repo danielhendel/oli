@@ -3,6 +3,8 @@ import { StyleSheet, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { useLabsSummary } from "@/lib/data/labs/useLabsSummary";
+import { useLabReviews } from "@/lib/data/labs/useLabReviews";
+import { isLabsOsV1Enabled } from "@/lib/data/labs/labsOsFlag";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { LabsHeaderControls } from "@/lib/ui/labs/LabsHeaderControls";
 import { LabsMainContent } from "@/lib/ui/labs/LabsMainContent";
@@ -13,6 +15,9 @@ export default function LabsHomeScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const summary = useLabsSummary();
+  const labsOs = isLabsOsV1Enabled();
+  const reviews = useLabReviews({ enabled: labsOs });
+  const pendingReviewCount = reviews.status === "ready" ? reviews.data.items.length : 0;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -33,6 +38,9 @@ export default function LabsHomeScreen() {
       <ModuleScreenShell title="Labs" hideTitleChrome>
         <LabsMainContent
           status={summary.status}
+          labsOsEnabled={labsOs}
+          pendingReviewCount={pendingReviewCount}
+          onPressReviewQueue={() => router.push("/(app)/labs/reviews")}
           {...(summary.status === "error" ? { onRetry: () => summary.refetch() } : {})}
           {...(summary.status === "ready" ? { data: summary.data } : {})}
           onPressMetric={(metricKey) => router.push(`/(app)/labs/metric/${metricKey}`)}
