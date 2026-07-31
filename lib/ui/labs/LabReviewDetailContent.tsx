@@ -487,9 +487,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtn: {
-    minHeight: 36,
+    minHeight: 44,
+    minWidth: 44,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.12)",
