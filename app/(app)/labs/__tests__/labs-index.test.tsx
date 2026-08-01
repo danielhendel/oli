@@ -13,6 +13,13 @@ jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: (opts: typeof navigationOptions) => { navigationOptions = opts; }, goBack: jest.fn() }),
 }));
 
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const cleanup = cb();
+    return typeof cleanup === "function" ? cleanup : undefined;
+  },
+}));
+
 const mockSummary = {
   status: "ready" as const,
   data: {

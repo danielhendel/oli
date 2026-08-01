@@ -98,6 +98,7 @@ function reviewFixture(): LabReviewDetailDto {
 }
 
 const noop = jest.fn();
+const onEdit = jest.fn();
 
 describe("LabReviewDetailContent", () => {
   it("renders matched, needs review, and unmatched groups with written statuses", () => {
@@ -108,7 +109,7 @@ describe("LabReviewDetailContent", () => {
           status="ready"
           data={reviewFixture()}
           onAcceptCandidate={noop}
-          onEditCandidate={noop}
+          onEditCandidate={onEdit}
           onRejectCandidate={noop}
           onSaveProgress={noop}
           onFinishReview={noop}
@@ -140,7 +141,7 @@ describe("LabReviewDetailContent", () => {
           status="ready"
           data={reviewFixture()}
           onAcceptCandidate={noop}
-          onEditCandidate={noop}
+          onEditCandidate={onEdit}
           onRejectCandidate={noop}
           onSaveProgress={noop}
           onFinishReview={noop}
@@ -168,7 +169,7 @@ describe("LabReviewDetailContent", () => {
           status="ready"
           data={data}
           onAcceptCandidate={noop}
-          onEditCandidate={noop}
+          onEditCandidate={onEdit}
           onRejectCandidate={noop}
           onSaveProgress={noop}
           onFinishReview={noop}
@@ -177,5 +178,135 @@ describe("LabReviewDetailContent", () => {
     });
 
     expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it("tapping Accept calls mutation handler exactly once and shows Saving while busy", () => {
+    const onAccept = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabReviewDetailContent
+          status="ready"
+          data={reviewFixture()}
+          actionBusy
+          savingCandidateId="cand_matched_1"
+          onAcceptCandidate={onAccept}
+          onEditCandidate={onEdit}
+          onRejectCandidate={noop}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+
+    const status = tree.root.findByProps({ testID: "lab-review-candidate-status-cand_matched_1" });
+    expect(JSON.stringify(status.props)).toContain("Saving");
+    expect(tree.root.findByProps({ testID: "lab-review-accept-saving-cand_matched_1" })).toBeTruthy();
+    const acceptBtn = tree.root.findByProps({ testID: "lab-review-accept-cand_matched_1" });
+    expect(acceptBtn.props.accessibilityState.disabled).toBe(true);
+    expect(acceptBtn.props.accessibilityState.busy).toBe(true);
+
+    act(() => {
+      tree.update(
+        <LabReviewDetailContent
+          status="ready"
+          data={reviewFixture()}
+          onAcceptCandidate={onAccept}
+          onEditCandidate={onEdit}
+          onRejectCandidate={noop}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+
+    const enabledAccept = tree.root.findByProps({ testID: "lab-review-accept-cand_matched_1" });
+    act(() => {
+      enabledAccept.props.onPress();
+    });
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(onAccept).toHaveBeenCalledWith("cand_matched_1");
+  });
+
+  it("shows Accepted after successful status change and keeps finish enabled", () => {
+    const data = reviewFixture();
+    data.candidates[0]!.reviewStatus = "accepted";
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabReviewDetailContent
+          status="ready"
+          data={data}
+          onAcceptCandidate={noop}
+          onEditCandidate={onEdit}
+          onRejectCandidate={noop}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+    const status = tree.root.findByProps({ testID: "lab-review-candidate-status-cand_matched_1" });
+    expect(JSON.stringify(status.props)).toContain("Accepted");
+    expect(tree.root.findByProps({ testID: "lab-review-selection-counts" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(false);
+    expect(JSON.stringify(tree.toJSON())).toContain("marks it for inclusion");
+  });
+
+  it("opens edit modal and saves correction via onEditCandidate", () => {
+    const edit = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabReviewDetailContent
+          status="ready"
+          data={reviewFixture()}
+          onAcceptCandidate={noop}
+          onEditCandidate={edit}
+          onRejectCandidate={noop}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+
+    act(() => {
+      tree.root.findByProps({ testID: "lab-review-edit-cand_matched_1" }).props.onPress();
+    });
+    expect(tree.root.findByProps({ testID: "lab-review-edit-modal" })).toBeTruthy();
+
+    const valueInput = tree.root.findByProps({ testID: "lab-review-edit-value" });
+    const flagInput = tree.root.findByProps({ testID: "lab-review-edit-flag" });
+    act(() => {
+      valueInput.props.onChangeText("95");
+    });
+    act(() => {
+      flagInput.props.onChangeText("H");
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "lab-review-edit-save" }).props.onPress();
+    });
+    expect(edit).toHaveBeenCalledWith("cand_matched_1", { resultValueText: "95", rawFlag: "H" });
+  });
+
+  it("tapping Reject calls reject handler", () => {
+    const onReject = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabReviewDetailContent
+          status="ready"
+          data={reviewFixture()}
+          onAcceptCandidate={noop}
+          onEditCandidate={onEdit}
+          onRejectCandidate={onReject}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "lab-review-reject-cand_matched_1" }).props.onPress();
+    });
+    expect(onReject).toHaveBeenCalledWith("cand_matched_1");
   });
 });

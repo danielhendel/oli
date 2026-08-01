@@ -22,6 +22,7 @@ describe("infra/gateway/openapi.yaml — labs review routes", () => {
 
   it("includes PATCH candidates/{candidateId}", () => {
     expect(yaml).toContain("/users/me/labs/reviews/{documentId}/candidates/{candidateId}:");
+    expect(yaml).toMatch(/labsReviewCandidatePatch[\s\S]*in: body/);
   });
 
   it("includes POST accept", () => {
