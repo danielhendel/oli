@@ -22,6 +22,7 @@ import {
 import { resolveDocumentParserForInput } from "./documentParsers";
 import { parseQuestLabPdfBundle } from "../labs/questTextPdfParser";
 import { QUEST_TEXT_PDF_PARSER_ID } from "../../../../../lib/labs/extraction/extractQuestLabReportDraft";
+import { logDocumentIngestionEvent, redactedDocumentToken } from "./documentIngestionTelemetry";
 
 type DocRef = {
   get: () => Promise<{ exists: boolean; data: () => unknown }>;
@@ -118,6 +119,16 @@ async function persistLabsDraftAndReview(args: {
     superseded: false,
   };
   await labDraftsCol.doc(draft.id).set(draft, { merge: true });
+  logDocumentIngestionEvent("lab_draft_persisted", {
+    documentToken: redactedDocumentToken(args.document.id),
+    domain: args.document.domain,
+    parserId: draft.parser.id,
+    parserVersion: draft.parser.version,
+    candidateCount: draft.results.length + draft.unmatched.length,
+    warningCount: draft.warnings.length,
+    terminalStatus: draft.status,
+    pageCount: draft.reportCandidate.pageCount ?? null,
+  });
 
   if (labReviewsCol && (draft.status === "review_needed" || draft.status === "partial" || draft.status === "extracted")) {
     const review: LabReviewRecord = {
@@ -175,6 +186,8 @@ export async function runDocumentIngestionJob(args: {
   const { documentsCol, jobsCol, extractionsCol } = args.deps;
 
   try {
+    const startedAt = Date.now();
+    const documentToken = redactedDocumentToken(args.document.id);
     job = await transitionJob(jobsCol, job, "classifying", nowFn());
     await updateDocumentStatus(documentsCol, args.document.id, "processing", nowFn());
 
@@ -205,6 +218,13 @@ export async function runDocumentIngestionJob(args: {
           errorCode: "CHECKSUM_MISMATCH",
         });
         await updateDocumentStatus(documentsCol, args.document.id, "failed", nowFn());
+        logDocumentIngestionEvent("document_parser_terminal", {
+          documentToken,
+          domain: args.document.domain,
+          terminalStatus: "failed",
+          errorCode: "CHECKSUM_MISMATCH",
+          elapsedMs: Date.now() - startedAt,
+        });
         return { job, extraction: null };
       }
       fileBytes = bytes;
@@ -238,6 +258,22 @@ export async function runDocumentIngestionJob(args: {
     });
 
     const eligibility = await parser.canParse(parseInputBase);
+    logDocumentIngestionEvent("document_parser_eligibility_evaluated", {
+      documentToken,
+      domain: args.document.domain,
+      parserId: parser.id,
+      parserVersion: parser.version,
+      eligibility: eligibility.eligible,
+      eligibilityReason: eligibility.eligible ? null : eligibility.reasonCode,
+    });
+    logDocumentIngestionEvent("document_parser_selected", {
+      documentToken,
+      domain: args.document.domain,
+      parserId: parser.id,
+      parserVersion: parser.version,
+      eligibility: eligibility.eligible,
+    });
+
     if (!eligibility.eligible) {
       job = await transitionJob(jobsCol, job, "extraction_unsupported", nowFn(), {
         parserId: parser.id,
@@ -248,8 +284,31 @@ export async function runDocumentIngestionJob(args: {
         parser: { id: parser.id, version: parser.version },
       });
       job = await transitionJob(jobsCol, job, "completed", nowFn());
+      logDocumentIngestionEvent("document_parser_terminal", {
+        documentToken,
+        domain: args.document.domain,
+        parserId: parser.id,
+        parserVersion: parser.version,
+        terminalStatus: "unsupported",
+        errorCode: eligibility.reasonCode,
+        elapsedMs: Date.now() - startedAt,
+      });
+      logDocumentIngestionEvent("document_status_reconciled", {
+        documentToken,
+        domain: args.document.domain,
+        parserId: parser.id,
+        terminalStatus: "unsupported",
+        elapsedMs: Date.now() - startedAt,
+      });
       return { job, extraction: null };
     }
+
+    logDocumentIngestionEvent("document_parser_started", {
+      documentToken,
+      domain: args.document.domain,
+      parserId: parser.id,
+      parserVersion: parser.version,
+    });
 
     let rawExtraction: DocumentExtractionResult;
     let labsDraft: LabExtractionDraft | null = null;
@@ -272,6 +331,15 @@ export async function runDocumentIngestionJob(args: {
       });
       await updateDocumentStatus(documentsCol, args.document.id, "failed", nowFn(), {
         parser: { id: parser.id, version: parser.version },
+      });
+      logDocumentIngestionEvent("document_parser_terminal", {
+        documentToken,
+        domain: args.document.domain,
+        parserId: parser.id,
+        parserVersion: parser.version,
+        terminalStatus: "failed",
+        errorCode: "EXTRACTION_ENVELOPE_INVALID",
+        elapsedMs: Date.now() - startedAt,
       });
       return { job, extraction: null };
     }
@@ -309,6 +377,23 @@ export async function runDocumentIngestionJob(args: {
         parser: { id: parser.id, version: parser.version },
       });
       job = await transitionJob(jobsCol, job, "completed", nowFn());
+      logDocumentIngestionEvent("document_parser_terminal", {
+        documentToken,
+        domain: args.document.domain,
+        parserId: parser.id,
+        parserVersion: parser.version,
+        terminalStatus: "unsupported",
+        warningCount: extraction.warnings.length,
+        pageCount: extraction.pageCount ?? extraction.pagesProcessed ?? null,
+        elapsedMs: Date.now() - startedAt,
+      });
+      logDocumentIngestionEvent("document_status_reconciled", {
+        documentToken,
+        domain: args.document.domain,
+        parserId: parser.id,
+        terminalStatus: "unsupported",
+        elapsedMs: Date.now() - startedAt,
+      });
       return { job, extraction };
     }
 
@@ -321,6 +406,24 @@ export async function runDocumentIngestionJob(args: {
     job = await transitionJob(jobsCol, job, "review_needed", nowFn());
     await updateDocumentStatus(documentsCol, args.document.id, "review_needed", nowFn(), {
       parser: { id: parser.id, version: parser.version },
+    });
+    logDocumentIngestionEvent("document_parser_terminal", {
+      documentToken,
+      domain: args.document.domain,
+      parserId: parser.id,
+      parserVersion: parser.version,
+      terminalStatus: "review_needed",
+      pageCount: extraction.pageCount ?? extraction.pagesProcessed ?? null,
+      candidateCount: extraction.fields.length,
+      warningCount: extraction.warnings.length,
+      elapsedMs: Date.now() - startedAt,
+    });
+    logDocumentIngestionEvent("document_status_reconciled", {
+      documentToken,
+      domain: args.document.domain,
+      parserId: parser.id,
+      terminalStatus: "review_needed",
+      elapsedMs: Date.now() - startedAt,
     });
     return { job, extraction };
   } catch {

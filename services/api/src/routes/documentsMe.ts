@@ -47,6 +47,10 @@ import {
   runDocumentIngestionJob,
 } from "../lib/documents/runDocumentIngestion";
 import {
+  logDocumentIngestionEvent,
+  redactedDocumentToken,
+} from "../lib/documents/documentIngestionTelemetry";
+import {
   deleteDocumentOsRecord,
   deleteLegacyLabRecord,
   type DeleteDocumentLifecycleDeps,
@@ -380,11 +384,13 @@ router.post(
         updatedAt: new Date().toISOString(),
       });
 
+      const reprocessAvailable = dup.status === "unsupported";
       const response = {
         ok: true as const,
         documentId: dup.id,
         status: dup.status,
         duplicate: true,
+        ...(reprocessAvailable ? { reprocessAvailable: true as const } : {}),
       };
       const validated = documentCompleteUploadResponseDtoSchema.safeParse(response);
       if (!validated.success) {
@@ -490,19 +496,38 @@ router.post(
       }
     }
 
-    void runDocumentIngestionJob({
-      deps: documentsDeps(uid),
-      uid,
-      document: stored,
-      job: currentJob,
-    }).catch(() => {
-      void docRef.update({ status: "failed", updatedAt: new Date().toISOString() });
+    // Await ingestion in-request so Cloud Run CPU is not throttled mid-parse.
+    const ingestStarted = Date.now();
+    try {
+      await runDocumentIngestionJob({
+        deps: documentsDeps(uid),
+        uid,
+        document: stored,
+        job: currentJob,
+      });
+    } catch {
+      await docRef.update({ status: "failed", updatedAt: new Date().toISOString() });
+    }
+
+    const afterSnap = await docRef.get();
+    const afterRecord = afterSnap.exists
+      ? parseUserDocument(afterSnap.data() as Record<string, unknown>, documentId)
+      : null;
+    const terminalStatus = afterRecord?.status ?? "stored";
+    logDocumentIngestionEvent("document_upload_completed", {
+      documentToken: redactedDocumentToken(documentId),
+      domain: stored.domain,
+      terminalStatus,
+      elapsedMs: Date.now() - ingestStarted,
+      requestId: getRid(req),
+      parserId: afterRecord?.parser?.id ?? null,
+      parserVersion: afterRecord?.parser?.version ?? null,
     });
 
     const response = {
       ok: true as const,
       documentId,
-      status: "stored" as const,
+      status: terminalStatus,
     };
     const validated = documentCompleteUploadResponseDtoSchema.safeParse(response);
     if (!validated.success) {
@@ -800,18 +825,26 @@ router.post(
       job: primed,
     };
     if (parsedBody.data.parserId) runArgs.parserId = parsedBody.data.parserId;
-    void runDocumentIngestionJob(runArgs).catch(() => {
-      void userCollection(uid, "documents").doc(documentId).update({
+    try {
+      await runDocumentIngestionJob(runArgs);
+    } catch {
+      await userCollection(uid, "documents").doc(documentId).update({
         status: "failed",
         updatedAt: new Date().toISOString(),
       });
-    });
+    }
+
+    const afterSnap = await userCollection(uid, "documents").doc(documentId).get();
+    const afterRecord = afterSnap.exists
+      ? parseUserDocument(afterSnap.data() as Record<string, unknown>, documentId)
+      : null;
+    const terminalStatus = afterRecord?.status ?? "processing";
 
     const response = {
       ok: true as const,
       documentId,
       jobId,
-      status: "processing" as const,
+      status: terminalStatus,
       dryRun: Boolean(parsedBody.data.dryRun),
     };
     const validated = documentReprocessResponseDtoSchema.safeParse(response);
