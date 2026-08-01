@@ -33,6 +33,7 @@ export default function LabsUploadScreen() {
           <DocumentUploadFlowContent
             phase={documentFlow.phase}
             errorMessage={documentFlow.errorMessage}
+            terminalStatus={documentFlow.terminalStatus}
             domainLabel="Labs"
             onStart={() => void documentFlow.startUpload()}
             onCancel={documentFlow.cancel}

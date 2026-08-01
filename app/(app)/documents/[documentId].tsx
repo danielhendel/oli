@@ -55,8 +55,9 @@ export default function DocumentDetailScreen() {
     try {
       const token = await getIdToken(false);
       if (!token) return;
+      // Server awaits extraction; response status is terminal when successful.
       await reprocessDocument(token, documentId, {}, { idempotencyKey: `reprocess-${documentId}-${Date.now()}` });
-      detail.refetch({ cacheBust: String(Date.now()) });
+      detail.refetch({ cacheBust: `reprocess-${Date.now()}` });
     } finally {
       setReprocessBusy(false);
     }

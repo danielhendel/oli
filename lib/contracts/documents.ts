@@ -304,6 +304,8 @@ export const documentCompleteUploadResponseDtoSchema = z
     documentId: z.string().min(1),
     status: documentRecordStatusSchema,
     duplicate: z.boolean().optional(),
+    /** True when an existing unsupported/failed original may be reprocessed. */
+    reprocessAvailable: z.boolean().optional(),
     idempotentReplay: z.literal(true).optional(),
   })
   .strip();

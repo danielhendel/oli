@@ -5,8 +5,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { completeDocumentUpload, createDocumentUploadIntent } from "@/lib/api/documents";
-import type { DocumentDomain, DocumentMediaType } from "@/lib/contracts";
+import { completeDocumentUpload, createDocumentUploadIntent, getDocumentDetail } from "@/lib/api/documents";
+import type { DocumentDomain, DocumentMediaType, DocumentRecordStatus } from "@/lib/contracts";
 import {
   DOCUMENT_PICKER_UNAVAILABLE_MESSAGE,
   pickLabPdfDocument,
@@ -15,6 +15,31 @@ import { readLocalUriAsBase64 } from "@/lib/labs/readLabPdfBase64";
 import { DOCUMENT_MAX_BYTE_SIZE } from "@/lib/data/documents/documentValidation";
 import { defaultDocumentTypeForDomain } from "@/lib/data/documents/documentTypes";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+
+const TERMINAL_STATUSES = new Set<DocumentRecordStatus>([
+  "review_needed",
+  "structured",
+  "unsupported",
+  "failed",
+]);
+
+async function pollDocumentTerminalStatus(
+  token: string,
+  documentId: string,
+  cancelled: () => boolean,
+): Promise<DocumentRecordStatus | null> {
+  for (let i = 0; i < 30; i++) {
+    if (cancelled()) return null;
+    const detail = await getDocumentDetail(token, documentId, { cacheBust: `poll-${i}-${Date.now()}` });
+    const outcome = truthOutcomeFromApiResult(detail);
+    if (outcome.status === "ready") {
+      const status = outcome.data.document.status;
+      if (TERMINAL_STATUSES.has(status)) return status;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return null;
+}
 
 export type DocumentUploadPhase =
   | "idle"
@@ -30,6 +55,9 @@ export type DocumentUploadFlowState = {
   documentId: string | null;
   errorMessage: string | null;
   duplicate: boolean;
+  /** Terminal document status when known (after awaited ingest or poll). */
+  terminalStatus: string | null;
+  reprocessAvailable: boolean;
 };
 
 const INITIAL: DocumentUploadFlowState = {
@@ -37,6 +65,8 @@ const INITIAL: DocumentUploadFlowState = {
   documentId: null,
   errorMessage: null,
   duplicate: false,
+  terminalStatus: null,
+  reprocessAvailable: false,
 };
 
 function mediaTypeFromPicker(mimeType: string | undefined, name: string | undefined): DocumentMediaType | null {
@@ -71,7 +101,14 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
 
   const startUpload = useCallback(async () => {
     cancelledRef.current = false;
-    setState({ phase: "picking", documentId: null, errorMessage: null, duplicate: false });
+    setState({
+      phase: "picking",
+      documentId: null,
+      errorMessage: null,
+      duplicate: false,
+      terminalStatus: null,
+      reprocessAvailable: false,
+    });
 
     const pickResult = await pickLabPdfDocument();
     if (cancelledRef.current) return;
@@ -82,6 +119,8 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: DOCUMENT_PICKER_UNAVAILABLE_MESSAGE,
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
@@ -98,11 +137,20 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: "Unsupported file type. Use PDF, JPEG, or PNG.",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
 
-    setState({ phase: "uploading", documentId: null, errorMessage: null, duplicate: false });
+    setState({
+      phase: "uploading",
+      documentId: null,
+      errorMessage: null,
+      duplicate: false,
+      terminalStatus: null,
+      reprocessAvailable: false,
+    });
 
     let fileBase64: string;
     try {
@@ -113,6 +161,8 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: "Could not read the selected file",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
@@ -125,6 +175,8 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: "File exceeds the maximum allowed size",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
@@ -136,6 +188,8 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: "Not signed in",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
@@ -157,12 +211,23 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: null,
         errorMessage: "Upload could not be started",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
 
     counterRef.current += 1;
     const idempotencyKey = `doc-upload-${Date.now()}-${counterRef.current}`;
+    setState({
+      phase: "processing",
+      documentId: intentOutcome.data.documentId,
+      errorMessage: null,
+      duplicate: false,
+      terminalStatus: null,
+      reprocessAvailable: false,
+    });
+
     const complete = await completeDocumentUpload(
       token,
       intentOutcome.data.documentId,
@@ -182,33 +247,41 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         documentId: intentOutcome.data.documentId,
         errorMessage: "Upload failed",
         duplicate: false,
+        terminalStatus: null,
+        reprocessAvailable: false,
       });
       return;
     }
 
+    const activeDocumentId = completeOutcome.data.documentId;
     if (completeOutcome.data.duplicate) {
+      const reprocessAvailable = completeOutcome.data.reprocessAvailable === true;
       setState({
         phase: "duplicate",
-        documentId: completeOutcome.data.documentId,
-        errorMessage: "This report already exists in your account.",
+        documentId: activeDocumentId,
+        errorMessage: reprocessAvailable
+          ? "This report already exists in your account. Open it to reprocess with the current Labs parser."
+          : "This report already exists in your account.",
         duplicate: true,
+        terminalStatus: completeOutcome.data.status,
+        reprocessAvailable,
       });
       return;
     }
 
-    setState({
-      phase: "processing",
-      documentId: completeOutcome.data.documentId,
-      errorMessage: null,
-      duplicate: false,
-    });
-    await new Promise((r) => setTimeout(r, 600));
+    let terminalStatus: DocumentRecordStatus | null = completeOutcome.data.status;
+    if (!TERMINAL_STATUSES.has(terminalStatus)) {
+      terminalStatus = await pollDocumentTerminalStatus(token, activeDocumentId, () => cancelledRef.current);
+    }
     if (cancelledRef.current) return;
+
     setState({
       phase: "success",
-      documentId: completeOutcome.data.documentId,
+      documentId: activeDocumentId,
       errorMessage: null,
       duplicate: false,
+      terminalStatus,
+      reprocessAvailable: false,
     });
   }, [args.domain, getIdToken]);
 

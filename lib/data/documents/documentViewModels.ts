@@ -15,7 +15,7 @@ import {
   documentDeleteActionView,
   resolveDocumentDeleteCapability,
 } from "./documentDeleteCapability";
-import { documentCanRetry, documentStatusLabel } from "./documentStatus";
+import { documentCanRetry, documentRetryLabel, documentStatusLabel } from "./documentStatus";
 
 export const DOCUMENT_DETAIL_FORBIDDEN_VM_KEYS = [
   "storagePath",
@@ -63,7 +63,7 @@ export type DocumentDetailViewModel = {
   canRetry: boolean;
   /** True only when Retry processing is an honest consumer action. */
   canRetryProcessing: boolean;
-  retryLabel: "Retry processing" | null;
+  retryLabel: "Retry processing" | "Reprocess report" | null;
   canDelete: boolean;
   /** Consumer-safe delete action label — never exposes ownership implementation. */
   deleteActionLabel: typeof DOCUMENT_DELETE_ACTION_LABEL | null;
@@ -131,7 +131,10 @@ export function buildDocumentListItemViewModel(item: DocumentListItemDto): Docum
 
 function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]): string | null {
   if (status === "unsupported") {
-    return warnings[0] ?? "This document is stored, but structured extraction is not available yet.";
+    return (
+      warnings[0] ??
+      "This document is stored, but structured extraction is not available yet. You can reprocess it if a supported Labs parser is available."
+    );
   }
   if (status === "failed") {
     return warnings[0] ?? "Processing failed. You can retry when available.";
@@ -148,6 +151,7 @@ function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]):
 export function buildDocumentDetailViewModel(detail: DocumentDetailDto): DocumentDetailViewModel {
   const consumerTitle = documentConsumerTitle(detail.domain, detail.documentType);
   const canRetryProcessing = documentCanRetry(detail.status);
+  const retryLabel = documentRetryLabel(detail.status);
   const deleteCapability = resolveDocumentDeleteCapability({
     canDelete: detail.canDelete,
     legacySource: detail.legacySource,
@@ -167,7 +171,7 @@ export function buildDocumentDetailViewModel(detail: DocumentDetailDto): Documen
     safeWarnings: detail.safeWarnings,
     canRetry: canRetryProcessing,
     canRetryProcessing,
-    retryLabel: canRetryProcessing ? "Retry processing" : null,
+    retryLabel,
     canDelete: deleteAction.canDelete,
     deleteActionLabel: deleteAction.canDelete ? deleteAction.actionLabel : null,
     originalFile: {

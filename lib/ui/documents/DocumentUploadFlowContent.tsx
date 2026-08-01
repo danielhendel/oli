@@ -28,6 +28,7 @@ export type DocumentUploadFlowContentProps = {
   onReset: () => void;
   onDone?: () => void;
   domainLabel: string;
+  terminalStatus?: string | null;
 };
 
 export function DocumentUploadFlowContent({
@@ -38,16 +39,25 @@ export function DocumentUploadFlowContent({
   onReset,
   onDone,
   domainLabel,
+  terminalStatus = null,
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
+  const successLabel =
+    terminalStatus === "review_needed"
+      ? "Review needed"
+      : terminalStatus === "unsupported"
+        ? "Stored — extraction unavailable for this format"
+        : terminalStatus === "failed"
+          ? "Processing failed"
+          : "Stored securely";
 
   return (
     <View style={styles.root} testID="document-upload-flow">
       <View style={styles.card}>
         <Text style={styles.title}>Upload {domainLabel} document</Text>
         <Text style={styles.body}>
-          Files are stored securely. Structured extraction is not available yet — originals are kept for
-          future processing.
+          Files are stored securely. Supported Quest lab PDFs are extracted for review; unsupported formats
+          keep the original for later processing.
         </Text>
 
         {phase === "idle" ? (
@@ -97,7 +107,7 @@ export function DocumentUploadFlowContent({
         {phase === "success" ? (
           <>
             <Text style={styles.status} testID="document-upload-success">
-              Stored securely
+              {successLabel}
             </Text>
             <Pressable
               onPress={onDone ?? onReset}

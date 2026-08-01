@@ -10,7 +10,6 @@ import type {
   LabUploadDto,
   LabUploadStatus,
 } from "@oli/contracts";
-import { documentCanRetry } from "./documentStatus";
 
 function mapLabStatus(status: LabUploadStatus): DocumentRecordStatus {
   switch (status) {
@@ -43,8 +42,9 @@ export function mapLegacyLabUploadToListItem(upload: LabUploadDto): DocumentList
     uploadedAt: upload.uploadedAt,
     status,
     // View-original remains deferred; per-document delete is supported via Document OS DELETE.
+    // Legacy lab:* ids cannot reprocess via Document OS (API rejects) — never expose Retry.
     canViewOriginal: false,
-    canRetry: documentCanRetry(status),
+    canRetry: false,
     canDelete: true,
     legacySource: "lab_upload",
   };
@@ -73,7 +73,7 @@ export function mapLegacyLabUploadToDetail(upload: LabUploadDto): DocumentDetail
     extractionAvailability: status === "structured" ? "available" : "unavailable",
     safeWarnings,
     canViewOriginal: false,
-    canRetry: documentCanRetry(status),
+    canRetry: false,
     canDelete: true,
     legacySource: "lab_upload",
   };
