@@ -1,7 +1,33 @@
 import { resolveDocumentParser, resolveDocumentParserForInput, DOCUMENT_PARSER_REGISTRY } from "../documentParsers";
 
 describe("documentParsers registry", () => {
-  it("exposes versioned parsers without fake health fields for stubs", async () => {
+  it("registers quest_text_pdf_v1 before unsupported_lab", () => {
+    const ids = DOCUMENT_PARSER_REGISTRY.filter((e) => e.autoRun).map((e) => e.parser.id);
+    const questIdx = ids.indexOf("quest_text_pdf_v1");
+    const unsupportedIdx = ids.indexOf("unsupported_lab");
+    expect(questIdx).toBeGreaterThanOrEqual(0);
+    expect(unsupportedIdx).toBeGreaterThan(questIdx);
+  });
+
+  it("selects Quest parser when bytes are absent (soft-eligible Labs path)", async () => {
+    const input = {
+      documentId: "doc_quest",
+      domain: "labs" as const,
+      documentType: "lab_report" as const,
+      mediaType: "application/pdf" as const,
+      byteSize: 100,
+      checksumSha256: "b".repeat(64),
+      storageObjectId: "users/u/documents/doc_quest/original",
+      safeDisplayFilename: "report.pdf",
+    };
+    const parser = await resolveDocumentParserForInput({
+      documentType: "lab_report",
+      input,
+    });
+    expect(parser.id).toBe("quest_text_pdf_v1");
+  });
+
+  it("cascades to unsupported_lab when Quest declines eligibility", async () => {
     expect(DOCUMENT_PARSER_REGISTRY.length).toBeGreaterThan(0);
     for (const entry of DOCUMENT_PARSER_REGISTRY) {
       expect(entry.parser.id.length).toBeGreaterThan(0);
@@ -24,7 +50,7 @@ describe("documentParsers registry", () => {
       documentType: "lab_report",
       input,
     });
-    expect(["quest_text_pdf_v1", "unsupported_lab"]).toContain(parser.id);
+    expect(parser.id).toBe("unsupported_lab");
     const result = await parser.parse(input);
     expect(result.status).toBe("unsupported");
     expect(result.fields).toEqual([]);

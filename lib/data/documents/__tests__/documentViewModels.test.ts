@@ -48,7 +48,7 @@ describe("buildDocumentListItemViewModel", () => {
       documentTypeLabel: "Lab report",
       uploadedDateLabel: expect.stringMatching(/2026/),
       statusLabel: DOCUMENT_STATUS_LABELS.unsupported,
-      canRetry: false,
+      canRetry: true,
       canDelete: true,
       canViewOriginal: false,
     });
@@ -57,9 +57,9 @@ describe("buildDocumentListItemViewModel", () => {
     }
   });
 
-  it("does not mark unsupported list rows as retryable even if DTO canRetry is stale true", () => {
+  it("marks unsupported list rows as reprocessable when Labs parsers may upgrade", () => {
     const vm = buildDocumentListItemViewModel(listItem({ status: "unsupported", canRetry: true }));
-    expect(vm.canRetry).toBe(false);
+    expect(vm.canRetry).toBe(true);
   });
 });
 
@@ -97,19 +97,19 @@ describe("buildDocumentDetailViewModel", () => {
     expect(vm.originalFile.actionAvailabilityLabel).toBe("Coming soon");
   });
 
-  it("does not expose retry for unsupported extraction", () => {
+  it("exposes Reprocess report for unsupported extraction", () => {
     const vm = buildDocumentDetailViewModel(
       detail({
         status: "unsupported",
-        canRetry: true, // stale/over-permissive DTO must not drive consumer retry
+        canRetry: true,
         safeWarnings: ["This document is stored, but structured extraction is not available yet."],
       }),
     );
     expect(vm.statusLabel).toBe("Extraction unavailable");
     expect(vm.extractionMessage).toMatch(/not available yet/i);
-    expect(vm.canRetry).toBe(false);
-    expect(vm.canRetryProcessing).toBe(false);
-    expect(vm.retryLabel).toBeNull();
+    expect(vm.canRetry).toBe(true);
+    expect(vm.canRetryProcessing).toBe(true);
+    expect(vm.retryLabel).toBe("Reprocess report");
   });
 
   it("exposes retry for failed retryable extraction", () => {

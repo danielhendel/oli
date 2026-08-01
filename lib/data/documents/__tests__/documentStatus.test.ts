@@ -1,14 +1,15 @@
 import { describe, expect, it } from "@jest/globals";
 import type { DocumentRecordStatus } from "@/lib/contracts";
-import { documentCanRetry, documentStatusLabel } from "../documentStatus";
+import { documentCanRetry, documentRetryLabel, documentStatusLabel } from "../documentStatus";
 
 describe("documentCanRetry", () => {
-  it("allows retry only for failed (retryable) status", () => {
+  it("allows retry for failed (retryable) status", () => {
     expect(documentCanRetry("failed")).toBe(true);
   });
 
-  it("does not allow retry for unsupported extraction", () => {
-    expect(documentCanRetry("unsupported")).toBe(false);
+  it("allows reprocess for unsupported extraction when Labs parsers may upgrade", () => {
+    expect(documentCanRetry("unsupported")).toBe(true);
+    expect(documentRetryLabel("unsupported")).toBe("Reprocess report");
   });
 
   it("does not allow retry for non-retryable durable states", () => {
@@ -21,6 +22,7 @@ describe("documentCanRetry", () => {
     ];
     for (const status of blocked) {
       expect(documentCanRetry(status)).toBe(false);
+      expect(documentRetryLabel(status)).toBeNull();
     }
   });
 });

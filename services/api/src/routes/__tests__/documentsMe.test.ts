@@ -12,21 +12,31 @@ jest.mock("../../db", () => ({
 
 jest.mock("../../firebaseAdmin", () => {
   const deletedPaths: string[] = [];
+  const objects = new Map<string, Buffer>();
   return {
     admin: {
       storage: () => ({
         bucket: () => ({
           file: (objectPath: string) => ({
-            save: jest.fn(async () => undefined),
+            save: jest.fn(async (bytes: Buffer | Uint8Array) => {
+              objects.set(objectPath, Buffer.from(bytes));
+            }),
+            download: jest.fn(async () => {
+              const buf = objects.get(objectPath) ?? Buffer.alloc(0);
+              return [buf];
+            }),
             delete: jest.fn(async () => {
               deletedPaths.push(objectPath);
+              objects.delete(objectPath);
             }),
           }),
         }),
       }),
       __deletedStoragePaths: deletedPaths,
+      __objects: objects,
       __resetDeletedStoragePaths: () => {
         deletedPaths.length = 0;
+        objects.clear();
       },
     },
   };
@@ -58,8 +68,13 @@ function makeDocRef(store: Map<string, Record<string, unknown>>, id: string) {
       }
       store.set(id, { ...data });
     },
-    set: async (data: Record<string, unknown>) => {
-      store.set(id, { ...data });
+    set: async (data: Record<string, unknown>, opts?: { merge?: boolean }) => {
+      if (opts?.merge) {
+        const prev = store.get(id) ?? {};
+        store.set(id, { ...prev, ...data });
+      } else {
+        store.set(id, { ...data });
+      }
     },
     update: async (data: Record<string, unknown>) => {
       const prev = store.get(id) ?? {};
@@ -134,6 +149,7 @@ describe("Document Ingestion OS routes", () => {
     const { admin } = require("../../firebaseAdmin") as {
       admin: {
         __deletedStoragePaths: string[];
+        __objects: Map<string, Buffer>;
         __resetDeletedStoragePaths: () => void;
         storage: () => unknown;
       };
@@ -144,9 +160,16 @@ describe("Document Ingestion OS routes", () => {
     admin.storage = () => ({
       bucket: () => ({
         file: (objectPath: string) => ({
-          save: jest.fn(async () => undefined),
+          save: jest.fn(async (bytes: Buffer | Uint8Array) => {
+            admin.__objects.set(objectPath, Buffer.from(bytes));
+          }),
+          download: jest.fn(async () => {
+            const buf = admin.__objects.get(objectPath) ?? Buffer.alloc(0);
+            return [buf];
+          }),
           delete: jest.fn(async () => {
             admin.__deletedStoragePaths.push(objectPath);
+            admin.__objects.delete(objectPath);
           }),
         }),
       }),
@@ -601,6 +624,7 @@ describe("Document Ingestion OS routes", () => {
     const json = await res.json();
     expect(json.duplicate).toBe(true);
     expect(json.documentId).toBe("doc_existing");
+    expect(json.reprocessAvailable).toBe(true);
     expect(documentsStore.get("doc_intent")?.status).toBe("failed");
     expect(documentsStore.get("doc_intent")?.retentionStatus).toBe("deleted");
     expect(documentsStore.has("doc_existing")).toBe(true);
