@@ -1,5 +1,6 @@
-import React, { useLayoutEffect } from "react";
+import React, { useCallback, useLayoutEffect } from "react";
 import { StyleSheet, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { useLabsSummary } from "@/lib/data/labs/useLabsSummary";
@@ -18,6 +19,16 @@ export default function LabsHomeScreen() {
   const labsOs = isLabsOsV1Enabled();
   const reviews = useLabReviews({ enabled: labsOs });
   const pendingReviewCount = reviews.status === "ready" ? reviews.data.items.length : 0;
+
+  const refetchSummary = summary.refetch;
+  const refetchReviews = reviews.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      const bust = String(Date.now());
+      refetchSummary({ cacheBust: bust, noStore: true });
+      if (labsOs) refetchReviews({ cacheBust: bust, noStore: true });
+    }, [labsOs, refetchReviews, refetchSummary]),
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
