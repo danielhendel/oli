@@ -1082,6 +1082,23 @@ paths:
       operationId: labsReviewCandidatePatch
       security:
         - firebase: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - reviewVersion
+            properties:
+              reviewVersion:
+                type: integer
+                minimum: 0
+              reviewStatus:
+                type: string
+                enum: [pending, accepted, corrected, rejected, unresolved]
+              correction:
+                type: object
       responses:
         200:
           description: Candidate correction or status applied

@@ -22,6 +22,10 @@ export function useLabReviews(opts?: UseLabReviewsOptions): State & { refetch: (
   optsRef.current = opts;
   const reqSeq = useRef(0);
   const [state, setState] = useState<State>({ status: "partial" });
+  const stateRef = useRef<State>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const fetchOnce = useCallback(
     async (refetchOpts?: GetOptions) => {
@@ -36,7 +40,7 @@ export function useLabReviews(opts?: UseLabReviewsOptions): State & { refetch: (
       }
 
       if (initializing || !user) {
-        if (state.status !== "ready") safeSet({ status: "partial" });
+        if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
         return;
       }
 
@@ -47,7 +51,7 @@ export function useLabReviews(opts?: UseLabReviewsOptions): State & { refetch: (
         return;
       }
 
-      if (state.status !== "ready") safeSet({ status: "partial" });
+      if (stateRef.current.status !== "ready") safeSet({ status: "partial" });
 
       const res = await getLabReviews(token, { ...optsRef.current, ...refetchOpts });
       if (seq !== reqSeq.current) return;
@@ -63,7 +67,7 @@ export function useLabReviews(opts?: UseLabReviewsOptions): State & { refetch: (
       }
       safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
-    [enabled, getIdToken, initializing, state.status, user],
+    [enabled, getIdToken, initializing, user],
   );
 
   useEffect(() => {

@@ -241,9 +241,26 @@ router.patch(
       res.status(400).json({ ok: false, error: { code: "INVALID_BODY", requestId: getRid(req) } });
       return;
     }
+    if (!body.data.reviewStatus && !body.data.correction) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_TRANSITION", requestId: getRid(req) } });
+      return;
+    }
     const review = await loadReview(uid, documentId);
     if (!review) {
       res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
+      return;
+    }
+    const draft = await loadLatestDraft(uid, documentId);
+    if (!draft) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
+      return;
+    }
+    const knownIds = new Set([
+      ...draft.results.map((r) => r.id),
+      ...draft.unmatched.map((u) => u.id),
+    ]);
+    if (!knownIds.has(candidateId)) {
+      res.status(404).json({ ok: false, error: { code: "CANDIDATE_NOT_FOUND", requestId: getRid(req) } });
       return;
     }
     if (review.reviewVersion !== body.data.reviewVersion) {

@@ -1,7 +1,16 @@
 // lib/ui/labs/LabReviewDetailContent.tsx
-import React, { useMemo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
+import { countReviewActionStatuses } from "@/lib/data/labs/applyLabReviewCandidateStatus";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
@@ -16,6 +25,7 @@ import {
   reviewSummaryCountsLabel,
 } from "@/lib/ui/labs/labReviewPresentation";
 import {
+  UI_SCREEN_BG,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
@@ -29,8 +39,12 @@ export type LabReviewDetailContentProps = {
   data?: LabReviewDetailDto;
   onRetry?: () => void;
   actionBusy?: boolean;
+  /** Candidate currently being mutated — shows Saving on that row. */
+  savingCandidateId?: string | null;
+  /** When true, omit footer (screen renders sticky footer outside ScrollView). */
+  hideFooter?: boolean;
   onAcceptCandidate: (candidateId: string) => void;
-  onEditCandidate: (candidateId: string) => void;
+  onEditCandidate: (candidateId: string, correction: { rawFlag?: string | null; resultValueText?: string }) => void;
   onRejectCandidate: (candidateId: string) => void;
   onSaveProgress: () => void;
   onFinishReview: () => void;
@@ -86,12 +100,14 @@ function ReportMetadataSection({ metadata }: { metadata: LabReportMetadataCandid
 function CandidateRow({
   candidate,
   disabled,
+  saving,
   onAccept,
   onEdit,
   onReject,
 }: {
   candidate: LabReviewCandidateDto;
   disabled?: boolean;
+  saving?: boolean;
   onAccept: () => void;
   onEdit: () => void;
   onReject: () => void;
@@ -102,6 +118,7 @@ function CandidateRow({
   const flagText = candidate.flagLabel?.trim() || "—";
   const rangeText = candidate.rawReferenceRange?.trim() || "—";
   const unitText = candidate.unit?.trim() || "—";
+  const rowDisabled = disabled === true || saving === true;
 
   return (
     <View style={styles.candidateRow} testID={`lab-review-candidate-${candidate.id}`}>
@@ -139,39 +156,48 @@ function CandidateRow({
         ) : null}
         <Text
           style={styles.reviewStatus}
-          accessibilityLabel={`Review status: ${statusLabel}`}
+          accessibilityLabel={`Review status: ${saving ? "Saving" : statusLabel}`}
           testID={`lab-review-candidate-status-${candidate.id}`}
         >
-          Status: {statusLabel}
+          Status: {saving ? "Saving…" : statusLabel}
         </Text>
       </View>
       <View style={styles.actions}>
         <Pressable
           onPress={onAccept}
-          disabled={disabled || candidate.reviewStatus === "accepted"}
+          disabled={rowDisabled || candidate.reviewStatus === "accepted"}
           accessibilityRole="button"
-          accessibilityLabel={`Accept ${name}`}
-          accessibilityState={{ disabled: disabled || candidate.reviewStatus === "accepted" }}
+          accessibilityLabel={saving ? `Saving ${name}` : `Accept ${name}`}
+          accessibilityState={{
+            disabled: rowDisabled || candidate.reviewStatus === "accepted",
+            busy: saving === true,
+          }}
           style={({ pressed }) => [
             styles.actionBtn,
             styles.acceptBtn,
-            (disabled || candidate.reviewStatus === "accepted") && styles.actionDisabled,
-            pressed && !disabled && styles.actionPressed,
+            (rowDisabled || candidate.reviewStatus === "accepted") && styles.actionDisabled,
+            pressed && !rowDisabled && styles.actionPressed,
           ]}
           testID={`lab-review-accept-${candidate.id}`}
         >
-          <Text style={styles.acceptLabel}>Accept</Text>
+          {saving ? (
+            <ActivityIndicator color="#86EFAC" testID={`lab-review-accept-saving-${candidate.id}`} />
+          ) : (
+            <Text style={styles.acceptLabel}>
+              {candidate.reviewStatus === "accepted" ? "Accepted" : "Accept"}
+            </Text>
+          )}
         </Pressable>
         <Pressable
           onPress={onEdit}
-          disabled={disabled}
+          disabled={rowDisabled}
           accessibilityRole="button"
           accessibilityLabel={`Edit ${name}`}
-          accessibilityState={{ disabled: !!disabled }}
+          accessibilityState={{ disabled: rowDisabled }}
           style={({ pressed }) => [
             styles.actionBtn,
-            disabled && styles.actionDisabled,
-            pressed && !disabled && styles.actionPressed,
+            rowDisabled && styles.actionDisabled,
+            pressed && !rowDisabled && styles.actionPressed,
           ]}
           testID={`lab-review-edit-${candidate.id}`}
         >
@@ -179,19 +205,21 @@ function CandidateRow({
         </Pressable>
         <Pressable
           onPress={onReject}
-          disabled={disabled || candidate.reviewStatus === "rejected"}
+          disabled={rowDisabled || candidate.reviewStatus === "rejected"}
           accessibilityRole="button"
           accessibilityLabel={`Reject ${name}`}
-          accessibilityState={{ disabled: disabled || candidate.reviewStatus === "rejected" }}
+          accessibilityState={{ disabled: rowDisabled || candidate.reviewStatus === "rejected" }}
           style={({ pressed }) => [
             styles.actionBtn,
             styles.rejectBtn,
-            (disabled || candidate.reviewStatus === "rejected") && styles.actionDisabled,
-            pressed && !disabled && styles.actionPressed,
+            (rowDisabled || candidate.reviewStatus === "rejected") && styles.actionDisabled,
+            pressed && !rowDisabled && styles.actionPressed,
           ]}
           testID={`lab-review-reject-${candidate.id}`}
         >
-          <Text style={styles.rejectLabel}>Reject</Text>
+          <Text style={styles.rejectLabel}>
+            {candidate.reviewStatus === "rejected" ? "Rejected" : "Reject"}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -203,6 +231,7 @@ function CandidateGroupSection({
   candidates,
   testId,
   disabled,
+  savingCandidateId,
   onAcceptCandidate,
   onEditCandidate,
   onRejectCandidate,
@@ -211,6 +240,7 @@ function CandidateGroupSection({
   candidates: LabReviewCandidateDto[];
   testId: string;
   disabled?: boolean;
+  savingCandidateId?: string | null;
   onAcceptCandidate: (candidateId: string) => void;
   onEditCandidate: (candidateId: string) => void;
   onRejectCandidate: (candidateId: string) => void;
@@ -229,11 +259,75 @@ function CandidateGroupSection({
           key={candidate.id}
           candidate={candidate}
           disabled={disabled === true}
+          saving={savingCandidateId === candidate.id}
           onAccept={() => onAcceptCandidate(candidate.id)}
           onEdit={() => onEditCandidate(candidate.id)}
           onReject={() => onRejectCandidate(candidate.id)}
         />
       ))}
+    </View>
+  );
+}
+
+export function LabReviewActionsFooter({
+  actionBusy,
+  acceptedCount,
+  rejectedCount,
+  unresolvedCount,
+  onSaveProgress,
+  onFinishReview,
+}: {
+  actionBusy?: boolean;
+  acceptedCount: number;
+  rejectedCount: number;
+  unresolvedCount: number;
+  onSaveProgress: () => void;
+  onFinishReview: () => void;
+}) {
+  const finishDisabled = actionBusy === true || acceptedCount === 0;
+  return (
+    <View style={styles.footer} testID="lab-review-footer">
+      <Text style={styles.footerHint} testID="lab-review-action-copy">
+        Accepting a result marks it for inclusion. Finish review adds accepted results to your Labs history.
+      </Text>
+      <Text style={styles.footerCounts} testID="lab-review-action-counts">
+        {acceptedCount} accepted · {rejectedCount} rejected · {unresolvedCount} unresolved
+      </Text>
+      <Pressable
+        onPress={onSaveProgress}
+        disabled={actionBusy === true}
+        accessibilityRole="button"
+        accessibilityLabel="Save progress and go back"
+        accessibilityState={{ disabled: actionBusy === true }}
+        style={({ pressed }) => [styles.footerBtn, styles.secondaryBtn, pressed && styles.actionPressed]}
+        testID="lab-review-save-progress"
+      >
+        <Text style={styles.actionLabel}>Save progress</Text>
+      </Pressable>
+      <Pressable
+        onPress={onFinishReview}
+        disabled={finishDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={
+          finishDisabled
+            ? "Finish review, disabled until you accept at least one result"
+            : `Finish review, ${acceptedCount} accepted results`
+        }
+        accessibilityState={{ disabled: finishDisabled }}
+        style={({ pressed }) => [
+          styles.footerBtn,
+          styles.primaryBtn,
+          finishDisabled && styles.actionDisabled,
+          pressed && !finishDisabled && styles.actionPressed,
+        ]}
+        testID="lab-review-finish"
+      >
+        {actionBusy ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.primaryLabel}>Finish review</Text>
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -245,12 +339,18 @@ export function LabReviewDetailContent({
   data,
   onRetry,
   actionBusy = false,
+  savingCandidateId = null,
+  hideFooter = false,
   onAcceptCandidate,
   onEditCandidate,
   onRejectCandidate,
   onSaveProgress,
   onFinishReview,
 }: LabReviewDetailContentProps) {
+  const [editCandidate, setEditCandidate] = useState<LabReviewCandidateDto | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editFlag, setEditFlag] = useState("");
+
   const groups = useMemo(() => {
     if (!data) return { matched: [], needsReview: [], unmatched: [] as LabReviewCandidateDto[] };
     const all = [...data.candidates, ...data.unmatched];
@@ -261,12 +361,34 @@ export function LabReviewDetailContent({
     };
   }, [data]);
 
-  const acceptedCandidateIds = useMemo(() => {
-    if (!data) return [];
-    return [...data.candidates, ...data.unmatched]
-      .filter((c) => c.reviewStatus === "accepted" || c.reviewStatus === "corrected")
-      .map((c) => c.id);
+  const actionCounts = useMemo(() => {
+    if (!data) return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0 };
+    return countReviewActionStatuses(data);
   }, [data]);
+
+  const openEdit = (candidateId: string) => {
+    if (!data) return;
+    const hit = [...data.candidates, ...data.unmatched].find((c) => c.id === candidateId);
+    if (!hit) return;
+    setEditCandidate(hit);
+    setEditValue(hit.rawResult);
+    setEditFlag(hit.flagLabel ?? "");
+  };
+
+  const submitEdit = () => {
+    if (!editCandidate) return;
+    const valueText = editValue.trim();
+    const flagText = editFlag.trim();
+    onEditCandidate(editCandidate.id, {
+      ...(valueText.length > 0
+        ? {
+            resultValueText: valueText,
+          }
+        : {}),
+      rawFlag: flagText.length > 0 ? flagText : null,
+    });
+    setEditCandidate(null);
+  };
 
   if (status === "partial") {
     return <LoadingState message="Loading review…" testID="lab-review-detail-loading" />;
@@ -287,7 +409,7 @@ export function LabReviewDetailContent({
   const collected = formatReviewDate(summary.collectedAt);
   const reported = formatReviewDate(summary.reportedAt);
   const fasting = fastingLabel(summary.fasting);
-  const finishDisabled = actionBusy || acceptedCandidateIds.length === 0;
+  const includedAccepted = actionCounts.accepted + actionCounts.corrected;
 
   return (
     <View style={styles.root} testID="lab-review-detail">
@@ -307,6 +429,10 @@ export function LabReviewDetailContent({
         <Text style={styles.meta} testID="lab-review-summary-counts">
           {reviewSummaryCountsLabel(summary)}
         </Text>
+        <Text style={styles.meta} testID="lab-review-selection-counts">
+          {includedAccepted} marked for inclusion · {actionCounts.rejected} rejected ·{" "}
+          {actionCounts.unresolved} unresolved
+        </Text>
         {data.warningMessages.length > 0 ? (
           <View style={styles.warningsBlock} testID="lab-review-warnings">
             {data.warningMessages.map((msg) => (
@@ -323,8 +449,9 @@ export function LabReviewDetailContent({
         candidates={groups.matched}
         testId="lab-review-group-matched"
         disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
         onAcceptCandidate={onAcceptCandidate}
-        onEditCandidate={onEditCandidate}
+        onEditCandidate={openEdit}
         onRejectCandidate={onRejectCandidate}
       />
       <CandidateGroupSection
@@ -332,8 +459,9 @@ export function LabReviewDetailContent({
         candidates={groups.needsReview}
         testId="lab-review-group-needs-review"
         disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
         onAcceptCandidate={onAcceptCandidate}
-        onEditCandidate={onEditCandidate}
+        onEditCandidate={openEdit}
         onRejectCandidate={onRejectCandidate}
       />
       <CandidateGroupSection
@@ -341,50 +469,77 @@ export function LabReviewDetailContent({
         candidates={groups.unmatched}
         testId="lab-review-group-unmatched"
         disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
         onAcceptCandidate={onAcceptCandidate}
-        onEditCandidate={onEditCandidate}
+        onEditCandidate={openEdit}
         onRejectCandidate={onRejectCandidate}
       />
 
       <ReportMetadataSection metadata={data.metadata} />
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={onSaveProgress}
-          disabled={actionBusy}
-          accessibilityRole="button"
-          accessibilityLabel="Save progress and go back"
-          accessibilityState={{ disabled: !!actionBusy }}
-          style={({ pressed }) => [styles.footerBtn, styles.secondaryBtn, pressed && styles.actionPressed]}
-          testID="lab-review-save-progress"
-        >
-          <Text style={styles.actionLabel}>Save progress</Text>
-        </Pressable>
-        <Pressable
-          onPress={onFinishReview}
-          disabled={finishDisabled}
-          accessibilityRole="button"
-          accessibilityLabel={
-            finishDisabled
-              ? "Finish review, disabled until you accept at least one result"
-              : `Finish review, ${acceptedCandidateIds.length} accepted results`
-          }
-          accessibilityState={{ disabled: finishDisabled }}
-          style={({ pressed }) => [
-            styles.footerBtn,
-            styles.primaryBtn,
-            finishDisabled && styles.actionDisabled,
-            pressed && !finishDisabled && styles.actionPressed,
-          ]}
-          testID="lab-review-finish"
-        >
-          {actionBusy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryLabel}>Finish review</Text>
-          )}
-        </Pressable>
-      </View>
+      {!hideFooter ? (
+        <LabReviewActionsFooter
+          actionBusy={actionBusy}
+          acceptedCount={includedAccepted}
+          rejectedCount={actionCounts.rejected}
+          unresolvedCount={actionCounts.unresolved}
+          onSaveProgress={onSaveProgress}
+          onFinishReview={onFinishReview}
+        />
+      ) : null}
+
+      <Modal
+        visible={editCandidate != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditCandidate(null)}
+      >
+        <View style={styles.modalBackdrop} testID="lab-review-edit-modal">
+          <View style={styles.modalCard}>
+            <Text style={styles.sectionTitle}>Correct result</Text>
+            <Text style={styles.footerHint}>
+              Corrections are saved separately. The original extracted value stays on file for audit.
+            </Text>
+            {editCandidate ? (
+              <Text style={styles.meta}>Original: {editCandidate.rawResult}</Text>
+            ) : null}
+            <Text style={styles.metaLabel}>Corrected value</Text>
+            <TextInput
+              value={editValue}
+              onChangeText={setEditValue}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.input}
+              testID="lab-review-edit-value"
+            />
+            <Text style={styles.metaLabel}>Flag (optional)</Text>
+            <TextInput
+              value={editFlag}
+              onChangeText={setEditFlag}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={styles.input}
+              testID="lab-review-edit-flag"
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setEditCandidate(null)}
+                style={[styles.footerBtn, styles.secondaryBtn]}
+                testID="lab-review-edit-cancel"
+              >
+                <Text style={styles.actionLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={submitEdit}
+                style={[styles.footerBtn, styles.primaryBtn]}
+                testID="lab-review-edit-save"
+              >
+                <Text style={styles.primaryLabel}>Save correction</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -510,7 +665,23 @@ const styles = StyleSheet.create({
   actionLabel: { color: UI_TEXT_PRIMARY, fontSize: 14, fontWeight: "600" },
   actionDisabled: { opacity: 0.5 },
   actionPressed: { opacity: 0.85 },
-  footer: { gap: 10, marginTop: 4 },
+  footer: {
+    gap: 10,
+    marginTop: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: UI_SCREEN_BG,
+  },
+  footerHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: UI_TEXT_SECONDARY,
+  },
+  footerCounts: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+  },
   footerBtn: {
     minHeight: 48,
     borderRadius: 12,
@@ -529,4 +700,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: 14,
+    padding: 16,
+    gap: 10,
+  },
+  input: {
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    color: UI_TEXT_PRIMARY,
+    fontSize: 15,
+  },
+  modalActions: { gap: 8, marginTop: 4 },
 });
