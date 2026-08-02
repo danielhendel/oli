@@ -93,20 +93,21 @@ describe("DocumentUploadFlowContent contrast", () => {
           domainLabel="Labs"
           terminalStatus="review_needed"
           importSummary={{
-            importedCount: 57,
+            importedCount: 82,
             reviewNeededCount: 0,
-            unmatchedCount: 42,
-            reportImportStatus: "imported_review_recommended",
+            unmatchedCount: 0,
+            reportImportStatus: "imported",
             hasAutoPublishedResults: true,
             hasReviewItems: false,
+            reportContentCount: 19,
           }}
         />,
       );
     });
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain("Report imported");
-    expect(json).toContain("57 results added to Labs");
-    expect(json).toContain("42 results are not yet supported");
+    expect(json).toContain("All supported results were added to Labs");
+    expect(json).toContain("Additional report content was preserved");
     expect(json).not.toContain("Review 18 items");
     expect(tree.root.findByProps({ testID: "document-upload-view-labs" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "document-upload-how-processed" })).toBeTruthy();

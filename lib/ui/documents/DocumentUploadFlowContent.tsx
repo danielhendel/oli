@@ -80,6 +80,7 @@ function labsSuccessCopy(args: {
   const unsupported = summary.unmatchedCount;
   const withheld = Math.max(0, summary.withheldCount ?? 0);
   const verifying = Math.max(0, summary.verifyingCount ?? 0);
+  const reportContent = Math.max(0, summary.reportContentCount ?? 0);
   const lines: string[] = [];
   if (available > 0 && verifying > 0) {
     lines.push(`${available} result${available === 1 ? "" : "s"} available now`);
@@ -87,7 +88,11 @@ function labsSuccessCopy(args: {
       `${verifying} additional result${verifying === 1 ? "" : "s"} ${verifying === 1 ? "is" : "are"} being verified`,
     );
   } else if (available > 0) {
-    lines.push(`${available} result${available === 1 ? "" : "s"} added to Labs`);
+    lines.push(
+      unsupported === 0 && withheld === 0
+        ? `All supported results were added to Labs`
+        : `${available} result${available === 1 ? "" : "s"} added to Labs`,
+    );
   }
   if (withheld > 0) {
     lines.push(
@@ -96,8 +101,11 @@ function labsSuccessCopy(args: {
   }
   if (unsupported > 0) {
     lines.push(
-      `${unsupported} result${unsupported === 1 ? "" : "s"} ${available > 0 ? "are not yet supported" : "could not be matched"}`,
+      `${unsupported} genuine result${unsupported === 1 ? "" : "s"} ${available > 0 ? "are not yet supported" : "could not be matched"}`,
     );
+  }
+  if (reportContent > 0) {
+    lines.push(`Additional report content was preserved but was not treated as a lab result`);
   }
 
   return {

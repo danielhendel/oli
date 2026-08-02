@@ -126,7 +126,8 @@ describe("LabReviewDetailContent", () => {
     expect(str).toContain("MYSTERY ANALYTE");
     expect(str).toContain("Pending");
     expect(str).toContain("Advanced corrections");
-    expect(str).toContain("Not yet supported");
+    expect(str).toContain("Report notes & classified rows");
+    expect(str).toContain("not yet supported");
     expect(str).toContain("Report metadata");
     expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(true);
   });

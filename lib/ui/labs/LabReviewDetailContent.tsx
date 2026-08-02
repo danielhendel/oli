@@ -149,7 +149,11 @@ function CandidateRow({
   const unitText = candidate.unit?.trim() || "—";
   const rowDisabled = disabled === true || saving === true;
   const alreadyAccepted =
-    candidate.reviewStatus === "user_accepted" || candidate.reviewStatus === "auto_published";
+    candidate.reviewStatus === "user_accepted" ||
+    candidate.reviewStatus === "auto_published" ||
+    candidate.reviewStatus === "system_verified" ||
+    candidate.reviewStatus === "user_corrected";
+  const showActions = candidate.actionsAllowed !== false;
 
   return (
     <View style={styles.candidateRow} testID={`lab-review-candidate-${candidate.id}`}>
@@ -193,6 +197,7 @@ function CandidateRow({
           Status: {saving ? "Saving…" : statusLabel}
         </Text>
       </View>
+      {showActions ? (
       <View style={styles.actions}>
         <Pressable
           onPress={onAccept}
@@ -253,6 +258,7 @@ function CandidateRow({
           </Text>
         </Pressable>
       </View>
+      ) : null}
     </View>
   );
 }
@@ -332,12 +338,14 @@ export function LabReviewActionsFooter({
   onSaveProgress: () => void;
   onFinishReview: () => void;
 }) {
-  const finishDisabled = actionBusy === true || acceptedCount === 0;
+  const finishRequired = unresolvedCount > 0;
+  const finishDisabled = actionBusy === true || (finishRequired && acceptedCount === 0);
   return (
     <View style={styles.footer} testID="lab-review-footer">
       <Text style={styles.footerHint} testID="lab-review-action-copy">
-        Accept or correct pending results, then Finish review to add those decisions to your Labs history.
-        Automatically imported results are already included — Finish only applies to your pending decisions.
+        {finishRequired
+          ? "Optional corrections are available for genuine current results. Finish review only when you have pending decisions to apply."
+          : "Supported results were already added to Labs. Optional corrections remain available above — Finish review is not required."}
       </Text>
       <Text style={styles.footerCounts} testID="lab-review-action-counts">
         {importedCount} imported · {acceptedCount} accepted · {rejectedCount} rejected ·{" "}
@@ -352,8 +360,9 @@ export function LabReviewActionsFooter({
         style={({ pressed }) => [styles.footerBtn, styles.secondaryBtn, pressed && styles.actionPressed]}
         testID="lab-review-save-progress"
       >
-        <Text style={styles.actionLabel}>Save progress</Text>
+        <Text style={styles.actionLabel}>Done</Text>
       </Pressable>
+      {finishRequired ? (
       <Pressable
         onPress={onFinishReview}
         disabled={finishDisabled}
@@ -378,6 +387,7 @@ export function LabReviewActionsFooter({
           <Text style={styles.primaryLabel}>Finish review</Text>
         )}
       </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -467,6 +477,8 @@ export function LabReviewDetailContent({
   const importedCount = actionCounts.imported;
   const needReviewCount = actionCounts.unresolved;
   const unmatchedCount = groups.unmatched.length;
+  const reportContentCount = groups.unmatched.filter((c) => c.actionsAllowed === false).length;
+  const genuineUnsupportedCount = unmatchedCount - reportContentCount;
 
   return (
     <View style={styles.root} testID="lab-review-detail">
@@ -492,8 +504,11 @@ export function LabReviewDetailContent({
           })}
         </Text>
         <Text style={styles.meta} testID="lab-review-selection-counts">
-          {importedCount + groups.systemVerified.length} in Labs · {groups.withheld.length} not added ·{" "}
-          {unmatchedCount} not yet supported
+          {importedCount + groups.systemVerified.length} in Labs · {groups.withheld.length} not added
+          {genuineUnsupportedCount > 0
+            ? ` · ${genuineUnsupportedCount} not yet supported`
+            : ""}
+          {reportContentCount > 0 ? ` · ${reportContentCount} report notes preserved` : ""}
         </Text>
         {data.warningMessages.length > 0 ? (
           <View style={styles.warningsBlock} testID="lab-review-warnings">

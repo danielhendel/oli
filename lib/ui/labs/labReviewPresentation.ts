@@ -9,13 +9,13 @@ export const LAB_REVIEW_STATUS_LABELS: Record<LabCandidateReviewStatus, string> 
   user_accepted: "Accepted",
   user_corrected: "Corrected",
   rejected: "Removed",
-  unresolved: "Not yet supported",
+  unresolved: "Classified",
   withheld: "Not added",
 };
 
 export const LAB_REVIEW_GROUP_LABELS = {
   needs_review: "Advanced corrections",
-  unmatched: "Not yet supported",
+  unmatched: "Report notes & classified rows",
   auto_published: "Imported automatically",
   system_verified: "Verified by Oli",
   withheld: "Not added",

@@ -80,6 +80,31 @@ async function loadReview(uid: string, documentId: string): Promise<LabReviewRec
   return parsed.success ? parsed.data : null;
 }
 
+function unmatchedConsumerMessage(reason: string): string {
+  switch (reason) {
+    case "duplicate_result":
+      return "Repeated presentation of an already imported result.";
+    case "historical_column":
+      return "Historical value from the report — not treated as the current result.";
+    case "non_result_panel_header":
+    case "non_result_reference_table":
+    case "non_result_risk_category":
+    case "non_result_method_note":
+    case "non_result_report_note":
+    case "non_result_laboratory_metadata":
+    case "classified_non_result":
+      return "Report content preserved — not treated as a lab result.";
+    case "malformed_row":
+      return "This row could not be safely reconstructed.";
+    default:
+      return "This analyte is not yet supported in Labs.";
+  }
+}
+
+function unmatchedActionsAllowed(reason: string): boolean {
+  return reason === "unmatched_alias" || reason === "ambiguous_alias" || reason === "unsupported_result_type";
+}
+
 function toCandidateDto(
   c: LabExtractionDraft["results"][number] | LabExtractionDraft["unmatched"][number],
   group: LabReviewCandidateDto["matchGroup"],
@@ -88,6 +113,12 @@ function toCandidateDto(
   const isResult = "aliasMatch" in c;
   const metricId = isResult ? c.aliasMatch.canonicalMetricId : null;
   const metric = metricId ? getLabMetricByKey(metricId) : undefined;
+  const unmatchedReason = !isResult ? c.reason : null;
+  const actionsAllowed = isResult
+    ? true
+    : unmatchedReason
+      ? unmatchedActionsAllowed(unmatchedReason)
+      : false;
   return {
     id: c.id,
     rawAnalyteLabel: c.rawAnalyteLabel,
@@ -103,9 +134,12 @@ function toCandidateDto(
     confidence: c.confidence,
     warnings: isResult
       ? c.warnings.map((code) => labWarningConsumerMessage(code))
-      : ["This result needs your review."],
+      : [unmatchedConsumerMessage(unmatchedReason ?? "unmatched_alias")],
     reviewStatus,
     matchGroup: group,
+    actionsAllowed,
+    resolutionKind: !isResult ? (c.resolutionKind ?? unmatchedReason) : null,
+    classificationReason: unmatchedReason,
   };
 }
 
@@ -125,9 +159,11 @@ function buildSummary(args: {
       s === "user_corrected",
   ).length;
   const reviewNeededCount = statuses.filter((s) => s === "pending_review").length;
-  const unmatchedPending = args.draft.unmatched.filter(
-    (u) => (args.review.candidateStatuses[u.id] ?? "unresolved") === "unresolved" || (args.review.candidateStatuses[u.id] ?? "unresolved") === "pending_review",
-  ).length;
+  const unmatchedPending = args.draft.unmatched.filter((u) => {
+    if (!unmatchedActionsAllowed(u.reason)) return false;
+    const status = args.review.candidateStatuses[u.id] ?? "unresolved";
+    return status === "unresolved" || status === "pending_review";
+  }).length;
   const reportImportStatus =
     args.review.status === "imported"
       ? ("imported" as const)

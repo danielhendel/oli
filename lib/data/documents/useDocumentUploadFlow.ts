@@ -38,6 +38,7 @@ export type DocumentUploadImportSummary = {
   withheldCount?: number;
   verifyingCount?: number;
   systemVerifiedCount?: number;
+  reportContentCount?: number;
 };
 
 function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSummary | null {
@@ -53,6 +54,7 @@ function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSu
     withheldCount?: number;
     verifyingCount?: number;
     systemVerifiedCount?: number;
+    reportContentCount?: number;
   };
   const summary: DocumentUploadImportSummary = {
     importedCount: doc.importedCount,
@@ -66,6 +68,9 @@ function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSu
   if (typeof extra.verifyingCount === "number") summary.verifyingCount = extra.verifyingCount;
   if (typeof extra.systemVerifiedCount === "number") {
     summary.systemVerifiedCount = extra.systemVerifiedCount;
+  }
+  if (typeof extra.reportContentCount === "number") {
+    summary.reportContentCount = extra.reportContentCount;
   }
   return summary;
 }

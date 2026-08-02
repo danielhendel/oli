@@ -99,6 +99,12 @@ async function main() {
     }
   }
 
+  const accounting = (
+    draft as {
+      resolutionAccounting?: Record<string, unknown>;
+    }
+  ).resolutionAccounting;
+
   console.log(
     JSON.stringify({
       label,
@@ -123,11 +129,16 @@ async function main() {
       autoImportedCount: partition.autoPublishable.length,
       systemVerifiedCount: partition.systemVerifiable.length,
       withheldCount: partition.withheld.length,
-      unsupportedCount: partition.unmatchedCount,
+      unsupportedCount: partition.unsupportedGenuineCount,
+      unsupportedGenuineCount: partition.unsupportedGenuineCount,
+      reportContentCount: partition.reportContentCount,
+      duplicateCount: partition.duplicateCount,
+      historicalCount: partition.historicalCount,
       importedCount: summary.importedCount,
       reportProcessingStatus: summary.reportProcessingStatus,
       autoPublishBlockReasonCounts: blockReasonCounts,
       autoPublishPolicyVersion: LAB_AUTO_IMPORT_POLICY_VERSION,
+      resolutionAccounting: accounting ?? null,
       panelCount: draft.panels.length,
       parserId: draft.parser.id,
       parserVersion: draft.parser.version,
