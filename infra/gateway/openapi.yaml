@@ -1021,6 +1021,40 @@ paths:
         401:
           description: Unauthorized
 
+  /users/me/labs/metrics/{metricKey}/history:
+    parameters:
+      - name: metricKey
+        in: path
+        required: true
+        type: string
+      - name: limit
+        in: query
+        required: false
+        type: integer
+        minimum: 1
+        maximum: 50
+      - name: cursor
+        in: query
+        required: false
+        type: string
+    options:
+      operationId: labsMetricHistoryOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsMetricHistoryGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Bounded accepted-result history ordered by collectedAt
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
   /users/me/labs/reviews:
     options:
       operationId: labsReviewsListOptions

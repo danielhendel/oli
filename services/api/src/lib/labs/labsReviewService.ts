@@ -6,15 +6,48 @@
 
 import type {
   AcceptedLabResult,
+  LabDatePrecision,
   LabExtractionDraft,
   LabMetricResultDto,
   LabNormalizedFlag,
   LabResultCandidate,
   LabReviewRecord,
+  LabSpecimenType,
   LabUnmatchedCandidate,
 } from "@oli/contracts";
 import { LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
 import { getLabMetricByKey } from "../../../../../lib/labs/labMetricCatalog";
+import { assertAcceptedMatchesSourceCandidate } from "../../../../../lib/labs/reconciliation/reconcileLabSourceTruth";
+
+function inferSpecimenType(args: {
+  metricId: string | null;
+  rawLabel: string;
+  reportSpecimen: string | null | undefined;
+}): { type: LabSpecimenType; rawLabel: string | null } {
+  const label = `${args.rawLabel} ${args.reportSpecimen ?? ""}`.toLowerCase();
+  if (args.metricId === "osmolality_urine" || /\(u\)|\burine\b/.test(label)) {
+    return { type: "urine", rawLabel: args.reportSpecimen ?? (/\burine\b/i.test(args.rawLabel) ? "urine" : null) };
+  }
+  if (/\bplasma\b/.test(label)) return { type: "plasma", rawLabel: args.reportSpecimen ?? "plasma" };
+  if (/\bwhole blood\b|\bblood\b/.test(label) && !/\bserum\b/.test(label)) {
+    return { type: "whole_blood", rawLabel: args.reportSpecimen ?? "blood" };
+  }
+  if (/\bserum\b/.test(label) || args.metricId === "osmolality_serum") {
+    return { type: "serum", rawLabel: args.reportSpecimen ?? "serum" };
+  }
+  if (args.reportSpecimen) return { type: "other", rawLabel: args.reportSpecimen };
+  return { type: "unknown", rawLabel: null };
+}
+
+function resolveDatePrecision(
+  draft: LabExtractionDraft,
+  collectedAt: string | null,
+): LabDatePrecision | null {
+  if (!collectedAt) return null;
+  const fromMeta = draft.reportCandidate.collectedAtPrecision;
+  if (fromMeta) return fromMeta;
+  return "unknown";
+}
 
 type LabCandidateCorrectionFields = LabReviewRecord["corrections"][number]["fields"];
 
@@ -104,6 +137,7 @@ export function buildAcceptedLabResult(args: {
   fasting: boolean | null;
   policyVersion?: string;
   verificationMethods?: readonly string[];
+  uploadedAt?: string | null;
 }): AcceptedLabResult {
   const c = args.candidate;
   if (!c.result) {
@@ -115,6 +149,11 @@ export function buildAcceptedLabResult(args: {
       : args.reviewStatus === "system_verified"
         ? ("system_verified" as const)
         : ("user" as const);
+  const specimen = inferSpecimenType({
+    metricId: c.aliasMatch.canonicalMetricId,
+    rawLabel: c.rawAnalyteLabel,
+    reportSpecimen: args.draft.reportCandidate.specimenType,
+  });
   return {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
     id: acceptedLabResultId(args.draft.documentId, c.id),
@@ -126,7 +165,10 @@ export function buildAcceptedLabResult(args: {
     rawAnalyteLabel: c.rawAnalyteLabel,
     panelId: c.panelId,
     collectedAt: args.collectedAt,
+    receivedAt: args.draft.reportCandidate.receivedAt ?? null,
     reportedAt: args.reportedAt,
+    uploadedAt: args.uploadedAt ?? null,
+    datePrecision: resolveDatePrecision(args.draft, args.collectedAt),
     fasting: args.fasting,
     result: c.result,
     rawUnit: c.unit.rawUnit,
@@ -135,6 +177,7 @@ export function buildAcceptedLabResult(args: {
     structuredReferenceRange: c.structuredReferenceRange,
     rawFlag: c.flag.rawFlag,
     normalizedFlag: c.flag.normalized,
+    specimen,
     laboratory: c.laboratory ?? (args.draft.reportCandidate.laboratoryName
       ? { name: args.draft.reportCandidate.laboratoryName, code: null }
       : null),
@@ -159,30 +202,45 @@ export function buildAcceptedLabResult(args: {
   };
 }
 
-/** Optional v2 projection for Labs summary UI (numeric results including inequalities). */
+/** Optional v2 projection for Labs summary UI (numeric + displayable non-numeric). */
 export function projectAcceptedToLabMetricResultDto(
   accepted: AcceptedLabResult,
 ): LabMetricResultDto | null {
   if (!accepted.canonicalMetricId) return null;
-  if (accepted.result.kind !== "numeric") return null;
   const metric = getLabMetricByKey(accepted.canonicalMetricId);
   if (!metric) return null;
 
-  const comparator = accepted.result.comparator;
-  const value = accepted.result.value;
+  let value: number | null = null;
   let rawValueText: string | null = null;
-  if (comparator === "eq") {
-    rawValueText = String(value);
+  if (accepted.result.kind === "numeric") {
+    const comparator = accepted.result.comparator;
+    value = accepted.result.value;
+    if (comparator === "eq") {
+      rawValueText = String(value);
+    } else {
+      const op =
+        comparator === "lt"
+          ? "<"
+          : comparator === "lte"
+            ? "≤"
+            : comparator === "gt"
+              ? ">"
+              : "≥";
+      rawValueText = `${op}${value}`;
+    }
+  } else if (accepted.result.kind === "pattern") {
+    rawValueText = accepted.result.value;
+    value = null;
+  } else if (accepted.result.kind === "qualitative") {
+    rawValueText = accepted.result.value;
+    value = null;
+  } else if (accepted.result.kind === "text") {
+    rawValueText = accepted.result.value;
+    value = null;
   } else {
-    const op =
-      comparator === "lt"
-        ? "<"
-        : comparator === "lte"
-          ? "≤"
-          : comparator === "gt"
-            ? ">"
-            : "≥";
-    rawValueText = `${op}${value}`;
+    // not_reported — still project a display token so cards are not blank.
+    rawValueText = accepted.result.reason.replace(/_/g, " ");
+    value = null;
   }
 
   return {
@@ -194,7 +252,12 @@ export function projectAcceptedToLabMetricResultDto(
     categoryKey: metric.categoryKey,
     // Inequalities keep bound value for storage; display uses rawValueText.
     value,
-    unit: accepted.normalizedUnit ?? accepted.rawUnit,
+    unit:
+      accepted.result.kind === "numeric"
+        ? accepted.normalizedUnit ?? accepted.rawUnit
+        : accepted.normalizedUnit === "none"
+          ? null
+          : accepted.normalizedUnit ?? accepted.rawUnit,
     referenceRangeText: accepted.rawReferenceRange,
     flag: mapFlagToV2(accepted.normalizedFlag),
     collectedAt: accepted.collectedAt,
@@ -214,6 +277,32 @@ export function projectAcceptedToLabMetricResultDto(
       ? { sourcePage: accepted.provenance.sourcePage }
       : {}),
     ...(accepted.laboratory?.name ? { laboratoryName: accepted.laboratory.name } : {}),
+    ...(accepted.provenance.panelName ? { panelName: accepted.provenance.panelName } : {}),
+    ...(accepted.datePrecision ? { datePrecision: accepted.datePrecision } : {}),
+  };
+}
+
+/**
+ * Guarded projection: reject when accepted drifted from the source candidate.
+ * Safe reason codes only — never log clinical values.
+ */
+export function projectAcceptedWithSourceGuard(args: {
+  accepted: AcceptedLabResult;
+  sourceResult: AcceptedLabResult["result"];
+  sourceUnit: string | null;
+}): { projection: LabMetricResultDto | null; withheldReasonCode: string | null } {
+  const guard = assertAcceptedMatchesSourceCandidate({
+    sourceResult: args.sourceResult,
+    acceptedResult: args.accepted.result,
+    sourceUnit: args.sourceUnit,
+    acceptedUnit: args.accepted.normalizedUnit ?? args.accepted.rawUnit,
+  });
+  if (!guard.ok) {
+    return { projection: null, withheldReasonCode: guard.safeReasonCode };
+  }
+  return {
+    projection: projectAcceptedToLabMetricResultDto(args.accepted),
+    withheldReasonCode: null,
   };
 }
 

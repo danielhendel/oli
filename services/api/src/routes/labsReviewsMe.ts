@@ -24,7 +24,7 @@ import type { RequestWithRid } from "../lib/logger";
 import { userCollection } from "../db";
 import {
   buildAcceptedLabResult,
-  projectAcceptedToLabMetricResultDto,
+  projectAcceptedWithSourceGuard,
   resolveCandidatesForAccept,
   unpublishAcceptedLabResult,
 } from "../lib/labs/labsReviewService";
@@ -418,7 +418,11 @@ router.patch(
             fasting: draft.reportCandidate.fasting ?? null,
           });
           await userCollection(uid, "labAcceptedResults").doc(accepted.id).set(accepted, { merge: true });
-          const projection = projectAcceptedToLabMetricResultDto(accepted);
+          const { projection } = projectAcceptedWithSourceGuard({
+            accepted,
+            sourceResult: correctedCandidate.result,
+            sourceUnit: correctedCandidate.unit.normalizedUnit ?? correctedCandidate.unit.rawUnit,
+          });
           if (projection) {
             await userCollection(uid, "labResults").doc(projection.id).set(projection, { merge: true });
           }
@@ -532,7 +536,11 @@ router.post(
         fasting: draft.reportCandidate.fasting ?? null,
       });
       await userCollection(uid, "labAcceptedResults").doc(accepted.id).set(accepted, { merge: true });
-      const projection = projectAcceptedToLabMetricResultDto(accepted);
+      const { projection } = projectAcceptedWithSourceGuard({
+        accepted,
+        sourceResult: candidate.result!,
+        sourceUnit: candidate.unit.normalizedUnit ?? candidate.unit.rawUnit,
+      });
       if (projection) {
         await userCollection(uid, "labResults").doc(projection.id).set(projection, { merge: true });
       }

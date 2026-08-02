@@ -299,12 +299,30 @@ export const labExtractionWarningSchema = z
   })
   .strip();
 
+export const labDatePrecisionSchema = z.enum([
+  "date_time_with_timezone",
+  "date_time_without_timezone",
+  "date_only",
+  "unknown",
+]);
+
+export const labSpecimenTypeSchema = z.enum([
+  "serum",
+  "plasma",
+  "whole_blood",
+  "urine",
+  "other",
+  "unknown",
+]);
+
 export const labReportMetadataCandidateSchema = z
   .object({
     reportStatus: z.string().min(1).nullable().optional(),
     collectedAt: isoDatetimeString.nullable().optional(),
     receivedAt: isoDatetimeString.nullable().optional(),
     reportedAt: isoDatetimeString.nullable().optional(),
+    /** Precision of collectedAt — time may be placeholder when date_only. */
+    collectedAtPrecision: labDatePrecisionSchema.nullable().optional(),
     fasting: z.boolean().nullable().optional(),
     laboratoryName: z.string().min(1).nullable().optional(),
     performingLaboratories: z.array(labLaboratoryReferenceSchema).optional(),
@@ -498,7 +516,11 @@ export const acceptedLabResultSchema = z
     rawAnalyteLabel: z.string().min(1),
     panelId: z.string().min(1).nullable(),
     collectedAt: isoDatetimeString.nullable(),
+    receivedAt: isoDatetimeString.nullable().optional(),
     reportedAt: isoDatetimeString.nullable(),
+    /** Operational upload time — never used as history axis. */
+    uploadedAt: isoDatetimeString.nullable().optional(),
+    datePrecision: labDatePrecisionSchema.nullable().optional(),
     fasting: z.boolean().nullable(),
     result: labResultValueSchema,
     rawUnit: z.string().nullable(),
@@ -507,6 +529,14 @@ export const acceptedLabResultSchema = z
     structuredReferenceRange: labReferenceIntervalCandidateSchema.nullable(),
     rawFlag: z.string().nullable(),
     normalizedFlag: labNormalizedFlagSchema.nullable(),
+    specimen: z
+      .object({
+        type: labSpecimenTypeSchema,
+        rawLabel: z.string().min(1).nullable(),
+      })
+      .strip()
+      .nullable()
+      .optional(),
     laboratory: labLaboratoryReferenceSchema.nullable(),
     method: labMethodReferenceSchema.nullable(),
     provenance: labResultProvenanceSchema,
@@ -593,18 +623,42 @@ export const labReviewDetailDtoSchema = z
 export const labHistoryPointDtoSchema = z
   .object({
     id: z.string().min(1),
+    acceptedResultId: z.string().min(1).optional(),
     canonicalMetricId: z.string().min(1).nullable(),
     collectedAt: isoDatetimeString.nullable(),
+    datePrecision: labDatePrecisionSchema.nullable().optional(),
     result: labResultValueSchema,
+    displayValue: z.string().min(1).optional(),
     rawUnit: z.string().nullable(),
     normalizedUnit: z.string().nullable(),
     rawReferenceRange: z.string().nullable(),
     normalizedFlag: labNormalizedFlagSchema.nullable(),
+    panelId: z.string().min(1).nullable().optional(),
+    specimenType: labSpecimenTypeSchema.nullable().optional(),
+    methodId: z.string().min(1).nullable().optional(),
+    measuredOrCalculated: z
+      .enum(["measured", "calculated", "reported_unknown"])
+      .nullable()
+      .optional(),
     laboratoryName: z.string().nullable().optional(),
     sourceDocumentId: z.string().min(1),
     sourcePage: z.number().int().positive(),
+    historyCompatibilityGroup: z.string().min(1).optional(),
     methodCompatibility: z.enum(["compatible", "uncertain", "incompatible"]),
     trendEligible: z.boolean(),
+    trendEligibility: z
+      .enum([
+        "numeric_compatible",
+        "table_only",
+        "incompatible_unit",
+        "incompatible_specimen",
+        "incompatible_method",
+        "missing_date",
+        "qualitative",
+        "pattern",
+        "inequality_table_only",
+      ])
+      .optional(),
   })
   .strip();
 
@@ -803,6 +857,8 @@ export type AcceptLabReviewRequest = z.infer<typeof acceptLabReviewRequestSchema
 export type RejectLabReviewRequest = z.infer<typeof rejectLabReviewRequestSchema>;
 export type LabAnalyteHistoryDto = z.infer<typeof labAnalyteHistoryDtoSchema>;
 export type LabHistoryPointDto = z.infer<typeof labHistoryPointDtoSchema>;
+export type LabDatePrecision = z.infer<typeof labDatePrecisionSchema>;
+export type LabSpecimenType = z.infer<typeof labSpecimenTypeSchema>;
 export type LabNormalizedFlag = z.infer<typeof labNormalizedFlagSchema>;
 export type LabExtractionWarningCode = z.infer<typeof labExtractionWarningCodeSchema>;
 export type LabResultProvenance = z.infer<typeof labResultProvenanceSchema>;

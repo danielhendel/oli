@@ -58,6 +58,12 @@ export const labMetricResultDtoSchema = z
     publicationMode: z.enum(["auto", "user"]).optional(),
     sourcePage: z.number().int().positive().optional(),
     laboratoryName: z.string().min(1).nullable().optional(),
+    /** Panel provenance for representative selection (e.g. CMP vs hormone albumin). */
+    panelName: z.string().min(1).nullable().optional(),
+    datePrecision: z
+      .enum(["date_time_with_timezone", "date_time_without_timezone", "date_only", "unknown"])
+      .nullable()
+      .optional(),
   })
   .strip();
 

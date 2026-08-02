@@ -5,6 +5,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { formatLabResultValue, formatLabReferenceRange } from "@/lib/labs/labMetricCatalog";
+import {
+  calculateLabMetricChange,
+  formatLabMetricChangeCopy,
+} from "@/lib/labs/history/calculateLabMetricChange";
 import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 import {
   UI_TEXT_PRIMARY,
@@ -57,6 +61,40 @@ export function LabMetricDetailContent({
         }) ?? data?.referenceRangeText ?? null
       : data?.referenceRangeText ?? null;
   const labDate = latest?.collectedAt ?? latest?.reportedAt ?? null;
+  const history = data?.history ?? [];
+  const priorCompatible = history.find((row, idx) => {
+    if (idx === 0 || !latest) return false;
+    if (row.value == null || latest.value == null) return false;
+    if (!row.collectedAt || !latest.collectedAt) return false;
+    if ((row.unit ?? "") !== (latest.unit ?? "")) return false;
+    const raw = row.rawValueText ?? "";
+    const latestRaw = latest.rawValueText ?? "";
+    if (/^[<>≤≥]/.test(raw) || /^[<>≤≥]/.test(latestRaw)) return false;
+    return true;
+  });
+  const changeCopy =
+    latest &&
+    priorCompatible &&
+    latest.value != null &&
+    priorCompatible.value != null &&
+    latest.collectedAt &&
+    priorCompatible.collectedAt
+      ? (() => {
+          const change = calculateLabMetricChange({
+            latest: {
+              id: latest.id,
+              collectedAt: latest.collectedAt,
+              result: { kind: "numeric", value: latest.value, comparator: "eq" },
+            },
+            prior: {
+              id: priorCompatible.id,
+              collectedAt: priorCompatible.collectedAt,
+              result: { kind: "numeric", value: priorCompatible.value, comparator: "eq" },
+            },
+          });
+          return change ? formatLabMetricChangeCopy({ change, unit: latest.unit }) : null;
+        })()
+      : null;
 
   return (
     <View style={styles.root} testID="lab-metric-detail">
@@ -70,7 +108,16 @@ export function LabMetricDetailContent({
         ) : (
           <Text style={styles.meta}>Reference range not available</Text>
         )}
-        {labDate ? <Text style={styles.meta}>Lab date: {formatLabUploadDate(labDate)}</Text> : null}
+        {labDate ? (
+          <Text style={styles.meta} testID="lab-metric-collected-at">
+            Collected {formatLabUploadDate(labDate)}
+          </Text>
+        ) : null}
+        {changeCopy ? (
+          <Text style={styles.meta} testID="lab-metric-neutral-change">
+            {changeCopy}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -82,12 +129,14 @@ export function LabMetricDetailContent({
         </Text>
       </View>
 
-      {data && data.history.length > 1 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Trend</Text>
+      {data && data.history.length > 0 ? (
+        <View style={styles.section} testID="lab-metric-history">
+          <Text style={styles.sectionTitle}>History</Text>
           {data.history.map((row) => (
             <View key={row.id} style={styles.trendRow}>
-              <Text style={styles.trendDate}>{formatLabUploadDate(row.collectedAt ?? row.reportedAt ?? row.createdAt)}</Text>
+              <Text style={styles.trendDate}>
+                {formatLabUploadDate(row.collectedAt ?? row.reportedAt ?? row.createdAt)}
+              </Text>
               <Text style={styles.trendValue}>
                 {formatLabResultValue(row.value, row.unit, {
                   ...(row.rawValueText !== undefined ? { rawValueText: row.rawValueText } : {}),

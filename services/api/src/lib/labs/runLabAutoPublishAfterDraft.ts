@@ -19,7 +19,7 @@ import {
 import {
   acceptedLabResultId,
   buildAcceptedLabResult,
-  projectAcceptedToLabMetricResultDto,
+  projectAcceptedWithSourceGuard,
 } from "./labsReviewService";
 
 type Col = {
@@ -134,7 +134,11 @@ export async function runLabAutoPublishAfterDraft(args: {
       merge: true,
     });
     acceptedIds.push(accepted.id);
-    const projection = projectAcceptedToLabMetricResultDto(accepted);
+    const { projection } = projectAcceptedWithSourceGuard({
+      accepted,
+      sourceResult: candidate.result!,
+      sourceUnit: candidate.unit.normalizedUnit ?? candidate.unit.rawUnit,
+    });
     if (projection) {
       await args.labResultsCol.doc(projection.id).set(projection as unknown as Record<string, unknown>, {
         merge: true,

@@ -3,26 +3,34 @@
  * Never emits patient identifiers into candidates.
  */
 
-import type { LabReportMetadataCandidate } from "@oli/contracts";
+import type { LabDatePrecision, LabReportMetadataCandidate } from "@oli/contracts";
 
-function parseQuestDateTime(raw: string): string | null {
+function parseQuestDateTime(raw: string): { iso: string; precision: LabDatePrecision } | null {
   // Common Quest forms: 01/15/2024 08:30 AM  or  2024-01-15
+  // Never invent a device timezone — store UTC clock fields when time is present.
   const mdy = /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i.exec(raw);
   if (mdy) {
     const month = Number(mdy[1]);
     const day = Number(mdy[2]);
     const year = Number(mdy[3]);
-    let hour = mdy[4] ? Number(mdy[4]) : 12;
-    const minute = mdy[5] ? Number(mdy[5]) : 0;
+    const hasTime = Boolean(mdy[4] && mdy[5]);
+    if (!hasTime) {
+      // Date-only: keep a stable UTC midnight placeholder; precision marks time non-authoritative.
+      const iso = new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
+      return { iso, precision: "date_only" };
+    }
+    let hour = Number(mdy[4]);
+    const minute = Number(mdy[5]);
     const ampm = mdy[6]?.toUpperCase();
     if (ampm === "PM" && hour < 12) hour += 12;
     if (ampm === "AM" && hour === 12) hour = 0;
     const iso = new Date(Date.UTC(year, month - 1, day, hour, minute, 0)).toISOString();
-    return iso;
+    return { iso, precision: "date_time_without_timezone" };
   }
   const ymd = /(\d{4})-(\d{2})-(\d{2})/.exec(raw);
   if (ymd) {
-    return new Date(Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 12, 0, 0)).toISOString();
+    const iso = new Date(Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 0, 0, 0)).toISOString();
+    return { iso, precision: "date_only" };
   }
   return null;
 }
@@ -85,9 +93,12 @@ export function extractQuestReportMetadata(args: {
   const fasting: boolean | null = parseFasting(fastingRaw);
 
   const fieldConfidence: Record<string, number> = {};
-  const collectedAt = collectedRaw ? parseQuestDateTime(collectedRaw) : null;
-  const receivedAt = receivedRaw ? parseQuestDateTime(receivedRaw) : null;
-  const reportedAt = reportedRaw ? parseQuestDateTime(reportedRaw) : null;
+  const collectedParsed = collectedRaw ? parseQuestDateTime(collectedRaw) : null;
+  const receivedParsed = receivedRaw ? parseQuestDateTime(receivedRaw) : null;
+  const reportedParsed = reportedRaw ? parseQuestDateTime(reportedRaw) : null;
+  const collectedAt = collectedParsed?.iso ?? null;
+  const receivedAt = receivedParsed?.iso ?? null;
+  const reportedAt = reportedParsed?.iso ?? null;
   if (collectedAt) fieldConfidence.collectedAt = 0.9;
   if (receivedAt) fieldConfidence.receivedAt = 0.85;
   if (reportedAt) fieldConfidence.reportedAt = 0.9;
@@ -99,6 +110,7 @@ export function extractQuestReportMetadata(args: {
     collectedAt,
     receivedAt,
     reportedAt,
+    collectedAtPrecision: collectedParsed?.precision ?? null,
     fasting,
     laboratoryName,
     performingLaboratories: laboratoryName

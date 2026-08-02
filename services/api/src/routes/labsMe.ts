@@ -11,7 +11,10 @@ import {
   labUploadDetailResponseDtoSchema,
   labUploadDtoSchema,
   labUploadsListResponseDtoSchema,
+  acceptedLabResultSchema,
+  labAnalyteHistoryDtoSchema,
   labsSummaryResponseDtoSchema,
+  type AcceptedLabResult,
   type LabMetricResultDto,
   type LabUploadDto,
 } from "@oli/contracts";
@@ -21,6 +24,9 @@ import {
   getLabMetricByKey,
   groupLabResultsByCategory,
 } from "../../../../lib/labs/labMetricCatalog";
+import { toHistoryPointDto } from "../../../../lib/labs/extraction/labHistoryCompatibility";
+import { sortLabHistoryByCollectionDate } from "../../../../lib/labs/history/evaluateLabTrendEligibility";
+import { deduplicateLabHistorySourceRepresentations } from "../../../../lib/labs/history/deduplicateLabHistorySourceRepresentations";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -48,6 +54,16 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
 
 const uploadIdParamsSchema = z.object({ uploadId: z.string().min(1) });
 const metricKeyParamsSchema = z.object({ metricKey: z.string().min(1) });
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  cursor: z.string().min(1).optional(),
+});
+
+function resultFingerprint(result: AcceptedLabResult["result"]): string {
+  if (result.kind === "numeric") return `${result.comparator}:${result.value}`;
+  if (result.kind === "not_reported") return `nr:${result.reason}`;
+  return `${result.kind}:${result.value}`;
+}
 
 function toIsoFromTimestampLike(value: unknown): string | undefined {
   if (typeof value === "string") return value;
@@ -133,6 +149,7 @@ router.get(
 
     const grouped = groupLabResultsByCategory(
       results.map((r) => ({
+        id: r.id,
         metricKey: r.metricKey,
         categoryKey: r.categoryKey,
         displayName: r.displayName,
@@ -146,6 +163,7 @@ router.get(
         reportedAt: r.reportedAt ?? null,
         uploadId: r.uploadId,
         rawValueText: r.rawValueText ?? null,
+        panelName: r.panelName ?? null,
       })),
     );
     const categories = grouped.map((g) => ({
@@ -468,9 +486,10 @@ router.get(
       const validated = labMetricResultDtoSchema.safeParse({ ...r, id: doc.id, createdAt });
       if (validated.success) history.push(validated.data);
     }
+    // History axis is collectedAt (upload/created timestamps are not authoritative).
     history.sort((a, b) => {
-      const aKey = String(a.collectedAt ?? a.createdAt ?? "");
-      const bKey = String(b.collectedAt ?? b.createdAt ?? "");
+      const aKey = String(a.collectedAt ?? "");
+      const bKey = String(b.collectedAt ?? "");
       return bKey.localeCompare(aKey);
     });
 
@@ -492,6 +511,89 @@ router.get(
       return;
     }
 
+    res.status(200).json(validated.data);
+  }),
+);
+
+/**
+ * Bounded accepted-result history for a canonical metric.
+ * Ordered by collectedAt desc; cursor is the last returned accepted result id.
+ */
+router.get(
+  "/metrics/:metricKey/history",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = req.uid;
+    if (!uid) {
+      res.status(401).json({ ok: false, error: "Unauthorized" });
+      return;
+    }
+
+    const parsedParams = metricKeyParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_PARAMS", requestId: getRid(req) } });
+      return;
+    }
+    const parsedQuery = historyQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_QUERY", requestId: getRid(req) } });
+      return;
+    }
+
+    const { metricKey } = parsedParams.data;
+    const catalog = getLabMetricByKey(metricKey);
+    if (!catalog) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "labMetric", id: metricKey } });
+      return;
+    }
+
+    const snap = await userCollection(uid, "labAcceptedResults")
+      .where("canonicalMetricId", "==", metricKey)
+      .limit(200)
+      .get();
+
+    const accepted: AcceptedLabResult[] = [];
+    for (const doc of snap.docs) {
+      const validated = acceptedLabResultSchema.safeParse({ ...doc.data(), id: doc.id });
+      if (validated.success) accepted.push(validated.data);
+    }
+
+    const dedupedIds = new Set(
+      deduplicateLabHistorySourceRepresentations(
+        accepted.map((row) => ({
+          id: row.id,
+          canonicalMetricId: row.canonicalMetricId ?? metricKey,
+          collectedAt: row.collectedAt,
+          panelId: row.panelId,
+          specimenType: row.specimen?.type ?? null,
+          methodId: row.method?.assayMethod ?? null,
+          measuredOrCalculated: row.method?.assayMethod ? "reported_unknown" : "reported_unknown",
+          sourceLocator: row.provenance.sourceLocator,
+          sourcePage: row.provenance.sourcePage,
+          resultFingerprint: resultFingerprint(row.result),
+        })),
+      ).map((r) => r.id),
+    );
+
+    const ordered = sortLabHistoryByCollectionDate(accepted.filter((row) => dedupedIds.has(row.id)));
+    const cursor = parsedQuery.data.cursor ?? null;
+    const startIdx = cursor ? ordered.findIndex((row) => row.id === cursor) + 1 : 0;
+    const slice = ordered.slice(Math.max(0, startIdx), Math.max(0, startIdx) + parsedQuery.data.limit);
+    const points = slice.map((row) => toHistoryPointDto(row));
+    const nextCursor =
+      startIdx + parsedQuery.data.limit < ordered.length ? (slice[slice.length - 1]?.id ?? null) : null;
+
+    const payload = {
+      ok: true as const,
+      canonicalMetricId: metricKey,
+      displayName: catalog.displayName,
+      points,
+      nextCursor,
+    };
+    const validated = labAnalyteHistoryDtoSchema.safeParse(payload);
+    if (!validated.success) {
+      res.status(500).json({ ok: false, error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) } });
+      return;
+    }
     res.status(200).json(validated.data);
   }),
 );
