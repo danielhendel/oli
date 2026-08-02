@@ -91,12 +91,57 @@ export function applyDeterministicLabVerificationFix(
   // Truncated nmol/ → recover nmol/min/mL for Lp-PLA2 when raw suggests activity assay.
   if (metricId === "lp_pla2") {
     const raw = (next.unit.rawUnit ?? "").trim();
-    if (!next.unit.normalizedUnit && (/^nmol\/?$/i.test(raw) || /^nmol\/min\/ml$/i.test(raw))) {
+    if (/^nmol\/?$/i.test(raw) || /^nmol\/min\/ml$/i.test(raw) || !next.unit.normalizedUnit) {
+      const activity = /^nmol\/?$/i.test(raw) || /^nmol\/min\/ml$/i.test(raw) || !next.unit.normalizedUnit;
+      if (activity) {
+        next = {
+          ...next,
+          unit: {
+            rawUnit: raw || "nmol/min/mL",
+            normalizedUnit: "nmol/min/mL",
+            unitRegistryVersion: LABS_UNIT_REGISTRY_VERSION,
+            confidence: 0.99,
+            known: true,
+          },
+          warnings: next.warnings.filter((w) => w !== "ambiguous_unit" && w !== "low_confidence"),
+          confidence: Math.max(next.confidence, 0.95),
+        };
+        methods.push("quest_lp_pla2_activity_unit_v1");
+      }
+    }
+  }
+
+  // Dimensionless / qualitative profiles: Quest often puts Pattern/calc tokens in the unit column.
+  // When the import profile allows "none" and the result is non-numeric, assign preferred unit.
+  {
+    const profile = getLabMetricImportProfile(metricId);
+    const kind = next.result?.kind;
+    const nonNumeric =
+      kind === "pattern" ||
+      kind === "text" ||
+      kind === "qualitative" ||
+      kind === "not_reported";
+    const rawUnit = (next.unit.rawUnit ?? "").trim();
+    const unitLooksDimensionless =
+      !rawUnit ||
+      /^(pattern|calc|calculated|none|n\/a)$/i.test(rawUnit) ||
+      next.unit.normalizedUnit === "none";
+    if (
+      profile &&
+      nonNumeric &&
+      profile.allowedUnits.includes("none") &&
+      profile.expectedKinds.includes(kind!) &&
+      unitLooksDimensionless &&
+      (next.warnings.includes("ambiguous_unit") ||
+        next.warnings.includes("low_confidence") ||
+        !next.unit.known ||
+        next.unit.normalizedUnit !== "none")
+    ) {
       next = {
         ...next,
         unit: {
-          rawUnit: raw || "nmol/min/mL",
-          normalizedUnit: "nmol/min/mL",
+          rawUnit: next.unit.rawUnit,
+          normalizedUnit: "none",
           unitRegistryVersion: LABS_UNIT_REGISTRY_VERSION,
           confidence: 0.99,
           known: true,
@@ -104,7 +149,7 @@ export function applyDeterministicLabVerificationFix(
         warnings: next.warnings.filter((w) => w !== "ambiguous_unit" && w !== "low_confidence"),
         confidence: Math.max(next.confidence, 0.95),
       };
-      methods.push("quest_lp_pla2_activity_unit_v1");
+      methods.push("quest_dimensionless_unit_v1");
     }
   }
 

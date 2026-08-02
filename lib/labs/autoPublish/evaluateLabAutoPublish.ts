@@ -114,31 +114,43 @@ export function evaluateLabAutoPublish(input: EvaluateLabAutoPublishInput): LabA
   }
 
   const result = candidate.result;
-  if (!result || result.kind !== "numeric") {
-    reasons.push("result_type_not_auto_publishable");
-  } else if (!ALLOWED_COMPARATORS.has(result.comparator)) {
-    reasons.push("result_type_not_auto_publishable");
-  } else if (!Number.isFinite(result.value)) {
-    reasons.push("result_value_low_confidence");
-  } else if (confidence.resultValue < LAB_AUTO_PUBLISH_THRESHOLDS.resultValue) {
-    reasons.push("result_value_low_confidence");
-  }
-
-  if (!candidate.unit.known || !candidate.unit.normalizedUnit) {
-    reasons.push("unit_unknown");
-  } else if (confidence.unit < LAB_AUTO_PUBLISH_THRESHOLDS.unit) {
-    reasons.push("unit_low_confidence");
-  }
-
   const profile = match.canonicalMetricId ? getLabMetricImportProfile(match.canonicalMetricId) : undefined;
+  const expectedKinds = profile?.expectedKinds ?? ["numeric"];
+  const unitOptional =
+    Boolean(profile?.allowedUnits.includes("none")) ||
+    (result != null && result.kind !== "numeric");
+
+  if (!result) {
+    reasons.push("result_type_not_auto_publishable");
+  } else if (!expectedKinds.includes(result.kind)) {
+    reasons.push("result_type_not_auto_publishable");
+  } else if (result.kind === "numeric") {
+    if (!ALLOWED_COMPARATORS.has(result.comparator)) {
+      reasons.push("result_type_not_auto_publishable");
+    } else if (!Number.isFinite(result.value)) {
+      reasons.push("result_value_low_confidence");
+    } else if (confidence.resultValue < LAB_AUTO_PUBLISH_THRESHOLDS.resultValue) {
+      reasons.push("result_value_low_confidence");
+    }
+  }
+
+  if (!unitOptional) {
+    if (!candidate.unit.known || !candidate.unit.normalizedUnit) {
+      reasons.push("unit_unknown");
+    } else if (confidence.unit < LAB_AUTO_PUBLISH_THRESHOLDS.unit) {
+      reasons.push("unit_low_confidence");
+    }
+  }
+
   if (!profile || !profile.autoPublishV1) {
     reasons.push("metric_not_auto_publish_v1");
-  } else if (candidate.unit.normalizedUnit && !profile.allowedUnits.includes(candidate.unit.normalizedUnit)) {
+  } else if (
+    candidate.unit.normalizedUnit &&
+    candidate.unit.normalizedUnit !== "none" &&
+    !profile.allowedUnits.includes(candidate.unit.normalizedUnit)
+  ) {
     reasons.push("unit_incompatible");
-  } else if (result && !profile.expectedKinds.includes(result.kind)) {
-    reasons.push("cross_field_inconsistent");
   }
-
   const prov = candidate.provenance;
   if (
     !prov.sourceDocumentId ||
@@ -170,10 +182,21 @@ export function evaluateLabAutoPublish(input: EvaluateLabAutoPublishInput): LabA
   }
 
   for (const code of input.warningCodes) {
-    if (LAB_AUTO_PUBLISH_BLOCKING_WARNINGS.has(code)) {
-      reasons.push("blocking_warning");
-      break;
+    if (!LAB_AUTO_PUBLISH_BLOCKING_WARNINGS.has(code)) continue;
+    // Stale unit warnings must not block when the profile treats units as optional
+    // and a known compatible unit (including "none") is already assigned.
+    if (
+      code === "ambiguous_unit" &&
+      unitOptional &&
+      candidate.unit.known &&
+      candidate.unit.normalizedUnit &&
+      (profile?.allowedUnits.includes(candidate.unit.normalizedUnit) ||
+        candidate.unit.normalizedUnit === "none")
+    ) {
+      continue;
     }
+    reasons.push("blocking_warning");
+    break;
   }
 
   if (profile?.methodSensitive && candidate.method?.noteRef && !candidate.method.assayMethod) {

@@ -90,4 +90,33 @@ describe("applyDeterministicLabVerificationFix", () => {
     expect(fix?.methods).toContain("quest_lipid_default_unit_v1");
     expect(fix?.candidate.unit.normalizedUnit).toBe("mg/dL");
   });
+
+  it("realigns dimensionless pattern metrics to unit none and clears unit warnings", () => {
+    const fix = applyDeterministicLabVerificationFix(
+      base({
+        id: "pat",
+        aliasMatch: {
+          canonicalMetricId: "ldl_pattern",
+          matchMethod: "exact_alias",
+          aliasVersion: "1.2.0",
+          confidence: 0.95,
+          requiresReview: false,
+        },
+        result: { kind: "not_reported", reason: "not_applicable" },
+        unit: {
+          rawUnit: "Pattern",
+          normalizedUnit: "none",
+          unitRegistryVersion: "1.1.0",
+          confidence: 0.4,
+          known: true,
+        },
+        warnings: ["ambiguous_unit", "ambiguous_reference_range", "low_confidence"],
+      }),
+    );
+    expect(fix?.methods).toContain("quest_dimensionless_unit_v1");
+    expect(fix?.candidate.unit.normalizedUnit).toBe("none");
+    expect(fix?.candidate.warnings).not.toContain("ambiguous_unit");
+    expect(fix?.candidate.warnings).not.toContain("low_confidence");
+    expect(fix?.candidate.warnings).toContain("ambiguous_reference_range");
+  });
 });

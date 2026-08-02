@@ -338,6 +338,7 @@ export function extractQuestAnalyteRows(args: {
           provenance,
           confidence: Math.min(parsedValue.confidence, alias.confidence),
           reviewStatus: "pending_review",
+          rawUnit,
         });
         return;
       }

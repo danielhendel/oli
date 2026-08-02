@@ -8,6 +8,7 @@ import { detectQuestTextReport } from "./detectQuestTextReport";
 import { extractQuestAnalyteRows } from "./extractQuestAnalyteRows";
 import { extractQuestReportMetadata } from "./extractQuestReportMetadata";
 import { segmentQuestReportText } from "./segmentQuestReport";
+import { applyLabCandidateResolution } from "../resolution/resolveLabExtractionCandidates";
 
 export const QUEST_TEXT_PDF_PARSER_ID = "quest_text_pdf_v1";
 export const QUEST_TEXT_PDF_PARSER_VERSION = "1.1.0";
@@ -105,7 +106,7 @@ export function extractQuestLabReportDraft(args: {
         ? "partial"
         : "review_needed";
 
-  return {
+  const draftBase: LabExtractionDraft = {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
     id: args.draftId,
     documentId: args.documentId,
@@ -129,5 +130,14 @@ export function extractQuestLabReportDraft(args: {
     status,
     createdAt: args.createdAt,
     ...(args.jobId ? { jobId: args.jobId } : {}),
+  };
+
+  const resolved = applyLabCandidateResolution(draftBase);
+  return {
+    ...resolved,
+    status:
+      resolved.results.length === 0 && resolved.unmatched.length === 0
+        ? draftBase.status
+        : draftBase.status,
   };
 }

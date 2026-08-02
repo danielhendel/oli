@@ -28,6 +28,11 @@ export type LabAutoPublishPartition = {
   /** @deprecated Prefer withheld — kept for older call sites expecting reviewRequired. */
   reviewRequired: { candidate: LabResultCandidate; decision: LabAutoPublishDecision }[];
   unmatchedCount: number;
+  /** Genuine unsupported analytes only (excludes notes/duplicates/headers). */
+  unsupportedGenuineCount: number;
+  reportContentCount: number;
+  duplicateCount: number;
+  historicalCount: number;
   decisionsByCandidateId: Record<string, LabAutoPublishDecision>;
 };
 
@@ -113,12 +118,34 @@ export function partitionLabCandidatesForAutoPublish(draft: LabExtractionDraft):
     withheld.push({ candidate, decision });
   }
 
+  const unsupportedGenuineCount = draft.unmatched.filter(
+    (u) => u.reason === "unmatched_alias" || u.reason === "ambiguous_alias" || u.reason === "unsupported_result_type",
+  ).length;
+  const duplicateCount = draft.unmatched.filter((u) => u.reason === "duplicate_result").length;
+  const historicalCount = draft.unmatched.filter((u) => u.reason === "historical_column").length;
+  const reportContentCount = draft.unmatched.filter((u) =>
+    [
+      "non_result_panel_header",
+      "non_result_reference_table",
+      "non_result_risk_category",
+      "non_result_method_note",
+      "non_result_report_note",
+      "non_result_laboratory_metadata",
+      "malformed_row",
+      "classified_non_result",
+    ].includes(u.reason),
+  ).length;
+
   return {
     autoPublishable,
     systemVerifiable,
     withheld,
     reviewRequired: withheld,
     unmatchedCount: draft.unmatched.length,
+    unsupportedGenuineCount,
+    reportContentCount,
+    duplicateCount,
+    historicalCount,
     decisionsByCandidateId,
   };
 }
@@ -134,7 +161,8 @@ export function buildLabImportSummary(args: {
   const systemVerifiedCount = args.partition.systemVerifiable.length;
   const importedCount = autoImportedCount + systemVerifiedCount;
   const withheldCount = args.partition.withheld.length;
-  const unsupportedCount = args.partition.unmatchedCount;
+  const unsupportedGenuineCount = args.partition.unsupportedGenuineCount;
+  const reportContentCount = args.partition.reportContentCount;
   /** Zero-user-work: never require consumer review for matched leftovers. */
   const reviewNeededCount = 0;
 
@@ -147,14 +175,15 @@ export function buildLabImportSummary(args: {
     reportImportStatus = "unsupported";
     reportProcessingStatus = "unsupported";
   } else if (importedCount > 0 && withheldCount === 0) {
-    reportImportStatus = unsupportedCount > 0 ? "imported_review_recommended" : "imported";
+    reportImportStatus =
+      unsupportedGenuineCount > 0 ? "imported_review_recommended" : "imported";
     reportProcessingStatus = "imported";
   } else if (importedCount > 0) {
     reportImportStatus = "imported_review_recommended";
     reportProcessingStatus = "imported_withheld";
   } else {
     reportImportStatus = "review_needed";
-    reportProcessingStatus = unsupportedCount > 0 ? "imported_withheld" : "failed";
+    reportProcessingStatus = unsupportedGenuineCount > 0 ? "imported_withheld" : "failed";
   }
 
   return {
@@ -163,15 +192,18 @@ export function buildLabImportSummary(args: {
     reportImportStatus,
     importedCount,
     reviewNeededCount,
-    unmatchedCount: unsupportedCount,
+    unmatchedCount: unsupportedGenuineCount,
     hasAutoPublishedResults: importedCount > 0,
     hasReviewItems: false,
     policyVersion: LAB_AUTO_IMPORT_POLICY_VERSION,
     autoImportedCount,
     systemVerifiedCount,
     withheldCount,
-    unsupportedCount,
+    unsupportedCount: unsupportedGenuineCount,
     reportProcessingStatus,
+    reportContentCount,
+    duplicateCount: args.partition.duplicateCount,
+    historicalCount: args.partition.historicalCount,
   };
 }
 
