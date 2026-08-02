@@ -42,6 +42,9 @@ export type LabMetricResultLike = {
   uploadId?: string | null;
   rawValueText?: string | null;
   panelName?: string | null;
+  sourcePage?: number;
+  sourceValueRole?: string | null;
+  publicationMode?: "auto" | "user" | null;
 };
 
 export type LabResultsByCategory = {
@@ -416,7 +419,15 @@ export function groupLabResultsByCategory(
       latestByKey.set(metricKey, sameDate[0]!);
       continue;
     }
-    // Panel-aware representative selection (albumin CMP vs hormone, etc.).
+    // Panel/role-aware representative selection — never prefer reference thresholds.
+    const inferCmp = (raw: string | null | undefined): "eq" | "lt" | "lte" | "gt" | "gte" => {
+      const t = (raw ?? "").trim();
+      if (/^≤/.test(t) || /^<=/.test(t)) return "lte";
+      if (/^≥/.test(t) || /^>=/.test(t)) return "gte";
+      if (/^</.test(t)) return "lt";
+      if (/^>/.test(t)) return "gt";
+      return "eq";
+    };
     const rep = selectRepresentativeLabResult({
       metricId: metricKey,
       candidates: sameDate.map((row, idx) => ({
@@ -425,12 +436,20 @@ export function groupLabResultsByCategory(
         panelName: row.panelName ?? null,
         result:
           row.value != null
-            ? { kind: "numeric", value: row.value, comparator: "eq" }
+            ? {
+                kind: "numeric",
+                value: row.value,
+                comparator: inferCmp(row.rawValueText),
+              }
             : row.rawValueText
               ? { kind: "text", value: row.rawValueText }
               : null,
         collectedAt: row.collectedAt ?? null,
         normalizedUnit: row.unit ?? null,
+        ...(typeof row.sourcePage === "number" ? { sourcePage: row.sourcePage } : {}),
+        sourceValueRole: row.sourceValueRole ?? null,
+        reviewStatus: row.publicationMode === "user" ? ("user" as const) : ("auto" as const),
+        rawValueText: row.rawValueText ?? null,
       })),
     });
     const chosen =

@@ -2,6 +2,7 @@
  * Server orchestration: auto-import + deterministic system verification after draft persist.
  * Idempotent via deterministic acceptedLabResultId.
  * Preserves prior user overrides (rejected / user_corrected / user_accepted) on reprocess.
+ * Deletes orphaned parser-derived accepted/projected rows from superseded extractions candidate IDs.
  * Zero required user review — unresolved matched rows are withheld.
  */
 import type {
@@ -22,22 +23,89 @@ import {
   projectAcceptedWithSourceGuard,
 } from "./labsReviewService";
 
+type QuerySnap = {
+  docs: { id: string; data: () => unknown }[];
+};
+
 type Col = {
   doc: (id: string) => {
     set: (data: Record<string, unknown>, opts?: { merge?: boolean }) => Promise<unknown>;
     get?: () => Promise<{ exists: boolean; data: () => unknown }>;
     delete?: () => Promise<unknown>;
   };
+  /** Optional Firestore-style query used for reprocess orphan cleanup. */
+  where?: (
+    field: string,
+    op: string,
+    value: unknown,
+  ) => {
+    get: () => Promise<QuerySnap>;
+  };
 };
 
 const PRESERVE_STATUSES = new Set(["rejected", "user_corrected", "user_accepted"]);
+const USER_KEEP_STATUSES = new Set(["user_corrected", "user_accepted"]);
+
+function isReferenceOrNonCurrentRole(role: string | null | undefined): boolean {
+  return (
+    role === "reference_optimal" ||
+    role === "reference_moderate" ||
+    role === "reference_high" ||
+    role === "reference_general" ||
+    role === "historical_result" ||
+    role === "unknown"
+  );
+}
 
 export type AutoPublishOrchestrationResult = {
   importSummary: LabImportSummaryDto;
   review: LabReviewRecord;
   acceptedIds: string[];
   projectedIds: string[];
+  removedStaleIds: string[];
 };
+
+async function deleteDoc(col: Col, id: string): Promise<void> {
+  if (col.doc(id).delete) {
+    await col.doc(id).delete!();
+  }
+}
+
+/**
+ * Remove parser-derived accepted/projected rows for this document that are not
+ * in the active keep set. Preserves user-accepted / user-corrected rows.
+ */
+export async function cleanupStaleLabDerivedRows(args: {
+  documentId: string;
+  keepAcceptedIds: ReadonlySet<string>;
+  labAcceptedResultsCol: Col;
+  labResultsCol: Col;
+}): Promise<string[]> {
+  const removed: string[] = [];
+  if (args.labAcceptedResultsCol.where) {
+    const snap = await args.labAcceptedResultsCol
+      .where("sourceDocumentId", "==", args.documentId)
+      .get();
+    for (const doc of snap.docs) {
+      if (args.keepAcceptedIds.has(doc.id)) continue;
+      const data = doc.data() as { review?: { status?: string } } | undefined;
+      const status = data?.review?.status;
+      if (status && USER_KEEP_STATUSES.has(status)) continue;
+      await deleteDoc(args.labAcceptedResultsCol, doc.id);
+      await deleteDoc(args.labResultsCol, doc.id);
+      removed.push(doc.id);
+    }
+  }
+  if (args.labResultsCol.where) {
+    const snap = await args.labResultsCol.where("uploadId", "==", args.documentId).get();
+    for (const doc of snap.docs) {
+      if (args.keepAcceptedIds.has(doc.id)) continue;
+      await deleteDoc(args.labResultsCol, doc.id);
+      if (!removed.includes(doc.id)) removed.push(doc.id);
+    }
+  }
+  return removed;
+}
 
 export async function runLabAutoPublishAfterDraft(args: {
   uid: string;
@@ -59,10 +127,12 @@ export async function runLabAutoPublishAfterDraft(args: {
   }
 
   const autoFiltered = partition.autoPublishable.filter(({ candidate }) => {
+    if (isReferenceOrNonCurrentRole(candidate.provenance.sourceValueRole)) return false;
     const prior = priorStatuses[candidate.id];
     return !prior || !PRESERVE_STATUSES.has(prior);
   });
   const verifiedFiltered = partition.systemVerifiable.filter(({ candidate }) => {
+    if (isReferenceOrNonCurrentRole(candidate.provenance.sourceValueRole)) return false;
     const prior = priorStatuses[candidate.id];
     return !prior || !PRESERVE_STATUSES.has(prior);
   });
@@ -144,6 +214,9 @@ export async function runLabAutoPublishAfterDraft(args: {
         merge: true,
       });
       projectedIds.push(projection.id);
+    } else {
+      // Do not leave a prior wrong projection for this accepted id.
+      await deleteDoc(args.labResultsCol, accepted.id);
     }
   };
 
@@ -157,13 +230,24 @@ export async function runLabAutoPublishAfterDraft(args: {
   for (const [candidateId, status] of Object.entries(priorStatuses)) {
     if (status !== "rejected") continue;
     const id = acceptedLabResultId(args.draft.documentId, candidateId);
-    if (args.labAcceptedResultsCol.doc(id).delete) {
-      await args.labAcceptedResultsCol.doc(id).delete!();
-    }
-    if (args.labResultsCol.doc(id).delete) {
-      await args.labResultsCol.doc(id).delete!();
-    }
+    await deleteDoc(args.labAcceptedResultsCol, id);
+    await deleteDoc(args.labResultsCol, id);
   }
+
+  const keepAcceptedIds = new Set<string>(acceptedIds);
+  for (const [candidateId, status] of Object.entries(priorStatuses)) {
+    if (!USER_KEEP_STATUSES.has(status)) continue;
+    keepAcceptedIds.add(acceptedLabResultId(args.draft.documentId, candidateId));
+  }
+  // Also keep any ids we just projected (same as accepted for this path).
+  for (const id of projectedIds) keepAcceptedIds.add(id);
+
+  const removedStaleIds = await cleanupStaleLabDerivedRows({
+    documentId: args.draft.documentId,
+    keepAcceptedIds,
+    labAcceptedResultsCol: args.labAcceptedResultsCol,
+    labResultsCol: args.labResultsCol,
+  });
 
   const reviewStatus = reviewStatusFromImportSummary(importSummary);
   const publishedCount = autoFiltered.length + verifiedFiltered.length;
@@ -211,5 +295,5 @@ export async function runLabAutoPublishAfterDraft(args: {
 
   await args.labReviewsCol.doc(review.id).set(review as unknown as Record<string, unknown>, { merge: true });
 
-  return { importSummary, review, acceptedIds, projectedIds };
+  return { importSummary, review, acceptedIds, projectedIds, removedStaleIds };
 }

@@ -164,6 +164,9 @@ router.get(
         uploadId: r.uploadId,
         rawValueText: r.rawValueText ?? null,
         panelName: r.panelName ?? null,
+        ...(typeof r.sourcePage === "number" ? { sourcePage: r.sourcePage } : {}),
+        sourceValueRole: r.sourceValueRole ?? null,
+        publicationMode: r.publicationMode ?? null,
       })),
     );
     const categories = grouped.map((g) => ({

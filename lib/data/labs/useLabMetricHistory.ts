@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { getLabMetricHistory } from "@/lib/api/labsHistory";
 import type { LabHistoryPointDto } from "@/lib/contracts";
 import type { GetOptions } from "@/lib/api/http";
+import { subscribeLabsDerivedInvalidate } from "@/lib/data/labs/labsDerivedInvalidate";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 type State =
@@ -125,6 +126,17 @@ export function useLabMetricHistory(
     pointsRef.current = [];
     void fetchPage("replace");
   }, [fetchPage, metricKey, enabled, user?.uid]);
+
+  useEffect(() => {
+    return subscribeLabsDerivedInvalidate((payload) => {
+      cursorRef.current = null;
+      pointsRef.current = [];
+      void fetchPage("replace", {
+        cacheBust: `labs-derived-${payload.reason}-${payload.at}`,
+        noStore: true,
+      });
+    });
+  }, [fetchPage]);
 
   return { ...state, refetch, loadMore };
 }

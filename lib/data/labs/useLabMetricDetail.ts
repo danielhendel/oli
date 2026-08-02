@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getLabMetricDetail } from "@/lib/api/labs";
 import type { LabMetricDetailResponseDto } from "@/lib/contracts";
+import { subscribeLabsDerivedInvalidate } from "@/lib/data/labs/labsDerivedInvalidate";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
@@ -79,6 +80,12 @@ export function useLabMetricDetail(
   useEffect(() => {
     void fetchOnce();
   }, [fetchOnce, user?.uid, metricKey, enabled]);
+
+  useEffect(() => {
+    return subscribeLabsDerivedInvalidate((payload) => {
+      void fetchOnce({ cacheBust: `labs-derived-${payload.reason}-${payload.at}`, noStore: true });
+    });
+  }, [fetchOnce]);
 
   return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
 }

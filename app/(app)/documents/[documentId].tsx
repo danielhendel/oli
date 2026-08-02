@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
 import { useDocumentDetail } from "@/lib/data/documents/useDocumentDetail";
+import { invalidateLabsDerivedViews } from "@/lib/data/labs/labsDerivedInvalidate";
 import { isLabsOsV1Enabled } from "@/lib/data/labs/labsOsFlag";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { DocumentDetailContent } from "@/lib/ui/documents/DocumentDetailContent";
@@ -57,7 +58,10 @@ export default function DocumentDetailScreen() {
       if (!token) return;
       // Server awaits extraction; response status is terminal when successful.
       await reprocessDocument(token, documentId, {}, { idempotencyKey: `reprocess-${documentId}-${Date.now()}` });
-      detail.refetch({ cacheBust: `reprocess-${Date.now()}` });
+      const bust = `reprocess-${Date.now()}`;
+      detail.refetch({ cacheBust: bust, noStore: true });
+      // Force Labs summary/history to refetch corrected projections without app restart.
+      invalidateLabsDerivedViews({ reason: "reprocess", documentId });
     } finally {
       setReprocessBusy(false);
     }
