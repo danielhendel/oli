@@ -36,7 +36,7 @@ const mockPatch = patchLabReviewCandidate as jest.MockedFunction<typeof patchLab
 const mockReject = rejectLabReviewCandidates as jest.MockedFunction<typeof rejectLabReviewCandidates>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
-function detailDto(status: "pending" | "accepted" | "rejected" = "pending", reviewVersion = 0): LabReviewDetailDto {
+function detailDto(status: "pending_review" | "user_accepted" | "rejected" = "pending_review", reviewVersion = 0): LabReviewDetailDto {
   return {
     ok: true,
     summary: {
@@ -90,7 +90,7 @@ beforeEach(() => {
     ok: true,
     status: 200,
     requestId: "r1",
-    json: detailDto("pending", 0),
+    json: detailDto("pending_review", 0),
   });
 });
 
@@ -122,7 +122,7 @@ describe("useLabReviewDetail candidate mutations", () => {
     await flush();
     expect(latest?.status).toBe("ready");
     if (latest?.status !== "ready") throw new Error("expected ready");
-    expect(latest.data.candidates[0]!.reviewStatus).toBe("pending");
+    expect(latest.data.candidates[0]!.reviewStatus).toBe("pending_review");
 
     // Refetch deliberately returns stale pending — previously this made Accept look like a no-op.
     mockPatch.mockResolvedValue({
@@ -135,24 +135,24 @@ describe("useLabReviewDetail candidate mutations", () => {
       ok: true,
       status: 200,
       requestId: "r3",
-      json: detailDto("pending", 0),
+      json: detailDto("pending_review", 0),
     });
 
     let result!: Awaited<ReturnType<HookState["patchCandidate"]>>;
     await act(async () => {
-      result = await latest!.patchCandidate("cand_1", { reviewStatus: "accepted" });
+      result = await latest!.patchCandidate("cand_1", { reviewStatus: "user_accepted" });
     });
     await flush();
 
     expect(mockPatch).toHaveBeenCalledTimes(1);
-    expect(mockPatch.mock.calls[0]![3]).toEqual({ reviewStatus: "accepted", reviewVersion: 0 });
+    expect(mockPatch.mock.calls[0]![3]).toEqual({ reviewStatus: "user_accepted", reviewVersion: 0 });
     expect(result.ok).toBe(true);
     expect(latest?.status).toBe("ready");
     if (latest?.status !== "ready") throw new Error("expected ready after patch");
-    expect(latest.data.candidates[0]!.reviewStatus).toBe("accepted");
+    expect(latest.data.candidates[0]!.reviewStatus).toBe("user_accepted");
     expect(latest.reviewVersion).toBe(1);
     // Stale GET with older reviewVersion must not restore pending.
-    expect(latest.data.candidates[0]!.reviewStatus).not.toBe("pending");
+    expect(latest.data.candidates[0]!.reviewStatus).not.toBe("pending_review");
   });
 
   it("keeps Pending on mutation failure", async () => {
@@ -172,14 +172,14 @@ describe("useLabReviewDetail candidate mutations", () => {
 
     let result!: Awaited<ReturnType<HookState["patchCandidate"]>>;
     await act(async () => {
-      result = await latest!.patchCandidate("cand_1", { reviewStatus: "accepted" });
+      result = await latest!.patchCandidate("cand_1", { reviewStatus: "user_accepted" });
     });
     await flush();
 
     expect(result.ok).toBe(false);
     expect(latest?.status).toBe("ready");
     if (latest?.status !== "ready") throw new Error("expected ready");
-    expect(latest.data.candidates[0]!.reviewStatus).toBe("pending");
+    expect(latest.data.candidates[0]!.reviewStatus).toBe("pending_review");
   });
 
   it("marks rejected after reject mutation and ignores stale lower-version refetch", async () => {
@@ -199,7 +199,7 @@ describe("useLabReviewDetail candidate mutations", () => {
       ok: true,
       status: 200,
       requestId: "r5",
-      json: detailDto("pending", 0),
+      json: detailDto("pending_review", 0),
     });
 
     await act(async () => {
@@ -233,12 +233,12 @@ describe("useLabReviewDetail candidate mutations", () => {
       ok: true,
       status: 200,
       requestId: "r6",
-      json: detailDto("accepted", 3),
+      json: detailDto("user_accepted", 3),
     });
 
     let result!: Awaited<ReturnType<HookState["patchCandidate"]>>;
     await act(async () => {
-      result = await latest!.patchCandidate("cand_1", { reviewStatus: "accepted" });
+      result = await latest!.patchCandidate("cand_1", { reviewStatus: "user_accepted" });
     });
     await flush();
 

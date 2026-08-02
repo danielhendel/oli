@@ -36,15 +36,15 @@ export type LabReviewMutationResult =
 function resolveNextStatus(
   body: Omit<PatchLabReviewCandidateRequest, "reviewVersion">,
 ): LabCandidateReviewStatus {
-  if (body.correction) return "corrected";
+  if (body.correction) return "user_corrected";
   if (body.reviewStatus) return body.reviewStatus;
-  return "pending";
+  return "pending_review";
 }
 
 function actionFromBody(
   body: Omit<PatchLabReviewCandidateRequest, "reviewVersion">,
 ): LabReviewCandidateAction {
-  if (body.correction || body.reviewStatus === "corrected") return "edit";
+  if (body.correction || body.reviewStatus === "user_corrected") return "edit";
   if (body.reviewStatus === "rejected") return "reject";
   return "accept";
 }

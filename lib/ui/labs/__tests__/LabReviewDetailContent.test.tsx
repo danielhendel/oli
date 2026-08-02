@@ -53,7 +53,7 @@ function reviewFixture(): LabReviewDetailDto {
         sourcePage: 1,
         confidence: 0.95,
         warnings: [],
-        reviewStatus: "pending",
+        reviewStatus: "pending_review",
         matchGroup: "matched",
       },
       {
@@ -70,7 +70,7 @@ function reviewFixture(): LabReviewDetailDto {
         sourcePage: 1,
         confidence: 0.72,
         warnings: ["This result may need your review."],
-        reviewStatus: "pending",
+        reviewStatus: "pending_review",
         matchGroup: "needs_review",
       },
     ],
@@ -89,7 +89,7 @@ function reviewFixture(): LabReviewDetailDto {
         sourcePage: 2,
         confidence: 0.4,
         warnings: ["This result needs your review."],
-        reviewStatus: "pending",
+        reviewStatus: "pending_review",
         matchGroup: "unmatched",
       },
     ],
@@ -101,7 +101,7 @@ const noop = jest.fn();
 const onEdit = jest.fn();
 
 describe("LabReviewDetailContent", () => {
-  it("renders matched, needs review, and unmatched groups with written statuses", () => {
+  it("renders needs review and unmatched groups with written statuses", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -119,14 +119,12 @@ describe("LabReviewDetailContent", () => {
 
     const str = JSON.stringify(tree.toJSON());
     expect(tree.root.findByProps({ testID: "lab-review-detail" })).toBeTruthy();
-    expect(tree.root.findByProps({ testID: "lab-review-group-matched" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "lab-review-group-needs-review" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "lab-review-group-unmatched" })).toBeTruthy();
     expect(str).toContain("QuestLabs.pdf");
     expect(str).toContain("Glucose");
     expect(str).toContain("MYSTERY ANALYTE");
     expect(str).toContain("Pending review");
-    expect(str).toContain("Matched");
     expect(str).toContain("Needs review");
     expect(str).toContain("Unmatched");
     expect(str).toContain("Report metadata");
@@ -158,9 +156,9 @@ describe("LabReviewDetailContent", () => {
     expect(str).not.toContain("doc_review_test_1");
   });
 
-  it("enables finish review when at least one candidate is accepted", () => {
+  it("enables finish review when at least one candidate is user_accepted", () => {
     const data = reviewFixture();
-    data.candidates[0]!.reviewStatus = "accepted";
+    data.candidates[0]!.reviewStatus = "user_accepted";
 
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -178,6 +176,30 @@ describe("LabReviewDetailContent", () => {
     });
 
     expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it("does not enable finish review for auto_published alone", () => {
+    const data = reviewFixture();
+    data.candidates[0]!.reviewStatus = "auto_published";
+    data.candidates[0]!.matchGroup = "matched";
+
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabReviewDetailContent
+          status="ready"
+          data={data}
+          onAcceptCandidate={noop}
+          onEditCandidate={onEdit}
+          onRejectCandidate={noop}
+          onSaveProgress={noop}
+          onFinishReview={noop}
+        />,
+      );
+    });
+
+    expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(true);
+    expect(tree.root.findByProps({ testID: "lab-review-group-auto-published" })).toBeTruthy();
   });
 
   it("tapping Accept calls mutation handler exactly once and shows Saving while busy", () => {
@@ -230,7 +252,7 @@ describe("LabReviewDetailContent", () => {
 
   it("shows Accepted after successful status change and keeps finish enabled", () => {
     const data = reviewFixture();
-    data.candidates[0]!.reviewStatus = "accepted";
+    data.candidates[0]!.reviewStatus = "user_accepted";
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -249,7 +271,7 @@ describe("LabReviewDetailContent", () => {
     expect(JSON.stringify(status.props)).toContain("Accepted");
     expect(tree.root.findByProps({ testID: "lab-review-selection-counts" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(false);
-    expect(JSON.stringify(tree.toJSON())).toContain("marks it for inclusion");
+    expect(JSON.stringify(tree.toJSON())).toContain("pending decisions");
   });
 
   it("opens edit modal and saves correction via onEditCandidate", () => {

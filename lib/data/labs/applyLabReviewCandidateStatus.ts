@@ -17,9 +17,13 @@ export function applyLabReviewCandidateStatus(
   const reportStatus =
     data.summary.status === "not_started"
       ? ("in_progress" as const)
-      : data.summary.status === "accepted" || data.summary.status === "rejected"
+      : data.summary.status === "accepted" ||
+          data.summary.status === "rejected" ||
+          data.summary.status === "imported"
         ? data.summary.status
-        : ("in_progress" as const);
+        : data.summary.status === "imported_with_exceptions"
+          ? data.summary.status
+          : ("in_progress" as const);
 
   return {
     ...data,
@@ -34,21 +38,28 @@ export function applyLabReviewCandidateStatus(
 }
 
 export function countReviewActionStatuses(data: LabReviewDetailDto): {
+  /** User-accepted decisions — Finish review includes these. */
   accepted: number;
   rejected: number;
+  /** User-corrected decisions — Finish review includes these. */
   corrected: number;
+  /** Pending user decisions (pending_review / unresolved). */
   unresolved: number;
+  /** Auto-published imports — already in Labs; Finish does not count these. */
+  imported: number;
 } {
   const all = [...data.candidates, ...data.unmatched];
   let accepted = 0;
   let rejected = 0;
   let corrected = 0;
   let unresolved = 0;
+  let imported = 0;
   for (const c of all) {
-    if (c.reviewStatus === "accepted") accepted += 1;
+    if (c.reviewStatus === "auto_published") imported += 1;
+    else if (c.reviewStatus === "user_accepted") accepted += 1;
     else if (c.reviewStatus === "rejected") rejected += 1;
-    else if (c.reviewStatus === "corrected") corrected += 1;
+    else if (c.reviewStatus === "user_corrected") corrected += 1;
     else unresolved += 1;
   }
-  return { accepted, rejected, corrected, unresolved };
+  return { accepted, rejected, corrected, unresolved, imported };
 }

@@ -42,7 +42,7 @@ export default function LabReviewDetailScreen() {
   }, [navigation]);
 
   const actionCounts = useMemo(() => {
-    if (detail.status !== "ready") return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0 };
+    if (detail.status !== "ready") return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0, imported: 0 };
     return countReviewActionStatuses(detail.data);
   }, [detail]);
 
@@ -77,7 +77,7 @@ export default function LabReviewDetailScreen() {
 
   const onAcceptCandidate = useCallback(
     (candidateId: string) => {
-      void runAction(candidateId, () => detail.patchCandidate(candidateId, { reviewStatus: "accepted" }));
+      void runAction(candidateId, () => detail.patchCandidate(candidateId, { reviewStatus: "user_accepted" }));
     },
     [detail, runAction],
   );
@@ -115,7 +115,7 @@ export default function LabReviewDetailScreen() {
   const onFinishReview = useCallback(() => {
     if (detail.status !== "ready") return;
     const acceptedIds = [...detail.data.candidates, ...detail.data.unmatched]
-      .filter((c) => c.reviewStatus === "accepted" || c.reviewStatus === "corrected")
+      .filter((c) => c.reviewStatus === "user_accepted" || c.reviewStatus === "user_corrected")
       .map((c) => c.id);
     if (acceptedIds.length === 0) return;
     const unresolved = actionCounts.unresolved;
@@ -126,7 +126,7 @@ export default function LabReviewDetailScreen() {
         (unresolved > 0
           ? ` ${unresolved} unresolved result${unresolved === 1 ? "" : "s"} will not be included.`
           : "") +
-        " Accepting a result only marks it for inclusion — Finish review writes structured Labs data.",
+        " Finish only applies to your pending decisions — automatically imported results are already in Labs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -168,7 +168,7 @@ export default function LabReviewDetailScreen() {
     );
   }, [actionCounts.unresolved, detail, router]);
 
-  const includedAccepted = actionCounts.accepted + actionCounts.corrected;
+  const finishAcceptedCount = actionCounts.accepted + actionCounts.corrected;
 
   return (
     <View style={styles.root}>
@@ -193,9 +193,10 @@ export default function LabReviewDetailScreen() {
         <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <LabReviewActionsFooter
             actionBusy={actionBusy}
-            acceptedCount={includedAccepted}
+            acceptedCount={finishAcceptedCount}
             rejectedCount={actionCounts.rejected}
             unresolvedCount={actionCounts.unresolved}
+            importedCount={actionCounts.imported}
             onSaveProgress={onSaveProgress}
             onFinishReview={onFinishReview}
           />

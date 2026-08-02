@@ -23,8 +23,8 @@ describe("labReviewMutationTelemetry", () => {
       documentToken: redactLabsToken("doc_1"),
       candidateToken: redactLabsToken("cand_1"),
       action: "accept",
-      priorStatus: "pending",
-      nextStatus: "accepted",
+      priorStatus: "pending_review",
+      nextStatus: "user_accepted",
       httpStatus: 200,
       reviewVersion: 1,
       elapsedMs: 12,
@@ -34,7 +34,7 @@ describe("labReviewMutationTelemetry", () => {
       expect.objectContaining({
         operation: "lab_review_candidate_action_completed",
         action: "accept",
-        nextStatus: "accepted",
+        nextStatus: "user_accepted",
       }),
     );
     const payload = JSON.stringify(spy.mock.calls[0]);

@@ -50,10 +50,27 @@ export type LabReviewDetailContentProps = {
   onFinishReview: () => void;
 };
 
-type CandidateGroupKey = "matched" | "needs_review" | "unmatched";
-
-function groupCandidates(candidates: LabReviewCandidateDto[], group: CandidateGroupKey): LabReviewCandidateDto[] {
-  return candidates.filter((c) => c.matchGroup === group);
+/** Exception-first partitions: needs review → unmatched → auto-published. */
+function partitionExceptionFirst(candidates: LabReviewCandidateDto[]): {
+  needsReview: LabReviewCandidateDto[];
+  unmatched: LabReviewCandidateDto[];
+  autoPublished: LabReviewCandidateDto[];
+} {
+  const needsReview: LabReviewCandidateDto[] = [];
+  const unmatched: LabReviewCandidateDto[] = [];
+  const autoPublished: LabReviewCandidateDto[] = [];
+  for (const c of candidates) {
+    if (c.reviewStatus === "auto_published") {
+      autoPublished.push(c);
+      continue;
+    }
+    if (c.matchGroup === "unmatched") {
+      unmatched.push(c);
+      continue;
+    }
+    needsReview.push(c);
+  }
+  return { needsReview, unmatched, autoPublished };
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {
@@ -119,6 +136,8 @@ function CandidateRow({
   const rangeText = candidate.rawReferenceRange?.trim() || "—";
   const unitText = candidate.unit?.trim() || "—";
   const rowDisabled = disabled === true || saving === true;
+  const alreadyAccepted =
+    candidate.reviewStatus === "user_accepted" || candidate.reviewStatus === "auto_published";
 
   return (
     <View style={styles.candidateRow} testID={`lab-review-candidate-${candidate.id}`}>
@@ -165,17 +184,17 @@ function CandidateRow({
       <View style={styles.actions}>
         <Pressable
           onPress={onAccept}
-          disabled={rowDisabled || candidate.reviewStatus === "accepted"}
+          disabled={rowDisabled || alreadyAccepted}
           accessibilityRole="button"
           accessibilityLabel={saving ? `Saving ${name}` : `Accept ${name}`}
           accessibilityState={{
-            disabled: rowDisabled || candidate.reviewStatus === "accepted",
+            disabled: rowDisabled || alreadyAccepted,
             busy: saving === true,
           }}
           style={({ pressed }) => [
             styles.actionBtn,
             styles.acceptBtn,
-            (rowDisabled || candidate.reviewStatus === "accepted") && styles.actionDisabled,
+            (rowDisabled || alreadyAccepted) && styles.actionDisabled,
             pressed && !rowDisabled && styles.actionPressed,
           ]}
           testID={`lab-review-accept-${candidate.id}`}
@@ -184,7 +203,7 @@ function CandidateRow({
             <ActivityIndicator color="#86EFAC" testID={`lab-review-accept-saving-${candidate.id}`} />
           ) : (
             <Text style={styles.acceptLabel}>
-              {candidate.reviewStatus === "accepted" ? "Accepted" : "Accept"}
+              {alreadyAccepted ? "Accepted" : "Accept"}
             </Text>
           )}
         </Pressable>
@@ -232,6 +251,7 @@ function CandidateGroupSection({
   testId,
   disabled,
   savingCandidateId,
+  defaultCollapsed = false,
   onAcceptCandidate,
   onEditCandidate,
   onRejectCandidate,
@@ -241,30 +261,44 @@ function CandidateGroupSection({
   testId: string;
   disabled?: boolean;
   savingCandidateId?: string | null;
+  defaultCollapsed?: boolean;
   onAcceptCandidate: (candidateId: string) => void;
   onEditCandidate: (candidateId: string) => void;
   onRejectCandidate: (candidateId: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(!defaultCollapsed);
   if (candidates.length === 0) return null;
   return (
     <View style={styles.card} testID={testId}>
-      <Text style={styles.sectionTitle} accessibilityRole="header">
-        {title}
-      </Text>
-      <Text style={styles.groupHint}>
-        {candidates.length} result{candidates.length === 1 ? "" : "s"}
-      </Text>
-      {candidates.map((candidate) => (
-        <CandidateRow
-          key={candidate.id}
-          candidate={candidate}
-          disabled={disabled === true}
-          saving={savingCandidateId === candidate.id}
-          onAccept={() => onAcceptCandidate(candidate.id)}
-          onEdit={() => onEditCandidate(candidate.id)}
-          onReject={() => onRejectCandidate(candidate.id)}
-        />
-      ))}
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${title}, ${candidates.length} results, ${expanded ? "expanded" : "collapsed"}`}
+        style={styles.groupHeader}
+        testID={`${testId}-toggle`}
+      >
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {title}
+        </Text>
+        <Text style={styles.groupHint}>
+          {candidates.length} result{candidates.length === 1 ? "" : "s"}
+          {defaultCollapsed ? (expanded ? " · Hide" : " · Show") : ""}
+        </Text>
+      </Pressable>
+      {expanded
+        ? candidates.map((candidate) => (
+            <CandidateRow
+              key={candidate.id}
+              candidate={candidate}
+              disabled={disabled === true}
+              saving={savingCandidateId === candidate.id}
+              onAccept={() => onAcceptCandidate(candidate.id)}
+              onEdit={() => onEditCandidate(candidate.id)}
+              onReject={() => onRejectCandidate(candidate.id)}
+            />
+          ))
+        : null}
     </View>
   );
 }
@@ -274,6 +308,7 @@ export function LabReviewActionsFooter({
   acceptedCount,
   rejectedCount,
   unresolvedCount,
+  importedCount = 0,
   onSaveProgress,
   onFinishReview,
 }: {
@@ -281,6 +316,7 @@ export function LabReviewActionsFooter({
   acceptedCount: number;
   rejectedCount: number;
   unresolvedCount: number;
+  importedCount?: number;
   onSaveProgress: () => void;
   onFinishReview: () => void;
 }) {
@@ -288,10 +324,12 @@ export function LabReviewActionsFooter({
   return (
     <View style={styles.footer} testID="lab-review-footer">
       <Text style={styles.footerHint} testID="lab-review-action-copy">
-        Accepting a result marks it for inclusion. Finish review adds accepted results to your Labs history.
+        Accept or correct pending results, then Finish review to add those decisions to your Labs history.
+        Automatically imported results are already included — Finish only applies to your pending decisions.
       </Text>
       <Text style={styles.footerCounts} testID="lab-review-action-counts">
-        {acceptedCount} accepted · {rejectedCount} rejected · {unresolvedCount} unresolved
+        {importedCount} imported · {acceptedCount} accepted · {rejectedCount} rejected ·{" "}
+        {unresolvedCount} need review
       </Text>
       <Pressable
         onPress={onSaveProgress}
@@ -310,7 +348,7 @@ export function LabReviewActionsFooter({
         accessibilityRole="button"
         accessibilityLabel={
           finishDisabled
-            ? "Finish review, disabled until you accept at least one result"
+            ? "Finish review, disabled until you accept at least one pending result"
             : `Finish review, ${acceptedCount} accepted results`
         }
         accessibilityState={{ disabled: finishDisabled }}
@@ -352,17 +390,12 @@ export function LabReviewDetailContent({
   const [editFlag, setEditFlag] = useState("");
 
   const groups = useMemo(() => {
-    if (!data) return { matched: [], needsReview: [], unmatched: [] as LabReviewCandidateDto[] };
-    const all = [...data.candidates, ...data.unmatched];
-    return {
-      matched: groupCandidates(all, "matched"),
-      needsReview: groupCandidates(all, "needs_review"),
-      unmatched: groupCandidates(all, "unmatched"),
-    };
+    if (!data) return { needsReview: [], unmatched: [] as LabReviewCandidateDto[], autoPublished: [] };
+    return partitionExceptionFirst([...data.candidates, ...data.unmatched]);
   }, [data]);
 
   const actionCounts = useMemo(() => {
-    if (!data) return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0 };
+    if (!data) return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0, imported: 0 };
     return countReviewActionStatuses(data);
   }, [data]);
 
@@ -409,7 +442,11 @@ export function LabReviewDetailContent({
   const collected = formatReviewDate(summary.collectedAt);
   const reported = formatReviewDate(summary.reportedAt);
   const fasting = fastingLabel(summary.fasting);
-  const includedAccepted = actionCounts.accepted + actionCounts.corrected;
+  /** Finish review only counts pending → user decisions (not auto_published). */
+  const finishAcceptedCount = actionCounts.accepted + actionCounts.corrected;
+  const importedCount = actionCounts.imported;
+  const needReviewCount = actionCounts.unresolved;
+  const unmatchedCount = groups.unmatched.length;
 
   return (
     <View style={styles.root} testID="lab-review-detail">
@@ -427,11 +464,15 @@ export function LabReviewDetailContent({
         {reported ? <Text style={styles.meta}>Reported {reported}</Text> : null}
         {fasting ? <Text style={styles.meta}>{fasting}</Text> : null}
         <Text style={styles.meta} testID="lab-review-summary-counts">
-          {reviewSummaryCountsLabel(summary)}
+          {reviewSummaryCountsLabel({
+            ...summary,
+            importedCount: summary.importedCount ?? importedCount,
+            reviewNeededCount: summary.reviewNeededCount ?? needReviewCount,
+            unmatchedCount: summary.unmatchedCount ?? unmatchedCount,
+          })}
         </Text>
         <Text style={styles.meta} testID="lab-review-selection-counts">
-          {includedAccepted} marked for inclusion · {actionCounts.rejected} rejected ·{" "}
-          {actionCounts.unresolved} unresolved
+          {importedCount} imported / {needReviewCount} need review / {unmatchedCount} unmatched
         </Text>
         {data.warningMessages.length > 0 ? (
           <View style={styles.warningsBlock} testID="lab-review-warnings">
@@ -444,16 +485,6 @@ export function LabReviewDetailContent({
         ) : null}
       </View>
 
-      <CandidateGroupSection
-        title={LAB_REVIEW_GROUP_LABELS.matched}
-        candidates={groups.matched}
-        testId="lab-review-group-matched"
-        disabled={actionBusy}
-        savingCandidateId={savingCandidateId}
-        onAcceptCandidate={onAcceptCandidate}
-        onEditCandidate={openEdit}
-        onRejectCandidate={onRejectCandidate}
-      />
       <CandidateGroupSection
         title={LAB_REVIEW_GROUP_LABELS.needs_review}
         candidates={groups.needsReview}
@@ -474,15 +505,27 @@ export function LabReviewDetailContent({
         onEditCandidate={openEdit}
         onRejectCandidate={onRejectCandidate}
       />
+      <CandidateGroupSection
+        title={LAB_REVIEW_GROUP_LABELS.auto_published}
+        candidates={groups.autoPublished}
+        testId="lab-review-group-auto-published"
+        disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
+        defaultCollapsed
+        onAcceptCandidate={onAcceptCandidate}
+        onEditCandidate={openEdit}
+        onRejectCandidate={onRejectCandidate}
+      />
 
       <ReportMetadataSection metadata={data.metadata} />
 
       {!hideFooter ? (
         <LabReviewActionsFooter
           actionBusy={actionBusy}
-          acceptedCount={includedAccepted}
+          acceptedCount={finishAcceptedCount}
           rejectedCount={actionCounts.rejected}
           unresolvedCount={actionCounts.unresolved}
+          importedCount={importedCount}
           onSaveProgress={onSaveProgress}
           onFinishReview={onFinishReview}
         />
@@ -593,6 +636,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: UI_TEXT_TERTIARY_LABEL,
     marginBottom: 4,
+  },
+  groupHeader: {
+    gap: 2,
   },
   warningsBlock: { gap: 4, marginTop: 4 },
   warningText: {

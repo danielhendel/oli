@@ -3,17 +3,18 @@ import type { LabCandidateReviewStatus, LabReviewCandidateDto, LabReviewSummaryD
 import { formatLabResultValue } from "@/lib/labs/labMetricCatalog";
 
 export const LAB_REVIEW_STATUS_LABELS: Record<LabCandidateReviewStatus, string> = {
-  pending: "Pending review",
-  accepted: "Accepted",
-  corrected: "Corrected",
+  pending_review: "Pending review",
+  auto_published: "Automatically imported",
+  user_accepted: "Accepted",
+  user_corrected: "Corrected",
   rejected: "Rejected",
   unresolved: "Unresolved",
 };
 
 export const LAB_REVIEW_GROUP_LABELS = {
-  matched: "Matched",
   needs_review: "Needs review",
   unmatched: "Unmatched",
+  auto_published: "Automatically imported",
 } as const;
 
 export function formatReviewDate(iso: string | null | undefined): string | null {
@@ -49,9 +50,10 @@ export function candidateResultText(candidate: LabReviewCandidateDto): string {
 }
 
 export function reviewSummaryCountsLabel(summary: LabReviewSummaryDto): string {
-  const parts = [`${summary.matchedCount} matched`, `${summary.unmatchedCount} unmatched`];
-  if (summary.warningCount > 0) parts.push(`${summary.warningCount} warnings`);
-  return parts.join(" · ");
+  const imported = summary.importedCount ?? 0;
+  const needReview = summary.reviewNeededCount ?? 0;
+  const unmatched = summary.unmatchedCount;
+  return `${imported} imported / ${needReview} need review / ${unmatched} unmatched`;
 }
 
 export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): string {
@@ -68,6 +70,10 @@ export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): 
       return "Rejected";
     case "superseded":
       return "Superseded";
+    case "imported":
+      return "Imported";
+    case "imported_with_exceptions":
+      return "Imported — review remaining";
     default:
       return status;
   }
