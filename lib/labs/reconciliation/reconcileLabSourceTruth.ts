@@ -129,7 +129,29 @@ export function assertAcceptedMatchesSourceCandidate(args: {
   acceptedResult: LabResultValue;
   sourceUnit: string | null;
   acceptedUnit: string | null;
+  sourceValueRole?: string | null;
+  resultRole?: string | null;
+  sourcePage?: number | null;
+  sourceLocator?: string | null;
 }): { ok: true } | { ok: false; safeReasonCode: string } {
+  const role = args.sourceValueRole ?? null;
+  if (
+    role === "reference_optimal" ||
+    role === "reference_moderate" ||
+    role === "reference_high" ||
+    role === "reference_general"
+  ) {
+    return { ok: false, safeReasonCode: "REFERENCE_VALUE_NOT_PROJECTABLE" };
+  }
+  if (role === "historical_result" || args.resultRole === "historical_column") {
+    return { ok: false, safeReasonCode: "HISTORICAL_VALUE_NOT_PROJECTABLE" };
+  }
+  if (role === "unknown") {
+    return { ok: false, safeReasonCode: "UNKNOWN_SOURCE_ROLE_NOT_PROJECTABLE" };
+  }
+  if (args.sourcePage == null || args.sourcePage < 1 || !args.sourceLocator) {
+    return { ok: false, safeReasonCode: "SOURCE_LOCATOR_REQUIRED" };
+  }
   const r = reconcileLabSourceTruth({
     candidateId: "guard",
     metricId: "x",

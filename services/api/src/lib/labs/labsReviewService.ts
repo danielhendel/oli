@@ -279,6 +279,9 @@ export function projectAcceptedToLabMetricResultDto(
     ...(accepted.laboratory?.name ? { laboratoryName: accepted.laboratory.name } : {}),
     ...(accepted.provenance.panelName ? { panelName: accepted.provenance.panelName } : {}),
     ...(accepted.datePrecision ? { datePrecision: accepted.datePrecision } : {}),
+    ...(accepted.provenance.sourceValueRole
+      ? { sourceValueRole: accepted.provenance.sourceValueRole }
+      : {}),
   };
 }
 
@@ -296,6 +299,10 @@ export function projectAcceptedWithSourceGuard(args: {
     acceptedResult: args.accepted.result,
     sourceUnit: args.sourceUnit,
     acceptedUnit: args.accepted.normalizedUnit ?? args.accepted.rawUnit,
+    sourceValueRole: args.accepted.provenance.sourceValueRole ?? null,
+    resultRole: args.accepted.provenance.resultRole ?? null,
+    sourcePage: args.accepted.provenance.sourcePage,
+    sourceLocator: args.accepted.provenance.sourceLocator,
   });
   if (!guard.ok) {
     return { projection: null, withheldReasonCode: guard.safeReasonCode };

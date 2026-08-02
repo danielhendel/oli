@@ -373,10 +373,12 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
   }
 
   function isThresholdOnlyInequality(candidate: LabResultCandidate): boolean {
+    const role = candidate.provenance.sourceValueRole;
     return (
-      candidate.result?.kind === "numeric" &&
-      candidate.result.comparator !== "eq" &&
-      /cardio\s*iq|relative\s+risk/i.test(candidate.provenance.panelName ?? "")
+      role === "reference_optimal" ||
+      role === "reference_moderate" ||
+      role === "reference_high" ||
+      role === "reference_general"
     );
   }
 
@@ -516,7 +518,16 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
         (working.result?.kind === "numeric" && working.result.comparator === "eq") ||
         working.result?.kind === "pattern" ||
         working.result?.kind === "qualitative";
-      if (priorWeak && workingStrong) {
+      // Detail pages (later) confirm Cardio IQ / pattern rows when both are current-strength.
+      const workingIsLaterDetail =
+        working.provenance.sourcePage > prior.provenance.sourcePage &&
+        ((working.result?.kind === "numeric" && working.result.comparator === "eq") ||
+          working.result?.kind === "pattern" ||
+          working.result?.kind === "qualitative") &&
+        ((prior.result?.kind === "numeric" && prior.result.comparator === "eq") ||
+          prior.result?.kind === "pattern" ||
+          prior.result?.kind === "qualitative");
+      if ((priorWeak && workingStrong) || workingIsLaterDetail) {
         // Demote prior to duplicate; keep working as canonical.
         const demoteResolution: LabCandidateResolution = {
           kind: "duplicate_result",
@@ -540,15 +551,31 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
             demoteResolution,
           ),
         );
-        // Rewrite prior resolution record if present.
+        // Rewrite prior resolution record and accounting (undo current, count duplicate).
         const priorResIdx = resolutions.findIndex((r) => r.candidateId === prior.id);
         if (priorResIdx >= 0) {
+          const priorKind = resolutions[priorResIdx]!.resolution.kind;
+          if (priorKind === "current_result") {
+            accounting.mappedCurrentResults = Math.max(0, accounting.mappedCurrentResults - 1);
+            if (prior.result?.kind === "numeric" && prior.result.comparator !== "eq") {
+              accounting.mappedInequalityResults = Math.max(0, accounting.mappedInequalityResults - 1);
+            }
+            if (
+              prior.result?.kind === "qualitative" ||
+              prior.result?.kind === "pattern" ||
+              prior.result?.kind === "text" ||
+              prior.result?.kind === "not_reported"
+            ) {
+              accounting.mappedQualitativeResults = Math.max(0, accounting.mappedQualitativeResults - 1);
+            }
+          }
           resolutions[priorResIdx] = {
             candidateId: prior.id,
             resolution: demoteResolution,
             policyVersion: LAB_CANDIDATE_RESOLUTION_POLICY_VERSION,
             catalogVersion: LAB_CATALOG_SCHEMA_VERSION,
           };
+          accounting.duplicateRows += 1;
         }
         seenMetric.set(key, working);
         // Fall through to push current_result for working.

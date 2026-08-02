@@ -64,6 +64,18 @@ export const labMetricResultDtoSchema = z
       .enum(["date_time_with_timezone", "date_time_without_timezone", "date_only", "unknown"])
       .nullable()
       .optional(),
+    /** Source-cell role from extraction; reference_* must never win summary selection. */
+    sourceValueRole: z
+      .enum([
+        "current_result",
+        "historical_result",
+        "reference_optimal",
+        "reference_moderate",
+        "reference_high",
+        "reference_general",
+        "unknown",
+      ])
+      .optional(),
   })
   .strip();
 

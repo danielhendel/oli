@@ -194,6 +194,17 @@ export const labMethodReferenceSchema = z
   })
   .strip();
 
+/** Cardio IQ / multi-column value role — required before projection for Cardio IQ rows. */
+export const cardioIqValueRoleSchema = z.enum([
+  "current_result",
+  "historical_result",
+  "reference_optimal",
+  "reference_moderate",
+  "reference_high",
+  "reference_general",
+  "unknown",
+]);
+
 export const labResultProvenanceSchema = z
   .object({
     sourceDocumentId: z.string().min(1),
@@ -205,6 +216,8 @@ export const labResultProvenanceSchema = z
     extractionVersion: z.string().min(1),
     panelName: z.string().min(1).nullable().optional(),
     resultRole: z.enum(["current", "historical_column", "summary", "detail", "unknown"]).optional(),
+    /** Explicit source-cell role; never infer projection eligibility from comparator alone. */
+    sourceValueRole: cardioIqValueRoleSchema.optional(),
   })
   .strip();
 
@@ -859,6 +872,7 @@ export type LabAnalyteHistoryDto = z.infer<typeof labAnalyteHistoryDtoSchema>;
 export type LabHistoryPointDto = z.infer<typeof labHistoryPointDtoSchema>;
 export type LabDatePrecision = z.infer<typeof labDatePrecisionSchema>;
 export type LabSpecimenType = z.infer<typeof labSpecimenTypeSchema>;
+export type CardioIqValueRole = z.infer<typeof cardioIqValueRoleSchema>;
 export type LabNormalizedFlag = z.infer<typeof labNormalizedFlagSchema>;
 export type LabExtractionWarningCode = z.infer<typeof labExtractionWarningCodeSchema>;
 export type LabResultProvenance = z.infer<typeof labResultProvenanceSchema>;

@@ -14,6 +14,7 @@ import { parseLabFlagCandidate } from "./parseLabFlag";
 import { parseLabReferenceRange } from "./parseLabReferenceRange";
 import { parseLabResultValue } from "./parseLabResultValue";
 import { parseLabUnitCandidate } from "./parseLabUnit";
+import { assignSourceValueRole, isCardioIqContext, isReferenceSourceValueRole } from "./cardioIqValueRole";
 import type { SegmentedReport } from "./segmentQuestReport";
 import { stableHexId } from "./stableHexId";
 
@@ -209,15 +210,22 @@ function coalescePatternTokens(tokens: string[]): string[] {
   for (let i = 0; i < tokens.length; i++) {
     const cur = tokens[i]!;
     const next = tokens[i + 1];
-    // "LDL PATTERN B" → keep PATTERN in the label, emit "Pattern B" as the value token.
-    if (/^pattern$/i.test(cur) && next && /^[AB]$/i.test(next)) {
+    const prev = out[out.length - 1] ?? tokens[i - 1] ?? "";
+    // "LDL PATTERN B A Pattern …" → label keeps PATTERN; first A/B after PATTERN is current.
+    if (/^pattern$/i.test(cur) && next && /^[AB]$/i.test(next) && /^ldl$/i.test(prev)) {
       out.push(cur);
       out.push(`Pattern ${next.toUpperCase()}`);
       i += 1;
+      // Skip a following lone reference letter (e.g. "A") before a "Pattern" legend token.
+      const after = tokens[i + 1];
+      const after2 = tokens[i + 2];
+      if (after && /^[AB]$/i.test(after) && after2 && /^pattern$/i.test(after2)) {
+        i += 1;
+      }
       continue;
     }
-    // Standalone "Pattern B" result token already written as two words.
-    if (/^pattern$/i.test(cur) && next && /^[A-Za-z0-9]{1,3}$/i.test(next) && !/^pattern$/i.test(next)) {
+    // Standalone "Pattern B" result token — only coalesce A/B phenotype letters.
+    if (/^pattern$/i.test(cur) && next && /^[AB]$/i.test(next)) {
       out.push(`Pattern ${next.toUpperCase()}`);
       i += 1;
       continue;
@@ -441,6 +449,21 @@ export function extractQuestAnalyteRows(args: {
         historicalPages.has(page.pageNumber) &&
         /\b(previous|prior|historical)\b/i.test(trimmed + " " + (panelName ?? ""));
 
+      const cardioIq = isCardioIqContext({
+        panelName,
+        pageNumber: page.pageNumber,
+        cardioIqPages: args.report.cardioIqPages,
+      });
+
+      const parsedValue = parseLabResultValue(rawResult);
+      const sourceValueRole = parsedValue.ok
+        ? assignSourceValueRole({
+            isCardioIq: cardioIq,
+            isHistorical,
+            result: parsedValue.value,
+          })
+        : ("unknown" as const);
+
       const provenance = {
         sourceDocumentId: args.documentId,
         sourcePage: page.pageNumber,
@@ -450,10 +473,15 @@ export function extractQuestAnalyteRows(args: {
         parserVersion: args.parserVersion,
         extractionVersion: args.extractionVersion,
         panelName: panelName,
-        resultRole: isHistorical ? ("historical_column" as const) : ("current" as const),
+        resultRole: isHistorical
+          ? ("historical_column" as const)
+          : isReferenceSourceValueRole(sourceValueRole)
+            ? ("summary" as const)
+            : ("current" as const),
+        sourceValueRole,
       };
 
-      if (isHistorical) {
+      if (isHistorical || sourceValueRole === "historical_result") {
         unmatched.push({
           id: candidateId,
           rawAnalyteLabel: rawLabel,
@@ -472,7 +500,21 @@ export function extractQuestAnalyteRows(args: {
         return;
       }
 
-      const parsedValue = parseLabResultValue(rawResult);
+      // Cardio IQ reference thresholds never become current candidates.
+      if (isReferenceSourceValueRole(sourceValueRole) || (cardioIq && sourceValueRole === "unknown")) {
+        unmatched.push({
+          id: candidateId,
+          rawAnalyteLabel: rawLabel,
+          rawResult,
+          reason: "non_result_risk_category",
+          provenance,
+          confidence: 0.9,
+          reviewStatus: "unresolved",
+          resolutionKind: "risk_category",
+        });
+        return;
+      }
+
       const unit = parseLabUnitCandidate(rawUnit);
       const rangeParsed = parseLabReferenceRange(rawRange);
       const flag = parseLabFlagCandidate(rawFlag);
