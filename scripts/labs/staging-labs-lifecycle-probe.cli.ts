@@ -407,7 +407,7 @@ async function main() {
       `/users/me/labs/reviews/${encodeURIComponent(documentId)}/candidates/${encodeURIComponent(acceptedCandidateId || "x")}`,
       {
         reviewVersion: Math.max(0, reviewVersion - 1),
-        reviewStatus: "accepted",
+        reviewStatus: "user_accepted",
       },
     );
     record(results, "stale_version_409", stale.status === 409);
