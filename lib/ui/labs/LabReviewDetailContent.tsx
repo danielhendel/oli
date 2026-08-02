@@ -50,27 +50,39 @@ export type LabReviewDetailContentProps = {
   onFinishReview: () => void;
 };
 
-/** Exception-first partitions: needs review → unmatched → auto-published. */
+/** Education-first partitions: imported → verified → not added → unsupported → optional corrections. */
 function partitionExceptionFirst(candidates: LabReviewCandidateDto[]): {
   needsReview: LabReviewCandidateDto[];
   unmatched: LabReviewCandidateDto[];
   autoPublished: LabReviewCandidateDto[];
+  systemVerified: LabReviewCandidateDto[];
+  withheld: LabReviewCandidateDto[];
 } {
   const needsReview: LabReviewCandidateDto[] = [];
   const unmatched: LabReviewCandidateDto[] = [];
   const autoPublished: LabReviewCandidateDto[] = [];
+  const systemVerified: LabReviewCandidateDto[] = [];
+  const withheld: LabReviewCandidateDto[] = [];
   for (const c of candidates) {
-    if (c.reviewStatus === "auto_published") {
+    if (c.reviewStatus === "auto_published" || c.reviewStatus === "user_accepted") {
       autoPublished.push(c);
       continue;
     }
-    if (c.matchGroup === "unmatched") {
+    if (c.reviewStatus === "system_verified") {
+      systemVerified.push(c);
+      continue;
+    }
+    if (c.reviewStatus === "withheld") {
+      withheld.push(c);
+      continue;
+    }
+    if (c.matchGroup === "unmatched" || c.reviewStatus === "unresolved") {
       unmatched.push(c);
       continue;
     }
     needsReview.push(c);
   }
-  return { needsReview, unmatched, autoPublished };
+  return { needsReview, unmatched, autoPublished, systemVerified, withheld };
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {
@@ -390,7 +402,15 @@ export function LabReviewDetailContent({
   const [editFlag, setEditFlag] = useState("");
 
   const groups = useMemo(() => {
-    if (!data) return { needsReview: [], unmatched: [] as LabReviewCandidateDto[], autoPublished: [] };
+    if (!data) {
+      return {
+        needsReview: [] as LabReviewCandidateDto[],
+        unmatched: [] as LabReviewCandidateDto[],
+        autoPublished: [] as LabReviewCandidateDto[],
+        systemVerified: [] as LabReviewCandidateDto[],
+        withheld: [] as LabReviewCandidateDto[],
+      };
+    }
     return partitionExceptionFirst([...data.candidates, ...data.unmatched]);
   }, [data]);
 
@@ -472,7 +492,8 @@ export function LabReviewDetailContent({
           })}
         </Text>
         <Text style={styles.meta} testID="lab-review-selection-counts">
-          {importedCount} imported / {needReviewCount} need review / {unmatchedCount} unmatched
+          {importedCount + groups.systemVerified.length} in Labs · {groups.withheld.length} not added ·{" "}
+          {unmatchedCount} not yet supported
         </Text>
         {data.warningMessages.length > 0 ? (
           <View style={styles.warningsBlock} testID="lab-review-warnings">
@@ -486,9 +507,31 @@ export function LabReviewDetailContent({
       </View>
 
       <CandidateGroupSection
-        title={LAB_REVIEW_GROUP_LABELS.needs_review}
-        candidates={groups.needsReview}
-        testId="lab-review-group-needs-review"
+        title={LAB_REVIEW_GROUP_LABELS.auto_published}
+        candidates={groups.autoPublished}
+        testId="lab-review-group-auto-published"
+        disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
+        defaultCollapsed
+        onAcceptCandidate={onAcceptCandidate}
+        onEditCandidate={openEdit}
+        onRejectCandidate={onRejectCandidate}
+      />
+      <CandidateGroupSection
+        title={LAB_REVIEW_GROUP_LABELS.system_verified}
+        candidates={groups.systemVerified}
+        testId="lab-review-group-system-verified"
+        disabled={actionBusy}
+        savingCandidateId={savingCandidateId}
+        defaultCollapsed
+        onAcceptCandidate={onAcceptCandidate}
+        onEditCandidate={openEdit}
+        onRejectCandidate={onRejectCandidate}
+      />
+      <CandidateGroupSection
+        title={LAB_REVIEW_GROUP_LABELS.withheld}
+        candidates={groups.withheld}
+        testId="lab-review-group-withheld"
         disabled={actionBusy}
         savingCandidateId={savingCandidateId}
         onAcceptCandidate={onAcceptCandidate}
@@ -506,12 +549,11 @@ export function LabReviewDetailContent({
         onRejectCandidate={onRejectCandidate}
       />
       <CandidateGroupSection
-        title={LAB_REVIEW_GROUP_LABELS.auto_published}
-        candidates={groups.autoPublished}
-        testId="lab-review-group-auto-published"
+        title={LAB_REVIEW_GROUP_LABELS.needs_review}
+        candidates={groups.needsReview}
+        testId="lab-review-group-needs-review"
         disabled={actionBusy}
         savingCandidateId={savingCandidateId}
-        defaultCollapsed
         onAcceptCandidate={onAcceptCandidate}
         onEditCandidate={openEdit}
         onRejectCandidate={onRejectCandidate}

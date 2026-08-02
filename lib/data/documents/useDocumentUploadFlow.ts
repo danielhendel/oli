@@ -35,6 +35,9 @@ export type DocumentUploadImportSummary = {
   reportImportStatus: NonNullable<DocumentDetailDto["reportImportStatus"]>;
   hasAutoPublishedResults: boolean;
   hasReviewItems: boolean;
+  withheldCount?: number;
+  verifyingCount?: number;
+  systemVerifiedCount?: number;
 };
 
 function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSummary | null {
@@ -46,7 +49,12 @@ function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSu
   ) {
     return null;
   }
-  return {
+  const extra = doc as DocumentDetailDto & {
+    withheldCount?: number;
+    verifyingCount?: number;
+    systemVerifiedCount?: number;
+  };
+  const summary: DocumentUploadImportSummary = {
     importedCount: doc.importedCount,
     reviewNeededCount: doc.reviewNeededCount,
     unmatchedCount: doc.unmatchedCount,
@@ -54,6 +62,12 @@ function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSu
     hasAutoPublishedResults: doc.hasAutoPublishedResults === true,
     hasReviewItems: doc.hasReviewItems === true,
   };
+  if (typeof extra.withheldCount === "number") summary.withheldCount = extra.withheldCount;
+  if (typeof extra.verifyingCount === "number") summary.verifyingCount = extra.verifyingCount;
+  if (typeof extra.systemVerifiedCount === "number") {
+    summary.systemVerifiedCount = extra.systemVerifiedCount;
+  }
+  return summary;
 }
 
 async function pollDocumentTerminal(

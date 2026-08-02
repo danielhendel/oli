@@ -124,9 +124,9 @@ describe("LabReviewDetailContent", () => {
     expect(str).toContain("QuestLabs.pdf");
     expect(str).toContain("Glucose");
     expect(str).toContain("MYSTERY ANALYTE");
-    expect(str).toContain("Pending review");
-    expect(str).toContain("Needs review");
-    expect(str).toContain("Unmatched");
+    expect(str).toContain("Pending");
+    expect(str).toContain("Advanced corrections");
+    expect(str).toContain("Not yet supported");
     expect(str).toContain("Report metadata");
     expect(tree.root.findByProps({ testID: "lab-review-finish" }).props.accessibilityState.disabled).toBe(true);
   });
@@ -266,6 +266,10 @@ describe("LabReviewDetailContent", () => {
           onFinishReview={noop}
         />,
       );
+    });
+    // Expand imported section (collapsed by default).
+    act(() => {
+      tree.root.findByProps({ testID: "lab-review-group-auto-published-toggle" }).props.onPress();
     });
     const status = tree.root.findByProps({ testID: "lab-review-candidate-status-cand_matched_1" });
     expect(JSON.stringify(status.props)).toContain("Accepted");

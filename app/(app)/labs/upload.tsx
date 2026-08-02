@@ -40,12 +40,12 @@ export default function LabsUploadScreen() {
             onCancel={documentFlow.cancel}
             onReset={documentFlow.reset}
             onViewLabs={() => router.replace("/(app)/labs")}
-            onReviewItems={() => {
+            onHowProcessed={() => {
               if (documentFlow.documentId) {
                 router.replace(`/(app)/labs/reviews/${documentFlow.documentId}`);
                 return;
               }
-              router.replace("/(app)/labs/reviews");
+              router.replace("/(app)/labs");
             }}
             onDone={() => {
               if (documentFlow.documentId) {

@@ -12,8 +12,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { extractPdfTextPages } from "../../services/api/src/lib/labs/pdfTextExtraction";
 import { extractQuestLabReportDraft } from "../../lib/labs/extraction/extractQuestLabReportDraft";
-import { partitionLabCandidatesForAutoPublish } from "../../lib/labs/autoPublish/partitionLabAutoPublish";
-import { LAB_AUTO_PUBLISH_POLICY_VERSION } from "../../lib/contracts/labsOs";
+import {
+  buildLabImportSummary,
+  partitionLabCandidatesForAutoPublish,
+} from "../../lib/labs/autoPublish/partitionLabAutoPublish";
+import { LAB_AUTO_IMPORT_POLICY_VERSION } from "../../lib/contracts/labsOs";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -41,7 +44,7 @@ async function main() {
 
   let extraction;
   try {
-    extraction = await extractPdfTextPages(bytes);
+    extraction = await extractPdfTextPages(bytes, { includePositional: true });
   } catch (err) {
     const code = err instanceof Error ? err.message : "PDF_EXTRACT_FAILED";
     console.log(
@@ -66,9 +69,14 @@ async function main() {
   });
 
   const resultTypeCounts: Record<string, number> = {};
+  const comparatorCounts: Record<string, number> = {};
   for (const r of draft.results) {
     const kind = r.result?.kind ?? "missing";
     resultTypeCounts[kind] = (resultTypeCounts[kind] ?? 0) + 1;
+    if (r.result?.kind === "numeric") {
+      const cmp = r.result.comparator;
+      comparatorCounts[cmp] = (comparatorCounts[cmp] ?? 0) + 1;
+    }
   }
 
   const metadataFieldCount = Object.entries(draft.reportCandidate).filter(([k, v]) => {
@@ -76,15 +84,16 @@ async function main() {
     return v !== null && v !== undefined && v !== "";
   }).length;
 
-  const reviewNeededCount = draft.results.filter(
-    (r) => r.aliasMatch.requiresReview || r.confidence < 0.85 || r.warnings.length > 0,
-  ).length;
-
   const partition = partitionLabCandidatesForAutoPublish(draft);
+  const summary = buildLabImportSummary({
+    documentId: draft.documentId,
+    draft,
+    partition,
+  });
   const blockReasonCounts: Record<string, number> = {};
-  for (const { decision } of partition.reviewRequired) {
+  for (const { decision } of partition.withheld) {
     if (!decision.eligible) {
-      for (const reason of decision.reasons) {
+      for (const reason of decision.reasons ?? []) {
         blockReasonCounts[reason] = (blockReasonCounts[reason] ?? 0) + 1;
       }
     }
@@ -97,6 +106,7 @@ async function main() {
       draftStatus: draft.status,
       pageCount: extraction.pageCount,
       textCharCount: extraction.textCharCount,
+      positionalItemCount: extraction.textItems?.length ?? 0,
       pdfWarningCount: extraction.warningCodes.length,
       candidateCount: draft.results.length + draft.unmatched.length,
       matchedCount: draft.results.length,
@@ -104,11 +114,20 @@ async function main() {
       warningCount: draft.warnings.length,
       metadataFieldCount,
       resultTypeCounts,
-      reviewNeededCount,
-      autoPublishedCount: partition.autoPublishable.length,
-      autoPublishReviewNeededCount: partition.reviewRequired.length,
+      comparatorCounts,
+      /** Legacy heuristic — not consumer-required review. */
+      legacyReviewHeuristicCount: draft.results.filter(
+        (r) => r.aliasMatch.requiresReview || r.confidence < 0.85 || r.warnings.length > 0,
+      ).length,
+      userRequiredReviewCount: summary.reviewNeededCount,
+      autoImportedCount: partition.autoPublishable.length,
+      systemVerifiedCount: partition.systemVerifiable.length,
+      withheldCount: partition.withheld.length,
+      unsupportedCount: partition.unmatchedCount,
+      importedCount: summary.importedCount,
+      reportProcessingStatus: summary.reportProcessingStatus,
       autoPublishBlockReasonCounts: blockReasonCounts,
-      autoPublishPolicyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
+      autoPublishPolicyVersion: LAB_AUTO_IMPORT_POLICY_VERSION,
       panelCount: draft.panels.length,
       parserId: draft.parser.id,
       parserVersion: draft.parser.version,

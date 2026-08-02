@@ -29,6 +29,8 @@ export type DocumentUploadFlowContentProps = {
   onReset: () => void;
   onDone?: () => void;
   onViewLabs?: () => void;
+  onHowProcessed?: () => void;
+  /** @deprecated Zero-user-work: optional corrections only — not a primary CTA. */
   onReviewItems?: () => void;
   domainLabel: string;
   terminalStatus?: string | null;
@@ -38,78 +40,72 @@ export type DocumentUploadFlowContentProps = {
 function labsSuccessCopy(args: {
   terminalStatus: string | null;
   importSummary: DocumentUploadImportSummary | null;
-}): { title: string; lines: string[]; primaryLabel: string; showReview: boolean; showViewLabs: boolean } {
+}): {
+  title: string;
+  lines: string[];
+  showViewLabs: boolean;
+  showHowProcessed: boolean;
+  showDoneOnly: boolean;
+} {
   const summary = args.importSummary;
   if (args.terminalStatus === "unsupported") {
     return {
       title: "Stored securely",
-      lines: ["Extraction unavailable"],
-      primaryLabel: "Done",
-      showReview: false,
+      lines: ["Extraction unavailable for this format."],
       showViewLabs: false,
+      showHowProcessed: false,
+      showDoneOnly: true,
     };
   }
   if (args.terminalStatus === "failed") {
     return {
       title: "Processing failed",
       lines: [],
-      primaryLabel: "Done",
-      showReview: false,
       showViewLabs: false,
+      showHowProcessed: false,
+      showDoneOnly: true,
     };
   }
   if (!summary) {
-    if (args.terminalStatus === "review_needed") {
-      return {
-        title: "Review needed",
-        lines: ["Open Review to handle extracted results."],
-        primaryLabel: "Review extracted results",
-        showReview: true,
-        showViewLabs: false,
-      };
-    }
-    return {
-      title: "Stored securely",
-      lines: [],
-      primaryLabel: "Done",
-      showReview: false,
-      showViewLabs: false,
-    };
-  }
-
-  const lines: string[] = [];
-  if (summary.importedCount > 0) {
-    lines.push(
-      `${summary.importedCount} result${summary.importedCount === 1 ? "" : "s"} added to Labs`,
-    );
-  }
-  if (summary.reviewNeededCount > 0) {
-    lines.push(
-      `${summary.reviewNeededCount} result${summary.reviewNeededCount === 1 ? "" : "s"} need review`,
-    );
-  }
-  if (summary.unmatchedCount > 0) {
-    lines.push(
-      `${summary.unmatchedCount} result${summary.unmatchedCount === 1 ? "" : "s"} could not be matched`,
-    );
-  }
-
-  if (summary.importedCount > 0) {
     return {
       title: "Report imported",
-      lines,
-      primaryLabel: summary.hasReviewItems ? `Review ${summary.reviewNeededCount} items` : "View Labs",
-      showReview: summary.hasReviewItems && summary.reviewNeededCount > 0,
+      lines: ["Oli is finishing processing. Open Labs to see available results."],
       showViewLabs: true,
+      showHowProcessed: true,
+      showDoneOnly: false,
     };
+  }
+
+  const available = summary.importedCount;
+  const unsupported = summary.unmatchedCount;
+  const withheld = Math.max(0, summary.withheldCount ?? 0);
+  const verifying = Math.max(0, summary.verifyingCount ?? 0);
+  const lines: string[] = [];
+  if (available > 0 && verifying > 0) {
+    lines.push(`${available} result${available === 1 ? "" : "s"} available now`);
+    lines.push(
+      `${verifying} additional result${verifying === 1 ? "" : "s"} ${verifying === 1 ? "is" : "are"} being verified`,
+    );
+  } else if (available > 0) {
+    lines.push(`${available} result${available === 1 ? "" : "s"} added to Labs`);
+  }
+  if (withheld > 0) {
+    lines.push(
+      `${withheld} result${withheld === 1 ? "" : "s"} could not be safely resolved`,
+    );
+  }
+  if (unsupported > 0) {
+    lines.push(
+      `${unsupported} result${unsupported === 1 ? "" : "s"} ${available > 0 ? "are not yet supported" : "could not be matched"}`,
+    );
   }
 
   return {
-    title: "Review needed",
-    lines: lines.length > 0 ? lines : ["No results could be imported automatically."],
-    primaryLabel: "Review extracted results",
-    showReview: true,
-    showViewLabs: false,
+    title: available > 0 ? "Report imported" : "Stored securely",
+    lines: lines.length > 0 ? lines : ["Oli processed this report."],
+    showViewLabs: available > 0,
+    showHowProcessed: true,
+    showDoneOnly: available === 0,
   };
 }
 
@@ -121,20 +117,18 @@ export function DocumentUploadFlowContent({
   onReset,
   onDone,
   onViewLabs,
-  onReviewItems,
+  onHowProcessed,
   domainLabel,
   terminalStatus = null,
   importSummary = null,
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
   const isLabs = domainLabel.toLowerCase() === "labs";
-  const labsCopy = isLabs
-    ? labsSuccessCopy({ terminalStatus, importSummary })
-    : null;
+  const labsCopy = isLabs ? labsSuccessCopy({ terminalStatus, importSummary }) : null;
   const successLabel = labsCopy
     ? labsCopy.title
     : terminalStatus === "review_needed"
-      ? "Review needed"
+      ? "Stored securely"
       : terminalStatus === "structured"
         ? "Structured"
         : terminalStatus === "unsupported"
@@ -149,8 +143,8 @@ export function DocumentUploadFlowContent({
         <Text style={styles.title}>Upload {domainLabel} document</Text>
         <Text style={styles.body}>
           {isLabs
-            ? "Supported Quest lab PDFs are extracted automatically. High-confidence results may be imported right away; anything uncertain stays for your review."
-            : "Files are stored securely. Supported Quest lab PDFs are extracted for review; unsupported formats keep the original for later processing."}
+            ? "Supported Quest lab PDFs are imported automatically. Oli verifies resolvable exceptions — you do not need to review each row."
+            : "Files are stored securely. Supported Quest lab PDFs are extracted; unsupported formats keep the original for later processing."}
         </Text>
 
         {phase === "idle" ? (
@@ -218,23 +212,18 @@ export function DocumentUploadFlowContent({
                 <Text style={styles.primaryLabel}>View Labs</Text>
               </Pressable>
             ) : null}
-            {labsCopy?.showReview && onReviewItems ? (
+            {labsCopy?.showHowProcessed && onHowProcessed ? (
               <Pressable
-                onPress={onReviewItems}
+                onPress={onHowProcessed}
                 accessibilityRole="button"
-                accessibilityLabel={labsCopy.primaryLabel}
-                style={({ pressed }) => [
-                  labsCopy.showViewLabs ? styles.secondary : styles.primary,
-                  pressed && styles.pressed,
-                ]}
-                testID="document-upload-review-items"
+                accessibilityLabel="How Oli processed this report"
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+                testID="document-upload-how-processed"
               >
-                <Text style={labsCopy.showViewLabs ? styles.secondaryLabel : styles.primaryLabel}>
-                  {labsCopy.primaryLabel}
-                </Text>
+                <Text style={styles.secondaryLabel}>How Oli processed this report</Text>
               </Pressable>
             ) : null}
-            {!labsCopy?.showViewLabs && !labsCopy?.showReview ? (
+            {labsCopy?.showDoneOnly || (!labsCopy?.showViewLabs && !labsCopy?.showHowProcessed) ? (
               <Pressable
                 onPress={onDone ?? onReset}
                 accessibilityRole="button"

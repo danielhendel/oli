@@ -3,18 +3,22 @@ import type { LabCandidateReviewStatus, LabReviewCandidateDto, LabReviewSummaryD
 import { formatLabResultValue } from "@/lib/labs/labMetricCatalog";
 
 export const LAB_REVIEW_STATUS_LABELS: Record<LabCandidateReviewStatus, string> = {
-  pending_review: "Pending review",
-  auto_published: "Automatically imported",
+  pending_review: "Pending",
+  auto_published: "Imported automatically",
+  system_verified: "Verified by Oli",
   user_accepted: "Accepted",
   user_corrected: "Corrected",
-  rejected: "Rejected",
-  unresolved: "Unresolved",
+  rejected: "Removed",
+  unresolved: "Not yet supported",
+  withheld: "Not added",
 };
 
 export const LAB_REVIEW_GROUP_LABELS = {
-  needs_review: "Needs review",
-  unmatched: "Unmatched",
-  auto_published: "Automatically imported",
+  needs_review: "Advanced corrections",
+  unmatched: "Not yet supported",
+  auto_published: "Imported automatically",
+  system_verified: "Verified by Oli",
+  withheld: "Not added",
 } as const;
 
 export function formatReviewDate(iso: string | null | undefined): string | null {
@@ -43,7 +47,12 @@ export function candidateResultText(candidate: LabReviewCandidateDto): string {
     return formatLabResultValue(
       candidate.result.kind === "numeric" ? candidate.result.value : null,
       candidate.unit,
-      candidate.result.kind !== "numeric" ? { rawValueText: candidate.rawResult } : {},
+      candidate.result.kind === "numeric"
+        ? {
+            comparator: candidate.result.comparator,
+            rawValueText: candidate.rawResult,
+          }
+        : { rawValueText: candidate.rawResult },
     );
   }
   return candidate.rawResult;

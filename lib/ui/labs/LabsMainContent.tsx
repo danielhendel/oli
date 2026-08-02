@@ -103,7 +103,7 @@ export function LabsMainContent({
           title="No lab reports yet"
           description={
             labsOsEnabled
-              ? "Upload a report to securely store the original file. Structured extraction is available after review."
+              ? "Upload a report to securely store the original file. Oli extracts and verifies supported results automatically."
               : "Upload a report to securely store the original file. Structured extraction is not available yet."
           }
           testID="labs-empty-state"
@@ -118,14 +118,14 @@ export function LabsMainContent({
         <Pressable
           onPress={onPressReviewQueue}
           accessibilityRole="button"
-          accessibilityLabel={`Review needed, ${pendingReviewCount} report${pendingReviewCount === 1 ? "" : "s"} waiting`}
+          accessibilityLabel={`Report complete, ${pendingReviewCount} report${pendingReviewCount === 1 ? "" : "s"} with processing details`}
           style={({ pressed }) => [styles.reviewBanner, pressed && styles.reviewBannerPressed]}
           testID="labs-review-needed-entry"
         >
           <View style={styles.reviewBannerMain}>
-            <Text style={styles.reviewBannerTitle}>Review needed</Text>
+            <Text style={styles.reviewBannerTitle}>Report complete</Text>
             <Text style={styles.reviewBannerMeta}>
-              {pendingReviewCount} report{pendingReviewCount === 1 ? "" : "s"} waiting for your review
+              Some results could not be safely resolved — open for details
             </Text>
           </View>
           <Text style={styles.reviewBannerChevron}>{"\u203A"}</Text>
