@@ -117,7 +117,13 @@ function buildSummary(args: {
   review: LabReviewRecord;
 }): LabReviewSummaryDto {
   const statuses = Object.values(args.review.candidateStatuses);
-  const importedCount = statuses.filter((s) => s === "auto_published" || s === "user_accepted" || s === "user_corrected").length;
+  const importedCount = statuses.filter(
+    (s) =>
+      s === "auto_published" ||
+      s === "system_verified" ||
+      s === "user_accepted" ||
+      s === "user_corrected",
+  ).length;
   const reviewNeededCount = statuses.filter((s) => s === "pending_review").length;
   const unmatchedPending = args.draft.unmatched.filter(
     (u) => (args.review.candidateStatuses[u.id] ?? "unresolved") === "unresolved" || (args.review.candidateStatuses[u.id] ?? "unresolved") === "pending_review",

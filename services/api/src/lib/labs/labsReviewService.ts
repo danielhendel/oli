@@ -96,18 +96,25 @@ export function buildAcceptedLabResult(args: {
   userId: string;
   draft: LabExtractionDraft;
   candidate: LabResultCandidate;
-  reviewStatus: "auto_published" | "user_accepted" | "user_corrected";
+  reviewStatus: "auto_published" | "system_verified" | "user_accepted" | "user_corrected";
   reviewVersion: string;
   acceptedAt: string;
   collectedAt: string | null;
   reportedAt: string | null;
   fasting: boolean | null;
   policyVersion?: string;
+  verificationMethods?: readonly string[];
 }): AcceptedLabResult {
   const c = args.candidate;
   if (!c.result) {
     throw new Error("CANDIDATE_MISSING_RESULT");
   }
+  const publicationMode =
+    args.reviewStatus === "auto_published"
+      ? ("auto" as const)
+      : args.reviewStatus === "system_verified"
+        ? ("system_verified" as const)
+        : ("user" as const);
   return {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
     id: acceptedLabResultId(args.draft.documentId, c.id),
@@ -140,8 +147,11 @@ export function buildAcceptedLabResult(args: {
       ...(args.policyVersion
         ? {
             policyVersion: args.policyVersion,
-            publicationMode: args.reviewStatus === "auto_published" ? ("auto" as const) : ("user" as const),
+            publicationMode,
           }
+        : {}),
+      ...(args.verificationMethods && args.verificationMethods.length > 0
+        ? { verificationMethods: [...args.verificationMethods] }
         : {}),
     },
     parser: args.draft.parser,
@@ -149,18 +159,30 @@ export function buildAcceptedLabResult(args: {
   };
 }
 
-/** Optional v2 projection for existing Labs summary UI (numeric equality only). */
+/** Optional v2 projection for Labs summary UI (numeric results including inequalities). */
 export function projectAcceptedToLabMetricResultDto(
   accepted: AcceptedLabResult,
 ): LabMetricResultDto | null {
   if (!accepted.canonicalMetricId) return null;
-  if (accepted.result.kind !== "numeric" || accepted.result.comparator !== "eq") return null;
+  if (accepted.result.kind !== "numeric") return null;
   const metric = getLabMetricByKey(accepted.canonicalMetricId);
   if (!metric) return null;
 
+  const comparator = accepted.result.comparator;
+  const value = accepted.result.value;
   let rawValueText: string | null = null;
-  if (accepted.result.comparator === "eq") {
-    rawValueText = String(accepted.result.value);
+  if (comparator === "eq") {
+    rawValueText = String(value);
+  } else {
+    const op =
+      comparator === "lt"
+        ? "<"
+        : comparator === "lte"
+          ? "≤"
+          : comparator === "gt"
+            ? ">"
+            : "≥";
+    rawValueText = `${op}${value}`;
   }
 
   return {
@@ -170,7 +192,8 @@ export function projectAcceptedToLabMetricResultDto(
     metricKey: accepted.canonicalMetricId,
     displayName: metric.displayName,
     categoryKey: metric.categoryKey,
-    value: accepted.result.value,
+    // Inequalities keep bound value for storage; display uses rawValueText.
+    value,
     unit: accepted.normalizedUnit ?? accepted.rawUnit,
     referenceRangeText: accepted.rawReferenceRange,
     flag: mapFlagToV2(accepted.normalizedFlag),
@@ -182,7 +205,11 @@ export function projectAcceptedToLabMetricResultDto(
     rawUnit: accepted.rawUnit,
     rawValueText,
     createdAt: accepted.createdAt,
-    ...(accepted.review.publicationMode ? { publicationMode: accepted.review.publicationMode } : {}),
+    ...(accepted.review.publicationMode === "user"
+      ? { publicationMode: "user" as const }
+      : accepted.review.publicationMode
+        ? { publicationMode: "auto" as const }
+        : {}),
     ...(Number.isFinite(accepted.provenance.sourcePage) && accepted.provenance.sourcePage >= 1
       ? { sourcePage: accepted.provenance.sourcePage }
       : {}),

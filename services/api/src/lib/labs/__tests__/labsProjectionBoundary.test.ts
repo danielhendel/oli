@@ -1,13 +1,10 @@
 /**
  * Projection boundary for accepted Labs results → legacy v2 summary rows.
  *
- * Intentional Phase 3D-A rule:
- * - Only numeric equality results project into LabMetricResultDto (schemaVersion 2).
- * - Inequalities, qualitative, pattern, text, and not_reported stay in labAcceptedResults.
- * - Unmatched / rejected / unresolved never project.
- *
- * Labs home categories currently read v2 rows; accepted non-numeric history is available
- * via labAcceptedResults / review surfaces until a dedicated accepted-results summary ships.
+ * Intentional Phase 3D-A rule (updated for zero-user-work):
+ * - Numeric results including inequalities project into LabMetricResultDto with comparator rawValueText.
+ * - Qualitative, pattern, text, and not_reported stay in labAcceptedResults only.
+ * - Unmatched / rejected / unresolved / withheld never project.
  */
 
 import {
@@ -110,7 +107,7 @@ describe("labs projection boundary", () => {
     expect(projected?.uploadId).toBe("doc1");
   });
 
-  it("does not project inequalities into v2 numeric summary", () => {
+  it("projects inequalities into v2 rows with comparator rawValueText (not flattened)", () => {
     const c = candidate({
       id: "c_lt",
       rawAnalyteLabel: "Lp(a)",
@@ -124,7 +121,10 @@ describe("labs projection boundary", () => {
         requiresReview: false,
       },
     });
-    expect(projectAcceptedToLabMetricResultDto(acceptedFrom(c, c.result!))).toBeNull();
+    const projected = projectAcceptedToLabMetricResultDto(acceptedFrom(c, c.result!));
+    expect(projected).not.toBeNull();
+    expect(projected?.rawValueText).toBe("<4");
+    expect(projected?.value).toBe(4);
   });
 
   it("does not project qualitative or pattern results", () => {

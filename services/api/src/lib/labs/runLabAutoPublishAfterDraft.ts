@@ -1,7 +1,8 @@
 /**
- * Server orchestration: auto-publish eligible candidates after draft persist.
+ * Server orchestration: auto-import + deterministic system verification after draft persist.
  * Idempotent via deterministic acceptedLabResultId.
  * Preserves prior user overrides (rejected / user_corrected / user_accepted) on reprocess.
+ * Zero required user review — unresolved matched rows are withheld.
  */
 import type {
   AcceptedLabResult,
@@ -9,7 +10,7 @@ import type {
   LabImportSummaryDto,
   LabReviewRecord,
 } from "@oli/contracts";
-import { LAB_AUTO_PUBLISH_POLICY_VERSION, LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
+import { LAB_AUTO_IMPORT_POLICY_VERSION, LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
 import {
   buildLabImportSummary,
   partitionLabCandidatesForAutoPublish,
@@ -45,7 +46,6 @@ export async function runLabAutoPublishAfterDraft(args: {
   labReviewsCol: Col;
   labAcceptedResultsCol: Col;
   labResultsCol: Col;
-  /** Prior review when reprocessing — user overrides are preserved. */
   priorReview?: LabReviewRecord | null;
 }): Promise<AutoPublishOrchestrationResult> {
   const partition = partitionLabCandidatesForAutoPublish(args.draft);
@@ -58,51 +58,49 @@ export async function runLabAutoPublishAfterDraft(args: {
     candidateStatuses[u.id] = prior === "rejected" ? "rejected" : "unresolved";
   }
 
-  const autoPublishableFiltered = partition.autoPublishable.filter(({ candidate }) => {
+  const autoFiltered = partition.autoPublishable.filter(({ candidate }) => {
+    const prior = priorStatuses[candidate.id];
+    return !prior || !PRESERVE_STATUSES.has(prior);
+  });
+  const verifiedFiltered = partition.systemVerifiable.filter(({ candidate }) => {
     const prior = priorStatuses[candidate.id];
     return !prior || !PRESERVE_STATUSES.has(prior);
   });
 
-  for (const { candidate } of partition.reviewRequired) {
+  for (const { candidate } of partition.withheld) {
     const prior = priorStatuses[candidate.id];
     if (prior && PRESERVE_STATUSES.has(prior)) {
       candidateStatuses[candidate.id] = prior as LabReviewRecord["candidateStatuses"][string];
     } else {
-      candidateStatuses[candidate.id] = "pending_review";
+      candidateStatuses[candidate.id] = "withheld";
     }
   }
-  for (const { candidate } of autoPublishableFiltered) {
+  for (const { candidate } of autoFiltered) {
     candidateStatuses[candidate.id] = "auto_published";
   }
-  // Re-apply preserved overrides that were auto-publishable this run
-  for (const { candidate } of partition.autoPublishable) {
+  for (const { candidate } of verifiedFiltered) {
+    candidateStatuses[candidate.id] = "system_verified";
+  }
+  for (const { candidate } of [...partition.autoPublishable, ...partition.systemVerifiable]) {
     const prior = priorStatuses[candidate.id];
     if (prior && PRESERVE_STATUSES.has(prior)) {
       candidateStatuses[candidate.id] = prior as LabReviewRecord["candidateStatuses"][string];
     }
   }
 
-  const effectivePartition = {
-    ...partition,
-    autoPublishable: autoPublishableFiltered,
-  };
   const importSummary = buildLabImportSummary({
     documentId: args.draft.documentId,
     draft: args.draft,
     partition: {
-      ...effectivePartition,
-      // Count preserved user_accepted/user_corrected as imported for summary honesty
+      ...partition,
       autoPublishable: [
-        ...autoPublishableFiltered,
+        ...autoFiltered,
         ...partition.autoPublishable.filter(({ candidate }) => {
           const p = priorStatuses[candidate.id];
           return p === "user_accepted" || p === "user_corrected";
         }),
       ],
-      reviewRequired: partition.reviewRequired.filter(({ candidate }) => {
-        const p = priorStatuses[candidate.id];
-        return !p || !PRESERVE_STATUSES.has(p);
-      }),
+      systemVerifiable: verifiedFiltered,
     },
   });
 
@@ -112,19 +110,24 @@ export async function runLabAutoPublishAfterDraft(args: {
   const reportedAt = args.draft.reportCandidate.reportedAt ?? null;
   const fasting = args.draft.reportCandidate.fasting ?? null;
 
-  for (const { candidate } of autoPublishableFiltered) {
+  const publishOne = async (
+    candidate: LabExtractionDraft["results"][number],
+    reviewStatus: "auto_published" | "system_verified",
+    methods?: readonly string[],
+  ) => {
     const accepted: AcceptedLabResult = {
       ...buildAcceptedLabResult({
         userId: args.uid,
         draft: args.draft,
         candidate,
-        reviewStatus: "auto_published",
+        reviewStatus,
         reviewVersion: "0",
         acceptedAt: args.now,
         collectedAt,
         reportedAt,
         fasting,
-        policyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
+        policyVersion: LAB_AUTO_IMPORT_POLICY_VERSION,
+        ...(methods ? { verificationMethods: methods } : {}),
       }),
     };
     await args.labAcceptedResultsCol.doc(accepted.id).set(accepted as unknown as Record<string, unknown>, {
@@ -138,9 +141,15 @@ export async function runLabAutoPublishAfterDraft(args: {
       });
       projectedIds.push(projection.id);
     }
+  };
+
+  for (const { candidate } of autoFiltered) {
+    await publishOne(candidate, "auto_published");
+  }
+  for (const { candidate, methods } of verifiedFiltered) {
+    await publishOne(candidate, "system_verified", methods);
   }
 
-  // Ensure rejected prior candidates do not leave stale projections
   for (const [candidateId, status] of Object.entries(priorStatuses)) {
     if (status !== "rejected") continue;
     const id = acceptedLabResultId(args.draft.documentId, candidateId);
@@ -153,6 +162,7 @@ export async function runLabAutoPublishAfterDraft(args: {
   }
 
   const reviewStatus = reviewStatusFromImportSummary(importSummary);
+  const publishedCount = autoFiltered.length + verifiedFiltered.length;
   const review: LabReviewRecord = {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
     id: `review_${args.draft.documentId}`,
@@ -163,14 +173,14 @@ export async function runLabAutoPublishAfterDraft(args: {
     reviewVersion:
       args.priorReview && args.priorReview.reviewVersion > 0
         ? args.priorReview.reviewVersion
-        : autoPublishableFiltered.length > 0
+        : publishedCount > 0
           ? 1
           : 0,
     candidateStatuses,
     corrections: priorCorrections,
     createdAt: args.priorReview?.createdAt ?? args.now,
     updatedAt: args.now,
-    ...(autoPublishableFiltered.length > 0 || importSummary.importedCount > 0
+    ...(publishedCount > 0 || importSummary.importedCount > 0
       ? { acceptedAt: args.priorReview?.acceptedAt ?? args.now }
       : {}),
     importSummary,

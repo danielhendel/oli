@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@jest/globals";
 import type { LabExtractionDraft, LabReviewRecord } from "@oli/contracts";
-import { LAB_AUTO_PUBLISH_POLICY_VERSION } from "@oli/contracts";
+import { LAB_AUTO_IMPORT_POLICY_VERSION } from "@oli/contracts";
 import { runLabAutoPublishAfterDraft } from "../runLabAutoPublishAfterDraft";
 import { acceptedLabResultId } from "../labsReviewService";
 
@@ -161,16 +161,17 @@ describe("runLabAutoPublishAfterDraft", () => {
       labAcceptedResultsCol: accepted as never,
       labResultsCol: results as never,
     });
-    expect(out.importSummary.importedCount).toBe(1);
-    expect(out.importSummary.reviewNeededCount).toBe(1);
+    expect(out.importSummary.importedCount).toBe(2);
+    expect(out.importSummary.reviewNeededCount).toBe(0);
     expect(out.importSummary.unmatchedCount).toBe(1);
-    expect(out.importSummary.policyVersion).toBe(LAB_AUTO_PUBLISH_POLICY_VERSION);
+    expect(out.importSummary.policyVersion).toBe(LAB_AUTO_IMPORT_POLICY_VERSION);
     expect(out.review.candidateStatuses.ok).toBe("auto_published");
-    expect(out.review.candidateStatuses.ineq).toBe("pending_review");
+    expect(out.review.candidateStatuses.ineq).toBe("auto_published");
     expect(out.review.candidateStatuses.um1).toBe("unresolved");
     expect(accepted.store.has(acceptedLabResultId("doc1", "ok"))).toBe(true);
+    expect(accepted.store.has(acceptedLabResultId("doc1", "ineq"))).toBe(true);
     expect(results.store.has(acceptedLabResultId("doc1", "ok"))).toBe(true);
-    expect(accepted.store.has(acceptedLabResultId("doc1", "ineq"))).toBe(false);
+    expect(results.store.has(acceptedLabResultId("doc1", "ineq"))).toBe(true);
   });
 
   it("is idempotent on repeated execution", async () => {
@@ -191,8 +192,8 @@ describe("runLabAutoPublishAfterDraft", () => {
       priorReview: first.review,
     });
     expect(second.acceptedIds).toEqual(first.acceptedIds);
-    expect(accepted.store.size).toBe(1);
-    expect(results.store.size).toBe(1);
+    expect(accepted.store.size).toBe(2);
+    expect(results.store.size).toBe(2);
   });
 
   it("preserves rejected overrides and removes projections on reprocess", async () => {
