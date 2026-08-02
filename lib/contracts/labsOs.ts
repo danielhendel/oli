@@ -10,7 +10,7 @@ import { z } from "zod";
 const isoDatetimeString = z.string().datetime();
 
 export const LABS_OS_SCHEMA_VERSION = "1.0.0" as const;
-export const LABS_ALIAS_REGISTRY_VERSION = "1.1.0" as const;
+export const LABS_ALIAS_REGISTRY_VERSION = "1.2.0" as const;
 export const LABS_UNIT_REGISTRY_VERSION = "1.1.0" as const;
 export const LAB_AUTO_PUBLISH_POLICY_VERSION = "1.0.0" as const;
 /** Import policy v2: trusted inequalities + field-level optional ambiguity. */
@@ -353,10 +353,31 @@ export const labUnmatchedCandidateSchema = z
     id: z.string().min(1),
     rawAnalyteLabel: z.string().min(1),
     rawResult: z.string().min(1),
-    reason: z.enum(["unmatched_alias", "ambiguous_alias", "unsupported_result_type", "historical_column"]),
+    reason: z.enum([
+      "unmatched_alias",
+      "ambiguous_alias",
+      "unsupported_result_type",
+      "historical_column",
+      "duplicate_result",
+      "non_result_panel_header",
+      "non_result_reference_table",
+      "non_result_risk_category",
+      "non_result_method_note",
+      "non_result_report_note",
+      "non_result_laboratory_metadata",
+      "malformed_row",
+      "classified_non_result",
+    ]),
     provenance: labResultProvenanceSchema,
     confidence: z.number().min(0).max(1),
     reviewStatus: labCandidateReviewStatusSchema,
+    /** Typed resolution when classified beyond legacy unmatched reasons. */
+    resolutionKind: z.string().min(1).optional(),
+    relatedCandidateId: z.string().min(1).nullable().optional(),
+    relatedMetricId: z.string().min(1).nullable().optional(),
+    normalizedLabel: z.string().min(1).optional(),
+    /** Preserved when a row was parsed but alias-unmatched — used for later promotion. */
+    rawUnit: z.string().nullable().optional(),
   })
   .strip();
 
@@ -383,6 +404,9 @@ export const labExtractionDraftSchema = z
     createdAt: isoDatetimeString,
     superseded: z.boolean().optional(),
     jobId: z.string().min(1).optional(),
+    /** Complete candidate resolution accounting (catalog-completion pass). */
+    resolutionAccounting: z.record(z.string(), z.unknown()).optional(),
+    resolutions: z.array(z.record(z.string(), z.unknown())).optional(),
   })
   .strip();
 
@@ -548,6 +572,10 @@ export const labReviewCandidateDtoSchema = z
     warnings: z.array(z.string().min(1)),
     reviewStatus: labCandidateReviewStatusSchema,
     matchGroup: z.enum(["matched", "needs_review", "unmatched"]),
+    /** When false, Accept/Edit/Reject are hidden (duplicates, notes, headers). */
+    actionsAllowed: z.boolean().optional(),
+    resolutionKind: z.string().min(1).nullable().optional(),
+    classificationReason: z.string().min(1).nullable().optional(),
   })
   .strip();
 
@@ -731,6 +759,9 @@ export const labImportSummaryDtoSchema = z
     reportProcessingStatus: z
       .enum(["processing", "imported", "imported_verifying", "imported_withheld", "unsupported", "failed"])
       .optional(),
+    reportContentCount: z.number().int().nonnegative().optional(),
+    duplicateCount: z.number().int().nonnegative().optional(),
+    historicalCount: z.number().int().nonnegative().optional(),
   })
   .strip();
 
