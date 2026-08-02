@@ -6,7 +6,12 @@
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { completeDocumentUpload, createDocumentUploadIntent, getDocumentDetail } from "@/lib/api/documents";
-import type { DocumentDomain, DocumentMediaType, DocumentRecordStatus } from "@/lib/contracts";
+import type {
+  DocumentDetailDto,
+  DocumentDomain,
+  DocumentMediaType,
+  DocumentRecordStatus,
+} from "@/lib/contracts";
 import {
   DOCUMENT_PICKER_UNAVAILABLE_MESSAGE,
   pickLabPdfDocument,
@@ -23,22 +28,55 @@ const TERMINAL_STATUSES = new Set<DocumentRecordStatus>([
   "failed",
 ]);
 
-async function pollDocumentTerminalStatus(
+export type DocumentUploadImportSummary = {
+  importedCount: number;
+  reviewNeededCount: number;
+  unmatchedCount: number;
+  reportImportStatus: NonNullable<DocumentDetailDto["reportImportStatus"]>;
+  hasAutoPublishedResults: boolean;
+  hasReviewItems: boolean;
+};
+
+function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSummary | null {
+  if (
+    typeof doc.importedCount !== "number" ||
+    typeof doc.reviewNeededCount !== "number" ||
+    typeof doc.unmatchedCount !== "number" ||
+    !doc.reportImportStatus
+  ) {
+    return null;
+  }
+  return {
+    importedCount: doc.importedCount,
+    reviewNeededCount: doc.reviewNeededCount,
+    unmatchedCount: doc.unmatchedCount,
+    reportImportStatus: doc.reportImportStatus,
+    hasAutoPublishedResults: doc.hasAutoPublishedResults === true,
+    hasReviewItems: doc.hasReviewItems === true,
+  };
+}
+
+async function pollDocumentTerminal(
   token: string,
   documentId: string,
   cancelled: () => boolean,
-): Promise<DocumentRecordStatus | null> {
+): Promise<{ status: DocumentRecordStatus | null; importSummary: DocumentUploadImportSummary | null }> {
   for (let i = 0; i < 30; i++) {
-    if (cancelled()) return null;
+    if (cancelled()) return { status: null, importSummary: null };
     const detail = await getDocumentDetail(token, documentId, { cacheBust: `poll-${i}-${Date.now()}` });
     const outcome = truthOutcomeFromApiResult(detail);
     if (outcome.status === "ready") {
       const status = outcome.data.document.status;
-      if (TERMINAL_STATUSES.has(status)) return status;
+      if (TERMINAL_STATUSES.has(status)) {
+        return {
+          status,
+          importSummary: importSummaryFromDetail(outcome.data.document),
+        };
+      }
     }
     await new Promise((r) => setTimeout(r, 1000));
   }
-  return null;
+  return { status: null, importSummary: null };
 }
 
 export type DocumentUploadPhase =
@@ -58,6 +96,7 @@ export type DocumentUploadFlowState = {
   /** Terminal document status when known (after awaited ingest or poll). */
   terminalStatus: string | null;
   reprocessAvailable: boolean;
+  importSummary: DocumentUploadImportSummary | null;
 };
 
 const INITIAL: DocumentUploadFlowState = {
@@ -67,6 +106,7 @@ const INITIAL: DocumentUploadFlowState = {
   duplicate: false,
   terminalStatus: null,
   reprocessAvailable: false,
+  importSummary: null,
 };
 
 function mediaTypeFromPicker(mimeType: string | undefined, name: string | undefined): DocumentMediaType | null {
@@ -108,6 +148,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       duplicate: false,
       terminalStatus: null,
       reprocessAvailable: false,
+      importSummary: null,
     });
 
     const pickResult = await pickLabPdfDocument();
@@ -121,6 +162,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -139,6 +181,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -150,6 +193,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       duplicate: false,
       terminalStatus: null,
       reprocessAvailable: false,
+      importSummary: null,
     });
 
     let fileBase64: string;
@@ -163,6 +207,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -177,6 +222,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -190,6 +236,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -213,6 +260,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -226,6 +274,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       duplicate: false,
       terminalStatus: null,
       reprocessAvailable: false,
+      importSummary: null,
     });
 
     const complete = await completeDocumentUpload(
@@ -249,6 +298,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: false,
         terminalStatus: null,
         reprocessAvailable: false,
+        importSummary: null,
       });
       return;
     }
@@ -265,13 +315,25 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
         duplicate: true,
         terminalStatus: completeOutcome.data.status,
         reprocessAvailable,
+        importSummary: null,
       });
       return;
     }
 
     let terminalStatus: DocumentRecordStatus | null = completeOutcome.data.status;
+    let importSummary: DocumentUploadImportSummary | null = null;
     if (!TERMINAL_STATUSES.has(terminalStatus)) {
-      terminalStatus = await pollDocumentTerminalStatus(token, activeDocumentId, () => cancelledRef.current);
+      const polled = await pollDocumentTerminal(token, activeDocumentId, () => cancelledRef.current);
+      terminalStatus = polled.status;
+      importSummary = polled.importSummary;
+    } else {
+      const detail = await getDocumentDetail(token, activeDocumentId, {
+        cacheBust: `terminal-${Date.now()}`,
+      });
+      const detailOutcome = truthOutcomeFromApiResult(detail);
+      if (detailOutcome.status === "ready") {
+        importSummary = importSummaryFromDetail(detailOutcome.data.document);
+      }
     }
     if (cancelledRef.current) return;
 
@@ -282,6 +344,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       duplicate: false,
       terminalStatus,
       reprocessAvailable: false,
+      importSummary,
     });
   }, [args.domain, getIdToken]);
 

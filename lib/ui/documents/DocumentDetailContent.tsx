@@ -101,6 +101,17 @@ export function DocumentDetailContent({
         <Text style={styles.status} testID="document-detail-status">
           {vm.statusLabel}
         </Text>
+        {typeof document.importedCount === "number" ? (
+          <Text style={styles.message} testID="document-detail-import-summary">
+            {document.importedCount} imported
+            {typeof document.reviewNeededCount === "number"
+              ? ` · ${document.reviewNeededCount} need review`
+              : ""}
+            {typeof document.unmatchedCount === "number"
+              ? ` · ${document.unmatchedCount} unmatched`
+              : ""}
+          </Text>
+        ) : null}
         {vm.extractionMessage ? (
           <Text style={styles.message} testID="document-detail-extraction-message">
             {vm.extractionMessage}
@@ -110,11 +121,19 @@ export function DocumentDetailContent({
           <Pressable
             onPress={onPressReview}
             accessibilityRole="button"
-            accessibilityLabel="Review extracted results"
+            accessibilityLabel={
+              typeof document.reviewNeededCount === "number" && document.reviewNeededCount > 0
+                ? `Review ${document.reviewNeededCount} items`
+                : "Review extracted results"
+            }
             style={({ pressed }) => [styles.reviewLink, pressed && styles.actionPressed]}
             testID="document-review-link"
           >
-            <Text style={styles.reviewLinkLabel}>Review extracted results</Text>
+            <Text style={styles.reviewLinkLabel}>
+              {typeof document.reviewNeededCount === "number" && document.reviewNeededCount > 0
+                ? `Review ${document.reviewNeededCount} items`
+                : "Review extracted results"}
+            </Text>
           </Pressable>
         ) : null}
       </View>

@@ -77,4 +77,38 @@ describe("DocumentUploadFlowContent contrast", () => {
     );
     expect(DOCUMENT_UPLOAD_MIN_TOUCH).toBeGreaterThanOrEqual(44);
   });
+
+  it("shows import summary and View Labs / Review CTAs for labs success", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentUploadFlowContent
+          phase="success"
+          errorMessage={null}
+          onStart={() => undefined}
+          onCancel={() => undefined}
+          onReset={() => undefined}
+          onViewLabs={() => undefined}
+          onReviewItems={() => undefined}
+          domainLabel="Labs"
+          terminalStatus="review_needed"
+          importSummary={{
+            importedCount: 59,
+            reviewNeededCount: 18,
+            unmatchedCount: 42,
+            reportImportStatus: "imported_review_recommended",
+            hasAutoPublishedResults: true,
+            hasReviewItems: true,
+          }}
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Report imported");
+    expect(json).toContain("59 results added to Labs");
+    expect(json).toContain("18 results need review");
+    expect(json).toContain("42 results could not be matched");
+    expect(tree.root.findByProps({ testID: "document-upload-view-labs" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "document-upload-review-items" })).toBeTruthy();
+  });
 });

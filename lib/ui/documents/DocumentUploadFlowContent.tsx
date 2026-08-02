@@ -11,6 +11,7 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 import type { DocumentUploadPhase } from "@/lib/data/documents/useDocumentUploadFlow";
+import type { DocumentUploadImportSummary } from "@/lib/data/documents/useDocumentUploadFlow";
 
 /** Primary CTA fill — accent surface with high-contrast label. */
 export const DOCUMENT_UPLOAD_PRIMARY_BG = SYSTEM_ACCENT;
@@ -27,9 +28,90 @@ export type DocumentUploadFlowContentProps = {
   onCancel: () => void;
   onReset: () => void;
   onDone?: () => void;
+  onViewLabs?: () => void;
+  onReviewItems?: () => void;
   domainLabel: string;
   terminalStatus?: string | null;
+  importSummary?: DocumentUploadImportSummary | null;
 };
+
+function labsSuccessCopy(args: {
+  terminalStatus: string | null;
+  importSummary: DocumentUploadImportSummary | null;
+}): { title: string; lines: string[]; primaryLabel: string; showReview: boolean; showViewLabs: boolean } {
+  const summary = args.importSummary;
+  if (args.terminalStatus === "unsupported") {
+    return {
+      title: "Stored securely",
+      lines: ["Extraction unavailable"],
+      primaryLabel: "Done",
+      showReview: false,
+      showViewLabs: false,
+    };
+  }
+  if (args.terminalStatus === "failed") {
+    return {
+      title: "Processing failed",
+      lines: [],
+      primaryLabel: "Done",
+      showReview: false,
+      showViewLabs: false,
+    };
+  }
+  if (!summary) {
+    if (args.terminalStatus === "review_needed") {
+      return {
+        title: "Review needed",
+        lines: ["Open Review to handle extracted results."],
+        primaryLabel: "Review extracted results",
+        showReview: true,
+        showViewLabs: false,
+      };
+    }
+    return {
+      title: "Stored securely",
+      lines: [],
+      primaryLabel: "Done",
+      showReview: false,
+      showViewLabs: false,
+    };
+  }
+
+  const lines: string[] = [];
+  if (summary.importedCount > 0) {
+    lines.push(
+      `${summary.importedCount} result${summary.importedCount === 1 ? "" : "s"} added to Labs`,
+    );
+  }
+  if (summary.reviewNeededCount > 0) {
+    lines.push(
+      `${summary.reviewNeededCount} result${summary.reviewNeededCount === 1 ? "" : "s"} need review`,
+    );
+  }
+  if (summary.unmatchedCount > 0) {
+    lines.push(
+      `${summary.unmatchedCount} result${summary.unmatchedCount === 1 ? "" : "s"} could not be matched`,
+    );
+  }
+
+  if (summary.importedCount > 0) {
+    return {
+      title: "Report imported",
+      lines,
+      primaryLabel: summary.hasReviewItems ? `Review ${summary.reviewNeededCount} items` : "View Labs",
+      showReview: summary.hasReviewItems && summary.reviewNeededCount > 0,
+      showViewLabs: true,
+    };
+  }
+
+  return {
+    title: "Review needed",
+    lines: lines.length > 0 ? lines : ["No results could be imported automatically."],
+    primaryLabel: "Review extracted results",
+    showReview: true,
+    showViewLabs: false,
+  };
+}
 
 export function DocumentUploadFlowContent({
   phase,
@@ -38,26 +120,37 @@ export function DocumentUploadFlowContent({
   onCancel,
   onReset,
   onDone,
+  onViewLabs,
+  onReviewItems,
   domainLabel,
   terminalStatus = null,
+  importSummary = null,
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
-  const successLabel =
-    terminalStatus === "review_needed"
+  const isLabs = domainLabel.toLowerCase() === "labs";
+  const labsCopy = isLabs
+    ? labsSuccessCopy({ terminalStatus, importSummary })
+    : null;
+  const successLabel = labsCopy
+    ? labsCopy.title
+    : terminalStatus === "review_needed"
       ? "Review needed"
-      : terminalStatus === "unsupported"
-        ? "Stored — extraction unavailable for this format"
-        : terminalStatus === "failed"
-          ? "Processing failed"
-          : "Stored securely";
+      : terminalStatus === "structured"
+        ? "Structured"
+        : terminalStatus === "unsupported"
+          ? "Stored — extraction unavailable for this format"
+          : terminalStatus === "failed"
+            ? "Processing failed"
+            : "Stored securely";
 
   return (
     <View style={styles.root} testID="document-upload-flow">
       <View style={styles.card}>
         <Text style={styles.title}>Upload {domainLabel} document</Text>
         <Text style={styles.body}>
-          Files are stored securely. Supported Quest lab PDFs are extracted for review; unsupported formats
-          keep the original for later processing.
+          {isLabs
+            ? "Supported Quest lab PDFs are extracted automatically. High-confidence results may be imported right away; anything uncertain stays for your review."
+            : "Files are stored securely. Supported Quest lab PDFs are extracted for review; unsupported formats keep the original for later processing."}
         </Text>
 
         {phase === "idle" ? (
@@ -109,16 +202,50 @@ export function DocumentUploadFlowContent({
             <Text style={styles.status} testID="document-upload-success">
               {successLabel}
             </Text>
-            <Pressable
-              onPress={onDone ?? onReset}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: false }}
-              accessibilityLabel="Done"
-              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-              testID="document-upload-done"
-            >
-              <Text style={styles.primaryLabel}>Done</Text>
-            </Pressable>
+            {labsCopy?.lines.map((line) => (
+              <Text key={line} style={styles.body} testID="document-upload-import-line">
+                {line}
+              </Text>
+            ))}
+            {labsCopy?.showViewLabs && onViewLabs ? (
+              <Pressable
+                onPress={onViewLabs}
+                accessibilityRole="button"
+                accessibilityLabel="View Labs"
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                testID="document-upload-view-labs"
+              >
+                <Text style={styles.primaryLabel}>View Labs</Text>
+              </Pressable>
+            ) : null}
+            {labsCopy?.showReview && onReviewItems ? (
+              <Pressable
+                onPress={onReviewItems}
+                accessibilityRole="button"
+                accessibilityLabel={labsCopy.primaryLabel}
+                style={({ pressed }) => [
+                  labsCopy.showViewLabs ? styles.secondary : styles.primary,
+                  pressed && styles.pressed,
+                ]}
+                testID="document-upload-review-items"
+              >
+                <Text style={labsCopy.showViewLabs ? styles.secondaryLabel : styles.primaryLabel}>
+                  {labsCopy.primaryLabel}
+                </Text>
+              </Pressable>
+            ) : null}
+            {!labsCopy?.showViewLabs && !labsCopy?.showReview ? (
+              <Pressable
+                onPress={onDone ?? onReset}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: false }}
+                accessibilityLabel="Done"
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                testID="document-upload-done"
+              >
+                <Text style={styles.primaryLabel}>Done</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 
@@ -178,11 +305,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryLabel: {
-    color: DOCUMENT_UPLOAD_PRIMARY_LABEL,
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  primaryLabel: { color: DOCUMENT_UPLOAD_PRIMARY_LABEL, fontSize: 16, fontWeight: "700" },
   primaryDisabled: {
     marginTop: 4,
     minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
@@ -192,12 +315,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryDisabledLabel: {
-    color: DOCUMENT_UPLOAD_DISABLED_LABEL,
-    fontSize: 16,
-    fontWeight: "700",
+  primaryDisabledLabel: { color: DOCUMENT_UPLOAD_DISABLED_LABEL, fontSize: 16, fontWeight: "700" },
+  secondary: {
+    marginTop: 4,
+    minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: UI_TEXT_MUTED,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  secondary: { minHeight: DOCUMENT_UPLOAD_MIN_TOUCH, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
-  secondaryLabel: { color: UI_TEXT_SECONDARY, fontSize: 15, fontWeight: "600" },
+  secondaryLabel: { color: UI_TEXT_PRIMARY, fontSize: 16, fontWeight: "600" },
   pressed: { opacity: 0.85 },
 });

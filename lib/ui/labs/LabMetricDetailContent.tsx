@@ -102,16 +102,40 @@ export function LabMetricDetailContent({
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Source</Text>
-        <Text style={styles.bodyCopy}>
-          {latest?.source === "lab_pdf"
-            ? `Parsed from lab PDF upload${latest.uploadId ? ` (${latest.uploadId})` : ""}.`
-            : "No source recorded yet."}
+        <Text style={styles.bodyCopy} testID="lab-metric-source-label">
+          {latest?.publicationMode === "auto"
+            ? "Imported automatically"
+            : latest?.publicationMode === "user"
+              ? "Imported from report"
+              : latest?.source === "lab_pdf"
+                ? "Imported from report"
+                : "No source recorded yet."}
         </Text>
+        {latest?.laboratoryName ? (
+          <Text style={styles.meta}>Source: {latest.laboratoryName} report</Text>
+        ) : latest?.source === "lab_pdf" ? (
+          <Text style={styles.meta}>Source: Quest Diagnostics report</Text>
+        ) : null}
+        {labDate ? (
+          <Text style={styles.meta}>Collected {formatLabUploadDate(labDate)}</Text>
+        ) : null}
+        {latest?.uploadId ? (
+          <Text style={styles.meta}>Source report</Text>
+        ) : null}
+        {typeof latest?.sourcePage === "number" ? (
+          <Text style={styles.meta}>Page {latest.sourcePage}</Text>
+        ) : null}
+        {refRange ? (
+          <Text style={styles.meta}>Reference range from this report</Text>
+        ) : null}
         {latest?.rawName ? (
           <Text style={styles.meta}>Original label: {latest.rawName}</Text>
         ) : null}
-        {latest != null ? (
-          <Text style={styles.meta}>Confidence: {Math.round(latest.confidence * 100)}%</Text>
+        {latest?.publicationMode === "auto" ? (
+          <Text style={styles.bodyCopy} testID="lab-metric-auto-import-explain">
+            Oli imported this result automatically because the report format, analyte, value, unit, and
+            source were clear.
+          </Text>
         ) : null}
       </View>
     </View>
