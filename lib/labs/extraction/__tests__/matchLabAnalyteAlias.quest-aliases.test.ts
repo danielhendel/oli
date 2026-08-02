@@ -62,7 +62,7 @@ describe("matchLabAnalyteAlias Quest/DirectLabs aliases", () => {
     },
   );
 
-  it("uses alias registry 1.1.0 after Quest label expansion", () => {
-    expect(LABS_ALIAS_REGISTRY_VERSION).toBe("1.1.0");
+  it("uses alias registry 1.2.0 after Report A catalog completion", () => {
+    expect(LABS_ALIAS_REGISTRY_VERSION).toBe("1.2.0");
   });
 });

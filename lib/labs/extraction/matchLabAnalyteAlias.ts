@@ -54,10 +54,20 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "ldl_particle_number", aliases: ["ldl-p", "ldl particle number", "ldl p", "ldl-p number"] },
   { metricKey: "small_ldl_p", aliases: ["small ldl-p", "small dense ldl-p", "ldl small", "small ldl", "small dense ldl"] },
   { metricKey: "lp_pla2", aliases: ["lp-pla2", "lp pla2", "lipoprotein associated phospholipase a2", "pla2 activity"] },
+  { metricKey: "non_hdl_c", aliases: ["non hdl cholesterol", "non-hdl cholesterol", "non-hdl-c", "non hdl-c", "non hdl"] },
+  {
+    metricKey: "chol_hdl_ratio",
+    aliases: ["chol/hdlc ratio", "chol hdlc ratio", "cholesterol/hdl ratio", "tc/hdl ratio", "chol/hdl ratio"],
+  },
+  { metricKey: "ldl_medium", aliases: ["ldl medium", "medium ldl-p", "medium ldl", "ldl-p medium"] },
+  { metricKey: "hdl_large", aliases: ["hdl large", "large hdl-p", "large hdl", "hdl-p large"] },
+  { metricKey: "ldl_peak_size", aliases: ["ldl peak size", "ldl size", "peak size ldl"] },
+  { metricKey: "ldl_pattern", aliases: ["ldl pattern", "ldl pattern a", "ldl pattern b", "ldl phenotype"] },
 
   // Metabolic
   { metricKey: "glucose", aliases: ["glucose, fasting", "glucose fasting", "fasting blood glucose", "blood glucose", "glu"] },
   { metricKey: "hba1c", aliases: ["hemoglobin a1c", "hemoglobin a1c %", "hb a1c", "hgb a1c", "a1c", "glycohemoglobin", "glycated hemoglobin"] },
+  { metricKey: "eag", aliases: ["eag", "eag mg/dl", "eag mmol/l", "estimated average glucose", "average glucose"] },
   { metricKey: "fasting_insulin", aliases: ["insulin, fasting", "insulin fasting", "insulin"] },
   { metricKey: "c_peptide", aliases: ["c-peptide", "c peptide", "c-pep"] },
 
@@ -69,6 +79,12 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "total_bilirubin", aliases: ["bilirubin, total", "bilirubin total", "tbili", "t.bili", "total bili"] },
   { metricKey: "albumin", aliases: ["albumin, serum", "albumin serum", "alb"] },
   { metricKey: "total_protein", aliases: ["protein, total", "protein total", "total protein"] },
+  { metricKey: "serum_globulin", aliases: ["globulin", "globulin, serum", "serum globulin", "calculated globulin"] },
+  {
+    metricKey: "albumin_globulin_ratio",
+    aliases: ["albumin/globulin ratio", "a/g ratio", "albumin globulin ratio", "ag ratio"],
+  },
+  { metricKey: "ldh", aliases: ["ld", "ldh", "lactate dehydrogenase", "lactic dehydrogenase"] },
 
   // Kidney
   { metricKey: "creatinine", aliases: ["creatinine, serum", "creatinine serum", "creat", "serum creatinine", "scr"] },
@@ -91,17 +107,45 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
     metricKey: "urine_albumin_creatinine_ratio",
     aliases: ["uacr", "albumin/creatinine ratio", "microalbumin/creatinine", "urine microalbumin/creatinine"],
   },
+  { metricKey: "uric_acid", aliases: ["uric acid", "urate", "uric acid, serum", "uric acid serum"] },
+  {
+    metricKey: "osmolality_serum",
+    aliases: ["osmolality", "osmolality, serum", "serum osmolality", "osmolality u", "osmolality, calculated"],
+  },
 
   // Blood & iron
   { metricKey: "wbc", aliases: ["white blood cell count", "wbc count", "leukocyte count", "leukocytes"] },
   { metricKey: "rbc", aliases: ["red blood cell count", "rbc count", "erythrocyte count", "erythrocytes"] },
   { metricKey: "hemoglobin", aliases: ["hemoglobin", "hgb", "hb"] },
   { metricKey: "hematocrit", aliases: ["hematocrit", "hct", "crit"] },
+  { metricKey: "mcv", aliases: ["mcv", "mean corpuscular volume", "mean cell volume"] },
+  { metricKey: "mch", aliases: ["mch", "mean corpuscular hemoglobin", "mean cell hemoglobin"] },
+  { metricKey: "mchc", aliases: ["mchc", "mean corpuscular hemoglobin concentration"] },
+  { metricKey: "rdw", aliases: ["rdw", "rdw-cv", "red cell distribution width"] },
   { metricKey: "platelets", aliases: ["platelet count", "plt", "plt count", "thrombocytes"] },
+  { metricKey: "mpv", aliases: ["mpv", "mean platelet volume"] },
+  { metricKey: "neutrophils_pct", aliases: ["neutrophils", "neutrophil", "neutrophils %", "neutrophil %"] },
+  { metricKey: "lymphocytes_pct", aliases: ["lymphocytes", "lymphocyte", "lymphocytes %", "lymphocyte %"] },
+  { metricKey: "monocytes_pct", aliases: ["monocytes", "monocyte", "monocytes %", "monocyte %"] },
+  { metricKey: "eosinophils_pct", aliases: ["eosinophils", "eosinophil", "eosinophils %", "eosinophil %"] },
+  { metricKey: "basophils_pct", aliases: ["basophils", "basophil", "basophils %", "basophil %"] },
+  {
+    metricKey: "absolute_neutrophils",
+    aliases: ["absolute neutrophils", "neutrophils absolute", "absolute neutrophil", "anc"],
+  },
+  {
+    metricKey: "absolute_lymphocytes",
+    aliases: ["absolute lymphocytes", "lymphocytes absolute", "absolute lymphocyte", "alc"],
+  },
+  { metricKey: "absolute_monocytes", aliases: ["absolute monocytes", "monocytes absolute", "absolute monocyte"] },
+  { metricKey: "absolute_eosinophils", aliases: ["absolute eosinophils", "eosinophils absolute", "absolute eosinophil"] },
+  { metricKey: "absolute_basophils", aliases: ["absolute basophils", "basophils absolute", "absolute basophil"] },
   { metricKey: "ferritin", aliases: ["ferritin, serum", "ferritin serum", "fer"] },
   { metricKey: "iron", aliases: ["iron, total", "iron total", "iron, serum", "iron serum", "serum iron", "fe"] },
   { metricKey: "tibc", aliases: ["total iron binding capacity", "iron binding capacity", "tibc"] },
+  { metricKey: "transferrin", aliases: ["transferrin", "transferrin, serum", "serum transferrin"] },
   { metricKey: "transferrin_saturation", aliases: ["tsat", "iron saturation", "transferrin sat", "% saturation"] },
+  { metricKey: "immunoglobulin_a", aliases: ["immunoglobulin a", "iga", "immunoglobulin a serum", "iga serum"] },
 
   // Hormones + thyroid
   { metricKey: "tsh", aliases: ["tsh", "thyroid stimulating hormone", "thyrotropin"] },
@@ -120,6 +164,15 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   {
     metricKey: "free_testosterone",
     aliases: ["testosterone free", "testosterone, free", "free testosterone", "testosterone free ms"],
+  },
+  {
+    metricKey: "bioavailable_testosterone",
+    aliases: [
+      "testosterone, bioavailable",
+      "testosterone bioavailable",
+      "bioavailable testosterone",
+      "testosterone bioavailable calculated",
+    ],
   },
   { metricKey: "shbg", aliases: ["sex hormone binding globulin", "sex hormone-binding globulin", "shbg"] },
   { metricKey: "estradiol", aliases: ["estradiol", "estradiol ultrasensitive", "e2", "estrogen"] },
@@ -148,11 +201,20 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "magnesium_rbc", aliases: ["magnesium, rbc", "rbc magnesium", "magnesium rbc"] },
   { metricKey: "zinc", aliases: ["serum zinc", "zinc, serum", "zn"] },
   { metricKey: "omega_3_index", aliases: ["omega 3 index", "omega-3", "omega-3 index"] },
+  { metricKey: "mercury_blood", aliases: ["mercury, blood", "mercury blood", "blood mercury", "mercury"] },
 
   // Inflammation
   { metricKey: "crp", aliases: ["c-reactive protein", "crp, standard", "crp standard"] },
   { metricKey: "esr", aliases: ["sed rate", "erythrocyte sedimentation rate", "sedimentation rate"] },
   { metricKey: "homocysteine", aliases: ["homocysteine", "hcy"] },
+  {
+    metricKey: "interleukin_6",
+    aliases: ["interleukin-6", "interleukin 6", "il-6", "il6", "interleukin", "il 6"],
+  },
+  {
+    metricKey: "creatine_kinase",
+    aliases: ["creatine kinase", "creatine kinase, total", "creatine kinase total", "ck", "cpk", "ck total"],
+  },
 
   // Electrolytes
   { metricKey: "sodium", aliases: ["sodium", "na", "serum sodium", "sodium serum"] },
