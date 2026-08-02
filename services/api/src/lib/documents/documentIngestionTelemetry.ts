@@ -18,6 +18,7 @@ export function logDocumentIngestionEvent(
     | "document_parser_started"
     | "document_parser_terminal"
     | "lab_draft_persisted"
+    | "lab_auto_publish_completed"
     | "document_status_reconciled",
   fields: {
     documentToken: string;
@@ -34,6 +35,10 @@ export function logDocumentIngestionEvent(
     elapsedMs?: number | null;
     errorCode?: string | null;
     requestId?: string | null;
+    importedCount?: number | null;
+    reviewNeededCount?: number | null;
+    unmatchedCount?: number | null;
+    reportImportStatus?: string | null;
   },
 ): void {
   logger.info({
@@ -52,5 +57,9 @@ export function logDocumentIngestionEvent(
     ...(fields.elapsedMs != null ? { elapsedMs: fields.elapsedMs } : {}),
     ...(fields.errorCode != null ? { errorCode: fields.errorCode } : {}),
     ...(fields.requestId != null ? { requestId: fields.requestId } : {}),
+    ...(fields.importedCount != null ? { importedCount: fields.importedCount } : {}),
+    ...(fields.reviewNeededCount != null ? { reviewNeededCount: fields.reviewNeededCount } : {}),
+    ...(fields.unmatchedCount != null ? { unmatchedCount: fields.unmatchedCount } : {}),
+    ...(fields.reportImportStatus != null ? { reportImportStatus: fields.reportImportStatus } : {}),
   });
 }

@@ -102,7 +102,7 @@ function seedStores() {
         },
         confidence: 0.95,
         warnings: [],
-        reviewStatus: "pending",
+        reviewStatus: "pending_review",
       },
     ],
     unmatched: [],
@@ -121,7 +121,7 @@ function seedStores() {
     draftId: "draft_1",
     status: "not_started",
     reviewVersion: 0,
-    candidateStatuses: { [CAND_ID]: "pending" },
+    candidateStatuses: { [CAND_ID]: "pending_review" },
     corrections: [],
     createdAt: NOW,
     updatedAt: NOW,
@@ -185,14 +185,14 @@ describe("PATCH /users/me/labs/reviews/:documentId/candidates/:candidateId", () 
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewVersion: 0, reviewStatus: "accepted" }),
+        body: JSON.stringify({ reviewVersion: 0, reviewStatus: "user_accepted" }),
       },
     );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; reviewVersion: number };
     expect(json).toEqual({ ok: true, reviewVersion: 1 });
     const stored = stores.reviews.get(`review_${DOC_ID}`);
-    expect(stored?.candidateStatuses).toEqual({ [CAND_ID]: "accepted" });
+    expect(stored?.candidateStatuses).toEqual({ [CAND_ID]: "user_accepted" });
     expect(stored?.reviewVersion).toBe(1);
   });
 
@@ -202,7 +202,7 @@ describe("PATCH /users/me/labs/reviews/:documentId/candidates/:candidateId", () 
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewStatus: "accepted" }),
+        body: JSON.stringify({ reviewStatus: "user_accepted" }),
       },
     );
     expect(missingVersion.status).toBe(400);
@@ -224,7 +224,7 @@ describe("PATCH /users/me/labs/reviews/:documentId/candidates/:candidateId", () 
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewVersion: 99, reviewStatus: "accepted" }),
+        body: JSON.stringify({ reviewVersion: 99, reviewStatus: "user_accepted" }),
       },
     );
     expect(res.status).toBe(409);
@@ -237,7 +237,7 @@ describe("PATCH /users/me/labs/reviews/:documentId/candidates/:candidateId", () 
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewVersion: 0, reviewStatus: "accepted" }),
+        body: JSON.stringify({ reviewVersion: 0, reviewStatus: "user_accepted" }),
       },
     );
     expect(res.status).toBe(404);

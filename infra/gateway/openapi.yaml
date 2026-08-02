@@ -1096,7 +1096,7 @@ paths:
                 minimum: 0
               reviewStatus:
                 type: string
-                enum: [pending, accepted, corrected, rejected, unresolved]
+                enum: [pending_review, auto_published, user_accepted, user_corrected, rejected, unresolved]
               correction:
                 type: object
       responses:

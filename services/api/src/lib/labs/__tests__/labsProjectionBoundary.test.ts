@@ -60,7 +60,7 @@ function candidate(partial: Partial<LabResultCandidate> & Pick<LabResultCandidat
     provenance: baseProvenance(partial.id),
     confidence: 0.95,
     warnings: [],
-    reviewStatus: "accepted",
+    reviewStatus: "user_accepted",
     ...partial,
   };
 }
@@ -89,7 +89,7 @@ function acceptedFrom(c: LabResultCandidate, result: AcceptedLabResult["result"]
     laboratory: null,
     method: null,
     provenance: c.provenance,
-    review: { status: "accepted", acceptedAt: iso, reviewVersion: "1" },
+    review: { status: "user_accepted", acceptedAt: iso, reviewVersion: "1" },
     parser: { id: "quest_text_pdf_v1", version: "1.0.0", extractionVersion: "1.0.0" },
     createdAt: iso,
   };
@@ -178,7 +178,7 @@ describe("labs projection boundary", () => {
           rawAnalyteLabel: "LDL",
           rawResult: "100",
           result: { kind: "numeric", value: 100, comparator: "eq" },
-          reviewStatus: "accepted",
+          reviewStatus: "user_accepted",
         }),
         candidate({
           id: "rej",
@@ -196,7 +196,7 @@ describe("labs projection boundary", () => {
           reason: "unmatched_alias" as const,
           provenance: baseProvenance("um"),
           confidence: 0.2,
-          reviewStatus: "pending" as const,
+          reviewStatus: "pending_review" as const,
         },
       ],
       warnings: [],
@@ -214,7 +214,7 @@ describe("labs projection boundary", () => {
       draftId: "draft1",
       status: "in_progress" as const,
       reviewVersion: 1,
-      candidateStatuses: { ok: "accepted" as const, rej: "rejected" as const, um: "pending" as const },
+      candidateStatuses: { ok: "user_accepted" as const, rej: "rejected" as const, um: "pending_review" as const },
       corrections: [],
       createdAt: iso,
       updatedAt: iso,

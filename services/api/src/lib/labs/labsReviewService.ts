@@ -1,6 +1,7 @@
 /**
  * Labs review accept/reject helpers (server) — Phase 3D-A.
- * No auto-accept. No DailyFacts. No Insights.
+ * High-confidence auto-publish is server-side only (see runLabAutoPublishAfterDraft).
+ * No DailyFacts. No Insights.
  */
 
 import type {
@@ -20,6 +21,23 @@ type LabCandidateCorrectionFields = LabReviewRecord["corrections"][number]["fiel
 /** Deterministic accepted-result id — prevents duplicate writes on accept replay. */
 export function acceptedLabResultId(documentId: string, candidateId: string): string {
   return `acc_${documentId}_${candidateId}`;
+}
+
+/** Remove accepted structured result + v2 projection for a rejected/unpublished candidate. */
+export async function unpublishAcceptedLabResult(args: {
+  documentId: string;
+  candidateId: string;
+  labAcceptedResultsCol: {
+    doc: (id: string) => { delete: () => Promise<unknown> };
+  };
+  labResultsCol: {
+    doc: (id: string) => { delete: () => Promise<unknown> };
+  };
+}): Promise<{ acceptedId: string }> {
+  const acceptedId = acceptedLabResultId(args.documentId, args.candidateId);
+  await args.labAcceptedResultsCol.doc(acceptedId).delete();
+  await args.labResultsCol.doc(acceptedId).delete();
+  return { acceptedId };
 }
 
 function mapFlagToV2(flag: LabNormalizedFlag | null): LabMetricResultDto["flag"] {
@@ -78,12 +96,13 @@ export function buildAcceptedLabResult(args: {
   userId: string;
   draft: LabExtractionDraft;
   candidate: LabResultCandidate;
-  reviewStatus: "accepted" | "corrected";
+  reviewStatus: "auto_published" | "user_accepted" | "user_corrected";
   reviewVersion: string;
   acceptedAt: string;
   collectedAt: string | null;
   reportedAt: string | null;
   fasting: boolean | null;
+  policyVersion?: string;
 }): AcceptedLabResult {
   const c = args.candidate;
   if (!c.result) {
@@ -118,6 +137,12 @@ export function buildAcceptedLabResult(args: {
       status: args.reviewStatus,
       acceptedAt: args.acceptedAt,
       reviewVersion: args.reviewVersion,
+      ...(args.policyVersion
+        ? {
+            policyVersion: args.policyVersion,
+            publicationMode: args.reviewStatus === "auto_published" ? ("auto" as const) : ("user" as const),
+          }
+        : {}),
     },
     parser: args.draft.parser,
     createdAt: args.acceptedAt,
@@ -157,6 +182,11 @@ export function projectAcceptedToLabMetricResultDto(
     rawUnit: accepted.rawUnit,
     rawValueText,
     createdAt: accepted.createdAt,
+    ...(accepted.review.publicationMode ? { publicationMode: accepted.review.publicationMode } : {}),
+    ...(Number.isFinite(accepted.provenance.sourcePage) && accepted.provenance.sourcePage >= 1
+      ? { sourcePage: accepted.provenance.sourcePage }
+      : {}),
+    ...(accepted.laboratory?.name ? { laboratoryName: accepted.laboratory.name } : {}),
   };
 }
 
@@ -174,10 +204,12 @@ export function resolveCandidatesForAccept(args: {
 
   for (const candidate of args.draft.results) {
     if (wanted && !wanted.has(candidate.id)) continue;
-    const status = args.review.candidateStatuses[candidate.id] ?? "pending";
+    const status = args.review.candidateStatuses[candidate.id] ?? "pending_review";
     if (status === "rejected") continue;
-    if (status === "unresolved" || status === "pending") {
-      // Allow accept when explicitly listed; pending becomes accepted.
+    if (status === "auto_published") {
+      continue;
+    }
+    if (status === "unresolved" || status === "pending_review") {
       if (!wanted) {
         skippedUnresolved.push(candidate.id);
         continue;
@@ -190,11 +222,10 @@ export function resolveCandidatesForAccept(args: {
     }
     accepted.push({
       ...corrected,
-      reviewStatus: status === "corrected" ? "corrected" : "accepted",
+      reviewStatus: status === "user_corrected" ? "user_corrected" : "user_accepted",
     });
   }
 
-  // Unmatched cannot be accepted without a metric correction in this phase.
   const unmatched: LabUnmatchedCandidate[] = args.draft.unmatched;
   for (const u of unmatched) {
     if (wanted && wanted.has(u.id)) {

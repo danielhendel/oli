@@ -23,6 +23,7 @@ import { resolveDocumentParserForInput } from "./documentParsers";
 import { parseQuestLabPdfBundle } from "../labs/questTextPdfParser";
 import { QUEST_TEXT_PDF_PARSER_ID } from "../../../../../lib/labs/extraction/extractQuestLabReportDraft";
 import { logDocumentIngestionEvent, redactedDocumentToken } from "./documentIngestionTelemetry";
+import { runLabAutoPublishAfterDraft } from "../labs/runLabAutoPublishAfterDraft";
 
 type DocRef = {
   get: () => Promise<{ exists: boolean; data: () => unknown }>;
@@ -46,6 +47,8 @@ export type DocumentIngestionDeps = {
   labDraftsCol?: Col;
   labReviewsCol?: Col;
   labUploadsCol?: Col;
+  labAcceptedResultsCol?: Col;
+  labResultsCol?: Col;
   readDocumentBytes?: (storageObjectId: string) => Promise<Uint8Array>;
   now?: () => string;
 };
@@ -131,23 +134,60 @@ async function persistLabsDraftAndReview(args: {
   });
 
   if (labReviewsCol && (draft.status === "review_needed" || draft.status === "partial" || draft.status === "extracted")) {
-    const review: LabReviewRecord = {
-      schemaVersion: LABS_OS_SCHEMA_VERSION,
-      id: `review_${args.document.id}`,
-      documentId: args.document.id,
-      userId: args.uid,
-      draftId: draft.id,
-      status: "not_started",
-      reviewVersion: 0,
-      candidateStatuses: Object.fromEntries([
-        ...draft.results.map((r) => [r.id, "pending" as const]),
-        ...draft.unmatched.map((u) => [u.id, "pending" as const]),
-      ]),
-      corrections: [],
-      createdAt: args.now,
-      updatedAt: args.now,
-    };
-    await labReviewsCol.doc(review.id).set(review, { merge: true });
+    const { labAcceptedResultsCol, labResultsCol } = args.deps;
+    if (labAcceptedResultsCol && labResultsCol) {
+      let priorReview: LabReviewRecord | null = null;
+      try {
+        const priorSnap = await labReviewsCol.doc(`review_${args.document.id}`).get?.();
+        if (priorSnap?.exists) {
+          const raw = typeof priorSnap.data === "function" ? priorSnap.data() : priorSnap.data;
+          priorReview = raw as LabReviewRecord;
+        }
+      } catch {
+        priorReview = null;
+      }
+      const auto = await runLabAutoPublishAfterDraft({
+        uid: args.uid,
+        draft,
+        now: args.now,
+        labReviewsCol: labReviewsCol as never,
+        labAcceptedResultsCol: labAcceptedResultsCol as never,
+        labResultsCol: labResultsCol as never,
+        priorReview,
+      });
+      logDocumentIngestionEvent("lab_auto_publish_completed", {
+        documentToken: redactedDocumentToken(args.document.id),
+        domain: args.document.domain,
+        parserId: draft.parser.id,
+        parserVersion: draft.parser.version,
+        candidateCount: draft.results.length + draft.unmatched.length,
+        warningCount: draft.warnings.length,
+        terminalStatus: draft.status,
+        pageCount: draft.reportCandidate.pageCount ?? null,
+        importedCount: auto.importSummary.importedCount,
+        reviewNeededCount: auto.importSummary.reviewNeededCount,
+        unmatchedCount: auto.importSummary.unmatchedCount,
+        reportImportStatus: auto.importSummary.reportImportStatus,
+      });
+    } else {
+      const review: LabReviewRecord = {
+        schemaVersion: LABS_OS_SCHEMA_VERSION,
+        id: `review_${args.document.id}`,
+        documentId: args.document.id,
+        userId: args.uid,
+        draftId: draft.id,
+        status: "not_started",
+        reviewVersion: 0,
+        candidateStatuses: Object.fromEntries([
+          ...draft.results.map((r) => [r.id, "pending_review" as const]),
+          ...draft.unmatched.map((u) => [u.id, "unresolved" as const]),
+        ]),
+        corrections: [],
+        createdAt: args.now,
+        updatedAt: args.now,
+      };
+      await labReviewsCol.doc(review.id).set(review, { merge: true });
+    }
   }
 
   if (labUploadsCol && args.document.legacyLabUploadId) {

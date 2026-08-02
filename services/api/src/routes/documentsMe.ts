@@ -146,6 +146,8 @@ function documentsDeps(uid: string) {
     labDraftsCol: userCollection(uid, "labExtractionDrafts") as never,
     labReviewsCol: userCollection(uid, "labReviews") as never,
     labUploadsCol: userCollection(uid, "labUploads") as never,
+    labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
+    labResultsCol: userCollection(uid, "labResults") as never,
     readDocumentBytes: async (storageObjectId: string): Promise<Uint8Array> => {
       if (!bucket) throw new Error("STORAGE_BUCKET_MISSING");
       const fileRef = getAdmin().storage().bucket(bucket).file(storageObjectId);
@@ -702,10 +704,65 @@ router.get(
       recordForDto = { ...record, status: reconciled.status, updatedAt: now };
     }
 
+    type LabsImportSummaryFields = {
+      importedCount: number;
+      reviewNeededCount: number;
+      unmatchedCount: number;
+      reportImportStatus:
+        | "imported"
+        | "imported_review_recommended"
+        | "review_needed"
+        | "unsupported"
+        | "failed"
+        | "structured";
+      hasAutoPublishedResults: boolean;
+      hasReviewItems: boolean;
+    };
+    let importSummary: LabsImportSummaryFields | null = null;
+    if (recordForDto.domain === "labs") {
+      try {
+        const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${documentId}`).get();
+        if (reviewSnap.exists) {
+          const raw = reviewSnap.data() as Record<string, unknown>;
+          const summaryRaw = raw.importSummary;
+          if (summaryRaw && typeof summaryRaw === "object") {
+            const summary = summaryRaw as Record<string, unknown>;
+            const reportImportStatus = summary.reportImportStatus;
+            if (
+              typeof summary.importedCount === "number" &&
+              typeof summary.reviewNeededCount === "number" &&
+              typeof summary.unmatchedCount === "number" &&
+              typeof reportImportStatus === "string" &&
+              [
+                "imported",
+                "imported_review_recommended",
+                "review_needed",
+                "unsupported",
+                "failed",
+                "structured",
+              ].includes(reportImportStatus)
+            ) {
+              importSummary = {
+                importedCount: summary.importedCount,
+                reviewNeededCount: summary.reviewNeededCount,
+                unmatchedCount: summary.unmatchedCount,
+                reportImportStatus: reportImportStatus as LabsImportSummaryFields["reportImportStatus"],
+                hasAutoPublishedResults: summary.hasAutoPublishedResults === true,
+                hasReviewItems: summary.hasReviewItems === true,
+              };
+            }
+          }
+        }
+      } catch {
+        importSummary = null;
+      }
+    }
+
     const detail = toDocumentDetailDto({
       record: recordForDto,
       processingState,
-      safeWarnings: safeWarningsForStatus(recordForDto.status),
+      safeWarnings: safeWarningsForStatus(recordForDto.status, undefined, importSummary),
+      importSummary,
     });
     const payload = { ok: true as const, document: detail };
     const out = documentDetailResponseDtoSchema.safeParse(payload);

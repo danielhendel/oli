@@ -14,6 +14,7 @@ import {
   type LabReviewRecord,
   type LabReviewCandidateDto,
   type LabReviewSummaryDto,
+  normalizeLabCandidateStatusMap,
 } from "@oli/contracts";
 import { getLabMetricByKey } from "../../../../lib/labs/labMetricCatalog";
 import { labWarningConsumerMessage } from "../../../../lib/labs/extraction/labWarningCopy";
@@ -25,6 +26,7 @@ import {
   buildAcceptedLabResult,
   projectAcceptedToLabMetricResultDto,
   resolveCandidatesForAccept,
+  unpublishAcceptedLabResult,
 } from "../lib/labs/labsReviewService";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
 
@@ -69,6 +71,9 @@ async function loadReview(uid: string, documentId: string): Promise<LabReviewRec
   const parsed = labReviewRecordSchema.safeParse({
     ...raw,
     id,
+    candidateStatuses: normalizeLabCandidateStatusMap(
+      (raw.candidateStatuses as Record<string, string> | undefined) ?? {},
+    ),
     createdAt: toIso(raw.createdAt) ?? raw.createdAt,
     updatedAt: toIso(raw.updatedAt) ?? raw.updatedAt,
   });
@@ -111,6 +116,23 @@ function buildSummary(args: {
   draft: LabExtractionDraft;
   review: LabReviewRecord;
 }): LabReviewSummaryDto {
+  const statuses = Object.values(args.review.candidateStatuses);
+  const importedCount = statuses.filter((s) => s === "auto_published" || s === "user_accepted" || s === "user_corrected").length;
+  const reviewNeededCount = statuses.filter((s) => s === "pending_review").length;
+  const unmatchedPending = args.draft.unmatched.filter(
+    (u) => (args.review.candidateStatuses[u.id] ?? "unresolved") === "unresolved" || (args.review.candidateStatuses[u.id] ?? "unresolved") === "pending_review",
+  ).length;
+  const reportImportStatus =
+    args.review.status === "imported"
+      ? ("imported" as const)
+      : args.review.status === "imported_with_exceptions"
+        ? ("imported_review_recommended" as const)
+        : args.review.status === "accepted"
+          ? ("structured" as const)
+          : importedCount > 0
+            ? ("imported_review_recommended" as const)
+            : ("review_needed" as const);
+
   return labReviewSummaryDtoSchema.parse({
     documentId: args.documentId,
     safeDisplayFilename: args.filename,
@@ -125,6 +147,11 @@ function buildSummary(args: {
     warningCount: args.draft.warnings.length,
     extractionVersion: args.draft.parser.extractionVersion,
     reviewVersion: args.review.reviewVersion,
+    importedCount,
+    reviewNeededCount: reviewNeededCount + unmatchedPending,
+    reportImportStatus,
+    hasAutoPublishedResults: statuses.includes("auto_published"),
+    hasReviewItems: reviewNeededCount + unmatchedPending > 0,
   });
 }
 
@@ -144,11 +171,21 @@ router.get(
       const reviewParsed = labReviewRecordSchema.safeParse({
         ...raw,
         id: doc.id,
+        candidateStatuses: normalizeLabCandidateStatusMap(
+          (raw.candidateStatuses as Record<string, string> | undefined) ?? {},
+        ),
         createdAt: toIso(raw.createdAt) ?? raw.createdAt,
         updatedAt: toIso(raw.updatedAt) ?? raw.updatedAt,
       });
       if (!reviewParsed.success) continue;
-      if (reviewParsed.data.status === "accepted" || reviewParsed.data.status === "rejected") continue;
+      if (
+        reviewParsed.data.status === "accepted" ||
+        reviewParsed.data.status === "rejected" ||
+        reviewParsed.data.status === "imported"
+      ) {
+        continue;
+      }
+      // Keep imported_with_exceptions + not_started + in_progress in the exception queue.
       const draft = await loadLatestDraft(uid, reviewParsed.data.documentId);
       if (!draft) continue;
       const docSnap = await userCollection(uid, "documents").doc(reviewParsed.data.documentId).get();
@@ -202,15 +239,17 @@ router.get(
 
     const candidates: LabReviewCandidateDto[] = [];
     for (const r of draft.results) {
-      const status = review.candidateStatuses[r.id] ?? "pending";
+      const status = review.candidateStatuses[r.id] ?? "pending_review";
       const group =
-        r.aliasMatch.requiresReview || r.confidence < 0.85 || r.warnings.length > 0
-          ? "needs_review"
-          : "matched";
+        status === "auto_published"
+          ? "matched"
+          : r.aliasMatch.requiresReview || r.confidence < 0.85 || r.warnings.length > 0
+            ? "needs_review"
+            : "matched";
       candidates.push(toCandidateDto(r, group, status));
     }
     const unmatched = draft.unmatched.map((u) =>
-      toCandidateDto(u, "unmatched", review.candidateStatuses[u.id] ?? "pending"),
+      toCandidateDto(u, "unmatched", review.candidateStatuses[u.id] ?? "unresolved"),
     );
 
     const detail = labReviewDetailDtoSchema.parse({
@@ -269,6 +308,7 @@ router.patch(
     }
     const now = new Date().toISOString();
     const nextStatuses = { ...review.candidateStatuses };
+    const priorStatus = review.candidateStatuses[candidateId] ?? "pending_review";
     if (body.data.reviewStatus) nextStatuses[candidateId] = body.data.reviewStatus;
     const corrections = [...review.corrections];
     if (body.data.correction) {
@@ -278,13 +318,81 @@ router.patch(
         reviewerType: "user",
         fields: body.data.correction,
       });
-      nextStatuses[candidateId] = "corrected";
+      nextStatuses[candidateId] = "user_corrected";
+    }
+    if (body.data.reviewStatus === "rejected" || nextStatuses[candidateId] === "rejected") {
+      await unpublishAcceptedLabResult({
+        documentId,
+        candidateId,
+        labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
+        labResultsCol: userCollection(uid, "labResults") as never,
+      });
+    } else if (
+      body.data.correction &&
+      (priorStatus === "auto_published" ||
+        priorStatus === "user_accepted" ||
+        priorStatus === "user_corrected")
+    ) {
+      const candidate = draft.results.find((r) => r.id === candidateId);
+      if (candidate?.result && candidate.aliasMatch.canonicalMetricId) {
+        const fields = body.data.correction;
+        const correctedCandidate = {
+          ...candidate,
+          ...(fields.result ? { result: fields.result } : {}),
+          ...(fields.rawUnit !== undefined || fields.normalizedUnit !== undefined
+            ? {
+                unit: {
+                  ...candidate.unit,
+                  rawUnit: fields.rawUnit !== undefined ? fields.rawUnit : candidate.unit.rawUnit,
+                  normalizedUnit:
+                    fields.normalizedUnit !== undefined
+                      ? fields.normalizedUnit
+                      : candidate.unit.normalizedUnit,
+                },
+              }
+            : {}),
+          ...(fields.rawReferenceRange !== undefined
+            ? { rawReferenceRange: fields.rawReferenceRange }
+            : {}),
+          ...(fields.canonicalMetricId !== undefined
+            ? {
+                aliasMatch: {
+                  ...candidate.aliasMatch,
+                  canonicalMetricId: fields.canonicalMetricId,
+                },
+              }
+            : {}),
+        };
+        if (correctedCandidate.result) {
+          const accepted = buildAcceptedLabResult({
+            userId: uid,
+            draft,
+            candidate: correctedCandidate,
+            reviewStatus: "user_corrected",
+            reviewVersion: String(review.reviewVersion + 1),
+            acceptedAt: now,
+            collectedAt: draft.reportCandidate.collectedAt ?? null,
+            reportedAt: draft.reportCandidate.reportedAt ?? null,
+            fasting: draft.reportCandidate.fasting ?? null,
+          });
+          await userCollection(uid, "labAcceptedResults").doc(accepted.id).set(accepted, { merge: true });
+          const projection = projectAcceptedToLabMetricResultDto(accepted);
+          if (projection) {
+            await userCollection(uid, "labResults").doc(projection.id).set(projection, { merge: true });
+          }
+        }
+      }
     }
     const next: LabReviewRecord = {
       ...review,
       candidateStatuses: nextStatuses,
       corrections,
-      status: review.status === "not_started" ? "in_progress" : review.status,
+      status:
+        review.status === "not_started" ||
+        review.status === "imported" ||
+        review.status === "imported_with_exceptions"
+          ? "in_progress"
+          : review.status,
       reviewVersion: review.reviewVersion + 1,
       updatedAt: now,
     };
@@ -374,7 +482,7 @@ router.post(
         userId: uid,
         draft,
         candidate,
-        reviewStatus: candidate.reviewStatus === "corrected" ? "corrected" : "accepted",
+        reviewStatus: candidate.reviewStatus === "user_corrected" ? "user_corrected" : "user_accepted",
         reviewVersion: String(review.reviewVersion + 1),
         acceptedAt: now,
         collectedAt: draft.reportCandidate.collectedAt ?? null,
@@ -457,7 +565,15 @@ router.post(
     }
     const now = new Date().toISOString();
     const nextStatuses = { ...review.candidateStatuses };
-    for (const id of body.data.candidateIds) nextStatuses[id] = "rejected";
+    for (const id of body.data.candidateIds) {
+      nextStatuses[id] = "rejected";
+      await unpublishAcceptedLabResult({
+        documentId,
+        candidateId: id,
+        labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
+        labResultsCol: userCollection(uid, "labResults") as never,
+      });
+    }
     const next = {
       ...review,
       candidateStatuses: nextStatuses,
