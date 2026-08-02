@@ -83,6 +83,12 @@ describe("source-truth Cardio IQ column selection", () => {
     expect(pattern?.result).toEqual({ kind: "pattern", value: "Pattern B" });
   });
 
+  it("reads LDL Pattern current letter before reference letter on detail rows", () => {
+    const draft = draftFromText("LDL PATTERN B A Pattern");
+    const pattern = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "ldl_pattern");
+    expect(pattern?.result).toEqual({ kind: "pattern", value: "Pattern B" });
+  });
+
   it("reconstructs Lp-PLA2 activity unit nmol/min/mL", () => {
     const draft = draftFromText("LP-PLA2 ACTIVITY 95 nmol/min/mL");
     const row = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "lp_pla2");

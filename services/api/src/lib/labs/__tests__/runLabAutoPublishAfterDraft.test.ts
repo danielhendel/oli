@@ -26,6 +26,13 @@ function makeCol() {
         store.delete(id);
       },
     }),
+    where: (field: string, _op: string, value: unknown) => ({
+      get: async () => ({
+        docs: [...store.entries()]
+          .filter(([, row]) => row[field] === value)
+          .map(([id, row]) => ({ id, data: () => row })),
+      }),
+    }),
   };
 }
 
