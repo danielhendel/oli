@@ -127,7 +127,7 @@ describe("labs projection boundary", () => {
     expect(projected?.value).toBe(4);
   });
 
-  it("does not project qualitative or pattern results", () => {
+  it("projects qualitative and pattern results via rawValueText (never as numeric)", () => {
     const q = candidate({
       id: "c_q",
       rawAnalyteLabel: "HCV AB",
@@ -141,22 +141,31 @@ describe("labs projection boundary", () => {
         requiresReview: true,
       },
     });
-    expect(
-      projectAcceptedToLabMetricResultDto(
-        acceptedFrom(
-          { ...q, aliasMatch: { ...q.aliasMatch, canonicalMetricId: "hs_crp" } },
-          q.result!,
-        ),
+    const qProjected = projectAcceptedToLabMetricResultDto(
+      acceptedFrom(
+        { ...q, aliasMatch: { ...q.aliasMatch, canonicalMetricId: "hs_crp" } },
+        q.result!,
       ),
-    ).toBeNull();
+    );
+    expect(qProjected?.value).toBeNull();
+    expect(qProjected?.rawValueText).toBe("negative");
 
     const p = candidate({
       id: "c_p",
-      rawAnalyteLabel: "ANA",
+      rawAnalyteLabel: "LDL PATTERN",
       rawResult: "Pattern B",
       result: { kind: "pattern", value: "Pattern B" },
+      aliasMatch: {
+        canonicalMetricId: "ldl_pattern",
+        matchMethod: "exact",
+        aliasVersion: "1.0.0",
+        confidence: 0.95,
+        requiresReview: false,
+      },
     });
-    expect(projectAcceptedToLabMetricResultDto(acceptedFrom(p, p.result!))).toBeNull();
+    const pProjected = projectAcceptedToLabMetricResultDto(acceptedFrom(p, p.result!));
+    expect(pProjected?.value).toBeNull();
+    expect(pProjected?.rawValueText).toBe("Pattern B");
   });
 
   it("uses deterministic accepted ids for idempotent writes", () => {
