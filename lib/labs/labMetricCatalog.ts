@@ -343,15 +343,30 @@ export function groupLabResultsByCategory(
 export function formatLabResultValue(
   value: number | null | undefined,
   unit: string | null | undefined,
-  options?: { rawValueText?: string | null; preferredUnit?: string },
+  options?: {
+    rawValueText?: string | null;
+    preferredUnit?: string;
+    comparator?: "eq" | "lt" | "lte" | "gt" | "gte" | null;
+  },
 ): string {
+  if (options?.rawValueText?.trim() && (value == null || !Number.isFinite(value) || (options.comparator && options.comparator !== "eq"))) {
+    const raw = options.rawValueText.trim();
+    const displayUnit = unit?.trim() || options?.preferredUnit || "";
+    if (displayUnit && !raw.includes(displayUnit)) return `${raw} ${displayUnit}`;
+    return raw;
+  }
   if (value == null || !Number.isFinite(value)) {
     if (options?.rawValueText?.trim()) return options.rawValueText.trim();
     return "—";
   }
   const displayUnit = unit?.trim() || options?.preferredUnit || "";
   const formatted = Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
-  return displayUnit ? `${formatted} ${displayUnit}` : formatted;
+  const cmp = options?.comparator;
+  const withCmp =
+    cmp && cmp !== "eq"
+      ? `${cmp === "lt" ? "<" : cmp === "lte" ? "≤" : cmp === "gt" ? ">" : "≥"}${formatted}`
+      : formatted;
+  return displayUnit ? `${withCmp} ${displayUnit}` : withCmp;
 }
 
 /** Human-readable reference range when available. */

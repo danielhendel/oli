@@ -1,8 +1,8 @@
 /**
- * Partition extraction candidates and build import summary (pure).
+ * Partition extraction candidates for zero-user-work import + verification.
  */
 import {
-  LAB_AUTO_PUBLISH_POLICY_VERSION,
+  LAB_AUTO_IMPORT_POLICY_VERSION,
   type LabAutoPublishDecision,
   type LabExtractionDraft,
   type LabImportSummaryDto,
@@ -13,9 +13,19 @@ import {
   deriveLabCandidateConfidence,
   evaluateLabAutoPublish,
 } from "./evaluateLabAutoPublish";
+import { applyDeterministicLabVerificationFix } from "../verification/applyDeterministicLabVerificationFix";
 
 export type LabAutoPublishPartition = {
   autoPublishable: { candidate: LabResultCandidate; decision: LabAutoPublishDecision }[];
+  /** Deterministically fixed then eligible — publish as system_verified. */
+  systemVerifiable: {
+    candidate: LabResultCandidate;
+    decision: LabAutoPublishDecision;
+    methods: string[];
+  }[];
+  /** Matched but still unsafe after verification — withhold (no user work). */
+  withheld: { candidate: LabResultCandidate; decision: LabAutoPublishDecision }[];
+  /** @deprecated Prefer withheld — kept for older call sites expecting reviewRequired. */
   reviewRequired: { candidate: LabResultCandidate; decision: LabAutoPublishDecision }[];
   unmatchedCount: number;
   decisionsByCandidateId: Record<string, LabAutoPublishDecision>;
@@ -27,7 +37,6 @@ function reportFamilyEligible(draft: LabExtractionDraft): boolean {
   const unsupported = draft.status === "unsupported" || draft.status === "failed";
   if (unsupported) return false;
   if (!parserOk) return false;
-  // Quest/DirectLabs text family or empty family with quest parser (legacy drafts).
   if (!family) return parserOk;
   return /quest|directlabs/.test(family);
 }
@@ -51,37 +60,64 @@ function duplicateIds(results: readonly LabResultCandidate[]): Set<string> {
   return dups;
 }
 
+function evaluateOne(
+  draft: LabExtractionDraft,
+  candidate: LabResultCandidate,
+  familyOk: boolean,
+  dups: Set<string>,
+): LabAutoPublishDecision {
+  const confidence = deriveLabCandidateConfidence({
+    report: draft.reportCandidate,
+    candidate,
+    duplicateInReport: dups.has(candidate.id),
+  });
+  return evaluateLabAutoPublish({
+    report: draft.reportCandidate,
+    candidate,
+    reportFamilyEligible: familyOk,
+    confidence,
+    warningCodes: candidate.warnings,
+  });
+}
+
 export function partitionLabCandidatesForAutoPublish(draft: LabExtractionDraft): LabAutoPublishPartition {
   const familyOk = reportFamilyEligible(draft);
   const dups = duplicateIds(draft.results);
   const autoPublishable: LabAutoPublishPartition["autoPublishable"] = [];
-  const reviewRequired: LabAutoPublishPartition["reviewRequired"] = [];
+  const systemVerifiable: LabAutoPublishPartition["systemVerifiable"] = [];
+  const withheld: LabAutoPublishPartition["withheld"] = [];
   const decisionsByCandidateId: Record<string, LabAutoPublishDecision> = {};
 
   for (const candidate of draft.results) {
-    const confidence = deriveLabCandidateConfidence({
-      report: draft.reportCandidate,
-      candidate,
-      duplicateInReport: dups.has(candidate.id),
-    });
-    const decision = evaluateLabAutoPublish({
-      report: draft.reportCandidate,
-      candidate,
-      reportFamilyEligible: familyOk,
-      confidence,
-      warningCodes: candidate.warnings,
-    });
+    const decision = evaluateOne(draft, candidate, familyOk, dups);
     decisionsByCandidateId[candidate.id] = decision;
     if (decision.eligible) {
       autoPublishable.push({ candidate, decision });
-    } else {
-      reviewRequired.push({ candidate, decision });
+      continue;
     }
+
+    const fix = applyDeterministicLabVerificationFix(candidate);
+    if (fix) {
+      const verifiedDecision = evaluateOne(draft, fix.candidate, familyOk, dups);
+      decisionsByCandidateId[candidate.id] = verifiedDecision;
+      if (verifiedDecision.eligible) {
+        systemVerifiable.push({
+          candidate: fix.candidate,
+          decision: verifiedDecision,
+          methods: fix.methods,
+        });
+        continue;
+      }
+    }
+
+    withheld.push({ candidate, decision });
   }
 
   return {
     autoPublishable,
-    reviewRequired,
+    systemVerifiable,
+    withheld,
+    reviewRequired: withheld,
     unmatchedCount: draft.unmatched.length,
     decisionsByCandidateId,
   };
@@ -94,21 +130,31 @@ export function buildLabImportSummary(args: {
   draftTerminalUnsupported?: boolean;
   draftFailed?: boolean;
 }): LabImportSummaryDto {
-  const importedCount = args.partition.autoPublishable.length;
-  const reviewNeededCount = args.partition.reviewRequired.length;
-  const unmatchedCount = args.partition.unmatchedCount;
+  const autoImportedCount = args.partition.autoPublishable.length;
+  const systemVerifiedCount = args.partition.systemVerifiable.length;
+  const importedCount = autoImportedCount + systemVerifiedCount;
+  const withheldCount = args.partition.withheld.length;
+  const unsupportedCount = args.partition.unmatchedCount;
+  /** Zero-user-work: never require consumer review for matched leftovers. */
+  const reviewNeededCount = 0;
 
   let reportImportStatus: LabReportImportStatus;
+  let reportProcessingStatus: NonNullable<LabImportSummaryDto["reportProcessingStatus"]>;
   if (args.draftFailed || args.draft.status === "failed") {
     reportImportStatus = "failed";
+    reportProcessingStatus = "failed";
   } else if (args.draftTerminalUnsupported || args.draft.status === "unsupported") {
     reportImportStatus = "unsupported";
-  } else if (importedCount > 0 && reviewNeededCount === 0 && unmatchedCount === 0) {
-    reportImportStatus = "imported";
+    reportProcessingStatus = "unsupported";
+  } else if (importedCount > 0 && withheldCount === 0) {
+    reportImportStatus = unsupportedCount > 0 ? "imported_review_recommended" : "imported";
+    reportProcessingStatus = "imported";
   } else if (importedCount > 0) {
     reportImportStatus = "imported_review_recommended";
+    reportProcessingStatus = "imported_withheld";
   } else {
     reportImportStatus = "review_needed";
+    reportProcessingStatus = unsupportedCount > 0 ? "imported_withheld" : "failed";
   }
 
   return {
@@ -117,10 +163,15 @@ export function buildLabImportSummary(args: {
     reportImportStatus,
     importedCount,
     reviewNeededCount,
-    unmatchedCount,
+    unmatchedCount: unsupportedCount,
     hasAutoPublishedResults: importedCount > 0,
-    hasReviewItems: reviewNeededCount > 0 || unmatchedCount > 0,
-    policyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
+    hasReviewItems: false,
+    policyVersion: LAB_AUTO_IMPORT_POLICY_VERSION,
+    autoImportedCount,
+    systemVerifiedCount,
+    withheldCount,
+    unsupportedCount,
+    reportProcessingStatus,
   };
 }
 
@@ -128,6 +179,6 @@ export function reviewStatusFromImportSummary(
   summary: LabImportSummaryDto,
 ): "imported" | "imported_with_exceptions" | "not_started" {
   if (summary.reportImportStatus === "imported") return "imported";
-  if (summary.reportImportStatus === "imported_review_recommended") return "imported_with_exceptions";
+  if (summary.importedCount > 0) return "imported_with_exceptions";
   return "not_started";
 }

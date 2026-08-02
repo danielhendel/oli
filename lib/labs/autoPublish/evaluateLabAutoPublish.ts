@@ -1,11 +1,16 @@
 /**
- * Central high-confidence lab auto-publish policy (Phase 3D-A).
+ * Central high-confidence lab auto-import policy (Phase 3D-A) — policy v2.
  *
  * Pure + deterministic. Automatic publication means transcription confidence
  * only — never medical validation.
+ *
+ * v2 changes vs v1:
+ * - trusted numeric inequalities (lt/lte/gt/gte) may import;
+ * - optional reference-range / flag ambiguity does not block;
+ * - empty unit still fails until verification assigns a profile unit.
  */
 import {
-  LAB_AUTO_PUBLISH_POLICY_VERSION,
+  LAB_AUTO_IMPORT_POLICY_VERSION,
   type LabAutoPublishBlockReason,
   type LabAutoPublishDecision,
   type LabCandidateConfidence,
@@ -18,7 +23,6 @@ import { getLabMetricImportProfile } from "./labMetricImportProfiles";
 export const LAB_AUTO_PUBLISH_THRESHOLDS = {
   reportFamily: 0.98,
   rowSegmentation: 0.98,
-  /** Exact/approved deterministic identity only. */
   analyteIdentity: 1.0,
   resultValue: 0.99,
   unit: 0.99,
@@ -27,6 +31,7 @@ export const LAB_AUTO_PUBLISH_THRESHOLDS = {
   duplicateSafety: 1.0,
 } as const;
 
+/** Warnings that block import. Optional range/flag ambiguity is intentionally absent. */
 export const LAB_AUTO_PUBLISH_BLOCKING_WARNINGS: ReadonlySet<LabExtractionWarningCode> = new Set([
   "ambiguous_analyte",
   "ambiguous_value",
@@ -41,15 +46,20 @@ export const LAB_AUTO_PUBLISH_BLOCKING_WARNINGS: ReadonlySet<LabExtractionWarnin
   "unsupported_layout",
 ]);
 
-const ALLOWED_MATCH_METHODS = new Set(["exact_canonical", "exact_alias", "normalized_exact", "deterministic_pattern"]);
+const ALLOWED_MATCH_METHODS = new Set([
+  "exact_canonical",
+  "exact_alias",
+  "normalized_exact",
+  "deterministic_pattern",
+]);
+
+const ALLOWED_COMPARATORS = new Set(["eq", "lt", "lte", "gt", "gte"]);
 
 export type EvaluateLabAutoPublishInput = {
   report: LabReportMetadataCandidate;
   candidate: LabResultCandidate;
-  /** Report-family / parser eligibility already resolved by ingestion. */
   reportFamilyEligible: boolean;
   confidence: LabCandidateConfidence;
-  /** Candidate-level warning codes (extraction). */
   warningCodes: readonly LabExtractionWarningCode[];
 };
 
@@ -68,7 +78,7 @@ function buildEvidence(input: EvaluateLabAutoPublishInput) {
 function fail(reasons: LabAutoPublishBlockReason[], input: EvaluateLabAutoPublishInput): LabAutoPublishDecision {
   return {
     eligible: false,
-    policyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
+    policyVersion: LAB_AUTO_IMPORT_POLICY_VERSION as LabAutoPublishDecision["policyVersion"],
     reasons,
     evidence: buildEvidence(input),
   };
@@ -106,8 +116,10 @@ export function evaluateLabAutoPublish(input: EvaluateLabAutoPublishInput): LabA
   const result = candidate.result;
   if (!result || result.kind !== "numeric") {
     reasons.push("result_type_not_auto_publishable");
-  } else if (result.comparator !== "eq") {
-    reasons.push("result_comparator_not_eq");
+  } else if (!ALLOWED_COMPARATORS.has(result.comparator)) {
+    reasons.push("result_type_not_auto_publishable");
+  } else if (!Number.isFinite(result.value)) {
+    reasons.push("result_value_low_confidence");
   } else if (confidence.resultValue < LAB_AUTO_PUBLISH_THRESHOLDS.resultValue) {
     reasons.push("result_value_low_confidence");
   }
@@ -165,7 +177,6 @@ export function evaluateLabAutoPublish(input: EvaluateLabAutoPublishInput): LabA
   }
 
   if (profile?.methodSensitive && candidate.method?.noteRef && !candidate.method.assayMethod) {
-    // Unresolved method note on method-sensitive metric → block
     if (input.warningCodes.includes("method_note_unresolved")) {
       reasons.push("method_unresolved");
     }
@@ -178,7 +189,7 @@ export function evaluateLabAutoPublish(input: EvaluateLabAutoPublishInput): LabA
 
   return {
     eligible: true,
-    policyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
+    policyVersion: LAB_AUTO_IMPORT_POLICY_VERSION as LabAutoPublishDecision["policyVersion"],
     evidence: buildEvidence(input),
   };
 }
@@ -199,12 +210,16 @@ export function deriveLabCandidateConfidence(args: {
       ? 1
       : c.aliasMatch.matchMethod === "exact_alias" && c.aliasMatch.confidence >= 0.95 && !c.aliasMatch.requiresReview
         ? 1
-        : c.aliasMatch.matchMethod === "normalized_exact" && c.aliasMatch.confidence >= 0.95 && !c.aliasMatch.requiresReview
+        : c.aliasMatch.matchMethod === "normalized_exact" &&
+            c.aliasMatch.confidence >= 0.95 &&
+            !c.aliasMatch.requiresReview
           ? 1
           : Math.min(c.aliasMatch.confidence, 0.99);
 
   const resultValue =
-    c.result?.kind === "numeric" && c.result.comparator === "eq" && Number.isFinite(c.result.value)
+    c.result?.kind === "numeric" &&
+    ALLOWED_COMPARATORS.has(c.result.comparator) &&
+    Number.isFinite(c.result.value)
       ? Math.max(c.confidence, 0.99)
       : Math.min(c.confidence, 0.5);
 
@@ -220,7 +235,8 @@ export function deriveLabCandidateConfidence(args: {
 
   const date = args.report.collectedAt ? Math.min(1, args.report.confidence) : 0;
   const duplicateSafety = args.duplicateInReport || c.provenance.resultRole === "historical_column" ? 0 : 1;
-  const rowSegmentation = c.warnings.includes("ambiguous_value") || c.warnings.includes("duplicate_candidate") ? 0.5 : 0.99;
+  const rowSegmentation =
+    c.warnings.includes("ambiguous_value") || c.warnings.includes("duplicate_candidate") ? 0.5 : 0.99;
 
   return {
     reportFamily,

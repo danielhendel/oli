@@ -13,6 +13,9 @@ export const LABS_OS_SCHEMA_VERSION = "1.0.0" as const;
 export const LABS_ALIAS_REGISTRY_VERSION = "1.1.0" as const;
 export const LABS_UNIT_REGISTRY_VERSION = "1.1.0" as const;
 export const LAB_AUTO_PUBLISH_POLICY_VERSION = "1.0.0" as const;
+/** Import policy v2: trusted inequalities + field-level optional ambiguity. */
+export const LAB_AUTO_IMPORT_POLICY_VERSION = "2.0.0" as const;
+export const LAB_SYSTEM_VERIFICATION_POLICY_VERSION = "1.0.0" as const;
 
 export const labResultComparatorSchema = z.enum(["eq", "lt", "lte", "gt", "gte"]);
 
@@ -208,10 +211,12 @@ export const labResultProvenanceSchema = z
 export const labCandidateReviewStatusValues = [
   "pending_review",
   "auto_published",
+  "system_verified",
   "user_accepted",
   "user_corrected",
   "rejected",
   "unresolved",
+  "withheld",
 ] as const;
 
 export type LabCandidateReviewStatus = (typeof labCandidateReviewStatusValues)[number];
@@ -223,6 +228,7 @@ export function normalizeLabCandidateReviewStatus(raw: string): LabCandidateRevi
   if (raw === "pending") return "pending_review";
   if (raw === "accepted") return "user_accepted";
   if (raw === "corrected") return "user_corrected";
+  if (raw === "auto_imported") return "auto_published";
   return labCandidateReviewStatusSchema.parse(raw);
 }
 
@@ -482,11 +488,12 @@ export const acceptedLabResultSchema = z
     provenance: labResultProvenanceSchema,
     review: z
       .object({
-        status: z.enum(["auto_published", "user_accepted", "user_corrected"]),
+        status: z.enum(["auto_published", "system_verified", "user_accepted", "user_corrected"]),
         acceptedAt: isoDatetimeString,
         reviewVersion: z.string().min(1),
         policyVersion: z.string().min(1).optional(),
-        publicationMode: z.enum(["auto", "user"]).optional(),
+        publicationMode: z.enum(["auto", "system_verified", "user"]).optional(),
+        verificationMethods: z.array(z.string().min(1)).optional(),
       })
       .strip(),
     parser: z
@@ -692,14 +699,14 @@ export const labAutoPublishDecisionSchema = z.discriminatedUnion("eligible", [
   z
     .object({
       eligible: z.literal(true),
-      policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION),
+      policyVersion: z.enum([LAB_AUTO_PUBLISH_POLICY_VERSION, LAB_AUTO_IMPORT_POLICY_VERSION]),
       evidence: labAutoPublishEvidenceSchema,
     })
     .strip(),
   z
     .object({
       eligible: z.literal(false),
-      policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION),
+      policyVersion: z.enum([LAB_AUTO_PUBLISH_POLICY_VERSION, LAB_AUTO_IMPORT_POLICY_VERSION]),
       reasons: z.array(labAutoPublishBlockReasonSchema).min(1),
       evidence: labAutoPublishEvidenceSchema.optional(),
     })
@@ -716,7 +723,14 @@ export const labImportSummaryDtoSchema = z
     unmatchedCount: z.number().int().nonnegative(),
     hasAutoPublishedResults: z.boolean(),
     hasReviewItems: z.boolean(),
-    policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION).optional(),
+    policyVersion: z.enum([LAB_AUTO_PUBLISH_POLICY_VERSION, LAB_AUTO_IMPORT_POLICY_VERSION]).optional(),
+    autoImportedCount: z.number().int().nonnegative().optional(),
+    systemVerifiedCount: z.number().int().nonnegative().optional(),
+    withheldCount: z.number().int().nonnegative().optional(),
+    unsupportedCount: z.number().int().nonnegative().optional(),
+    reportProcessingStatus: z
+      .enum(["processing", "imported", "imported_verifying", "imported_withheld", "unsupported", "failed"])
+      .optional(),
   })
   .strip();
 
@@ -729,6 +743,12 @@ export const labMetricImportProfileSchema = z
     methodSensitive: z.boolean(),
     specimenSensitive: z.boolean(),
     autoPublishV1: z.boolean(),
+    /** Inequality results may display with comparator semantics. */
+    supportsComparatorDisplay: z.boolean().optional(),
+    /** Inequality results may project into metric cards when destination supports it. */
+    supportsComparatorProjection: z.boolean().optional(),
+    /** Inequality results may enter trend aggregates (default false — censored values). */
+    supportsComparatorTrend: z.boolean().optional(),
   })
   .strip();
 

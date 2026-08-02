@@ -3,7 +3,7 @@
  * Structural only — no clinical values asserted as health truth.
  */
 import type { LabReportMetadataCandidate, LabResultCandidate } from "@oli/contracts";
-import { LAB_AUTO_PUBLISH_POLICY_VERSION } from "@oli/contracts";
+import { LAB_AUTO_IMPORT_POLICY_VERSION } from "@oli/contracts";
 import {
   deriveLabCandidateConfidence,
   evaluateLabAutoPublish,
@@ -81,11 +81,11 @@ describe("evaluateLabAutoPublish", () => {
     });
     expect(decision.eligible).toBe(true);
     if (decision.eligible) {
-      expect(decision.policyVersion).toBe(LAB_AUTO_PUBLISH_POLICY_VERSION);
+      expect(decision.policyVersion).toBe(LAB_AUTO_IMPORT_POLICY_VERSION);
     }
   });
 
-  it("blocks unmatched, inequality, unknown unit, missing date, historical, and blocking warnings independently", () => {
+  it("blocks unmatched, unknown unit, missing date, historical, and blocking warnings independently", () => {
     const r = report();
     const base = candidate({ id: "c1" });
 
@@ -118,10 +118,7 @@ describe("evaluateLabAutoPublish", () => {
       }),
       warningCodes: [],
     });
-    expect(inequality.eligible).toBe(false);
-    if (!inequality.eligible) {
-      expect(inequality.reasons).toContain("result_comparator_not_eq");
-    }
+    expect(inequality.eligible).toBe(true);
 
     const badUnit = evaluateLabAutoPublish({
       report: r,
@@ -226,7 +223,8 @@ describe("evaluateLabAutoPublish", () => {
     };
     const part = partitionLabCandidatesForAutoPublish(draft);
     expect(part.autoPublishable.some((x) => x.candidate.id === "ok")).toBe(true);
-    expect(part.reviewRequired.some((x) => x.candidate.id === "ineq")).toBe(true);
+    expect(part.autoPublishable.some((x) => x.candidate.id === "ineq")).toBe(true);
+    expect(part.withheld.some((x) => x.candidate.id === "ineq")).toBe(false);
     expect(part.unmatchedCount).toBe(1);
   });
 

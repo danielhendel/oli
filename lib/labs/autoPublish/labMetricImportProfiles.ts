@@ -11,6 +11,9 @@ function profile(
     expectedKinds?: LabMetricImportProfile["expectedKinds"];
     allowedUnits?: readonly string[];
     autoPublishV1?: boolean;
+    supportsComparatorDisplay?: boolean;
+    supportsComparatorProjection?: boolean;
+    supportsComparatorTrend?: boolean;
   } = {},
 ): LabMetricImportProfile {
   const metric = getLabMetricByKey(metricId);
@@ -25,6 +28,9 @@ function profile(
     methodSensitive: overrides.methodSensitive ?? false,
     specimenSensitive: overrides.specimenSensitive ?? false,
     autoPublishV1: overrides.autoPublishV1 ?? metric.resultType === "numeric",
+    supportsComparatorDisplay: overrides.supportsComparatorDisplay ?? true,
+    supportsComparatorProjection: overrides.supportsComparatorProjection ?? true,
+    supportsComparatorTrend: overrides.supportsComparatorTrend ?? false,
   };
 }
 
@@ -40,6 +46,11 @@ const PROFILES: LabMetricImportProfile[] = [
   profile("hs_crp", { autoPublishV1: true }),
   profile("ldl_particle_number", { compatiblePanels: ["CARDIO IQ"], autoPublishV1: true }),
   profile("small_ldl_p", { compatiblePanels: ["CARDIO IQ"], autoPublishV1: true }),
+  profile("lp_pla2", {
+    compatiblePanels: ["CARDIO IQ"],
+    allowedUnits: ["nmol/min/mL", "ng/mL"],
+    autoPublishV1: true,
+  }),
 
   // Metabolic / CMP
   profile("glucose", { compatiblePanels: ["COMPREHENSIVE METABOLIC PANEL", "CMP", "BMP"], autoPublishV1: true }),
