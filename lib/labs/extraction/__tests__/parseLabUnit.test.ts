@@ -48,6 +48,33 @@ describe("parseLabUnitCandidate", () => {
     // Only notation normalization; no numeric conversion helper exists on this module.
     expect((result as Record<string, unknown>).conversionFactor).toBeUndefined();
   });
+
+  it("normalizes expanded registry variants (mcg, Million/uL, fL, pg, umol, IU, cells/µL)", () => {
+    const cases: readonly { raw: string; normalized: string }[] = [
+      { raw: "mcg/dL", normalized: "ug/dL" },
+      { raw: "ug/dL", normalized: "ug/dL" },
+      { raw: "mIU/mL", normalized: "mIU/mL" },
+      { raw: "Million/uL", normalized: "Million/uL" },
+      { raw: "10^6/uL", normalized: "Million/uL" },
+      { raw: "M/uL", normalized: "Million/uL" },
+      { raw: "fL", normalized: "fL" },
+      { raw: "pg", normalized: "pg" },
+      { raw: "umol/L", normalized: "umol/L" },
+      { raw: "IU/L", normalized: "U/L" },
+      { raw: "cells/µL", normalized: "cells/uL" },
+      { raw: "mEq/L", normalized: "mEq/L" },
+    ];
+    for (const { raw, normalized } of cases) {
+      const result = parseLabUnitCandidate(raw);
+      expect(result.known).toBe(true);
+      expect(result.normalizedUnit).toBe(normalized);
+      expect(result.unitRegistryVersion).toBe(LABS_UNIT_REGISTRY_VERSION);
+    }
+  });
+
+  it("uses unit registry 1.1.0 after variant expansion", () => {
+    expect(LABS_UNIT_REGISTRY_VERSION).toBe("1.1.0");
+  });
 });
 
 describe("unitsAreTrendCompatible", () => {

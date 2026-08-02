@@ -12,6 +12,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { extractPdfTextPages } from "../../services/api/src/lib/labs/pdfTextExtraction";
 import { extractQuestLabReportDraft } from "../../lib/labs/extraction/extractQuestLabReportDraft";
+import { partitionLabCandidatesForAutoPublish } from "../../lib/labs/autoPublish/partitionLabAutoPublish";
+import { LAB_AUTO_PUBLISH_POLICY_VERSION } from "../../lib/contracts/labsOs";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -78,6 +80,16 @@ async function main() {
     (r) => r.aliasMatch.requiresReview || r.confidence < 0.85 || r.warnings.length > 0,
   ).length;
 
+  const partition = partitionLabCandidatesForAutoPublish(draft);
+  const blockReasonCounts: Record<string, number> = {};
+  for (const { decision } of partition.reviewRequired) {
+    if (!decision.eligible) {
+      for (const reason of decision.reasons) {
+        blockReasonCounts[reason] = (blockReasonCounts[reason] ?? 0) + 1;
+      }
+    }
+  }
+
   console.log(
     JSON.stringify({
       label,
@@ -93,6 +105,10 @@ async function main() {
       metadataFieldCount,
       resultTypeCounts,
       reviewNeededCount,
+      autoPublishedCount: partition.autoPublishable.length,
+      autoPublishReviewNeededCount: partition.reviewRequired.length,
+      autoPublishBlockReasonCounts: blockReasonCounts,
+      autoPublishPolicyVersion: LAB_AUTO_PUBLISH_POLICY_VERSION,
       panelCount: draft.panels.length,
       parserId: draft.parser.id,
       parserVersion: draft.parser.version,

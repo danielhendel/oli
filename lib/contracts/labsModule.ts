@@ -54,6 +54,10 @@ export const labMetricResultDtoSchema = z
     rawUnit: z.string().nullable().optional(),
     rawValueText: z.string().nullable().optional(),
     createdAt: isoDatetimeString,
+    /** Consumer-safe publication mode when projected from accepted Labs OS results. */
+    publicationMode: z.enum(["auto", "user"]).optional(),
+    sourcePage: z.number().int().positive().optional(),
+    laboratoryName: z.string().min(1).nullable().optional(),
   })
   .strip();
 

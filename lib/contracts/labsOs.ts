@@ -1,16 +1,18 @@
 /**
  * Labs OS contracts (Phase 3D-A).
  *
- * Additive on Document Ingestion OS. Parser candidates are never accepted health
- * truth. No auto-accept. No DailyFacts / Insights / canonical Lab events.
+ * Additive on Document Ingestion OS. Parser candidates are never medical truth.
+ * High-confidence automatic publication means transcription confidence only —
+ * not clinical validation. No DailyFacts / Insights / canonical Lab events.
  */
 import { z } from "zod";
 
 const isoDatetimeString = z.string().datetime();
 
 export const LABS_OS_SCHEMA_VERSION = "1.0.0" as const;
-export const LABS_ALIAS_REGISTRY_VERSION = "1.0.0" as const;
-export const LABS_UNIT_REGISTRY_VERSION = "1.0.0" as const;
+export const LABS_ALIAS_REGISTRY_VERSION = "1.1.0" as const;
+export const LABS_UNIT_REGISTRY_VERSION = "1.1.0" as const;
+export const LAB_AUTO_PUBLISH_POLICY_VERSION = "1.0.0" as const;
 
 export const labResultComparatorSchema = z.enum(["eq", "lt", "lte", "gt", "gte"]);
 
@@ -203,12 +205,44 @@ export const labResultProvenanceSchema = z
   })
   .strip();
 
-export const labCandidateReviewStatusSchema = z.enum([
-  "pending",
-  "accepted",
-  "corrected",
+export const labCandidateReviewStatusValues = [
+  "pending_review",
+  "auto_published",
+  "user_accepted",
+  "user_corrected",
   "rejected",
   "unresolved",
+] as const;
+
+export type LabCandidateReviewStatus = (typeof labCandidateReviewStatusValues)[number];
+
+export const labCandidateReviewStatusSchema = z.enum(labCandidateReviewStatusValues);
+
+/** Map legacy persisted statuses before schema parse. */
+export function normalizeLabCandidateReviewStatus(raw: string): LabCandidateReviewStatus {
+  if (raw === "pending") return "pending_review";
+  if (raw === "accepted") return "user_accepted";
+  if (raw === "corrected") return "user_corrected";
+  return labCandidateReviewStatusSchema.parse(raw);
+}
+
+export function normalizeLabCandidateStatusMap(
+  raw: Record<string, string>,
+): Record<string, LabCandidateReviewStatus> {
+  const out: Record<string, LabCandidateReviewStatus> = {};
+  for (const [id, status] of Object.entries(raw)) {
+    out[id] = normalizeLabCandidateReviewStatus(status);
+  }
+  return out;
+}
+
+export const labReportImportStatusSchema = z.enum([
+  "imported",
+  "imported_review_recommended",
+  "review_needed",
+  "unsupported",
+  "failed",
+  "structured",
 ]);
 
 export const labReportReviewStatusSchema = z.enum([
@@ -218,6 +252,10 @@ export const labReportReviewStatusSchema = z.enum([
   "accepted",
   "rejected",
   "superseded",
+  /** Partial auto-publish completed; exceptions remain. */
+  "imported_with_exceptions",
+  /** All eligible candidates auto-published; no review queue items. */
+  "imported",
 ]);
 
 export const labExtractionDraftStatusSchema = z.enum([
@@ -382,6 +420,39 @@ export const labReviewRecordSchema = z
     lastAcceptIdempotencyKey: z.string().min(1).optional(),
     /** Server-only reject replay key (stripped from consumer DTOs). */
     lastRejectIdempotencyKey: z.string().min(1).optional(),
+    /**
+     * Import summary after auto-publish (consumer-safe counts).
+     * Validated loosely here; full shape via labImportSummaryDtoSchema at write time.
+     */
+    importSummary: z
+      .object({
+        ok: z.literal(true),
+        documentId: z.string().min(1),
+        reportImportStatus: labReportImportStatusSchema,
+        importedCount: z.number().int().nonnegative(),
+        reviewNeededCount: z.number().int().nonnegative(),
+        unmatchedCount: z.number().int().nonnegative(),
+        hasAutoPublishedResults: z.boolean(),
+        hasReviewItems: z.boolean(),
+        policyVersion: z.string().min(1).optional(),
+      })
+      .strip()
+      .optional(),
+    /**
+     * Per-candidate auto-publish decisions (export/audit).
+     * Not exposed on normal consumer review DTOs.
+     */
+    autoPublishDecisions: z
+      .record(
+        z.string(),
+        z.object({
+          eligible: z.boolean(),
+          policyVersion: z.string().min(1),
+          reasons: z.array(z.string().min(1)).optional(),
+          evidence: z.record(z.string(), z.unknown()).optional(),
+        }),
+      )
+      .optional(),
   })
   .strip();
 
@@ -411,9 +482,11 @@ export const acceptedLabResultSchema = z
     provenance: labResultProvenanceSchema,
     review: z
       .object({
-        status: z.enum(["accepted", "corrected"]),
+        status: z.enum(["auto_published", "user_accepted", "user_corrected"]),
         acceptedAt: isoDatetimeString,
         reviewVersion: z.string().min(1),
+        policyVersion: z.string().min(1).optional(),
+        publicationMode: z.enum(["auto", "user"]).optional(),
       })
       .strip(),
     parser: z
@@ -443,6 +516,11 @@ export const labReviewSummaryDtoSchema = z
     warningCount: z.number().int().nonnegative(),
     extractionVersion: z.string().min(1).nullable().optional(),
     reviewVersion: z.number().int().nonnegative(),
+    importedCount: z.number().int().nonnegative().optional(),
+    reviewNeededCount: z.number().int().nonnegative().optional(),
+    reportImportStatus: labReportImportStatusSchema.optional(),
+    hasAutoPublishedResults: z.boolean().optional(),
+    hasReviewItems: z.boolean().optional(),
   })
   .strip();
 
@@ -561,6 +639,99 @@ export const rejectLabReviewResponseSchema = z
   })
   .strip();
 
+export const labAutoPublishBlockReasonSchema = z.enum([
+  "unsupported_report_family",
+  "low_report_family_confidence",
+  "image_only_or_encrypted",
+  "analyte_unmatched",
+  "analyte_ambiguous",
+  "analyte_fuzzy_or_non_deterministic",
+  "result_type_not_auto_publishable",
+  "result_comparator_not_eq",
+  "result_value_low_confidence",
+  "unit_unknown",
+  "unit_incompatible",
+  "unit_low_confidence",
+  "missing_provenance",
+  "missing_collection_date",
+  "conflicting_or_low_date_confidence",
+  "duplicate_candidate",
+  "historical_column",
+  "blocking_warning",
+  "metric_not_auto_publish_v1",
+  "cross_field_inconsistent",
+  "method_unresolved",
+  "low_dimension_confidence",
+]);
+
+export const labCandidateConfidenceSchema = z
+  .object({
+    reportFamily: z.number().min(0).max(1),
+    rowSegmentation: z.number().min(0).max(1),
+    analyteIdentity: z.number().min(0).max(1),
+    resultValue: z.number().min(0).max(1),
+    unit: z.number().min(0).max(1),
+    provenance: z.number().min(0).max(1),
+    date: z.number().min(0).max(1),
+    duplicateSafety: z.number().min(0).max(1),
+  })
+  .strip();
+
+export const labAutoPublishEvidenceSchema = z
+  .object({
+    matchMethod: labAliasMatchMethodSchema,
+    resultKind: z.string().min(1),
+    comparator: labResultComparatorSchema.nullable(),
+    normalizedUnit: z.string().nullable(),
+    confidence: labCandidateConfidenceSchema,
+    warningCodes: z.array(labExtractionWarningCodeSchema),
+  })
+  .strip();
+
+export const labAutoPublishDecisionSchema = z.discriminatedUnion("eligible", [
+  z
+    .object({
+      eligible: z.literal(true),
+      policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION),
+      evidence: labAutoPublishEvidenceSchema,
+    })
+    .strip(),
+  z
+    .object({
+      eligible: z.literal(false),
+      policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION),
+      reasons: z.array(labAutoPublishBlockReasonSchema).min(1),
+      evidence: labAutoPublishEvidenceSchema.optional(),
+    })
+    .strip(),
+]);
+
+export const labImportSummaryDtoSchema = z
+  .object({
+    ok: z.literal(true),
+    documentId: z.string().min(1),
+    reportImportStatus: labReportImportStatusSchema,
+    importedCount: z.number().int().nonnegative(),
+    reviewNeededCount: z.number().int().nonnegative(),
+    unmatchedCount: z.number().int().nonnegative(),
+    hasAutoPublishedResults: z.boolean(),
+    hasReviewItems: z.boolean(),
+    policyVersion: z.literal(LAB_AUTO_PUBLISH_POLICY_VERSION).optional(),
+  })
+  .strip();
+
+export const labMetricImportProfileSchema = z
+  .object({
+    metricId: z.string().min(1),
+    expectedKinds: z.array(z.enum(["numeric", "qualitative", "pattern", "text", "not_reported"])).min(1),
+    allowedUnits: z.array(z.string().min(1)).min(1),
+    compatiblePanels: z.array(z.string().min(1)).optional(),
+    methodSensitive: z.boolean(),
+    specimenSensitive: z.boolean(),
+    autoPublishV1: z.boolean(),
+  })
+  .strip();
+
 export type LabResultValue = z.infer<typeof labResultValueSchema>;
 export type LabReferenceIntervalCandidate = z.infer<typeof labReferenceIntervalCandidateSchema>;
 export type LabFlagCandidate = z.infer<typeof labFlagCandidateSchema>;
@@ -585,9 +756,15 @@ export type LabNormalizedFlag = z.infer<typeof labNormalizedFlagSchema>;
 export type LabExtractionWarningCode = z.infer<typeof labExtractionWarningCodeSchema>;
 export type LabResultProvenance = z.infer<typeof labResultProvenanceSchema>;
 export type LabReportMetadataCandidate = z.infer<typeof labReportMetadataCandidateSchema>;
-export type LabCandidateReviewStatus = z.infer<typeof labCandidateReviewStatusSchema>;
 export type LabReportReviewStatus = z.infer<typeof labReportReviewStatusSchema>;
+export type LabReportImportStatus = z.infer<typeof labReportImportStatusSchema>;
 export type LabExtractionWarning = z.infer<typeof labExtractionWarningSchema>;
 export type LabCandidateCorrection = z.infer<typeof labCandidateCorrectionSchema>;
 export type LabLaboratoryReference = z.infer<typeof labLaboratoryReferenceSchema>;
 export type LabMethodReference = z.infer<typeof labMethodReferenceSchema>;
+export type LabAutoPublishBlockReason = z.infer<typeof labAutoPublishBlockReasonSchema>;
+export type LabCandidateConfidence = z.infer<typeof labCandidateConfidenceSchema>;
+export type LabAutoPublishEvidence = z.infer<typeof labAutoPublishEvidenceSchema>;
+export type LabAutoPublishDecision = z.infer<typeof labAutoPublishDecisionSchema>;
+export type LabImportSummaryDto = z.infer<typeof labImportSummaryDtoSchema>;
+export type LabMetricImportProfile = z.infer<typeof labMetricImportProfileSchema>;

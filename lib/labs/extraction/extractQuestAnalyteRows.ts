@@ -273,7 +273,7 @@ export function extractQuestAnalyteRows(args: {
           reason: "historical_column",
           provenance,
           confidence: 0.7,
-          reviewStatus: "pending",
+          reviewStatus: "pending_review",
         });
         warnings.push({
           code: "duplicate_candidate",
@@ -319,7 +319,7 @@ export function extractQuestAnalyteRows(args: {
           reason: "unsupported_result_type",
           provenance,
           confidence: parsedValue.confidence,
-          reviewStatus: "pending",
+          reviewStatus: "pending_review",
         });
         return;
       }
@@ -337,7 +337,7 @@ export function extractQuestAnalyteRows(args: {
           reason,
           provenance,
           confidence: Math.min(parsedValue.confidence, alias.confidence),
-          reviewStatus: "pending",
+          reviewStatus: "pending_review",
         });
         return;
       }
@@ -372,7 +372,7 @@ export function extractQuestAnalyteRows(args: {
         provenance,
         confidence,
         warnings: [...new Set(candidateWarnings)],
-        reviewStatus: "pending",
+        reviewStatus: "pending_review",
       });
     });
   }

@@ -258,6 +258,22 @@ export const documentDetailDtoSchema = z
     canRetry: z.boolean(),
     canDelete: z.boolean(),
     legacySource: z.enum(["document", "lab_upload"]),
+    /** Labs auto-publish import summary (optional; present after Phase 3D-A extraction). */
+    importedCount: z.number().int().nonnegative().optional(),
+    reviewNeededCount: z.number().int().nonnegative().optional(),
+    unmatchedCount: z.number().int().nonnegative().optional(),
+    reportImportStatus: z
+      .enum([
+        "imported",
+        "imported_review_recommended",
+        "review_needed",
+        "unsupported",
+        "failed",
+        "structured",
+      ])
+      .optional(),
+    hasAutoPublishedResults: z.boolean().optional(),
+    hasReviewItems: z.boolean().optional(),
   })
   .strip();
 

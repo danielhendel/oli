@@ -159,7 +159,7 @@ function validCandidate(overrides: Record<string, unknown> = {}) {
     },
     confidence: 0.95,
     warnings: [],
-    reviewStatus: "pending",
+    reviewStatus: "pending_review",
     ...overrides,
   };
 }
@@ -228,7 +228,7 @@ describe("labReviewRecordSchema", () => {
       draftId: "draft_1",
       status: "in_progress",
       reviewVersion: 0,
-      candidateStatuses: { cand_1: "pending" },
+      candidateStatuses: { cand_1: "pending_review" },
       corrections: [],
       createdAt: ISO,
       updatedAt: ISO,
@@ -245,7 +245,7 @@ describe("labReviewRecordSchema", () => {
       draftId: "draft_1",
       status: "accepted",
       reviewVersion: 2,
-      candidateStatuses: { cand_1: "accepted" },
+      candidateStatuses: { cand_1: "user_accepted" },
       corrections: [],
       createdAt: ISO,
       updatedAt: ISO,
@@ -311,7 +311,7 @@ describe("acceptedLabResultSchema", () => {
         parserVersion: "1.0.0",
         extractionVersion: "1.0.0",
       },
-      review: { status: "accepted", acceptedAt: ISO, reviewVersion: "1" },
+      review: { status: "user_accepted", acceptedAt: ISO, reviewVersion: "1" },
       parser: { id: "quest_text_pdf_v1", version: "1.0.0", extractionVersion: "1.0.0" },
       createdAt: ISO,
     };
@@ -353,7 +353,7 @@ describe("acceptedLabResultSchema", () => {
         parserVersion: "1.0.0",
         extractionVersion: "1.0.0",
       },
-      review: { status: "accepted", acceptedAt: ISO, reviewVersion: "1" },
+      review: { status: "user_accepted", acceptedAt: ISO, reviewVersion: "1" },
       parser: { id: "quest_text_pdf_v1", version: "1.0.0", extractionVersion: "1.0.0" },
       createdAt: ISO,
     });
@@ -392,7 +392,7 @@ describe("acceptedLabResultSchema", () => {
         parserVersion: "1.0.0",
         extractionVersion: "1.0.0",
       },
-      review: { status: "accepted", acceptedAt: ISO, reviewVersion: "1" },
+      review: { status: "user_accepted", acceptedAt: ISO, reviewVersion: "1" },
       parser: { id: "quest_text_pdf_v1", version: "1.0.0", extractionVersion: "1.0.0" },
       createdAt: ISO,
     };
