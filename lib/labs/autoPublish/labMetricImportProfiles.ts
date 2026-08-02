@@ -101,6 +101,7 @@ const PROFILES: LabMetricImportProfile[] = [
   profile("cystatin_c", { autoPublishV1: true }),
   profile("uric_acid", { autoPublishV1: true }),
   profile("osmolality_serum", { allowedUnits: ["mOsm/kg", "mOsm/L"], autoPublishV1: true }),
+  profile("osmolality_urine", { allowedUnits: ["mOsm/kg", "mOsm/L"], autoPublishV1: true }),
 
   // CBC
   profile("wbc", {

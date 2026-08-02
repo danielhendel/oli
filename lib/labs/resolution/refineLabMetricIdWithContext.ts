@@ -22,5 +22,15 @@ export function refineLabMetricIdWithContext(args: {
     if (/g\/dl|g\/l/.test(unit)) return "serum_globulin";
   }
 
+  // Osmolality specimen: (U) / urine → urine_osmolality; serum otherwise.
+  if (
+    metricId === "osmolality_serum" ||
+    metricId === "osmolality_urine" ||
+    /^osmolality/.test(label)
+  ) {
+    if (/\(u\)|\burine\b|osmolality u\b/.test(label)) return "osmolality_urine";
+    if (/\bserum\b|\bplasma\b/.test(label)) return "osmolality_serum";
+  }
+
   return metricId;
 }

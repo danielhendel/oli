@@ -3,7 +3,7 @@
  * Isolated per panel — not one giant regex grammar.
  */
 
-export const LAB_PANEL_PROFILE_VERSION = "1.0.0" as const;
+export const LAB_PANEL_PROFILE_VERSION = "1.1.0" as const;
 
 export type LabPanelColumnRegions = {
   analyteLabel: { xMin: number; xMax: number };
@@ -66,9 +66,18 @@ export const QUEST_PANEL_PROFILES: readonly LabPanelLayoutProfile[] = [
     knownPanelLabels: ["CBC (INCLUDES DIFF/PLT)", "COMPLETE BLOOD COUNT"],
   }),
   // Cardio IQ / advanced lipid before generic lipid so "CARDIO IQ LIPID" resolves correctly.
+  // Current-result band is left of risk columns; historical is rightmost when present.
   questProfile("quest_cardio_iq_v1", ["CARDIO IQ"], {
     knownPanelLabels: ["CARDIO IQ"],
     knownRiskTables: ["RELATIVE RISK", "OPTIMAL", "MODERATE", "HIGH"],
+    columns: {
+      analyteLabel: { xMin: 0, xMax: 32 },
+      result: { xMin: 32, xMax: 44 },
+      flag: { xMin: 44, xMax: 50 },
+      unit: { xMin: 50, xMax: 62 },
+      referenceRange: { xMin: 62, xMax: 88 },
+      historicalResult: { xMin: 88, xMax: 100 },
+    },
   }),
   questProfile("quest_advanced_lipid_v1", ["ADVANCED LIPID", "NMR", "LDL PARTICLE"], {
     knownPanelLabels: ["LDL PARTICLE NUMBER", "SMALL LDL-P"],

@@ -27,9 +27,16 @@ export type ExtractQuestRowsResult = {
 const VALUE_LIKE =
   /^(?:(?:<=|>=|<|>|≤|≥)\s*)?-?\d+(?:\.\d+)?$|^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$|^Pattern\s+[A-Za-z0-9]+$/i;
 
-const UNIT_LIKE = /^(?:[A-Za-z%µμ][A-Za-z%µμ^0-9./()]{0,24}|Thousand\/uL|10\^3\/uL|mL\/min(?:\/1\.73m2)?)$/i;
+const EQUALITY_NUMERIC = /^-?\d+(?:\.\d+)?$/;
+
+const UNIT_LIKE =
+  /^(?:nmol\/min\/mL|Thousand\/uL|10\^3\/uL|mL\/min(?:\/1\.73m2)?|[A-Za-z%µμ][A-Za-z%µμ^0-9./()]{0,24})$/i;
 
 const FLAG_LIKE = /^(?:[HLNA]|HH|LL|HIGH|LOW|NORMAL|ABNORMAL|OPTIMAL|MODERATE|CRITICAL)$/i;
+
+/** Quest assay / method abbreviations that must never be treated as units. */
+const ASSAY_METHOD_LIKE =
+  /^(?:IA|MS|LCMS|LC\/MS|LC-MS\/MS|ECLIA|RIA|CLIA|ELISA|IFA|CMIA|ICMA|NEPH|CALC|CALCULATED)$/i;
 
 function stableCandidateId(parts: string[]): string {
   return `cand_${stableHexId(parts, 24)}`;
@@ -48,6 +55,102 @@ function currentPanelName(report: SegmentedReport, pageNumber: number, lineIndex
 /** Trailing Quest performing-lab abbreviations (not clinical flags). */
 const LAB_CODE_LIKE = /^(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;
 
+function isUnitToken(token: string): boolean {
+  return UNIT_LIKE.test(token) && !FLAG_LIKE.test(token) && !ASSAY_METHOD_LIKE.test(token);
+}
+
+/**
+ * Prefer the first equality numeric / qualitative / pattern token as the current result.
+ * Cardio IQ summary rows with optimal/high threshold pairs (e.g. <200 … >=240) are not current.
+ * A single inequality (e.g. Mercury <4) remains a valid current censored result.
+ */
+function selectCurrentResultIndex(tokens: readonly string[], endInclusive: number): number {
+  const valueIdxs: number[] = [];
+  for (let i = 0; i <= endInclusive; i++) {
+    if (VALUE_LIKE.test(tokens[i]!)) valueIdxs.push(i);
+  }
+  for (const i of valueIdxs) {
+    const t = tokens[i]!;
+    if (
+      EQUALITY_NUMERIC.test(t) ||
+      /^Pattern\s+/i.test(t) ||
+      /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$/i.test(
+        t,
+      )
+    ) {
+      return i;
+    }
+  }
+  const inequalities = valueIdxs.filter((i) => /^(?:<=|>=|<|>|≤|≥)/.test(tokens[i]!));
+  if (inequalities.length === 0) return -1;
+  if (inequalities.length === 1) return inequalities[0]!;
+  const first = inequalities[0]!;
+  const second = inequalities[1]!;
+  const firstTok = tokens[first]!;
+  const secondTok = tokens[second]!;
+  // Classic Cardio IQ threshold pair without a current equality value.
+  if (/^(?:<=|<|≤)/.test(firstTok) && /^(?:>=|>|≥)/.test(secondTok)) {
+    return -1;
+  }
+  if (/^(?:>=|>|≥)/.test(firstTok) && /^(?:<=|<|≤)/.test(secondTok)) {
+    return -1;
+  }
+  // First inequality is the censored current result; later inequalities belong to ranges.
+  return first;
+}
+
+function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number): boolean {
+  const next = tokens[valueIdx + 1] ?? "";
+  // INTERLEUKIN 6 (IL 6), IA — number is part of the analyte name.
+  if (/^\(/.test(next) || /^\(IL/i.test(next) || /^IL\)?,?$/i.test(next)) return true;
+  return false;
+}
+
+/**
+ * Name-only analyte lines awaiting a specimen-qualified result row
+ * (e.g. INTERLEUKIN 6 (IL 6), EZ → SERUM 1.89 …).
+ * Embedded name numbers must not block pending hold.
+ */
+function shouldHoldPendingAnalyteLabel(trimmed: string): boolean {
+  if (!/^[A-Za-z]/.test(trimmed)) return false;
+  if (
+    /^(consistent with|please note|note:|see |for additional|relative\s+risk|client\s*#|account\s*#)/i.test(
+      trimmed,
+    )
+  ) {
+    return false;
+  }
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 12) return false;
+  if (parseColumns(trimmed)) return false;
+
+  let end = tokens.length - 1;
+  while (end >= 0 && (LAB_CODE_LIKE.test(tokens[end]!) || ASSAY_METHOD_LIKE.test(tokens[end]!))) {
+    end -= 1;
+  }
+  let valueIdx = selectCurrentResultIndex(tokens, end);
+  while (valueIdx > 0 && looksLikeAnalyteNameNumber(tokens, valueIdx)) {
+    let found = -1;
+    for (let i = valueIdx + 1; i <= end; i++) {
+      if (!VALUE_LIKE.test(tokens[i]!)) continue;
+      if (looksLikeAnalyteNameNumber(tokens, i)) continue;
+      if (
+        EQUALITY_NUMERIC.test(tokens[i]!) ||
+        /^Pattern\s+/i.test(tokens[i]!) ||
+        /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$/i.test(
+          tokens[i]!,
+        )
+      ) {
+        found = i;
+        break;
+      }
+    }
+    valueIdx = found;
+    if (valueIdx < 0) break;
+  }
+  return valueIdx <= 0;
+}
+
 function parseColumnsMultiSpace(trimmed: string): {
   rawLabel: string;
   rawResult: string;
@@ -62,16 +165,17 @@ function parseColumnsMultiSpace(trimmed: string): {
   if (!/^[A-Za-z]/.test(rawLabel)) return null;
   if (/^(test|analyte|result|reference|flag|units?)$/i.test(rawLabel)) return null;
 
-  let idx = 1;
-  const rawResult = cols[idx]!;
-  if (!VALUE_LIKE.test(rawResult)) return null;
-  idx += 1;
+  const valueIdx = selectCurrentResultIndex(cols, cols.length - 1);
+  if (valueIdx <= 0) return null;
+
+  const rawResult = cols[valueIdx]!;
+  let idx = valueIdx + 1;
 
   let rawUnit: string | null = null;
   let rawRange: string | null = null;
   let rawFlag: string | null = null;
 
-  if (idx < cols.length && UNIT_LIKE.test(cols[idx]!) && !FLAG_LIKE.test(cols[idx]!)) {
+  if (idx < cols.length && isUnitToken(cols[idx]!)) {
     rawUnit = cols[idx]!;
     idx += 1;
   }
@@ -86,8 +190,12 @@ function parseColumnsMultiSpace(trimmed: string): {
     idx += 1;
   }
 
-  // Ignore trailing performing-lab codes.
   void idx;
+
+  const qualitative = /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|N\/A)$/i.test(
+    rawResult,
+  );
+  if (!rawUnit && !rawRange && !qualitative && !/^Pattern\s+/i.test(rawResult)) return null;
 
   return { rawLabel, rawResult, rawUnit, rawRange, rawFlag };
 }
@@ -96,6 +204,29 @@ function parseColumnsMultiSpace(trimmed: string): {
  * Single-space Quest layouts (common in pdfjs hasEOL reconstruction).
  * Walk label tokens until the first value-like token; unit/flag from the right.
  */
+function coalescePatternTokens(tokens: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const cur = tokens[i]!;
+    const next = tokens[i + 1];
+    // "LDL PATTERN B" → keep PATTERN in the label, emit "Pattern B" as the value token.
+    if (/^pattern$/i.test(cur) && next && /^[AB]$/i.test(next)) {
+      out.push(cur);
+      out.push(`Pattern ${next.toUpperCase()}`);
+      i += 1;
+      continue;
+    }
+    // Standalone "Pattern B" result token already written as two words.
+    if (/^pattern$/i.test(cur) && next && /^[A-Za-z0-9]{1,3}$/i.test(next) && !/^pattern$/i.test(next)) {
+      out.push(`Pattern ${next.toUpperCase()}`);
+      i += 1;
+      continue;
+    }
+    out.push(cur);
+  }
+  return out;
+}
+
 function parseColumnsSingleSpace(trimmed: string): {
   rawLabel: string;
   rawResult: string;
@@ -103,7 +234,7 @@ function parseColumnsSingleSpace(trimmed: string): {
   rawRange: string | null;
   rawFlag: string | null;
 } | null {
-  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const tokens = coalescePatternTokens(trimmed.split(/\s+/).filter(Boolean));
   if (tokens.length < 2) return null;
 
   let end = tokens.length - 1;
@@ -113,24 +244,42 @@ function parseColumnsSingleSpace(trimmed: string): {
   if (end >= 0 && LAB_CODE_LIKE.test(tokens[end]!)) {
     end -= 1;
   }
-  if (end >= 0 && FLAG_LIKE.test(tokens[end]!) && !UNIT_LIKE.test(tokens[end]!)) {
+  if (end >= 0 && FLAG_LIKE.test(tokens[end]!) && !isUnitToken(tokens[end]!)) {
     rawFlag = tokens[end]!;
     end -= 1;
   }
   if (end >= 0 && LAB_CODE_LIKE.test(tokens[end]!)) {
     end -= 1;
   }
-  if (end >= 0 && UNIT_LIKE.test(tokens[end]!) && !FLAG_LIKE.test(tokens[end]!)) {
+  if (end >= 0 && ASSAY_METHOD_LIKE.test(tokens[end]!)) {
+    // Method suffix on analyte-name-only lines (e.g. INTERLEUKIN 6 (IL 6), IA).
+    end -= 1;
+  }
+  if (end >= 0 && isUnitToken(tokens[end]!)) {
     rawUnit = tokens[end]!;
     end -= 1;
   }
 
-  let valueIdx = -1;
-  for (let i = 0; i <= end; i++) {
-    if (VALUE_LIKE.test(tokens[i]!)) {
-      valueIdx = i;
-      break;
+  let valueIdx = selectCurrentResultIndex(tokens, end);
+  // Skip analyte-embedded numbers such as "INTERLEUKIN 6 (IL 6)".
+  while (valueIdx > 0 && looksLikeAnalyteNameNumber(tokens, valueIdx)) {
+    let found = -1;
+    for (let i = valueIdx + 1; i <= end; i++) {
+      if (!VALUE_LIKE.test(tokens[i]!)) continue;
+      if (looksLikeAnalyteNameNumber(tokens, i)) continue;
+      if (
+        EQUALITY_NUMERIC.test(tokens[i]!) ||
+        /^Pattern\s+/i.test(tokens[i]!) ||
+        /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$/i.test(
+          tokens[i]!,
+        )
+      ) {
+        found = i;
+        break;
+      }
     }
+    valueIdx = found;
+    if (valueIdx < 0) break;
   }
   if (valueIdx <= 0) return null;
 
@@ -142,14 +291,25 @@ function parseColumnsSingleSpace(trimmed: string): {
   if (/^(consistent with|please note|note:|see |for additional)/i.test(rawLabel)) return null;
 
   const rawResult = tokens[valueIdx]!;
-  const rangeTokens = tokens.slice(valueIdx + 1, end + 1);
+  const mid = tokens.slice(valueIdx + 1, end + 1);
+  // Quest often places H/L between result and range: VALUE FLAG RANGE UNIT
+  let midFlag: string | null = null;
+  const rangeTokens: string[] = [];
+  for (const t of mid) {
+    if (!midFlag && FLAG_LIKE.test(t) && !isUnitToken(t)) {
+      midFlag = t;
+      continue;
+    }
+    rangeTokens.push(t);
+  }
+  if (!rawFlag && midFlag) rawFlag = midFlag;
   const rawRange = rangeTokens.length > 0 ? rangeTokens.join(" ") : null;
 
   // Require unit, range, or qualitative value so narrative footnotes do not become rows.
   const qualitative = /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|N\/A)$/i.test(
     rawResult,
   );
-  if (!rawUnit && !rawRange && !qualitative) return null;
+  if (!rawUnit && !rawRange && !qualitative && !/^Pattern\s+/i.test(rawResult)) return null;
 
   return { rawLabel, rawResult, rawUnit, rawRange, rawFlag };
 }
@@ -162,6 +322,11 @@ function parseColumns(trimmed: string): {
   rawFlag: string | null;
 } | null {
   return parseColumnsMultiSpace(trimmed) ?? parseColumnsSingleSpace(trimmed);
+}
+
+/** Test-only export for column grammar fixtures. */
+export function parseColumnsForTest(trimmed: string) {
+  return parseColumns(trimmed);
 }
 
 export function extractQuestAnalyteRows(args: {
@@ -200,6 +365,9 @@ export function extractQuestAnalyteRows(args: {
       joinedLines.push(page.bodyLines[i]!);
     }
 
+    /** Prior analyte-name line awaiting a specimen-qualified result row (e.g. IL-6 → SERUM 1.89). */
+    let pendingAnalyteLabel: string | null = null;
+
     joinedLines.forEach((line, lineIndex) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 5) return;
@@ -222,19 +390,39 @@ export function extractQuestAnalyteRows(args: {
       if (/^value\s*\(in\s+the\s+range|^option\b/i.test(trimmed)) return;
 
       // Panel headers are single-column names — skip as analyte rows.
+      // Do not match analyte labels such as "IRON, TOTAL" via a bare "iron" prefix.
       if (
-        /^(lipid\s+panel|comprehensive\s+metabolic\s+panel|cmp|cbc|complete\s+blood\s+count|thyroid|hormone|cardio\s*iq|hepatitis|antibody|iron|electrolyte)/i.test(
+        /^(lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp|cbc(?:\s*\(|$)|complete\s+blood\s+count|thyroid\s+panel|hormone\s+panel|cardio\s*iq|hepatitis\s+panel|antibody\s+panel|iron\s+(?:panel|studies)|electrolyte\s+panel)\b/i.test(
           trimmed,
         ) &&
-        !/\s{2,}\S/.test(trimmed)
+        selectCurrentResultIndex(trimmed.split(/\s+/).filter(Boolean), trimmed.split(/\s+/).filter(Boolean).length - 1) < 0
       ) {
         return;
       }
 
       const parsedCols = parseColumns(trimmed);
-      if (!parsedCols) return;
+      if (!parsedCols) {
+        // Name-only analyte lines (method suffix, parenthetical alias, no current value).
+        // Ignore analyte-embedded numbers so IL-6 name lines still become pending.
+        if (shouldHoldPendingAnalyteLabel(trimmed)) {
+          pendingAnalyteLabel = trimmed.replace(/,\s*$/, "");
+        } else {
+          pendingAnalyteLabel = null;
+        }
+        return;
+      }
 
-      const { rawLabel, rawResult, rawUnit, rawRange, rawFlag } = parsedCols;
+      let rawLabel = parsedCols.rawLabel;
+      const { rawResult, rawUnit, rawRange, rawFlag } = parsedCols;
+      if (
+        pendingAnalyteLabel &&
+        /^(serum|plasma|urine|blood|whole blood)$/i.test(rawLabel.trim())
+      ) {
+        rawLabel = `${pendingAnalyteLabel} ${rawLabel}`.replace(/\s+/g, " ").trim();
+        pendingAnalyteLabel = null;
+      } else {
+        pendingAnalyteLabel = null;
+      }
       if (/patient|dob|phone|address|requisition|account\s*#/i.test(rawLabel)) return;
 
       const panelName = currentPanelName(args.report, page.pageNumber, lineIndex);

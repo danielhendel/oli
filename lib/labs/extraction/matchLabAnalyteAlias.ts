@@ -29,7 +29,8 @@ function labelLookupKeys(raw: string): string[] {
   if (!base) return [];
   const keys = [base];
   const withoutMethod = base
-    .replace(/\b(?:ms|ia|lc ms|lc\/ms|immunoassay|calculated|calc)\b/g, " ")
+    .replace(/\b(?:ms|ia|ez|lc ms|lc\/ms|immunoassay|calculated|calc)\b/g, " ")
+    .replace(/\b(?:serum|plasma|urine|blood|whole blood)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (withoutMethod && withoutMethod !== base) keys.push(withoutMethod);
@@ -38,6 +39,8 @@ function labelLookupKeys(raw: string): string[] {
   for (let i = parts.length - 1; i >= 2; i--) {
     keys.push(parts.slice(0, i).join(" "));
   }
+  // Keep short IL-6 / numbered analyte stems (e.g. "interleukin 6").
+  if (parts.length >= 2) keys.push(parts.slice(0, 2).join(" "));
   return [...new Set(keys.filter(Boolean))];
 }
 
@@ -53,7 +56,17 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "hs_crp", aliases: ["c-reactive protein cardiac", "crp cardiac", "hs crp", "hscrp", "crp high sensitivity"] },
   { metricKey: "ldl_particle_number", aliases: ["ldl-p", "ldl particle number", "ldl p", "ldl-p number"] },
   { metricKey: "small_ldl_p", aliases: ["small ldl-p", "small dense ldl-p", "ldl small", "small ldl", "small dense ldl"] },
-  { metricKey: "lp_pla2", aliases: ["lp-pla2", "lp pla2", "lipoprotein associated phospholipase a2", "pla2 activity"] },
+  {
+    metricKey: "lp_pla2",
+    aliases: [
+      "lp-pla2",
+      "lp pla2",
+      "lp-pla2 activity",
+      "lp pla2 activity",
+      "lipoprotein associated phospholipase a2",
+      "pla2 activity",
+    ],
+  },
   { metricKey: "non_hdl_c", aliases: ["non hdl cholesterol", "non-hdl cholesterol", "non-hdl-c", "non hdl-c", "non hdl"] },
   {
     metricKey: "chol_hdl_ratio",
@@ -110,7 +123,11 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "uric_acid", aliases: ["uric acid", "urate", "uric acid, serum", "uric acid serum"] },
   {
     metricKey: "osmolality_serum",
-    aliases: ["osmolality", "osmolality, serum", "serum osmolality", "osmolality u", "osmolality, calculated"],
+    aliases: ["osmolality", "osmolality, serum", "serum osmolality", "osmolality, calculated"],
+  },
+  {
+    metricKey: "osmolality_urine",
+    aliases: ["osmolality (u)", "osmolality u", "osmolality, urine", "urine osmolality", "osmolality(u)"],
   },
 
   // Blood & iron

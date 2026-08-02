@@ -1,6 +1,8 @@
 // lib/labs/labMetricCatalog.ts
 // Canonical lab biomarker taxonomy — pure helpers, no I/O.
 
+import { selectRepresentativeLabResult } from "./history/selectRepresentativeLabResult";
+
 export type LabResultType = "numeric" | "ratio" | "text";
 
 export type LabMetricFlag = "low" | "normal" | "high" | "critical" | "unknown";
@@ -25,6 +27,7 @@ export type LabCategoryDefinition = {
 };
 
 export type LabMetricResultLike = {
+  id?: string;
   metricKey: string;
   categoryKey?: string;
   displayName?: string;
@@ -38,6 +41,7 @@ export type LabMetricResultLike = {
   reportedAt?: string | null;
   uploadId?: string | null;
   rawValueText?: string | null;
+  panelName?: string | null;
 };
 
 export type LabResultsByCategory = {
@@ -79,7 +83,7 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("hs_crp", "cardiovascular", "hs-CRP", ["hs crp", "hscrp", "c-reactive protein, high sensitivity", "crp, high sensitivity"], ["mg/L"], "mg/L", 70),
   M("ldl_particle_number", "cardiovascular", "LDL Particle Number", ["ldl-p", "ldl particle count", "ldl-p number"], ["nmol/L"], "nmol/L", 80),
   M("small_ldl_p", "cardiovascular", "Small LDL-P", ["small dense ldl", "sdldl-p"], ["nmol/L"], "nmol/L", 90),
-  M("lp_pla2", "cardiovascular", "Lp-PLA2", ["lipoprotein-associated phospholipase a2", "pla2"], ["ng/mL"], "ng/mL", 100),
+  M("lp_pla2", "cardiovascular", "Lp-PLA2", ["lipoprotein-associated phospholipase a2", "pla2"], ["nmol/min/mL", "ng/mL"], "nmol/min/mL", 100),
   M("non_hdl_c", "cardiovascular", "Non-HDL Cholesterol", ["non-hdl cholesterol", "non hdl cholesterol", "non-hdl-c", "non hdl-c"], ["mg/dL", "mmol/L"], "mg/dL", 110),
   M("chol_hdl_ratio", "cardiovascular", "Cholesterol/HDL Ratio", ["chol/hdlc ratio", "chol hdlc ratio", "total cholesterol/hdl", "tc/hdl"], ["ratio"], "ratio", 120, "ratio"),
   M("ldl_medium", "cardiovascular", "Medium LDL-P", ["ldl medium", "medium ldl", "medium ldl-p"], ["nmol/L"], "nmol/L", 130),
@@ -115,7 +119,8 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("cystatin_c", "kidney", "Cystatin C", ["cystatin-c"], ["mg/L", "mg/dL"], "mg/L", 50),
   M("urine_albumin_creatinine_ratio", "kidney", "Urine Albumin/Creatinine Ratio", ["uacr", "albumin/creatinine ratio", "microalbumin/creatinine"], ["mg/g", "mg/mmol"], "mg/g", 60, "ratio"),
   M("uric_acid", "kidney", "Uric Acid", ["urate", "uric acid, serum"], ["mg/dL", "umol/L"], "mg/dL", 70),
-  M("osmolality_serum", "kidney", "Serum Osmolality", ["osmolality", "osmolality, serum", "osmolality u"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 80),
+  M("osmolality_serum", "kidney", "Serum Osmolality", ["osmolality", "osmolality, serum", "serum osmolality"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 80),
+  M("osmolality_urine", "kidney", "Urine Osmolality", ["osmolality (u)", "osmolality, urine", "urine osmolality", "osmolality u"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 85),
 
   // Blood & Iron
   M("wbc", "blood_iron", "WBC", ["white blood cell count", "leukocytes"], ["10^3/uL", "K/uL"], "10^3/uL", 10),
@@ -260,6 +265,7 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "urine_albumin_creatinine_ratio",
       "uric_acid",
       "osmolality_serum",
+      "osmolality_urine",
     ],
   },
   {
@@ -392,15 +398,44 @@ export function getAllLabMetrics(): LabMetricDefinition[] {
 export function groupLabResultsByCategory(
   results: LabMetricResultLike[],
 ): LabResultsByCategory[] {
-  const latestByKey = new Map<string, LabMetricResultLike>();
-
+  const byMetric = new Map<string, LabMetricResultLike[]>();
   for (const result of results) {
-    const existing = latestByKey.get(result.metricKey);
-    const resultDate = result.collectedAt ?? result.reportedAt ?? "";
-    const existingDate = existing?.collectedAt ?? existing?.reportedAt ?? "";
-    if (!existing || resultDate.localeCompare(existingDate) > 0) {
-      latestByKey.set(result.metricKey, result);
+    const list = byMetric.get(result.metricKey) ?? [];
+    list.push(result);
+    byMetric.set(result.metricKey, list);
+  }
+
+  const latestByKey = new Map<string, LabMetricResultLike>();
+  for (const [metricKey, list] of byMetric) {
+    const maxDate = list.reduce((best, row) => {
+      const d = row.collectedAt ?? row.reportedAt ?? "";
+      return d.localeCompare(best) > 0 ? d : best;
+    }, "");
+    const sameDate = list.filter((row) => (row.collectedAt ?? row.reportedAt ?? "") === maxDate);
+    if (sameDate.length === 1) {
+      latestByKey.set(metricKey, sameDate[0]!);
+      continue;
     }
+    // Panel-aware representative selection (albumin CMP vs hormone, etc.).
+    const rep = selectRepresentativeLabResult({
+      metricId: metricKey,
+      candidates: sameDate.map((row, idx) => ({
+        id: String(row.id ?? `${metricKey}_${idx}`),
+        canonicalMetricId: metricKey,
+        panelName: row.panelName ?? null,
+        result:
+          row.value != null
+            ? { kind: "numeric", value: row.value, comparator: "eq" }
+            : row.rawValueText
+              ? { kind: "text", value: row.rawValueText }
+              : null,
+        collectedAt: row.collectedAt ?? null,
+        normalizedUnit: row.unit ?? null,
+      })),
+    });
+    const chosen =
+      sameDate.find((row, idx) => String(row.id ?? `${metricKey}_${idx}`) === rep?.id) ?? sameDate[0]!;
+    latestByKey.set(metricKey, chosen);
   }
 
   return getLabCategories().map((category) => ({
@@ -429,11 +464,17 @@ export function formatLabResultValue(
     comparator?: "eq" | "lt" | "lte" | "gt" | "gte" | null;
   },
 ): string {
-  if (options?.rawValueText?.trim() && (value == null || !Number.isFinite(value) || (options.comparator && options.comparator !== "eq"))) {
+  if (options?.rawValueText?.trim()) {
     const raw = options.rawValueText.trim();
-    const displayUnit = unit?.trim() || options?.preferredUnit || "";
-    if (displayUnit && !raw.includes(displayUnit)) return `${raw} ${displayUnit}`;
-    return raw;
+    const looksInequality = /^[<>≤≥]/.test(raw) || /^(?:<=|>=)/.test(raw);
+    const comparatorForcesRaw = Boolean(options.comparator && options.comparator !== "eq");
+    if (value == null || !Number.isFinite(value) || looksInequality || comparatorForcesRaw) {
+      const displayUnit = unit?.trim() || options?.preferredUnit || "";
+      if (displayUnit && !raw.toLowerCase().includes(displayUnit.toLowerCase())) {
+        return `${raw} ${displayUnit}`;
+      }
+      return raw;
+    }
   }
   if (value == null || !Number.isFinite(value)) {
     if (options?.rawValueText?.trim()) return options.rawValueText.trim();

@@ -331,7 +331,17 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
   }
 
   pendingCurrent.push(...draft.results);
+  // Prefer equality current results and later detail pages over early threshold-only rows.
   pendingCurrent.sort((a, b) => {
+    const aEq = a.result?.kind === "numeric" && a.result.comparator === "eq" ? 0 : 1;
+    const bEq = b.result?.kind === "numeric" && b.result.comparator === "eq" ? 0 : 1;
+    if (aEq !== bEq) return aEq - bEq;
+    const aPat = a.result?.kind === "pattern" || a.result?.kind === "qualitative" ? 0 : 1;
+    const bPat = b.result?.kind === "pattern" || b.result?.kind === "qualitative" ? 0 : 1;
+    if (aPat !== bPat) return aPat - bPat;
+    const aNr = a.result?.kind === "not_reported" ? 1 : 0;
+    const bNr = b.result?.kind === "not_reported" ? 1 : 0;
+    if (aNr !== bNr) return aNr - bNr;
     const page = a.provenance.sourcePage - b.provenance.sourcePage;
     if (page !== 0) return page;
     return a.provenance.sourceLocator.localeCompare(b.provenance.sourceLocator);
@@ -339,6 +349,36 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
 
   const seenMetric = new Map<string, LabResultCandidate>();
   const currentResults: LabResultCandidate[] = [];
+
+  function panelFamily(panelName: string | null | undefined): string {
+    const p = (panelName ?? "").toUpperCase();
+    if (/COMPREHENSIVE METABOLIC|CMP\b|BMP\b/.test(p)) return "cmp";
+    if (/TESTOSTERONE|BIOAVAILABLE|HORMONE|SHBG|ESTRADIOL/.test(p)) return "hormone";
+    if (/CARDIO\s*IQ|ADVANCED LIPID|LIPID/.test(p)) return "lipid";
+    if (/CBC|COMPLETE BLOOD/.test(p)) return "cbc";
+    return p ? `panel:${p.slice(0, 32)}` : "panel:unknown";
+  }
+
+  function identityKey(metricId: string, candidate: LabResultCandidate): string {
+    // Same-date multi-result identity: metric + panel family (albumin hormone vs CMP).
+    // Include locator when panel is unknown so distinct rows are never collapsed.
+    if (metricId === "albumin") {
+      const family = panelFamily(candidate.provenance.panelName);
+      if (family === "panel:unknown") {
+        return `${metricId}|${family}|${candidate.provenance.sourceLocator}`;
+      }
+      return `${metricId}|${family}`;
+    }
+    return metricId;
+  }
+
+  function isThresholdOnlyInequality(candidate: LabResultCandidate): boolean {
+    return (
+      candidate.result?.kind === "numeric" &&
+      candidate.result.comparator !== "eq" &&
+      /cardio\s*iq|relative\s+risk/i.test(candidate.provenance.panelName ?? "")
+    );
+  }
 
   for (const candidate of pendingCurrent) {
     let working = candidate;
@@ -421,7 +461,7 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
       const resolution: LabCandidateResolution = {
         kind: "historical_result",
         canonicalMetricId: metricId,
-        relatedCurrentCandidateId: seenMetric.get(metricId)?.id ?? null,
+        relatedCurrentCandidateId: seenMetric.get(identityKey(metricId, working))?.id ?? null,
       };
       classifiedRows.push(
         unmatchedFrom(
@@ -441,14 +481,11 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
       continue;
     }
 
-    const prior = seenMetric.get(metricId);
-    if (prior) {
-      const samePage = prior.provenance.sourcePage === working.provenance.sourcePage;
+    // Cardio IQ threshold-only inequalities are report reference content, not current results.
+    if (isThresholdOnlyInequality(working)) {
       const resolution: LabCandidateResolution = {
-        kind: "duplicate_result",
-        canonicalCandidateId: prior.id,
-        duplicateReason: samePage ? "summary_and_detail" : "repeated_page",
-        canonicalMetricId: metricId,
+        kind: "risk_category",
+        relatedMetricId: metricId,
       };
       classifiedRows.push(
         unmatchedFrom(
@@ -460,7 +497,7 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
             confidence: working.confidence,
             reviewStatus: "unresolved",
           },
-          "duplicate_result",
+          "non_result_risk_category",
           resolution,
         ),
       );
@@ -468,7 +505,81 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
       continue;
     }
 
-    seenMetric.set(metricId, working);
+    const key = identityKey(metricId, working);
+    const prior = seenMetric.get(key);
+    if (prior) {
+      // Prefer replacing a weaker prior (inequality / not_reported) with a stronger current row.
+      const priorWeak =
+        (prior.result?.kind === "numeric" && prior.result.comparator !== "eq") ||
+        prior.result?.kind === "not_reported";
+      const workingStrong =
+        (working.result?.kind === "numeric" && working.result.comparator === "eq") ||
+        working.result?.kind === "pattern" ||
+        working.result?.kind === "qualitative";
+      if (priorWeak && workingStrong) {
+        // Demote prior to duplicate; keep working as canonical.
+        const demoteResolution: LabCandidateResolution = {
+          kind: "duplicate_result",
+          canonicalCandidateId: working.id,
+          duplicateReason: "repeated_page",
+          canonicalMetricId: metricId,
+        };
+        const priorIdx = currentResults.findIndex((r) => r.id === prior.id);
+        if (priorIdx >= 0) currentResults.splice(priorIdx, 1);
+        classifiedRows.push(
+          unmatchedFrom(
+            {
+              id: prior.id,
+              rawAnalyteLabel: prior.rawAnalyteLabel,
+              rawResult: prior.rawResult,
+              provenance: prior.provenance,
+              confidence: prior.confidence,
+              reviewStatus: "unresolved",
+            },
+            "duplicate_result",
+            demoteResolution,
+          ),
+        );
+        // Rewrite prior resolution record if present.
+        const priorResIdx = resolutions.findIndex((r) => r.candidateId === prior.id);
+        if (priorResIdx >= 0) {
+          resolutions[priorResIdx] = {
+            candidateId: prior.id,
+            resolution: demoteResolution,
+            policyVersion: LAB_CANDIDATE_RESOLUTION_POLICY_VERSION,
+            catalogVersion: LAB_CATALOG_SCHEMA_VERSION,
+          };
+        }
+        seenMetric.set(key, working);
+        // Fall through to push current_result for working.
+      } else {
+        const samePage = prior.provenance.sourcePage === working.provenance.sourcePage;
+        const resolution: LabCandidateResolution = {
+          kind: "duplicate_result",
+          canonicalCandidateId: prior.id,
+          duplicateReason: samePage ? "summary_and_detail" : "repeated_page",
+          canonicalMetricId: metricId,
+        };
+        classifiedRows.push(
+          unmatchedFrom(
+            {
+              id: working.id,
+              rawAnalyteLabel: working.rawAnalyteLabel,
+              rawResult: working.rawResult,
+              provenance: working.provenance,
+              confidence: working.confidence,
+              reviewStatus: "unresolved",
+            },
+            "duplicate_result",
+            resolution,
+          ),
+        );
+        pushResolution(working.id, resolution, null);
+        continue;
+      }
+    } else {
+      seenMetric.set(key, working);
+    }
     const calculated = CALCULATED_METRICS.has(metricId);
     const resolution: LabCandidateResolution = {
       kind: "current_result",

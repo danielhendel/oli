@@ -22,7 +22,10 @@ const HEADER_FOOTER_RE =
   /^(page\s+\d+\s+of\s+\d+|quest\s+diagnostics|directlabs|confidential|continued|report\s+status)/i;
 
 const PANEL_RE =
-  /^(lipid\s+panel|comprehensive\s+metabolic\s+panel|cmp|cbc|complete\s+blood\s+count|thyroid|hormone|cardio\s*iq|hepatitis|antibody|iron|electrolyte)/i;
+  /^(lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp\b|cbc\b|complete\s+blood\s+count|thyroid(?:\s+panel)?|hormone(?:\s+panel)?|cardio\s*iq|hepatitis(?:\s+panel)?|antibody(?:\s+panel)?|iron\s+(?:panel|studies)|electrolyte(?:\s+panel)?|testosterone|bioavailable)/i;
+
+/** Strip trailing Quest performing-lab codes from panel headers (e.g. NL1, AMD, EZ). */
+const PANEL_TRAILING_LAB_CODE_RE = /\s+(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;
 
 const HISTORICAL_HINT_RE = /\b(previous|prior|historical|last\s+result|prior\s+result)\b/i;
 
@@ -64,8 +67,13 @@ export function segmentQuestReportText(pages: readonly { pageNumber: number; tex
         if (/patient\s+id|dob|date\s+of\s+birth|phone|address|ssn/i.test(t)) return;
         metadataLines.push(t);
       }
-      if (PANEL_RE.test(t)) {
-        panels.push({ name: t, startPage: page.pageNumber, lineIndex });
+      // Panel headers only — never analyte value rows that share a panel keyword prefix.
+      // Require a free-standing numeric token (not lab codes like NL1) to reject value rows.
+      const hasStandaloneResultToken =
+        /(?:^|\s)(?:<=|>=|<|>|≤|≥)?-?\d+(?:\.\d+)?(?:\s|$)/.test(t);
+      if (PANEL_RE.test(t) && !hasStandaloneResultToken) {
+        const rawName = t.split(/\s{2,}/)[0]!.trim().replace(PANEL_TRAILING_LAB_CODE_RE, "").trim();
+        panels.push({ name: rawName, startPage: page.pageNumber, lineIndex });
       }
       if (/cardio\s*iq|cleveland\s+heartlab/i.test(t)) {
         if (!cardioIqPages.includes(page.pageNumber)) cardioIqPages.push(page.pageNumber);
