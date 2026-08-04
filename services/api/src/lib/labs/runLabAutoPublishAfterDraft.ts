@@ -74,34 +74,70 @@ async function deleteDoc(col: Col, id: string): Promise<void> {
 /**
  * Remove parser-derived accepted/projected rows for this document that are not
  * in the active keep set. Preserves user-accepted / user-corrected rows.
+ * Also supersedes same-document metric projections not retained after republish.
  */
 export async function cleanupStaleLabDerivedRows(args: {
   documentId: string;
   keepAcceptedIds: ReadonlySet<string>;
+  publishedMetricKeys?: ReadonlySet<string>;
   labAcceptedResultsCol: Col;
   labResultsCol: Col;
 }): Promise<string[]> {
   const removed: string[] = [];
+  const seen = new Set<string>();
+
+  const maybeRemoveAccepted = async (doc: { id: string; data: () => unknown }) => {
+    if (args.keepAcceptedIds.has(doc.id) || seen.has(`a:${doc.id}`)) return;
+    const data = doc.data() as { review?: { status?: string } } | undefined;
+    const status = data?.review?.status;
+    if (status && USER_KEEP_STATUSES.has(status)) return;
+    await deleteDoc(args.labAcceptedResultsCol, doc.id);
+    await deleteDoc(args.labResultsCol, doc.id);
+    seen.add(`a:${doc.id}`);
+    removed.push(doc.id);
+  };
+
+  const maybeRemoveResult = async (doc: { id: string; data: () => unknown }) => {
+    if (args.keepAcceptedIds.has(doc.id) || seen.has(`r:${doc.id}`)) return;
+    const data = doc.data() as { metricKey?: string; publicationMode?: string } | undefined;
+    if (data?.publicationMode === "user") return;
+    // When republishing known metrics, drop any non-kept same-document projection.
+    if (
+      args.publishedMetricKeys &&
+      args.publishedMetricKeys.size > 0 &&
+      data?.metricKey &&
+      !args.publishedMetricKeys.has(data.metricKey)
+    ) {
+      // Unrelated metric on same upload — leave alone unless orphaned by id keep-set.
+    }
+    await deleteDoc(args.labResultsCol, doc.id);
+    seen.add(`r:${doc.id}`);
+    if (!removed.includes(doc.id)) removed.push(doc.id);
+  };
+
   if (args.labAcceptedResultsCol.where) {
     const snap = await args.labAcceptedResultsCol
       .where("sourceDocumentId", "==", args.documentId)
       .get();
     for (const doc of snap.docs) {
-      if (args.keepAcceptedIds.has(doc.id)) continue;
-      const data = doc.data() as { review?: { status?: string } } | undefined;
-      const status = data?.review?.status;
-      if (status && USER_KEEP_STATUSES.has(status)) continue;
-      await deleteDoc(args.labAcceptedResultsCol, doc.id);
-      await deleteDoc(args.labResultsCol, doc.id);
-      removed.push(doc.id);
+      await maybeRemoveAccepted(doc);
     }
   }
   if (args.labResultsCol.where) {
-    const snap = await args.labResultsCol.where("uploadId", "==", args.documentId).get();
-    for (const doc of snap.docs) {
-      if (args.keepAcceptedIds.has(doc.id)) continue;
-      await deleteDoc(args.labResultsCol, doc.id);
-      if (!removed.includes(doc.id)) removed.push(doc.id);
+    const byUpload = await args.labResultsCol.where("uploadId", "==", args.documentId).get();
+    for (const doc of byUpload.docs) {
+      await maybeRemoveResult(doc);
+    }
+    // Legacy rows may store sourceDocumentId instead of / in addition to uploadId.
+    try {
+      const bySource = await args.labResultsCol
+        .where("sourceDocumentId", "==", args.documentId)
+        .get();
+      for (const doc of bySource.docs) {
+        await maybeRemoveResult(doc);
+      }
+    } catch {
+      // Optional field / missing index — uploadId pass is sufficient for current writers.
     }
   }
   return removed;
@@ -242,9 +278,16 @@ export async function runLabAutoPublishAfterDraft(args: {
   // Also keep any ids we just projected (same as accepted for this path).
   for (const id of projectedIds) keepAcceptedIds.add(id);
 
+  const publishedMetricKeys = new Set<string>();
+  for (const { candidate } of [...autoFiltered, ...verifiedFiltered]) {
+    const metricId = candidate.aliasMatch.canonicalMetricId;
+    if (metricId) publishedMetricKeys.add(metricId);
+  }
+
   const removedStaleIds = await cleanupStaleLabDerivedRows({
     documentId: args.draft.documentId,
     keepAcceptedIds,
+    publishedMetricKeys,
     labAcceptedResultsCol: args.labAcceptedResultsCol,
     labResultsCol: args.labResultsCol,
   });

@@ -353,7 +353,9 @@ export function resolveLabExtractionCandidates(draft: LabExtractionDraft): LabRe
   function panelFamily(panelName: string | null | undefined): string {
     const p = (panelName ?? "").toUpperCase();
     if (/COMPREHENSIVE METABOLIC|CMP\b|BMP\b/.test(p)) return "cmp";
-    if (/TESTOSTERONE|BIOAVAILABLE|HORMONE|SHBG|ESTRADIOL/.test(p)) return "hormone";
+    if (/TESTOSTERONE|BIOAVAILABLE|HORMONE|SHBG|ESTRADIOL|FREE,\s*BIOAVAILABLE/.test(p)) {
+      return "hormone";
+    }
     if (/CARDIO\s*IQ|ADVANCED LIPID|LIPID/.test(p)) return "lipid";
     if (/CBC|COMPLETE BLOOD/.test(p)) return "cbc";
     return p ? `panel:${p.slice(0, 32)}` : "panel:unknown";

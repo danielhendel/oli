@@ -152,6 +152,10 @@ export function assertAcceptedMatchesSourceCandidate(args: {
   if (args.sourcePage == null || args.sourcePage < 1 || !args.sourceLocator) {
     return { ok: false, safeReasonCode: "SOURCE_LOCATOR_REQUIRED" };
   }
+  // current_value cell role is projectable; reference_* already rejected above.
+  if (args.sourceValueRole === "historical_result") {
+    return { ok: false, safeReasonCode: "HISTORICAL_VALUE_NOT_PROJECTABLE" };
+  }
   const r = reconcileLabSourceTruth({
     candidateId: "guard",
     metricId: "x",
@@ -165,5 +169,8 @@ export function assertAcceptedMatchesSourceCandidate(args: {
     displayedUnit: args.acceptedUnit,
   });
   if (r.status === "exact_match") return { ok: true };
-  return { ok: false, safeReasonCode: r.safeReasonCode ?? r.status };
+  if (r.status === "wrong_unit" || r.safeReasonCode === "display_unit_mismatch") {
+    return { ok: false, safeReasonCode: "SOURCE_VALUE_MISMATCH" };
+  }
+  return { ok: false, safeReasonCode: r.safeReasonCode ?? "SOURCE_VALUE_MISMATCH" };
 }

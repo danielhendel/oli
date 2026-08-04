@@ -14,7 +14,12 @@ import { parseLabFlagCandidate } from "./parseLabFlag";
 import { parseLabReferenceRange } from "./parseLabReferenceRange";
 import { parseLabResultValue } from "./parseLabResultValue";
 import { parseLabUnitCandidate } from "./parseLabUnit";
-import { assignSourceValueRole, isCardioIqContext, isReferenceSourceValueRole } from "./cardioIqValueRole";
+import {
+  assignSourceValueRole,
+  isCardioIqContext,
+  isCardioIqPatternLegend,
+  isReferenceSourceValueRole,
+} from "./cardioIqValueRole";
 import type { SegmentedReport } from "./segmentQuestReport";
 import { stableHexId } from "./stableHexId";
 
@@ -101,9 +106,29 @@ function selectCurrentResultIndex(tokens: readonly string[], endInclusive: numbe
 }
 
 function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number): boolean {
+  const tok = tokens[valueIdx] ?? "";
   const next = tokens[valueIdx + 1] ?? "";
   // INTERLEUKIN 6 (IL 6), IA — number is part of the analyte name.
   if (/^\(/.test(next) || /^\(IL/i.test(next) || /^IL\)?,?$/i.test(next)) return true;
+  // INTERLEUKIN 6 1.89 — integer name digit before the true decimal result.
+  if (
+    EQUALITY_NUMERIC.test(tok) &&
+    !tok.includes(".") &&
+    EQUALITY_NUMERIC.test(next) &&
+    next.includes(".")
+  ) {
+    return true;
+  }
+  // Name-embedded integers for known numeral analytes before unit/range/result.
+  const labelPrefix = tokens.slice(0, valueIdx).join(" ");
+  if (
+    EQUALITY_NUMERIC.test(tok) &&
+    !tok.includes(".") &&
+    /interleukin|vitamin\s*[abd]|factor\s*[ivx0-9]|hla-b27|coenzyme\s*q10/i.test(labelPrefix) &&
+    (VALUE_LIKE.test(next) || isUnitToken(next) || /^(?:<=|>=|<|>|≤|≥)/.test(next) || !next)
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -370,6 +395,12 @@ export function extractQuestAnalyteRows(args: {
         i += 1;
         continue;
       }
+      // Lp-PLA2 / activity units split across lines: "nmol/" + "min/mL"
+      if (/nmol\/\s*$/i.test(cur.trim()) && /^min\/mL\b/i.test(next)) {
+        joinedLines.push(`${cur.trim()}${next}`);
+        i += 1;
+        continue;
+      }
       joinedLines.push(page.bodyLines[i]!);
     }
 
@@ -456,13 +487,24 @@ export function extractQuestAnalyteRows(args: {
       });
 
       const parsedValue = parseLabResultValue(rawResult);
+      const patternLegend =
+        cardioIq &&
+        isCardioIqPatternLegend({
+          rawResult,
+          rawRange,
+          rawUnit,
+          lineText: trimmed,
+        });
       const sourceValueRole = parsedValue.ok
         ? assignSourceValueRole({
             isCardioIq: cardioIq,
             isHistorical,
+            isPatternLegend: patternLegend,
             result: parsedValue.value,
           })
-        : ("unknown" as const);
+        : patternLegend
+          ? ("reference_general" as const)
+          : ("unknown" as const);
 
       const provenance = {
         sourceDocumentId: args.documentId,

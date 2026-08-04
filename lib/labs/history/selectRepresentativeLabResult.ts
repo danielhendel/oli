@@ -144,9 +144,10 @@ export function selectRepresentativeLabResult(args: {
   if (list.length === 0) return null;
   const policy = args.policy ?? defaultRepresentativePolicyForMetric(args.metricId);
 
-  // Prefer non-reference current rows when any exist.
+  // Prefer non-reference current rows. Never fall back to reference-only pools.
   const currentOnly = list.filter((c) => !isReferenceLike(c));
-  const pool = currentOnly.length > 0 ? currentOnly : list;
+  if (currentOnly.length === 0) return null;
+  const pool = currentOnly;
 
   const ranked = [...pool].sort((a, b) => {
     const role = roleRank(a.sourceValueRole) - roleRank(b.sourceValueRole);

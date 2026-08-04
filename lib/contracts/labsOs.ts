@@ -205,6 +205,21 @@ export const cardioIqValueRoleSchema = z.enum([
   "unknown",
 ]);
 
+/** Positional Cardio IQ cell identity — distinct from value-role projection eligibility. */
+export const cardioIqCellRoleSchema = z.enum([
+  "analyte_label",
+  "current_value",
+  "current_risk_label",
+  "reference_optimal",
+  "reference_moderate",
+  "reference_high",
+  "unit",
+  "historical_value",
+  "historical_risk_label",
+  "report_note",
+  "unknown",
+]);
+
 export const labResultProvenanceSchema = z
   .object({
     sourceDocumentId: z.string().min(1),
@@ -873,6 +888,7 @@ export type LabHistoryPointDto = z.infer<typeof labHistoryPointDtoSchema>;
 export type LabDatePrecision = z.infer<typeof labDatePrecisionSchema>;
 export type LabSpecimenType = z.infer<typeof labSpecimenTypeSchema>;
 export type CardioIqValueRole = z.infer<typeof cardioIqValueRoleSchema>;
+export type CardioIqCellRole = z.infer<typeof cardioIqCellRoleSchema>;
 export type LabNormalizedFlag = z.infer<typeof labNormalizedFlagSchema>;
 export type LabExtractionWarningCode = z.infer<typeof labExtractionWarningCodeSchema>;
 export type LabResultProvenance = z.infer<typeof labResultProvenanceSchema>;

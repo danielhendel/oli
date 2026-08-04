@@ -408,29 +408,51 @@ export function groupLabResultsByCategory(
     byMetric.set(result.metricKey, list);
   }
 
-  const latestByKey = new Map<string, LabMetricResultLike>();
+  const inferCmp = (raw: string | null | undefined): "eq" | "lt" | "lte" | "gt" | "gte" => {
+    const t = (raw ?? "").trim();
+    if (/^≤/.test(t) || /^<=/.test(t)) return "lte";
+    if (/^≥/.test(t) || /^>=/.test(t)) return "gte";
+    if (/^</.test(t)) return "lt";
+    if (/^>/.test(t)) return "gt";
+    return "eq";
+  };
+
+  const isReferenceLikeRow = (row: LabMetricResultLike): boolean => {
+    const role = row.sourceValueRole;
+    if (
+      role === "reference_optimal" ||
+      role === "reference_moderate" ||
+      role === "reference_high" ||
+      role === "reference_general" ||
+      role === "historical_result"
+    ) {
+      return true;
+    }
+    const cmp = inferCmp(row.rawValueText);
+    return cmp === "lt" || cmp === "lte" || cmp === "gt" || cmp === "gte";
+  };
+
+  const latestByKey = new Map<string, LabMetricResultLike | null>();
   for (const [metricKey, list] of byMetric) {
     const maxDate = list.reduce((best, row) => {
       const d = row.collectedAt ?? row.reportedAt ?? "";
       return d.localeCompare(best) > 0 ? d : best;
     }, "");
     const sameDate = list.filter((row) => (row.collectedAt ?? row.reportedAt ?? "") === maxDate);
-    if (sameDate.length === 1) {
-      latestByKey.set(metricKey, sameDate[0]!);
+    // Never display reference thresholds / risk bands as personal results.
+    const eligible = sameDate.filter((row) => !isReferenceLikeRow(row));
+    if (eligible.length === 0) {
+      latestByKey.set(metricKey, null);
+      continue;
+    }
+    if (eligible.length === 1) {
+      latestByKey.set(metricKey, eligible[0]!);
       continue;
     }
     // Panel/role-aware representative selection — never prefer reference thresholds.
-    const inferCmp = (raw: string | null | undefined): "eq" | "lt" | "lte" | "gt" | "gte" => {
-      const t = (raw ?? "").trim();
-      if (/^≤/.test(t) || /^<=/.test(t)) return "lte";
-      if (/^≥/.test(t) || /^>=/.test(t)) return "gte";
-      if (/^</.test(t)) return "lt";
-      if (/^>/.test(t)) return "gt";
-      return "eq";
-    };
     const rep = selectRepresentativeLabResult({
       metricId: metricKey,
-      candidates: sameDate.map((row, idx) => ({
+      candidates: eligible.map((row, idx) => ({
         id: String(row.id ?? `${metricKey}_${idx}`),
         canonicalMetricId: metricKey,
         panelName: row.panelName ?? null,
@@ -453,7 +475,7 @@ export function groupLabResultsByCategory(
       })),
     });
     const chosen =
-      sameDate.find((row, idx) => String(row.id ?? `${metricKey}_${idx}`) === rep?.id) ?? sameDate[0]!;
+      eligible.find((row, idx) => String(row.id ?? `${metricKey}_${idx}`) === rep?.id) ?? eligible[0]!;
     latestByKey.set(metricKey, chosen);
   }
 
@@ -465,7 +487,7 @@ export function groupLabResultsByCategory(
         if (!definition) return null;
         return {
           definition,
-          latest: latestByKey.get(metricKey) ?? null,
+          latest: latestByKey.has(metricKey) ? latestByKey.get(metricKey)! : null,
         };
       })
       .filter((row): row is NonNullable<typeof row> => row != null)
@@ -483,12 +505,19 @@ export function formatLabResultValue(
     comparator?: "eq" | "lt" | "lte" | "gt" | "gte" | null;
   },
 ): string {
+  const normalizeDisplayUnit = (u: string | null | undefined): string => {
+    const t = (u ?? "").trim();
+    if (!t || /^none$/i.test(t)) return "";
+    return t;
+  };
+
   if (options?.rawValueText?.trim()) {
     const raw = options.rawValueText.trim();
     const looksInequality = /^[<>≤≥]/.test(raw) || /^(?:<=|>=)/.test(raw);
     const comparatorForcesRaw = Boolean(options.comparator && options.comparator !== "eq");
     if (value == null || !Number.isFinite(value) || looksInequality || comparatorForcesRaw) {
-      const displayUnit = unit?.trim() || options?.preferredUnit || "";
+      const displayUnit =
+        normalizeDisplayUnit(unit) || normalizeDisplayUnit(options?.preferredUnit);
       if (displayUnit && !raw.toLowerCase().includes(displayUnit.toLowerCase())) {
         return `${raw} ${displayUnit}`;
       }
@@ -499,7 +528,7 @@ export function formatLabResultValue(
     if (options?.rawValueText?.trim()) return options.rawValueText.trim();
     return "—";
   }
-  const displayUnit = unit?.trim() || options?.preferredUnit || "";
+  const displayUnit = normalizeDisplayUnit(unit) || normalizeDisplayUnit(options?.preferredUnit);
   const formatted = Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
   const cmp = options?.comparator;
   const withCmp =

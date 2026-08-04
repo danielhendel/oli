@@ -2,7 +2,7 @@
  * Explicit Cardio IQ column/value roles — never infer projection eligibility from comparator alone.
  */
 
-import type { CardioIqValueRole, LabResultValue } from "@oli/contracts";
+import type { CardioIqCellRole, CardioIqValueRole, LabResultValue } from "@oli/contracts";
 
 export function isCardioIqContext(args: {
   panelName?: string | null;
@@ -23,18 +23,57 @@ export function isCardioIqContext(args: {
 }
 
 /**
+ * Cardio IQ summary legend rows (Optimal A / High B) are not patient current results.
+ * Example: "LDL PATTERN A N/A B Pattern"
+ */
+export function isCardioIqPatternLegend(args: {
+  rawResult: string;
+  rawRange?: string | null;
+  rawUnit?: string | null;
+  lineText?: string | null;
+}): boolean {
+  const result = args.rawResult.trim();
+  const range = (args.rawRange ?? "").trim();
+  const unit = (args.rawUnit ?? "").trim();
+  const line = (args.lineText ?? "").trim();
+  if (!/^Pattern\s+[AB]$/i.test(result)) return false;
+  if (/N\/A/i.test(range) && /\b[AB]\b/i.test(range)) return true;
+  if (/^Pattern$/i.test(unit) && /N\/A/i.test(range)) return true;
+  if (/Relative\s+Risk:.*Pattern\s+A.*Pattern\s+B/i.test(line)) return true;
+  return false;
+}
+
+export function assignCardioIqCellRole(args: {
+  isCardioIq: boolean;
+  isHistorical: boolean;
+  isPatternLegend: boolean;
+  result: LabResultValue | null;
+}): CardioIqCellRole {
+  if (!args.isCardioIq) return "unknown";
+  if (args.isHistorical) return "historical_value";
+  if (args.isPatternLegend) return "report_note";
+  if (!args.result) return "unknown";
+  if (args.result.kind === "pattern" || args.result.kind === "qualitative") return "current_value";
+  if (args.result.kind === "numeric" && args.result.comparator === "eq") return "current_value";
+  if (args.result.kind === "numeric") return "unknown";
+  return "unknown";
+}
+
+/**
  * Assign a source value role for a parsed cell.
  *
  * Cardio IQ opposing threshold pairs are not extracted as candidates (parser returns no value).
- * A remaining single inequality on Cardio IQ may be a censored current result (e.g. Lp(a) <4)
- * and must stay current_result — reference bands are withheld earlier or via resolution.
+ * Pattern legends are reference_general. A remaining single inequality on Cardio IQ may be a
+ * censored current result (e.g. Lp(a) <4) and must stay current_result.
  */
 export function assignSourceValueRole(args: {
   isCardioIq: boolean;
   isHistorical: boolean;
+  isPatternLegend?: boolean;
   result: LabResultValue;
 }): CardioIqValueRole {
   if (args.isHistorical) return "historical_result";
+  if (args.isPatternLegend) return "reference_general";
   if (args.result.kind === "pattern" || args.result.kind === "qualitative") {
     return "current_result";
   }
