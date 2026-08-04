@@ -176,14 +176,17 @@ export async function deleteDocumentOsRecord(args: {
     await deleteQueryDocs(deps.labAcceptedResultsCol, "sourceDocumentId", documentId);
   }
 
-  if (labUploadId) {
-    const results = await deleteLabResultsForUpload(deps, labUploadId);
+  // Projections use uploadId = documentId for Document OS publishes; always clean both ids.
+  const projectionUploadIds = new Set<string>([documentId]);
+  if (labUploadId) projectionUploadIds.add(labUploadId);
+  for (const uploadId of projectionUploadIds) {
+    const results = await deleteLabResultsForUpload(deps, uploadId);
     if (!results.ok) {
       return { ok: false, code: results.code, consumerDocumentId };
     }
-    if (!args.skipLegacyLabUploadMeta) {
-      await deps.labUploadsCol.doc(labUploadId).delete().catch(() => undefined);
-    }
+  }
+  if (labUploadId && !args.skipLegacyLabUploadMeta) {
+    await deps.labUploadsCol.doc(labUploadId).delete().catch(() => undefined);
   }
 
   await deps.documentsCol.doc(documentId).delete();

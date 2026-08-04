@@ -26,7 +26,11 @@ import {
 } from "../../../../lib/labs/labMetricCatalog";
 import { toHistoryPointDto } from "../../../../lib/labs/extraction/labHistoryCompatibility";
 import { sortLabHistoryByCollectionDate } from "../../../../lib/labs/history/evaluateLabTrendEligibility";
-import { deduplicateLabHistorySourceRepresentations } from "../../../../lib/labs/history/deduplicateLabHistorySourceRepresentations";
+import {
+  selectLabConsumerHistoryRows,
+  selectLabConsumerLatestResult,
+  type LabConsumerHistoryRow,
+} from "../../../../lib/labs/integrity/filterLabHistoryForConsumer";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -63,6 +67,68 @@ function resultFingerprint(result: AcceptedLabResult["result"]): string {
   if (result.kind === "numeric") return `${result.comparator}:${result.value}`;
   if (result.kind === "not_reported") return `nr:${result.reason}`;
   return `${result.kind}:${result.value}`;
+}
+
+function acceptedToConsumerHistoryRow(row: AcceptedLabResult, metricKey: string): LabConsumerHistoryRow {
+  let rawValueText: string | null = null;
+  if (row.result.kind === "numeric") {
+    const v = String(row.result.value);
+    if (row.result.comparator === "lt") rawValueText = `<${v}`;
+    else if (row.result.comparator === "lte") rawValueText = `<=${v}`;
+    else if (row.result.comparator === "gt") rawValueText = `>${v}`;
+    else if (row.result.comparator === "gte") rawValueText = `>=${v}`;
+    else rawValueText = v;
+  } else if (row.result.kind === "pattern" || row.result.kind === "qualitative" || row.result.kind === "text") {
+    rawValueText = String(row.result.value);
+  }
+  return {
+    id: row.id,
+    canonicalMetricId: row.canonicalMetricId ?? metricKey,
+    collectedAt: row.collectedAt,
+    panelId: row.panelId,
+    specimenType: row.specimen?.type ?? null,
+    methodId: row.method?.assayMethod ?? null,
+    measuredOrCalculated: "reported_unknown",
+    sourceLocator: row.provenance.sourceLocator,
+    sourcePage: row.provenance.sourcePage,
+    sourceDocumentId: row.sourceDocumentId ?? null,
+    sourceValueRole: row.provenance.sourceValueRole ?? null,
+    reviewStatus: row.review?.status ?? null,
+    result: row.result,
+    rawValueText,
+    resultFingerprint: resultFingerprint(row.result),
+  };
+}
+
+function projectionToConsumerHistoryRow(row: LabMetricResultDto): LabConsumerHistoryRow {
+  const cmp =
+    typeof row.value === "number"
+      ? row.rawValueText && /^[<>]/.test(row.rawValueText.trim())
+        ? row.rawValueText.trim().startsWith("<")
+          ? "lt"
+          : "gt"
+        : "eq"
+      : null;
+  return {
+    id: row.id,
+    canonicalMetricId: row.metricKey,
+    collectedAt: row.collectedAt ?? null,
+    panelId: row.panelName ?? null,
+    panelName: row.panelName ?? null,
+    specimenType: null,
+    sourcePage: typeof row.sourcePage === "number" ? row.sourcePage : null,
+    sourceDocumentId: row.uploadId ?? (row as { sourceDocumentId?: string }).sourceDocumentId ?? null,
+    sourceValueRole: row.sourceValueRole ?? null,
+    reviewStatus: row.publicationMode ?? null,
+    result:
+      typeof row.value === "number"
+        ? { kind: "numeric", value: row.value, comparator: cmp ?? "eq" }
+        : row.value != null
+          ? { kind: "text", value: String(row.value) }
+          : null,
+    rawValueText: row.rawValueText ?? null,
+    resultFingerprint: `${row.value ?? ""}:${row.rawValueText ?? ""}:${row.unit ?? ""}`,
+  };
 }
 
 function toIsoFromTimestampLike(value: unknown): string | undefined {
@@ -482,21 +548,22 @@ router.get(
       .limit(50)
       .get();
 
-    const history: LabMetricResultDto[] = [];
+    const loaded: LabMetricResultDto[] = [];
     for (const doc of snap.docs) {
       const r = doc.data() as Record<string, unknown>;
       const createdAt = toIsoFromTimestampLike(r.createdAt) ?? (r.createdAt as string);
       const validated = labMetricResultDtoSchema.safeParse({ ...r, id: doc.id, createdAt });
-      if (validated.success) history.push(validated.data);
+      if (validated.success) loaded.push(validated.data);
     }
-    // History axis is collectedAt (upload/created timestamps are not authoritative).
-    history.sort((a, b) => {
-      const aKey = String(a.collectedAt ?? "");
-      const bKey = String(b.collectedAt ?? "");
-      return bKey.localeCompare(aKey);
-    });
-
-    const latest = history[0] ?? null;
+    const byId = new Map(loaded.map((r) => [r.id, r]));
+    const consumerRows = loaded.map(projectionToConsumerHistoryRow);
+    const historyIds = selectLabConsumerHistoryRows(consumerRows).map((r) => r.id);
+    const history = historyIds
+      .map((id) => byId.get(id))
+      .filter((r): r is LabMetricResultDto => r != null)
+      .sort((a, b) => String(b.collectedAt ?? "").localeCompare(String(a.collectedAt ?? "")));
+    const latestId = selectLabConsumerLatestResult(consumerRows)?.id ?? null;
+    const latest = (latestId ? byId.get(latestId) : null) ?? history[0] ?? null;
     const payload = {
       ok: true as const,
       metricKey: catalog.metricKey,
@@ -560,24 +627,9 @@ router.get(
       if (validated.success) accepted.push(validated.data);
     }
 
-    const dedupedIds = new Set(
-      deduplicateLabHistorySourceRepresentations(
-        accepted.map((row) => ({
-          id: row.id,
-          canonicalMetricId: row.canonicalMetricId ?? metricKey,
-          collectedAt: row.collectedAt,
-          panelId: row.panelId,
-          specimenType: row.specimen?.type ?? null,
-          methodId: row.method?.assayMethod ?? null,
-          measuredOrCalculated: row.method?.assayMethod ? "reported_unknown" : "reported_unknown",
-          sourceLocator: row.provenance.sourceLocator,
-          sourcePage: row.provenance.sourcePage,
-          resultFingerprint: resultFingerprint(row.result),
-        })),
-      ).map((r) => r.id),
-    );
-
-    const ordered = sortLabHistoryByCollectionDate(accepted.filter((row) => dedupedIds.has(row.id)));
+    const consumerRows = accepted.map((row) => acceptedToConsumerHistoryRow(row, metricKey));
+    const eligibleIds = new Set(selectLabConsumerHistoryRows(consumerRows).map((r) => r.id));
+    const ordered = sortLabHistoryByCollectionDate(accepted.filter((row) => eligibleIds.has(row.id)));
     const cursor = parsedQuery.data.cursor ?? null;
     const startIdx = cursor ? ordered.findIndex((row) => row.id === cursor) + 1 : 0;
     const slice = ordered.slice(Math.max(0, startIdx), Math.max(0, startIdx) + parsedQuery.data.limit);
