@@ -42,7 +42,16 @@ export default function LabReviewDetailScreen() {
   }, [navigation]);
 
   const actionCounts = useMemo(() => {
-    if (detail.status !== "ready") return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0, imported: 0 };
+    if (detail.status !== "ready") {
+      return {
+        accepted: 0,
+        rejected: 0,
+        corrected: 0,
+        unresolved: 0,
+        imported: 0,
+        classifiedReportRows: 0,
+      };
+    }
     return countReviewActionStatuses(detail.data);
   }, [detail]);
 
@@ -197,6 +206,7 @@ export default function LabReviewDetailScreen() {
             rejectedCount={actionCounts.rejected}
             unresolvedCount={actionCounts.unresolved}
             importedCount={actionCounts.imported}
+            classifiedReportRowCount={actionCounts.classifiedReportRows}
             onSaveProgress={onSaveProgress}
             onFinishReview={onFinishReview}
           />

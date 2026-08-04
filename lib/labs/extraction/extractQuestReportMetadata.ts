@@ -6,26 +6,36 @@
 import type { LabDatePrecision, LabReportMetadataCandidate } from "@oli/contracts";
 
 function parseQuestDateTime(raw: string): { iso: string; precision: LabDatePrecision } | null {
-  // Common Quest forms: 01/15/2024 08:30 AM  or  2024-01-15
-  // Never invent a device timezone — store UTC clock fields when time is present.
-  const mdy = /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i.exec(raw);
+  // Quest forms:
+  //   01/15/2024 08:30 AM
+  //   10/15/2024 / 06:16 CDT
+  //   2024-01-15
+  // Store UTC wall-clock fields from the source calendar/time. Never invent device TZ.
+  const mdy =
+    /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*\/?\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?(?:\s*([A-Z]{2,5}))?)?/i.exec(
+      raw,
+    );
   if (mdy) {
     const month = Number(mdy[1]);
     const day = Number(mdy[2]);
     const year = Number(mdy[3]);
     const hasTime = Boolean(mdy[4] && mdy[5]);
     if (!hasTime) {
-      // Date-only: keep a stable UTC midnight placeholder; precision marks time non-authoritative.
       const iso = new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
       return { iso, precision: "date_only" };
     }
     let hour = Number(mdy[4]);
     const minute = Number(mdy[5]);
     const ampm = mdy[6]?.toUpperCase();
+    const tz = mdy[7]?.toUpperCase() ?? null;
     if (ampm === "PM" && hour < 12) hour += 12;
     if (ampm === "AM" && hour === 12) hour = 0;
+    // Keep source wall-clock in UTC fields so calendar date formatting stays faithful.
     const iso = new Date(Date.UTC(year, month - 1, day, hour, minute, 0)).toISOString();
-    return { iso, precision: "date_time_without_timezone" };
+    return {
+      iso,
+      precision: tz ? "date_time_with_timezone" : "date_time_without_timezone",
+    };
   }
   const ymd = /(\d{4})-(\d{2})-(\d{2})/.exec(raw);
   if (ymd) {

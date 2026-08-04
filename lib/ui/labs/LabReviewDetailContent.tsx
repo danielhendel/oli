@@ -327,6 +327,7 @@ export function LabReviewActionsFooter({
   rejectedCount,
   unresolvedCount,
   importedCount = 0,
+  classifiedReportRowCount = 0,
   onSaveProgress,
   onFinishReview,
 }: {
@@ -335,6 +336,7 @@ export function LabReviewActionsFooter({
   rejectedCount: number;
   unresolvedCount: number;
   importedCount?: number;
+  classifiedReportRowCount?: number;
   onSaveProgress: () => void;
   onFinishReview: () => void;
 }) {
@@ -345,17 +347,20 @@ export function LabReviewActionsFooter({
       <Text style={styles.footerHint} testID="lab-review-action-copy">
         {finishRequired
           ? "Optional corrections are available for genuine current results. Finish review only when you have pending decisions to apply."
-          : "Supported results were already added to Labs. Optional corrections remain available above — Finish review is not required."}
+          : "Supported results were already added to Labs. Optional corrections remain available above."}
       </Text>
       <Text style={styles.footerCounts} testID="lab-review-action-counts">
-        {importedCount} imported · {acceptedCount} accepted · {rejectedCount} rejected ·{" "}
-        {unresolvedCount} need review
+        {finishRequired
+          ? `${importedCount} imported · ${acceptedCount} accepted · ${rejectedCount} rejected · ${unresolvedCount} need review`
+          : classifiedReportRowCount > 0
+            ? `${importedCount} imported · ${classifiedReportRowCount} report rows classified`
+            : `${importedCount} imported`}
       </Text>
       <Pressable
         onPress={onSaveProgress}
         disabled={actionBusy === true}
         accessibilityRole="button"
-        accessibilityLabel="Save progress and go back"
+        accessibilityLabel="Done"
         accessibilityState={{ disabled: actionBusy === true }}
         style={({ pressed }) => [styles.footerBtn, styles.secondaryBtn, pressed && styles.actionPressed]}
         testID="lab-review-save-progress"
@@ -425,7 +430,16 @@ export function LabReviewDetailContent({
   }, [data]);
 
   const actionCounts = useMemo(() => {
-    if (!data) return { accepted: 0, rejected: 0, corrected: 0, unresolved: 0, imported: 0 };
+    if (!data) {
+      return {
+        accepted: 0,
+        rejected: 0,
+        corrected: 0,
+        unresolved: 0,
+        imported: 0,
+        classifiedReportRows: 0,
+      };
+    }
     return countReviewActionStatuses(data);
   }, [data]);
 
@@ -583,6 +597,7 @@ export function LabReviewDetailContent({
           rejectedCount={actionCounts.rejected}
           unresolvedCount={actionCounts.unresolved}
           importedCount={importedCount}
+          classifiedReportRowCount={actionCounts.classifiedReportRows}
           onSaveProgress={onSaveProgress}
           onFinishReview={onFinishReview}
         />

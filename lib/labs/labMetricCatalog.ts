@@ -2,6 +2,7 @@
 // Canonical lab biomarker taxonomy — pure helpers, no I/O.
 
 import { selectRepresentativeLabResult } from "./history/selectRepresentativeLabResult";
+import { isLabReferenceLikeDisplayRow } from "./labSourceDisplay";
 
 export type LabResultType = "numeric" | "ratio" | "text";
 
@@ -417,20 +418,12 @@ export function groupLabResultsByCategory(
     return "eq";
   };
 
-  const isReferenceLikeRow = (row: LabMetricResultLike): boolean => {
-    const role = row.sourceValueRole;
-    if (
-      role === "reference_optimal" ||
-      role === "reference_moderate" ||
-      role === "reference_high" ||
-      role === "reference_general" ||
-      role === "historical_result"
-    ) {
-      return true;
-    }
-    const cmp = inferCmp(row.rawValueText);
-    return cmp === "lt" || cmp === "lte" || cmp === "gt" || cmp === "gte";
-  };
+  const isReferenceLikeRow = (row: LabMetricResultLike): boolean =>
+    isLabReferenceLikeDisplayRow({
+      sourceValueRole: row.sourceValueRole,
+      rawValueText: row.rawValueText,
+      comparator: inferCmp(row.rawValueText),
+    });
 
   const latestByKey = new Map<string, LabMetricResultLike | null>();
   for (const [metricKey, list] of byMetric) {

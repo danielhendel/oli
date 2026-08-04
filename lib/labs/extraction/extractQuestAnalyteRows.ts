@@ -109,7 +109,7 @@ function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number)
   const tok = tokens[valueIdx] ?? "";
   const next = tokens[valueIdx + 1] ?? "";
   // INTERLEUKIN 6 (IL 6), IA — number is part of the analyte name.
-  if (/^\(/.test(next) || /^\(IL/i.test(next) || /^IL\)?,?$/i.test(next)) return true;
+  if (/^\(/.test(next) || /^\(IL/i.test(next) || /^IL[\d\-)]*/i.test(next)) return true;
   // INTERLEUKIN 6 1.89 — integer name digit before the true decimal result.
   if (
     EQUALITY_NUMERIC.test(tok) &&
@@ -124,8 +124,14 @@ function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number)
   if (
     EQUALITY_NUMERIC.test(tok) &&
     !tok.includes(".") &&
-    /interleukin|vitamin\s*[abd]|factor\s*[ivx0-9]|hla-b27|coenzyme\s*q10/i.test(labelPrefix) &&
-    (VALUE_LIKE.test(next) || isUnitToken(next) || /^(?:<=|>=|<|>|≤|≥)/.test(next) || !next)
+    /interleukin|vitamin\s*[abd]|factor\s*[ivx0-9]|hla-b27|coenzyme\s*q10|omega|il-?\d/i.test(
+      labelPrefix,
+    ) &&
+    (VALUE_LIKE.test(next) ||
+      isUnitToken(next) ||
+      /^(?:<=|>=|<|>|≤|≥)/.test(next) ||
+      /^IL/i.test(next) ||
+      !next)
   ) {
     return true;
   }

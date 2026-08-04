@@ -37,8 +37,13 @@ export function isCardioIqPatternLegend(args: {
   const unit = (args.rawUnit ?? "").trim();
   const line = (args.lineText ?? "").trim();
   if (!/^Pattern\s+[AB]$/i.test(result)) return false;
-  if (/N\/A/i.test(range) && /\b[AB]\b/i.test(range)) return true;
+  // Classic summary legend: Pattern A + N/A + B Pattern
+  if (/N\/A/i.test(range)) return true;
   if (/^Pattern$/i.test(unit) && /N\/A/i.test(range)) return true;
+  // Summary legend without N/A: current token Pattern A and range carries the other letter.
+  if (/^Pattern\s+A$/i.test(result) && /^Pattern$/i.test(unit) && /\bB\b/i.test(range)) {
+    return true;
+  }
   if (/Relative\s+Risk:.*Pattern\s+A.*Pattern\s+B/i.test(line)) return true;
   return false;
 }

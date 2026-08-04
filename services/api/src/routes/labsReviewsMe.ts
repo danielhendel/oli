@@ -159,11 +159,13 @@ function buildSummary(args: {
       s === "user_corrected",
   ).length;
   const reviewNeededCount = statuses.filter((s) => s === "pending_review").length;
+  // Classified report notes / duplicates are not user review tasks.
   const unmatchedPending = args.draft.unmatched.filter((u) => {
     if (!unmatchedActionsAllowed(u.reason)) return false;
     const status = args.review.candidateStatuses[u.id] ?? "unresolved";
-    return status === "unresolved" || status === "pending_review";
+    return status === "pending_review";
   }).length;
+  const genuineReviewNeeded = reviewNeededCount + unmatchedPending;
   const reportImportStatus =
     args.review.status === "imported"
       ? ("imported" as const)
@@ -190,10 +192,10 @@ function buildSummary(args: {
     extractionVersion: args.draft.parser.extractionVersion,
     reviewVersion: args.review.reviewVersion,
     importedCount,
-    reviewNeededCount: reviewNeededCount + unmatchedPending,
+    reviewNeededCount: genuineReviewNeeded,
     reportImportStatus,
     hasAutoPublishedResults: statuses.includes("auto_published"),
-    hasReviewItems: reviewNeededCount + unmatchedPending > 0,
+    hasReviewItems: genuineReviewNeeded > 0,
   });
 }
 

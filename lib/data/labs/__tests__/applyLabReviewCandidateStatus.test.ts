@@ -84,17 +84,36 @@ describe("applyLabReviewCandidateStatus", () => {
       corrected: 0,
       unresolved: 0,
       imported: 0,
+      classifiedReportRows: 0,
     });
   });
 
   it("counts auto_published as imported and not toward finish accepted", () => {
     const data = applyLabReviewCandidateStatus(fixture(), "cand_a", "auto_published", 1);
+    // Fixture unmatched remains pending_review → still a genuine pending decision.
     expect(countReviewActionStatuses(data)).toEqual({
       accepted: 0,
       rejected: 0,
       corrected: 0,
       unresolved: 1,
       imported: 1,
+      classifiedReportRows: 0,
+    });
+  });
+
+  it("does not treat classified report notes as need-review tasks", () => {
+    const data = applyLabReviewCandidateStatus(fixture(), "cand_a", "auto_published", 1);
+    const withNotes: LabReviewDetailDto = {
+      ...data,
+      unmatched: data.unmatched.map((u) => ({ ...u, reviewStatus: "unresolved" as const })),
+    };
+    expect(countReviewActionStatuses(withNotes)).toEqual({
+      accepted: 0,
+      rejected: 0,
+      corrected: 0,
+      unresolved: 0,
+      imported: 1,
+      classifiedReportRows: 1,
     });
   });
 });

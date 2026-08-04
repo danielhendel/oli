@@ -1,6 +1,7 @@
 // lib/ui/labs/labReviewPresentation.ts
 import type { LabCandidateReviewStatus, LabReviewCandidateDto, LabReviewSummaryDto } from "@/lib/contracts";
 import { formatLabResultValue } from "@/lib/labs/labMetricCatalog";
+import { formatLabSourceCalendarDate } from "../../labs/labSourceDisplay";
 
 export const LAB_REVIEW_STATUS_LABELS: Record<LabCandidateReviewStatus, string> = {
   pending_review: "Pending",
@@ -22,14 +23,7 @@ export const LAB_REVIEW_GROUP_LABELS = {
 } as const;
 
 export function formatReviewDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatLabSourceCalendarDate(iso);
 }
 
 export function fastingLabel(fasting: boolean | null | undefined): string | null {
@@ -62,7 +56,13 @@ export function reviewSummaryCountsLabel(summary: LabReviewSummaryDto): string {
   const imported = summary.importedCount ?? 0;
   const needReview = summary.reviewNeededCount ?? 0;
   const unmatched = summary.unmatchedCount;
-  return `${imported} imported / ${needReview} need review / ${unmatched} unmatched`;
+  if (needReview > 0) {
+    return `${imported} imported / ${needReview} need review / ${unmatched} unmatched`;
+  }
+  if (unmatched > 0) {
+    return `${imported} imported / ${unmatched} report rows classified`;
+  }
+  return `${imported} imported`;
 }
 
 export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): string {

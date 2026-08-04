@@ -43,10 +43,16 @@ export function countReviewActionStatuses(data: LabReviewDetailDto): {
   rejected: number;
   /** User-corrected decisions — Finish review includes these. */
   corrected: number;
-  /** Pending user decisions (pending_review / unresolved). */
+  /**
+   * Genuine pending user decisions only (`pending_review`).
+   * Classified report notes (`unresolved` unmatched), withheld, and system_verified
+   * are not user review tasks under zero-required-user-review.
+   */
   unresolved: number;
-  /** Auto-published imports — already in Labs; Finish does not count these. */
+  /** Auto-published + system-verified imports already in Labs. */
   imported: number;
+  /** Classified report notes / non-result unmatched rows (not user tasks). */
+  classifiedReportRows: number;
 } {
   const all = [...data.candidates, ...data.unmatched];
   let accepted = 0;
@@ -54,12 +60,22 @@ export function countReviewActionStatuses(data: LabReviewDetailDto): {
   let corrected = 0;
   let unresolved = 0;
   let imported = 0;
+  let classifiedReportRows = 0;
   for (const c of all) {
-    if (c.reviewStatus === "auto_published") imported += 1;
-    else if (c.reviewStatus === "user_accepted") accepted += 1;
-    else if (c.reviewStatus === "rejected") rejected += 1;
-    else if (c.reviewStatus === "user_corrected") corrected += 1;
-    else unresolved += 1;
+    if (c.reviewStatus === "auto_published" || c.reviewStatus === "system_verified") {
+      imported += 1;
+    } else if (c.reviewStatus === "user_accepted") {
+      accepted += 1;
+    } else if (c.reviewStatus === "rejected") {
+      rejected += 1;
+    } else if (c.reviewStatus === "user_corrected") {
+      corrected += 1;
+    } else if (c.reviewStatus === "pending_review") {
+      unresolved += 1;
+    } else if (c.reviewStatus === "unresolved" || c.reviewStatus === "withheld") {
+      // Report notes / classified / withheld — not pending user decisions.
+      classifiedReportRows += 1;
+    }
   }
-  return { accepted, rejected, corrected, unresolved, imported };
+  return { accepted, rejected, corrected, unresolved, imported, classifiedReportRows };
 }

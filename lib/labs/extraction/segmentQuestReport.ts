@@ -22,7 +22,7 @@ const HEADER_FOOTER_RE =
   /^(page\s+\d+\s+of\s+\d+|quest\s+diagnostics|directlabs|confidential|continued|report\s+status)/i;
 
 const PANEL_RE =
-  /^(lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp\b|cbc\b|complete\s+blood\s+count|thyroid(?:\s+panel)?|hormone(?:\s+panel)?|cardio\s*iq|hepatitis(?:\s+panel)?|antibody(?:\s+panel)?|iron\s+(?:panel|studies)|electrolyte(?:\s+panel)?|testosterone|bioavailable)/i;
+  /^(lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp\b|cbc\b|complete\s+blood\s+count|thyroid(?:\s+panel)?|hormone(?:\s+panel)?|cardio\s*iq|hepatitis(?:\s+panel)?|antibody(?:\s+panel)?|iron\s+(?:panel|studies)|electrolyte(?:\s+panel)?|testosterone|bioavailable|hepatic(?:\s+function)?(?:\s+panel)?|liver(?:\s+panel)?)/i;
 
 /** Strip trailing Quest performing-lab codes from panel headers (e.g. NL1, AMD, EZ). */
 const PANEL_TRAILING_LAB_CODE_RE = /\s+(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;

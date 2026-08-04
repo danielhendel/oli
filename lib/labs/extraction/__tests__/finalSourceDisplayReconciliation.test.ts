@@ -148,7 +148,8 @@ describe("Cardio IQ detail-page authority", () => {
         collectedAt: iso,
         rawValueText: "<130",
         sourcePage: 6,
-        sourceValueRole: "current_result",
+        // Legacy threshold without explicit current role.
+        sourceValueRole: null,
         panelName: "Cardio IQ",
       },
     ]);
@@ -156,6 +157,34 @@ describe("Cardio IQ detail-page authority", () => {
       .flatMap((g) => g.metrics)
       .find((m) => m.definition.metricKey === "non_hdl_c");
     expect(card?.latest).toBeNull();
+  });
+
+  it("summary keeps Mercury censored current result", () => {
+    const grouped = groupLabResultsByCategory([
+      {
+        id: "merc",
+        metricKey: "mercury_blood",
+        categoryKey: "nutritional",
+        displayName: "Mercury",
+        value: 4,
+        unit: "ug/L",
+        collectedAt: iso,
+        rawValueText: "<4",
+        sourcePage: 2,
+        sourceValueRole: "current_result",
+      },
+    ]);
+    const card = grouped
+      .flatMap((g) => g.metrics)
+      .find((m) => m.definition.metricKey === "mercury_blood");
+    expect(card?.latest?.id).toBe("merc");
+    expect(
+      formatLabResultValue(card?.latest?.value, card?.latest?.unit, {
+        ...(card?.latest?.rawValueText != null ? { rawValueText: card.latest.rawValueText } : {}),
+        preferredUnit: "ug/L",
+        comparator: "lt",
+      }),
+    ).toBe("<4 ug/L");
   });
 
   it("summary prefers equality current over stale threshold on same collectedAt", () => {

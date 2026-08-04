@@ -3,6 +3,8 @@
  * Preserves all accepted results; only chooses which one cards display.
  */
 
+import { isLabReferenceLikeDisplayRow } from "../labSourceDisplay";
+
 export type LabRepresentativeCandidate = {
   id: string;
   canonicalMetricId: string;
@@ -110,25 +112,26 @@ function equalityRank(
 }
 
 function isReferenceLike(candidate: LabRepresentativeCandidate): boolean {
-  const role = candidate.sourceValueRole;
-  if (
-    role === "reference_optimal" ||
-    role === "reference_moderate" ||
-    role === "reference_high" ||
-    role === "reference_general" ||
-    role === "historical_result"
-  ) {
-    return true;
-  }
-  const cmp = inferComparator(candidate.result, candidate.rawValueText);
-  return cmp === "lt" || cmp === "lte" || cmp === "gt" || cmp === "gte";
+  return isLabReferenceLikeDisplayRow({
+    sourceValueRole: candidate.sourceValueRole,
+    rawValueText: candidate.rawValueText,
+    comparator:
+      candidate.result && "comparator" in candidate.result
+        ? (candidate.result.comparator as string | undefined) ?? null
+        : null,
+  });
 }
 
 /** Default Liver/CMP albumin policy. */
 export function defaultRepresentativePolicyForMetric(metricId: string): LabRepresentativeResultPolicy {
   if (metricId === "albumin") {
     return {
-      preferredPanels: ["COMPREHENSIVE METABOLIC", "CMP", "BMP"],
+      preferredPanels: [
+        "COMPREHENSIVE METABOLIC",
+        "CMP",
+        "BMP",
+        "BASIC METABOLIC",
+      ],
       measuredPreference: "measured_first",
     };
   }

@@ -88,9 +88,23 @@ export async function cleanupStaleLabDerivedRows(args: {
 
   const maybeRemoveAccepted = async (doc: { id: string; data: () => unknown }) => {
     if (args.keepAcceptedIds.has(doc.id) || seen.has(`a:${doc.id}`)) return;
-    const data = doc.data() as { review?: { status?: string } } | undefined;
+    const data = doc.data() as {
+      review?: { status?: string };
+      canonicalMetricId?: string;
+    } | undefined;
     const status = data?.review?.status;
     if (status && USER_KEEP_STATUSES.has(status)) return;
+    // Drop wrong-specimen / superseded metrics not republished for this document.
+    if (
+      args.publishedMetricKeys &&
+      args.publishedMetricKeys.size > 0 &&
+      data?.canonicalMetricId &&
+      !args.publishedMetricKeys.has(data.canonicalMetricId) &&
+      (data.canonicalMetricId === "osmolality_serum" ||
+        data.canonicalMetricId === "osmolality_urine")
+    ) {
+      // Fall through to delete — specimen sibling not in active keep set.
+    }
     await deleteDoc(args.labAcceptedResultsCol, doc.id);
     await deleteDoc(args.labResultsCol, doc.id);
     seen.add(`a:${doc.id}`);
