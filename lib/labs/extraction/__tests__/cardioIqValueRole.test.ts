@@ -39,6 +39,17 @@ describe("cardioIqValueRole", () => {
     ).toBe("current_result");
   });
 
+  it("marks Cardio IQ pattern legends as reference_general", () => {
+    expect(
+      assignSourceValueRole({
+        isCardioIq: true,
+        isHistorical: false,
+        isPatternLegend: true,
+        result: { kind: "pattern", value: "Pattern A" },
+      }),
+    ).toBe("reference_general");
+  });
+
   it("marks historical rows as historical_result", () => {
     expect(
       assignSourceValueRole({

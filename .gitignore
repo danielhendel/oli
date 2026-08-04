@@ -170,3 +170,6 @@ audit-final/
 audit-iam-eventarc/
 oli-audit-closure/
 scripts/dev/
+
+.tmp-*
+.tmp/
