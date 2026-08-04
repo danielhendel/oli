@@ -94,6 +94,8 @@ ui-debug.log
 # Local archives / audit artifacts
 # ----------------------------------------
 artifacts/bundled-exercise-usage/
+.tmp-labs-integrity/
+oli-private/
 *.zip
 oli-project-src/
 oli-project-src.zip
