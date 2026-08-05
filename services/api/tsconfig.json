@@ -18,6 +18,7 @@
   "include": [
     "src/**/*.ts",
     "../../lib/labs/**/*.ts",
+    "../../lib/data/labs/labsOsFlag.ts",
     "../../lib/data/documents/documentTypes.ts",
     "../../lib/data/documents/documentStatus.ts",
     "../../lib/data/documents/documentStateMachine.ts",
@@ -30,6 +31,7 @@
     "../../lib/data/documents/documentAccountLifecycle.ts",
     "../../lib/data/documents/documentDeleteRelationships.ts",
     "../../lib/data/documents/documentProcessingReconcile.ts",
+    "../../lib/data/documents/parseLabImportSummaryStructural.ts",
     "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
   ],
   "exclude": [

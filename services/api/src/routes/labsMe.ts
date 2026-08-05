@@ -11,7 +11,10 @@ import {
   labUploadDetailResponseDtoSchema,
   labUploadDtoSchema,
   labUploadsListResponseDtoSchema,
+  acceptedLabResultSchema,
+  labAnalyteHistoryDtoSchema,
   labsSummaryResponseDtoSchema,
+  type AcceptedLabResult,
   type LabMetricResultDto,
   type LabUploadDto,
 } from "@oli/contracts";
@@ -21,6 +24,13 @@ import {
   getLabMetricByKey,
   groupLabResultsByCategory,
 } from "../../../../lib/labs/labMetricCatalog";
+import { toHistoryPointDto } from "../../../../lib/labs/extraction/labHistoryCompatibility";
+import { sortLabHistoryByCollectionDate } from "../../../../lib/labs/history/evaluateLabTrendEligibility";
+import {
+  selectLabConsumerHistoryRows,
+  selectLabConsumerLatestResult,
+  type LabConsumerHistoryRow,
+} from "../../../../lib/labs/integrity/filterLabHistoryForConsumer";
 
 import type { AuthedRequest } from "../middleware/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -48,6 +58,78 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
 
 const uploadIdParamsSchema = z.object({ uploadId: z.string().min(1) });
 const metricKeyParamsSchema = z.object({ metricKey: z.string().min(1) });
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  cursor: z.string().min(1).optional(),
+});
+
+function resultFingerprint(result: AcceptedLabResult["result"]): string {
+  if (result.kind === "numeric") return `${result.comparator}:${result.value}`;
+  if (result.kind === "not_reported") return `nr:${result.reason}`;
+  return `${result.kind}:${result.value}`;
+}
+
+function acceptedToConsumerHistoryRow(row: AcceptedLabResult, metricKey: string): LabConsumerHistoryRow {
+  let rawValueText: string | null = null;
+  if (row.result.kind === "numeric") {
+    const v = String(row.result.value);
+    if (row.result.comparator === "lt") rawValueText = `<${v}`;
+    else if (row.result.comparator === "lte") rawValueText = `<=${v}`;
+    else if (row.result.comparator === "gt") rawValueText = `>${v}`;
+    else if (row.result.comparator === "gte") rawValueText = `>=${v}`;
+    else rawValueText = v;
+  } else if (row.result.kind === "pattern" || row.result.kind === "qualitative" || row.result.kind === "text") {
+    rawValueText = String(row.result.value);
+  }
+  return {
+    id: row.id,
+    canonicalMetricId: row.canonicalMetricId ?? metricKey,
+    collectedAt: row.collectedAt,
+    panelId: row.panelId,
+    specimenType: row.specimen?.type ?? null,
+    methodId: row.method?.assayMethod ?? null,
+    measuredOrCalculated: "reported_unknown",
+    sourceLocator: row.provenance.sourceLocator,
+    sourcePage: row.provenance.sourcePage,
+    sourceDocumentId: row.sourceDocumentId ?? null,
+    sourceValueRole: row.provenance.sourceValueRole ?? null,
+    reviewStatus: row.review?.status ?? null,
+    result: row.result,
+    rawValueText,
+    resultFingerprint: resultFingerprint(row.result),
+  };
+}
+
+function projectionToConsumerHistoryRow(row: LabMetricResultDto): LabConsumerHistoryRow {
+  const cmp =
+    typeof row.value === "number"
+      ? row.rawValueText && /^[<>]/.test(row.rawValueText.trim())
+        ? row.rawValueText.trim().startsWith("<")
+          ? "lt"
+          : "gt"
+        : "eq"
+      : null;
+  return {
+    id: row.id,
+    canonicalMetricId: row.metricKey,
+    collectedAt: row.collectedAt ?? null,
+    panelId: row.panelName ?? null,
+    panelName: row.panelName ?? null,
+    specimenType: null,
+    sourcePage: typeof row.sourcePage === "number" ? row.sourcePage : null,
+    sourceDocumentId: row.uploadId ?? (row as { sourceDocumentId?: string }).sourceDocumentId ?? null,
+    sourceValueRole: row.sourceValueRole ?? null,
+    reviewStatus: row.publicationMode ?? null,
+    result:
+      typeof row.value === "number"
+        ? { kind: "numeric", value: row.value, comparator: cmp ?? "eq" }
+        : row.value != null
+          ? { kind: "text", value: String(row.value) }
+          : null,
+    rawValueText: row.rawValueText ?? null,
+    resultFingerprint: `${row.value ?? ""}:${row.rawValueText ?? ""}:${row.unit ?? ""}`,
+  };
+}
 
 function toIsoFromTimestampLike(value: unknown): string | undefined {
   if (typeof value === "string") return value;
@@ -133,6 +215,7 @@ router.get(
 
     const grouped = groupLabResultsByCategory(
       results.map((r) => ({
+        id: r.id,
         metricKey: r.metricKey,
         categoryKey: r.categoryKey,
         displayName: r.displayName,
@@ -146,6 +229,10 @@ router.get(
         reportedAt: r.reportedAt ?? null,
         uploadId: r.uploadId,
         rawValueText: r.rawValueText ?? null,
+        panelName: r.panelName ?? null,
+        ...(typeof r.sourcePage === "number" ? { sourcePage: r.sourcePage } : {}),
+        sourceValueRole: r.sourceValueRole ?? null,
+        publicationMode: r.publicationMode ?? null,
       })),
     );
     const categories = grouped.map((g) => ({
@@ -461,20 +548,22 @@ router.get(
       .limit(50)
       .get();
 
-    const history: LabMetricResultDto[] = [];
+    const loaded: LabMetricResultDto[] = [];
     for (const doc of snap.docs) {
       const r = doc.data() as Record<string, unknown>;
       const createdAt = toIsoFromTimestampLike(r.createdAt) ?? (r.createdAt as string);
       const validated = labMetricResultDtoSchema.safeParse({ ...r, id: doc.id, createdAt });
-      if (validated.success) history.push(validated.data);
+      if (validated.success) loaded.push(validated.data);
     }
-    history.sort((a, b) => {
-      const aKey = String(a.collectedAt ?? a.createdAt ?? "");
-      const bKey = String(b.collectedAt ?? b.createdAt ?? "");
-      return bKey.localeCompare(aKey);
-    });
-
-    const latest = history[0] ?? null;
+    const byId = new Map(loaded.map((r) => [r.id, r]));
+    const consumerRows = loaded.map(projectionToConsumerHistoryRow);
+    const historyIds = selectLabConsumerHistoryRows(consumerRows).map((r) => r.id);
+    const history = historyIds
+      .map((id) => byId.get(id))
+      .filter((r): r is LabMetricResultDto => r != null)
+      .sort((a, b) => String(b.collectedAt ?? "").localeCompare(String(a.collectedAt ?? "")));
+    const latestId = selectLabConsumerLatestResult(consumerRows)?.id ?? null;
+    const latest = (latestId ? byId.get(latestId) : null) ?? history[0] ?? null;
     const payload = {
       ok: true as const,
       metricKey: catalog.metricKey,
@@ -492,6 +581,74 @@ router.get(
       return;
     }
 
+    res.status(200).json(validated.data);
+  }),
+);
+
+/**
+ * Bounded accepted-result history for a canonical metric.
+ * Ordered by collectedAt desc; cursor is the last returned accepted result id.
+ */
+router.get(
+  "/metrics/:metricKey/history",
+  asyncHandler(async (req: AuthedRequest, res: Response) => {
+    const uid = req.uid;
+    if (!uid) {
+      res.status(401).json({ ok: false, error: "Unauthorized" });
+      return;
+    }
+
+    const parsedParams = metricKeyParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_PARAMS", requestId: getRid(req) } });
+      return;
+    }
+    const parsedQuery = historyQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      res.status(400).json({ ok: false, error: { code: "INVALID_QUERY", requestId: getRid(req) } });
+      return;
+    }
+
+    const { metricKey } = parsedParams.data;
+    const catalog = getLabMetricByKey(metricKey);
+    if (!catalog) {
+      res.status(404).json({ ok: false, error: { code: "NOT_FOUND", resource: "labMetric", id: metricKey } });
+      return;
+    }
+
+    const snap = await userCollection(uid, "labAcceptedResults")
+      .where("canonicalMetricId", "==", metricKey)
+      .limit(200)
+      .get();
+
+    const accepted: AcceptedLabResult[] = [];
+    for (const doc of snap.docs) {
+      const validated = acceptedLabResultSchema.safeParse({ ...doc.data(), id: doc.id });
+      if (validated.success) accepted.push(validated.data);
+    }
+
+    const consumerRows = accepted.map((row) => acceptedToConsumerHistoryRow(row, metricKey));
+    const eligibleIds = new Set(selectLabConsumerHistoryRows(consumerRows).map((r) => r.id));
+    const ordered = sortLabHistoryByCollectionDate(accepted.filter((row) => eligibleIds.has(row.id)));
+    const cursor = parsedQuery.data.cursor ?? null;
+    const startIdx = cursor ? ordered.findIndex((row) => row.id === cursor) + 1 : 0;
+    const slice = ordered.slice(Math.max(0, startIdx), Math.max(0, startIdx) + parsedQuery.data.limit);
+    const points = slice.map((row) => toHistoryPointDto(row));
+    const nextCursor =
+      startIdx + parsedQuery.data.limit < ordered.length ? (slice[slice.length - 1]?.id ?? null) : null;
+
+    const payload = {
+      ok: true as const,
+      canonicalMetricId: metricKey,
+      displayName: catalog.displayName,
+      points,
+      nextCursor,
+    };
+    const validated = labAnalyteHistoryDtoSchema.safeParse(payload);
+    if (!validated.success) {
+      res.status(500).json({ ok: false, error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) } });
+      return;
+    }
     res.status(200).json(validated.data);
   }),
 );

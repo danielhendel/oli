@@ -1021,6 +1021,198 @@ paths:
         401:
           description: Unauthorized
 
+  /users/me/labs/metrics/{metricKey}/history:
+    parameters:
+      - name: metricKey
+        in: path
+        required: true
+        type: string
+      - name: limit
+        in: query
+        required: false
+        type: integer
+        minimum: 1
+        maximum: 50
+      - name: cursor
+        in: query
+        required: false
+        type: string
+    options:
+      operationId: labsMetricHistoryOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsMetricHistoryGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Bounded accepted-result history ordered by collectedAt
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/labs/reviews:
+    options:
+      operationId: labsReviewsListOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsReviewsListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Labs review summaries needing attention or in progress
+        401:
+          description: Unauthorized
+
+  /users/me/labs/reviews/{documentId}:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsReviewDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: labsReviewDetailGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Labs review detail with candidates and unmatched analytes
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/labs/reviews/{documentId}/candidates/{candidateId}:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+      - name: candidateId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsReviewCandidatePatchOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    patch:
+      operationId: labsReviewCandidatePatch
+      security:
+        - firebase: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - reviewVersion
+            properties:
+              reviewVersion:
+                type: integer
+                minimum: 0
+              reviewStatus:
+                type: string
+                enum: [pending_review, auto_published, system_verified, user_accepted, user_corrected, rejected, unresolved, withheld]
+              correction:
+                type: object
+      responses:
+        200:
+          description: Candidate correction or status applied
+        400:
+          description: Invalid body
+        404:
+          description: Not found
+        409:
+          description: Review version conflict
+        401:
+          description: Unauthorized
+
+  /users/me/labs/reviews/{documentId}/accept:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsReviewAcceptOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: labsReviewAcceptPost
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+          description: Required for accept idempotency
+      responses:
+        200:
+          description: Selected candidates accepted into structured lab history
+        400:
+          description: Invalid body, missing Idempotency-Key, or no acceptable candidates
+        404:
+          description: Not found
+        409:
+          description: Review version conflict or already accepted under a different key
+        401:
+          description: Unauthorized
+
+  /users/me/labs/reviews/{documentId}/reject:
+    parameters:
+      - name: documentId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: labsReviewRejectOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: labsReviewRejectPost
+      security:
+        - firebase: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          type: string
+          description: Required for reject idempotency
+      responses:
+        200:
+          description: Selected candidates rejected
+        400:
+          description: Invalid body or missing Idempotency-Key
+        404:
+          description: Not found
+        409:
+          description: Review version conflict
+        401:
+          description: Unauthorized
+
   /users/me/documents:
     options:
       operationId: documentsListOptions

@@ -13,6 +13,13 @@ jest.mock("expo-router", () => ({
   useNavigation: () => ({ setOptions: (opts: typeof navigationOptions) => { navigationOptions = opts; }, goBack: jest.fn() }),
 }));
 
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const cleanup = cb();
+    return typeof cleanup === "function" ? cleanup : undefined;
+  },
+}));
+
 const mockSummary = {
   status: "ready" as const,
   data: {
@@ -38,6 +45,14 @@ const mockSummary = {
 
 jest.mock("@/lib/data/labs/useLabsSummary", () => ({
   useLabsSummary: () => mockSummary,
+}));
+
+jest.mock("@/lib/data/labs/useLabReviews", () => ({
+  useLabReviews: () => ({ status: "ready", data: { ok: true, items: [] }, refetch: jest.fn() }),
+}));
+
+jest.mock("@/lib/data/labs/labsOsFlag", () => ({
+  isLabsOsV1Enabled: () => true,
 }));
 
 import LabsHomeScreen from "../index";

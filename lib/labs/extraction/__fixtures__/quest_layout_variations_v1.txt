@@ -1,0 +1,47 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+Collected: 04/01/2024 07:15 AM
+Received: 04/01/2024 01:00 PM
+Reported: 04/02/2024 10:00 AM
+Fasting: Yes
+Specimen: Serum
+Performing Site: Quest Diagnostics - Chantilly
+Performing Site: Cleveland HeartLab
+
+Page 1 of 2
+Quest Diagnostics Confidential
+
+LIPID PANEL
+LDL-
+CHOLESTEROL               110  mg/dL  <100         H
+HDL-CHOLESTEROL            52  mg/dL  >40
+TRIGLYCERIDES              88  mg/dL  <150
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                    89  mg/dL  65-99
+CREATININE                0.9  mg/dL  0.60-1.35
+
+Note: See appendix for method details.
+
+Page 2 of 2
+Quest Diagnostics Confidential
+
+CARDIO IQ
+LDL-P                    1150  nmol/L  <1000         H
+SMALL LDL-P               200  nmol/L  <527
+
+Historical Results
+LDL-CHOLESTEROL  PRIOR RESULT  140  mg/dL
+
+Reference Categories
+Optimal: <100; Moderate: 100-129; High Risk: >=130
+
+ANTIBODY
+HEPATITIS C AB         NEGATIVE
+ANA PATTERN           Pattern A
+
+CALCULATED
+HOMA-IR           NOT APPLICABLE
+CUSTOM MARKER NO UNIT    12
+Lp(a)                     <4  mg/dL  <75

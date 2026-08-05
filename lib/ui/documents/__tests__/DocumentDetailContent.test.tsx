@@ -29,7 +29,7 @@ function detail(overrides: Partial<DocumentDetailDto> = {}): DocumentDetailDto {
 }
 
 describe("DocumentDetailContent", () => {
-  it("shows Lab report title and no Retry processing for unsupported Labs detail", () => {
+  it("shows Reprocess report for unsupported Labs detail and invokes handler", () => {
     const onReprocess = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -46,9 +46,13 @@ describe("DocumentDetailContent", () => {
     expect(str).toContain("Lab report");
     expect(str).toContain("Extraction unavailable");
     expect(str).toMatch(/not available yet/i);
+    expect(str).toContain("Reprocess report");
     expect(str).not.toContain("Retry processing");
-    expect(() => tree.root.findByProps({ testID: "document-reprocess" })).toThrow();
-    expect(onReprocess).not.toHaveBeenCalled();
+    const button = tree.root.findByProps({ testID: "document-reprocess" });
+    act(() => {
+      button.props.onPress();
+    });
+    expect(onReprocess).toHaveBeenCalledTimes(1);
   });
 
   it("shows Retry processing for failed retryable extraction and invokes handler", () => {

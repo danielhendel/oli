@@ -8,6 +8,7 @@ import {
 } from "@/lib/data/labs/buildLabReportDetailViewModel";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
@@ -24,6 +25,8 @@ export type LabUploadDetailContentProps = {
   onRetry?: () => void;
   /** Optional injection for tests — production builds from `data`. */
   viewModel?: LabReportDetailViewModel;
+  showReviewLink?: boolean;
+  onPressReview?: () => void;
 };
 
 export function LabUploadDetailContent({
@@ -33,6 +36,8 @@ export function LabUploadDetailContent({
   data,
   onRetry,
   viewModel: viewModelProp,
+  showReviewLink = false,
+  onPressReview,
 }: LabUploadDetailContentProps) {
   if (status === "partial") return <LoadingState message="Loading report…" />;
   if (status === "error") {
@@ -71,6 +76,17 @@ export function LabUploadDetailContent({
           <Text style={styles.extraction} testID="lab-report-extraction-message">
             {vm.extractionMessage}
           </Text>
+        ) : null}
+        {showReviewLink && onPressReview ? (
+          <Pressable
+            onPress={onPressReview}
+            accessibilityRole="button"
+            accessibilityLabel="Review extracted results"
+            style={({ pressed }) => [styles.reviewLink, pressed && styles.reviewLinkPressed]}
+            testID="lab-report-review-link"
+          >
+            <Text style={styles.reviewLinkLabel}>Review extracted results</Text>
+          </Pressable>
         ) : null}
         {vm.showParserCounts && vm.parserCountsLabel ? (
           <Text style={styles.meta} testID="lab-report-parser-counts">
@@ -210,5 +226,22 @@ const styles = StyleSheet.create({
   comingSoon: {
     fontSize: 13,
     color: UI_TEXT_TERTIARY_LABEL,
+  },
+  reviewLink: {
+    marginTop: 8,
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: "rgba(58, 91, 219, 0.15)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(58, 91, 219, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  reviewLinkPressed: { opacity: 0.9 },
+  reviewLinkLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: SYSTEM_ACCENT,
   },
 });

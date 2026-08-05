@@ -77,4 +77,39 @@ describe("DocumentUploadFlowContent contrast", () => {
     );
     expect(DOCUMENT_UPLOAD_MIN_TOUCH).toBeGreaterThanOrEqual(44);
   });
+
+  it("shows import summary and View Labs / How processed CTAs for labs success", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentUploadFlowContent
+          phase="success"
+          errorMessage={null}
+          onStart={() => undefined}
+          onCancel={() => undefined}
+          onReset={() => undefined}
+          onViewLabs={() => undefined}
+          onHowProcessed={() => undefined}
+          domainLabel="Labs"
+          terminalStatus="review_needed"
+          importSummary={{
+            importedCount: 82,
+            reviewNeededCount: 0,
+            unmatchedCount: 0,
+            reportImportStatus: "imported",
+            hasAutoPublishedResults: true,
+            hasReviewItems: false,
+            reportContentCount: 19,
+          }}
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Report imported");
+    expect(json).toContain("All supported results were added to Labs");
+    expect(json).toContain("Additional report content was preserved");
+    expect(json).not.toContain("Review 18 items");
+    expect(tree.root.findByProps({ testID: "document-upload-view-labs" })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: "document-upload-how-processed" })).toBeTruthy();
+  });
 });

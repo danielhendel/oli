@@ -11,6 +11,7 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 import type { DocumentUploadPhase } from "@/lib/data/documents/useDocumentUploadFlow";
+import type { DocumentUploadImportSummary } from "@/lib/data/documents/useDocumentUploadFlow";
 
 /** Primary CTA fill — accent surface with high-contrast label. */
 export const DOCUMENT_UPLOAD_PRIMARY_BG = SYSTEM_ACCENT;
@@ -27,8 +28,94 @@ export type DocumentUploadFlowContentProps = {
   onCancel: () => void;
   onReset: () => void;
   onDone?: () => void;
+  onViewLabs?: () => void;
+  onHowProcessed?: () => void;
+  /** @deprecated Zero-user-work: optional corrections only — not a primary CTA. */
+  onReviewItems?: () => void;
   domainLabel: string;
+  terminalStatus?: string | null;
+  importSummary?: DocumentUploadImportSummary | null;
 };
+
+function labsSuccessCopy(args: {
+  terminalStatus: string | null;
+  importSummary: DocumentUploadImportSummary | null;
+}): {
+  title: string;
+  lines: string[];
+  showViewLabs: boolean;
+  showHowProcessed: boolean;
+  showDoneOnly: boolean;
+} {
+  const summary = args.importSummary;
+  if (args.terminalStatus === "unsupported") {
+    return {
+      title: "Stored securely",
+      lines: ["Extraction unavailable for this format."],
+      showViewLabs: false,
+      showHowProcessed: false,
+      showDoneOnly: true,
+    };
+  }
+  if (args.terminalStatus === "failed") {
+    return {
+      title: "Processing failed",
+      lines: [],
+      showViewLabs: false,
+      showHowProcessed: false,
+      showDoneOnly: true,
+    };
+  }
+  if (!summary) {
+    return {
+      title: "Report imported",
+      lines: ["Oli is finishing processing. Open Labs to see available results."],
+      showViewLabs: true,
+      showHowProcessed: true,
+      showDoneOnly: false,
+    };
+  }
+
+  const available = summary.importedCount;
+  const unsupported = summary.unmatchedCount;
+  const withheld = Math.max(0, summary.withheldCount ?? 0);
+  const verifying = Math.max(0, summary.verifyingCount ?? 0);
+  const reportContent = Math.max(0, summary.reportContentCount ?? 0);
+  const lines: string[] = [];
+  if (available > 0 && verifying > 0) {
+    lines.push(`${available} result${available === 1 ? "" : "s"} available now`);
+    lines.push(
+      `${verifying} additional result${verifying === 1 ? "" : "s"} ${verifying === 1 ? "is" : "are"} being verified`,
+    );
+  } else if (available > 0) {
+    lines.push(
+      unsupported === 0 && withheld === 0
+        ? `All supported results were added to Labs`
+        : `${available} result${available === 1 ? "" : "s"} added to Labs`,
+    );
+  }
+  if (withheld > 0) {
+    lines.push(
+      `${withheld} result${withheld === 1 ? "" : "s"} could not be safely resolved`,
+    );
+  }
+  if (unsupported > 0) {
+    lines.push(
+      `${unsupported} genuine result${unsupported === 1 ? "" : "s"} ${available > 0 ? "are not yet supported" : "could not be matched"}`,
+    );
+  }
+  if (reportContent > 0) {
+    lines.push(`Additional report content was preserved but was not treated as a lab result`);
+  }
+
+  return {
+    title: available > 0 ? "Report imported" : "Stored securely",
+    lines: lines.length > 0 ? lines : ["Oli processed this report."],
+    showViewLabs: available > 0,
+    showHowProcessed: true,
+    showDoneOnly: available === 0,
+  };
+}
 
 export function DocumentUploadFlowContent({
   phase,
@@ -37,17 +124,35 @@ export function DocumentUploadFlowContent({
   onCancel,
   onReset,
   onDone,
+  onViewLabs,
+  onHowProcessed,
   domainLabel,
+  terminalStatus = null,
+  importSummary = null,
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
+  const isLabs = domainLabel.toLowerCase() === "labs";
+  const labsCopy = isLabs ? labsSuccessCopy({ terminalStatus, importSummary }) : null;
+  const successLabel = labsCopy
+    ? labsCopy.title
+    : terminalStatus === "review_needed"
+      ? "Stored securely"
+      : terminalStatus === "structured"
+        ? "Structured"
+        : terminalStatus === "unsupported"
+          ? "Stored — extraction unavailable for this format"
+          : terminalStatus === "failed"
+            ? "Processing failed"
+            : "Stored securely";
 
   return (
     <View style={styles.root} testID="document-upload-flow">
       <View style={styles.card}>
         <Text style={styles.title}>Upload {domainLabel} document</Text>
         <Text style={styles.body}>
-          Files are stored securely. Structured extraction is not available yet — originals are kept for
-          future processing.
+          {isLabs
+            ? "Supported Quest lab PDFs are imported automatically. Oli verifies resolvable exceptions — you do not need to review each row."
+            : "Files are stored securely. Supported Quest lab PDFs are extracted; unsupported formats keep the original for later processing."}
         </Text>
 
         {phase === "idle" ? (
@@ -97,18 +202,47 @@ export function DocumentUploadFlowContent({
         {phase === "success" ? (
           <>
             <Text style={styles.status} testID="document-upload-success">
-              Stored securely
+              {successLabel}
             </Text>
-            <Pressable
-              onPress={onDone ?? onReset}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: false }}
-              accessibilityLabel="Done"
-              style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-              testID="document-upload-done"
-            >
-              <Text style={styles.primaryLabel}>Done</Text>
-            </Pressable>
+            {labsCopy?.lines.map((line) => (
+              <Text key={line} style={styles.body} testID="document-upload-import-line">
+                {line}
+              </Text>
+            ))}
+            {labsCopy?.showViewLabs && onViewLabs ? (
+              <Pressable
+                onPress={onViewLabs}
+                accessibilityRole="button"
+                accessibilityLabel="View Labs"
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                testID="document-upload-view-labs"
+              >
+                <Text style={styles.primaryLabel}>View Labs</Text>
+              </Pressable>
+            ) : null}
+            {labsCopy?.showHowProcessed && onHowProcessed ? (
+              <Pressable
+                onPress={onHowProcessed}
+                accessibilityRole="button"
+                accessibilityLabel="How Oli processed this report"
+                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
+                testID="document-upload-how-processed"
+              >
+                <Text style={styles.secondaryLabel}>How Oli processed this report</Text>
+              </Pressable>
+            ) : null}
+            {labsCopy?.showDoneOnly || (!labsCopy?.showViewLabs && !labsCopy?.showHowProcessed) ? (
+              <Pressable
+                onPress={onDone ?? onReset}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: false }}
+                accessibilityLabel="Done"
+                style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                testID="document-upload-done"
+              >
+                <Text style={styles.primaryLabel}>Done</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 
@@ -168,11 +302,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryLabel: {
-    color: DOCUMENT_UPLOAD_PRIMARY_LABEL,
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  primaryLabel: { color: DOCUMENT_UPLOAD_PRIMARY_LABEL, fontSize: 16, fontWeight: "700" },
   primaryDisabled: {
     marginTop: 4,
     minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
@@ -182,12 +312,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryDisabledLabel: {
-    color: DOCUMENT_UPLOAD_DISABLED_LABEL,
-    fontSize: 16,
-    fontWeight: "700",
+  primaryDisabledLabel: { color: DOCUMENT_UPLOAD_DISABLED_LABEL, fontSize: 16, fontWeight: "700" },
+  secondary: {
+    marginTop: 4,
+    minHeight: DOCUMENT_UPLOAD_MIN_TOUCH,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: UI_TEXT_MUTED,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  secondary: { minHeight: DOCUMENT_UPLOAD_MIN_TOUCH, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
-  secondaryLabel: { color: UI_TEXT_SECONDARY, fontSize: 15, fontWeight: "600" },
+  secondaryLabel: { color: UI_TEXT_PRIMARY, fontSize: 16, fontWeight: "600" },
   pressed: { opacity: 0.85 },
 });

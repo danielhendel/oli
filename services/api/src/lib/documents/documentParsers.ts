@@ -1,5 +1,5 @@
 /**
- * Document parser registry — fail-closed stubs (server-side).
+ * Document parser registry — Quest text PDF first for labs; fail-closed stubs otherwise.
  * No fake structured health extraction. Do not reintroduce mock lab biomarkers.
  */
 
@@ -11,6 +11,7 @@ import {
   type DocumentParserRegistryEntry,
   type ParserEligibilityResult,
 } from "../../../../../lib/data/documents/documentParser";
+import { questTextPdfParser } from "../labs/questTextPdfParser";
 
 const EXTRACTION_VERSION = "1.0.0";
 
@@ -90,12 +91,14 @@ export const unsupportedDnaParser: DocumentParser = makeUnsupportedParser({
 });
 
 export const DOCUMENT_PARSER_REGISTRY: readonly DocumentParserRegistryEntry[] = [
+  { parser: questTextPdfParser, autoRun: true },
   { parser: unsupportedLabParser, autoRun: true },
   { parser: unsupportedDexaParser, autoRun: true },
   { parser: unsupportedDnaParser, autoRun: false },
   { parser: metadataOnlyParser, autoRun: true },
 ];
 
+/** Sync resolve — prefers explicit id; otherwise first autoRun match (may be Quest). */
 export function resolveDocumentParser(args: {
   documentType: DocumentType;
   parserId?: string;
@@ -109,6 +112,33 @@ export function resolveDocumentParser(args: {
     (e) => e.autoRun && e.parser.supportedDocumentTypes.includes(args.documentType) && e.parser.id !== "metadata_only",
   );
   if (typed) return typed.parser;
+
+  return metadataOnlyParser;
+}
+
+/**
+ * Resolve the first auto-run parser that declares eligibility for this input.
+ * Quest is registered before unsupported_lab so supported reports use real extraction.
+ */
+export async function resolveDocumentParserForInput(args: {
+  documentType: DocumentType;
+  parserId?: string;
+  input: DocumentParserInput;
+}): Promise<DocumentParser> {
+  if (args.parserId) {
+    const found = DOCUMENT_PARSER_REGISTRY.find((e) => e.parser.id === args.parserId);
+    if (found) return found.parser;
+  }
+
+  for (const entry of DOCUMENT_PARSER_REGISTRY) {
+    if (!entry.autoRun) continue;
+    if (entry.parser.id === "metadata_only") continue;
+    if (!entry.parser.supportedDocumentTypes.includes(args.documentType) && args.documentType !== "unknown") {
+      continue;
+    }
+    const eligibility = await entry.parser.canParse(args.input);
+    if (eligibility.eligible) return entry.parser;
+  }
 
   return metadataOnlyParser;
 }

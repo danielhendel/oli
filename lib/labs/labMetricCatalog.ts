@@ -1,6 +1,9 @@
 // lib/labs/labMetricCatalog.ts
 // Canonical lab biomarker taxonomy — pure helpers, no I/O.
 
+import { selectRepresentativeLabResult } from "./history/selectRepresentativeLabResult";
+import { isLabReferenceLikeDisplayRow } from "./labSourceDisplay";
+
 export type LabResultType = "numeric" | "ratio" | "text";
 
 export type LabMetricFlag = "low" | "normal" | "high" | "critical" | "unknown";
@@ -25,6 +28,7 @@ export type LabCategoryDefinition = {
 };
 
 export type LabMetricResultLike = {
+  id?: string;
   metricKey: string;
   categoryKey?: string;
   displayName?: string;
@@ -38,6 +42,10 @@ export type LabMetricResultLike = {
   reportedAt?: string | null;
   uploadId?: string | null;
   rawValueText?: string | null;
+  panelName?: string | null;
+  sourcePage?: number;
+  sourceValueRole?: string | null;
+  publicationMode?: "auto" | "user" | null;
 };
 
 export type LabResultsByCategory = {
@@ -79,11 +87,18 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("hs_crp", "cardiovascular", "hs-CRP", ["hs crp", "hscrp", "c-reactive protein, high sensitivity", "crp, high sensitivity"], ["mg/L"], "mg/L", 70),
   M("ldl_particle_number", "cardiovascular", "LDL Particle Number", ["ldl-p", "ldl particle count", "ldl-p number"], ["nmol/L"], "nmol/L", 80),
   M("small_ldl_p", "cardiovascular", "Small LDL-P", ["small dense ldl", "sdldl-p"], ["nmol/L"], "nmol/L", 90),
-  M("lp_pla2", "cardiovascular", "Lp-PLA2", ["lipoprotein-associated phospholipase a2", "pla2"], ["ng/mL"], "ng/mL", 100),
+  M("lp_pla2", "cardiovascular", "Lp-PLA2", ["lipoprotein-associated phospholipase a2", "pla2"], ["nmol/min/mL", "ng/mL"], "nmol/min/mL", 100),
+  M("non_hdl_c", "cardiovascular", "Non-HDL Cholesterol", ["non-hdl cholesterol", "non hdl cholesterol", "non-hdl-c", "non hdl-c"], ["mg/dL", "mmol/L"], "mg/dL", 110),
+  M("chol_hdl_ratio", "cardiovascular", "Cholesterol/HDL Ratio", ["chol/hdlc ratio", "chol hdlc ratio", "total cholesterol/hdl", "tc/hdl"], ["ratio"], "ratio", 120, "ratio"),
+  M("ldl_medium", "cardiovascular", "Medium LDL-P", ["ldl medium", "medium ldl", "medium ldl-p"], ["nmol/L"], "nmol/L", 130),
+  M("hdl_large", "cardiovascular", "Large HDL-P", ["hdl large", "large hdl", "large hdl-p"], ["nmol/L"], "nmol/L", 140),
+  M("ldl_peak_size", "cardiovascular", "LDL Peak Size", ["ldl peak size", "ldl size"], ["Angstrom", "nm"], "Angstrom", 150),
+  M("ldl_pattern", "cardiovascular", "LDL Pattern", ["ldl pattern", "ldl pattern a", "ldl pattern b"], ["none"], "none", 160, "text"),
 
   // Metabolic Health
   M("glucose", "metabolic", "Glucose", ["fasting glucose", "blood glucose", "glu"], ["mg/dL", "mmol/L"], "mg/dL", 10),
   M("hba1c", "metabolic", "HbA1c", ["a1c", "hemoglobin a1c", "hba1c"], ["%", "mmol/mol"], "%", 20),
+  M("eag", "metabolic", "Estimated Average Glucose", ["eag", "eag mg/dl", "eag mmol/l", "estimated average glucose"], ["mg/dL", "mmol/L"], "mg/dL", 25),
   M("fasting_insulin", "metabolic", "Fasting Insulin", ["insulin, fasting", "insulin"], ["uIU/mL", "mIU/L"], "uIU/mL", 30),
   M("homa_ir", "metabolic", "HOMA-IR", ["homa ir", "homa"], ["index"], "index", 40, "ratio"),
   M("c_peptide", "metabolic", "C-Peptide", ["c peptide", "c-pep"], ["ng/mL", "nmol/L"], "ng/mL", 50),
@@ -96,6 +111,9 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("total_bilirubin", "liver", "Total Bilirubin", ["bilirubin, total", "tbili"], ["mg/dL", "umol/L"], "mg/dL", 50),
   M("albumin", "liver", "Albumin", ["alb"], ["g/dL", "g/L"], "g/dL", 60),
   M("total_protein", "liver", "Total Protein", ["protein, total"], ["g/dL", "g/L"], "g/dL", 70),
+  M("serum_globulin", "liver", "Globulin", ["globulin", "serum globulin", "globulin, serum"], ["g/dL", "g/L"], "g/dL", 80),
+  M("albumin_globulin_ratio", "liver", "Albumin/Globulin Ratio", ["a/g ratio", "albumin/globulin", "albumin globulin ratio"], ["ratio"], "ratio", 90, "ratio"),
+  M("ldh", "liver", "LDH", ["ld", "lactate dehydrogenase", "lactic dehydrogenase"], ["U/L", "IU/L"], "U/L", 100),
 
   // Kidney Health
   M("creatinine", "kidney", "Creatinine", ["creat", "scr"], ["mg/dL", "umol/L"], "mg/dL", 10),
@@ -104,17 +122,37 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("bun_creatinine_ratio", "kidney", "BUN/Creatinine Ratio", ["bun/creat", "bun:creat"], ["ratio"], "ratio", 40, "ratio"),
   M("cystatin_c", "kidney", "Cystatin C", ["cystatin-c"], ["mg/L", "mg/dL"], "mg/L", 50),
   M("urine_albumin_creatinine_ratio", "kidney", "Urine Albumin/Creatinine Ratio", ["uacr", "albumin/creatinine ratio", "microalbumin/creatinine"], ["mg/g", "mg/mmol"], "mg/g", 60, "ratio"),
+  M("uric_acid", "kidney", "Uric Acid", ["urate", "uric acid, serum"], ["mg/dL", "umol/L"], "mg/dL", 70),
+  M("osmolality_serum", "kidney", "Serum Osmolality", ["osmolality", "osmolality, serum", "serum osmolality"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 80),
+  M("osmolality_urine", "kidney", "Urine Osmolality", ["osmolality (u)", "osmolality, urine", "urine osmolality", "osmolality u"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 85),
 
   // Blood & Iron
   M("wbc", "blood_iron", "WBC", ["white blood cell count", "leukocytes"], ["10^3/uL", "K/uL"], "10^3/uL", 10),
   M("rbc", "blood_iron", "RBC", ["red blood cell count", "erythrocytes"], ["10^6/uL", "M/uL"], "10^6/uL", 20),
   M("hemoglobin", "blood_iron", "Hemoglobin", ["hgb", "hb"], ["g/dL", "g/L"], "g/dL", 30),
   M("hematocrit", "blood_iron", "Hematocrit", ["hct"], ["%", "L/L"], "%", 40),
+  M("mcv", "blood_iron", "MCV", ["mean corpuscular volume"], ["fL"], "fL", 42),
+  M("mch", "blood_iron", "MCH", ["mean corpuscular hemoglobin"], ["pg"], "pg", 44),
+  M("mchc", "blood_iron", "MCHC", ["mean corpuscular hemoglobin concentration"], ["g/dL"], "g/dL", 46),
+  M("rdw", "blood_iron", "RDW", ["red cell distribution width", "rdw-cv"], ["%"], "%", 48),
   M("platelets", "blood_iron", "Platelets", ["plt", "platelet count"], ["10^3/uL", "K/uL"], "10^3/uL", 50),
-  M("ferritin", "blood_iron", "Ferritin", ["fer"], ["ng/mL", "ug/L"], "ng/mL", 60),
-  M("iron", "blood_iron", "Iron", ["serum iron", "fe"], ["ug/dL", "umol/L"], "ug/dL", 70),
-  M("tibc", "blood_iron", "TIBC", ["total iron binding capacity"], ["ug/dL", "umol/L"], "ug/dL", 80),
-  M("transferrin_saturation", "blood_iron", "Transferrin Saturation", ["tsat", "iron saturation"], ["%"], "%", 90, "ratio"),
+  M("mpv", "blood_iron", "MPV", ["mean platelet volume"], ["fL"], "fL", 52),
+  M("neutrophils_pct", "blood_iron", "Neutrophils %", ["neutrophils", "neutrophil", "neutrophils %"], ["%"], "%", 54),
+  M("lymphocytes_pct", "blood_iron", "Lymphocytes %", ["lymphocytes", "lymphocyte", "lymphocytes %"], ["%"], "%", 56),
+  M("monocytes_pct", "blood_iron", "Monocytes %", ["monocytes", "monocyte", "monocytes %"], ["%"], "%", 58),
+  M("eosinophils_pct", "blood_iron", "Eosinophils %", ["eosinophils", "eosinophil", "eosinophils %"], ["%"], "%", 60),
+  M("basophils_pct", "blood_iron", "Basophils %", ["basophils", "basophil", "basophils %"], ["%"], "%", 62),
+  M("absolute_neutrophils", "blood_iron", "Absolute Neutrophils", ["neutrophils absolute", "anc"], ["10^3/uL", "Thousand/uL", "K/uL"], "10^3/uL", 64),
+  M("absolute_lymphocytes", "blood_iron", "Absolute Lymphocytes", ["lymphocytes absolute", "alc"], ["10^3/uL", "Thousand/uL", "K/uL"], "10^3/uL", 66),
+  M("absolute_monocytes", "blood_iron", "Absolute Monocytes", ["monocytes absolute"], ["10^3/uL", "Thousand/uL", "K/uL"], "10^3/uL", 68),
+  M("absolute_eosinophils", "blood_iron", "Absolute Eosinophils", ["eosinophils absolute"], ["10^3/uL", "Thousand/uL", "K/uL"], "10^3/uL", 70),
+  M("absolute_basophils", "blood_iron", "Absolute Basophils", ["basophils absolute"], ["10^3/uL", "Thousand/uL", "K/uL"], "10^3/uL", 72),
+  M("ferritin", "blood_iron", "Ferritin", ["fer"], ["ng/mL", "ug/L"], "ng/mL", 80),
+  M("iron", "blood_iron", "Iron", ["serum iron", "fe"], ["ug/dL", "umol/L"], "ug/dL", 90),
+  M("tibc", "blood_iron", "TIBC", ["total iron binding capacity"], ["ug/dL", "umol/L"], "ug/dL", 100),
+  M("transferrin", "blood_iron", "Transferrin", ["transferrin, serum"], ["mg/dL", "g/L"], "mg/dL", 105),
+  M("transferrin_saturation", "blood_iron", "Transferrin Saturation", ["tsat", "iron saturation"], ["%"], "%", 110, "ratio"),
+  M("immunoglobulin_a", "blood_iron", "Immunoglobulin A", ["iga", "immunoglobulin a", "igg a"], ["mg/dL", "g/L"], "mg/dL", 120),
 
   // Hormones + Thyroid
   M("tsh", "hormones_thyroid", "TSH", ["thyroid stimulating hormone"], ["mIU/L", "uIU/mL"], "mIU/L", 10),
@@ -122,6 +160,15 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("free_t3", "hormones_thyroid", "Free T3", ["ft3", "free triiodothyronine"], ["pg/mL", "pmol/L"], "pg/mL", 30),
   M("total_testosterone", "hormones_thyroid", "Total Testosterone", ["testosterone, total", "testosterone"], ["ng/dL", "nmol/L"], "ng/dL", 40),
   M("free_testosterone", "hormones_thyroid", "Free Testosterone", ["testosterone, free"], ["pg/mL", "ng/dL"], "pg/mL", 50),
+  M(
+    "bioavailable_testosterone",
+    "hormones_thyroid",
+    "Bioavailable Testosterone",
+    ["testosterone, bioavailable", "testosterone bioavailable", "bioavailable testosterone"],
+    ["ng/dL", "nmol/L"],
+    "ng/dL",
+    55,
+  ),
   M("shbg", "hormones_thyroid", "SHBG", ["sex hormone binding globulin"], ["nmol/L", "ug/mL"], "nmol/L", 60),
   M("estradiol", "hormones_thyroid", "Estradiol", ["e2", "estrogen"], ["pg/mL", "pmol/L"], "pg/mL", 70),
   M("dhea_s", "hormones_thyroid", "DHEA-S", ["dhea sulfate", "dheas"], ["ug/dL", "umol/L"], "ug/dL", 80),
@@ -137,11 +184,16 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("magnesium_rbc", "nutritional", "Magnesium", ["magnesium, rbc", "rbc magnesium"], ["mg/dL", "mmol/L"], "mg/dL", 40),
   M("zinc", "nutritional", "Zinc", ["serum zinc", "zn"], ["ug/dL", "umol/L"], "ug/dL", 50),
   M("omega_3_index", "nutritional", "Omega-3 Index", ["omega 3 index", "omega-3"], ["%"], "%", 60),
+  M("mercury_blood", "nutritional", "Mercury (Blood)", ["mercury", "mercury, blood", "blood mercury"], ["ug/L", "nmol/L"], "ug/L", 70),
 
   // Inflammation + Immune (hs_crp shared with cardiovascular)
   M("crp", "inflammation", "CRP", ["c-reactive protein", "crp, standard"], ["mg/L", "mg/dL"], "mg/L", 20),
   M("esr", "inflammation", "ESR", ["sed rate", "erythrocyte sedimentation rate"], ["mm/hr"], "mm/hr", 30),
   M("homocysteine", "inflammation", "Homocysteine", ["hcy"], ["umol/L", "mg/L"], "umol/L", 40),
+  M("interleukin_6", "inflammation", "Interleukin-6", ["il-6", "il6", "interleukin 6", "interleukin-6", "interleukin"], ["pg/mL", "ng/L"], "pg/mL", 50),
+
+  // Muscle / other metabolic enzymes
+  M("creatine_kinase", "inflammation", "Creatine Kinase", ["ck", "cpk", "creatine kinase total", "creatine kinase, total"], ["U/L", "IU/L"], "U/L", 60),
 
   // Electrolytes + Minerals
   M("sodium", "electrolytes", "Sodium", ["na", "serum sodium"], ["mEq/L", "mmol/L"], "mEq/L", 10),
@@ -167,11 +219,17 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "ldl_c",
       "hdl_c",
       "triglycerides",
+      "non_hdl_c",
+      "chol_hdl_ratio",
       "apob",
       "lpa",
       "hs_crp",
       "ldl_particle_number",
       "small_ldl_p",
+      "ldl_medium",
+      "hdl_large",
+      "ldl_peak_size",
+      "ldl_pattern",
       "lp_pla2",
     ],
   },
@@ -179,13 +237,24 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
     categoryKey: "metabolic",
     displayName: "Metabolic Health",
     sortOrder: 20,
-    metricKeys: ["glucose", "hba1c", "fasting_insulin", "homa_ir", "c_peptide"],
+    metricKeys: ["glucose", "hba1c", "eag", "fasting_insulin", "homa_ir", "c_peptide"],
   },
   {
     categoryKey: "liver",
     displayName: "Liver Health",
     sortOrder: 30,
-    metricKeys: ["alt", "ast", "alp", "ggt", "total_bilirubin", "albumin", "total_protein"],
+    metricKeys: [
+      "alt",
+      "ast",
+      "alp",
+      "ggt",
+      "total_bilirubin",
+      "albumin",
+      "total_protein",
+      "serum_globulin",
+      "albumin_globulin_ratio",
+      "ldh",
+    ],
   },
   {
     categoryKey: "kidney",
@@ -198,6 +267,9 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "bun_creatinine_ratio",
       "cystatin_c",
       "urine_albumin_creatinine_ratio",
+      "uric_acid",
+      "osmolality_serum",
+      "osmolality_urine",
     ],
   },
   {
@@ -209,11 +281,28 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "rbc",
       "hemoglobin",
       "hematocrit",
+      "mcv",
+      "mch",
+      "mchc",
+      "rdw",
       "platelets",
+      "mpv",
+      "neutrophils_pct",
+      "lymphocytes_pct",
+      "monocytes_pct",
+      "eosinophils_pct",
+      "basophils_pct",
+      "absolute_neutrophils",
+      "absolute_lymphocytes",
+      "absolute_monocytes",
+      "absolute_eosinophils",
+      "absolute_basophils",
       "ferritin",
       "iron",
       "tibc",
+      "transferrin",
       "transferrin_saturation",
+      "immunoglobulin_a",
     ],
   },
   {
@@ -226,6 +315,7 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "free_t3",
       "total_testosterone",
       "free_testosterone",
+      "bioavailable_testosterone",
       "shbg",
       "estradiol",
       "dhea_s",
@@ -239,13 +329,13 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
     categoryKey: "nutritional",
     displayName: "Nutritional Status",
     sortOrder: 70,
-    metricKeys: ["vitamin_d", "vitamin_b12", "folate", "magnesium_rbc", "zinc", "omega_3_index"],
+    metricKeys: ["vitamin_d", "vitamin_b12", "folate", "magnesium_rbc", "zinc", "omega_3_index", "mercury_blood"],
   },
   {
     categoryKey: "inflammation",
     displayName: "Inflammation + Immune",
     sortOrder: 80,
-    metricKeys: ["hs_crp", "crp", "esr", "homocysteine"],
+    metricKeys: ["hs_crp", "crp", "esr", "homocysteine", "interleukin_6", "creatine_kinase"],
   },
   {
     categoryKey: "electrolytes",
@@ -312,15 +402,74 @@ export function getAllLabMetrics(): LabMetricDefinition[] {
 export function groupLabResultsByCategory(
   results: LabMetricResultLike[],
 ): LabResultsByCategory[] {
-  const latestByKey = new Map<string, LabMetricResultLike>();
-
+  const byMetric = new Map<string, LabMetricResultLike[]>();
   for (const result of results) {
-    const existing = latestByKey.get(result.metricKey);
-    const resultDate = result.collectedAt ?? result.reportedAt ?? "";
-    const existingDate = existing?.collectedAt ?? existing?.reportedAt ?? "";
-    if (!existing || resultDate.localeCompare(existingDate) > 0) {
-      latestByKey.set(result.metricKey, result);
+    const list = byMetric.get(result.metricKey) ?? [];
+    list.push(result);
+    byMetric.set(result.metricKey, list);
+  }
+
+  const inferCmp = (raw: string | null | undefined): "eq" | "lt" | "lte" | "gt" | "gte" => {
+    const t = (raw ?? "").trim();
+    if (/^≤/.test(t) || /^<=/.test(t)) return "lte";
+    if (/^≥/.test(t) || /^>=/.test(t)) return "gte";
+    if (/^</.test(t)) return "lt";
+    if (/^>/.test(t)) return "gt";
+    return "eq";
+  };
+
+  const isReferenceLikeRow = (row: LabMetricResultLike): boolean =>
+    isLabReferenceLikeDisplayRow({
+      sourceValueRole: row.sourceValueRole,
+      rawValueText: row.rawValueText,
+      comparator: inferCmp(row.rawValueText),
+    });
+
+  const latestByKey = new Map<string, LabMetricResultLike | null>();
+  for (const [metricKey, list] of byMetric) {
+    const maxDate = list.reduce((best, row) => {
+      const d = row.collectedAt ?? row.reportedAt ?? "";
+      return d.localeCompare(best) > 0 ? d : best;
+    }, "");
+    const sameDate = list.filter((row) => (row.collectedAt ?? row.reportedAt ?? "") === maxDate);
+    // Never display reference thresholds / risk bands as personal results.
+    const eligible = sameDate.filter((row) => !isReferenceLikeRow(row));
+    if (eligible.length === 0) {
+      latestByKey.set(metricKey, null);
+      continue;
     }
+    if (eligible.length === 1) {
+      latestByKey.set(metricKey, eligible[0]!);
+      continue;
+    }
+    // Panel/role-aware representative selection — never prefer reference thresholds.
+    const rep = selectRepresentativeLabResult({
+      metricId: metricKey,
+      candidates: eligible.map((row, idx) => ({
+        id: String(row.id ?? `${metricKey}_${idx}`),
+        canonicalMetricId: metricKey,
+        panelName: row.panelName ?? null,
+        result:
+          row.value != null
+            ? {
+                kind: "numeric",
+                value: row.value,
+                comparator: inferCmp(row.rawValueText),
+              }
+            : row.rawValueText
+              ? { kind: "text", value: row.rawValueText }
+              : null,
+        collectedAt: row.collectedAt ?? null,
+        normalizedUnit: row.unit ?? null,
+        ...(typeof row.sourcePage === "number" ? { sourcePage: row.sourcePage } : {}),
+        sourceValueRole: row.sourceValueRole ?? null,
+        reviewStatus: row.publicationMode === "user" ? ("user" as const) : ("auto" as const),
+        rawValueText: row.rawValueText ?? null,
+      })),
+    });
+    const chosen =
+      eligible.find((row, idx) => String(row.id ?? `${metricKey}_${idx}`) === rep?.id) ?? eligible[0]!;
+    latestByKey.set(metricKey, chosen);
   }
 
   return getLabCategories().map((category) => ({
@@ -331,7 +480,7 @@ export function groupLabResultsByCategory(
         if (!definition) return null;
         return {
           definition,
-          latest: latestByKey.get(metricKey) ?? null,
+          latest: latestByKey.has(metricKey) ? latestByKey.get(metricKey)! : null,
         };
       })
       .filter((row): row is NonNullable<typeof row> => row != null)
@@ -343,15 +492,43 @@ export function groupLabResultsByCategory(
 export function formatLabResultValue(
   value: number | null | undefined,
   unit: string | null | undefined,
-  options?: { rawValueText?: string | null; preferredUnit?: string },
+  options?: {
+    rawValueText?: string | null;
+    preferredUnit?: string;
+    comparator?: "eq" | "lt" | "lte" | "gt" | "gte" | null;
+  },
 ): string {
+  const normalizeDisplayUnit = (u: string | null | undefined): string => {
+    const t = (u ?? "").trim();
+    if (!t || /^none$/i.test(t)) return "";
+    return t;
+  };
+
+  if (options?.rawValueText?.trim()) {
+    const raw = options.rawValueText.trim();
+    const looksInequality = /^[<>≤≥]/.test(raw) || /^(?:<=|>=)/.test(raw);
+    const comparatorForcesRaw = Boolean(options.comparator && options.comparator !== "eq");
+    if (value == null || !Number.isFinite(value) || looksInequality || comparatorForcesRaw) {
+      const displayUnit =
+        normalizeDisplayUnit(unit) || normalizeDisplayUnit(options?.preferredUnit);
+      if (displayUnit && !raw.toLowerCase().includes(displayUnit.toLowerCase())) {
+        return `${raw} ${displayUnit}`;
+      }
+      return raw;
+    }
+  }
   if (value == null || !Number.isFinite(value)) {
     if (options?.rawValueText?.trim()) return options.rawValueText.trim();
     return "—";
   }
-  const displayUnit = unit?.trim() || options?.preferredUnit || "";
+  const displayUnit = normalizeDisplayUnit(unit) || normalizeDisplayUnit(options?.preferredUnit);
   const formatted = Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
-  return displayUnit ? `${formatted} ${displayUnit}` : formatted;
+  const cmp = options?.comparator;
+  const withCmp =
+    cmp && cmp !== "eq"
+      ? `${cmp === "lt" ? "<" : cmp === "lte" ? "≤" : cmp === "gt" ? ">" : "≥"}${formatted}`
+      : formatted;
+  return displayUnit ? `${withCmp} ${displayUnit}` : withCmp;
 }
 
 /** Human-readable reference range when available. */

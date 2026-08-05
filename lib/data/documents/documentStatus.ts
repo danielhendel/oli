@@ -18,10 +18,21 @@ export function documentStatusLabel(status: DocumentRecordStatus): string {
   return DOCUMENT_STATUS_LABELS[status];
 }
 
+/**
+ * Whether consumers may invoke reprocess/retry for this status.
+ * - failed: transient processor failure
+ * - unsupported: stored original may become parseable when Labs parsers ship/upgrade (Phase 3D-A)
+ */
 export function documentCanRetry(status: DocumentRecordStatus): boolean {
-  // Unsupported means no parser exists yet — retry would not change honesty.
-  // Only genuinely retryable failures expose Retry processing.
-  return status === "failed";
+  return status === "failed" || status === "unsupported";
+}
+
+export type DocumentRetryLabel = "Retry processing" | "Reprocess report";
+
+export function documentRetryLabel(status: DocumentRecordStatus): DocumentRetryLabel | null {
+  if (status === "failed") return "Retry processing";
+  if (status === "unsupported") return "Reprocess report";
+  return null;
 }
 
 export function documentCanViewOriginal(status: DocumentRecordStatus): boolean {

@@ -54,6 +54,28 @@ export const labMetricResultDtoSchema = z
     rawUnit: z.string().nullable().optional(),
     rawValueText: z.string().nullable().optional(),
     createdAt: isoDatetimeString,
+    /** Consumer-safe publication mode when projected from accepted Labs OS results. */
+    publicationMode: z.enum(["auto", "user"]).optional(),
+    sourcePage: z.number().int().positive().optional(),
+    laboratoryName: z.string().min(1).nullable().optional(),
+    /** Panel provenance for representative selection (e.g. CMP vs hormone albumin). */
+    panelName: z.string().min(1).nullable().optional(),
+    datePrecision: z
+      .enum(["date_time_with_timezone", "date_time_without_timezone", "date_only", "unknown"])
+      .nullable()
+      .optional(),
+    /** Source-cell role from extraction; reference_* must never win summary selection. */
+    sourceValueRole: z
+      .enum([
+        "current_result",
+        "historical_result",
+        "reference_optimal",
+        "reference_moderate",
+        "reference_high",
+        "reference_general",
+        "unknown",
+      ])
+      .optional(),
   })
   .strip();
 

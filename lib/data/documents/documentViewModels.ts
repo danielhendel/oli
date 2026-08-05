@@ -7,7 +7,6 @@ import type {
   DocumentDetailDto,
   DocumentDomain,
   DocumentListItemDto,
-  DocumentRecordStatus,
   DocumentType,
 } from "@oli/contracts";
 import {
@@ -15,7 +14,7 @@ import {
   documentDeleteActionView,
   resolveDocumentDeleteCapability,
 } from "./documentDeleteCapability";
-import { documentCanRetry, documentStatusLabel } from "./documentStatus";
+import { documentCanRetry, documentRetryLabel, documentStatusLabel } from "./documentStatus";
 
 export const DOCUMENT_DETAIL_FORBIDDEN_VM_KEYS = [
   "storagePath",
@@ -63,10 +62,13 @@ export type DocumentDetailViewModel = {
   canRetry: boolean;
   /** True only when Retry processing is an honest consumer action. */
   canRetryProcessing: boolean;
-  retryLabel: "Retry processing" | null;
+  retryLabel: "Retry processing" | "Reprocess report" | null;
   canDelete: boolean;
   /** Consumer-safe delete action label — never exposes ownership implementation. */
   deleteActionLabel: typeof DOCUMENT_DELETE_ACTION_LABEL | null;
+  reviewActionAvailable: boolean;
+  viewLabsActionAvailable: boolean;
+  importedCount: number | null;
   originalFile: {
     heading: "Original file";
     description: string;
@@ -116,30 +118,56 @@ export function documentConsumerTitle(domain: DocumentDomain, documentType: Docu
 
 export function buildDocumentListItemViewModel(item: DocumentListItemDto): DocumentListItemViewModel {
   const canRetry = documentCanRetry(item.status);
+  const statusLabel =
+    item.consumerStatusLabel ??
+    (item.domain === "labs" && item.status === "structured"
+      ? "Imported"
+      : documentStatusLabel(item.status));
   return {
     id: item.id,
     filename: item.filename,
     domainLabel: DOMAIN_LABELS[item.domain],
     documentTypeLabel: TYPE_LABELS[item.documentType],
     uploadedDateLabel: formatUploadDate(item.uploadedAt),
-    statusLabel: documentStatusLabel(item.status),
+    statusLabel,
     canRetry,
     canDelete: item.canDelete,
     canViewOriginal: item.canViewOriginal,
   };
 }
 
-function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]): string | null {
-  if (status === "unsupported") {
-    return warnings[0] ?? "This document is stored, but structured extraction is not available yet.";
+function extractionMessageFor(detail: DocumentDetailDto): string | null {
+  if (detail.consumerMessage) return detail.consumerMessage;
+  if (detail.domain === "labs" && detail.status === "structured") {
+    const n = detail.importedCount;
+    return n != null && n > 0
+      ? `${n} results were added to Labs.\nNo review is required.`
+      : "Results were added to Labs.\nNo review is required.";
   }
-  if (status === "failed") {
-    return warnings[0] ?? "Processing failed. You can retry when available.";
+  if (detail.status === "unsupported") {
+    return (
+      detail.safeWarnings[0] ??
+      "This document is stored, but structured extraction is not available yet. You can reprocess it if a supported Labs parser is available."
+    );
   }
-  if (status === "review_needed") {
+  if (detail.status === "failed") {
+    return detail.safeWarnings[0] ?? "Processing failed. You can retry when available.";
+  }
+  if (detail.status === "review_needed") {
+    // Structural truth: never show review-required copy when no pending decisions.
+    if (
+      typeof detail.reviewNeededCount === "number" &&
+      detail.reviewNeededCount === 0 &&
+      (detail.hasAutoPublishedResults === true || (detail.importedCount ?? 0) > 0)
+    ) {
+      const n = detail.importedCount ?? 0;
+      return n > 0
+        ? `${n} results were added to Labs.\nNo review is required.`
+        : "Results were added to Labs.\nNo review is required.";
+    }
     return "Structured extraction requires review before it can become trusted health data.";
   }
-  if (status === "processing") {
+  if (detail.status === "processing") {
     return "Processing this document…";
   }
   return null;
@@ -148,12 +176,43 @@ function extractionMessageFor(status: DocumentRecordStatus, warnings: string[]):
 export function buildDocumentDetailViewModel(detail: DocumentDetailDto): DocumentDetailViewModel {
   const consumerTitle = documentConsumerTitle(detail.domain, detail.documentType);
   const canRetryProcessing = documentCanRetry(detail.status);
+  const retryLabel = documentRetryLabel(detail.status);
   const deleteCapability = resolveDocumentDeleteCapability({
     canDelete: detail.canDelete,
     legacySource: detail.legacySource,
     status: detail.status,
   });
   const deleteAction = documentDeleteActionView(deleteCapability);
+
+  const importedTerminal =
+    detail.consumerStatus === "imported" ||
+    detail.consumerStatus === "imported_with_notes" ||
+    detail.consumerStatus === "imported_with_withheld_results" ||
+    (detail.domain === "labs" &&
+      detail.status === "structured" &&
+      (detail.reviewNeededCount ?? 0) === 0) ||
+    (detail.domain === "labs" &&
+      detail.status === "review_needed" &&
+      (detail.importedCount ?? 0) > 0 &&
+      (detail.reviewNeededCount ?? 0) === 0 &&
+      detail.hasReviewItems !== true);
+
+  const statusLabel =
+    importedTerminal
+      ? "Imported"
+      : detail.consumerStatus === "review_available"
+        ? "Review needed"
+        : documentStatusLabel(detail.status);
+
+  const reviewActionAvailable =
+    detail.reviewActionAvailable === true ||
+    (!importedTerminal &&
+      detail.status === "review_needed" &&
+      (detail.reviewNeededCount == null || detail.reviewNeededCount > 0));
+
+  const viewLabsActionAvailable =
+    detail.viewLabsActionAvailable === true || importedTerminal;
+
   return {
     consumerTitle,
     title: consumerTitle,
@@ -161,15 +220,18 @@ export function buildDocumentDetailViewModel(detail: DocumentDetailDto): Documen
     domainLabel: DOMAIN_LABELS[detail.domain],
     documentTypeLabel: TYPE_LABELS[detail.documentType],
     uploadedDateLabel: formatUploadDate(detail.uploadedAt),
-    statusLabel: documentStatusLabel(detail.status),
+    statusLabel,
     processingLabel: detail.processingState ? detail.processingState.replace(/_/g, " ") : null,
-    extractionMessage: extractionMessageFor(detail.status, detail.safeWarnings),
+    extractionMessage: extractionMessageFor(detail),
     safeWarnings: detail.safeWarnings,
     canRetry: canRetryProcessing,
     canRetryProcessing,
-    retryLabel: canRetryProcessing ? "Retry processing" : null,
+    retryLabel,
     canDelete: deleteAction.canDelete,
     deleteActionLabel: deleteAction.canDelete ? deleteAction.actionLabel : null,
+    reviewActionAvailable,
+    viewLabsActionAvailable,
+    importedCount: typeof detail.importedCount === "number" ? detail.importedCount : null,
     originalFile: {
       heading: "Original file",
       description: "Your original file is stored securely with your account.",

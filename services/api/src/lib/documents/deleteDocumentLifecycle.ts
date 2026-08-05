@@ -63,6 +63,9 @@ export type DeleteDocumentLifecycleDeps = {
   extractionsCol: Col;
   labUploadsCol: Col;
   labResultsCol: Col;
+  labDraftsCol?: Col;
+  labReviewsCol?: Col;
+  labAcceptedResultsCol?: Col;
   deleteStorageObject: (objectPath: string) => Promise<{ ok: true } | { ok: false }>;
   parseUserDocument: (raw: Record<string, unknown>, id: string) => UserDocumentRecord | null;
 };
@@ -167,15 +170,23 @@ export async function deleteDocumentOsRecord(args: {
 
   await deleteQueryDocs(deps.jobsCol, "documentId", documentId);
   await deleteQueryDocs(deps.extractionsCol, "documentId", documentId);
+  if (deps.labDraftsCol) await deleteQueryDocs(deps.labDraftsCol, "documentId", documentId);
+  if (deps.labReviewsCol) await deleteQueryDocs(deps.labReviewsCol, "documentId", documentId);
+  if (deps.labAcceptedResultsCol) {
+    await deleteQueryDocs(deps.labAcceptedResultsCol, "sourceDocumentId", documentId);
+  }
 
-  if (labUploadId) {
-    const results = await deleteLabResultsForUpload(deps, labUploadId);
+  // Projections use uploadId = documentId for Document OS publishes; always clean both ids.
+  const projectionUploadIds = new Set<string>([documentId]);
+  if (labUploadId) projectionUploadIds.add(labUploadId);
+  for (const uploadId of projectionUploadIds) {
+    const results = await deleteLabResultsForUpload(deps, uploadId);
     if (!results.ok) {
       return { ok: false, code: results.code, consumerDocumentId };
     }
-    if (!args.skipLegacyLabUploadMeta) {
-      await deps.labUploadsCol.doc(labUploadId).delete().catch(() => undefined);
-    }
+  }
+  if (labUploadId && !args.skipLegacyLabUploadMeta) {
+    await deps.labUploadsCol.doc(labUploadId).delete().catch(() => undefined);
   }
 
   await deps.documentsCol.doc(documentId).delete();

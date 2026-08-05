@@ -1,0 +1,28 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+Collected: 03/15/2024 08:30 AM
+Reported: 03/16/2024 09:00 AM
+Fasting: Yes
+Client #: 12345678
+
+LIPID PANEL
+LDL-CHOLESTEROL 98 <100 mg/dL
+CARBON DIOXIDE 24 20-29 mmol/L
+PHOSPHATE (AS PHOSPHORUS) 3.5 2.5-4.5 mg/dL
+FOLATE, SERUM 12 3.0-20.0 ng/mL
+CORTISOL, TOTAL 12.0 4.0-22.0 ug/dL
+LDL SMALL 180 <527 nmol/L
+
+Deficiency: <20
+Insufficiency: 20-29
+Optimal: > or = 30
+Risk: Optimal <1000
+Reference Range: Optimal <527
+Desirable range <100
+AMD QUEST DIAGNOSTICS/NICHOLS CHANTILLY, VA 20151
+value (in the range of 5.0)
+option 1
+Cardiovascular Risk. If result is between 1 and 2
+clinical purposes. Relative Risk: Optimal <=1.0
+QuestAssureD(TM) 25-OH VIT D, (D2,D3), LC/MS/MS is a method note

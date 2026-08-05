@@ -232,6 +232,9 @@ export const documentListItemDtoSchema = z
     canRetry: z.boolean(),
     canDelete: z.boolean(),
     legacySource: z.enum(["document", "lab_upload"]),
+    /** Optional Labs consumer label override (e.g. Imported). */
+    consumerStatusLabel: z.string().min(1).optional(),
+    importedCount: z.number().int().nonnegative().optional(),
   })
   .strip();
 
@@ -258,6 +261,42 @@ export const documentDetailDtoSchema = z
     canRetry: z.boolean(),
     canDelete: z.boolean(),
     legacySource: z.enum(["document", "lab_upload"]),
+    /** Labs auto-publish import summary (optional; present after Phase 3D-A extraction). */
+    importedCount: z.number().int().nonnegative().optional(),
+    reviewNeededCount: z.number().int().nonnegative().optional(),
+    unmatchedCount: z.number().int().nonnegative().optional(),
+    reportImportStatus: z
+      .enum([
+        "imported",
+        "imported_review_recommended",
+        "review_needed",
+        "unsupported",
+        "failed",
+        "structured",
+      ])
+      .optional(),
+    hasAutoPublishedResults: z.boolean().optional(),
+    hasReviewItems: z.boolean().optional(),
+    /** Consumer terminal state derived from structural counts (not raw internal enums). */
+    consumerStatus: z
+      .enum([
+        "processing",
+        "imported",
+        "imported_with_notes",
+        "imported_with_withheld_results",
+        "review_available",
+        "unsupported",
+        "failed",
+        "deleted",
+      ])
+      .optional(),
+    consumerMessage: z.string().min(1).optional(),
+    pendingDecisionCount: z.number().int().nonnegative().optional(),
+    classifiedReportRowCount: z.number().int().nonnegative().optional(),
+    withheldCount: z.number().int().nonnegative().optional(),
+    reviewActionAvailable: z.boolean().optional(),
+    viewLabsActionAvailable: z.boolean().optional(),
+    correctionActionAvailable: z.boolean().optional(),
   })
   .strip();
 
@@ -304,6 +343,8 @@ export const documentCompleteUploadResponseDtoSchema = z
     documentId: z.string().min(1),
     status: documentRecordStatusSchema,
     duplicate: z.boolean().optional(),
+    /** True when an existing unsupported/failed original may be reprocessed. */
+    reprocessAvailable: z.boolean().optional(),
     idempotentReplay: z.literal(true).optional(),
   })
   .strip();

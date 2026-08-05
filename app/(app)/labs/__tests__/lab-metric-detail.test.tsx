@@ -54,6 +54,6 @@ describe("LabMetricDetailScreen", () => {
     expect(root.findByProps({ testID: "lab-metric-latest-value" }).props.children).toContain("92");
     const text = root.findAllByType(require("react-native").Text).map((t) => t.props.children).join(" ");
     expect(text).toContain("Source");
-    expect(text).toContain("lab PDF");
+    expect(text).toContain("Imported from report");
   });
 });

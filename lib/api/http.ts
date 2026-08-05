@@ -47,6 +47,12 @@ export type PutOptions = {
   noStore?: boolean;
 };
 
+export type PatchOptions = {
+  timeoutMs?: number;
+  noStore?: boolean;
+  cacheBust?: string;
+};
+
 export type DeleteOptions = {
   cacheBust?: string;
   timeoutMs?: number;
@@ -500,6 +506,57 @@ export async function apiPutJsonAuthed<T>(
   return apiFetchJson<T>(
     url,
     { method: "PUT", headers, body: bodyStr },
+    opts?.timeoutMs,
+    { routePath: path },
+  );
+}
+
+export async function apiPatchJsonAuthed<T>(
+  path: string,
+  body: unknown,
+  idToken: string,
+  opts?: PatchOptions,
+): Promise<ApiResult<T>> {
+  const baseRaw = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+  debugLogBackendBaseUrlOncePerCall(baseRaw);
+  if (!baseRaw) {
+    return {
+      ok: false,
+      status: 0,
+      kind: "unknown",
+      error: "Missing EXPO_PUBLIC_BACKEND_BASE_URL",
+      requestId: null,
+    };
+  }
+
+  const base = normalizeBaseUrl(baseRaw);
+  let url = appendCacheBust(`${base}${path}`, opts?.cacheBust);
+
+  if (isGatewayBaseUrl(base)) {
+    const apiKey = requireGatewayApiKey();
+    if (!apiKey) {
+      return {
+        ok: false,
+        status: 0,
+        kind: "unknown",
+        error: "Missing EXPO_PUBLIC_GATEWAY_API_KEY (required for API Gateway)",
+        requestId: null,
+      };
+    }
+    url = appendQueryParam(url, "key", apiKey);
+  }
+
+  const headerOpts: HeaderOptions = {};
+  if (opts?.noStore) headerOpts.noStore = true;
+
+  const headers = buildHeaders(headerOpts);
+  headers.Authorization = `Bearer ${idToken}`;
+
+  const bodyStr = JSON.stringify(body);
+
+  return apiFetchJson<T>(
+    url,
+    { method: "PATCH", headers, body: bodyStr },
     opts?.timeoutMs,
     { routePath: path },
   );

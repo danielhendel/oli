@@ -33,10 +33,20 @@ export default function LabsUploadScreen() {
           <DocumentUploadFlowContent
             phase={documentFlow.phase}
             errorMessage={documentFlow.errorMessage}
+            terminalStatus={documentFlow.terminalStatus}
+            importSummary={documentFlow.importSummary}
             domainLabel="Labs"
             onStart={() => void documentFlow.startUpload()}
             onCancel={documentFlow.cancel}
             onReset={documentFlow.reset}
+            onViewLabs={() => router.replace("/(app)/labs")}
+            onHowProcessed={() => {
+              if (documentFlow.documentId) {
+                router.replace(`/(app)/labs/reviews/${documentFlow.documentId}`);
+                return;
+              }
+              router.replace("/(app)/labs");
+            }}
             onDone={() => {
               if (documentFlow.documentId) {
                 router.replace(`/(app)/documents/${documentFlow.documentId}`);

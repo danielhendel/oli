@@ -47,6 +47,10 @@ import {
   runDocumentIngestionJob,
 } from "../lib/documents/runDocumentIngestion";
 import {
+  logDocumentIngestionEvent,
+  redactedDocumentToken,
+} from "../lib/documents/documentIngestionTelemetry";
+import {
   deleteDocumentOsRecord,
   deleteLegacyLabRecord,
   type DeleteDocumentLifecycleDeps,
@@ -58,6 +62,12 @@ import {
 } from "../lib/documents/toSafeDocumentDto";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
 import { reconcileDocumentProcessingStatus } from "../../../../lib/data/documents/documentProcessingReconcile";
+import { parseLabImportSummaryStructural } from "../../../../lib/data/documents/parseLabImportSummaryStructural";
+import {
+  deriveLabReportConsumerPresentation,
+  shouldPersistLabDocumentTerminalStatus,
+} from "../../../../lib/labs/deriveLabReportConsumerState";
+import type { LabsImportSummaryFields } from "../lib/documents/toSafeDocumentDto";
 
 function getAdmin() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -129,10 +139,27 @@ function parseUserDocument(raw: Record<string, unknown>, id: string): UserDocume
 }
 
 function documentsDeps(uid: string) {
+  let bucket: string | null = null;
+  try {
+    bucket = requireFirebaseStorageBucketId();
+  } catch {
+    bucket = null;
+  }
   return {
     documentsCol: userCollection(uid, "documents") as never,
     jobsCol: userCollection(uid, "documentIngestionJobs") as never,
     extractionsCol: userCollection(uid, "documentExtractions") as never,
+    labDraftsCol: userCollection(uid, "labExtractionDrafts") as never,
+    labReviewsCol: userCollection(uid, "labReviews") as never,
+    labUploadsCol: userCollection(uid, "labUploads") as never,
+    labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
+    labResultsCol: userCollection(uid, "labResults") as never,
+    readDocumentBytes: async (storageObjectId: string): Promise<Uint8Array> => {
+      if (!bucket) throw new Error("STORAGE_BUCKET_MISSING");
+      const fileRef = getAdmin().storage().bucket(bucket).file(storageObjectId);
+      const [buf] = await fileRef.download();
+      return new Uint8Array(buf);
+    },
   };
 }
 
@@ -149,6 +176,9 @@ function deleteLifecycleDeps(uid: string): DeleteDocumentLifecycleDeps {
     extractionsCol: userCollection(uid, "documentExtractions") as never,
     labUploadsCol: userCollection(uid, "labUploads") as never,
     labResultsCol: userCollection(uid, "labResults") as never,
+    labDraftsCol: userCollection(uid, "labExtractionDrafts") as never,
+    labReviewsCol: userCollection(uid, "labReviews") as never,
+    labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
     parseUserDocument,
     deleteStorageObject: async (objectPath: string) => {
       if (!bucket) {
@@ -362,11 +392,13 @@ router.post(
         updatedAt: new Date().toISOString(),
       });
 
+      const reprocessAvailable = dup.status === "unsupported";
       const response = {
         ok: true as const,
         documentId: dup.id,
         status: dup.status,
         duplicate: true,
+        ...(reprocessAvailable ? { reprocessAvailable: true as const } : {}),
       };
       const validated = documentCompleteUploadResponseDtoSchema.safeParse(response);
       if (!validated.success) {
@@ -472,19 +504,38 @@ router.post(
       }
     }
 
-    void runDocumentIngestionJob({
-      deps: documentsDeps(uid),
-      uid,
-      document: stored,
-      job: currentJob,
-    }).catch(() => {
-      void docRef.update({ status: "failed", updatedAt: new Date().toISOString() });
+    // Await ingestion in-request so Cloud Run CPU is not throttled mid-parse.
+    const ingestStarted = Date.now();
+    try {
+      await runDocumentIngestionJob({
+        deps: documentsDeps(uid),
+        uid,
+        document: stored,
+        job: currentJob,
+      });
+    } catch {
+      await docRef.update({ status: "failed", updatedAt: new Date().toISOString() });
+    }
+
+    const afterSnap = await docRef.get();
+    const afterRecord = afterSnap.exists
+      ? parseUserDocument(afterSnap.data() as Record<string, unknown>, documentId)
+      : null;
+    const terminalStatus = afterRecord?.status ?? "stored";
+    logDocumentIngestionEvent("document_upload_completed", {
+      documentToken: redactedDocumentToken(documentId),
+      domain: stored.domain,
+      terminalStatus,
+      elapsedMs: Date.now() - ingestStarted,
+      requestId: getRid(req),
+      parserId: afterRecord?.parser?.id ?? null,
+      parserVersion: afterRecord?.parser?.version ?? null,
     });
 
     const response = {
       ok: true as const,
       documentId,
-      status: "stored" as const,
+      status: terminalStatus,
     };
     const validated = documentCompleteUploadResponseDtoSchema.safeParse(response);
     if (!validated.success) {
@@ -524,7 +575,50 @@ router.get(
       if (record.retentionStatus === "deleted") continue;
       if (record.status === "uploading") continue;
       if (domainParsed?.success && record.domain !== domainParsed.data) continue;
-      items.push(toDocumentListItemDto(record));
+
+      let importSummary: LabsImportSummaryFields | null = null;
+      let recordForList = record;
+      if (record.domain === "labs") {
+        try {
+          const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${record.id}`).get();
+          if (reviewSnap.exists) {
+            const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
+            if (parsed) {
+              importSummary = parsed;
+              const presentation = deriveLabReportConsumerPresentation({
+                processingStatus: record.status,
+                importedCount: parsed.importedCount,
+                genuinePendingDecisionCount: parsed.reviewNeededCount,
+                unmatchedGenuineAnalyteCount: parsed.unmatchedCount,
+                withheldGenuineResultCount: parsed.withheldCount,
+                classifiedReportRowCount: parsed.reportContentCount + parsed.duplicateCount,
+              });
+              if (
+                shouldPersistLabDocumentTerminalStatus({
+                  currentDocumentStatus: record.status,
+                  presentation,
+                }) &&
+                presentation.documentRecordStatus
+              ) {
+                const now = new Date().toISOString();
+                await userCollection(uid, "documents").doc(record.id).update({
+                  status: presentation.documentRecordStatus,
+                  updatedAt: now,
+                });
+                recordForList = {
+                  ...record,
+                  status: presentation.documentRecordStatus as UserDocumentRecord["status"],
+                  updatedAt: now,
+                };
+              }
+            }
+          }
+        } catch {
+          importSummary = null;
+        }
+      }
+
+      items.push(toDocumentListItemDto(recordForList, { importSummary }));
     }
 
     // Bridge legacy lab uploads when listing labs (or unfiltered).
@@ -659,10 +753,52 @@ router.get(
       recordForDto = { ...record, status: reconciled.status, updatedAt: now };
     }
 
+    let importSummary: LabsImportSummaryFields | null = null;
+    if (recordForDto.domain === "labs") {
+      try {
+        const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${documentId}`).get();
+        if (reviewSnap.exists) {
+          const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
+          if (parsed) {
+            importSummary = parsed;
+            const presentation = deriveLabReportConsumerPresentation({
+              processingStatus: recordForDto.status,
+              importedCount: parsed.importedCount,
+              genuinePendingDecisionCount: parsed.reviewNeededCount,
+              unmatchedGenuineAnalyteCount: parsed.unmatchedCount,
+              withheldGenuineResultCount: parsed.withheldCount,
+              classifiedReportRowCount: parsed.reportContentCount + parsed.duplicateCount,
+            });
+            if (
+              shouldPersistLabDocumentTerminalStatus({
+                currentDocumentStatus: recordForDto.status,
+                presentation,
+              }) &&
+              presentation.documentRecordStatus
+            ) {
+              const now = new Date().toISOString();
+              await userCollection(uid, "documents").doc(documentId).update({
+                status: presentation.documentRecordStatus,
+                updatedAt: now,
+              });
+              recordForDto = {
+                ...recordForDto,
+                status: presentation.documentRecordStatus as UserDocumentRecord["status"],
+                updatedAt: now,
+              };
+            }
+          }
+        }
+      } catch {
+        importSummary = null;
+      }
+    }
+
     const detail = toDocumentDetailDto({
       record: recordForDto,
       processingState,
-      safeWarnings: safeWarningsForStatus(recordForDto.status),
+      safeWarnings: safeWarningsForStatus(recordForDto.status, undefined, importSummary),
+      importSummary,
     });
     const payload = { ok: true as const, document: detail };
     const out = documentDetailResponseDtoSchema.safeParse(payload);
@@ -782,18 +918,26 @@ router.post(
       job: primed,
     };
     if (parsedBody.data.parserId) runArgs.parserId = parsedBody.data.parserId;
-    void runDocumentIngestionJob(runArgs).catch(() => {
-      void userCollection(uid, "documents").doc(documentId).update({
+    try {
+      await runDocumentIngestionJob(runArgs);
+    } catch {
+      await userCollection(uid, "documents").doc(documentId).update({
         status: "failed",
         updatedAt: new Date().toISOString(),
       });
-    });
+    }
+
+    const afterSnap = await userCollection(uid, "documents").doc(documentId).get();
+    const afterRecord = afterSnap.exists
+      ? parseUserDocument(afterSnap.data() as Record<string, unknown>, documentId)
+      : null;
+    const terminalStatus = afterRecord?.status ?? "processing";
 
     const response = {
       ok: true as const,
       documentId,
       jobId,
-      status: "processing" as const,
+      status: terminalStatus,
       dryRun: Boolean(parsedBody.data.dryRun),
     };
     const validated = documentReprocessResponseDtoSchema.safeParse(response);
