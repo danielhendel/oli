@@ -31,6 +31,7 @@
     "../../lib/data/documents/documentAccountLifecycle.ts",
     "../../lib/data/documents/documentDeleteRelationships.ts",
     "../../lib/data/documents/documentProcessingReconcile.ts",
+    "../../lib/data/documents/parseLabImportSummaryStructural.ts",
     "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
   ],
   "exclude": [

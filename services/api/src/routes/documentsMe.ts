@@ -62,6 +62,12 @@ import {
 } from "../lib/documents/toSafeDocumentDto";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
 import { reconcileDocumentProcessingStatus } from "../../../../lib/data/documents/documentProcessingReconcile";
+import { parseLabImportSummaryStructural } from "../../../../lib/data/documents/parseLabImportSummaryStructural";
+import {
+  deriveLabReportConsumerPresentation,
+  shouldPersistLabDocumentTerminalStatus,
+} from "../../../../lib/labs/deriveLabReportConsumerState";
+import type { LabsImportSummaryFields } from "../lib/documents/toSafeDocumentDto";
 
 function getAdmin() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -569,7 +575,50 @@ router.get(
       if (record.retentionStatus === "deleted") continue;
       if (record.status === "uploading") continue;
       if (domainParsed?.success && record.domain !== domainParsed.data) continue;
-      items.push(toDocumentListItemDto(record));
+
+      let importSummary: LabsImportSummaryFields | null = null;
+      let recordForList = record;
+      if (record.domain === "labs") {
+        try {
+          const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${record.id}`).get();
+          if (reviewSnap.exists) {
+            const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
+            if (parsed) {
+              importSummary = parsed;
+              const presentation = deriveLabReportConsumerPresentation({
+                processingStatus: record.status,
+                importedCount: parsed.importedCount,
+                genuinePendingDecisionCount: parsed.reviewNeededCount,
+                unmatchedGenuineAnalyteCount: parsed.unmatchedCount,
+                withheldGenuineResultCount: parsed.withheldCount,
+                classifiedReportRowCount: parsed.reportContentCount + parsed.duplicateCount,
+              });
+              if (
+                shouldPersistLabDocumentTerminalStatus({
+                  currentDocumentStatus: record.status,
+                  presentation,
+                }) &&
+                presentation.documentRecordStatus
+              ) {
+                const now = new Date().toISOString();
+                await userCollection(uid, "documents").doc(record.id).update({
+                  status: presentation.documentRecordStatus,
+                  updatedAt: now,
+                });
+                recordForList = {
+                  ...record,
+                  status: presentation.documentRecordStatus as UserDocumentRecord["status"],
+                  updatedAt: now,
+                };
+              }
+            }
+          }
+        } catch {
+          importSummary = null;
+        }
+      }
+
+      items.push(toDocumentListItemDto(recordForList, { importSummary }));
     }
 
     // Bridge legacy lab uploads when listing labs (or unfiltered).
@@ -704,51 +753,38 @@ router.get(
       recordForDto = { ...record, status: reconciled.status, updatedAt: now };
     }
 
-    type LabsImportSummaryFields = {
-      importedCount: number;
-      reviewNeededCount: number;
-      unmatchedCount: number;
-      reportImportStatus:
-        | "imported"
-        | "imported_review_recommended"
-        | "review_needed"
-        | "unsupported"
-        | "failed"
-        | "structured";
-      hasAutoPublishedResults: boolean;
-      hasReviewItems: boolean;
-    };
     let importSummary: LabsImportSummaryFields | null = null;
     if (recordForDto.domain === "labs") {
       try {
         const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${documentId}`).get();
         if (reviewSnap.exists) {
-          const raw = reviewSnap.data() as Record<string, unknown>;
-          const summaryRaw = raw.importSummary;
-          if (summaryRaw && typeof summaryRaw === "object") {
-            const summary = summaryRaw as Record<string, unknown>;
-            const reportImportStatus = summary.reportImportStatus;
+          const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
+          if (parsed) {
+            importSummary = parsed;
+            const presentation = deriveLabReportConsumerPresentation({
+              processingStatus: recordForDto.status,
+              importedCount: parsed.importedCount,
+              genuinePendingDecisionCount: parsed.reviewNeededCount,
+              unmatchedGenuineAnalyteCount: parsed.unmatchedCount,
+              withheldGenuineResultCount: parsed.withheldCount,
+              classifiedReportRowCount: parsed.reportContentCount + parsed.duplicateCount,
+            });
             if (
-              typeof summary.importedCount === "number" &&
-              typeof summary.reviewNeededCount === "number" &&
-              typeof summary.unmatchedCount === "number" &&
-              typeof reportImportStatus === "string" &&
-              [
-                "imported",
-                "imported_review_recommended",
-                "review_needed",
-                "unsupported",
-                "failed",
-                "structured",
-              ].includes(reportImportStatus)
+              shouldPersistLabDocumentTerminalStatus({
+                currentDocumentStatus: recordForDto.status,
+                presentation,
+              }) &&
+              presentation.documentRecordStatus
             ) {
-              importSummary = {
-                importedCount: summary.importedCount,
-                reviewNeededCount: summary.reviewNeededCount,
-                unmatchedCount: summary.unmatchedCount,
-                reportImportStatus: reportImportStatus as LabsImportSummaryFields["reportImportStatus"],
-                hasAutoPublishedResults: summary.hasAutoPublishedResults === true,
-                hasReviewItems: summary.hasReviewItems === true,
+              const now = new Date().toISOString();
+              await userCollection(uid, "documents").doc(documentId).update({
+                status: presentation.documentRecordStatus,
+                updatedAt: now,
+              });
+              recordForDto = {
+                ...recordForDto,
+                status: presentation.documentRecordStatus as UserDocumentRecord["status"],
+                updatedAt: now,
               };
             }
           }

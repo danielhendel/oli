@@ -24,6 +24,10 @@ import { parseQuestLabPdfBundle } from "../labs/questTextPdfParser";
 import { QUEST_TEXT_PDF_PARSER_ID } from "../../../../../lib/labs/extraction/extractQuestLabReportDraft";
 import { logDocumentIngestionEvent, redactedDocumentToken } from "./documentIngestionTelemetry";
 import { runLabAutoPublishAfterDraft } from "../labs/runLabAutoPublishAfterDraft";
+import {
+  deriveLabReportConsumerPresentation,
+  shouldPersistLabDocumentTerminalStatus,
+} from "../../../../../lib/labs/deriveLabReportConsumerState";
 
 type DocRef = {
   get: () => Promise<{ exists: boolean; data: () => unknown }>;
@@ -111,9 +115,19 @@ async function persistLabsDraftAndReview(args: {
   job: DocumentIngestionJob;
   draft: LabExtractionDraft;
   now: string;
-}): Promise<void> {
+}): Promise<{
+  importedCount: number;
+  reviewNeededCount: number;
+  unmatchedCount: number;
+  reportImportStatus: string;
+  hasAutoPublishedResults: boolean;
+  hasReviewItems: boolean;
+  withheldCount: number;
+  reportContentCount: number;
+  duplicateCount: number;
+} | null> {
   const { labDraftsCol, labReviewsCol, labUploadsCol } = args.deps;
-  if (!labDraftsCol || args.job.dryRun) return;
+  if (!labDraftsCol || args.job.dryRun) return null;
 
   const draft: LabExtractionDraft = {
     ...args.draft,
@@ -132,6 +146,18 @@ async function persistLabsDraftAndReview(args: {
     terminalStatus: draft.status,
     pageCount: draft.reportCandidate.pageCount ?? null,
   });
+
+  let importOutcome: {
+    importedCount: number;
+    reviewNeededCount: number;
+    unmatchedCount: number;
+    reportImportStatus: string;
+    hasAutoPublishedResults: boolean;
+    hasReviewItems: boolean;
+    withheldCount: number;
+    reportContentCount: number;
+    duplicateCount: number;
+  } | null = null;
 
   if (labReviewsCol && (draft.status === "review_needed" || draft.status === "partial" || draft.status === "extracted")) {
     const { labAcceptedResultsCol, labResultsCol } = args.deps;
@@ -155,6 +181,17 @@ async function persistLabsDraftAndReview(args: {
         labResultsCol: labResultsCol as never,
         priorReview,
       });
+      importOutcome = {
+        importedCount: auto.importSummary.importedCount,
+        reviewNeededCount: auto.importSummary.reviewNeededCount,
+        unmatchedCount: auto.importSummary.unmatchedCount,
+        reportImportStatus: auto.importSummary.reportImportStatus,
+        hasAutoPublishedResults: auto.importSummary.hasAutoPublishedResults,
+        hasReviewItems: auto.importSummary.hasReviewItems,
+        withheldCount: auto.importSummary.withheldCount ?? 0,
+        reportContentCount: auto.importSummary.reportContentCount ?? 0,
+        duplicateCount: auto.importSummary.duplicateCount ?? 0,
+      };
       logDocumentIngestionEvent("lab_auto_publish_completed", {
         documentToken: redactedDocumentToken(args.document.id),
         domain: args.document.domain,
@@ -191,8 +228,14 @@ async function persistLabsDraftAndReview(args: {
   }
 
   if (labUploadsCol && args.document.legacyLabUploadId) {
-    const status =
-      draft.status === "review_needed" || draft.status === "partial"
+    const importedTerminal =
+      importOutcome != null &&
+      importOutcome.importedCount > 0 &&
+      importOutcome.reviewNeededCount === 0 &&
+      !importOutcome.hasReviewItems;
+    const status = importedTerminal
+      ? "parsed"
+      : draft.status === "review_needed" || draft.status === "partial"
         ? "needs_review"
         : draft.status === "unsupported"
           ? "unsupported"
@@ -201,13 +244,15 @@ async function persistLabsDraftAndReview(args: {
       {
         status,
         extractedCount: draft.results.length + draft.unmatched.length,
-        matchedCount: draft.results.length,
-        unmatchedCount: draft.unmatched.length,
+        matchedCount: importOutcome?.importedCount ?? draft.results.length,
+        unmatchedCount: importOutcome?.unmatchedCount ?? draft.unmatched.length,
         updatedAt: args.now,
       },
       { merge: true },
     );
   }
+
+  return importOutcome;
 }
 
 /**
@@ -385,6 +430,7 @@ export async function runDocumentIngestionJob(args: {
     }
 
     const extraction = validated.value;
+    let labsImportOutcome: Awaited<ReturnType<typeof persistLabsDraftAndReview>> = null;
     if (!args.job.dryRun) {
       const extractionId = `${args.document.id}_${parser.id}_${parser.version}_${Date.now()}`;
       await extractionsCol.doc(extractionId).set({
@@ -396,7 +442,7 @@ export async function runDocumentIngestionJob(args: {
         superseded: false,
       });
       if (labsDraft) {
-        await persistLabsDraftAndReview({
+        labsImportOutcome = await persistLabsDraftAndReview({
           deps: args.deps,
           uid: args.uid,
           document: args.document,
@@ -443,8 +489,35 @@ export async function runDocumentIngestionJob(args: {
       extractionVersion: extraction.extractionVersion,
     });
     job = await transitionJob(jobsCol, job, "validation_pending", nowFn());
-    job = await transitionJob(jobsCol, job, "review_needed", nowFn());
-    await updateDocumentStatus(documentsCol, args.document.id, "review_needed", nowFn(), {
+
+    const presentation = labsImportOutcome
+      ? deriveLabReportConsumerPresentation({
+          processingStatus: "review_needed",
+          importedCount: labsImportOutcome.importedCount,
+          genuinePendingDecisionCount: labsImportOutcome.reviewNeededCount,
+          unmatchedGenuineAnalyteCount: labsImportOutcome.unmatchedCount,
+          withheldGenuineResultCount: labsImportOutcome.withheldCount,
+          classifiedReportRowCount:
+            labsImportOutcome.reportContentCount + labsImportOutcome.duplicateCount,
+        })
+      : null;
+    const terminalDocumentStatus =
+      presentation &&
+      shouldPersistLabDocumentTerminalStatus({
+        currentDocumentStatus: "review_needed",
+        presentation,
+      })
+        ? (presentation.documentRecordStatus ?? "review_needed")
+        : presentation?.documentRecordStatus === "structured"
+          ? "structured"
+          : "review_needed";
+    const terminalJobState = terminalDocumentStatus === "structured" ? "accepted" : "review_needed";
+
+    job = await transitionJob(jobsCol, job, terminalJobState, nowFn());
+    if (terminalJobState === "accepted") {
+      job = await transitionJob(jobsCol, job, "completed", nowFn());
+    }
+    await updateDocumentStatus(documentsCol, args.document.id, terminalDocumentStatus, nowFn(), {
       parser: { id: parser.id, version: parser.version },
     });
     logDocumentIngestionEvent("document_parser_terminal", {
@@ -452,7 +525,7 @@ export async function runDocumentIngestionJob(args: {
       domain: args.document.domain,
       parserId: parser.id,
       parserVersion: parser.version,
-      terminalStatus: "review_needed",
+      terminalStatus: terminalDocumentStatus,
       pageCount: extraction.pageCount ?? extraction.pagesProcessed ?? null,
       candidateCount: extraction.fields.length,
       warningCount: extraction.warnings.length,
@@ -462,7 +535,7 @@ export async function runDocumentIngestionJob(args: {
       documentToken,
       domain: args.document.domain,
       parserId: parser.id,
-      terminalStatus: "review_needed",
+      terminalStatus: terminalDocumentStatus,
       elapsedMs: Date.now() - startedAt,
     });
     return { job, extraction };

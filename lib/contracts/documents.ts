@@ -232,6 +232,9 @@ export const documentListItemDtoSchema = z
     canRetry: z.boolean(),
     canDelete: z.boolean(),
     legacySource: z.enum(["document", "lab_upload"]),
+    /** Optional Labs consumer label override (e.g. Imported). */
+    consumerStatusLabel: z.string().min(1).optional(),
+    importedCount: z.number().int().nonnegative().optional(),
   })
   .strip();
 
@@ -274,6 +277,26 @@ export const documentDetailDtoSchema = z
       .optional(),
     hasAutoPublishedResults: z.boolean().optional(),
     hasReviewItems: z.boolean().optional(),
+    /** Consumer terminal state derived from structural counts (not raw internal enums). */
+    consumerStatus: z
+      .enum([
+        "processing",
+        "imported",
+        "imported_with_notes",
+        "imported_with_withheld_results",
+        "review_available",
+        "unsupported",
+        "failed",
+        "deleted",
+      ])
+      .optional(),
+    consumerMessage: z.string().min(1).optional(),
+    pendingDecisionCount: z.number().int().nonnegative().optional(),
+    classifiedReportRowCount: z.number().int().nonnegative().optional(),
+    withheldCount: z.number().int().nonnegative().optional(),
+    reviewActionAvailable: z.boolean().optional(),
+    viewLabsActionAvailable: z.boolean().optional(),
+    correctionActionAvailable: z.boolean().optional(),
   })
   .strip();
 
