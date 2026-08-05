@@ -22,8 +22,15 @@ export default function DocumentDetailScreen() {
   const documentId = typeof params.documentId === "string" ? params.documentId : "";
   const detail = useDocumentDetail({ documentId, enabled: documentId.length > 0 });
   const labsOs = isLabsOsV1Enabled();
-  const needsReview =
-    labsOs && detail.status === "ready" && detail.data.document.status === "review_needed";
+  const readyDoc = detail.status === "ready" ? detail.data.document : null;
+  const reviewActionAvailable =
+    labsOs &&
+    readyDoc != null &&
+    (readyDoc.reviewActionAvailable === true ||
+      (readyDoc.status === "review_needed" &&
+        (readyDoc.reviewNeededCount ?? 0) > 0 &&
+        readyDoc.hasReviewItems !== false));
+
   const [reprocessBusy, setReprocessBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -104,8 +111,9 @@ export default function DocumentDetailScreen() {
       <ModuleScreenShell title={consumerTitle} hideTitleChrome>
         <DocumentDetailContent
           status={detail.status}
-          showReviewLink={needsReview}
+          showReviewLink={reviewActionAvailable}
           onPressReview={() => router.push(`/(app)/labs/reviews/${documentId}`)}
+          onPressViewLabs={() => router.push("/(app)/labs")}
           {...(detail.status === "error"
             ? { error: detail.error, requestId: detail.requestId, onRetryLoad: () => detail.refetch() }
             : {})}

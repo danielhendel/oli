@@ -23,8 +23,10 @@ export type DocumentDetailContentProps = {
   onBackToList?: () => void;
   onReprocess?: () => void;
   onDelete?: () => void;
+  onPressViewLabs?: () => void;
   reprocessBusy?: boolean;
   deleteBusy?: boolean;
+  /** @deprecated Prefer document.reviewActionAvailable / VM — kept for call-site compat. */
   showReviewLink?: boolean;
   onPressReview?: () => void;
 };
@@ -38,6 +40,7 @@ export function DocumentDetailContent({
   onBackToList,
   onReprocess,
   onDelete,
+  onPressViewLabs,
   reprocessBusy,
   deleteBusy,
   showReviewLink = false,
@@ -84,6 +87,21 @@ export function DocumentDetailContent({
   }
 
   const vm = buildDocumentDetailViewModel(document);
+  const showReview = vm.reviewActionAvailable || showReviewLink;
+  const importSummaryText =
+    vm.importedCount != null && vm.viewLabsActionAvailable
+      ? null
+      : typeof document.importedCount === "number"
+        ? `${document.importedCount} imported${
+            typeof document.reviewNeededCount === "number" && document.reviewNeededCount > 0
+              ? ` · ${document.reviewNeededCount} need review`
+              : ""
+          }${
+            typeof document.unmatchedCount === "number" && document.unmatchedCount > 0
+              ? ` · ${document.unmatchedCount} unmatched`
+              : ""
+          }`
+        : null;
 
   return (
     <View style={styles.root} testID="document-detail">
@@ -101,15 +119,9 @@ export function DocumentDetailContent({
         <Text style={styles.status} testID="document-detail-status">
           {vm.statusLabel}
         </Text>
-        {typeof document.importedCount === "number" ? (
+        {importSummaryText ? (
           <Text style={styles.message} testID="document-detail-import-summary">
-            {document.importedCount} imported
-            {typeof document.reviewNeededCount === "number"
-              ? ` · ${document.reviewNeededCount} need review`
-              : ""}
-            {typeof document.unmatchedCount === "number"
-              ? ` · ${document.unmatchedCount} unmatched`
-              : ""}
+            {importSummaryText}
           </Text>
         ) : null}
         {vm.extractionMessage ? (
@@ -117,7 +129,18 @@ export function DocumentDetailContent({
             {vm.extractionMessage}
           </Text>
         ) : null}
-        {showReviewLink && onPressReview ? (
+        {vm.viewLabsActionAvailable && onPressViewLabs ? (
+          <Pressable
+            onPress={onPressViewLabs}
+            accessibilityRole="button"
+            accessibilityLabel="View Labs"
+            style={({ pressed }) => [styles.primaryAction, pressed && styles.actionPressed]}
+            testID="document-view-labs"
+          >
+            <Text style={styles.primaryActionLabel}>View Labs</Text>
+          </Pressable>
+        ) : null}
+        {showReview && onPressReview ? (
           <Pressable
             onPress={onPressReview}
             accessibilityRole="button"
@@ -134,6 +157,17 @@ export function DocumentDetailContent({
                 ? `Review ${document.reviewNeededCount} items`
                 : "Review extracted results"}
             </Text>
+          </Pressable>
+        ) : null}
+        {onBackToList ? (
+          <Pressable
+            onPress={onBackToList}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+            testID="document-detail-done"
+          >
+            <Text style={styles.actionLabel}>Done</Text>
           </Pressable>
         ) : null}
       </View>

@@ -33,13 +33,19 @@ export default function LabReviewDetailScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [savingCandidateId, setSavingCandidateId] = useState<string | null>(null);
 
+  const chromeTitle = useMemo(() => {
+    if (detail.status !== "ready") return "Report details";
+    const pending = detail.data.summary.reviewNeededCount ?? 0;
+    return pending > 0 ? "Review report" : "Report details";
+  }, [detail]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: "Review report",
+      title: chromeTitle,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
-  }, [navigation]);
+  }, [chromeTitle, navigation]);
 
   const actionCounts = useMemo(() => {
     if (detail.status !== "ready") {
@@ -181,7 +187,7 @@ export default function LabReviewDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title="Review report" hideTitleChrome>
+      <ModuleScreenShell title={chromeTitle} hideTitleChrome>
         <LabReviewDetailContent
           status={detail.status}
           actionBusy={actionBusy}

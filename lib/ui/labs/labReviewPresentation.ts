@@ -65,7 +65,10 @@ export function reviewSummaryCountsLabel(summary: LabReviewSummaryDto): string {
   return `${imported} imported`;
 }
 
-export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): string {
+export function reportReviewStatusLabel(
+  status: LabReviewSummaryDto["status"],
+  opts?: { reviewNeededCount?: number },
+): string {
   switch (status) {
     case "not_started":
       return "Not started";
@@ -82,7 +85,7 @@ export function reportReviewStatusLabel(status: LabReviewSummaryDto["status"]): 
     case "imported":
       return "Imported";
     case "imported_with_exceptions":
-      return "Imported — review remaining";
+      return (opts?.reviewNeededCount ?? 0) > 0 ? "Imported — review remaining" : "Imported";
     default:
       return status;
   }

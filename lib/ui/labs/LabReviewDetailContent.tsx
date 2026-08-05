@@ -501,7 +501,9 @@ export function LabReviewDetailContent({
           {summary.safeDisplayFilename}
         </Text>
         <Text style={styles.status} testID="lab-review-report-status">
-          {reportReviewStatusLabel(summary.status)}
+          {reportReviewStatusLabel(summary.status, {
+            reviewNeededCount: summary.reviewNeededCount ?? needReviewCount,
+          })}
         </Text>
         {summary.laboratoryName ? (
           <Text style={styles.meta}>Laboratory: {summary.laboratoryName}</Text>

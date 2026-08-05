@@ -18,7 +18,7 @@ export default function LabReviewsListScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: "Review needed",
+      title: "Lab reports",
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
   }, [navigation]);
@@ -32,7 +32,7 @@ export default function LabReviewsListScreen() {
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title="Review needed" hideTitleChrome>
+      <ModuleScreenShell title="Lab reports" hideTitleChrome>
         <LabReviewQueueContent
           status={reviews.status}
           {...(reviews.status === "error"
