@@ -1,5 +1,5 @@
 /**
- * Mobile Document OS upload route → Labs Quest parser → review_needed.
+ * Mobile Document OS upload route → Labs Quest parser → imported terminal (structured).
  * Exercises complete-upload + orchestration (not a direct parser call).
  */
 import express from "express";
@@ -96,7 +96,7 @@ function makeDocRef(store: Map<string, Record<string, unknown>>, id: string) {
   };
 }
 
-describe("mobile Labs upload route → Quest review_needed", () => {
+describe("mobile Labs upload route → Quest imported terminal", () => {
   let server: http.Server;
   let baseUrl: string;
   let stores: Record<string, Map<string, Record<string, unknown>>>;
@@ -164,7 +164,7 @@ describe("mobile Labs upload route → Quest review_needed", () => {
     });
   });
 
-  it("complete-upload selects quest_text_pdf_v1 and reaches review_needed with draft+review", async () => {
+  it("complete-upload selects quest_text_pdf_v1 and reaches structured imported terminal", async () => {
     const pdfPath = resolve(
       __dirname,
       "../../../../../lib/labs/extraction/__fixtures__/quest_synthetic_lifecycle_v1.pdf",
@@ -209,10 +209,10 @@ describe("mobile Labs upload route → Quest review_needed", () => {
       duplicate?: boolean;
     };
     expect(completeJson.duplicate).toBeFalsy();
-    expect(completeJson.status).toBe("review_needed");
+    expect(completeJson.status).toBe("structured");
 
     const doc = stores.documents.get(documentId);
-    expect(doc?.status).toBe("review_needed");
+    expect(doc?.status).toBe("structured");
     expect((doc?.parser as { id?: string } | undefined)?.id).toBe("quest_text_pdf_v1");
     expect(doc?.parser).not.toEqual(expect.objectContaining({ id: "unsupported_lab" }));
 
@@ -222,9 +222,18 @@ describe("mobile Labs upload route → Quest review_needed", () => {
     const detailRes = await fetch(`${baseUrl}/users/me/documents/${encodeURIComponent(documentId)}`);
     expect(detailRes.status).toBe(200);
     const detailJson = (await detailRes.json()) as {
-      document: { status: string; canRetry: boolean };
+      document: {
+        status: string;
+        canRetry: boolean;
+        consumerStatus?: string;
+        reviewActionAvailable?: boolean;
+        viewLabsActionAvailable?: boolean;
+      };
     };
-    expect(detailJson.document.status).toBe("review_needed");
+    expect(detailJson.document.status).toBe("structured");
+    expect(detailJson.document.consumerStatus).toBe("imported");
+    expect(detailJson.document.reviewActionAvailable).toBe(false);
+    expect(detailJson.document.viewLabsActionAvailable).toBe(true);
 
     const reviewRes = await fetch(`${baseUrl}/users/me/labs/reviews/${encodeURIComponent(documentId)}`);
     expect(reviewRes.status).toBe(200);
