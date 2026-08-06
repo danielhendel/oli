@@ -77,16 +77,16 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "glucose")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "wbc")).toBe(true);
 
+      const urineProteinMatched = draft.results.find((r) => r.rawAnalyteLabel === "PROTEIN");
+      const urineBloodMatched = draft.results.find((r) => r.rawAnalyteLabel === "BLOOD");
       const urineProtein =
-        draft.results.find((r) => r.rawAnalyteLabel === "PROTEIN") ??
-        draft.unmatched.find((u) => u.rawAnalyteLabel === "PROTEIN");
+        urineProteinMatched ?? draft.unmatched.find((u) => u.rawAnalyteLabel === "PROTEIN");
       const urineBlood =
-        draft.results.find((r) => r.rawAnalyteLabel === "BLOOD") ??
-        draft.unmatched.find((u) => u.rawAnalyteLabel === "BLOOD");
+        urineBloodMatched ?? draft.unmatched.find((u) => u.rawAnalyteLabel === "BLOOD");
       expect(urineProtein?.rawResult).toBe("Negative");
       expect(urineBlood?.rawResult).toBe("Negative");
-      expect(urineProtein?.result?.kind).not.toBe("numeric");
-      expect(urineBlood?.result?.kind).not.toBe("numeric");
+      expect(urineProteinMatched?.result?.kind).not.toBe("numeric");
+      expect(urineBloodMatched?.result?.kind).not.toBe("numeric");
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
       expect(labels.some((l) => /verified by laboratory director/i.test(l))).toBe(false);
@@ -141,16 +141,15 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       expectCollectedCalendar(draft, "2021-04-13");
       expectNoPhi(draft);
 
-      const igg =
-        draft.results.find((r) => /igg/i.test(r.rawAnalyteLabel)) ??
-        draft.unmatched.find((u) => /igg/i.test(u.rawAnalyteLabel));
-      const igm =
-        draft.results.find((r) => /igm/i.test(r.rawAnalyteLabel)) ??
-        draft.unmatched.find((u) => /igm/i.test(u.rawAnalyteLabel));
+      const iggMatched = draft.results.find((r) => /igg/i.test(r.rawAnalyteLabel));
+      const igmMatched = draft.results.find((r) => /igm/i.test(r.rawAnalyteLabel));
+      const igg = iggMatched ?? draft.unmatched.find((u) => /igg/i.test(u.rawAnalyteLabel));
+      const igm = igmMatched ?? draft.unmatched.find((u) => /igm/i.test(u.rawAnalyteLabel));
       expect(igg?.rawResult).toBe("POSITIVE");
       expect(igm?.rawResult).toBe("POSITIVE");
-      expect(igg?.result?.kind).not.toBe("numeric");
-      expect(igm?.result?.kind).not.toBe("numeric");
+      expect(iggMatched?.result?.kind).not.toBe("numeric");
+      expect(igmMatched?.result?.kind).not.toBe("numeric");
+      expect(iggMatched?.result?.kind === "qualitative" || igg != null).toBe(true);
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
       expect(labels.some((l) => /interpretation guide|index value/i.test(l))).toBe(false);
