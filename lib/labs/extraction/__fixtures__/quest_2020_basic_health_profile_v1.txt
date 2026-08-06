@@ -1,0 +1,38 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+Collected: 06/05/2020 08:00 AM
+Received: 06/05/2020 02:00 PM
+Reported: 06/06/2020 09:00 AM
+Fasting: Yes
+Specimen: Serum
+
+TEST NAME                RESULT    FLAG    UNITS           REFERENCE RANGE
+
+BASIC HEALTH PROFILE
+
+LIPID PANEL
+LDL-CHOLESTEROL           95  mg/dL  <100
+HDL-CHOLESTEROL           58  mg/dL  >40
+TRIGLYCERIDES            110  mg/dL  <150
+CHOLESTEROL, TOTAL       195  mg/dL  <200
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                   88  mg/dL  65-99
+CREATININE              0.95  mg/dL  0.60-1.35
+SODIUM                   141  mmol/L  135-146
+POTASSIUM                4.1  mmol/L  3.5-5.3
+
+CBC
+WBC                      5.8  Thousand/uL  3.8-10.8
+HEMOGLOBIN              14.2  g/dL  13.2-17.1
+HEMATOCRIT              42.1  %  38.5-50.0
+PLATELETS                215  Thousand/uL  140-400
+
+URINALYSIS
+PROTEIN               Negative
+BLOOD                 Negative
+
+Note: Results verified by laboratory director. Do not use for self-diagnosis.
+
+Performing Site: Quest Diagnostics

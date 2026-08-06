@@ -221,6 +221,7 @@ describe("panel-aware albumin and history foundation", () => {
       percentChange: -12,
       latestCollectedAt: "2024-10-15T00:00:00.000Z",
       priorCollectedAt: "2022-07-07T00:00:00.000Z",
+      elapsedDays: 831,
       direction: "decreased",
       interpretation: null,
     });
