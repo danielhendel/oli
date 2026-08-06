@@ -334,6 +334,17 @@ export const labDatePrecisionSchema = z.enum([
   "unknown",
 ]);
 
+export const labSourceTimestampSchema = z
+  .object({
+    sourceRaw: z.string(),
+    sourceCalendarDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    precision: labDatePrecisionSchema,
+    instant: isoDatetimeString.nullable(),
+    timezoneOffset: z.string().nullable(),
+    timezoneName: z.string().nullable(),
+  })
+  .strip();
+
 export const labSpecimenTypeSchema = z.enum([
   "serum",
   "plasma",
@@ -351,6 +362,9 @@ export const labReportMetadataCandidateSchema = z
     reportedAt: isoDatetimeString.nullable().optional(),
     /** Precision of collectedAt — time may be placeholder when date_only. */
     collectedAtPrecision: labDatePrecisionSchema.nullable().optional(),
+    collectedAtSource: labSourceTimestampSchema.optional(),
+    receivedAtSource: labSourceTimestampSchema.optional(),
+    reportedAtSource: labSourceTimestampSchema.optional(),
     fasting: z.boolean().nullable().optional(),
     laboratoryName: z.string().min(1).nullable().optional(),
     performingLaboratories: z.array(labLaboratoryReferenceSchema).optional(),
@@ -549,6 +563,8 @@ export const acceptedLabResultSchema = z
     /** Operational upload time — never used as history axis. */
     uploadedAt: isoDatetimeString.nullable().optional(),
     datePrecision: labDatePrecisionSchema.nullable().optional(),
+    collectedAtSource: labSourceTimestampSchema.optional(),
+    historyPointId: z.string().min(1).optional(),
     fasting: z.boolean().nullable(),
     result: labResultValueSchema,
     rawUnit: z.string().nullable(),
@@ -655,6 +671,8 @@ export const labHistoryPointDtoSchema = z
     canonicalMetricId: z.string().min(1).nullable(),
     collectedAt: isoDatetimeString.nullable(),
     datePrecision: labDatePrecisionSchema.nullable().optional(),
+    sourceCalendarDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    historyPointId: z.string().min(1).optional(),
     result: labResultValueSchema,
     displayValue: z.string().min(1).optional(),
     rawUnit: z.string().nullable(),
@@ -682,6 +700,7 @@ export const labHistoryPointDtoSchema = z
         "incompatible_specimen",
         "incompatible_method",
         "missing_date",
+        "missing_collection_date",
         "qualitative",
         "pattern",
         "inequality_table_only",
@@ -886,6 +905,7 @@ export type RejectLabReviewRequest = z.infer<typeof rejectLabReviewRequestSchema
 export type LabAnalyteHistoryDto = z.infer<typeof labAnalyteHistoryDtoSchema>;
 export type LabHistoryPointDto = z.infer<typeof labHistoryPointDtoSchema>;
 export type LabDatePrecision = z.infer<typeof labDatePrecisionSchema>;
+export type LabSourceTimestamp = z.infer<typeof labSourceTimestampSchema>;
 export type LabSpecimenType = z.infer<typeof labSpecimenTypeSchema>;
 export type CardioIqValueRole = z.infer<typeof cardioIqValueRoleSchema>;
 export type CardioIqCellRole = z.infer<typeof cardioIqCellRoleSchema>;
