@@ -27,6 +27,10 @@ import {
 import { toHistoryPointDto } from "../../../../lib/labs/extraction/labHistoryCompatibility";
 import { sortLabHistoryByCollectionDate } from "../../../../lib/labs/history/evaluateLabTrendEligibility";
 import {
+  calculateLabMetricChange,
+  formatLabMetricChangeCopy,
+} from "../../../../lib/labs/history/calculateLabMetricChange";
+import {
   selectLabConsumerHistoryRows,
   selectLabConsumerLatestResult,
   type LabConsumerHistoryRow,
@@ -69,6 +73,14 @@ function resultFingerprint(result: AcceptedLabResult["result"]): string {
   return `${result.kind}:${result.value}`;
 }
 
+function measuredOrCalculatedFromAccepted(
+  row: AcceptedLabResult,
+): "measured" | "calculated" | "reported_unknown" {
+  if (row.method?.calculated === true) return "calculated";
+  if (row.method?.calculated === false) return "measured";
+  return "reported_unknown";
+}
+
 function acceptedToConsumerHistoryRow(row: AcceptedLabResult, metricKey: string): LabConsumerHistoryRow {
   let rawValueText: string | null = null;
   if (row.result.kind === "numeric") {
@@ -88,7 +100,7 @@ function acceptedToConsumerHistoryRow(row: AcceptedLabResult, metricKey: string)
     panelId: row.panelId,
     specimenType: row.specimen?.type ?? null,
     methodId: row.method?.assayMethod ?? null,
-    measuredOrCalculated: "reported_unknown",
+    measuredOrCalculated: measuredOrCalculatedFromAccepted(row),
     sourceLocator: row.provenance.sourceLocator,
     sourcePage: row.provenance.sourcePage,
     sourceDocumentId: row.sourceDocumentId ?? null,
@@ -129,6 +141,58 @@ function projectionToConsumerHistoryRow(row: LabMetricResultDto): LabConsumerHis
     rawValueText: row.rawValueText ?? null,
     resultFingerprint: `${row.value ?? ""}:${row.rawValueText ?? ""}:${row.unit ?? ""}`,
   };
+}
+
+function computeMetricSummaryExtras(
+  metricKey: string,
+  results: LabMetricResultDto[],
+): { historyPointCount?: number; neutralChangeSummary?: string } {
+  const withDate = results.filter((r) => r.metricKey === metricKey && r.collectedAt);
+  if (withDate.length === 0) return {};
+  const sorted = [...withDate].sort((a, b) =>
+    String(b.collectedAt ?? "").localeCompare(String(a.collectedAt ?? "")),
+  );
+  const latest = sorted[0]!;
+  const prior = sorted.find((row, idx) => {
+    if (idx === 0) return false;
+    if (row.value == null || latest.value == null) return false;
+    if (!row.collectedAt || !latest.collectedAt) return false;
+    if ((row.unit ?? "") !== (latest.unit ?? "")) return false;
+    const raw = row.rawValueText ?? "";
+    const latestRaw = latest.rawValueText ?? "";
+    if (/^[<>≤≥]/.test(raw) || /^[<>≤≥]/.test(latestRaw)) return false;
+    return true;
+  });
+  const extras: { historyPointCount?: number; neutralChangeSummary?: string } = {
+    historyPointCount: withDate.length,
+  };
+  if (
+    prior &&
+    latest.value != null &&
+    prior.value != null &&
+    latest.collectedAt &&
+    prior.collectedAt
+  ) {
+    const change = calculateLabMetricChange({
+      latest: {
+        id: latest.id,
+        collectedAt: latest.collectedAt,
+        result: { kind: "numeric", value: latest.value, comparator: "eq" },
+      },
+      prior: {
+        id: prior.id,
+        collectedAt: prior.collectedAt,
+        result: { kind: "numeric", value: prior.value, comparator: "eq" },
+      },
+    });
+    if (change) {
+      extras.neutralChangeSummary = formatLabMetricChangeCopy({
+        change,
+        unit: latest.unit ?? null,
+      });
+    }
+  }
+  return extras;
 }
 
 function toIsoFromTimestampLike(value: unknown): string | undefined {
@@ -248,6 +312,7 @@ router.get(
         ...(m.latest?.flag != null ? { flag: m.latest.flag } : {}),
         ...(m.latest?.collectedAt != null ? { collectedAt: m.latest.collectedAt } : {}),
         ...(m.latest?.uploadId != null ? { uploadId: m.latest.uploadId } : {}),
+        ...computeMetricSummaryExtras(m.definition.metricKey, results),
       })),
     }));
 
@@ -627,9 +692,12 @@ router.get(
       if (validated.success) accepted.push(validated.data);
     }
 
-    const consumerRows = accepted.map((row) => acceptedToConsumerHistoryRow(row, metricKey));
+    const historyEligible = accepted.filter((row) => row.collectedAt);
+    const consumerRows = historyEligible.map((row) => acceptedToConsumerHistoryRow(row, metricKey));
     const eligibleIds = new Set(selectLabConsumerHistoryRows(consumerRows).map((r) => r.id));
-    const ordered = sortLabHistoryByCollectionDate(accepted.filter((row) => eligibleIds.has(row.id)));
+    const ordered = sortLabHistoryByCollectionDate(
+      historyEligible.filter((row) => eligibleIds.has(row.id)),
+    );
     const cursor = parsedQuery.data.cursor ?? null;
     const startIdx = cursor ? ordered.findIndex((row) => row.id === cursor) + 1 : 0;
     const slice = ordered.slice(Math.max(0, startIdx), Math.max(0, startIdx) + parsedQuery.data.limit);

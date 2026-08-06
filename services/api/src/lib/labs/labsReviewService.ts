@@ -17,7 +17,20 @@ import type {
 } from "@oli/contracts";
 import { LABS_OS_SCHEMA_VERSION } from "@oli/contracts";
 import { getLabMetricByKey } from "../../../../../lib/labs/labMetricCatalog";
+import {
+  buildLabHistoryPointIdentityInput,
+  computeLabHistoryPointId,
+} from "../../../../../lib/labs/history/historyPointIdentity";
+import { historyTimestampFromAccepted } from "../../../../../lib/labs/history/labSourceTimestamp";
 import { assertAcceptedMatchesSourceCandidate } from "../../../../../lib/labs/reconciliation/reconcileLabSourceTruth";
+
+function measuredOrCalculatedFromMethod(
+  method: LabResultCandidate["method"],
+): "measured" | "calculated" | "reported_unknown" {
+  if (method?.calculated === true) return "calculated";
+  if (method?.calculated === false) return "measured";
+  return "reported_unknown";
+}
 
 function inferSpecimenType(args: {
   metricId: string | null;
@@ -154,6 +167,30 @@ export function buildAcceptedLabResult(args: {
     rawLabel: c.rawAnalyteLabel,
     reportSpecimen: args.draft.reportCandidate.specimenType,
   });
+  const collectedAtSource = args.draft.reportCandidate.collectedAtSource;
+  const { calendarDate: sourceCalendarDate } = historyTimestampFromAccepted(
+    args.collectedAt,
+    resolveDatePrecision(args.draft, args.collectedAt),
+    collectedAtSource?.sourceCalendarDate ?? null,
+  );
+  const measuredOrCalculated = measuredOrCalculatedFromMethod(c.method);
+  const historyPointId =
+    sourceCalendarDate && args.collectedAt
+      ? computeLabHistoryPointId(
+          buildLabHistoryPointIdentityInput({
+            userId: args.userId,
+            canonicalMetricId: c.aliasMatch.canonicalMetricId,
+            sourceDocumentId: args.draft.documentId,
+            sourceCandidateId: c.id,
+            sourceCalendarDate,
+            panelId: c.panelId,
+            specimenType: specimen.type,
+            methodId: c.method?.assayMethod ?? null,
+            measuredOrCalculated,
+          }),
+        )
+      : undefined;
+
   return {
     schemaVersion: LABS_OS_SCHEMA_VERSION,
     id: acceptedLabResultId(args.draft.documentId, c.id),
@@ -165,6 +202,8 @@ export function buildAcceptedLabResult(args: {
     rawAnalyteLabel: c.rawAnalyteLabel,
     panelId: c.panelId,
     collectedAt: args.collectedAt,
+    ...(collectedAtSource ? { collectedAtSource } : {}),
+    ...(historyPointId ? { historyPointId } : {}),
     receivedAt: args.draft.reportCandidate.receivedAt ?? null,
     reportedAt: args.reportedAt,
     uploadedAt: args.uploadedAt ?? null,

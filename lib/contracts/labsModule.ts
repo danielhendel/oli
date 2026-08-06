@@ -96,6 +96,8 @@ export const labsSummaryResponseDtoSchema = z
                 flag: labMetricFlagSchema.nullable().optional(),
                 collectedAt: isoDatetimeString.nullable().optional(),
                 uploadId: z.string().min(1).nullable().optional(),
+                historyPointCount: z.number().int().positive().optional(),
+                neutralChangeSummary: z.string().min(1).optional(),
               })
               .strip(),
           ),
