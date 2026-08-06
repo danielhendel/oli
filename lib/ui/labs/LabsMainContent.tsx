@@ -9,7 +9,22 @@ import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import { getLabCategories, getLabMetricByKey } from "@/lib/labs/labMetricCatalog";
+import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 import type { LabsSummaryResponseDto } from "@/lib/contracts";
+
+function buildMetricProgressLine(
+  fromApi: LabsSummaryResponseDto["categories"][number]["metrics"][number] | undefined,
+): string | null {
+  if (!fromApi) return null;
+  if (fromApi.neutralChangeSummary) return fromApi.neutralChangeSummary;
+  if (fromApi.historyPointCount != null && fromApi.historyPointCount > 1 && fromApi.collectedAt) {
+    return `${fromApi.historyPointCount} results · Latest ${formatLabUploadDate(fromApi.collectedAt)}`;
+  }
+  if (fromApi.collectedAt) {
+    return `Latest ${formatLabUploadDate(fromApi.collectedAt)}`;
+  }
+  return null;
+}
 
 export type LabsMainContentProps = {
   status: "partial" | "error" | "ready";
@@ -55,6 +70,7 @@ function buildCardsFromSummary(data: LabsSummaryResponseDto): LabsCategoryCardVm
           label: fromApi?.displayName ?? catalog?.displayName ?? metricKey,
           valueText: fromApi?.latestValueText ?? "—",
           flag: fromApi?.flag ?? null,
+          progressLine: buildMetricProgressLine(fromApi),
         };
       }),
     };

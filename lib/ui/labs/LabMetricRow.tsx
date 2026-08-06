@@ -6,7 +6,7 @@ import {
   dashMetricRowLabelTextStyle,
   dashMetricRowValueTextStyle,
 } from "@/lib/ui/dash/dashMetricRowTextStyle";
-import { UI_TEXT_MUTED, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_TEXT_MUTED, UI_TEXT_SECONDARY, UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 import type { LabMetricFlag } from "@/lib/contracts";
 
 export type LabMetricRowVm = {
@@ -14,6 +14,7 @@ export type LabMetricRowVm = {
   label: string;
   valueText: string;
   flag?: LabMetricFlag | null;
+  progressLine?: string | null;
 };
 
 export type LabMetricRowProps = {
@@ -45,9 +46,16 @@ export function LabMetricRow({ row, onPress, testID }: LabMetricRowProps) {
       </Text>
       <View style={styles.rightCluster}>
         {statusColor ? <View style={[styles.flagDot, { backgroundColor: statusColor }]} /> : null}
-        <Text style={[dashMetricRowValueTextStyle, styles.value]} numberOfLines={1}>
-          {row.valueText}
-        </Text>
+        <View style={styles.valueBlock}>
+          <Text style={[dashMetricRowValueTextStyle, styles.value]} numberOfLines={1}>
+            {row.valueText}
+          </Text>
+          {row.progressLine ? (
+            <Text style={styles.progressLine} numberOfLines={1} testID={`lab-metric-progress-${row.metricKey}`}>
+              {row.progressLine}
+            </Text>
+          ) : null}
+        </View>
         <Text style={styles.chevron} accessible={false}>
           {"\u203A"}
         </Text>
@@ -83,6 +91,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   value: { flexShrink: 1 },
+  valueBlock: { alignItems: "flex-end", flexShrink: 1, gap: 1 },
+  progressLine: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: UI_TEXT_TERTIARY_LABEL,
+    textAlign: "right",
+  },
   chevron: {
     fontSize: 16,
     lineHeight: 20,

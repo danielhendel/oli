@@ -15,6 +15,7 @@ import {
   deriveLabReportConsumerPresentation,
   type LabReportConsumerPresentation,
 } from "../../../../../lib/labs/deriveLabReportConsumerState";
+import type { LabReportDates } from "./loadLabReportDates";
 
 export type LabsImportSummaryFields = {
   importedCount: number;
@@ -56,7 +57,10 @@ export function labsConsumerPresentationFromRecord(args: {
 
 export function toDocumentListItemDto(
   record: UserDocumentRecord,
-  opts?: { importSummary?: LabsImportSummaryFields | null },
+  opts?: {
+    importSummary?: LabsImportSummaryFields | null;
+    reportDates?: LabReportDates | null;
+  },
 ): DocumentListItemDto {
   const presentation =
     record.domain === "labs"
@@ -79,6 +83,7 @@ export function toDocumentListItemDto(
     // Per-document delete is implemented for Document OS records.
     canDelete: record.status !== "uploading",
     legacySource: "document",
+    ...(opts?.reportDates?.collectedAt ? { collectedAt: opts.reportDates.collectedAt } : {}),
     ...(presentation
       ? {
           consumerStatusLabel: presentation.statusLabel,
@@ -95,6 +100,7 @@ export function toDocumentDetailDto(args: {
   processingState: DocumentIngestionJobState | null;
   safeWarnings: string[];
   importSummary?: LabsImportSummaryFields | null;
+  reportDates?: LabReportDates | null;
 }): DocumentDetailDto {
   const { record } = args;
   const summary = args.importSummary;
@@ -129,6 +135,9 @@ export function toDocumentDetailDto(args: {
     canRetry: documentCanRetry(effectiveStatus),
     canDelete: record.status !== "uploading",
     legacySource: "document",
+    ...(args.reportDates?.collectedAt ? { collectedAt: args.reportDates.collectedAt } : {}),
+    ...(args.reportDates?.receivedAt ? { receivedAt: args.reportDates.receivedAt } : {}),
+    ...(args.reportDates?.reportedAt ? { reportedAt: args.reportDates.reportedAt } : {}),
     ...(summary
       ? {
           importedCount: summary.importedCount,

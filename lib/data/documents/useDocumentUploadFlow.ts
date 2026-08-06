@@ -39,6 +39,7 @@ export type DocumentUploadImportSummary = {
   verifyingCount?: number;
   systemVerifiedCount?: number;
   reportContentCount?: number;
+  collectedAt?: string | null;
 };
 
 function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSummary | null {
@@ -72,6 +73,7 @@ function importSummaryFromDetail(doc: DocumentDetailDto): DocumentUploadImportSu
   if (typeof extra.reportContentCount === "number") {
     summary.reportContentCount = extra.reportContentCount;
   }
+  if (doc.collectedAt) summary.collectedAt = doc.collectedAt;
   return summary;
 }
 

@@ -47,6 +47,7 @@ export function mapLegacyLabUploadToListItem(upload: LabUploadDto): DocumentList
     canRetry: false,
     canDelete: true,
     legacySource: "lab_upload",
+    ...(upload.labDate ? { collectedAt: upload.labDate } : {}),
   };
 }
 
@@ -76,6 +77,7 @@ export function mapLegacyLabUploadToDetail(upload: LabUploadDto): DocumentDetail
     canRetry: false,
     canDelete: true,
     legacySource: "lab_upload",
+    ...(upload.labDate ? { collectedAt: upload.labDate } : {}),
   };
 }
 

@@ -36,8 +36,15 @@ function UploadRow({ item, onPress }: { item: LabUploadDto; onPress: () => void 
           {item.fileName}
         </Text>
         <Text style={styles.meta}>
-          Uploaded {formatLabUploadDate(item.uploadedAt)}
-          {item.labDate ? ` · Lab ${formatLabUploadDate(item.labDate)}` : ""}
+          {item.labDate ? (
+            <>
+              Collected {formatLabUploadDate(item.labDate)}
+              {" · "}
+              Uploaded {formatLabUploadDate(item.uploadedAt)}
+            </>
+          ) : (
+            <>Uploaded {formatLabUploadDate(item.uploadedAt)}</>
+          )}
         </Text>
         <Text style={styles.meta}>
           {labUploadStatusLabel(item.status)}

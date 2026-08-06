@@ -105,8 +105,8 @@ describe("DocumentUploadFlowContent contrast", () => {
       );
     });
     const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain("Report imported");
-    expect(json).toContain("All supported results were added to Labs");
+    expect(json).toContain("Historical report imported");
+    expect(json).toContain("82 results added to your Labs history");
     expect(json).toContain("Additional report content was preserved");
     expect(json).not.toContain("Review 18 items");
     expect(tree.root.findByProps({ testID: "document-upload-view-labs" })).toBeTruthy();

@@ -9,6 +9,7 @@ import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import type { DocumentDetailDto } from "@/lib/contracts";
 import { buildDocumentDetailViewModel } from "@/lib/data/documents/documentViewModels";
 import type { DocumentDetailState } from "@/lib/data/documents/useDocumentDetail";
+import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 
 export const DOCUMENT_NOT_FOUND_TITLE = "Document no longer available";
 export const DOCUMENT_NOT_FOUND_MESSAGE = "This document may have been deleted.";
@@ -115,6 +116,17 @@ export function DocumentDetailContent({
         <Text style={styles.meta}>
           {vm.domainLabel} · {vm.documentTypeLabel}
         </Text>
+        {document.collectedAt ? (
+          <Text style={styles.meta} testID="document-detail-collected">
+            Collected {formatLabUploadDate(document.collectedAt)}
+          </Text>
+        ) : null}
+        {document.receivedAt ? (
+          <Text style={styles.meta}>Received {formatLabUploadDate(document.receivedAt)}</Text>
+        ) : null}
+        {document.reportedAt ? (
+          <Text style={styles.meta}>Reported {formatLabUploadDate(document.reportedAt)}</Text>
+        ) : null}
         <Text style={styles.meta}>Uploaded {vm.uploadedDateLabel}</Text>
         <Text style={styles.status} testID="document-detail-status">
           {vm.statusLabel}
