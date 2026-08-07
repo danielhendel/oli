@@ -2,9 +2,16 @@
  * Accessibility summary for a lab trend series — no PHI logging, display-safe copy only.
  */
 
+import { evaluateLabSourceReferenceContext } from "../sourceContext/evaluateLabSourceReferenceContext";
+import {
+  formatLabSourceReferenceRawCopy,
+  formatLabSourceReferenceStatusCopy,
+} from "../sourceContext/formatLabSourceReferenceCopy";
+import { formatLabReferenceOverlayCaption } from "./buildLabReferenceOverlay";
 import {
   formatLabTrendPointDate,
 } from "./labTrendCalendar";
+import type { LabChartReferenceOverlay } from "./labReferenceOverlayTypes";
 import type { LabTrendSeries } from "./labTrendTypes";
 
 function speakUnit(unit: string | null): string {
@@ -22,7 +29,25 @@ function speakUnit(unit: string | null): string {
   return map[unit] ?? unit;
 }
 
-export function buildLabTrendAccessibilitySummary(series: LabTrendSeries): string {
+function speakReferenceRaw(raw: string, unit: string | null): string {
+  let text = raw.trim();
+  text = text.replace(/^</, "less than ").replace(/^>/, "greater than ");
+  text = text.replace(/^<=|^≤/, "less than or equal to ").replace(/^>=|^≥/, "greater than or equal to ");
+  const unitSpeak = speakUnit(unit);
+  if (unitSpeak && !text.toLowerCase().includes(unitSpeak.split(" ")[0]!)) {
+    return `${text} ${unitSpeak}`.trim();
+  }
+  return text;
+}
+
+export type LabTrendAccessibilityOptions = {
+  referenceOverlay?: LabChartReferenceOverlay | null;
+};
+
+export function buildLabTrendAccessibilitySummary(
+  series: LabTrendSeries,
+  opts?: LabTrendAccessibilityOptions,
+): string {
   const name = series.displayName?.trim() || series.metricKey.replace(/_/g, " ");
 
   if (series.graphEligibility === "numeric_graph" && series.points.length >= 2) {
@@ -31,7 +56,50 @@ export function buildLabTrendAccessibilitySummary(series: LabTrendSeries): strin
     const unitSpeak = speakUnit(last.unit);
     const latestValue =
       unitSpeak.length > 0 ? `${last.value} ${unitSpeak}` : String(last.value);
-    return `${name} trend. ${series.points.length} results from ${formatLabTrendPointDate(first.collectedDate)} to ${formatLabTrendPointDate(last.collectedDate)}. Latest result ${latestValue}.`;
+    const parts = [
+      `${name} trend.`,
+      `${series.points.length} results from ${formatLabTrendPointDate(first.collectedDate)} to ${formatLabTrendPointDate(last.collectedDate)}.`,
+      `Latest result ${latestValue} on ${formatLabTrendPointDate(last.collectedDate)}.`,
+    ];
+
+    const ctx = evaluateLabSourceReferenceContext({
+      result: { kind: "numeric", value: last.value, comparator: "eq" },
+      rawReferenceRange: last.rawReferenceRange,
+      normalizedFlag: last.reportFlag,
+      laboratoryName: last.laboratoryName,
+    });
+    const status = formatLabSourceReferenceStatusCopy(ctx);
+    if (status) parts.push(`${status}.`);
+
+    const overlay = opts?.referenceOverlay ?? null;
+    if (overlay && overlay.kind !== "none") {
+      const caption = formatLabReferenceOverlayCaption(overlay, { unit: last.unit });
+      if (caption) {
+        const spoken = speakReferenceRaw(
+          overlay.kind === "provider_categories"
+            ? overlay.rawReference ?? caption
+            : overlay.rawReference,
+          last.unit,
+        );
+        const who = /quest/i.test(overlay.providerName ?? "")
+          ? "Quest"
+          : overlay.providerName
+            ? overlay.providerName.replace(/\s+Diagnostics$/i, "").trim()
+            : "Laboratory";
+        parts.push(`${who} reference ${spoken}.`);
+      }
+    } else {
+      const raw = formatLabSourceReferenceRawCopy(ctx, { unit: last.unit });
+      if (raw) {
+        parts.push(
+          raw
+            .replace(/Quest reference:/i, "Quest reference")
+            .replace(/reference:/i, "reference") + ".",
+        );
+      }
+    }
+
+    return parts.join(" ");
   }
 
   if (series.graphEligibility === "single_numeric_point" && series.latest) {

@@ -53,4 +53,5 @@ export type LabReferenceContextCompatibility =
   | "different_lab"
   | "different_method"
   | "different_specimen"
-  | "missing_reference";
+  | "missing_reference"
+  | "not_comparable";
