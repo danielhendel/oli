@@ -9,7 +9,7 @@
 
 - **Phase 3C Document Ingestion OS** — previously merged (PR #205). Owns secure upload → store → classify → extract staging → document lifecycle.
 - **Phase 3D-A** — this phase. Builds Labs extraction, automatic trusted import, structured history, integrity reconciliation, and imported-report terminal UX on top of Document OS.
-- **Next safe Labs step:** historical multi-report import (not started here).
+- **Next safe Labs step:** Lab graphs / trend visualizations (Phase after 3D-B). Historical multi-report import completed in Phase 3D-B (PR #207).
 
 ## Bound product rule (as shipped)
 

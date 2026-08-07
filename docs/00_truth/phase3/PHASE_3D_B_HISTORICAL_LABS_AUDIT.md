@@ -1,8 +1,8 @@
 # Phase 3D-B — Historical Multi-Report Import and Neutral Progress History Audit
 
-**Binding date:** 2026-08-06  
-**Worktree:** `/Users/danielhendel/oli-labs-phase3db-history`  
-**Branch:** `feat/labs-phase3db-historical-history`  
+**Status:** Complete — see `PHASE_3D_B_HISTORICAL_LABS_COMPLETION.md` (PR #207)  
+**Worktree (historical):** `/Users/danielhendel/oli-labs-phase3db-history`  
+**Branch (historical):** `feat/labs-phase3db-historical-history`  
 **Primary checkout:** Untouched (`/Users/danielhendel/oli`)
 
 ## Verified base commit
