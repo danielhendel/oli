@@ -29,6 +29,7 @@ import {
   unpublishAcceptedLabResult,
 } from "../lib/labs/labsReviewService";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
+import { resolveConsumerSafeDocumentDisplayName } from "../../../../lib/data/documents/consumerSafeDocumentDisplayName";
 
 const router = Router();
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
@@ -40,7 +41,13 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
   return fromHeader ?? undefined;
 };
 
-function toIso(value: unknown): string | undefined {
+function consumerSafeLabsDocumentFilename(docData: Record<string, unknown> | undefined): string {
+  const raw =
+    (typeof docData?.safeDisplayFilename === "string" && docData.safeDisplayFilename) ||
+    (typeof docData?.originalFilename === "string" && docData.originalFilename) ||
+    "Lab report";
+  return resolveConsumerSafeDocumentDisplayName(raw, { domain: "labs" });
+}
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && "toDate" in value) {
     return (value as { toDate: () => Date }).toDate().toISOString();
@@ -233,10 +240,9 @@ router.get(
       const draft = await loadLatestDraft(uid, reviewParsed.data.documentId);
       if (!draft) continue;
       const docSnap = await userCollection(uid, "documents").doc(reviewParsed.data.documentId).get();
-      const filename =
-        docSnap.exists && typeof (docSnap.data() as { safeDisplayFilename?: string }).safeDisplayFilename === "string"
-          ? (docSnap.data() as { safeDisplayFilename: string }).safeDisplayFilename
-          : "Lab report";
+      const filename = consumerSafeLabsDocumentFilename(
+        docSnap.exists ? (docSnap.data() as Record<string, unknown>) : undefined,
+      );
       const documentStatus =
         docSnap.exists && typeof (docSnap.data() as { status?: string }).status === "string"
           ? (docSnap.data() as { status: string }).status
@@ -272,10 +278,9 @@ router.get(
       return;
     }
     const docSnap = await userCollection(uid, "documents").doc(documentId).get();
-    const filename =
-      docSnap.exists && typeof (docSnap.data() as { safeDisplayFilename?: string }).safeDisplayFilename === "string"
-        ? (docSnap.data() as { safeDisplayFilename: string }).safeDisplayFilename
-        : "Lab report";
+    const filename = consumerSafeLabsDocumentFilename(
+      docSnap.exists ? (docSnap.data() as Record<string, unknown>) : undefined,
+    );
     const documentStatus =
       docSnap.exists && typeof (docSnap.data() as { status?: string }).status === "string"
         ? (docSnap.data() as { status: string }).status

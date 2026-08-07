@@ -1,14 +1,22 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION,
   looksLikeOpaqueGeneratedFilename,
   resolveConsumerSafeDocumentDisplayName,
   truncateDocumentDisplayNameForList,
 } from "../consumerSafeDocumentDisplayName";
 
 describe("consumerSafeDocumentDisplayName", () => {
+  it("exports version constant", () => {
+    expect(CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION).toBe("1.1.0");
+  });
+
   it("keeps normal user-visible filenames", () => {
     expect(resolveConsumerSafeDocumentDisplayName("DirectLabs.pdf", { domain: "labs" })).toBe("DirectLabs.pdf");
     expect(resolveConsumerSafeDocumentDisplayName("My Labs.pdf", { domain: "labs" })).toBe("My Labs.pdf");
+    expect(resolveConsumerSafeDocumentDisplayName("Quest_Labs_2022.pdf", { domain: "labs" })).toBe(
+      "Quest_Labs_2022.pdf",
+    );
   });
 
   it("falls back for missing or empty names", () => {
@@ -31,6 +39,12 @@ describe("consumerSafeDocumentDisplayName", () => {
     ).toBe("Lab report");
   });
 
+  it("falls back for multi-segment high-entropy storage keys", () => {
+    expect(
+      resolveConsumerSafeDocumentDisplayName("MRWGxLdl2Krp8DFtpjYy_d0y6W85Tkh2isXe.pdf", { domain: "labs" }),
+    ).toBe("Lab report");
+  });
+
   it("sanitizes path traversal and unsafe separators", () => {
     expect(resolveConsumerSafeDocumentDisplayName("../secret.pdf", { domain: "labs" })).toBe(".._secret.pdf");
     expect(resolveConsumerSafeDocumentDisplayName("folder/report.pdf", { domain: "labs" })).toBe("folder_report.pdf");
@@ -45,6 +59,9 @@ describe("consumerSafeDocumentDisplayName", () => {
 
   it("detects opaque generated filenames", () => {
     expect(looksLikeOpaqueGeneratedFilename("DirectLabs.pdf")).toBe(false);
+    expect(looksLikeOpaqueGeneratedFilename("Quest_Labs_2022.pdf")).toBe(false);
     expect(looksLikeOpaqueGeneratedFilename("DocumentPicker-abc.pdf")).toBe(true);
+    expect(looksLikeOpaqueGeneratedFilename("MRWGxLdl2Krp8DFtpjYy_d0y6W85Tkh2isXe.pdf")).toBe(true);
+    expect(looksLikeOpaqueGeneratedFilename(`${"a".repeat(64)}.pdf`)).toBe(true);
   });
 });

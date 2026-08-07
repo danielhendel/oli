@@ -16,6 +16,14 @@ import {
   type LabReportConsumerPresentation,
 } from "../../../../../lib/labs/deriveLabReportConsumerState";
 import type { LabReportDates } from "./loadLabReportDates";
+import { resolveConsumerSafeDocumentDisplayName } from "../../../../../lib/data/documents/consumerSafeDocumentDisplayName";
+
+function consumerSafeFilename(record: UserDocumentRecord): string {
+  return resolveConsumerSafeDocumentDisplayName(
+    record.safeDisplayFilename || record.originalFilename,
+    { domain: record.domain },
+  );
+}
 
 export type LabsImportSummaryFields = {
   importedCount: number;
@@ -71,7 +79,7 @@ export function toDocumentListItemDto(
       : null;
   return {
     id: record.id,
-    filename: record.safeDisplayFilename,
+    filename: consumerSafeFilename(record),
     domain: record.domain,
     documentType: record.documentType,
     uploadedAt: record.uploadedAt,
@@ -123,7 +131,7 @@ export function toDocumentDetailDto(args: {
 
   return {
     id: record.id,
-    filename: record.safeDisplayFilename,
+    filename: consumerSafeFilename(record),
     domain: record.domain,
     documentType: record.documentType,
     uploadedAt: record.uploadedAt,
