@@ -18,6 +18,7 @@ import {
 } from "@/lib/labs/expoDocumentPicker";
 import { readLocalUriAsBase64 } from "@/lib/labs/readLabPdfBase64";
 import { DOCUMENT_MAX_BYTE_SIZE } from "@/lib/data/documents/documentValidation";
+import { resolveConsumerSafeDocumentDisplayName } from "@/lib/data/documents/consumerSafeDocumentDisplayName";
 import { defaultDocumentTypeForDomain } from "@/lib/data/documents/documentTypes";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
@@ -262,7 +263,9 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       return;
     }
 
-    const originalFilename = asset.name || "document.pdf";
+    const originalFilename = resolveConsumerSafeDocumentDisplayName(asset.name || "document.pdf", {
+      domain: args.domain,
+    });
     const intent = await createDocumentUploadIntent(token, {
       domain: args.domain,
       documentType: defaultDocumentTypeForDomain(args.domain),
