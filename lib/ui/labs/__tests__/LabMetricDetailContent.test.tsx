@@ -179,5 +179,87 @@ describe("LabMetricDetailContent", () => {
       .join(" ");
     expect(text).toContain("Non-Reactive");
     expect(text).toContain("Shown in history table only");
+    expect(tree!.root.findByProps({ testID: "lab-metric-trend-timeline-note" })).toBeTruthy();
+    expect(() => tree!.root.findByProps({ testID: "lab-metric-trend" })).toThrow();
+  });
+
+  it("renders numeric trend chart above history and keeps source", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp2",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: "normal",
+        sourceDocumentId: "doc2",
+        sourcePage: 2,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+      {
+        id: "hp1",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2024-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 88, comparator: "eq" },
+        displayValue: "88",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: "normal",
+        sourceDocumentId: "doc1",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(tree!.root.findByProps({ testID: "lab-metric-trend" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-trend-chart" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-metric-accepted-history" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-metric-source-label" })).toBeTruthy();
+  });
+
+  it("renders single-point trend state", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp1",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: null,
+        sourceDocumentId: "doc1",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(tree!.root.findByProps({ testID: "lab-trend-chart-single" })).toBeTruthy();
   });
 });

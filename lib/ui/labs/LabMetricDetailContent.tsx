@@ -9,7 +9,9 @@ import {
   calculateLabMetricChange,
   formatLabMetricChangeCopy,
 } from "@/lib/labs/history/calculateLabMetricChange";
+import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
 import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
+import { LabTrendChart } from "@/lib/ui/labs/LabTrendChart";
 import {
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -209,6 +211,29 @@ export function LabMetricDetailContent({
   const showAcceptedHistory = useAcceptedHistory;
   const showProjectionHistory = !showAcceptedHistory && projectionHistory.length > 0;
 
+  const trendSeries = useMemo(() => {
+    if (!useAcceptedHistory) return null;
+    return buildLabTrendSeries({
+      metricKey: data?.metricKey ?? acceptedHistory[0]?.canonicalMetricId ?? "metric",
+      displayName: data?.displayName ?? null,
+      historyPoints: acceptedHistory,
+    });
+  }, [acceptedHistory, data?.displayName, data?.metricKey, useAcceptedHistory]);
+
+  const showTrendSection =
+    trendSeries != null &&
+    (trendSeries.graphEligibility === "numeric_graph" ||
+      trendSeries.graphEligibility === "single_numeric_point");
+
+  const timelineNote =
+    trendSeries?.graphEligibility === "qualitative_timeline"
+      ? "Qualitative results are shown in the history table below."
+      : trendSeries?.graphEligibility === "pattern_timeline"
+        ? "Pattern results are shown in the history table below."
+        : trendSeries?.graphEligibility === "inequality_timeline"
+          ? "Inequality results (such as less-than thresholds) are shown in the history table below."
+          : null;
+
   return (
     <View style={styles.root} testID="lab-metric-detail">
       <View style={styles.heroCard}>
@@ -232,6 +257,20 @@ export function LabMetricDetailContent({
           </Text>
         ) : null}
       </View>
+
+      {showTrendSection && trendSeries ? (
+        <View style={styles.section} testID="lab-metric-trend">
+          <Text style={styles.sectionTitle}>Trend</Text>
+          <LabTrendChart series={trendSeries} />
+        </View>
+      ) : null}
+
+      {timelineNote ? (
+        <View style={styles.section} testID="lab-metric-trend-timeline-note">
+          <Text style={styles.sectionTitle}>Trend</Text>
+          <Text style={styles.bodyCopy}>{timelineNote}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>What this means</Text>
