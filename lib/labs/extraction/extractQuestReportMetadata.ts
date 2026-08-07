@@ -157,9 +157,10 @@ export function extractQuestReportMetadata(args: {
     receivedAt,
     reportedAt,
     collectedAtPrecision: collectedAtSource?.precision ?? null,
-    collectedAtSource: collectedAtSource ?? undefined,
-    receivedAtSource: receivedAtSource ?? undefined,
-    reportedAtSource: reportedAtSource ?? undefined,
+    // Omit optional source objects when absent — Firestore rejects explicit `undefined`.
+    ...(collectedAtSource ? { collectedAtSource } : {}),
+    ...(receivedAtSource ? { receivedAtSource } : {}),
+    ...(reportedAtSource ? { reportedAtSource } : {}),
     fasting,
     laboratoryName,
     performingLaboratories: laboratoryName

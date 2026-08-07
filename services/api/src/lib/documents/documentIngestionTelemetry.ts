@@ -34,6 +34,8 @@ export function logDocumentIngestionEvent(
     terminalStatus?: string | null;
     elapsedMs?: number | null;
     errorCode?: string | null;
+    orchestrationErrorName?: string | null;
+    orchestrationErrorCode?: string | null;
     requestId?: string | null;
     importedCount?: number | null;
     reviewNeededCount?: number | null;
@@ -56,6 +58,12 @@ export function logDocumentIngestionEvent(
     ...(fields.terminalStatus != null ? { terminalStatus: fields.terminalStatus } : {}),
     ...(fields.elapsedMs != null ? { elapsedMs: fields.elapsedMs } : {}),
     ...(fields.errorCode != null ? { errorCode: fields.errorCode } : {}),
+    ...(fields.orchestrationErrorName != null
+      ? { orchestrationErrorName: fields.orchestrationErrorName }
+      : {}),
+    ...(fields.orchestrationErrorCode != null
+      ? { orchestrationErrorCode: fields.orchestrationErrorCode }
+      : {}),
     ...(fields.requestId != null ? { requestId: fields.requestId } : {}),
     ...(fields.importedCount != null ? { importedCount: fields.importedCount } : {}),
     ...(fields.reviewNeededCount != null ? { reviewNeededCount: fields.reviewNeededCount } : {}),

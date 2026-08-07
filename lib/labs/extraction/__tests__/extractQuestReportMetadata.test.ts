@@ -47,4 +47,19 @@ describe("extractQuestReportMetadata collectedAt", () => {
     expect(meta.collectedAtSource?.sourceCalendarDate).toBe("2020-06-05");
     expect(meta.collectedAt?.startsWith("2020-06-05")).toBe(true);
   });
+
+  it("omits missing received/reported source objects (Firestore-safe)", () => {
+    const meta = extractQuestReportMetadata({
+      metadataLines: ["Collected Date: 06/05/2020"],
+      panelNames: ["BASIC HEALTH PROFILE"],
+      pageCount: 1,
+      formatFamily: "quest_text_pdf_v1",
+      formatFamilyVersion: "1.0.0",
+      confidence: 0.95,
+    });
+    expect(meta.collectedAtSource?.sourceCalendarDate).toBe("2020-06-05");
+    expect("receivedAtSource" in meta).toBe(false);
+    expect("reportedAtSource" in meta).toBe(false);
+    expect(JSON.stringify(meta).includes("undefined")).toBe(false);
+  });
 });
