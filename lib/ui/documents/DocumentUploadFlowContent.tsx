@@ -12,6 +12,7 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 import type { DocumentUploadPhase } from "@/lib/data/documents/useDocumentUploadFlow";
 import type { DocumentUploadImportSummary } from "@/lib/data/documents/useDocumentUploadFlow";
+import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 
 /** Primary CTA fill — accent surface with high-contrast label. */
 export const DOCUMENT_UPLOAD_PRIMARY_BG = SYSTEM_ACCENT;
@@ -68,7 +69,7 @@ function labsSuccessCopy(args: {
   }
   if (!summary) {
     return {
-      title: "Report imported",
+      title: "Historical report imported",
       lines: ["Oli is finishing processing. Open Labs to see available results."],
       showViewLabs: true,
       showHowProcessed: true,
@@ -90,9 +91,12 @@ function labsSuccessCopy(args: {
   } else if (available > 0) {
     lines.push(
       unsupported === 0 && withheld === 0
-        ? `All supported results were added to Labs`
+        ? `${available} result${available === 1 ? "" : "s"} added to your Labs history`
         : `${available} result${available === 1 ? "" : "s"} added to Labs`,
     );
+  }
+  if (summary.collectedAt) {
+    lines.push(`Collection date: ${formatLabUploadDate(summary.collectedAt)}`);
   }
   if (withheld > 0) {
     lines.push(
@@ -109,7 +113,7 @@ function labsSuccessCopy(args: {
   }
 
   return {
-    title: available > 0 ? "Report imported" : "Stored securely",
+    title: available > 0 ? "Historical report imported" : "Stored securely",
     lines: lines.length > 0 ? lines : ["Oli processed this report."],
     showViewLabs: available > 0,
     showHowProcessed: true,

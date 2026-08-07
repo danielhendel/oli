@@ -171,6 +171,23 @@ describe("validateDocumentUpload", () => {
     );
   });
 
+  it("resolves consumer-safe display filenames for opaque generated names", () => {
+    const opaque = baseInput({
+      originalFilename: "a1b2c3d4-e5f6-4789-a012-3456789abcde.pdf",
+    });
+    const result = validateDocumentUpload(opaque);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.safeDisplayFilename).toBe("Lab report");
+  });
+
+  it("preserves normal filenames in safeDisplayFilename", () => {
+    const result = validateDocumentUpload(baseInput({ originalFilename: "DirectLabs.pdf" }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.safeDisplayFilename).toBe("DirectLabs.pdf");
+  });
+
   it("accepts matching checksums and rejects mismatches / invalid format", () => {
     expect(
       issueCodes(

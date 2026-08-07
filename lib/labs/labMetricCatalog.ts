@@ -126,6 +126,19 @@ const LAB_METRICS: LabMetricDefinition[] = [
   M("osmolality_serum", "kidney", "Serum Osmolality", ["osmolality", "osmolality, serum", "serum osmolality"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 80),
   M("osmolality_urine", "kidney", "Urine Osmolality", ["osmolality (u)", "osmolality, urine", "urine osmolality", "osmolality u"], ["mOsm/kg", "mOsm/L"], "mOsm/kg", 85),
 
+  // Urinalysis (qualitative / text)
+  M("urine_color", "kidney", "Urine Color", ["color", "urine color"], ["none"], "none", 86, "text"),
+  M("urine_appearance", "kidney", "Urine Appearance", ["appearance", "urine appearance"], ["none"], "none", 87, "text"),
+  M("urine_specific_gravity", "kidney", "Urine Specific Gravity", ["specific gravity", "urine specific gravity"], ["none"], "none", 88, "text"),
+  M("urine_ph", "kidney", "Urine pH", ["ph", "urine ph"], ["none"], "none", 89, "text"),
+  M("urine_glucose", "kidney", "Urine Glucose", ["urine glucose", "glucose urine"], ["none"], "none", 90, "text"),
+  M("urine_bilirubin", "kidney", "Urine Bilirubin", ["urine bilirubin", "bilirubin urine"], ["none"], "none", 91, "text"),
+  M("urine_ketones", "kidney", "Urine Ketones", ["ketones", "urine ketones"], ["none"], "none", 92, "text"),
+  M("urine_occult_blood", "kidney", "Urine Occult Blood", ["occult blood", "urine blood", "blood urine"], ["none"], "none", 93, "text"),
+  M("urine_protein", "kidney", "Urine Protein", ["urine protein", "protein urine"], ["none"], "none", 94, "text"),
+  M("urine_nitrite", "kidney", "Urine Nitrite", ["nitrite", "urine nitrite"], ["none"], "none", 95, "text"),
+  M("urine_leukocyte_esterase", "kidney", "Urine Leukocyte Esterase", ["leukocyte esterase", "leukocyte esterase urine"], ["none"], "none", 96, "text"),
+
   // Blood & Iron
   M("wbc", "blood_iron", "WBC", ["white blood cell count", "leukocytes"], ["10^3/uL", "K/uL"], "10^3/uL", 10),
   M("rbc", "blood_iron", "RBC", ["red blood cell count", "erythrocytes"], ["10^6/uL", "M/uL"], "10^6/uL", 20),
@@ -207,6 +220,28 @@ const LAB_METRICS: LabMetricDefinition[] = [
   // Prostate / Male Health
   M("psa", "prostate", "PSA", ["prostate specific antigen", "psa total"], ["ng/mL", "ug/L"], "ng/mL", 10),
   M("free_psa", "prostate", "Free PSA", ["psa, free"], ["ng/mL"], "ng/mL", 20),
+
+  // Infectious / serology (qualitative)
+  M(
+    "sars_cov2_igg",
+    "inflammation",
+    "SARS-CoV-2 IgG",
+    ["sars-cov-2 igg", "sars cov 2 ab igg", "sars-cov-2 antibody igg"],
+    ["none"],
+    "none",
+    200,
+    "text",
+  ),
+  M(
+    "sars_cov2_igm",
+    "inflammation",
+    "SARS-CoV-2 IgM",
+    ["sars-cov-2 igm", "sars cov 2 igm", "sars cov 2 ab igm", "sars-cov-2 antibody igm"],
+    ["none"],
+    "none",
+    210,
+    "text",
+  ),
 ];
 
 const LAB_CATEGORIES: LabCategoryDefinition[] = [
@@ -270,6 +305,17 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
       "uric_acid",
       "osmolality_serum",
       "osmolality_urine",
+      "urine_color",
+      "urine_appearance",
+      "urine_specific_gravity",
+      "urine_ph",
+      "urine_glucose",
+      "urine_bilirubin",
+      "urine_ketones",
+      "urine_occult_blood",
+      "urine_protein",
+      "urine_nitrite",
+      "urine_leukocyte_esterase",
     ],
   },
   {
@@ -335,7 +381,16 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
     categoryKey: "inflammation",
     displayName: "Inflammation + Immune",
     sortOrder: 80,
-    metricKeys: ["hs_crp", "crp", "esr", "homocysteine", "interleukin_6", "creatine_kinase"],
+    metricKeys: [
+      "hs_crp",
+      "crp",
+      "esr",
+      "homocysteine",
+      "interleukin_6",
+      "creatine_kinase",
+      "sars_cov2_igg",
+      "sars_cov2_igm",
+    ],
   },
   {
     categoryKey: "electrolytes",

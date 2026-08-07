@@ -1,0 +1,38 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+Collected: 07/07/2022
+Received: 07/07/2022 01:30 PM
+Reported: 07/08/2022 09:00 AM
+Fasting: Yes
+Specimen: Serum
+
+TEST NAME                RESULT    FLAG    UNITS           REFERENCE RANGE
+
+LIPID PANEL
+LDL-CHOLESTEROL          118  mg/dL  <100         H
+HDL-CHOLESTEROL           47  mg/dL  >40
+TRIGLYCERIDES            135  mg/dL  <150
+CHOLESTEROL, TOTAL       218  mg/dL  <200         H
+NON-HDL CHOLESTEROL      171  mg/dL  <130         H
+
+CBC
+WBC                      6.5  Thousand/uL  3.8-10.8
+HEMOGLOBIN              15.0  g/dL  13.2-17.1
+PLATELETS                230  Thousand/uL  140-400
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                   94  mg/dL  65-99
+CREATININE               1.05  mg/dL  0.60-1.35
+eGFR                      88  mL/min/1.73m2  >60
+
+TESTOSTERONE, TOTAL      480  ng/dL  250-1100
+
+PSA, TOTAL              0.85  ng/mL  <4.00
+
+IRON PANEL
+IRON, TOTAL              105  ug/dL  50-180
+FERRITIN                 145  ng/mL  30-400
+TIBC                     310  ug/dL  250-450
+
+Performing Site: Quest Diagnostics

@@ -92,6 +92,52 @@ export const QUEST_PANEL_PROFILES: readonly LabPanelLayoutProfile[] = [
   questProfile("quest_hormone_v1", ["HORMONE", "TESTOSTERONE", "ESTRADIOL"], {
     knownPanelLabels: ["TESTOSTERONE", "ESTRADIOL", "SHBG"],
   }),
+  questProfile("quest_urinalysis_v1", ["URINALYSIS"], {
+    knownPanelLabels: ["URINALYSIS"],
+  }),
+  questProfile("quest_psa_v1", ["PSA", "PROSTATE"], {
+    knownPanelLabels: ["PSA", "PSA, TOTAL", "PROSTATE SPECIFIC ANTIGEN"],
+  }),
+  questProfile("quest_iron_panel_v1", ["IRON PANEL", "IRON STUDIES"], {
+    knownPanelLabels: ["IRON PANEL", "IRON STUDIES", "IRON, TOTAL"],
+  }),
+  questProfile("quest_covid_antibody_v1", ["SARS", "COVID", "ANTIBODY PANEL"], {
+    knownPanelLabels: ["SARS-COV-2 ANTIBODY PANEL", "SARS-CoV-2 ANTIBODY", "COVID-19 ANTIBODY"],
+  }),
+  // Historical layout bundles (Phase 3D-B).
+  questProfile(
+    "quest_2020_basic_health_profile_v1",
+    ["BASIC HEALTH PROFILE", "LIPID", "CMP", "CBC", "URINALYSIS"],
+    {
+      knownPanelLabels: [
+        "BASIC HEALTH PROFILE",
+        "LIPID PANEL",
+        "COMPREHENSIVE METABOLIC PANEL",
+        "CBC",
+        "URINALYSIS",
+      ],
+    },
+  ),
+  questProfile("quest_2020_standard_v1", ["LIPID", "CMP", "CALCULATED"], {
+    knownPanelLabels: ["LIPID PANEL", "COMPREHENSIVE METABOLIC PANEL", "CALCULATED"],
+  }),
+  questProfile("quest_2021_qualitative_antibody_v1", ["SARS", "COVID", "ANTIBODY"], {
+    knownPanelLabels: ["SARS-COV-2 ANTIBODY PANEL", "SARS-CoV-2 IgG", "SARS-CoV-2 IgM"],
+  }),
+  questProfile(
+    "quest_2022_standard_v1",
+    ["LIPID", "CBC", "CMP", "TESTOSTERONE", "PSA", "IRON"],
+    {
+      knownPanelLabels: [
+        "LIPID PANEL",
+        "CBC",
+        "COMPREHENSIVE METABOLIC PANEL",
+        "TESTOSTERONE, TOTAL",
+        "PSA, TOTAL",
+        "IRON PANEL",
+      ],
+    },
+  ),
 ];
 
 export function getQuestPanelProfile(panelLabel: string | null | undefined): LabPanelLayoutProfile | null {

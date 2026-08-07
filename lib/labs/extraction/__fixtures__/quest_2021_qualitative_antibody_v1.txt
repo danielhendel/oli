@@ -1,0 +1,35 @@
+Quest Diagnostics
+Report Status: FINAL
+Collected: 04/13/2021 12:59
+Received: 04/13/2021 04:00 PM
+Reported: 04/14/2021 08:00 AM
+Specimen: Serum
+
+SARS CoV 2 SEROLOGY (COVID19) AB (IgG,IgM), IA
+
+SARS CoV 2 AB IGG POSITIVE Reference Range: NEGATIVE
+Note 1 Reference range: Negative
+
+SARS CoV 2 IGM POSITIVE Reference Range: NEGATIVE
+
+COMMENT
+Note 1: This test has not been FDA cleared or approved.
+This test has been authorized by FDA under an EUA for use by authorized laboratories.
+This test detects antibodies and does not diagnose active infection.
+
+INTERPRETATION GUIDE
+IgM Result IgG Result Interpretation
+Negative Negative Antibodies not detected.
+Negative Positive Suggests past exposure
+to SARS-CoV-2.
+Positive Negative Suggests recent exposure
+to SARS-CoV-2.
+Positive Positive Suggests recent exposure
+to SARS-CoV-2.
+
+Index Value    Interpretation
+<1.00          Negative
+1.00-1.09      Indeterminate
+>=1.10         Positive
+
+Performing Site: Quest Diagnostics

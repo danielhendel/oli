@@ -40,6 +40,10 @@ jest.mock("@/lib/data/labs/useLabMetricDetail", () => ({
   useLabMetricDetail: () => mockDetail,
 }));
 
+jest.mock("@/lib/data/labs/useLabMetricHistory", () => ({
+  useLabMetricHistory: () => ({ status: "ready", points: [], nextCursor: null, displayName: "LDL-C", refetch: jest.fn(), loadMore: jest.fn() }),
+}));
+
 import LabMetricDetailScreen from "../metric/[metricKey]";
 
 describe("LabMetricDetailScreen", () => {

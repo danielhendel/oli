@@ -16,9 +16,35 @@ export type LabMetricChange = {
   percentChange: number | null;
   latestCollectedAt: string;
   priorCollectedAt: string;
+  elapsedDays: number | null;
   direction: "increased" | "decreased" | "unchanged";
   interpretation: null;
 };
+
+const CALENDAR_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function calendarDateFromIso(iso: string): string | null {
+  const prefix = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
+  return prefix?.[1] ?? null;
+}
+
+function elapsedDaysBetweenCollectedAt(latestIso: string, priorIso: string): number | null {
+  const latestDate = calendarDateFromIso(latestIso);
+  const priorDate = calendarDateFromIso(priorIso);
+  if (!latestDate || !priorDate) return null;
+  if (!CALENDAR_DATE_RE.test(latestDate) || !CALENDAR_DATE_RE.test(priorDate)) return null;
+
+  const toDayIndex = (calendarDate: string): number | null => {
+    const m = CALENDAR_DATE_RE.exec(calendarDate);
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / 86_400_000;
+  };
+
+  const latestIndex = toDayIndex(latestDate);
+  const priorIndex = toDayIndex(priorDate);
+  if (latestIndex == null || priorIndex == null) return null;
+  return Math.round(latestIndex - priorIndex);
+}
 
 export function calculateLabMetricChange(args: {
   latest: LabMetricChangePoint;
@@ -42,6 +68,7 @@ export function calculateLabMetricChange(args: {
     percentChange: percentChange == null ? null : Math.round(percentChange * 10) / 10,
     latestCollectedAt: latest.collectedAt,
     priorCollectedAt: prior.collectedAt,
+    elapsedDays: elapsedDaysBetweenCollectedAt(latest.collectedAt, prior.collectedAt),
     direction,
     interpretation: null,
   };

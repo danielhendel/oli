@@ -29,6 +29,7 @@ import {
   unpublishAcceptedLabResult,
 } from "../lib/labs/labsReviewService";
 import { transitionDocumentIngestionJobState } from "../../../../lib/data/documents/documentStateMachine";
+import { resolveConsumerSafeDocumentDisplayName } from "../../../../lib/data/documents/consumerSafeDocumentDisplayName";
 
 const router = Router();
 const getRid = (req: AuthedRequest): string => (req as RequestWithRid).rid ?? "unknown";
@@ -39,6 +40,14 @@ const getIdempotencyKey = (req: AuthedRequest): string | undefined => {
     (typeof req.header("X-Idempotency-Key") === "string" ? req.header("X-Idempotency-Key") : undefined);
   return fromHeader ?? undefined;
 };
+
+function consumerSafeLabsDocumentFilename(docData: Record<string, unknown> | undefined): string {
+  const raw =
+    (typeof docData?.safeDisplayFilename === "string" && docData.safeDisplayFilename) ||
+    (typeof docData?.originalFilename === "string" && docData.originalFilename) ||
+    "Lab report";
+  return resolveConsumerSafeDocumentDisplayName(raw, { domain: "labs" });
+}
 
 function toIso(value: unknown): string | undefined {
   if (typeof value === "string") return value;
@@ -143,6 +152,19 @@ function toCandidateDto(
   };
 }
 
+const CLASSIFIED_REPORT_ROW_REASONS = new Set([
+  "non_result_panel_header",
+  "non_result_reference_table",
+  "non_result_risk_category",
+  "non_result_method_note",
+  "non_result_report_note",
+  "non_result_laboratory_metadata",
+  "malformed_row",
+  "classified_non_result",
+  "duplicate_result",
+  "historical_column",
+]);
+
 function buildSummary(args: {
   documentId: string;
   filename: string;
@@ -166,6 +188,10 @@ function buildSummary(args: {
     return status === "pending_review";
   }).length;
   const genuineReviewNeeded = reviewNeededCount + unmatchedPending;
+  /** Non-result / duplicate / historical rows — not unmatched genuine analytes. */
+  const classifiedReportRowCount = args.draft.unmatched.filter((u) =>
+    CLASSIFIED_REPORT_ROW_REASONS.has(u.reason),
+  ).length;
   const reportImportStatus =
     args.review.status === "imported"
       ? ("imported" as const)
@@ -187,7 +213,8 @@ function buildSummary(args: {
     fasting: args.draft.reportCandidate.fasting ?? null,
     laboratoryName: args.draft.reportCandidate.laboratoryName ?? null,
     matchedCount: args.draft.results.length,
-    unmatchedCount: args.draft.unmatched.length,
+    // Consumer "classified" count — never treat unmatched_alias noise as imported.
+    unmatchedCount: classifiedReportRowCount,
     warningCount: args.draft.warnings.length,
     extractionVersion: args.draft.parser.extractionVersion,
     reviewVersion: args.review.reviewVersion,
@@ -222,21 +249,16 @@ router.get(
         updatedAt: toIso(raw.updatedAt) ?? raw.updatedAt,
       });
       if (!reviewParsed.success) continue;
-      if (
-        reviewParsed.data.status === "accepted" ||
-        reviewParsed.data.status === "rejected" ||
-        reviewParsed.data.status === "imported"
-      ) {
+      // Lab reports list shows imported historical reports; exclude only rejected/superseded.
+      if (reviewParsed.data.status === "rejected" || reviewParsed.data.status === "superseded") {
         continue;
       }
-      // Keep imported_with_exceptions + not_started + in_progress in the exception queue.
       const draft = await loadLatestDraft(uid, reviewParsed.data.documentId);
       if (!draft) continue;
       const docSnap = await userCollection(uid, "documents").doc(reviewParsed.data.documentId).get();
-      const filename =
-        docSnap.exists && typeof (docSnap.data() as { safeDisplayFilename?: string }).safeDisplayFilename === "string"
-          ? (docSnap.data() as { safeDisplayFilename: string }).safeDisplayFilename
-          : "Lab report";
+      const filename = consumerSafeLabsDocumentFilename(
+        docSnap.exists ? (docSnap.data() as Record<string, unknown>) : undefined,
+      );
       const documentStatus =
         docSnap.exists && typeof (docSnap.data() as { status?: string }).status === "string"
           ? (docSnap.data() as { status: string }).status
@@ -272,10 +294,9 @@ router.get(
       return;
     }
     const docSnap = await userCollection(uid, "documents").doc(documentId).get();
-    const filename =
-      docSnap.exists && typeof (docSnap.data() as { safeDisplayFilename?: string }).safeDisplayFilename === "string"
-        ? (docSnap.data() as { safeDisplayFilename: string }).safeDisplayFilename
-        : "Lab report";
+    const filename = consumerSafeLabsDocumentFilename(
+      docSnap.exists ? (docSnap.data() as Record<string, unknown>) : undefined,
+    );
     const documentStatus =
       docSnap.exists && typeof (docSnap.data() as { status?: string }).status === "string"
         ? (docSnap.data() as { status: string }).status

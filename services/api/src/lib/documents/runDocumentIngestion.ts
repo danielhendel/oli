@@ -135,7 +135,10 @@ async function persistLabsDraftAndReview(args: {
     jobId: args.job.id,
     superseded: false,
   };
-  await labDraftsCol.doc(draft.id).set(draft, { merge: true });
+  // Firestore rejects any nested `undefined` (common on optional LabSourceTimestamp fields).
+  await labDraftsCol.doc(draft.id).set(JSON.parse(JSON.stringify(draft)) as LabExtractionDraft, {
+    merge: true,
+  });
   logDocumentIngestionEvent("lab_draft_persisted", {
     documentToken: redactedDocumentToken(args.document.id),
     domain: args.document.domain,
@@ -539,8 +542,21 @@ export async function runDocumentIngestionJob(args: {
       elapsedMs: Date.now() - startedAt,
     });
     return { job, extraction };
-  } catch {
+  } catch (err) {
     const failedAt = nowFn();
+    const safeErrorName = err instanceof Error ? err.name : "unknown";
+    const safeErrorCode =
+      err && typeof err === "object" && "code" in err && typeof (err as { code: unknown }).code === "string"
+        ? (err as { code: string }).code.slice(0, 80)
+        : null;
+    logDocumentIngestionEvent("document_parser_terminal", {
+      documentToken: redactedDocumentToken(args.document.id),
+      domain: args.document.domain,
+      terminalStatus: "failed",
+      errorCode: "INGESTION_ORCHESTRATION_FAILED",
+      orchestrationErrorName: safeErrorName,
+      ...(safeErrorCode ? { orchestrationErrorCode: safeErrorCode } : {}),
+    });
     try {
       const snap = await jobsCol.doc(job.id).get();
       if (snap.exists) {

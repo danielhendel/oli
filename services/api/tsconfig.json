@@ -23,6 +23,7 @@
     "../../lib/data/documents/documentStatus.ts",
     "../../lib/data/documents/documentStateMachine.ts",
     "../../lib/data/documents/documentValidation.ts",
+    "../../lib/data/documents/consumerSafeDocumentDisplayName.ts",
     "../../lib/data/documents/documentClassification.ts",
     "../../lib/data/documents/documentExtraction.ts",
     "../../lib/data/documents/documentParser.ts",

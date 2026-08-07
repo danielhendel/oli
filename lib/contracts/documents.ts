@@ -227,6 +227,8 @@ export const documentListItemDtoSchema = z
     domain: documentDomainSchema,
     documentType: documentTypeSchema,
     uploadedAt: isoDatetimeString,
+    /** Collection date from report metadata when available. */
+    collectedAt: isoDatetimeString.nullable().optional(),
     status: documentRecordStatusSchema,
     canViewOriginal: z.boolean(),
     canRetry: z.boolean(),
@@ -253,6 +255,10 @@ export const documentDetailDtoSchema = z
     domain: documentDomainSchema,
     documentType: documentTypeSchema,
     uploadedAt: isoDatetimeString,
+    /** Collection date from report metadata when available. */
+    collectedAt: isoDatetimeString.nullable().optional(),
+    receivedAt: isoDatetimeString.nullable().optional(),
+    reportedAt: isoDatetimeString.nullable().optional(),
     status: documentRecordStatusSchema,
     processingState: documentIngestionJobStateSchema.nullable(),
     extractionAvailability: z.enum(["unavailable", "pending", "review_needed", "available"]),

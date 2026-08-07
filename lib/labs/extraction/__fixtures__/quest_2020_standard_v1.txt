@@ -1,0 +1,26 @@
+Quest Diagnostics
+Report Status: FINAL
+Collected: 09/24/2020
+Received: 09/24/2020 03:00 PM
+Reported: 09/25/2020 10:00 AM
+Fasting: No
+Specimen: Serum
+
+TEST NAME                RESULT    FLAG    UNITS           REFERENCE RANGE
+
+LIPID PANEL
+LDL-CHOLESTEROL          102  mg/dL  <100         H
+HDL-CHOLESTEROL           50  mg/dL  >40
+TRIGLYCERIDES             92  mg/dL  <150
+CHOLESTEROL, TOTAL       205  mg/dL  <200         H
+
+COMPREHENSIVE METABOLIC PANEL
+GLUCOSE                  105  mg/dL  65-99         H
+CREATININE              0.88  mg/dL  0.60-1.35
+ALT                       24  U/L  9-46
+AST                       21  U/L  10-35
+
+CALCULATED
+HOMA-IR           NOT APPLICABLE
+
+Performing Site: Quest Diagnostics

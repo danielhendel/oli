@@ -31,7 +31,7 @@ export type ExtractQuestRowsResult = {
 };
 
 const VALUE_LIKE =
-  /^(?:(?:<=|>=|<|>|≤|≥)\s*)?-?\d+(?:\.\d+)?$|^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$|^Pattern\s+[A-Za-z0-9]+$/i;
+  /^(?:(?:<=|>=|<|>|≤|≥)\s*)?-?\d+(?:\.\d+)?$|^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A|NONE SEEN|YELLOW|CLEAR|CLOUDY|TURBID|STRAW|AMBER)$|^Pattern\s+[A-Za-z0-9]+$/i;
 
 const EQUALITY_NUMERIC = /^-?\d+(?:\.\d+)?$/;
 
@@ -62,6 +62,12 @@ function currentPanelName(report: SegmentedReport, pageNumber: number, lineIndex
 const LAB_CODE_LIKE = /^(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;
 
 function isUnitToken(token: string): boolean {
+  if (/^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$/i.test(token)) {
+    return false;
+  }
+  if (/^[A-Za-z]{2}$/.test(token) && !/^(?:na|k|cl|ca|fe|iu|pg|fl|ml|dl|ul|eq|mg)$/i.test(token)) {
+    return false;
+  }
   return UNIT_LIKE.test(token) && !FLAG_LIKE.test(token) && !ASSAY_METHOD_LIKE.test(token);
 }
 
@@ -132,6 +138,14 @@ function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number)
       /^(?:<=|>=|<|>|≤|≥)/.test(next) ||
       /^IL/i.test(next) ||
       !next)
+  ) {
+    return true;
+  }
+  // SARS-CoV-2 / antibody label numerals (e.g. SARS CoV 2 AB IGG).
+  if (
+    EQUALITY_NUMERIC.test(tok) &&
+    !tok.includes(".") &&
+    /sars|\bcov\b|co\s*v|\bab\b|\bantibody\b|\bigg\b|\bigm\b/i.test(`${labelPrefix} ${next}`)
   ) {
     return true;
   }
@@ -368,6 +382,234 @@ export function parseColumnsForTest(trimmed: string) {
   return parseColumns(trimmed);
 }
 
+const PANEL_HEADER_ONLY =
+  /^(?:basic\s+health\s+profile|lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp|cbc(?:\s*\(|$)|complete\s+blood\s+count|thyroid(?:\s+panel)?|hormone(?:\s+panel)?|cardio\s*iq|hepatitis(?:\s+panel)?|antibody(?:\s+panel)?|sars(?:-cov-2)?(?:\s+(?:antibody|serology))(?:\s+panel)?|covid(?:-19)?(?:\s+(?:antibody|serology))(?:\s+panel)?|iron\s+(?:panel|studies)|electrolyte(?:\s+panel)?|testosterone|bioavailable|hepatic(?:\s+function)?(?:\s+panel)?|liver(?:\s+panel)?|urinalysis|urine\s+analysis|(?:psa|prostate(?:\s+specific\s+antigen)?)(?:\s+panel)?|calculated(?:\s+values?)?)$/i;
+
+const TABLE_HEADER_LINE = /^(?:test\s+name|analyte|result|reference\s+(?:range|interval)|flag|units?)(?:\s|$)/i;
+
+const SHORT_ANALYTE_SUFFIX = /^(?:igg|igm|iga|ab|total|free|direct|indirect)$/i;
+
+const STACKED_META_LINE =
+  /^(?:desired\s+(?:range|result)|reference\s+range|unit\s+of\s+measure)\s*:/i;
+
+const PATIENT_IDENTITY_LINE =
+  /^[A-Z][A-Z'`.-]+,\s*[A-Z][A-Za-z'`.-]+(?:\s+\([A-Z0-9]+\))?\s*$/;
+
+const STACKED_SKIP_LINE =
+  /^(?:page\s+\d+\s+of\s+\d+|next\s+steps|martin[- ]hopkins|https?:\/\/|www\.)/i;
+
+function looksLikeLabelContinuation(line: string): boolean {
+  const t = line.trim();
+  if (!t || PANEL_HEADER_ONLY.test(t)) return false;
+  if (TABLE_HEADER_LINE.test(t)) return false;
+  // Section subheaders (e.g. HEPATITIS C ANTIBODY) must not absorb the following row.
+  if (/\b(?:antibody|panel|profile|guide|comment)\s*$/i.test(t) && !parseColumns(t)) return false;
+  if (/^(?:sars-cov-2|antibody\s+panel|interpretation|comment|guide|hormones?)$/i.test(t)) return false;
+  if (parseColumns(t)) return false;
+  return /^[A-Za-z(]/.test(t);
+}
+
+function splitRangeAndUnit(value: string): { range: string; unit: string | null } {
+  const trimmed = value.trim();
+  const unitMatch = /\s+([A-Za-z%µμ][A-Za-z%µμ^0-9./()]{0,24}(?:\s*\([^)]*\))?)\s*$/.exec(trimmed);
+  if (unitMatch && unitMatch.index! > 0) {
+    return {
+      range: trimmed.slice(0, unitMatch.index).trim(),
+      unit: unitMatch[1]!.replace(/\s*\([^)]*\)\s*$/, "").trim() || null,
+    };
+  }
+  return { range: trimmed, unit: null };
+}
+
+function parseStackedValueLine(trimmed: string): {
+  rawResult: string;
+  rawFlag: string | null;
+} | null {
+  const numericFlag = /^(-?\d+(?:\.\d+)?)\s+(HIGH|LOW|HH|LL|NORMAL|ABNORMAL|H|L)$/i.exec(trimmed);
+  if (numericFlag) {
+    return { rawResult: numericFlag[1]!, rawFlag: numericFlag[2]!.toUpperCase() };
+  }
+  if (EQUALITY_NUMERIC.test(trimmed)) {
+    return { rawResult: trimmed, rawFlag: null };
+  }
+  if (
+    /^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A|NONE SEEN|YELLOW|CLEAR|CLOUDY|TURBID|STRAW|AMBER)$/i.test(
+      trimmed,
+    )
+  ) {
+    return { rawResult: trimmed, rawFlag: null };
+  }
+  return null;
+}
+
+function isStackedAnalyteLabel(trimmed: string): boolean {
+  if (!trimmed || trimmed.length < 2) return false;
+  if (PANEL_HEADER_ONLY.test(trimmed)) return false;
+  if (TABLE_HEADER_LINE.test(trimmed)) return false;
+  if (STACKED_META_LINE.test(trimmed)) return false;
+  if (PATIENT_IDENTITY_LINE.test(trimmed)) return false;
+  if (STACKED_SKIP_LINE.test(trimmed)) return false;
+  if (/^(?:note:|please note|for additional|relative\s+risk|client\s*#|account\s*#|performing\s+site)/i.test(trimmed)) {
+    return false;
+  }
+  if (trimmed.split(/\s+/).length > 12) return false;
+  if (parseColumns(trimmed)) return false;
+  if (parseStackedValueLine(trimmed)) return false;
+  return shouldHoldPendingAnalyteLabel(trimmed);
+}
+
+function synthesizeStackedColumnRow(args: {
+  label: string;
+  rawResult: string;
+  rawUnit: string | null;
+  rawRange: string | null;
+  rawFlag: string | null;
+}): string {
+  const parts = [args.label, args.rawResult];
+  if (args.rawUnit) parts.push(args.rawUnit);
+  if (args.rawRange) parts.push(args.rawRange);
+  if (args.rawFlag) parts.push(args.rawFlag);
+  return parts.join("  ");
+}
+
+function hasStackedDesiredRangeLayout(bodyLines: string[]): boolean {
+  return bodyLines.some((line) => {
+    const t = line.trim();
+    return STACKED_META_LINE.test(t) || /^desired\s+(?:range|result)\s*$/i.test(t);
+  });
+}
+
+/** Reconstruct DirectLabs stacked Desired Range / result blocks into pseudo column rows. */
+function reconstructStackedDesiredRangeLines(bodyLines: string[]): string[] {
+  const out: string[] = [];
+  let pending: { label: string; rawRange: string | null; rawUnit: string | null } | null = null;
+
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (STACKED_SKIP_LINE.test(trimmed) || PATIENT_IDENTITY_LINE.test(trimmed)) {
+      pending = null;
+      continue;
+    }
+    if (/^(?:note:|this report is|results verified|do not use for self-diagnosis)/i.test(trimmed)) {
+      pending = null;
+      continue;
+    }
+    if (PANEL_HEADER_ONLY.test(trimmed)) {
+      pending = null;
+      out.push(line);
+      continue;
+    }
+
+    const metaMatch = STACKED_META_LINE.exec(trimmed);
+    if (metaMatch) {
+      if (!pending) continue;
+      const payload = trimmed.slice(metaMatch[0].length).trim();
+      if (/^unit\s+of\s+measure/i.test(metaMatch[0])) {
+        pending.rawUnit = splitRangeAndUnit(payload).range.replace(/\s*\([^)]*\)\s*$/, "").trim() || payload;
+      } else {
+        const { range, unit } = splitRangeAndUnit(payload);
+        pending.rawRange = range;
+        if (unit && !pending.rawUnit) pending.rawUnit = unit;
+      }
+      continue;
+    }
+
+    const stackedValue = parseStackedValueLine(trimmed);
+    if (stackedValue && pending) {
+      out.push(
+        synthesizeStackedColumnRow({
+          label: pending.label,
+          rawResult: stackedValue.rawResult,
+          rawUnit: pending.rawUnit,
+          rawRange: pending.rawRange,
+          rawFlag: stackedValue.rawFlag,
+        }),
+      );
+      pending = null;
+      continue;
+    }
+
+    if (parseColumns(trimmed)) {
+      const parsed = parseColumns(trimmed)!;
+      if (pending) {
+        const canSuffixJoin =
+          SHORT_ANALYTE_SUFFIX.test(parsed.rawLabel) &&
+          looksLikeLabelContinuation(pending.label) &&
+          /sars|\bcov\b|antibody|\bab\b/i.test(pending.label);
+        const canSpecimenJoin = /^(?:serum|plasma|urine|blood|whole blood)$/i.test(parsed.rawLabel.trim());
+        if (canSuffixJoin || canSpecimenJoin) {
+          out.push(
+            synthesizeStackedColumnRow({
+              label: `${pending.label} ${parsed.rawLabel}`.replace(/\s+/g, " ").trim(),
+              rawResult: parsed.rawResult,
+              rawUnit: parsed.rawUnit ?? pending.rawUnit,
+              rawRange: parsed.rawRange ?? pending.rawRange,
+              rawFlag: parsed.rawFlag,
+            }),
+          );
+          pending = null;
+          continue;
+        }
+      }
+      out.push(line);
+      pending = null;
+      continue;
+    }
+
+    if (isStackedAnalyteLabel(trimmed)) {
+      pending = { label: trimmed.replace(/,\s*$/, ""), rawRange: null, rawUnit: null };
+      continue;
+    }
+
+    pending = null;
+    out.push(line);
+  }
+
+  return out;
+}
+
+/** Join pdfjs-fragmented analyte label lines that split mid-row before the result token. */
+function joinFragmentedAnalyteLines(bodyLines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < bodyLines.length; i++) {
+    const cur = bodyLines[i]!.trimEnd();
+    const curTrim = cur.trim();
+    const next = bodyLines[i + 1]?.trim() ?? "";
+    const nextParsed = next ? parseColumns(next) : null;
+
+    // Prefer not to swallow a complete next row — unless it is a short suffix
+    // continuation of a SARS/antibody label (SARS CoV 2 AB + IGG POSITIVE).
+    if (nextParsed) {
+      const canSuffixJoin =
+        SHORT_ANALYTE_SUFFIX.test(nextParsed.rawLabel) &&
+        looksLikeLabelContinuation(curTrim) &&
+        /sars|\bcov\b|antibody|\bab\b/i.test(curTrim) &&
+        Boolean(parseColumns(`${curTrim} ${next}`));
+      if (canSuffixJoin) {
+        out.push(`${curTrim} ${next}`);
+        i += 1;
+        continue;
+      }
+      out.push(bodyLines[i]!);
+      continue;
+    }
+
+    if (curTrim && next && looksLikeLabelContinuation(curTrim) && !TABLE_HEADER_LINE.test(next)) {
+      const twoLine = `${curTrim} ${next}`;
+      if (parseColumns(twoLine)) {
+        out.push(twoLine);
+        i += 1;
+        continue;
+      }
+    }
+
+    out.push(bodyLines[i]!);
+  }
+  return out;
+}
+
 export function extractQuestAnalyteRows(args: {
   report: SegmentedReport;
   documentId: string;
@@ -410,13 +652,21 @@ export function extractQuestAnalyteRows(args: {
       joinedLines.push(page.bodyLines[i]!);
     }
 
+    const useStackedLayout = hasStackedDesiredRangeLayout(joinedLines);
+    const stackedLines = useStackedLayout
+      ? reconstructStackedDesiredRangeLines(joinedLines)
+      : joinedLines;
+    const reconstructedLines = joinFragmentedAnalyteLines(stackedLines);
+
     /** Prior analyte-name line awaiting a specimen-qualified result row (e.g. IL-6 → SERUM 1.89). */
     let pendingAnalyteLabel: string | null = null;
 
-    joinedLines.forEach((line, lineIndex) => {
+    reconstructedLines.forEach((line, lineIndex) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;
+      // Never emit patient identity headers as analyte candidates (PHI).
+      if (PATIENT_IDENTITY_LINE.test(trimmed)) return;
       if (/patient\s+id|dob|date of birth|phone|address|requisition/i.test(trimmed)) return;
       // Client/account metadata and interpretive legends are not analyte rows.
       if (/^client\s*#|^account\s*#|^patient\s*#/i.test(trimmed)) return;
@@ -433,6 +683,25 @@ export function extractQuestAnalyteRows(args: {
         return;
       }
       if (/^value\s*\(in\s+the\s+range|^option\b/i.test(trimmed)) return;
+      if (/^test\s+name/i.test(trimmed)) return;
+      if (TABLE_HEADER_LINE.test(trimmed) && !/^[A-Za-z].*\d/.test(trimmed)) return;
+      if (/^desired\s+(?:range|result)\s*:/i.test(trimmed)) return;
+      if (/^comment$/i.test(trimmed)) return;
+      if (/^note\s+\d/i.test(trimmed)) return;
+      if (/^interpretation\s+guide/i.test(trimmed)) return;
+      if (/^guide$/i.test(trimmed)) return;
+      if (/^index\s+value/i.test(trimmed)) return;
+      if (/^igm\s+result\s+igg\s+result/i.test(trimmed)) return;
+      if (/^(?:negative|positive)\s+(?:negative|positive)\b/i.test(trimmed)) return;
+      if (/antibodies not detected|suggests (?:past|recent) exposure/i.test(trimmed)) return;
+      if (/false positive results for the|do not preclude acute|not be used to diagnose acute/i.test(trimmed)) {
+        return;
+      }
+      if (/^this test has not been|^this test has been authorized/i.test(trimmed)) return;
+      if (/^<\d+\.\d+/i.test(trimmed) || /^>=\d+\.\d+/i.test(trimmed)) return;
+      if (/^\d+\.\d+\s*-\s*\d+\.\d+/i.test(trimmed) && /indeterminate|negative|positive/i.test(trimmed)) {
+        return;
+      }
 
       // Panel headers are single-column names — skip as analyte rows.
       // Do not match analyte labels such as "IRON, TOTAL" via a bare "iron" prefix.

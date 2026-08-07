@@ -11,21 +11,26 @@ export type LabHistorySourceRepresentation = {
   specimenType?: string | null;
   methodId?: string | null;
   measuredOrCalculated?: string | null;
+  sourceDocumentId?: string | null;
+  sourceCandidateId?: string | null;
   sourceLocator?: string | null;
   sourcePage?: number | null;
   resultFingerprint: string;
 };
 
 function identityKey(row: LabHistorySourceRepresentation): string {
-  return [
+  const parts = [
     row.canonicalMetricId,
     row.collectedAt ?? "no_date",
     row.panelId ?? "panel_unknown",
     row.specimenType ?? "specimen_unknown",
     row.methodId ?? "method_unknown",
     row.measuredOrCalculated ?? "measured_unknown",
-    row.resultFingerprint,
-  ].join("|");
+  ];
+  if (row.sourceDocumentId) parts.push(row.sourceDocumentId);
+  if (row.sourceCandidateId) parts.push(row.sourceCandidateId);
+  parts.push(row.resultFingerprint);
+  return parts.join("|");
 }
 
 /**

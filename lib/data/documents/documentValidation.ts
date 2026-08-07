@@ -9,6 +9,7 @@ import {
   DOCUMENT_UPLOAD_DEFERRED_DOMAINS,
   isDocumentUploadEnabledDomain,
 } from "./documentTypes";
+import { resolveConsumerSafeDocumentDisplayName } from "./consumerSafeDocumentDisplayName";
 
 /**
  * Max original file size for Document OS v1 base64 JSON bridge (5 MiB).
@@ -74,11 +75,14 @@ function isAllowedMediaType(mediaType: string): mediaType is DocumentMediaType {
   return (DOCUMENT_ALLOWED_MEDIA_TYPES as readonly string[]).includes(mediaType);
 }
 
-export function sanitizeDocumentDisplayFilename(originalFilename: string): string {
-  const trimmed = originalFilename.trim().replace(/[/\\]/g, "_");
-  const withoutControl = trimmed.replace(/[\u0000-\u001f\u007f]/g, ""); // eslint-disable-line no-control-regex
-  const collapsed = withoutControl.replace(/\s+/g, " ").slice(0, DOCUMENT_MAX_FILENAME_LENGTH);
-  return collapsed.length > 0 ? collapsed : "document";
+export function sanitizeDocumentDisplayFilename(
+  originalFilename: string,
+  options?: { domain?: DocumentDomain },
+): string {
+  return resolveConsumerSafeDocumentDisplayName(
+    originalFilename,
+    options?.domain != null ? { domain: options.domain } : {},
+  );
 }
 
 function startsWithBytes(bytes: Uint8Array, signature: number[]): boolean {
@@ -217,6 +221,8 @@ export function validateDocumentUpload(input: DocumentUploadValidationInput): Do
   return {
     ok: true,
     mediaType: input.mediaType as DocumentMediaType,
-    safeDisplayFilename: sanitizeDocumentDisplayFilename(input.originalFilename),
+    safeDisplayFilename: sanitizeDocumentDisplayFilename(input.originalFilename, {
+      domain: input.domain,
+    }),
   };
 }

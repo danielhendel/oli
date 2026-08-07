@@ -7,6 +7,7 @@ import {
   buildLabHistoryCompatibilityGroup,
   evaluateLabTrendEligibility,
 } from "../history/evaluateLabTrendEligibility";
+import { historyTimestampFromAccepted } from "../history/labSourceTimestamp";
 import { unitsAreTrendCompatible } from "./parseLabUnit";
 
 export function isAcceptedResultTrendEligible(result: AcceptedLabResult): boolean {
@@ -71,13 +72,20 @@ export function toHistoryPointDto(
     isAcceptedResultTrendEligible(result) &&
     compatibility !== "incompatible" &&
     trendEligibility === "numeric_compatible";
+  const { calendarDate: sourceCalendarDate } = historyTimestampFromAccepted(
+    result.collectedAt,
+    result.datePrecision ?? null,
+    result.collectedAtSource?.sourceCalendarDate ?? null,
+  );
 
   return {
-    id: result.id,
+    id: result.historyPointId ?? result.id,
     acceptedResultId: result.id,
     canonicalMetricId: result.canonicalMetricId,
     collectedAt: result.collectedAt,
     datePrecision: result.datePrecision ?? null,
+    ...(sourceCalendarDate ? { sourceCalendarDate } : {}),
+    ...(result.historyPointId ? { historyPointId: result.historyPointId } : {}),
     result: result.result,
     displayValue: displayValueForAccepted(result),
     rawUnit: result.rawUnit,

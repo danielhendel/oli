@@ -29,6 +29,14 @@ describe("quest panel profiles", () => {
         "quest_hormone_v1",
         "quest_cardio_iq_v1",
         "quest_advanced_lipid_v1",
+        "quest_urinalysis_v1",
+        "quest_psa_v1",
+        "quest_iron_panel_v1",
+        "quest_covid_antibody_v1",
+        "quest_2020_basic_health_profile_v1",
+        "quest_2020_standard_v1",
+        "quest_2021_qualitative_antibody_v1",
+        "quest_2022_standard_v1",
       ]),
     );
   });

@@ -43,7 +43,7 @@ function ReviewRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.safeDisplayFilename}, ${statusLabel}, ${reviewSummaryCountsLabel(item)}`}
+      accessibilityLabel={`${item.safeDisplayFilename}, ${statusLabel}${collected ? `, Collected ${collected}` : ""}, ${reviewSummaryCountsLabel(item)}`}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       testID={`lab-review-row-${item.documentId}`}
     >
@@ -93,8 +93,8 @@ export function LabReviewQueueContent({
   if (items.length === 0) {
     return (
       <EmptyState
-        title="No reviews pending"
-        description="When a lab report needs your review, it will appear here."
+        title="No lab reports yet"
+        description="Imported lab reports will appear here with their collection dates."
         testID="lab-reviews-empty"
       />
     );
@@ -103,7 +103,7 @@ export function LabReviewQueueContent({
   return (
     <View style={styles.card} testID="lab-reviews-list">
       <Text style={styles.listHint} accessibilityRole="text">
-        Tap a report to review extracted results before they become structured lab data.
+        Your imported lab reports and source details.
       </Text>
       {items.map((item) => (
         <ReviewRow key={item.documentId} item={item} onPress={() => onPressReview(item.documentId)} />

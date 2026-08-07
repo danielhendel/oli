@@ -9,6 +9,7 @@ export type LabTrendEligibility =
   | "incompatible_specimen"
   | "incompatible_method"
   | "missing_date"
+  | "missing_collection_date"
   | "qualitative"
   | "pattern"
   | "inequality_table_only";
@@ -23,7 +24,7 @@ export function evaluateLabTrendEligibility(args: {
   peerMethodId?: string | null;
   peerNormalizedUnit?: string | null;
 }): LabTrendEligibility {
-  if (!args.collectedAt) return "missing_date";
+  if (!args.collectedAt) return "missing_collection_date";
   if (!args.result) return "table_only";
   if (args.result.kind === "pattern") return "pattern";
   if (args.result.kind === "qualitative" || args.result.kind === "text") return "qualitative";

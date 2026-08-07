@@ -1,5 +1,5 @@
 // lib/ui/labs/LabMetricDetailContent.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -15,21 +15,93 @@ import {
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
-import type { LabMetricDetailResponseDto } from "@/lib/contracts";
+import type { LabHistoryPointDto, LabMetricDetailResponseDto } from "@/lib/contracts";
+
+const COLLECTION_DATE_UNAVAILABLE = "Collection date unavailable";
 
 export type LabMetricDetailContentProps = {
   status: "partial" | "error" | "ready";
   error?: string;
   requestId?: string | null;
   data?: LabMetricDetailResponseDto;
+  acceptedHistory?: LabHistoryPointDto[];
+  historyStatus?: "partial" | "error" | "ready";
+  historyError?: string;
   onRetry?: () => void;
 };
+
+function formatCollectionDate(iso: string | null | undefined): string {
+  if (!iso) return COLLECTION_DATE_UNAVAILABLE;
+  return formatLabUploadDate(iso);
+}
+
+function measuredOrCalculatedLabel(
+  value: LabHistoryPointDto["measuredOrCalculated"],
+): string | null {
+  if (value === "measured") return "Measured";
+  if (value === "calculated") return "Calculated";
+  return null;
+}
+
+function historyValueText(point: LabHistoryPointDto): string {
+  if (point.displayValue?.trim()) return point.displayValue.trim();
+  if (point.result.kind === "numeric") {
+    const op =
+      point.result.comparator === "eq"
+        ? ""
+        : point.result.comparator === "lt"
+          ? "<"
+          : point.result.comparator === "lte"
+            ? "≤"
+            : point.result.comparator === "gt"
+              ? ">"
+              : "≥";
+    const unit = point.normalizedUnit ?? point.rawUnit;
+    const base = `${op}${point.result.value}`;
+    return unit && unit !== "none" ? `${base} ${unit}` : base;
+  }
+  if (
+    point.result.kind === "qualitative" ||
+    point.result.kind === "pattern" ||
+    point.result.kind === "text"
+  ) {
+    return point.result.value;
+  }
+  return point.result.reason.replace(/_/g, " ");
+}
+
+function findCompatiblePriorFromAccepted(
+  points: LabHistoryPointDto[],
+): { latest: LabHistoryPointDto; prior: LabHistoryPointDto } | null {
+  if (points.length < 2) return null;
+  const latest = points[0]!;
+  if (
+    latest.result.kind !== "numeric" ||
+    latest.result.comparator !== "eq" ||
+    !latest.collectedAt
+  ) {
+    return null;
+  }
+  const prior = points.find((row, idx) => {
+    if (idx === 0) return false;
+    if (row.result.kind !== "numeric" || row.result.comparator !== "eq") return false;
+    if (!row.collectedAt || !latest.collectedAt) return false;
+    if ((row.normalizedUnit ?? row.rawUnit ?? "") !== (latest.normalizedUnit ?? latest.rawUnit ?? "")) {
+      return false;
+    }
+    return true;
+  });
+  return prior ? { latest, prior } : null;
+}
 
 export function LabMetricDetailContent({
   status,
   error,
   requestId,
   data,
+  acceptedHistory = [],
+  historyStatus,
+  historyError,
   onRetry,
 }: LabMetricDetailContentProps) {
   if (status === "partial") return <LoadingState message="Loading…" />;
@@ -60,9 +132,16 @@ export function LabMetricDetailContent({
           referenceRangeText: latest.referenceRangeText ?? null,
         }) ?? data?.referenceRangeText ?? null
       : data?.referenceRangeText ?? null;
-  const labDate = latest?.collectedAt ?? latest?.reportedAt ?? null;
-  const history = data?.history ?? [];
-  const priorCompatible = history.find((row, idx) => {
+  const labDate = latest?.collectedAt ?? null;
+
+  const useAcceptedHistory = acceptedHistory.length > 0;
+  const acceptedPair = useMemo(
+    () => (useAcceptedHistory ? findCompatiblePriorFromAccepted(acceptedHistory) : null),
+    [acceptedHistory, useAcceptedHistory],
+  );
+
+  const projectionHistory = data?.history ?? [];
+  const priorCompatible = projectionHistory.find((row, idx) => {
     if (idx === 0 || !latest) return false;
     if (row.value == null || latest.value == null) return false;
     if (!row.collectedAt || !latest.collectedAt) return false;
@@ -72,29 +151,63 @@ export function LabMetricDetailContent({
     if (/^[<>≤≥]/.test(raw) || /^[<>≤≥]/.test(latestRaw)) return false;
     return true;
   });
-  const changeCopy =
-    latest &&
-    priorCompatible &&
-    latest.value != null &&
-    priorCompatible.value != null &&
-    latest.collectedAt &&
-    priorCompatible.collectedAt
-      ? (() => {
-          const change = calculateLabMetricChange({
-            latest: {
-              id: latest.id,
-              collectedAt: latest.collectedAt,
-              result: { kind: "numeric", value: latest.value, comparator: "eq" },
-            },
-            prior: {
-              id: priorCompatible.id,
-              collectedAt: priorCompatible.collectedAt,
-              result: { kind: "numeric", value: priorCompatible.value, comparator: "eq" },
-            },
-          });
-          return change ? formatLabMetricChangeCopy({ change, unit: latest.unit }) : null;
-        })()
-      : null;
+
+  const changeCopy = useMemo(() => {
+    if (acceptedPair) {
+      const change = calculateLabMetricChange({
+        latest: {
+          id: acceptedPair.latest.id,
+          collectedAt: acceptedPair.latest.collectedAt!,
+          result: acceptedPair.latest.result as {
+            kind: "numeric";
+            value: number;
+            comparator: "eq";
+          },
+        },
+        prior: {
+          id: acceptedPair.prior.id,
+          collectedAt: acceptedPair.prior.collectedAt!,
+          result: acceptedPair.prior.result as {
+            kind: "numeric";
+            value: number;
+            comparator: "eq";
+          },
+        },
+      });
+      return change
+        ? formatLabMetricChangeCopy({
+            change,
+            unit: acceptedPair.latest.normalizedUnit ?? acceptedPair.latest.rawUnit,
+          })
+        : null;
+    }
+    if (
+      latest &&
+      priorCompatible &&
+      latest.value != null &&
+      priorCompatible.value != null &&
+      latest.collectedAt &&
+      priorCompatible.collectedAt
+    ) {
+      const change = calculateLabMetricChange({
+        latest: {
+          id: latest.id,
+          collectedAt: latest.collectedAt,
+          result: { kind: "numeric", value: latest.value, comparator: "eq" },
+        },
+        prior: {
+          id: priorCompatible.id,
+          collectedAt: priorCompatible.collectedAt,
+          result: { kind: "numeric", value: priorCompatible.value, comparator: "eq" },
+        },
+      });
+      return change ? formatLabMetricChangeCopy({ change, unit: latest.unit }) : null;
+    }
+    return null;
+  }, [acceptedPair, latest, priorCompatible]);
+
+  const showAcceptedHistory = useAcceptedHistory;
+  const showProjectionHistory = !showAcceptedHistory && projectionHistory.length > 0;
 
   return (
     <View style={styles.root} testID="lab-metric-detail">
@@ -108,11 +221,11 @@ export function LabMetricDetailContent({
         ) : (
           <Text style={styles.meta}>Reference range not available</Text>
         )}
-        {labDate ? (
-          <Text style={styles.meta} testID="lab-metric-collected-at">
-            Collected {formatLabUploadDate(labDate)}
-          </Text>
-        ) : null}
+        <Text style={styles.meta} testID="lab-metric-collected-at">
+          {labDate
+            ? `Collected ${formatLabUploadDate(labDate)}`
+            : COLLECTION_DATE_UNAVAILABLE}
+        </Text>
         {changeCopy ? (
           <Text style={styles.meta} testID="lab-metric-neutral-change">
             {changeCopy}
@@ -129,13 +242,54 @@ export function LabMetricDetailContent({
         </Text>
       </View>
 
-      {data && data.history.length > 0 ? (
+      {historyStatus === "error" && historyError ? (
+        <Text style={styles.meta} testID="lab-metric-history-error">
+          {historyError}
+        </Text>
+      ) : null}
+
+      {showAcceptedHistory ? (
+        <View style={styles.section} testID="lab-metric-accepted-history">
+          <Text style={styles.sectionTitle}>History</Text>
+          {acceptedHistory.map((row) => {
+            const methodLabel = measuredOrCalculatedLabel(row.measuredOrCalculated);
+            const tableOnly =
+              row.trendEligibility === "qualitative" ||
+              row.trendEligibility === "pattern" ||
+              row.trendEligibility === "inequality_table_only";
+            return (
+              <View key={row.id} style={styles.trendRow}>
+                <View style={styles.trendLeft}>
+                  <Text style={styles.trendDate} testID={`lab-metric-history-date-${row.id}`}>
+                    {formatCollectionDate(row.collectedAt)}
+                  </Text>
+                  {typeof row.sourcePage === "number" ? (
+                    <Text style={styles.trendSubMeta}>Page {row.sourcePage}</Text>
+                  ) : null}
+                  {methodLabel ? (
+                    <Text style={styles.trendSubMeta}>{methodLabel}</Text>
+                  ) : null}
+                  {row.laboratoryName ? (
+                    <Text style={styles.trendSubMeta}>{row.laboratoryName}</Text>
+                  ) : null}
+                  {tableOnly ? (
+                    <Text style={styles.trendSubMeta}>Shown in history table only</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.trendValue}>{historyValueText(row)}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {showProjectionHistory ? (
         <View style={styles.section} testID="lab-metric-history">
           <Text style={styles.sectionTitle}>History</Text>
-          {data.history.map((row) => (
+          {projectionHistory.map((row) => (
             <View key={row.id} style={styles.trendRow}>
-              <Text style={styles.trendDate}>
-                {formatLabUploadDate(row.collectedAt ?? row.reportedAt ?? row.createdAt)}
+              <Text style={styles.trendDate} testID={`lab-metric-history-date-${row.id}`}>
+                {formatCollectionDate(row.collectedAt)}
               </Text>
               <Text style={styles.trendValue}>
                 {formatLabResultValue(row.value, row.unit, {
@@ -145,7 +299,9 @@ export function LabMetricDetailContent({
             </View>
           ))}
         </View>
-      ) : latest == null ? (
+      ) : null}
+
+      {!showAcceptedHistory && !showProjectionHistory && latest == null ? (
         <EmptyState title="No values yet" description="Upload a lab PDF or log this biomarker to see results here." />
       ) : null}
 
@@ -165,9 +321,11 @@ export function LabMetricDetailContent({
         ) : latest?.source === "lab_pdf" ? (
           <Text style={styles.meta}>Source: Quest Diagnostics report</Text>
         ) : null}
-        {labDate ? (
-          <Text style={styles.meta}>Collected {formatLabUploadDate(labDate)}</Text>
-        ) : null}
+        <Text style={styles.meta}>
+          {labDate
+            ? `Collected ${formatLabUploadDate(labDate)}`
+            : COLLECTION_DATE_UNAVAILABLE}
+        </Text>
         {latest?.uploadId ? (
           <Text style={styles.meta}>Source report</Text>
         ) : null}
@@ -236,17 +394,29 @@ const styles = StyleSheet.create({
   trendRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     minHeight: 36,
     gap: 12,
+  },
+  trendLeft: {
+    flex: 1,
+    gap: 2,
   },
   trendDate: {
     fontSize: 14,
     color: UI_TEXT_SECONDARY,
   },
+  trendSubMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: UI_TEXT_TERTIARY_LABEL,
+  },
   trendValue: {
     fontSize: 15,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+    flexShrink: 0,
+    maxWidth: "45%",
+    textAlign: "right",
   },
 });

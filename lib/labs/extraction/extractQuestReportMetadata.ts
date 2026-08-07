@@ -3,47 +3,12 @@
  * Never emits patient identifiers into candidates.
  */
 
-import type { LabDatePrecision, LabReportMetadataCandidate } from "@oli/contracts";
+import type { LabReportMetadataCandidate } from "@oli/contracts";
 
-function parseQuestDateTime(raw: string): { iso: string; precision: LabDatePrecision } | null {
-  // Quest forms:
-  //   01/15/2024 08:30 AM
-  //   10/15/2024 / 06:16 CDT
-  //   2024-01-15
-  // Store UTC wall-clock fields from the source calendar/time. Never invent device TZ.
-  const mdy =
-    /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*\/?\s*(\d{1,2}):(\d{2})(?:\s*(AM|PM))?(?:\s*([A-Z]{2,5}))?)?/i.exec(
-      raw,
-    );
-  if (mdy) {
-    const month = Number(mdy[1]);
-    const day = Number(mdy[2]);
-    const year = Number(mdy[3]);
-    const hasTime = Boolean(mdy[4] && mdy[5]);
-    if (!hasTime) {
-      const iso = new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
-      return { iso, precision: "date_only" };
-    }
-    let hour = Number(mdy[4]);
-    const minute = Number(mdy[5]);
-    const ampm = mdy[6]?.toUpperCase();
-    const tz = mdy[7]?.toUpperCase() ?? null;
-    if (ampm === "PM" && hour < 12) hour += 12;
-    if (ampm === "AM" && hour === 12) hour = 0;
-    // Keep source wall-clock in UTC fields so calendar date formatting stays faithful.
-    const iso = new Date(Date.UTC(year, month - 1, day, hour, minute, 0)).toISOString();
-    return {
-      iso,
-      precision: tz ? "date_time_with_timezone" : "date_time_without_timezone",
-    };
-  }
-  const ymd = /(\d{4})-(\d{2})-(\d{2})/.exec(raw);
-  if (ymd) {
-    const iso = new Date(Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 0, 0, 0)).toISOString();
-    return { iso, precision: "date_only" };
-  }
-  return null;
-}
+import {
+  labSourceTimestampToCollectedAtIso,
+  parseLabSourceTimestampFromQuestRaw,
+} from "../history/labSourceTimestamp";
 
 function fieldAfter(label: RegExp, lines: string[]): string | null {
   for (const line of lines) {
@@ -52,6 +17,77 @@ function fieldAfter(label: RegExp, lines: string[]): string | null {
     if (parts.length >= 2) return parts.slice(1).join(":").trim() || null;
   }
   return null;
+}
+
+const DOB_LABEL_RE = /(?:^|\||\s)(?:dob|date\s+of\s+birth)\s*:/i;
+
+/** Reject date substrings that belong to DOB / Date of Birth, not collection. */
+function isDobAnchoredDateSubstring(line: string, dateMatchIndex: number): boolean {
+  const before = line.slice(0, dateMatchIndex);
+  const dobLabel = /(?:^|\||\s)(?:dob|date\s+of\s+birth)\s*:\s*/gi;
+  let lastDob: RegExpExecArray | null = null;
+  for (;;) {
+    const m = dobLabel.exec(before);
+    if (!m) break;
+    lastDob = m;
+  }
+  if (!lastDob) return false;
+  const afterDob = before.slice(lastDob.index + lastDob[0].length);
+  // Date immediately after DOB label (before next field delimiter).
+  return !/\||(?:collected|received|reported|fasting|specimen|sex)\s*:/i.test(afterDob);
+}
+
+/**
+ * Extract collection date raw text without confusing DOB on combined metadata lines.
+ * Prefers explicit "Collected Date:" then standalone "Collected:".
+ */
+export function extractCollectedDateRaw(lines: string[]): string | null {
+  for (const line of lines) {
+    const collectedDateRe = /collected\s+date\s*:\s*([^|]+?)(?:\s*\||$)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = collectedDateRe.exec(line)) !== null) {
+      const raw = m[1]!.trim();
+      if (raw && !isDobAnchoredDateSubstring(line, m.index)) return raw;
+    }
+
+    const collectedRe = /(?:^|\|)\s*collected\s*:\s*([^|]+?)(?:\s*\||$)/gi;
+    while ((m = collectedRe.exec(line)) !== null) {
+      const labelStart = m[0].toLowerCase().indexOf("collected");
+      const absLabel = m.index + Math.max(0, labelStart);
+      if (/collected\s+date/i.test(line.slice(absLabel, absLabel + 20))) continue;
+      const raw = m[1]!.trim();
+      if (raw && !isDobAnchoredDateSubstring(line, m.index)) return raw;
+    }
+
+    if (/^collected\s*:/i.test(line.trim()) && !DOB_LABEL_RE.test(line)) {
+      const after = fieldAfter(/^collected\s*:/i, [line]);
+      if (after && !isDobAnchoredDateSubstring(line, line.toLowerCase().indexOf(after.toLowerCase()))) {
+        return after;
+      }
+    }
+  }
+  return null;
+}
+
+/** Join pdfjs-split metadata labels (e.g. "Collected:" on one line, date on the next). */
+function expandSplitMetadataLines(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i]!.trim();
+    if (
+      /^(collected|received|reported|fasting|specimen|report\s+status):$/i.test(cur) &&
+      i + 1 < lines.length
+    ) {
+      const next = lines[i + 1]!.trim();
+      if (next && !/^(collected|received|reported|fasting|specimen|report\s+status):/i.test(next)) {
+        out.push(`${cur} ${next}`);
+        i += 1;
+        continue;
+      }
+    }
+    out.push(cur);
+  }
+  return out;
 }
 
 function parseFasting(raw: string | null): boolean | null {
@@ -75,8 +111,8 @@ export function extractQuestReportMetadata(args: {
   formatFamilyVersion: string | null;
   confidence: number;
 }): LabReportMetadataCandidate {
-  const lines = args.metadataLines;
-  const collectedRaw = fieldAfter(/collected/i, lines);
+  const lines = expandSplitMetadataLines(args.metadataLines);
+  const collectedRaw = extractCollectedDateRaw(lines);
   const receivedRaw = fieldAfter(/received/i, lines);
   const reportedRaw = fieldAfter(/reported/i, lines);
   const fastingRaw = fieldAfter(/fasting/i, lines);
@@ -103,12 +139,12 @@ export function extractQuestReportMetadata(args: {
   const fasting: boolean | null = parseFasting(fastingRaw);
 
   const fieldConfidence: Record<string, number> = {};
-  const collectedParsed = collectedRaw ? parseQuestDateTime(collectedRaw) : null;
-  const receivedParsed = receivedRaw ? parseQuestDateTime(receivedRaw) : null;
-  const reportedParsed = reportedRaw ? parseQuestDateTime(reportedRaw) : null;
-  const collectedAt = collectedParsed?.iso ?? null;
-  const receivedAt = receivedParsed?.iso ?? null;
-  const reportedAt = reportedParsed?.iso ?? null;
+  const collectedAtSource = collectedRaw ? parseLabSourceTimestampFromQuestRaw(collectedRaw) : null;
+  const receivedAtSource = receivedRaw ? parseLabSourceTimestampFromQuestRaw(receivedRaw) : null;
+  const reportedAtSource = reportedRaw ? parseLabSourceTimestampFromQuestRaw(reportedRaw) : null;
+  const collectedAt = labSourceTimestampToCollectedAtIso(collectedAtSource);
+  const receivedAt = labSourceTimestampToCollectedAtIso(receivedAtSource);
+  const reportedAt = labSourceTimestampToCollectedAtIso(reportedAtSource);
   if (collectedAt) fieldConfidence.collectedAt = 0.9;
   if (receivedAt) fieldConfidence.receivedAt = 0.85;
   if (reportedAt) fieldConfidence.reportedAt = 0.9;
@@ -120,7 +156,11 @@ export function extractQuestReportMetadata(args: {
     collectedAt,
     receivedAt,
     reportedAt,
-    collectedAtPrecision: collectedParsed?.precision ?? null,
+    collectedAtPrecision: collectedAtSource?.precision ?? null,
+    // Omit optional source objects when absent — Firestore rejects explicit `undefined`.
+    ...(collectedAtSource ? { collectedAtSource } : {}),
+    ...(receivedAtSource ? { receivedAtSource } : {}),
+    ...(reportedAtSource ? { reportedAtSource } : {}),
     fasting,
     laboratoryName,
     performingLaboratories: laboratoryName

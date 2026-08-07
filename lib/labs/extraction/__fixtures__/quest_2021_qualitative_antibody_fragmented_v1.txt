@@ -1,0 +1,31 @@
+Quest
+Diagnostics
+Report Status: FINAL
+Collected: 04/13/2021 09:30 AM
+Received: 04/13/2021 04:00 PM
+Reported: 04/14/2021 08:00 AM
+Specimen: Serum
+
+TEST NAME                RESULT    FLAG    UNITS           REFERENCE
+RANGE
+
+SARS-COV-2
+ANTIBODY PANEL
+SARS CoV 2 AB
+IGG       POSITIVE              NEGATIVE
+SARS CoV 2 AB
+IGM       POSITIVE              NEGATIVE
+
+COMMENT
+Note 1: This test has not been FDA cleared or approved.
+This test has been authorized by FDA under an EUA for use by authorized laboratories.
+
+INTERPRETATION
+GUIDE
+Index Value    Interpretation
+<1.00          Negative
+1.00-1.09      Indeterminate
+>=1.10         Positive
+
+Performing Site: Quest
+Diagnostics

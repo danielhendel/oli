@@ -68,6 +68,7 @@ import {
   shouldPersistLabDocumentTerminalStatus,
 } from "../../../../lib/labs/deriveLabReportConsumerState";
 import type { LabsImportSummaryFields } from "../lib/documents/toSafeDocumentDto";
+import { loadLabReportDates } from "../lib/documents/loadLabReportDates";
 
 function getAdmin() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -578,8 +579,10 @@ router.get(
 
       let importSummary: LabsImportSummaryFields | null = null;
       let recordForList = record;
+      let reportDates = null;
       if (record.domain === "labs") {
         try {
+          reportDates = await loadLabReportDates(uid, record.id);
           const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${record.id}`).get();
           if (reviewSnap.exists) {
             const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
@@ -618,7 +621,7 @@ router.get(
         }
       }
 
-      items.push(toDocumentListItemDto(recordForList, { importSummary }));
+      items.push(toDocumentListItemDto(recordForList, { importSummary, reportDates: reportDates ?? null }));
     }
 
     // Bridge legacy lab uploads when listing labs (or unfiltered).
@@ -754,8 +757,10 @@ router.get(
     }
 
     let importSummary: LabsImportSummaryFields | null = null;
+    let reportDates = null;
     if (recordForDto.domain === "labs") {
       try {
+        reportDates = await loadLabReportDates(uid, documentId);
         const reviewSnap = await userCollection(uid, "labReviews").doc(`review_${documentId}`).get();
         if (reviewSnap.exists) {
           const parsed = parseLabImportSummaryStructural(reviewSnap.data() as Record<string, unknown>);
@@ -799,6 +804,7 @@ router.get(
       processingState,
       safeWarnings: safeWarningsForStatus(recordForDto.status, undefined, importSummary),
       importSummary,
+      reportDates,
     });
     const payload = { ok: true as const, document: detail };
     const out = documentDetailResponseDtoSchema.safeParse(payload);

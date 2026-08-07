@@ -11,6 +11,7 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 import type { DocumentListItemDto } from "@/lib/contracts";
 import { buildDocumentListItemViewModel } from "@/lib/data/documents/documentViewModels";
+import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 
 export type DocumentListContentProps = {
   status: "partial" | "error" | "ready";
@@ -44,7 +45,17 @@ function DocumentRow({
           {vm.filename}
         </Text>
         <Text style={styles.meta}>
-          {vm.domainLabel} · Uploaded {vm.uploadedDateLabel}
+          {item.collectedAt ? (
+            <>
+              Collected {formatLabUploadDate(item.collectedAt)}
+              {" · "}
+              Uploaded {vm.uploadedDateLabel}
+            </>
+          ) : (
+            <>
+              {vm.domainLabel} · Uploaded {vm.uploadedDateLabel}
+            </>
+          )}
         </Text>
         <Text style={styles.meta}>{vm.statusLabel}</Text>
       </View>
