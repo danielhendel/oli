@@ -10,6 +10,11 @@ import {
   formatLabMetricChangeCopy,
 } from "@/lib/labs/history/calculateLabMetricChange";
 import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
+import { evaluateLabSourceReferenceContext } from "@/lib/labs/sourceContext/evaluateLabSourceReferenceContext";
+import {
+  formatLabSourceReferenceRawCopy,
+  formatLabSourceReferenceStatusCopy,
+} from "@/lib/labs/sourceContext/formatLabSourceReferenceCopy";
 import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
 import { LabTrendChart } from "@/lib/ui/labs/LabTrendChart";
 import {
@@ -136,6 +141,37 @@ export function LabMetricDetailContent({
       : data?.referenceRangeText ?? null;
   const labDate = latest?.collectedAt ?? null;
 
+  const latestSourceContext = useMemo(() => {
+    const acceptedLatest = acceptedHistory[0] ?? null;
+    if (acceptedLatest) {
+      return evaluateLabSourceReferenceContext({
+        result: acceptedLatest.result,
+        rawReferenceRange: acceptedLatest.rawReferenceRange,
+        normalizedFlag: acceptedLatest.normalizedFlag,
+        laboratoryName:
+          acceptedLatest.laboratoryName ?? latest?.laboratoryName ?? "Quest Diagnostics",
+      });
+    }
+    if (latest && latest.value != null) {
+      return evaluateLabSourceReferenceContext({
+        result: { kind: "numeric", value: latest.value, comparator: "eq" },
+        rawReferenceRange: refRange,
+        normalizedFlag: latest.flag ?? null,
+        laboratoryName: latest.laboratoryName ?? "Quest Diagnostics",
+      });
+    }
+    return null;
+  }, [acceptedHistory, latest, refRange]);
+
+  const latestSourceStatusCopy = latestSourceContext
+    ? formatLabSourceReferenceStatusCopy(latestSourceContext)
+    : null;
+  const latestSourceRawCopy = latestSourceContext
+    ? formatLabSourceReferenceRawCopy(latestSourceContext, {
+        unit: acceptedHistory[0]?.normalizedUnit ?? acceptedHistory[0]?.rawUnit ?? latest?.unit ?? null,
+      })
+    : null;
+
   const useAcceptedHistory = acceptedHistory.length > 0;
   const acceptedPair = useMemo(
     () => (useAcceptedHistory ? findCompatiblePriorFromAccepted(acceptedHistory) : null),
@@ -241,10 +277,23 @@ export function LabMetricDetailContent({
         <Text style={styles.heroValue} testID="lab-metric-latest-value">
           {latestValue}
         </Text>
-        {refRange ? (
-          <Text style={styles.meta}>Reference range: {refRange}</Text>
+        {latestSourceStatusCopy ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-status">
+            {latestSourceStatusCopy}
+          </Text>
+        ) : null}
+        {latestSourceRawCopy ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-raw">
+            {latestSourceRawCopy}
+          </Text>
+        ) : refRange ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-raw">
+            Reference: {refRange}
+          </Text>
         ) : (
-          <Text style={styles.meta}>Reference range not available</Text>
+          <Text style={styles.meta} testID="lab-metric-source-reference-unavailable">
+            Reference range not available in this report
+          </Text>
         )}
         <Text style={styles.meta} testID="lab-metric-collected-at">
           {labDate

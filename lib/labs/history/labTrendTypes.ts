@@ -24,6 +24,7 @@ export type LabTrendPoint = {
   displayValue: string;
   unit: string | null;
   reportFlag: string | null;
+  rawReferenceRange: string | null;
   sourceDocumentId: string;
   sourcePage: number | null;
   panelId: string | null;

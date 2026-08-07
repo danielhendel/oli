@@ -262,4 +262,40 @@ describe("LabMetricDetailContent", () => {
     });
     expect(tree!.root.findByProps({ testID: "lab-trend-chart-single" })).toBeTruthy();
   });
+
+  it("renders source reference status for numeric latest", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp2",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<100",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "doc2",
+        sourcePage: 2,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-source-reference-status" }).props.children)).toMatch(
+      /Within Quest reference range/,
+    );
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-source-reference-raw" }).props.children)).toMatch(
+      /Quest reference:/i,
+    );
+  });
 });

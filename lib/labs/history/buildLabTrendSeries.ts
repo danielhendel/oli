@@ -31,8 +31,9 @@ type HistoryInput = Pick<
   | "displayValue"
   | "rawUnit"
   | "normalizedUnit"
-  | "normalizedFlag"
-  | "panelId"
+    | "normalizedFlag"
+    | "rawReferenceRange"
+    | "panelId"
   | "specimenType"
   | "methodId"
   | "measuredOrCalculated"
@@ -100,6 +101,7 @@ function toTrendPoint(point: HistoryInput, metricKey: string): LabTrendPoint | n
     displayValue: displayValueOf(point, value, unit),
     unit,
     reportFlag: point.normalizedFlag ?? null,
+    rawReferenceRange: point.rawReferenceRange ?? null,
     sourceDocumentId: point.sourceDocumentId,
     sourcePage: typeof point.sourcePage === "number" ? point.sourcePage : null,
     panelId: point.panelId ?? null,

@@ -18,6 +18,12 @@ import {
   selectNearestLabTrendPoint,
 } from "@/lib/labs/history/selectNearestLabTrendPoint";
 import type { LabTrendPoint, LabTrendSeries } from "@/lib/labs/history/labTrendTypes";
+import { evaluateLabSourceReferenceContext } from "@/lib/labs/sourceContext/evaluateLabSourceReferenceContext";
+import {
+  formatLabSourceFlagCopy,
+  formatLabSourceReferenceRawCopy,
+  formatLabSourceReferenceStatusCopy,
+} from "@/lib/labs/sourceContext/formatLabSourceReferenceCopy";
 import { monotonePathD } from "@/lib/ui/body/monotoneLinePath";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
@@ -44,6 +50,23 @@ function formatSelectedValue(point: LabTrendPoint): string {
     return `${point.value} ${point.unit}`;
   }
   return String(point.value);
+}
+
+function sourceContextLines(point: LabTrendPoint): string[] {
+  const ctx = evaluateLabSourceReferenceContext({
+    result: { kind: "numeric", value: point.value, comparator: "eq" },
+    rawReferenceRange: point.rawReferenceRange,
+    normalizedFlag: point.reportFlag,
+    laboratoryName: point.laboratoryName,
+  });
+  const lines: string[] = [];
+  const status = formatLabSourceReferenceStatusCopy(ctx);
+  const flag = formatLabSourceFlagCopy(ctx);
+  const raw = formatLabSourceReferenceRawCopy(ctx, { unit: point.unit });
+  if (status) lines.push(status);
+  if (flag && (!status || !/flagged/i.test(status))) lines.push(flag);
+  if (raw) lines.push(raw);
+  return lines;
 }
 
 export function LabTrendChart({
@@ -157,15 +180,12 @@ export function LabTrendChart({
           <Text style={styles.selectionDate}>
             {formatLabTrendPointDate(activePoint.collectedDate)}
           </Text>
-          <Text style={styles.selectionValue}>
-            {formatSelectedValue(activePoint)}
-            {activePoint.reportFlag && activePoint.reportFlag !== "none"
-              ? ` · Lab flag: ${activePoint.reportFlag}`
-              : ""}
-          </Text>
-          {activePoint.laboratoryName ? (
-            <Text style={styles.selectionMeta}>{activePoint.laboratoryName}</Text>
-          ) : null}
+          <Text style={styles.selectionValue}>{formatSelectedValue(activePoint)}</Text>
+          {sourceContextLines(activePoint).map((line) => (
+            <Text key={line} style={styles.selectionMeta} testID={`${testID}-source-context`}>
+              {line}
+            </Text>
+          ))}
         </View>
       ) : null}
 
