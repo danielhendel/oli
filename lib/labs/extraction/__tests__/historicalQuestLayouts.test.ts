@@ -75,9 +75,18 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
 
     it("maps CBC/CMP/lipid numerics and qualitative urinalysis", () => {
       const draft = draftFor(fixture);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "total_cholesterol")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "hdl_c")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "triglycerides")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "ldl_c")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "chol_hdl_ratio")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "glucose")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "wbc")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "rbc")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "hemoglobin")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "hematocrit")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "platelets")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "mcv")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "non_hdl_c")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "egfr")).toBe(true);
 
@@ -87,13 +96,20 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
         urineProteinMatched ?? draft.unmatched.find((u) => u.rawAnalyteLabel === "PROTEIN");
       const urineBlood =
         urineBloodMatched ?? draft.unmatched.find((u) => u.rawAnalyteLabel === "BLOOD");
-      expect(urineProtein?.rawResult).toBe("Negative");
-      expect(urineBlood?.rawResult).toBe("Negative");
+      expect(urineProtein?.rawResult?.toUpperCase()).toBe("NEGATIVE");
+      expect(urineBlood?.rawResult?.toUpperCase()).toBe("NEGATIVE");
       expect(urineProteinMatched?.result?.kind).not.toBe("numeric");
       expect(urineBloodMatched?.result?.kind).not.toBe("numeric");
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
       expect(labels.some((l) => /desired\s+range|verified by laboratory director/i.test(l))).toBe(false);
+      expect(labels.some((l) => /^SMITH,JOHN/i.test(l))).toBe(false);
+
+      const partition = partitionLabCandidatesForAutoPublish(draft);
+      expect(partition.autoPublishable.length).toBeGreaterThan(0);
+      expect(partition.autoPublishable.some((p) => p.candidate.aliasMatch.canonicalMetricId === "ldl_c")).toBe(
+        true,
+      );
     });
 
     it("segments basic health profile and urinalysis panels", () => {

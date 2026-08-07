@@ -3,15 +3,10 @@ Diagnostics
 DirectLabs
 Laboratory Report
 Report Status: FINAL
-Collected:
-06/05/2020 08:00 AM
+DOB: 01/01/1990 | Sex: M | Specimen: SERUM | Collected Date: 06/05/2020
 Received: 06/05/2020 02:00 PM
 Reported: 06/06/2020 09:00 AM
 Fasting: Yes
-Specimen: Serum
-
-TEST NAME                RESULT    FLAG    UNITS           REFERENCE
-RANGE
 
 BASIC
 HEALTH
@@ -19,70 +14,28 @@ PROFILE
 
 LIPID
 PANEL
-CHOLESTEROL,
-TOTAL       195  mg/dL  <200
-HDL-
-CHOLESTEROL           58  mg/dL  >40
-TRIGLYCERIDES            110  mg/dL  <150
-LDL-
-CHOLESTEROL           95  mg/dL  <100
-CHOL/HDL
-RATIO           3.4  calc   <5.0
-NON-HDL
-CHOLESTEROL      137  mg/dL  <130
+Cholesterol, Total
+Desired Range: <200 mg/dL
+173
+HDL Cholesterol
+Desired Range: > OR = 40 mg/dL
+49
+TRIGLYCERIDES
+Desired Range: <150 mg/dL
+110
+LDL Cholesterol
+Unit of Measure: mg/dL (calc)
+104 HIGH
+Reference range: <100
 
 COMPREHENSIVE
 METABOLIC PANEL
-GLUCOSE                   88  mg/dL  65-99
-BUN                       14  mg/dL  7-25
-CREATININE              0.95  mg/dL  0.60-1.35
-eGFR                      92  mL/min/1.73m2  >60
-SODIUM                   141  mmol/L  135-146
-POTASSIUM                4.1  mmol/L  3.5-5.3
-CHLORIDE                 102  mmol/L  98-110
-CO2                       24  mmol/L  20-32
-CALCIUM                  9.4  mg/dL  8.6-10.3
-TOTAL
-PROTEIN            7.0  g/dL  6.1-8.1
-ALBUMIN                  4.2  g/dL  3.6-5.1
-GLOBULIN                 2.8  g/dL  1.9-3.7
-BILIRUBIN,
-TOTAL         0.7  mg/dL  0.2-1.2
-ALKALINE
-PHOSPHATASE      72  U/L  39-117
-AST                       22  U/L  10-40
-ALT                       24  U/L  9-46
-
-CBC
-WBC                      5.8  Thousand/uL  3.8-10.8
-RBC                      4.9  Million/uL  4.2-5.8
-HEMOGLOBIN              14.2  g/dL  13.2-17.1
-HEMATOCRIT              42.1  %  38.5-50.0
-MCV                      86  fL  80-100
-MCH                      29  pg  27-33
-MCHC                    33.7  g/dL  32.0-36.0
-RDW                     12.8  %  11.0-15.0
-PLATELETS                215  Thousand/uL  140-400
-
-URINALYSIS
-COLOR                 Yellow
-APPEARANCE            Clear
-SPECIFIC
-GRAVITY      1.015
-PH                      6.0
-GLUCOSE               Negative
-BILIRUBIN             Negative
-KETONES               Negative
-BLOOD                 Negative
-PROTEIN               Negative
-NITRITE               Negative
-LEUKOCYTE
-ESTERASE    Negative
-
-Desired
-Range
-
-Note: Results verified by laboratory director. Do not use for self-diagnosis.
+GLUCOSE
+Desired Range: 65-99 mg/dL
+88
+BUN
+Desired Range: 7-25 mg/dL
+14
 
 Performing Site: Quest
 Diagnostics

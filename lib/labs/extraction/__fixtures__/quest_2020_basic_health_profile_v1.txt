@@ -1,69 +1,157 @@
 Quest Diagnostics
 DirectLabs Laboratory Report
 Report Status: FINAL
-Collected: 06/05/2020 08:00 AM
+DOB: 01/01/1990 | Sex: M | Specimen: SERUM | Collected Date: 06/05/2020
 Received: 06/05/2020 02:00 PM
 Reported: 06/06/2020 09:00 AM
 Fasting: Yes
-Specimen: Serum
-
-TEST NAME                RESULT    FLAG    UNITS           REFERENCE RANGE
 
 BASIC HEALTH PROFILE
 
 LIPID PANEL
-CHOLESTEROL, TOTAL       195  mg/dL  <200
-HDL-CHOLESTEROL           58  mg/dL  >40
-TRIGLYCERIDES            110  mg/dL  <150
-LDL-CHOLESTEROL           95  mg/dL  <100
-CHOL/HDL RATIO           3.4  calc   <5.0
-NON-HDL CHOLESTEROL      137  mg/dL  <130
+Cholesterol, Total
+Desired Range: <200 mg/dL
+173
+HDL Cholesterol
+Desired Range: > OR = 40 mg/dL
+49
+Triglycerides
+Desired Range: <150 mg/dL
+110
+LDL Cholesterol
+Unit of Measure: mg/dL (calc)
+104 HIGH
+Reference range: <100
+CHOL/HDL Ratio
+Desired Range: <5.0 calc
+3.4
+Non HDL Cholesterol
+Desired Range: <130 mg/dL
+137
 
 COMPREHENSIVE METABOLIC PANEL
-GLUCOSE                   88  mg/dL  65-99
-BUN                       14  mg/dL  7-25
-CREATININE              0.95  mg/dL  0.60-1.35
-eGFR                      92  mL/min/1.73m2  >60
-SODIUM                   141  mmol/L  135-146
-POTASSIUM                4.1  mmol/L  3.5-5.3
-CHLORIDE                 102  mmol/L  98-110
-CO2                       24  mmol/L  20-32
-CALCIUM                  9.4  mg/dL  8.6-10.3
-TOTAL PROTEIN            7.0  g/dL  6.1-8.1
-ALBUMIN                  4.2  g/dL  3.6-5.1
-GLOBULIN                 2.8  g/dL  1.9-3.7
-BILIRUBIN, TOTAL         0.7  mg/dL  0.2-1.2
-ALKALINE PHOSPHATASE      72  U/L  39-117
-AST                       22  U/L  10-40
-ALT                       24  U/L  9-46
+Glucose (Blood Sugar)
+Desired Range: 65-99 mg/dL
+88
+Urea Nitrogen (BUN)
+Desired Range: 7-25 mg/dL
+14
+Creatinine
+Desired Range: 0.60-1.35 mg/dL
+0.95
+eGFR Non-African American
+Desired Range: > OR = 60 mL/min/1.73m2
+92
+Sodium
+Desired Range: 135-146 mmol/L
+141
+Potassium
+Desired Range: 3.5-5.3 mmol/L
+4.1
+Chloride
+Desired Range: 98-110 mmol/L
+102
+Carbon Dioxide
+Desired Range: 20-32 mmol/L
+24
+Calcium
+Desired Range: 8.6-10.3 mg/dL
+9.4
+Total Protein
+Desired Range: 6.1-8.1 g/dL
+7.0
+Albumin
+Desired Range: 3.6-5.1 g/dL
+4.2
+Globulin
+Desired Range: 1.9-3.7 g/dL
+2.8
+Bilirubin, Total
+Desired Range: 0.2-1.2 mg/dL
+0.7
+Alkaline Phosphatase
+Desired Range: 39-117 U/L
+72
+AST
+Desired Range: 10-40 U/L
+22
+ALT
+Desired Range: 9-46 U/L
+24
 
-CBC
-WBC                      5.8  Thousand/uL  3.8-10.8
-RBC                      4.9  Million/uL  4.2-5.8
-HEMOGLOBIN              14.2  g/dL  13.2-17.1
-HEMATOCRIT              42.1  %  38.5-50.0
-MCV                      86  fL  80-100
-MCH                      29  pg  27-33
-MCHC                    33.7  g/dL  32.0-36.0
-RDW                     12.8  %  11.0-15.0
-PLATELETS                215  Thousand/uL  140-400
+COMPLETE BLOOD COUNT (CBC)
+White Blood Cell Count
+Desired Range: 3.8-10.8 Thousand/uL
+5.8
+Red Blood Cell Count
+Desired Range: 4.2-5.8 Million/uL
+4.9
+Hemoglobin
+Desired Range: 13.2-17.1 g/dL
+14.2
+Hematocrit
+Desired Range: 38.5-50.0 %
+42.1
+Mean RBC Volume
+Desired Range: 80-100 fL
+86
+Mean RBC Iron
+Desired Range: 27-33 pg
+29
+Mean RBC Iron Concentration
+Desired Range: 32.0-36.0 g/dL
+33.7
+RBC Distribution Width
+Desired Range: 11.0-15.0 %
+12.8
+Platelets
+Desired Range: 140-400 Thousand/uL
+215
 
 URINALYSIS
-COLOR                 Yellow
-APPEARANCE            Clear
-SPECIFIC GRAVITY      1.015
-PH                      6.0
-GLUCOSE               Negative
-BILIRUBIN             Negative
-KETONES               Negative
-BLOOD                 Negative
-PROTEIN               Negative
-NITRITE               Negative
-LEUKOCYTE ESTERASE    Negative
+COLOR
+Desired Result: YELLOW
+YELLOW
+APPEARANCE
+Desired Result: CLEAR
+CLEAR
+SPECIFIC GRAVITY
+Desired Range: 1.005-1.030
+1.015
+PH
+Desired Range: 5.0-8.0
+6.0
+GLUCOSE
+Desired Result: NEGATIVE
+NEGATIVE
+BILIRUBIN
+Desired Result: NEGATIVE
+NEGATIVE
+KETONES
+Desired Result: NEGATIVE
+NEGATIVE
+BLOOD
+Desired Result: NEGATIVE
+NEGATIVE
+PROTEIN
+Desired Result: NEGATIVE
+NEGATIVE
+NITRITE
+Desired Result: NEGATIVE
+NEGATIVE
+LEUKOCYTE ESTERASE
+Desired Result: NEGATIVE
+NEGATIVE
+WBC
+Desired Range: < OR = 5 /HPF
+NONE SEEN
 
-Desired Range
+SMITH,JOHN (ABC12345)
+
+Desired Range:
 
 Note: Results verified by laboratory director. Do not use for self-diagnosis.
-This report is for informational purposes only.
+Next Steps: Follow up with your provider.
+For additional education visit www.questdiagnostics.com
 
 Performing Site: Quest Diagnostics

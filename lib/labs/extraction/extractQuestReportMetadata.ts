@@ -19,6 +19,56 @@ function fieldAfter(label: RegExp, lines: string[]): string | null {
   return null;
 }
 
+const DOB_LABEL_RE = /(?:^|\||\s)(?:dob|date\s+of\s+birth)\s*:/i;
+
+/** Reject date substrings that belong to DOB / Date of Birth, not collection. */
+function isDobAnchoredDateSubstring(line: string, dateMatchIndex: number): boolean {
+  const before = line.slice(0, dateMatchIndex);
+  const dobLabel = /(?:^|\||\s)(?:dob|date\s+of\s+birth)\s*:\s*/gi;
+  let lastDob: RegExpExecArray | null = null;
+  for (;;) {
+    const m = dobLabel.exec(before);
+    if (!m) break;
+    lastDob = m;
+  }
+  if (!lastDob) return false;
+  const afterDob = before.slice(lastDob.index + lastDob[0].length);
+  // Date immediately after DOB label (before next field delimiter).
+  return !/\||(?:collected|received|reported|fasting|specimen|sex)\s*:/i.test(afterDob);
+}
+
+/**
+ * Extract collection date raw text without confusing DOB on combined metadata lines.
+ * Prefers explicit "Collected Date:" then standalone "Collected:".
+ */
+export function extractCollectedDateRaw(lines: string[]): string | null {
+  for (const line of lines) {
+    const collectedDateRe = /collected\s+date\s*:\s*([^|]+?)(?:\s*\||$)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = collectedDateRe.exec(line)) !== null) {
+      const raw = m[1]!.trim();
+      if (raw && !isDobAnchoredDateSubstring(line, m.index)) return raw;
+    }
+
+    const collectedRe = /(?:^|\|)\s*collected\s*:\s*([^|]+?)(?:\s*\||$)/gi;
+    while ((m = collectedRe.exec(line)) !== null) {
+      const labelStart = m[0].toLowerCase().indexOf("collected");
+      const absLabel = m.index + Math.max(0, labelStart);
+      if (/collected\s+date/i.test(line.slice(absLabel, absLabel + 20))) continue;
+      const raw = m[1]!.trim();
+      if (raw && !isDobAnchoredDateSubstring(line, m.index)) return raw;
+    }
+
+    if (/^collected\s*:/i.test(line.trim()) && !DOB_LABEL_RE.test(line)) {
+      const after = fieldAfter(/^collected\s*:/i, [line]);
+      if (after && !isDobAnchoredDateSubstring(line, line.toLowerCase().indexOf(after.toLowerCase()))) {
+        return after;
+      }
+    }
+  }
+  return null;
+}
+
 /** Join pdfjs-split metadata labels (e.g. "Collected:" on one line, date on the next). */
 function expandSplitMetadataLines(lines: string[]): string[] {
   const out: string[] = [];
@@ -62,7 +112,7 @@ export function extractQuestReportMetadata(args: {
   confidence: number;
 }): LabReportMetadataCandidate {
   const lines = expandSplitMetadataLines(args.metadataLines);
-  const collectedRaw = fieldAfter(/collected/i, lines);
+  const collectedRaw = extractCollectedDateRaw(lines);
   const receivedRaw = fieldAfter(/received/i, lines);
   const reportedRaw = fieldAfter(/reported/i, lines);
   const fastingRaw = fieldAfter(/fasting/i, lines);

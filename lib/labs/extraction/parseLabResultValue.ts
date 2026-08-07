@@ -21,6 +21,11 @@ const QUALITATIVE_MAP: Record<string, QualitativeValue> = {
   nonreactive: "non_reactive",
   present: "present",
   absent: "absent",
+  "none seen": "absent",
+  yellow: "present",
+  clear: "absent",
+  cloudy: "present",
+  turbid: "present",
 };
 
 const NOT_REPORTED_MAP: Record<string, NotReportedReason> = {

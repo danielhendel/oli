@@ -17,7 +17,7 @@ function normalizeLabel(raw: string): string {
   return raw
     .trim()
     .toLowerCase()
-    .replace(/[_/]+/g, " ")
+    .replace(/[-_/]+/g, " ")
     .replace(/[()[\],.:;]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -46,6 +46,50 @@ function labelLookupKeys(raw: string): string[] {
 
 /** Extra Quest/DirectLabs label forms not already on catalog aliases. */
 const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[] = [
+  { metricKey: "mcv", aliases: ["mean rbc volume", "mean corpuscular volume", "mean cell volume"] },
+  { metricKey: "mch", aliases: ["mean rbc iron", "mean corpuscular hemoglobin", "mean cell hemoglobin"] },
+  {
+    metricKey: "mchc",
+    aliases: ["mean rbc iron concentration", "mean corpuscular hemoglobin concentration"],
+  },
+  { metricKey: "rdw", aliases: ["rbc distribution width", "red cell distribution width", "rdw-cv"] },
+  { metricKey: "glucose", aliases: ["glucose (blood sugar)", "glucose blood sugar", "blood sugar"] },
+  { metricKey: "bun", aliases: ["urea nitrogen (bun)", "urea nitrogen bun", "urea nitrogen"] },
+  { metricKey: "co2_bicarbonate", aliases: ["carbon dioxide", "co2 content", "co2 bicarbonate"] },
+  { metricKey: "total_cholesterol", aliases: ["cholesterol, total", "cholesterol total"] },
+  { metricKey: "non_hdl_c", aliases: ["non hdl cholesterol", "non-hdl cholesterol"] },
+  {
+    metricKey: "egfr",
+    aliases: ["egfr non-afr american", "egfr non afr american", "egfr non african american"],
+  },
+  { metricKey: "wbc", aliases: ["white blood cell count", "wbc count"] },
+  {
+    metricKey: "urine_color",
+    aliases: ["color", "urine color"],
+  },
+  {
+    metricKey: "urine_appearance",
+    aliases: ["appearance", "urine appearance"],
+  },
+  {
+    metricKey: "urine_specific_gravity",
+    aliases: ["specific gravity", "urine specific gravity"],
+  },
+  {
+    metricKey: "urine_occult_blood",
+    aliases: ["blood", "occult blood", "urine blood"],
+  },
+  { metricKey: "urine_nitrite", aliases: ["nitrite", "urine nitrite"] },
+  {
+    metricKey: "urine_leukocyte_esterase",
+    aliases: ["leukocyte esterase", "leukocyte esterase urine"],
+  },
+  { metricKey: "urine_ketones", aliases: ["ketones", "urine ketones"] },
+  { metricKey: "urine_protein", aliases: ["protein", "urine protein"] },
+  { metricKey: "urine_glucose", aliases: ["glucose urine", "urine glucose"] },
+  { metricKey: "urine_bilirubin", aliases: ["bilirubin urine", "urine bilirubin"] },
+  { metricKey: "urine_ph", aliases: ["ph", "urine ph"] },
+
   // Cardiovascular
   { metricKey: "ldl_c", aliases: ["ldl-cholesterol", "ldl cholesterol", "cholesterol ldl", "ldl chol"] },
   { metricKey: "hdl_c", aliases: ["hdl-cholesterol", "hdl cholesterol", "cholesterol hdl", "hdl chol"] },
