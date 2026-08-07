@@ -48,6 +48,8 @@ function consumerSafeLabsDocumentFilename(docData: Record<string, unknown> | und
     "Lab report";
   return resolveConsumerSafeDocumentDisplayName(raw, { domain: "labs" });
 }
+
+function toIso(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && "toDate" in value) {
     return (value as { toDate: () => Date }).toDate().toISOString();
