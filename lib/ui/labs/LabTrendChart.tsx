@@ -1,7 +1,7 @@
 /**
  * Accessible lab trend chart — render + scrub only.
- * Does not fetch, classify, parse ranges, or own latest/prior selection.
- * Reference overlay geometry is passed in from pure builders.
+ * Metric-standard overlay geometry is passed in from pure builders.
+ * Does not fetch, classify, or invent clinical advice.
  */
 
 import React, { useCallback, useMemo, useState } from "react";
@@ -9,9 +9,6 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, G, Line, Path, Rect } from "react-native-svg";
 
 import { buildLabChartDomainWithReference } from "@/lib/labs/history/buildLabChartDomainWithReference";
-import {
-  formatLabReferenceOverlayCaption,
-} from "@/lib/labs/history/buildLabReferenceOverlay";
 import { buildLabTrendAccessibilitySummary } from "@/lib/labs/history/buildLabTrendAccessibilitySummary";
 import {
   formatLabTrendAxisLabel,
@@ -23,16 +20,17 @@ import {
   selectNearestLabTrendPoint,
 } from "@/lib/labs/history/selectNearestLabTrendPoint";
 import type { LabTrendPoint, LabTrendSeries } from "@/lib/labs/history/labTrendTypes";
-import { evaluateLabSourceReferenceContext } from "@/lib/labs/sourceContext/evaluateLabSourceReferenceContext";
 import {
-  formatLabSourceFlagCopy,
-  formatLabSourceReferenceRawCopy,
-  formatLabSourceReferenceStatusCopy,
-} from "@/lib/labs/sourceContext/formatLabSourceReferenceCopy";
+  formatLabMetricStandardLabelCopy,
+  formatLabMetricStandardLines,
+} from "@/lib/labs/standard/formatLabMetricStandardCopy";
+import type { LabMetricStandardDefinition } from "@/lib/labs/standard/labMetricStandardTypes";
 import { monotonePathD } from "@/lib/ui/body/monotoneLinePath";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
-  UI_REFERENCE_ZONE_NEUTRAL_FILL,
+  UI_RECOMMENDED_RANGE_BORDER,
+  UI_RECOMMENDED_RANGE_FILL,
+  UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
 } from "@/lib/ui/theme/recommendedRangeChrome";
 import {
   UI_TEXT_PRIMARY,
@@ -45,14 +43,12 @@ const PAD = { left: 12, right: 12, top: 16, bottom: 28 } as const;
 const LINE_WIDTH = 2.25;
 const DOT_R = 4.5;
 const SELECTED_R = 6.5;
-/**
- * Source-reference chrome — perceptible on dark elevated cards.
- * Uses design tokens; outside darkens the plot so the reference zone reads clearly.
- */
-const REF_IN_FILL = UI_REFERENCE_ZONE_NEUTRAL_FILL; // rgba(148,163,184,0.34)
-const REF_OUT_FILL = "rgba(0, 0, 0, 0.28)";
-const REF_THRESHOLD_STROKE = "rgba(226, 232, 240, 0.85)";
-const REF_THRESHOLD_WIDTH = 1.75;
+/** In-standard zone: green recommended-range token (clear on dark cards). */
+const STANDARD_IN_FILL = UI_RECOMMENDED_RANGE_FILL;
+/** Outside-standard zone: muted slate so green remains primary. */
+const STANDARD_OUT_FILL = UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT;
+const STANDARD_THRESHOLD_STROKE = UI_RECOMMENDED_RANGE_BORDER;
+const STANDARD_THRESHOLD_WIDTH = 1.75;
 const NONE_OVERLAY: LabChartReferenceOverlay = {
   kind: "none",
   reason: "missing_reference",
@@ -60,8 +56,11 @@ const NONE_OVERLAY: LabChartReferenceOverlay = {
 
 export type LabTrendChartProps = {
   series: LabTrendSeries;
-  /** Pure overlay from buildLabReferenceOverlay — chart does not parse ranges. */
+  /** Geometry from buildLabMetricStandardOverlay (preferred). */
+  standardOverlay?: LabChartReferenceOverlay | null;
+  /** @deprecated Prefer standardOverlay — kept for transitional callers. */
   referenceOverlay?: LabChartReferenceOverlay | null;
+  metricStandard?: LabMetricStandardDefinition | null;
   selectedPointId?: string | null;
   onSelectPoint?: (point: LabTrendPoint | null) => void;
   testID?: string;
@@ -74,21 +73,11 @@ function formatSelectedValue(point: LabTrendPoint): string {
   return String(point.value);
 }
 
-function sourceContextLines(point: LabTrendPoint): string[] {
-  const ctx = evaluateLabSourceReferenceContext({
-    result: { kind: "numeric", value: point.value, comparator: "eq" },
-    rawReferenceRange: point.rawReferenceRange,
-    normalizedFlag: point.reportFlag,
-    laboratoryName: point.laboratoryName,
-  });
-  const lines: string[] = [];
-  const status = formatLabSourceReferenceStatusCopy(ctx);
-  const flag = formatLabSourceFlagCopy(ctx);
-  const raw = formatLabSourceReferenceRawCopy(ctx, { unit: point.unit });
-  if (status) lines.push(status);
-  if (flag && (!status || !/flagged/i.test(status))) lines.push(flag);
-  if (raw) lines.push(raw);
-  return lines;
+function standardContextLines(
+  point: LabTrendPoint,
+  standard: LabMetricStandardDefinition | null | undefined,
+): string[] {
+  return formatLabMetricStandardLines({ value: point.value, standard: standard ?? null });
 }
 
 function valueToY(
@@ -156,7 +145,7 @@ export function buildLabTrendReferenceOverlayGeometry(args: {
   };
 }
 
-function ReferenceOverlayLayer({
+function StandardOverlayLayer({
   overlay,
   domain,
   plotW,
@@ -177,7 +166,6 @@ function ReferenceOverlayLayer({
   const outsideLowTestId =
     overlay.kind === "lower_bound" ? "lab-trend-ref-outside" : "lab-trend-ref-outside-low";
 
-  // Use <G> — React Fragments as Svg children often fail to paint on native iOS.
   return (
     <G testID="lab-trend-ref-overlay">
       {geo.outsideHigh && geo.outsideHigh.height > 0 ? (
@@ -186,7 +174,7 @@ function ReferenceOverlayLayer({
           y={geo.outsideHigh.y}
           width={w}
           height={geo.outsideHigh.height}
-          fill={REF_OUT_FILL}
+          fill={STANDARD_OUT_FILL}
           testID={outsideHighTestId}
         />
       ) : null}
@@ -196,7 +184,7 @@ function ReferenceOverlayLayer({
           y={geo.within.y}
           width={w}
           height={geo.within.height}
-          fill={REF_IN_FILL}
+          fill={STANDARD_IN_FILL}
           testID="lab-trend-ref-within"
         />
       ) : null}
@@ -206,7 +194,7 @@ function ReferenceOverlayLayer({
           y={geo.outsideLow.y}
           width={w}
           height={geo.outsideLow.height}
-          fill={REF_OUT_FILL}
+          fill={STANDARD_OUT_FILL}
           testID={outsideLowTestId}
         />
       ) : null}
@@ -217,8 +205,8 @@ function ReferenceOverlayLayer({
           x2={x + w}
           y1={yThresh}
           y2={yThresh}
-          stroke={REF_THRESHOLD_STROKE}
-          strokeWidth={REF_THRESHOLD_WIDTH}
+          stroke={STANDARD_THRESHOLD_STROKE}
+          strokeWidth={STANDARD_THRESHOLD_WIDTH}
           testID={
             geo.thresholds.length === 1
               ? "lab-trend-ref-threshold"
@@ -234,7 +222,9 @@ function ReferenceOverlayLayer({
 
 export function LabTrendChart({
   series,
+  standardOverlay = null,
   referenceOverlay = null,
+  metricStandard = null,
   selectedPointId = null,
   onSelectPoint,
   testID = "lab-trend-chart",
@@ -242,11 +232,15 @@ export function LabTrendChart({
   const [width, setWidth] = useState(0);
   const [scrubId, setScrubId] = useState<string | null>(null);
 
-  const overlay = referenceOverlay ?? NONE_OVERLAY;
+  const overlay = standardOverlay ?? referenceOverlay ?? NONE_OVERLAY;
 
   const accessibilityLabel = useMemo(
-    () => buildLabTrendAccessibilitySummary(series, { referenceOverlay: overlay }),
-    [series, overlay],
+    () =>
+      buildLabTrendAccessibilitySummary(series, {
+        referenceOverlay: overlay,
+        metricStandard,
+      }),
+    [series, overlay, metricStandard],
   );
 
   const activeId = scrubId ?? selectedPointId ?? series.latest?.acceptedResultId ?? null;
@@ -254,15 +248,9 @@ export function LabTrendChart({
     series.points.find((p) => p.acceptedResultId === activeId) ?? series.latest;
 
   const caption = useMemo(
-    () => formatLabReferenceOverlayCaption(overlay, { unit: series.unit }),
-    [overlay, series.unit],
+    () => (metricStandard ? formatLabMetricStandardLabelCopy(metricStandard) : null),
+    [metricStandard],
   );
-
-  const showRefKey = overlay.kind !== "none" && overlay.kind !== "provider_categories";
-  const refKeyLabel =
-    showRefKey && /quest/i.test(overlay.providerName ?? "")
-      ? "Quest reference"
-      : "Source reference";
 
   const geometry = useMemo(() => {
     const domain = buildLabChartDomainWithReference(series.points, overlay);
@@ -281,19 +269,12 @@ export function LabTrendChart({
     });
 
     const pathD = monotonePathD(coords.map((c) => ({ x: c.x, y: c.y })));
-    const overlayGeo = buildLabTrendReferenceOverlayGeometry({
-      overlay,
-      domain,
-      plotW,
-      plotH,
-    });
-
     const first = coords[0]!;
     const last = coords[coords.length - 1]!;
     const mid =
       coords.length >= 3 ? coords[Math.floor(coords.length / 2)]! : null;
 
-    return { domain, coords, pathD, plotW, plotH, first, last, mid, overlayGeo };
+    return { domain, coords, pathD, plotW, plotH, first, last, mid };
   }, [series.points, width, overlay]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -337,8 +318,8 @@ export function LabTrendChart({
         <Text style={styles.singleValue} testID={`${testID}-single-value`}>
           {formatSelectedValue(p)}
         </Text>
-        {sourceContextLines(p).map((line) => (
-          <Text key={line} style={styles.selectionMeta}>
+        {standardContextLines(p, metricStandard).map((line) => (
+          <Text key={line} style={styles.selectionMeta} testID={`${testID}-standard-context`}>
             {line}
           </Text>
         ))}
@@ -362,24 +343,24 @@ export function LabTrendChart({
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel}
     >
-      {caption ? (
-        <Text style={styles.refCaption} testID={`${testID}-ref-caption`}>
-          {caption}
-        </Text>
-      ) : null}
-
       {activePoint ? (
         <View style={styles.selection} testID={`${testID}-selection`}>
           <Text style={styles.selectionDate}>
             {formatLabTrendPointDate(activePoint.collectedDate)}
           </Text>
           <Text style={styles.selectionValue}>{formatSelectedValue(activePoint)}</Text>
-          {sourceContextLines(activePoint).map((line) => (
-            <Text key={line} style={styles.selectionMeta} testID={`${testID}-source-context`}>
+          {standardContextLines(activePoint, metricStandard).map((line) => (
+            <Text key={line} style={styles.selectionMeta} testID={`${testID}-standard-context`}>
               {line}
             </Text>
           ))}
         </View>
+      ) : null}
+
+      {caption ? (
+        <Text style={styles.refCaption} testID={`${testID}-ref-caption`}>
+          {caption}
+        </Text>
       ) : null}
 
       <View
@@ -398,14 +379,12 @@ export function LabTrendChart({
       >
         {width > 0 && geometry ? (
           <Svg width={width} height={CHART_HEIGHT} testID={`${testID}-svg`}>
-            {/* 1-3: source reference overlay behind the trend line */}
-            <ReferenceOverlayLayer
+            <StandardOverlayLayer
               overlay={overlay}
               domain={geometry.domain}
               plotW={geometry.plotW}
               plotH={geometry.plotH}
             />
-            {/* 4: trend line */}
             <Path
               d={geometry.pathD}
               stroke={SYSTEM_ACCENT}
@@ -414,7 +393,6 @@ export function LabTrendChart({
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {/* 5-6: points + selected */}
             {geometry.coords.map((c) => {
               const selected = c.point.acceptedResultId === activeId;
               return (
@@ -429,7 +407,6 @@ export function LabTrendChart({
                 />
               );
             })}
-            {/* 7: scrub guide */}
             {activePoint ? (
               (() => {
                 const c = geometry.coords.find(
@@ -454,19 +431,6 @@ export function LabTrendChart({
           <View style={{ height: CHART_HEIGHT }} />
         )}
       </View>
-
-      {showRefKey ? (
-        <View style={styles.refKey} testID={`${testID}-ref-key`} accessibilityRole="text">
-          <View style={styles.refKeyItem}>
-            <View style={[styles.refKeySwatch, { backgroundColor: REF_IN_FILL }]} />
-            <Text style={styles.refKeyLabel}>{refKeyLabel}</Text>
-          </View>
-          <View style={styles.refKeyItem}>
-            <View style={[styles.refKeySwatch, { backgroundColor: REF_OUT_FILL }]} />
-            <Text style={styles.refKeyLabel}>Outside reference</Text>
-          </View>
-        </View>
-      ) : null}
 
       {geometry ? (
         <View style={styles.xLabels} testID={`${testID}-x-axis`}>
@@ -496,26 +460,6 @@ const styles = StyleSheet.create({
   },
   refCaption: {
     fontSize: 12,
-    color: UI_TEXT_TERTIARY_LABEL,
-  },
-  refKey: {
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  refKeyItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  refKeySwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 2,
-  },
-  refKeyLabel: {
-    fontSize: 11,
     color: UI_TEXT_TERTIARY_LABEL,
   },
   chartTouch: {

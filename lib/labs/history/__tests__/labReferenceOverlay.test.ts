@@ -9,6 +9,8 @@ import {
 import { buildLabTrendAccessibilitySummary } from "../buildLabTrendAccessibilitySummary";
 import { buildLabTrendSeries } from "../buildLabTrendSeries";
 import { makeNumericHistoryPoint as numericPoint } from "../__fixtures__/labTrendTestFixtures";
+import { buildLabMetricStandardOverlay } from "../../standard/buildLabMetricStandardOverlay";
+import { getLabMetricStandard } from "../../standard/labMetricStandardCatalog";
 import type { LabHistoryPointDto } from "@oli/contracts";
 
 function cholesterolHistory(rawReferenceRange: string | null = "<200") {
@@ -511,21 +513,22 @@ describe("buildLabChartDomainWithReference", () => {
   });
 });
 
-describe("buildLabTrendAccessibilitySummary with reference overlay", () => {
-  it("includes source range context without Oli classification words", () => {
+describe("buildLabTrendAccessibilitySummary with metric standard", () => {
+  it("includes standard context without Quest or Oli classification words", () => {
     const series = buildLabTrendSeries({
       metricKey: "total_cholesterol",
       displayName: "Total Cholesterol",
       historyPoints: cholesterolHistory("<200"),
     });
-    const overlay = buildLabReferenceOverlay({
-      graphEligibility: series.graphEligibility,
-      points: series.points,
+    const metricStandard = getLabMetricStandard("total_cholesterol");
+    const overlay = buildLabMetricStandardOverlay(metricStandard);
+    const label = buildLabTrendAccessibilitySummary(series, {
+      referenceOverlay: overlay,
+      metricStandard,
     });
-    const label = buildLabTrendAccessibilitySummary(series, { referenceOverlay: overlay });
     expect(label).toContain("Total Cholesterol trend");
-    expect(label).toContain("Within Quest reference range");
-    expect(label.toLowerCase()).toMatch(/quest reference/);
-    expect(label.toLowerCase()).not.toMatch(/\boli\b|healthy|dangerous|optimal for you/);
+    expect(label).toContain("Within standard");
+    expect(label).toContain("Standard: Under 200 mg/dL");
+    expect(label.toLowerCase()).not.toMatch(/\boli\b|healthy|dangerous|optimal for you|quest/);
   });
 });

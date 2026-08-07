@@ -263,7 +263,7 @@ describe("LabMetricDetailContent", () => {
     expect(tree!.root.findByProps({ testID: "lab-trend-chart-single" })).toBeTruthy();
   });
 
-  it("renders source reference status for numeric latest", () => {
+  it("renders source reference status in Source section for numeric latest", () => {
     const acceptedHistory: LabHistoryPointDto[] = [
       {
         id: "hp2",
@@ -297,5 +297,65 @@ describe("LabMetricDetailContent", () => {
     expect(String(tree!.root.findByProps({ testID: "lab-metric-source-reference-raw" }).props.children)).toMatch(
       /Quest reference:/i,
     );
+    // Primary latest card must not use Quest as the metric standard framing.
+    expect(tree!.root.findAllByProps({ testID: "lab-metric-standard-status" })).toHaveLength(0);
+  });
+
+  it("renders metric standard framing for Total Cholesterol latest", () => {
+    const detail: LabMetricDetailResponseDto = {
+      ...baseDetail,
+      metricKey: "total_cholesterol",
+      displayName: "Total Cholesterol",
+      latest: {
+        ...baseDetail.latest!,
+        metricKey: "total_cholesterol",
+        displayName: "Total Cholesterol",
+        value: 179,
+        rawName: "Cholesterol, Total",
+      },
+    };
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "tc1",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+        result: { kind: "numeric", value: 179, comparator: "eq" },
+        displayValue: "179",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d4",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={detail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-status" }).props.children)).toBe(
+      "Within standard",
+    );
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-label" }).props.children)).toBe(
+      "Standard: Under 200 mg/dL",
+    );
+    const heroTexts = tree!.root
+      .findByProps({ testID: "lab-metric-detail" })
+      .findAllByType(require("react-native").Text)
+      .map((t) => String(t.props.children))
+      .join(" | ");
+    // Quest framing may still appear under Source, but primary status uses standard language.
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-status" }).props.children)).not.toMatch(
+      /Quest/i,
+    );
+    expect(heroTexts).toMatch(/Within standard/);
   });
 });

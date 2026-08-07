@@ -2,12 +2,12 @@
  * Accessibility summary for a lab trend series — no PHI logging, display-safe copy only.
  */
 
-import { evaluateLabSourceReferenceContext } from "../sourceContext/evaluateLabSourceReferenceContext";
 import {
-  formatLabSourceReferenceRawCopy,
-  formatLabSourceReferenceStatusCopy,
-} from "../sourceContext/formatLabSourceReferenceCopy";
-import { formatLabReferenceOverlayCaption } from "./buildLabReferenceOverlay";
+  formatLabMetricStandardLabelCopy,
+  formatLabMetricStandardStatusCopy,
+} from "../standard/formatLabMetricStandardCopy";
+import { evaluateLabMetricStandardStatus } from "../standard/evaluateLabMetricStandard";
+import type { LabMetricStandardDefinition } from "../standard/labMetricStandardTypes";
 import {
   formatLabTrendPointDate,
 } from "./labTrendCalendar";
@@ -29,19 +29,9 @@ function speakUnit(unit: string | null): string {
   return map[unit] ?? unit;
 }
 
-function speakReferenceRaw(raw: string, unit: string | null): string {
-  let text = raw.trim();
-  text = text.replace(/^</, "less than ").replace(/^>/, "greater than ");
-  text = text.replace(/^<=|^≤/, "less than or equal to ").replace(/^>=|^≥/, "greater than or equal to ");
-  const unitSpeak = speakUnit(unit);
-  if (unitSpeak && !text.toLowerCase().includes(unitSpeak.split(" ")[0]!)) {
-    return `${text} ${unitSpeak}`.trim();
-  }
-  return text;
-}
-
 export type LabTrendAccessibilityOptions = {
   referenceOverlay?: LabChartReferenceOverlay | null;
+  metricStandard?: LabMetricStandardDefinition | null;
 };
 
 export function buildLabTrendAccessibilitySummary(
@@ -62,41 +52,12 @@ export function buildLabTrendAccessibilitySummary(
       `Latest result ${latestValue} on ${formatLabTrendPointDate(last.collectedDate)}.`,
     ];
 
-    const ctx = evaluateLabSourceReferenceContext({
-      result: { kind: "numeric", value: last.value, comparator: "eq" },
-      rawReferenceRange: last.rawReferenceRange,
-      normalizedFlag: last.reportFlag,
-      laboratoryName: last.laboratoryName,
-    });
-    const status = formatLabSourceReferenceStatusCopy(ctx);
-    if (status) parts.push(`${status}.`);
-
-    const overlay = opts?.referenceOverlay ?? null;
-    if (overlay && overlay.kind !== "none") {
-      const caption = formatLabReferenceOverlayCaption(overlay, { unit: last.unit });
-      if (caption) {
-        const spoken = speakReferenceRaw(
-          overlay.kind === "provider_categories"
-            ? overlay.rawReference ?? caption
-            : overlay.rawReference,
-          last.unit,
-        );
-        const who = /quest/i.test(overlay.providerName ?? "")
-          ? "Quest"
-          : overlay.providerName
-            ? overlay.providerName.replace(/\s+Diagnostics$/i, "").trim()
-            : "Laboratory";
-        parts.push(`${who} reference ${spoken}.`);
-      }
-    } else {
-      const raw = formatLabSourceReferenceRawCopy(ctx, { unit: last.unit });
-      if (raw) {
-        parts.push(
-          raw
-            .replace(/Quest reference:/i, "Quest reference")
-            .replace(/reference:/i, "reference") + ".",
-        );
-      }
+    const standard = opts?.metricStandard ?? null;
+    if (standard) {
+      const status = evaluateLabMetricStandardStatus(last.value, standard);
+      const statusCopy = formatLabMetricStandardStatusCopy(status);
+      if (statusCopy) parts.push(`${statusCopy}.`);
+      parts.push(`${formatLabMetricStandardLabelCopy(standard)}.`);
     }
 
     return parts.join(" ");
