@@ -1,18 +1,23 @@
 /**
  * Accessible lab trend chart — render + scrub only.
- * Does not fetch, classify, or own latest/prior selection.
+ * Does not fetch, classify, parse ranges, or own latest/prior selection.
+ * Reference overlay geometry is passed in from pure builders.
  */
 
 import React, { useCallback, useMemo, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Line, Path } from "react-native-svg";
+import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 
-import { buildLabChartDomain } from "@/lib/labs/history/buildLabChartDomain";
+import { buildLabChartDomainWithReference } from "@/lib/labs/history/buildLabChartDomainWithReference";
+import {
+  formatLabReferenceOverlayCaption,
+} from "@/lib/labs/history/buildLabReferenceOverlay";
 import { buildLabTrendAccessibilitySummary } from "@/lib/labs/history/buildLabTrendAccessibilitySummary";
 import {
   formatLabTrendAxisLabel,
   formatLabTrendPointDate,
 } from "@/lib/labs/history/labTrendCalendar";
+import type { LabChartReferenceOverlay } from "@/lib/labs/history/labReferenceOverlayTypes";
 import {
   mapChartXToEpochMs,
   selectNearestLabTrendPoint,
@@ -27,6 +32,9 @@ import {
 import { monotonePathD } from "@/lib/ui/body/monotoneLinePath";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
+  UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
+} from "@/lib/ui/theme/recommendedRangeChrome";
+import {
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
   UI_TEXT_TERTIARY_LABEL,
@@ -37,9 +45,19 @@ const PAD = { left: 12, right: 12, top: 16, bottom: 28 } as const;
 const LINE_WIDTH = 2.25;
 const DOT_R = 4.5;
 const SELECTED_R = 6.5;
+/** Subtle source-reference zone (not Oli clinical chrome). */
+const REF_IN_FILL = UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT;
+const REF_OUT_FILL = "rgba(148, 163, 184, 0.12)";
+const REF_THRESHOLD_STROKE = "rgba(148, 163, 184, 0.55)";
+const NONE_OVERLAY: LabChartReferenceOverlay = {
+  kind: "none",
+  reason: "missing_reference",
+};
 
 export type LabTrendChartProps = {
   series: LabTrendSeries;
+  /** Pure overlay from buildLabReferenceOverlay — chart does not parse ranges. */
+  referenceOverlay?: LabChartReferenceOverlay | null;
   selectedPointId?: string | null;
   onSelectPoint?: (point: LabTrendPoint | null) => void;
   testID?: string;
@@ -69,8 +87,166 @@ function sourceContextLines(point: LabTrendPoint): string[] {
   return lines;
 }
 
+function valueToY(
+  value: number,
+  domain: { yMin: number; yMax: number },
+  plotH: number,
+): number {
+  const yRange = Math.max(0.0001, domain.yMax - domain.yMin);
+  return PAD.top + plotH - ((value - domain.yMin) / yRange) * plotH;
+}
+
+function clampY(y: number, plotTop: number, plotBottom: number): number {
+  return Math.min(plotBottom, Math.max(plotTop, y));
+}
+
+function ReferenceOverlayLayer({
+  overlay,
+  domain,
+  plotW,
+  plotH,
+}: {
+  overlay: LabChartReferenceOverlay;
+  domain: { yMin: number; yMax: number };
+  plotW: number;
+  plotH: number;
+}) {
+  if (overlay.kind === "none" || overlay.kind === "provider_categories") return null;
+
+  const plotTop = PAD.top;
+  const plotBottom = PAD.top + plotH;
+  const x = PAD.left;
+  const w = plotW;
+
+  const yAt = (v: number) => clampY(valueToY(v, domain, plotH), plotTop, plotBottom);
+
+  if (overlay.kind === "upper_bound") {
+    const yThresh = yAt(overlay.upper);
+    return (
+      <>
+        {/* Outside reference: above threshold (toward top of plot) */}
+        <Rect
+          x={x}
+          y={plotTop}
+          width={w}
+          height={Math.max(0, yThresh - plotTop)}
+          fill={REF_OUT_FILL}
+          testID="lab-trend-ref-outside"
+        />
+        {/* Within reference: at/below threshold */}
+        <Rect
+          x={x}
+          y={yThresh}
+          width={w}
+          height={Math.max(0, plotBottom - yThresh)}
+          fill={REF_IN_FILL}
+          testID="lab-trend-ref-within"
+        />
+        <Line
+          x1={x}
+          x2={x + w}
+          y1={yThresh}
+          y2={yThresh}
+          stroke={REF_THRESHOLD_STROKE}
+          strokeWidth={1}
+          testID="lab-trend-ref-threshold"
+        />
+      </>
+    );
+  }
+
+  if (overlay.kind === "lower_bound") {
+    const yThresh = yAt(overlay.lower);
+    return (
+      <>
+        {/* Within reference: at/above threshold */}
+        <Rect
+          x={x}
+          y={plotTop}
+          width={w}
+          height={Math.max(0, yThresh - plotTop)}
+          fill={REF_IN_FILL}
+          testID="lab-trend-ref-within"
+        />
+        {/* Outside reference: below threshold */}
+        <Rect
+          x={x}
+          y={yThresh}
+          width={w}
+          height={Math.max(0, plotBottom - yThresh)}
+          fill={REF_OUT_FILL}
+          testID="lab-trend-ref-outside"
+        />
+        <Line
+          x1={x}
+          x2={x + w}
+          y1={yThresh}
+          y2={yThresh}
+          stroke={REF_THRESHOLD_STROKE}
+          strokeWidth={1}
+          testID="lab-trend-ref-threshold"
+        />
+      </>
+    );
+  }
+
+  // bounded
+  const yUpper = yAt(overlay.upper);
+  const yLower = yAt(overlay.lower);
+  const bandTop = Math.min(yUpper, yLower);
+  const bandBottom = Math.max(yUpper, yLower);
+
+  return (
+    <>
+      <Rect
+        x={x}
+        y={plotTop}
+        width={w}
+        height={Math.max(0, bandTop - plotTop)}
+        fill={REF_OUT_FILL}
+        testID="lab-trend-ref-outside-high"
+      />
+      <Rect
+        x={x}
+        y={bandTop}
+        width={w}
+        height={Math.max(0, bandBottom - bandTop)}
+        fill={REF_IN_FILL}
+        testID="lab-trend-ref-within"
+      />
+      <Rect
+        x={x}
+        y={bandBottom}
+        width={w}
+        height={Math.max(0, plotBottom - bandBottom)}
+        fill={REF_OUT_FILL}
+        testID="lab-trend-ref-outside-low"
+      />
+      <Line
+        x1={x}
+        x2={x + w}
+        y1={yUpper}
+        y2={yUpper}
+        stroke={REF_THRESHOLD_STROKE}
+        strokeWidth={1}
+        testID="lab-trend-ref-threshold-upper"
+      />
+      <Line
+        x1={x}
+        x2={x + w}
+        y1={yLower}
+        y2={yLower}
+        stroke={REF_THRESHOLD_STROKE}
+        strokeWidth={1}
+        testID="lab-trend-ref-threshold-lower"
+      />
+    </>
+  );
+}
+
 export function LabTrendChart({
   series,
+  referenceOverlay = null,
   selectedPointId = null,
   onSelectPoint,
   testID = "lab-trend-chart",
@@ -78,17 +254,24 @@ export function LabTrendChart({
   const [width, setWidth] = useState(0);
   const [scrubId, setScrubId] = useState<string | null>(null);
 
+  const overlay = referenceOverlay ?? NONE_OVERLAY;
+
   const accessibilityLabel = useMemo(
-    () => buildLabTrendAccessibilitySummary(series),
-    [series],
+    () => buildLabTrendAccessibilitySummary(series, { referenceOverlay: overlay }),
+    [series, overlay],
   );
 
   const activeId = scrubId ?? selectedPointId ?? series.latest?.acceptedResultId ?? null;
   const activePoint =
     series.points.find((p) => p.acceptedResultId === activeId) ?? series.latest;
 
+  const caption = useMemo(
+    () => formatLabReferenceOverlayCaption(overlay, { unit: series.unit }),
+    [overlay, series.unit],
+  );
+
   const geometry = useMemo(() => {
-    const domain = buildLabChartDomain(series.points);
+    const domain = buildLabChartDomainWithReference(series.points, overlay);
     if (!domain || width <= 0 || series.points.length < 2) return null;
 
     const plotW = Math.max(1, width - PAD.left - PAD.right);
@@ -105,14 +288,13 @@ export function LabTrendChart({
 
     const pathD = monotonePathD(coords.map((c) => ({ x: c.x, y: c.y })));
 
-    // Axis labels: first, optional mid, last — by collection date (not equal spacing).
     const first = coords[0]!;
     const last = coords[coords.length - 1]!;
     const mid =
       coords.length >= 3 ? coords[Math.floor(coords.length / 2)]! : null;
 
-    return { domain, coords, pathD, plotW, first, last, mid };
-  }, [series.points, width]);
+    return { domain, coords, pathD, plotW, plotH, first, last, mid };
+  }, [series.points, width, overlay]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const next = Math.round(e.nativeEvent.layout.width);
@@ -155,6 +337,11 @@ export function LabTrendChart({
         <Text style={styles.singleValue} testID={`${testID}-single-value`}>
           {formatSelectedValue(p)}
         </Text>
+        {sourceContextLines(p).map((line) => (
+          <Text key={line} style={styles.selectionMeta}>
+            {line}
+          </Text>
+        ))}
         <Text style={styles.singleHint}>
           Your trend will appear after another compatible result is added.
         </Text>
@@ -175,6 +362,12 @@ export function LabTrendChart({
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel}
     >
+      {caption ? (
+        <Text style={styles.refCaption} testID={`${testID}-ref-caption`}>
+          {caption}
+        </Text>
+      ) : null}
+
       {activePoint ? (
         <View style={styles.selection} testID={`${testID}-selection`}>
           <Text style={styles.selectionDate}>
@@ -205,6 +398,12 @@ export function LabTrendChart({
       >
         {width > 0 && geometry ? (
           <Svg width={width} height={CHART_HEIGHT}>
+            <ReferenceOverlayLayer
+              overlay={overlay}
+              domain={geometry.domain}
+              plotW={geometry.plotW}
+              plotH={geometry.plotH}
+            />
             <Path
               d={geometry.pathD}
               stroke={SYSTEM_ACCENT}
@@ -277,6 +476,10 @@ const styles = StyleSheet.create({
   wrap: {
     gap: 8,
     minHeight: 44,
+  },
+  refCaption: {
+    fontSize: 12,
+    color: UI_TEXT_TERTIARY_LABEL,
   },
   chartTouch: {
     minHeight: 44,

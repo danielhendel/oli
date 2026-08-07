@@ -9,6 +9,7 @@ import {
   calculateLabMetricChange,
   formatLabMetricChangeCopy,
 } from "@/lib/labs/history/calculateLabMetricChange";
+import { buildLabReferenceOverlay } from "@/lib/labs/history/buildLabReferenceOverlay";
 import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
 import { evaluateLabSourceReferenceContext } from "@/lib/labs/sourceContext/evaluateLabSourceReferenceContext";
 import {
@@ -256,6 +257,14 @@ export function LabMetricDetailContent({
     });
   }, [acceptedHistory, data?.displayName, data?.metricKey, useAcceptedHistory]);
 
+  const referenceOverlay = useMemo(() => {
+    if (!trendSeries) return null;
+    return buildLabReferenceOverlay({
+      graphEligibility: trendSeries.graphEligibility,
+      points: trendSeries.points,
+    });
+  }, [trendSeries]);
+
   const showTrendSection =
     trendSeries != null &&
     (trendSeries.graphEligibility === "numeric_graph" ||
@@ -310,7 +319,7 @@ export function LabMetricDetailContent({
       {showTrendSection && trendSeries ? (
         <View style={styles.section} testID="lab-metric-trend">
           <Text style={styles.sectionTitle}>Trend</Text>
-          <LabTrendChart series={trendSeries} />
+          <LabTrendChart series={trendSeries} referenceOverlay={referenceOverlay} />
         </View>
       ) : null}
 
