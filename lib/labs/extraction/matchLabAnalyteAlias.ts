@@ -23,6 +23,15 @@ function normalizeLabel(raw: string): string {
     .trim();
 }
 
+/** Quest Chol/HDL ratio labels — including compound "Cholesterol Total/Cholesterol HDL Ratio". */
+function looksLikeCholHdlRatioLabel(normalized: string): boolean {
+  if (!normalized) return false;
+  if (/\b(?:chol|cholesterol|tc)\b.*\bhdl\b.*\bratio\b/.test(normalized)) return true;
+  if (/\bchol\s*hdlc?\s*ratio\b/.test(normalized)) return true;
+  if (/\btc\s*hdl\s*ratio\b/.test(normalized)) return true;
+  return false;
+}
+
 /** Strip Quest method/assay suffixes for alias lookup (label remains original elsewhere). */
 function labelLookupKeys(raw: string): string[] {
   const base = normalizeLabel(raw);
@@ -34,6 +43,12 @@ function labelLookupKeys(raw: string): string[] {
     .replace(/\s+/g, " ")
     .trim();
   if (withoutMethod && withoutMethod !== base) keys.push(withoutMethod);
+
+  // Truncating ratio compound labels yields "cholesterol total" and steals Total Cholesterol.
+  if (looksLikeCholHdlRatioLabel(base) || looksLikeCholHdlRatioLabel(withoutMethod)) {
+    return [...new Set(keys.filter(Boolean))];
+  }
+
   // Drop trailing assay tokens one at a time for "TESTOSTERONE TOTAL MS" style labels.
   const parts = withoutMethod.split(" ");
   for (let i = parts.length - 1; i >= 2; i--) {
@@ -115,7 +130,16 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   { metricKey: "non_hdl_c", aliases: ["non hdl cholesterol", "non-hdl cholesterol", "non-hdl-c", "non hdl-c", "non hdl"] },
   {
     metricKey: "chol_hdl_ratio",
-    aliases: ["chol/hdlc ratio", "chol hdlc ratio", "cholesterol/hdl ratio", "tc/hdl ratio", "chol/hdl ratio"],
+    aliases: [
+      "chol/hdlc ratio",
+      "chol hdlc ratio",
+      "cholesterol/hdl ratio",
+      "tc/hdl ratio",
+      "chol/hdl ratio",
+      "cholesterol total/cholesterol hdl ratio",
+      "cholesterol total cholesterol hdl ratio",
+      "total cholesterol/hdl cholesterol ratio",
+    ],
   },
   { metricKey: "ldl_medium", aliases: ["ldl medium", "medium ldl-p", "medium ldl", "ldl-p medium"] },
   { metricKey: "hdl_large", aliases: ["hdl large", "large hdl-p", "large hdl", "hdl-p large"] },
@@ -357,6 +381,19 @@ const ALIAS_INDEX = buildIndex();
  * Ambiguous multi-metric hits remain unmatched and require review.
  */
 export function matchLabAnalyteAlias(rawLabel: string): AliasMatchOutcome {
+  const normalizedFull = normalizeLabel(rawLabel);
+  if (looksLikeCholHdlRatioLabel(normalizedFull)) {
+    const metric = getLabMetricByKey("chol_hdl_ratio");
+    return {
+      canonicalMetricId: "chol_hdl_ratio",
+      matchMethod: "exact_alias",
+      aliasVersion: LABS_ALIAS_REGISTRY_VERSION,
+      confidence: 0.95,
+      requiresReview: false,
+      ...(metric ? { metric } : {}),
+    };
+  }
+
   const lookupKeys = labelLookupKeys(rawLabel);
   if (lookupKeys.length === 0) {
     return {

@@ -57,6 +57,36 @@ describe("June 2020 Total Cholesterol / Chol-HDL ratio identity", () => {
     expect(matchLabAnalyteAlias("Cholesterol").canonicalMetricId).not.toBe("total_cholesterol");
   });
 
+  it("maps compound Cholesterol Total/Cholesterol HDL Ratio to chol_hdl_ratio", () => {
+    expect(matchLabAnalyteAlias("Cholesterol Total/Cholesterol HDL Ratio").canonicalMetricId).toBe(
+      "chol_hdl_ratio",
+    );
+    expect(matchLabAnalyteAlias("CHOLESTEROL TOTAL/CHOLESTEROL HDL RATIO").canonicalMetricId).toBe(
+      "chol_hdl_ratio",
+    );
+  });
+
+  it("keeps Cholesterol, Total as total_cholesterol", () => {
+    expect(matchLabAnalyteAlias("Cholesterol, Total").canonicalMetricId).toBe("total_cholesterol");
+  });
+
+  it("does not treat compound ratio label as Total Cholesterol or suppress genuine TC", () => {
+    const draft = draftFor("quest_2020_compound_chol_hdl_ratio_label_v1");
+    const byId = new Map(
+      draft.results
+        .filter((r) => r.aliasMatch.canonicalMetricId)
+        .map((r) => [r.aliasMatch.canonicalMetricId!, r]),
+    );
+    const tc = byId.get("total_cholesterol");
+    const ratio = byId.get("chol_hdl_ratio");
+    expect(tc).toBeDefined();
+    expect(ratio).toBeDefined();
+    expect(numericEq(tc!.result)?.value).toBe(173);
+    expect(numericEq(ratio!.result)?.value).toBe(3.5);
+    expect(ratio!.rawAnalyteLabel).toMatch(/Cholesterol Total\/Cholesterol HDL Ratio/i);
+    expect(tc!.rawAnalyteLabel).toMatch(/Cholesterol,\s*Total/i);
+  });
+
   it("extracts genuine Total Cholesterol and Chol/HDL Ratio separately from ALL-CAPS stacked lipids", () => {
     const draft = draftFor("quest_2020_basic_health_allcaps_lipids_v1");
     const byId = new Map(
