@@ -22,11 +22,13 @@ export type LabSourceReferenceInput = {
   providerCategoryLabel?: string | null;
 };
 
-/** Normalize Quest "OR =" grammar before interval parse. */
+/** Normalize Quest "OR =" grammar and common report prefixes before interval parse. */
 export function normalizeLabReferenceRaw(raw: string): string {
   return raw
     .trim()
     .replace(/\s+/g, " ")
+    // Report labels often prefix the interval (e.g. "Reference Range: <200").
+    .replace(/^(?:reference\s*range|ref\.?\s*range|desired\s*range|normal\s*range)\s*:?\s*/i, "")
     .replace(/>\s*OR\s*=/gi, ">=")
     .replace(/<\s*OR\s*=/gi, "<=")
     .replace(/≥\s*OR\s*=/gi, ">=")

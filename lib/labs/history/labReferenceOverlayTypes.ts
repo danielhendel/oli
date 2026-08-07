@@ -3,6 +3,8 @@
  * Geometry only — never invents Oli clinical classifications.
  */
 
+export type LabChartReferenceOverlayScope = "persistent" | "latest";
+
 export type LabChartReferenceOverlayReason =
   | "missing_reference"
   | "qualitative"
@@ -21,35 +23,37 @@ export type LabChartReferenceOverlayCategory = {
   maxInclusive: boolean;
 };
 
+type LabChartReferenceOverlayBase = {
+  providerName: string | null;
+  rawReference: string;
+  /** persistent = historically compatible; latest = latest-source band with explicit attribution */
+  scope: LabChartReferenceOverlayScope;
+};
+
 export type LabChartReferenceOverlay =
-  | {
+  | (LabChartReferenceOverlayBase & {
       kind: "bounded";
       lower: number;
       upper: number;
       lowerInclusive: boolean;
       upperInclusive: boolean;
-      providerName: string | null;
-      rawReference: string;
-    }
-  | {
+    })
+  | (LabChartReferenceOverlayBase & {
       kind: "upper_bound";
       upper: number;
       inclusive: boolean;
-      providerName: string | null;
-      rawReference: string;
-    }
-  | {
+    })
+  | (LabChartReferenceOverlayBase & {
       kind: "lower_bound";
       lower: number;
       inclusive: boolean;
-      providerName: string | null;
-      rawReference: string;
-    }
+    })
   | {
       kind: "provider_categories";
       providerName: string | null;
       categories: readonly LabChartReferenceOverlayCategory[];
       rawReference: string | null;
+      scope: LabChartReferenceOverlayScope;
     }
   | {
       kind: "none";

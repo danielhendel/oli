@@ -6,7 +6,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
+import Svg, { Circle, G, Line, Path, Rect } from "react-native-svg";
 
 import { buildLabChartDomainWithReference } from "@/lib/labs/history/buildLabChartDomainWithReference";
 import {
@@ -32,7 +32,7 @@ import {
 import { monotonePathD } from "@/lib/ui/body/monotoneLinePath";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 import {
-  UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT,
+  UI_REFERENCE_ZONE_NEUTRAL_FILL,
 } from "@/lib/ui/theme/recommendedRangeChrome";
 import {
   UI_TEXT_PRIMARY,
@@ -45,10 +45,14 @@ const PAD = { left: 12, right: 12, top: 16, bottom: 28 } as const;
 const LINE_WIDTH = 2.25;
 const DOT_R = 4.5;
 const SELECTED_R = 6.5;
-/** Subtle source-reference zone (not Oli clinical chrome). */
-const REF_IN_FILL = UI_REFERENCE_ZONE_NEUTRAL_FILL_SOFT;
-const REF_OUT_FILL = "rgba(148, 163, 184, 0.12)";
-const REF_THRESHOLD_STROKE = "rgba(148, 163, 184, 0.55)";
+/**
+ * Source-reference chrome — perceptible on dark elevated cards.
+ * Uses design tokens; outside darkens the plot so the reference zone reads clearly.
+ */
+const REF_IN_FILL = UI_REFERENCE_ZONE_NEUTRAL_FILL; // rgba(148,163,184,0.34)
+const REF_OUT_FILL = "rgba(0, 0, 0, 0.28)";
+const REF_THRESHOLD_STROKE = "rgba(226, 232, 240, 0.85)";
+const REF_THRESHOLD_WIDTH = 1.75;
 const NONE_OVERLAY: LabChartReferenceOverlay = {
   kind: "none",
   reason: "missing_reference",
@@ -100,6 +104,58 @@ function clampY(y: number, plotTop: number, plotBottom: number): number {
   return Math.min(plotBottom, Math.max(plotTop, y));
 }
 
+/** Exported for render-path tests — maps overlay to concrete SVG geometry. */
+export function buildLabTrendReferenceOverlayGeometry(args: {
+  overlay: LabChartReferenceOverlay;
+  domain: { yMin: number; yMax: number };
+  plotW: number;
+  plotH: number;
+}): {
+  within: { y: number; height: number } | null;
+  outsideHigh: { y: number; height: number } | null;
+  outsideLow: { y: number; height: number } | null;
+  thresholds: number[];
+} | null {
+  const { overlay, domain, plotW, plotH } = args;
+  if (overlay.kind === "none" || overlay.kind === "provider_categories") return null;
+  if (plotW <= 0 || plotH <= 0) return null;
+
+  const plotTop = PAD.top;
+  const plotBottom = PAD.top + plotH;
+  const yAt = (v: number) => clampY(valueToY(v, domain, plotH), plotTop, plotBottom);
+
+  if (overlay.kind === "upper_bound") {
+    const yThresh = yAt(overlay.upper);
+    return {
+      outsideHigh: { y: plotTop, height: Math.max(0, yThresh - plotTop) },
+      within: { y: yThresh, height: Math.max(0, plotBottom - yThresh) },
+      outsideLow: null,
+      thresholds: [yThresh],
+    };
+  }
+
+  if (overlay.kind === "lower_bound") {
+    const yThresh = yAt(overlay.lower);
+    return {
+      within: { y: plotTop, height: Math.max(0, yThresh - plotTop) },
+      outsideLow: { y: yThresh, height: Math.max(0, plotBottom - yThresh) },
+      outsideHigh: null,
+      thresholds: [yThresh],
+    };
+  }
+
+  const yUpper = yAt(overlay.upper);
+  const yLower = yAt(overlay.lower);
+  const bandTop = Math.min(yUpper, yLower);
+  const bandBottom = Math.max(yUpper, yLower);
+  return {
+    outsideHigh: { y: plotTop, height: Math.max(0, bandTop - plotTop) },
+    within: { y: bandTop, height: Math.max(0, bandBottom - bandTop) },
+    outsideLow: { y: bandBottom, height: Math.max(0, plotBottom - bandBottom) },
+    thresholds: [yUpper, yLower],
+  };
+}
+
 function ReferenceOverlayLayer({
   overlay,
   domain,
@@ -111,136 +167,68 @@ function ReferenceOverlayLayer({
   plotW: number;
   plotH: number;
 }) {
-  if (overlay.kind === "none" || overlay.kind === "provider_categories") return null;
+  const geo = buildLabTrendReferenceOverlayGeometry({ overlay, domain, plotW, plotH });
+  if (!geo) return null;
 
-  const plotTop = PAD.top;
-  const plotBottom = PAD.top + plotH;
   const x = PAD.left;
   const w = plotW;
+  const outsideHighTestId =
+    overlay.kind === "upper_bound" ? "lab-trend-ref-outside" : "lab-trend-ref-outside-high";
+  const outsideLowTestId =
+    overlay.kind === "lower_bound" ? "lab-trend-ref-outside" : "lab-trend-ref-outside-low";
 
-  const yAt = (v: number) => clampY(valueToY(v, domain, plotH), plotTop, plotBottom);
-
-  if (overlay.kind === "upper_bound") {
-    const yThresh = yAt(overlay.upper);
-    return (
-      <>
-        {/* Outside reference: above threshold (toward top of plot) */}
-        <Rect
-          x={x}
-          y={plotTop}
-          width={w}
-          height={Math.max(0, yThresh - plotTop)}
-          fill={REF_OUT_FILL}
-          testID="lab-trend-ref-outside"
-        />
-        {/* Within reference: at/below threshold */}
-        <Rect
-          x={x}
-          y={yThresh}
-          width={w}
-          height={Math.max(0, plotBottom - yThresh)}
-          fill={REF_IN_FILL}
-          testID="lab-trend-ref-within"
-        />
-        <Line
-          x1={x}
-          x2={x + w}
-          y1={yThresh}
-          y2={yThresh}
-          stroke={REF_THRESHOLD_STROKE}
-          strokeWidth={1}
-          testID="lab-trend-ref-threshold"
-        />
-      </>
-    );
-  }
-
-  if (overlay.kind === "lower_bound") {
-    const yThresh = yAt(overlay.lower);
-    return (
-      <>
-        {/* Within reference: at/above threshold */}
-        <Rect
-          x={x}
-          y={plotTop}
-          width={w}
-          height={Math.max(0, yThresh - plotTop)}
-          fill={REF_IN_FILL}
-          testID="lab-trend-ref-within"
-        />
-        {/* Outside reference: below threshold */}
-        <Rect
-          x={x}
-          y={yThresh}
-          width={w}
-          height={Math.max(0, plotBottom - yThresh)}
-          fill={REF_OUT_FILL}
-          testID="lab-trend-ref-outside"
-        />
-        <Line
-          x1={x}
-          x2={x + w}
-          y1={yThresh}
-          y2={yThresh}
-          stroke={REF_THRESHOLD_STROKE}
-          strokeWidth={1}
-          testID="lab-trend-ref-threshold"
-        />
-      </>
-    );
-  }
-
-  // bounded
-  const yUpper = yAt(overlay.upper);
-  const yLower = yAt(overlay.lower);
-  const bandTop = Math.min(yUpper, yLower);
-  const bandBottom = Math.max(yUpper, yLower);
-
+  // Use <G> — React Fragments as Svg children often fail to paint on native iOS.
   return (
-    <>
-      <Rect
-        x={x}
-        y={plotTop}
-        width={w}
-        height={Math.max(0, bandTop - plotTop)}
-        fill={REF_OUT_FILL}
-        testID="lab-trend-ref-outside-high"
-      />
-      <Rect
-        x={x}
-        y={bandTop}
-        width={w}
-        height={Math.max(0, bandBottom - bandTop)}
-        fill={REF_IN_FILL}
-        testID="lab-trend-ref-within"
-      />
-      <Rect
-        x={x}
-        y={bandBottom}
-        width={w}
-        height={Math.max(0, plotBottom - bandBottom)}
-        fill={REF_OUT_FILL}
-        testID="lab-trend-ref-outside-low"
-      />
-      <Line
-        x1={x}
-        x2={x + w}
-        y1={yUpper}
-        y2={yUpper}
-        stroke={REF_THRESHOLD_STROKE}
-        strokeWidth={1}
-        testID="lab-trend-ref-threshold-upper"
-      />
-      <Line
-        x1={x}
-        x2={x + w}
-        y1={yLower}
-        y2={yLower}
-        stroke={REF_THRESHOLD_STROKE}
-        strokeWidth={1}
-        testID="lab-trend-ref-threshold-lower"
-      />
-    </>
+    <G testID="lab-trend-ref-overlay">
+      {geo.outsideHigh && geo.outsideHigh.height > 0 ? (
+        <Rect
+          x={x}
+          y={geo.outsideHigh.y}
+          width={w}
+          height={geo.outsideHigh.height}
+          fill={REF_OUT_FILL}
+          testID={outsideHighTestId}
+        />
+      ) : null}
+      {geo.within && geo.within.height > 0 ? (
+        <Rect
+          x={x}
+          y={geo.within.y}
+          width={w}
+          height={geo.within.height}
+          fill={REF_IN_FILL}
+          testID="lab-trend-ref-within"
+        />
+      ) : null}
+      {geo.outsideLow && geo.outsideLow.height > 0 ? (
+        <Rect
+          x={x}
+          y={geo.outsideLow.y}
+          width={w}
+          height={geo.outsideLow.height}
+          fill={REF_OUT_FILL}
+          testID={outsideLowTestId}
+        />
+      ) : null}
+      {geo.thresholds.map((yThresh, idx) => (
+        <Line
+          key={`thresh-${idx}`}
+          x1={x}
+          x2={x + w}
+          y1={yThresh}
+          y2={yThresh}
+          stroke={REF_THRESHOLD_STROKE}
+          strokeWidth={REF_THRESHOLD_WIDTH}
+          testID={
+            geo.thresholds.length === 1
+              ? "lab-trend-ref-threshold"
+              : idx === 0
+                ? "lab-trend-ref-threshold-upper"
+                : "lab-trend-ref-threshold-lower"
+          }
+        />
+      ))}
+    </G>
   );
 }
 
@@ -270,6 +258,12 @@ export function LabTrendChart({
     [overlay, series.unit],
   );
 
+  const showRefKey = overlay.kind !== "none" && overlay.kind !== "provider_categories";
+  const refKeyLabel =
+    showRefKey && /quest/i.test(overlay.providerName ?? "")
+      ? "Quest reference"
+      : "Source reference";
+
   const geometry = useMemo(() => {
     const domain = buildLabChartDomainWithReference(series.points, overlay);
     if (!domain || width <= 0 || series.points.length < 2) return null;
@@ -287,13 +281,19 @@ export function LabTrendChart({
     });
 
     const pathD = monotonePathD(coords.map((c) => ({ x: c.x, y: c.y })));
+    const overlayGeo = buildLabTrendReferenceOverlayGeometry({
+      overlay,
+      domain,
+      plotW,
+      plotH,
+    });
 
     const first = coords[0]!;
     const last = coords[coords.length - 1]!;
     const mid =
       coords.length >= 3 ? coords[Math.floor(coords.length / 2)]! : null;
 
-    return { domain, coords, pathD, plotW, plotH, first, last, mid };
+    return { domain, coords, pathD, plotW, plotH, first, last, mid, overlayGeo };
   }, [series.points, width, overlay]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -397,13 +397,15 @@ export function LabTrendChart({
         importantForAccessibility="no-hide-descendants"
       >
         {width > 0 && geometry ? (
-          <Svg width={width} height={CHART_HEIGHT}>
+          <Svg width={width} height={CHART_HEIGHT} testID={`${testID}-svg`}>
+            {/* 1-3: source reference overlay behind the trend line */}
             <ReferenceOverlayLayer
               overlay={overlay}
               domain={geometry.domain}
               plotW={geometry.plotW}
               plotH={geometry.plotH}
             />
+            {/* 4: trend line */}
             <Path
               d={geometry.pathD}
               stroke={SYSTEM_ACCENT}
@@ -412,6 +414,7 @@ export function LabTrendChart({
               strokeLinecap="round"
               strokeLinejoin="round"
             />
+            {/* 5-6: points + selected */}
             {geometry.coords.map((c) => {
               const selected = c.point.acceptedResultId === activeId;
               return (
@@ -426,6 +429,7 @@ export function LabTrendChart({
                 />
               );
             })}
+            {/* 7: scrub guide */}
             {activePoint ? (
               (() => {
                 const c = geometry.coords.find(
@@ -450,6 +454,19 @@ export function LabTrendChart({
           <View style={{ height: CHART_HEIGHT }} />
         )}
       </View>
+
+      {showRefKey ? (
+        <View style={styles.refKey} testID={`${testID}-ref-key`} accessibilityRole="text">
+          <View style={styles.refKeyItem}>
+            <View style={[styles.refKeySwatch, { backgroundColor: REF_IN_FILL }]} />
+            <Text style={styles.refKeyLabel}>{refKeyLabel}</Text>
+          </View>
+          <View style={styles.refKeyItem}>
+            <View style={[styles.refKeySwatch, { backgroundColor: REF_OUT_FILL }]} />
+            <Text style={styles.refKeyLabel}>Outside reference</Text>
+          </View>
+        </View>
+      ) : null}
 
       {geometry ? (
         <View style={styles.xLabels} testID={`${testID}-x-axis`}>
@@ -479,6 +496,26 @@ const styles = StyleSheet.create({
   },
   refCaption: {
     fontSize: 12,
+    color: UI_TEXT_TERTIARY_LABEL,
+  },
+  refKey: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  refKeyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  refKeySwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  refKeyLabel: {
+    fontSize: 11,
     color: UI_TEXT_TERTIARY_LABEL,
   },
   chartTouch: {

@@ -61,6 +61,7 @@ describe("buildLabReferenceOverlay", () => {
       expect(overlay.inclusive).toBe(false);
       expect(overlay.rawReference).toBe("<200");
       expect(overlay.providerName).toMatch(/Quest/i);
+      expect(overlay.scope).toBe("persistent");
     }
     expect(labReferenceOverlayThresholds(overlay)).toEqual([200]);
     expect(formatLabReferenceOverlayCaption(overlay, { unit: "mg/dL" })).toBe(
@@ -150,7 +151,53 @@ describe("buildLabReferenceOverlay", () => {
     ).toEqual({ kind: "none", reason: "missing_reference" });
   });
 
-  it("suppresses persistent band when historical references differ", () => {
+  it("treats Reference Range: <200 formatting variants as the same geometry", () => {
+    const series = buildLabTrendSeries({
+      metricKey: "total_cholesterol",
+      displayName: "Total Cholesterol",
+      historyPoints: [
+        numericPoint({
+          id: "a",
+          collectedAt: "2024-10-15T00:00:00.000Z",
+          sourceDocumentId: "d4",
+          value: 179,
+          rawReferenceRange: "<200",
+        }),
+        numericPoint({
+          id: "b",
+          collectedAt: "2022-07-07T00:00:00.000Z",
+          sourceDocumentId: "d3",
+          value: 208,
+          rawReferenceRange: "Reference Range: <200",
+        }),
+        numericPoint({
+          id: "c",
+          collectedAt: "2020-09-24T00:00:00.000Z",
+          sourceDocumentId: "d2",
+          value: 186,
+          rawReferenceRange: "Reference Range: <200",
+        }),
+        numericPoint({
+          id: "d",
+          collectedAt: "2020-06-05T00:00:00.000Z",
+          sourceDocumentId: "d1",
+          value: 173,
+          rawReferenceRange: "<200 mg/dL",
+        }),
+      ],
+    });
+    const overlay = buildLabReferenceOverlay({
+      graphEligibility: series.graphEligibility,
+      points: series.points,
+    });
+    expect(overlay.kind).toBe("upper_bound");
+    if (overlay.kind === "upper_bound") {
+      expect(overlay.upper).toBe(200);
+      expect(overlay.scope).toBe("persistent");
+    }
+  });
+
+  it("falls back to latest-source band when historical thresholds truly differ", () => {
     const series = buildLabTrendSeries({
       metricKey: "total_cholesterol",
       historyPoints: [
@@ -170,12 +217,49 @@ describe("buildLabReferenceOverlay", () => {
         }),
       ],
     });
-    expect(
-      buildLabReferenceOverlay({
-        graphEligibility: series.graphEligibility,
-        points: series.points,
-      }),
-    ).toEqual({ kind: "none", reason: "incompatible_reference_history" });
+    const overlay = buildLabReferenceOverlay({
+      graphEligibility: series.graphEligibility,
+      points: series.points,
+    });
+    expect(overlay.kind).toBe("upper_bound");
+    if (overlay.kind === "upper_bound") {
+      expect(overlay.upper).toBe(200);
+      expect(overlay.scope).toBe("latest");
+      expect(formatLabReferenceOverlayCaption(overlay, { unit: "mg/dL" })).toBe(
+        "Latest Quest reference: <200 mg/dL",
+      );
+    }
+  });
+
+  it("suppresses persistent band when historical references differ", () => {
+    // Kept for compatibility-evaluator coverage; builder uses latest fallback instead of none.
+    const series = buildLabTrendSeries({
+      metricKey: "total_cholesterol",
+      historyPoints: [
+        numericPoint({
+          id: "a",
+          collectedAt: "2024-10-15T00:00:00.000Z",
+          sourceDocumentId: "d2",
+          value: 179,
+          rawReferenceRange: "<200",
+        }),
+        numericPoint({
+          id: "b",
+          collectedAt: "2022-07-07T00:00:00.000Z",
+          sourceDocumentId: "d1",
+          value: 208,
+          rawReferenceRange: "<190",
+        }),
+      ],
+    });
+    const overlay = buildLabReferenceOverlay({
+      graphEligibility: series.graphEligibility,
+      points: series.points,
+    });
+    expect(overlay.kind).not.toBe("none");
+    if (overlay.kind !== "none") {
+      expect(overlay.scope).toBe("latest");
+    }
   });
 
   it("suppresses band when method or specimen changes across series points", () => {
@@ -219,7 +303,7 @@ describe("buildLabReferenceOverlay", () => {
           },
         ],
       }),
-    ).toEqual({ kind: "none", reason: "incompatible_reference_history" });
+    ).toMatchObject({ kind: "upper_bound", scope: "latest", upper: 200 });
 
     expect(
       buildLabReferenceOverlay({
@@ -245,7 +329,7 @@ describe("buildLabReferenceOverlay", () => {
           },
         ],
       }),
-    ).toEqual({ kind: "none", reason: "incompatible_reference_history" });
+    ).toMatchObject({ kind: "upper_bound", scope: "latest", upper: 200 });
   });
 
   it("does not invent numeric overlays for qualitative / pattern / inequality timelines", () => {

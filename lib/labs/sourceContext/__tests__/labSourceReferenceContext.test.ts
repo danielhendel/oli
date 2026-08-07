@@ -202,6 +202,17 @@ describe("evaluateLabReferenceContextCompatibility", () => {
     ).toBe("different_specimen");
   });
 
+  it("marks formatting variants of the same threshold as compatible", () => {
+    expect(
+      evaluateLabReferenceContextCompatibility([
+        { laboratoryName: "Quest", rawReferenceRange: "<200" },
+        { laboratoryName: "Quest", rawReferenceRange: "Reference Range: <200" },
+        { laboratoryName: "Quest", rawReferenceRange: "<200 mg/dL" },
+        { laboratoryName: "Quest", rawReferenceRange: "< 200" },
+      ]),
+    ).toBe("compatible_same_reference");
+  });
+
   it("marks missing reference", () => {
     expect(
       evaluateLabReferenceContextCompatibility([
