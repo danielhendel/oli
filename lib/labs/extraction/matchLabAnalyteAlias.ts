@@ -305,6 +305,7 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
     metricKey: "sars_cov2_igm",
     aliases: [
       "sars cov 2 ab igm",
+      "sars cov 2 igm",
       "sars-cov-2 igm",
       "sars cov-2 igm",
       "sars-cov-2 antibody igm",

@@ -236,7 +236,7 @@ const LAB_METRICS: LabMetricDefinition[] = [
     "sars_cov2_igm",
     "inflammation",
     "SARS-CoV-2 IgM",
-    ["sars-cov-2 igm", "sars cov 2 ab igm", "sars-cov-2 antibody igm"],
+    ["sars-cov-2 igm", "sars cov 2 igm", "sars cov 2 ab igm", "sars-cov-2 antibody igm"],
     ["none"],
     "none",
     210,

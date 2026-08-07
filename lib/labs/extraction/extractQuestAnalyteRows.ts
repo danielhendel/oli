@@ -691,6 +691,12 @@ export function extractQuestAnalyteRows(args: {
       if (/^interpretation\s+guide/i.test(trimmed)) return;
       if (/^guide$/i.test(trimmed)) return;
       if (/^index\s+value/i.test(trimmed)) return;
+      if (/^igm\s+result\s+igg\s+result/i.test(trimmed)) return;
+      if (/^(?:negative|positive)\s+(?:negative|positive)\b/i.test(trimmed)) return;
+      if (/antibodies not detected|suggests (?:past|recent) exposure/i.test(trimmed)) return;
+      if (/false positive results for the|do not preclude acute|not be used to diagnose acute/i.test(trimmed)) {
+        return;
+      }
       if (/^this test has not been|^this test has been authorized/i.test(trimmed)) return;
       if (/^<\d+\.\d+/i.test(trimmed) || /^>=\d+\.\d+/i.test(trimmed)) return;
       if (/^\d+\.\d+\s*-\s*\d+\.\d+/i.test(trimmed) && /indeterminate|negative|positive/i.test(trimmed)) {

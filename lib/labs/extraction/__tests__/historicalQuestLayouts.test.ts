@@ -3,7 +3,7 @@ import path from "path";
 import { describe, expect, it } from "@jest/globals";
 import { detectQuestTextReport } from "../detectQuestTextReport";
 import { extractQuestLabReportDraft } from "../extractQuestLabReportDraft";
-import { partitionLabCandidatesForAutoPublish } from "../../autoPublish/partitionLabAutoPublish";
+import { partitionLabCandidatesForAutoPublish, buildLabImportSummary } from "../../autoPublish/partitionLabAutoPublish";
 import { evaluateLabTrendEligibility } from "../../history/evaluateLabTrendEligibility";
 
 const CHECKSUM = "e".repeat(64);
@@ -176,16 +176,23 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
 
       const iggMatched = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igg");
       const igmMatched = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igm");
+      expect(draft.results.filter((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igg")).toHaveLength(1);
+      expect(draft.results.filter((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igm")).toHaveLength(1);
       expect(iggMatched?.rawResult).toBe("POSITIVE");
       expect(igmMatched?.rawResult).toBe("POSITIVE");
       expect(iggMatched?.result?.kind).toBe("qualitative");
       expect(igmMatched?.result?.kind).toBe("qualitative");
-      expect(iggMatched?.rawReferenceRange).toBe("NEGATIVE");
-      expect(igmMatched?.rawReferenceRange).toBe("NEGATIVE");
+      expect(iggMatched?.result).toMatchObject({ kind: "qualitative", value: "positive" });
+      expect(igmMatched?.result).toMatchObject({ kind: "qualitative", value: "positive" });
+      expect(iggMatched?.rawReferenceRange).toMatch(/NEGATIVE/i);
+      expect(igmMatched?.rawReferenceRange).toMatch(/NEGATIVE/i);
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
-      expect(labels.some((l) => /interpretation guide|index value|note 1|fda eua/i.test(l))).toBe(false);
+      expect(labels.some((l) => /interpretation guide|index value|note 1|fda eua|igg result igm result/i.test(l))).toBe(
+        false,
+      );
       expect(labels.some((l) => /^<1\.00$/i.test(l))).toBe(false);
+      expect(labels.some((l) => /suggests (?:past|recent) exposure/i.test(l))).toBe(false);
 
       for (const row of [iggMatched, igmMatched]) {
         if (!row?.result) continue;
@@ -199,12 +206,18 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       }
 
       const partition = partitionLabCandidatesForAutoPublish(draft);
-      expect(partition.autoPublishable.some((p) => p.candidate.aliasMatch.canonicalMetricId === "sars_cov2_igg")).toBe(
-        true,
-      );
-      expect(partition.autoPublishable.some((p) => p.candidate.aliasMatch.canonicalMetricId === "sars_cov2_igm")).toBe(
-        true,
-      );
+      const autoMetrics = partition.autoPublishable.map((p) => p.candidate.aliasMatch.canonicalMetricId);
+      expect(autoMetrics.filter((m) => m === "sars_cov2_igg")).toHaveLength(1);
+      expect(autoMetrics.filter((m) => m === "sars_cov2_igm")).toHaveLength(1);
+      expect(partition.autoPublishable).toHaveLength(2);
+
+      const summary = buildLabImportSummary({
+        documentId: "doc_2021",
+        draft,
+        partition,
+      });
+      expect(summary.importedCount).toBe(2);
+      expect(summary.reportImportStatus).toMatch(/^imported/);
     });
   });
 
