@@ -132,7 +132,7 @@ export function evaluateLabSourceReferenceContext(
   const rawRef = input.rawReferenceRange?.trim() || null;
   const normalizedRaw = rawRef ? normalizeLabReferenceRaw(rawRef) : null;
 
-  let structured =
+  const structured =
     input.structuredReferenceRange ??
     (normalizedRaw ? parseLabReferenceRange(normalizedRaw)?.structured ?? null : null);
 
