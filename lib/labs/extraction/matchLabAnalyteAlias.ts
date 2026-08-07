@@ -93,7 +93,8 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   // Cardiovascular
   { metricKey: "ldl_c", aliases: ["ldl-cholesterol", "ldl cholesterol", "cholesterol ldl", "ldl chol"] },
   { metricKey: "hdl_c", aliases: ["hdl-cholesterol", "hdl cholesterol", "cholesterol hdl", "hdl chol"] },
-  { metricKey: "total_cholesterol", aliases: ["cholesterol, total", "cholesterol total", "cholesterol"] },
+  // Never alias bare "cholesterol" — it collides with Chol/HDL ratio fragments.
+  { metricKey: "total_cholesterol", aliases: ["cholesterol, total", "cholesterol total"] },
   { metricKey: "triglycerides", aliases: ["triglyceride", "trig", "trigs"] },
   { metricKey: "apob", aliases: ["apolipoprotein b", "apo-b", "apo b", "apolipoprotein b-100", "apo b-100"] },
   { metricKey: "lpa", aliases: ["lipoprotein (a)", "lipoprotein(a)", "lp(a)", "lp a", "lipoprotein a"] },

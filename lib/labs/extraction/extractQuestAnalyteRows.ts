@@ -392,8 +392,24 @@ const SHORT_ANALYTE_SUFFIX = /^(?:igg|igm|iga|ab|total|free|direct|indirect)$/i;
 const STACKED_META_LINE =
   /^(?:desired\s+(?:range|result)|reference\s+range|unit\s+of\s+measure)\s*:/i;
 
-const PATIENT_IDENTITY_LINE =
-  /^[A-Z][A-Z'`.-]+,\s*[A-Z][A-Za-z'`.-]+(?:\s+\([A-Z0-9]+\))?\s*$/;
+/**
+ * Patient identity headers look like "LAST, FIRST" or "LAST, FIRST (ID)".
+ * Must NOT match analyte labels such as "CHOLESTEROL, TOTAL" / "BILIRUBIN, TOTAL".
+ */
+const PATIENT_IDENTITY_CANDIDATE_LINE =
+  /^[A-Z][A-Z'`.-]+,\s*([A-Z][A-Za-z'`.-]+)(?:\s+\([A-Z0-9]+\))?\s*$/;
+
+/** Second-token analyte suffixes that appear after a comma in Quest labels. */
+const ANALYTE_COMMA_SUFFIX =
+  /^(?:TOTAL|FREE|DIRECT|INDIRECT|SERUM|PLASMA|URINE|RANDOM|FASTING|CALC|ABS|AB|IA|MS)$/i;
+
+function isPatientIdentityLine(trimmed: string): boolean {
+  const m = PATIENT_IDENTITY_CANDIDATE_LINE.exec(trimmed);
+  if (!m) return false;
+  const second = m[1]!;
+  if (ANALYTE_COMMA_SUFFIX.test(second) || SHORT_ANALYTE_SUFFIX.test(second)) return false;
+  return true;
+}
 
 const STACKED_SKIP_LINE =
   /^(?:page\s+\d+\s+of\s+\d+|next\s+steps|martin[- ]hopkins|https?:\/\/|www\.)/i;
@@ -413,9 +429,14 @@ function splitRangeAndUnit(value: string): { range: string; unit: string | null 
   const trimmed = value.trim();
   const unitMatch = /\s+([A-Za-z%µμ][A-Za-z%µμ^0-9./()]{0,24}(?:\s*\([^)]*\))?)\s*$/.exec(trimmed);
   if (unitMatch && unitMatch.index! > 0) {
+    const candidate = unitMatch[1]!.replace(/\s*\([^)]*\)\s*$/, "").trim() || null;
+    // Quest ratio rows append "calc" / "calculated" — not a laboratory unit.
+    if (candidate && /^(?:calc|calculated|calculation)$/i.test(candidate)) {
+      return { range: trimmed, unit: null };
+    }
     return {
       range: trimmed.slice(0, unitMatch.index).trim(),
-      unit: unitMatch[1]!.replace(/\s*\([^)]*\)\s*$/, "").trim() || null,
+      unit: candidate,
     };
   }
   return { range: trimmed, unit: null };
@@ -447,7 +468,7 @@ function isStackedAnalyteLabel(trimmed: string): boolean {
   if (PANEL_HEADER_ONLY.test(trimmed)) return false;
   if (TABLE_HEADER_LINE.test(trimmed)) return false;
   if (STACKED_META_LINE.test(trimmed)) return false;
-  if (PATIENT_IDENTITY_LINE.test(trimmed)) return false;
+  if (isPatientIdentityLine(trimmed)) return false;
   if (STACKED_SKIP_LINE.test(trimmed)) return false;
   if (/^(?:note:|please note|for additional|relative\s+risk|client\s*#|account\s*#|performing\s+site)/i.test(trimmed)) {
     return false;
@@ -488,7 +509,7 @@ function reconstructStackedDesiredRangeLines(bodyLines: string[]): string[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    if (STACKED_SKIP_LINE.test(trimmed) || PATIENT_IDENTITY_LINE.test(trimmed)) {
+    if (STACKED_SKIP_LINE.test(trimmed) || isPatientIdentityLine(trimmed)) {
       pending = null;
       continue;
     }
@@ -510,7 +531,11 @@ function reconstructStackedDesiredRangeLines(bodyLines: string[]): string[] {
         pending.rawUnit = splitRangeAndUnit(payload).range.replace(/\s*\([^)]*\)\s*$/, "").trim() || payload;
       } else {
         const { range, unit } = splitRangeAndUnit(payload);
-        pending.rawRange = range;
+        // Do not overwrite an already-captured Desired Range (avoids row-shift
+        // contamination when a second meta line belongs to a later analyte).
+        if (!pending.rawRange) {
+          pending.rawRange = range;
+        }
         if (unit && !pending.rawUnit) pending.rawUnit = unit;
       }
       continue;
@@ -666,7 +691,7 @@ export function extractQuestAnalyteRows(args: {
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;
       // Never emit patient identity headers as analyte candidates (PHI).
-      if (PATIENT_IDENTITY_LINE.test(trimmed)) return;
+      if (isPatientIdentityLine(trimmed)) return;
       if (/patient\s+id|dob|date of birth|phone|address|requisition/i.test(trimmed)) return;
       // Client/account metadata and interpretive legends are not analyte rows.
       if (/^client\s*#|^account\s*#|^patient\s*#/i.test(trimmed)) return;
