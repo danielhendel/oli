@@ -21,7 +21,6 @@ import {
 } from "@/lib/labs/history/selectNearestLabTrendPoint";
 import type { LabTrendPoint, LabTrendSeries } from "@/lib/labs/history/labTrendTypes";
 import {
-  formatLabMetricStandardLabelCopy,
   formatLabMetricStandardLines,
 } from "@/lib/labs/standard/formatLabMetricStandardCopy";
 import type { LabMetricStandardDefinition } from "@/lib/labs/standard/labMetricStandardTypes";
@@ -247,11 +246,6 @@ export function LabTrendChart({
   const activePoint =
     series.points.find((p) => p.acceptedResultId === activeId) ?? series.latest;
 
-  const caption = useMemo(
-    () => (metricStandard ? formatLabMetricStandardLabelCopy(metricStandard) : null),
-    [metricStandard],
-  );
-
   const geometry = useMemo(() => {
     const domain = buildLabChartDomainWithReference(series.points, overlay);
     if (!domain || width <= 0 || series.points.length < 2) return null;
@@ -357,12 +351,6 @@ export function LabTrendChart({
         </View>
       ) : null}
 
-      {caption ? (
-        <Text style={styles.refCaption} testID={`${testID}-ref-caption`}>
-          {caption}
-        </Text>
-      ) : null}
-
       <View
         style={styles.chartTouch}
         onStartShouldSetResponder={() => true}
@@ -457,10 +445,6 @@ const styles = StyleSheet.create({
   wrap: {
     gap: 8,
     minHeight: 44,
-  },
-  refCaption: {
-    fontSize: 12,
-    color: UI_TEXT_TERTIARY_LABEL,
   },
   chartTouch: {
     minHeight: 44,

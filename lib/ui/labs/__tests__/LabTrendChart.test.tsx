@@ -77,14 +77,24 @@ describe("LabTrendChart", () => {
     expect(root.props.accessibilityLabel).toContain("Standard: Under 200 mg/dL");
     expect(root.props.accessibilityLabel.toLowerCase()).not.toMatch(/quest/);
 
-    expect(tree!.root.findByProps({ testID: "lab-trend-chart-ref-caption" }).props.children).toBe(
-      "Standard: Under 200 mg/dL",
-    );
-    const standardLines = tree!.root
-      .findAllByProps({ testID: "lab-trend-chart-standard-context" })
+    // Visible Trend card: status + standard once each — no duplicate caption.
+    expect(tree!.root.findAllByProps({ testID: "lab-trend-chart-ref-caption" })).toHaveLength(0);
+    const selection = tree!.root.findByProps({ testID: "lab-trend-chart-selection" });
+    const selectionTexts = selection
+      .findAllByType(require("react-native").Text)
       .map((n) => String(n.props.children));
-    expect(standardLines).toEqual(expect.arrayContaining(["Within standard", "Standard: Under 200 mg/dL"]));
+    expect(selectionTexts.filter((l) => l === "Within standard")).toHaveLength(1);
+    expect(selectionTexts.filter((l) => l === "Standard: Under 200 mg/dL")).toHaveLength(1);
+    expect(selectionTexts).toEqual(
+      expect.arrayContaining(["Within standard", "Standard: Under 200 mg/dL"]),
+    );
     expect(tree!.root.findAllByProps({ testID: "lab-trend-chart-ref-key" })).toHaveLength(0);
+
+    const chartRootTexts = tree!.root
+      .findByProps({ testID: "lab-trend-chart" })
+      .findAllByType(require("react-native").Text)
+      .map((t) => String(t.props.children));
+    expect(chartRootTexts.filter((t) => t === "Standard: Under 200 mg/dL")).toHaveLength(1);
 
     const within = tree!.root.findByProps({ testID: "lab-trend-ref-within" });
     expect(within.props.fill).toBe(UI_RECOMMENDED_RANGE_FILL);
@@ -135,7 +145,7 @@ describe("LabTrendChart", () => {
     });
 
     expect(tree!.root.findByProps({ testID: "lab-trend-chart" })).toBeTruthy();
-    expect(tree!.root.findAllByProps({ testID: "lab-trend-chart-ref-caption" })).toHaveLength(0);
+    expect(tree!.root.findAllByProps({ testID: "lab-trend-chart-standard-context" })).toHaveLength(0);
     expect(tree!.root.findAllByProps({ testID: "lab-trend-ref-within" })).toHaveLength(0);
     expect(tree!.root.findAllByProps({ testID: "lab-trend-chart-ref-key" })).toHaveLength(0);
   });

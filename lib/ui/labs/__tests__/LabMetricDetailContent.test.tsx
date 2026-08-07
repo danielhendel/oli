@@ -358,4 +358,85 @@ describe("LabMetricDetailContent", () => {
     );
     expect(heroTexts).toMatch(/Within standard/);
   });
+
+  it("shows Standard once in Trend and once in Latest for Total Cholesterol history", () => {
+    const detail: LabMetricDetailResponseDto = {
+      ...baseDetail,
+      metricKey: "total_cholesterol",
+      displayName: "Total Cholesterol",
+      latest: {
+        ...baseDetail.latest!,
+        metricKey: "total_cholesterol",
+        displayName: "Total Cholesterol",
+        value: 179,
+        rawName: "Cholesterol, Total",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+      },
+    };
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "tc-latest",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+        result: { kind: "numeric", value: 179, comparator: "eq" },
+        displayValue: "179 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d4",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+      {
+        id: "tc-prior",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2022-07-07T00:00:00.000Z",
+        result: { kind: "numeric", value: 208, comparator: "eq" },
+        displayValue: "208 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "high",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d3",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={detail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+
+    expect(tree!.root.findByProps({ testID: "lab-metric-standard-label" }).props.children).toBe(
+      "Standard: Under 200 mg/dL",
+    );
+    const latestCardTexts = tree!.root
+      .findByProps({ testID: "lab-metric-latest-value" })
+      .parent!.findAllByType(require("react-native").Text)
+      .map((n) => String(n.props.children));
+    expect(latestCardTexts.filter((t) => t === "Standard: Under 200 mg/dL")).toHaveLength(1);
+
+    const trend = tree!.root.findByProps({ testID: "lab-metric-trend" });
+    const trendTexts = trend
+      .findAllByType(require("react-native").Text)
+      .map((n) => String(n.props.children));
+    expect(trendTexts.filter((l) => l === "Standard: Under 200 mg/dL")).toHaveLength(1);
+    expect(trendTexts.filter((l) => l === "Within standard")).toHaveLength(1);
+    expect(trend.findAllByProps({ testID: "lab-trend-chart-ref-caption" })).toHaveLength(0);
+    expect(trend.findAllByProps({ testID: "lab-trend-chart-ref-key" })).toHaveLength(0);
+
+    expect(tree!.root.findByProps({ testID: "lab-metric-source-reference-raw" })).toBeTruthy();
+  });
 });
