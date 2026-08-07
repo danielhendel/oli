@@ -16,6 +16,28 @@ export const QUEST_TEXT_PDF_EXTRACTION_VERSION = "1.1.0";
 
 export type QuestPageText = { pageNumber: number; text: string };
 
+/** Join pdfjs-split metadata labels before segmentation/extraction. */
+function joinSplitMetadataInPageText(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i]!.trim();
+    if (
+      /^(collected|received|reported|fasting|specimen|report\s+status):$/i.test(cur) &&
+      i + 1 < lines.length
+    ) {
+      const next = lines[i + 1]!.trim();
+      if (next && !/^(collected|received|reported|fasting|specimen|report\s+status):/i.test(next)) {
+        out.push(`${cur} ${next}`);
+        i += 1;
+        continue;
+      }
+    }
+    out.push(lines[i]!);
+  }
+  return out.join("\n");
+}
+
 export function extractQuestLabReportDraft(args: {
   documentId: string;
   userId: string;
@@ -25,7 +47,11 @@ export function extractQuestLabReportDraft(args: {
   createdAt: string;
   jobId?: string;
 }): LabExtractionDraft {
-  const fullText = args.pages.map((p) => p.text).join("\n");
+  const normalizedPages = args.pages.map((p) => ({
+    pageNumber: p.pageNumber,
+    text: joinSplitMetadataInPageText(p.text),
+  }));
+  const fullText = normalizedPages.map((p) => p.text).join("\n");
   const textCharCount = fullText.replace(/\s+/g, " ").trim().length;
   const detection = detectQuestTextReport({
     fullText,
@@ -77,11 +103,11 @@ export function extractQuestLabReportDraft(args: {
     };
   }
 
-  const segmented = segmentQuestReportText(args.pages);
+  const segmented = segmentQuestReportText(normalizedPages);
   const metadata = extractQuestReportMetadata({
     metadataLines: [
       ...segmented.metadataLines,
-      ...args.pages.flatMap((p) => p.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 20)),
+      ...normalizedPages.flatMap((p) => p.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 20)),
     ],
     panelNames: segmented.panels.map((p) => p.name),
     pageCount: args.pages.length,

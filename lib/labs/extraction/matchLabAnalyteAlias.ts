@@ -245,6 +245,28 @@ const EXTRA_ALIASES: readonly { metricKey: string; aliases: readonly string[] }[
   // Prostate
   { metricKey: "psa", aliases: ["prostate specific antigen", "psa, total", "psa total", "total psa"] },
   { metricKey: "free_psa", aliases: ["psa, free", "psa free", "free psa"] },
+
+  // SARS-CoV-2 serology (qualitative)
+  {
+    metricKey: "sars_cov2_igg",
+    aliases: [
+      "sars cov 2 ab igg",
+      "sars-cov-2 igg",
+      "sars cov-2 igg",
+      "sars-cov-2 antibody igg",
+      "covid-19 igg",
+    ],
+  },
+  {
+    metricKey: "sars_cov2_igm",
+    aliases: [
+      "sars cov 2 ab igm",
+      "sars-cov-2 igm",
+      "sars cov-2 igm",
+      "sars-cov-2 antibody igm",
+      "covid-19 igm",
+    ],
+  },
 ];
 
 type IndexEntry = { metricKey: string; method: LabAliasMatch["matchMethod"] };

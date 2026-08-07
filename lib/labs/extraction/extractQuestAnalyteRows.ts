@@ -62,6 +62,12 @@ function currentPanelName(report: SegmentedReport, pageNumber: number, lineIndex
 const LAB_CODE_LIKE = /^(?:AMD|NL\d*|Z\d{1,3}M|EZ|TP|JS|QW)$/i;
 
 function isUnitToken(token: string): boolean {
+  if (/^(?:POSITIVE|NEGATIVE|DETECTED|NOT DETECTED|REACTIVE|NON-REACTIVE|NOT APPLICABLE|NOT ORDERED|NOT PERFORMED|INCOMPUTABLE|N\/A)$/i.test(token)) {
+    return false;
+  }
+  if (/^[A-Za-z]{2}$/.test(token) && !/^(?:na|k|cl|ca|fe|iu|pg|fl|ml|dl|ul|eq|mg)$/i.test(token)) {
+    return false;
+  }
   return UNIT_LIKE.test(token) && !FLAG_LIKE.test(token) && !ASSAY_METHOD_LIKE.test(token);
 }
 
@@ -132,6 +138,14 @@ function looksLikeAnalyteNameNumber(tokens: readonly string[], valueIdx: number)
       /^(?:<=|>=|<|>|≤|≥)/.test(next) ||
       /^IL/i.test(next) ||
       !next)
+  ) {
+    return true;
+  }
+  // SARS-CoV-2 / antibody label numerals (e.g. SARS CoV 2 AB IGG).
+  if (
+    EQUALITY_NUMERIC.test(tok) &&
+    !tok.includes(".") &&
+    /sars|\bcov\b|co\s*v|\bab\b|\bantibody\b|\bigg\b|\bigm\b/i.test(`${labelPrefix} ${next}`)
   ) {
     return true;
   }
@@ -368,6 +382,42 @@ export function parseColumnsForTest(trimmed: string) {
   return parseColumns(trimmed);
 }
 
+const PANEL_HEADER_ONLY =
+  /^(?:basic\s+health\s+profile|lipid\s+panel|comprehensive\s+metabolic(?:\s+panel)?|cmp|cbc(?:\s*\(|$)|complete\s+blood\s+count|thyroid(?:\s+panel)?|hormone(?:\s+panel)?|cardio\s*iq|hepatitis(?:\s+panel)?|antibody(?:\s+panel)?|sars(?:-cov-2)?(?:\s+(?:antibody|serology))(?:\s+panel)?|covid(?:-19)?(?:\s+(?:antibody|serology))(?:\s+panel)?|iron\s+(?:panel|studies)|electrolyte(?:\s+panel)?|testosterone|bioavailable|hepatic(?:\s+function)?(?:\s+panel)?|liver(?:\s+panel)?|urinalysis|(?:psa|prostate(?:\s+specific\s+antigen)?)(?:\s+panel)?|calculated(?:\s+values?)?)$/i;
+
+const TABLE_HEADER_LINE = /^(?:test\s+name|analyte|result|reference\s+(?:range|interval)|flag|units?)(?:\s|$)/i;
+
+function looksLikeLabelContinuation(line: string): boolean {
+  const t = line.trim();
+  if (!t || PANEL_HEADER_ONLY.test(t)) return false;
+  if (TABLE_HEADER_LINE.test(t)) return false;
+  if (/^(?:sars-cov-2|antibody\s+panel|interpretation|comment|guide)$/i.test(t)) return false;
+  if (parseColumns(t)) return false;
+  return /^[A-Za-z(]/.test(t);
+}
+
+/** Join pdfjs-fragmented analyte label lines that split mid-row before the result token. */
+function joinFragmentedAnalyteLines(bodyLines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < bodyLines.length; i++) {
+    const cur = bodyLines[i]!.trimEnd();
+    const curTrim = cur.trim();
+    const next = bodyLines[i + 1]?.trim() ?? "";
+
+    if (curTrim && next && looksLikeLabelContinuation(curTrim) && !TABLE_HEADER_LINE.test(next)) {
+      const twoLine = `${curTrim} ${next}`;
+      if (parseColumns(twoLine)) {
+        out.push(twoLine);
+        i += 1;
+        continue;
+      }
+    }
+
+    out.push(bodyLines[i]!);
+  }
+  return out;
+}
+
 export function extractQuestAnalyteRows(args: {
   report: SegmentedReport;
   documentId: string;
@@ -410,10 +460,12 @@ export function extractQuestAnalyteRows(args: {
       joinedLines.push(page.bodyLines[i]!);
     }
 
+    const reconstructedLines = joinFragmentedAnalyteLines(joinedLines);
+
     /** Prior analyte-name line awaiting a specimen-qualified result row (e.g. IL-6 → SERUM 1.89). */
     let pendingAnalyteLabel: string | null = null;
 
-    joinedLines.forEach((line, lineIndex) => {
+    reconstructedLines.forEach((line, lineIndex) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;
@@ -433,6 +485,19 @@ export function extractQuestAnalyteRows(args: {
         return;
       }
       if (/^value\s*\(in\s+the\s+range|^option\b/i.test(trimmed)) return;
+      if (/^test\s+name/i.test(trimmed)) return;
+      if (TABLE_HEADER_LINE.test(trimmed) && !/^[A-Za-z].*\d/.test(trimmed)) return;
+      if (/^desired\s+range$/i.test(trimmed)) return;
+      if (/^comment$/i.test(trimmed)) return;
+      if (/^note\s+\d/i.test(trimmed)) return;
+      if (/^interpretation\s+guide/i.test(trimmed)) return;
+      if (/^guide$/i.test(trimmed)) return;
+      if (/^index\s+value/i.test(trimmed)) return;
+      if (/^this test has not been|^this test has been authorized/i.test(trimmed)) return;
+      if (/^<\d+\.\d+/i.test(trimmed) || /^>=\d+\.\d+/i.test(trimmed)) return;
+      if (/^\d+\.\d+\s*-\s*\d+\.\d+/i.test(trimmed) && /indeterminate|negative|positive/i.test(trimmed)) {
+        return;
+      }
 
       // Panel headers are single-column names — skip as analyte rows.
       // Do not match analyte labels such as "IRON, TOTAL" via a bare "iron" prefix.

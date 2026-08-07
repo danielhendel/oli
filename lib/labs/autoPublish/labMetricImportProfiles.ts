@@ -172,6 +172,16 @@ const PROFILES: LabMetricImportProfile[] = [
   profile("psa", { autoPublishV1: true }),
   profile("interleukin_6", { allowedUnits: ["pg/mL", "ng/L"], autoPublishV1: true }),
   profile("creatine_kinase", { allowedUnits: ["U/L", "IU/L"], autoPublishV1: true }),
+  profile("sars_cov2_igg", {
+    expectedKinds: ["qualitative", "text"],
+    allowedUnits: ["none"],
+    autoPublishV1: true,
+  }),
+  profile("sars_cov2_igm", {
+    expectedKinds: ["qualitative", "text"],
+    allowedUnits: ["none"],
+    autoPublishV1: true,
+  }),
 
   // Ratio metrics stay structured-only in v1 (not numeric card auto-publish)
   profile("homa_ir", { expectedKinds: ["numeric"], autoPublishV1: false }),

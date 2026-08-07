@@ -207,6 +207,28 @@ const LAB_METRICS: LabMetricDefinition[] = [
   // Prostate / Male Health
   M("psa", "prostate", "PSA", ["prostate specific antigen", "psa total"], ["ng/mL", "ug/L"], "ng/mL", 10),
   M("free_psa", "prostate", "Free PSA", ["psa, free"], ["ng/mL"], "ng/mL", 20),
+
+  // Infectious / serology (qualitative)
+  M(
+    "sars_cov2_igg",
+    "inflammation",
+    "SARS-CoV-2 IgG",
+    ["sars-cov-2 igg", "sars cov 2 ab igg", "sars-cov-2 antibody igg"],
+    ["none"],
+    "none",
+    200,
+    "text",
+  ),
+  M(
+    "sars_cov2_igm",
+    "inflammation",
+    "SARS-CoV-2 IgM",
+    ["sars-cov-2 igm", "sars cov 2 ab igm", "sars-cov-2 antibody igm"],
+    ["none"],
+    "none",
+    210,
+    "text",
+  ),
 ];
 
 const LAB_CATEGORIES: LabCategoryDefinition[] = [
@@ -335,7 +357,16 @@ const LAB_CATEGORIES: LabCategoryDefinition[] = [
     categoryKey: "inflammation",
     displayName: "Inflammation + Immune",
     sortOrder: 80,
-    metricKeys: ["hs_crp", "crp", "esr", "homocysteine", "interleukin_6", "creatine_kinase"],
+    metricKeys: [
+      "hs_crp",
+      "crp",
+      "esr",
+      "homocysteine",
+      "interleukin_6",
+      "creatine_kinase",
+      "sars_cov2_igg",
+      "sars_cov2_igm",
+    ],
   },
   {
     categoryKey: "electrolytes",

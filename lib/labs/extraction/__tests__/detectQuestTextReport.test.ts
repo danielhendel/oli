@@ -55,4 +55,20 @@ describe("detectQuestTextReport", () => {
     const result = detectQuestTextReport({ fullText: text, pageCount: 1, textCharCount: text.length });
     expect(result.supported).toBe(false);
   });
+
+  it("detects fragmented 2020 basic health profile text (pdfjs line breaks)", () => {
+    const result = detect("quest_2020_basic_health_profile_fragmented_v1");
+    expect(result.supported).toBe(true);
+    if (!result.supported) return;
+    expect(result.hasCardioIq).toBe(false);
+    expect(result.formatFamily).not.toBe("quest_cardio_iq_text_v1");
+  });
+
+  it("detects fragmented 2021 qualitative antibody text without lipid/CBC hints", () => {
+    const result = detect("quest_2021_qualitative_antibody_fragmented_v1");
+    expect(result.supported).toBe(true);
+    if (!result.supported) return;
+    expect(result.hasCardioIq).toBe(false);
+    expect(result.formatFamily).toBe("quest_text_pdf_v1");
+  });
 });

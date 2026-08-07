@@ -3,6 +3,8 @@ import path from "path";
 import { describe, expect, it } from "@jest/globals";
 import { detectQuestTextReport } from "../detectQuestTextReport";
 import { extractQuestLabReportDraft } from "../extractQuestLabReportDraft";
+import { partitionLabCandidatesForAutoPublish } from "../../autoPublish/partitionLabAutoPublish";
+import { evaluateLabTrendEligibility } from "../../history/evaluateLabTrendEligibility";
 
 const CHECKSUM = "e".repeat(64);
 const CREATED_AT = "2026-08-06T12:00:00.000Z";
@@ -76,6 +78,8 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "ldl_c")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "glucose")).toBe(true);
       expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "wbc")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "non_hdl_c")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "egfr")).toBe(true);
 
       const urineProteinMatched = draft.results.find((r) => r.rawAnalyteLabel === "PROTEIN");
       const urineBloodMatched = draft.results.find((r) => r.rawAnalyteLabel === "BLOOD");
@@ -89,7 +93,7 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       expect(urineBloodMatched?.result?.kind).not.toBe("numeric");
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
-      expect(labels.some((l) => /verified by laboratory director/i.test(l))).toBe(false);
+      expect(labels.some((l) => /desired\s+range|verified by laboratory director/i.test(l))).toBe(false);
     });
 
     it("segments basic health profile and urinalysis panels", () => {
@@ -97,6 +101,19 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       const panelNames = draft.panels.map((p) => p.name.toUpperCase());
       expect(panelNames.some((n) => n.includes("BASIC HEALTH"))).toBe(true);
       expect(panelNames.some((n) => n.includes("URINALYSIS"))).toBe(true);
+      expect(draft.reportCandidate.reportFamily).not.toBe("quest_cardio_iq_text_v1");
+    });
+  });
+
+  describe("quest_2020_basic_health_profile_fragmented_v1", () => {
+    const fixture = "quest_2020_basic_health_profile_fragmented_v1";
+
+    it("is supported and extracts collection date from split metadata", () => {
+      expect(detectFor(fixture).supported).toBe(true);
+      const draft = draftFor(fixture);
+      expect(draft.status).not.toBe("unsupported");
+      expectCollectedCalendar(draft, "2020-06-05");
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "ldl_c")).toBe(true);
     });
   });
 
@@ -141,19 +158,48 @@ describe("historical Quest layout fixtures (Phase 3D-B)", () => {
       expectCollectedCalendar(draft, "2021-04-13");
       expectNoPhi(draft);
 
-      const iggMatched = draft.results.find((r) => /igg/i.test(r.rawAnalyteLabel));
-      const igmMatched = draft.results.find((r) => /igm/i.test(r.rawAnalyteLabel));
-      const igg = iggMatched ?? draft.unmatched.find((u) => /igg/i.test(u.rawAnalyteLabel));
-      const igm = igmMatched ?? draft.unmatched.find((u) => /igm/i.test(u.rawAnalyteLabel));
-      expect(igg?.rawResult).toBe("POSITIVE");
-      expect(igm?.rawResult).toBe("POSITIVE");
-      expect(iggMatched?.result?.kind).not.toBe("numeric");
-      expect(igmMatched?.result?.kind).not.toBe("numeric");
-      expect(iggMatched?.result?.kind === "qualitative" || igg != null).toBe(true);
+      const iggMatched = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igg");
+      const igmMatched = draft.results.find((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igm");
+      expect(iggMatched?.rawResult).toBe("POSITIVE");
+      expect(igmMatched?.rawResult).toBe("POSITIVE");
+      expect(iggMatched?.result?.kind).toBe("qualitative");
+      expect(igmMatched?.result?.kind).toBe("qualitative");
+      expect(iggMatched?.rawReferenceRange).toBe("NEGATIVE");
+      expect(igmMatched?.rawReferenceRange).toBe("NEGATIVE");
 
       const labels = [...draft.results, ...draft.unmatched].map((c) => c.rawAnalyteLabel);
-      expect(labels.some((l) => /interpretation guide|index value/i.test(l))).toBe(false);
+      expect(labels.some((l) => /interpretation guide|index value|note 1|fda eua/i.test(l))).toBe(false);
       expect(labels.some((l) => /^<1\.00$/i.test(l))).toBe(false);
+
+      for (const row of [iggMatched, igmMatched]) {
+        if (!row?.result) continue;
+        expect(
+          evaluateLabTrendEligibility({
+            result: row.result,
+            normalizedUnit: row.unit.normalizedUnit,
+            collectedAt: draft.reportCandidate.collectedAt ?? null,
+          }),
+        ).toBe("qualitative");
+      }
+
+      const partition = partitionLabCandidatesForAutoPublish(draft);
+      expect(partition.autoPublishable.some((p) => p.candidate.aliasMatch.canonicalMetricId === "sars_cov2_igg")).toBe(
+        true,
+      );
+      expect(partition.autoPublishable.some((p) => p.candidate.aliasMatch.canonicalMetricId === "sars_cov2_igm")).toBe(
+        true,
+      );
+    });
+  });
+
+  describe("quest_2021_qualitative_antibody_fragmented_v1", () => {
+    const fixture = "quest_2021_qualitative_antibody_fragmented_v1";
+
+    it("is supported and extracts fragmented antibody rows", () => {
+      expect(detectFor(fixture).supported).toBe(true);
+      const draft = draftFor(fixture);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igg")).toBe(true);
+      expect(draft.results.some((r) => r.aliasMatch.canonicalMetricId === "sars_cov2_igm")).toBe(true);
     });
   });
 

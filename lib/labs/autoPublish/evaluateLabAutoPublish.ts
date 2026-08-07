@@ -244,7 +244,9 @@ export function deriveLabCandidateConfidence(args: {
     ALLOWED_COMPARATORS.has(c.result.comparator) &&
     Number.isFinite(c.result.value)
       ? Math.max(c.confidence, 0.99)
-      : Math.min(c.confidence, 0.5);
+      : c.result?.kind === "qualitative" && c.result.value
+        ? Math.max(c.confidence, 0.99)
+        : Math.min(c.confidence, 0.5);
 
   const unit = c.unit.known && c.unit.normalizedUnit ? Math.max(c.unit.confidence, 0.99) : Math.min(c.unit.confidence, 0.4);
 

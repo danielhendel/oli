@@ -19,6 +19,27 @@ function fieldAfter(label: RegExp, lines: string[]): string | null {
   return null;
 }
 
+/** Join pdfjs-split metadata labels (e.g. "Collected:" on one line, date on the next). */
+function expandSplitMetadataLines(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i]!.trim();
+    if (
+      /^(collected|received|reported|fasting|specimen|report\s+status):$/i.test(cur) &&
+      i + 1 < lines.length
+    ) {
+      const next = lines[i + 1]!.trim();
+      if (next && !/^(collected|received|reported|fasting|specimen|report\s+status):/i.test(next)) {
+        out.push(`${cur} ${next}`);
+        i += 1;
+        continue;
+      }
+    }
+    out.push(cur);
+  }
+  return out;
+}
+
 function parseFasting(raw: string | null): boolean | null {
   if (!raw) return null;
   const t = raw.trim().toLowerCase();
@@ -40,7 +61,7 @@ export function extractQuestReportMetadata(args: {
   formatFamilyVersion: string | null;
   confidence: number;
 }): LabReportMetadataCandidate {
-  const lines = args.metadataLines;
+  const lines = expandSplitMetadataLines(args.metadataLines);
   const collectedRaw = fieldAfter(/collected/i, lines);
   const receivedRaw = fieldAfter(/received/i, lines);
   const reportedRaw = fieldAfter(/reported/i, lines);
