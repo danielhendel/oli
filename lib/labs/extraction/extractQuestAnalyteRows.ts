@@ -393,7 +393,7 @@ const STACKED_META_LINE =
   /^(?:desired\s+(?:range|result)|reference\s+range|unit\s+of\s+measure)\s*:/i;
 
 const PATIENT_IDENTITY_LINE =
-  /^[A-Z][A-Z'`-]+,\s*[A-Z][A-Za-z'`-]+(?:\s*\([A-Z0-9]+\))?$/;
+  /^[A-Z][A-Z'`.-]+,\s*[A-Z][A-Za-z'`.-]+(?:\s+\([A-Z0-9]+\))?\s*$/;
 
 const STACKED_SKIP_LINE =
   /^(?:page\s+\d+\s+of\s+\d+|next\s+steps|martin[- ]hopkins|https?:\/\/|www\.)/i;
@@ -665,6 +665,8 @@ export function extractQuestAnalyteRows(args: {
       const trimmed = line.trim();
       if (!trimmed || trimmed.length < 5) return;
       if (/collected:|received:|reported:|fasting:|specimen:|report status:/i.test(trimmed)) return;
+      // Never emit patient identity headers as analyte candidates (PHI).
+      if (PATIENT_IDENTITY_LINE.test(trimmed)) return;
       if (/patient\s+id|dob|date of birth|phone|address|requisition/i.test(trimmed)) return;
       // Client/account metadata and interpretive legends are not analyte rows.
       if (/^client\s*#|^account\s*#|^patient\s*#/i.test(trimmed)) return;
