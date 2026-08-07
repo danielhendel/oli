@@ -387,11 +387,15 @@ const PANEL_HEADER_ONLY =
 
 const TABLE_HEADER_LINE = /^(?:test\s+name|analyte|result|reference\s+(?:range|interval)|flag|units?)(?:\s|$)/i;
 
+const SHORT_ANALYTE_SUFFIX = /^(?:igg|igm|iga|ab|total|free|direct|indirect)$/i;
+
 function looksLikeLabelContinuation(line: string): boolean {
   const t = line.trim();
   if (!t || PANEL_HEADER_ONLY.test(t)) return false;
   if (TABLE_HEADER_LINE.test(t)) return false;
-  if (/^(?:sars-cov-2|antibody\s+panel|interpretation|comment|guide)$/i.test(t)) return false;
+  // Section subheaders (e.g. HEPATITIS C ANTIBODY) must not absorb the following row.
+  if (/\b(?:antibody|panel|profile|guide|comment)\s*$/i.test(t) && !parseColumns(t)) return false;
+  if (/^(?:sars-cov-2|antibody\s+panel|interpretation|comment|guide|hormones?)$/i.test(t)) return false;
   if (parseColumns(t)) return false;
   return /^[A-Za-z(]/.test(t);
 }
@@ -403,6 +407,24 @@ function joinFragmentedAnalyteLines(bodyLines: string[]): string[] {
     const cur = bodyLines[i]!.trimEnd();
     const curTrim = cur.trim();
     const next = bodyLines[i + 1]?.trim() ?? "";
+    const nextParsed = next ? parseColumns(next) : null;
+
+    // Prefer not to swallow a complete next row — unless it is a short suffix
+    // continuation of a SARS/antibody label (SARS CoV 2 AB + IGG POSITIVE).
+    if (nextParsed) {
+      const canSuffixJoin =
+        SHORT_ANALYTE_SUFFIX.test(nextParsed.rawLabel) &&
+        looksLikeLabelContinuation(curTrim) &&
+        /sars|\bcov\b|antibody|\bab\b/i.test(curTrim) &&
+        Boolean(parseColumns(`${curTrim} ${next}`));
+      if (canSuffixJoin) {
+        out.push(`${curTrim} ${next}`);
+        i += 1;
+        continue;
+      }
+      out.push(bodyLines[i]!);
+      continue;
+    }
 
     if (curTrim && next && looksLikeLabelContinuation(curTrim) && !TABLE_HEADER_LINE.test(next)) {
       const twoLine = `${curTrim} ${next}`;
