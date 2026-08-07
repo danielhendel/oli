@@ -2,7 +2,7 @@
  * Nearest real lab trend point for scrub interaction — no interpolated values.
  */
 
-import type { LabTrendPoint } from "@/lib/labs/history/labTrendTypes";
+import type { LabTrendPoint } from "./labTrendTypes";
 
 export function selectNearestLabTrendPoint(args: {
   points: readonly LabTrendPoint[];

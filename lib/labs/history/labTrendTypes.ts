@@ -3,7 +3,7 @@
  * No Firebase, network, or UI imports.
  */
 
-import type { LabMetricChange } from "@/lib/labs/history/calculateLabMetricChange";
+import type { LabMetricChange } from "./calculateLabMetricChange";
 
 export type LabTrendGraphEligibility =
   | "numeric_graph"

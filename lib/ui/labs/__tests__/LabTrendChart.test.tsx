@@ -3,7 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 import { LabTrendChart } from "@/lib/ui/labs/LabTrendChart";
 import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
-import { makeNumericHistoryPoint as numericPoint } from "@/lib/labs/history/__tests__/labTrendTestFixtures";
+import { makeNumericHistoryPoint as numericPoint } from "@/lib/labs/history/__fixtures__/labTrendTestFixtures";
 import type { LabHistoryPointDto } from "@/lib/contracts";
 
 describe("LabTrendChart", () => {

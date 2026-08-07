@@ -3,20 +3,20 @@
  * Pure: no Firebase, network, or UI.
  */
 
-import type { LabHistoryPointDto } from "@/lib/contracts";
+import type { LabHistoryPointDto } from "@oli/contracts";
 import {
   calculateLabMetricChange,
   type LabMetricChange,
-} from "@/lib/labs/history/calculateLabMetricChange";
+} from "./calculateLabMetricChange";
 import {
   labTrendCalendarDateFromCollectedAt,
   labTrendEpochMsFromCalendarDate,
-} from "@/lib/labs/history/labTrendCalendar";
+} from "./labTrendCalendar";
 import type {
   LabTrendGraphEligibility,
   LabTrendPoint,
   LabTrendSeries,
-} from "@/lib/labs/history/labTrendTypes";
+} from "./labTrendTypes";
 
 const MAX_CHART_POINTS = 50;
 

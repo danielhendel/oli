@@ -2,7 +2,7 @@
  * Range filter for lab trend charts — collection date only.
  */
 
-import type { LabTrendPoint, LabTrendRangeKey } from "@/lib/labs/history/labTrendTypes";
+import type { LabTrendPoint, LabTrendRangeKey } from "./labTrendTypes";
 
 const MS_PER_DAY = 86_400_000;
 

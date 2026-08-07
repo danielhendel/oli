@@ -2,8 +2,8 @@
  * Graph rebuilds from history input only — delete/reprocess have no graph store.
  */
 
-import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
-import { makeNumericHistoryPoint as numericPoint } from "@/lib/labs/history/__tests__/labTrendTestFixtures";
+import { buildLabTrendSeries } from "../buildLabTrendSeries";
+import { makeNumericHistoryPoint as numericPoint } from "../__fixtures__/labTrendTestFixtures";
 
 describe("lab trend delete / reprocess regressions", () => {
   const fourPointHistory = [

@@ -1,19 +1,19 @@
 import {
   buildLabTrendSeries,
-} from "@/lib/labs/history/buildLabTrendSeries";
-import { buildLabChartDomain } from "@/lib/labs/history/buildLabChartDomain";
-import { filterLabTrendRange } from "@/lib/labs/history/filterLabTrendRange";
+} from "../buildLabTrendSeries";
+import { buildLabChartDomain } from "../buildLabChartDomain";
+import { filterLabTrendRange } from "../filterLabTrendRange";
 import {
   labTrendCalendarDateFromCollectedAt,
   labTrendEpochMsFromCalendarDate,
-} from "@/lib/labs/history/labTrendCalendar";
+} from "../labTrendCalendar";
 import {
   mapChartXToEpochMs,
   selectNearestLabTrendPoint,
-} from "@/lib/labs/history/selectNearestLabTrendPoint";
-import { buildLabTrendAccessibilitySummary } from "@/lib/labs/history/buildLabTrendAccessibilitySummary";
-import { makeNumericHistoryPoint as numericPoint } from "@/lib/labs/history/__tests__/labTrendTestFixtures";
-import type { LabHistoryPointDto } from "@/lib/contracts";
+} from "../selectNearestLabTrendPoint";
+import { buildLabTrendAccessibilitySummary } from "../buildLabTrendAccessibilitySummary";
+import { makeNumericHistoryPoint as numericPoint } from "../__fixtures__/labTrendTestFixtures";
+import type { LabHistoryPointDto } from "@oli/contracts";
 
 describe("buildLabTrendSeries", () => {
   it("sorts descending API history to ascending chart order by collectedAt", () => {

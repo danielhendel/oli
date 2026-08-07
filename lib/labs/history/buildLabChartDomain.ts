@@ -2,7 +2,7 @@
  * Y/X domain for lab trend charts — observed values only, no clinical floors.
  */
 
-import type { LabChartDomain, LabTrendPoint } from "@/lib/labs/history/labTrendTypes";
+import type { LabChartDomain, LabTrendPoint } from "./labTrendTypes";
 
 const DEFAULT_PAD_RATIO = 0.12;
 /** Minimum absolute pad when values nearly equal but not identical. */

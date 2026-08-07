@@ -1,4 +1,4 @@
-import type { LabHistoryPointDto } from "@/lib/contracts";
+import type { LabHistoryPointDto } from "@oli/contracts";
 
 /** Shared numeric history fixture for trend tests (no PHI). */
 export function makeNumericHistoryPoint(

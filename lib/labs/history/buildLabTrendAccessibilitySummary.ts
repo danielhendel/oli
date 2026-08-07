@@ -4,8 +4,8 @@
 
 import {
   formatLabTrendPointDate,
-} from "@/lib/labs/history/labTrendCalendar";
-import type { LabTrendSeries } from "@/lib/labs/history/labTrendTypes";
+} from "./labTrendCalendar";
+import type { LabTrendSeries } from "./labTrendTypes";
 
 function speakUnit(unit: string | null): string {
   if (!unit || unit === "none") return "";
