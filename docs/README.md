@@ -1,5 +1,10 @@
 # Oli Health OS — Repo Truth (Read First)
 
+> **STALE / HISTORICAL OVERVIEW (updated December 2025).**
+> Do **not** use this file as current execution truth.
+> **Start here instead:** [docs/INDEX.md](./INDEX.md) → [Repo-Truth Progress Map](./00_truth/REPO_TRUTH_PROGRESS_MAP.md) → [ROADMAP_REALITY](./10_product/roadmap/ROADMAP_REALITY.md) → [SYSTEM_STATE](./20_architecture/SYSTEM_STATE.md).
+> Claims below such as “wearables missing” or “no data visualization” are obsolete relative to merged code as of 2026-08-10.
+
 Canonical entry point: docs/INDEX.md
 
 This repository contains the **actual, working implementation** of the Oli Health OS as of today.
@@ -72,5 +77,5 @@ This repo prioritizes **correctness, ownership, and forward compatibility**.
 
 ---
 
-**Authoritative status date:** December 2025  
+**Authoritative status date:** December 2025
 **Owner:** Daniel Hendel

@@ -1,120 +1,122 @@
 # System State — As Built
 
-This document describes the **actual system architecture**, not the aspirational one.
+**Status:** Current architecture interpretation (must track code)
+**Last updated:** 2026-08-10 (Stage 1A truth freeze)
+**Audit baseline SHA:** `d43ae878373534dbb4cef84c4958221ace826792`
+**Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
+
+This document describes the **actual system architecture**, not the aspirational one. Planned systems must not be presented as implemented.
 
 ---
 
-## High-Level Architecture
+## High-level architecture
 
+```text
 [ Expo App ]
-|
-| Firebase ID Token
-v
-[ API Service (Express) ]
-|
-| Firestore writes
-v
+    |
+    | Firebase ID Token (no Firestore SDK in screens)
+    v
+[ API Service — Cloud Run ]  ← authenticated public API / ingestion boundary
+    |
+    | Admin SDK writes (user-scoped)
+    v
 [ Firestore ]
-|
-| Triggers
-v
+    |
+    | Triggers
+    v
 [ Functions Pipeline ]
-
-yaml
-Copy code
-
----
-
-## Mobile App
-
-**Stack**
-- Expo
-- Expo Router
-- Firebase JS SDK
-
-**Responsibilities**
-- Authenticate user
-- Maintain auth state
-- Generate Firebase ID token
-- Send authenticated requests to API
+    RawEvent → CanonicalEvent → DailyFacts → Insights → IntelligenceContext
+```
 
 ---
 
-## API Service
+## Boundaries (as built)
 
-**Location**
-services/api
-
-markdown
-Copy code
-
-**Runtime**
-- Node.js
-- Express
-- Firebase Admin SDK
-
-**Key Behaviors**
-- Initializes Firebase Admin via ADC
-- Verifies Firebase ID tokens
-- Enforces user-scoped access
-- Accepts canonical ingest payloads
-- Guarantees idempotent writes
+| Layer | Reality |
+|-------|---------|
+| Mobile screens | Do **not** use Firestore directly; talk to the API with Firebase ID tokens |
+| Cloud Run API | Authenticated public API and ingest boundary |
+| Functions | Normalization and derived-truth computation |
+| Shared schema | `lib/contracts` TypeScript + Zod source; package exports resolve to generated `lib/contracts/dist` (gitignored) |
 
 ---
 
-## Firestore Data Model (Current)
+## Mobile app
 
-users/{uid}/rawEvents/{rawEventId}
+**Stack:** Expo, Expo Router, Firebase JS Auth (client)
 
-yaml
-Copy code
+**Responsibilities:** Authenticate; hold session; call Cloud Run API; render domain modules and Dash / Daily Monitor surfaces.
 
-Each raw event contains:
-- id
-- userId
-- provider
-- kind
-- payload
-- occurredAt
-- receivedAt
+**Derived truth consumption:** Portions of the app already read DailyFacts / sleep-night / workout summaries / readiness DTOs via API. This is **partial wiring**, not a complete Health OS loop.
+
+**Known duplicate-truth pressure (Stage 2):** Some client analytics still hydrate **RawEvents** for trends (e.g. body / workouts / nutrition paths). Launch-metric remediation is staged; do not pretend a single UI truth exists everywhere today.
 
 ---
 
-## Functions Pipeline
+## API service
 
-Already implemented and tested:
-- Raw event normalization
-- Daily aggregation
-- Intelligence computation
+**Location:** `services/api`
+**Runtime:** Node.js, Express, Firebase Admin (ADC / Cloud Run SA)
 
-Not yet wired to UI.
+**Behaviors:** Verify Firebase ID tokens; user-scoped access; canonical ingest with idempotency; domain routes (preferences, sleep, workouts, nutrition, labs, account export/delete, Oura, etc.).
 
 ---
 
-## Dash home (Oli Fitness)
+## Functions pipeline
 
-**As built (2026-07-10 recovery baseline):**
-- Dash tab (`app/(app)/(tabs)/dash.tsx`) composes six retained cards after `DashScreenHeader`: Weekly Fitness → Body Composition → Daily Energy → Daily Sleep → Oura Readiness → Daily Nutrition
-- Semi-circle / composite daily % / “Today’s Progress” card removed from Dash (no replacement hero)
-- `TodayCommandModel` in `lib/today/` remains for Timeline plan-vs-actual (and shared target helpers); not rendered on Dash
-- Program tab shows category cards (Weight, Activity, Workout, Cardio, Nutrition) fed by preferences + typed defaults
-- Oura sleep/readiness scores displayed exactly as received; labeled Oura when vendor-sourced
+**Implemented and tested:** Raw event normalization, daily aggregation, intelligence computation, Phase 1/2 proof gates in CI.
 
-**Known limitations:**
-- Nutrition target persistence pending (defaults via `lib/data/nutrition/nutritionGoals.ts`)
-- Program document persistence pending (`users/{uid}/programs/*` not wired)
-- Daily workout schedule model pending (workout row uses weekly preference, excluded from completion %)
-- Cardio daily target derived from weekly miles / 7
-- Weight target persistence pending (links to body settings)
+**Not claimed:** Full consumer closed loop (My Plan, Review/Adaptation) or Campus/Operations OS.
+
+---
+
+## Integrations (honest status)
+
+| Integration | Code status | Audit/runtime note |
+|-------------|-------------|--------------------|
+| Apple Health | Paths exist in app/lib | Runtime device smoke unverified by 2026-08-10 audit |
+| Oura | OAuth + pull/scheduled paths exist | Runtime unverified by that audit |
+| Withings live sync | Orphaned; helpers refuse “Connected” | Do not present as live |
+| Garmin / WHOOP | Missing | Deferred |
+
+---
+
+## Consumer product loop (partial)
+
+| Loop step | Status |
+|-----------|--------|
+| Capture / ingest | Strong substrate |
+| Daily Monitor / Dash cards | Partial product |
+| Assessment persistence | Missing (in-memory store) |
+| Seven-domain Current State OS | Missing as unified product |
+| My Plan (one coordinated plan) | Missing |
+| Review / Adaptation | Missing |
+| Ownership UI (export/delete CTAs, legal URLs) | Missing (backend exists) |
+
+Dash (as of recovery baseline) composes domain cards; Program tab lacks durable plan documents (`currentPrograms` empty). Health v1 nav and Command Center create competing “home” pressure — resolution is Stage 1B (decision recorded; not implemented in 1A).
+
+---
+
+## Campus / Operations
+
+**Not implemented.** No Campus Firestore paths should be invented before an Operations OS ADR. Location/provider remain optional execution context; personal health data stays user-scoped.
+
+---
+
+## Professional platform
+
+`apps/professional` is prototype/mock tooling — **not** a P0 consumer launch dependency.
 
 ---
 
 ## Environments
 
-- Local dev: Application Default Credentials
+- Local mobile: Expo against staging Firebase + staging Cloud Run (see `docs/40_engineering/local-dev/LOCAL_DEV.md`)
 - Cloud Run: GCP service account
-- Firebase project alignment is mandatory
+- Production Firebase project config remains a release-hardening gap (Stage 10)
 
 ---
 
-This architecture is intentionally simple and extensible.
+## Historical correction
+
+Earlier revisions of this file stated the Functions pipeline was “not yet wired to UI.” That is **stale**: multiple app modules already consume derived DTOs. Remaining gaps are product-loop completeness and Stage 2 metric-truth remediation, not total disconnection.

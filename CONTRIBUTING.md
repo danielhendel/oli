@@ -1,8 +1,8 @@
-# 🤝 CONTRIBUTING TO OLI  
+# 🤝 CONTRIBUTING TO OLI
 ### How to Work in the Oli Repository Without Breaking Trust
 
-**Status:** Binding  
-**Authority:** Subordinate to the Oli Constitution and Codebase Rules  
+**Status:** Binding
+**Authority:** Subordinate to the Oli Constitution and Codebase Rules
 **Applies to:** Humans and AI agents
 
 ---
@@ -70,6 +70,19 @@ A change is done only when:
 - RFC/ADR completed (if required)
 - docs updated
 
+### Local Code Check Gate
+
+Supported Node: **20** (see `.nvmrc` and CI).
+
+```bash
+npm ci
+npm run check
+```
+
+`npm run typecheck` and `npm test` automatically run `npm run build:contracts` so `@oli/contracts` dist is present. Generated `lib/contracts/dist` is gitignored. If a build was interrupted, recover with `npm run build:contracts -- --force`.
+
+Current execution docs: `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`, `docs/10_product/roadmap/ROADMAP_REALITY.md`.
+
 ---
 
 ## 7. PULL REQUEST CHECKLIST
@@ -79,12 +92,13 @@ A change is done only when:
 - Replay preserved?
 - CI green?
 - Docs updated?
+- `npm run check` green locally (or equivalent CI job)?
 
 ---
 
 ## 8. CI AS JUDICIARY
 
-CI blocks invalid changes.  
+CI blocks invalid changes.
 There is no override.
 
 ---
