@@ -1,6 +1,10 @@
 # Repo Reality Mapping Inventory (Repo-Truth)
 
-**Generated:** 2025-12-30 (audit bundle `oli-audit-2025-12-30_1239-*`)  
+> **STALE HISTORICAL AUDIT (2025-12-30).** Not current execution truth.
+> `firestore.rules` now lives under `services/functions/` (among other drift).
+> **Current map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md) · **Launch audit:** [2026-08-10 consumer-launch repo audit](../audits/2026-08-10-consumer-launch-repo-audit.md)
+
+**Generated:** 2025-12-30 (audit bundle `oli-audit-2025-12-30_1239-*`)
 **Purpose:** Deterministic checklist of what exists in the code bundle *today* — organized by subsystem, with a status per file: **IMPLEMENTED / PARTIAL / STUBBED / MISSING**.
 
 ### Status rules (deterministic)

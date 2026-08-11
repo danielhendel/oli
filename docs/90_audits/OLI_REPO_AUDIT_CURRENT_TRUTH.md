@@ -1,7 +1,10 @@
 # Oli Repo Audit — Current Truth
 
-**Audit date:** 2025-03-11  
-**Scope:** Full current-state audit for building navigation tab pages (Dash, Timeline, Manage, Library, Stats).  
+> **STALE HISTORICAL AUDIT (2025-03-11).** Nav model (Manage/Stats tabs, etc.) is obsolete vs Health v1 dock.
+> **Current truth:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md) · [SYSTEM_STATE.md](../20_architecture/SYSTEM_STATE.md) · [2026-08-10 audit](../audits/2026-08-10-consumer-launch-repo-audit.md)
+
+**Audit date:** 2025-03-11
+**Scope:** Full current-state audit for building navigation tab pages (Dash, Timeline, Manage, Library, Stats).
 **Method:** Repo as source of truth; every claim tied to file/code evidence.
 
 ---
@@ -61,8 +64,8 @@
 | `archive/` | Empty | `ls archive` → empty directory |
 
 **Active vs legacy vs unclear**
-- **Active:** `app/`, `lib/`, `components/`, `services/api/`, `services/functions/`, `scripts/`, `docs/`.  
-- **Legacy:** `archive/` is empty (no legacy code committed).  
+- **Active:** `app/`, `lib/`, `components/`, `services/api/`, `services/functions/`, `scripts/`, `docs/`.
+- **Legacy:** `archive/` is empty (no legacy code committed).
 - **Unclear:** No “features/” or “stores/” at top level; hooks live in `lib/data/` and `lib/workouts/hooks/`.
 
 **Entry point**
@@ -277,11 +280,11 @@
 | **Library** | **7** | Yes | Index, search, [category], useFailuresRange, useUploadsPresence, useRawEvents, useEvents. Quick lenses and filters work. | Real counts for weight/labs/strength/cardio/sleep/hrv (or remove “Available”). uploads/failures category screens are placeholder. | Optional: list/count endpoints for categories to replace “Available”. | Wire weight/labs (or other) counts from existing APIs if available, or replace “Available” with “View” or remove count; replace uploads/failures placeholders with redirect or minimal list. |
 | **Stats** | **1** | No (placeholder only). | Route, title, subtitle. useHealthScore, useHealthSignals, useDailyFacts, useInsights exist in lib/data. | Entire UI and wiring: what to show, date range, which hooks. | Product spec for Stats (which metrics, time range). | Define Stats content (e.g. health score/signals over time); then add one range selector and one chart/list using existing hooks. |
 
-**Recommended build order (repo-truth based)**  
-1) **Manage** — Add a few clear actions (reuse existing routes and Quick log); no new data layer.  
-2) **Library** — Replace placeholders for uploads/failures; optionally real counts or copy change for “Available”.  
-3) **Dash** — Decide menu vs command center; then either one “Today” entry to Command Center or move Command Center onto Dash.  
-4) **Stats** — Define scope, then implement with existing hooks (healthScore, healthSignals, etc.).  
+**Recommended build order (repo-truth based)**
+1) **Manage** — Add a few clear actions (reuse existing routes and Quick log); no new data layer.
+2) **Library** — Replace placeholders for uploads/failures; optionally real counts or copy change for “Available”.
+3) **Dash** — Decide menu vs command center; then either one “Today” entry to Command Center or move Command Center onto Dash.
+4) **Stats** — Define scope, then implement with existing hooks (healthScore, healthSignals, etc.).
 
 ---
 

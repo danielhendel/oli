@@ -34,7 +34,7 @@ Strict environment enforcement
 
 Prerequisites
 
-Node.js 18+
+Node.js **20** (CI uses Node 20; `.nvmrc` is `20`)
 
 npm
 
@@ -45,6 +45,38 @@ Google Cloud SDK
 Staging Firebase project
 
 Staging Cloud Run API deployed and reachable over HTTPS
+
+### Install and verify (Code Check Gate)
+
+From a clean checkout:
+
+```bash
+npm ci
+npm run check
+```
+
+`npm run check` runs typecheck → lint → invariants → client trust boundary → `npm test -- --ci`.
+
+Individual diagnostics:
+
+```bash
+npm run build:contracts              # ensures lib/contracts/dist (gitignored)
+npm run typecheck                    # builds contracts first, then tsc -b
+npm run lint
+npm run check:invariants
+npm run check:client-trust-boundary
+npm test -- --ci                     # pretest builds contracts
+```
+
+**Internal packages:** `@oli/contracts` exports point at generated `lib/contracts/dist`. That output is **not** committed. Ordinary `typecheck` / `test` / `build:contracts` rebuild it when missing or stale.
+
+**Interrupted / stale contracts build:** do **not** rely on undocumented cleanup. Run:
+
+```bash
+npm run build:contracts -- --force
+```
+
+This forces a full contracts emit and asserts `bodyCompositionGoal` resolves through package exports.
 
 1. Authenticate With Google Cloud
 
