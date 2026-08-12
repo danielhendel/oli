@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-nativ
 import { useRouter } from "expo-router";
 
 import { signInWithEmail } from "@/lib/auth/actions";
+import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function SignInScreen() {
         return;
       }
 
-      router.replace("/(app)/command-center");
+      router.replace(CONSUMER_HOME_HREF);
     } finally {
       setSubmitting(false);
     }

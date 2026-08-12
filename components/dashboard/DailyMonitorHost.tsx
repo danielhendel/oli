@@ -10,7 +10,7 @@ import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   DAILY_MONITOR_APP_HEADER_TITLE,
-  DAILY_MONITOR_SCREEN_TITLE,
+  TODAY_HOME_SCREEN_TITLE,
 } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
@@ -211,14 +211,14 @@ export function DailyMonitorHost(): React.ReactElement {
         <View
           style={styles.pageIntro}
           accessible
-          accessibilityLabel={`${DAILY_MONITOR_SCREEN_TITLE}. ${dateLabel}`}
+          accessibilityLabel={`${TODAY_HOME_SCREEN_TITLE}. ${dateLabel}`}
         >
           <Text
             style={styles.pageTitle}
             accessibilityRole="header"
             testID="daily-monitor-page-title"
           >
-            {DAILY_MONITOR_SCREEN_TITLE}
+            {TODAY_HOME_SCREEN_TITLE}
           </Text>
           <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
             {dateLabel}
@@ -246,7 +246,7 @@ export function DailyMonitorHost(): React.ReactElement {
 
         {monitorVm.screenStatus === "loading" ? (
           <Text style={styles.status} accessibilityRole="text">
-            Loading Daily Monitor{"\u2026"}
+            Loading Today{"\u2026"}
           </Text>
         ) : null}
 

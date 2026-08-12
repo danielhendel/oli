@@ -2,7 +2,7 @@
 
 **Status:** Approved product decisions for consumer-launch direction
 **Date:** 2026-08-10
-**Implementation stage:** Stage 1A — Launch truth freeze (record only; no product behavior in this stage)
+**Implementation stage:** Stage 1B — One Today Home & Launch Information Architecture (behavior implemented on `feat/consumer-launch-stage1b-today-ia`)
 **Related audit:** [2026-08-10 consumer-launch repo audit](../../audits/2026-08-10-consumer-launch-repo-audit.md)
 
 ---
@@ -53,7 +53,7 @@ Future Today hierarchy:
 
 **Command Center will not remain a competing authenticated home.**
 
-Navigation changes are **not** implemented in Stage 1A; this records the decision only.
+Stage 1B implements this decision: auth and root redirects target Today; `/command-center` redirects to Today.
 
 ### 4. Current State placement
 

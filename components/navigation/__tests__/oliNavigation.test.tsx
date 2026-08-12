@@ -92,7 +92,7 @@ function buildTabBarProps(focusedRouteIndex: number): BottomTabBarProps {
     { key: "manage-k", name: "manage" },
   ];
   const titles: Record<string, string> = {
-    dash: "Dash",
+    dash: "Today",
     timeline: "Timeline",
     program: "Program",
     library: "Library",
@@ -278,10 +278,10 @@ describe("Oli bottom navigation", () => {
     for (const item of MANAGE_HUB_ITEMS) {
       test.root.findByProps({ testID: `manage-hub-${item.id}` });
     }
-    expect(MANAGE_HUB_ITEMS.length).toBe(10);
+    expect(MANAGE_HUB_ITEMS.length).toBe(9);
   });
 
-  it("lists Manage categories in the required order with Profile first", () => {
+  it("lists Manage categories in the required order with Profile first and no DNA placeholder", () => {
     expect(MANAGE_HUB_ITEMS.map((x) => x.id)).toEqual([
       "profile",
       "body",
@@ -292,7 +292,6 @@ describe("Oli bottom navigation", () => {
       "sleep",
       "recovery",
       "labs",
-      "dna",
     ]);
   });
 
@@ -332,7 +331,7 @@ describe("Oli bottom navigation", () => {
     expect(flat).toContain("Body Composition");
   });
 
-  it("does not surface Coming soon copy for DNA in the menu tree", () => {
+  it("does not surface Coming soon copy or DNA in the Manage menu tree", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -341,6 +340,10 @@ describe("Oli bottom navigation", () => {
     });
     const json = JSON.stringify(test.toJSON());
     expect(json).not.toMatch(/Coming soon/i);
+    expect(json).not.toMatch(/\bDNA\b/);
+    expect(
+      test.root.findAll((n) => (n.props as { testID?: string }).testID === "manage-hub-dna"),
+    ).toHaveLength(0);
   });
 
   it("navigates and closes when a module row is pressed", () => {
@@ -360,23 +363,6 @@ describe("Oli bottom navigation", () => {
     expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
       mockPush.mock.invocationCallOrder[0]!,
     );
-  });
-
-  it("navigates DNA to the placeholder route and closes", () => {
-    const onClose = jest.fn();
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(
-        <ManageMenu visible anchor={TEST_ANCHOR} onClose={onClose} />,
-      );
-    });
-    const dnaRow = test.root.findByProps({ testID: "manage-hub-dna" });
-    expect(dnaRow.props.disabled).toBeFalsy();
-    act(() => {
-      dnaRow.props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/dna");
-    expect(onClose).toHaveBeenCalled();
   });
 
   it("closes when the full-screen overlay is tapped", () => {
@@ -581,7 +567,7 @@ describe("Phase 2G-A health primary navigation", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("renders Health menu rows in product order and excludes fitness items", () => {
+  it("renders Health menu rows in product order with real domains and no placeholders", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -599,12 +585,18 @@ describe("Phase 2G-A health primary navigation", () => {
     for (const item of HEALTH_HUB_ITEMS) {
       test.root.findByProps({ testID: item.testID });
     }
-    expect(() => test.root.findByProps({ testID: "health-hub-body" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-dna" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-medical_history" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-scans" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-medication" })).toThrow();
     expect(() => test.root.findByProps({ testID: "health-hub-strength" })).toThrow();
     const flat = JSON.stringify(test.toJSON());
     expect(flat).toContain("Close");
-    expect(flat).not.toContain("Body Composition");
-    expect(flat).not.toContain("Recovery");
+    expect(flat).toContain("Body Composition");
+    expect(flat).toContain("Recovery");
+    expect(flat).toContain("Activity");
+    expect(flat).not.toContain("DNA");
+    expect(flat).not.toContain("Coming soon");
   });
 
   it("closes Health menu before navigating", () => {

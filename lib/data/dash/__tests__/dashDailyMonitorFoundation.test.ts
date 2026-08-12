@@ -5,6 +5,7 @@ import {
   DAILY_MONITOR_SCREEN_TITLE,
   DAILY_MONITOR_TAB_A11Y_LABEL,
   DAILY_MONITOR_TAB_TITLE,
+  TODAY_HOME_SCREEN_TITLE,
   isDashDailyMonitorFoundationEnabled,
   setDashDailyMonitorFoundationEnabledForTests,
 } from "../dashDailyMonitorFoundation";
@@ -21,12 +22,13 @@ describe("dashDailyMonitorFoundation flag", () => {
     }
   });
 
-  it("exposes the conceptual product flag id and consumer copy", () => {
+  it("exposes the conceptual product flag id and Today home copy", () => {
     expect(DASH_DAILY_MONITOR_FOUNDATION_FLAG_ID).toBe("dashDailyMonitorFoundation");
     expect(DAILY_MONITOR_APP_HEADER_TITLE).toBe("Oli");
-    expect(DAILY_MONITOR_SCREEN_TITLE).toBe("Daily Monitor");
-    expect(DAILY_MONITOR_TAB_TITLE).toBe("Monitor");
-    expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Daily Monitor");
+    expect(TODAY_HOME_SCREEN_TITLE).toBe("Today");
+    expect(DAILY_MONITOR_SCREEN_TITLE).toBe("Today");
+    expect(DAILY_MONITOR_TAB_TITLE).toBe("Today");
+    expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Today");
   });
 
   it("defaults to enabled", () => {

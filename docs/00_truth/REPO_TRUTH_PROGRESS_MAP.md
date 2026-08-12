@@ -1,11 +1,13 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-10
+**Last verified:** 2026-08-12
 **Audit baseline SHA:** `d43ae878373534dbb4cef84c4958221ace826792`
-**Implementation baseline SHA:** same as audit baseline until Stage 1A merges (branch `chore/consumer-launch-stage1a-truth-freeze`)
-**Current execution-stage label:** Consumer verticals ahead of the coordinated Health OS loop
-**Current next stage:** Stage 1B — One Today Home & Launch Information Architecture
+**Stage 1A merge SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
+**Stage 1B baseline main SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
+**Stage 1B branch:** `feat/consumer-launch-stage1b-today-ia`
+**Current execution-stage label:** Consumer launch IA — Today home established (Stage 1B)
+**Current next stage:** Stage 1C — Consumer Ownership & Account Recovery
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -26,26 +28,27 @@ Schema/code authority for shared contracts: **`lib/contracts` source** (emitted 
 
 ## Verified / strong foundations
 
-- Firebase email/password auth substrate (device smoke may still be unverified)
+- Firebase email/password auth substrate (device smoke may still be unverified for ownership flows)
 - Cloud Run API as authenticated ingest / public API boundary
 - Client trust boundary (no Firestore in `app/` / `components/`)
 - Constitutional invariant CI checks
 - RawEvent → CanonicalEvent → DailyFacts → Insights → IntelligenceContext pipeline (backend)
 - Account export/delete **backend** routes + Functions
 - Domain verticals: Apple Health workouts/steps/body paths, Oura sleep/readiness paths, nutrition logging, labs import OS
+- **Stage 1B:** One authenticated consumer home (**Today** at filesystem route `/(app)/(tabs)/dash`); Command Center is no longer an auth or primary home (deep-link redirect to Today); launch-facing Health/Program placeholders hidden; Daily Monitor remains the real monitoring content inside Today
+- **Stage 1B runtime:** iOS Simulator (iPhone 16) signed-out smoke verified (boots → Sign in; Metro bundle OK; no Command Center flash). Signed-in interactive smoke blocked pending staging credentials + Simulator UI automation authorization (System Events -1743)
 
 ## Partial product capabilities
 
-- Dash / Daily Monitor as monitor foundation (not yet the single Today home)
+- Today home shell with Daily Monitor content (no Current State summary; no Today’s Plan)
 - Assessment / Baseline / Target UI with **in-memory** assessment store
-- Program tab without durable coordinated My Plan
+- Program tab: Weekly Progress + honest empty state + real workout builder entry (not coordinated My Plan)
 - Seven domains exist as modules/structure; not one Current State OS surface
 - Ownership backend complete; mobile export/delete CTAs and legal URLs missing
 
 ## Missing launch-critical capabilities
 
-- One Today home (Dash → Today) and IA freeze
-- Password reset, consent gate, Privacy/Terms hosted URLs in-app
+- Password reset, consent gate, Privacy/Terms hosted URLs in-app (Stage 1C)
 - Assessment persistence; seven-domain Current State productization
 - Standards → Target → Gap → Action coherence for P0 domains
 - One coordinated My Plan + Weekly Review / adaptation
@@ -55,6 +58,8 @@ Schema/code authority for shared contracts: **`lib/contracts` source** (emitted 
 ## In progress (not complete)
 
 Open PRs and local worktrees are **in-progress only** until merged to `main`. See the [audit progress snapshot](../audits/2026-08-10-proposed-repo-truth-progress-map.md) for the 2026-08-10 inventory; re-check `gh pr list` and `git worktree list` when planning merges.
+
+**PR #178** (`feat/profile-floating-shortcut`) is **superseded** by Stage 1B Health-hub Profile reachability; recommend closure after Stage 1B merges (do not merge blindly — also contains unrelated body UI churn).
 
 ## Code Check Gate
 

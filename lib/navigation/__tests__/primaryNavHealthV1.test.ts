@@ -14,6 +14,7 @@ import {
 } from "@/lib/navigation/primaryNavHealthV1";
 import { resolvePrimaryNavActiveDestination } from "@/lib/navigation/resolvePrimaryNavActiveDestination";
 import { SECONDARY_EXPLORE_DESTINATIONS } from "@/lib/navigation/secondaryExploreDestinations";
+import { CANONICAL_SUPPLEMENTS_HREF } from "@/lib/navigation/consumerHome";
 
 describe("primaryNavHealthV1 flag", () => {
   afterEach(() => {
@@ -53,9 +54,9 @@ describe("primaryNavHealthV1 flag", () => {
 });
 
 describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
-  it("has exactly Dash, Strength, Cardio, Nutrition, Health in system order", () => {
+  it("has exactly Today, Strength, Cardio, Nutrition, Health in system order", () => {
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
-      "Dash",
+      "Today",
       "Strength",
       "Cardio",
       "Nutrition",
@@ -106,45 +107,43 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
 });
 
 describe("HEALTH_HUB_ITEMS contract", () => {
-  it("has the exact seven destinations in product order", () => {
+  it("has honest Stage 1B destinations in product order", () => {
     expect(HEALTH_HUB_ITEMS.map((i) => i.label)).toEqual([
       "Profile",
-      "Medical History",
+      "Body Composition",
+      "Activity",
+      "Recovery",
+      "Sleep",
       "Labs",
-      "Scans",
-      "Medication",
       "Supplements",
-      "DNA",
     ]);
   });
 
-  it("excludes fitness Manage destinations", () => {
+  it("excludes Health-record placeholders", () => {
     const labels = new Set(HEALTH_HUB_ITEMS.map((i) => i.label));
     for (const forbidden of HEALTH_HUB_FORBIDDEN_LABELS) {
       expect(labels.has(forbidden)).toBe(false);
     }
   });
 
-  it("reuses existing Profile, Labs, and DNA routes", () => {
+  it("reuses Profile, Labs, and Nutrition supplements routes", () => {
     expect(HEALTH_HUB_ITEMS.find((i) => i.id === "profile")?.href).toBe("/(app)/(tabs)/profile");
     expect(HEALTH_HUB_ITEMS.find((i) => i.id === "labs")?.href).toBe("/(app)/labs");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "dna")?.href).toBe("/(app)/dna");
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "supplements")?.href).toBe(
+      CANONICAL_SUPPLEMENTS_HREF,
+    );
   });
 
-  it("points Medical History / Scans / Medication / Supplements at dedicated routes", () => {
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "medical_history")?.href).toBe(
-      "/(app)/medical-history",
-    );
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "scans")?.href).toBe("/(app)/scans");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "medication")?.href).toBe("/(app)/medication");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "supplements")?.href).toBe(
-      "/(app)/supplements",
-    );
+  it("points Body / Activity / Recovery / Sleep at real module routes", () => {
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "body")?.href).toBe("/(app)/body");
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "activity")?.href).toBe("/(app)/activity");
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "recovery")?.href).toBe("/(app)/recovery");
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "sleep")?.href).toBe("/(app)/recovery/sleep");
   });
 });
 
 describe("resolvePrimaryNavActiveDestination", () => {
-  it("selects Dash on /dash", () => {
+  it("selects Today (dash) on /dash", () => {
     expect(resolvePrimaryNavActiveDestination({ pathname: "/dash" })).toBe("dash");
   });
 
@@ -166,11 +165,13 @@ describe("resolvePrimaryNavActiveDestination", () => {
     ).toBe("health");
   });
 
-  it("selects Health on health family pages", () => {
+  it("selects Health on health family pages including body and activity", () => {
     expect(resolvePrimaryNavActiveDestination({ pathname: "/labs" })).toBe("health");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/scans" })).toBe("health");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/body" })).toBe("health");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/activity" })).toBe("health");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/recovery" })).toBe("health");
     expect(resolvePrimaryNavActiveDestination({ pathname: "/profile" })).toBe("health");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/medical-history" })).toBe(
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/nutrition/supplements" })).toBe(
       "health",
     );
   });

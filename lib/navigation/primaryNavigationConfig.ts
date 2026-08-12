@@ -1,11 +1,17 @@
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
-import { OLI_TAB_ROUTES } from "@/lib/navigation/tabRoutes";
+import {
+  CONSUMER_HOME_A11Y_LABEL,
+  CONSUMER_HOME_HREF,
+  CONSUMER_HOME_LABEL,
+  CONSUMER_HOME_TEST_ID,
+} from "@/lib/navigation/consumerHome";
 
 /**
- * Phase 2G-A primary dock destinations (health-focused navigation).
+ * Primary dock destinations (health-focused navigation).
  * Exhaustive union — handle every member when switching.
+ * Stage 1B: `dash` filesystem id remains; user-facing label is Today.
  */
 export type PrimaryNavigationDestination =
   | "dash"
@@ -38,7 +44,7 @@ export const PRIMARY_NAV_STACK_HREFS = {
   nutrition: "/(app)/nutrition",
 } as const satisfies Record<"strength" | "cardio" | "nutrition", Href>;
 
-export const PRIMARY_NAV_DASH_HREF = OLI_TAB_ROUTES.dash;
+export const PRIMARY_NAV_DASH_HREF = CONSUMER_HOME_HREF;
 
 /**
  * Four direct destinations inside the primary navigation pill.
@@ -47,9 +53,9 @@ export const PRIMARY_NAV_DASH_HREF = OLI_TAB_ROUTES.dash;
 export const PRIMARY_PILL_ITEMS: readonly PrimaryNavigationItem[] = [
   {
     id: "dash",
-    label: "Dash",
-    accessibilityLabel: "Dash",
-    testID: "oli-tab-dash",
+    label: CONSUMER_HOME_LABEL,
+    accessibilityLabel: CONSUMER_HOME_A11Y_LABEL,
+    testID: CONSUMER_HOME_TEST_ID,
     icon: "home",
     iconOutline: "home-outline",
     action: { kind: "tab", tabName: "dash" },
@@ -107,9 +113,15 @@ export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
   HEALTH_NAV_ITEM,
 ] as const;
 
-/** Labels that must never appear in the Phase 2G-A primary dock. */
+/**
+ * Labels that must never appear in the Stage 1B primary dock.
+ * Today is the sole home; Dash/Monitor/Command Center must not compete.
+ */
 export const PRIMARY_NAV_FORBIDDEN_LABELS = [
+  "Dash",
   "Monitor",
+  "Home",
+  "Command Center",
   "Timeline",
   "Program",
   "Library",

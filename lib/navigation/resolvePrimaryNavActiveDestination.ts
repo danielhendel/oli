@@ -4,11 +4,17 @@ import { normalizePathname } from "@/lib/navigation/normalizePathname";
 /**
  * Pathname prefixes / exact matches that belong to the Health navigation family.
  * When the user is on these screens, Health may remain the selected dock family.
+ * Stage 1B: real domain modules + Profile + Labs + Nutrition supplements.
  */
 const HEALTH_FAMILY_EXACT = new Set([
   "/profile",
-  "/medical-history",
+  "/body",
+  "/activity",
+  "/recovery",
   "/labs",
+  "/nutrition/supplements",
+  // Soft-removed placeholders may still be deep-linked; keep Health selected.
+  "/medical-history",
   "/scans",
   "/medication",
   "/supplements",
@@ -17,8 +23,12 @@ const HEALTH_FAMILY_EXACT = new Set([
 
 const HEALTH_FAMILY_PREFIXES = [
   "/profile/",
-  "/medical-history/",
+  "/body/",
+  "/activity/",
+  "/recovery/",
   "/labs/",
+  "/nutrition/supplements",
+  "/medical-history/",
   "/scans/",
   "/medication/",
   "/supplements/",
@@ -39,6 +49,10 @@ function isCardioPath(pathname: string): boolean {
 }
 
 function isNutritionPath(pathname: string): boolean {
+  // Supplements is Health-family discoverability; other nutrition stays Nutrition dock.
+  if (pathname === "/nutrition/supplements" || pathname.startsWith("/nutrition/supplements/")) {
+    return false;
+  }
   return pathname === "/nutrition" || pathname === "/nutrition/overview" || pathname.startsWith("/nutrition/");
 }
 

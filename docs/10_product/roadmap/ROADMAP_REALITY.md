@@ -1,8 +1,9 @@
 # Roadmap — Reality Based (Consumer Launch)
 
 **Status:** Current execution roadmap
-**Last updated:** 2026-08-10 (Stage 1A truth freeze)
+**Last updated:** 2026-08-12 (Stage 1B Today IA)
 **Audit baseline SHA:** `d43ae878373534dbb4cef84c4958221ace826792`
+**Stage 1A merge SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Historical audit roadmap:** [2026-08-10-consumer-launch-roadmap.md](../../audits/2026-08-10-consumer-launch-roadmap.md)
@@ -18,18 +19,18 @@ This roadmap reflects **dependency-ordered completion gates** for the consumer H
 - Firebase Auth (email/password) + API token verification
 - Cloud Run API: authenticated ingest, preferences, domain read/write routes
 - Idempotent raw event writes; normalization → DailyFacts → Insights → IntelligenceContext
-- Portions of the mobile app already consume derived truth (Dash cards, sleep/readiness, weekly fitness, etc.)
+- Portions of the mobile app already consume derived truth (Today/Daily Monitor cards, sleep/readiness, weekly fitness, etc.)
 - Apple Health and Oura integration paths exist (runtime device proof still required for launch)
 - Labs document import / review OS merged
 - Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
 - Withings live sync remains orphaned (honest refusal helpers)
+- **Today** is the single authenticated consumer home; Command Center is not a competing home
 
 ## What does not exist yet (launch-critical)
 
-- One Today home IA (Dash → Today; Command Center not competing home)
+- Password reset; consent; Privacy/Terms hosted URL links in-app
 - Assessment persistence; unified Current State OS surface
 - One coordinated My Plan; Weekly Review / adaptation
-- Password reset; consent; Privacy/Terms hosted URL links in-app
 - Crash reporting product; production Firebase project config
 
 ---
@@ -54,7 +55,7 @@ This roadmap reflects **dependency-ordered completion gates** for the consumer H
 | **12** | Consumer launch | Scope A acceptance + store approval |
 | **13+** | Professional & Campus enablement | After consumer loop; Operations OS ADR before Campus paths |
 
-**Current stage:** **1A** (this PR). **Next:** **1B**.
+**Current stage:** **1B** (implementation on branch; Draft PR until signed-in navigation smoke completes). **Next:** **1C**.
 
 ### Critical path
 

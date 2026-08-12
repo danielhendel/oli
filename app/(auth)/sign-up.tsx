@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-nativ
 import { useRouter } from "expo-router";
 
 import { signUpWithEmail } from "@/lib/auth/actions";
+import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function SignUpScreen() {
       }
 
       // After sign up, treat as signed-in (Firebase does this by default).
-      router.replace("/(app)/command-center");
+      router.replace(CONSUMER_HOME_HREF);
     } finally {
       setSubmitting(false);
     }

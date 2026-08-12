@@ -62,7 +62,8 @@ export function resolveTimelineItemHref(input: ResolveHrefInput): string {
       return `/(app)/labs`;
 
     case "insight":
-      return `/(app)/dash/daily-recap`;
+      // Daily Recap is not launch-facing; Today is the honest home for day monitoring.
+      return `/(app)/(tabs)/dash`;
 
     case "incomplete":
     case "manual_note":

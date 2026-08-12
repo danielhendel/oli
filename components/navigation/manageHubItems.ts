@@ -1,5 +1,6 @@
 /**
- * Routes used by the Manage launcher menu (order = display order top → bottom).
+ * Routes used by the Manage launcher menu (legacy dock when Health v1 is off).
+ * Stage 1B: DNA and other Health-record placeholders are not launch-facing.
  */
 export type ManageHubItem = {
   id: string;
@@ -62,11 +63,5 @@ export const MANAGE_HUB_ITEMS: readonly ManageHubItem[] = [
     label: "Labs",
     accessibilityLabel: "Labs",
     href: "/(app)/labs",
-  },
-  {
-    id: "dna",
-    label: "DNA",
-    accessibilityLabel: "DNA",
-    href: "/(app)/dna",
   },
 ] as const;

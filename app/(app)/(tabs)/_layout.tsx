@@ -10,12 +10,9 @@ import {
   useManageNavigation,
 } from "@/components/navigation/ManageNavigationContext";
 import {
-  DAILY_MONITOR_TAB_A11Y_LABEL,
-  DAILY_MONITOR_TAB_TITLE,
-  isDashDailyMonitorFoundationEnabled,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
-import { isDashWeeklyProgressRelocationEnabled } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { resolveDashExperienceMode } from "@/lib/data/dash/resolveDashExperienceMode";
+  CONSUMER_HOME_A11Y_LABEL,
+  CONSUMER_HOME_LABEL,
+} from "@/lib/navigation/consumerHome";
 import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
 import { UI_APP_SCREEN_BG, UI_NAV_TAB_ICON_ACTIVE, UI_NAV_TAB_ICON_INACTIVE } from "@/lib/ui/theme/uiTokens";
 import { ThemeProvider } from "@react-navigation/native";
@@ -66,21 +63,9 @@ function OliTabBar(props: BottomTabBarProps) {
 function TabsLayoutInner() {
   const tabTheme = useMemo(() => createOliTabNavigationTheme(), []);
   const healthV1 = isPrimaryNavHealthV1Enabled();
-  const dashExperience = resolveDashExperienceMode({
-    dailyMonitorEnabled: isDashDailyMonitorFoundationEnabled(),
-    weeklyProgressRelocationEnabled: isDashWeeklyProgressRelocationEnabled(),
-  });
-  // Phase 2G-A primary label is always "Dash"; legacy keeps Monitor when Daily Monitor is on.
-  const dashTabTitle = healthV1
-    ? "Dash"
-    : dashExperience === "daily_monitor"
-      ? DAILY_MONITOR_TAB_TITLE
-      : "Dash";
-  const dashTabA11y = healthV1
-    ? "Dash"
-    : dashExperience === "daily_monitor"
-      ? DAILY_MONITOR_TAB_A11Y_LABEL
-      : "Dash";
+  // Stage 1B: Today is the sole consumer home label (filesystem route remains dash).
+  const dashTabTitle = CONSUMER_HOME_LABEL;
+  const dashTabA11y = CONSUMER_HOME_A11Y_LABEL;
 
   // Hide Timeline/Program/Library from the Expo Router tab bar when Health v1 is on.
   // Routes remain registered for deep links and Settings → Explore.

@@ -1,42 +1,38 @@
 // app/(app)/(tabs)/program.tsx
-// Oli — Program: weekly target progress + plan category cards + current programs.
+// Oli — Program: Weekly Progress + honest empty state (Stage 1B).
+// Not yet coordinated My Plan. Placeholder builders are not launch-facing.
 import React, { useMemo } from "react";
-import { ScrollView, View, StyleSheet } from "react-native";
+import { Pressable, ScrollView, View, StyleSheet, Text } from "react-native";
+import { useRouter, type Href } from "expo-router";
 import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
-import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET } from "@/lib/ui/theme/uiTokens";
+import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import type { ProgramSummary } from "@/lib/data/program/types";
-import { buildProgramCategoryCards } from "@/lib/data/program/buildProgramCategoryCards";
 import {
   WEEKLY_PROGRESS_CONSUMER_TITLE,
   WEEKLY_PROGRESS_SUPPORTING_COPY,
   isDashWeeklyProgressRelocationEnabled,
 } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { resolveWeeklyFitnessGoals } from "@/lib/preferences/weeklyFitnessGoals";
-import { ProgramAddButton } from "@/lib/ui/program/ProgramAddButton";
-import { ProgramCategoryCards } from "@/lib/ui/program/ProgramCategoryCards";
 import { ProgramCurrentScreen } from "@/lib/ui/program/ProgramCurrentScreen";
 import { WeeklyFitnessCardHost } from "@/lib/ui/dash/WeeklyFitnessCardHost";
+import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
+import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+
+const WORKOUT_BUILDER_HREF = "/(app)/program/workout" as const;
 
 export default function ProgramScreen() {
+  const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
-  const { state: prefState } = usePreferences();
-  const goals = useMemo(
-    () => resolveWeeklyFitnessGoals(prefState.preferences),
-    [prefState.preferences, prefState.preferences.weeklyFitnessGoals?.updatedAt],
-  );
-  const categoryCards = useMemo(() => buildProgramCategoryCards(goals), [goals]);
   const showWeeklyProgress = isDashWeeklyProgressRelocationEnabled();
 
   // v1: no program document persistence yet — active programs list stays empty.
-  const currentPrograms: ProgramSummary[] = [];
+  const currentPrograms: ProgramSummary[] = useMemo(() => [], []);
 
   return (
     <ScreenContainer padded={false}>
       <View style={styles.root}>
-        <TabRootScreenHeader title="Program" rightSlot={<ProgramAddButton />} />
+        <TabRootScreenHeader title="Program" />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingBottom }]}
@@ -51,8 +47,21 @@ export default function ProgramScreen() {
               />
             </View>
           ) : null}
-          <ProgramCategoryCards cards={categoryCards} />
+
           <ProgramCurrentScreen programs={currentPrograms} embedded />
+
+          <Pressable
+            testID="program-workout-builder-link"
+            accessibilityRole="button"
+            accessibilityLabel="Open workout program builder"
+            onPress={() => router.push(WORKOUT_BUILDER_HREF as Href)}
+            style={({ pressed }) => [styles.workoutLink, pressed && styles.workoutLinkPressed]}
+          >
+            <Text style={styles.workoutLinkTitle}>Workout program</Text>
+            <Text style={styles.workoutLinkBody}>
+              Build a strength workout program. Cardio, nutrition, and recovery builders are not available yet.
+            </Text>
+          </Pressable>
         </ScrollView>
       </View>
     </ScreenContainer>
@@ -71,5 +80,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: UI_TAB_ROOT_INSET,
     paddingTop: 4,
     gap: 16,
+  },
+  workoutLink: {
+    ...elevatedCardSurfaceStyle,
+    borderRadius: 14,
+    padding: 16,
+    backgroundColor: UI_CARD_SURFACE,
+    gap: 6,
+    minHeight: 72,
+  },
+  workoutLinkPressed: {
+    opacity: 0.9,
+  },
+  workoutLinkTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+  },
+  workoutLinkBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: UI_TEXT_SECONDARY,
   },
 });

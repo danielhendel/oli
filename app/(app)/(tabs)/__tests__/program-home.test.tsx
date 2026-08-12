@@ -61,7 +61,6 @@ jest.mock("react-native-svg", () => ({
 }));
 
 import ProgramScreen from "../program";
-import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
 
 beforeEach(() => {
   mockPush.mockClear();
@@ -120,28 +119,32 @@ describe("Program tab", () => {
     ).toHaveLength(0);
   });
 
-  it("renders the + button instead of the settings gear", () => {
+  it("does not render the Program Builder + button", () => {
     const test = renderProgram();
-    expect(test.root.findByProps({ testID: "program-add-button" })).toBeTruthy();
-    const str = JSON.stringify(test.toJSON());
-    expect(str).not.toContain("Settings");
+    expect(
+      test.root.findAll((n) => (n.props as { testID?: string }).testID === "program-add-button"),
+    ).toHaveLength(0);
   });
 
-  it("renders the + icon using the white primary text token", () => {
-    const buttonPath = path.join(__dirname, "../../../../lib/ui/program/ProgramAddButton.tsx");
-    const src = fs.readFileSync(buttonPath, "utf8");
-    expect(src).toContain("UI_TEXT_PRIMARY");
-    expect(src).not.toContain("#1C1C1E");
-    expect(UI_TEXT_PRIMARY).toBe("#F7F8FA");
-  });
-
-  it("navigates to the Program Builder hub when + is pressed", () => {
+  it("links to the real workout builder without placeholder builder grid", () => {
     const test = renderProgram();
-    const addBtn = test.root.findByProps({ testID: "program-add-button" });
+    const link = test.root.findByProps({ testID: "program-workout-builder-link" });
     act(() => {
-      (addBtn.props.onPress as () => void)();
+      (link.props.onPress as () => void)();
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/program/builder");
+    expect(mockPush).toHaveBeenCalledWith("/(app)/program/workout");
+    const str = JSON.stringify(test.toJSON());
+    expect(str).not.toContain("Cardio Builder");
+    expect(str).not.toContain("Nutrition Builder");
+    expect(str).not.toContain("Recovery Builder");
+    expect(str).not.toContain("Coming soon");
+  });
+
+  it("does not render the Design your plan category cards", () => {
+    const test = renderProgram();
+    expect(
+      test.root.findAll((n) => (n.props as { testID?: string }).testID === "program-category-cards"),
+    ).toHaveLength(0);
   });
 
   it("does not render the Builders section or builder cards", () => {
@@ -149,14 +152,7 @@ describe("Program tab", () => {
     const str = JSON.stringify(test.toJSON());
     expect(str).not.toContain("Builders");
     expect(str).not.toContain("ACTIVE PROGRAM");
-    expect(str).not.toContain("Workout Builder");
     expect(str).not.toContain("program-builder-card-workout");
-  });
-
-  it("renders category cards for plan design", () => {
-    const test = renderProgram();
-    expect(test.root.findByProps({ testID: "program-category-cards" })).toBeTruthy();
-    expect(test.root.findByProps({ testID: "program-category-activity" })).toBeTruthy();
   });
 
   it("renders the empty state when no current programs exist alongside Weekly Progress", () => {
@@ -167,6 +163,7 @@ describe("Program tab", () => {
     expect(str).toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(str).not.toContain("Saved Programs");
     expect(str).not.toContain("Shared Programs");
+    expect(str).not.toContain("Tap +");
   });
 
   it("does not add Firebase or raw HTTP/API calls to the Program route", () => {

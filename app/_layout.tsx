@@ -12,6 +12,7 @@ import { ActivityRollupProvider } from "../lib/data/activity/ActivityRollupProvi
 import { useAppleHealthForcedYesterdayFinalize } from "../lib/data/activity/useAppleHealthForcedYesterdayFinalize";
 import { PreferencesProvider } from "../lib/preferences/PreferencesProvider";
 import { UserProfileMainProvider } from "../lib/data/profile/useUserProfileMain";
+import { CONSUMER_HOME_HREF } from "../lib/navigation/consumerHome";
 
 function AppleHealthForcedYesterdayFinalizeRunner() {
   useAppleHealthForcedYesterdayFinalize();
@@ -44,7 +45,7 @@ function RouteGuard() {
     }
 
     if (user && inAuthGroup) {
-      router.replace("/(app)/(tabs)/dash");
+      router.replace(CONSUMER_HOME_HREF);
     }
   }, [initializing, router, segments, user]);
 

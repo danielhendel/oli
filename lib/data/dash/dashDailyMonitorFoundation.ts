@@ -27,19 +27,25 @@ export const DASH_DAILY_MONITOR_FOUNDATION_ENV_KEY =
 export const DASH_DAILY_MONITOR_FOUNDATION_FLAG_ID = "dashDailyMonitorFoundation" as const;
 
 /**
- * Fixed app-header wordmark in Daily Monitor mode.
+ * Fixed app-header wordmark in Daily Monitor / Today mode.
  * Must not include “Daily Monitor” or the current date (those live in page content).
  */
 export const DAILY_MONITOR_APP_HEADER_TITLE = "Oli" as const;
 
-/** Consumer-visible page heading inside scroll content when Daily Monitor is active. */
-export const DAILY_MONITOR_SCREEN_TITLE = "Daily Monitor" as const;
+/**
+ * Consumer-visible page heading for the Today home (Stage 1B).
+ * Daily Monitor remains the monitoring section semantics, not a competing top-level name.
+ */
+export const TODAY_HOME_SCREEN_TITLE = "Today" as const;
 
-/** Consumer-visible tab title (width-constrained). */
-export const DAILY_MONITOR_TAB_TITLE = "Monitor" as const;
+/** @deprecated Prefer TODAY_HOME_SCREEN_TITLE — Stage 1B renames the home page heading. */
+export const DAILY_MONITOR_SCREEN_TITLE = TODAY_HOME_SCREEN_TITLE;
+
+/** Consumer-visible tab title — Stage 1B uses Today via CONSUMER_HOME_LABEL. */
+export const DAILY_MONITOR_TAB_TITLE = "Today" as const;
 
 /** Tab accessibility label (full name). */
-export const DAILY_MONITOR_TAB_A11Y_LABEL = "Daily Monitor" as const;
+export const DAILY_MONITOR_TAB_A11Y_LABEL = "Today" as const;
 
 /** Legacy Dash screen title when Daily Monitor is inactive. */
 export const LEGACY_DASH_SCREEN_TITLE = "Oli Fitness" as const;

@@ -150,7 +150,7 @@ describe("Daily Monitor header hierarchy", () => {
     mockStressHook.mockClear();
   });
 
-  it("uses Oli in the fixed header and Daily Monitor + date in page content", async () => {
+  it("uses Oli in the fixed header and Today + date in page content", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -164,6 +164,7 @@ describe("Daily Monitor header hierarchy", () => {
 
     const pageTitle = tree.root.findByProps({ testID: "daily-monitor-page-title" });
     expect(pageTitle.props.children).toBe(DAILY_MONITOR_SCREEN_TITLE);
+    expect(pageTitle.props.children).toBe("Today");
     expect(pageTitle.props.accessibilityRole).toBe("header");
     const pageDate = tree.root.findByProps({ testID: "daily-monitor-page-date" });
     expect(pageDate.props.children).toBe("Mon Jul 20, 2026");
@@ -171,8 +172,9 @@ describe("Daily Monitor header hierarchy", () => {
 
     const text = collectText(tree.root);
     expect(text).toContain("Oli");
-    expect(text).toContain("Daily Monitor");
+    expect(text).toContain("Today");
     expect(text).toContain("Mon Jul 20, 2026");
+    expect(text).not.toContain("Daily Monitor");
 
     const headerTitle = header.findAll(
       (n) =>

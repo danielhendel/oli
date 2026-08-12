@@ -146,11 +146,8 @@ jest.mock("expo-router", () => {
 });
 
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
-import {
-  DAILY_MONITOR_TAB_A11Y_LABEL,
-  DAILY_MONITOR_TAB_TITLE,
-  setDashDailyMonitorFoundationEnabledForTests,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
+import { CONSUMER_HOME_A11Y_LABEL, CONSUMER_HOME_LABEL } from "@/lib/navigation/consumerHome";
+import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
 
@@ -217,14 +214,14 @@ describe("TabsLayout", () => {
 
     const primaryTitles = tabs.map((t) => t.title);
     expect(primaryTitles).toEqual([
-      DAILY_MONITOR_TAB_TITLE,
+      CONSUMER_HOME_LABEL,
       "Timeline",
       "Program",
       "Library",
     ]);
   });
 
-  it("uses legacy Dash tab title when Daily Monitor experience is inactive", () => {
+  it("keeps Today as the home tab title even when Daily Monitor experience is inactive", () => {
     setDashDailyMonitorFoundationEnabledForTests(false);
     setDashWeeklyProgressRelocationEnabledForTests(true);
 
@@ -234,25 +231,24 @@ describe("TabsLayout", () => {
     });
 
     expect(findTabs(test).map((t) => t.title)).toEqual([
-      "Dash",
+      CONSUMER_HOME_LABEL,
       "Timeline",
       "Program",
       "Library",
     ]);
   });
 
-  it("exposes Daily Monitor accessibility label while keeping route name dash", () => {
+  it("exposes Today accessibility label while keeping route name dash", () => {
     setDashDailyMonitorFoundationEnabledForTests(true);
     setDashWeeklyProgressRelocationEnabledForTests(true);
-    // Re-require is unnecessary; layout reads flags at render time.
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
     const dash = findTabs(test).find((t) => t.name === "dash");
     expect(dash?.name).toBe("dash");
-    expect(dash?.title).toBe(DAILY_MONITOR_TAB_TITLE);
-    expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Daily Monitor");
+    expect(dash?.title).toBe(CONSUMER_HOME_LABEL);
+    expect(CONSUMER_HOME_A11Y_LABEL).toBe("Today");
   });
 
   it("does not register Profile as a bottom nav tab", () => {
@@ -328,13 +324,13 @@ describe("TabsLayout health primary nav (Phase 2G-A)", () => {
     setDashWeeklyProgressRelocationEnabledForTests(true);
   });
 
-  it("keeps Dash label as Dash (not Monitor) and hides Timeline/Program/Library from the dock", () => {
+  it("keeps Today label and hides Timeline/Program/Library from the dock", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
     const tabs = findTabs(test);
-    expect(tabs.find((t) => t.name === "dash")?.title).toBe("Dash");
+    expect(tabs.find((t) => t.name === "dash")?.title).toBe("Today");
     expect(tabs.filter((t) => t.name !== "dash").every((t) => t.href === "hidden")).toBe(true);
   });
 
