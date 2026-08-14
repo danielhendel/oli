@@ -2,9 +2,20 @@
 
 **The Master Product Definition**
 
-**Version:** 1.0  
-**Status:** Authoritative — governing document for the Professional Platform  
-**Authority:** Subordinate to `docs/00_truth/CONSTITUTION.md`; peer to `docs/10_product/vision/VISION.md`
+**Version:** 1.0
+**Status:** Long-term strategic reference.
+
+For current consumer product authority, follow:
+
+- docs/10_product/vision/VISION.md
+- docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md
+- docs/10_product/roadmap/ROADMAP_REALITY.md
+
+Any language in this document implying that Oli autonomously chooses user goals,
+creates professional prescriptions, or modifies professional-created plans is
+superseded for the current consumer product.
+
+**Authority:** Subordinate to `docs/00_truth/CONSTITUTION.md`; long-term professional-platform reference — not a second active consumer vision.
 
 ---
 
@@ -45,8 +56,8 @@ Just as:
 
 **Oli empowers health professionals.**
 
-Not to create workouts.  
-Not to create meal plans.  
+Not to create workouts.
+Not to create meal plans.
 But to create **living, personalized health systems**.
 
 ---
@@ -79,7 +90,7 @@ Today's coaching software helps professionals manage clients. It helps assign wo
 
 While these improve productivity, they do not improve the quality of what is being created.
 
-Most coaching software optimizes **administration**.  
+Most coaching software optimizes **administration**.
 Oli optimizes **craftsmanship**.
 
 ---
@@ -90,8 +101,8 @@ Professionals are not administrators. **Professionals are designers.**
 
 They interpret evidence. They understand people. They solve problems. They create experiences.
 
-Every recommendation reflects expertise.  
-Every decision has intention.  
+Every recommendation reflects expertise.
+Every decision has intention.
 Every client receives something thoughtfully crafted.
 
 The flagship product of Oli is not the mobile app. It is not the coaching platform. It is not artificial intelligence.

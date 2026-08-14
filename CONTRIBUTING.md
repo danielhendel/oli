@@ -13,9 +13,16 @@ Before contributing, read:
 
 1. `docs/INDEX.md`
 2. `docs/00_truth/CONSTITUTION.md`
-3. `docs/00_truth/SOURCE_OF_TRUTH.md`
-4. `docs/00_truth/GOVERNANCE_CHARTER.md`
-5. `CODEBASE_RULES.md`
+3. `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
+4. `docs/10_product/vision/VISION.md`
+5. `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
+6. `docs/10_product/roadmap/ROADMAP_REALITY.md`
+7. `docs/20_architecture/SYSTEM_STATE.md`
+8. `docs/00_truth/SOURCE_OF_TRUTH.md`
+9. `docs/00_truth/GOVERNANCE_CHARTER.md`
+10. `CODEBASE_RULES.md`
+
+For current consumer product work, the analytics-first vision and consumer product decisions govern. Do not infer prescription or autonomous plan modification from long-term strategic documents.
 
 ---
 

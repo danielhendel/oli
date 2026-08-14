@@ -1,104 +1,234 @@
 # Consumer Launch Product Decisions
 
-**Status:** Approved product decisions for consumer-launch direction
-**Date:** 2026-08-10
-**Implementation stage:** Stage 1A — Launch truth freeze (record only; no product behavior in this stage)
-**Related audit:** [2026-08-10 consumer-launch repo audit](../../audits/2026-08-10-consumer-launch-repo-audit.md)
+**Status:** Current approved consumer-launch product decisions
+**Version:** 2.0
+**Effective date:** 2026-08-14
+**Authority level:** T2 product decisions (subordinate to Constitution and code/CI)
+**Supersedes:** 2026-08-10 Today / coordinated My Plan launch decisions
+**Describes:** Approved consumer product decisions — **not** runtime implementation proof
+**Related:** [VISION.md](../vision/VISION.md) · [ROADMAP_REALITY.md](../roadmap/ROADMAP_REALITY.md) · [SYSTEM_STATE.md](../../20_architecture/SYSTEM_STATE.md) · [Delta audit](../../audits/2026-08-14-analytics-first-product-direction-delta.md)
+
+> There is one active consumer product-decision document. Git history preserves v1 (2026-08-10).
 
 ---
 
-## Context
+## Product authority
 
-The repository has strong personal-health-memory and domain verticals, but lacks a coordinated Health OS closed loop (Assessment → Current State → Plan → Execution → Monitor → Review → Adaptation). Multiple homes, Campus-first pressure, and professional-platform coupling risk diluting the first consumer launch.
+```text
+Professionals plan.
+People execute.
+Oli analyzes.
+```
 
-## Decision
+```text
+Oli measures. Oli analyzes. Oli explains. You decide.
+```
 
-### 1. Core product
+---
 
-Oli is a **Health Operating System**, not a collection of trackers.
+## Oli’s role
 
-The first consumer product must complete:
+Oli’s analytical responsibilities for the consumer product:
 
-Assessment → Current State → Standard → Target → Gap → My Plan → Execution → Monitoring → Review → Adaptation
+1. Collect
+2. Organize
+3. Measure
+4. Compare
+5. Analyze
+6. Explain
 
-The product must work **without** an Oli-owned physical location.
+Oli does not autonomously prescribe goals, priorities, workouts, nutrition plans, medical actions, or modifications to professional-created programs.
 
-**Principle:** OLI WORKS ANYWHERE AND WORKS BEST AT OLI CAMPUS.
+---
 
-### 2. Seven-domain Current State structure
+## Human control
 
-Visible domains:
+- The user owns personal goals and decisions.
+- Appropriate professionals own professional judgment.
+- Oli does not autonomously prescribe or modify professional plans.
 
-1. Body Composition
+---
+
+## Primary navigation
+
+Approved first-release information architecture:
+
+```text
+Home · Plan · Progress · You
+```
+
+| Destination | Question |
+|-------------|----------|
+| Home | Where am I? |
+| Plan | What am I doing? |
+| Progress | How am I changing? |
+| You | What does Oli know about me? |
+
+This IA is **approved direction**, not claimed as merged implementation. Draft PR #210’s Today / five-domain dock is **superseded** and must not be treated as current product law.
+
+---
+
+## Seven domains
+
+1. Body
 2. Recovery
-3. Activity
+3. Movement
 4. Strength
 5. Cardio
 6. Nutrition
 7. Health
 
-P0 execution depth initially prioritizes: **Strength, Activity, Recovery/Sleep, Nutrition**.
+Domains describe state. They are not seven simultaneous optimization mandates.
 
-Body Composition, Cardio, and Health remain honest when partial or missing. **No fabricated ratings or fake completeness.**
+---
 
-### 3. One consumer home
+## Terminology
 
-The existing Dash route becomes the one consumer home called **Today**.
+```text
+Movement is the consumer term.
+Activity remains the existing technical term until compatibility work is approved.
+```
 
-Future Today hierarchy:
+Do not invent a parallel technical domain or rename contracts in documentation-only work.
 
-1. Current State summary — “Where am I overall?”
-2. Today’s Plan — “What should I do?”
-3. Daily Monitor — “What has been measured, calculated, or logged today?”
+---
 
-**Command Center will not remain a competing authenticated home.**
+## Home
 
-Navigation changes are **not** implemented in Stage 1A; this records the decision only.
+Home contains:
 
-### 4. Current State placement
+- Current State
+- Standards (where defensible)
+- Direction of travel
+- What Oli Sees
 
-Current State is not merely profile information. It will have a dedicated State experience and a summary on Today. Profile remains identity, preferences, permissions, ownership, and account.
+**No prescription feed.** No “Today’s Plan” as an Oli-authored action surface.
 
-### 5. My Plan
+---
 
-Program evolves into **one coordinated My Plan**. Users must not receive isolated workout, cardio, nutrition, recovery, wearable, or professional plans as competing “the plan.”
+## Plan
 
-Plan schema design/implementation is deferred past Stage 1A.
+- Plans are human-created or externally sourced.
+- Source attribution is required.
+- Oli may represent and analyze plans.
+- Oli does not autonomously author or modify plans.
 
-### 6. Consumer launch mode
+---
 
-P0 is a **self-service consumer** product. Professional support, assignment, secure messaging, and the professional portal are **P1+**.
+## Progress
 
-### 7. Legal delivery
+- Execution
+- Adherence
+- Outcomes
+- Trends
+- Analysis
+- Confidence
 
-Privacy Policy, Terms of Service, and Support use **maintainable hosted URLs** linked from the app. Final legal copy is not invented in engineering PRs.
+**No autonomous program change.**
 
-### 8. Monetization
+Current State and Progress remain separate product concepts and (eventually) separate data contracts.
 
-No IAP required for internal/controlled beta. A separate entitlement/monetization decision is required before a paid public digital consumer launch. Do not implement IAP in early launch stages by default.
+---
 
-### 9. Campus boundary
+## You
 
-Campus, facilities, reservations, equipment, kitchen, membership, and operational data remain deferred. Location and provider stay optional execution context. Personal health data remains user-scoped. **No Campus Firestore paths** before an Operations OS ADR.
+- Identity
+- Connected sources
+- Assessments
+- Labs
+- History
+- Professionals
+- Privacy
+- Export
+- Delete account
+- Settings
+
+---
+
+## Overall score
+
+**Not approved for P0** until:
+
+- Weighting is defensible
+- Missing-domain behavior is defined
+- Confidence aggregation is defined
+- Versioning is defined
+- Explanation is available
+
+Default when not defensible: honest incomplete language such as `Building your complete baseline`.
+
+---
+
+## What Oli Sees
+
+- Analysis only
+- Evidence-linked
+- Conservative
+- No “you should”
+- No “your priority is”
+- No unsupported causation
+
+---
+
+## Current State versus Progress
+
+Must remain separate:
+
+| Concept | Question |
+|---------|----------|
+| Current State | Where am I? |
+| Progress | How am I changing? |
+
+---
+
+## P0 product mode
+
+Self-service analytics first.
+
+Professional analytics and professional plan workflows may follow **without** changing the core authority boundary.
+
+---
+
+## Campus
+
+Deferred.
+
+The consumer record and analytics model must remain location-independent. No Campus Firestore paths before an Operations OS ADR.
+
+---
+
+## Legal and ownership (retained)
+
+- Privacy Policy, Terms, and Support use maintainable hosted URLs linked from the app.
+- Final legal copy is not invented in engineering PRs.
+- Export/delete UI remains launch-critical alongside existing backend routes.
+
+---
+
+## Monetization (retained)
+
+No IAP required for internal/controlled beta. Separate entitlement decision before paid public digital launch.
+
+---
 
 ## Consequences
 
-- Future sessions must not reintroduce dual homes, seven shallow equal dashboards, Campus-first development, professional-launch coupling, a generic AI chatbot as the product, or a fragmented plan model.
-- Stage sequencing follows [ROADMAP_REALITY](../roadmap/ROADMAP_REALITY.md).
-- Implementation PRs change behavior only in their named stage; this document alone does not ship UI.
+Future sessions must not reintroduce:
 
-## Deferred alternatives
+- Today / five-domain dock as product law
+- Oli-authored coordinated My Plan as P0
+- Autonomous adaptation / next-plan authorship by Oli
+- Dual authenticated homes (e.g. Command Center competing with Home)
+- Campus-first development
+- Generic AI chatbot as the product
+- Fabricated complete scores or overall score without methodology
 
-| Alternative | Why deferred |
-|-------------|--------------|
-| Campus-first launch | Violates “works anywhere”; needs Operations OS ADR |
-| Professional-coupled P0 | Blocks self-service launch; P1+ |
-| Equal depth across all seven domains at P0 | Honesty over fake completeness |
-| Competing Command Center home | Dilutes Today IA |
-| Isolated per-domain “plans” | Breaks coordinated My Plan |
-| Generic AI chatbot product | Not the closed-loop OS |
-| IAP before entitlement decision | Premature for controlled beta |
+Stage sequencing follows [ROADMAP_REALITY](../roadmap/ROADMAP_REALITY.md).
 
-## Relationship to the 2026-08-10 audit
+---
 
-These decisions lock the audit’s recommended consumer direction without implementing Stage 1B+ product work. Audit artifacts under `docs/audits/2026-08-10-*` remain the historical evidence snapshot of `d43ae878`.
+## Relationship to audits
+
+- Historical evidence: `docs/audits/2026-08-10-*` (immutable).
+- Direction delta: [2026-08-14 analytics-first delta](../../audits/2026-08-14-analytics-first-product-direction-delta.md).
+- PR #210 remains Draft; disposition is documented in the delta audit and is not executed by this decisions file.

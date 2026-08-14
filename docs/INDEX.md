@@ -18,15 +18,28 @@ If there is ambiguity, this index governs how it is resolved.
 
 1. **Constitution / authority rules** — `docs/00_truth/CONSTITUTION.md`, `SOURCE_OF_TRUTH.md`, `GOVERNANCE_CHARTER.md`, `INVARIANTS_MAP.md`
 2. **Current repo-truth progress map** — `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
-3. **Current consumer-launch roadmap** — `docs/10_product/roadmap/ROADMAP_REALITY.md`
-4. **Current system state** — `docs/20_architecture/SYSTEM_STATE.md`
-5. **Current product decisions (consumer launch)** — `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
-6. **Schema / contracts (code)** — `lib/contracts` TypeScript + Zod source (package `@oli/contracts`; generated `dist/` is gitignored; build via `npm run build:contracts`)
-7. **Audit evidence (historical)** — `docs/audits/2026-08-10-consumer-launch-*.md` and `docs/90_audits/`
-8. **Reference vision / product folders** — `docs/10_product/`, `docs/20_architecture/`, `docs/30_data/` (must not contradict T0 or code)
-9. **Legacy / non-current** — `docs/authoritative/` (legacy redirect / exercise-media standards), older `docs/README.md` overview, superseded audits
+3. **Analytics-first product vision** — `docs/10_product/vision/VISION.md`
+4. **Current consumer product decisions** — `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
+5. **Current consumer launch roadmap** — `docs/10_product/roadmap/ROADMAP_REALITY.md`
+6. **Current system state** — `docs/20_architecture/SYSTEM_STATE.md`
+7. **Schema / contracts (code)** — `lib/contracts` TypeScript + Zod source (package `@oli/contracts`; generated `dist/` is gitignored; build via `npm run build:contracts`)
+8. **Great Code / engineering standards** — `CODEBASE_RULES.md`, `docs/40_engineering/`
+9. **Audit evidence (historical)** — `docs/audits/2026-08-14-analytics-first-product-direction-delta.md` (direction delta), `docs/audits/2026-08-10-consumer-launch-*.md`, `docs/90_audits/`
+10. **Long-term reference documents** — `docs/10_product/` (non-current), `docs/professional-platform/`, selected `docs/authoritative/` (must not override current consumer vision/decisions)
+11. **Legacy / superseded** — `docs/authoritative/` (legacy redirect / exercise-media standards), older `docs/README.md` overview, superseded audits
 
 **There is no titled “Canonical Schema PDF” or “Unified Master Roadmap vNext” file in this repository.** Schema truth lives in code (`lib/contracts`). Execution roadmap truth lives in `ROADMAP_REALITY.md` above.
+
+### Consumer product precedence
+
+```text
+Where older business plans, white papers, roadmaps, audits, or strategy documents
+imply that Oli should autonomously choose user goals, prescribe professional actions,
+or modify professional-created plans, the current Analytics-First Product Vision
+and current Consumer Product Decisions govern the consumer product.
+```
+
+Agents must not infer that a long-term strategic document authorizes prescription or autonomous plan modification in the current consumer product.
 
 ---
 
@@ -83,6 +96,12 @@ May evolve, but must remain compatible with T0 and T1.
 `docs/10_product/`
 `docs/20_architecture/`
 `docs/30_data/`
+
+**Current consumer product intent (single active set):**
+
+- Vision: `docs/10_product/vision/VISION.md`
+- Decisions: `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
+- Roadmap: `docs/10_product/roadmap/ROADMAP_REALITY.md`
 
 ---
 
@@ -158,19 +177,22 @@ Start with:
 - `docs/00_truth/SOURCE_OF_TRUTH.md`
 - `docs/00_truth/INVARIANTS_MAP.md`
 - `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
+- `docs/10_product/vision/VISION.md`
 
 ---
 
-### AI Agents (Codex, CI, tooling)
+### AI Agents (Codex, Cursor, CI, tooling)
 
 **Directive instructions:**
 
-1. Read, in order:
+1. Read, in order, **before proposing product implementation**:
    - `docs/INDEX.md`
    - `docs/00_truth/CONSTITUTION.md`
    - `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
-   - `docs/10_product/roadmap/ROADMAP_REALITY.md`
+   - `docs/10_product/vision/VISION.md`
    - `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
+   - `docs/10_product/roadmap/ROADMAP_REALITY.md`
+   - `docs/20_architecture/SYSTEM_STATE.md`
    - `docs/00_truth/GOVERNANCE_CHARTER.md`
    - `docs/00_truth/SOURCE_OF_TRUTH.md`
 
@@ -180,15 +202,19 @@ Start with:
 
 4. **Never modify constitutional law under `docs/00_truth/`** unless explicitly instructed (progress map updates are allowed when refreshing operational truth).
 
-5. All AI output is advisory unless approved by human review and CI.
+5. **Do not** treat long-term strategy, professional-platform, or historical audit documents as authorization to prescribe actions or autonomously modify professional plans in the current consumer product.
+
+6. All AI output is advisory unless approved by human review and CI.
 
 ---
 
 ### Product or Feature Work
 Start with:
 - `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
-- `docs/10_product/roadmap/ROADMAP_REALITY.md`
+- `docs/10_product/vision/VISION.md`
 - `docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md`
+- `docs/10_product/roadmap/ROADMAP_REALITY.md`
+- `docs/20_architecture/SYSTEM_STATE.md`
 - `docs/30_data/` (if truth is involved)
 
 If truth semantics may change, open an RFC first.
@@ -208,9 +234,10 @@ Assume changes are forbidden unless explicitly permitted.
 Read, in order:
 1. `docs/INDEX.md`
 2. `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
-3. `docs/00_truth/SOURCE_OF_TRUTH.md`
-4. `docs/20_architecture/SYSTEM_STATE.md`
-5. `docs/40_engineering/local-dev/LOCAL_DEV.md`
+3. `docs/10_product/vision/VISION.md`
+4. `docs/00_truth/SOURCE_OF_TRUTH.md`
+5. `docs/20_architecture/SYSTEM_STATE.md`
+6. `docs/40_engineering/local-dev/LOCAL_DEV.md`
 
 ---
 
@@ -221,6 +248,7 @@ Read, in order:
 - Do not bypass CI enforcement
 - Do not allow AI systems to write canonical constitutional truth
 - Do not treat `docs/authoritative/` as current Health OS constitution
+- Do not create a second active vision, consumer decisions file, or consumer roadmap
 - When uncertain, preserve history and escalate via RFC
 
 > **Oli must always be more honest than it is helpful.**
