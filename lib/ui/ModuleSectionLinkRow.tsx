@@ -8,6 +8,8 @@ export type ModuleSectionLinkRowProps = {
   badge?: string;
   disabled?: boolean;
   onPress?: () => void;
+  testID?: string;
+  accessibilityLabel?: string;
 };
 
 export function ModuleSectionLinkRow({
@@ -16,14 +18,18 @@ export function ModuleSectionLinkRow({
   badge,
   disabled = false,
   onPress,
+  testID,
+  accessibilityLabel,
 }: ModuleSectionLinkRowProps) {
   return (
     <Pressable
+      testID={testID}
       onPress={() => {
         if (!disabled) onPress?.();
       }}
       disabled={disabled}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.row,
@@ -51,6 +57,7 @@ export function ModuleSectionLinkRow({
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 44,
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderRadius: 14,

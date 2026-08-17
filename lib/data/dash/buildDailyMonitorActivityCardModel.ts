@@ -9,6 +9,7 @@ import type { DailyMonitorPresenceStatus } from "@/lib/data/dash/dailyMonitorPre
 import type { DailyMonitorRatingTone } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { buildDailyMonitorActivityRatingLabel } from "@/lib/data/dash/dailyMonitorPresentationRatings";
 import { formatDistanceDualDisplay } from "@/lib/modules/commandCenterCardio";
+import { ACTIVITY_CONSUMER_LABEL } from "@/lib/navigation/domainPresentation";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type DailyMonitorActivityMetricRow = {
@@ -145,7 +146,7 @@ export function buildDailyMonitorActivityCardModel(input: {
     ratingAccessibilityLabel: rating.accessibilityLabel,
     ratingTone: rating.tone,
     rows,
-    accessibilityLabel: `Activity. ${primaryLabel}. ${rating.accessibilityLabel} Opens Activity.`,
+    accessibilityLabel: `${ACTIVITY_CONSUMER_LABEL}. ${primaryLabel}. ${rating.accessibilityLabel} Opens ${ACTIVITY_CONSUMER_LABEL}.`,
   };
 }
 

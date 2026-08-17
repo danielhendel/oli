@@ -1,10 +1,8 @@
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { MANAGE_HUB_ITEMS } from "@/components/navigation/manageHubItems";
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
-import { HEALTH_HUB_ITEMS } from "@/lib/navigation/healthHubItems";
 
 const mockPush = jest.fn();
 const mockOpenManage = jest.fn();
@@ -56,7 +54,7 @@ describe("DashScreenHeader", () => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("renders centered Oli Fitness title without standalone Oli header", () => {
+  it("renders centered Home title without a competing product name", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<DashScreenHeader />);
@@ -71,8 +69,10 @@ describe("DashScreenHeader", () => {
       )
       .join(" ");
 
-    expect(text).toContain("Oli Fitness");
-    expect(text).not.toMatch(/\bOli\b(?! Fitness)/);
+    expect(text).toContain("Home");
+    expect(text).not.toContain("Oli Fitness");
+    expect(text).not.toContain("Today");
+    expect(text).not.toContain("Dash");
   });
 
   it("renders user initial settings button with profile initial", () => {
@@ -91,50 +91,13 @@ describe("DashScreenHeader", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/settings");
   });
 
-  it("renders hamburger on the left and user initial on the right", () => {
+  it("does not render a Manage/Health hamburger fifth destination", () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(<DashScreenHeader />);
     });
 
-    const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
-    const initialButton = root.root.findByProps({ testID: "user-initial-settings-button" });
-
-    expect(root.root.findByProps({ testID: "dash-manage-menu-trigger" })).toBeTruthy();
-    expect(menuTrigger.props.accessibilityLabel).toBe("Open navigation menu");
-    expect(initialButton.props.accessibilityLabel).toBe("Open Daniel's settings");
-
-    const headerRow = root.root
-      .findAll(
-        (n) =>
-          n.props.testID === "dash-manage-menu-trigger" ||
-          n.props.testID === "user-initial-settings-button",
-      )
-      .map((n) => n.props.testID as string);
-    expect(headerRow[0]).toBe("dash-manage-menu-trigger");
-    expect(headerRow[headerRow.length - 1]).toBe("user-initial-settings-button");
-  });
-
-  it("renders hamburger trigger wired to Manage navigation", () => {
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(<DashScreenHeader />);
-    });
-
-    const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
-    expect(menuTrigger.props.accessibilityLabel).toBe("Open navigation menu");
-    expect(menuTrigger.props.accessibilityHint).toContain(MANAGE_HUB_ITEMS[0]!.label);
-  });
-
-  it("renders hamburger trigger wired to Health menu when health primary nav is on", () => {
-    setPrimaryNavHealthV1EnabledForTests(true);
-    let root!: renderer.ReactTestRenderer;
-    act(() => {
-      root = renderer.create(<DashScreenHeader />);
-    });
-
-    const menuTrigger = root.root.findByProps({ testID: "dash-manage-menu-trigger" });
-    expect(menuTrigger.props.accessibilityLabel).toBe("Open Health menu");
-    expect(menuTrigger.props.accessibilityHint).toContain(HEALTH_HUB_ITEMS[0]!.label);
+    expect(root.root.findAllByProps({ testID: "dash-manage-menu-trigger" })).toHaveLength(0);
+    expect(root.root.findByProps({ testID: "user-initial-settings-button" })).toBeTruthy();
   });
 });

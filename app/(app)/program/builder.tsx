@@ -1,26 +1,11 @@
-// app/(app)/program/builder.tsx
-// Oli — Program Builder hub. Opened from the Program tab "+" button. Route composition only:
-// build the builder cards via the pure selector and render the hub. No persistence, no IO.
-import React, { useCallback } from "react";
-import { type Href, useRouter } from "expo-router";
+import { Redirect } from "expo-router";
+import { OLI_TAB_ROUTES } from "@/lib/navigation/tabRoutes";
 
-import { buildProgramHomeModel } from "@/lib/data/program/buildProgramHomeModel";
-import type { ProgramBuilderType } from "@/lib/data/program/types";
-import { useBuilderStackHeader } from "@/lib/ui/headers/useBuilderStackHeader";
-import { ProgramBuilderHubScreen } from "@/lib/ui/program/ProgramBuilderHubScreen";
-
+/**
+ * Placeholder builder hub is not launch-facing.
+ * Cardio / Nutrition / Recovery builders remain as routes but are not advertised.
+ * Workout builder remains at `/program/workout` for deep links only.
+ */
 export default function ProgramBuilderHubRoute() {
-  useBuilderStackHeader("Program Builder");
-  const router = useRouter();
-  const model = buildProgramHomeModel();
-
-  const onOpenBuilder = useCallback(
-    (type: ProgramBuilderType) => {
-      const card = model.builders.find((b) => b.type === type);
-      if (card?.href) router.push(card.href as Href);
-    },
-    [model.builders, router],
-  );
-
-  return <ProgramBuilderHubScreen builders={model.builders} onOpenBuilder={onOpenBuilder} />;
+  return <Redirect href={OLI_TAB_ROUTES.program} />;
 }

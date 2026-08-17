@@ -1,17 +1,17 @@
 /**
- * Phase 2G-A Health menu destinations (order = display order top → bottom).
- * Health-only — no fitness modules.
+ * Real Health / You destinations (no launch-facing placeholders).
+ * Health is no longer a primary dock destination; these links live under You.
  */
 
 export type HealthHubItem = {
   id:
     | "profile"
-    | "medical_history"
+    | "body"
+    | "movement"
+    | "recovery"
+    | "sleep"
     | "labs"
-    | "scans"
-    | "medication"
-    | "supplements"
-    | "dna";
+    | "supplements";
   label: string;
   accessibilityLabel: string;
   href: string;
@@ -27,11 +27,32 @@ export const HEALTH_HUB_ITEMS: readonly HealthHubItem[] = [
     testID: "health-hub-profile",
   },
   {
-    id: "medical_history",
-    label: "Medical History",
-    accessibilityLabel: "Medical History",
-    href: "/(app)/medical-history",
-    testID: "health-hub-medical_history",
+    id: "body",
+    label: "Body",
+    accessibilityLabel: "Body",
+    href: "/(app)/body",
+    testID: "health-hub-body",
+  },
+  {
+    id: "movement",
+    label: "Movement",
+    accessibilityLabel: "Movement",
+    href: "/(app)/activity",
+    testID: "health-hub-movement",
+  },
+  {
+    id: "recovery",
+    label: "Recovery",
+    accessibilityLabel: "Recovery",
+    href: "/(app)/recovery",
+    testID: "health-hub-recovery",
+  },
+  {
+    id: "sleep",
+    label: "Sleep",
+    accessibilityLabel: "Sleep",
+    href: "/(app)/recovery/sleep",
+    testID: "health-hub-sleep",
   },
   {
     id: "labs",
@@ -41,42 +62,19 @@ export const HEALTH_HUB_ITEMS: readonly HealthHubItem[] = [
     testID: "health-hub-labs",
   },
   {
-    id: "scans",
-    label: "Scans",
-    accessibilityLabel: "Scans",
-    href: "/(app)/scans",
-    testID: "health-hub-scans",
-  },
-  {
-    id: "medication",
-    label: "Medication",
-    accessibilityLabel: "Medication",
-    href: "/(app)/medication",
-    testID: "health-hub-medication",
-  },
-  {
     id: "supplements",
     label: "Supplements",
     accessibilityLabel: "Supplements",
-    href: "/(app)/supplements",
+    href: "/(app)/nutrition/supplements",
     testID: "health-hub-supplements",
-  },
-  {
-    id: "dna",
-    label: "DNA",
-    accessibilityLabel: "DNA",
-    href: "/(app)/dna",
-    testID: "health-hub-dna",
   },
 ] as const;
 
-/** Labels that must never appear in the Phase 2G-A Health menu. */
+/** Labels that must never appear in launch-facing Health / You discovery. */
 export const HEALTH_HUB_FORBIDDEN_LABELS = [
-  "Body Composition",
-  "Activity",
-  "Strength",
-  "Cardio",
-  "Nutrition",
-  "Sleep",
-  "Recovery",
+  "DNA",
+  "Medical History",
+  "Scans",
+  "Medication",
+  "Coming soon",
 ] as const;

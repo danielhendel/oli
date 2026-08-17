@@ -12,6 +12,7 @@ import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { ACTIVITY_CONSUMER_LABEL } from "@/lib/navigation/domainPresentation";
 
 export default function ActivityOverviewScreen() {
   const navigation = useNavigation();
@@ -21,7 +22,7 @@ export default function ActivityOverviewScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
-      title: "Activity",
+      title: ACTIVITY_CONSUMER_LABEL,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <HeaderControls
@@ -36,7 +37,7 @@ export default function ActivityOverviewScreen() {
 
   if (data.initializing) {
     return (
-      <ModuleScreenShell title="Activity" subtitle="Steps & movement" hideTitleChrome>
+      <ModuleScreenShell title={ACTIVITY_CONSUMER_LABEL} subtitle="Steps & movement" hideTitleChrome>
         <LoadingState message="Loading…" />
       </ModuleScreenShell>
     );
@@ -44,7 +45,7 @@ export default function ActivityOverviewScreen() {
 
   if (!data.user) {
     return (
-      <ModuleScreenShell title="Activity" subtitle="Steps & movement" hideTitleChrome>
+      <ModuleScreenShell title={ACTIVITY_CONSUMER_LABEL} subtitle="Steps & movement" hideTitleChrome>
         <EmptyState
           title="Sign in to view activity"
           description="Sign in to load your daily step rollups from Oli."
@@ -56,7 +57,7 @@ export default function ActivityOverviewScreen() {
   return (
     <View style={styles.root}>
       <ModuleScreenShell
-        title="Activity"
+        title={ACTIVITY_CONSUMER_LABEL}
         subtitle="Steps & movement"
         hideTitleChrome
       >

@@ -19,6 +19,8 @@ jest.mock("expo-router", () => ({
     setOptions: jest.fn(),
     goBack: jest.fn(),
   }),
+  Redirect: ({ href }: { href: string }) =>
+    require("react").createElement("View", { testID: "redirect", href }),
 }));
 
 jest.mock("@/lib/ui/HeaderBackButton", () => ({
@@ -68,15 +70,13 @@ describe("Health record placeholder pages", () => {
     });
   });
 
-  it("renders Supplements with shared placeholder", async () => {
+  it("redirects the Health supplements placeholder to Nutrition supplements", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(<SupplementsPlaceholderScreen />);
     });
-    assertSharedPlaceholder(JSON.stringify(test.toJSON()), {
-      testID: "supplements-placeholder",
-      action: "Add Supplement",
-    });
+    const redirect = test.root.findByProps({ testID: "redirect" });
+    expect(redirect.props.href).toBe("/(app)/nutrition/supplements");
   });
 
   it("renders Medical History with shared placeholder", async () => {

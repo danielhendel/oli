@@ -29,6 +29,7 @@ import {
   dashMetricRowLabelTextStyle,
   dashMetricRowValueTextStyle,
 } from "@/lib/ui/dash/dashMetricRowTextStyle";
+import { ACTIVITY_CONSUMER_LABEL } from "@/lib/navigation/domainPresentation";
 import { strengthMetricCardTitleTextStyle } from "@/lib/ui/workouts/strengthMetricCardTitleStyle";
 
 const cardChrome = {
@@ -54,12 +55,12 @@ export function DailyMonitorActivityCard({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={model.accessibilityLabel}
-      accessibilityHint="Opens Activity"
+      accessibilityHint={`Opens ${ACTIVITY_CONSUMER_LABEL}`}
       onPress={() => router.push(href)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <DashCompactCardHeader
-        title="Activity"
+        title={ACTIVITY_CONSUMER_LABEL}
         rating={{
           label: model.ratingLabel,
           tone: model.ratingTone,

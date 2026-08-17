@@ -2,59 +2,59 @@ import { navigatePrimaryDestination } from "@/lib/navigation/navigatePrimaryDest
 import { PRIMARY_NAVIGATION_ITEMS } from "@/lib/navigation/primaryNavigationConfig";
 
 describe("navigatePrimaryDestination", () => {
-  it("does not push when already on Strength landing", () => {
+  it("does not push when already on Home landing", () => {
     const push = jest.fn();
     const replace = jest.fn();
-    const strength = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "strength")!;
+    const home = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "home")!;
     navigatePrimaryDestination({
-      item: strength,
-      activeDestination: "strength",
-      pathname: "/workouts",
+      item: home,
+      activeDestination: "home",
+      pathname: "/dash",
       router: { push, replace },
     });
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("replaces when switching between stack primary landings", () => {
+  it("pushes Plan from a stack landing via overlay (no tabBarProps)", () => {
     const push = jest.fn();
     const replace = jest.fn();
-    const cardio = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "cardio")!;
+    const plan = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "plan")!;
     navigatePrimaryDestination({
-      item: cardio,
-      activeDestination: "strength",
+      item: plan,
+      activeDestination: "home",
       pathname: "/workouts",
       router: { push, replace },
     });
-    expect(replace).toHaveBeenCalledWith("/(app)/cardio");
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/(app)/(tabs)/program");
+    expect(replace).not.toHaveBeenCalled();
   });
 
-  it("pushes Dash from a stack landing via overlay (no tabBarProps)", () => {
+  it("pushes Home from a stack landing via overlay (no tabBarProps)", () => {
     const push = jest.fn();
     const replace = jest.fn();
-    const dash = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "dash")!;
+    const home = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "home")!;
     navigatePrimaryDestination({
-      item: dash,
-      activeDestination: "strength",
-      pathname: "/workouts",
+      item: home,
+      activeDestination: "you",
+      pathname: "/settings",
       router: { push, replace },
     });
     expect(push).toHaveBeenCalledWith("/(app)/(tabs)/dash");
   });
 
-  it("invokes health menu callback without routing", () => {
+  it("does not invoke a health-menu callback as a fifth destination", () => {
     const push = jest.fn();
     const onHealthMenuPress = jest.fn();
-    const health = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "health")!;
+    const you = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "you")!;
     navigatePrimaryDestination({
-      item: health,
-      activeDestination: "dash",
+      item: you,
+      activeDestination: "home",
       pathname: "/dash",
       router: { push, replace: jest.fn() },
       onHealthMenuPress,
     });
-    expect(onHealthMenuPress).toHaveBeenCalled();
-    expect(push).not.toHaveBeenCalled();
+    expect(onHealthMenuPress).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/(app)/(tabs)/you");
   });
 });

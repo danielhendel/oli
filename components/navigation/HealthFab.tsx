@@ -8,7 +8,6 @@ import {
   UI_NAV_TAB_ICON_ACTIVE,
   UI_NAV_TAB_ICON_INACTIVE,
 } from "@/lib/ui/theme/uiTokens";
-import { HEALTH_NAV_ITEM } from "@/lib/navigation/primaryNavigationConfig";
 
 /**
  * Detached Health control height — matches the primary pill min height
@@ -41,21 +40,21 @@ export const HealthFab = forwardRef<View, HealthFabProps>(function HealthFab(
     onPress,
     open = false,
     selected = false,
-    testID = HEALTH_NAV_ITEM.testID,
+    testID = "oli-health-fab",
   },
   ref,
 ) {
   const active = open || selected;
   const color = active ? UI_NAV_TAB_ICON_ACTIVE : UI_NAV_TAB_ICON_INACTIVE;
-  const iconName = active ? HEALTH_NAV_ITEM.icon : HEALTH_NAV_ITEM.iconOutline;
+  const iconName = active ? "heart" : "heart-outline";
 
   return (
     <View ref={ref} collapsable={false} style={styles.wrap} pointerEvents="box-none">
       <Pressable
         testID={testID}
         accessibilityRole="button"
-        accessibilityLabel={HEALTH_NAV_ITEM.accessibilityLabel}
-        accessibilityHint={HEALTH_NAV_ITEM.accessibilityHint}
+        accessibilityLabel="Health"
+        accessibilityHint="Opens the Health menu"
         accessibilityState={{ selected: active, expanded: open }}
         onPress={onPress}
         style={({ pressed }) => [
@@ -72,7 +71,7 @@ export const HealthFab = forwardRef<View, HealthFabProps>(function HealthFab(
           numberOfLines={1}
           testID="oli-health-fab-label"
         >
-          {HEALTH_NAV_ITEM.label}
+          Health
         </Text>
       </Pressable>
     </View>

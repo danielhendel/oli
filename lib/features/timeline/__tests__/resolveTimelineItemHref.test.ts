@@ -47,7 +47,7 @@ describe("resolveTimelineItemHref", () => {
     expect(resolveTimelineItemHref({ sourceType: "lab", day: DAY })).toBe(`/(app)/labs`);
     expect(resolveTimelineItemHref({ sourceType: "upload", day: DAY })).toBe(`/(app)/labs`);
     expect(resolveTimelineItemHref({ sourceType: "insight", day: DAY })).toBe(
-      `/(app)/dash/daily-recap`,
+      `/(app)/(tabs)/dash`,
     );
   });
 

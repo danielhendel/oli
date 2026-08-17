@@ -1,23 +1,13 @@
 /**
- * Phase 2G-A — Health-focused primary bottom navigation.
+ * DEPRECATED — do not use to choose production primary navigation.
  *
- * When enabled, the primary dock shows Dash / Strength / Cardio / Nutrition / Health
- * and the dock menu is health-only. When disabled, the legacy four-tab dock + Manage
- * menu remain.
+ * R1 establishes a single production IA: Home · Plan · Progress · You.
+ * `EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1` no longer restores the superseded
+ * Dash / Strength / Cardio / Nutrition / Health dock, the legacy
+ * Dash / Timeline / Program / Library dock, or a Health/Manage FAB.
  *
- * Convention mirrors `isDashDailyMonitorFoundationEnabled`: typed helper with an
- * env kill-switch / force-enable override. Default is ENABLED.
- *
- * Overrides:
- * - `process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 === "0"` → disabled (legacy)
- * - `process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 === "1"` → enabled
- * - unset / any other string → enabled (same as default / `"1"`)
- *
- * Non-secret. Value is embedded when Metro/EAS builds the JS bundle; changing
- * it requires a cleared Metro reload or a new EAS Update / binary — it is not a
- * server-side remote kill switch by itself. Documented in `.env.example`.
- *
- * Tests may call {@link setPrimaryNavHealthV1EnabledForTests}.
+ * The helper remains only so existing tests can observe the historical env
+ * parse. Application chrome must not branch on it.
  */
 
 export const PRIMARY_NAV_HEALTH_V1_ENV_KEY = "EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1" as const;
@@ -35,6 +25,9 @@ export function setPrimaryNavHealthV1EnabledForTests(enabled: boolean | null): v
   testOverride = enabled;
 }
 
+/**
+ * Historical env parse. Not a production navigation switch.
+ */
 export function isPrimaryNavHealthV1Enabled(): boolean {
   if (testOverride != null) return testOverride;
   const override = process.env[PRIMARY_NAV_HEALTH_V1_ENV_KEY];

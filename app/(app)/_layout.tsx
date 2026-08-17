@@ -7,6 +7,7 @@ import { OliFloatingNavigationHost } from "@/components/navigation/OliFloatingNa
 import { FloatingNavChromeHeightProvider } from "@/lib/ui/navigation/FloatingNavChromeHeightContext";
 import { nextChromeHeightState } from "@/lib/ui/navigation/normalizeChromeHeight";
 import { RestTimerProvider, RestTimerPanel } from "@/lib/workouts/restTimer";
+import { ACTIVITY_CONSUMER_LABEL } from "@/lib/navigation/domainPresentation";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 import { useOliTheme } from "@/lib/ui/theme/OliThemeContext";
@@ -181,7 +182,7 @@ export default function AppLayout() {
 
           <Stack.Screen
             name="activity/index"
-            options={{ title: "Activity", ...workoutsStackNavigationOptions("module") }}
+            options={{ title: ACTIVITY_CONSUMER_LABEL, ...workoutsStackNavigationOptions("module") }}
           />
           <Stack.Screen
             name="activity/calendar"

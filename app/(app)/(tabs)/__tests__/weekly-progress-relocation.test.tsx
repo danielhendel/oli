@@ -148,6 +148,8 @@ jest.mock("react-native-svg", () => ({
 const DashScreen = require("../dash").default;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ProgramScreen = require("../program").default;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ProgressScreen = require("../progress").default;
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
   const nodes = test.root.findAllByType("Text");
@@ -238,32 +240,36 @@ describe("Weekly Progress relocation", () => {
     setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
-  it("enabled: Program shows Weekly Progress; Dash does not; hook mounts once", () => {
+  it("enabled: Progress shows Weekly Progress once; Dash and Plan do not; hook mounts once", () => {
     setDashWeeklyProgressRelocationEnabledForTests(true);
 
     let dash!: renderer.ReactTestRenderer;
     let program!: renderer.ReactTestRenderer;
+    let progress!: renderer.ReactTestRenderer;
     act(() => {
       dash = renderer.create(<DashScreen />);
       program = renderer.create(<ProgramScreen />);
+      progress = renderer.create(<ProgressScreen />);
     });
 
     const dashText = collectAllText(dash);
     const programText = collectAllText(program);
+    const progressText = collectAllText(progress);
 
     expect(dashText).not.toContain("Weekly Fitness");
     expect(dashText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(dashText).toContain("Body Composition");
     expect(dashText).toContain("Daily Energy");
 
-    expect(programText).toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
-    expect(programText).toContain(WEEKLY_PROGRESS_SUPPORTING_COPY);
-    expect(programText).toContain("No active programs yet");
-    expect(programText).not.toMatch(/adherence/i);
-    expect(programText).not.toMatch(/health score/i);
-    expect(program.root.findByProps({ testID: "program-weekly-progress-section" })).toBeTruthy();
+    expect(programText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
+    expect(programText).toContain("No active plan");
+    expect(progressText).toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
+    expect(progressText).toContain(WEEKLY_PROGRESS_SUPPORTING_COPY);
+    expect(progressText).not.toMatch(/adherence/i);
+    expect(progressText).not.toMatch(/health score/i);
+    expect(progress.root.findByProps({ testID: "progress-weekly-progress-section" })).toBeTruthy();
     expect(
-      program.root.findAll(
+      progress.root.findAll(
         (n) =>
           (n.props as { accessibilityLabel?: string }).accessibilityLabel === "Weekly Progress card",
       ).length,
@@ -274,11 +280,11 @@ describe("Weekly Progress relocation", () => {
 
   it("enabled: insufficient contributors keep score unavailable (null), body goal unchanged", () => {
     setDashWeeklyProgressRelocationEnabledForTests(true);
-    let program!: renderer.ReactTestRenderer;
+    let progress!: renderer.ReactTestRenderer;
     act(() => {
-      program = renderer.create(<ProgramScreen />);
+      progress = renderer.create(<ProgressScreen />);
     });
-    const text = collectAllText(program);
+    const text = collectAllText(progress);
     expect(sampleModel.weeklyProgressScore0to100).toBeNull();
     expect(text).toContain("Body Composition Score");
     expect(text).toContain("81");
@@ -289,41 +295,46 @@ describe("Weekly Progress relocation", () => {
 
   it("enabled: row navigation destinations remain valid", () => {
     setDashWeeklyProgressRelocationEnabledForTests(true);
-    let program!: renderer.ReactTestRenderer;
+    let progress!: renderer.ReactTestRenderer;
     act(() => {
-      program = renderer.create(<ProgramScreen />);
+      progress = renderer.create(<ProgressScreen />);
     });
-    const strengthRow = program.root.findByProps({ testID: "weekly-fitness-row-strength" });
+    const strengthRow = progress.root.findByProps({ testID: "weekly-fitness-row-strength" });
     act(() => {
       (strengthRow.props.onPress as () => void)();
     });
     expect(mockPush).toHaveBeenCalledWith(WEEKLY_FITNESS_ROUTES.strength);
   });
 
-  it("disabled: Dash restores Weekly Fitness; Program does not duplicate the card", () => {
+  it("disabled: Dash restores Weekly Fitness; Progress and Plan do not duplicate the card", () => {
     setDashWeeklyProgressRelocationEnabledForTests(false);
 
     let dash!: renderer.ReactTestRenderer;
     let program!: renderer.ReactTestRenderer;
+    let progress!: renderer.ReactTestRenderer;
     act(() => {
       dash = renderer.create(<DashScreen />);
       program = renderer.create(<ProgramScreen />);
+      progress = renderer.create(<ProgressScreen />);
     });
 
     const dashText = collectAllText(dash);
     const programText = collectAllText(program);
+    const progressText = collectAllText(progress);
 
     expect(dashText).toContain("Weekly Fitness");
     expect(dashText).toContain("Body Composition");
     expect(programText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
-    expect(program.root.findAll((n) => (n.props as { testID?: string }).testID === "program-weekly-progress-section")).toHaveLength(0);
-    expect(programText).toContain("No active programs yet");
+    expect(progressText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
+    expect(progress.root.findAll((n) => (n.props as { testID?: string }).testID === "progress-weekly-progress-section")).toHaveLength(0);
+    expect(programText).toContain("No active plan");
     expect(mockUseWeeklyFitnessCard).toHaveBeenCalledTimes(1);
   });
 
   it("source guards: screens do not call Firebase/API; only the host imports the heavy hook", () => {
     const dashSrc = fs.readFileSync(path.join(__dirname, "..", "dash.tsx"), "utf8");
     const programSrc = fs.readFileSync(path.join(__dirname, "..", "program.tsx"), "utf8");
+    const progressSrc = fs.readFileSync(path.join(__dirname, "..", "progress.tsx"), "utf8");
     const legacyDashHostSrc = fs.readFileSync(
       path.join(__dirname, "../../../../components/dashboard/LegacyDashHost.tsx"),
       "utf8",
@@ -333,7 +344,7 @@ describe("Weekly Progress relocation", () => {
       "utf8",
     );
 
-    for (const src of [dashSrc, programSrc, legacyDashHostSrc]) {
+    for (const src of [dashSrc, programSrc, progressSrc, legacyDashHostSrc]) {
       expect(src).not.toMatch(/\bfetch\s*\(/);
       expect(src).not.toMatch(/from\s+["'][^"']*firebase[^"']*["']/i);
       expect(src).not.toMatch(/from\s+["'][^"']*lib\/api\/http["']/);
@@ -343,7 +354,8 @@ describe("Weekly Progress relocation", () => {
     expect(hostSrc).toContain("useWeeklyFitnessCard");
     expect(dashSrc).toContain("LegacyDashHost");
     expect(legacyDashHostSrc).toContain("WeeklyFitnessCardHost");
-    expect(programSrc).toContain("WeeklyFitnessCardHost");
+    expect(programSrc).not.toContain("WeeklyFitnessCardHost");
+    expect(progressSrc).toContain("WeeklyFitnessCardHost");
   });
 
   it("does not modify Timeline sources", () => {

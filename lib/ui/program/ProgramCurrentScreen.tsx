@@ -36,15 +36,14 @@ export function ProgramCurrentScreen({
     <View
       style={styles.emptyCard}
       testID="program-current-empty"
-      accessibilityLabel="No active programs yet. Tap the plus button to build one."
+      accessibilityLabel="No active plan. Plans created by you or provided by a professional will appear here."
     >
       <View style={styles.iconWrap}>
         <Ionicons name="albums-outline" size={24} color={SYSTEM_ACCENT} />
       </View>
-      <Text style={styles.emptyTitle}>No active programs yet</Text>
+      <Text style={styles.emptyTitle}>No active plan</Text>
       <Text style={styles.emptyBody}>
-        Programs you build will show up here so you can track your progress. Tap{" "}
-        <Text style={styles.emptyAccent}>+</Text> to open the builders and start one.
+        Plans created by you or provided by a professional will appear here.
       </Text>
     </View>
   ) : (
@@ -71,7 +70,7 @@ export function ProgramCurrentScreen({
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingBottom }]}
       showsVerticalScrollIndicator={false}
-      accessibilityLabel="Program"
+      accessibilityLabel="Plan"
     >
       {body}
     </ScrollView>
@@ -112,10 +111,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: UI_TEXT_SECONDARY,
-  },
-  emptyAccent: {
-    fontWeight: "800",
-    color: SYSTEM_ACCENT,
   },
   list: {
     gap: 12,

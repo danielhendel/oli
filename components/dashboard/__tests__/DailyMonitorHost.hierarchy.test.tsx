@@ -1,15 +1,16 @@
 /**
- * Mode A header hierarchy: fixed header is Oli; Daily Monitor title/date live in scroll content.
+ * Mode A header hierarchy: fixed header is Home; Today title/date live in scroll content.
  */
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import {
-  DAILY_MONITOR_APP_HEADER_TITLE,
-  DAILY_MONITOR_SCREEN_TITLE,
-  LEGACY_DASH_SCREEN_TITLE,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
+  HOME_BASELINE_HEADING,
+  HOME_HEALTH_PERFORMANCE_TITLE,
+  HOME_TODAY_SECTION_TITLE,
+  CONSUMER_HOME_LABEL,
+} from "@/lib/navigation/consumerHome";
 import { allowConsoleForThisTest } from "../../../scripts/test/consoleGuard";
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
@@ -150,7 +151,7 @@ describe("Daily Monitor header hierarchy", () => {
     mockStressHook.mockClear();
   });
 
-  it("uses Oli in the fixed header and Daily Monitor + date in page content", async () => {
+  it("uses Home in the fixed header and Today + health-picture copy in page content", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -159,19 +160,22 @@ describe("Daily Monitor header hierarchy", () => {
     });
 
     const header = tree.root.findByProps({ testID: "dash-screen-header" });
-    expect(header.props.accessibilityLabel).toBe(DAILY_MONITOR_APP_HEADER_TITLE);
-    expect(DAILY_MONITOR_APP_HEADER_TITLE).toBe("Oli");
+    expect(header.props.accessibilityLabel).toBe(CONSUMER_HOME_LABEL);
 
     const pageTitle = tree.root.findByProps({ testID: "daily-monitor-page-title" });
-    expect(pageTitle.props.children).toBe(DAILY_MONITOR_SCREEN_TITLE);
+    expect(pageTitle.props.children).toBe(HOME_TODAY_SECTION_TITLE);
     expect(pageTitle.props.accessibilityRole).toBe("header");
     const pageDate = tree.root.findByProps({ testID: "daily-monitor-page-date" });
     expect(pageDate.props.children).toBe("Mon Jul 20, 2026");
     expect(pageDate.props.accessibilityRole).toBe("text");
 
     const text = collectText(tree.root);
-    expect(text).toContain("Oli");
-    expect(text).toContain("Daily Monitor");
+    expect(text).toContain("Home");
+    expect(text).toContain(HOME_HEALTH_PERFORMANCE_TITLE);
+    expect(text).toContain(HOME_BASELINE_HEADING);
+    expect(text).toContain("Today");
+    expect(text).not.toContain("What Oli Sees");
+    expect(text).not.toMatch(/overall score/i);
     expect(text).toContain("Mon Jul 20, 2026");
 
     const headerTitle = header.findAll(
@@ -184,7 +188,7 @@ describe("Daily Monitor header hierarchy", () => {
       (headerTitle[0]!.children as (string | number)[])
         .filter((c) => typeof c === "string" || typeof c === "number")
         .join(""),
-    ).toBe("Oli");
+    ).toBe("Home");
     expect(header.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
     expect(header.findAllByProps({ testID: "daily-monitor-page-date" })).toHaveLength(0);
     const headerJoined = header
@@ -195,7 +199,8 @@ describe("Daily Monitor header hierarchy", () => {
           .join(""),
       )
       .join(" ");
-    expect(headerJoined).not.toContain("Daily Monitor");
+    expect(headerJoined).not.toContain("Today");
+    expect(headerJoined).toContain("Where am I?");
     expect(headerJoined).not.toContain("Mon Jul 20");
 
     expect(mockActivityHook).toHaveBeenCalled();
@@ -204,7 +209,7 @@ describe("Daily Monitor header hierarchy", () => {
     tree.unmount();
   });
 
-  it("preserves legacy Oli Fitness header and does not mount Monitor-only domain hooks", async () => {
+  it("preserves Home header on the legacy host and does not mount Monitor-only domain hooks", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     mockActivityHook.mockClear();
     mockSessionHook.mockClear();
@@ -224,7 +229,7 @@ describe("Daily Monitor header hierarchy", () => {
           .filter((c) => typeof c === "string" || typeof c === "number")
           .join(""),
       );
-    expect(headerTexts).toContain(LEGACY_DASH_SCREEN_TITLE);
+    expect(headerTexts).toContain(CONSUMER_HOME_LABEL);
     expect(headerTexts.join(" ")).not.toContain("Daily Monitor");
     expect(tree.root.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
     expect(mockActivityHook).not.toHaveBeenCalled();

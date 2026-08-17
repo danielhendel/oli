@@ -9,10 +9,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { CONSUMER_HOME_LABEL, CONSUMER_HOME_QUESTION } from "@/lib/navigation/consumerHome";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
 import { isDashWeeklyProgressRelocationEnabled } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { LEGACY_DASH_SCREEN_TITLE } from "@/lib/data/dash/dashDailyMonitorFoundation";
 import { useTodayHealthHero } from "@/lib/hooks/useTodayHealthHero";
 import { useDailyReadinessCard } from "@/lib/hooks/useDailyReadinessCard";
 import { BodyCompositionCard } from "@/lib/ui/dash/BodyCompositionCard";
@@ -57,7 +57,7 @@ export function LegacyDashHost(): React.ReactElement {
 
   return (
     <View style={styles.root}>
-      <DashScreenHeader title={LEGACY_DASH_SCREEN_TITLE} />
+      <DashScreenHeader title={CONSUMER_HOME_LABEL} dateLabel={CONSUMER_HOME_QUESTION} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scroll, { paddingBottom: scrollPaddingBottom }]}

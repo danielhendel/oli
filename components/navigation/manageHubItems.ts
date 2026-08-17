@@ -23,8 +23,8 @@ export const MANAGE_HUB_ITEMS: readonly ManageHubItem[] = [
   },
   {
     id: "activity",
-    label: "Activity",
-    accessibilityLabel: "Activity",
+    label: "Movement",
+    accessibilityLabel: "Movement",
     href: "/(app)/activity",
   },
   {
@@ -62,11 +62,5 @@ export const MANAGE_HUB_ITEMS: readonly ManageHubItem[] = [
     label: "Labs",
     accessibilityLabel: "Labs",
     href: "/(app)/labs",
-  },
-  {
-    id: "dna",
-    label: "DNA",
-    accessibilityLabel: "DNA",
-    href: "/(app)/dna",
   },
 ] as const;
