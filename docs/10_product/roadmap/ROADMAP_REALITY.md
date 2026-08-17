@@ -31,12 +31,13 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
 - Withings live sync remains orphaned (honest refusal helpers)
 - Primary dock on `main` remains Dash / Strength / Cardio / Nutrition / Health (not Home / Plan / Progress / You)
+- R1 application exists on `feat/analytics-first-r1-four-destination-ia` (`88d67ab`) — **not merged**; iOS dock visual smoke incomplete
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
 - PR #210 preserved branch remains `feat/consumer-launch-stage1b-today-ia` at `f64c69736c15b2877789ab2dee0a06c2e9edfaa7`
 
 ## What does not exist yet (launch-critical under analytics-first)
 
-- Four-destination IA: Home · Plan · Progress · You (**approved; R1 in progress, not yet implemented in application code**)
+- Four-destination IA: Home · Plan · Progress · You (**implemented on R1 branch; not merged; iOS dock visual smoke incomplete**)
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
@@ -67,7 +68,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **R1** (implementation in progress on `feat/analytics-first-r1-four-destination-ia`; no R1 application work complete yet).
+**Current stage:** **R1** (implementation on `feat/analytics-first-r1-four-destination-ia`, commit `88d67ab`). Static gates passed. **Not branch-complete:** iOS signed-out / four-tab dock / signed-in Plan·Progress·You / compatibility-route visual smoke remain blocked.
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **Next after R1 merges:** **Stage 1 — Consumer Ownership and Account Recovery**.
 

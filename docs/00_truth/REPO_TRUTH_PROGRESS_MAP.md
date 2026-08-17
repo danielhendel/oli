@@ -13,7 +13,7 @@
 
 > **R0 status:** Complete and merged (PR #211). Do **not** treat R0 as in-progress.
 
-> **R1 status:** Active implementation stage. Approved IA is Home / Plan / Progress / You. **No R1 application work is complete yet** on this branch until later R1 commits land and are verified.
+> **R1 status:** Application implemented on `feat/analytics-first-r1-four-destination-ia` (`88d67ab` navigation/tests; this map commit records verification). **Not merged.** Static gates passed. iOS four-tab dock visual smoke is **not** complete — see Runtime below. Do **not** treat R1 as merged.
 
 ---
 
@@ -41,7 +41,7 @@ Schema/code authority for shared contracts: **`lib/contracts` source** (emitted 
 | State | **CLOSED**, unmerged |
 | Product basis | Superseded **Today / domain-tab** direction |
 | Salvage | Reusable cleanup only; must be reimplemented intentionally on R1 — **do not merge, reopen, rebase, or cherry-pick** |
-| R1 action | Inspect preserved branch; re-apply approved salvage into `feat/analytics-first-r1-four-destination-ia` |
+| R1 action | Approved salvage **reimplemented** on this branch (no cherry-pick, no merge of PR #210) |
 
 Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate next step after R1.
 
@@ -61,16 +61,32 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## Partial product capabilities (merged `main`)
 
-- Dash / Daily Monitor as monitor foundation (label still **Dash**, not Home)
+- Dash / Daily Monitor as monitor foundation (user-facing Home exists only on the R1 branch)
 - Assessment / Baseline / Target UI with **in-memory** assessment store
 - Program tab without durable human-authored Plan representation
 - Seven domains exist as modules/structure; not one Current State OS surface
 - Ownership backend complete; mobile export/delete CTAs and legal URLs missing
-- Primary dock remains Dash · Strength · Cardio · Nutrition · Health
+- Primary dock on **merged `main`** remains Dash · Strength · Cardio · Nutrition · Health
+
+## R1 branch (not merged)
+
+- Branch: `feat/analytics-first-r1-four-destination-ia`
+- Implementation commit: `88d67ab4ab3f53a36f86440d86a574eafddbee0a` (`feat(consumer): establish analytics-first primary navigation`)
+- Primary dock: **Home · Plan · Progress · You** (filesystem Home remains `/(app)/(tabs)/dash`)
+- Auth / RouteGuard / sign-in / sign-up land on Home (`CONSUMER_HOME_HREF`)
+- Command Center and Daily Recap are compatibility redirects to Home; Health supplements → Nutrition supplements; Program builder hub → Plan
+- Home transitional shell: Your Health & Performance honest baseline copy + Today Daily Monitor (no overall score / no What Oli Sees)
+- Plan: honest empty state (`currentPrograms = []`); placeholder builders not launch-facing
+- Progress: Weekly Progress once (when relocation flag ON) + history links
+- You: profile, devices, assessments, labs, privacy, settings, failures, domain discovery; Movement presentation label for Activity
+- **Static verification (2026-08-17):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (985 suites / 6151 tests / 0 skipped), `npm run check`, `git diff --check` all exit 0
+- **Expo Doctor:** same 5 pre-existing findings; no new R1 finding
+- **Runtime:** iPhone 16 Simulator (iOS 18.3), staging `.env.local`, Expo dev client + Metro. Restored Firebase session hydrated DailyFacts (`userAvailable: true`) and presented the Health Access sheet (authenticated product, not Command Center / Sign In). Four-tab dock labels, Plan/Progress/You, signed-out, and compatibility routes were **not** visually confirmed because Simulator UI automation is unauthorized (TCC -1743) and the Health sheet blocked the dock.
+- **PR #178:** OPEN / CONFLICTING; R1 supersedes a floating Profile fifth destination. Close only after R1 merges, via a separate gate.
 
 ## Missing under analytics-first launch direction
 
-- Four-destination IA: **Home · Plan · Progress · You** (approved, **not yet implemented**; R1 in progress)
+- Four-destination IA **on merged `main`** (implemented on R1 branch; pending merge + complete iOS smoke)
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
 - Human-created Plan representation with provenance (no Oli authorship)
 - Progress analytics (execution, adherence, outcomes) as a first-class surface
@@ -79,12 +95,12 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Device-verified E2E golden paths for launch acceptance
 - Defensible overall score (gated — not a P0 assumption)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-created Plan analytics surface, Progress analytics — unless/until merged code proves otherwise.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-created Plan persistence, Progress outcome analytics, ownership UI, onboarding.
 
 ## In progress (not complete)
 
-- **R1** four-destination IA implementation branch (`feat/analytics-first-r1-four-destination-ia`) — application work not complete yet
-- PR #210 CLOSED unmerged; salvage pending intentional R1 reimplementation
+- **R1** Draft PR pending complete iOS signed-out / signed-in / restored-session dock verification
+- PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`
 
 ## Code Check Gate
