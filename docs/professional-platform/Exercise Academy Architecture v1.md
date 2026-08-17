@@ -1,5 +1,17 @@
 # Exercise Academy Architecture v1
 
+**Status:** Long-term strategic reference.
+
+For current consumer product authority, follow:
+
+- docs/10_product/vision/VISION.md
+- docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md
+- docs/10_product/roadmap/ROADMAP_REALITY.md
+
+Any language in this document implying that Oli autonomously chooses user goals,
+creates professional prescriptions, or modifies professional-created plans is
+superseded for the current consumer product.
+
 Exercise Academy turns canonical exercises into **teachable knowledge objects** — not database rows. Each entry is a guided learning experience that powers Workout Studio, future client delivery, cinematic media, coach customization, and AI-assisted coaching.
 
 ## Canonical source vs Exercise Academy

@@ -1,15 +1,20 @@
 # Roadmap — Reality Based (Consumer Launch)
 
 **Status:** Current execution roadmap
-**Last updated:** 2026-08-10 (Stage 1A truth freeze)
-**Audit baseline SHA:** `d43ae878373534dbb4cef84c4958221ace826792`
+**Version:** 2.0
+**Effective date:** 2026-08-14
+**Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
+**Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
+**Merged baseline:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (Stage 1A / PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
+**Vision:** [VISION.md](../vision/VISION.md)
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
-**Historical audit roadmap:** [2026-08-10-consumer-launch-roadmap.md](../../audits/2026-08-10-consumer-launch-roadmap.md)
+**Direction delta:** [2026-08-14 delta audit](../../audits/2026-08-14-analytics-first-product-direction-delta.md)
+**Historical audit roadmap:** [2026-08-10-consumer-launch-roadmap.md](../../audits/2026-08-10-consumer-launch-roadmap.md) (immutable evidence)
 
-This roadmap reflects **dependency-ordered completion gates** for the consumer Health OS loop, aligned to merged code and the 2026-08-10 audit. It is not a calendar estimate.
+This roadmap reflects **dependency-ordered completion gates** for the analytics-first consumer product, aligned to merged code truth. It is not a calendar estimate.
 
-> **Supersedes** earlier versions of this file that claimed wearables were deferred, that the next step was merely read-only visualization, or that the compute pipeline was unwired to the app.
+> **Hard roadmap law:** No stage may introduce an Oli-authored professional prescription, an autonomous professional-plan modification, or an unsupported causal claim.
 
 ---
 
@@ -23,14 +28,18 @@ This roadmap reflects **dependency-ordered completion gates** for the consumer H
 - Labs document import / review OS merged
 - Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
 - Withings live sync remains orphaned (honest refusal helpers)
+- Primary dock on `main` remains Dash / Strength / Cardio / Nutrition / Health (not Home / Plan / Progress / You)
+- Draft PR #210 (Today IA) is **unmerged** and based on a superseded navigation doctrine
 
-## What does not exist yet (launch-critical)
+## What does not exist yet (launch-critical under analytics-first)
 
-- One Today home IA (Dash → Today; Command Center not competing home)
-- Assessment persistence; unified Current State OS surface
-- One coordinated My Plan; Weekly Review / adaptation
-- Password reset; consent; Privacy/Terms hosted URL links in-app
+- Four-destination IA: Home · Plan · Progress · You
+- Unified Current State / What Oli Sees / confidence contracts as one product system
+- Human-authored Plan representation with provenance (no Oli authorship)
+- Execution, adherence, and outcome Progress analytics as a first-class surface
+- Password reset; consent; Privacy/Terms hosted URL links in-app; export/delete UI
 - Crash reporting product; production Firebase project config
+- Defensible overall score methodology (gated; not a P0 assumption)
 
 ---
 
@@ -38,41 +47,47 @@ This roadmap reflects **dependency-ordered completion gates** for the consumer H
 
 | Stage | Name | Intent |
 |------:|------|--------|
-| **1A** | Launch truth freeze & deterministic build gate | Track audit; promote repo truth; local/CI contracts hygiene |
-| **1B** | One Today home & launch-facing IA | Dash → Today; Current State / Plan / Monitor roles; hide fake completeness |
-| **1C** | Consumer ownership & account recovery | Password reset; export/delete CTAs; legal URLs; consent shell |
-| **2** | Single launch-metric truth | Launch displays cite facts/summaries; remediate client rawEvent analytics hydration |
-| **3** | Assessment & Baseline persistence | Assessment survives relaunch |
-| **4** | Seven-domain Current State | Honest readiness; no fabricated ratings |
-| **5** | Standards, Targets, Gaps, Actions | P0 domain Current/Rating-or-missing/Target/Gap/Action |
-| **6** | One coordinated My Plan | One plan object; versioned; not isolated module plans |
-| **7** | Execution hardening | Plan action → log → facts/timeline golden path |
-| **8** | Daily monitoring & longitudinal record | Monitor + Timeline/Library coherence |
-| **9** | Weekly Review & plan adaptation | Evidence-linked review; explicit plan version bump |
-| **10** | Reliability, privacy, release hardening | Crash reporting; prod Firebase; privacy/compliance |
-| **11** | Beta validation | Persona scorecard |
-| **12** | Consumer launch | Scope A acceptance + store approval |
-| **13+** | Professional & Campus enablement | After consumer loop; Operations OS ADR before Campus paths |
+| **R0** | Analytics-First Product Direction Reset | Vision, decisions, roadmap, progress map, system state, index, delta audit, PR #210 disposition (**docs only**) |
+| **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan |
+| **1** | Consumer ownership & account recovery | Password reset; consent; hosted Privacy/Terms/Support; export/delete UI; local data lifecycle |
+| **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
+| **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema** |
+| **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
+| **5** | Home & What Oli Sees | Current State, direction, meaningful analysis, progressive disclosure; no recommendations |
+| **6** | Domain detail experiences | Answer → Context → Analysis → Deep Data |
+| **7** | Human-created Plan representation | Source, author, duration, schedule, details, provenance; no autonomous authorship/modification |
+| **8** | Execution & adherence analytics | Planned vs completed; volume; intensity; consistency; evidence; confidence |
+| **9** | Progress & outcome analytics | State vs Progress; program-period outcomes; associations; no invented causation |
+| **10** | Professional analytical review | Read-only summary; human interpretation; permissioned access; no autonomous plan changes |
+| **11** | Reliability & release hardening | Crash reporting; production Firebase; EAS validation; privacy manifest; source maps; golden paths; TestFlight |
+| **12** | Beta validation | New, manual-only, connected, partial-data, returning, degraded, ownership, professional-plan (where supported) personas |
+| **13** | Consumer launch | All approved P0 acceptance gates |
+| **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **1A** (this PR). **Next:** **1B**.
+**Current stage:** **R0** (documentation branch in progress until this PR merges).
+**Next after R0 merges:** **R1**.
+
+Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
 ### Critical path
 
 ```text
-1A Truth+build gate
- → 1B Today IA
- → 1C Ownership surfaces
- → 2 Metric truth (can overlap early after IA decision)
- → 3 Assessment persist
- → 4 Current State
- → 5 Targets/Gaps/Actions
- → 6 My Plan
- → 7 Execution harden
- → 8 Monitor/Record
- → 9 Review/Adapt
- → 10 Release harden
- → 11 Beta
- → 12 Launch
+R0 Product authority reset (docs)
+ → R1 Four-destination IA + PR #210 disposition
+ → 1 Ownership surfaces
+ → 2 Minimal onboarding / data readiness
+ → 3 Analytics truth contracts (RFC/ADR)
+ → 4 Seven-domain Current State
+ → 5 Home + What Oli Sees
+ → 6 Domain detail
+ → 7 Human Plan representation
+ → 8 Execution / adherence
+ → 9 Progress / outcomes
+ → 10 Professional analytical review
+ → 11 Release harden
+ → 12 Beta
+ → 13 Launch
+ → 14+ Campus / platform
 ```
 
 ### Explicitly deferred from P0
@@ -81,8 +96,10 @@ This roadmap reflects **dependency-ordered completion gates** for the consumer H
 - Professional coaching marketplace / assignment as launch dependency
 - Garmin / WHOOP / Withings live restore
 - IAP (until entitlement decision)
-- Generic AI chatbot / autonomous medical decisions
-- Equal depth across all seven domains at once
+- Generic AI chatbot / autonomous medical or training prescription
+- Oli-authored My Plan and autonomous plan adaptation
+- Equal fabricated depth across all seven domains
+- Overall score without defensible methodology
 
 ---
 
@@ -97,7 +114,6 @@ npm run lint
 npm run check:invariants
 npm run check:client-trust-boundary
 npm test -- --ci
-# CI also: API build, assert routes, proof gates, expo config, guardrails
 ```
 
 `npm run typecheck` and `npm test` build `@oli/contracts` dist first (`npm run build:contracts`).
@@ -106,4 +122,4 @@ npm test -- --ci
 
 ## Historical note
 
-Pre–2026-08-10 content in this path claimed “wearables deferred” and “next: read-only visualization.” That description is obsolete relative to Apple Health / Oura paths and Dash consumption of derived data. Prefer this document and the progress map over any archived copy.
+The 2026-08-10 roadmap and Draft PR #210 assumed Today as home and a coordinated My Plan / adaptation loop. That product doctrine is superseded for current consumer authority. Prefer this document, the progress map, and Vision v2 over any archived or Draft Stage 1B copy.

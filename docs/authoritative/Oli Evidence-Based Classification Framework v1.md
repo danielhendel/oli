@@ -1,9 +1,20 @@
 # Oli Evidence-Based Classification Framework (v1)
 
-**Document version:** 1.0  
-**Framework version:** `1.0`  
-**Status:** Authoritative — decoupled from implementation  
-**Canonical code registry:** `lib/classifications/`  
+**Document version:** 1.0
+**Framework version:** `1.0`
+**Status:** Long-term strategic reference.
+
+For current consumer product authority, follow:
+
+- docs/10_product/vision/VISION.md
+- docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md
+- docs/10_product/roadmap/ROADMAP_REALITY.md
+
+Any language in this document implying that Oli autonomously chooses user goals,
+creates professional prescriptions, or modifies professional-created plans is
+superseded for the current consumer product.
+
+**Canonical code registry:** `lib/classifications/`
 **Last updated:** 2026-06-23
 
 ---
@@ -187,7 +198,7 @@ All versions must:
 | 4 | 300–449 |
 | 5 | 450+ |
 
-**Metric ID:** `weekly-activity-minutes`  
+**Metric ID:** `weekly-activity-minutes`
 *Aligned with WHO moderate-intensity aerobic activity guidance.*
 
 ---
@@ -254,7 +265,7 @@ VO₂ max uses **age/sex percentile tables**, not fixed ml/kg/min thresholds.
 | 4 | 60th–79th |
 | 5 | ≥80th |
 
-**Metric ID:** `vo2-max-percentile`  
+**Metric ID:** `vo2-max-percentile`
 *Input must be pre-computed percentile (0–100).*
 
 ---

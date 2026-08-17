@@ -1,9 +1,20 @@
 # Professional Portal Readiness Audit v1
 
-**Sprint:** Pro Portal Audit Sprint 0  
-**Date:** 2026-06-24  
-**Status:** Documentation only — no implementation  
-**Authority:** Subordinate to `docs/00_truth/CONSTITUTION.md` and `docs/10_product/vision/VISION.md`
+**Sprint:** Pro Portal Audit Sprint 0
+**Date:** 2026-06-24
+**Status:** Long-term strategic reference.
+
+For current consumer product authority, follow:
+
+- docs/10_product/vision/VISION.md
+- docs/10_product/decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md
+- docs/10_product/roadmap/ROADMAP_REALITY.md
+
+Any language in this document implying that Oli autonomously chooses user goals,
+creates professional prescriptions, or modifies professional-created plans is
+superseded for the current consumer product.
+
+**Authority:** Subordinate to `docs/00_truth/CONSTITUTION.md`; historical professional-platform audit — not current consumer execution truth.
 
 ---
 
@@ -987,6 +998,6 @@ Report: files created, how to run locally, any workspace config changes
 
 ---
 
-**Document path:** `docs/professional-platform/Professional Portal Readiness Audit v1.md`  
-**Version:** v1  
+**Document path:** `docs/professional-platform/Professional Portal Readiness Audit v1.md`
+**Version:** v1
 **Next sprint:** Pro Sprint 1 — Portal Shell
