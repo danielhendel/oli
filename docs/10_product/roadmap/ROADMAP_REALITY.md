@@ -3,9 +3,11 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
+**Last operational refresh:** 2026-08-17
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
-**Merged baseline:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (Stage 1A / PR #209)
+**Merged baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (R0 / PR #211)
+**Prior Stage 1A baseline:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
 **Vision:** [VISION.md](../vision/VISION.md)
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
@@ -29,11 +31,12 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
 - Withings live sync remains orphaned (honest refusal helpers)
 - Primary dock on `main` remains Dash / Strength / Cardio / Nutrition / Health (not Home / Plan / Progress / You)
-- Draft PR #210 (Today IA) is **unmerged** and based on a superseded navigation doctrine
+- PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
+- PR #210 preserved branch remains `feat/consumer-launch-stage1b-today-ia` at `f64c69736c15b2877789ab2dee0a06c2e9edfaa7`
 
 ## What does not exist yet (launch-critical under analytics-first)
 
-- Four-destination IA: Home · Plan · Progress · You
+- Four-destination IA: Home · Plan · Progress · You (**approved; R1 in progress, not yet implemented in application code**)
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
@@ -47,7 +50,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 
 | Stage | Name | Intent |
 |------:|------|--------|
-| **R0** | Analytics-First Product Direction Reset | Vision, decisions, roadmap, progress map, system state, index, delta audit, PR #210 disposition (**docs only**) |
+| **R0** | Analytics-First Product Direction Reset | Vision, decisions, roadmap, progress map, system state, index, delta audit, PR #210 disposition (**docs only**) — **merged** (PR #211) |
 | **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan |
 | **1** | Consumer ownership & account recovery | Password reset; consent; hosted Privacy/Terms/Support; export/delete UI; local data lifecycle |
 | **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
@@ -64,16 +67,19 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **R0** (documentation branch in progress until this PR merges).
-**Next after R0 merges:** **R1**.
+**Current stage:** **R1** (implementation in progress on `feat/analytics-first-r1-four-destination-ia`; no R1 application work complete yet).
+**R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
+**Next after R1 merges:** **Stage 1 — Consumer Ownership and Account Recovery**.
+
+Do **not** mark R1 merged or branch-complete before static checks and iOS signed-out / signed-in / restored-session smoke pass.
 
 Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
 ### Critical path
 
 ```text
-R0 Product authority reset (docs)
- → R1 Four-destination IA + PR #210 disposition
+R0 Product authority reset (docs) — MERGED (PR #211)
+ → R1 Four-destination IA + PR #210 disposition (CURRENT)
  → 1 Ownership surfaces
  → 2 Minimal onboarding / data readiness
  → 3 Analytics truth contracts (RFC/ADR)
@@ -122,4 +128,4 @@ npm test -- --ci
 
 ## Historical note
 
-The 2026-08-10 roadmap and Draft PR #210 assumed Today as home and a coordinated My Plan / adaptation loop. That product doctrine is superseded for current consumer authority. Prefer this document, the progress map, and Vision v2 over any archived or Draft Stage 1B copy.
+The 2026-08-10 roadmap and closed PR #210 assumed Today as home and a coordinated My Plan / adaptation loop. That product doctrine is superseded for current consumer authority. Prefer this document, the progress map, and Vision v2 over any archived or Draft Stage 1B copy.

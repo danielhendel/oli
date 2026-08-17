@@ -1,16 +1,19 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-14
-**Merged `main` SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
-**Stage 1A:** Merged (PR #209) at the SHA above
+**Last verified:** 2026-08-17
+**Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
+**R0:** Merged (PR #211) at the SHA above
+**Stage 1A:** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `R0 — Analytics-First Product Direction Reset`
-**Current next implementation stage after R0 merges:** `R1 — PR #210 Disposition and Four-Destination Information Architecture`
+**Current execution-stage label:** `R1 — PR #210 Disposition and Four-Destination Information Architecture`
+**Current next implementation stage after R1 merges:** `Stage 1 — Consumer Ownership and Account Recovery`
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
-> **R0 status:** Documentation implementation branch in progress (`docs/analytics-first-product-direction-reset`). Do **not** mark R0 complete before its PR merges.
+> **R0 status:** Complete and merged (PR #211). Do **not** treat R0 as in-progress.
+
+> **R1 status:** Active implementation stage. Approved IA is Home / Plan / Progress / You. **No R1 application work is complete yet** on this branch until later R1 commits land and are verified.
 
 ---
 
@@ -28,19 +31,19 @@ Schema/code authority for shared contracts: **`lib/contracts` source** (emitted 
 
 ---
 
-## PR #210 (Draft — unmodified by R0)
+## PR #210 (CLOSED — superseded, unmerged)
 
 | Field | Value |
 |-------|-------|
 | PR | [#210](https://github.com/danielhendel/oli/pull/210) |
-| Branch | `feat/consumer-launch-stage1b-today-ia` |
-| Head (as of R0) | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
-| State | **OPEN Draft**, unmerged |
-| Product basis | Partly superseded **Today / domain-tab** direction |
-| Salvage | Potentially reusable cleanup; requires disposition (see delta audit) |
-| R0 action | Document disposition only — **do not merge, close, or edit** in R0 |
+| Branch | `feat/consumer-launch-stage1b-today-ia` (**preserved**; do not delete) |
+| Head | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
+| State | **CLOSED**, unmerged |
+| Product basis | Superseded **Today / domain-tab** direction |
+| Salvage | Reusable cleanup only; must be reimplemented intentionally on R1 — **do not merge, reopen, rebase, or cherry-pick** |
+| R1 action | Inspect preserved branch; re-apply approved salvage into `feat/analytics-first-r1-four-destination-ia` |
 
-Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate next step after R0.
+Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate next step after R1.
 
 ---
 
@@ -67,7 +70,7 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## Missing under analytics-first launch direction
 
-- Four-destination IA: **Home · Plan · Progress · You** (approved, not implemented)
+- Four-destination IA: **Home · Plan · Progress · You** (approved, **not yet implemented**; R1 in progress)
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
 - Human-created Plan representation with provenance (no Oli authorship)
 - Progress analytics (execution, adherence, outcomes) as a first-class surface
@@ -80,8 +83,8 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## In progress (not complete)
 
-- **R0** documentation branch (this map’s stage) — incomplete until PR merges
-- Draft PR #210 — Draft, superseded direction, salvage pending R1
+- **R1** four-destination IA implementation branch (`feat/analytics-first-r1-four-destination-ia`) — application work not complete yet
+- PR #210 CLOSED unmerged; salvage pending intentional R1 reimplementation
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`
 
 ## Code Check Gate
