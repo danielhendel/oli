@@ -1,7 +1,7 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-17
+**Last verified:** 2026-08-19
 **Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R0:** Merged (PR #211) at the SHA above
 **Stage 1A:** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
@@ -13,7 +13,7 @@
 
 > **R0 status:** Complete and merged (PR #211). Do **not** treat R0 as in-progress.
 
-> **R1 status:** Application implemented on `feat/analytics-first-r1-four-destination-ia` (`88d67ab` navigation/tests; this map commit records verification). **Not merged.** Static gates passed. iOS four-tab dock visual smoke is **not** complete — see Runtime below. Do **not** treat R1 as merged.
+> **R1 status:** **Complete on branch, pending merge.** Physical-iPhone smoke PASS (2026-08-19). PR [#212](https://github.com/danielhendel/oli/pull/212) remains **Draft** — do not merge from this record. Do **not** treat R1 as merged to `main`.
 
 ---
 
@@ -51,7 +51,7 @@ Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate 
 
 Technical foundations from the August 10 audit remain valid unless merged code disproves them:
 
-- Firebase email/password auth substrate (device smoke may still be unverified)
+- Firebase email/password auth substrate (R1 physical-iPhone sign-in, sign-out, and session restore PASS; password reset still missing)
 - Cloud Run API as authenticated ingest / public API boundary
 - Client trust boundary (no Firestore in `app/` / `components/`)
 - Constitutional invariant CI checks
@@ -68,25 +68,32 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ownership backend complete; mobile export/delete CTAs and legal URLs missing
 - Primary dock on **merged `main`** remains Dash · Strength · Cardio · Nutrition · Health
 
-## R1 branch (not merged)
+## R1 branch (complete on branch, not merged)
 
 - Branch: `feat/analytics-first-r1-four-destination-ia`
-- Implementation commit: `88d67ab4ab3f53a36f86440d86a574eafddbee0a` (`feat(consumer): establish analytics-first primary navigation`)
-- Primary dock: **Home · Plan · Progress · You** (filesystem Home remains `/(app)/(tabs)/dash`)
+- Navigation/IA: `88d67ab4ab3f53a36f86440d86a574eafddbee0a`
+- Visual/accessibility follow-up: `fee0f05f42f27e04b918a700270c111d47e12772`
+- This map records physical-iPhone PASS and branch completion (docs commit on the same branch)
+- Primary dock: **Home · Plan · Progress · You** exactly; no fifth primary/FAB destination (filesystem Home remains `/(app)/(tabs)/dash`)
 - Auth / RouteGuard / sign-in / sign-up land on Home (`CONSUMER_HOME_HREF`)
-- Command Center and Daily Recap are compatibility redirects to Home; Health supplements → Nutrition supplements; Program builder hub → Plan
-- Home transitional shell: Your Health & Performance honest baseline copy + Today Daily Monitor (no overall score / no What Oli Sees)
+- Command Center and Daily Recap are compatibility redirects to Home; `/supplements` → Nutrition supplements; `/program/builder` → Plan
+- Home transitional shell: “Where am I?” + “Building your health picture” + Today Daily Monitor (no overall score / no What Oli Sees)
 - Plan: honest empty state (`currentPrograms = []`); placeholder builders not launch-facing
-- Progress: Weekly Progress once (when relocation flag ON) + history links
-- You: profile, devices, assessments, labs, privacy, settings, failures, domain discovery; Movement presentation label for Activity
-- **Static verification (2026-08-17):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (985 suites / 6151 tests / 0 skipped), `npm run check`, `git diff --check` all exit 0
+- Progress: Weekly Progress once (when relocation flag ON) + history links; last rows clear the floating dock
+- You: profile, devices, assessments, labs, privacy, settings, Account, failures, domain discovery; Movement presentation label for Activity; last rows clear the floating dock
+- Account: consumer title **Account**; readable dark-theme status panel; Firebase UID absent from consumer UI
+- Auth screens: dark canvas with root `StatusBar style="light"`
+- Home Movement: Daily Monitor omits stored `activity.steps === 0` (empty HealthKit aggregate must not read as measured sedentary). Physical device showed a real positive count (**2,431 Steps**) with Metro `hasHkSteps: true`, `hkEmpty: false`, `stepsMatch: true`. Partial-day “Sedentary while the day is unfinished” is **not** an R1 classification — record for Stage 3 Analytics Truth Contracts.
+- **Static verification (2026-08-19):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**988 suites / 6158 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
+- **Test inventory vs R0/`main` (982 / 6154):** net **+6 suites / +4 tests**. IA suites were renamed/replaced around the four-destination dock (no auth, privacy, domain, trust-boundary, or pipeline suites removed). Mid-R1 static count was 985 / 6151 because several Program/Health-nav `it()`s were consolidated into Plan/Progress/You/routing tests. Visual follow-up added Account, Sign In, and dock-padding suites (+3 suites / +7 tests → 988 / 6158).
 - **Expo Doctor:** same 5 pre-existing findings; no new R1 finding
-- **Runtime:** iPhone 16 Simulator (iOS 18.3), staging `.env.local`, Expo dev client + Metro. Restored Firebase session hydrated DailyFacts (`userAvailable: true`) and presented the Health Access sheet (authenticated product, not Command Center / Sign In). Four-tab dock labels, Plan/Progress/You, signed-out, and compatibility routes were **not** visually confirmed because Simulator UI automation is unauthorized (TCC -1743) and the Health sheet blocked the dock.
+- **Runtime (physical iPhone, 2026-08-19):** **PASS** — four-destination selected states; Plan empty honesty; Progress/You dock clearance; Account a11y; dark Sign In; sign out → Sign In → Home with Home selected; force-quit/reopen restored session on Home; compatibility routes; no Command Center / Sign In flash / redirect loop. Staging development build.
+- **PR #212:** OPEN, **Draft**, must not be merged from this record
 - **PR #178:** OPEN / CONFLICTING; R1 supersedes a floating Profile fifth destination. Close only after R1 merges, via a separate gate.
 
 ## Missing under analytics-first launch direction
 
-- Four-destination IA **on merged `main`** (implemented on R1 branch; pending merge + complete iOS smoke)
+- Four-destination IA **on merged `main`** (implemented on R1 branch; **complete on branch**; pending merge of Draft PR #212)
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
 - Human-created Plan representation with provenance (no Oli authorship)
 - Progress analytics (execution, adherence, outcomes) as a first-class surface
@@ -99,7 +106,7 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## In progress (not complete)
 
-- **R1** Draft PR pending complete iOS signed-out / signed-in / restored-session dock verification
+- **R1 is complete on branch** and pending merge (Draft PR #212). Next implementation after merge: **Stage 1 — Consumer Ownership and Account Recovery** (not started)
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`
 

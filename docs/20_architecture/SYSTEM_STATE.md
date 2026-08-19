@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-17 (R1 four-destination IA on branch; **not merged**)
+**Last updated:** 2026-08-19 (R1 four-destination IA **complete on branch**; **not merged**)
 **Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
-**R1 branch:** `feat/analytics-first-r1-four-destination-ia` @ `88d67ab4ab3f53a36f86440d86a574eafddbee0a`
+**R1 branch:** `feat/analytics-first-r1-four-destination-ia` @ `fee0f05f42f27e04b918a700270c111d47e12772` (visual/a11y; IA `88d67ab`)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -50,7 +50,7 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ### Navigation and homes
 
-| Surface | Merged `main` reality | R1 branch (not merged) |
+| Surface | Merged `main` reality | R1 branch (complete on branch, not merged) |
 |---------|----------------------|------------------------|
 | Primary dock | **Dash · Strength · Cardio · Nutrition · Health** (Health v1 flag default ON) | **Home · Plan · Progress · You** — no FAB fifth destination |
 | Auth / session landing | Authenticated routes resolve to `/(app)/(tabs)/dash` | Same filesystem; user-facing name **Home** (`CONSUMER_HOME_HREF`) |
@@ -64,15 +64,17 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 | Timeline / Library / Failures | Phase 1 routes exist | Timeline under Progress; Library (data lineage) and Failures under You |
 | Flags | `EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1` historically switched docks | Health-v1 **deprecated no-op** for chrome; Daily Monitor + Weekly Progress flags still govern those real components |
 
-**Approved IA is implemented on the R1 branch, not on merged `main`.** Current State / What Oli Sees / overall score remain **not implemented**.
+**Approved IA is implemented on the R1 branch, not on merged `main`.** Physical-iPhone R1 smoke **PASS** (2026-08-19). Current State / What Oli Sees / overall score remain **not implemented**. PR #212 remains Draft.
 
-Home (R1): no fabricated Current State; copy “Building your health picture” is not an analytical result.
+Home (R1): no fabricated Current State; copy “Building your health picture” is not an analytical result. Today Movement shows positive finite steps when measured (device: 2,431 Steps; Apple Health `hkEmpty: false`) and omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3.
 
 Plan (R1): `currentPrograms = []`; no persistence; no Oli-authored plan language; not called My Plan.
 
-Progress (R1): no adherence/outcome/causal claims.
+Progress (R1): no adherence/outcome/causal claims. History rows scroll fully above the floating dock.
 
-You (R1): DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation; one Supplements destination (`/(app)/nutrition/supplements`).
+You (R1): DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation; one Supplements destination (`/(app)/nutrition/supplements`). Hub rows scroll fully above the floating dock. Account uses consumer title **Account**, dark-theme readable status, no Firebase UID.
+
+Auth (R1): dark Sign In / Create account; light iOS status bar; sign-out → Sign In → Home; force-quit restore on Home. Command Center is a Home redirect, not a rendered home.
 
 ### Integrations and pipeline
 
@@ -132,7 +134,7 @@ Home · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings |
 
-Do **not** state that this navigation is already merged to `main`. On the R1 branch the four destinations exist as shells; Current State, What Oli Sees, Plan persistence, and Progress analytics remain unimplemented.
+Do **not** state that this navigation is already merged to `main`. On the R1 branch the four destinations exist as shells with physical-iPhone PASS; Current State, What Oli Sees, Plan persistence, and Progress analytics remain unimplemented. Next after merge: Consumer Ownership and Account Recovery.
 
 ---
 

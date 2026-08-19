@@ -3,7 +3,7 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-08-17
+**Last operational refresh:** 2026-08-19
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
 **Merged baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (R0 / PR #211)
@@ -31,13 +31,13 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
 - Withings live sync remains orphaned (honest refusal helpers)
 - Primary dock on `main` remains Dash / Strength / Cardio / Nutrition / Health (not Home / Plan / Progress / You)
-- R1 application exists on `feat/analytics-first-r1-four-destination-ia` (`88d67ab`) — **not merged**; iOS dock visual smoke incomplete
+- R1 application exists on `feat/analytics-first-r1-four-destination-ia` (`fee0f05` visual follow-up; IA at `88d67ab`) — **complete on branch, not merged**; physical-iPhone smoke **PASS**; PR #212 remains **Draft**
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
 - PR #210 preserved branch remains `feat/consumer-launch-stage1b-today-ia` at `f64c69736c15b2877789ab2dee0a06c2e9edfaa7`
 
 ## What does not exist yet (launch-critical under analytics-first)
 
-- Four-destination IA: Home · Plan · Progress · You (**implemented on R1 branch; not merged; iOS dock visual smoke incomplete**)
+- Four-destination IA: Home · Plan · Progress · You (**complete on R1 branch; not merged; physical-iPhone PASS 2026-08-19**)
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
@@ -55,7 +55,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan |
 | **1** | Consumer ownership & account recovery | Password reset; consent; hosted Privacy/Terms/Support; export/delete UI; local data lifecycle |
 | **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
-| **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema** |
+| **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). |
 | **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
 | **5** | Home & What Oli Sees | Current State, direction, meaningful analysis, progressive disclosure; no recommendations |
 | **6** | Domain detail experiences | Answer → Context → Analysis → Deep Data |
@@ -68,11 +68,11 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **R1** (implementation on `feat/analytics-first-r1-four-destination-ia`, commit `88d67ab`). Static gates passed. **Not branch-complete:** iOS signed-out / four-tab dock / signed-in Plan·Progress·You / compatibility-route visual smoke remain blocked.
+**Current stage:** **R1 complete on branch, pending merge** (`feat/analytics-first-r1-four-destination-ia`, visual follow-up `fee0f05`). Physical-iPhone PASS 2026-08-19. PR #212 remains **Draft**. Do **not** merge from this record.
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
-**Next after R1 merges:** **Stage 1 — Consumer Ownership and Account Recovery**.
+**Next after R1 merges:** **Stage 1 — Consumer Ownership and Account Recovery** (not started).
 
-Do **not** mark R1 merged or branch-complete before static checks and iOS signed-out / signed-in / restored-session smoke pass.
+Do **not** mark R1 merged until Draft PR #212 is explicitly merged in a later gate.
 
 Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
@@ -80,7 +80,7 @@ Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next s
 
 ```text
 R0 Product authority reset (docs) — MERGED (PR #211)
- → R1 Four-destination IA + PR #210 disposition (CURRENT)
+ → R1 Four-destination IA + PR #210 disposition (COMPLETE ON BRANCH, PENDING MERGE)
  → 1 Ownership surfaces
  → 2 Minimal onboarding / data readiness
  → 3 Analytics truth contracts (RFC/ADR)
