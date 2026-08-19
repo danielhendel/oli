@@ -162,4 +162,13 @@ describe("You tab", () => {
     const src = fs.readFileSync(path.join(__dirname, "..", "you.tsx"), "utf8");
     expect(src).not.toMatch(/from\s+["'][^"']*firebase[^"']*["']/i);
   });
+
+  it("applies floating-dock scroll padding on Progress and You", () => {
+    const progressSrc = fs.readFileSync(path.join(__dirname, "..", "progress.tsx"), "utf8");
+    const youSrc = fs.readFileSync(path.join(__dirname, "..", "you.tsx"), "utf8");
+    expect(progressSrc).toMatch(/useFloatingTabBarScrollPadding\(FLOATING_TAB_ROOT_SCROLL_EXTRA\)/);
+    expect(youSrc).toMatch(/useFloatingTabBarScrollPadding\(FLOATING_TAB_ROOT_SCROLL_EXTRA\)/);
+    expect(progressSrc).toMatch(/paddingBottom:\s*scrollPaddingBottom/);
+    expect(youSrc).toMatch(/paddingBottom:\s*scrollPaddingBottom/);
+  });
 });

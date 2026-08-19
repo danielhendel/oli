@@ -1,6 +1,8 @@
 /**
  * Pure Activity card model + presence for Daily Monitor (current-day Steps).
- * Valid measured zero is present; missing activity.steps is absent.
+ * Missing or unmeasured `activity.steps` is absent. A stored 0 is not presented as a
+ * measured sedentary day — HealthKit empty aggregates are ingested as 0 and must not
+ * be shown as "0 Steps · Sedentary".
  * Compact rows are applicability-gated (Distance measured; Workout/Cardio from session truth).
  */
 
@@ -86,8 +88,9 @@ function formatStepBucketRow(
 }
 
 /**
- * Builds Activity Monitor card when DailyFacts for requestedDay includes a finite steps value
- * (including 0). Returns null when steps evidence is absent.
+ * Builds Activity Monitor card when DailyFacts for requestedDay includes a finite
+ * **measured** steps total greater than 0. Returns null when steps evidence is absent
+ * or when the stored value is 0 (unmeasured / empty HealthKit aggregate).
  *
  * Compact rows (stable order among those present): Distance → NEAT → Workout → Cardio.
  * Distance omitted when unmeasured. Workout/Cardio rows require session applicability —
@@ -104,7 +107,7 @@ export function buildDailyMonitorActivityCardModel(input: {
   if (input.facts == null) return null;
   if (input.facts.date !== input.requestedDay) return null;
   const steps = input.facts.activity?.steps;
-  if (typeof steps !== "number" || !Number.isFinite(steps) || steps < 0) return null;
+  if (typeof steps !== "number" || !Number.isFinite(steps) || steps <= 0) return null;
 
   const rounded = Math.round(steps);
   const stepsDigits = formatStepsDigits(rounded);

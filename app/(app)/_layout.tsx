@@ -527,6 +527,10 @@ export default function AppLayout() {
 
           <Stack.Screen name="failures/index" options={{ title: "Failures" }} />
           <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+          <Stack.Screen
+            name="settings/account"
+            options={{ title: "Account", ...workoutsStackNavigationOptions("module") }}
+          />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
           <Stack.Screen

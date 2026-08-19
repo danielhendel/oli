@@ -7,12 +7,12 @@ import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
-import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
+import { FLOATING_TAB_ROOT_SCROLL_EXTRA, useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { YOU_HUB_SECTIONS } from "@/lib/navigation/youHubItems";
 
 export default function YouScreen() {
   const router = useRouter();
-  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(FLOATING_TAB_ROOT_SCROLL_EXTRA);
 
   return (
     <ScreenContainer padded={false}>

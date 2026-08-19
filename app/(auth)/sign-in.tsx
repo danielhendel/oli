@@ -1,10 +1,19 @@
 // app/(auth)/sign-in.tsx
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { signInWithEmail } from "@/lib/auth/actions";
 import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
+import {
+  UI_APP_SCREEN_BG,
+  UI_BORDER_HAIRLINE,
+  UI_CARD_SURFACE,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -37,53 +46,60 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign in</Text>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]} testID="sign-in-screen">
+      <View style={styles.container}>
+        <Text style={styles.title}>Sign in</Text>
 
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="email-address"
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        editable={!submitting}
-      />
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          placeholder="you@example.com"
+          placeholderTextColor={UI_TEXT_MUTED}
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          editable={!submitting}
+        />
 
-      <Text style={styles.label}>Password</Text>
-      <TextInput
-        secureTextEntry
-        placeholder="••••••••"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        editable={!submitting}
-      />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          secureTextEntry
+          placeholder="••••••••"
+          placeholderTextColor={UI_TEXT_MUTED}
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          editable={!submitting}
+        />
 
-      <Pressable
-        onPress={onSubmit}
-        disabled={!canSubmit}
-        style={[styles.button, !canSubmit ? styles.buttonDisabled : null]}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
-      </Pressable>
+        <Pressable
+          onPress={onSubmit}
+          disabled={!canSubmit}
+          style={[styles.button, !canSubmit ? styles.buttonDisabled : null]}
+        >
+          <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
+        </Pressable>
 
-      <Pressable onPress={() => router.push("/(auth)/sign-up")} disabled={submitting} style={styles.link}>
-        <Text style={styles.linkText}>Create an account</Text>
-      </Pressable>
-    </View>
+        <Pressable onPress={() => router.push("/(auth)/sign-up")} disabled={submitting} style={styles.link}>
+          <Text style={styles.linkText}>Create an account</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: UI_APP_SCREEN_BG },
   container: { flex: 1, padding: 20, justifyContent: "center" },
-  title: { fontSize: 28, fontWeight: "700", marginBottom: 16 },
-  label: { marginTop: 12, marginBottom: 6, fontSize: 14, opacity: 0.8 },
+  title: { fontSize: 28, fontWeight: "700", marginBottom: 16, color: UI_TEXT_PRIMARY },
+  label: { marginTop: 12, marginBottom: 6, fontSize: 14, color: UI_TEXT_SECONDARY },
   input: {
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.15)",
+    borderColor: UI_BORDER_HAIRLINE,
+    backgroundColor: UI_CARD_SURFACE,
+    color: UI_TEXT_PRIMARY,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -91,13 +107,13 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 18,
-    backgroundColor: "black",
+    backgroundColor: UI_TEXT_PRIMARY,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
   buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: UI_APP_SCREEN_BG, fontSize: 16, fontWeight: "600" },
   link: { marginTop: 14, alignItems: "center" },
-  linkText: { fontSize: 14, textDecorationLine: "underline" },
+  linkText: { fontSize: 14, textDecorationLine: "underline", color: UI_TEXT_PRIMARY },
 });

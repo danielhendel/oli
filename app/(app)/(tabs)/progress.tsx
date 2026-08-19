@@ -7,7 +7,7 @@ import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { ModuleSectionLinkRow } from "@/lib/ui/ModuleSectionLinkRow";
 import { UI_APP_SCREEN_BG, UI_TAB_ROOT_INSET, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
-import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
+import { FLOATING_TAB_ROOT_SCROLL_EXTRA, useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import {
   WEEKLY_PROGRESS_CONSUMER_TITLE,
   WEEKLY_PROGRESS_SUPPORTING_COPY,
@@ -21,7 +21,7 @@ import {
 
 export default function ProgressScreen() {
   const router = useRouter();
-  const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
+  const scrollPaddingBottom = useFloatingTabBarScrollPadding(FLOATING_TAB_ROOT_SCROLL_EXTRA);
   const showWeeklyProgress = isDashWeeklyProgressRelocationEnabled();
 
   return (
@@ -32,6 +32,7 @@ export default function ProgressScreen() {
           style={styles.scroll}
           contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingBottom }]}
           showsVerticalScrollIndicator={false}
+          testID="progress-history-scroll"
         >
           {showWeeklyProgress ? (
             <View
